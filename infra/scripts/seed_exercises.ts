@@ -48,6 +48,8 @@ type DefaultMetrics = {
   distance?: boolean;
   weight?: boolean;
   calories?: boolean;
+  rpe?: boolean;
+  hr?: boolean;
 };
 
 type ExerciseRow = {
@@ -300,6 +302,456 @@ const HYROX_STATIONS: ExerciseRow[] = [
   },
 ];
 
+/**
+ * Cardio variants as first-class catalog rows.
+ *
+ * Élite hybrid athletes don't log "running" generically — every session has
+ * a discipline-specific intent (Z2 long, tempo, threshold, VO2max, race-pace,
+ * strides, fartlek, hill repeats, recovery jog). Each variant is its own
+ * row so templates can reference it directly and the builder UI can render
+ * the right form fields (defaults below).
+ *
+ * default_metrics_json declares which numeric metric flags apply per
+ * `defaultMetricsSchema` (reps/time/distance/weight/calories/rpe/hr).
+ * Discipline-specific prescription details (zone target, cadence ranges,
+ * stroke-rate, drag factor, suggested duration, recovery ratio) live in
+ * `cues` so they're discoverable in the builder without inventing schema
+ * fields that won't generalize.
+ */
+const CARDIO_VARIANTS: ExerciseRow[] = [
+  {
+    slug: 'run-z2-long',
+    name: 'Run — Z2 long (aerobic base)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Continuous aerobic base run, 60-120 min at HR Z2 (~70% HRmax / sub-LT1). ' +
+      'Builds mitochondrial density and aerobic ceiling. Cadence target 174-180 spm.',
+    cues:
+      'Zone: Z2 (~70% HRmax). Duration: 60-120 min. Cadence: 174-180 spm. ' +
+      'Pace ceiling — slow down if HR drifts above Z2. Decoupling target <5%. ' +
+      'Conversational effort: full sentences possible.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-tempo',
+    name: 'Run — Tempo (sustained Z3 sub-LT)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Continuous tempo run 25-50 min at HR Z3 (sub-lactate-threshold). ' +
+      'Pushes LT1→LT2 ceiling. Cadence target 178-184 spm.',
+    cues:
+      'Zone: Z3 sub-LT (~80-85% HRmax). Duration: 25-50 min continuous. ' +
+      'Cadence: 178-184 spm. Pace: ~10-15 s/km slower than 5K race pace. ' +
+      'Comfortably hard — short phrases only.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-recovery-jog',
+    name: 'Run — Recovery jog (Z1 active)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Active-recovery shake-out, 20-40 min at HR Z1 (<70% HRmax). ' +
+      'Conversational effort, no time pressure. For day after hard sessions.',
+    cues:
+      'Zone: Z1 (<70% HRmax). Duration: 20-40 min. ' +
+      'Cadence: relaxed, 168-176 spm. Pace: walk-jog if HR creeps to Z2. ' +
+      'Goal: blood flow, not fitness gain. Stop if it feels hard.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-threshold-intervals',
+    name: 'Run — Threshold intervals (Z4 cruise reps)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Threshold intervals, typically 4-8 × 1000 m at HR Z4 (~90% LT) ' +
+      'with short jog recovery (~50% rep duration). Improves lactate clearance.',
+    cues:
+      'Zone: Z4 (~88-92% HRmax / ~90% LT pace). Reps: 4-8 × 1000 m (or 3-5 × 1.5 km). ' +
+      'Recovery: jog 90 s-2 min Z2, ratio ~1:0.4. Cadence: 180-184 spm. ' +
+      'Pace: ~5K time + 5-10 s/km. Last rep should match first ±2 s.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-vo2max-intervals',
+    name: 'Run — VO2max intervals (Z5)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'VO2max intervals, typically 5-8 × 3 min at HR Z5 (>92% HRmax) with ' +
+      'full 1:1 jog recovery. Develops maximal aerobic power.',
+    cues:
+      'Zone: Z5 (>92% HRmax). Reps: 5-8 × 3 min (or 6-10 × 2 min). ' +
+      'Recovery: 1:1 ratio jog Z2 (3 min jog after each 3 min rep). ' +
+      'Pace: ~3K race pace. Cadence: 184+ spm. ' +
+      'If pace drops >3 s/km from rep 1 to rep 4 → cut volume.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-race-pace-intervals',
+    name: 'Run — HYROX race-pace intervals (400 m reps)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Race-pace specificity for HYROX 1 km splits. Typically 6-12 × 400 m at ' +
+      'target HYROX 1 km pace, with 60-90 s recovery. Trains race-day rhythm.',
+    cues:
+      'Zone: Z4 high (HYROX 1 km split target pace). Reps: 6-12 × 400 m. ' +
+      'Recovery: 60-90 s walk-jog (incomplete on purpose, simulates station fatigue). ' +
+      'Cadence: 182-186 spm. ' +
+      'Goal pace = athlete\'s target 1 km HYROX split (e.g. 4:30 /km M / 5:00 /km W).',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-strides',
+    name: 'Run — Strides (neuromuscular)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true },
+    hyrox_station_position: null,
+    description:
+      'Short fast accelerations, typically 4-8 × 100 m at ~95% effort, full ' +
+      'walk recovery. Neuromuscular activation, not aerobic. Use as primer or ' +
+      'cooldown finisher on easy days.',
+    cues:
+      'Reps: 4-8 × 100 m at ~95% sprint effort (NOT max). ' +
+      'Recovery: walk back full (60-90 s). ' +
+      'Cadence: 188+ spm. Form: tall posture, knee drive, relaxed shoulders. ' +
+      'No HR target — too short to matter. Prime mover, not a workout.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-fartlek',
+    name: 'Run — Fartlek (varied pace play)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Unstructured-to-structured pace play. Typical structure: 1 min hard / ' +
+      '2 min easy × 10, or pyramid (1-2-3-2-1 min hard with equal easy). ' +
+      'Trains pace-change resilience and lactate buffering.',
+    cues:
+      'Hard portions: Z3-Z4 (NOT max). Easy portions: Z2 jog (do not walk). ' +
+      'Total session: 30-50 min including warm-up. ' +
+      'Cadence: 180+ spm in hard, 174+ spm in easy. ' +
+      'Variable: time-to-Z2 between hard surges (HRR60). Track it.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'run-hill-repeats',
+    name: 'Run — Hill repeats',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Hill repeats, typically 6-12 reps up a 4-8% gradient hill at Z4-Z5 ' +
+      'effort. Walk-jog down for recovery. Builds power, run economy, and ' +
+      'tendon stiffness with lower impact than flat sprints.',
+    cues:
+      'Reps: 6-12 × 30-60 s up a 4-8% hill at Z4-Z5 effort. ' +
+      'Recovery: walk-jog down (full ratio ~1:2). ' +
+      'Form: short stride, drive knees, lean slightly into hill from ankles. ' +
+      'If pace drops >10% across reps → cut volume. ' +
+      'Stops at first sign of form breakdown.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  // ---------- Rowing variants (Concept2 RowErg) ----------
+  {
+    slug: 'row-z2-long',
+    name: 'Row — Z2 long (aerobic base)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core', 'hamstrings'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Continuous Z2 row, 30-60 min at HR Z2 / ~70% HRmax. Low stroke rate, ' +
+      'long power application. Builds aerobic base with low impact.',
+    cues:
+      'Zone: Z2 (~70% HRmax). Duration: 30-60 min. ' +
+      'Stroke rate: 18-22 spm. Damper: 4-6 (drag factor 110-130). ' +
+      'Split: ~10-15 s/500m slower than 2K PR pace. Power smooth, not jerky.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'row-tempo',
+    name: 'Row — Tempo (Z3 continuous)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core', 'hamstrings'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Tempo row 20-40 min continuous at HR Z3 sub-LT. Cruise pace just below ' +
+      'threshold.',
+    cues:
+      'Zone: Z3 (~80-85% HRmax). Duration: 20-40 min. ' +
+      'Stroke rate: 22-26 spm. Damper: 5-6 (drag 120-135). ' +
+      'Split: ~5 s/500m slower than 5K pace.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'row-threshold-intervals',
+    name: 'Row — Threshold intervals (Z4)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core', 'hamstrings'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Threshold rowing intervals, typically 4-6 × 1000 m at Z4 with 90 s rest, ' +
+      'or 3 × 2000 m with 3 min rest. Lactate buffering.',
+    cues:
+      'Zone: Z4 (~90% HRmax). Reps: 4-6 × 1000 m or 3 × 2000 m. ' +
+      'Stroke rate: 26-30 spm. Damper: 5-7 (drag 125-140). ' +
+      'Split: ~2K PR + 2-3 s/500m. Last rep ≥ first rep pace (or cut session).',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'row-race-pace-intervals',
+    name: 'Row — HYROX race-pace intervals',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core', 'hamstrings'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'HYROX 1 km row-station specificity. Typically 4-6 × 500 m at HYROX ' +
+      'race-pace 500m split, with 60 s rest. Simulates fatigued race-day pacing.',
+    cues:
+      'Reps: 4-6 × 500 m at target HYROX 1 km split. ' +
+      'Recovery: 60 s rest (incomplete on purpose). ' +
+      'Stroke rate: 28-32 spm. Damper: 5-7. ' +
+      'Target split M: 1:55-2:05 /500m. W: 2:10-2:20 /500m.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'row-sprint-intervals',
+    name: 'Row — Sprint intervals (Z5)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core', 'hamstrings'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Maximal short sprints, typically 8-10 × 250 m at >95% effort with full ' +
+      'recovery 1:2-1:3. Develops peak power, neuromuscular drive.',
+    cues:
+      'Reps: 8-10 × 250 m or 6-8 × 30 s at >95% effort. ' +
+      'Recovery: 1:2-1:3 ratio (e.g. 250m @ 45 s → 90-135 s rest). ' +
+      'Stroke rate: 32-36 spm peak. Damper: 6-8. ' +
+      'Split: 2K PR pace - 5 s/500m. ' +
+      'Cut session at first rep that drops >3 s from session best.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  // ---------- Ski-erg variants (Concept2 SkiErg) ----------
+  {
+    slug: 'ski-erg-z2-long',
+    name: 'SkiErg — Z2 long (aerobic base)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps', 'glutes'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Continuous Z2 SkiErg, 20-40 min at ~70% HRmax. Posterior-chain-dominant ' +
+      'aerobic work. Useful as run-substitute on impact-recovery days.',
+    cues:
+      'Zone: Z2 (~70% HRmax). Duration: 20-40 min. ' +
+      'Stroke rate: 26-30 spm. Damper: 4-6 (drag 105-125). ' +
+      'Split: ~15 s/500m slower than HYROX race split. Long smooth pulls.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'ski-erg-tempo',
+    name: 'SkiErg — Tempo (Z3 continuous)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps', 'glutes'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Tempo SkiErg 12-25 min continuous at HR Z3 sub-LT. Builds station-' +
+      'specific aerobic capacity for HYROX station 1.',
+    cues:
+      'Zone: Z3 (~80-85% HRmax). Duration: 12-25 min. ' +
+      'Stroke rate: 28-32 spm. Damper: 5-7. ' +
+      'Split: ~5 s/500m slower than 1K race split.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'ski-erg-threshold-intervals',
+    name: 'SkiErg — Threshold intervals (Z4)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps', 'glutes'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Threshold SkiErg intervals, typically 4-6 × 500 m at Z4 with 60-90 s rest. ' +
+      'Develops upper-body lactate clearance.',
+    cues:
+      'Zone: Z4 (~90% HRmax). Reps: 4-6 × 500 m or 3 × 1000 m. ' +
+      'Stroke rate: 30-34 spm. Damper: 6-8. ' +
+      'Split: HYROX 1K race split + 2-3 s/500m. ' +
+      'Power target M: ~220 W avg / W: ~150 W avg (calibrate per athlete).',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'ski-erg-race-pace-intervals',
+    name: 'SkiErg — HYROX race-pace intervals',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps', 'glutes'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'HYROX station 1 specificity. Typically 4-6 × 250 m at race-pace 500m ' +
+      'split, with 45-60 s rest. Trains opener-station pacing.',
+    cues:
+      'Reps: 4-6 × 250 m at HYROX 1K race split. ' +
+      'Recovery: 45-60 s. Stroke rate: 30-34 spm. Damper: 6-8. ' +
+      'Power target M: ~220 W / W: ~150 W. ' +
+      'Goal: replicate the "open hot but settle" feel of station 1.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'ski-erg-sprint-intervals',
+    name: 'SkiErg — Sprint intervals (Z5)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps', 'glutes'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Maximal SkiErg sprints, typically 8-10 × 30 s at >95% effort with ' +
+      'full recovery. Peak power and stroke-rate ceiling.',
+    cues:
+      'Reps: 8-10 × 30 s or 6-8 × 100 m all-out. ' +
+      'Recovery: 1:3 ratio (30 s sprint → 90 s rest). ' +
+      'Stroke rate: 36-40 spm peak. Damper: 7-10. ' +
+      'Cut session when peak watts fall >10% from session best.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  // ---------- Bike variants (Assault / road / indoor) ----------
+  {
+    slug: 'bike-z2-endurance',
+    name: 'Bike — Z2 endurance',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['bike'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Continuous Z2 bike, 60-180 min at ~70% HRmax. High aerobic volume ' +
+      'with minimal impact — useful for run-recovery / injury periods.',
+    cues:
+      'Zone: Z2 (~70% HRmax). Duration: 60-180 min. ' +
+      'Cadence: 85-95 rpm. Power (if available): ~65-75% FTP. ' +
+      'Decoupling target <5%. Conversational effort.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'bike-tempo',
+    name: 'Bike — Tempo / sweet-spot',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['bike'],
+    default_metrics_json: { time: true, distance: true, hr: true, calories: true },
+    hyrox_station_position: null,
+    description:
+      'Sweet-spot / tempo bike 30-60 min at HR Z3 / ~85-95% FTP. Cost-effective ' +
+      'aerobic gain for time-pressured weeks.',
+    cues:
+      'Zone: Z3 (~80-87% HRmax). Duration: 30-60 min (continuous or 2-3 × 15-20 min). ' +
+      'Cadence: 85-95 rpm. Power: 85-95% FTP.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'bike-threshold-intervals',
+    name: 'Bike — Threshold intervals (Z4)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['bike'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Threshold bike intervals, typically 3-5 × 8-12 min at Z4 / ~95-105% FTP ' +
+      'with 4-6 min rest. Builds FTP without running impact.',
+    cues:
+      'Zone: Z4 (~88-92% HRmax). Reps: 3-5 × 8-12 min @ 95-105% FTP. ' +
+      'Recovery: 4-6 min easy spin Z2. Cadence: 90-100 rpm. ' +
+      'Last rep ≥ first rep avg power (or cut session).',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'bike-vo2max-intervals',
+    name: 'Bike — VO2max intervals (Z5)',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['bike'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'VO2max bike intervals, typically 5-6 × 3-5 min at Z5 / ~110-120% FTP ' +
+      'with 1:1 rest. Develops maximal aerobic power without running load.',
+    cues:
+      'Zone: Z5 (>92% HRmax). Reps: 5-6 × 3-5 min @ 110-120% FTP. ' +
+      'Recovery: 1:1 ratio easy spin. Cadence: 95-105 rpm. ' +
+      'If avg power drops >5% across reps → cut volume.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+];
+
 function isHyroxOrConditioningRelevant(src: SourceExercise): boolean {
   const c = (src.category ?? '').toLowerCase();
   const eq = (src.equipment ?? '').toLowerCase();
@@ -367,17 +819,31 @@ async function main(): Promise<void> {
       transformed.push(row);
     }
 
-    // HYROX stations take precedence on slug collision
-    for (const station of HYROX_STATIONS) {
-      seenSlugs.add(station.slug);
-    }
+    // Canonical rows (HYROX stations + cardio variants) take precedence on
+    // slug collision. The source-derived `running-treadmill` and
+    // `trail-running-walking` rows are dropped from re-seeding because they
+    // collide semantically with the discipline-specific run variants — élite
+    // athletes never log generic "running". If pre-existing rows already
+    // exist in the DB from earlier seeds and are referenced by template
+    // segments, they're left in place; the template seed is responsible for
+    // re-pointing segments to canonical slugs on its own re-run.
+    const DROP_FROM_SOURCE = new Set(['running-treadmill', 'trail-running-walking']);
+    const canonicalSlugs = new Set<string>([
+      ...HYROX_STATIONS.map((s) => s.slug),
+      ...CARDIO_VARIANTS.map((s) => s.slug),
+    ]);
     const allRows: ExerciseRow[] = [
       ...HYROX_STATIONS,
-      ...transformed.filter((r) => !HYROX_STATIONS.some((s) => s.slug === r.slug)),
+      ...CARDIO_VARIANTS,
+      ...transformed.filter(
+        (r) => !canonicalSlugs.has(r.slug) && !DROP_FROM_SOURCE.has(r.slug),
+      ),
     ];
 
     process.stdout.write(
-      `Source rows: ${sourceData.length}, filtered: ${filtered.length}, transformed: ${transformed.length}, total to upsert (incl. HYROX stations): ${allRows.length}\n`,
+      `Source rows: ${sourceData.length}, filtered: ${filtered.length}, transformed: ${transformed.length}, ` +
+        `canonical (HYROX+cardio): ${HYROX_STATIONS.length + CARDIO_VARIANTS.length}, ` +
+        `total to upsert: ${allRows.length}\n`,
     );
 
     let upserted = 0;

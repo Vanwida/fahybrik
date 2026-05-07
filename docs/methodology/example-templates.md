@@ -16,10 +16,60 @@ schema supports. They are anchors for three downstream conversations:
    target, RPE) becomes a comparison axis when execution data flows back.
 
 Source for exercise references: `infra/scripts/seed_exercises.ts`
-(yuhonas/free-exercise-db, MIT) + 8 official HYROX stations seeded
-explicitly with canonical Open-division specs.
+(yuhonas/free-exercise-db, MIT) + 8 official HYROX stations + 23
+canonical cardio variants (run × 9, row × 5, ski-erg × 5, bike × 4)
+all seeded explicitly with discipline-specific defaults.
 
 Coach: `Pablo (DEMO)` / `pablo@fabrik.training`. Replace before launch.
+
+---
+
+## Cardio modality vocabulary
+
+Élite hybrid athletes do not log "running" generically. Every cardio
+session has a discipline-specific intent and the catalog reflects this.
+The following 23 canonical slugs exist as first-class catalog rows in
+`category = 'cardio'` and are referenced directly by templates (no
+indirection through a generic "running" placeholder):
+
+**Running (9):**
+
+| Slug | Pattern |
+|---|---|
+| `run-z2-long` | Aerobic base 60-120 min @ Z2, 70% HRmax, cad 174-180 |
+| `run-tempo` | Sustained Z3 25-50 min, sub-LT, cad 178-184 |
+| `run-recovery-jog` | Z1 active recovery 20-40 min, conversational |
+| `run-threshold-intervals` | 4-8 × 1km @ Z4, ~90% LT, short jog rec |
+| `run-vo2max-intervals` | 5-8 × 3 min @ Z5, full 1:1 jog recovery |
+| `run-race-pace-intervals` | 6-12 × 400 m @ HYROX 1km pace |
+| `run-strides` | 4-8 × 100 m fast (not max), neuromuscular |
+| `run-fartlek` | Varied pace play, e.g. 1' hard / 2' easy × 10 |
+| `run-hill-repeats` | 6-12 reps up a 4-8% hill, Z4-Z5 |
+
+**Rowing (5, Concept2 RowErg):** `row-z2-long`, `row-tempo`,
+`row-threshold-intervals`, `row-race-pace-intervals` (HYROX 1 km
+specificity), `row-sprint-intervals`.
+
+**SkiErg (5, Concept2):** `ski-erg-z2-long`, `ski-erg-tempo`,
+`ski-erg-threshold-intervals`, `ski-erg-race-pace-intervals` (HYROX
+station 1 specificity), `ski-erg-sprint-intervals`.
+
+**Bike (4, road / indoor / Assault):** `bike-z2-endurance`,
+`bike-tempo`, `bike-threshold-intervals`, `bike-vo2max-intervals`.
+
+Each row carries `default_metrics_json` with the metric flags the
+builder UI should render (time/distance/hr/calories/etc.), with
+discipline-specific prescription detail (zone target, cadence ranges,
+stroke rate, drag factor, recovery ratio) in `cues`. Templates
+reference these slugs directly — the resolution layer in
+`seed_example_templates.ts` includes a `CANONICAL_DIRECT_SLUGS` set
+that bypasses any indirection for these names.
+
+The 8 HYROX station slugs (`hyrox-ski-erg`, `hyrox-rowing`, etc.) are
+**race-distance station references** with Open-division specs baked
+in. They are NOT used as training intervals — for that use the
+discipline-specific cardio variants (e.g. `ski-erg-race-pace-intervals`
+for HYROX 1K split work, not `hyrox-ski-erg`).
 
 ---
 
@@ -50,9 +100,10 @@ methodology should make it impossible for the athlete to mistake an ACC
 session for a TRANS or REAL session — the heart-rate ceiling alone (Z2,
 ~140-148 bpm) signals the difference. The template demonstrates:
 
-- A 50-min Z2 anchor with **pace ceiling** (5:40 /km cap) and **cadence
-  target** (178 spm) — both are levers Pablo can tune per athlete based on
-  their LT1 and running economy.
+- A 50-min `run-z2-long` anchor with **pace ceiling** (5:40 /km cap) and
+  **cadence target** (178 spm) — both are levers Pablo can tune per athlete
+  based on their LT1 and running economy. The slug itself encodes the
+  intent: this is an aerobic-base run, not a generic "running" entry.
 - A 4-station circuit with **% 1RM cargas** (60-65%) — system needs to
   resolve `weight_pct_1rm` per athlete using their stored 1RM benchmarks
   (`athlete_benchmarks` table).
@@ -71,9 +122,14 @@ real weight progression across the 3-4 weeks of the ACC block.
 **Why this anchors the phase.** TRANS is the bridge: athlete starts feeling
 race intensity but volume drops. The template demonstrates:
 
-- **Fartlek with explicit recovery target** — "trote ACTIVO, no caminar"
-  is the kind of cue that distinguishes coach-grade prescriptions from
-  consumer apps.
+- **`run-fartlek` with explicit recovery target** — "trote ACTIVO, no
+  caminar" is the kind of cue that distinguishes coach-grade prescriptions
+  from consumer apps. The slug indicates intent (varied pace play), the
+  segment params carry the structure (5 × 4 min Z4 / 2 min Z2).
+- **`ski-erg-race-pace-intervals` (NOT `hyrox-ski-erg`) for training reps**
+  — this distinction matters. `hyrox-ski-erg` is the *race station* (1000 m
+  full effort, station 1 of 8). `ski-erg-race-pace-intervals` is the
+  training tool that builds toward it (3 × 500 m at race-pace 500m split).
 - **Compound runs into stations** — the foundational HYROX skill: getting
   off the run with HR at Z4 and immediately producing on a station. The
   3 stations chosen (SkiErg, BBJ, wall balls) are the most aerobic-system
@@ -98,6 +154,14 @@ compares splits + transitions + HR-recovery to track readiness.
 
 The template demonstrates the fidelity needed for benchmarking:
 
+- **All 4 inter-station runs use `run-race-pace-intervals`** — the slug
+  itself is part of the prescription. When the athlete completes this
+  template repeatedly, the analytics layer aggregates "performance on
+  `run-race-pace-intervals`" as a coherent comparable across templates,
+  not muddled with Z2 long runs or fartlek work.
+- **Station 1 (SkiErg 1000 m) uses `hyrox-ski-erg`** because it IS the
+  race station here, not a training interval. Slug choice signals intent
+  to the analytics layer.
 - **Per-segment pace target with race-pace anchoring** — every run segment
   references the athlete's current 5K time (e.g. "5K pace + 8-12 s/km").
   System needs to compute this per athlete from `athlete_benchmarks`.
@@ -122,6 +186,11 @@ allowed deviations before flagging readiness as "not on track".
 **Why this anchors the phase.** Peaking is where consumer apps fail
 hardest — they keep pushing volume because their algorithm doesn't model
 freshness. The template demonstrates:
+
+- **`run-vo2max-intervals` for the 6 × 200 m sprint block** — even though
+  the rep distance is short, the work-rest pattern (200 m sprint at >95%
+  effort with 90 s recovery) is functionally a VO2max session, not a
+  strides session. Slug choice respects intent over surface form.
 
 - **Conditional execution gates** — "Si HRV bajo, sueño <7h, RPE de
   calentamiento >5 → reducir a 4 sprints o posponer". This is the kind

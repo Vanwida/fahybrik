@@ -85,7 +85,7 @@ const TEMPLATES: TemplateSpec[] = [
       'Cargas del circuito 60-65% 1RM, RPE objetivo 6-7. Si RPE >8 → bajar carga.',
     segments: [
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-z2-long',
         params: {
           time_seconds: 50 * 60,
           hr_zone: 2,
@@ -179,7 +179,7 @@ const TEMPLATES: TemplateSpec[] = [
       'Decoupling objetivo <8%. HR pico no debe pasar de Z4 alto en fartlek.',
     segments: [
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-fartlek',
         params: {
           rounds: 5,
           time_seconds: 4 * 60,
@@ -198,7 +198,7 @@ const TEMPLATES: TemplateSpec[] = [
           'Variable clave: tiempo de retorno a Z2 (HRR60). Apuntar.',
       },
       {
-        exercise_slug: 'hyrox-ski-erg',
+        exercise_slug: 'ski-erg-race-pace-intervals',
         params: {
           distance_meters: 500,
           rounds: 3,
@@ -208,9 +208,10 @@ const TEMPLATES: TemplateSpec[] = [
           rpe: 8,
           effort_pct: 90,
         },
-        rounds_label: '3 × 500 m SkiErg',
+        rounds_label: '3 × 500 m SkiErg @ race pace',
         notes:
-          'Compound run-station. 3 rondas: 500 m SkiErg @ 90% effort. ' +
+          'Compound run-station (training intervals, not the race station itself). ' +
+          '3 rondas: 500 m SkiErg @ 90% effort. ' +
           'Stroke rate 30-34 spm. Potencia objetivo M: ~220 W / W: ~150 W ' +
           '(o split 1:55-2:00 /500 m M, 2:10-2:20 /500 m W). ' +
           '60 s descanso entre rondas.',
@@ -271,7 +272,7 @@ const TEMPLATES: TemplateSpec[] = [
       'Post-sesión: revisar zone time distribution. Z3+Z4+Z5 debería ser >70%.',
     segments: [
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-race-pace-intervals',
         params: {
           distance_meters: 500,
           hr_zone: 4,
@@ -300,7 +301,7 @@ const TEMPLATES: TemplateSpec[] = [
           'Stroke rate 28-32 spm. NO sprint inicial — settle en split objetivo en primeros 200 m.',
       },
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-race-pace-intervals',
         params: {
           distance_meters: 500,
           hr_zone: 4,
@@ -327,7 +328,7 @@ const TEMPLATES: TemplateSpec[] = [
           'Cuerpo bajo, pasos cortos. Tiempo objetivo M: 1:30-2:00. W: 1:45-2:30.',
       },
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-race-pace-intervals',
         params: {
           distance_meters: 500,
           hr_zone: 4,
@@ -354,7 +355,7 @@ const TEMPLATES: TemplateSpec[] = [
           'Salto mínimo 2 m M / 1.5 m W. Pecho al suelo. Dos pies despegue/aterrizaje.',
       },
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-race-pace-intervals',
         params: {
           distance_meters: 500,
           hr_zone: 5,
@@ -406,7 +407,7 @@ const TEMPLATES: TemplateSpec[] = [
       'No hacer en los 7 días previos al evento A.',
     segments: [
       {
-        exercise_slug: 'running-strides',
+        exercise_slug: 'run-vo2max-intervals',
         params: {
           rounds: 6,
           distance_meters: 200,
@@ -582,9 +583,12 @@ const TEMPLATES: TemplateSpec[] = [
  * exercise catalog. The free-exercise-db source uses specific names; some
  * we rename to match common gym vocabulary. If a slug is missing in the DB,
  * the script will fail loudly so the catalog can be expanded.
+ *
+ * Canonical slugs (HYROX stations + cardio variants like `run-z2-long`,
+ * `ski-erg-race-pace-intervals`, etc.) bypass this map and resolve directly
+ * via CANONICAL_DIRECT_SLUGS — they're the authoritative names.
  */
 const EXERCISE_SLUG_RESOLUTIONS: Record<string, string[]> = {
-  'running-strides': ['running-treadmill', 'trail-running-walking'],
   'barbell-squat': ['barbell-squat', 'barbell-full-squat'],
   'pull-ups': ['pullups'],
   'walking-lunge': ['dumbbell-lunges', 'barbell-walking-lunge'],
@@ -595,7 +599,14 @@ const EXERCISE_SLUG_RESOLUTIONS: Record<string, string[]> = {
   'hanging-leg-raise': ['hanging-leg-raise'],
 };
 
-const HYROX_STATION_SLUGS = new Set([
+/**
+ * Canonical slugs that resolve directly without indirection. These are the
+ * 8 HYROX stations + the discipline-specific cardio variants seeded in
+ * `seed_exercises.ts`. If you reference one of these in a template segment,
+ * it must exist in the catalog with this exact slug.
+ */
+const CANONICAL_DIRECT_SLUGS = new Set<string>([
+  // HYROX stations
   'hyrox-ski-erg',
   'hyrox-sled-push',
   'hyrox-sled-pull',
@@ -604,13 +615,40 @@ const HYROX_STATION_SLUGS = new Set([
   'hyrox-farmer-carry',
   'hyrox-sandbag-lunges',
   'hyrox-wall-balls',
+  // Run variants
+  'run-z2-long',
+  'run-tempo',
+  'run-recovery-jog',
+  'run-threshold-intervals',
+  'run-vo2max-intervals',
+  'run-race-pace-intervals',
+  'run-strides',
+  'run-fartlek',
+  'run-hill-repeats',
+  // Row variants
+  'row-z2-long',
+  'row-tempo',
+  'row-threshold-intervals',
+  'row-race-pace-intervals',
+  'row-sprint-intervals',
+  // Ski-erg variants
+  'ski-erg-z2-long',
+  'ski-erg-tempo',
+  'ski-erg-threshold-intervals',
+  'ski-erg-race-pace-intervals',
+  'ski-erg-sprint-intervals',
+  // Bike variants
+  'bike-z2-endurance',
+  'bike-tempo',
+  'bike-threshold-intervals',
+  'bike-vo2max-intervals',
 ]);
 
 async function resolveExerciseSlug(
   sql: ReturnType<typeof getSql>,
   ref: string,
 ): Promise<string> {
-  if (HYROX_STATION_SLUGS.has(ref)) return ref;
+  if (CANONICAL_DIRECT_SLUGS.has(ref)) return ref;
   const candidates = EXERCISE_SLUG_RESOLUTIONS[ref];
   if (!candidates) {
     throw new Error(`No slug resolution defined for "${ref}"`);
