@@ -26,6 +26,7 @@ targets:
       - path: FAHYBRIK
     dependencies:
       - sdk: AuthenticationServices.framework
+      - sdk: HealthKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: pro.aistudios.vanwida.fahybrik
@@ -42,6 +43,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "FAHYBRIK lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "FAHYBRIK guarda los entrenos que registras en la app en Apple Health."
         CODE_SIGN_STYLE: Automatic
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO

@@ -40,9 +40,10 @@ struct ConnectionsStep: View {
                     actionTitle: state.healthkitGranted ? "Permitido ✓" : "Permitir",
                     isConnected: state.healthkitGranted
                 ) {
-                    // Real permission request lives in HealthKitPermissions and is
-                    // wired in once the HealthKit module lands.
-                    state.healthkitGranted = true
+                    Task {
+                        let granted = await HealthKitPermissions.request()
+                        state.healthkitGranted = granted
+                    }
                 }
 
                 ConnectionCard(

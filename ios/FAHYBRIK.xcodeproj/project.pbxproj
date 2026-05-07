@@ -21,10 +21,12 @@
 		41E920DF478C0ACD2515ED76 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */; };
 		448482526ED3DFECFA4EB018 /* OnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247CFBC8F79562247FA78B70 /* OnboardingState.swift */; };
 		5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46EA36D8F153A96F0826B91 /* APIClient.swift */; };
+		685766FC06F95014DF419D9E /* HealthKitSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83017E7D2AF27663B97CBA23 /* HealthKitSyncService.swift */; };
 		705547E0A524A56A4E0C4F6F /* GoalsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9ABACDF3287674F039ADFE /* GoalsStep.swift */; };
 		7B25A3918B881C47B3B817D9 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */; };
 		7D2FAFFFE200A6EA5BB15F05 /* StrengthOneRMStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97736E2A223554D304876154 /* StrengthOneRMStep.swift */; };
 		8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */; };
+		8868F413BE711348230E7A84 /* HealthKitPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 155C7267C644E8768F74865E /* HealthKitPermissions.swift */; };
 		8AA5DCFEC04D521AC8646AFE /* HyroxHistoryStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4928195889090E0A57D59E /* HyroxHistoryStep.swift */; };
 		93F19F72C6C6B5896B1C09FD /* ZoneColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */; };
 		96E2D74E24115D9ABB0AD0B5 /* StepShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D86DF203777D3C5363727298 /* StepShell.swift */; };
@@ -37,6 +39,7 @@
 		CF189219BC59E831BD6806A9 /* Chip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C75141ACA472A805D8158 /* Chip.swift */; };
 		D5C5573E6B1101905CC6377D /* PrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FE41E10EF1ED6750223C57B /* PrimaryButton.swift */; };
 		D61A710294109C2A9F8D2FB8 /* DoneStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC7725660B538E3914048E9 /* DoneStep.swift */; };
+		D8BE6EEF4638E3FEC6396079 /* HealthKitDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = D97A61118C7BFE1C854713F5 /* HealthKitDTO.swift */; };
 		DAB8F84BC8A2A2AEEDF4D07D /* PersonalBasicsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */; };
 		DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */; };
 		E098A6DDCC6361576489843A /* FAHYBRIKApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F726D0B3292528EFE86B210 /* FAHYBRIKApp.swift */; };
@@ -44,6 +47,7 @@
 		E16711BB7C8F02FC5317AC95 /* AppRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E8F007672C98463F4570A9 /* AppRoot.swift */; };
 		E23D573788732D8862FD4B33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE78C660D60754A5A84523CC /* Assets.xcassets */; };
 		E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */; };
+		E6CD184300064475A9BCEBBE /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA912BF52924EC0C847BF1E0 /* HealthKit.framework */; };
 		E72A77093E8EB0CF64794C1B /* InputRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D4ECE1AF7437FFE445A76A /* InputRows.swift */; };
 		E875D967971A5FE85908EF32 /* StepHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A88D02F5D94C20D68B19C51 /* StepHeader.swift */; };
 		EC9F8438A8D24DC1EF82DE70 /* LapButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD23E9BA1EB12408C1A7601 /* LapButton.swift */; };
@@ -56,6 +60,7 @@
 
 /* Begin PBXFileReference section */
 		0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStationsStep.swift; sourceTree = "<group>"; };
+		155C7267C644E8768F74865E /* HealthKitPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitPermissions.swift; sourceTree = "<group>"; };
 		15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnduranceBenchmarksStep.swift; sourceTree = "<group>"; };
 		247CFBC8F79562247FA78B70 /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
 		258773F221C5DCA05BEBE809 /* DataGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGrid.swift; sourceTree = "<group>"; };
@@ -77,6 +82,7 @@
 		7A88D02F5D94C20D68B19C51 /* StepHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepHeader.swift; sourceTree = "<group>"; };
 		7F4928195889090E0A57D59E /* HyroxHistoryStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxHistoryStep.swift; sourceTree = "<group>"; };
 		815C75141ACA472A805D8158 /* Chip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chip.swift; sourceTree = "<group>"; };
+		83017E7D2AF27663B97CBA23 /* HealthKitSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncService.swift; sourceTree = "<group>"; };
 		832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalBasicsStep.swift; sourceTree = "<group>"; };
 		97736E2A223554D304876154 /* StrengthOneRMStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthOneRMStep.swift; sourceTree = "<group>"; };
 		9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutContainer.swift; sourceTree = "<group>"; };
@@ -94,10 +100,12 @@
 		D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInView.swift; sourceTree = "<group>"; };
 		D86DF203777D3C5363727298 /* StepShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepShell.swift; sourceTree = "<group>"; };
 		D8F879CB1CB83714926BFB4E /* FAHYBRIK.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FAHYBRIK.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D97A61118C7BFE1C854713F5 /* HealthKitDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitDTO.swift; sourceTree = "<group>"; };
 		D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthleticBackgroundStep.swift; sourceTree = "<group>"; };
 		DDDDA98C11AEAAF94F408F75 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		E46EA36D8F153A96F0826B91 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		EA912BF52924EC0C847BF1E0 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		EDD23E9BA1EB12408C1A7601 /* LapButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LapButton.swift; sourceTree = "<group>"; };
 		F5D4ECE1AF7437FFE445A76A /* InputRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRows.swift; sourceTree = "<group>"; };
 		FC94A17EBAE399DCC37750B5 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
@@ -109,6 +117,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				412E7EC597F593B54D4CAA8C /* AuthenticationServices.framework in Frameworks */,
+				E6CD184300064475A9BCEBBE /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -166,6 +175,7 @@
 			isa = PBXGroup;
 			children = (
 				DDDDA98C11AEAAF94F408F75 /* AuthenticationServices.framework */,
+				EA912BF52924EC0C847BF1E0 /* HealthKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -189,6 +199,16 @@
 				BDF647B80717E54E6BC417DB /* TodayView.swift */,
 			);
 			path = Today;
+			sourceTree = "<group>";
+		};
+		9A052546EBC042909966659E /* HealthKit */ = {
+			isa = PBXGroup;
+			children = (
+				D97A61118C7BFE1C854713F5 /* HealthKitDTO.swift */,
+				155C7267C644E8768F74865E /* HealthKitPermissions.swift */,
+				83017E7D2AF27663B97CBA23 /* HealthKitSyncService.swift */,
+			);
+			path = HealthKit;
 			sourceTree = "<group>";
 		};
 		B507A5872DD4C2C5063D5E8D /* Auth */ = {
@@ -222,6 +242,7 @@
 			children = (
 				F03A1FB90E88D6FA49D2D804 /* App */,
 				B507A5872DD4C2C5063D5E8D /* Auth */,
+				9A052546EBC042909966659E /* HealthKit */,
 				F8A77B901C4E7B4A7F43C501 /* Networking */,
 				0878A6E7F648E7DAA346856F /* Onboarding */,
 				4ED69D0E5434E71C2F4BAEA2 /* Preview Content */,
@@ -367,6 +388,9 @@
 				705547E0A524A56A4E0C4F6F /* GoalsStep.swift in Sources */,
 				02784343797E16AF5E52AF3E /* HRZoneBadge.swift in Sources */,
 				FF066F6E597C8EAFFCACF47C /* Haptics.swift in Sources */,
+				D8BE6EEF4638E3FEC6396079 /* HealthKitDTO.swift in Sources */,
+				8868F413BE711348230E7A84 /* HealthKitPermissions.swift in Sources */,
+				685766FC06F95014DF419D9E /* HealthKitSyncService.swift in Sources */,
 				8AA5DCFEC04D521AC8646AFE /* HyroxHistoryStep.swift in Sources */,
 				8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */,
 				E72A77093E8EB0CF64794C1B /* InputRows.swift in Sources */,
@@ -411,6 +435,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRIK lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRIK guarda los entrenos que registras en la app en Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -508,6 +534,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRIK lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRIK guarda los entrenos que registras en la app en Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
