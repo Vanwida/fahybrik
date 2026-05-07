@@ -1,0 +1,51 @@
+import type { ColumnKey } from './types';
+
+export const COLUMN_LABELS: Record<ColumnKey, string> = {
+  alert: 'Alerta',
+  name: 'Atleta',
+  block: 'Bloque',
+  compliance: 'Compliance',
+  hrv: 'HRV',
+  acr: 'ACR',
+  tsb: 'TSB',
+  next: 'Próxima',
+  sync: 'Sync',
+  race_readiness: 'Race readiness',
+  polarization: 'Polarization',
+  z45_7d: 'Z4-5 7d',
+  ctl: 'CTL',
+  atl: 'ATL',
+  vo2max: 'VO2max',
+  sleep_7d: 'Sleep 7d',
+  rhr: 'RHR',
+  days_to_event: 'Días a A-event',
+  volume_7d: 'Volumen 7d',
+  sessions_today: 'Sesiones hoy',
+  last_checkin: 'Last check-in',
+};
+
+export const REQUIRED_COLUMNS: ReadonlyArray<ColumnKey> = ['alert', 'name'];
+
+export const COLUMN_WIDTHS: Record<ColumnKey, string> = {
+  alert: 'w-7',
+  name: 'min-w-[160px]',
+  block: 'w-[88px]',
+  compliance: 'w-[78px]',
+  hrv: 'w-[72px]',
+  acr: 'w-[60px]',
+  tsb: 'w-[64px]',
+  next: 'w-[88px]',
+  sync: 'w-[72px]',
+  race_readiness: 'w-[80px]',
+  polarization: 'w-[112px]',
+  z45_7d: 'w-[68px]',
+  ctl: 'w-[58px]',
+  atl: 'w-[58px]',
+  vo2max: 'w-[68px]',
+  sleep_7d: 'w-[68px]',
+  rhr: 'w-[58px]',
+  days_to_event: 'w-[72px]',
+  volume_7d: 'w-[72px]',
+  sessions_today: 'w-[88px]',
+  last_checkin: 'w-[88px]',
+};
