@@ -24,6 +24,8 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: FAHYBRIK
+    dependencies:
+      - sdk: AuthenticationServices.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: pro.aistudios.vanwida.fahybrik
