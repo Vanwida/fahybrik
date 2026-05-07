@@ -12,3 +12,4 @@ export * from './chat.js';
 export * from './notifications.js';
 export * from './methodology.js';
 export * from './audit.js';
+export * from './coach-weekly-review.js';

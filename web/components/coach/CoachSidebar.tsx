@@ -10,6 +10,7 @@ import {
   Flag,
   Calendar,
   AlertTriangle,
+  ClipboardCheck,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -31,6 +32,7 @@ const NAV: NavItem[] = [
   { href: '/events', label: 'Eventos', icon: Flag, match: (p) => p.startsWith('/events') },
   { href: '/calendar', label: 'Calendario', icon: Calendar, match: (p) => p.startsWith('/calendar') },
   { href: '/alerts', label: 'Alertas', icon: AlertTriangle, match: (p) => p.startsWith('/alerts') },
+  { href: '/review', label: 'Review semanal', icon: ClipboardCheck, match: (p) => p.startsWith('/review') },
   { href: '/settings', label: 'Ajustes', icon: Settings, match: (p) => p.startsWith('/settings') },
 ];
 
