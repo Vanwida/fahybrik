@@ -1,19 +1,21 @@
 import SwiftUI
 
-// Minimal placeholder consistent with UX spec 02-athlete-today.md so the
-// onboarding/auth flow has a destination. A separate task implements full
-// Today; this version reproduces the workout-hero card so `▶ EMPEZAR` works.
+// Expert variant of the Today screen — Garmin-density single-screen dashboard.
+// Mirrors docs/design/fahybrik-design-system/project/athlete_app/today.jsx
+// `TodayExpert`. Élite-only: density before minimalism, ATR vocabulary native,
+// HRV/CTL/TSB/ACR default-visible.
 struct TodayView: View {
     @State private var showWorkout: Bool = false
+    @State private var showCheckin: Bool = false
     let onSignOut: () -> Void
 
     var body: some View {
         TabView {
             todayTab
                 .tabItem { Label("Today", systemImage: "circle.grid.2x2") }
-            ComingSoonTab(label: "Plan")
+            PlanView()
                 .tabItem { Label("Plan", systemImage: "calendar") }
-            ComingSoonTab(label: "Stats")
+            StatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
             ComingSoonTab(label: "Chat")
                 .tabItem { Label("Chat", systemImage: "message") }
@@ -24,131 +26,156 @@ struct TodayView: View {
         .fullScreenCover(isPresented: $showWorkout) {
             WorkoutContainer(plan: .demo, onClose: { showWorkout = false })
         }
+        .sheet(isPresented: $showCheckin) {
+            CheckinPlaceholder(onClose: { showCheckin = false })
+        }
     }
+
+    // MARK: - Today Expert variant
 
     private var todayTab: some View {
-        ZStack {
+        let p = TodayPersona.demo
+        return ZStack {
             Theme.Color.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    HStack {
-                        HStack(spacing: 0) {
-                            Text("[F]").foregroundStyle(Theme.Color.accent)
-                            Text("AHYBRIK").foregroundStyle(Theme.Color.foreground)
-                        }
-                        .font(Theme.Typography.headlineM)
-                        Spacer()
-                        Image(systemName: "gearshape")
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-
-                    countdown
-                    workoutHeroCard
-
-                    sectionTitle("Tu cuerpo")
-                    bodyMetrics
-
-                    sectionTitle("Esta semana")
-                    weekStats
-
-                    sectionTitle("Carga")
-                    loadStats
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    headerStrip(p)
+                    dashboardGrid(p)
+                    workoutCard
+                    checkinRow
+                    polarizationCard(p)
+                    yesterdayCard(p)
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.vertical, Theme.Spacing.l)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.top, Theme.Spacing.s)
+                .padding(.bottom, Theme.Spacing.l)
             }
         }
     }
 
-    private var countdown: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("HYROX BCN · 42 días")
-                .font(Theme.Typography.dataLabel)
-                .uppercaseTracked()
+    private func headerStrip(_ p: TodayPersona) -> some View {
+        HStack(spacing: 8) {
+            Wordmark(size: 18)
+            Spacer()
+            MonoText(
+                text: "\(p.raceName) · \(p.daysToRace)D · \(p.block) W\(p.week)D\(p.day)",
+                size: 10,
+                weight: .semibold,
+                color: Theme.Color.muted
+            )
+            .tracking(1.2)
+            .textCase(.uppercase)
+            Image(systemName: "gearshape")
+                .font(.system(size: 16))
                 .foregroundStyle(Theme.Color.muted)
-            Rectangle().fill(Theme.Color.muted.opacity(0.2)).frame(height: 1)
-            Text("REAL · semana 2 · día 4")
-                .font(Theme.Typography.small)
-                .italic()
-                .foregroundStyle(Theme.Color.muted)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+    }
+
+    private func dashboardGrid(_ p: TodayPersona) -> some View {
+        let cols = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+        return LazyVGrid(columns: cols, spacing: 8) {
+            DashTile(label: "Readiness", value: "\(p.readiness)", unit: "/100", color: Theme.Color.ok)
+            DashTile(label: "HRV", value: "\(p.hrvDelta)\(p.hrvValue)", unit: p.hrvUnit)
+            DashTile(label: "Sleep", value: p.sleepHours, unit: "hrs")
+            DashTile(label: "RHR", value: "\(p.rhr)", unit: "bpm")
+            DashTile(label: "CTL", value: "\(p.ctl)", unit: p.ctlTrend)
+            DashTile(label: "TSB", value: "+\(p.tsb)", unit: p.tsbLabel, color: Theme.Color.ok)
         }
     }
 
-    private var workoutHeroCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Text(WorkoutPlan.demo.name)
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("\(WorkoutPlan.demo.format.displayName) · ~\(WorkoutPlan.demo.estimatedDurationSeconds / 60) min")
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-            PrimaryButton(title: "▶ Empezar") {
-                showWorkout = true
+    private var workoutCard: some View {
+        CardSurface(padding: 14, topAccent: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    LabelText(text: "PM · NEXT", color: Theme.Color.accent)
+                    Spacer()
+                    MonoText(text: "~52 min · For Time", size: 11, color: Theme.Color.muted)
+                }
+                Text(WorkoutPlan.demo.name)
+                    .font(.system(size: 18, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .padding(.top, 6)
+
+                HStack(spacing: 6) {
+                    ForEach(WorkoutPlan.demo.zoneTargets, id: \.zone) { zt in
+                        HStack(spacing: 4) {
+                            ZBadge(zone: zt.zone)
+                            MonoText(text: "\(zt.percent)%", size: 11, color: Theme.Color.muted)
+                        }
+                    }
+                }
+                .padding(.top, 8)
+
+                ExpertPrimaryButton(title: "▶ EMPEZAR", height: 46) {
+                    showWorkout = true
+                }
+                .padding(.top, 12)
             }
-            HStack(spacing: 6) {
-                Circle().fill(Theme.Color.ok).frame(width: 6, height: 6)
-                Text("Recovery 72% · OK")
-                    .font(Theme.Typography.small)
+        }
+    }
+
+    private var checkinRow: some View {
+        Button(action: { Haptics.light(); showCheckin = true }) {
+            HStack {
+                HStack(spacing: 8) {
+                    Circle().fill(Theme.Color.warning).frame(width: 6, height: 6)
+                    Text("Check-in matinal pendiente")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+                Spacer()
+                Text("20s →")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.Color.accent)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func polarizationCard(_ p: TodayPersona) -> some View {
+        CardSurface(padding: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    LabelText(text: "Polarization 14d")
+                    Spacer()
+                    MonoText(text: "off-target", size: 11, color: Theme.Color.warning)
+                }
+                PolBar(z12: p.polZ12, z3: p.polZ3, z45: p.polZ45)
+                HStack {
+                    MonoText(text: "Z1-2 \(p.polZ12)%", size: 11, color: HRZone.z2.color)
+                    Spacer()
+                    MonoText(text: "Z3 \(p.polZ3)%", size: 11, color: HRZone.z3.color)
+                    Spacer()
+                    MonoText(text: "Z4-5 \(p.polZ45)%", size: 11, color: HRZone.z5.color)
+                }
+                Text("target 80/0/20 · drift +8% Z1")
+                    .font(.system(size: 11))
                     .foregroundStyle(Theme.Color.muted)
             }
         }
-        .padding(Theme.Spacing.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .brandSurface()
     }
 
-    private func sectionTitle(_ s: String) -> some View {
-        Text(s)
-            .font(Theme.Typography.dataLabel)
-            .uppercaseTracked()
-            .foregroundStyle(Theme.Color.muted)
-    }
-
-    private var bodyMetrics: some View {
-        VStack(spacing: 0) {
-            metricRow(label: "HRV", value: "▲ 58 ms")
-            metricRow(label: "Sueño", value: "7h 12m")
-            metricRow(label: "RHR", value: "48 bpm")
+    private func yesterdayCard(_ p: TodayPersona) -> some View {
+        CardSurface(padding: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    LabelText(text: "Ayer")
+                    Spacer()
+                    MonoText(text: "\(p.yesterdayDuration) · RPE \(p.yesterdayRpe)", size: 11, color: Theme.Color.muted)
+                }
+                Text(p.yesterdayTitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.Color.foreground)
+                CoachQuote(text: "\u{201C}\(p.yesterdayCoachNote)\u{201D}")
+                    .padding(.top, 4)
+            }
         }
-        .brandSurface()
-    }
-
-    private var weekStats: some View {
-        VStack(spacing: 0) {
-            metricRow(label: "Compliance", value: "5/6")
-            metricRow(label: "Volumen", value: "+12% vs LW")
-            metricRow(label: "RPE medio", value: "7.2")
-        }
-        .brandSurface()
-    }
-
-    private var loadStats: some View {
-        VStack(spacing: 0) {
-            metricRow(label: "Fitness (CTL)", value: "75 ▲")
-            metricRow(label: "Fatiga (ATL)", value: "63 ▲")
-            metricRow(label: "Frescura (TSB)", value: "+12 fresco", color: Theme.Color.ok)
-            metricRow(label: "ACR", value: "1.1 normal")
-            metricRow(label: "Z3-4 últ 7d", value: "68%")
-        }
-        .brandSurface()
-    }
-
-    private func metricRow(label: String, value: String, color: Color? = nil) -> some View {
-        HStack {
-            Text(label)
-                .font(Theme.Typography.body)
-                .foregroundStyle(Theme.Color.foreground)
-            Spacer()
-            Text(value)
-                .font(Theme.Typography.bodyEmph.monospacedDigit())
-                .foregroundStyle(color ?? Theme.Color.foreground)
-        }
-        .padding(.vertical, 12)
-        .padding(.horizontal, Theme.Spacing.l)
-        .overlay(
-            Rectangle().fill(Theme.Color.muted.opacity(0.18)).frame(height: 1),
-            alignment: .bottom
-        )
     }
 
     private var profileTab: some View {
@@ -156,6 +183,7 @@ struct TodayView: View {
             Theme.Color.background.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.l) {
                 Spacer()
+                Wordmark(size: 32)
                 Text("Perfil")
                     .font(Theme.Typography.headlineM)
                     .foregroundStyle(Theme.Color.foreground)
@@ -173,7 +201,8 @@ private struct ComingSoonTab: View {
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack {
+            VStack(spacing: Theme.Spacing.s) {
+                Wordmark(size: 24)
                 Text(label)
                     .font(Theme.Typography.headlineL)
                     .foregroundStyle(Theme.Color.foreground)
@@ -182,5 +211,29 @@ private struct ComingSoonTab: View {
                     .foregroundStyle(Theme.Color.muted)
             }
         }
+    }
+}
+
+private struct CheckinPlaceholder: View {
+    let onClose: () -> Void
+    var body: some View {
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            VStack(spacing: Theme.Spacing.l) {
+                LabelText(text: "Buenos días")
+                Text("Check-in matinal")
+                    .font(Theme.Typography.headlineL)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("20 segundos · 5 preguntas")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+                Spacer()
+                ExpertPrimaryButton(title: "Cerrar", action: onClose)
+                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.bottom, Theme.Spacing.xl)
+            }
+            .padding(.top, Theme.Spacing.xxxl)
+        }
+        .preferredColorScheme(.dark)
     }
 }
