@@ -1,0 +1,24 @@
+{
+  "name": "@fahybrik/infra",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests\" && exit 0",
+    "seed:exercises": "tsx scripts/seed_exercises.ts",
+    "seed:templates": "tsx scripts/seed_example_templates.ts",
+    "seed:all": "pnpm seed:exercises && pnpm seed:templates"
+  },
+  "dependencies": {
+    "@fahybrik/shared": "workspace:*",
+    "postgres": "^3.4.9",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
