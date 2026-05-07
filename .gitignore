@@ -1,0 +1,55 @@
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.env
+!.env.example
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Xcode / Swift
+ios/build/
+ios/DerivedData/
+ios/.swiftpm/
+ios/*.xcuserdata/
+ios/*.xcuserstate
+ios/Pods/
+ios/Carthage/
+
+# Tests / temp
+*.log
+.cache/
+tmp/
+.tmp/
+
+# OS
+.DS_Store
+*.local

@@ -1,0 +1,21 @@
+{
+  "name": "fahybrik",
+  "version": "0.0.1",
+  "private": true,
+  "description": "HYROX / hybrid training platform — single-coach (Pablo) + elite-athlete iOS app",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @fahybrik/web dev",
+    "build:web": "pnpm --filter @fahybrik/web build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
