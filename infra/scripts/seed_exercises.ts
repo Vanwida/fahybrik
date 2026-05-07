@@ -750,6 +750,422 @@ const CARDIO_VARIANTS: ExerciseRow[] = [
     video_url: null,
     source: 'fahybrik_canonical',
   },
+  // ---------- Erg-recovery fillers (gap-fill for run-recovery-jog parity) ----------
+  {
+    slug: 'row-recovery',
+    name: 'Row — Recovery (Z1 active)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Active-recovery row, 15-30 min at HR Z1 (<70% HRmax). Conversational ' +
+      'effort. Useful as run-recovery substitute on impact-recovery days.',
+    cues:
+      'Zone: Z1 (<70% HRmax). Duration: 15-30 min. ' +
+      'Stroke rate: 18-20 spm. Damper: 3-5 (drag 100-115). ' +
+      'Split: ~20 s/500m slower than 2K PR. Goal: blood flow, not fitness.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'ski-erg-recovery',
+    name: 'SkiErg — Recovery (Z1 active)',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Active-recovery SkiErg, 10-20 min at HR Z1 (<70% HRmax). Easy upper-body ' +
+      'flush. Common after heavy lower-body strength sessions.',
+    cues:
+      'Zone: Z1 (<70% HRmax). Duration: 10-20 min. ' +
+      'Stroke rate: 22-26 spm. Damper: 3-5. ' +
+      'Split: ~20 s/500m slower than 1K race split. Long smooth pulls.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+];
+
+/**
+ * Test protocols as catalog rows.
+ *
+ * Tests are first-class exercises so the template builder can prescribe
+ * them and analytics roll up "test-5k-tt result" as a stand-alone trend.
+ * Categories chosen by dominant modality. The HYROX sims are kept in
+ * `cardio` (not `hyrox_station`) because the schema constraint reserves
+ * `hyrox_station` for the 8 official stations with a position 1-8.
+ */
+const TESTS_AND_PROTOCOLS: ExerciseRow[] = [
+  {
+    slug: 'test-5k-tt',
+    name: 'Test — 5K time trial',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Maximal 5 km running time trial. Used to calibrate threshold pace and ' +
+      'race-pace targets. Run on track or flat course, GPS confirmed.',
+    cues:
+      'Distance: 5000 m. Effort: maximal — pace as evenly as possible. ' +
+      'Re-test every 6-8 weeks during ACC/TRANS, every 4-6 weeks in REAL. ' +
+      'Output: 5K time → derive Z3/Z4/Z5 paces + LT estimate. ' +
+      'Cadencia ≥184 spm last km.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-2k-row-tt',
+    name: 'Test — 2K row time trial',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'glutes', 'quads', 'core', 'hamstrings'],
+    equipment: ['rower'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Maximal 2000 m row time trial on Concept2 RowErg. Gold-standard ' +
+      'rowing benchmark. Calibrates row training splits.',
+    cues:
+      'Distance: 2000 m. Damper: 5-7 (drag 130-140). ' +
+      'Pacing strategy: open ~5 s under target split, settle 4 s over for ' +
+      '1500 m, sprint last 500 m. Stroke rate 28→32 spm peak. ' +
+      'Re-test every 8-12 weeks. Output: 2K split → derive all row paces.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-1k-ski-tt',
+    name: 'Test — 1K SkiErg time trial',
+    category: 'cardio',
+    primary_muscle_groups: ['lats', 'core', 'triceps', 'glutes'],
+    equipment: ['ski_erg'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Maximal 1000 m SkiErg time trial. Direct calibration for HYROX ' +
+      'station 1 race-pace target.',
+    cues:
+      'Distance: 1000 m. Damper: 6-8. ' +
+      'Pacing: open ~3 s under target split, settle for 600 m, push last 200 m. ' +
+      'Stroke rate 30-34 spm. ' +
+      'Output: 1K split = baseline for HYROX station 1 race-pace target.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-1rm-back-squat',
+    name: 'Test — 1RM back squat',
+    category: 'strength',
+    primary_muscle_groups: ['quads', 'glutes', 'hamstrings', 'core'],
+    equipment: ['barbell'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'True 1-rep max back squat protocol. Build-up: empty bar × 5, 40% × 5, ' +
+      '60% × 3, 75% × 2, 85% × 1, 92-95% × 1, 100% × 1, +5kg × 1 if RPE <10.',
+    cues:
+      'Build-up rests: 2-3 min light, 3-4 min after 75%, 4-5 min after 85%. ' +
+      'Spotter required at 85%+. Belt allowed from 85%+. ' +
+      'Test only when fresh (TSB ≥+5, no hard session prior 48h). ' +
+      'Re-test every 8-12 weeks. Output: 1RM kg → all squat % loads derive from this.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-1rm-deadlift',
+    name: 'Test — 1RM deadlift',
+    category: 'strength',
+    primary_muscle_groups: ['hamstrings', 'glutes', 'lower back', 'lats', 'forearms'],
+    equipment: ['barbell'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'True 1-rep max conventional deadlift protocol. Build-up same as ' +
+      'back squat (5×40, 3×60, 2×75, 1×85, 1×92, 1×100, +5kg if RPE <10).',
+    cues:
+      'Hip-hinge prep mandatory (Romanian deadlift × 5 with empty bar). ' +
+      'Belt allowed from 80%+. Hook grip or mixed grip from 90%+. ' +
+      'Re-test every 8-12 weeks. ' +
+      'Output: 1RM kg → all hinge % loads derive from this.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-3min-all-out',
+    name: 'Test — 3-minute all-out',
+    category: 'cardio',
+    primary_muscle_groups: ['quads', 'glutes', 'calves', 'hamstrings'],
+    equipment: ['running'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Maximal 3-minute all-out effort (running, bike, or row — choose primary ' +
+      'modality). Estimates VO2max and critical power / critical pace.',
+    cues:
+      'Modality: running (default), bike, or row. Maximal effort throughout — ' +
+      'do NOT pace, sprint to failure. ' +
+      'Last 30 s output ≈ critical power / critical speed. ' +
+      'Total distance + last 30 s output → estimate VO2max + W\' / D\'. ' +
+      'Re-test every 6-8 weeks. Recovery 48h before next hard session.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-hyrox-half-sim',
+    name: 'Test — HYROX half-distance simulation',
+    category: 'cardio',
+    primary_muscle_groups: ['full_body'],
+    equipment: ['running', 'sled', 'rower', 'ski_erg', 'wall_ball', 'kettlebell', 'sandbag'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Half-distance HYROX simulation: 4 stations + 4 runs, all distances ' +
+      'halved (run 500 m between stations, station volume halved). ' +
+      'Benchmark used 6-8 weeks pre-event A.',
+    cues:
+      'Format: 4 × (500 m run + station). Stations: SkiErg 500m, Sled push 25m, ' +
+      'BBJ 40m, Wall balls 50/35 (M/W). ' +
+      'Effort: race pace. Re-test every 4-6 weeks during REAL. ' +
+      'Output: total time + per-segment splits + transition times → readiness signal.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'test-hyrox-full-sim',
+    name: 'Test — HYROX full-distance simulation',
+    category: 'cardio',
+    primary_muscle_groups: ['full_body'],
+    equipment: ['running', 'sled', 'rower', 'ski_erg', 'wall_ball', 'kettlebell', 'sandbag'],
+    default_metrics_json: { time: true, distance: true, hr: true },
+    hyrox_station_position: null,
+    description:
+      'Full-distance HYROX race simulation. 8 × (1 km run + station). ' +
+      'Used 3-4 weeks pre-event A as final readiness check. Hard cutoff: only ' +
+      'do this once in REAL block.',
+    cues:
+      'Format: 8 × (1 km run + race-distance station). Same gear, same loads ' +
+      'as race day. ' +
+      'Race-day attire/nutrition/warm-up dress rehearsal. ' +
+      'Output: predicted race time + station execution profile → final taper plan.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+];
+
+/**
+ * Strength accessory variants beyond the source dataset's compounds.
+ * These are the named accessories the team-lead called out as missing,
+ * cross-referenced against what's already in the catalog from
+ * yuhonas/free-exercise-db.
+ */
+const STRENGTH_ACCESSORIES: ExerciseRow[] = [
+  {
+    slug: 'single-leg-rdl',
+    name: 'Single-leg Romanian deadlift',
+    category: 'strength',
+    primary_muscle_groups: ['hamstrings', 'glutes', 'lower back', 'core'],
+    equipment: ['dumbbell', 'kettlebell'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'Unilateral Romanian deadlift with DB or KB. Hip-dominant single-leg ' +
+      'pattern, posterior chain + balance. Common HYROX accessory for sled ' +
+      'pull / sandbag lunge support.',
+    cues:
+      'Reps: 6-10/leg. Tempo 3-0-1-0 (slow eccentric). ' +
+      'Hip hinge, knee soft, free leg back as counterbalance. ' +
+      'No torso rotation — shoulders square. ' +
+      'Loads typically 20-40% lower than bilateral RDL per hand.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'pendlay-row',
+    name: 'Pendlay row',
+    category: 'strength',
+    primary_muscle_groups: ['lats', 'middle back', 'lower back', 'biceps'],
+    equipment: ['barbell'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'Strict barbell row from dead-stop on the floor each rep. Horizontal ' +
+      'pulling antagonist to bench/OHP. Builds posterior strength for sled ' +
+      'pull and rowing.',
+    cues:
+      'Reps: 4-6 per set typical. Bar starts on floor each rep (dead-stop). ' +
+      'Torso parallel to floor, no body english. ' +
+      'Pull to lower sternum / upper abs, NOT hips. ' +
+      'Cargas tipo: 50-70% bench press 1RM as starting reference.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'weighted-pullup',
+    name: 'Weighted pull-up',
+    category: 'strength',
+    primary_muscle_groups: ['lats', 'biceps', 'middle back', 'core'],
+    equipment: ['bodyweight', 'dip_belt', 'plate'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'Pull-up with added load via dip belt + plate or weight vest. ' +
+      'Vertical pulling strength, rope-pull / sled-pull carryover. Test ' +
+      'metric for upper-body relative strength.',
+    cues:
+      'Reps: 3-6 per set. Full range — chin over bar, dead hang at bottom. ' +
+      'No kipping. Tempo 2-1-1-0. ' +
+      'Loads: bodyweight + 0% to +30% for élite. ' +
+      'Failed reps don\'t count. Stop set on first failed rep.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'weighted-dip',
+    name: 'Weighted dip',
+    category: 'strength',
+    primary_muscle_groups: ['triceps', 'chest', 'shoulders'],
+    equipment: ['bodyweight', 'dip_belt', 'plate'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'Parallel-bar dip with added load. Vertical pressing strength, SkiErg ' +
+      'finish carryover. Test metric for upper-body pressing relative strength.',
+    cues:
+      'Reps: 5-8 per set. Full range — shoulders below elbows at bottom. ' +
+      'Tempo 2-0-1-0. Loads: bodyweight + 0% to +30% for élite. ' +
+      'Avoid if shoulder impingement history → swap for ring dips or close-grip bench.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'sled-drag-backwards',
+    name: 'Sled drag (backwards)',
+    category: 'strength',
+    primary_muscle_groups: ['quads', 'glutes', 'calves'],
+    equipment: ['sled'],
+    default_metrics_json: { time: true, distance: true, weight: true },
+    hyrox_station_position: null,
+    description:
+      'Backwards sled drag with horizontal pull (TRX, harness, or rope). ' +
+      'Knee-friendly quad development. Common ACC-block accessory for sled-' +
+      'push prep and quad mass.',
+    cues:
+      'Distance: 4-6 × 20-40 m. Loads: 50-70% sled push race weight. ' +
+      'Lean back into the pull, knees track over toes, short choppy steps. ' +
+      'Goal: quad pump + tendon load, NOT cardio. Walk back recovery.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'atlas-stone-shoulder',
+    name: 'Atlas stone shoulder',
+    category: 'strength',
+    primary_muscle_groups: ['glutes', 'hamstrings', 'lower back', 'biceps', 'core'],
+    equipment: ['atlas_stone'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'Atlas stone lift to shoulder. Maximal-effort posterior-chain + ' +
+      'odd-object lifting. Sandbag-clean carryover, full-body integration.',
+    cues:
+      'Reps: 3-5 per set with reset between reps. ' +
+      'Tacky on hands (or chalk). Stone between feet, hips down, lap → shoulder. ' +
+      'Loads: 60-100 kg M / 40-80 kg W typical. ' +
+      'High injury potential — only program when athlete has the lift in their movement library.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'sandbag-clean',
+    name: 'Sandbag clean',
+    category: 'strength',
+    primary_muscle_groups: ['glutes', 'hamstrings', 'lower back', 'core', 'shoulders'],
+    equipment: ['sandbag'],
+    default_metrics_json: { reps: true, weight: true, rpe: true },
+    hyrox_station_position: null,
+    description:
+      'Floor-to-shoulder sandbag clean. Simulates HYROX sandbag-lunge setup ' +
+      'and odd-object handling. Lower-body-driven hinge-pull.',
+    cues:
+      'Reps: 5-8 per set. Loads: 20-40 kg M / 15-25 kg W. ' +
+      'Hip-hinge to grip bag, lift with legs, transition through hip pop, catch on shoulder. ' +
+      'Alternate shoulders set-by-set. ' +
+      'Common ACC accessory before introducing race-distance sandbag lunges.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+];
+
+/**
+ * Mobility / prehab structured blocks. Stored as `mobility` exercises so the
+ * template builder can prescribe them as full sessions (not just stretches).
+ */
+const MOBILITY_PREHAB: ExerciseRow[] = [
+  {
+    slug: 'mobility-hip-flow-15min',
+    name: 'Mobility — Hip flow 15 min',
+    category: 'mobility',
+    primary_muscle_groups: ['hip_flexors', 'glutes', 'hamstrings', 'adductors'],
+    equipment: ['bodyweight', 'foam_roller'],
+    default_metrics_json: { time: true },
+    hyrox_station_position: null,
+    description:
+      '15-min hip-focused mobility flow. Standard sequence: 90/90 hip switches × 2 min, ' +
+      'world\'s greatest stretch × 8/side, cossack squats × 10/side, ' +
+      'pigeon hold × 90 s/side, frog stretch × 90 s, deep squat hold × 2 min, ' +
+      'banded hip distractions × 60 s/side, supine figure-4 × 60 s/side.',
+    cues:
+      'Duration: 15 min continuous, no rest. ' +
+      'Progression: end-range hold + breathwork (4-7-8 pattern). ' +
+      'Daily-frequency safe. Pre-strength session: do half (active). ' +
+      'Post-session or rest day: full version.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'prehab-shoulder-banded-15min',
+    name: 'Prehab — Banded shoulder 15 min',
+    category: 'mobility',
+    primary_muscle_groups: ['shoulders', 'rotator_cuff', 'middle back'],
+    equipment: ['resistance_band'],
+    default_metrics_json: { reps: true, time: true },
+    hyrox_station_position: null,
+    description:
+      '15-min banded shoulder prehab block. Sequence: band pull-aparts × 20, ' +
+      'face pulls × 20, external rotation × 12/side, Y-T-W raises × 8 each, ' +
+      'overhead band wall slides × 12, scap push-ups × 15. 2 rounds.',
+    cues:
+      'Duration: ~15 min for 2 rounds. Light band — focus on tempo (2-1-2-1) ' +
+      'and end-range, NOT load. ' +
+      'Programmable as standalone OR pre-warmup before any pressing/pulling session. ' +
+      'Critical for athletes doing high-volume SkiErg + pull-up work.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
+  {
+    slug: 'foam-roll-lower-15min',
+    name: 'Foam roll — Lower body 15 min',
+    category: 'mobility',
+    primary_muscle_groups: ['quads', 'glutes', 'hamstrings', 'calves', 'it_band'],
+    equipment: ['foam_roller'],
+    default_metrics_json: { time: true },
+    hyrox_station_position: null,
+    description:
+      '15-min lower-body myofascial release. Sequence: glutes × 90 s/side, ' +
+      'IT band × 90 s/side, quads × 90 s/side, hamstrings × 60 s/side, ' +
+      'calves × 60 s/side, adductors × 60 s/side, plantar fascia ball × 60 s/side.',
+    cues:
+      'Duration: 15 min total. Slow rolls (1 inch / sec). Pause on tender spots ' +
+      '20-30 s with breath. ' +
+      'Best after Z2 long sessions and the day after heavy lower strength. ' +
+      'Daily-frequency safe.',
+    video_url: null,
+    source: 'fahybrik_canonical',
+  },
 ];
 
 function isHyroxOrConditioningRelevant(src: SourceExercise): boolean {
@@ -819,22 +1235,26 @@ async function main(): Promise<void> {
       transformed.push(row);
     }
 
-    // Canonical rows (HYROX stations + cardio variants) take precedence on
-    // slug collision. The source-derived `running-treadmill` and
-    // `trail-running-walking` rows are dropped from re-seeding because they
-    // collide semantically with the discipline-specific run variants — élite
-    // athletes never log generic "running". If pre-existing rows already
-    // exist in the DB from earlier seeds and are referenced by template
-    // segments, they're left in place; the template seed is responsible for
-    // re-pointing segments to canonical slugs on its own re-run.
+    // Canonical rows (HYROX stations + cardio variants + tests + accessory
+    // strength + mobility prehab) take precedence on slug collision. The
+    // source-derived `running-treadmill` and `trail-running-walking` rows
+    // are dropped from re-seeding because they collide semantically with
+    // the discipline-specific run variants — élite athletes never log
+    // generic "running". If pre-existing rows already exist in the DB from
+    // earlier seeds and are referenced by template segments, they're left
+    // in place; the template seed is responsible for re-pointing segments
+    // to canonical slugs on its own re-run.
     const DROP_FROM_SOURCE = new Set(['running-treadmill', 'trail-running-walking']);
-    const canonicalSlugs = new Set<string>([
-      ...HYROX_STATIONS.map((s) => s.slug),
-      ...CARDIO_VARIANTS.map((s) => s.slug),
-    ]);
-    const allRows: ExerciseRow[] = [
+    const canonicalRows: ExerciseRow[] = [
       ...HYROX_STATIONS,
       ...CARDIO_VARIANTS,
+      ...TESTS_AND_PROTOCOLS,
+      ...STRENGTH_ACCESSORIES,
+      ...MOBILITY_PREHAB,
+    ];
+    const canonicalSlugs = new Set<string>(canonicalRows.map((r) => r.slug));
+    const allRows: ExerciseRow[] = [
+      ...canonicalRows,
       ...transformed.filter(
         (r) => !canonicalSlugs.has(r.slug) && !DROP_FROM_SOURCE.has(r.slug),
       ),
@@ -842,7 +1262,7 @@ async function main(): Promise<void> {
 
     process.stdout.write(
       `Source rows: ${sourceData.length}, filtered: ${filtered.length}, transformed: ${transformed.length}, ` +
-        `canonical (HYROX+cardio): ${HYROX_STATIONS.length + CARDIO_VARIANTS.length}, ` +
+        `canonical (HYROX+cardio+tests+accessory+mobility): ${canonicalRows.length}, ` +
         `total to upsert: ${allRows.length}\n`,
     );
 
