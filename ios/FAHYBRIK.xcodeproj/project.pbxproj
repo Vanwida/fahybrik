@@ -15,15 +15,19 @@
 		106EA1C1E192DE83FA7D6ABA /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */; };
 		1A5375BE0FBA2E654DD29C27 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF647B80717E54E6BC417DB /* TodayView.swift */; };
 		1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E68E01FF6A98B96974A052 /* RequestQueue.swift */; };
+		28ECA2B64F0FE3156D7F32E2 /* ThresholdStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */; };
 		38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */; };
+		3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7977DBCE8367B9C75CC6D124 /* PlanView.swift */; };
 		3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABF59F238D4FB4A53CCDD05 /* Theme.swift */; };
 		412E7EC597F593B54D4CAA8C /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DDDDA98C11AEAAF94F408F75 /* AuthenticationServices.framework */; };
 		41E920DF478C0ACD2515ED76 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */; };
 		448482526ED3DFECFA4EB018 /* OnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247CFBC8F79562247FA78B70 /* OnboardingState.swift */; };
 		5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46EA36D8F153A96F0826B91 /* APIClient.swift */; };
 		685766FC06F95014DF419D9E /* HealthKitSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83017E7D2AF27663B97CBA23 /* HealthKitSyncService.swift */; };
+		6D06AB8AA48005DC130BCB31 /* Atoms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D68388A51BB12F5A37F852A /* Atoms.swift */; };
 		705547E0A524A56A4E0C4F6F /* GoalsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9ABACDF3287674F039ADFE /* GoalsStep.swift */; };
 		7B25A3918B881C47B3B817D9 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */; };
+		7C192D07CED68715D72F684A /* TodayDemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99BFF5145EE7C17A22F35C04 /* TodayDemoData.swift */; };
 		7D2FAFFFE200A6EA5BB15F05 /* StrengthOneRMStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97736E2A223554D304876154 /* StrengthOneRMStep.swift */; };
 		8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */; };
 		8868F413BE711348230E7A84 /* HealthKitPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 155C7267C644E8768F74865E /* HealthKitPermissions.swift */; };
@@ -50,6 +54,7 @@
 		E6CD184300064475A9BCEBBE /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA912BF52924EC0C847BF1E0 /* HealthKit.framework */; };
 		E72A77093E8EB0CF64794C1B /* InputRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D4ECE1AF7437FFE445A76A /* InputRows.swift */; };
 		E875D967971A5FE85908EF32 /* StepHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A88D02F5D94C20D68B19C51 /* StepHeader.swift */; };
+		E8895A5B510826D82567BB60 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDD6D784877E8B1D2A5C26D /* StatsView.swift */; };
 		EC9F8438A8D24DC1EF82DE70 /* LapButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD23E9BA1EB12408C1A7601 /* LapButton.swift */; };
 		EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374148A629E21B522808AF09 /* WorkoutStateStore.swift */; };
 		F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996007C0E035EF597F9CD7 /* ProgressDots.swift */; };
@@ -62,6 +67,7 @@
 		0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStationsStep.swift; sourceTree = "<group>"; };
 		155C7267C644E8768F74865E /* HealthKitPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitPermissions.swift; sourceTree = "<group>"; };
 		15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnduranceBenchmarksStep.swift; sourceTree = "<group>"; };
+		1D68388A51BB12F5A37F852A /* Atoms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atoms.swift; sourceTree = "<group>"; };
 		247CFBC8F79562247FA78B70 /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
 		258773F221C5DCA05BEBE809 /* DataGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGrid.swift; sourceTree = "<group>"; };
 		2DC7725660B538E3914048E9 /* DoneStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoneStep.swift; sourceTree = "<group>"; };
@@ -73,18 +79,22 @@
 		559E6897CF90CAC7A6A1F6A0 /* RecoveryStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryStep.swift; sourceTree = "<group>"; };
 		5ABF59F238D4FB4A53CCDD05 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		5D9ABACDF3287674F039ADFE /* GoalsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsStep.swift; sourceTree = "<group>"; };
+		5EDD6D784877E8B1D2A5C26D /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		65DB76CDEEB1ECAD782A8C3D /* OnboardingAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAPI.swift; sourceTree = "<group>"; };
 		6E996007C0E035EF597F9CD7 /* ProgressDots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDots.swift; sourceTree = "<group>"; };
 		6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSession.swift; sourceTree = "<group>"; };
 		6FE41E10EF1ED6750223C57B /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostWorkoutSummaryView.swift; sourceTree = "<group>"; };
 		7831A459ACF982E946D9C459 /* AppleAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAuthService.swift; sourceTree = "<group>"; };
+		7977DBCE8367B9C75CC6D124 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
 		7A88D02F5D94C20D68B19C51 /* StepHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepHeader.swift; sourceTree = "<group>"; };
 		7F4928195889090E0A57D59E /* HyroxHistoryStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxHistoryStep.swift; sourceTree = "<group>"; };
 		815C75141ACA472A805D8158 /* Chip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chip.swift; sourceTree = "<group>"; };
 		83017E7D2AF27663B97CBA23 /* HealthKitSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncService.swift; sourceTree = "<group>"; };
 		832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalBasicsStep.swift; sourceTree = "<group>"; };
+		8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdStep.swift; sourceTree = "<group>"; };
 		97736E2A223554D304876154 /* StrengthOneRMStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthOneRMStep.swift; sourceTree = "<group>"; };
+		99BFF5145EE7C17A22F35C04 /* TodayDemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayDemoData.swift; sourceTree = "<group>"; };
 		9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutContainer.swift; sourceTree = "<group>"; };
 		9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		9C6DFB6C89ACD18FE9791D6D /* HRZoneBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRZoneBadge.swift; sourceTree = "<group>"; };
@@ -139,6 +149,7 @@
 		0A09F2975B977DE852947A37 /* Theme */ = {
 			isa = PBXGroup;
 			children = (
+				1D68388A51BB12F5A37F852A /* Atoms.swift */,
 				FC94A17EBAE399DCC37750B5 /* Haptics.swift */,
 				5ABF59F238D4FB4A53CCDD05 /* Theme.swift */,
 				B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */,
@@ -161,6 +172,22 @@
 				6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */,
 			);
 			path = Workout;
+			sourceTree = "<group>";
+		};
+		3B6D3145E2A109BDDE9C2E37 /* Stats */ = {
+			isa = PBXGroup;
+			children = (
+				5EDD6D784877E8B1D2A5C26D /* StatsView.swift */,
+			);
+			path = Stats;
+			sourceTree = "<group>";
+		};
+		42BAE21AE6548CF4E3ACA446 /* Plan */ = {
+			isa = PBXGroup;
+			children = (
+				7977DBCE8367B9C75CC6D124 /* PlanView.swift */,
+			);
+			path = Plan;
 			sourceTree = "<group>";
 		};
 		4ED69D0E5434E71C2F4BAEA2 /* Preview Content */ = {
@@ -196,6 +223,7 @@
 		97CDB6B9CADCBF5B657F4689 /* Today */ = {
 			isa = PBXGroup;
 			children = (
+				99BFF5145EE7C17A22F35C04 /* TodayDemoData.swift */,
 				BDF647B80717E54E6BC417DB /* TodayView.swift */,
 			);
 			path = Today;
@@ -245,7 +273,9 @@
 				9A052546EBC042909966659E /* HealthKit */,
 				F8A77B901C4E7B4A7F43C501 /* Networking */,
 				0878A6E7F648E7DAA346856F /* Onboarding */,
+				42BAE21AE6548CF4E3ACA446 /* Plan */,
 				4ED69D0E5434E71C2F4BAEA2 /* Preview Content */,
+				3B6D3145E2A109BDDE9C2E37 /* Stats */,
 				0A09F2975B977DE852947A37 /* Theme */,
 				97CDB6B9CADCBF5B657F4689 /* Today */,
 				1CCF05E6DFE9D7357BB03DC7 /* Workout */,
@@ -294,6 +324,7 @@
 				832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */,
 				559E6897CF90CAC7A6A1F6A0 /* RecoveryStep.swift */,
 				97736E2A223554D304876154 /* StrengthOneRMStep.swift */,
+				8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */,
 				ABAD36082E1794BC90A2BF19 /* TrainingContextStep.swift */,
 				A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */,
 			);
@@ -378,6 +409,7 @@
 				AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */,
 				E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */,
 				BA038CFE732F184BCF35D51B /* AthleticBackgroundStep.swift in Sources */,
+				6D06AB8AA48005DC130BCB31 /* Atoms.swift in Sources */,
 				091D5BAE1978D1D4640BDE66 /* AuthState.swift in Sources */,
 				CF189219BC59E831BD6806A9 /* Chip.swift in Sources */,
 				B566F0148E5456C40DF9B260 /* ConnectionsStep.swift in Sources */,
@@ -399,16 +431,20 @@
 				7B25A3918B881C47B3B817D9 /* OnboardingFlow.swift in Sources */,
 				448482526ED3DFECFA4EB018 /* OnboardingState.swift in Sources */,
 				DAB8F84BC8A2A2AEEDF4D07D /* PersonalBasicsStep.swift in Sources */,
+				3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */,
 				CAB6C7FE963C8303FFBEA934 /* PostWorkoutSummaryView.swift in Sources */,
 				F765FE26FE60E9702A42DA3D /* PreWorkoutBriefView.swift in Sources */,
 				D5C5573E6B1101905CC6377D /* PrimaryButton.swift in Sources */,
 				F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */,
 				0A160AE1CDFF9776ADE9C1DF /* RecoveryStep.swift in Sources */,
 				1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */,
+				E8895A5B510826D82567BB60 /* StatsView.swift in Sources */,
 				E875D967971A5FE85908EF32 /* StepHeader.swift in Sources */,
 				96E2D74E24115D9ABB0AD0B5 /* StepShell.swift in Sources */,
 				7D2FAFFFE200A6EA5BB15F05 /* StrengthOneRMStep.swift in Sources */,
 				3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */,
+				28ECA2B64F0FE3156D7F32E2 /* ThresholdStep.swift in Sources */,
+				7C192D07CED68715D72F684A /* TodayDemoData.swift in Sources */,
 				1A5375BE0FBA2E654DD29C27 /* TodayView.swift in Sources */,
 				E116A8DCF999DB21F44C379C /* TrainingContextStep.swift in Sources */,
 				00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */,
