@@ -8,7 +8,9 @@
   "exports": {
     ".": "./schema/index.ts",
     "./schema": "./schema/index.ts",
-    "./schema/*": "./schema/*.ts"
+    "./schema/*": "./schema/*.ts",
+    "./tokens": "./tokens.ts",
+    "./tokens.json": "./tokens.json"
   },
   "scripts": {
     "lint": "tsc --noEmit",
