@@ -8,7 +8,7 @@ struct TrainingContextStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 7,
+            stepIndex: 8,
             title: "Contexto",
             subtitle: "Volumen y disponibilidad",
             hint: nil,

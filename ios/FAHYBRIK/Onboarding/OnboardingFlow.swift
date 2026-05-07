@@ -69,7 +69,7 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 7:
-                TrainingContextStep(
+                ThresholdStep(
                     state: state,
                     onBack: goBack,
                     onNext: advance,
@@ -77,7 +77,7 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 8:
-                RecoveryStep(
+                TrainingContextStep(
                     state: state,
                     onBack: goBack,
                     onNext: advance,
@@ -85,7 +85,7 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 9:
-                GoalsStep(
+                RecoveryStep(
                     state: state,
                     onBack: goBack,
                     onNext: advance,
@@ -93,7 +93,7 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 10:
-                ConnectionsStep(
+                GoalsStep(
                     state: state,
                     onBack: goBack,
                     onNext: advance,
@@ -101,6 +101,14 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 11:
+                ConnectionsStep(
+                    state: state,
+                    onBack: goBack,
+                    onNext: advance,
+                    onSkip: advance
+                )
+                .transition(stepTransition)
+            case 12:
                 DoneStep(onEnter: finish)
                     .transition(stepTransition)
             default:

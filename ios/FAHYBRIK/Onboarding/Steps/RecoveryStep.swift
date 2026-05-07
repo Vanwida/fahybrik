@@ -15,7 +15,7 @@ struct RecoveryStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 8,
+            stepIndex: 9,
             title: "Recovery",
             subtitle: "Sueño, estrés, dispositivos",
             hint: nil,

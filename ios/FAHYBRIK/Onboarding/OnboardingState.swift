@@ -5,7 +5,7 @@ import Observation
 // programs tests for fields the athlete leaves empty.
 @Observable
 final class OnboardingState {
-    static let totalSteps: Int = 12
+    static let totalSteps: Int = 13
 
     // Step 2 — personal basics
     var fullName: String = ""
@@ -53,26 +53,33 @@ final class OnboardingState {
     var stationFarmerCarryKg: Double? = nil
     var stationSandbagLungesSeconds: Int? = nil
 
-    // Step 8 — training context
+    // Step 8 — anaerobic / threshold benchmarks
+    var ftpWatts: Int? = nil
+    var lthrBpm: Int? = nil
+    var thresholdPaceSecondsPerKm: Int? = nil
+    var time1MileSeconds: Int? = nil
+    var maxHrBpm: Int? = nil
+
+    // Step 9 — training context
     var daysPerWeek: Int? = nil
     var hoursPerSession: Double? = nil
     var equipmentAccess: Set<EquipmentAccess> = []
     var injuriesNotes: String = ""
 
-    // Step 9 — recovery
+    // Step 10 — recovery
     var sleepHoursAvg: Double? = nil
     var subjectiveStress: Int? = nil
     var hrvMeasured: Bool? = nil
     var devicesOwned: Set<DeviceBrand> = []
 
-    // Step 10 — goals
+    // Step 11 — goals
     var aEventName: String = ""
     var aEventDate: Date? = nil
     var aEventDivision: HyroxDivision? = nil
     var goalKind: GoalKind? = nil
     var goalTimeSeconds: Int? = nil
 
-    // Step 11 — connections
+    // Step 12 — connections
     var garminConnected: Bool = false
     var healthkitGranted: Bool = false
 
@@ -130,6 +137,11 @@ final class OnboardingState {
             station_bbj_seconds: stationBbjSeconds,
             station_farmer_carry_kg: stationFarmerCarryKg,
             station_sandbag_lunges_seconds: stationSandbagLungesSeconds,
+            ftp_watts: ftpWatts,
+            lthr_bpm: lthrBpm,
+            threshold_pace_seconds_per_km: thresholdPaceSecondsPerKm,
+            time_1_mile_seconds: time1MileSeconds,
+            max_hr_bpm: maxHrBpm,
             days_per_week: daysPerWeek,
             hours_per_session: hoursPerSession,
             equipment_access: equipmentAccess.map(\.rawValue).sorted(),
@@ -209,6 +221,11 @@ final class OnboardingState {
         stationBbjSeconds = s.station_bbj_seconds
         stationFarmerCarryKg = s.station_farmer_carry_kg
         stationSandbagLungesSeconds = s.station_sandbag_lunges_seconds
+        ftpWatts = s.ftp_watts
+        lthrBpm = s.lthr_bpm
+        thresholdPaceSecondsPerKm = s.threshold_pace_seconds_per_km
+        time1MileSeconds = s.time_1_mile_seconds
+        maxHrBpm = s.max_hr_bpm
         daysPerWeek = s.days_per_week
         hoursPerSession = s.hours_per_session
         equipmentAccess = Set(s.equipment_access.compactMap(EquipmentAccess.init(rawValue:)))
@@ -358,6 +375,11 @@ struct OnboardingSnapshot: Codable {
     let station_bbj_seconds: Int?
     let station_farmer_carry_kg: Double?
     let station_sandbag_lunges_seconds: Int?
+    let ftp_watts: Int?
+    let lthr_bpm: Int?
+    let threshold_pace_seconds_per_km: Int?
+    let time_1_mile_seconds: Int?
+    let max_hr_bpm: Int?
     let days_per_week: Int?
     let hours_per_session: Double?
     let equipment_access: [String]

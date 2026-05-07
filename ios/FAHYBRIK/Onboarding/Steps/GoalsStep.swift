@@ -8,7 +8,7 @@ struct GoalsStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 9,
+            stepIndex: 10,
             title: "Tu A-event",
             subtitle: "El objetivo que ancla el plan",
             hint: nil,

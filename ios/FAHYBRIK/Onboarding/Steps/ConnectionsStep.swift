@@ -8,7 +8,7 @@ struct ConnectionsStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 10,
+            stepIndex: 11,
             title: "Conexiones",
             subtitle: "Sincroniza tus dispositivos",
             hint: nil,
