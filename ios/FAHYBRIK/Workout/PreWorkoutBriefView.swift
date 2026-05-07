@@ -1,5 +1,9 @@
 import SwiftUI
 
+// Expert variant of the Pre-Workout Brief.
+// Mirrors docs/design/fahybrik-design-system/project/athlete_app/workout.jsx
+// `PreBriefExpert`. Compact data grid + segments table + connection grid +
+// coach quote. No emoji, no fluff — élite shorthand.
 struct PreWorkoutBriefView: View {
     let plan: WorkoutPlan
     let connections: ConnectionStatus
@@ -17,187 +21,149 @@ struct PreWorkoutBriefView: View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
             VStack(spacing: 0) {
-                header
+                topBar
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                        nameBlock
-                        connectionsBadges
-                        zoneTargetsBlock
-                        equipmentBlock
-                        segmentList
-                        warmupBlock
+                    VStack(alignment: .leading, spacing: 10) {
+                        kvGrid
+                        segmentsTable
+                        connectionsGrid
                         if let note = plan.coachNote {
-                            coachNoteBlock(note)
+                            CardSurface(padding: 14, leftAccent: true) {
+                                CoachQuote(text: "\u{201C}\(note)\u{201D}")
+                            }
                         }
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.horizontal, Theme.Spacing.l)
                     .padding(.bottom, Theme.Spacing.xxl)
                 }
-                PrimaryButton(title: "Empezar", action: onStart)
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.bottom, Theme.Spacing.xl)
+                ExpertPrimaryButton(title: "▶ EMPEZAR", action: onStart)
+                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.bottom, Theme.Spacing.l)
                     .padding(.top, Theme.Spacing.s)
             }
         }
     }
 
-    private var header: some View {
+    private var topBar: some View {
         HStack {
             Button(action: { Haptics.light(); onClose() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 36, height: 36)
+                Text("← Atrás")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
             }
+            .buttonStyle(.plain)
             Spacer()
-            Text(plan.blockContext)
-                .font(Theme.Typography.small)
-                .italic()
-                .foregroundStyle(Theme.Color.muted)
+            LabelText(text: "Workout Brief")
+            Spacer()
+            Color.clear.frame(width: 50)
         }
         .padding(.horizontal, Theme.Spacing.l)
         .padding(.top, Theme.Spacing.s)
+        .padding(.bottom, Theme.Spacing.l)
     }
 
-    private var nameBlock: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(plan.name)
-                .font(Theme.Typography.headlineL)
+    private var kvGrid: some View {
+        CardSurface(padding: 12) {
+            let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+            LazyVGrid(columns: cols, spacing: 10) {
+                kv(label: "Name", value: plan.name)
+                kv(label: "Format", value: plan.format.displayName)
+                kv(label: "Dur", value: "~\(plan.estimatedDurationSeconds / 60) min")
+                kv(label: "Segments", value: "\(plan.segments.count)")
+                kv(label: "Block", value: plan.blockContext)
+                kv(label: "Equip", value: "\(plan.equipment.count) items")
+            }
+        }
+    }
+
+    private func kv(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            LabelText(text: label, size: 10)
+            Text(value)
+                .font(.system(size: 13))
                 .foregroundStyle(Theme.Color.foreground)
-            Text("\(plan.format.displayName) · ~\(plan.estimatedDurationSeconds / 60) min")
-                .font(Theme.Typography.body)
-                .foregroundStyle(Theme.Color.muted)
+                .lineLimit(1)
         }
-        .padding(.top, Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var connectionsBadges: some View {
-        HStack(spacing: 8) {
-            ConnectionBadge(label: "Garmin", connected: connections.garmin)
-            ConnectionBadge(label: "HR Strap", connected: connections.healthkit)
-            ConnectionBadge(label: "PM5", connected: connections.pm5)
-        }
-    }
-
-    private var zoneTargetsBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionHeader("Trabajo en zonas")
-            HStack(spacing: 6) {
-                ForEach(plan.zoneTargets, id: \.zone) { zt in
-                    HStack(spacing: 4) {
-                        Circle().fill(zt.zone.color).frame(width: 8, height: 8)
-                        Text("\(zt.percent)% \(zt.zone.label)")
-                            .font(Theme.Typography.small)
+    private var segmentsTable: some View {
+        CardSurface(padding: 0) {
+            VStack(spacing: 0) {
+                HStack {
+                    LabelText(text: "Segments · Targets")
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                Hairline()
+                ForEach(Array(plan.segments.enumerated()), id: \.element.id) { idx, seg in
+                    if idx > 0 { Hairline() }
+                    HStack(alignment: .center, spacing: 8) {
+                        MonoText(text: "\(idx + 1)", size: 11, color: Theme.Color.muted)
+                            .frame(width: 20, alignment: .leading)
+                        Text(seg.title)
+                            .font(.system(size: 13))
                             .foregroundStyle(Theme.Color.foreground)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Theme.Color.surface)
-                    .clipShape(Capsule())
-                }
-            }
-        }
-    }
-
-    private var equipmentBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionHeader("Equipamiento")
-            Text(plan.equipment.joined(separator: " · "))
-                .font(Theme.Typography.body)
-                .foregroundStyle(Theme.Color.foreground)
-        }
-    }
-
-    private var segmentList: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionHeader("Plan")
-            VStack(spacing: 1) {
-                ForEach(plan.segments) { seg in
-                    HStack(alignment: .top, spacing: Theme.Spacing.m) {
-                        Text(String(format: "%02d", seg.order))
-                            .font(Theme.Typography.dataLabel.monospacedDigit())
-                            .foregroundStyle(Theme.Color.muted)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(seg.title)
-                                .font(Theme.Typography.body)
-                                .foregroundStyle(Theme.Color.foreground)
-                            if let z = seg.targetZone {
-                                HRZoneBadge(zone: z)
-                            }
-                        }
-                        Spacer()
-                        if let p = seg.targetPaceSecondsPerKm {
-                            Text("\(TimeMinSecRow.format(p))/km")
-                                .font(Theme.Typography.dataLabel.monospacedDigit())
-                                .foregroundStyle(Theme.Color.muted)
-                        } else if let w = seg.targetPowerWatts {
-                            Text("\(w)W")
-                                .font(Theme.Typography.dataLabel.monospacedDigit())
-                                .foregroundStyle(Theme.Color.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .lineLimit(1)
+                        MonoText(text: targetString(seg), size: 11, color: Theme.Color.muted)
+                            .frame(width: 60, alignment: .trailing)
+                        if let z = seg.targetZone {
+                            ZBadge(zone: z)
+                                .frame(width: 50, alignment: .trailing)
+                        } else {
+                            Color.clear.frame(width: 50)
                         }
                     }
-                    .padding(Theme.Spacing.m)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.Color.surface)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        }
-    }
-
-    private var warmupBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionHeader("Calentamiento")
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(plan.warmupChecklist, id: \.self) { line in
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("·").foregroundStyle(Theme.Color.muted)
-                        Text(line).font(Theme.Typography.small).foregroundStyle(Theme.Color.foreground)
-                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                 }
             }
         }
     }
 
-    private func coachNoteBlock(_ note: String) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            sectionHeader("Pablo")
-            Text("\u{201C}\(note)\u{201D}")
-                .font(Theme.Typography.body)
-                .italic()
-                .foregroundStyle(Theme.Color.muted)
-                .padding(.leading, Theme.Spacing.m)
-                .overlay(
-                    Rectangle().fill(Theme.Color.accent).frame(width: 2),
-                    alignment: .leading
-                )
+    private func targetString(_ s: WorkoutSegment) -> String {
+        if let p = s.targetPaceSecondsPerKm {
+            return "\(TimeMinSecRow.format(p))/km"
+        }
+        if let w = s.targetPowerWatts { return "\(w)W" }
+        if let r = s.targetReps { return "\(r)r" }
+        if let d = s.targetDistanceMeters { return d >= 1000 ? String(format: "%.1fk", d/1000) : "\(Int(d))m" }
+        return "—"
+    }
+
+    private var connectionsGrid: some View {
+        CardSurface(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                LabelText(text: "Connections")
+                let cols = [
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8),
+                ]
+                LazyVGrid(columns: cols, spacing: 8) {
+                    connTile(label: "Garmin", connected: connections.garmin)
+                    connTile(label: "HR Strap", connected: connections.healthkit)
+                    connTile(label: "PM5", connected: connections.pm5)
+                }
+            }
         }
     }
 
-    private func sectionHeader(_ s: String) -> some View {
-        Text(s)
-            .font(Theme.Typography.dataLabel)
-            .uppercaseTracked()
-            .foregroundStyle(Theme.Color.muted)
-    }
-}
-
-private struct ConnectionBadge: View {
-    let label: String
-    let connected: Bool
-
-    var body: some View {
-        HStack(spacing: 4) {
+    private func connTile(label: String, connected: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.foreground)
-            Text(connected ? "✓" : "✗")
-                .font(Theme.Typography.small)
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.Color.muted)
+            Text(connected ? "✓ ready" : "✗ off")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(connected ? Theme.Color.ok : Theme.Color.danger)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Theme.Color.surface)
-        .clipShape(Capsule())
+        .padding(.vertical, 8)
+        .background(Theme.Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }

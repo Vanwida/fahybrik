@@ -1,216 +1,258 @@
 import SwiftUI
 
+// Expert variant of the Active Workout screen — Garmin watch-face density.
+// Mirrors docs/design/fahybrik-design-system/project/athlete_app/workout.jsx
+// `ActiveExpert`: compact top strip (pause / segment title / index), big LAP
+// timer hero, 2x3 metric grid, next-segment chip + LAP button. Tab bar hidden
+// by parent (WorkoutContainer) per "lock-in mode".
 struct ActiveWorkoutView: View {
     @State var session: WorkoutSession
     let onFinish: () -> Void
 
     @State private var showPauseConfirm: Bool = false
+    @State private var pauseAutoResume: Int = 10
 
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                topBar
-                heroHRBlock
-                segmentTitle
-                dataGridForSegment
+            VStack(spacing: 8) {
+                topStrip
+                lapTimerHero
+                metricGrid
                 Spacer(minLength: 0)
-                lapZone
-                if let next = session.nextSegment {
-                    Text("Próx: \(next.title)\(next.targetZone.map { "  ·  TGT \($0.label)" } ?? "")")
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                }
+                nextSegmentChip
+                lapButton
             }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.vertical, Theme.Spacing.m)
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.top, Theme.Spacing.s)
+            .padding(.bottom, 10)
 
             if showPauseConfirm {
                 pauseModal
             }
         }
-        .onAppear {
-            session.start()
-        }
-        .onDisappear {
-            session.stop()
-        }
+        .onAppear { session.start() }
+        .onDisappear { session.stop() }
         .onChange(of: session.isFinished) { _, finished in
             if finished { onFinish() }
         }
     }
 
-    private var topBar: some View {
+    private var topStrip: some View {
         HStack {
             Button(action: {
                 session.togglePause()
-                if session.isPaused { showPauseConfirm = true }
+                if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
             }) {
-                Image(systemName: session.isPaused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                Text("‖")
+                    .font(.system(size: 16))
                     .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 28, height: 28)
             }
+            .buttonStyle(.plain)
             Spacer()
-            Text("\(session.currentSegmentIndex + 1)/\(session.plan.segments.count)")
-                .font(Theme.Typography.small.monospacedDigit())
-                .italic()
-                .foregroundStyle(Theme.Color.muted)
+            MonoText(
+                text: (session.currentSegment?.title ?? "—").uppercased(),
+                size: 11,
+                color: Theme.Color.muted
+            )
+            .lineLimit(1)
+            Spacer()
+            MonoText(
+                text: "\(session.currentSegmentIndex + 1)/\(session.plan.segments.count)",
+                size: 11,
+                color: Theme.Color.muted
+            )
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var lapTimerHero: some View {
+        VStack(spacing: 2) {
+            LabelText(text: "Lap", size: 9)
+            HeroNumber(text: WorkoutSession.formatElapsed(session.lapElapsedSeconds), size: 88)
+        }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var metricGrid: some View {
+        let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
+        return LazyVGrid(columns: cols, spacing: 4) {
+            ExpertCell(
+                label: "HR",
+                value: session.liveHRBpm.map { "\($0)" } ?? "—",
+                unit: "bpm",
+                color: liveZoneColor
+            )
+            ExpertCell(
+                label: "Zone",
+                value: session.liveZone?.label ?? "—",
+                unit: "",
+                color: liveZoneColor
+            )
+            ExpertCell(label: "Reps", value: repsString, unit: "")
+            ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
+            ExpertCell(label: "Tgt HR", value: targetZoneLabel, unit: "")
+            ExpertCell(label: secondaryLabel, value: secondaryValue, unit: secondaryUnit)
         }
     }
 
-    private var heroHRBlock: some View {
-        let hr = session.liveHRBpm
-        let zone = session.liveZone
-        return HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
-            Text(hr.map { "\($0)" } ?? "—")
-                .font(Theme.Typography.dataDigitHero)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            VStack(alignment: .leading, spacing: 4) {
-                if let zone {
-                    HRZoneBadge(zone: zone)
-                }
-                Text("HR")
-                    .font(Theme.Typography.dataLabel)
-                    .uppercaseTracked()
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.l)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+    private var liveZoneColor: Color {
+        session.liveZone?.color ?? Theme.Color.foreground
     }
 
-    private var segmentTitle: some View {
-        HStack {
-            Text(session.currentSegment?.title ?? "—")
-                .font(Theme.Typography.headlineS)
-                .foregroundStyle(Theme.Color.foreground)
-            Spacer()
-            if let z = session.currentSegment?.targetZone {
-                HRZoneBadge(zone: z)
-            }
+    private var repsString: String {
+        let seg = session.currentSegment
+        if seg?.kind == .reps {
+            let target = seg?.targetReps ?? 0
+            return "\(session.repsCurrentSegment)/\(target)"
+        }
+        if seg?.kind == .strength {
+            return "\(session.repsCurrentSegment)"
+        }
+        return "—"
+    }
+
+    private var targetZoneLabel: String {
+        session.currentSegment?.targetZone?.label ?? "—"
+    }
+
+    private var secondaryLabel: String {
+        guard let seg = session.currentSegment else { return "Pace" }
+        switch seg.kind {
+        case .running: return "Pace Tgt"
+        case .rowOrSki: return "Pwr Tgt"
+        case .sled: return "Load"
+        case .reps: return "Cad"
+        case .strength: return "Load"
+        }
+    }
+
+    private var secondaryValue: String {
+        guard let seg = session.currentSegment else { return "—" }
+        switch seg.kind {
+        case .running:
+            if let p = seg.targetPaceSecondsPerKm { return TimeMinSecRow.format(p) }
+            return "—"
+        case .rowOrSki:
+            if let w = seg.targetPowerWatts { return "\(w)" }
+            return "—"
+        case .sled:
+            if let kg = seg.loadKg { return "\(Int(kg))" }
+            return "—"
+        case .reps:
+            return "1.2"
+        case .strength:
+            if let kg = seg.loadKg { return "\(Int(kg))" }
+            return "—"
+        }
+    }
+
+    private var secondaryUnit: String {
+        guard let seg = session.currentSegment else { return "" }
+        switch seg.kind {
+        case .running: return "/km"
+        case .rowOrSki: return "W"
+        case .sled, .strength: return "kg"
+        case .reps: return "r/s"
         }
     }
 
     @ViewBuilder
-    private var dataGridForSegment: some View {
-        let seg = session.currentSegment
-        let kind = seg?.kind ?? .reps
-        let lapStr = WorkoutSession.formatElapsed(session.lapElapsedSeconds)
-        let totalStr = WorkoutSession.formatElapsed(session.elapsedSeconds)
-
-        switch kind {
-        case .running:
-            DataGrid2x2(
-                topLeft: ("DIST", distanceTarget(seg), nil),
-                topRight: ("PACE TGT", paceTarget(seg), nil),
-                bottomLeft: ("LAP", lapStr, nil),
-                bottomRight: ("TOTAL", totalStr, nil)
-            )
-        case .rowOrSki:
-            DataGrid2x2(
-                topLeft: ("POWER TGT", powerTarget(seg), nil),
-                topRight: ("DIST", distanceTarget(seg), nil),
-                bottomLeft: ("LAP", lapStr, nil),
-                bottomRight: ("TOTAL", totalStr, nil)
-            )
-        case .sled:
-            DataGrid2x2(
-                topLeft: ("DIST", distanceTarget(seg), nil),
-                topRight: ("LOAD", loadStr(seg), nil),
-                bottomLeft: ("LAP", lapStr, nil),
-                bottomRight: ("TOTAL", totalStr, nil)
-            )
-        case .reps:
-            HStack(spacing: 1) {
-                Button(action: { session.tap(reps: 1) }) {
-                    DataCell(
-                        label: "REPS",
-                        value: "\(session.repsCurrentSegment)/\(seg?.targetReps ?? 0)",
-                        emphasis: nil
-                    )
+    private var nextSegmentChip: some View {
+        if let next = session.nextSegment {
+            HStack {
+                Text("NEXT · \(next.title)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.Color.muted)
+                    .lineLimit(1)
+                Spacer()
+                if let z = next.targetZone {
+                    ZBadge(zone: z)
                 }
-                .buttonStyle(.plain)
-                DataCell(label: "TGT HR", value: seg?.targetZone?.label ?? "—",
-                         emphasis: seg?.targetZone?.color)
             }
-            .background(Theme.Color.muted.opacity(0.18))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-
-            HStack(spacing: 1) {
-                DataCell(label: "LAP", value: lapStr, emphasis: nil)
-                DataCell(label: "TOTAL", value: totalStr, emphasis: nil)
-            }
-            .background(Theme.Color.muted.opacity(0.18))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        case .strength:
-            // Strength has its own sub-screen per spec — fallback grid for now.
-            DataGrid2x2(
-                topLeft: ("REPS", "\(session.repsCurrentSegment)", nil),
-                topRight: ("LOAD", loadStr(seg), nil),
-                bottomLeft: ("LAP", lapStr, nil),
-                bottomRight: ("TOTAL", totalStr, nil)
-            )
+            .padding(.horizontal, 4)
+            .padding(.bottom, 6)
         }
     }
 
-    private var lapZone: some View {
-        LapButton(action: { session.lap() })
-            .frame(height: 168) // ~22% of typical iPhone screen height
+    private var lapButton: some View {
+        ExpertLapButton(action: { session.lap() })
+            .frame(height: 88)
     }
 
     private var pauseModal: some View {
         ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                Text("Pausa")
-                    .font(Theme.Typography.headlineM)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Auto-resume en 10s si no confirmas.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                HStack(spacing: Theme.Spacing.m) {
+            Theme.Color.scrim.ignoresSafeArea()
+            CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    Text("Pausa")
+                        .font(Theme.Typography.headlineM)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("Auto-resume en \(pauseAutoResume)s si no confirmas.")
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                    ExpertPrimaryButton(title: "Reanudar") {
+                        session.togglePause()
+                        showPauseConfirm = false
+                    }
                     SecondaryButton(title: "Abandonar") {
                         session.finish()
                         showPauseConfirm = false
                     }
-                    PrimaryButton(title: "Reanudar") {
-                        session.togglePause()
-                        showPauseConfirm = false
-                    }
                 }
             }
-            .padding(Theme.Spacing.xl)
-            .frame(maxWidth: 320)
-            .brandSurface()
-            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.horizontal, Theme.Spacing.l)
+        }
+        .transition(.opacity)
+        .onAppear {
+            countdownAutoResume()
         }
     }
 
-    // MARK: - Formatting helpers
-
-    private func distanceTarget(_ s: WorkoutSegment?) -> String {
-        guard let s, let m = s.targetDistanceMeters else { return "—" }
-        if m >= 1000 {
-            return String(format: "%.2f km", m / 1000)
+    private func countdownAutoResume() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            guard showPauseConfirm else { return }
+            if pauseAutoResume <= 1 {
+                session.togglePause()
+                showPauseConfirm = false
+            } else {
+                pauseAutoResume -= 1
+                countdownAutoResume()
+            }
         }
-        return "\(Int(m)) m"
     }
-    private func paceTarget(_ s: WorkoutSegment?) -> String {
-        guard let p = s?.targetPaceSecondsPerKm else { return "—" }
-        return "\(TimeMinSecRow.format(p))/km"
-    }
-    private func powerTarget(_ s: WorkoutSegment?) -> String {
-        guard let w = s?.targetPowerWatts else { return "—" }
-        return "\(w)W"
-    }
-    private func loadStr(_ s: WorkoutSegment?) -> String {
-        guard let kg = s?.loadKg else { return "—" }
-        return "\(Int(kg)) kg"
+}
+
+// Smaller LAP button matching Expert spec (88pt, radius 14).
+private struct ExpertLapButton: View {
+    let action: () -> Void
+    @State private var flashing: Bool = false
+    @State private var lastTap: Date = .distantPast
+
+    var body: some View {
+        Button {
+            let now = Date()
+            guard now.timeIntervalSince(lastTap) > 0.5 else { return }
+            lastTap = now
+            Haptics.medium()
+            withAnimation(.easeOut(duration: 0.18)) { flashing = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.easeIn(duration: 0.16)) { flashing = false }
+            }
+            action()
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .fill(flashing ? Theme.Color.ok : Theme.Color.accent)
+                Text("LAP")
+                    .font(.system(size: 40, weight: .heavy, design: .default).italic())
+                    .tracking(4)
+                    .foregroundStyle(Color.white)
+            }
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Lap")
     }
 }
