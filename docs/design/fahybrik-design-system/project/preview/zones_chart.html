@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding: 20px 24px; }
+  .row { display:flex; align-items:center; gap: 12px; padding: 6px 0; }
+  .label { width: 28px; font: var(--type-data-label); }
+  .bar { flex: 1; height: 8px; border-radius: 9999px; background: var(--surface); position: relative; overflow:hidden; }
+  .fill { height: 100%; border-radius: 9999px; }
+  .pct, .time { font: var(--type-data-label); font-variant-numeric: tabular-nums; color: var(--muted); }
+  .time { color: var(--fg); }
+  .pct { width: 36px; text-align: right; }
+  .time { width: 56px; text-align: right; }
+</style></head><body>
+<div class="row"><span class="label" style="color:#C7C7C7">Z1</span><div class="bar"><div class="fill" style="width:3%;background:rgba(199,199,199,0.7)"></div></div><span class="pct">03%</span><span class="time">1:24</span></div>
+<div class="row"><span class="label" style="color:#4D9EEB">Z2</span><div class="bar"><div class="fill" style="width:7%;background:rgba(77,158,235,0.7)"></div></div><span class="pct">07%</span><span class="time">3:18</span></div>
+<div class="row"><span class="label" style="color:#4DC773">Z3</span><div class="bar"><div class="fill" style="width:31%;background:rgba(77,199,115,0.7)"></div></div><span class="pct">31%</span><span class="time">14:42</span></div>
+<div class="row"><span class="label" style="color:#F2B833">Z4</span><div class="bar"><div class="fill" style="width:42%;background:rgba(242,184,51,0.7)"></div></div><span class="pct">42%</span><span class="time">19:54</span></div>
+<div class="row"><span class="label" style="color:#EB4D4D">Z5</span><div class="bar"><div class="fill" style="width:17%;background:rgba(235,77,77,0.7)"></div></div><span class="pct">17%</span><span class="time">8:05</span></div>
+</body></html>

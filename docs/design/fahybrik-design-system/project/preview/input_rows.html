@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding: 24px; }
+  .row { display:flex; align-items:center; padding: 14px 16px; background: var(--surface); }
+  .row + .row { margin-top: 1px; }
+  .label { flex:1; font: var(--type-body); color: var(--fg); }
+  .input { font: var(--type-body-emph); font-variant-numeric: tabular-nums; color: var(--fg); }
+  .unit { font: var(--type-caption); color: var(--muted); margin-left: 4px; }
+  .wrap { border-radius: 10px; overflow: hidden; }
+</style></head><body>
+<div class="wrap">
+  <div class="row"><span class="label">Back squat</span><span class="input">140</span><span class="unit">kg</span></div>
+  <div class="row"><span class="label">Deadlift</span><span class="input">180</span><span class="unit">kg</span></div>
+  <div class="row"><span class="label">Bench press</span><span class="input">95</span><span class="unit">kg</span></div>
+  <div class="row"><span class="label">Pull-ups</span><span class="input">24</span></div>
+</div>
+</body></html>

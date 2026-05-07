@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding: 24px; display:flex; flex-direction:column; gap: 12px; }
+  .label { font: var(--type-data-label); letter-spacing:0.16em; color: var(--muted); }
+  .scale { display:flex; gap: 6px; }
+  .pip { width: 30px; height: 36px; display:flex; align-items:center; justify-content:center; background: var(--surface); border-radius: 8px; font: var(--type-body-emph); font-variant-numeric: tabular-nums; color: var(--fg); }
+  .pip.on { background: var(--accent); color: white; }
+</style></head><body>
+<span class="label">¿Cómo lo sentiste?</span>
+<div class="scale">
+  <div class="pip">1</div><div class="pip">2</div><div class="pip">3</div><div class="pip">4</div>
+  <div class="pip">5</div><div class="pip">6</div><div class="pip">7</div><div class="pip on">8</div>
+  <div class="pip">9</div><div class="pip">10</div>
+</div>
+</body></html>

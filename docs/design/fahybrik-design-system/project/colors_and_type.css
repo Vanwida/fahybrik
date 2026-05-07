@@ -1,0 +1,192 @@
+/* =========================================================================
+   FAHYBRIK Design System — colors, type, spacing, radius
+   Source of truth: ios/FAHYBRIK/Theme/Theme.swift, ZoneColors.swift,
+   Assets.xcassets/Brand*.colorset, web/app/globals.css.
+   ========================================================================= */
+
+/* Fonts — Google Fonts substitutes for SF Pro (iOS) + native web fonts.
+   Archivo italic 800/900 for display; Geist Sans/Mono for UI. */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800;1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ----- color, surface ----- */
+  --bg:               #0A0A0A;            /* page background */
+  --surface:          #141414;            /* cards, rows, modals */
+  --surface-elevated: #1F1F1F;            /* pressed, secondary btn */
+  --fg:               #F5F5F5;            /* primary text */
+  --muted:            #A1A1A1;            /* secondary text, labels */
+  --hairline:         rgba(161,161,161,0.18);
+  --outline:          rgba(255,255,255,0.10);
+  --scrim:            rgba(0,0,0,0.55);
+
+  /* ----- brand accent (single) ----- */
+  --accent:           #F06A2A;            /* Fabrik orange */
+  --accent-press:     #D85A20;
+  --accent-on:        #FFFFFF;            /* label color on orange fill */
+
+  /* ----- semantic ----- */
+  --ok:               #3FC773;
+  --warning:          #F2A52E;
+  --danger:           #F23F3F;
+
+  /* ----- HR zones (workout charts ONLY — no orange here) ----- */
+  --z1:               #C7C7C7;
+  --z2:               #4D9EEB;
+  --z3:               #4DC773;
+  --z4:               #F2B833;
+  --z5:               #EB4D4D;
+  --z1-tint:          rgba(199,199,199,0.15);
+  --z2-tint:          rgba(77,158,235,0.15);
+  --z3-tint:          rgba(77,199,115,0.15);
+  --z4-tint:          rgba(242,184,51,0.15);
+  --z5-tint:          rgba(235,77,77,0.15);
+
+  /* ----- spacing ----- */
+  --s-xs:    4px;
+  --s-s:     8px;
+  --s-m:    12px;
+  --s-l:    16px;
+  --s-xl:   24px;
+  --s-xxl:  32px;
+  --s-xxxl: 48px;
+
+  /* ----- radius ----- */
+  --r-s:     6px;
+  --r-m:    10px;
+  --r-l:    14px;
+  --r-xl:   20px;
+  --r-pill: 9999px;
+
+  /* ----- shadow (rarely used; dark UI) ----- */
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-modal: 0 20px 48px rgba(0,0,0,0.6);
+
+  /* ----- font families ----- */
+  --font-display: "Archivo", "SF Pro Display", system-ui, sans-serif;
+  --font-sans:    "Geist", "SF Pro Text", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "SF Mono", ui-monospace, monospace;
+
+  /* ----- type scale (matches Theme.Typography) ----- */
+  --type-display:     900 italic 56px/1.0   var(--font-display);
+  --type-headline-l:  900 italic 38px/1.05  var(--font-display);
+  --type-headline-m:  900 italic 28px/1.1   var(--font-display);
+  --type-headline-s:  700 italic 20px/1.2   var(--font-display);
+  --type-body:        400 16px/1.4          var(--font-sans);
+  --type-body-emph:   600 16px/1.4          var(--font-sans);
+  --type-small:       500 13px/1.4          var(--font-sans);
+  --type-caption:     500 12px/1.3          var(--font-sans);
+  --type-data-digit:  900 italic 36px/1.0   var(--font-display);
+  --type-data-hero:   900 italic 96px/0.95  var(--font-display);
+  --type-data-label:  600 11px/1.0          var(--font-sans);
+}
+
+/* =========================================================================
+   Semantic element styles — drop into any artifact and you're on-brand
+   ========================================================================= */
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font: var(--type-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 { font: var(--type-headline-l); color: var(--fg); margin: 0; letter-spacing: -0.01em; }
+h2 { font: var(--type-headline-m); color: var(--fg); margin: 0; letter-spacing: -0.01em; }
+h3 { font: var(--type-headline-s); color: var(--fg); margin: 0; }
+.display { font: var(--type-display); color: var(--fg); letter-spacing: -0.02em; }
+
+p, .body { font: var(--type-body); color: var(--fg); margin: 0; }
+.body-emph { font: var(--type-body-emph); color: var(--fg); }
+.muted { color: var(--muted); }
+.small { font: var(--type-small); color: var(--muted); }
+.caption { font: var(--type-caption); color: var(--muted); }
+
+.label,
+.section-label {
+  font: var(--type-data-label);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.data-digit { font: var(--type-data-digit); font-variant-numeric: tabular-nums; color: var(--fg); }
+.data-hero  { font: var(--type-data-hero);  font-variant-numeric: tabular-nums; color: var(--fg); }
+.data-label { font: var(--type-data-label); text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); }
+.mono       { font-family: var(--font-mono); }
+
+/* Wordmark — always renders the bracketed orange F */
+.wordmark { font: var(--type-display); letter-spacing: -0.02em; color: var(--fg); white-space: nowrap; }
+.wordmark .f { color: var(--accent); }
+
+/* Card recipe */
+.card {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  padding: var(--s-l);
+}
+.card-hero {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  padding: var(--s-l);
+  box-shadow: var(--shadow-card);
+}
+.row-divider > * + * { border-top: 1px solid var(--hairline); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 54px; padding: 0 24px;
+  border: 0; border-radius: var(--r-l); cursor: pointer;
+  font: 800 italic 16px/1 var(--font-display);
+  letter-spacing: 0.06em;
+  transition: transform 80ms ease-out, background-color 120ms ease-out;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); color: var(--accent-on); }
+.btn-primary:hover { background: var(--accent-press); }
+.btn-secondary {
+  background: transparent; color: var(--fg);
+  border: 1px solid var(--outline);
+  font: 600 16px/1 var(--font-sans);
+  letter-spacing: 0;
+}
+.btn-secondary:hover { background: var(--surface-elevated); }
+.btn-ghost {
+  background: transparent; color: var(--muted);
+  font: var(--type-small);
+  text-decoration: underline;
+  height: auto; padding: 4px 0;
+}
+
+/* Pills — chips, status, zone badges */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  background: var(--surface);
+  font: var(--type-small); color: var(--fg);
+  border: 1px solid var(--hairline);
+}
+.pill-selected {
+  background: var(--accent); color: var(--accent-on);
+  border-color: var(--accent);
+}
+.zone-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  font: var(--type-data-label); letter-spacing: 0.16em;
+}
+.zone-pill[data-zone="Z1"] { color: var(--z1); background: var(--z1-tint); }
+.zone-pill[data-zone="Z2"] { color: var(--z2); background: var(--z2-tint); }
+.zone-pill[data-zone="Z3"] { color: var(--z3); background: var(--z3-tint); }
+.zone-pill[data-zone="Z4"] { color: var(--z4); background: var(--z4-tint); }
+.zone-pill[data-zone="Z5"] { color: var(--z5); background: var(--z5-tint); }
+
+/* Coach quote — italic muted with orange left bar */
+.coach-quote {
+  font: var(--type-body); font-style: italic;
+  color: var(--muted);
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+}

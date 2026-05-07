@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding: 24px; display:flex; flex-direction:column; gap: 16px; }
+  .lap {
+    height: 110px; border-radius: 20px; background: var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font: 900 italic 56px/1 var(--font-display); letter-spacing: 0.36em;
+    color: white;
+  }
+  .progress { display:flex; gap: 6px; align-items: center; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(161,161,161,0.3); }
+  .dot.on { background: var(--accent); }
+  .label { font: var(--type-data-label); text-transform: uppercase; letter-spacing:0.16em; color: var(--muted); }
+</style></head><body>
+<div class="lap">LAP</div>
+<div style="display:flex; align-items:center; gap: 12px;">
+  <span class="label">Progress dots</span>
+  <div class="progress">
+    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+    <span class="dot on"></span><span class="dot on"></span>
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+  </div>
+  <span class="small">Paso 5 de 11</span>
+</div>
+</body></html>

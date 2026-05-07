@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px 24px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .swatch { background: var(--surface); border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px; }
+  .chip { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--outline); }
+  .meta { display: flex; flex-direction: column; line-height: 1.2; }
+  .name { font: var(--type-data-label); text-transform: uppercase; letter-spacing: 0.12em; color: var(--fg); }
+  .hex  { font: 500 11px/1.2 var(--font-mono); color: var(--muted); margin-top: 2px; }
+</style></head><body>
+<div class="grid">
+  <div class="swatch"><div class="chip" style="background:#0A0A0A"></div><div class="meta"><span class="name">BG</span><span class="hex">#0A0A0A</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#141414"></div><div class="meta"><span class="name">SURFACE</span><span class="hex">#141414</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#1F1F1F"></div><div class="meta"><span class="name">ELEVATED</span><span class="hex">#1F1F1F</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#F5F5F5"></div><div class="meta"><span class="name">FG</span><span class="hex">#F5F5F5</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#A1A1A1"></div><div class="meta"><span class="name">MUTED</span><span class="hex">#A1A1A1</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#F06A2A"></div><div class="meta"><span class="name">ACCENT</span><span class="hex">#F06A2A</span></div></div>
+</div>
+</body></html>

@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding: 20px 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--hairline); border-radius: 14px; overflow: hidden; }
+  .cell { background: var(--surface); padding: 16px; display:flex; flex-direction: column; gap: 6px; }
+  .cell .label { font: var(--type-data-label); text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); }
+  .cell .value { font: var(--type-data-digit); font-variant-numeric: tabular-nums; color: var(--fg); }
+</style></head><body>
+<div class="grid">
+  <div class="cell"><span class="label">REPS</span><span class="value">23/50</span></div>
+  <div class="cell"><span class="label">TGT HR</span><span class="value" style="color:#F2B833">Z4</span></div>
+  <div class="cell"><span class="label">LAP</span><span class="value">00:42</span></div>
+  <div class="cell"><span class="label">TOTAL</span><span class="value">12:34</span></div>
+</div>
+</body></html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px 24px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .swatch { background: var(--surface); border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px; }
+  .chip { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; }
+  .meta { display: flex; flex-direction: column; line-height: 1.2; }
+  .name { font: var(--type-data-label); text-transform: uppercase; letter-spacing: 0.12em; color: var(--fg); }
+  .hex  { font: 500 11px/1.2 var(--font-mono); color: var(--muted); margin-top: 2px; }
+  h4 { font: var(--type-data-label); text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); margin: 0 0 12px; }
+</style></head><body>
+<h4>Semantic</h4>
+<div class="grid" style="margin-bottom: 16px;">
+  <div class="swatch"><div class="chip" style="background:#3FC773"></div><div class="meta"><span class="name">OK</span><span class="hex">#3FC773</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#F2A52E"></div><div class="meta"><span class="name">WARNING</span><span class="hex">#F2A52E</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#F23F3F"></div><div class="meta"><span class="name">DANGER</span><span class="hex">#F23F3F</span></div></div>
+</div>
+<h4>HR Zones · workout charts only · never orange</h4>
+<div class="grid" style="grid-template-columns: repeat(5, 1fr);">
+  <div class="swatch" style="padding:10px;flex-direction:column;align-items:flex-start;gap:6px"><div class="chip" style="background:#C7C7C7;width:100%;height:18px;border-radius:4px"></div><span class="name">Z1</span></div>
+  <div class="swatch" style="padding:10px;flex-direction:column;align-items:flex-start;gap:6px"><div class="chip" style="background:#4D9EEB;width:100%;height:18px;border-radius:4px"></div><span class="name">Z2</span></div>
+  <div class="swatch" style="padding:10px;flex-direction:column;align-items:flex-start;gap:6px"><div class="chip" style="background:#4DC773;width:100%;height:18px;border-radius:4px"></div><span class="name">Z3</span></div>
+  <div class="swatch" style="padding:10px;flex-direction:column;align-items:flex-start;gap:6px"><div class="chip" style="background:#F2B833;width:100%;height:18px;border-radius:4px"></div><span class="name">Z4</span></div>
+  <div class="swatch" style="padding:10px;flex-direction:column;align-items:flex-start;gap:6px"><div class="chip" style="background:#EB4D4D;width:100%;height:18px;border-radius:4px"></div><span class="name">Z5</span></div>
+</div>
+</body></html>

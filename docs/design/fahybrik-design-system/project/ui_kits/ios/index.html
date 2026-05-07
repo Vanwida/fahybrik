@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FAHYBRIK · iOS UI Kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #0A0A0A; }
+  #root { height: 100%; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="Primitives.jsx"></script>
+<script type="text/babel" src="AppleSignInScreen.jsx"></script>
+<script type="text/babel" src="OnboardingScreens.jsx"></script>
+<script type="text/babel" src="TodayScreen.jsx"></script>
+<script type="text/babel" src="WorkoutActiveScreen.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState } = React;
+
+// Wrap each screen in an iOS device frame.
+function Phone({ children, dark = true }) {
+  return (
+    <IOSDevice dark={dark}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0A0A0A', paddingTop: 60, paddingBottom: 34, boxSizing: 'border-box' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {children}
+        </div>
+      </div>
+    </IOSDevice>
+  );
+}
+
+function App() {
+  const [onbStep, setOnbStep] = useState(0);
+  const onbSteps = [
+    { id: 'welcome', el: <WelcomeStep onNext={() => {}} /> },
+    { id: 'goal',    el: <GoalStep step={0} total={3} onNext={() => {}} onBack={() => {}} onSkip={() => {}} /> },
+    { id: 'volume', el: <VolumeStep step={1} total={3} onNext={() => {}} onBack={() => {}} onSkip={() => {}} /> },
+    { id: 'health', el: <HealthConnectStep step={2} total={3} onNext={() => {}} onBack={() => {}} nextLabel="Continuar" /> },
+  ];
+
+  return (
+    <DesignCanvas title="FAHYBRIK · iOS UI Kit" subtitle="High-fidelity recreation of the Swift app · iPhone 17 Pro">
+      <DCSection id="auth" title="01 · Auth">
+        <DCArtboard id="signin" label="Apple Sign-In" width={402} height={874}>
+          <Phone>
+            <AppleSignInScreen onContinue={() => {}} />
+          </Phone>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="onboarding" title="02 · Onboarding">
+        {onbSteps.map(s => (
+          <DCArtboard key={s.id} id={`onb-${s.id}`} label={s.id} width={402} height={874}>
+            <Phone>{s.el}</Phone>
+          </DCArtboard>
+        ))}
+      </DCSection>
+
+      <DCSection id="today" title="03 · Today (home)">
+        <DCArtboard id="today" label="Today · scrollable" width={402} height={874}>
+          <Phone>
+            <TodayScreen />
+          </Phone>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="workout" title="04 · Workout execution">
+        <DCArtboard id="workout-active" label="Active · Z4" width={402} height={874}>
+          <Phone>
+            <WorkoutActiveScreen onClose={() => {}} />
+          </Phone>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
