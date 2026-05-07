@@ -7,6 +7,8 @@ import SwiftUI
 struct TodayView: View {
     @State private var showWorkout: Bool = false
     @State private var showCheckin: Bool = false
+    @State private var checkinPending: Bool = CheckinStore.isPending()
+    @State private var bearer: String? = nil
     let onSignOut: () -> Void
 
     var body: some View {
@@ -27,7 +29,25 @@ struct TodayView: View {
             WorkoutContainer(plan: .demo, onClose: { showWorkout = false })
         }
         .sheet(isPresented: $showCheckin) {
-            CheckinPlaceholder(onClose: { showCheckin = false })
+            CheckinView(
+                bearer: bearer,
+                onSubmitted: { _, _ in
+                    checkinPending = false
+                    showCheckin = false
+                },
+                onSkipped: {
+                    checkinPending = false
+                    showCheckin = false
+                }
+            )
+        }
+        .onAppear {
+            // Gate the Today screen on first open of the day. Re-check on
+            // every appear so a session that crosses midnight re-prompts.
+            checkinPending = CheckinStore.isPending()
+            if checkinPending {
+                showCheckin = true
+            }
         }
     }
 
@@ -42,7 +62,9 @@ struct TodayView: View {
                     headerStrip(p)
                     dashboardGrid(p)
                     workoutCard
-                    checkinRow
+                    if checkinPending {
+                        checkinRow
+                    }
                     polarizationCard(p)
                     yesterdayCard(p)
                 }
@@ -214,26 +236,3 @@ private struct ComingSoonTab: View {
     }
 }
 
-private struct CheckinPlaceholder: View {
-    let onClose: () -> Void
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                LabelText(text: "Buenos días")
-                Text("Check-in matinal")
-                    .font(Theme.Typography.headlineL)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("20 segundos · 5 preguntas")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                Spacer()
-                ExpertPrimaryButton(title: "Cerrar", action: onClose)
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.bottom, Theme.Spacing.xl)
-            }
-            .padding(.top, Theme.Spacing.xxxl)
-        }
-        .preferredColorScheme(.dark)
-    }
-}

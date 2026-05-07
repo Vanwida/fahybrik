@@ -1,0 +1,170 @@
+import SwiftUI
+
+// Daily Morning Check-in per docs/ux/07-daily-morning-checkin.md.
+// Full-screen, 5 segmented 1-5 questions + notes + CTA. "Saltar" link is
+// muted (soft-required). Notes draft auto-saves on every change.
+struct CheckinView: View {
+    @State private var answers = CheckinAnswers()
+    @FocusState private var notesFocused: Bool
+
+    let bearer: String?
+    let onSubmitted: (Int, CheckinSnapshot) -> Void
+    let onSkipped: () -> Void
+
+    var body: some View {
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                    headline
+                    questionRow(
+                        title: "Soreness",
+                        binding: bind(\.soreness),
+                        leftHint: "1 ninguno",
+                        rightHint: "5 mucho"
+                    )
+                    questionRow(
+                        title: "Mood",
+                        binding: bind(\.mood),
+                        leftHint: "1 mal",
+                        rightHint: "5 great"
+                    )
+                    questionRow(
+                        title: "Motivación",
+                        binding: bind(\.motivation),
+                        leftHint: "1 cero",
+                        rightHint: "5 a tope"
+                    )
+                    questionRow(
+                        title: "Fatiga",
+                        binding: bind(\.fatigue),
+                        leftHint: "1 fresco",
+                        rightHint: "5 agotado"
+                    )
+                    questionRow(
+                        title: "Calidad sueño",
+                        binding: bind(\.sleepQuality),
+                        leftHint: "1 mal",
+                        rightHint: "5 perfecto"
+                    )
+                    notesField
+                    submitArea
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.xxl)
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Hecho") { notesFocused = false }
+                    .foregroundStyle(Theme.Color.accent)
+            }
+        }
+        .onAppear {
+            answers.notes = CheckinStore.loadDraftNotes()
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Sections
+
+    private var headline: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text("Buenos días.")
+                .font(Theme.Typography.headlineL)
+                .foregroundStyle(Theme.Color.foreground)
+            Text("Cómo te sientes hoy?")
+                .font(Theme.Typography.body)
+                .foregroundStyle(Theme.Color.muted)
+        }
+    }
+
+    private func questionRow(
+        title: String,
+        binding: Binding<Int?>,
+        leftHint: String,
+        rightHint: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.Color.foreground)
+            Scale1to5Picker(
+                value: binding,
+                leftHint: leftHint,
+                rightHint: rightHint
+            )
+        }
+    }
+
+    private var notesField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabelText(text: "Notas (opc)")
+            ZStack(alignment: .topLeading) {
+                if answers.notes.isEmpty {
+                    Text("p.ej. quemado pierna izq desde ayer")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.Color.muted.opacity(0.7))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                }
+                TextEditor(text: Binding(
+                    get: { answers.notes },
+                    set: { newValue in
+                        answers.notes = newValue
+                        CheckinStore.saveDraftNotes(newValue)
+                    }
+                ))
+                .focused($notesFocused)
+                .scrollContentBackground(.hidden)
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.Color.foreground)
+                .frame(minHeight: 84)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+            }
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.outline, lineWidth: 1)
+            )
+        }
+    }
+
+    private var submitArea: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            ExpertPrimaryButton(
+                title: "CONTINUAR",
+                enabled: answers.allAnswered
+            ) {
+                let score = answers.subScore
+                let snap = answers.snapshot(score: score)
+                CheckinStore.markCompleted(score: score)
+                let bearerCopy = bearer
+                Task { await CheckinAPI.submit(snap, bearer: bearerCopy) }
+                Haptics.success()
+                onSubmitted(score, snap)
+            }
+
+            Button(action: {
+                Haptics.light()
+                CheckinStore.markSkipped()
+                onSkipped()
+            }) {
+                Text("Saltar")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.Color.muted)
+                    .underline()
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, Theme.Spacing.s)
+    }
+
+    private func bind(_ kp: ReferenceWritableKeyPath<CheckinAnswers, Int?>) -> Binding<Int?> {
+        Binding(get: { answers[keyPath: kp] }, set: { answers[keyPath: kp] = $0 })
+    }
+}
