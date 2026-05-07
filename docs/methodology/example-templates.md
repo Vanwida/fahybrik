@@ -5,22 +5,34 @@
 > in coach notes is the trigger to remove — search the DB for
 > `DEMO — pending Pablo input` and you'll find every line that needs review.
 
-These five templates exist to demonstrate the **élite level of detail** the
-schema supports. They are anchors for three downstream conversations:
+There are **two demo template sets** seeded by separate scripts:
 
-1. **Template builder UX** — the form must capture everything that appears
-   here without "advanced settings" toggles.
-2. **Workout execution UX (iOS)** — the per-segment data here is what the
-   athlete reads at the top of each segment during the workout.
-3. **Analytics rollups** — every numeric here (HR zone, pace target, power
-   target, RPE) becomes a comparison axis when execution data flows back.
+- **Set A — `seed_example_templates.ts` (5 templates, IDs 1-5)**: original
+  élite-detail demonstration from task #19. Templates cover ACC × 1,
+  TRANS × 1, REAL × 3 and exist to anchor the schema-fidelity discussion
+  with Pablo (every Zod field, every per-segment lever).
+
+- **Set B — `seed_day_paired_templates.ts` (6 templates, IDs 6-11)**:
+  day-paired demonstration from task #21. Templates form three day-pair
+  buckets across ACC / TRANS / REAL phases and exercise the 2x/day élite
+  programming pattern, including AM↔PM template pairing via the new
+  `templates.paired_with_template_id` column (migration 0003).
+
+Both sets coexist in the DB by design — they're complementary, not
+duplicates. The 5 in Set A demonstrate **detail density**; the 6 in
+Set B demonstrate **day-pair structure + complementary session design**.
+Pablo's real methodology will eventually replace one or both; the seed
+scripts are idempotent and can be re-run safely as the content evolves.
+
+Both sets are owned by the `Pablo (DEMO)` placeholder coach
+(`pablo@fabrik.training`). Replace before launch.
 
 Source for exercise references: `infra/scripts/seed_exercises.ts`
 (yuhonas/free-exercise-db, MIT) + 8 official HYROX stations + 23
-canonical cardio variants (run × 9, row × 5, ski-erg × 5, bike × 4)
-all seeded explicitly with discipline-specific defaults.
-
-Coach: `Pablo (DEMO)` / `pablo@fabrik.training`. Replace before launch.
+canonical cardio variants (run × 9, row × 5, ski-erg × 5, bike × 4) +
+2 erg-recovery rows + 8 test protocols + 7 strength accessories +
+3 mobility/prehab blocks, all seeded explicitly with discipline-specific
+defaults.
 
 ---
 
@@ -267,11 +279,229 @@ schema in `shared/schema/templates.ts`.
 
 When Pablo sends real templates:
 
-1. Each template's content goes into `infra/scripts/seed_example_templates.ts`
-   (the `TEMPLATES` const array).
+1. Each template's content goes into the relevant seed script
+   (`seed_example_templates.ts` for the original 5; `seed_day_paired_templates.ts`
+   for the 6 day-paired ones — pick whichever set most closely matches
+   the new methodology).
 2. Remove the `DEMO — pending Pablo input` tag from coach notes.
-3. Re-run `pnpm --filter @fahybrik/infra seed:templates` (idempotent —
-   updates existing rows by `(coach_id, name)`).
+3. Re-run `pnpm --filter @fahybrik/infra seed:templates` and/or
+   `pnpm --filter @fahybrik/infra seed:day-paired` (both idempotent —
+   updates existing rows by `(coach_id, name)`; pairings re-applied in
+   second pass).
 4. Move the placeholder coach record to a real Pablo user (or update
-   `PABLO_COACH` in the seed script to match the real auth row).
+   `PABLO_COACH` in the seed scripts to match the real auth row).
 5. Update this doc to match the final templates.
+
+---
+
+# Set B — 6 day-paired templates (task #21)
+
+This second set demonstrates the **2x/day élite pattern** — élite hybrid
+athletes train 2 sessions/day, 4-5 days/week. The Today screen and the
+coach assignment flow need to know AM/PM pairs so that when one session
+is shown, its complementary partner is visible above the fold (see
+`/docs/ux/02-athlete-today.md`).
+
+## Template list
+
+| ID | Day position    | Format          | Block | Level | Duration | Pair      |
+|----|-----------------|-----------------|-------|-------|----------|-----------|
+| 6  | ACC w3 d2 AM    | strength_block  | ACC   | 2     | 60 min   | ↔ #7      |
+| 7  | ACC w3 d2 PM    | tempo           | ACC   | 2     | 90 min   | ↔ #6      |
+| 8  | TRANS w2 d1 AM  | intervals       | TRANS | 2     | 50 min   | singleton |
+| 9  | TRANS w2 d3 AM  | hyrox_sim       | TRANS | 2     | 60 min   | singleton |
+| 10 | REAL w1 d2 AM   | intervals       | REAL  | 3     | 55 min   | ↔ #11     |
+| 11 | REAL w1 d2 PM   | circuit         | REAL  | 1     | 35 min   | ↔ #10     |
+
+Pairing is stored bidirectionally in `templates.paired_with_template_id`
+(self-FK with `ON DELETE SET NULL`). Day position is stored in
+`templates.day_position` as a free-form text token for human readability.
+
+## Schema additions (migration 0003)
+
+```sql
+alter table templates
+  add column day_position text,
+  add column paired_with_template_id bigint
+    references templates(id) on delete set null;
+```
+
+A `paired_not_self_chk` constraint prevents self-references. Indexes on
+both columns (partial: only non-null rows) keep query plans tight when
+the Today screen and Plan view filter by these fields.
+
+## Per-template rationale
+
+### 6 — ACC w3 d2 AM: Lower body strength + accessory
+
+**Why this anchors the pair.** The AM session is the **structural lever**
+of the day. ACC week 3 is mid-block — athlete has accumulated 2 weeks of
+volume and is ready for slightly higher absolute loads (78% 1RM × 5 reps
+× 4 sets vs week 1's 75%). The session demonstrates:
+
+- **6-segment pyramid:** main lift → posterior chain primary → unilateral
+  bilateral → unilateral hinge (single-leg RDL — newly added accessory)
+  → posterior chain finisher (glute-ham raise) → core. This is the
+  movement-pattern coverage signature of élite lower-body strength.
+- **Tempo prescription on every strength segment** — élite differentiator.
+- **`single-leg-rdl` — added in catalog audit specifically because the
+  template builder needs to support it.** The template-builder UX spec
+  (line 41-54 of `docs/ux/05-template-builder.md`) requires every
+  accessory referenced here to exist as a catalog row.
+- **Coach note: AM/PM nutrition + recovery handoff** — explicit guidance
+  that the PM Z2 long run (paired) needs carbs 60-90 min before, and
+  the system should warn if HRV crashes overnight.
+
+**What Pablo replaces.** Real % 1RM progression curve across the 4-week
+ACC block, real accessory rotation (he may swap glute-ham raise for
+nordic curl on different weeks).
+
+### 7 — ACC w3 d2 PM: Z2 long run
+
+**Why this is the day's keystone.** Despite being PM, this is **THE
+session of the week** in ACC philosophy — it's where aerobic base is
+built. The template demonstrates:
+
+- **Single-segment design** — sometimes the right template is one
+  perfectly-prescribed segment, not a circuit. The schema accommodates
+  this (no minimum segment count).
+- **HR ceiling discipline** — coach note: *"Si HR sube a Z3 sostenido →
+  walk-jog 30s para volver a Z2. NO ajustar pace manteniendo HR alto"*.
+  This is the kind of cue that defines coach-grade vs consumer-grade.
+- **Decoupling target as a session-level KPI** — `<5%` as the
+  pass/fail. The system can compute Pa:Hr decoupling automatically once
+  Garmin data flows back; the template's coach note becomes the
+  programmatic threshold.
+- **Strength→endurance same-day pairing accommodation** — coach note
+  explicitly handles the "AM was strength heavy" reality: extra carbs,
+  hydration pre-load, contingency to swap to row Z2 if HRV crashes.
+
+**What Pablo replaces.** Per-athlete LT1 HR formula (currently 142 bpm
+default), per-athlete pace ceiling (currently `5:20-5:50 /km`).
+
+### 8 — TRANS w2 d1 AM: Threshold intervals running (singleton)
+
+**Why this is a singleton.** TRANS w2 d1 is the week's hardest running
+session — paired with active recovery the next day, not a same-day PM.
+Singleton design tells the system: *"don't suggest a complementary PM
+session today."* Demonstrates:
+
+- **`run-threshold-intervals` with full prescription** — 5 × 1 km at Z4
+  with 90s jog recovery. Pace target individualized via the athlete's
+  5K benchmark (system computes pace from `athlete_benchmarks`).
+- **HRR60 as a tracked KPI** — heart-rate recovery in first 60 seconds
+  post-rep. >25 bpm drop = excellent. The coach note explicitly calls
+  this out so the analytics layer knows to extract and trend it.
+- **Conditional execution gate** — *"NO hacer si HRV <-10% baseline o
+  sleep <6h. Reschedule a d2."* Templates can declare their own
+  preconditions; the system enforces them via the morning check-in
+  (`docs/ux/02-athlete-today.md` daily check-in section).
+- **Pace consistency target** — variation between rep 1 and rep 5
+  becomes the readiness signal.
+
+**What Pablo replaces.** Real recovery ratio (currently 90s — Pablo may
+prefer 60s for more lactate-clearance focus, or 2:00 for more pace
+preservation).
+
+### 9 — TRANS w2 d3 AM: HYROX simulation half (singleton)
+
+**Why this is the most complex template in the set.** 8 segments,
+race-pace, mixed modality. Demonstrates:
+
+- **8-segment alternating run+station structure** — every odd segment
+  is `run-race-pace-intervals` 500 m, every even segment is a HYROX
+  station at half-distance. The template is essentially the data
+  structure that the iOS workout-execution screen renders as
+  consecutive lap blocks.
+- **Race-pace adjustments per segment** — Run #1 is race pace +5 s/km,
+  Run #3 is race pace +10 s/km (heavy legs from sled), Run #4 is
+  race pace flat. This is the kind of nuance that distinguishes
+  practice from benchmark.
+- **`ski-erg-race-pace-intervals` (NOT `hyrox-ski-erg`)** for the
+  station-1 half — half-distance training is the cardio variant, not
+  the race-day station slug. The full benchmark `test-hyrox-half-sim`
+  uses different (eventually canonical) prescriptions; this template
+  is **practice**, the test exercise is **benchmark**.
+
+**What Pablo replaces.** The half-sim layout itself (Pablo may want
+6 stations not 4, or different station selection per individual
+weakness profile).
+
+### 10 — REAL w1 d2 AM: Race-pace intervals + station tune-up
+
+**Why this is the AM of the REAL pair.** REAL w1 means 6-8 weeks pre-A
+event. Volume drops, specificity rises. Demonstrates:
+
+- **3-block design**: race-pace runs (6 × 400 m) → BBJ tune-up →
+  wall ball tune-up. Each block has a different intent: 400 m runs
+  build neuromuscular race-pace memory; BBJ tune-up is precision +
+  consistency (not max effort); wall balls are unbroken-set practice.
+- **Recovery 75 s walk-jog (incomplete)** — simulates the post-station
+  fatigue feel of race day, NOT lab-clean rest.
+- **Conditional logic in coach note** — *"Si pace cae >3 s/km → cortar
+  a 4 reps + descansar 48h"*. The session adapts on-the-fly.
+- **Pair handoff to PM** — coach note gives explicit guidance to
+  swap PM to lighter modality if AM cooked the athlete.
+
+**What Pablo replaces.** Per-athlete race-pace target (currently
+"~4:30 /km M / ~5:00 /km W" — derived from each athlete's benchmark).
+
+### 11 — REAL w1 d2 PM: Recovery + skill
+
+**Why this is the PM partner.** PM in REAL is **protected**. The session
+has 3 explicit purposes: blood flow (row recovery), skill maintenance
+(strict pull-ups, low volume), prehab (banded shoulder for high-volume
+SkiErg + pull-up). Demonstrates:
+
+- **`row-recovery` slug** — added in catalog audit specifically for
+  this purpose. Generic "row" wouldn't communicate intent.
+- **Strict pull-ups at low volume + low RPE** — the template
+  intentionally leaves headroom (RPE target 5, NOT 8). Skill
+  maintenance is not adaptation work.
+- **Mobility/prehab blocks (`prehab-shoulder-banded-15min`,
+  `foam-roll-lower-15min`) as full segments**, not afterthoughts. The
+  catalog supports them as first-class rows.
+- **Skip authority encoded in coach note** — *"IMPRESCINDIBLE skip si:
+  HRV <-15% baseline, sleep <6h, soreness self-rating ≥4/5"*. The
+  daily check-in feeds this directly.
+- **Level 1 target_level** — this PM is approachable for any athlete
+  level, NOT just podium contenders. It's the recovery-protection
+  template every level needs.
+
+**What Pablo replaces.** Skill segment selection (he may rotate
+pull-ups → muscle-ups → ring rows depending on athlete history).
+
+## Catalog audit additions exercised by these templates
+
+The day-paired templates use rows added in the catalog audit:
+
+- `row-recovery` (new — in template #11)
+- `single-leg-rdl` (new — in template #6)
+- `glute-ham-raise` (existed)
+- `prehab-shoulder-banded-15min` (new — in template #11)
+- `foam-roll-lower-15min` (new — in template #11)
+
+The remaining audit additions (8 test protocols, other strength
+accessories, `ski-erg-recovery`, `mobility-hip-flow-15min`) are
+available for the template builder to compose Pablo's future templates;
+they're not all consumed in the demo set, by design — the catalog
+should outpace the demo coverage.
+
+## Pairing semantics for downstream UI
+
+When a template has a non-null `paired_with_template_id`, downstream
+code should:
+
+- **Today screen (athlete iOS):** show both AM and PM cards stacked
+  above the fold (per `docs/ux/02-athlete-today.md` "2x/day pattern"
+  section). The completed earlier session collapses with ✓ + summary.
+- **Plan screen (athlete iOS):** weekly grid renders pairs as a single
+  vertically-stacked cell so AM/PM relationship is immediately visible.
+- **Coach assignment flow (dashboard):** when assigning the AM, prompt
+  *"Asignar también la PM emparejada?"* with a default-yes affordance.
+  Single-click bulk-assign for the day.
+- **Analytics rollups:** training-load calculations should attribute
+  the day's combined load to both sessions, not double-count.
+
+When `paired_with_template_id` is NULL, treat as singleton — no implicit
+PM session is suggested.

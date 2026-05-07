@@ -9,7 +9,8 @@
     "test": "echo \"no tests\" && exit 0",
     "seed:exercises": "tsx scripts/seed_exercises.ts",
     "seed:templates": "tsx scripts/seed_example_templates.ts",
-    "seed:all": "pnpm seed:exercises && pnpm seed:templates"
+    "seed:day-paired": "tsx scripts/seed_day_paired_templates.ts",
+    "seed:all": "pnpm seed:exercises && pnpm seed:templates && pnpm seed:day-paired"
   },
   "dependencies": {
     "@fahybrik/shared": "workspace:*",

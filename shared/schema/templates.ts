@@ -16,6 +16,8 @@ export const templateSchema = z.object({
   target_level: z.number().int().min(1).max(10).nullable(),
   version: z.number().int().min(1),
   parent_template_id: idSchema.nullable(),
+  day_position: z.string().max(60).nullable(),
+  paired_with_template_id: idSchema.nullable(),
   archived_at: isoDateTime.nullable(),
   created_at: isoDateTime,
   updated_at: isoDateTime,
