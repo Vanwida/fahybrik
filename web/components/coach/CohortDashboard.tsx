@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type {
   BriefingLine,
   BriefingPayload,
@@ -28,6 +29,7 @@ export function CohortDashboard({
   initial_cohort,
   initial_columns,
 }: CohortDashboardProps) {
+  const router = useRouter();
   const [briefing] = useState<BriefingPayload>(initial_briefing);
   const [cohort] = useState<CohortRow[]>(initial_cohort);
   const [columns, setColumns] = useState<ColumnKey[]>(
@@ -80,6 +82,7 @@ export function CohortDashboard({
             filters={filters}
             selected={selected}
             onSelectChange={setSelected}
+            onRowOpen={(athlete_id) => router.push(`/athletes/${athlete_id}`)}
           />
         </div>
       </section>
