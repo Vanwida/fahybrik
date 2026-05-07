@@ -8,13 +8,17 @@
 
 /* Begin PBXBuildFile section */
 		00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */; };
+		02784343797E16AF5E52AF3E /* HRZoneBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C6DFB6C89ACD18FE9791D6D /* HRZoneBadge.swift */; };
 		067D73EFEB5BEB683220F93F /* OnboardingAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65DB76CDEEB1ECAD782A8C3D /* OnboardingAPI.swift */; };
 		091D5BAE1978D1D4640BDE66 /* AuthState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A252932F06A936722323061 /* AuthState.swift */; };
 		0A160AE1CDFF9776ADE9C1DF /* RecoveryStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559E6897CF90CAC7A6A1F6A0 /* RecoveryStep.swift */; };
+		106EA1C1E192DE83FA7D6ABA /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */; };
 		1A5375BE0FBA2E654DD29C27 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF647B80717E54E6BC417DB /* TodayView.swift */; };
 		1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E68E01FF6A98B96974A052 /* RequestQueue.swift */; };
+		38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */; };
 		3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABF59F238D4FB4A53CCDD05 /* Theme.swift */; };
 		412E7EC597F593B54D4CAA8C /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DDDDA98C11AEAAF94F408F75 /* AuthenticationServices.framework */; };
+		41E920DF478C0ACD2515ED76 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */; };
 		448482526ED3DFECFA4EB018 /* OnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247CFBC8F79562247FA78B70 /* OnboardingState.swift */; };
 		5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46EA36D8F153A96F0826B91 /* APIClient.swift */; };
 		705547E0A524A56A4E0C4F6F /* GoalsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9ABACDF3287674F039ADFE /* GoalsStep.swift */; };
@@ -24,9 +28,12 @@
 		8AA5DCFEC04D521AC8646AFE /* HyroxHistoryStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4928195889090E0A57D59E /* HyroxHistoryStep.swift */; };
 		93F19F72C6C6B5896B1C09FD /* ZoneColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */; };
 		96E2D74E24115D9ABB0AD0B5 /* StepShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D86DF203777D3C5363727298 /* StepShell.swift */; };
+		9C19BF0261F51200733F1BB1 /* DataGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258773F221C5DCA05BEBE809 /* DataGrid.swift */; };
 		AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7831A459ACF982E946D9C459 /* AppleAuthService.swift */; };
 		B566F0148E5456C40DF9B260 /* ConnectionsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC9D2C4228C07EEB8EBF306 /* ConnectionsStep.swift */; };
 		BA038CFE732F184BCF35D51B /* AthleticBackgroundStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */; };
+		C949CFF5A2856DA6B0B6E5EB /* WorkoutModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31E936C5A62B14E7E0D1C41E /* WorkoutModels.swift */; };
+		CAB6C7FE963C8303FFBEA934 /* PostWorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */; };
 		CF189219BC59E831BD6806A9 /* Chip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C75141ACA472A805D8158 /* Chip.swift */; };
 		D5C5573E6B1101905CC6377D /* PrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FE41E10EF1ED6750223C57B /* PrimaryButton.swift */; };
 		D61A710294109C2A9F8D2FB8 /* DoneStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC7725660B538E3914048E9 /* DoneStep.swift */; };
@@ -39,7 +46,10 @@
 		E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */; };
 		E72A77093E8EB0CF64794C1B /* InputRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D4ECE1AF7437FFE445A76A /* InputRows.swift */; };
 		E875D967971A5FE85908EF32 /* StepHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A88D02F5D94C20D68B19C51 /* StepHeader.swift */; };
+		EC9F8438A8D24DC1EF82DE70 /* LapButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD23E9BA1EB12408C1A7601 /* LapButton.swift */; };
+		EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374148A629E21B522808AF09 /* WorkoutStateStore.swift */; };
 		F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996007C0E035EF597F9CD7 /* ProgressDots.swift */; };
+		F765FE26FE60E9702A42DA3D /* PreWorkoutBriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */; };
 		F973DC2581E6210245922558 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */; };
 		FF066F6E597C8EAFFCACF47C /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC94A17EBAE399DCC37750B5 /* Haptics.swift */; };
 /* End PBXBuildFile section */
@@ -48,7 +58,10 @@
 		0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStationsStep.swift; sourceTree = "<group>"; };
 		15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnduranceBenchmarksStep.swift; sourceTree = "<group>"; };
 		247CFBC8F79562247FA78B70 /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
+		258773F221C5DCA05BEBE809 /* DataGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGrid.swift; sourceTree = "<group>"; };
 		2DC7725660B538E3914048E9 /* DoneStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoneStep.swift; sourceTree = "<group>"; };
+		31E936C5A62B14E7E0D1C41E /* WorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutModels.swift; sourceTree = "<group>"; };
+		374148A629E21B522808AF09 /* WorkoutStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStateStore.swift; sourceTree = "<group>"; };
 		42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
 		4A252932F06A936722323061 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
 		4EC9D2C4228C07EEB8EBF306 /* ConnectionsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsStep.swift; sourceTree = "<group>"; };
@@ -57,20 +70,25 @@
 		5D9ABACDF3287674F039ADFE /* GoalsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsStep.swift; sourceTree = "<group>"; };
 		65DB76CDEEB1ECAD782A8C3D /* OnboardingAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAPI.swift; sourceTree = "<group>"; };
 		6E996007C0E035EF597F9CD7 /* ProgressDots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDots.swift; sourceTree = "<group>"; };
+		6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSession.swift; sourceTree = "<group>"; };
 		6FE41E10EF1ED6750223C57B /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
+		75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostWorkoutSummaryView.swift; sourceTree = "<group>"; };
 		7831A459ACF982E946D9C459 /* AppleAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAuthService.swift; sourceTree = "<group>"; };
 		7A88D02F5D94C20D68B19C51 /* StepHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepHeader.swift; sourceTree = "<group>"; };
 		7F4928195889090E0A57D59E /* HyroxHistoryStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxHistoryStep.swift; sourceTree = "<group>"; };
 		815C75141ACA472A805D8158 /* Chip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chip.swift; sourceTree = "<group>"; };
 		832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalBasicsStep.swift; sourceTree = "<group>"; };
 		97736E2A223554D304876154 /* StrengthOneRMStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthOneRMStep.swift; sourceTree = "<group>"; };
+		9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutContainer.swift; sourceTree = "<group>"; };
 		9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		9C6DFB6C89ACD18FE9791D6D /* HRZoneBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRZoneBadge.swift; sourceTree = "<group>"; };
 		9F726D0B3292528EFE86B210 /* FAHYBRIKApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FAHYBRIKApp.swift; sourceTree = "<group>"; };
 		A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeStep.swift; sourceTree = "<group>"; };
 		ABAD36082E1794BC90A2BF19 /* TrainingContextStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingContextStep.swift; sourceTree = "<group>"; };
 		B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneColors.swift; sourceTree = "<group>"; };
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
 		BDF647B80717E54E6BC417DB /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreWorkoutBriefView.swift; sourceTree = "<group>"; };
 		CE78C660D60754A5A84523CC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D4E68E01FF6A98B96974A052 /* RequestQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestQueue.swift; sourceTree = "<group>"; };
 		D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInView.swift; sourceTree = "<group>"; };
@@ -79,6 +97,8 @@
 		D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthleticBackgroundStep.swift; sourceTree = "<group>"; };
 		DDDDA98C11AEAAF94F408F75 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		E46EA36D8F153A96F0826B91 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		EDD23E9BA1EB12408C1A7601 /* LapButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LapButton.swift; sourceTree = "<group>"; };
 		F5D4ECE1AF7437FFE445A76A /* InputRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRows.swift; sourceTree = "<group>"; };
 		FC94A17EBAE399DCC37750B5 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -115,6 +135,23 @@
 				B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */,
 			);
 			path = Theme;
+			sourceTree = "<group>";
+		};
+		1CCF05E6DFE9D7357BB03DC7 /* Workout */ = {
+			isa = PBXGroup;
+			children = (
+				D7E46FA9BD47D53E9471C985 /* Persistence */,
+				E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */,
+				258773F221C5DCA05BEBE809 /* DataGrid.swift */,
+				9C6DFB6C89ACD18FE9791D6D /* HRZoneBadge.swift */,
+				EDD23E9BA1EB12408C1A7601 /* LapButton.swift */,
+				75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */,
+				C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */,
+				9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */,
+				31E936C5A62B14E7E0D1C41E /* WorkoutModels.swift */,
+				6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */,
+			);
+			path = Workout;
 			sourceTree = "<group>";
 		};
 		4ED69D0E5434E71C2F4BAEA2 /* Preview Content */ = {
@@ -172,6 +209,14 @@
 			);
 			sourceTree = "<group>";
 		};
+		D7E46FA9BD47D53E9471C985 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				374148A629E21B522808AF09 /* WorkoutStateStore.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
 		ED22C9DFBBEA66E1B4BADAD6 /* FAHYBRIK */ = {
 			isa = PBXGroup;
 			children = (
@@ -182,6 +227,7 @@
 				4ED69D0E5434E71C2F4BAEA2 /* Preview Content */,
 				0A09F2975B977DE852947A37 /* Theme */,
 				97CDB6B9CADCBF5B657F4689 /* Today */,
+				1CCF05E6DFE9D7357BB03DC7 /* Workout */,
 				CE78C660D60754A5A84523CC /* Assets.xcassets */,
 				9F726D0B3292528EFE86B210 /* FAHYBRIKApp.swift */,
 			);
@@ -306,6 +352,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */,
+				106EA1C1E192DE83FA7D6ABA /* ActiveWorkoutView.swift in Sources */,
 				E16711BB7C8F02FC5317AC95 /* AppRoot.swift in Sources */,
 				AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */,
 				E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */,
@@ -313,18 +360,23 @@
 				091D5BAE1978D1D4640BDE66 /* AuthState.swift in Sources */,
 				CF189219BC59E831BD6806A9 /* Chip.swift in Sources */,
 				B566F0148E5456C40DF9B260 /* ConnectionsStep.swift in Sources */,
+				9C19BF0261F51200733F1BB1 /* DataGrid.swift in Sources */,
 				D61A710294109C2A9F8D2FB8 /* DoneStep.swift in Sources */,
 				DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */,
 				E098A6DDCC6361576489843A /* FAHYBRIKApp.swift in Sources */,
 				705547E0A524A56A4E0C4F6F /* GoalsStep.swift in Sources */,
+				02784343797E16AF5E52AF3E /* HRZoneBadge.swift in Sources */,
 				FF066F6E597C8EAFFCACF47C /* Haptics.swift in Sources */,
 				8AA5DCFEC04D521AC8646AFE /* HyroxHistoryStep.swift in Sources */,
 				8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */,
 				E72A77093E8EB0CF64794C1B /* InputRows.swift in Sources */,
+				EC9F8438A8D24DC1EF82DE70 /* LapButton.swift in Sources */,
 				067D73EFEB5BEB683220F93F /* OnboardingAPI.swift in Sources */,
 				7B25A3918B881C47B3B817D9 /* OnboardingFlow.swift in Sources */,
 				448482526ED3DFECFA4EB018 /* OnboardingState.swift in Sources */,
 				DAB8F84BC8A2A2AEEDF4D07D /* PersonalBasicsStep.swift in Sources */,
+				CAB6C7FE963C8303FFBEA934 /* PostWorkoutSummaryView.swift in Sources */,
+				F765FE26FE60E9702A42DA3D /* PreWorkoutBriefView.swift in Sources */,
 				D5C5573E6B1101905CC6377D /* PrimaryButton.swift in Sources */,
 				F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */,
 				0A160AE1CDFF9776ADE9C1DF /* RecoveryStep.swift in Sources */,
@@ -336,6 +388,10 @@
 				1A5375BE0FBA2E654DD29C27 /* TodayView.swift in Sources */,
 				E116A8DCF999DB21F44C379C /* TrainingContextStep.swift in Sources */,
 				00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */,
+				38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */,
+				C949CFF5A2856DA6B0B6E5EB /* WorkoutModels.swift in Sources */,
+				41E920DF478C0ACD2515ED76 /* WorkoutSession.swift in Sources */,
+				EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */,
 				93F19F72C6C6B5896B1C09FD /* ZoneColors.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
