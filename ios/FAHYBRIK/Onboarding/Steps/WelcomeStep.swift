@@ -39,6 +39,15 @@ struct WelcomeStep: View {
                 VStack(spacing: Theme.Spacing.m) {
                     PrimaryButton(title: "Empezar", action: onStart)
                     SkipLink(title: "¿Saltar y volver luego?", action: onResumeLater)
+
+                    HStack(spacing: Theme.Spacing.l) {
+                        Link("Privacidad", destination: URL(string: "https://fahybrik.com/privacy")!)
+                        Text("·").foregroundStyle(Theme.Color.muted)
+                        Link("Términos", destination: URL(string: "https://fahybrik.com/terms")!)
+                    }
+                    .font(Theme.Typography.caption)
+                    .tint(Theme.Color.accent)
+                    .padding(.top, Theme.Spacing.s)
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.bottom, Theme.Spacing.xl)

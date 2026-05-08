@@ -68,8 +68,41 @@ struct AppleSignInView: View {
                     ProgressView().tint(Theme.Color.accent)
                 }
 
+                LegalAcknowledgementText()
+                    .padding(.horizontal, Theme.Spacing.xl)
+
                 Spacer().frame(height: Theme.Spacing.xl)
             }
         }
+    }
+}
+
+private struct LegalAcknowledgementText: View {
+    private static let privacyURL = URL(string: "https://fahybrik.com/privacy")!
+    private static let termsURL = URL(string: "https://fahybrik.com/terms")!
+
+    var body: some View {
+        let attributed: AttributedString = {
+            var s = AttributedString("Al continuar aceptas los ")
+            var terms = AttributedString("Términos")
+            terms.link = Self.termsURL
+            terms.foregroundColor = Theme.Color.accent
+            terms.underlineStyle = .single
+            s += terms
+            s += AttributedString(" y la ")
+            var privacy = AttributedString("Política de privacidad")
+            privacy.link = Self.privacyURL
+            privacy.foregroundColor = Theme.Color.accent
+            privacy.underlineStyle = .single
+            s += privacy
+            s += AttributedString(".")
+            return s
+        }()
+
+        return Text(attributed)
+            .font(Theme.Typography.caption)
+            .foregroundStyle(Theme.Color.muted)
+            .multilineTextAlignment(.center)
+            .tint(Theme.Color.accent)
     }
 }
