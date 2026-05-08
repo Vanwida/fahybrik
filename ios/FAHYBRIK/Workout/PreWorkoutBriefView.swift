@@ -18,30 +18,29 @@ struct PreWorkoutBriefView: View {
     }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: 0) {
-                topBar
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        kvGrid
-                        segmentsTable
-                        connectionsGrid
-                        if let note = plan.coachNote {
-                            CardSurface(padding: 14, leftAccent: true) {
-                                CoachQuote(text: "\u{201C}\(note)\u{201D}")
-                            }
+        VStack(spacing: 0) {
+            topBar
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    kvGrid
+                    segmentsTable
+                    connectionsGrid
+                    if let note = plan.coachNote {
+                        CardSurface(padding: 14, leftAccent: true) {
+                            CoachQuote(text: "\u{201C}\(note)\u{201D}")
                         }
                     }
-                    .padding(.horizontal, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
                 }
-                ExpertPrimaryButton(title: "▶ EMPEZAR", action: onStart)
-                    .padding(.horizontal, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.l)
-                    .padding(.top, Theme.Spacing.s)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.xxl)
             }
+            .layoutPriority(1)
+            ExpertPrimaryButton(title: "▶ EMPEZAR", action: onStart)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.l)
+                .padding(.top, Theme.Spacing.s)
         }
+        .background(Theme.Color.background.ignoresSafeArea())
     }
 
     private var topBar: some View {

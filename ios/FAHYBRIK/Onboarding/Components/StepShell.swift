@@ -50,6 +50,7 @@ struct StepShell<Content: View>: View {
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.bottom, Theme.Spacing.xxl)
                 }
+                .layoutPriority(1)
 
                 VStack(spacing: Theme.Spacing.m) {
                     if let skipTitle, let onSkip {

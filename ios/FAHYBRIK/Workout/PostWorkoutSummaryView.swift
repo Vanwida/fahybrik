@@ -13,27 +13,26 @@ struct PostWorkoutSummaryView: View {
     @State private var notes: String = ""
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        tightHeader
-                        zonesStackedBar
-                        metricTiles
-                        segmentsTable
-                        rpeCard
-                        notesCard
-                    }
-                    .padding(.horizontal, Theme.Spacing.m)
-                    .padding(.bottom, Theme.Spacing.xxl)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    tightHeader
+                    zonesStackedBar
+                    metricTiles
+                    segmentsTable
+                    rpeCard
+                    notesCard
                 }
-                ExpertPrimaryButton(title: "GUARDAR", height: 46, action: onSave)
-                    .padding(.horizontal, Theme.Spacing.m)
-                    .padding(.bottom, Theme.Spacing.m)
-                    .padding(.top, Theme.Spacing.s)
+                .padding(.horizontal, Theme.Spacing.m)
+                .padding(.bottom, Theme.Spacing.xxl)
             }
+            .layoutPriority(1)
+            ExpertPrimaryButton(title: "GUARDAR", height: 46, action: onSave)
+                .padding(.horizontal, Theme.Spacing.m)
+                .padding(.bottom, Theme.Spacing.m)
+                .padding(.top, Theme.Spacing.s)
         }
+        .background(Theme.Color.background.ignoresSafeArea())
     }
 
     // MARK: - Header

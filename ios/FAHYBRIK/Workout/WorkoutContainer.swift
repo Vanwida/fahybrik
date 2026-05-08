@@ -18,7 +18,7 @@ struct WorkoutContainer: View {
     let onClose: () -> Void
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             switch phase {
             case .brief:
                 PreWorkoutBriefView(
