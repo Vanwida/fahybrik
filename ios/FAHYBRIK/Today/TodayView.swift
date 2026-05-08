@@ -7,13 +7,22 @@ import SwiftUI
 struct TodayView: View {
     @State private var showWorkout: Bool = false
     @State private var showCheckin: Bool = false
+    @State private var showDebrief: Bool = false
     @State private var checkinPending: Bool = CheckinStore.isPending()
     @State private var bearer: String? = nil
     let onSignOut: () -> Void
 
+    // Race-day takes over the Today layout. See /docs/ux/12-race-plan-and-prep.md
+    // sub-flow B. Production gating: today's local date == A-event ISO date.
+    private var isRaceDay: Bool { RaceDemoData.isRaceDay }
+    private var hasUnfinishedDebrief: Bool {
+        RaceDemoData.hasUnfinishedDebrief
+            && !RaceStore.isDebriefCompleted(forResultId: RaceDemoData.demoCompletedResult.id)
+    }
+
     var body: some View {
         TabView {
-            todayTab
+            todayRoot
                 .tabItem { Label("Today", systemImage: "circle.grid.2x2") }
             PlanView()
                 .tabItem { Label("Plan", systemImage: "calendar") }
@@ -41,13 +50,36 @@ struct TodayView: View {
                 }
             )
         }
+        .sheet(isPresented: $showDebrief) {
+            PostRaceDebriefView(
+                plan: RaceDemoData.demoPlan,
+                result: RaceDemoData.demoCompletedResult,
+                bearer: bearer,
+                onSubmitted: { showDebrief = false },
+                onSkipped: { showDebrief = false }
+            )
+        }
         .onAppear {
             // Gate the Today screen on first open of the day. Re-check on
             // every appear so a session that crosses midnight re-prompts.
             checkinPending = CheckinStore.isPending()
-            if checkinPending {
+            if checkinPending && !isRaceDay {
+                // On race day, skip the daily check-in modal — the in-flow
+                // pre-race check-in lives on RaceDayView.
                 showCheckin = true
             }
+            if hasUnfinishedDebrief && !isRaceDay {
+                showDebrief = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var todayRoot: some View {
+        if isRaceDay {
+            RaceDayView(context: RaceDemoData.demoContext)
+        } else {
+            todayTab
         }
     }
 
@@ -58,7 +90,7 @@ struct TodayView: View {
         return ZStack {
             Theme.Color.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     headerStrip(p)
                     dashboardGrid(p)
                     workoutCard
@@ -68,9 +100,9 @@ struct TodayView: View {
                     polarizationCard(p)
                     yesterdayCard(p)
                 }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.s)
-                .padding(.bottom, Theme.Spacing.l)
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.xl)
             }
         }
     }
@@ -201,20 +233,68 @@ struct TodayView: View {
     }
 
     private var profileTab: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                Spacer()
-                Wordmark(size: 32)
-                Text("Perfil")
-                    .font(Theme.Typography.headlineM)
-                    .foregroundStyle(Theme.Color.foreground)
-                Spacer()
-                SecondaryButton(title: "Cerrar sesión", action: onSignOut)
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.bottom, Theme.Spacing.xl)
+        NavigationStack {
+            ZStack {
+                Theme.Color.background.ignoresSafeArea()
+                VStack(spacing: Theme.Spacing.l) {
+                    Wordmark(size: 32)
+                        .padding(.top, Theme.Spacing.xl)
+                    Text("Perfil")
+                        .font(Theme.Typography.headlineM)
+                        .foregroundStyle(Theme.Color.foreground)
+                    VStack(spacing: Theme.Spacing.s) {
+                        NavigationLink {
+                            SubscriptionView(bearer: bearer)
+                        } label: {
+                            profileRow(
+                                icon: "creditcard",
+                                title: "Suscripción",
+                                subtitle: "Gestiona tu plan HYROX Athlete"
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        NavigationLink {
+                            PM5SettingsView(store: PM5ConnectionStore.shared)
+                        } label: {
+                            profileRow(
+                                icon: "antenna.radiowaves.left.and.right",
+                                title: "Concept2 PM5",
+                                subtitle: PM5ConnectionStore.shared.rememberedDeviceName ?? "Sin emparejar"
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, Theme.Spacing.l)
+                    Spacer()
+                    SecondaryButton(title: "Cerrar sesión", action: onSignOut)
+                        .padding(.horizontal, Theme.Spacing.xl)
+                        .padding(.bottom, Theme.Spacing.xl)
+                }
             }
         }
+    }
+
+    private func profileRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: Theme.Spacing.m) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Color.accent)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.Typography.bodyEmph)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text(subtitle)
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .padding(Theme.Spacing.m)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
     }
 }
 
