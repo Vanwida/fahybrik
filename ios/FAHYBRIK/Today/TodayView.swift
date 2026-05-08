@@ -28,9 +28,9 @@ struct TodayView: View {
                 .tabItem { Label("Plan", systemImage: "calendar") }
             StatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
-            ComingSoonTab(label: "Chat")
+            ChatView()
                 .tabItem { Label("Chat", systemImage: "message") }
-            profileTab
+            ProfileView(bearer: bearer, onSignOut: onSignOut)
                 .tabItem { Label("Perfil", systemImage: "person") }
         }
         .tint(Theme.Color.accent)
@@ -108,28 +108,37 @@ struct TodayView: View {
     }
 
     private func headerStrip(_ p: TodayPersona) -> some View {
-        HStack(spacing: 8) {
-            Wordmark(size: 18)
+        HStack(alignment: .center, spacing: 12) {
+            Wordmark(size: 32)
             Spacer()
-            MonoText(
-                text: "\(p.raceName) · \(p.daysToRace)D · \(p.block) W\(p.week)D\(p.day)",
-                size: 10,
-                weight: .semibold,
-                color: Theme.Color.muted
-            )
-            .tracking(1.2)
-            .textCase(.uppercase)
+            VStack(alignment: .trailing, spacing: 2) {
+                MonoText(
+                    text: "\(p.raceName) · \(p.daysToRace)D",
+                    size: 11,
+                    weight: .semibold,
+                    color: Theme.Color.muted
+                )
+                .tracking(1.4)
+                .textCase(.uppercase)
+                MonoText(
+                    text: "\(p.block) W\(p.week)D\(p.day)",
+                    size: 11,
+                    weight: .semibold,
+                    color: Theme.Color.muted
+                )
+                .tracking(1.4)
+                .textCase(.uppercase)
+            }
             Image(systemName: "gearshape")
-                .font(.system(size: 16))
+                .font(.system(size: 18))
                 .foregroundStyle(Theme.Color.muted)
         }
-        .padding(.horizontal, 8)
         .padding(.vertical, 4)
     }
 
     private func dashboardGrid(_ p: TodayPersona) -> some View {
-        let cols = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
-        return LazyVGrid(columns: cols, spacing: 8) {
+        let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        return LazyVGrid(columns: cols, spacing: 12) {
             DashTile(label: "Readiness", value: "\(p.readiness)", unit: "/100", color: Theme.Color.ok)
             DashTile(label: "HRV", value: "\(p.hrvDelta)\(p.hrvValue)", unit: p.hrvUnit)
             DashTile(label: "Sleep", value: p.sleepHours, unit: "hrs")
@@ -232,87 +241,5 @@ struct TodayView: View {
         }
     }
 
-    private var profileTab: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                VStack(spacing: Theme.Spacing.l) {
-                    Wordmark(size: 32)
-                        .padding(.top, Theme.Spacing.xl)
-                    Text("Perfil")
-                        .font(Theme.Typography.headlineM)
-                        .foregroundStyle(Theme.Color.foreground)
-                    VStack(spacing: Theme.Spacing.s) {
-                        NavigationLink {
-                            SubscriptionView(bearer: bearer)
-                        } label: {
-                            profileRow(
-                                icon: "creditcard",
-                                title: "Suscripción",
-                                subtitle: "Gestiona tu plan HYROX Athlete"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        NavigationLink {
-                            PM5SettingsView(store: PM5ConnectionStore.shared)
-                        } label: {
-                            profileRow(
-                                icon: "antenna.radiowaves.left.and.right",
-                                title: "Concept2 PM5",
-                                subtitle: PM5ConnectionStore.shared.rememberedDeviceName ?? "Sin emparejar"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, Theme.Spacing.l)
-                    Spacer()
-                    SecondaryButton(title: "Cerrar sesión", action: onSignOut)
-                        .padding(.horizontal, Theme.Spacing.xl)
-                        .padding(.bottom, Theme.Spacing.xl)
-                }
-            }
-        }
-    }
-
-    private func profileRow(icon: String, title: String, subtitle: String) -> some View {
-        HStack(spacing: Theme.Spacing.m) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.Color.accent)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(subtitle)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .foregroundStyle(Theme.Color.muted)
-        }
-        .padding(Theme.Spacing.m)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-    }
-}
-
-private struct ComingSoonTab: View {
-    let label: String
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.s) {
-                Wordmark(size: 24)
-                Text(label)
-                    .font(Theme.Typography.headlineL)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Próximamente")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-    }
 }
 
