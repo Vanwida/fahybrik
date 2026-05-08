@@ -121,14 +121,22 @@ export function buildAuthHeader(oauth_params: Record<string, string>): string {
 // payload origin. Garmin uses HMAC-SHA256 over the raw request body with the
 // consumer secret as the key. The exact header name varies by program; we read
 // `x-garmin-signature` and accept hex or base64.
+//
+// The webhook secret defaults to `consumerSecret` to match Garmin's contract,
+// but allows overriding via GARMIN_WEBHOOK_SECRET in case a separate
+// per-program HMAC key is provisioned (some Garmin programs do this).
 export function verifyWebhookSignature(params: {
   rawBody: string | Buffer;
   signatureHeader: string | null;
   consumerSecret: string;
+  webhookSecret?: string;
 }): boolean {
   if (!params.signatureHeader) return false;
   const body = typeof params.rawBody === 'string' ? Buffer.from(params.rawBody, 'utf8') : params.rawBody;
-  const expected = createHmac('sha256', params.consumerSecret).update(body).digest();
+  const key = params.webhookSecret && params.webhookSecret.length > 0
+    ? params.webhookSecret
+    : params.consumerSecret;
+  const expected = createHmac('sha256', key).update(body).digest();
 
   let received: Buffer;
   try {
