@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1440" />
+<title>FAHYBRIK · Mockup 04 — Asignar &amp; Publicar (AssignFlow)</title>
+
+<!-- Fonts: Archivo italic display · Geist / Geist Mono · Material Symbols -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,700;1,800;1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0" rel="stylesheet" />
+
+<style>
+/* ════════════════════════════════════════════════════════════════════
+   FAHYBRIK design tokens — mirrored from web/app/globals.css.
+   Dark is the only mode. Single Fabrik-orange accent.
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  /* surfaces */
+  --bg:               #0A0A0A;
+  --surface:          #141414;
+  --surface-elevated: #1F1F1F;
+  --fg:               #F5F5F5;
+  --muted:            #A1A1A1;
+  --hairline:         rgba(161, 161, 161, 0.18);
+  --outline:          rgba(255, 255, 255, 0.10);
+  --scrim:            rgba(0, 0, 0, 0.55);
+
+  /* accent */
+  --accent:       #F06A2A;
+  --accent-press: #D85A20;
+  --accent-on:    #FFFFFF;
+
+  /* semantic */
+  --ok:      #3FC773;
+  --warning: #F2A52E;
+  --danger:  #F23F3F;
+
+  /* dashboard surfaces */
+  --surface-card: #141414;
+  --surface-container-low: #1c1b1b;
+  --surface-container-high: #2a2a2a;
+  --border-subtle: #222222;
+  --text-muted: var(--muted);
+  --tertiary: #4D9EEB;
+
+  /* methodology group identity colors (chips/pills — orange reserved) */
+  --grp-fuerza-base:                #D9534F;
+  --grp-series-ergometros:          #3FB6A8;
+  --grp-series-running:             #5C8BE0;
+  --grp-zona2-recuperacion:         #5AB877;
+  --grp-wods-metcons:               #D365A0;
+  --grp-circuitos-funcionales:      #A8B84D;
+  --grp-fuerza-base-tint:           rgba(217, 83, 79, 0.14);
+  --grp-series-ergometros-tint:     rgba(63, 182, 168, 0.14);
+  --grp-series-running-tint:        rgba(92, 139, 224, 0.14);
+  --grp-zona2-recuperacion-tint:    rgba(90, 184, 119, 0.14);
+  --grp-wods-metcons-tint:          rgba(211, 101, 160, 0.14);
+  --grp-circuitos-funcionales-tint: rgba(168, 184, 77, 0.14);
+
+  /* spacing 4·8·12·16·24·32·48 */
+  --s-xs: 4px; --s-s: 8px; --s-m: 12px; --s-l: 16px;
+  --s-xl: 24px; --s-xxl: 32px; --s-xxxl: 48px;
+
+  /* radius 6·10·14·20·pill */
+  --r-s: 6px; --r-m: 10px; --r-l: 14px; --r-xl: 20px; --r-pill: 9999px;
+
+  --shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.6);
+
+  --font-display: "Archivo", "SF Pro Display", system-ui, sans-serif;
+  --font-sans:    "Geist", "SF Pro Text", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "SF Mono", ui-monospace, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { background: #060606; }
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--fg);
+  background: #060606;
+  -webkit-font-smoothing: antialiased;
+  width: 1440px;
+  margin: 0 auto;
+  padding: var(--s-xxl) 0 96px;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal; font-style: normal;
+  font-size: 20px; line-height: 1;
+  display: inline-block; white-space: nowrap; direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+}
+
+/* ── mockup chrome (annotations around the frames) ─────────────────── */
+.mock-caption {
+  width: 1392px; margin: 0 auto var(--s-m);
+  display: flex; align-items: baseline; gap: var(--s-m);
+}
+.mock-caption + .mock-caption { margin-top: 0; }
+.mock-caption .num {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0.04em;
+}
+.mock-caption h1, .mock-caption h2 {
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: 18px; letter-spacing: 0.01em; text-transform: uppercase;
+}
+.mock-caption .hint { font-size: 12px; color: var(--muted); }
+.section-gap { height: var(--s-xxxl); }
+
+.micro-label {
+  font-family: var(--font-sans);
+  font-size: 0.625rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.metric-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* ── focus ring (WCAG 2.4.7) ───────────────────────────────────────── */
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  border-radius: var(--r-m);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FRAME 1 — dimmed athlete-page backdrop + AssignFlow modal
+   ════════════════════════════════════════════════════════════════════ */
+.stage {
+  position: relative;
+  width: 1392px; height: 920px;
+  margin: 0 auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* — backdrop: simplified ficha de atleta (blurred under the scrim) — */
+.backdrop {
+  position: absolute; inset: 0;
+  display: flex;
+  filter: blur(2.5px);
+  pointer-events: none;
+}
+.bd-sidebar {
+  width: 80px; flex: none;
+  background: var(--surface);
+  border-right: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--s-s); padding: var(--s-xl) 0;
+}
+.bd-logo {
+  font-family: var(--font-display); font-style: italic; font-weight: 900;
+  font-size: 18px; color: var(--accent); margin-bottom: var(--s-l);
+}
+.bd-nav-item {
+  width: 44px; height: 44px; border-radius: var(--r-m);
+  display: grid; place-items: center; color: var(--muted);
+}
+.bd-nav-item.active { background: var(--surface-elevated); color: var(--fg); }
+.bd-main { flex: 1; padding: var(--s-xl) var(--s-xxl); }
+.bd-header { display: flex; align-items: center; gap: var(--s-l); margin-bottom: var(--s-xl); }
+.bd-avatar {
+  width: 52px; height: 52px; border-radius: var(--r-pill);
+  background: var(--surface-container-high);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 18px;
+}
+.bd-name {
+  font-family: var(--font-display); font-style: italic; font-weight: 900;
+  font-size: 26px; text-transform: uppercase; letter-spacing: 0.01em;
+}
+.bd-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.bd-kpis { margin-left: auto; display: flex; gap: var(--s-xxl); }
+.bd-kpi { text-align: right; }
+.bd-kpi .v { font-family: var(--font-mono); font-weight: 600; font-size: 20px; }
+.bd-cal {
+  border: 1px solid var(--border-subtle); border-radius: var(--r-l);
+  background: var(--surface-card);
+  height: 720px; padding: var(--s-l);
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--s-s);
+}
+.bd-cell { border-radius: var(--r-s); background: var(--surface-container-low); }
+.bd-cell.s1 { background: var(--grp-series-running-tint); }
+.bd-cell.s2 { background: var(--grp-fuerza-base-tint); }
+.bd-cell.s3 { background: var(--grp-zona2-recuperacion-tint); }
+
+.scrim { position: absolute; inset: 0; background: var(--scrim); }
+
+/* — AssignFlow modal — */
+.assign-modal {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 880px; max-height: 856px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-modal), 0 1px 0 rgba(255,255,255,0.05) inset;
+  display: flex; flex-direction: column;
+}
+
+.am-header {
+  display: flex; align-items: flex-start; gap: var(--s-l);
+  padding: var(--s-xl) var(--s-xl) var(--s-l);
+}
+.am-header .titles { display: grid; gap: var(--s-xs); }
+.am-title {
+  font-family: var(--font-display); font-style: italic; font-weight: 900;
+  font-size: 28px; line-height: 1.1; text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.am-close {
+  margin-left: auto; flex: none;
+  width: 36px; height: 36px; border-radius: var(--r-m);
+  border: 1px solid var(--border-subtle); background: transparent;
+  color: var(--muted); display: grid; place-items: center; cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+}
+.am-close:hover { color: var(--fg); border-color: var(--hairline); }
+
+/* — 1 · selection row — */
+.am-selection {
+  display: grid; grid-template-columns: 1fr 1.25fr 1fr;
+  gap: var(--s-l);
+  padding: var(--s-s) var(--s-xl) var(--s-xl);
+}
+.field { display: grid; gap: var(--s-s); align-content: start; }
+.field-label { display: flex; align-items: baseline; gap: var(--s-s); }
+.field-control {
+  display: flex; align-items: center; gap: var(--s-m);
+  min-height: 56px;
+  padding: var(--s-s) var(--s-m);
+  border: 1px solid var(--hairline); border-radius: var(--r-m);
+  background: var(--bg);
+  text-align: left; width: 100%;
+  color: var(--fg); font-family: var(--font-sans); font-size: 14px;
+  cursor: pointer;
+  transition: border-color .15s ease;
+}
+.field-control:hover { border-color: rgba(240, 106, 42, 0.45); }
+.field-control .chev { margin-left: auto; color: var(--muted); font-size: 20px; }
+.field-main { display: grid; gap: 1px; min-width: 0; }
+.field-main .primary {
+  font-weight: 600; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.field-main .secondary { font-size: 11.5px; color: var(--muted); }
+.field-help {
+  display: flex; align-items: center; gap: var(--s-xs);
+  font-size: 11px; color: var(--muted);
+}
+.field-help .material-symbols-outlined { font-size: 13px; }
+
+/* athlete chip (preselected, viene de la ficha) */
+.athlete-chip-avatar {
+  width: 34px; height: 34px; flex: none; border-radius: var(--r-pill);
+  background: rgba(240, 106, 42, 0.16);
+  border: 1px solid rgba(240, 106, 42, 0.4);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: 12px; color: var(--accent);
+}
+.preset-tag {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-pill);
+  padding: 2px 8px;
+}
+.field-icon { color: var(--muted); font-size: 20px; flex: none; }
+
+/* — 2 · preview — */
+.am-preview {
+  margin: 0 var(--s-xl);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  background: var(--bg);
+  padding: var(--s-l);
+  overflow: hidden;
+}
+.preview-head {
+  display: flex; align-items: baseline; gap: var(--s-m);
+  padding-bottom: var(--s-m);
+}
+.preview-head .summary {
+  margin-left: auto;
+  font-size: 12.5px; font-weight: 500; color: var(--fg);
+}
+.preview-head .summary .metric-num { font-weight: 600; }
+.preview-head .summary .sep { color: var(--muted); margin: 0 6px; }
+.preview-head .summary .phase { color: var(--accent); font-weight: 600; }
+
+.cal-grid { display: grid; grid-template-columns: 108px repeat(7, 1fr); }
+.cal-grid .dow {
+  font-family: var(--font-sans); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+  text-align: center; padding: var(--s-s) 0;
+}
+.cal-grid .corner { /* empty corner over week labels */ }
+
+.week-label {
+  display: grid; gap: 2px; align-content: center;
+  padding: var(--s-s) var(--s-m) var(--s-s) var(--s-xs);
+  border-top: 1px solid var(--border-subtle);
+}
+.week-label .wk {
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.week-label .range { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.week-label .deload {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--tertiary);
+}
+
+.day-cell {
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+  min-height: 88px;
+  padding: var(--s-xs) var(--s-xs) var(--s-s);
+  display: grid; gap: var(--s-xs); align-content: start;
+}
+.day-cell .dnum {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  color: var(--muted); padding: 2px 4px 0;
+}
+.day-cell.rest .dnum { opacity: 0.55; }
+.rest-mark {
+  font-size: 10px; color: var(--muted); opacity: 0.5;
+  padding: 2px 4px;
+}
+
+.pill {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 600; line-height: 1.15;
+  padding: 4px 7px;
+  border-radius: var(--r-s);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pill::before {
+  content: ""; width: 3px; height: 12px; flex: none; border-radius: 2px;
+  background: currentColor;
+}
+.pill.fuerza   { background: var(--grp-fuerza-base-tint);           color: var(--grp-fuerza-base); }
+.pill.running  { background: var(--grp-series-running-tint);        color: var(--grp-series-running); }
+.pill.z2       { background: var(--grp-zona2-recuperacion-tint);    color: var(--grp-zona2-recuperacion); }
+.pill.ergo     { background: var(--grp-series-ergometros-tint);     color: var(--grp-series-ergometros); }
+.pill.wod      { background: var(--grp-wods-metcons-tint);          color: var(--grp-wods-metcons); }
+.pill.circuito { background: var(--grp-circuitos-funcionales-tint); color: var(--grp-circuitos-funcionales); }
+
+/* — 3 · confirm footer — */
+.am-footer {
+  display: flex; align-items: center; gap: var(--s-l);
+  padding: var(--s-xl);
+  margin-top: var(--s-xl);
+  border-top: 1px solid var(--border-subtle);
+}
+.confirm-note { display: grid; gap: 2px; }
+.confirm-note .line1 { font-size: 13px; font-weight: 600; }
+.confirm-note .line2 {
+  display: flex; align-items: center; gap: var(--s-xs);
+  font-size: 12px; color: var(--muted);
+}
+.confirm-note .line2 .material-symbols-outlined { font-size: 14px; }
+.am-footer .actions { margin-left: auto; display: flex; align-items: center; gap: var(--s-m); }
+
+.btn {
+  font-family: var(--font-sans); font-size: 14px; font-weight: 600;
+  border-radius: var(--r-m); cursor: pointer;
+  padding: 12px 20px; border: 1px solid transparent;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.btn-secondary {
+  background: transparent; color: var(--muted);
+  border-color: var(--border-subtle);
+}
+.btn-secondary:hover { color: var(--fg); border-color: var(--hairline); }
+.btn-primary {
+  background: var(--accent); color: var(--accent-on);
+  display: inline-flex; align-items: center; gap: var(--s-s);
+  padding: 12px 24px;
+}
+.btn-primary:hover { background: var(--accent-press); }
+.btn-primary .material-symbols-outlined { font-size: 18px; }
+
+/* ════════════════════════════════════════════════════════════════════
+   FRAME 2 — success toast strip
+   ════════════════════════════════════════════════════════════════════ */
+.toast-strip {
+  width: 1392px; margin: 0 auto;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  padding: var(--s-xxl);
+  display: grid; gap: var(--s-l); justify-items: center;
+}
+.toast {
+  display: flex; align-items: center; gap: var(--s-m);
+  background: var(--surface-elevated);
+  border: 1px solid rgba(63, 199, 115, 0.35);
+  border-radius: var(--r-l);
+  box-shadow: var(--shadow-modal);
+  padding: var(--s-l) var(--s-xl);
+  min-width: 560px;
+}
+.toast-check {
+  width: 32px; height: 32px; flex: none; border-radius: var(--r-pill);
+  background: rgba(63, 199, 115, 0.14);
+  display: grid; place-items: center; color: var(--ok);
+}
+.toast-check .material-symbols-outlined { font-size: 18px; font-variation-settings: "FILL" 1, "wght" 500; }
+.toast-body { display: grid; gap: 1px; }
+.toast-title { font-size: 14px; font-weight: 700; }
+.toast-sub { font-size: 12px; color: var(--muted); }
+.toast-link {
+  margin-left: auto;
+  font-size: 13px; font-weight: 600; color: var(--accent);
+  text-decoration: none; white-space: nowrap;
+  padding: var(--s-s) var(--s-m); border-radius: var(--r-m);
+}
+.toast-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+
+  <!-- ══════════ FRAME 1 · AssignFlow modal over athlete page ══════════ -->
+  <div class="mock-caption">
+    <span class="num">04</span>
+    <h1>Asignar &amp; Publicar — AssignFlow</h1>
+    <span class="hint">modal único · invocado desde la ficha de María (atleta preseleccionada) o desde el editor de microciclo · desktop 1440</span>
+  </div>
+
+  <div class="stage" role="img" aria-label="Mockup: modal Asignar microciclo abierto sobre la ficha de la atleta María García">
+
+    <!-- dimmed backdrop: ficha de atleta (simplified) -->
+    <div class="backdrop" aria-hidden="true">
+      <aside class="bd-sidebar">
+        <span class="bd-logo">F</span>
+        <span class="bd-nav-item"><span class="material-symbols-outlined">today</span></span>
+        <span class="bd-nav-item active"><span class="material-symbols-outlined">group</span></span>
+        <span class="bd-nav-item"><span class="material-symbols-outlined">edit_calendar</span></span>
+      </aside>
+      <main class="bd-main">
+        <div class="bd-header">
+          <span class="bd-avatar">MG</span>
+          <div>
+            <div class="bd-name">María García</div>
+            <div class="bd-meta">Pro · Individual · HYROX BCN — 84 días</div>
+          </div>
+          <div class="bd-kpis">
+            <div class="bd-kpi"><div class="v">82%</div><div class="micro-label">Readiness</div></div>
+            <div class="bd-kpi"><div class="v">91%</div><div class="micro-label">Cumplimiento</div></div>
+          </div>
+        </div>
+        <div class="bd-cal">
+          <div class="bd-cell s1"></div><div class="bd-cell"></div><div class="bd-cell s2"></div>
+          <div class="bd-cell"></div><div class="bd-cell s3"></div><div class="bd-cell"></div><div class="bd-cell"></div>
+          <div class="bd-cell"></div><div class="bd-cell s2"></div><div class="bd-cell"></div>
+          <div class="bd-cell s1"></div><div class="bd-cell"></div><div class="bd-cell s3"></div><div class="bd-cell"></div>
+          <div class="bd-cell s3"></div><div class="bd-cell"></div><div class="bd-cell s1"></div>
+          <div class="bd-cell"></div><div class="bd-cell s2"></div><div class="bd-cell"></div><div class="bd-cell"></div>
+          <div class="bd-cell"></div><div class="bd-cell s1"></div><div class="bd-cell"></div>
+          <div class="bd-cell s2"></div><div class="bd-cell"></div><div class="bd-cell s3"></div><div class="bd-cell"></div>
+        </div>
+      </main>
+    </div>
+    <div class="scrim" aria-hidden="true"></div>
+
+    <!-- AssignFlow modal -->
+    <section class="assign-modal" role="dialog" aria-modal="true" aria-labelledby="assign-title">
+
+      <header class="am-header">
+        <div class="titles">
+          <span class="micro-label">Asignar &amp; publicar</span>
+          <h2 class="am-title" id="assign-title">Asignar microciclo</h2>
+        </div>
+        <button type="button" class="am-close" aria-label="Cerrar sin publicar">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+      </header>
+
+      <!-- 1 · selection row -->
+      <div class="am-selection">
+
+        <div class="field">
+          <div class="field-label">
+            <span class="micro-label">Atleta</span>
+          </div>
+          <button type="button" class="field-control" aria-label="Atleta: María García, preseleccionada desde su ficha. Cambiar atleta">
+            <span class="athlete-chip-avatar" aria-hidden="true">MG</span>
+            <span class="field-main">
+              <span class="primary">María García</span>
+              <span class="secondary">Pro · Individual</span>
+            </span>
+            <span class="preset-tag">Desde ficha</span>
+          </button>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span class="micro-label">Microciclo</span>
+          </div>
+          <button type="button" class="field-control" aria-label="Microciclo: Acumulación Pro, Base aeróbica, 4 semanas. Cambiar microciclo" aria-haspopup="listbox">
+            <span class="material-symbols-outlined field-icon" aria-hidden="true">view_week</span>
+            <span class="field-main">
+              <span class="primary">Acumulación Pro — Base aeróbica</span>
+              <span class="secondary">4 semanas · fase Acumulación · nivel Pro</span>
+            </span>
+            <span class="material-symbols-outlined chev" aria-hidden="true">expand_more</span>
+          </button>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span class="micro-label">Empieza el</span>
+          </div>
+          <button type="button" class="field-control" aria-label="Fecha de inicio: lunes 15 de junio. Abrir selector de fecha, solo se pueden elegir lunes" aria-haspopup="dialog">
+            <span class="material-symbols-outlined field-icon" aria-hidden="true">calendar_today</span>
+            <span class="field-main">
+              <span class="primary">Lunes 15 jun</span>
+              <span class="secondary">próximo lunes</span>
+            </span>
+            <span class="material-symbols-outlined chev" aria-hidden="true">expand_more</span>
+          </button>
+          <p class="field-help">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            Solo lunes — la semana del atleta empieza en lunes.
+          </p>
+        </div>
+      </div>
+
+      <!-- 2 · preview (always visible, real calendar) -->
+      <section class="am-preview" aria-label="Vista previa: lo que recibe María">
+        <header class="preview-head">
+          <span class="micro-label">Recibe María</span>
+          <p class="summary">
+            <span class="metric-num">23</span> sesiones
+            <span class="sep">·</span><span class="metric-num">15 jun – 12 jul</span>
+            <span class="sep">·</span>fase <span class="phase">Acumulación</span>
+          </p>
+        </header>
+
+        <div class="cal-grid">
+          <span class="corner" aria-hidden="true"></span>
+          <span class="dow">Lun</span><span class="dow">Mar</span><span class="dow">Mié</span>
+          <span class="dow">Jue</span><span class="dow">Vie</span><span class="dow">Sáb</span><span class="dow">Dom</span>
+
+          <!-- Semana 1 · 15–21 jun -->
+          <div class="week-label">
+            <span class="wk">Sem 1</span>
+            <span class="range">15–21 jun</span>
+          </div>
+          <div class="day-cell"><span class="dnum">15</span><span class="pill fuerza">Fuerza base</span></div>
+          <div class="day-cell"><span class="dnum">16</span><span class="pill running">6×1000m umbral</span></div>
+          <div class="day-cell"><span class="dnum">17</span><span class="pill z2">Z2 carrera 50&prime;</span></div>
+          <div class="day-cell"><span class="dnum">18</span><span class="pill ergo">Ergos 4×8&prime;</span></div>
+          <div class="day-cell"><span class="dnum">19</span><span class="pill fuerza">Fuerza base</span></div>
+          <div class="day-cell"><span class="dnum">20</span><span class="pill wod">WOD híbrido</span></div>
+          <div class="day-cell rest"><span class="dnum">21</span><span class="rest-mark">Descanso</span></div>
+
+          <!-- Semana 2 · 22–28 jun -->
+          <div class="week-label">
+            <span class="wk">Sem 2</span>
+            <span class="range">22–28 jun</span>
+          </div>
+          <div class="day-cell"><span class="dnum">22</span><span class="pill fuerza">Fuerza base</span></div>
+          <div class="day-cell"><span class="dnum">23</span><span class="pill running">5×1200m umbral</span></div>
+          <div class="day-cell"><span class="dnum">24</span><span class="pill z2">Z2 carrera 55&prime;</span></div>
+          <div class="day-cell"><span class="dnum">25</span><span class="pill ergo">Ergos 3×10&prime;</span></div>
+          <div class="day-cell"><span class="dnum">26</span><span class="pill fuerza">Fuerza base</span></div>
+          <div class="day-cell"><span class="dnum">27</span><span class="pill circuito">Circuito funcional</span></div>
+          <div class="day-cell rest"><span class="dnum">28</span><span class="rest-mark">Descanso</span></div>
+
+          <!-- Semana 3 · 29 jun – 5 jul -->
+          <div class="week-label">
+            <span class="wk">Sem 3</span>
+            <span class="range">29 jun–5 jul</span>
+          </div>
+          <div class="day-cell"><span class="dnum">29</span><span class="pill fuerza">Fuerza base</span></div>
+          <div class="day-cell"><span class="dnum">30</span><span class="pill running">4×1600m umbral</span></div>
+          <div class="day-cell"><span class="dnum">1</span><span class="pill z2">Z2 carrera 60&prime;</span></div>
+          <div class="day-cell"><span class="dnum">2</span><span class="pill ergo">Ergos 4×8&prime;</span></div>
+          <div class="day-cell"><span class="dnum">3</span><span class="pill fuerza">Fuerza base</span></div>
+          <div class="day-cell"><span class="dnum">4</span><span class="pill wod">WOD híbrido</span></div>
+          <div class="day-cell rest"><span class="dnum">5</span><span class="rest-mark">Descanso</span></div>
+
+          <!-- Semana 4 · 6–12 jul (deload) -->
+          <div class="week-label">
+            <span class="wk">Sem 4</span>
+            <span class="range">6–12 jul</span>
+            <span class="deload">Deload</span>
+          </div>
+          <div class="day-cell"><span class="dnum">6</span><span class="pill fuerza">Fuerza ligera</span></div>
+          <div class="day-cell"><span class="dnum">7</span><span class="pill running">6×400m suave</span></div>
+          <div class="day-cell"><span class="dnum">8</span><span class="pill z2">Z2 carrera 40&prime;</span></div>
+          <div class="day-cell rest"><span class="dnum">9</span><span class="rest-mark">Descanso</span></div>
+          <div class="day-cell"><span class="dnum">10</span><span class="pill ergo">Ergos suaves</span></div>
+          <div class="day-cell"><span class="dnum">11</span><span class="pill circuito">Circuito ligero</span></div>
+          <div class="day-cell rest"><span class="dnum">12</span><span class="rest-mark">Descanso</span></div>
+        </div>
+      </section>
+
+      <!-- 3 · explicit confirm -->
+      <footer class="am-footer">
+        <div class="confirm-note">
+          <span class="line1">Sin publicar todavía</span>
+          <span class="line2">
+            <span class="material-symbols-outlined" aria-hidden="true">smartphone</span>
+            María lo verá inmediatamente en su móvil.
+          </span>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-secondary">Cancelar</button>
+          <button type="button" class="btn btn-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">send</span>
+            Publicar a María
+          </button>
+        </div>
+      </footer>
+
+    </section>
+  </div>
+
+  <div class="section-gap"></div>
+
+  <!-- ══════════ FRAME 2 · success toast state ══════════ -->
+  <div class="mock-caption">
+    <span class="num">04b</span>
+    <h2>Estado de éxito — toast tras publicar</h2>
+    <span class="hint">aparece abajo-centro sobre la ficha · auto-dismiss 6s · el modal se cierra solo</span>
+  </div>
+
+  <div class="toast-strip">
+    <div class="toast" role="status" aria-live="polite">
+      <span class="toast-check" aria-hidden="true">
+        <span class="material-symbols-outlined">check</span>
+      </span>
+      <div class="toast-body">
+        <span class="toast-title">Publicado · <span class="metric-num">23</span> sesiones del 15 jun al 12 jul</span>
+        <span class="toast-sub">Acumulación Pro — Base aeróbica · María García</span>
+      </div>
+      <a class="toast-link" href="#">Ver calendario</a>
+    </div>
+    <span class="micro-label">El botón primario queda deshabilitado mientras publica («Publicando…») · nunca auto-publish</span>
+  </div>
+
+</body>
+</html>

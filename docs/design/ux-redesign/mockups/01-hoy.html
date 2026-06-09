@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FAHYBRIK — HOY · inbox único (mockup 01)</title>
+
+<!-- Fonts: Archivo (display italic), Geist (body), Geist Mono (metrics), Material Symbols -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,700;1,800;1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0" rel="stylesheet" />
+
+<style>
+/* ════════════════════════════════════════════════════════════════════
+   FAHYBRIK design tokens — replicated 1:1 from web/app/globals.css
+   (canonical: shared/tokens.json). Dark is the only mode.
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  /* color, surface */
+  --bg:               #0A0A0A;
+  --surface:          #141414;
+  --surface-elevated: #1F1F1F;
+  --fg:               #F5F5F5;
+  --muted:            #A1A1A1;
+  --hairline:         rgba(161, 161, 161, 0.18);
+  --outline:          rgba(255, 255, 255, 0.10);
+  --scrim:            rgba(0, 0, 0, 0.55);
+
+  /* brand accent (single) */
+  --accent:           #F06A2A;
+  --accent-press:     #D85A20;
+  --accent-on:        #FFFFFF;
+
+  /* semantic */
+  --ok:               #3FC773;
+  --warning:          #F2A52E;
+  --danger:           #F23F3F;
+
+  /* dashboard surfaces (Level 0..4) */
+  --surface-card: #141414;
+  --surface-container-lowest: #0e0e0e;
+  --surface-container-low: #1c1b1b;
+  --surface-container: #201f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353534;
+  --surface-variant: #353534;
+  --border-subtle: #222222;
+  --text-muted: var(--muted);
+  --tertiary: #4D9EEB; /* system info blue (z2) */
+
+  /* spacing 4·8·12·16·24·32·48 */
+  --s-xs: 4px; --s-s: 8px; --s-m: 12px; --s-l: 16px;
+  --s-xl: 24px; --s-xxl: 32px; --s-xxxl: 48px;
+
+  /* radius 6·10·14·20·pill */
+  --r-s: 6px; --r-sm: 8px; --r-m: 10px; --r-l: 14px; --r-xl: 20px; --r-pill: 9999px;
+
+  /* shadows */
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px rgba(0,0,0,0.4);
+
+  /* fonts */
+  --font-display: "Archivo", "SF Pro Display", system-ui, sans-serif;
+  --font-sans: "Geist", "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
+
+  /* layout */
+  --container-max: 1280px;
+  --gutter: 16px;
+  --sidebar-w: 80px;
+}
+
+/* ── base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: var(--font-sans); }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 16px/1.4 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+ul { list-style: none; }
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal; font-style: normal;
+  font-size: 24px; line-height: 1;
+  display: inline-block; white-space: nowrap; direction: ltr;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  -webkit-font-smoothing: antialiased;
+}
+.msym-fill { font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24; }
+
+/* ── Focus ring (WCAG 2.4.7) — same recipe as globals.css ── */
+a:focus-visible, button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  border-radius: var(--r-s);
+}
+
+/* ── type utilities (mirror globals.css) ── */
+.micro-label {
+  font-family: var(--font-sans);
+  font-size: 0.625rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.metric-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+.font-label-bold {
+  font-family: var(--font-display);
+  font-size: 12px; line-height: 1; font-weight: 700; font-style: italic;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SIDEBAR — collapsed 80px, icons only (spec §0)
+   ════════════════════════════════════════════════════════════════════ */
+.sidebar {
+  position: fixed; inset: 0 auto 0 0;
+  width: var(--sidebar-w);
+  display: flex; flex-direction: column; gap: var(--s-l);
+  background: var(--surface-container-lowest);
+  border-right: 1px solid var(--border-subtle);
+  z-index: 20;
+}
+.sidebar__logo {
+  display: flex; align-items: center; justify-content: center;
+  height: 64px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sidebar__logo-mark {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  background: var(--accent); color: var(--accent-on);
+  font-family: var(--font-display); font-style: italic; font-weight: 900; font-size: 20px;
+}
+.sidebar__nav { display: flex; flex-direction: column; gap: var(--s-xs); padding: 0 var(--s-m); flex: 1; }
+.sidebar__footer {
+  margin-top: auto;
+  display: flex; flex-direction: column; gap: var(--s-xs);
+  padding: var(--s-m);
+  border-top: 1px solid var(--border-subtle);
+}
+.nav-icon {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; border-radius: var(--r-sm);
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.nav-icon:hover { background: var(--surface-container-high); color: var(--fg); }
+.nav-icon--active { background: var(--accent); color: var(--accent-on); }
+.nav-icon--active:hover { background: var(--accent-press); color: var(--accent-on); }
+.nav-icon .material-symbols-outlined { font-size: 22px; }
+.badge-dot {
+  position: absolute; top: 6px; right: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent-on); color: var(--accent);
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  border: 1.5px solid var(--accent);
+}
+.nav-icon:not(.nav-icon--active) .badge-dot {
+  background: var(--accent); color: var(--accent-on); border-color: var(--bg);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PAGE LAYOUT
+   ════════════════════════════════════════════════════════════════════ */
+.page {
+  margin-left: var(--sidebar-w);
+  padding: var(--s-xxl) var(--s-xl) var(--s-xxxl);
+}
+.container { max-width: var(--container-max); margin: 0 auto; }
+
+.page-header { margin-bottom: var(--s-xxl); }
+.page-header__date {
+  display: block; margin-bottom: var(--s-s);
+}
+.page-header h1 {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 900;
+  font-size: 56px; line-height: 1.0;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.page-header h1 .tick { color: var(--accent); }
+.page-header__summary {
+  margin-top: var(--s-m);
+  font-size: 15px; color: var(--text-muted);
+  display: flex; align-items: center; gap: var(--s-s); flex-wrap: wrap;
+}
+.page-header__summary strong { color: var(--fg); font-weight: 600; }
+.summary-dot { color: var(--surface-variant); }
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--s-xl);
+  align-items: start;
+}
+@media (max-width: 1023px) { .layout-grid { grid-template-columns: 1fr; } }
+
+/* queue groups */
+.queue { display: flex; flex-direction: column; gap: var(--s-xl); }
+.queue-group { display: flex; flex-direction: column; gap: var(--s-m); }
+.queue-group__label {
+  display: flex; align-items: center; gap: var(--s-m);
+  padding: 0 var(--s-xs);
+}
+.queue-group__label::after {
+  content: ""; flex: 1; height: 1px; background: var(--border-subtle);
+}
+.queue-group__count { color: var(--surface-variant); font-weight: 700; }
+
+/* ════════════════════════════════════════════════════════════════════
+   CARDS — inbox item anatomy (avatar · chip tipo · título · contexto · acciones)
+   ════════════════════════════════════════════════════════════════════ */
+.card {
+  position: relative; overflow: hidden;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  padding: var(--s-xl);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.4), 0 12px 28px -12px rgba(0,0,0,0.7);
+  transition: border-color 0.16s ease;
+}
+.card:hover { border-color: color-mix(in srgb, var(--accent) 32%, var(--border-subtle)); }
+
+/* critical = full-width + accent ring (ReviewTaskCard critical pattern) */
+.card--critical {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 12px 28px -12px rgba(0,0,0,0.7);
+}
+.card--critical:hover { border-color: var(--accent); }
+.card--critical .card__glow {
+  pointer-events: none; position: absolute; top: 0; right: 0;
+  width: 128px; height: 128px;
+  border-bottom-left-radius: 100%;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.card__row { display: flex; gap: var(--s-l); align-items: flex-start; position: relative; z-index: 1; }
+.card__main { display: flex; gap: var(--s-l); flex: 1; min-width: 0; }
+.card__content { min-width: 0; flex: 1; }
+.card__actions {
+  display: flex; flex-direction: column; gap: var(--s-s);
+  flex-shrink: 0; min-width: 164px;
+}
+.card--critical .card__actions { justify-content: center; }
+
+.card__namerow { display: flex; align-items: center; gap: var(--s-s); flex-wrap: wrap; margin-bottom: var(--s-xs); }
+.card__name { font-size: 16px; font-weight: 600; color: var(--fg); }
+.card__title { font-size: 15px; font-weight: 500; color: var(--fg); margin-bottom: var(--s-xs); }
+.card--critical .card__title { color: var(--accent); font-weight: 600; }
+.card__body { font-size: 13.5px; line-height: 1.5; color: var(--text-muted); max-width: 56ch; }
+.card__meta {
+  display: flex; align-items: center; gap: var(--s-m);
+  margin-top: var(--s-m); flex-wrap: wrap;
+}
+
+/* avatar (AthleteAvatar pattern: initials circle) */
+.avatar {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-container-high);
+  color: var(--fg);
+  font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 15px;
+  letter-spacing: 0.01em;
+}
+.avatar--sm { width: 36px; height: 36px; font-size: 13px; }
+.avatar--critical {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-container-high));
+  color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* chips de tipo — color semántico: error / warning / accent / tertiary */
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--r-s);
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.chip--error    { color: var(--danger);   background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.chip--warning  { color: var(--warning);  background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.chip--accent   { color: var(--accent);   background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.chip--tertiary { color: var(--tertiary); background: color-mix(in srgb, var(--tertiary) 12%, transparent); }
+.chip--neutral  {
+  color: var(--text-muted); background: var(--surface-container);
+  border: 1px solid var(--border-subtle);
+}
+.chip .material-symbols-outlined { font-size: 12px; }
+
+/* botones */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-s);
+  padding: 10px 16px; border-radius: var(--r-m);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+.btn .material-symbols-outlined { font-size: 15px; }
+.btn--primary { background: var(--accent); color: var(--accent-on); }
+.btn--primary:hover { background: var(--accent-press); }
+.btn--secondary {
+  background: var(--surface-container); color: var(--fg);
+  border: 1px solid var(--border-subtle);
+}
+.btn--secondary:hover { background: var(--surface-container-high); border-color: var(--surface-variant); }
+.btn--ghost { color: var(--text-muted); padding: 8px 16px; }
+.btn--ghost:hover { background: var(--surface-container); color: var(--fg); }
+.btn--approve {
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface-container));
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+}
+.btn--approve:hover { background: color-mix(in srgb, var(--ok) 24%, var(--surface-container)); }
+
+/* mini diff table — Día | Antes | Propuesto */
+.diff-table {
+  width: 100%; margin-top: var(--s-m);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-m);
+  border-collapse: separate; border-spacing: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  background: var(--surface-container-lowest);
+}
+.diff-table th {
+  padding: 7px 12px; text-align: left;
+  font-family: var(--font-sans); font-size: 0.625rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted);
+  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.diff-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+.diff-table tr:last-child td { border-bottom: none; }
+.diff-table td:first-child {
+  font-family: var(--font-mono); font-weight: 600; font-size: 11px;
+  text-transform: uppercase; color: var(--text-muted);
+  width: 52px; padding-top: 10px;
+}
+.diff-table .diff-before { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 55%, transparent); }
+.diff-table .diff-after { color: var(--fg); font-weight: 500; }
+.diff-table .diff-after .delta { color: var(--accent); font-weight: 600; }
+.diff-more {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: var(--s-s);
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  border-radius: var(--r-s); padding: 2px 4px;
+}
+.diff-more:hover { color: var(--accent); }
+.diff-more .material-symbols-outlined { font-size: 14px; }
+
+/* ATR ribbon mini (transición de bloque) */
+.atr-mini {
+  display: flex; gap: 4px; margin-top: var(--s-m);
+  max-width: 420px;
+}
+.atr-mini__seg {
+  position: relative;
+  height: 26px; border-radius: var(--r-s);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.atr-mini__seg--done {
+  flex: 5;
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface-container));
+  color: var(--ok);
+}
+.atr-mini__seg--next {
+  flex: 4;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-container));
+  color: var(--accent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.atr-mini__seg--future {
+  flex: 3;
+  background: var(--surface-container);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+/* mensaje de atleta — preview quote */
+.msg-quote {
+  margin-top: var(--s-m);
+  padding: var(--s-m) var(--s-l);
+  border-left: 2px solid var(--tertiary);
+  border-radius: 0 var(--r-m) var(--r-m) 0;
+  background: var(--surface-container-lowest);
+  font-size: 13.5px; line-height: 1.5; color: var(--fg);
+  font-style: italic;
+  max-width: 56ch;
+}
+.msg-quote time {
+  display: block; margin-top: var(--s-s);
+  font-style: normal; font-size: 11px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RIGHT RAIL — pulso del equipo
+   ════════════════════════════════════════════════════════════════════ */
+.rail { display: flex; flex-direction: column; gap: var(--s-l); position: sticky; top: var(--s-xl); }
+.rail-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  padding: var(--s-xl) var(--s-xl) var(--s-l);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.4);
+}
+.rail-card__head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--s-l);
+}
+.rail-link {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  border-radius: var(--r-s); padding: 2px 4px;
+}
+.rail-link:hover { color: var(--accent); }
+.rail-link .material-symbols-outlined { font-size: 13px; }
+
+/* readiness distribution */
+.readiness-bar {
+  display: flex; gap: 3px; height: 10px;
+  border-radius: var(--r-pill); overflow: hidden;
+  margin-bottom: var(--s-l);
+}
+.readiness-bar span { height: 100%; }
+.readiness-bar .seg-ok { background: var(--ok); }
+.readiness-bar .seg-warn { background: var(--warning); }
+.readiness-bar .seg-danger { background: var(--danger); }
+.readiness-legend { display: flex; flex-direction: column; gap: var(--s-s); }
+.readiness-legend button {
+  display: flex; align-items: center; gap: var(--s-m);
+  padding: 6px var(--s-s); margin: 0 calc(-1 * var(--s-s));
+  border-radius: var(--r-s);
+  font-size: 13px; color: var(--text-muted);
+  width: calc(100% + var(--s-l));
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.readiness-legend button:hover { background: var(--surface-container); color: var(--fg); }
+.readiness-legend .dot {
+  width: 8px; height: 8px; border-radius: var(--r-pill); flex-shrink: 0;
+}
+.readiness-legend .count { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--fg); }
+
+/* metric readout (instrument) */
+.metric-readout { display: flex; flex-direction: column; gap: 4px; }
+.metric-readout__value {
+  font-family: var(--font-mono); font-weight: 600;
+  font-size: 2.5rem; line-height: 0.95; letter-spacing: -0.01em;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+.metric-readout__unit { font-size: 0.6em; font-weight: 500; color: var(--text-muted); }
+.metric-trend {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--ok);
+}
+.metric-trend .material-symbols-outlined { font-size: 14px; }
+.compliance-spark {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 36px; margin-top: var(--s-l);
+}
+.compliance-spark span {
+  flex: 1; border-radius: 2px 2px 0 0;
+  background: var(--surface-container-high);
+}
+.compliance-spark .lit { background: color-mix(in srgb, var(--accent) 75%, var(--surface-container-high)); }
+.compliance-spark .now { background: var(--accent); }
+.compliance-days {
+  display: flex; gap: 4px; margin-top: 6px;
+}
+.compliance-days span {
+  flex: 1; text-align: center;
+  font-family: var(--font-mono); font-size: 9px;
+  text-transform: uppercase; color: var(--text-muted);
+}
+
+/* necesitan atención */
+.attn-list { display: flex; flex-direction: column; }
+.attn-item {
+  display: flex; align-items: center; gap: var(--s-m);
+  padding: var(--s-m) var(--s-s); margin: 0 calc(-1 * var(--s-s));
+  border-radius: var(--r-m);
+  transition: background-color 0.15s ease;
+}
+.attn-item:hover { background: var(--surface-container); }
+.attn-item + .attn-item { border-top: 1px solid var(--border-subtle); }
+.attn-item__info { min-width: 0; flex: 1; }
+.attn-item__name { font-size: 13.5px; font-weight: 600; color: var(--fg); }
+.attn-item__why {
+  font-size: 11.5px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.attn-item__score {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.attn-item .material-symbols-outlined.chev { font-size: 16px; color: var(--surface-variant); flex-shrink: 0; }
+
+/* ════════════════════════════════════════════════════════════════════
+   ESTADOS (sección de referencia bajo el mock principal)
+   ════════════════════════════════════════════════════════════════════ */
+.states-divider {
+  display: flex; align-items: center; gap: var(--s-l);
+  margin: var(--s-xxxl) 0 var(--s-xl);
+}
+.states-divider::before, .states-divider::after {
+  content: ""; flex: 1; height: 1px;
+  background: var(--border-subtle);
+}
+.states-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-xl); align-items: start; }
+@media (max-width: 1023px) { .states-grid { grid-template-columns: 1fr; } }
+.state-frame { display: flex; flex-direction: column; gap: var(--s-m); }
+
+/* empty state — ilustración tipográfica */
+.empty-state {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  padding: var(--s-xxxl) var(--s-xl);
+  text-align: center;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.4);
+}
+.empty-state h2 {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 900;
+  font-size: 44px; line-height: 1.05;
+  text-transform: uppercase; letter-spacing: -0.01em;
+  color: var(--fg);
+}
+.empty-state h2 .tick { color: var(--accent); }
+.empty-state p { margin-top: var(--s-m); font-size: 14px; color: var(--text-muted); }
+.empty-state .material-symbols-outlined {
+  font-size: 28px; color: var(--ok); margin-bottom: var(--s-l);
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* approved collapsed card + Deshacer */
+.card--approved {
+  display: flex; align-items: center; gap: var(--s-l);
+  padding: var(--s-l) var(--s-xl);
+  border-color: color-mix(in srgb, var(--ok) 30%, var(--border-subtle));
+  background: color-mix(in srgb, var(--ok) 4%, var(--surface-card));
+}
+.card--approved:hover { border-color: color-mix(in srgb, var(--ok) 30%, var(--border-subtle)); }
+.approved-check {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+.approved-check .material-symbols-outlined {
+  font-size: 18px;
+  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24;
+}
+.card--approved .label { flex: 1; min-width: 0; font-size: 14px; color: var(--fg); }
+.card--approved .label strong { font-weight: 600; }
+.card--approved .label .sub { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.btn-undo {
+  position: relative; overflow: hidden;
+  display: inline-flex; align-items: center; gap: var(--s-s);
+  padding: 8px 14px; border-radius: var(--r-m);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-container);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--fg); flex-shrink: 0;
+}
+.btn-undo:hover { background: var(--surface-container-high); }
+.btn-undo .countdown {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* 5s draining progress under the undo button */
+.btn-undo::after {
+  content: ""; position: absolute; left: 0; bottom: 0; height: 2px;
+  background: var(--ok); width: 100%;
+  animation: undo-drain 5s linear forwards;
+  transform-origin: left;
+}
+@keyframes undo-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .btn-undo::after { animation: none; } }
+
+/* annotation chips for the states section */
+.state-note { font-size: 12.5px; line-height: 1.5; color: var(--text-muted); padding: 0 var(--s-xs); }
+.state-note code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface-container); padding: 1px 5px; border-radius: 4px;
+  color: var(--fg);
+}
+
+/* ── staggered reveal (mirror globals.css) ── */
+@keyframes instrument-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger-in {
+  opacity: 0;
+  animation: instrument-reveal 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--stagger-i, 0) * 45ms);
+}
+@media (prefers-reduced-motion: reduce) { .stagger-in { opacity: 1; animation: none; } }
+
+/* responsive: actions drop below content on narrow */
+@media (max-width: 767px) {
+  .card__row { flex-direction: column; }
+  .card__actions { flex-direction: row; flex-wrap: wrap; min-width: 0; width: 100%; margin-top: var(--s-l); border-top: 1px solid var(--border-subtle); padding-top: var(--s-l); }
+  .page { padding: var(--s-xl) var(--s-l) var(--s-xxl); }
+  .page-header h1 { font-size: 40px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ SIDEBAR (collapsed 80px, spec §0) ════════════════ -->
+<aside class="sidebar" aria-label="Navegación principal">
+  <a class="sidebar__logo" href="#" aria-label="FAHYBRIK — inicio" title="FAHYBRIK">
+    <span class="sidebar__logo-mark" aria-hidden="true">F</span>
+  </a>
+  <nav class="sidebar__nav" aria-label="Secciones">
+    <a class="nav-icon nav-icon--active" href="#" aria-label="Hoy — 6 pendientes" aria-current="page" title="Hoy">
+      <span class="material-symbols-outlined msym-fill" aria-hidden="true">today</span>
+      <span class="badge-dot" aria-hidden="true">6</span>
+    </a>
+    <a class="nav-icon" href="#" aria-label="Atletas" title="Atletas">
+      <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+    </a>
+    <a class="nav-icon" href="#" aria-label="Programar" title="Programar">
+      <span class="material-symbols-outlined" aria-hidden="true">edit_calendar</span>
+    </a>
+  </nav>
+  <div class="sidebar__footer">
+    <a class="nav-icon" href="#" aria-label="Ajustes" title="Ajustes">
+      <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+    </a>
+    <a class="nav-icon" href="#" aria-label="Ayuda" title="Ayuda">
+      <span class="material-symbols-outlined" aria-hidden="true">help</span>
+    </a>
+  </div>
+</aside>
+
+<main class="page">
+  <div class="container">
+
+    <!-- ════════════════ HEADER ════════════════ -->
+    <header class="page-header stagger-in" style="--stagger-i: 0">
+      <span class="micro-label page-header__date">Lunes · 9 jun 2026</span>
+      <h1>Hoy<span class="tick">.</span></h1>
+      <p class="page-header__summary">
+        <strong>4 decisiones pendientes</strong>
+        <span class="summary-dot" aria-hidden="true">·</span>
+        <span>1 alerta</span>
+        <span class="summary-dot" aria-hidden="true">·</span>
+        <span>1 mensaje</span>
+      </p>
+    </header>
+
+    <div class="layout-grid">
+
+      <!-- ════════════════ COLUMNA PRINCIPAL — LA COLA ════════════════ -->
+      <div class="queue">
+
+        <!-- ── CRÍTICO ── -->
+        <section class="queue-group stagger-in" style="--stagger-i: 1" aria-labelledby="grp-critico">
+          <h2 class="micro-label queue-group__label" id="grp-critico">Crítico <span class="queue-group__count metric-num">1</span></h2>
+
+          <!-- 1 · Intake nuevo >48h — full-width + ring accent -->
+          <article class="card card--critical" aria-label="Intake crítico de María González">
+            <div class="card__glow" aria-hidden="true"></div>
+            <div class="card__row">
+              <div class="card__main">
+                <span class="avatar avatar--critical" aria-hidden="true">MG</span>
+                <div class="card__content">
+                  <div class="card__namerow">
+                    <span class="card__name">María González</span>
+                    <span class="chip chip--error">Intake · 52 h</span>
+                    <span class="chip chip--neutral">
+                      <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+                      HYROX Madrid · <span class="metric-num">74 d</span>
+                    </span>
+                  </div>
+                  <h3 class="card__title">Terminó el onboarding hace 52 horas y sigue sin plan</h3>
+                  <p class="card__body">
+                    Nivel intermedio · objetivo sub-1:25 · 4 días/sem disponibles. Pablo IA ya tiene
+                    una propuesta de microciclo de Acumulación lista para tu revisión.
+                  </p>
+                </div>
+              </div>
+              <div class="card__actions">
+                <a class="btn btn--primary" href="#">
+                  <span class="material-symbols-outlined" aria-hidden="true">assignment_ind</span>
+                  Revisar intake
+                </a>
+                <a class="btn btn--secondary" href="#">Ver ficha</a>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- ── DECISIONES ── -->
+        <section class="queue-group stagger-in" style="--stagger-i: 2" aria-labelledby="grp-decisiones">
+          <h2 class="micro-label queue-group__label" id="grp-decisiones">Decisiones <span class="queue-group__count metric-num">3</span></h2>
+
+          <!-- 2a · Ajuste semanal propuesto -->
+          <article class="card" aria-label="Ajuste semanal propuesto para Jordi Mas">
+            <div class="card__row">
+              <div class="card__main">
+                <span class="avatar" aria-hidden="true">JM</span>
+                <div class="card__content">
+                  <div class="card__namerow">
+                    <span class="card__name">Jordi Mas</span>
+                    <span class="chip chip--accent">Ajuste semanal</span>
+                  </div>
+                  <h3 class="card__title">Bajar volumen de carrera esta semana</h3>
+                  <p class="card__body">
+                    Readiness en 48% dos días seguidos y HRV un 14% por debajo de su media.
+                    Propongo recortar las series y adelantar el día de Z2.
+                  </p>
+                  <table class="diff-table">
+                    <caption class="micro-label" style="text-align:left; padding: 8px 12px 0; caption-side: top;">Semana 12–18 jun</caption>
+                    <thead>
+                      <tr><th scope="col">Día</th><th scope="col">Antes</th><th scope="col">Propuesto</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Mar</td>
+                        <td><span class="diff-before">6×1000 m @ 4:05/km</span></td>
+                        <td><span class="diff-after">4×1000 m @ <span class="delta">4:15/km</span></span></td>
+                      </tr>
+                      <tr>
+                        <td>Jue</td>
+                        <td><span class="diff-before">Series ergómetros · RPE 8</span></td>
+                        <td><span class="diff-after">Z2 carrera <span class="delta">45'</span></span></td>
+                      </tr>
+                      <tr>
+                        <td>Sáb</td>
+                        <td><span class="diff-before">Simulación 4 estaciones</span></td>
+                        <td><span class="diff-after">Sin cambios</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <button class="diff-more" type="button">
+                    <span class="material-symbols-outlined" aria-hidden="true">unfold_more</span>
+                    +2 cambios más
+                  </button>
+                </div>
+              </div>
+              <div class="card__actions">
+                <button class="btn btn--approve" type="button">
+                  <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                  Aprobar
+                </button>
+                <a class="btn btn--secondary" href="#">Ajustar</a>
+                <button class="btn btn--ghost" type="button">Posponer</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- 2b · Segundo ajuste semanal -->
+          <article class="card" aria-label="Ajuste semanal propuesto para Laura Soler">
+            <div class="card__row">
+              <div class="card__main">
+                <span class="avatar" aria-hidden="true">LS</span>
+                <div class="card__content">
+                  <div class="card__namerow">
+                    <span class="card__name">Laura Soler</span>
+                    <span class="chip chip--accent">Ajuste semanal</span>
+                  </div>
+                  <h3 class="card__title">Subir intensidad de fuerza — semana asimilada</h3>
+                  <p class="card__body">
+                    Cumplimiento 100% y RPE reportado por debajo de lo prescrito en las dos
+                    sesiones de fuerza. Toca progresar la carga.
+                  </p>
+                  <table class="diff-table">
+                    <caption class="micro-label" style="text-align:left; padding: 8px 12px 0; caption-side: top;">Semana 12–18 jun</caption>
+                    <thead>
+                      <tr><th scope="col">Día</th><th scope="col">Antes</th><th scope="col">Propuesto</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Lun</td>
+                        <td><span class="diff-before">Back Squat 5×5 @ 70%</span></td>
+                        <td><span class="diff-after">5×5 @ <span class="delta">75% RM</span></span></td>
+                      </tr>
+                      <tr>
+                        <td>Mié</td>
+                        <td><span class="diff-before">Sled Push 4×25 m @ 102 kg</span></td>
+                        <td><span class="diff-after">4×25 m @ <span class="delta">112 kg</span></span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="card__actions">
+                <button class="btn btn--approve" type="button">
+                  <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                  Aprobar
+                </button>
+                <a class="btn btn--secondary" href="#">Ajustar</a>
+                <button class="btn btn--ghost" type="button">Posponer</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- 3 · Propuesta transición ATR -->
+          <article class="card" aria-label="Propuesta de transición de bloque para Carlos Ruiz">
+            <div class="card__row">
+              <div class="card__main">
+                <span class="avatar" aria-hidden="true">CR</span>
+                <div class="card__content">
+                  <div class="card__namerow">
+                    <span class="card__name">Carlos Ruiz</span>
+                    <span class="chip chip--tertiary">Transición de bloque</span>
+                  </div>
+                  <h3 class="card__title">Termina Acumulación esta semana → propuesta: Transformación, 4 semanas</h3>
+                  <p class="card__body">
+                    Cierra el bloque con 91% de cumplimiento y mejoras en umbral (−6 s/km).
+                    Microciclo propuesto: <strong style="color: var(--fg); font-weight:600;">Transformación B — Intermedio</strong>, inicio lunes 15 jun.
+                  </p>
+                  <div class="atr-mini" role="img" aria-label="Progreso ATR: Acumulación completada, 5 semanas. Siguiente: Transformación, 4 semanas. Después: Realización, 3 semanas.">
+                    <span class="atr-mini__seg atr-mini__seg--done">ACC · 5 ✓</span>
+                    <span class="atr-mini__seg atr-mini__seg--next">TRANS · 4</span>
+                    <span class="atr-mini__seg atr-mini__seg--future">REAL · 3</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card__actions">
+                <button class="btn btn--approve" type="button">
+                  <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                  Aprobar
+                </button>
+                <a class="btn btn--secondary" href="#">Revisar</a>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- ── ALERTAS ── -->
+        <section class="queue-group stagger-in" style="--stagger-i: 3" aria-labelledby="grp-alertas">
+          <h2 class="micro-label queue-group__label" id="grp-alertas">Alertas <span class="queue-group__count metric-num">1</span></h2>
+
+          <!-- 4 · Alerta inactividad -->
+          <article class="card" aria-label="Alerta de inactividad de Sergio Torres">
+            <div class="card__row">
+              <div class="card__main">
+                <span class="avatar" aria-hidden="true">ST</span>
+                <div class="card__content">
+                  <div class="card__namerow">
+                    <span class="card__name">Sergio Torres</span>
+                    <span class="chip chip--warning">Inactividad</span>
+                  </div>
+                  <h3 class="card__title">3 días sin actividad ni check-in</h3>
+                  <p class="card__body">
+                    Última sesión: viernes 5 jun (Series running, completada). Sin check-in desde
+                    el sábado. Tiene HYROX Barcelona en <span class="metric-num" style="color: var(--fg);">41 días</span>.
+                  </p>
+                </div>
+              </div>
+              <div class="card__actions">
+                <a class="btn btn--secondary" href="#">
+                  <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                  Abrir atleta
+                </a>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- ── MENSAJES ── -->
+        <section class="queue-group stagger-in" style="--stagger-i: 4" aria-labelledby="grp-mensajes">
+          <h2 class="micro-label queue-group__label" id="grp-mensajes">Mensajes <span class="queue-group__count metric-num">1</span></h2>
+
+          <!-- 5 · Mensaje de atleta -->
+          <article class="card" aria-label="Mensaje de Nuria Pons">
+            <div class="card__row">
+              <div class="card__main">
+                <span class="avatar" aria-hidden="true">NP</span>
+                <div class="card__content">
+                  <div class="card__namerow">
+                    <span class="card__name">Nuria Pons</span>
+                    <span class="chip chip--tertiary">Mensaje</span>
+                  </div>
+                  <blockquote class="msg-quote">
+                    “Pablo, noto molestia en el hombro derecho con los wall balls de ayer.
+                    ¿Cambio algo para la sesión del jueves o sigo según plan?”
+                    <time datetime="2026-06-09T07:42">hoy · 07:42</time>
+                  </blockquote>
+                </div>
+              </div>
+              <div class="card__actions">
+                <a class="btn btn--secondary" href="#">
+                  <span class="material-symbols-outlined" aria-hidden="true">reply</span>
+                  Responder
+                </a>
+              </div>
+            </div>
+          </article>
+        </section>
+
+      </div>
+
+      <!-- ════════════════ COLUMNA DERECHA — PULSO DEL EQUIPO ════════════════ -->
+      <aside class="rail" aria-label="Pulso del equipo">
+
+        <!-- Readiness distribution -->
+        <section class="rail-card stagger-in" style="--stagger-i: 2" aria-labelledby="rail-readiness">
+          <div class="rail-card__head">
+            <h2 class="micro-label" id="rail-readiness">Readiness del equipo</h2>
+            <a class="rail-link" href="#" aria-label="Ver roster completo">
+              Roster <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+            </a>
+          </div>
+          <div class="readiness-bar" role="img" aria-label="Distribución de readiness: 9 atletas en verde, 3 en amarillo, 2 en rojo">
+            <span class="seg-ok" style="flex: 9"></span>
+            <span class="seg-warn" style="flex: 3"></span>
+            <span class="seg-danger" style="flex: 2"></span>
+          </div>
+          <div class="readiness-legend">
+            <button type="button" aria-label="Filtrar roster: readiness alta, 9 atletas">
+              <span class="dot" style="background: var(--ok)" aria-hidden="true"></span>
+              Listos (≥ 67%)
+              <span class="count metric-num">9</span>
+            </button>
+            <button type="button" aria-label="Filtrar roster: readiness media, 3 atletas">
+              <span class="dot" style="background: var(--warning)" aria-hidden="true"></span>
+              Con cautela (45–66%)
+              <span class="count metric-num">3</span>
+            </button>
+            <button type="button" aria-label="Filtrar roster: readiness baja, 2 atletas">
+              <span class="dot" style="background: var(--danger)" aria-hidden="true"></span>
+              En rojo (&lt; 45%)
+              <span class="count metric-num">2</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Cumplimiento medio -->
+        <section class="rail-card stagger-in" style="--stagger-i: 3" aria-labelledby="rail-compliance">
+          <div class="rail-card__head">
+            <h2 class="micro-label" id="rail-compliance">Cumplimiento · semana</h2>
+            <span class="metric-trend" aria-label="Sube 4 puntos respecto a la semana pasada">
+              <span class="material-symbols-outlined" aria-hidden="true">trending_up</span>+4
+            </span>
+          </div>
+          <div class="metric-readout">
+            <span class="metric-readout__value">87<span class="metric-readout__unit">%</span></span>
+          </div>
+          <div class="compliance-spark" role="img" aria-label="Cumplimiento por día, lunes a domingo: hoy lunes al 92%, resto de la semana sin datos aún">
+            <span class="now" style="height: 92%"></span>
+            <span style="height: 30%"></span>
+            <span style="height: 30%"></span>
+            <span style="height: 30%"></span>
+            <span style="height: 30%"></span>
+            <span style="height: 30%"></span>
+            <span style="height: 30%"></span>
+          </div>
+          <div class="compliance-days" aria-hidden="true">
+            <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+          </div>
+        </section>
+
+        <!-- Necesitan atención -->
+        <section class="rail-card stagger-in" style="--stagger-i: 4" aria-labelledby="rail-attention">
+          <div class="rail-card__head">
+            <h2 class="micro-label" id="rail-attention">Necesitan atención</h2>
+          </div>
+          <div class="attn-list">
+            <a class="attn-item" href="#" aria-label="Abrir ficha de Sergio Torres — 3 días inactivo, readiness 38%">
+              <span class="avatar avatar--sm" aria-hidden="true">ST</span>
+              <span class="attn-item__info">
+                <span class="attn-item__name">Sergio Torres</span>
+                <span class="attn-item__why">3 d inactivo · sin check-in</span>
+              </span>
+              <span class="attn-item__score metric-num" style="color: var(--danger)">38%</span>
+              <span class="material-symbols-outlined chev" aria-hidden="true">chevron_right</span>
+            </a>
+            <a class="attn-item" href="#" aria-label="Abrir ficha de Jordi Mas — readiness baja sostenida, 48%">
+              <span class="avatar avatar--sm" aria-hidden="true">JM</span>
+              <span class="attn-item__info">
+                <span class="attn-item__name">Jordi Mas</span>
+                <span class="attn-item__why">Readiness baja 2 días</span>
+              </span>
+              <span class="attn-item__score metric-num" style="color: var(--danger)">48%</span>
+              <span class="material-symbols-outlined chev" aria-hidden="true">chevron_right</span>
+            </a>
+            <a class="attn-item" href="#" aria-label="Abrir ficha de Aina Vidal — cumplimiento 60% esta semana, readiness 61%">
+              <span class="avatar avatar--sm" aria-hidden="true">AV</span>
+              <span class="attn-item__info">
+                <span class="attn-item__name">Aina Vidal</span>
+                <span class="attn-item__why">Cumplimiento 60% esta semana</span>
+              </span>
+              <span class="attn-item__score metric-num" style="color: var(--warning)">61%</span>
+              <span class="material-symbols-outlined chev" aria-hidden="true">chevron_right</span>
+            </a>
+          </div>
+        </section>
+
+      </aside>
+    </div>
+
+    <!-- ════════════════ ESTADOS — referencia spec §1 / §6 ════════════════ -->
+    <div class="states-divider">
+      <span class="micro-label">Estados — referencia de diseño (spec §1)</span>
+    </div>
+
+    <div class="states-grid">
+
+      <!-- Estado vacío -->
+      <div class="state-frame">
+        <span class="micro-label">Cola vacía</span>
+        <section class="empty-state" aria-label="Estado vacío de la cola">
+          <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+          <h2>Todo al día<span class="tick">.</span></h2>
+          <p>Sin decisiones pendientes. Próxima revisión semanal: sábado.</p>
+        </section>
+        <p class="state-note">
+          Sustituye a toda la columna principal. El pulso del equipo (columna derecha) permanece visible.
+        </p>
+      </div>
+
+      <!-- Aprobado inline + Deshacer -->
+      <div class="state-frame">
+        <span class="micro-label">Card aprobada inline (colapsada)</span>
+        <article class="card card--approved" aria-label="Ajuste aprobado y publicado a María González" role="status">
+          <span class="approved-check" aria-hidden="true">
+            <span class="material-symbols-outlined">check</span>
+          </span>
+          <span class="label">
+            <strong>Aprobado</strong> — publicado a María
+            <span class="sub">El ajuste ya es visible en su móvil</span>
+          </span>
+          <button class="btn-undo" type="button" aria-label="Deshacer aprobación, 5 segundos restantes">
+            Deshacer <span class="countdown" aria-hidden="true">5s</span>
+          </button>
+        </article>
+        <p class="state-note">
+          Aprobación <code>optimistic</code>: la card colapsa en sitio con check verde + <code>Deshacer</code> 5 s
+          (barra de drenaje inferior). Nunca un modal. Si la acción falla, la card NO colapsa y muestra banner
+          inline “No se pudo aprobar — reintentar”.
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FAHYBRIK — Mockup 03 · Programar (biblioteca única + editor de microciclo)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,500;0,600;0,700;1,700;1,800;1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0" rel="stylesheet" />
+
+<style>
+/* ════════════════════════════════════════════════════════════════════
+   FAHYBRIK design tokens — replicated 1:1 from web/app/globals.css
+   (mockup is self-contained; canonical source stays globals.css).
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  /* surfaces */
+  --bg:               #0A0A0A;
+  --surface:          #141414;
+  --surface-elevated: #1F1F1F;
+  --fg:               #F5F5F5;
+  --muted:            #A1A1A1;
+  --hairline:         rgba(161, 161, 161, 0.18);
+  --outline:          rgba(255, 255, 255, 0.10);
+  --scrim:            rgba(0, 0, 0, 0.55);
+
+  /* brand accent */
+  --accent:           #F06A2A;
+  --accent-press:     #D85A20;
+  --accent-on:        #FFFFFF;
+
+  /* semantic */
+  --ok:               #3FC773;
+  --warning:          #F2A52E;
+  --danger:           #F23F3F;
+
+  /* HR zones (z2 doubles as the system's info blue / --tertiary) */
+  --z2:               #4D9EEB;
+  --z3:               #4DC773;
+  --z4:               #F2B833;
+  --tertiary:         var(--z2);
+
+  /* dashboard surfaces (Level 0..4) */
+  --surface-card:              #141414;
+  --surface-container-lowest:  #0e0e0e;
+  --surface-container-low:     #1c1b1b;
+  --surface-container:         #201f1f;
+  --surface-container-high:    #2a2a2a;
+  --surface-container-highest: #353534;
+  --border-subtle:             #222222;
+  --text-muted:                var(--muted);
+  --primary-container:         var(--accent);
+
+  /* methodology group identity colors (programming studio) */
+  --grp-fuerza-base:                    #D9534F;
+  --grp-fuerza-explosiva-pliometrica:   #E0A93B;
+  --grp-series-ergometros:              #3FB6A8;
+  --grp-series-running:                 #5C8BE0;
+  --grp-zona2-recuperacion:             #5AB877;
+  --grp-wods-metcons:                   #D365A0;
+  --grp-simulaciones-carrera:           #9B7EDE;
+  --grp-core-movilidad-preventivos:     #6FB0C7;
+  --grp-circuitos-funcionales:          #A8B84D;
+  --grp-tapering-activacion:            #C2A18C;
+  --grp-none:                           #7A7A7A;
+
+  --grp-fuerza-base-tint:               rgba(217, 83, 79, 0.14);
+  --grp-fuerza-explosiva-pliometrica-tint: rgba(224, 169, 59, 0.14);
+  --grp-series-ergometros-tint:         rgba(63, 182, 168, 0.14);
+  --grp-series-running-tint:            rgba(92, 139, 224, 0.14);
+  --grp-zona2-recuperacion-tint:        rgba(90, 184, 119, 0.14);
+  --grp-wods-metcons-tint:              rgba(211, 101, 160, 0.14);
+  --grp-simulaciones-carrera-tint:      rgba(155, 126, 222, 0.14);
+  --grp-core-movilidad-preventivos-tint: rgba(111, 176, 199, 0.14);
+  --grp-circuitos-funcionales-tint:     rgba(168, 184, 77, 0.14);
+  --grp-tapering-activacion-tint:       rgba(194, 161, 140, 0.14);
+
+  /* ATR phase chips (reuse existing zone/semantic hues — no new palette) */
+  --atr-acc:        var(--z2);
+  --atr-acc-tint:   rgba(77, 158, 235, 0.15);
+  --atr-trans:      var(--z4);
+  --atr-trans-tint: rgba(242, 184, 51, 0.15);
+  --atr-real:       var(--z3);
+  --atr-real-tint:  rgba(77, 199, 115, 0.15);
+
+  /* spacing */
+  --s-xs: 4px; --s-s: 8px; --s-m: 12px; --s-l: 16px;
+  --s-xl: 24px; --s-xxl: 32px; --s-xxxl: 48px;
+
+  /* radius */
+  --r-s: 6px; --r-m: 10px; --r-l: 14px; --r-xl: 20px; --r-pill: 9999px;
+
+  /* shadows */
+  --shadow-card:  0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-modal: 0 20px 48px rgba(0,0,0,0.6);
+
+  /* fonts */
+  --font-display: "Archivo", "SF Pro Display", system-ui, sans-serif;
+  --font-sans:    "Geist", "SF Pro Text", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "SF Mono", ui-monospace, monospace;
+
+  --gutter: 16px;
+  --sidebar-w: 80px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 16px/1.4 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+
+/* ── Material Symbols ── */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal; font-style: normal;
+  font-size: 24px; line-height: 1;
+  letter-spacing: normal; text-transform: none;
+  display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+.icon-20 { font-size: 20px; font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20; }
+.icon-18 { font-size: 18px; font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20; }
+.icon-16 { font-size: 16px; font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20; }
+.icon-fill { font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24; }
+
+/* ── Focus ring (WCAG 2.4.7) — same recipe as globals.css ── */
+button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  border-radius: inherit;
+}
+input:focus-visible { border-radius: var(--r-m); }
+
+/* ── Shared primitives ── */
+.micro-label {
+  font-family: var(--font-sans);
+  font-size: 0.625rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.metric-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+.card-elevated {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset,
+              0 1px 2px rgba(0,0,0,0.4),
+              0 12px 28px -12px rgba(0,0,0,0.7);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+.card-elevated:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-subtle));
+}
+
+/* ════════════════════════════ LAYOUT ════════════════════════════ */
+.shell { display: flex; min-height: 100vh; }
+
+/* ── Sidebar — collapsed 80px per §0 ── */
+.sidebar {
+  position: sticky; top: 0; align-self: flex-start;
+  width: var(--sidebar-w); height: 100vh; flex-shrink: 0;
+  background: var(--surface-container-lowest);
+  border-right: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; align-items: center;
+  padding: var(--s-xl) 0; gap: var(--s-s);
+  z-index: 40;
+}
+.sidebar__logo {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 900; font-size: 22px;
+  color: var(--accent); letter-spacing: -0.04em;
+  margin-bottom: var(--s-xl); user-select: none;
+}
+.side-link {
+  position: relative;
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-m);
+  color: var(--text-muted);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.side-link:hover { color: var(--fg); background: var(--surface-container); }
+.side-link--active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.side-link--active::before {
+  content: ""; position: absolute; left: -16px; top: 10px; bottom: 10px;
+  width: 3px; border-radius: 2px; background: var(--accent);
+}
+.side-link .badge-dot {
+  position: absolute; top: 6px; right: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.125rem; height: 1.125rem; padding: 0 0.25rem;
+  border-radius: var(--r-pill);
+  background: var(--accent); color: var(--accent-on);
+  font-size: 0.625rem; font-weight: 700;
+}
+.sidebar__bottom { margin-top: auto; display: flex; flex-direction: column; gap: var(--s-s); }
+
+/* ── Main canvas ── */
+.main {
+  flex: 1; min-width: 0;
+  max-width: 1360px;            /* 1440 − 80 sidebar */
+  padding: var(--s-xxl) var(--s-xxxl) 120px;
+}
+
+/* ── Mockup view divider ── */
+.view-divider {
+  display: flex; align-items: center; gap: var(--s-l);
+  margin: var(--s-xxxl) 0 var(--s-xxl);
+}
+.view-divider:first-child { margin-top: 0; }
+.view-divider__rule { flex: 1; height: 1px; background: var(--hairline); }
+.view-divider__tag {
+  display: inline-flex; align-items: center; gap: var(--s-s);
+  padding: 6px 14px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-card));
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ════════════════════════════ PAGE HEADER ════════════════════════════ */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-xl); margin-bottom: var(--s-xl); }
+.page-head h1 {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 900;
+  font-size: 38px; line-height: 1.05;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+}
+.page-head__sub { margin-top: 6px; font-size: 13px; color: var(--text-muted); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600;
+  padding: 10px 18px; border-radius: var(--r-m);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+.btn--primary { background: var(--accent); color: var(--accent-on); }
+.btn--primary:hover { background: var(--accent-press); }
+.btn--secondary {
+  background: var(--surface-elevated); color: var(--fg);
+  border: 1px solid var(--border-subtle);
+}
+.btn--secondary:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); }
+.btn--ghost { color: var(--text-muted); padding: 10px 12px; }
+.btn--ghost:hover { color: var(--fg); }
+
+/* ── Segmented toggle (Sesiones | Microciclos) ── */
+.segmented {
+  display: inline-flex; gap: 2px;
+  padding: 3px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-m);
+}
+.segmented__opt {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-muted);
+  padding: 7px 18px; border-radius: calc(var(--r-m) - 3px);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.segmented__opt:hover { color: var(--fg); }
+.segmented__opt--active {
+  background: var(--surface-container-highest);
+  color: var(--fg);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 1px 3px rgba(0,0,0,0.45);
+}
+.segmented__count {
+  font-family: var(--font-mono); font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: var(--surface-container);
+  padding: 1px 7px; border-radius: var(--r-pill);
+}
+.segmented__opt--active .segmented__count { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* ════════════════════════════ TOOLBAR (search + filter chips) ════════════════════════════ */
+.toolbar { display: flex; flex-direction: column; gap: var(--s-m); margin-bottom: var(--s-xl); }
+.toolbar__row { display: flex; align-items: center; gap: var(--s-m); }
+
+.search {
+  flex: 1; max-width: 460px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-m);
+  padding: 0 14px; height: 42px;
+  transition: border-color 0.15s ease;
+}
+.search:hover { border-color: color-mix(in srgb, var(--accent) 25%, var(--border-subtle)); }
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
+.search .material-symbols-outlined { color: var(--text-muted); }
+.search input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--fg); font: 400 14px/1 var(--font-sans);
+}
+.search input::placeholder { color: var(--text-muted); }
+.search kbd {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-s);
+  padding: 2px 6px; background: var(--surface-container-low);
+}
+
+/* one tag system: chips grouped by facet with a micro-label prefix */
+.chip-rail { display: flex; align-items: center; gap: var(--s-s); flex-wrap: wrap; }
+.chip-rail__facet {
+  display: inline-flex; align-items: center; gap: var(--s-s);
+  padding-right: var(--s-m); margin-right: var(--s-xs);
+  border-right: 1px solid var(--hairline);
+}
+.chip-rail__facet:last-child { border-right: none; }
+.chip-rail__facet > .micro-label { margin-right: 2px; }
+
+.filter-chip {
+  font-size: 0.75rem; font-weight: 600;
+  padding: 0.375rem 0.875rem;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  transition: border-color 0.15s ease, color 0.15s ease;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.filter-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+  color: var(--fg);
+}
+.filter-chip--active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-card));
+}
+.filter-chip__dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.filter-chip .icon-16 { margin: -2px -4px -2px 0; }
+
+.toolbar__meta { font-size: 12px; color: var(--text-muted); }
+.toolbar__meta strong { color: var(--fg); font-weight: 600; }
+.toolbar__clear { font-size: 12px; font-weight: 600; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; }
+.toolbar__clear:hover { color: var(--fg); }
+
+/* ════════════════════════════ SESSION CARD GRID ════════════════════════════ */
+.session-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gutter);
+}
+@media (max-width: 1280px) { .session-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.session-card {
+  position: relative;
+  display: flex; flex-direction: column; gap: var(--s-m);
+  padding: var(--s-l);
+  text-align: left; width: 100%;
+  overflow: hidden;
+}
+.session-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--grp, var(--grp-none));
+  border-radius: 3px 0 0 3px;
+}
+.session-card:hover { transform: translateY(-1px); }
+
+.session-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-s); }
+.grp-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--grp, var(--grp-none));
+  background: var(--grp-tint, rgba(122,122,122,0.14));
+  padding: 4px 9px; border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+.origin-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 4px 9px; border-radius: var(--r-pill);
+  flex-shrink: 0;
+}
+.origin-badge--pablo {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.origin-badge--propia {
+  color: var(--text-muted);
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
+}
+.origin-badge .icon-16 { font-size: 12px; }
+
+.session-card__title {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 800;
+  font-size: 17px; line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--fg);
+}
+.session-card__summary {
+  font-size: 12px; line-height: 1.5;
+  color: var(--text-muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.session-card__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.tag {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
+  padding: 3px 8px; border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+.tag--atr-acc   { color: var(--atr-acc);   background: var(--atr-acc-tint);   border-color: transparent; }
+.tag--atr-trans { color: var(--atr-trans); background: var(--atr-trans-tint); border-color: transparent; }
+.tag--atr-real  { color: var(--atr-real);  background: var(--atr-real-tint);  border-color: transparent; }
+
+.session-card__foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: var(--s-m);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11px; color: var(--text-muted);
+}
+.session-card__foot .metric-num { font-size: 11px; }
+
+/* ════════════════════════════ MICROCYCLE CARDS ════════════════════════════ */
+.strip-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: var(--s-xxl) 0 var(--s-l);
+}
+.strip-head__note { font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+.micro-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); }
+
+.micro-card { display: flex; flex-direction: column; gap: var(--s-m); padding: var(--s-l); text-align: left; width: 100%; }
+.micro-card__top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-s); }
+.atr-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  padding: 4px 10px; border-radius: var(--r-pill);
+}
+.atr-badge--acc   { color: var(--atr-acc);   background: var(--atr-acc-tint); }
+.atr-badge--trans { color: var(--atr-trans); background: var(--atr-trans-tint); }
+.atr-badge--real  { color: var(--atr-real);  background: var(--atr-real-tint); }
+
+.micro-card__title {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 800;
+  font-size: 18px; line-height: 1.25; letter-spacing: -0.005em;
+}
+.micro-card__meta { display: flex; align-items: center; gap: var(--s-m); font-size: 12px; color: var(--text-muted); }
+.micro-card__meta .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
+.micro-card__foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: var(--s-m); border-top: 1px solid var(--border-subtle);
+  font-size: 11px; color: var(--text-muted);
+}
+.micro-card__open { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-muted); }
+.micro-card:hover .micro-card__open { color: var(--accent); }
+
+/* dashed "new" card */
+.new-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-s);
+  border: 1px dashed color-mix(in srgb, var(--text-muted) 40%, transparent);
+  border-radius: var(--r-l);
+  background: transparent;
+  color: var(--text-muted);
+  min-height: 150px;
+  font-size: 13px; font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  width: 100%;
+}
+.new-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+/* ════════════════════════════ VIEW B — MICROCYCLE EDITOR ════════════════════════════ */
+.editor { display: flex; flex-direction: column; gap: var(--s-l); }
+
+.editor-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-xl);
+  padding: var(--s-l) var(--s-xl);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+}
+.editor-head__left { display: flex; align-items: center; gap: var(--s-l); min-width: 0; }
+.editor-head__back {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-m);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.editor-head__back:hover { color: var(--fg); border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); }
+.editor-head__titles { min-width: 0; }
+.editor-head__name {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 800;
+  font-size: 24px; line-height: 1.15; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.editor-head__chips { display: flex; align-items: center; gap: var(--s-s); margin-top: 6px; }
+.lvl-chip {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--fg);
+  background: var(--surface-container-high);
+  padding: 4px 10px; border-radius: var(--r-pill);
+}
+.editor-head__right { display: flex; align-items: center; gap: var(--s-l); flex-shrink: 0; }
+.save-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--ok);
+}
+.save-status .icon-16 { font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 20; }
+.save-status__time { color: var(--text-muted); font-weight: 400; }
+
+/* ── Week tabs ── */
+.week-tabs {
+  display: flex; align-items: center; gap: var(--s-s);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 var(--s-xs);
+}
+.week-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-muted);
+  padding: 12px 18px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease;
+}
+.week-tab:hover { color: var(--fg); }
+.week-tab--active { color: var(--fg); border-bottom-color: var(--accent); }
+.week-tab__count {
+  font-family: var(--font-mono); font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 7px; border-radius: var(--r-pill);
+}
+.week-tab--active .week-tab__count { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.week-tab__deload { font-size: 11px; font-weight: 500; font-style: italic; color: var(--text-muted); }
+.week-tabs__settings {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  padding: 10px 6px;
+}
+.week-tabs__settings:hover { color: var(--fg); }
+.week-tabs__settings .icon-16 { transition: transform 0.15s ease; }
+.week-tabs__settings:hover .icon-16 { transform: translateY(1px); }
+
+/* ── Studio layout: 7-day board + library rail ── */
+.studio { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--gutter); align-items: start; }
+
+.week-board {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  overflow: hidden;
+}
+.day-col {
+  background: var(--surface-card);
+  display: flex; flex-direction: column;
+  min-height: 460px;
+  padding: var(--s-s);
+}
+.day-col__head {
+  text-align: center;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--s-m);
+}
+.day-col__head .micro-label { display: block; }
+.day-col__load {
+  display: block; margin-top: 4px;
+  font-family: var(--font-mono); font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.day-col__body { display: flex; flex-direction: column; gap: var(--s-s); flex: 1; }
+
+/* studio session card */
+.studio-card {
+  position: relative;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-m);
+  padding: 10px 10px 10px 13px;
+  text-align: left; width: 100%;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  overflow: hidden;
+}
+.studio-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--grp, var(--grp-none));
+}
+.studio-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+  background: var(--surface-container);
+}
+.studio-card__grp {
+  display: block;
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--grp, var(--grp-none));
+  margin-bottom: 4px;
+}
+.studio-card__title {
+  font-size: 12px; font-weight: 600; line-height: 1.3;
+  color: var(--fg);
+  margin-bottom: 6px;
+}
+.studio-card__blocks { display: flex; flex-direction: column; gap: 2px; }
+.studio-card__block {
+  font-size: 10px; line-height: 1.45;
+  color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.studio-card__block .metric-num { font-size: 10px; }
+
+/* rest day */
+.rest-slot {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 1px dashed color-mix(in srgb, var(--text-muted) 35%, transparent);
+  border-radius: var(--r-m);
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  min-height: 90px;
+}
+
+/* drop affordance */
+.drop-slot {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-radius: var(--r-m);
+  color: var(--accent);
+  font-size: 10px; font-weight: 600;
+  min-height: 56px;
+  text-align: center; padding: 0 8px;
+}
+
+.day-col__add {
+  margin-top: auto; padding-top: var(--s-s);
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.day-col__add:hover { color: var(--accent); }
+
+/* ── Library rail ── */
+.rail {
+  position: sticky; top: var(--s-xl);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-l);
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+.rail__head { padding: var(--s-l) var(--s-l) var(--s-m); border-bottom: 1px solid var(--border-subtle); }
+.rail__title {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 800;
+  font-size: 15px; letter-spacing: 0.01em;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+.rail__filter { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.rail__hint { padding: var(--s-m) var(--s-l) 0; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+.rail__list { padding: var(--s-m); display: flex; flex-direction: column; gap: var(--s-s); overflow-y: auto; }
+
+.rail-card {
+  position: relative;
+  display: flex; align-items: stretch; gap: 8px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-m);
+  padding: 10px 10px 10px 8px;
+  text-align: left; width: 100%;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+  cursor: grab;
+}
+.rail-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+  background: var(--surface-container);
+  transform: translateX(-2px);
+}
+.rail-card:active { cursor: grabbing; }
+.rail-card__handle {
+  display: flex; align-items: center;
+  color: var(--text-muted); opacity: 0.5;
+  flex-shrink: 0;
+}
+.rail-card:hover .rail-card__handle { opacity: 1; color: var(--accent); }
+.rail-card__body { min-width: 0; flex: 1; }
+.rail-card__grp {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--grp, var(--grp-none));
+  margin-bottom: 3px;
+}
+.rail-card__grp::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--grp, var(--grp-none)); }
+.rail-card__title { font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--fg); }
+.rail-card__meta { margin-top: 4px; font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+.rail-card__origin {
+  font-size: 8.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 6px; border-radius: var(--r-pill);
+}
+.rail-card__origin--pablo { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.rail-card__origin--propia { color: var(--text-muted); background: var(--surface-container-high); }
+
+.rail__section { padding: 4px var(--s-l); }
+.rail__foot { padding: var(--s-m) var(--s-l); border-top: 1px solid var(--border-subtle); }
+.rail__all {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+}
+.rail__all:hover { color: var(--accent); }
+
+/* footer meta strip under board */
+.board-meta {
+  display: flex; align-items: center; gap: var(--s-l);
+  font-size: 12px; color: var(--text-muted);
+  padding: 0 var(--s-xs);
+}
+.board-meta .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
+</style>
+</head>
+
+<body>
+<div class="shell">
+
+  <!-- ═════════ SIDEBAR — collapsed 80px (§0) ═════════ -->
+  <nav class="sidebar" aria-label="Navegación principal">
+    <span class="sidebar__logo" aria-hidden="true">F</span>
+
+    <a class="side-link" href="#" aria-label="Hoy — 5 decisiones pendientes" title="Hoy">
+      <span class="material-symbols-outlined">today</span>
+      <span class="badge-dot" aria-hidden="true">5</span>
+    </a>
+    <a class="side-link" href="#" aria-label="Atletas" title="Atletas">
+      <span class="material-symbols-outlined">group</span>
+    </a>
+    <a class="side-link side-link--active" href="#" aria-label="Programar — sección actual" aria-current="page" title="Programar">
+      <span class="material-symbols-outlined">edit_calendar</span>
+    </a>
+
+    <div class="sidebar__bottom">
+      <a class="side-link" href="#" aria-label="Ajustes" title="Ajustes">
+        <span class="material-symbols-outlined">settings</span>
+      </a>
+      <a class="side-link" href="#" aria-label="Ayuda" title="Ayuda">
+        <span class="material-symbols-outlined">help</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ═════════ MAIN ═════════ -->
+  <main class="main">
+
+    <!-- ──────────────────────────────────────────────────────────────
+         VISTA A — BIBLIOTECA ÚNICA
+         ────────────────────────────────────────────────────────────── -->
+    <div class="view-divider" role="separator" aria-label="Vista A — Biblioteca">
+      <span class="view-divider__rule"></span>
+      <span class="view-divider__tag"><span class="material-symbols-outlined icon-16">visibility</span> Vista A — Biblioteca</span>
+      <span class="view-divider__rule"></span>
+    </div>
+
+    <header class="page-head">
+      <div>
+        <h1>Programar</h1>
+        <p class="page-head__sub">Tu biblioteca: sesiones reutilizables y microciclos de 4 semanas.</p>
+      </div>
+      <div style="display:flex; align-items:center; gap: var(--s-l);">
+        <div class="segmented" role="tablist" aria-label="Tipo de objeto">
+          <button class="segmented__opt segmented__opt--active" role="tab" aria-selected="true">
+            Sesiones <span class="segmented__count metric-num">112</span>
+          </button>
+          <button class="segmented__opt" role="tab" aria-selected="false">
+            Microciclos <span class="segmented__count metric-num">9</span>
+          </button>
+        </div>
+        <button class="btn btn--primary">
+          <span class="material-symbols-outlined icon-18">add</span> Nueva sesión
+        </button>
+      </div>
+    </header>
+
+    <!-- toolbar: search + ONE tag system -->
+    <div class="toolbar">
+      <div class="toolbar__row">
+        <div class="search">
+          <span class="material-symbols-outlined icon-20" aria-hidden="true">search</span>
+          <input type="text" placeholder="Buscar sesión… (nombre, ejercicio, tag)" aria-label="Buscar sesión" />
+          <kbd aria-hidden="true">⌘K</kbd>
+        </div>
+        <p class="toolbar__meta"><strong class="metric-num">24</strong> sesiones · filtrado por <strong>2 tags</strong></p>
+        <button class="toolbar__clear">Limpiar filtros</button>
+      </div>
+
+      <div class="chip-rail" role="group" aria-label="Filtrar por tags">
+        <span class="chip-rail__facet" role="group" aria-label="Grupo metodológico">
+          <span class="micro-label">Grupo</span>
+          <button class="filter-chip filter-chip--active" aria-pressed="true"><span class="filter-chip__dot" style="background:var(--grp-fuerza-base)"></span>Fuerza base</button>
+          <button class="filter-chip" aria-pressed="false"><span class="filter-chip__dot" style="background:var(--grp-series-running)"></span>Series running</button>
+          <button class="filter-chip" aria-pressed="false"><span class="filter-chip__dot" style="background:var(--grp-series-ergometros)"></span>Ergómetros</button>
+          <button class="filter-chip" aria-pressed="false">+7 grupos</button>
+        </span>
+        <span class="chip-rail__facet" role="group" aria-label="Formato">
+          <span class="micro-label">Formato</span>
+          <button class="filter-chip" aria-pressed="false">Series</button>
+          <button class="filter-chip" aria-pressed="false">AMRAP</button>
+          <button class="filter-chip" aria-pressed="false">Continuo</button>
+        </span>
+        <span class="chip-rail__facet" role="group" aria-label="Fase ATR">
+          <span class="micro-label">Fase ATR</span>
+          <button class="filter-chip filter-chip--active" aria-pressed="true">ACC</button>
+          <button class="filter-chip" aria-pressed="false">TRANS</button>
+          <button class="filter-chip" aria-pressed="false">REAL</button>
+        </span>
+        <span class="chip-rail__facet" role="group" aria-label="Nivel">
+          <span class="micro-label">Nivel</span>
+          <button class="filter-chip" aria-pressed="false">Iniciación</button>
+          <button class="filter-chip" aria-pressed="false">Intermedio</button>
+          <button class="filter-chip" aria-pressed="false">Pro</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- session catalog grid -->
+    <div class="session-grid">
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-fuerza-base); --grp-tint:var(--grp-fuerza-base-tint);" aria-label="Abrir sesión Fuerza base — Tren inferior A, de Pablo">
+        <div class="session-card__top">
+          <span class="grp-chip">Fuerza base</span>
+          <span class="origin-badge origin-badge--pablo"><span class="material-symbols-outlined icon-16">lock</span>Pablo</span>
+        </div>
+        <h3 class="session-card__title">Tren inferior A — Sentadilla + bisagra</h3>
+        <p class="session-card__summary">Back Squat 5×5 @ 75% RM · Peso muerto rumano 4×8 · Accesorios zancada y core</p>
+        <div class="session-card__tags">
+          <span class="tag">Series</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Pro</span>
+        </div>
+        <div class="session-card__foot">
+          <span>3 bloques · <span class="metric-num">65'</span></span>
+          <span>Usada <span class="metric-num">18</span>×</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-series-running); --grp-tint:var(--grp-series-running-tint);" aria-label="Abrir sesión Series running — 6 por 800 metros umbral, de Pablo">
+        <div class="session-card__top">
+          <span class="grp-chip">Series running</span>
+          <span class="origin-badge origin-badge--pablo"><span class="material-symbols-outlined icon-16">lock</span>Pablo</span>
+        </div>
+        <h3 class="session-card__title">6×800 m @ umbral — r2'</h3>
+        <p class="session-card__summary">Calentamiento 15' Z2 · 6×800 m @ ritmo umbral, recuperación 2' · Vuelta a la calma 10'</p>
+        <div class="session-card__tags">
+          <span class="tag">Series</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Intermedio</span>
+        </div>
+        <div class="session-card__foot">
+          <span>3 bloques · <span class="metric-num">55'</span></span>
+          <span>Usada <span class="metric-num">24</span>×</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-series-ergometros); --grp-tint:var(--grp-series-ergometros-tint);" aria-label="Abrir sesión Ergómetros — SkiErg y Row 4 por 500 metros, de Pablo">
+        <div class="session-card__top">
+          <span class="grp-chip">Ergómetros</span>
+          <span class="origin-badge origin-badge--pablo"><span class="material-symbols-outlined icon-16">lock</span>Pablo</span>
+        </div>
+        <h3 class="session-card__title">SkiErg + Row — 4×500 m alternos</h3>
+        <p class="session-card__summary">4×500 m SkiErg @ RPE 8 r90" · 4×500 m Row @ 1:55/500 m · técnica de transición</p>
+        <div class="session-card__tags">
+          <span class="tag">Series</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Pro</span>
+        </div>
+        <div class="session-card__foot">
+          <span>2 bloques · <span class="metric-num">45'</span></span>
+          <span>Usada <span class="metric-num">11</span>×</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-zona2-recuperacion); --grp-tint:var(--grp-zona2-recuperacion-tint);" aria-label="Abrir sesión Zona 2 — Carrera continua 50 minutos, de Pablo">
+        <div class="session-card__top">
+          <span class="grp-chip">Zona 2 / Recuperación</span>
+          <span class="origin-badge origin-badge--pablo"><span class="material-symbols-outlined icon-16">lock</span>Pablo</span>
+        </div>
+        <h3 class="session-card__title">Carrera continua 50' Z2</h3>
+        <p class="session-card__summary">50' rodaje en Zona 2 (135–148 ppm) · cadencia 175+ · terreno llano</p>
+        <div class="session-card__tags">
+          <span class="tag">Continuo</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Todos</span>
+        </div>
+        <div class="session-card__foot">
+          <span>1 bloque · <span class="metric-num">50'</span></span>
+          <span>Usada <span class="metric-num">31</span>×</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-wods-metcons); --grp-tint:var(--grp-wods-metcons-tint);" aria-label="Abrir sesión WOD Compromiso 21-15-9, propia">
+        <div class="session-card__top">
+          <span class="grp-chip">WODs / Metcons</span>
+          <span class="origin-badge origin-badge--propia">Propia</span>
+        </div>
+        <h3 class="session-card__title">«Compromiso» — 21-15-9</h3>
+        <p class="session-card__summary">21-15-9 de Wall Balls (9 kg) + Burpee Broad Jump · cap 14' · escala a 6 kg</p>
+        <div class="session-card__tags">
+          <span class="tag">For time</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Intermedio</span>
+        </div>
+        <div class="session-card__foot">
+          <span>2 bloques · <span class="metric-num">35'</span></span>
+          <span>Editada hace 2 d</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-simulaciones-carrera); --grp-tint:var(--grp-simulaciones-carrera-tint);" aria-label="Abrir sesión Simulación media HYROX 4 estaciones, de Pablo">
+        <div class="session-card__top">
+          <span class="grp-chip">Simulaciones</span>
+          <span class="origin-badge origin-badge--pablo"><span class="material-symbols-outlined icon-16">lock</span>Pablo</span>
+        </div>
+        <h3 class="session-card__title">Media HYROX — 4 estaciones</h3>
+        <p class="session-card__summary">4×(1 km run + estación): SkiErg 1000 m · Sled Push 50 m · Burpee BJ 80 m · Row 1000 m</p>
+        <div class="session-card__tags">
+          <span class="tag">Simulación</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Pro</span>
+        </div>
+        <div class="session-card__foot">
+          <span>8 bloques · <span class="metric-num">70'</span></span>
+          <span>Usada <span class="metric-num">9</span>×</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-circuitos-funcionales); --grp-tint:var(--grp-circuitos-funcionales-tint);" aria-label="Abrir sesión Circuito funcional — Sled y Farmers, de Pablo">
+        <div class="session-card__top">
+          <span class="grp-chip">Circuitos funcionales</span>
+          <span class="origin-badge origin-badge--pablo"><span class="material-symbols-outlined icon-16">lock</span>Pablo</span>
+        </div>
+        <h3 class="session-card__title">Circuito Sled + Farmers Carry</h3>
+        <p class="session-card__summary">5 rondas: Sled Push 25 m (102 kg) · Farmers 60 m (2×24 kg) · 12 KB Swing · r90"</p>
+        <div class="session-card__tags">
+          <span class="tag">Circuito</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Intermedio</span>
+        </div>
+        <div class="session-card__foot">
+          <span>2 bloques · <span class="metric-num">40'</span></span>
+          <span>Usada <span class="metric-num">15</span>×</span>
+        </div>
+      </button>
+
+      <button class="session-card card-elevated" style="--grp:var(--grp-core-movilidad-preventivos); --grp-tint:var(--grp-core-movilidad-preventivos-tint);" aria-label="Abrir sesión Core y movilidad — prevención de cadera, propia">
+        <div class="session-card__top">
+          <span class="grp-chip">Core / Movilidad</span>
+          <span class="origin-badge origin-badge--propia">Propia</span>
+        </div>
+        <h3 class="session-card__title">Prevención cadera + core anti-rotación</h3>
+        <p class="session-card__summary">Cópenhague plank 3×20" · Pallof press 3×12 · 90/90 + CARs de cadera · 25'</p>
+        <div class="session-card__tags">
+          <span class="tag">Accesorio</span><span class="tag tag--atr-acc">ACC</span><span class="tag">Todos</span>
+        </div>
+        <div class="session-card__foot">
+          <span>2 bloques · <span class="metric-num">25'</span></span>
+          <span>Editada hace 5 d</span>
+        </div>
+      </button>
+
+    </div>
+
+    <!-- ── strip: estado alterno del toggle (Microciclos) ── -->
+    <div class="strip-head">
+      <div class="segmented" role="tablist" aria-label="Tipo de objeto — estado Microciclos">
+        <button class="segmented__opt" role="tab" aria-selected="false">
+          Sesiones <span class="segmented__count metric-num">112</span>
+        </button>
+        <button class="segmented__opt segmented__opt--active" role="tab" aria-selected="true">
+          Microciclos <span class="segmented__count metric-num">9</span>
+        </button>
+      </div>
+      <p class="strip-head__note">↑ Mismo toggle con «Microciclos» activo — el grid cambia a esto:</p>
+    </div>
+
+    <div class="micro-grid">
+
+      <button class="micro-card card-elevated" aria-label="Abrir microciclo Acumulación Pro — Base aeróbica">
+        <div class="micro-card__top">
+          <span class="atr-badge atr-badge--acc">ACC</span>
+          <span class="micro-card__open">Abrir <span class="material-symbols-outlined icon-16">arrow_forward</span></span>
+        </div>
+        <h3 class="micro-card__title">Acumulación Pro — Base aeróbica</h3>
+        <div class="micro-card__meta">
+          <span>Pro</span><span class="sep"></span>
+          <span><span class="metric-num">4</span> semanas</span><span class="sep"></span>
+          <span><span class="metric-num">23</span> sesiones</span>
+        </div>
+        <div class="micro-card__foot">
+          <span>Editado hace 2 h</span>
+          <span>Asignado a <span class="metric-num">3</span> atletas</span>
+        </div>
+      </button>
+
+      <button class="micro-card card-elevated" aria-label="Abrir microciclo Transformación Intermedio — Umbral y fuerza">
+        <div class="micro-card__top">
+          <span class="atr-badge atr-badge--trans">TRANS</span>
+          <span class="micro-card__open">Abrir <span class="material-symbols-outlined icon-16">arrow_forward</span></span>
+        </div>
+        <h3 class="micro-card__title">Transformación Inter — Umbral + fuerza</h3>
+        <div class="micro-card__meta">
+          <span>Intermedio</span><span class="sep"></span>
+          <span><span class="metric-num">4</span> semanas</span><span class="sep"></span>
+          <span><span class="metric-num">20</span> sesiones</span>
+        </div>
+        <div class="micro-card__foot">
+          <span>Editado hace 3 d</span>
+          <span>Asignado a <span class="metric-num">5</span> atletas</span>
+        </div>
+      </button>
+
+      <button class="micro-card card-elevated" aria-label="Abrir microciclo Realización Pro — Tapering A-event">
+        <div class="micro-card__top">
+          <span class="atr-badge atr-badge--real">REAL</span>
+          <span class="micro-card__open">Abrir <span class="material-symbols-outlined icon-16">arrow_forward</span></span>
+        </div>
+        <h3 class="micro-card__title">Realización Pro — Tapering A-event</h3>
+        <div class="micro-card__meta">
+          <span>Pro</span><span class="sep"></span>
+          <span><span class="metric-num">4</span> semanas</span><span class="sep"></span>
+          <span><span class="metric-num">16</span> sesiones</span>
+        </div>
+        <div class="micro-card__foot">
+          <span>Editado hace 1 sem</span>
+          <span>Asignado a <span class="metric-num">1</span> atleta</span>
+        </div>
+      </button>
+
+    </div>
+
+    <!-- ──────────────────────────────────────────────────────────────
+         VISTA B — EDITOR DE MICROCICLO
+         ────────────────────────────────────────────────────────────── -->
+    <div class="view-divider" role="separator" aria-label="Vista B — Editor de microciclo">
+      <span class="view-divider__rule"></span>
+      <span class="view-divider__tag"><span class="material-symbols-outlined icon-16">visibility</span> Vista B — Editor de microciclo</span>
+      <span class="view-divider__rule"></span>
+    </div>
+
+    <section class="editor" aria-label="Editor de microciclo">
+
+      <!-- editor header -->
+      <header class="editor-head">
+        <div class="editor-head__left">
+          <a class="editor-head__back" href="#" aria-label="Volver a la biblioteca">
+            <span class="material-symbols-outlined icon-20">arrow_back</span>
+          </a>
+          <div class="editor-head__titles">
+            <h2 class="editor-head__name">Acumulación Pro — Base aeróbica</h2>
+            <div class="editor-head__chips">
+              <span class="lvl-chip">Pro</span>
+              <span class="atr-badge atr-badge--acc">ACC · Acumulación</span>
+            </div>
+          </div>
+        </div>
+        <div class="editor-head__right">
+          <span class="save-status" role="status">
+            <span class="material-symbols-outlined icon-16" aria-hidden="true">check_circle</span>
+            Guardado <span class="save-status__time">· hace 12 s</span>
+          </span>
+          <button class="btn btn--ghost" aria-label="Deshacer último cambio" title="Deshacer (⌘Z)">
+            <span class="material-symbols-outlined icon-20">undo</span>
+          </button>
+          <button class="btn btn--ghost" aria-label="Rehacer cambio" title="Rehacer (⇧⌘Z)">
+            <span class="material-symbols-outlined icon-20">redo</span>
+          </button>
+          <button class="btn btn--primary">
+            <span class="material-symbols-outlined icon-18">send</span> Asignar a atleta
+          </button>
+        </div>
+      </header>
+
+      <!-- week tabs — weeks inherit, no name field; override behind "Ajustes de semana" -->
+      <nav class="week-tabs" role="tablist" aria-label="Semanas del microciclo">
+        <button class="week-tab week-tab--active" role="tab" aria-selected="true">
+          Semana 1 <span class="week-tab__count metric-num">6</span>
+        </button>
+        <button class="week-tab" role="tab" aria-selected="false">
+          Semana 2 <span class="week-tab__count metric-num">6</span>
+        </button>
+        <button class="week-tab" role="tab" aria-selected="false">
+          Semana 3 <span class="week-tab__deload">(deload)</span> <span class="week-tab__count metric-num">4</span>
+        </button>
+        <button class="week-tab" role="tab" aria-selected="false">
+          Semana 4 <span class="week-tab__count metric-num">7</span>
+        </button>
+        <button class="week-tabs__settings" aria-expanded="false" aria-label="Ajustes de la semana 1 — colapsado">
+          <span class="material-symbols-outlined icon-16">tune</span>
+          Ajustes de semana
+          <span class="material-symbols-outlined icon-16">expand_more</span>
+        </button>
+      </nav>
+
+      <!-- studio: 7-day board + library rail -->
+      <div class="studio">
+
+        <div>
+          <div class="week-board" role="group" aria-label="Semana 1 — lunes a domingo">
+
+            <!-- LUNES -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Lun</span>
+                <span class="day-col__load">65'</span>
+              </header>
+              <div class="day-col__body">
+                <button class="studio-card" style="--grp:var(--grp-fuerza-base);" aria-label="Editar sesión Tren inferior A">
+                  <span class="studio-card__grp">Fuerza base</span>
+                  <span class="studio-card__title">Tren inferior A</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block">Back Squat <span class="metric-num">5×5</span> @ 75% RM</span>
+                    <span class="studio-card__block">P. muerto rumano <span class="metric-num">4×8</span></span>
+                    <span class="studio-card__block">Accesorios + core · 15'</span>
+                  </span>
+                </button>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al lunes">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+            <!-- MARTES -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Mar</span>
+                <span class="day-col__load">55'</span>
+              </header>
+              <div class="day-col__body">
+                <button class="studio-card" style="--grp:var(--grp-series-running);" aria-label="Editar sesión 6 por 800 metros umbral">
+                  <span class="studio-card__grp">Series running</span>
+                  <span class="studio-card__title">6×800 m @ umbral</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block">Calentamiento 15' Z2</span>
+                    <span class="studio-card__block"><span class="metric-num">6×800</span> m @ umbral · r2'</span>
+                    <span class="studio-card__block">Vuelta a la calma 10'</span>
+                  </span>
+                </button>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al martes">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+            <!-- MIÉRCOLES -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Mié</span>
+                <span class="day-col__load">75'</span>
+              </header>
+              <div class="day-col__body">
+                <button class="studio-card" style="--grp:var(--grp-zona2-recuperacion);" aria-label="Editar sesión carrera continua 50 minutos Zona 2">
+                  <span class="studio-card__grp">Zona 2</span>
+                  <span class="studio-card__title">Carrera continua 50' Z2</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block">Rodaje Z2 · 135–148 ppm</span>
+                  </span>
+                </button>
+                <button class="studio-card" style="--grp:var(--grp-core-movilidad-preventivos);" aria-label="Editar sesión prevención cadera">
+                  <span class="studio-card__grp">Core / Movilidad</span>
+                  <span class="studio-card__title">Prevención cadera</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block">Copenhague <span class="metric-num">3×20"</span> · Pallof <span class="metric-num">3×12</span></span>
+                  </span>
+                </button>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al miércoles">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+            <!-- JUEVES -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Jue</span>
+                <span class="day-col__load">45'</span>
+              </header>
+              <div class="day-col__body">
+                <button class="studio-card" style="--grp:var(--grp-series-ergometros);" aria-label="Editar sesión SkiErg y Row 4 por 500 metros">
+                  <span class="studio-card__grp">Ergómetros</span>
+                  <span class="studio-card__title">SkiErg + Row 4×500 m</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block">SkiErg <span class="metric-num">4×500</span> m @ RPE 8</span>
+                    <span class="studio-card__block">Row <span class="metric-num">4×500</span> m @ 1:55</span>
+                  </span>
+                </button>
+                <div class="drop-slot" aria-hidden="true">
+                  <span class="material-symbols-outlined icon-16">add_circle</span>
+                  Suelta aquí la sesión
+                </div>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al jueves">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+            <!-- VIERNES -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Vie</span>
+                <span class="day-col__load">40'</span>
+              </header>
+              <div class="day-col__body">
+                <button class="studio-card" style="--grp:var(--grp-circuitos-funcionales);" aria-label="Editar sesión circuito Sled y Farmers">
+                  <span class="studio-card__grp">Circuitos func.</span>
+                  <span class="studio-card__title">Circuito Sled + Farmers</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block"><span class="metric-num">5</span> rondas · Sled 25 m (102 kg)</span>
+                    <span class="studio-card__block">Farmers 60 m · KB Swing ×12</span>
+                  </span>
+                </button>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al viernes">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+            <!-- SÁBADO -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Sáb</span>
+                <span class="day-col__load">70'</span>
+              </header>
+              <div class="day-col__body">
+                <button class="studio-card" style="--grp:var(--grp-simulaciones-carrera);" aria-label="Editar sesión media HYROX 4 estaciones">
+                  <span class="studio-card__grp">Simulaciones</span>
+                  <span class="studio-card__title">Media HYROX — 4 estaciones</span>
+                  <span class="studio-card__blocks">
+                    <span class="studio-card__block"><span class="metric-num">4×</span>(1 km run + estación)</span>
+                    <span class="studio-card__block">SkiErg · Sled · Burpee BJ · Row</span>
+                  </span>
+                </button>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al sábado">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+            <!-- DOMINGO -->
+            <div class="day-col">
+              <header class="day-col__head">
+                <span class="micro-label">Dom</span>
+                <span class="day-col__load">—</span>
+              </header>
+              <div class="day-col__body">
+                <div class="rest-slot">
+                  <span class="material-symbols-outlined icon-20" aria-hidden="true">bedtime</span>
+                  Descanso
+                </div>
+              </div>
+              <button class="day-col__add" aria-label="Añadir sesión al domingo">
+                <span class="material-symbols-outlined icon-16">add</span> sesión
+              </button>
+            </div>
+
+          </div>
+
+          <div class="board-meta" style="margin-top: var(--s-m);">
+            <span><strong style="color:var(--fg); font-weight:600;"><span class="metric-num">6</span> sesiones</strong> esta semana</span>
+            <span class="sep"></span>
+            <span>Carga total <span class="metric-num">5 h 50'</span></span>
+            <span class="sep"></span>
+            <span>Las semanas heredan nivel, fase y objetivo del microciclo</span>
+          </div>
+        </div>
+
+        <!-- ── library rail: suggested sessions, drag affordance ── -->
+        <aside class="rail" aria-label="Biblioteca — sesiones sugeridas">
+          <header class="rail__head">
+            <h3 class="rail__title">
+              <span class="material-symbols-outlined icon-18" style="color:var(--accent);" aria-hidden="true">library_books</span>
+              Biblioteca
+            </h3>
+            <div class="rail__filter">
+              <span class="filter-chip filter-chip--active" aria-label="Filtro activo: fase Acumulación">
+                Fase: ACC
+                <span class="material-symbols-outlined icon-16" aria-hidden="true">close</span>
+              </span>
+              <button class="filter-chip" aria-label="Añadir filtro">
+                <span class="material-symbols-outlined icon-16">add</span> Filtro
+              </button>
+            </div>
+          </header>
+          <p class="rail__hint">Arrastra una sesión a un día de la semana. Sugeridas según la fase del microciclo.</p>
+
+          <div class="rail__section" style="padding-top: var(--s-m);">
+            <span class="micro-label">Sugeridas · ACC</span>
+          </div>
+
+          <div class="rail__list">
+
+            <div class="rail-card" style="--grp:var(--grp-fuerza-base);" role="button" tabindex="0" aria-label="Arrastrar sesión Tren inferior B al calendario">
+              <span class="rail-card__handle material-symbols-outlined icon-20" aria-hidden="true">drag_indicator</span>
+              <div class="rail-card__body">
+                <span class="rail-card__grp">Fuerza base</span>
+                <p class="rail-card__title">Tren inferior B — Front squat</p>
+                <p class="rail-card__meta"><span class="metric-num">60'</span> · 3 bloques <span class="rail-card__origin rail-card__origin--pablo">Pablo</span></p>
+              </div>
+            </div>
+
+            <div class="rail-card" style="--grp:var(--grp-series-running);" role="button" tabindex="0" aria-label="Arrastrar sesión 5 por 1000 metros umbral al calendario">
+              <span class="rail-card__handle material-symbols-outlined icon-20" aria-hidden="true">drag_indicator</span>
+              <div class="rail-card__body">
+                <span class="rail-card__grp">Series running</span>
+                <p class="rail-card__title">5×1000 m @ 4:10/km — r2'</p>
+                <p class="rail-card__meta"><span class="metric-num">60'</span> · 3 bloques <span class="rail-card__origin rail-card__origin--pablo">Pablo</span></p>
+              </div>
+            </div>
+
+            <div class="rail-card" style="--grp:var(--grp-zona2-recuperacion);" role="button" tabindex="0" aria-label="Arrastrar sesión BikeErg 60 minutos Zona 2 al calendario">
+              <span class="rail-card__handle material-symbols-outlined icon-20" aria-hidden="true">drag_indicator</span>
+              <div class="rail-card__body">
+                <span class="rail-card__grp">Zona 2</span>
+                <p class="rail-card__title">BikeErg 60' Z2 — cadencia libre</p>
+                <p class="rail-card__meta"><span class="metric-num">60'</span> · 1 bloque <span class="rail-card__origin rail-card__origin--pablo">Pablo</span></p>
+              </div>
+            </div>
+
+            <div class="rail-card" style="--grp:var(--grp-wods-metcons);" role="button" tabindex="0" aria-label="Arrastrar sesión WOD Compromiso al calendario">
+              <span class="rail-card__handle material-symbols-outlined icon-20" aria-hidden="true">drag_indicator</span>
+              <div class="rail-card__body">
+                <span class="rail-card__grp">WODs / Metcons</span>
+                <p class="rail-card__title">«Compromiso» — 21-15-9</p>
+                <p class="rail-card__meta"><span class="metric-num">35'</span> · 2 bloques <span class="rail-card__origin rail-card__origin--propia">Propia</span></p>
+              </div>
+            </div>
+
+            <div class="rail-card" style="--grp:var(--grp-fuerza-explosiva-pliometrica);" role="button" tabindex="0" aria-label="Arrastrar sesión pliometría y saltos al calendario">
+              <span class="rail-card__handle material-symbols-outlined icon-20" aria-hidden="true">drag_indicator</span>
+              <div class="rail-card__body">
+                <span class="rail-card__grp">F. explosiva</span>
+                <p class="rail-card__title">Pliometría — Box jumps + sprints</p>
+                <p class="rail-card__meta"><span class="metric-num">40'</span> · 2 bloques <span class="rail-card__origin rail-card__origin--pablo">Pablo</span></p>
+              </div>
+            </div>
+
+            <div class="rail-card" style="--grp:var(--grp-series-ergometros);" role="button" tabindex="0" aria-label="Arrastrar sesión Row 3 por 3 minutos al calendario">
+              <span class="rail-card__handle material-symbols-outlined icon-20" aria-hidden="true">drag_indicator</span>
+              <div class="rail-card__body">
+                <span class="rail-card__grp">Ergómetros</span>
+                <p class="rail-card__title">Row 3×3' @ RPE 8 — r2'</p>
+                <p class="rail-card__meta"><span class="metric-num">35'</span> · 2 bloques <span class="rail-card__origin rail-card__origin--pablo">Pablo</span></p>
+              </div>
+            </div>
+
+          </div>
+
+          <footer class="rail__foot">
+            <a class="rail__all" href="#">
+              Ver toda la biblioteca
+              <span class="material-symbols-outlined icon-16" aria-hidden="true">arrow_forward</span>
+            </a>
+          </footer>
+        </aside>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>

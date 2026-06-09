@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1440" />
+<title>FAHYBRIK — Mockup 02 · Ficha de atleta (calendar-first, drawer abierto)</title>
+
+<!-- Fonts: Archivo Narrow + Archivo (display italic), Inter (≈Geist Sans), JetBrains Mono (≈Geist Mono) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,600;0,700;1,700;1,800;1,900&family=Archivo+Narrow:ital,wght@1,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0" rel="stylesheet" />
+
+<style>
+/* ════════════════════════════════════════════════════════════════════
+   FAHYBRIK design tokens — replicated from web/app/globals.css
+   (canonical: shared/tokens.json). Dark is the only mode.
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  /* surfaces */
+  --bg:               #0A0A0A;
+  --surface:          #141414;
+  --surface-elevated: #1F1F1F;
+  --fg:               #F5F5F5;
+  --muted:            #A1A1A1;
+  --hairline:         rgba(161, 161, 161, 0.18);
+  --outline:          rgba(255, 255, 255, 0.10);
+  --scrim:            rgba(0, 0, 0, 0.55);
+
+  /* brand accent (single) */
+  --accent:           #F06A2A;
+  --accent-press:     #D85A20;
+  --accent-on:        #FFFFFF;
+
+  /* semantic */
+  --ok:               #3FC773;
+  --warning:          #F2A52E;
+  --danger:           #F23F3F;
+
+  /* dashboard elevated surfaces */
+  --surface-card: #141414;
+  --surface-container-lowest: #0e0e0e;
+  --surface-container-low: #1c1b1b;
+  --surface-container: #201f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353534;
+  --surface-variant: #353534;
+  --border-subtle: #222222;
+  --text-muted: var(--muted);
+  --tertiary: #4D9EEB;
+
+  /* methodology group identity colors (meaning, not decoration) */
+  --grp-fuerza-base:          #D9534F;
+  --grp-series-ergometros:    #3FB6A8;
+  --grp-series-running:       #5C8BE0;
+  --grp-zona2-recuperacion:   #5AB877;
+  --grp-wods-metcons:         #D365A0;
+  --grp-core-movilidad:       #6FB0C7;
+  --grp-fuerza-base-tint:        rgba(217, 83, 79, 0.14);
+  --grp-series-ergometros-tint:  rgba(63, 182, 168, 0.14);
+  --grp-series-running-tint:     rgba(92, 139, 224, 0.14);
+  --grp-zona2-recuperacion-tint: rgba(90, 184, 119, 0.14);
+  --grp-wods-metcons-tint:       rgba(211, 101, 160, 0.14);
+
+  /* spacing (4 · 8 · 12 · 16 · 24 · 32 · 48) */
+  --s-xs: 4px; --s-s: 8px; --s-m: 12px; --s-l: 16px;
+  --s-xl: 24px; --s-xxl: 32px; --s-xxxl: 48px;
+
+  /* radius (6 · 10 · 14 · 20 · pill) */
+  --r-s: 6px; --r-sm: 8px; --r-m: 10px; --r-l: 14px; --r-xl: 20px; --r-pill: 9999px;
+
+  /* shadows */
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-modal: 0 20px 48px rgba(0,0,0,0.6);
+
+  /* fonts */
+  --font-display: "Archivo Narrow", "Archivo", system-ui, sans-serif;
+  --font-sans: "Inter", "Geist", "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+
+  /* layout */
+  --sidebar-w: 80px;
+  --drawer-w: 40%;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  min-width: 1280px;
+}
+
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ── Focus ring (WCAG 2.4.7) ── */
+:where(button, a, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  border-radius: var(--r-s);
+}
+
+/* ── Shared primitives (mirror of globals.css utilities) ── */
+.micro-label {
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.metric-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+.font-display { font-family: var(--font-display); font-style: italic; }
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+}
+.msi-fill { font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24; }
+
+/* ════════════════════════════ SIDEBAR (§0 — collapsed 80px) ════════ */
+.sidebar {
+  position: fixed; inset: 0 auto 0 0; width: var(--sidebar-w); z-index: 40;
+  display: flex; flex-direction: column;
+  background: var(--surface-container-lowest);
+  border-right: 1px solid var(--border-subtle);
+}
+.sidebar__logo {
+  display: flex; align-items: center; justify-content: center;
+  height: 64px; border-bottom: 1px solid var(--border-subtle);
+}
+.sidebar__logo-mark {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  background: var(--accent); color: var(--accent-on);
+  font-family: var(--font-display); font-style: italic; font-weight: 900; font-size: 22px;
+}
+.sidebar__nav { display: flex; flex-direction: column; gap: var(--s-xs); padding: var(--s-l) var(--s-m); flex: 1; }
+.sidebar__nav--bottom { flex: 0; padding-bottom: var(--s-l); }
+.nav-item {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 44px; border-radius: var(--r-sm);
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-item:hover { background: var(--surface-container-high); color: var(--fg); }
+.nav-item--active { background: var(--accent); color: var(--accent-on); }
+.nav-item--active:hover { background: var(--accent-press); color: var(--accent-on); }
+.nav-item__badge {
+  position: absolute; top: 6px; right: 14px;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-pill);
+  background: var(--accent); color: var(--accent-on);
+  font-size: 8px; font-weight: 700; font-family: var(--font-mono);
+}
+
+/* ════════════════════════════ APP LAYOUT ═══════════════════════════ */
+.app {
+  margin-left: var(--sidebar-w);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(480px, var(--drawer-w));
+  min-height: 100vh;
+}
+.content { min-width: 0; display: flex; flex-direction: column; }
+
+/* ════════════════════════════ ATHLETE HEADER (sticky, §2b) ═════════ */
+.athlete-header {
+  position: sticky; top: 0; z-index: 30;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.athlete-header__top {
+  display: flex; align-items: center; gap: var(--s-l);
+  padding: var(--s-l) var(--s-xl) var(--s-m);
+}
+.breadcrumb { display: flex; align-items: center; gap: var(--s-xs); margin-bottom: var(--s-s); padding: var(--s-m) var(--s-xl) 0; }
+.breadcrumb a { font-size: 12px; font-weight: 600; color: var(--text-muted); transition: color 0.15s ease; }
+.breadcrumb a:hover { color: var(--fg); }
+.breadcrumb .material-symbols-outlined { font-size: 14px; color: var(--text-muted); }
+
+.avatar {
+  width: 52px; height: 52px; border-radius: var(--r-pill); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline);
+  font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 19px;
+  color: var(--accent);
+}
+.athlete-header__identity { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.athlete-header__name-row { display: flex; align-items: center; gap: var(--s-m); }
+.athlete-header__name {
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: 26px; line-height: 1; letter-spacing: -0.01em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px; padding: 0 8px; border-radius: var(--r-pill);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  border: 1px solid var(--border-subtle); color: var(--text-muted);
+  background: var(--surface-card); white-space: nowrap;
+}
+.chip--accent { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface-card)); }
+.chip--event { border-color: var(--border-subtle); color: var(--fg); background: var(--surface-container-low); }
+.chip--event .material-symbols-outlined { font-size: 12px; color: var(--accent); }
+
+/* KPI strip */
+.kpis { display: flex; align-items: center; gap: var(--s-xl); margin-left: auto; padding-right: var(--s-s); }
+.kpi { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.kpi__value {
+  font-family: var(--font-mono); font-weight: 600; font-size: 20px; line-height: 1;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; letter-spacing: -0.01em;
+}
+.kpi__value sub-unit, .kpi__unit { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.kpi__value--ok { color: var(--ok); }
+.kpi-divider { width: 1px; height: 28px; background: var(--border-subtle); }
+
+.athlete-header__actions { display: flex; align-items: center; gap: var(--s-s); }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 38px; padding: 0 var(--s-l); border-radius: var(--r-m);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.btn .material-symbols-outlined { font-size: 18px; }
+.btn--primary { background: var(--accent); color: var(--accent-on); }
+.btn--primary:hover { background: var(--accent-press); }
+.btn--secondary { background: var(--surface-elevated); color: var(--fg); border: 1px solid var(--border-subtle); }
+.btn--secondary:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); }
+.btn--ghost { color: var(--text-muted); border: 1px solid transparent; }
+.btn--ghost:hover { color: var(--fg); background: var(--surface-container-high); }
+.btn--sm { height: 30px; padding: 0 var(--s-m); font-size: 12px; border-radius: var(--r-s); }
+
+/* Section nav (anchored, scroll-spy) + zoom segmented */
+.athlete-header__nav {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 0 var(--s-xl);
+}
+.section-nav { display: flex; }
+.section-nav__link {
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  padding: 10px var(--s-l); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s ease;
+}
+.section-nav__link:hover { color: var(--fg); }
+.section-nav__link--active { color: var(--fg); border-bottom-color: var(--accent); }
+
+.segmented {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px; margin-bottom: 6px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-m);
+}
+.segmented__option {
+  height: 26px; padding: 0 14px; border-radius: var(--r-s);
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.segmented__option:hover { color: var(--fg); }
+.segmented__option--active { background: var(--surface-container-highest); color: var(--fg); box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset; }
+
+/* ════════════════════════════ MAIN BODY ════════════════════════════ */
+.content__body { padding: var(--s-l) var(--s-xl) var(--s-xxxl); display: flex; flex-direction: column; gap: var(--s-l); }
+
+/* Banner fino — propuesta pendiente (§2b paneles contextuales) */
+.banner-review {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-l);
+  padding: 10px var(--s-l);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+  border-radius: var(--r-l);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-card));
+}
+.banner-review__left { display: flex; align-items: center; gap: var(--s-m); min-width: 0; }
+.banner-review__left .material-symbols-outlined { font-size: 18px; color: var(--accent); flex-shrink: 0; }
+.banner-review__text { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.banner-review__text span { color: var(--text-muted); font-weight: 500; }
+
+/* ── Week calendar (zoom Semana, §2b) ── */
+.calendar { display: flex; flex-direction: column; gap: var(--s-m); }
+.calendar__meta { display: flex; align-items: center; justify-content: space-between; }
+.calendar__range { display: flex; align-items: center; gap: var(--s-m); }
+.calendar__range-label {
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: 17px; text-transform: uppercase; letter-spacing: 0.01em;
+}
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: var(--r-s);
+  color: var(--text-muted); border: 1px solid var(--border-subtle); background: var(--surface-card);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.icon-btn:hover { color: var(--fg); border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); }
+.icon-btn .material-symbols-outlined { font-size: 18px; }
+
+.calendar__adherence { display: flex; align-items: baseline; gap: var(--s-s); }
+.calendar__adherence .micro-label { letter-spacing: 0.1em; }
+.adherence-value { font-family: var(--font-mono); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--ok); }
+
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--s-s); }
+.day-col { display: flex; flex-direction: column; gap: var(--s-s); min-width: 0; }
+.day-col__head {
+  display: flex; align-items: baseline; gap: 5px; padding: 0 2px;
+}
+.day-col__dow { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
+.day-col__num { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.day-col--today .day-col__dow, .day-col--today .day-col__num { color: var(--accent); }
+.day-col__today-pill {
+  margin-left: auto; font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  padding: 1px 5px; border-radius: var(--r-pill);
+}
+
+/* Session card */
+.session-card {
+  position: relative; display: flex; flex-direction: column; gap: 5px;
+  width: 100%; text-align: left;
+  padding: var(--s-m) var(--s-m) var(--s-m) 14px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-l);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.4);
+  transition: border-color 0.16s ease, transform 0.16s ease;
+  min-height: 118px;
+}
+.session-card:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); }
+.session-card::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+  border-radius: 0 2px 2px 0; background: var(--grp, var(--surface-variant));
+}
+.session-card--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.session-card__group {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--grp, var(--text-muted));
+}
+.session-card__title { font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--fg); }
+.session-card__blocks { font-size: 10.5px; line-height: 1.45; color: var(--text-muted); }
+.session-card__foot { margin-top: auto; display: flex; align-items: center; gap: 5px; }
+.session-card__status { position: absolute; top: 9px; right: 9px; display: inline-flex; }
+.session-card__status .material-symbols-outlined { font-size: 16px; }
+.status-done { color: var(--ok); }
+.status-dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--surface-variant); margin: 4px; }
+.status-dot--today { background: var(--accent); }
+.real-hint {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 500;
+  font-variant-numeric: tabular-nums; color: var(--ok);
+}
+.real-hint span { color: var(--text-muted); }
+.session-card--rest {
+  align-items: center; justify-content: center;
+  background: transparent; border-style: dashed; box-shadow: none;
+  border-color: color-mix(in srgb, var(--border-subtle) 60%, transparent);
+  color: var(--text-muted); opacity: 0.6; cursor: default;
+}
+.session-card--rest::before { display: none; }
+.session-card--rest:hover { border-color: color-mix(in srgb, var(--border-subtle) 60%, transparent); }
+.session-card--rest .material-symbols-outlined { font-size: 18px; }
+.session-card--rest .micro-label { font-size: 9px; }
+
+/* ════════════════════════════ DRAWER (§2b + §4) ════════════════════ */
+.drawer {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--surface-container-lowest);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: -24px 0 48px rgba(0,0,0,0.45);
+}
+.drawer__header {
+  display: flex; align-items: flex-start; gap: var(--s-m);
+  padding: var(--s-xl) var(--s-xl) var(--s-l);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.drawer__header-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.drawer__kicker { display: flex; align-items: center; gap: var(--s-s); }
+.state-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 18px; padding: 0 8px; border-radius: var(--r-pill);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  background: var(--surface-container-high); color: var(--text-muted);
+}
+.state-pill__dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--tertiary); }
+.drawer__title-row { display: flex; align-items: center; gap: var(--s-s); }
+.drawer__title {
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: 23px; line-height: 1.05; text-transform: uppercase; letter-spacing: 0;
+}
+.drawer__title-edit { color: var(--text-muted); display: inline-flex; padding: 4px; border-radius: var(--r-s); transition: color 0.15s ease, background 0.15s ease; }
+.drawer__title-edit:hover { color: var(--fg); background: var(--surface-container-high); }
+.drawer__title-edit .material-symbols-outlined { font-size: 16px; }
+.drawer__close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: var(--r-s); flex-shrink: 0;
+  color: var(--text-muted); transition: color 0.15s ease, background 0.15s ease;
+}
+.drawer__close:hover { color: var(--fg); background: var(--surface-container-high); }
+
+.drawer__scroll { flex: 1; overflow-y: auto; padding: var(--s-l) var(--s-xl) var(--s-xl); display: flex; flex-direction: column; gap: var(--s-l); }
+.drawer__scroll::-webkit-scrollbar { width: 8px; }
+.drawer__scroll::-webkit-scrollbar-thumb { background: var(--surface-container-high); border-radius: var(--r-pill); }
+
+/* Block card */
+.block {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-l);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+.block__head {
+  display: flex; align-items: center; gap: var(--s-m);
+  padding: var(--s-m) var(--s-l);
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+.block__head::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 0 2px 2px 0; background: var(--grp, var(--surface-variant));
+}
+.block__title { font-size: 14px; font-weight: 700; letter-spacing: 0.005em; }
+.block__meta { margin-left: auto; display: flex; align-items: center; gap: var(--s-s); }
+.chip--origin-pablo { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.chip--origin-pablo .material-symbols-outlined { font-size: 11px; }
+.chip--origin-own { color: var(--fg); background: var(--surface-container-high); border-color: transparent; }
+.block__readonly-note {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-m);
+  padding: 7px var(--s-l);
+  background: var(--surface-container-lowest);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.block__readonly-note p { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+.block__readonly-note .material-symbols-outlined { font-size: 13px; }
+.link-accent { font-size: 11px; font-weight: 600; color: var(--accent); white-space: nowrap; border-radius: var(--r-s); transition: color 0.15s ease; }
+.link-accent:hover { color: var(--accent-press); text-decoration: underline; }
+
+/* Exercise rows — natural language */
+.exercise { border-bottom: 1px solid var(--border-subtle); }
+.exercise:last-of-type { border-bottom: none; }
+.exercise__row {
+  display: flex; align-items: center; gap: var(--s-m); width: 100%; text-align: left;
+  padding: 11px var(--s-l);
+  transition: background 0.14s ease;
+}
+.exercise__row:hover { background: var(--surface-container-low); }
+.exercise__row:hover .exercise__chevron { color: var(--fg); }
+.exercise__name { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.exercise__rx {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  font-variant-numeric: tabular-nums; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.exercise__chevron { margin-left: auto; color: var(--text-muted); flex-shrink: 0; transition: color 0.14s ease, transform 0.2s ease; }
+.exercise__chevron .material-symbols-outlined { font-size: 18px; }
+.exercise--expanded .exercise__row { background: var(--surface-container-low); }
+.exercise--expanded .exercise__chevron { transform: rotate(180deg); color: var(--fg); }
+.exercise--expanded { border-left: 2px solid var(--accent); }
+
+/* ── Prescription editor (§4) — inline, inside the row ── */
+.rx-editor { padding: var(--s-l); display: flex; flex-direction: column; gap: 14px; background: var(--surface-container-lowest); border-top: 1px solid var(--border-subtle); }
+.rx-editor__group { display: flex; flex-direction: column; gap: 7px; }
+
+/* modality segmented */
+.modality-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.modality-seg__option {
+  height: 28px; padding: 0 12px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border-subtle); background: var(--surface-card); color: var(--text-muted);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.modality-seg__option:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); color: var(--fg); }
+.modality-seg__option--active {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-card));
+}
+
+/* presets row */
+.presets { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.preset-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 11px; border-radius: var(--r-s);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  background: var(--surface-container-high); color: var(--fg);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.preset-chip:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--surface-container-highest); }
+.preset-chip .material-symbols-outlined { font-size: 13px; color: var(--text-muted); }
+.preset-chip--recent { background: transparent; border-color: var(--border-subtle); color: var(--text-muted); }
+.preset-chip--recent:hover { color: var(--fg); }
+
+/* natural-labeled fields */
+.rx-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-s); }
+.rx-field { display: flex; flex-direction: column; gap: 5px; }
+.rx-field label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
+.rx-field__control {
+  display: flex; align-items: baseline; gap: 4px;
+  height: 38px; padding: 0 var(--s-m); align-items: center;
+  background: var(--surface-card);
+  border: 1px solid rgba(255,255,255,0.15); border-radius: var(--r-s);
+  transition: border-color 0.15s ease;
+}
+.rx-field__control:hover { border-color: color-mix(in srgb, var(--accent) 40%, rgba(255,255,255,0.15)); }
+.rx-field__control:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.rx-field__control input {
+  width: 100%; min-width: 0; background: none; border: none; outline: none;
+  color: var(--fg); font-family: var(--font-mono); font-size: 14px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rx-field__unit { font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.rx-field__control--select { justify-content: space-between; cursor: pointer; }
+.rx-field__control--select .material-symbols-outlined { font-size: 16px; color: var(--text-muted); }
+
+/* per-series toggle (collapsed) */
+.series-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-m);
+  padding: 9px var(--s-m);
+  background: var(--surface-card); border: 1px dashed var(--border-subtle); border-radius: var(--r-s);
+}
+.series-toggle__label { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
+.series-toggle__label .material-symbols-outlined { font-size: 15px; }
+.series-toggle button { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent); border-radius: var(--r-s); transition: color 0.15s ease; }
+.series-toggle button:hover { color: var(--accent-press); }
+.series-toggle button .material-symbols-outlined { font-size: 15px; }
+
+/* editor footer row */
+.rx-editor__foot { display: flex; align-items: center; justify-content: space-between; }
+.rx-editor__valid { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+.rx-editor__valid .material-symbols-outlined { font-size: 14px; color: var(--ok); }
+.rx-editor__actions { display: flex; gap: var(--s-s); }
+
+/* add exercise / add block */
+.add-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 10px var(--s-l);
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+  transition: color 0.15s ease, background 0.14s ease;
+}
+.add-row:hover { color: var(--accent); background: var(--surface-container-low); }
+.add-row .material-symbols-outlined { font-size: 16px; }
+.add-block {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 12px; border: 1px dashed var(--border-subtle); border-radius: var(--r-l);
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.add-block:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-subtle)); }
+.add-block .material-symbols-outlined { font-size: 17px; }
+
+/* drawer footer */
+.drawer__footer {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-m);
+  padding: var(--s-m) var(--s-xl);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-container-lowest);
+}
+.savestate { display: flex; align-items: center; gap: var(--s-m); }
+.savestate__status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ok); }
+.savestate__status .material-symbols-outlined { font-size: 15px; }
+.savestate__time { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.savestate__history { display: flex; gap: 2px; }
+.savestate__history .icon-btn { width: 26px; height: 26px; border-color: transparent; background: transparent; }
+.savestate__history .icon-btn:disabled { opacity: 0.35; cursor: default; }
+.savestate__history .icon-btn:disabled:hover { color: var(--text-muted); border-color: transparent; }
+.savestate__history .icon-btn .material-symbols-outlined { font-size: 17px; }
+</style>
+</head>
+<body>
+
+<!-- ════════ SIDEBAR — collapsed 80px (§0) ════════ -->
+<aside class="sidebar" aria-label="Navegación principal">
+  <a class="sidebar__logo" href="#" aria-label="FAHYBRIK — inicio" title="FAHYBRIK">
+    <span class="sidebar__logo-mark" aria-hidden="true">F</span>
+  </a>
+  <nav class="sidebar__nav" aria-label="Secciones">
+    <a class="nav-item" href="#" aria-label="Hoy — 5 pendientes" title="Hoy">
+      <span class="material-symbols-outlined" aria-hidden="true">today</span>
+      <span class="nav-item__badge" aria-hidden="true">5</span>
+    </a>
+    <a class="nav-item nav-item--active" href="#" aria-label="Atletas" aria-current="page" title="Atletas">
+      <span class="material-symbols-outlined msi-fill" aria-hidden="true">groups</span>
+    </a>
+    <a class="nav-item" href="#" aria-label="Programar" title="Programar">
+      <span class="material-symbols-outlined" aria-hidden="true">edit_calendar</span>
+    </a>
+  </nav>
+  <nav class="sidebar__nav sidebar__nav--bottom" aria-label="Sistema">
+    <a class="nav-item" href="#" aria-label="Ajustes" title="Ajustes">
+      <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+    </a>
+    <a class="nav-item" href="#" aria-label="Ayuda" title="Ayuda">
+      <span class="material-symbols-outlined" aria-hidden="true">help</span>
+    </a>
+  </nav>
+</aside>
+
+<div class="app">
+  <!-- ════════ CONTENT — ficha calendar-first (§2b) ════════ -->
+  <main class="content">
+
+    <header class="athlete-header">
+      <div class="breadcrumb" aria-label="Ruta">
+        <a href="#">Atletas</a>
+        <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        <a href="#" aria-current="page" style="color: var(--fg);">Carlos Ruiz</a>
+      </div>
+
+      <div class="athlete-header__top">
+        <span class="avatar" aria-hidden="true">CR</span>
+
+        <div class="athlete-header__identity">
+          <div class="athlete-header__name-row">
+            <h1 class="athlete-header__name">Carlos Ruiz</h1>
+            <span class="chip chip--accent">Pro</span>
+            <span class="chip">Individual</span>
+            <span class="chip chip--event">
+              <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+              HYROX Madrid · <span class="metric-num">6&nbsp;sem</span>
+            </span>
+          </div>
+          <p class="micro-label">Acumulación · Semana 3 de 5</p>
+        </div>
+
+        <div class="kpis" role="group" aria-label="Indicadores del atleta">
+          <div class="kpi">
+            <span class="kpi__value metric-num">78<span class="kpi__unit">%</span></span>
+            <span class="micro-label">Readiness</span>
+          </div>
+          <div class="kpi-divider" aria-hidden="true"></div>
+          <div class="kpi">
+            <span class="kpi__value metric-num">8.2</span>
+            <span class="micro-label">Check-in hoy</span>
+          </div>
+          <div class="kpi-divider" aria-hidden="true"></div>
+          <div class="kpi">
+            <span class="kpi__value metric-num kpi__value--ok">86<span class="kpi__unit">%</span></span>
+            <span class="micro-label">Cumplimiento sem</span>
+          </div>
+        </div>
+
+        <div class="athlete-header__actions">
+          <button class="btn btn--secondary" type="button">
+            <span class="material-symbols-outlined" aria-hidden="true">chat_bubble</span>
+            Mensaje
+          </button>
+          <button class="btn btn--primary" type="button">
+            <span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>
+            Asignar microciclo
+          </button>
+        </div>
+      </div>
+
+      <div class="athlete-header__nav">
+        <nav class="section-nav" aria-label="Secciones de la ficha">
+          <a class="section-nav__link section-nav__link--active" href="#calendario" aria-current="true">Calendario</a>
+          <a class="section-nav__link" href="#cuerpo">Cuerpo</a>
+          <a class="section-nav__link" href="#rendimiento">Rendimiento</a>
+        </nav>
+
+        <div class="segmented" role="group" aria-label="Nivel de zoom del calendario">
+          <button class="segmented__option segmented__option--active" type="button" aria-pressed="true">Semana</button>
+          <button class="segmented__option" type="button" aria-pressed="false">Mes</button>
+          <button class="segmented__option" type="button" aria-pressed="false">Macro</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="content__body" id="calendario">
+
+      <!-- Banner fino: propuesta pendiente -->
+      <div class="banner-review" role="status">
+        <div class="banner-review__left">
+          <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
+          <p class="banner-review__text">Propuesta de Pablo IA pendiente <span>· ajuste semanal — 3 cambios para la semana que viene</span></p>
+        </div>
+        <button class="btn btn--secondary btn--sm" type="button">Revisar</button>
+      </div>
+
+      <!-- Week calendar -->
+      <section class="calendar" aria-label="Calendario — semana del 8 al 14 de junio">
+        <div class="calendar__meta">
+          <div class="calendar__range">
+            <button class="icon-btn" type="button" aria-label="Semana anterior">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+            </button>
+            <h2 class="calendar__range-label">8 – 14 junio</h2>
+            <button class="icon-btn" type="button" aria-label="Semana siguiente">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+            </button>
+          </div>
+          <div class="calendar__adherence">
+            <span class="micro-label">Adherencia semana</span>
+            <span class="adherence-value metric-num">86%</span>
+            <span class="micro-label" style="letter-spacing: 0.06em;">2/2 hechas</span>
+          </div>
+        </div>
+
+        <div class="week-grid">
+
+          <!-- LUN 8 — Fuerza, completada -->
+          <div class="day-col">
+            <div class="day-col__head"><span class="day-col__dow">Lun</span><span class="day-col__num">8</span></div>
+            <button class="session-card" type="button" style="--grp: var(--grp-fuerza-base);"
+                    aria-label="Lunes 8 — Fuerza Base, completada">
+              <span class="session-card__status status-done" title="Completada">
+                <span class="material-symbols-outlined msi-fill" aria-hidden="true">check_circle</span>
+              </span>
+              <span class="session-card__group">Fuerza base</span>
+              <span class="session-card__title">Tren superior + Core</span>
+              <span class="session-card__blocks">Press banca · Remo pendlay · Plancha lastrada</span>
+              <span class="session-card__foot">
+                <span class="real-hint">62' · RPE 8 <span>(presc. 60')</span></span>
+              </span>
+            </button>
+          </div>
+
+          <!-- MAR 9 — hoy, series running, completada -->
+          <div class="day-col day-col--today">
+            <div class="day-col__head">
+              <span class="day-col__dow">Mar</span><span class="day-col__num">9</span>
+              <span class="day-col__today-pill">Hoy</span>
+            </div>
+            <button class="session-card" type="button" style="--grp: var(--grp-series-running);"
+                    aria-label="Martes 9, hoy — Series running, completada">
+              <span class="session-card__status status-done" title="Completada">
+                <span class="material-symbols-outlined msi-fill" aria-hidden="true">check_circle</span>
+              </span>
+              <span class="session-card__group">Series running</span>
+              <span class="session-card__title">4×1000 m umbral</span>
+              <span class="session-card__blocks">Calent. 15' · 4×1000 m r2' · Vuelta calma</span>
+              <span class="session-card__foot">
+                <span class="real-hint">4:08/km <span>(obj. 4:10)</span></span>
+              </span>
+            </button>
+          </div>
+
+          <!-- MIÉ 10 — Z2, pendiente -->
+          <div class="day-col">
+            <div class="day-col__head"><span class="day-col__dow">Mié</span><span class="day-col__num">10</span></div>
+            <button class="session-card" type="button" style="--grp: var(--grp-zona2-recuperacion);"
+                    aria-label="Miércoles 10 — Zona 2, pendiente">
+              <span class="session-card__status" title="Pendiente"><span class="status-dot" aria-hidden="true"></span></span>
+              <span class="session-card__group">Zona 2</span>
+              <span class="session-card__title">Carrera continua Z2</span>
+              <span class="session-card__blocks">45' @ Z2 · cadencia 175+</span>
+            </button>
+          </div>
+
+          <!-- JUE 11 — seleccionada (drawer) -->
+          <div class="day-col">
+            <div class="day-col__head"><span class="day-col__dow">Jue</span><span class="day-col__num">11</span></div>
+            <button class="session-card session-card--selected" type="button" style="--grp: var(--grp-fuerza-base);"
+                    aria-label="Jueves 11 — Fuerza más ergómetros, pendiente, abierta en el panel" aria-expanded="true">
+              <span class="session-card__status" title="Pendiente"><span class="status-dot" aria-hidden="true"></span></span>
+              <span class="session-card__group">Fuerza base</span>
+              <span class="session-card__title">Tren inferior + Ergos</span>
+              <span class="session-card__blocks">Back squat · Split squat · Hip thrust · Ski erg</span>
+            </button>
+          </div>
+
+          <!-- VIE 12 — WOD -->
+          <div class="day-col">
+            <div class="day-col__head"><span class="day-col__dow">Vie</span><span class="day-col__num">12</span></div>
+            <button class="session-card" type="button" style="--grp: var(--grp-wods-metcons);"
+                    aria-label="Viernes 12 — WOD, pendiente">
+              <span class="session-card__status" title="Pendiente"><span class="status-dot" aria-hidden="true"></span></span>
+              <span class="session-card__group">WOD / Metcon</span>
+              <span class="session-card__title">AMRAP 20' compromiso</span>
+              <span class="session-card__blocks">Sled push 20 m · 10 burpee BJ · 15 cal row</span>
+            </button>
+          </div>
+
+          <!-- SÁB 13 — ergos -->
+          <div class="day-col">
+            <div class="day-col__head"><span class="day-col__dow">Sáb</span><span class="day-col__num">13</span></div>
+            <button class="session-card" type="button" style="--grp: var(--grp-series-ergometros);"
+                    aria-label="Sábado 13 — Series ergómetros, pendiente">
+              <span class="session-card__status" title="Pendiente"><span class="status-dot" aria-hidden="true"></span></span>
+              <span class="session-card__group">Series ergómetros</span>
+              <span class="session-card__title">Row 3×3' RPE 8</span>
+              <span class="session-card__blocks">3×3' r2' · objetivo 1:42/500 m</span>
+            </button>
+          </div>
+
+          <!-- DOM 14 — descanso -->
+          <div class="day-col">
+            <div class="day-col__head"><span class="day-col__dow">Dom</span><span class="day-col__num">14</span></div>
+            <div class="session-card session-card--rest" role="note" aria-label="Domingo 14 — descanso">
+              <span class="material-symbols-outlined" aria-hidden="true">bedtime</span>
+              <span class="micro-label">Descanso</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ════════ DRAWER — sesión del jueves abierta (§2b + §4) ════════ -->
+  <aside class="drawer" role="complementary" aria-label="Sesión del jueves 11 de junio">
+
+    <header class="drawer__header">
+      <div class="drawer__header-main">
+        <div class="drawer__kicker">
+          <span class="micro-label">Jueves 11 jun · Semana 3 · Acumulación</span>
+          <span class="state-pill"><span class="state-pill__dot" aria-hidden="true"></span>Pendiente</span>
+        </div>
+        <div class="drawer__title-row">
+          <h2 class="drawer__title">Tren inferior + Ergos</h2>
+          <button class="drawer__title-edit" type="button" aria-label="Editar título de la sesión" title="Editar título">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+          </button>
+        </div>
+      </div>
+      <button class="drawer__close" type="button" aria-label="Cerrar panel de sesión" title="Cerrar">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+
+    <div class="drawer__scroll">
+
+      <!-- BLOQUE 1 — Biblioteca Pablo (read-only) -->
+      <section class="block" style="--grp: var(--grp-fuerza-base);" aria-label="Bloque Fuerza base — tren inferior, de la biblioteca de Pablo">
+        <div class="block__head">
+          <h3 class="block__title">Fuerza base — Tren inferior</h3>
+          <div class="block__meta">
+            <span class="chip chip--origin-pablo">
+              <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+              Biblioteca Pablo
+            </span>
+          </div>
+        </div>
+        <div class="block__readonly-note">
+          <p><span class="material-symbols-outlined" aria-hidden="true">lock</span>Prescripción original de Pablo — solo lectura</p>
+          <a class="link-accent" href="#">Duplicar como propio</a>
+        </div>
+
+        <div class="exercise">
+          <div class="exercise__row">
+            <span class="exercise__name">Back Squat</span>
+            <span class="exercise__rx">5×5 @ 75% RM · descanso 2'</span>
+          </div>
+        </div>
+        <div class="exercise">
+          <div class="exercise__row">
+            <span class="exercise__name">Bulgarian Split Squat</span>
+            <span class="exercise__rx">3×8/lado @ RPE 7 · descanso 90''</span>
+          </div>
+        </div>
+        <div class="exercise">
+          <div class="exercise__row">
+            <span class="exercise__name">Hip Thrust</span>
+            <span class="exercise__rx">4×6 @ 70% RM · descanso 2'</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- BLOQUE 2 — Propia (editable, con un ejercicio EXPANDIDO) -->
+      <section class="block" style="--grp: var(--grp-series-ergometros);" aria-label="Bloque Accesorios y ergómetros, propio">
+        <div class="block__head">
+          <h3 class="block__title">Accesorios + Ergómetros</h3>
+          <div class="block__meta">
+            <span class="chip chip--origin-own">Propio</span>
+            <button class="icon-btn" type="button" aria-label="Opciones del bloque" title="Opciones del bloque" style="width: 26px; height: 26px; border-color: transparent; background: transparent;">
+              <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 17px;">more_horiz</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Ejercicio EXPANDIDO → editor de prescripción (§4) -->
+        <div class="exercise exercise--expanded">
+          <button class="exercise__row" type="button" aria-expanded="true" aria-controls="rx-front-squat"
+                  aria-label="Front Squat — contraer editor">
+            <span class="exercise__name">Front Squat</span>
+            <span class="exercise__rx">4×6 @ 70% RM · descanso 2'</span>
+            <span class="exercise__chevron" aria-hidden="true"><span class="material-symbols-outlined">expand_more</span></span>
+          </button>
+
+          <div class="rx-editor" id="rx-front-squat">
+
+            <!-- Modalidad -->
+            <div class="rx-editor__group">
+              <span class="micro-label">Modalidad</span>
+              <div class="modality-seg" role="group" aria-label="Modalidad del ejercicio">
+                <button class="modality-seg__option modality-seg__option--active" type="button" aria-pressed="true">Fuerza</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Run</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Row</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Ski</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Bike</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Funcional</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Core</button>
+                <button class="modality-seg__option" type="button" aria-pressed="false">Movilidad</button>
+              </div>
+            </div>
+
+            <!-- Presets (1 click) -->
+            <div class="rx-editor__group">
+              <span class="micro-label">Presets de fuerza</span>
+              <div class="presets" role="group" aria-label="Presets de prescripción">
+                <button class="preset-chip" type="button">5×5 @ 70%</button>
+                <button class="preset-chip" type="button">4×8 @ RPE8</button>
+                <button class="preset-chip" type="button">3×3 @ 90%</button>
+                <button class="preset-chip preset-chip--recent" type="button" title="Último usado">
+                  <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                  4×6 @ 70%
+                </button>
+              </div>
+            </div>
+
+            <!-- Campos en lenguaje natural -->
+            <div class="rx-fields">
+              <div class="rx-field">
+                <label for="f-series">Series</label>
+                <div class="rx-field__control">
+                  <input id="f-series" type="text" inputmode="numeric" value="4" />
+                </div>
+              </div>
+              <div class="rx-field">
+                <label for="f-reps">Reps</label>
+                <div class="rx-field__control">
+                  <input id="f-reps" type="text" inputmode="numeric" value="6" />
+                </div>
+              </div>
+              <div class="rx-field">
+                <label for="f-carga">Carga</label>
+                <div class="rx-field__control">
+                  <input id="f-carga" type="text" inputmode="numeric" value="70" />
+                  <span class="rx-field__unit">% RM</span>
+                </div>
+              </div>
+              <div class="rx-field">
+                <label for="f-descanso">Descanso</label>
+                <div class="rx-field__control">
+                  <input id="f-descanso" type="text" inputmode="numeric" value="2" />
+                  <span class="rx-field__unit">min</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Por serie: colapsado por defecto -->
+            <div class="series-toggle">
+              <span class="series-toggle__label">
+                <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span>
+                4 series iguales
+              </span>
+              <button type="button" aria-expanded="false" aria-label="Variar la prescripción serie a serie">
+                Variar por serie
+                <span class="material-symbols-outlined" aria-hidden="true">unfold_more</span>
+              </button>
+            </div>
+
+            <div class="rx-editor__foot">
+              <span class="rx-editor__valid">
+                <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                Combinación válida — reps + %RM + descanso
+              </span>
+              <div class="rx-editor__actions">
+                <button class="btn btn--ghost btn--sm" type="button" aria-label="Quitar ejercicio Front Squat — se podrá deshacer durante 5 segundos">
+                  <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                  Quitar
+                </button>
+                <button class="btn btn--secondary btn--sm" type="button">Hecho</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ejercicios colapsados del bloque propio -->
+        <div class="exercise">
+          <button class="exercise__row" type="button" aria-expanded="false" aria-label="Ski Erg — expandir editor">
+            <span class="exercise__name">Ski Erg</span>
+            <span class="exercise__rx">3×3' @ RPE 8 · r2'</span>
+            <span class="exercise__chevron" aria-hidden="true"><span class="material-symbols-outlined">expand_more</span></span>
+          </button>
+        </div>
+        <div class="exercise">
+          <button class="exercise__row" type="button" aria-expanded="false" aria-label="Farmer Carry — expandir editor">
+            <span class="exercise__name">Farmer Carry</span>
+            <span class="exercise__rx">4×40 m @ 2×24 kg · r90''</span>
+            <span class="exercise__chevron" aria-hidden="true"><span class="material-symbols-outlined">expand_more</span></span>
+          </button>
+        </div>
+
+        <button class="add-row" type="button">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Añadir ejercicio
+        </button>
+      </section>
+
+      <!-- Añadir bloque (popover 3 fuentes: Biblioteca · Pablo IA · En blanco) -->
+      <button class="add-block" type="button" aria-haspopup="menu"
+              aria-label="Añadir bloque — desde Biblioteca, Pablo IA o en blanco">
+        <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+        Añadir bloque
+      </button>
+    </div>
+
+    <!-- Footer: autosave + guardar en biblioteca -->
+    <footer class="drawer__footer">
+      <div class="savestate">
+        <span class="savestate__status" role="status">
+          <span class="material-symbols-outlined" aria-hidden="true">cloud_done</span>
+          Guardado
+        </span>
+        <span class="savestate__time">hace 12 s</span>
+        <div class="savestate__history" role="group" aria-label="Historial de cambios">
+          <button class="icon-btn" type="button" aria-label="Deshacer" title="Deshacer">
+            <span class="material-symbols-outlined" aria-hidden="true">undo</span>
+          </button>
+          <button class="icon-btn" type="button" aria-label="Rehacer" title="Rehacer" disabled>
+            <span class="material-symbols-outlined" aria-hidden="true">redo</span>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn--secondary" type="button">
+        <span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span>
+        Guardar bloque en biblioteca
+      </button>
+    </footer>
+  </aside>
+</div>
+
+</body>
+</html>
