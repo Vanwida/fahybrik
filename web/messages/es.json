@@ -1,0 +1,315 @@
+{
+  "$comment": "Spanish (Castilian) — DEFAULT locale. Voice: tú-informal, spare, precise, no motivational filler. Sport vocabulary brand-locked: HYROX, AMRAP, EMOM, RPE, Z1-Z5, sled push, wall ball, ski erg, Z2, Z3, etc. — never translated. Anchor: 'Entrenar al detalle.' / 'Cuanto más sepa Pablo, más preciso será tu plan.' / 'Pablo está armando tu plan.'",
+  "brand": {
+    "name": "FAHYBRIK",
+    "wordmark_aria": "FAHYBRIK",
+    "anchor_tagline": "Entrenar al detalle.",
+    "anchor_pablo_more": "Cuanto más sepa Pablo, más preciso será tu plan.",
+    "anchor_pablo_building": "Pablo está armando tu plan.",
+    "real_trans_acc": "REAL · TRANS · ACC"
+  },
+  "common": {
+    "loading": "Cargando…",
+    "error_generic": "Algo no fue bien.",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "open": "Abrir",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "search": "Buscar",
+    "yes": "Sí",
+    "no": "No",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "week": "Semana",
+    "month": "Mes",
+    "year": "Año",
+    "settings": "Ajustes",
+    "of_total": "de {total}",
+    "selected_count": "{count} seleccionados",
+    "clear_selection": "Limpiar selección",
+    "add": "Añadir",
+    "remove": "Quitar"
+  },
+  "locale": {
+    "label": "Idioma",
+    "es": "Español",
+    "en": "English",
+    "switch_to_es": "Cambiar a español",
+    "switch_to_en": "Cambiar a inglés"
+  },
+  "nav": {
+    "main_aria": "Navegación principal",
+    "today": "Hoy",
+    "athletes": "Atletas",
+    "programming": "Programar",
+    "settings": "Ajustes",
+    "mobile_aria": "Navegación móvil",
+    "new_athlete": "Nuevo atleta",
+    "help": "Ayuda",
+    "admin": "Admin"
+  },
+  "header": {
+    "coach_label": "Coach",
+    "search_placeholder": "Buscar atletas / eventos…",
+    "search_aria": "Buscar atletas o eventos",
+    "cohort_label": "Atletas",
+    "settings_aria": "Ajustes"
+  },
+  "footer": {
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "copyright": "© {year} Vanwida — FAHYBRIK"
+  },
+  "cohort": {
+    "title": "Atletas",
+    "section_aria": "Lista de atletas",
+    "atencion_title": "Atención",
+    "atencion_aria": "Atletas que requieren atención",
+    "atencion_refreshed": "Actualizado hace {ago}",
+    "atencion_empty": "Ningún atleta requiere atención ahora.",
+    "filters": {
+      "in_gym_today": "Hoy en el gym",
+      "with_alerts": "Con alerta",
+      "twice_daily": "Doble sesión",
+      "a_event_30d": "A-event ≤30 días",
+      "block_acc": "Bloque ACC",
+      "block_trans": "Bloque TRANS",
+      "block_real": "Bloque REAL",
+      "all_blocks": "Todos los bloques"
+    },
+    "table": {
+      "name": "Atleta",
+      "block": "Bloque",
+      "ctl": "CTL",
+      "atl": "ATL",
+      "tsb": "TSB",
+      "race_readiness": "Race readiness",
+      "polarization": "Polarización",
+      "next_session": "Próxima sesión",
+      "last_session": "Última sesión",
+      "alerts": "Alertas",
+      "in_gym": "Hoy",
+      "row_open_aria": "Abrir ficha del atleta {name}"
+    },
+    "bulk": {
+      "title": "Acciones en bloque",
+      "send_message": "Enviar mensaje",
+      "apply_adjustment": "Aplicar ajuste",
+      "transition_block": "Transición de bloque"
+    },
+    "columns": {
+      "picker_label": "Columnas",
+      "picker_aria": "Elegir columnas visibles",
+      "reset": "Restablecer columnas"
+    }
+  },
+  "briefing": {
+    "title": "Briefing",
+    "greeting_morning": "Buenos días, {name}.",
+    "greeting_afternoon": "Buenas tardes, {name}.",
+    "greeting_evening": "Buenas noches, {name}.",
+    "subline": "Hoy entrenan {today}, {alerts} con alerta, {transition} listos para transición de bloque.",
+    "ready_for_transition": "Listos para transición de bloque",
+    "pending_intake": "Intakes pendientes",
+    "open_intake": "Abrir intake",
+    "no_pending": "Sin intakes pendientes."
+  },
+  "deep_dive": {
+    "back": "Volver a atletas",
+    "subnav_aria": "Sub-navegación atleta",
+    "tabs": {
+      "summary": "Resumen",
+      "plan": "Plan",
+      "body": "Cuerpo",
+      "performance": "Rendimiento",
+      "race_plan": "Plan de carrera",
+      "notes": "Notas",
+      "ajustes": "Ajustes"
+    },
+    "header": {
+      "block_label": "Bloque",
+      "next_a_event": "Próximo A-event",
+      "days_remaining": "Días restantes",
+      "macrocycle": "Macrociclo"
+    },
+    "kpi": {
+      "ctl": "CTL",
+      "atl": "ATL",
+      "tsb": "TSB",
+      "ctl_label": "Carga crónica",
+      "atl_label": "Carga aguda",
+      "tsb_label": "Forma"
+    },
+    "body": {
+      "title": "Composición corporal",
+      "weight_30": "Peso 90 días",
+      "rhr_90": "RHR · 90 días",
+      "hrv_90": "HRV · 90 días",
+      "sleep_30": "Sueño · 30 noches",
+      "race_readiness_90": "Race readiness · histórico 90d",
+      "vo2max_12m": "VO2max últimos 12 meses",
+      "trends_30": "Tendencias últimos 30 días"
+    },
+    "performance": {
+      "title": "Proyección HYROX",
+      "polarization_target": "Polarización · target 80/0/20",
+      "polarization_12w": "Polarización 12 semanas",
+      "modality_distribution": "Distribución por modalidad últimos 7 días",
+      "running_economy": "Economía de carrera · paso @145 bpm",
+      "anaerobic_threshold": "Anaeróbico / umbral",
+      "anaerobic_capacity": "Capacidad anaeróbica · 3min all-out"
+    },
+    "plan": {
+      "title": "Plan próximas 2 semanas",
+      "macrocycle_ribbon": "Macrociclo"
+    },
+    "notes": {
+      "title": "Notas privadas",
+      "expanded_hint": "Vista expandida de las notas privadas: búsqueda, filtros por fecha, tags, exportación. Por ahora se editan inline desde Resumen.",
+      "placeholder": "Observación, hallazgo, ajuste para próxima sesión…",
+      "save": "Guardar nota"
+    },
+    "ajustes": {
+      "title": "Ajustes del atleta",
+      "description": "Edición del perfil del atleta, dispositivos conectados, parámetros del macrociclo, notificaciones, privacidad, archivar."
+    }
+  },
+  "templates": {
+    "title": "Plantillas",
+    "new": "Nueva plantilla",
+    "edit": "Editar plantilla",
+    "duplicate": "Duplicar",
+    "delete_confirm": "Eliminar plantilla — ¿estás seguro?",
+    "name": "Nombre",
+    "description": "Descripción",
+    "modality": "Modalidad",
+    "discard": "Descartar cambios",
+    "saved": "Guardado",
+    "search_semantic": "Probar búsqueda semántica",
+    "block_acc_examples": "Ej. Reglas de transición ACC → TRANS",
+    "section_strength": "Fuerza",
+    "section_conditioning": "Acondicionamiento",
+    "section_running": "Run",
+    "section_hyrox": "HYROX"
+  },
+  "weekly_review": {
+    "title": "Review semanal",
+    "window_closed": "Ventana de 7 días cerrada",
+    "what_worked": "Qué funcionó",
+    "what_to_improve": "Qué mejorar",
+    "lessons_for_next": "Lecciones para próximo macrociclo",
+    "save_review": "Guardar review",
+    "submit": "Enviar al atleta",
+    "draft": "Borrador",
+    "submitted": "Enviado"
+  },
+  "mass_adjustments": {
+    "title": "Ajustes masivos",
+    "shift_days": "Shift días (-14..+14)",
+    "day_offset": "Día offset (0..28)",
+    "override_day": "Override día",
+    "split": "División",
+    "position": "Posición",
+    "tabs_label": "Pestañas",
+    "warning_destructive": "Se desharán todos los cambios · atletas serán notificados",
+    "history": "Historial de ajustes",
+    "preview": "Previsualizar",
+    "apply": "Aplicar a {count} atletas",
+    "applied": "Aplicado",
+    "rolled_back": "Revertido"
+  },
+  "methodology": {
+    "title": "Metodología",
+    "documents": "Documentos",
+    "upload": "Subir documento",
+    "search": "Buscar en metodología…",
+    "indexed": "Indexado",
+    "indexing": "Indexando…",
+    "failed": "Falló indexación",
+    "remove": "Quitar de la base",
+    "doc_name": "Nombre del documento",
+    "doc_chunks": "{n} chunks indexados",
+    "comingSoon": "Metodología — próximamente."
+  },
+  "intake": {
+    "welcome_title": "Intake",
+    "welcome_subtitle": "Cuanto más sepa Pablo, más preciso será tu plan.",
+    "welcome_cta": "Empezar",
+    "macrocycle_title": "Macrociclo objetivo",
+    "level_title": "Nivel",
+    "tests_title": "Tests de entrada",
+    "profile_title": "Perfil",
+    "save_progress": "Guardar progreso",
+    "next_step": "Siguiente paso",
+    "complete": "Completar intake"
+  },
+  "race_plan": {
+    "title": "Plan de carrera",
+    "pinned_iso_today": "Pinned en iOS Today el día del evento.",
+    "checklist_material": "Checklist material para el día. El atleta confirma en iOS.",
+    "anchor_phrases": "Frases ancla por estación o generales.",
+    "pacing_per_station": "Pacing por estación",
+    "nutrition": "Nutrición",
+    "energy_during": "Energía durante",
+    "add_gel_minus10": "Añadir gel electrolitos -10min",
+    "trust_message_example": "Confío en ti. Pace controlado primeros 3km. Vamos a por el sub-1:05.",
+    "post_race_title": "Debrief post-carrera",
+    "open_post_race": "Abrir debrief"
+  },
+  "auth": {
+    "magic_link_title": "Acceso al panel del coach",
+    "magic_link_subtitle": "Te enviaremos un enlace mágico al correo.",
+    "email_label": "Correo electrónico",
+    "email_placeholder": "tu@correo.com",
+    "send_link": "Enviar enlace",
+    "link_sent_title": "Enlace enviado",
+    "link_sent_subtitle": "Comprueba tu bandeja de entrada — el enlace expira en 15 minutos.",
+    "verify_failed_title": "El enlace no es válido",
+    "verify_failed_subtitle": "Puede haber expirado o ya fue usado. Pide otro desde la página de acceso.",
+    "back_to_signin": "Volver a acceso"
+  },
+  "legal": {
+    "version_label": "Documento legal · Versión {version}",
+    "last_updated": "Última actualización: {date}",
+    "english_summary_label": "English summary",
+    "privacy_title": "Política de privacidad",
+    "terms_title": "Términos de servicio"
+  },
+  "library": {
+    "title": "Biblioteca",
+    "subtitle": "Los bloques de entrenamiento de Pablo, organizados por grupo metodológico.",
+    "search_placeholder": "Buscar por título o prescripción…",
+    "all_groups": "Todos",
+    "blocks_count": "{count, plural, one {# bloque} other {# bloques}}",
+    "pending_count": "{count, plural, one {# pendiente} other {# pendientes}}",
+    "needs_review_badge": "Sin desglosar — pendiente",
+    "needs_review_detail": "Este bloque aún no está desglosado en ejercicios. Pablo lo revisará. Por ahora solo se conserva su prescripción verbatim.",
+    "empty": "No hay bloques en este grupo.",
+    "empty_search": "Ningún bloque coincide con la búsqueda.",
+    "exercises_heading": "Ejercicios",
+    "prescription_heading": "Prescripción",
+    "close": "Cerrar",
+    "edit": "Editar",
+    "editing": "Editando",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar",
+    "edit_warning": "Editar muta la biblioteca maestra: el cambio afecta a toda materialización futura de este bloque, no a los entrenos ya asignados.",
+    "field_title": "Título",
+    "field_description": "Prescripción",
+    "field_group": "Grupo metodológico",
+    "field_atr": "Fase ATR",
+    "atr_none": "Sin fase",
+    "saved": "Cambios guardados.",
+    "save_error": "No se pudieron guardar los cambios.",
+    "load_error": "No se pudo cargar el bloque.",
+    "loading": "Cargando…",
+    "exercises_note": "Editar los ejercicios estructurados es un paso aparte (próximamente)."
+  }
+}
