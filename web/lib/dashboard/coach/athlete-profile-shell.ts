@@ -1,0 +1,159 @@
+import 'server-only';
+
+import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
+import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
+import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
+
+export type ReadinessLabel = 'READY' | 'CAUTION' | 'LOW';
+
+export type AthleteModality = 'individual' | 'dobles' | 'pro_elite';
+
+export type AthleteProfileShell = {
+  athlete_id: string;
+  full_name: string;
+  block_type: AtrBlockType | null;
+  block_week: number | null;
+  readiness_score: number | null;
+  readiness_label: ReadinessLabel | null;
+  a_event: { name: string; iso_date: string; days_until: number } | null;
+  program_level: string | null;
+  macro_block: AtrBlockType | null;
+  /** Athlete finished onboarding but the coach hasn't reviewed intake yet. */
+  intake_pending: boolean;
+  /** Modalidad de plan (suscripción más reciente) — null si aún no hay suscripción. */
+  modality: AthleteModality | null;
+  /** Pareja de Dobles (users.partner_id → atleta del mismo coach), null si no aplica. */
+  partner: { athlete_id: string; full_name: string } | null;
+};
+
+function readinessLabel(score: number | null): ReadinessLabel | null {
+  if (score == null) return null;
+  if (score >= 70) return 'READY';
+  if (score >= 45) return 'CAUTION';
+  return 'LOW';
+}
+
+export async function fetchAthleteProfileShell(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  client?: Sql;
+}): Promise<AthleteProfileShell | null> {
+  const client = params.client ?? defaultSql;
+
+  const rows = await client<
+    Array<{
+      id: string;
+      full_name: string;
+      block_type: string | null;
+      block_week: number | null;
+      readiness_score: number | null;
+      program_level: string | null;
+      onboarded_at: Date | null;
+      intake_completed_at: Date | null;
+      modality: string | null;
+      partner_athlete_id: string | null;
+      partner_full_name: string | null;
+    }>
+  >`
+    select
+      a.id::text,
+      a.full_name,
+      ab.type::text as block_type,
+      mc.week_number as block_week,
+      rds.score as readiness_score,
+      a.onboarded_at,
+      a.intake_completed_at,
+      (
+        select m.level::text
+        from athlete_month_assignments ama
+        join program_month_templates m on m.id = ama.month_template_id
+        where ama.athlete_id = a.id
+        order by ama.start_date desc
+        limit 1
+      ) as program_level,
+      sub.plan_type as modality,
+      pa.id::text as partner_athlete_id,
+      pa.full_name as partner_full_name
+    from athletes a
+    left join lateral (
+      select s.plan_type
+      from subscriptions s
+      where s.user_id = a.user_id
+      -- Prefer the live (active) subscription so modality reflects current
+      -- access; fall back to the most recent otherwise (same rule as roster).
+      order by (s.status = 'active') desc, s.created_at desc
+      limit 1
+    ) sub on true
+    left join users u on u.id = a.user_id
+    left join athletes pa
+      on pa.user_id = u.partner_id and pa.coach_id = a.coach_id
+    left join lateral (
+      select b.type, mc.week_number
+      from atr_macrocycles mac
+      join atr_blocks b on b.macrocycle_id = mac.id
+      join microcycles mc on mc.block_id = b.id
+      where mac.athlete_id = a.id and mac.status = 'active'
+      order by mc.week_number desc
+      limit 1
+    ) ab on true
+    left join lateral (
+      select mc.week_number
+      from atr_macrocycles mac
+      join atr_blocks b on b.macrocycle_id = mac.id
+      join microcycles mc on mc.block_id = b.id
+      where mac.athlete_id = a.id and mac.status = 'active'
+      order by mc.week_number desc
+      limit 1
+    ) mc on true
+    left join lateral (
+      select score from athlete_daily_readiness_snapshots
+      where athlete_id = a.id
+      order by recorded_for desc
+      limit 1
+    ) rds on true
+    where a.id = ${params.athlete_id} and a.coach_id = ${params.coach_id}
+    limit 1
+  `;
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const aEventRows = await client<Array<{ name: string; iso: string; days: number }>>`
+    select e.name, to_char(e.start_date, 'YYYY-MM-DD') as iso,
+           (e.start_date - current_date)::int as days
+    from athlete_target_events ate
+    join events e on e.id = ate.event_id
+    where ate.athlete_id = ${params.athlete_id} and ate.priority = 'A'
+    order by e.start_date asc limit 1
+  `;
+
+  const blockType = (row.block_type as AtrBlockType | null) ?? null;
+
+  return {
+    athlete_id: row.id,
+    full_name: row.full_name,
+    block_type: blockType,
+    block_week: row.block_week,
+    readiness_score: row.readiness_score,
+    readiness_label: readinessLabel(row.readiness_score),
+    program_level: row.program_level,
+    a_event: aEventRows[0]
+      ? { name: aEventRows[0].name, iso_date: aEventRows[0].iso, days_until: aEventRows[0].days }
+      : null,
+    macro_block: blockType,
+    intake_pending: isIntakePending({
+      onboarded_at: row.onboarded_at,
+      intake_completed_at: row.intake_completed_at,
+    }),
+    modality: isAthleteModality(row.modality) ? row.modality : null,
+    partner:
+      row.partner_athlete_id && row.partner_full_name
+        ? { athlete_id: row.partner_athlete_id, full_name: row.partner_full_name }
+        : null,
+  };
+}
+
+function isAthleteModality(value: string | null): value is AthleteModality {
+  return value === 'individual' || value === 'dobles' || value === 'pro_elite';
+}
