@@ -7,7 +7,7 @@ import {
   DEFAULT_COLUMNS,
   type ColumnKey,
   type ColumnPrefs,
-} from '@/lib/coach/types';
+} from '@fahybrid/shared/domain/coach/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

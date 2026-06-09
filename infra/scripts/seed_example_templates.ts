@@ -8,14 +8,14 @@
  * Idempotent: re-runs upsert template by (coach_id, name). Segments are
  * deleted and re-inserted on each run to keep them in sync with this file.
  *
- * Run: pnpm --filter @fahybrik/infra seed:templates
+ * Run: pnpm --filter @fahybrid/infra seed:templates
  */
 import { z } from 'zod';
 import {
   atrBlockType,
   templateFormat,
   segmentParamsSchema,
-} from '@fahybrik/shared/schema';
+} from '@fahybrid/shared/schema';
 import { getSql } from './_db.js';
 
 type TemplateFormat = z.infer<typeof templateFormat>;

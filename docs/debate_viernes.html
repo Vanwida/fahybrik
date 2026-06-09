@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análisis del Plan FAHYBRIK — Debate equipo fundador</title>
+<style>
+  :root {
+    --accent: #f06a2a;
+    --accent-dark: #c2541f;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #e5e3df;
+    --bg: #fafaf8;
+    --critical-bg: #fee2e2;
+    --critical-fg: #991b1b;
+    --warn-bg: #fef3c7;
+    --warn-fg: #92400e;
+    --info-bg: #dbeafe;
+    --info-fg: #1e40af;
+    --ok-bg: #d1fae5;
+    --ok-fg: #065f46;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', system-ui, sans-serif;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    color: var(--ink);
+    line-height: 1.55;
+    background: var(--bg);
+    font-size: 15px;
+  }
+  header {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 800;
+    margin: 0 0 4px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 4px 0 0;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+  .meta strong { color: var(--ink); }
+  h2 {
+    font-size: 21px;
+    font-weight: 700;
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .h2-num {
+    display: inline-block;
+    color: var(--accent);
+    margin-right: 8px;
+    font-weight: 800;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 22px 0 8px;
+    color: var(--accent-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  p { margin: 6px 0 12px; }
+  ul, ol { padding-left: 22px; margin: 8px 0 14px; }
+  li { margin: 4px 0; }
+  code {
+    background: #f3f1ed;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+  strong { color: var(--ink); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 18px;
+    font-size: 14px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 11px 12px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    background: #f3f1ed;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--ink);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.idx {
+    font-weight: 700;
+    color: var(--accent);
+    width: 36px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-bg); color: var(--critical-fg); }
+  .badge-warn { background: var(--warn-bg); color: var(--warn-fg); }
+  .badge-info { background: var(--info-bg); color: var(--info-fg); }
+  .badge-ok { background: var(--ok-bg); color: var(--ok-fg); }
+  .callout {
+    background: #fff7ed;
+    border-left: 4px solid var(--accent);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 6px;
+  }
+  .callout strong { color: var(--accent-dark); }
+  .callout.ok {
+    background: #ecfdf5;
+    border-left-color: #10b981;
+  }
+  .callout.ok strong { color: var(--ok-fg); }
+  .callout.warn {
+    background: #fffbeb;
+    border-left-color: #f59e0b;
+  }
+  .callout.warn strong { color: var(--warn-fg); }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .tldr {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+  .tldr ul { margin: 8px 0 0; padding-left: 22px; }
+  .tldr li { margin: 6px 0; }
+  .check-list { list-style: none; padding-left: 0; }
+  .check-list li {
+    margin: 6px 0;
+    padding-left: 22px;
+    position: relative;
+  }
+  .check-list li::before {
+    content: "□";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1;
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: #888;
+    font-size: 12px;
+    text-align: center;
+  }
+  @media print {
+    body { background: white; padding: 24px; }
+    h2 { page-break-after: avoid; }
+    table { page-break-inside: avoid; }
+    .callout { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Análisis crítico del Plan de Implementación FAHYBRIK</h1>
+  <p class="subtitle">Material para debate con el equipo fundador · sesión del viernes</p>
+  <div class="meta">
+    <span><strong>Fecha:</strong> 27 mayo 2026</span>
+    <span><strong>Origen:</strong> revisión adversarial (devil's advocate + auditor de fidelidad)</span>
+    <span><strong>Plan revisado:</strong> v1 — <code>docs/plan_implementacion_v1.md</code></span>
+    <span><strong>Doc base:</strong> Documento Maestro v1.0 2025</span>
+  </div>
+</header>
+
+<div class="tldr">
+  <h3 style="margin-top:0; color: var(--ink);">TL;DR para el viernes</h3>
+  <ul>
+    <li>Plan v1 cubre <strong>~80 %</strong> del documento maestro. Bien estructurado pero con omisiones funcionales graves.</li>
+    <li>Estimaciones temporales son <strong>2× optimistas</strong> (Fase 0→1c: 6 sem plan vs ~12 sem realista).</li>
+    <li><strong>El tema Apple IAP NO aplica</strong> al modelo FAHYBRIK porque el atleta paga por web antes de descargar la app (modelo Spotify/Netflix). Apple no cobra 30 %. <em>Ver sección 2.</em></li>
+    <li>Hay <strong>5 lagunas funcionales del documento maestro</strong> que el plan ignoró — algunas son producto estrella.</li>
+    <li>Hay <strong>10 contradicciones</strong> plan ↔ doc que hay que resolver consciente y firmadas.</li>
+    <li>El viernes hay que cerrar <strong>13 decisiones</strong> P0 + decidir si abordamos Dobles antes o después del lanzamiento.</li>
+  </ul>
+</div>
+
+<h2><span class="h2-num">1.</span>Lo bueno — fidelidad alta en lo técnico</h2>
+
+<p>El plan refleja correctamente la mayoría del documento maestro:</p>
+<ul>
+  <li>3 modalidades (Individual / Dobles / Pro) y pricing 70€ / 115€ / 95€ — <strong>OK</strong>.</li>
+  <li>Roles, multi-coach future-ready, schema BD con pgvector, RGPD endpoint planificado — <strong>OK</strong>.</li>
+  <li>10 grupos metodológicos del doc — <strong>identificados</strong> aunque sin mapping detallado a los 110 sesiones del doc.</li>
+  <li>8 estaciones HYROX nombradas correctamente, análisis benchmarks por división — <strong>OK</strong>.</li>
+  <li>Notificaciones (5 atleta + 6 coach), tipos canales — <strong>OK</strong>.</li>
+  <li>Captación boxes Pablo como canal principal — <strong>OK</strong>.</li>
+</ul>
+
+<h2><span class="h2-num">2.</span>Aclaración crítica — Apple IAP y modelo web-first</h2>
+
+<div class="callout ok">
+  <p><strong>Conclusión:</strong> el bloqueante "Apple IAP obligatorio" que aparecía en el análisis adversarial <strong>NO aplica</strong> dado el modelo de adquisición real de FAHYBRIK.</p>
+</div>
+
+<h3>Modelo de adquisición real</h3>
+<ol>
+  <li>El atleta llega al box de Pablo, conoce el servicio, hace videollamada inicial.</li>
+  <li>El atleta paga en <code>fahybrik.com</code> (web) vía Stripe.</li>
+  <li>Recibe credenciales y descarga la app iOS o Android.</li>
+  <li>Hace Sign In con cuenta ya pagante externamente.</li>
+  <li>La app es <strong>solo cliente de consumo</strong> — no es donde se vende el servicio.</li>
+</ol>
+
+<h3>Regla Apple que aplica: Guidelines 3.1.3(B) "Multiplatform Services"</h3>
+<p>Mismo modelo que <strong>Spotify, Netflix, Dropbox, Strava Premium, MyFitnessPal Premium</strong>. La app puede:</p>
+<ul>
+  <li><span class="badge badge-ok">PERMITIDO</span> Sign In con cuentas pagantes en otros canales.</li>
+  <li><span class="badge badge-ok">PERMITIDO</span> Mostrar todo el contenido contratado externamente.</li>
+  <li><span class="badge badge-ok">PERMITIDO</span> En UE, incluir link a web para gestionar suscripción (External Link Entitlement).</li>
+  <li><span class="badge badge-critical">PROHIBIDO</span> Botón "Suscríbete" / "Comprar premium" dentro de la app.</li>
+  <li><span class="badge badge-critical">PROHIBIDO</span> Pop-ups "actualiza para acceder a X" dentro de la app.</li>
+  <li><span class="badge badge-critical">PROHIBIDO</span> Mencionar precios o pago dentro de la app de iOS.</li>
+</ul>
+
+<h3>Implicaciones prácticas</h3>
+<ul>
+  <li><strong>Stripe queda como pasarela principal</strong> sin pasar por Apple — sin comisión 30 %.</li>
+  <li>El onboarding iOS NO debe tener CTA de compra. Solo "Inicia sesión".</li>
+  <li>La copy del Profile iOS (suscripción) debe ser <em>read-only</em>: muestra estado, no permite "upgrade" → si necesita gestionar, abre web.</li>
+  <li>App Store listing copy debe alinearse: no decir "Suscríbete dentro de la app".</li>
+</ul>
+
+<div class="callout warn">
+  <p><strong>Riesgo residual</strong>: cualquier elemento que Apple pueda interpretar como "compra dentro de la app" provoca rejection. Antes de cada submission revisar el flow con esta lente.</p>
+</div>
+
+<h2><span class="h2-num">3.</span>Lagunas funcionales graves del documento maestro</h2>
+
+<p>Cinco features que están en el doc maestro y NO estaban en el plan v1:</p>
+
+<table>
+  <thead>
+    <tr><th style="width:36px">#</th><th>Laguna</th><th>Sección doc</th><th>Severidad</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="idx">L1</td>
+      <td>
+        <strong>Integración calendario boxes Pablo en la planificación.</strong>
+        El doc dice explícito (§15): "Los días de clase intensa en el box se reflejan como carga ya computada en el plan. El plan de la app complementa el trabajo del box, no lo duplica. Si el box hace fuerza el martes, la app no añade otra sesión de fuerza ese día."
+        El plan v1 lo ignora completamente.
+      </td>
+      <td>§15 doc</td>
+      <td><span class="badge badge-critical">Crítica</span></td>
+    </tr>
+    <tr>
+      <td class="idx">L2</td>
+      <td>
+        <strong>Estrategia de reparto de estaciones para competición Dobles HYROX.</strong>
+        En Dobles los dos atletas alternan estaciones — Pablo debe poder definir esa estrategia. Es producto estrella del doc. Plan v1 trata Dobles solo como "plan compartido + login separado" sin esta capa.
+      </td>
+      <td>§4 doc</td>
+      <td><span class="badge badge-critical">Crítica</span></td>
+    </tr>
+    <tr>
+      <td class="idx">L3</td>
+      <td>
+        <strong>IA responde dudas básicas de ejercicios directamente al atleta.</strong>
+        Uso #5 de la IA en el doc (§7). Sin reemplazar coach, pero la IA puede contestar "¿cómo se ejecuta un Pendlay row?" sin enviar el ticket al chat de Pablo. Plan v1 no lo recoge.
+      </td>
+      <td>§7 doc</td>
+      <td><span class="badge badge-warn">Alta</span></td>
+    </tr>
+    <tr>
+      <td class="idx">L4</td>
+      <td>
+        <strong>Funcionalidad "duplicar semana de otro atleta" como punto de partida.</strong>
+        Doc §8: "Posibilidad de duplicar la semana de otro atleta como punto de partida." Plan v1 no lo menciona.
+      </td>
+      <td>§8 doc</td>
+      <td><span class="badge badge-info">Media</span></td>
+    </tr>
+    <tr>
+      <td class="idx">L5</td>
+      <td>
+        <strong>Privacidad fina en Dobles.</strong>
+        ¿Ve cada atleta el RPE del compañero? ¿Las notas privadas? ¿El chat con coach es individual o compartido?
+        Doc menciona "cuenta separada con acceso independiente" pero sin granularidad. Plan asume "sesiones compartidas marcadas" sin más detalle.
+      </td>
+      <td>Implícito doc + plan</td>
+      <td><span class="badge badge-warn">Alta</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2><span class="h2-num">4.</span>Contradicciones plan ↔ documento maestro</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:36px">#</th><th>Documento dice</th><th>Plan v1 dice</th><th>Acción propuesta</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="idx">C1</td>
+      <td>ES + EN <strong>desde lanzamiento</strong> (§01, §13)</td>
+      <td>EN se posterga a Fase 3</td>
+      <td>Adelantar a Fase 1c o firmar desviación consciente</td>
+    </tr>
+    <tr>
+      <td class="idx">C2</td>
+      <td>App Android <strong>prioritaria desde el inicio</strong> (§09)</td>
+      <td>Android en Fase 4 post-MVP iOS</td>
+      <td>Aceptar como decisión deliberada (D5) y documentar en doc v1.1</td>
+    </tr>
+    <tr>
+      <td class="idx">C3</td>
+      <td>Polar + Strava prioridad alta desde inicio (§09)</td>
+      <td>No incluidos en ninguna fase</td>
+      <td>Decidir si entran Fase 2 o desviarse explícitamente</td>
+    </tr>
+    <tr>
+      <td class="idx">C4</td>
+      <td>Plan se publica <strong>sábado</strong> para semana siguiente (§03, §08, §12)</td>
+      <td>"Cron viernes 23:59" en un sitio, "domingo noche" en otro</td>
+      <td>Unificar a sábado</td>
+    </tr>
+    <tr>
+      <td class="idx">C5</td>
+      <td>Entidades de datos: <code>weekly_plans</code>, <code>training_blocks</code>, <code>session_logs</code>, <code>onboarding</code> (§09)</td>
+      <td>Schema usa <code>program_week_templates</code>, <code>templates</code>, <code>workout_executions</code>, sin tabla <code>onboarding</code></td>
+      <td>Documentar mapping formal en doc v1.1 — el código no se va a renombrar pero el doc debe reflejarlo</td>
+    </tr>
+    <tr>
+      <td class="idx">C6</td>
+      <td>Plan creado en <strong>48-72h</strong> tras onboarding (§05)</td>
+      <td>No hay SLA documentado</td>
+      <td>Añadir SLA + notificación atleta cuando esté listo</td>
+    </tr>
+    <tr>
+      <td class="idx">C7</td>
+      <td>Onboarding: 7 campos concretos (§05)</td>
+      <td>iOS onboarding captura 82 campos en 13 pasos</td>
+      <td>Auditar mapping — ¿los 7 del doc están todos? ¿Los 75 extra son necesarios o ruido?</td>
+    </tr>
+    <tr>
+      <td class="idx">C8</td>
+      <td>Biblioteca: 110 sesiones (12/8/14/16/11/9/16/9/8/7) (§10)</td>
+      <td>"80+ adicionales" sin desglose por grupo</td>
+      <td>Desglosar números por grupo en plan v2</td>
+    </tr>
+    <tr>
+      <td class="idx">C9</td>
+      <td>Microciclo como entidad <em>no existe</em> en doc — solo <code>weekly_plans</code></td>
+      <td>Microciclo (4 semanas) como contenedor principal</td>
+      <td>Validar con Pablo periodológicamente. Si OK, actualizar doc v1.1</td>
+    </tr>
+    <tr>
+      <td class="idx">C10</td>
+      <td>ATR (ACC/TRANS/REAL) no aparece en doc — solo "acumulación/intensificación/tapering" como concepto Pro</td>
+      <td>ATR usado como nomenclatura interna del coach</td>
+      <td>Decidir D2: mantener ATR coach-facing, atleta ve siempre vocabulario pedagógico</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2><span class="h2-num">5.</span>Estimaciones temporales — calibración realista</h2>
+
+<table>
+  <thead>
+    <tr><th>Fase</th><th>Plan v1</th><th>Realista</th><th>Razón</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0 — Alineación + decisiones</td>
+      <td>1 sem</td>
+      <td><strong>1-2 sem</strong></td>
+      <td>13 decisiones a cerrar, agenda compatible 3 socios</td>
+    </tr>
+    <tr>
+      <td>1a — Dobles + RGPD + Chat backend + Plan detail</td>
+      <td>2-3 sem</td>
+      <td><strong>5-7 sem</strong></td>
+      <td>5 entregables grandes en paralelo. Chat backend + Plan detail DTO + Dobles refactor + iOS rewrites + RGPD endpoints</td>
+    </tr>
+    <tr>
+      <td>1b — Pagos Stripe + iOS Profile</td>
+      <td>2 sem</td>
+      <td><strong>3-4 sem</strong></td>
+      <td>Stripe webhooks + dunning + MRR + iOS checkout + reconciliación Dobles</td>
+    </tr>
+    <tr>
+      <td>1c — Push + HealthKit + cron + audit Stitch</td>
+      <td>1-2 sem</td>
+      <td><strong>3 sem</strong></td>
+      <td>APNS enrollment + 5 tipos notif + deep links + HealthKit debug end-to-end</td>
+    </tr>
+    <tr>
+      <td>2 — Catálogo + vídeos + benchmarks + i18n + Garmin iOS + Stats real</td>
+      <td>3-4 sem</td>
+      <td><strong>6-8 sem</strong></td>
+      <td>Pablo 80 sesiones es cuello, vídeos requieren día de estudio, dataset benchmarks curado, traducciones reales</td>
+    </tr>
+    <tr>
+      <td>3 — Captación + landing + box_member + emails</td>
+      <td>2 sem</td>
+      <td><strong>2-3 sem</strong></td>
+      <td>Razonable</td>
+    </tr>
+    <tr>
+      <td>4 — Android nativo</td>
+      <td>4-6 sem</td>
+      <td><strong>12-16 sem</strong></td>
+      <td>Paridad nativa (onboarding, HealthConnect, OAuth, push FCM, 7 surfaces)</td>
+    </tr>
+    <tr style="background: #fff7ed;">
+      <td><strong>Fase 0 → 1c (a beta cerrada)</strong></td>
+      <td><strong>~6 sem</strong></td>
+      <td><strong>~12 sem</strong></td>
+      <td>2× optimista</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2><span class="h2-num">6.</span>Decisiones a cerrar el viernes</h2>
+
+<p>Las del plan v1 (D1-D12) más 5 adicionales que aparecen del análisis:</p>
+
+<table>
+  <thead>
+    <tr><th style="width:36px">#</th><th>Decisión</th><th>Recomendación</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="idx">D1</td><td>Microciclo (4 semanas) vs <code>weekly_plans</code> puros del doc</td><td>Microciclo como contenedor, <code>weekly_plans</code> como entidad hija — actualizar doc v1.1</td></tr>
+    <tr><td class="idx">D2</td><td>ATR (ACC/TRANS/REAL) interno vs vocabulario pedagógico atleta</td><td>ATR coach-only, atleta ve "acumulación/intensificación/tapering"</td></tr>
+    <tr><td class="idx">D3</td><td>10 grupos metodológicos vs <code>format</code> técnico</td><td>Añadir <code>methodology_group_id</code> a templates, coach edita por grupo</td></tr>
+    <tr><td class="idx">D4</td><td>Modalidad Dobles antes o después del lanzamiento</td><td>Antes — es producto estrella, refactor 5-7 sem</td></tr>
+    <tr><td class="idx">D5</td><td>Android: Kotlin nativo vs cross-platform</td><td>Kotlin nativo post-MVP iOS</td></tr>
+    <tr><td class="idx">D6</td><td>Pasarela pago Stripe vs Redsys</td><td>Stripe principal (con modelo web-first, sin IAP, sin Apple)</td></tr>
+    <tr><td class="idx">D7</td><td>Pricing definitivo</td><td>Mantener 70/115/95 € de lanzamiento, revisar a los 3 meses</td></tr>
+    <tr><td class="idx">D8</td><td>Permanencia comercial</td><td>Mensual puro al inicio, trimestral con descuento en fase 5</td></tr>
+    <tr><td class="idx">D9</td><td>Modelo IA definitivo</td><td>Hoy DeepSeek v4 Flash (temporal). Decisión final cuando Alex itere</td></tr>
+    <tr><td class="idx">D10</td><td>Estructura legal del negocio</td><td>Cerrar con asesor antes de Fase 1b (cobros)</td></tr>
+    <tr><td class="idx">D11</td><td>Nombre del proyecto definitivo</td><td>Bloquea identidad visual + App Store listing. Cerrar antes de Fase 1c</td></tr>
+    <tr><td class="idx">D12</td><td>Inversión inicial socios</td><td>Acuerdo socios separado del producto</td></tr>
+    <tr style="background: #fff7ed;"><td class="idx">D13</td><td><strong>Idiomas ES + EN desde día 1 vs ES first</strong> (contradicción C1)</td><td>Decidir y firmar — recomendado adelantar EN si lanzamos a comunidad HYROX España (mucho extranjero residente)</td></tr>
+    <tr style="background: #fff7ed;"><td class="idx">D14</td><td><strong>Integración calendario boxes en planning</strong> (L1) — alcance v1 o fase 2</td><td>Mínimo: campo "días de clase del box" en perfil del atleta + IA lo respeta al sugerir. Refinar luego</td></tr>
+    <tr style="background: #fff7ed;"><td class="idx">D15</td><td><strong>Reparto estaciones Dobles HYROX</strong> (L2) — alcance v1 o fase 2</td><td>Diseñar UX antes de Fase 1a Dobles. Mínimo: dos planes diferenciados en el día de la competición</td></tr>
+    <tr style="background: #fff7ed;"><td class="idx">D16</td><td><strong>Privacidad fina Dobles</strong> (L5) — qué ve cada atleta del compañero</td><td>Default: ve plan compartido + tiempos. NO ve RPE / notas / chat del compañero</td></tr>
+    <tr style="background: #fff7ed;"><td class="idx">D17</td><td><strong>Tests + observabilidad</strong> — no en plan v1</td><td>Vitest unit + Playwright happy paths + Sentry desde Fase 1a</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="h2-num">7.</span>Riesgos operacionales no cubiertos en plan v1</h2>
+
+<ul>
+  <li><strong>Coste LLM mensual</strong>: ~50 atletas × 4 propuestas/sem × tokens = sin estimar. Con DeepSeek v4 Flash (~$0.0006/propuesta) sale <em>casi gratis</em> pero hay que monitorizar al escalar.</li>
+  <li><strong>Plan B si Garmin Partner rechaza</strong>: aplicar ya en Fase 0; mientras tanto Strava (público) y Polar (público) como fallbacks.</li>
+  <li><strong>Tests E2E</strong>: el plan v1 no incluye ningún test automatizado. Para Stripe + Dobles + RGPD sin tests es ruleta rusa.</li>
+  <li><strong>Observabilidad</strong>: ni Sentry, ni logging estructurado, ni alertas. Crítico desde el primer atleta real.</li>
+  <li><strong>Backup / Disaster Recovery Neon</strong>: Neon hace backups pero validar la política. RPO/RTO definidos.</li>
+  <li><strong>Soporte cliente</strong>: ¿quién contesta tickets atleta? ¿qué SLA? ¿qué herramienta (Intercom, email, in-app)?</li>
+  <li><strong>Versionado contenido</strong>: si Pablo edita una sesión ya asignada a 10 atletas, ¿se reescribe el plan ya publicado o solo aplica a futuras?</li>
+  <li><strong>Quiet hours notificaciones push</strong>: no enviar a las 7am sábados ni a las 23h cualquier día.</li>
+  <li><strong>Offline-first</strong>: hoy solo el sync de workout-execution lo es. ¿Plan view sin conexión? ¿Chat sin conexión?</li>
+  <li><strong>TestFlight + APNS enrollment + Apple Developer Account</strong>: 99 €/año + cert + key + entitlements. Bloquea beta cerrada.</li>
+  <li><strong>Brand book completo</strong>: nombre app definitivo + logo + screenshots + ícono App Store. Bloquea submission.</li>
+</ul>
+
+<h2><span class="h2-num">8.</span>Decisiones del doc maestro pendientes y no abordadas en plan v1</h2>
+
+<p>De los 10 temas pendientes del doc maestro (§19), 5 no aparecen como decisiones en el plan v1:</p>
+<ul>
+  <li><strong>Retribución de socios</strong> en fase inicial (reinversión total / sueldo coach / otro modelo).</li>
+  <li><strong>Fecha objetivo MVP</strong> — el plan da semanas por fase pero no fecha de lanzamiento.</li>
+  <li><strong>Precio especial boxes</strong> — flag <code>box_member</code> sin definición de descuento exacto.</li>
+  <li><strong>Excepciones a cancelación Dobles</strong> — el doc dice "revisar si hay alguna excepción o periodo de gracia".</li>
+  <li><strong>Brand book completo</strong> — logo y colores definidos, falta documentar y entregar al programador.</li>
+</ul>
+
+<h2><span class="h2-num">9.</span>Próximos pasos propuestos</h2>
+
+<h3>Acciones esta semana (los 3 socios)</h3>
+<ol>
+  <li><strong>Sesión viernes</strong>: cerrar D1-D17 (decisiones técnicas + nuevas del análisis). Documentar acuerdos en doc v1.1.</li>
+  <li><strong>Fundador</strong>: Apple Developer Account (99 €/año), asesor legal (D10), brand book completo.</li>
+  <li><strong>Pablo</strong>: empezar batch sesiones (objetivo 20/semana para llegar a 80+ en 4 semanas), grabar primer set de vídeos (30 ejercicios HYROX más usados).</li>
+  <li><strong>Programador (Alex)</strong>: aplicar Garmin Partner application, Stripe account creada, plan v2 con incorporaciones del análisis.</li>
+</ol>
+
+<h3>Acciones técnicas inmediatas (programador)</h3>
+<ul class="check-list">
+  <li>Generar <strong>Plan de Implementación v2</strong> con: 13 decisiones cerradas, 5 lagunas L1-L5 como nuevas capacidades C31-C35, estimaciones realistas, sección Operativa Prod (tests + observabilidad + soporte + DR), mapping formal de entidades doc ↔ schema.</li>
+  <li>Auditar visualmente coach dashboard <code>:3457</code> vs screenshots Stitch.</li>
+  <li>Verificar HealthKit end-to-end con simulador antes de Fase 1c.</li>
+  <li>Confirmar coste LLM mensual con telemetría.</li>
+</ul>
+
+<footer>
+  Documento generado para FAHYBRIK — uso interno equipo fundador.<br>
+  Versión 1.0 · 27 mayo 2026 · Confidencial.
+</footer>
+
+</body>
+</html>

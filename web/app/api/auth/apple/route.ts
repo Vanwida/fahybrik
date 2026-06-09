@@ -4,6 +4,7 @@ import { AUTH_CONFIG } from '@/lib/auth/config';
 import { audiences, issueSession } from '@/lib/auth/session';
 import { findOrCreateAthleteForApple } from '@/lib/auth/users';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
+import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,14 @@ const appleSignInSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // A1: throttle Apple sign-in per IP (brute-force / token-replay floods).
+  const rl = await withRateLimit({
+    scope: 'ip',
+    identifier: getClientIp(req) ?? 'unknown',
+    ...RATE_LIMITS.appleSignIn,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   let payload: unknown;
   try {
     payload = await req.json();
@@ -39,7 +48,11 @@ export async function POST(req: Request) {
   }
 
   const result = await findOrCreateAthleteForApple(
-    { apple_user_id: identity.apple_user_id, email: identity.email },
+    {
+      apple_user_id: identity.apple_user_id,
+      email: identity.email,
+      email_verified: identity.email_verified,
+    },
     { full_name: parsed.data.full_name ?? null },
   );
 

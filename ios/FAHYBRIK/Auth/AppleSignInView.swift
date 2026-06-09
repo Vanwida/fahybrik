@@ -41,9 +41,22 @@ struct AppleSignInView: View {
                                 inProgress = false
                                 Haptics.success()
                                 onAuthenticated(resp)
+                            } catch let apiErr as APIError {
+                                inProgress = false
+                                switch apiErr {
+                                case .http(let code, let body):
+                                    let bodyStr = String(data: body, encoding: .utf8) ?? ""
+                                    self.error = "HTTP \(code): \(bodyStr.prefix(220))"
+                                case .offline:
+                                    self.error = "Sin conexión."
+                                case .invalidResponse:
+                                    self.error = "Respuesta inválida del servidor."
+                                case .decoding(let dec):
+                                    self.error = "Decoding: \(dec.localizedDescription)"
+                                }
                             } catch {
                                 inProgress = false
-                                self.error = "No pudimos verificar con Apple. Reintenta."
+                                self.error = "Error: \(error.localizedDescription)"
                             }
                         }
                     case .failure(let e):

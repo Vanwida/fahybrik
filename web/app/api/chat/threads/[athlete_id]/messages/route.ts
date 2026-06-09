@@ -11,6 +11,8 @@ import { resolveChatPrincipal } from '@/lib/chat/auth';
 import { resolveThread } from '@/lib/chat/resolve-thread';
 import { listMessages, sendMessage } from '@/lib/chat/service';
 import { sendMessageSchema } from '@/lib/chat/schema';
+import { captureRouteError } from '@/lib/observability/capture';
+import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,6 +47,15 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
   if (!principal) {
     return jsonError('unauthorized', 'Coach session or athlete bearer required', 401);
   }
+
+  // A1: anti-spam — cap messages per sender.
+  const rl = await withRateLimit({
+    scope: 'user',
+    identifier: principal.user_id.toString(),
+    ...RATE_LIMITS.chatSend,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   const { athlete_id } = await ctx.params;
   const thread = await resolveThread({ sql, principal, athleteIdParam: athlete_id });
   if (!thread) return jsonError('not_found', 'Thread not found', 404);
@@ -61,12 +72,24 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
     return jsonError('invalid_request', 'Invalid message', 400, parsed.error.flatten());
   }
 
-  const message = await sendMessage({
-    sql,
-    thread_id: thread.thread_id,
-    sender_user_id: principal.user_id,
-    sender_role: principal.role,
-    input: parsed.data,
-  });
-  return jsonOk({ message }, 201);
+  try {
+    const message = await sendMessage({
+      sql,
+      thread_id: thread.thread_id,
+      sender_user_id: principal.user_id,
+      sender_role: principal.role,
+      input: parsed.data,
+    });
+    return jsonOk({ message }, 201);
+  } catch (err) {
+    captureRouteError(err, {
+      route: 'api/chat/threads/[athlete_id]/messages.POST',
+      meta: {
+        thread_id: thread.thread_id,
+        sender_role: principal.role,
+        sender_user_id: String(principal.user_id),
+      },
+    });
+    return jsonError('internal', 'Send message failed', 500);
+  }
 }

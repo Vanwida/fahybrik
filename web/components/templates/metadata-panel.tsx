@@ -1,6 +1,7 @@
 'use client';
 
 import type { TemplateFormat, TargetBlock } from '@/lib/templates/schema';
+import { VideoUrlField } from '@/components/media/VideoUrlField';
 
 const FORMAT_OPTIONS: { v: TemplateFormat; l: string }[] = [
   { v: 'strength_block', l: 'Strength block' },
@@ -30,6 +31,7 @@ export interface MetadataState {
   warmup: string | null;
   cooldown: string | null;
   coach_notes: string | null;
+  demo_video_url: string | null;
 }
 
 interface VersionChainEntry {
@@ -134,6 +136,15 @@ export function MetadataPanel({ meta, onChange, versionChain }: Props) {
             Partner workout
           </label>
         </Field>
+      </Section>
+
+      <Section title="Video demo">
+        <VideoUrlField
+          label="YouTube · sesión completa"
+          hint="Pablo graba o enlaza un vídeo del entreno. El atleta lo ve embebido, sin salir de la app."
+          value={meta.demo_video_url}
+          onChange={(url) => onChange({ ...meta, demo_video_url: url })}
+        />
       </Section>
 
       <Section title="Calentamiento">

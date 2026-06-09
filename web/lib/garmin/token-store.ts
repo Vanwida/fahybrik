@@ -5,9 +5,19 @@
 //   - token_secret (encrypted, used as the OAuth1 token secret for signing)
 //   - refresh_token (encrypted, optional — Garmin issues long-lived tokens)
 
+import { createHash } from 'node:crypto';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { decrypt, encrypt } from '@/lib/crypto/aes-gcm';
+
+// Hex SHA-256 of the Garmin userAccessToken. Stored alongside the encrypted
+// token in `garmin_oauth_tokens.access_token_sha256` (UNIQUE, indexed) so the
+// webhook resolves an athlete with a single indexed lookup instead of
+// decrypting every row (Finding M15). Mirrors the magic_link/partner_invitation
+// `*_sha256` hashing scheme (createHash('sha256').digest('hex')).
+export function hashGarminAccessToken(accessToken: string): string {
+  return createHash('sha256').update(accessToken).digest('hex');
+}
 
 export type GarminTokenSet = {
   access_token: string;
@@ -26,11 +36,13 @@ export async function saveGarminTokens(params: {
   const access = encrypt(params.tokens.access_token);
   const secret = encrypt(params.tokens.token_secret);
   const refresh = params.tokens.refresh_token ? encrypt(params.tokens.refresh_token) : null;
+  const accessHash = hashGarminAccessToken(params.tokens.access_token);
 
   await client`
     insert into garmin_oauth_tokens (
       athlete_id,
       access_token_encrypted,
+      access_token_sha256,
       refresh_token_encrypted,
       token_secret_encrypted,
       expires_at,
@@ -38,6 +50,7 @@ export async function saveGarminTokens(params: {
     ) values (
       ${params.athlete_id as number},
       ${access},
+      ${accessHash},
       ${refresh},
       ${secret},
       ${params.tokens.expires_at ?? null},
@@ -45,6 +58,7 @@ export async function saveGarminTokens(params: {
     )
     on conflict (athlete_id) do update set
       access_token_encrypted = excluded.access_token_encrypted,
+      access_token_sha256 = excluded.access_token_sha256,
       refresh_token_encrypted = excluded.refresh_token_encrypted,
       token_secret_encrypted = excluded.token_secret_encrypted,
       expires_at = excluded.expires_at,

@@ -21,3 +21,6 @@ fastlane/test_output
 
 # macOS
 .DS_Store
+
+# xcodegen-generated Info.plist (project.yml is the source of truth)
+FAHYBRIK/Generated-Info.plist

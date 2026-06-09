@@ -1,4 +1,5 @@
 import SwiftUI
+import HealthKit
 
 // Profile tab — élite athlete identity card + devices, methodology, account,
 // legal, sign out. Every row is navigable: opens a NavigationLink to the
@@ -10,6 +11,36 @@ struct ProfileView: View {
     let onSignOut: () -> Void
 
     @State private var sheet: SheetKind? = nil
+    @State private var partner: PartnerInfo? = nil
+    @State private var athleteModality: String? = nil
+    @State private var partnerLoading: Bool = true
+    @State private var showPartnerInvite: Bool = false
+    @State private var subscription: SubscriptionInfo? = nil
+    @State private var identity: AthleteIdentity? = nil
+    @State private var aEventDays: Int? = nil
+    @State private var blockLabel: String? = nil
+
+    // RGPD state.
+    @State private var exporting: Bool = false
+    @State private var exportShareItem: ExportShareItem? = nil
+    @State private var exportError: String? = nil
+    @State private var showDeleteAccount: Bool = false
+    @State private var exportToast: String? = nil
+
+    // Apple Health connection. `healthAvailable` is fixed for the device
+    // (false on simulator — expected). `healthConnected` is a persisted flag
+    // we set after a granted request(), because HealthKit does NOT expose
+    // read-authorization status reliably (authorizationStatus only reports
+    // share/write). `healthRequesting` drives the in-flight spinner.
+    @State private var healthConnected: Bool = ProfileView.isHealthConnected()
+    @State private var healthRequesting: Bool = false
+    @State private var healthDenied: Bool = false
+    private let healthAvailable: Bool = HKHealthStore.isHealthDataAvailable()
+
+    private static let healthConnectedKey = "healthkit_connected"
+    private static func isHealthConnected() -> Bool {
+        UserDefaults.standard.bool(forKey: healthConnectedKey)
+    }
 
     private enum SheetKind: String, Identifiable {
         case methodology
@@ -23,12 +54,18 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .top) {
                 Theme.Color.background.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                         identityCard
-                        aEventCard
+                        if shouldShowPartnerSection {
+                            SectionHeader(title: "Tu compañero/a")
+                            partnerSection
+                        }
+                        if let days = aEventDays {
+                            aEventCard(days: days)
+                        }
                         SectionHeader(title: "Dispositivos")
                         devicesCard
                         SectionHeader(title: "Metodología")
@@ -37,91 +74,301 @@ struct ProfileView: View {
                         accountCard
                         SectionHeader(title: "Legal")
                         legalCard
+                        SectionHeader(title: "Privacidad y datos")
+                        privacyAndDataCard
                         signOutButton
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
                     .padding(.bottom, Theme.Spacing.xxl)
                 }
+                if let exportToast {
+                    ToastBanner(text: exportToast)
+                        .padding(.top, Theme.Spacing.l)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
             .navigationBarHidden(true)
+        }
+        .task {
+            await loadIdentity()
+            await loadPartner()
+            await loadSubscription()
         }
         .sheet(item: $sheet) { kind in
             sheetView(for: kind)
                 .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showPartnerInvite) {
+            PartnerInviteSheet(bearer: bearer) { _ in
+                // After a successful invite, optimistically refetch — the
+                // partner only appears after they redeem, but envelope may
+                // expose a pending state in future iterations.
+                Task { await loadPartner() }
+            }
+            .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showDeleteAccount) {
+            if let bearer {
+                DeleteAccountConfirmView(
+                    bearer: bearer,
+                    partnerName: partner?.firstName,
+                    onCompleted: { onSignOut() }
+                )
+            }
+        }
+        .sheet(item: $exportShareItem) { item in
+            ShareSheet(items: [item.fileURL])
+                .preferredColorScheme(.dark)
+        }
+    }
+
+    // MARK: - Partner
+
+    /// Decision tree (W4 spec, adapted to backend reality):
+    ///   • partner != nil                 → always show (card with avatar + name)
+    ///   • athleteModality == "dobles"    → show invite card (forward-compat
+    ///                                      when backend ships the field)
+    ///   • partner == nil & no modality   → still show invite card. Backend
+    ///                                      doesn't expose self-modality on
+    ///                                      `/api/athlete/partner` (W4), and
+    ///                                      `POST /invite` is gated server-
+    ///                                      side via `assertInviterCanInvite`
+    ///                                      (returns 403 + message), so the
+    ///                                      InviteSheet handles ineligibility.
+    /// While loading we keep it hidden — flash-of-empty-state is worse than
+    /// a brief gap until the request resolves.
+    private var shouldShowPartnerSection: Bool {
+        if partnerLoading { return false }
+        return true
+    }
+
+    @ViewBuilder
+    private var partnerSection: some View {
+        if let partner {
+            partnerCard(partner)
+        } else {
+            partnerInviteCard
+        }
+    }
+
+    private func partnerCard(_ p: PartnerInfo) -> some View {
+        CardSurface(padding: 14, topAccent: true) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Theme.Color.surfaceElevated)
+                        .frame(width: 48, height: 48)
+                    Text(p.initials)
+                        .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(p.fullName)
+                        .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(partnerSubtitle(p))
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                Spacer()
+                PartnerBadge(text: "Dobles")
+            }
+        }
+    }
+
+    private var partnerInviteCard: some View {
+        CardSurface(padding: 14, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Aún no has añadido a tu compañero/a")
+                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("Invítale por email para entrenar juntos en Dobles. Tendrá 14 días para aceptar.")
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                Button {
+                    Haptics.light()
+                    showPartnerInvite = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Invitar a tu compañero/a")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    }
+                    .foregroundStyle(Theme.Color.accentOn)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Theme.Color.accent)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+        }
+    }
+
+    private func partnerSubtitle(_ p: PartnerInfo) -> String {
+        var bits: [String] = ["Compañero/a en Dobles"]
+        if let since = formatOnboardedSince(p.onboardedAt) {
+            bits.append("desde \(since)")
+        }
+        return bits.joined(separator: " · ")
+    }
+
+    private func formatOnboardedSince(_ iso: String?) -> String? {
+        guard let iso else { return nil }
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = parser.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        guard let d = date else { return nil }
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "es_ES")
+        fmt.dateFormat = "MMM yyyy"
+        return fmt.string(from: d)
+    }
+
+    private func loadPartner() async {
+        defer { partnerLoading = false }
+        guard let bearer else { return }
+        do {
+            let envelope = try await PartnerService.fetchEnvelope(bearer: bearer)
+            partner = envelope.partner
+            athleteModality = envelope.athleteModality
+        } catch {
+            // Silent fail: the section just won't render. We don't want a
+            // partial network error to block the rest of Profile.
+            partner = nil
+        }
+    }
+
+    // MARK: - Subscription
+
+    /// Loads the read-only subscription snapshot so the "Mi suscripción" row
+    /// shows live status (no price — Apple compliance). Silent on failure; the
+    /// row falls back to a neutral subtitle and the detail screen retries.
+    private func loadSubscription() async {
+        guard let bearer else { return }
+        subscription = try? await SubscriptionService.fetchSubscription(bearer: bearer)
+    }
+
+    /// Real athlete identity (name, body metrics, training context) from
+    /// /api/auth/me, plus A-event days + block label from the plan week macro
+    /// summary. Silent on failure — the identity card falls back to neutral
+    /// copy and the A-event card simply hides.
+    private func loadIdentity() async {
+        guard let bearer else { return }
+        identity = try? await MeService.fetch(bearer: bearer)
+        if let resp = try? await PlanService.fetchWeek(bearer: bearer) {
+            aEventDays = resp.macroSummary.aEventDays
+            if let label = resp.macroSummary.weekLabel, !label.isEmpty {
+                blockLabel = label
+            } else if let block = resp.macroSummary.block, !block.isEmpty {
+                blockLabel = atrPhaseLabel(block)
+            }
+        }
+    }
+
+    /// Status-driven subtitle for the account row. NEVER includes a price.
+    private var subscriptionRowSubtitle: String {
+        guard let sub = subscription else { return "Estado y gestión del plan" }
+        switch sub.status {
+        case "active":
+            if let date = sub.formattedPeriodEnd {
+                return sub.cancelAtPeriodEnd ? "Termina el \(date)" : "Activa · próximo cobro \(date)"
+            }
+            return "Activa"
+        case "trialing":
+            return "Prueba" + (sub.formattedPeriodEnd.map { " · hasta \($0)" } ?? "")
+        case "past_due", "unpaid", "incomplete":
+            return "Pago pendiente · gestiónala"
+        case "canceled", "incomplete_expired":
+            return "Cancelada · gestiónala en \(SubscriptionService.accountWebHost)"
+        case "paused":
+            return "Pausada"
+        default:
+            return "Estado y gestión del plan"
         }
     }
 
     // MARK: - Identity
 
     private var identityCard: some View {
-        let p = TodayPersona.demo
+        let name = identity?.fullName ?? "Tu perfil"
+        let initials = identity?.initials ?? "—"
         return CardSurface(padding: 14) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
                         .fill(Theme.Color.accent)
                         .frame(width: 56, height: 56)
-                    Text(p.initials)
+                    Text(initials)
                         .font(.system(size: 22, weight: .heavy, design: .default).italic())
                         .foregroundStyle(Color.white)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(p.name)
+                    Text(name)
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("34 · Pro · 5y entrenando · 184cm / 78kg")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.Color.muted)
-                    HStack(spacing: 6) {
-                        Text("HYROX Pro Men")
-                            .font(.system(size: 10, weight: .semibold))
-                            .tracking(1.2)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Theme.Color.accent.opacity(0.18))
-                            .clipShape(Capsule())
-                        Text("Coach · Pablo")
-                            .font(.system(size: 10, weight: .semibold))
-                            .tracking(1.2)
+                    if let subtitle = identitySubtitle {
+                        Text(subtitle)
+                            .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Theme.Color.surface)
-                            .overlay(
-                                Capsule().stroke(Theme.Color.muted.opacity(0.3), lineWidth: 1)
-                            )
-                            .clipShape(Capsule())
                     }
+                    Text("Coach · Pablo")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(Theme.Color.muted)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Theme.Color.surface)
+                        .overlay(
+                            Capsule().stroke(Theme.Color.muted.opacity(0.3), lineWidth: 1)
+                        )
+                        .clipShape(Capsule())
                 }
                 Spacer()
             }
         }
     }
 
-    private var aEventCard: some View {
-        let p = TodayPersona.demo
-        return CardSurface(padding: 14, topAccent: true) {
+    /// Builds the identity subtitle from ONLY the fields the backend returns.
+    /// Missing fields are skipped — never guessed.
+    private var identitySubtitle: String? {
+        guard let id = identity else { return nil }
+        var parts: [String] = []
+        if let age = id.age { parts.append("\(age)") }
+        if let yrs = id.trainingExperienceYears, yrs > 0 {
+            parts.append("\(Int(yrs))y entrenando")
+        }
+        switch (id.heightCm, id.weightKg) {
+        case let (h?, w?): parts.append("\(Int(h))cm / \(Int(w))kg")
+        case let (h?, nil): parts.append("\(Int(h))cm")
+        case let (nil, w?): parts.append("\(Int(w))kg")
+        default: break
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    // A-event: only days-to-event + block label are available from the macro
+    // summary (no event name / date / venue / bib endpoint yet). Card hidden
+    // entirely when there is no A-event days value.
+    private func aEventCard(days: Int) -> some View {
+        CardSurface(padding: 14, topAccent: true) {
             VStack(alignment: .leading, spacing: 6) {
                 LabelText(text: "A-Event", color: Theme.Color.accent, size: 9)
                 HStack(alignment: .lastTextBaseline, spacing: 12) {
-                    Text(p.raceName)
+                    Text("Próximo A-event")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer()
-                    Text("\(p.daysToRace) días")
+                    Text("\(days) días")
                         .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
                         .foregroundStyle(Theme.Color.accent)
                 }
-                Text("18 jun 2026 · Palau Sant Jordi · Bib #427")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.Color.muted)
-                Hairline()
-                HStack {
-                    MonoText(text: "Bloque \(p.block) W\(p.week)D\(p.day)", size: 10, color: Theme.Color.muted)
-                    Spacer()
-                    MonoText(text: "Predicción 1:06:42", size: 10, color: Theme.Color.muted)
+                if let blockLabel {
+                    Hairline()
+                    MonoText(text: blockLabel.uppercased(), size: 10, color: Theme.Color.muted)
                 }
             }
         }
@@ -134,19 +381,13 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 deviceRow(
                     icon: "watch.analog",
-                    title: "Garmin Fenix 7",
-                    subtitle: "sync hace 3m",
-                    statusText: "conectado",
-                    statusColor: Theme.Color.ok
+                    title: "Garmin",
+                    subtitle: "Sincronización próximamente",
+                    statusText: "no conectado",
+                    statusColor: Theme.Color.muted
                 ) { sheet = .editProfile }
                 Hairline()
-                deviceRow(
-                    icon: "applewatch",
-                    title: "Apple Watch 9",
-                    subtitle: "HealthKit · workouts + HRV",
-                    statusText: "ok",
-                    statusColor: Theme.Color.ok
-                ) { sheet = .editProfile }
+                appleHealthRow
                 Hairline()
                 NavigationLink {
                     PM5SettingsView(store: PM5ConnectionStore.shared)
@@ -162,6 +403,124 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Apple Health
+
+    /// Three-state row, mirroring the device-row layout but with a trailing
+    /// "Conectar" button instead of a chevron:
+    ///   • unavailable (simulator)  → disabled button, "No disponible…"
+    ///   • available + not connected → "Conectar" button
+    ///   • connected                → "Sincronizando tus datos" + ok badge
+    private var appleHealthRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "heart.text.square")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Color.accent)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Apple Health")
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text(healthSubtitle)
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(healthSubtitleColor)
+                    .lineLimit(2)
+            }
+            Spacer()
+            appleHealthTrailing
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Apple Health, \(healthSubtitle)")
+    }
+
+    @ViewBuilder
+    private var appleHealthTrailing: some View {
+        if !healthAvailable {
+            connectButton(label: "Conectar", disabled: true)
+        } else if healthConnected {
+            Text("conectado")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(Theme.Color.ok)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Theme.Color.ok.opacity(0.15))
+                .clipShape(Capsule())
+        } else if healthRequesting {
+            ProgressView().tint(Theme.Color.accent)
+        } else {
+            connectButton(label: "Conectar", disabled: false)
+        }
+    }
+
+    private func connectButton(label: String, disabled: Bool) -> some View {
+        Button {
+            Haptics.light()
+            Task { await connectAppleHealth() }
+        } label: {
+            Text(label)
+                .scaledFont(12, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(disabled ? Theme.Color.muted : Theme.Color.accentOn)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(disabled ? Theme.Color.surfaceElevated : Theme.Color.accent)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .accessibilityLabel("Conectar Apple Health")
+        .accessibilityHint(disabled ? "No disponible en este dispositivo" : "Pide permiso para leer tus datos de salud")
+    }
+
+    private var healthSubtitle: String {
+        if !healthAvailable { return "No disponible en este dispositivo" }
+        if healthConnected { return "Sincronizando tus datos" }
+        if healthRequesting { return "Pidiendo permiso…" }
+        if healthDenied { return "Permiso denegado · actívalo en Ajustes › Salud" }
+        return "Conecta para sincronizar HR, HRV, sueño y peso"
+    }
+
+    private var healthSubtitleColor: Color {
+        if healthConnected { return Theme.Color.ok }
+        if healthDenied { return Theme.Color.danger }
+        return Theme.Color.muted
+    }
+
+    /// Requests HealthKit authorization, then — on grant — starts the same
+    /// sync pipeline AppRoot uses (configure(bearer:athleteId:) + start()) and
+    /// flips the persisted connected flag. Reuses the shared service; never
+    /// duplicates the request or sync logic.
+    @MainActor
+    private func connectAppleHealth() async {
+        guard healthAvailable, !healthRequesting else { return }
+        healthRequesting = true
+        defer { healthRequesting = false }
+
+        // HealthKit never reports whether READ access was granted, so a
+        // successful return = the sheet was presented (or already answered).
+        // We treat that as connected and start the sync. We surface an error
+        // only when requestAuthorization genuinely throws (HealthKit
+        // unavailable, or missing entitlement / unprovisioned App ID).
+        do {
+            try await HealthKitPermissions.request()
+        } catch {
+            healthConnected = false
+            healthDenied = true
+            return
+        }
+
+        HealthKitSyncService.shared.configure(
+            bearer: bearer,
+            athleteId: AuthState.persistedAthleteId()
+        )
+        HealthKitSyncService.shared.start()
+        UserDefaults.standard.set(true, forKey: Self.healthConnectedKey)
+        healthConnected = true
+        healthDenied = false
+        showToast("Apple Health conectado")
     }
 
     private func deviceRow(
@@ -198,10 +557,10 @@ struct ProfileView: View {
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
             Spacer()
@@ -219,6 +578,9 @@ struct ProfileView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(subtitle), \(statusText)")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Methodology
@@ -229,7 +591,7 @@ struct ProfileView: View {
                 profileRow(
                     icon: "rectangle.3.group",
                     title: "ATR · bloques",
-                    subtitle: "REAL → TRANS → ACC · cómo se construye tu plan",
+                    subtitle: "\(atrPhaseLabel("ACC")) → \(atrPhaseLabel("TRANS")) → \(atrPhaseLabel("REAL")) · cómo se construye tu plan",
                     action: { sheet = .methodology }
                 )
                 Hairline()
@@ -253,8 +615,8 @@ struct ProfileView: View {
                 } label: {
                     profileRowContent(
                         icon: "creditcard",
-                        title: "Suscripción · €89/mes",
-                        subtitle: "Próxima factura 15/06/2026"
+                        title: "Mi suscripción",
+                        subtitle: subscriptionRowSubtitle
                     )
                 }
                 .buttonStyle(.plain)
@@ -284,14 +646,14 @@ struct ProfileView: View {
                 profileRow(
                     icon: "lock.shield",
                     title: "Privacidad",
-                    subtitle: "fahybrid.com/privacy",
+                    subtitle: "fahybrik.com/privacy",
                     action: { sheet = .privacy }
                 )
                 Hairline()
                 profileRow(
                     icon: "doc.text",
                     title: "Términos",
-                    subtitle: "fahybrid.com/terms",
+                    subtitle: "fahybrik.com/terms",
                     action: { sheet = .terms }
                 )
             }
@@ -313,10 +675,10 @@ struct ProfileView: View {
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
             Spacer()
@@ -326,6 +688,133 @@ struct ProfileView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Privacy & data (RGPD)
+
+    private var privacyAndDataCard: some View {
+        CardSurface(padding: 0) {
+            VStack(spacing: 0) {
+                exportDataRow
+                Hairline()
+                deleteAccountRow
+            }
+        }
+    }
+
+    private var exportDataRow: some View {
+        Button {
+            Haptics.light()
+            Task { await exportData() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.up.on.square")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accent)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Exportar mis datos")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(exportError ?? "Descarga un JSON con todo lo que guardamos sobre ti")
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(exportError == nil ? Theme.Color.muted : Theme.Color.danger)
+                        .lineLimit(2)
+                }
+                Spacer()
+                if exporting {
+                    ProgressView()
+                        .tint(Theme.Color.accent)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+        .disabled(exporting || bearer == nil)
+        .accessibilityLabel("Exportar mis datos")
+        .accessibilityHint("Descarga un JSON con todo lo que guardamos sobre ti")
+    }
+
+    private var deleteAccountRow: some View {
+        Button {
+            Haptics.medium()
+            showDeleteAccount = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "trash")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.danger)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Eliminar mi cuenta")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.danger)
+                    Text("Permanente · 30 días de gracia · cancela suscripción")
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+        .disabled(bearer == nil)
+        .accessibilityLabel("Eliminar mi cuenta")
+        .accessibilityHint("Permanente, 30 días de gracia, cancela suscripción")
+    }
+
+    private func exportData() async {
+        guard let bearer, !exporting else { return }
+        exporting = true
+        exportError = nil
+        defer { exporting = false }
+        do {
+            let (data, filename) = try await AccountService.exportData(bearer: bearer)
+            // Write to a temp file so the Share Sheet can offer "Save to
+            // Files", AirDrop, mail, etc. with a real filename + extension.
+            let safeName = filename.isEmpty ? "fahybrid-export.json" : filename
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent(safeName)
+            try? FileManager.default.removeItem(at: url)
+            try data.write(to: url, options: [.atomic])
+            await MainActor.run {
+                exportShareItem = ExportShareItem(fileURL: url)
+                showToast("Datos exportados")
+            }
+        } catch let APIError.http(status, _) {
+            await MainActor.run {
+                exportError = status == 401
+                    ? "Sesión caducada. Vuelve a iniciar sesión."
+                    : "No pudimos exportar tus datos (HTTP \(status))."
+            }
+        } catch {
+            await MainActor.run {
+                exportError = "No pudimos exportar tus datos. Revisa tu conexión."
+            }
+        }
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            exportToast = text
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
+            withAnimation(.easeOut(duration: 0.25)) {
+                exportToast = nil
+            }
+        }
     }
 
     // MARK: - Sign out
@@ -333,7 +822,7 @@ struct ProfileView: View {
     private var signOutButton: some View {
         Button(action: { Haptics.medium(); onSignOut() }) {
             Text("Cerrar sesión")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.danger)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
@@ -353,7 +842,7 @@ struct ProfileView: View {
         switch kind {
         case .methodology: MethodologySheet()
         case .coach:       CoachSheet()
-        case .editProfile: EditProfileSheet()
+        case .editProfile: EditProfileSheet(identity: identity)
         case .notifications: NotificationsSheet()
         case .privacy:     LegalSheet(title: "Política de privacidad", bodyText: LegalCopy.privacy)
         case .terms:       LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms)
@@ -367,7 +856,7 @@ private struct SectionHeader: View {
     let title: String
     var body: some View {
         Text(title.uppercased())
-            .font(.system(size: 10, weight: .semibold))
+            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
             .tracking(1.6)
             .foregroundStyle(Theme.Color.muted)
             .padding(.horizontal, 4)
@@ -386,29 +875,26 @@ private struct MethodologySheet: View {
                     Text("ATR · cómo se construye tu plan")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu macrociclo se divide en tres bloques: REAL (resistencia), TRANS (transición) y ACC (aceleración / específico).")
-                        .font(.system(size: 13))
+                    Text("Tu macrociclo avanza en tres bloques: \(atrPhaseLabel("ACC")) (volumen y capacidad general), \(atrPhaseLabel("TRANS")) (trabajo específico de carrera) y \(atrPhaseLabel("REAL")) (afinado y pico el día A-event).")
+                        .scaledFont(13, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.foreground)
                     blockCard(
-                        code: "REAL",
-                        name: "Resistencia base",
+                        code: "ACC",
                         weeks: "4-6 semanas",
                         focus: "Aerobic capacity · Z2 mileage · fuerza máxima general · técnica HYROX baja intensidad."
                     )
                     blockCard(
                         code: "TRANS",
-                        name: "Transición",
                         weeks: "2-3 semanas",
                         focus: "Threshold · Z3-Z4 polarizado · trabajo específico estaciones · introducción potencia."
                     )
                     blockCard(
-                        code: "ACC",
-                        name: "Aceleración",
+                        code: "REAL",
                         weeks: "3-4 semanas",
                         focus: "VO2 + race pace · simulacros · taper · consolidación de PRs · pico el día A-event."
                     )
-                    Text("Cada bloque tiene microciclos 7d con día clave + complementarios + descarga. CTL/ATL/TSB se monitorean diariamente. Tu posición actual: REAL · W2D4 · 42 días al A-event.")
-                        .font(.system(size: 12))
+                    Text("Cada bloque tiene microciclos de 7 días con día clave, complementarios y descarga. Tu posición dentro del macrociclo la fija tu coach y la ves en la pestaña Plan.")
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
                 .padding(20)
@@ -416,24 +902,20 @@ private struct MethodologySheet: View {
         }
     }
 
-    private func blockCard(code: String, name: String, weeks: String, focus: String) -> some View {
+    private func blockCard(code: String, weeks: String, focus: String) -> some View {
         CardSurface(padding: 14, topAccent: code == "REAL") {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(code)
-                        .font(.system(size: 11, weight: .heavy))
-                        .tracking(1.6)
+                    Text(atrPhaseLabel(code))
+                        .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.accent)
                     Spacer()
                     Text(weeks)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(Theme.Color.muted)
                 }
-                Text(name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
                 Text(focus)
-                    .font(.system(size: 12))
+                    .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
             }
         }
@@ -458,7 +940,7 @@ private struct CoachSheet: View {
                                 .font(Theme.Typography.headlineS)
                                 .foregroundStyle(Theme.Color.foreground)
                             Text("Coach · Fabrik Studio Barcelona")
-                                .font(.system(size: 12))
+                                .scaledFont(12, relativeTo: .caption)
                                 .foregroundStyle(Theme.Color.muted)
                         }
                     }
@@ -468,7 +950,7 @@ private struct CoachSheet: View {
                     bullet("Atletas actuales en cohorte Fabrik: 23 (3 Pro Men, 5 Pro Women).")
                     Hairline()
                     Text("Pablo escribe la metodología detrás de tu plan. Cada workout que ves se basa en una plantilla validada por él, ajustada a tu CTL/ATL/TSB y a tus weaknesses por estación.")
-                        .font(.system(size: 12))
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
                 .padding(20)
@@ -482,56 +964,63 @@ private struct CoachSheet: View {
                 .font(.system(size: 14, weight: .heavy))
                 .foregroundStyle(Theme.Color.accent)
             Text(text)
-                .font(.system(size: 13))
+                .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.foreground)
         }
     }
 }
 
 private struct EditProfileSheet: View {
+    let identity: AthleteIdentity?
+
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Modificar perfil")
+                    Text("Mi perfil")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Edita los campos que tu coach usa para ajustar tu plan. Conectado al dashboard de Pablo en tiempo real.")
-                        .font(.system(size: 12))
+                    Text("Estos son los datos que tu coach usa para ajustar tu plan. La edición desde la app llegará pronto.")
+                        .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
-                    fieldRow(label: "Nombre", value: "Marc Vidal")
-                    fieldRow(label: "Edad", value: "34")
-                    fieldRow(label: "Talla / peso", value: "184 cm / 78 kg")
-                    fieldRow(label: "HRmax estimado", value: "188 bpm · sprint test 14 abr")
-                    fieldRow(label: "FTP run", value: "3:48 /km")
-                    Hairline()
-                    Text("1RM · fuerza")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(Theme.Color.muted)
-                    fieldRow(label: "Back squat", value: "165 kg")
-                    fieldRow(label: "Deadlift", value: "180 kg")
-                    fieldRow(label: "Bench", value: "115 kg")
-                    fieldRow(label: "Strict press", value: "72 kg")
-                    Hairline()
-                    Text("HYROX best · estación")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(Theme.Color.muted)
-                    fieldRow(label: "SkiErg 1000m", value: "4:08")
-                    fieldRow(label: "Sled Push 50m", value: "0:52")
-                    fieldRow(label: "Wall Balls 100", value: "3:55")
+                    if let id = identity {
+                        fieldRow(label: "Nombre", value: id.fullName)
+                        if let age = id.age { fieldRow(label: "Edad", value: "\(age)") }
+                        fieldRow(label: "Talla / peso", value: bodyValue(id))
+                        if let yrs = id.trainingExperienceYears, yrs > 0 {
+                            fieldRow(label: "Experiencia", value: "\(Int(yrs)) años")
+                        }
+                        if let disc = id.primaryDiscipline, !disc.isEmpty {
+                            fieldRow(label: "Disciplina", value: disc)
+                        }
+                        if let days = id.trainingDaysPerWeek {
+                            fieldRow(label: "Días/semana", value: "\(days)")
+                        }
+                    } else {
+                        Text("No pudimos cargar tu perfil. Revisa tu conexión.")
+                            .scaledFont(13, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
                 }
                 .padding(20)
             }
         }
     }
 
+    private func bodyValue(_ id: AthleteIdentity) -> String {
+        switch (id.heightCm, id.weightKg) {
+        case let (h?, w?): return "\(Int(h)) cm / \(Int(w)) kg"
+        case let (h?, nil): return "\(Int(h)) cm"
+        case let (nil, w?): return "\(Int(w)) kg"
+        default: return "—"
+        }
+    }
+
     private func fieldRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 12))
+                .scaledFont(12, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.muted)
             Spacer()
             Text(value)
@@ -539,6 +1028,7 @@ private struct EditProfileSheet: View {
                 .foregroundStyle(Theme.Color.foreground)
         }
         .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -570,16 +1060,17 @@ private struct NotificationsSheet: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
             Spacer()
             Toggle("", isOn: binding)
                 .labelsHidden()
                 .tint(Theme.Color.accent)
+                .accessibilityLabel("\(title). \(subtitle)")
         }
         .padding(12)
         .background(Theme.Color.surface)
@@ -600,7 +1091,7 @@ private struct LegalSheet: View {
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
                     Text(bodyText)
-                        .font(.system(size: 13))
+                        .scaledFont(13, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -611,6 +1102,54 @@ private struct LegalSheet: View {
 }
 
 private enum LegalCopy {
-    static let privacy = "FAHYBRID procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a privacy@fahybrid.com."
-    static let terms = "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo Casals y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
+    static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrik.com/privacy. Si tienes dudas, escribe a privacy@fahybrik.com."
+    static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo Casals y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrik.com/terms."
+}
+
+// MARK: - Export Share Sheet plumbing
+//
+// Identifiable wrapper so `.sheet(item:)` re-creates the Share Sheet for every
+// new export instead of caching the previous fileURL.
+struct ExportShareItem: Identifiable {
+    let id = UUID()
+    let fileURL: URL
+}
+
+// UIActivityViewController bridge for SwiftUI. Used by both the data-export
+// flow (Files / AirDrop / Mail) and any future RGPD attachments.
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// Slim "datos exportados" toast pinned to the top of the screen. Fabrik
+// accent border + dark surface, dismisses itself after ~2.4s via the caller's
+// asyncAfter (so the parent owns the timing and can cancel if needed).
+struct ToastBanner: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Color.ok)
+            Text(text)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.foreground)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Theme.Color.surfaceElevated)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.accent.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .shadow(color: Color.black.opacity(0.25), radius: 12, x: 0, y: 4)
+    }
 }

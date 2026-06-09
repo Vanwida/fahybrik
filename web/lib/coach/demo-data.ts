@@ -3,7 +3,7 @@
 // so the UI can render a subtle marker (and so we never confuse demo metrics
 // for real ones in analytics).
 
-import type { AlertReason, CohortRow } from './types';
+import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
 
 interface PersonaSeed {
   full_name: string;
@@ -536,6 +536,9 @@ function personaToRow(seed: PersonaSeed, index: number, now: Date): CohortRow {
     alerts: seed.alerts,
     primary_alert: seed.alerts[0] ?? null,
     flags: seed.flags,
+    programming_status: 'ok' as const,
+    programming_label: null,
+    readiness_score: Math.min(100, Math.max(0, Math.round(40 + seed.race_readiness * 0.6))),
   };
 }
 

@@ -1,4 +1,5 @@
 import { sql } from '../db';
+import { setAthleteSentryUser } from '../observability/capture';
 import { audiences, verifySession } from './session';
 
 export interface AthleteSession {
@@ -36,11 +37,17 @@ export async function getAthleteSessionFromBearer(
   const row = rows[0];
   if (!row) return null;
 
-  return {
+  const session: AthleteSession = {
     user_id: BigInt(row.user_id),
     athlete_id: BigInt(row.athlete_id),
     email: row.email,
     full_name: row.full_name,
     jti: verified.jti,
   };
+
+  // Tag observability scope. No-op until web ships Sentry; the call site
+  // stays correct.
+  setAthleteSentryUser({ athlete_id: session.athlete_id, user_id: session.user_id });
+
+  return session;
 }

@@ -10,7 +10,7 @@ struct ThresholdStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 7,
+            stepIndex: 13,
             title: "Anaeróbico / umbral",
             subtitle: "Tests si tienes datos. Si no, batería en w1.",
             hint: "FTP, LTHR, ritmo umbral o 1-milla all-out son intercambiables.",

@@ -9,10 +9,14 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     environment: 'node',
     globals: false,
+    setupFiles: [resolve(__dirname, 'tests/setup/env.ts')],
   },
   resolve: {
-    alias: {
-      '@': resolve(__dirname, '.'),
-    },
+    alias: [
+      // `server-only` is a Next.js sentinel that throws when imported outside a
+      // Server Component. Node-based tests have no client boundary, so stub it.
+      { find: 'server-only', replacement: resolve(__dirname, 'tests/_stubs/server-only.ts') },
+      { find: '@', replacement: resolve(__dirname, '.') },
+    ],
   },
 });

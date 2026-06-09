@@ -53,3 +53,11 @@ tmp/
 # OS
 .DS_Store
 *.local
+.vercel
+
+# One-off backfill / migration reports (data snapshots, not source)
+infra/reports/
+
+# runtime/hook artifacts
+logs/
+__pycache__/

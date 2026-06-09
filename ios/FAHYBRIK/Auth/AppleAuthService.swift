@@ -5,7 +5,7 @@ import AuthenticationServices
 // the `backend-auth` agent). The backend exchanges the identity token for a
 // session bearer; we cache that bearer in the keychain.
 struct AppleAuthRequest: Encodable {
-    let identity_token: String
+    let id_token: String
     let authorization_code: String?
     let user_id: String
     let email: String?
@@ -13,9 +13,15 @@ struct AppleAuthRequest: Encodable {
 }
 
 struct AppleAuthResponse: Decodable {
-    let bearer: String
-    let athlete_id: String
-    let onboarding_complete: Bool?
+    let sessionToken: String
+    let athleteId: String
+    let onboardedAt: String?
+
+    // Adapters for existing call sites
+    var bearer: String { sessionToken }
+    var session_token: String { sessionToken }
+    var athlete_id: String { athleteId }
+    var onboarding_complete: Bool { onboardedAt != nil }
 }
 
 enum AppleAuthService {
@@ -35,7 +41,7 @@ enum AppleAuthService {
         }()
 
         let req = AppleAuthRequest(
-            identity_token: identity,
+            id_token: identity,
             authorization_code: codeStr,
             user_id: credential.user,
             email: credential.email,
@@ -44,14 +50,14 @@ enum AppleAuthService {
 
         // The wrapper avoids snake_case key conversion on already-snake fields.
         struct Wrapper: Encodable {
-            let identity_token: String
+            let id_token: String
             let authorization_code: String?
             let user_id: String
             let email: String?
             let full_name: String?
         }
         let w = Wrapper(
-            identity_token: req.identity_token,
+            id_token: req.id_token,
             authorization_code: req.authorization_code,
             user_id: req.user_id,
             email: req.email,

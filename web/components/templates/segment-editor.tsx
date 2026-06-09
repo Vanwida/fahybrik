@@ -3,6 +3,7 @@
 import { useId } from 'react';
 import type { SegmentParams } from '@/lib/templates/schema';
 import type { BuilderSegment, ExerciseCategoryToken } from './template-types';
+import { VideoUrlField } from '@/components/media/VideoUrlField';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -22,6 +23,18 @@ export function SegmentEditor({ segment, onChange, onDelete }: Props) {
       <CategoryFields category={segment.exercise_category} segment={segment} setParams={setParams} />
 
       <AdvancedFeatures segment={segment} onChange={onChange} />
+
+      <div className="mt-4">
+        <VideoUrlField
+          label="Video técnica (YouTube)"
+          hint="Opcional. Se reproduce dentro de la app del atleta."
+          compact
+          value={segment.params_json.video_url ?? null}
+          onChange={(url) =>
+            setParams({ video_url: url ?? undefined })
+          }
+        />
+      </div>
 
       <div className="mt-4">
         <Label>Notas Pablo</Label>
@@ -320,22 +333,57 @@ function AdvancedFeatures({
       <div className="mt-3 space-y-4">
         {/* Week variants */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <Label>Progresión semanal</Label>
-            <button
-              type="button"
-              onClick={() =>
-                setParams({
-                  week_variants: [
-                    ...variants,
-                    { week: variants.length + 1 },
-                  ],
-                })
-              }
-              className="text-[10px] uppercase tracking-[0.16em] text-[var(--accent)] hover:text-[var(--accent-press)]"
-            >
-              + semana
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setParams({
+                    week_variants: [
+                      ...variants,
+                      { week: variants.length + 1 },
+                    ],
+                  })
+                }
+                className="text-[10px] uppercase tracking-[0.16em] text-[var(--accent)] hover:text-[var(--accent-press)]"
+              >
+                + semana
+              </button>
+              {variants.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const last = variants[variants.length - 1]!;
+                      setParams({
+                        week_variants: [
+                          ...variants,
+                          { ...last, week: variants.length + 1 },
+                        ],
+                      });
+                    }}
+                    className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)] hover:text-[var(--fg)]"
+                  >
+                    Duplicar semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setParams({
+                        week_variants: variants.map((v) => ({
+                          ...v,
+                          rpe: v.rpe != null ? Math.min(10, v.rpe + 0.5) : 7,
+                        })),
+                      })
+                    }
+                    className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)] hover:text-[var(--fg)]"
+                  >
+                    +0.5 RPE todas
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
           {variants.length === 0 && (
             <p className="text-[11px] text-[var(--muted)]">

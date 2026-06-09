@@ -9,13 +9,13 @@
  *
  * Idempotent: upsert on slug. Safe to re-run.
  *
- * Run: pnpm --filter @fahybrik/infra seed:exercises
+ * Run: pnpm --filter @fahybrid/infra seed:exercises
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { exerciseCategory } from '@fahybrik/shared/schema';
+import { exerciseCategory } from '@fahybrid/shared/schema';
 import { getSql } from './_db.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

@@ -23,14 +23,20 @@ enum HealthKitPermissions {
         return s
     }()
 
-    static func request() async -> Bool {
-        guard HKHealthStore.isHealthDataAvailable() else { return false }
+    /// HealthKit's privacy model NEVER tells the app whether the user granted
+    /// READ access — `requestAuthorization` succeeds even if every read type is
+    /// denied. So a successful return means only "the permission sheet was
+    /// presented (or already answered)", which we treat as connected. We throw
+    /// only when authorization genuinely fails: HealthKit unavailable on the
+    /// device, or `requestAuthorization` itself errors (e.g. missing the
+    /// `com.apple.developer.healthkit` entitlement / unprovisioned App ID).
+    enum AuthError: Error {
+        case unavailable
+    }
+
+    static func request() async throws {
+        guard HKHealthStore.isHealthDataAvailable() else { throw AuthError.unavailable }
         let store = HKHealthStore()
-        do {
-            try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
-            return true
-        } catch {
-            return false
-        }
+        try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
     }
 }

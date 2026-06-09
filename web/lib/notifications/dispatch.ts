@@ -18,7 +18,14 @@ export type NotificationType =
   | 'event_reminder'
   | 'recovery_alert'
   | 'milestone'
-  | 'system';
+  | 'system'
+  // Athlete-facing: weekly plan published by the publish-weekly-plans cron.
+  | 'plan_published'
+  // Coach inbox triggers (phase 1c):
+  | 'week_adjustment_pending'
+  | 'monthly_block_pending'
+  | 'intake_pending'
+  | 'atr_transition_suggested';
 
 export type DispatchInput = {
   sql: Sql;
@@ -45,12 +52,16 @@ export async function dispatchNotification(input: DispatchInput): Promise<{ id: 
   const id = rows[0]!.id;
 
   if (push) {
+    // iOS routes a tapped notification on the top-level `type` key (it maps it
+    // to PushNotificationKind → tab/sheet). Inject `type` alongside any deeplink
+    // payload so the deep link actually fires. `type` already matches the iOS
+    // enum raw values (chat_message, plan_published, week_adjustment_pending, …).
     sendPush({
       sql,
       user_id,
       title: push.title,
       body: push.body,
-      deeplink: push.deeplink,
+      deeplink: { type, ...(push.deeplink ?? {}) },
       badge: push.badge,
       category: type,
     }).catch(() => undefined);

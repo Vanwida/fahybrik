@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { auditAction, idSchema, isoDateTime } from './_primitives.js';
+import { auditAction, idSchema, isoDateTime } from './_primitives';
 
 export const auditLogSchema = z.object({
   id: idSchema,

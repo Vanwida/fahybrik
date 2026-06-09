@@ -20,8 +20,16 @@ export function jsonError(
   );
 }
 
+function jsonReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === 'bigint') return value.toString();
+  return value;
+}
+
 export function jsonOk<T>(body: T, status = 200): NextResponse<T> {
-  return NextResponse.json(body, { status });
+  return new NextResponse(JSON.stringify(body, jsonReplacer), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  }) as NextResponse<T>;
 }
 
 export function getClientIp(req: Request): string | null {

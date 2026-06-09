@@ -1,0 +1,42 @@
+// Thin re-export shim. Single source of truth in
+// `@fahybrid/shared/schema/coach-mass-adjustments`. The legacy local convention
+// suffixes runtime schema constants with `Schema` (e.g. massAdjustmentRequest →
+// massAdjustmentRequestSchema); aliased below for parity with web callers.
+
+export {
+  massAdjustmentType as massAdjustmentTypeSchema,
+  massAdjustmentStatus as massAdjustmentStatusSchema,
+  scopeSelection as scopeSelectionSchema,
+  scopeFilter as scopeFilterSchema,
+  scopeAEvent as scopeAEventSchema,
+  scopeManual as scopeManualSchema,
+  massAdjustmentScope as massAdjustmentScopeSchema,
+  payloadStrengthLoad as payloadStrengthLoadSchema,
+  payloadRunningVolume as payloadRunningVolumeSchema,
+  payloadRefactorExercise as payloadRefactorExerciseSchema,
+  payloadInsertSession as payloadInsertSessionSchema,
+  payloadDeleteSession as payloadDeleteSessionSchema,
+  payloadRescheduleShift as payloadRescheduleShiftSchema,
+  payloadPrivateNote as payloadPrivateNoteSchema,
+  massAdjustmentPayload as massAdjustmentPayloadSchema,
+  exclusionReason as exclusionReasonSchema,
+  massAdjustmentRequest as massAdjustmentRequestSchema,
+  previewAthleteRow as previewAthleteRowSchema,
+  previewProjection as previewProjectionSchema,
+  massAdjustmentPreviewResponse as massAdjustmentPreviewResponseSchema,
+  massAdjustmentCommitResponse as massAdjustmentCommitResponseSchema,
+  massAdjustmentHistoryRow as massAdjustmentHistoryRowSchema,
+  massAdjustmentHistoryResponse as massAdjustmentHistoryResponseSchema,
+  type MassAdjustmentType,
+  type MassAdjustmentStatus,
+  type MassAdjustmentScope,
+  type MassAdjustmentPayload,
+  type ExclusionReason,
+  type MassAdjustmentRequest,
+  type PreviewAthleteRow,
+  type PreviewProjection,
+  type MassAdjustmentPreviewResponse,
+  type MassAdjustmentCommitResponse,
+  type MassAdjustmentHistoryRow,
+  type MassAdjustmentHistoryResponse,
+} from '@fahybrid/shared/schema/coach-mass-adjustments';

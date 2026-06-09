@@ -3,7 +3,14 @@
 // Handles the OAuth 1.0a callback. Exchanges request token + verifier for an
 // access token, encrypts it, and persists into garmin_oauth_tokens.
 
-import { gatedResponse, GARMIN_ENDPOINTS, loadGarminConfig, signOAuth1 } from '@/lib/garmin';
+import {
+  clearRequestTokenCookie,
+  gatedResponse,
+  GARMIN_ENDPOINTS,
+  loadGarminConfig,
+  readRequestTokenCookie,
+  signOAuth1,
+} from '@/lib/garmin';
 import { saveGarminTokens } from '@/lib/garmin/token-store';
 import { isCryptoConfigured } from '@/lib/crypto/aes-gcm';
 
@@ -31,7 +38,26 @@ export async function GET(request: Request): Promise<Response> {
     return jsonError(
       503,
       'encryption_not_configured',
-      'ENCRYPTION_KEY env var is required to persist OAuth tokens. See /docs/garmin_oauth.md.',
+      'ENCRYPTION_KEY env var is required to persist OAuth tokens. See /docs/garmin_setup.md.',
+    );
+  }
+
+  const secure = url.protocol === 'https:';
+
+  // Recover the request-token secret stashed by /api/garmin/connect. It is the
+  // OAuth1 token secret required to sign the access_token exchange (signing key
+  // = consumer_secret&request_token_secret). The cookie is bound to this exact
+  // athlete + oauth_token, so a mismatched/expired cookie aborts the flow.
+  const stash = readRequestTokenCookie({
+    cookieHeader: request.headers.get('cookie'),
+    expected_athlete_id: athlete_id_raw,
+    expected_oauth_token: oauth_token,
+  });
+  if (!stash) {
+    return jsonError(
+      400,
+      'missing_request_token',
+      'request-token secret cookie is missing, expired, or does not match this callback. Restart the connect flow.',
     );
   }
 
@@ -39,9 +65,7 @@ export async function GET(request: Request): Promise<Response> {
     method: 'POST',
     url: GARMIN_ENDPOINTS.access_token,
     consumer_secret: cfg.config.consumer_secret,
-    // The token secret stored from the request_token step would normally go
-    // here. Garmin's flow allows omitting it (signing key becomes
-    // consumer_secret&"") because the verifier ties the call to the user.
+    token_secret: stash.oauth_token_secret,
     oauth_params: {
       oauth_consumer_key: cfg.config.consumer_key,
       oauth_token,
@@ -77,9 +101,13 @@ export async function GET(request: Request): Promise<Response> {
     tokens: { access_token, token_secret },
   });
 
+  // Burn the transient request-token cookie now that the exchange succeeded.
   return new Response(JSON.stringify({ ok: true, athlete_id: athlete_id.toString() }), {
     status: 200,
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      'set-cookie': clearRequestTokenCookie(secure),
+    },
   });
 }
 

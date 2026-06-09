@@ -89,7 +89,7 @@ struct CheckinView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
             Scale1to5Picker(
                 value: binding,
@@ -105,7 +105,7 @@ struct CheckinView: View {
             ZStack(alignment: .topLeading) {
                 if answers.notes.isEmpty {
                     Text("p.ej. quemado pierna izq desde ayer")
-                        .font(.system(size: 14))
+                        .scaledFont(14, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.muted.opacity(0.7))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
@@ -119,7 +119,7 @@ struct CheckinView: View {
                 ))
                 .focused($notesFocused)
                 .scrollContentBackground(.hidden)
-                .font(.system(size: 14))
+                .scaledFont(14, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
                 .frame(minHeight: 84)
                 .padding(.horizontal, 10)
@@ -155,13 +155,13 @@ struct CheckinView: View {
                 onSkipped()
             }) {
                 Text("Saltar")
-                    .font(.system(size: 13))
+                    .scaledFont(13, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
                     .underline()
             }
             .buttonStyle(.plain)
         }
-        .padding(.top, Theme.Spacing.s)
+        .padding(.top, Theme.Spacing.l)
     }
 
     private func bind(_ kp: ReferenceWritableKeyPath<CheckinAnswers, Int?>) -> Binding<Int?> {

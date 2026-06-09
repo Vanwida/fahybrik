@@ -1,16 +1,48 @@
 {
-  "name": "@fahybrik/shared",
+  "name": "@fahybrid/shared",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "main": "./schema/index.ts",
   "types": "./schema/index.ts",
   "exports": {
-    ".": "./schema/index.ts",
-    "./schema": "./schema/index.ts",
-    "./schema/*": "./schema/*.ts",
-    "./tokens": "./tokens.ts",
-    "./tokens.json": "./tokens.json"
+    ".": {
+      "types": "./schema/index.ts",
+      "default": "./schema/index.ts"
+    },
+    "./schema": {
+      "types": "./schema/index.ts",
+      "default": "./schema/index.ts"
+    },
+    "./schema/*": {
+      "types": "./schema/*.ts",
+      "default": "./schema/*.ts"
+    },
+    "./domain/training-load": {
+      "types": "./domain/training-load/index.ts",
+      "default": "./domain/training-load/index.ts"
+    },
+    "./domain/prescription": {
+      "types": "./domain/prescription/index.ts",
+      "default": "./domain/prescription/index.ts"
+    },
+    "./domain/methodology": {
+      "types": "./domain/methodology/index.ts",
+      "default": "./domain/methodology/index.ts"
+    },
+    "./domain/*": {
+      "types": "./domain/*.ts",
+      "default": "./domain/*.ts"
+    },
+    "./tokens": {
+      "types": "./tokens.ts",
+      "default": "./tokens.ts"
+    },
+    "./tokens.json": "./tokens.json",
+    "./youtube": {
+      "types": "./youtube.ts",
+      "default": "./youtube.ts"
+    }
   },
   "scripts": {
     "lint": "tsc --noEmit",
@@ -18,6 +50,7 @@
     "test": "echo \"no tests yet\" && exit 0"
   },
   "dependencies": {
+    "postgres": "^3.4.9",
     "zod": "^3.23.8"
   },
   "devDependencies": {

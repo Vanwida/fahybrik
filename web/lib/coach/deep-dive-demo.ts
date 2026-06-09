@@ -14,7 +14,7 @@ import type {
   SparkPoint,
   CompliancePoint,
 } from './deep-dive-types';
-import type { AtrBlockType } from './types';
+import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 
 const DEMO_GENERATED_AT = '2026-05-08T08:00:00.000Z';
 
@@ -275,6 +275,8 @@ const MARC: AthleteDeepDive = {
     checkin_done_7d: 6,
   },
   readiness: {
+    daily_readiness_score: 78,
+    daily_readiness_delta_7d: 4,
     race_readiness: 78, race_readiness_trend: 'up',
     hrv_ms: 58,
     hrv_delta_ms: -8,
@@ -292,6 +294,7 @@ const MARC: AthleteDeepDive = {
   notes: MARC_NOTES,
   alerts: [],
   banner: null,
+  transition_suggest: null,
 };
 
 // ---------------------------------------------------------------------------

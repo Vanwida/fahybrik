@@ -1,7 +1,7 @@
 // Daily briefing payload builder. Aggregates dashboard-level facts that
 // shouldn't require scanning the cohort table to surface.
 
-import type { BriefingLine, BriefingPayload, CohortRow, TimeOfDay } from './types';
+import type { BriefingLine, BriefingPayload, CohortRow, TimeOfDay } from '@fahybrid/shared/domain/coach/types';
 
 interface BuildParams {
   coach_first_name: string;
@@ -12,6 +12,7 @@ interface BuildParams {
   pending_video_reviews?: number;
   unread_messages?: number;
   scheduled_tests?: Array<{ athlete_name: string; label: string }>;
+  pending_intakes?: Array<{ athlete_id: string; full_name: string }>;
 }
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-ES', {
@@ -42,6 +43,22 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
   const polarization = aggregatePolarization(params.cohort);
 
   const lines: BriefingLine[] = [];
+  const pendingIntakes = params.pending_intakes ?? [];
+  if (pendingIntakes.length > 0) {
+    const first = pendingIntakes[0];
+    lines.push({
+      id: 'intake_pending',
+      icon: 'user-plus',
+      primary:
+        pendingIntakes.length === 1
+          ? `1 nuevo atleta esperando intake: ${first.full_name}`
+          : `${pendingIntakes.length} nuevos atletas esperando intake`,
+      secondary: pendingIntakes.length === 1 ? 'completar handoff' : `incluyendo ${first.full_name}`,
+      emphasis: 'warning',
+      filter_param: 'intake',
+      href: pendingIntakes.length === 1 ? `/intake/${first.athlete_id}` : null,
+    });
+  }
   if (sessionsToday > 0) {
     lines.push({
       id: 'sessions',
@@ -103,7 +120,7 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
     lines.push({
       id: 'polarization',
       icon: 'bar-chart-3',
-      primary: `Polarization cohort 7d: ${polarization.low}/${polarization.mid}/${polarization.high}`,
+      primary: `Polarización atletas 7d: ${polarization.low}/${polarization.mid}/${polarization.high}`,
       secondary: drift > 6 ? `target ${target} · pol drift +${Math.round(drift)}` : `target ${target}`,
       emphasis: drift > 6 ? 'warning' : 'normal',
       filter_param: 'polarization',

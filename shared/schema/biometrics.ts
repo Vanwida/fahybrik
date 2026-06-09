@@ -5,7 +5,7 @@ import {
   deviceType,
   idSchema,
   isoDateTime,
-} from './_primitives.js';
+} from './_primitives';
 
 export const biometricStreamSchema = z.object({
   id: idSchema,

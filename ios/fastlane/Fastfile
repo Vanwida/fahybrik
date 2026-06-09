@@ -1,0 +1,127 @@
+# Fastfile — FAHYBRIK iOS
+#
+# Setup (Alex, one-time):
+#   1. cd ios && bundle install   (after creating Gemfile — see Gemfile in this folder)
+#   2. fastlane init               (skip — this Fastfile is hand-authored)
+#   3. Set Apple ID:
+#        export FASTLANE_USER="vanwida@aistudios.pro"   # Apple ID for App Store Connect
+#        export FASTLANE_PASSWORD=""                    # leave empty if using app-specific password via FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD
+#        export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+#        export FASTLANE_TEAM_ID="TBD"                  # 10-char team ID, replace placeholder
+#        export FASTLANE_ITC_TEAM_ID=""                 # only needed if multiple App Store Connect teams
+#   4. List lanes:  bundle exec fastlane lanes
+#
+# Storage of the above: keep these in ~/.zprofile or in 1Password CLI; never
+# commit them. CI / Vercel does not run Fastlane — these lanes are local-only.
+
+default_platform(:ios)
+
+PROJECT       = "FAHYBRIK.xcodeproj"
+SCHEME        = "FAHYBRIK"
+APP_BUNDLE_ID = "pro.aistudios.vanwida.fahybrik"
+APP_NAME      = "FAHYBRIK"
+
+platform :ios do
+  before_all do
+    ensure_xcode_version(version: "26.0", strict: false) rescue nil
+  end
+
+  # ---------------------------------------------------------------------------
+  # beta — Build a Release archive and upload to TestFlight (internal testing).
+  # ---------------------------------------------------------------------------
+  desc "Build + upload to TestFlight (internal). Requires signing certs configured."
+  lane :beta do
+    # Bumps build number = (latest TestFlight build) + 1, leaves marketing version alone.
+    increment_build_number(
+      xcodeproj: PROJECT,
+      build_number: latest_testflight_build_number(app_identifier: APP_BUNDLE_ID) + 1
+    )
+
+    # Regenerate xcodeproj from project.yml so any settings changes are picked up.
+    sh("cd .. && xcodegen generate")
+
+    build_app(
+      project: PROJECT,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true,
+      include_bitcode: false,
+      include_symbols: true,
+      output_directory: "fastlane/build",
+      output_name: "FAHYBRIK.ipa"
+    )
+
+    upload_to_testflight(
+      app_identifier: APP_BUNDLE_ID,
+      skip_waiting_for_build_processing: true,
+      changelog: File.exist?("metadata/release-notes.txt") ? File.read("metadata/release-notes.txt") : "Internal TestFlight build.",
+      distribute_external: false,    # internal-only until Apple external review is signed off
+      notify_external_testers: false
+    )
+  end
+
+  # ---------------------------------------------------------------------------
+  # screenshots — Capture App Store screenshots from the simulator matrix.
+  # See /docs/app-store/screenshots-plan.md for the screen list and demo state.
+  # ---------------------------------------------------------------------------
+  desc "Capture App Store screenshots across iPhone 6.7\", 6.1\", 5.5\""
+  lane :screenshots do
+    # Regenerate xcodeproj first so --reviewer-demo wiring is picked up.
+    sh("cd .. && xcodegen generate")
+
+    capture_screenshots(
+      project: PROJECT,
+      scheme: SCHEME,
+      devices: [
+        "iPhone 17 Pro Max",   # 6.7" — primary slot
+        "iPhone 17 Pro",       # 6.1" — secondary
+        "iPhone 8 Plus"        # 5.5" — legacy
+      ],
+      languages: ["es-ES", "en-US"],
+      output_directory: "fastlane/screenshots",
+      clear_previous_screenshots: true,
+      override_status_bar: true,
+      launch_arguments: ["--reviewer-demo"]
+    )
+
+    # When ready to push to App Store Connect, uncomment:
+    # upload_to_app_store(
+    #   app_identifier: APP_BUNDLE_ID,
+    #   skip_binary_upload: true,
+    #   skip_metadata: true,
+    #   skip_screenshots: false,
+    #   force: true
+    # )
+  end
+
+  # ---------------------------------------------------------------------------
+  # metadata — Push metadata-es.md / metadata-en.md to App Store Connect.
+  # Source of truth for the strings: /docs/app-store/metadata-{es,en}.md.
+  # Fastlane consumes the deliver/ folder layout; for now this lane is a stub.
+  # ---------------------------------------------------------------------------
+  desc "Sync App Store metadata (Spanish + English)"
+  lane :metadata do
+    UI.message("Source: /docs/app-store/metadata-es.md and metadata-en.md")
+    UI.message("TODO: copy metadata into ios/fastlane/metadata/{es-ES,en-US}/ before running upload_to_app_store.")
+    # upload_to_app_store(
+    #   app_identifier: APP_BUNDLE_ID,
+    #   skip_binary_upload: true,
+    #   skip_screenshots: true,
+    #   skip_metadata: false,
+    #   force: true
+    # )
+  end
+
+  # ---------------------------------------------------------------------------
+  # lanes — Self-documenting lane list (built-in `bundle exec fastlane lanes`
+  # already shows this; included for `--help` shorthand).
+  # ---------------------------------------------------------------------------
+  desc "List available lanes"
+  lane :help do
+    UI.message("Lanes:")
+    UI.message("  bundle exec fastlane beta         # build + upload to TestFlight")
+    UI.message("  bundle exec fastlane screenshots  # capture screenshots across device matrix")
+    UI.message("  bundle exec fastlane metadata     # push App Store metadata (Spanish + English)")
+  end
+end

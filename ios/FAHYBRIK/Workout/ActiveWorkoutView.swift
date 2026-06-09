@@ -11,15 +11,51 @@ struct ActiveWorkoutView: View {
 
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
+    @State private var showPM5Sheet: Bool = false
+    @State private var showSegmentVideo: Bool = false
+    @State private var pm5 = PM5ConnectionStore.shared
+    // Optional, permission-guarded live sources for non-erg work: phone GPS for
+    // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
+    // segment needs them and never block the workout.
+    @State private var runGPS = RunLocationProvider()
+    @State private var liveHR = LiveHeartRateProvider()
+
+    private var isErgSegment: Bool {
+        session.currentSegment?.kind == .rowOrSki
+    }
+    private var isRunSegment: Bool {
+        session.currentSegment?.kind == .running
+    }
+    private var gpsActive: Bool {
+        runGPS.status == .active || runGPS.status == .authorized
+    }
 
     var body: some View {
         ZStack {
-            Theme.Color.background.ignoresSafeArea()
+            Theme.Color.background
+                .ignoresSafeArea()
+                .instrumentCanvas()
             VStack(spacing: 8) {
                 topStrip
-                lapTimerHero
-                metricGrid
+                ConnectionStrip(
+                    session: session,
+                    pm5: pm5,
+                    gpsActive: gpsActive,
+                    segmentIsErg: isErgSegment,
+                    segmentIsRun: isRunSegment,
+                    onTapPM5: { showPM5Sheet = true }
+                )
+                if session.plan.segments.count > 1 {
+                    BlockIntervalStrip(
+                        segments: session.plan.segments,
+                        currentIndex: session.currentSegmentIndex
+                    )
+                }
+                modalityHUD
                 Spacer(minLength: 0)
+                if isErgSegment && !pm5.isConnected {
+                    connectPM5CTA
+                }
                 nextSegmentChip
                 lapButton
             }
@@ -31,11 +67,115 @@ struct ActiveWorkoutView: View {
                 pauseModal
             }
         }
-        .onAppear { session.start() }
-        .onDisappear { session.stop() }
-        .onChange(of: session.isFinished) { _, finished in
-            if finished { onFinish() }
+        .onAppear {
+            session.start()
+            wireLiveSources()
+            attemptPM5IfNeeded()
+            updateRunGPS()
+            liveHR.start(from: session.startedAt)
         }
+        .onDisappear {
+            session.stop()
+            runGPS.stop()
+            liveHR.stop()
+        }
+        .onChange(of: session.isFinished) { _, finished in
+            if finished {
+                runGPS.stop()
+                liveHR.stop()
+                onFinish()
+            }
+        }
+        .onChange(of: session.currentSegmentIndex) { _, _ in
+            attemptPM5IfNeeded()
+            updateRunGPS()
+        }
+        .onChange(of: pm5.live.heartRateBpm) { _, bpm in
+            // HRM strap can be paired through the PM5; route into session as a
+            // fallback HR source (HealthKit/watch wins if it's already streaming).
+            if let bpm { session.injectLiveHR(bpm, source: .pm5) }
+        }
+        .onChange(of: pm5.live.lastUpdate) { _, _ in
+            // Each PM5 sample updates `lastUpdate`; feed the erg stream into the
+            // session's per-segment aggregation (avg pace/power/SPM, distance,
+            // calories) so the execution record is built from real samples.
+            guard pm5.isConnected else { return }
+            session.sampleErg(
+                paceSecPer500m: pm5.live.paceSecondsPer500m,
+                powerWatts: pm5.live.powerWatts,
+                strokeRate: pm5.live.strokeRate,
+                distanceMeters: pm5.live.distanceMeters,
+                caloriesKcal: pm5.live.caloriesKcal
+            )
+        }
+        .sheet(isPresented: $showPM5Sheet) {
+            PM5LiveStreamView(store: pm5)
+        }
+        .sheet(isPresented: $showSegmentVideo) {
+            if let url = session.currentSegment?.videoUrl {
+                YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
+            }
+        }
+    }
+
+    private var segmentHasVideo: Bool {
+        session.currentSegment?.videoUrl != nil
+            && YouTubeLinkParser.videoId(from: session.currentSegment!.videoUrl!) != nil
+    }
+
+    private func attemptPM5IfNeeded() {
+        guard isErgSegment, !pm5.isConnected else { return }
+        if pm5.hasRememberedDevice {
+            pm5.reconnectIfPossible()
+        }
+    }
+
+    // Hook the optional providers' callbacks into the session. Done once on
+    // appear; the closures capture `session`, which is stable for the screen.
+    private func wireLiveSources() {
+        runGPS.onDistanceDelta = { meters in
+            session.sampleRunGPS(deltaMeters: meters)
+        }
+        liveHR.onSample = { bpm in
+            session.injectLiveHR(bpm, source: .healthkit)
+        }
+    }
+
+    // Start phone GPS only on run segments (and only if not denied); stop it
+    // otherwise so we don't hold the location indicator during erg/strength work.
+    private func updateRunGPS() {
+        if isRunSegment {
+            runGPS.start()
+        } else {
+            runGPS.stop()
+        }
+    }
+
+    private var connectPM5CTA: some View {
+        Button(action: { showPM5Sheet = true }) {
+            HStack(spacing: Theme.Spacing.s) {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("CONECTAR PM5")
+                    .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
+                    .tracking(1.2)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 10)
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.accent.opacity(0.6), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .foregroundStyle(Theme.Color.accent)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .padding(.bottom, 4)
     }
 
     private var topStrip: some View {
@@ -48,8 +188,10 @@ struct ActiveWorkoutView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(Theme.Color.muted)
                     .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(session.isPaused ? "Reanudar entreno" : "Pausar entreno")
             Spacer()
             MonoText(
                 text: (session.currentSegment?.title ?? "—").uppercased(),
@@ -57,7 +199,16 @@ struct ActiveWorkoutView: View {
                 color: Theme.Color.muted
             )
             .lineLimit(1)
-            Spacer()
+            if segmentHasVideo {
+                Button(action: { Haptics.light(); showSegmentVideo = true }) {
+                    Image(systemName: "play.rectangle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.Color.accent)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ver vídeo técnica")
+            }
             MonoText(
                 text: "\(session.currentSegmentIndex + 1)/\(session.plan.segments.count)",
                 size: 11,
@@ -67,112 +218,42 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal, 4)
     }
 
-    private var lapTimerHero: some View {
-        VStack(spacing: 2) {
-            LabelText(text: "Lap", size: 9)
-            HeroNumber(text: WorkoutSession.formatElapsed(session.lapElapsedSeconds), size: 88)
-        }
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
-    }
-
-    private var metricGrid: some View {
-        let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
-        return LazyVGrid(columns: cols, spacing: 4) {
-            ExpertCell(
-                label: "HR",
-                value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                unit: "bpm",
-                color: liveZoneColor
-            )
-            ExpertCell(
-                label: "Zone",
-                value: session.liveZone?.label ?? "—",
-                unit: "",
-                color: liveZoneColor
-            )
-            ExpertCell(label: "Reps", value: repsString, unit: "")
-            ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
-            ExpertCell(label: "Tgt HR", value: targetZoneLabel, unit: "")
-            ExpertCell(label: secondaryLabel, value: secondaryValue, unit: secondaryUnit)
-        }
-    }
-
-    private var liveZoneColor: Color {
-        session.liveZone?.color ?? Theme.Color.foreground
-    }
-
-    private var repsString: String {
-        let seg = session.currentSegment
-        if seg?.kind == .reps {
-            let target = seg?.targetReps ?? 0
-            return "\(session.repsCurrentSegment)/\(target)"
-        }
-        if seg?.kind == .strength {
-            return "\(session.repsCurrentSegment)"
-        }
-        return "—"
-    }
-
-    private var targetZoneLabel: String {
-        session.currentSegment?.targetZone?.label ?? "—"
-    }
-
-    private var secondaryLabel: String {
-        guard let seg = session.currentSegment else { return "Pace" }
-        switch seg.kind {
-        case .running: return "Pace Tgt"
-        case .rowOrSki: return "Pwr Tgt"
-        case .sled: return "Load"
-        case .reps: return "Cad"
-        case .strength: return "Load"
-        }
-    }
-
-    private var secondaryValue: String {
-        guard let seg = session.currentSegment else { return "—" }
-        switch seg.kind {
-        case .running:
-            if let p = seg.targetPaceSecondsPerKm { return TimeMinSecRow.format(p) }
-            return "—"
+    // Modality-aware HUD: erg → split/watts (Concept2), run → pace/km,
+    // strength/reps/sled → reps + load. Single source of state (session + pm5).
+    @ViewBuilder
+    private var modalityHUD: some View {
+        switch session.currentSegment?.kind {
         case .rowOrSki:
-            if let w = seg.targetPowerWatts { return "\(w)" }
-            return "—"
-        case .sled:
-            if let kg = seg.loadKg { return "\(Int(kg))" }
-            return "—"
-        case .reps:
-            return "1.2"
-        case .strength:
-            if let kg = seg.loadKg { return "\(Int(kg))" }
-            return "—"
-        }
-    }
-
-    private var secondaryUnit: String {
-        guard let seg = session.currentSegment else { return "" }
-        switch seg.kind {
-        case .running: return "/km"
-        case .rowOrSki: return "W"
-        case .sled, .strength: return "kg"
-        case .reps: return "r/s"
+            ErgLiveHUD(session: session, pm5: pm5)
+        case .running:
+            RunLiveHUD(session: session, gpsActive: gpsActive)
+        case .strength, .reps, .sled, .none:
+            StrengthLiveHUD(session: session)
         }
     }
 
     @ViewBuilder
     private var nextSegmentChip: some View {
         if let next = session.nextSegment {
-            HStack {
-                Text("NEXT · \(next.title)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.Color.muted)
+            HStack(spacing: Theme.Spacing.s) {
+                LabelText(text: "NEXT", color: Theme.Color.accent, size: 10)
+                Text(next.title)
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
-                Spacer()
+                Spacer(minLength: Theme.Spacing.s)
                 if let z = next.targetZone {
                     ZBadge(zone: z)
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 9)
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
             .padding(.bottom, 6)
         }
     }
@@ -203,7 +284,7 @@ struct ActiveWorkoutView: View {
                     }
                 }
             }
-            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.horizontal, Theme.Spacing.m)
         }
         .transition(.opacity)
         .onAppear {
@@ -247,7 +328,7 @@ private struct ExpertLapButton: View {
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
                     .fill(flashing ? Theme.Color.ok : Theme.Color.accent)
                 Text("LAP")
-                    .font(.system(size: 40, weight: .heavy, design: .default).italic())
+                    .font(.system(size: 56, weight: .heavy, design: .default).italic())
                     .tracking(4)
                     .foregroundStyle(Color.white)
             }

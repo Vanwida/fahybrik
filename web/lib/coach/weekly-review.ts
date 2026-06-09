@@ -16,7 +16,7 @@ import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { buildCohort } from './cohort';
-import type { CohortRow } from './types';
+import type { CohortRow } from '@fahybrid/shared/domain/coach/types';
 import {
   type CoachWeeklyReview,
   type CohortPlanDay,
@@ -515,7 +515,7 @@ export function computeMassAdjustments(cohort: CohortRow[]): MassAdjustmentOppor
         kind: 'z3_to_z2_refactor',
         affected_count: driftAthletes.length,
         affected_athlete_ids: driftAthletes.map((r) => r.athlete_id),
-        rationale: `Polarization cohort ${polar.low}/${polar.mid}/${polar.high} — Z3 drift +${polar.mid - TARGET_POLARIZATION.mid}%`,
+        rationale: `Polarización atletas ${polar.low}/${polar.mid}/${polar.high} — deriva Z3 +${polar.mid - TARGET_POLARIZATION.mid}%`,
         suggestion: 'Refactorizar runs Z3 a Z2 en próximo microciclo',
         cta_label: `aplicar refactor · ${driftAthletes.length} atletas`,
       });

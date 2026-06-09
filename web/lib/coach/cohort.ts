@@ -4,10 +4,12 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { getCurrentBlock } from '@/lib/atr/service';
+import { getCurrentBlock, recommendAthleteTransition } from '@/lib/atr/service';
 import { getDailyTssSeries, summarizeLoad } from '@/lib/training-load';
 import { buildDemoCohort } from './demo-data';
-import type { AlertReason, AtrBlockType, CohortRow } from './types';
+import { getAthleteProgrammingStatus } from './programming-status';
+import { getLatestReadiness } from './athlete-daily-readiness';
+import type { AlertReason, AtrBlockType, CohortRow } from '@fahybrid/shared/domain/coach/types';
 
 const DEMO_THRESHOLD = 3;
 
@@ -132,12 +134,10 @@ async function loadRealCohort(
       group by we.athlete_id
     ),
     last_checkin as (
-      select n.payload_json ->> 'athlete_id' as athlete_id_text,
-             max(n.created_at) as ts
-      from notifications n
-      where n.type = 'system'
-        and n.payload_json ->> 'kind' = 'daily_checkin'
-      group by 1
+      select dc.athlete_id,
+             max(dc.recorded_at) as ts
+      from daily_checkins dc
+      group by dc.athlete_id
     ),
     a_events as (
       select distinct on (ate.athlete_id)
@@ -187,7 +187,7 @@ async function loadRealCohort(
     left join today_sessions ts on ts.athlete_id = a.id
     left join missed_7d   m7 on m7.athlete_id = a.id
     left join rpe_yest    ry on ry.athlete_id = a.id
-    left join last_checkin lc on lc.athlete_id_text = a.id::text
+    left join last_checkin lc on lc.athlete_id = a.id
     left join a_events    ae on ae.athlete_id = a.id
     left join unread_msgs um on um.athlete_id = a.id
     where a.coach_id = ${coach_id as number}
@@ -267,6 +267,31 @@ async function rollupAthlete(
     a_event_within_30d: days_to_a_event != null && days_to_a_event <= 30,
   };
 
+  const [programming, readiness, transition] = await Promise.all([
+    getAthleteProgrammingStatus({ athlete_id: athlete_id_num, on_date: now, client }),
+    getLatestReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
+    recommendAthleteTransition({ athlete_id: athlete_id_num, on_date: now, client }),
+  ]);
+
+  if (transition?.recommendation === 'advance') {
+    flags.transition_ready = true;
+    alerts.unshift({
+      kind: 'transition_ready',
+      severity: 'warning',
+      label: 'Listo para TRANS',
+      detail: transition.reasons.join(' · ') || 'Revisar deep-dive',
+    });
+  }
+
+  if (programming.status !== 'ok') {
+    alerts.unshift({
+      kind: 'block_phase',
+      severity: programming.status === 'month_2_pending' ? 'critical' : 'warning',
+      label: programming.label,
+      detail: programming.detail ?? '',
+    });
+  }
+
   return {
     athlete_id: a.athlete_id,
     full_name: a.full_name,
@@ -298,6 +323,9 @@ async function rollupAthlete(
     alerts,
     primary_alert: alerts[0] ?? null,
     flags,
+    programming_status: programming.status,
+    programming_label: programming.status !== 'ok' ? programming.label : null,
+    readiness_score: readiness?.score ?? null,
   };
 }
 

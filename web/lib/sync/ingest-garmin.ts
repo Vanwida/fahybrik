@@ -18,6 +18,7 @@
 // activityId, falling back to startTimeInSeconds when missing.
 
 import type { Sql } from '@/lib/db';
+import { deriveLapIntensity, garminActivityToModality } from '@/lib/garmin/lap-mapping';
 
 export type GarminSummary = {
   userId?: string;
@@ -56,6 +57,16 @@ export type GarminLap = {
   timerDurationInSeconds?: number;
   averageHeartRateInBeatsPerMinute?: number;
   maxHeartRateInBeatsPerMinute?: number;
+  // Erg/cycling intensity signals Garmin emits per lap (when the device
+  // supports them). Used to populate segment_executions pace/power/stroke-rate
+  // (migration 0045) per-modality.
+  averagePowerInWatts?: number;
+  averageBikeCadenceInRoundsPerMinute?: number;
+  averageRunCadenceInStepsPerMinute?: number;
+  averageStrokeRateInStrokesPerMinute?: number;
+  // activityType may also appear per-lap on multisport summaries; otherwise the
+  // parent summary's activityType is used.
+  activityType?: string;
 };
 
 export type GarminPayload = {
@@ -294,16 +305,33 @@ async function ingestGarminActivity(args: {
         await sql`
           delete from segment_executions where execution_id = ${exec_id}::bigint
         `;
+        // Activity-level modality (per-lap activityType overrides on multisport).
+        const activityModality = garminActivityToModality(summary.activityType);
         let pos = 0;
         for (const lap of summary.laps) {
           const lapStart = secondsToIso(lap.startTimeInSeconds) ?? startedAt;
           const lapEnd = lap.timerDurationInSeconds
             ? new Date(((lap.startTimeInSeconds ?? 0) + lap.timerDurationInSeconds) * 1000).toISOString()
             : lapStart;
+          const modality = garminActivityToModality(lap.activityType) ?? activityModality;
+          const strokeRate =
+            lap.averageStrokeRateInStrokesPerMinute ??
+            lap.averageRunCadenceInStepsPerMinute ??
+            lap.averageBikeCadenceInRoundsPerMinute;
+          const intensity = deriveLapIntensity({
+            modality,
+            distance_meters: lap.totalDistanceInMeters,
+            duration_seconds: lap.timerDurationInSeconds,
+            power_w: lap.averagePowerInWatts,
+            stroke_rate_spm: strokeRate,
+          });
           await sql`
             insert into segment_executions (
               execution_id, position, started_at, ended_at,
-              distance_meters, avg_hr, max_hr, raw_lap_data_json
+              distance_meters, avg_hr, max_hr,
+              modality, avg_pace_s_per_km, avg_pace_s_per_500m,
+              avg_power_w, stroke_rate_spm, source,
+              raw_lap_data_json
             ) values (
               ${exec_id}::bigint,
               ${pos},
@@ -312,6 +340,12 @@ async function ingestGarminActivity(args: {
               ${lap.totalDistanceInMeters ?? null},
               ${lap.averageHeartRateInBeatsPerMinute ?? null},
               ${lap.maxHeartRateInBeatsPerMinute ?? null},
+              ${modality ?? null},
+              ${intensity.avg_pace_s_per_km},
+              ${intensity.avg_pace_s_per_500m},
+              ${intensity.avg_power_w},
+              ${intensity.stroke_rate_spm},
+              'garmin',
               ${JSON.stringify(lap)}::jsonb
             )
           `;

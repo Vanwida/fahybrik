@@ -23,6 +23,13 @@ export interface CoachRow {
 interface AppleIdentity {
   apple_user_id: string;
   email: string | null;
+  /**
+   * The `email_verified` claim from the verified Apple identity token. We only
+   * link a fresh apple_user_id onto a pre-existing account matched by email
+   * when Apple asserts the email is verified — otherwise an unverified email
+   * collision could be used to take over an existing account.
+   */
+  email_verified: boolean;
 }
 
 interface AppleProfileHints {
@@ -86,7 +93,11 @@ export async function findOrCreateAthleteForApple(
 
     let userRow = byApple[0];
 
-    if (!userRow && identity.email) {
+    // Only attempt to link a new apple_user_id onto an existing account by
+    // matching email when Apple asserts the email is verified. An unverified
+    // email match is not trustworthy and would allow account takeover, so we
+    // skip the link and fall through to creating a fresh account below.
+    if (!userRow && identity.email && identity.email_verified) {
       const byEmail = await tx<{
         id: string;
         email: string;
@@ -172,6 +183,14 @@ export async function findOrCreateAthleteForApple(
       throw new Error('athlete_upsert_failed');
     }
 
+    // Multi-role RBAC (0041): ensure the athlete role is recorded in
+    // user_roles so the table stays authoritative for new accounts. Idempotent.
+    await tx`
+      insert into user_roles (user_id, role)
+      values (${userId}, 'athlete')
+      on conflict (user_id, role) do nothing
+    `;
+
     return {
       user: rowToUser(userRow),
       athlete: rowToAthlete(athleteRow),
@@ -242,6 +261,15 @@ export async function findOrCreateCoachByEmail(email: string): Promise<CoachAuth
     if (!coachRow) {
       throw new Error('coach_upsert_failed');
     }
+
+    // Multi-role RBAC (0041): record the coach role in user_roles so the table
+    // stays authoritative for new accounts. Idempotent — does NOT remove any
+    // other role this login may already hold (admin, athlete).
+    await tx`
+      insert into user_roles (user_id, role)
+      values (${userId}, 'coach')
+      on conflict (user_id, role) do nothing
+    `;
 
     return {
       user: rowToUser(userRow),

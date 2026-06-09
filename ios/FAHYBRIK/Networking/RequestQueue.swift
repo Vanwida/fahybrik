@@ -19,12 +19,20 @@ actor RequestQueue {
     private var loaded = false
 
     init(filename: String = "request-queue.json") {
-        let dir = try! FileManager.default.url(
+        // Application Support is the canonical home; if the FS denies it
+        // (sandbox edge cases, full disk), degrade to the temp dir so a queue
+        // hiccup can never crash app launch.
+        let dir: URL
+        if let support = try? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
-        )
+        ) {
+            dir = support
+        } else {
+            dir = FileManager.default.temporaryDirectory
+        }
         self.fileURL = dir.appendingPathComponent(filename)
     }
 

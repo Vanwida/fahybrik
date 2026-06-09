@@ -5,8 +5,8 @@ import {
   computeAcr,
   computeLoadSeries,
   summarizeLoad,
-} from '@/lib/training-load/banister';
-import { computeTss } from '@/lib/training-load/tss';
+} from '@fahybrid/shared/domain/training-load/banister';
+import { computeTss } from '@fahybrid/shared/domain/training-load/tss';
 
 describe('computeTss', () => {
   test('one hour at threshold (RPE 9) ≈ 100 TSS', () => {

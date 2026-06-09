@@ -18,6 +18,7 @@ export interface CatalogExercise {
   equipment: string[];
   default_metrics_json: Record<string, boolean>;
   hyrox_station_position: number | null;
+  video_url: string | null;
 }
 
 export interface BuilderSegment {
@@ -49,6 +50,7 @@ export interface TemplateBuilderInitialState {
   warmup: string | null;
   cooldown: string | null;
   coach_notes: string | null;
+  demo_video_url: string | null;
   assignment_count: number;
   updated_at: string;
   segments: Array<{

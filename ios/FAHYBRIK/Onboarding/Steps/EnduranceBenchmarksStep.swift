@@ -8,7 +8,7 @@ struct EnduranceBenchmarksStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 5,
+            stepIndex: 12,
             title: "Resistencia",
             subtitle: "Mejores marcas",
             hint: "Cualquier campo vacío → batería de tests primera semana.",

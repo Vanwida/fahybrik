@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID · La arquitectura, en claro</title>
+<style>
+  :root{
+    --bg:#F7F4EF; --card:#FFFFFF; --ink:#1A1714; --muted:#6B6258;
+    --line:#E7E0D6; --accent:#E5562A; --accent-soft:#FBEAE2;
+    --ok:#2F8F5B; --okbg:#E6F3EC; --warn:#B5791B; --warnbg:#FBF0DD; --bad:#C0492F; --badbg:#FBE6E0;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+    padding:0 0 80px}
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px}
+  header.hero{padding:64px 0 40px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+  h1{font-size:clamp(34px,6vw,52px);line-height:1.05;margin:14px 0 10px;font-weight:800;font-style:italic;letter-spacing:-.02em}
+  .lede{font-size:clamp(18px,2.4vw,22px);color:var(--muted);max-width:680px;margin:0}
+  section{margin:46px 0}
+  h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 18px;
+     display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:26px;height:2px;background:var(--accent);display:inline-block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin:12px 0}
+  .big{font-size:clamp(20px,2.6vw,26px);font-weight:700;line-height:1.3;font-style:italic}
+  .grid{display:grid;gap:14px}
+  @media(min-width:680px){.grid.cols-3{grid-template-columns:1fr 1fr 1fr}.grid.cols-2{grid-template-columns:1fr 1fr}}
+  .role h3{margin:0 0 4px;font-size:19px}
+  .role .who{color:var(--accent);font-weight:700;font-size:14px;margin-bottom:10px}
+  .role ul{margin:0;padding-left:18px;color:var(--muted);font-size:15px}
+  .role ul li{margin:4px 0}
+  .flow{display:flex;flex-direction:column;gap:0}
+  .step{display:flex;gap:16px;align-items:flex-start;padding:14px 0;border-bottom:1px dashed var(--line)}
+  .step:last-child{border-bottom:0}
+  .num{flex:0 0 34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+  .step .t{font-weight:600}
+  .step .s{color:var(--muted);font-size:15px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em}
+  .keep{background:var(--okbg);color:var(--ok)} .redo{background:var(--warnbg);color:var(--warn)} .trash{background:var(--badbg);color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  td{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  td:first-child{font-weight:600}
+  .change{display:flex;gap:14px;align-items:flex-start}
+  .change .n{flex:0 0 auto;font-weight:800;color:var(--accent);font-size:22px;line-height:1.2;font-style:italic}
+  .change h3{margin:0 0 4px;font-size:18px}
+  .change p{margin:0;color:var(--muted);font-size:15px}
+  .phase{display:flex;gap:14px;align-items:center;padding:10px 0}
+  .phase .n{flex:0 0 30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .note{background:var(--accent-soft);border:1px solid #F3CDBE;border-radius:var(--radius);padding:16px 20px;color:#7a3a26;font-size:15px}
+  .foot{margin-top:50px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;font-style:italic}
+  strong{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">FAHYBRID · cómo lo montamos bien</div>
+    <h1>La idea, en claro.</h1>
+    <p class="lede">Una plataforma de coaching, hecha estándar y simple. Sin reinventar la rueda, sin atarse a una metodología, y fácil para Pablo y Gerard (que no son técnicos).</p>
+  </header>
+
+  <section>
+    <h2>En una frase</h2>
+    <div class="card">
+      <p class="big">Nosotros creamos los entrenos. La IA solo <span style="color:var(--accent)">elige y adapta</span> el que le toca a cada atleta — nunca inventa. El atleta lo recibe semana a semana. El coach casi solo <span style="color:var(--accent)">aprueba</span>.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cómo funciona</h2>
+    <div class="card flow">
+      <div class="step"><div class="num">1</div><div><div class="t">El atleta se registra y paga</div><div class="s">Hace su onboarding: marcas, PRs, objetivos, días que entrena.</div></div></div>
+      <div class="step"><div class="num">2</div><div><div class="t">La IA propone un microciclo</div><div class="s">Lo <strong>elige de nuestra biblioteca</strong> según sus datos. No crea nada de cero.</div></div></div>
+      <div class="step"><div class="num">3</div><div><div class="t">El coach aprueba</div><div class="s">Pablo revisa y acepta (o cambia) en los días siguientes. Entonces se asigna.</div></div></div>
+      <div class="step"><div class="num">4</div><div><div class="t">El atleta recibe su plan, semana a semana</div><div class="s">El microciclo avanza solo. El coach no toca nada mientras va bien.</div></div></div>
+      <div class="step"><div class="num">5</div><div><div class="t">Cada mes: el siguiente microciclo</div><div class="s">Al acabar, la IA propone el siguiente → el coach aprueba. Trabajo del coach ≈ mensual.</div></div></div>
+      <div class="step"><div class="num">!</div><div><div class="t">Si algo va mal o el atleta pide cambio</div><div class="s">La IA sugiere una adaptación <strong>sacada de la biblioteca</strong> → el coach la aprueba. Solo en estos casos entra antes.</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Quién es quién — 3 perfiles</h2>
+    <div class="grid cols-3">
+      <div class="card role"><h3>Admin</h3><div class="who">Tú (hoy)</div><ul><li>Lleva el negocio</li><li>Aprueba/rechaza coaches</li><li>Ve todo el dinero y métricas</li></ul></div>
+      <div class="card role"><h3>Coach</h3><div class="who">Pablo · Gerard</div><ul><li>Aprueba los microciclos</li><li>Aprueba los cambios de la IA</li><li>Gestiona sus atletas</li></ul></div>
+      <div class="card role"><h3>Atleta</h3><div class="who">Los clientes</div><ul><li>Recibe su plan en la app</li><li>Registra y chatea</li><li>App de iPhone</li></ul></div>
+    </div>
+    <div class="note" style="margin-top:14px">Un mismo email puede tener varios perfiles — tú serás admin, coach y atleta con un solo login. Un cliente normal solo es atleta.</div>
+  </section>
+
+  <section>
+    <h2>Lo que cambio (las 3 cosas gordas)</h2>
+    <div class="card grid" style="gap:20px">
+      <div class="change"><div class="n">1</div><div><h3>El login, con Clerk (estándar)</h3><p>Lo que tenemos hecho a mano es una chapuza. Clerk es una plataforma probada: sirve para web y para el iPhone, gestiona los 3 perfiles, y deja que se apunten coaches nuevos sin líos. Menos código nuestro = menos fallos.</p></div></div>
+      <div class="change"><div class="n">2</div><div><h3>La metodología, elegible</h3><p>Hoy ATR está grabado a fuego. Pasa a ser <strong>una opción más</strong>: mañana puedes usar otras fases u otro marco sin tocar código.</p></div></div>
+      <div class="change"><div class="n">3</div><div><h3>Limpiar el desorden</h3><p>Tiramos el modelo viejo de "plantillas" que se pisa con lo nuevo. Una sola forma de hacer las cosas, coherente.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>La IA: elige, no inventa</h2>
+    <div class="card">
+      <p style="margin:0 0 8px"><strong>Nosotros</strong> construimos la biblioteca de entrenos (microciclos), con las piezas que ya tenemos: ejercicios → bloques → semanas → microciclo.</p>
+      <p style="margin:0"><strong>La IA</strong> solo hace dos cosas, y siempre dentro de esa biblioteca: <strong>(1)</strong> elegir qué microciclo le va a cada atleta, y <strong>(2)</strong> sugerir cambiar una pieza por otra si hace falta. Cero invención.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Qué conservamos, rehacemos y tiramos</h2>
+    <div class="card">
+      <table>
+        <tr><td>Stack (Next.js, Neon, Vercel, app iOS)</td><td><span class="pill keep">CONSERVAR</span></td></tr>
+        <tr><td>Ejercicios + los 97 bloques + la app del atleta</td><td><span class="pill keep">CONSERVAR</span></td></tr>
+        <tr><td>Login casero (sesiones, tokens, magic-link)</td><td><span class="pill trash">TIRAR → Clerk</span></td></tr>
+        <tr><td>ATR grabado a fuego</td><td><span class="pill redo">REHACER → elegible</span></td></tr>
+        <tr><td>Modelo viejo de "plantillas" duplicado</td><td><span class="pill trash">TIRAR</span></td></tr>
+        <tr><td>Datos de prueba / demo</td><td><span class="pill keep">YA LIMPIADO</span></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plan, por orden</h2>
+    <div class="card">
+      <div class="phase"><div class="n">1</div><div><strong>Login con Clerk</strong> — la base. Identidad y perfiles bien hechos.</div></div>
+      <div class="phase"><div class="n">2</div><div><strong>Metodología elegible</strong> — ATR pasa a ser un preset.</div></div>
+      <div class="phase"><div class="n">3</div><div><strong>Contenido limpio</strong> — una sola jerarquía; fuera lo viejo.</div></div>
+      <div class="phase"><div class="n">4</div><div><strong>IA elige + adapta</strong> — emparejar atleta ↔ microciclo + sugerir cambios.</div></div>
+      <div class="phase"><div class="n">5</div><div><strong>Pantalla del coach</strong> — un inbox de "aprobar / rechazar". Simple.</div></div>
+      <div class="phase"><div class="n">6</div><div><strong>Construir la biblioteca</strong> de microciclos (contenido, lo montamos nosotros).</div></div>
+    </div>
+  </section>
+
+  <div class="foot">Hecho para durar: estándar, simple, y abierto a que el producto crezca o pivote. Nada grabado a fuego.</div>
+
+</div>
+</body>
+</html>

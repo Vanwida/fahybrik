@@ -13,13 +13,14 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { getCurrentBlock } from '@/lib/atr/service';
+import { getCurrentBlock, recommendAthleteTransition } from '@/lib/atr/service';
 import { getDailyTssSeries, summarizeLoad, computeAcr } from '@/lib/training-load';
 import {
   getDemoDeepDive,
   getDemoFallback,
   isDemoAthleteId,
 } from './deep-dive-demo';
+import { getLatestReadiness } from './athlete-daily-readiness';
 import type {
   AEvent,
   AthleteDeepDive,
@@ -44,7 +45,7 @@ import type {
   TrendsBlock,
   ZoneTimePct,
 } from './deep-dive-types';
-import type { AlertReason, AtrBlockType } from './types';
+import type { AlertReason, AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
@@ -130,6 +131,11 @@ export async function buildAthleteDeepDive(
   const macrocycle = buildMacrocycleRibbon(block);
   const compliance = await loadCompliance(client, numericId, now);
   const readiness = await loadReadiness(client, numericId, now);
+  const transitionRec = await recommendAthleteTransition({
+    athlete_id: numericId,
+    on_date: now,
+    client,
+  });
   const modality = await loadModality(client, numericId, now);
   const trends = await loadTrends(client, numericId, now, tssSeries.slice(-TRENDS_DAYS));
   const performance = await loadPerformance(client, numericId, now);
@@ -171,6 +177,14 @@ export async function buildAthleteDeepDive(
     notes,
     alerts,
     banner,
+    transition_suggest: transitionRec
+      ? {
+          recommendation: transitionRec.recommendation,
+          next_block_type: transitionRec.next_block_type,
+          confidence: transitionRec.confidence,
+          reasons: transitionRec.reasons,
+        }
+      : null,
   };
 }
 
@@ -438,8 +452,11 @@ async function loadReadiness(
   const tsb = (await getCurrentLoadSummary(client, athlete_id, now))?.tsb ?? 0;
   const sessions7 = await loadCompletedSessionCount(client, athlete_id, now, 7);
   const race_readiness = estimateRaceReadiness(tsb, compliance7, hrv_delta_ms, sessions7);
+  const daily = await getLatestReadiness({ athlete_id, on_date: now, client });
 
   return {
+    daily_readiness_score: daily?.score ?? null,
+    daily_readiness_delta_7d: daily?.delta_7d ?? null,
     race_readiness,
     race_readiness_trend: hrv_delta_ms != null && hrv_delta_ms < -5 ? 'down' : 'flat',
     hrv_ms,

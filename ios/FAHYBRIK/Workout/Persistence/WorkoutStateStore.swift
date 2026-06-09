@@ -23,12 +23,20 @@ actor WorkoutStateStore {
     private let url: URL
 
     init(filename: String = "workout-state.json") {
-        let dir = try! FileManager.default.url(
+        // Application Support is the canonical home; if the FS denies it
+        // (sandbox edge cases, full disk), degrade to the temp dir so a
+        // persistence hiccup can never crash an active workout.
+        let dir: URL
+        if let support = try? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
-        )
+        ) {
+            dir = support
+        } else {
+            dir = FileManager.default.temporaryDirectory
+        }
         self.url = dir.appendingPathComponent(filename)
     }
 

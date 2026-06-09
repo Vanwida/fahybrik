@@ -190,6 +190,58 @@ struct TextRow: View {
     }
 }
 
+// Labeled integer slider with a live mono readout. Used for 1-10 subjective
+// scales (sleep, stress, commitment) and the 0-10 locus-of-control scale.
+struct SliderRow: View {
+    let label: String
+    @Binding var value: Int
+    var range: ClosedRange<Int> = 1...10
+    var minLabel: String? = nil
+    var maxLabel: String? = nil
+
+    private var binding: Binding<Double> {
+        Binding(get: { Double(value) }, set: { value = Int($0.rounded()) })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack {
+                Text(label)
+                    .font(Theme.Typography.body)
+                    .foregroundStyle(Theme.Color.foreground)
+                Spacer()
+                Text("\(value)")
+                    .font(Theme.Typography.readoutS)
+                    .foregroundStyle(Theme.Color.accent)
+            }
+            Slider(
+                value: binding,
+                in: Double(range.lowerBound)...Double(range.upperBound),
+                step: 1
+            )
+            .tint(Theme.Color.accent)
+            if minLabel != nil || maxLabel != nil {
+                HStack {
+                    Text(minLabel ?? "")
+                    Spacer()
+                    Text(maxLabel ?? "")
+                }
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
+            }
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, Theme.Spacing.l)
+        .frame(maxWidth: .infinity)
+        .overlay(
+            Rectangle()
+                .fill(Theme.Color.muted.opacity(0.18))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
+}
+
 struct DateRow: View {
     let label: String
     @Binding var value: Date?

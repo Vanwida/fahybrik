@@ -61,7 +61,7 @@ struct StepShell<Content: View>: View {
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.bottom, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.m)
+                .padding(.top, Theme.Spacing.l)
             }
         }
     }

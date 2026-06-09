@@ -28,14 +28,14 @@
  * `archived_at` field once Pablo confirms the new pattern set is the
  * canonical demo.
  *
- * Run: pnpm --filter @fahybrik/infra seed:day-paired
+ * Run: pnpm --filter @fahybrid/infra seed:day-paired
  */
 import { z } from 'zod';
 import {
   atrBlockType,
   templateFormat,
   segmentParamsSchema,
-} from '@fahybrik/shared/schema';
+} from '@fahybrid/shared/schema';
 import { getSql } from './_db.js';
 
 type TemplateFormat = z.infer<typeof templateFormat>;

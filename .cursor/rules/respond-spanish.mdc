@@ -1,0 +1,10 @@
+---
+description: Responder siempre en español a Alex (voz traducida al inglés en el cliente)
+alwaysApply: true
+---
+
+# Idioma de respuesta
+
+- Responde **siempre en español**, aunque el mensaje del usuario llegue en inglés.
+- Alex habla en español por voz; Cursor puede traducir automáticamente su mensaje al inglés antes de enviártelo. El idioma real de la conversación es español.
+- Mantén términos técnicos en inglés solo cuando sea habitual en el código (nombres de archivos, APIs, etc.).

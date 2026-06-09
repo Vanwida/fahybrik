@@ -144,6 +144,7 @@ function emptyMeta(): MetadataState {
     warmup: null,
     cooldown: null,
     coach_notes: null,
+    demo_video_url: null,
   };
 }
 
@@ -178,6 +179,7 @@ function buildInitialState(
       warmup: initial.warmup,
       cooldown: initial.cooldown,
       coach_notes: initial.coach_notes,
+      demo_video_url: initial.demo_video_url,
     },
     segments: initial.segments.map((s) => ({
       uid: `srv-${s.id}`,
@@ -242,6 +244,7 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLevel, setPreviewLevel] = useState<1 | 2 | 3>(2);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -268,6 +271,7 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
       warmup: state.meta.warmup,
       cooldown: state.meta.cooldown,
       coach_notes: state.meta.coach_notes,
+      demo_video_url: state.meta.demo_video_url,
       is_draft: asDraft,
       segments: state.segments.map((s, i) => ({
         exercise_id: s.exercise_id,
@@ -407,6 +411,7 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
     if (activeData?.source === 'palette' && activeData.exercise) {
       // Drop from palette → append to canvas (or insert at over position).
       const ex = activeData.exercise;
+      const baseParams = defaultParamsForExercise(ex);
       const newSeg: BuilderSegment = {
         uid: nextLocalUid(),
         serverId: null,
@@ -414,7 +419,9 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
         exercise_slug: ex.slug,
         exercise_name: ex.name,
         exercise_category: ex.category,
-        params_json: defaultParamsForExercise(ex),
+        params_json: ex.video_url
+          ? { ...baseParams, video_url: ex.video_url }
+          : baseParams,
         notes: null,
       };
       dispatch({ type: 'addSegment', segment: newSeg });
@@ -432,11 +439,28 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
   };
 
   return (
-    <div className="flex flex-1 min-h-screen">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <ExercisePalette searchInputRef={searchInputRef} />
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <div className="flex flex-1 min-h-0 flex-col lg:flex-row lg:min-h-screen">
+        <div
+          className={cn(
+            'shrink-0 border-b lg:border-b-0 lg:border-r border-[var(--hairline)]',
+            paletteOpen ? 'flex' : 'hidden lg:flex',
+          )}
+        >
+          <ExercisePalette searchInputRef={searchInputRef} />
+        </div>
 
         <main className="flex-1 min-w-0 flex flex-col bg-[var(--bg)]">
+          <div className="lg:hidden px-4 pt-2">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen((o) => !o)}
+              className="w-full h-9 rounded-md border border-[var(--outline)] text-xs uppercase tracking-[0.14em] text-[var(--muted)] hover:text-foreground"
+            >
+              {paletteOpen ? 'Ocultar ejercicios' : 'Añadir ejercicio'}
+            </button>
+          </div>
+
           <BuilderHeader
             name={state.meta.name}
             version={state.version}
@@ -459,7 +483,7 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
             </div>
           )}
 
-          <div className="flex-1 min-h-0 grid grid-cols-[1fr_320px] gap-6 px-6 py-4">
+          <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 lg:gap-6 px-3 sm:px-6 py-4">
             <Canvas
               segments={state.segments}
               expandedUid={state.expandedUid}
@@ -473,7 +497,7 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
               }}
             />
 
-            <aside className="bg-[var(--surface)] rounded-[var(--r-l)] p-4 self-start sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+            <aside className="bg-[var(--surface)] rounded-[var(--r-l)] p-4 xl:self-start xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] overflow-y-auto order-first xl:order-none">
               <MetadataPanel
                 meta={state.meta}
                 onChange={(next) => dispatch({ type: 'patchMeta', patch: next })}
@@ -482,7 +506,7 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
             </aside>
           </div>
         </main>
-      </DndContext>
+      </div>
 
       <AthletePreview
         open={previewOpen}
@@ -491,11 +515,12 @@ export function TemplateBuilder({ mode, initial }: BuilderProps) {
         format={state.meta.format}
         warmup={state.meta.warmup}
         cooldown={state.meta.cooldown}
+        demoVideoUrl={state.meta.demo_video_url}
         segments={state.segments}
         level={previewLevel}
         onLevelChange={setPreviewLevel}
       />
-    </div>
+    </DndContext>
   );
 }
 

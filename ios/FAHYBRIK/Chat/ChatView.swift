@@ -1,13 +1,28 @@
 import SwiftUI
 
-// Chat tab — direct thread between Marc Vidal (athlete) and Pablo Casals
-// (coach Fabrik). Mock seed conversation per the demo depth spec; sending
-// a message appends locally only (no backend wire). Voice notes show a
-// static waveform + duration. Castilian throughout.
+// Chat tab — direct thread between the athlete and Pablo Casals (coach Fabrik).
+// Backed by the live chat API (ChatService): messages load on appear, poll while
+// the view is visible, and sends are optimistic with an offline queue fallback.
+// Voice notes render a static waveform + duration. Castilian throughout.
 struct ChatView: View {
-    @State private var messages: [ChatMessage] = ChatMessage.seed
+    let bearer: String?
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var messages: [ChatMessage] = []
     @State private var draft: String = ""
+    @State private var isLoading: Bool = true
+    @State private var loadFailed: Bool = false
     @FocusState private var inputFocused: Bool
+
+    // The athlete's own user id, learned from the first message they send (the
+    // POST response carries senderUserId). Persisted so sender attribution is
+    // stable across launches without a backend round-trip for "who am I".
+    @State private var myUserId: String? = UserDefaults.standard.string(forKey: Self.myUserIdKey)
+    private static let myUserIdKey = "fahybrik.chat.myUserId"
+
+    // Poll cadence while the conversation is on screen.
+    private static let pollInterval: Duration = .seconds(6)
 
     var body: some View {
         ZStack {
@@ -17,14 +32,20 @@ struct ChatView: View {
                 Hairline()
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 14) {
-                            ForEach(messages) { msg in
-                                MessageRow(message: msg)
-                                    .id(msg.id)
+                        if isLoading && messages.isEmpty {
+                            loadingState
+                        } else if messages.isEmpty {
+                            emptyState
+                        } else {
+                            VStack(alignment: .leading, spacing: 14) {
+                                ForEach(messages) { msg in
+                                    MessageRow(message: msg)
+                                        .id(msg.id)
+                                }
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
                     }
                     .onChange(of: messages.count) { _, _ in
                         if let last = messages.last {
@@ -38,12 +59,186 @@ struct ChatView: View {
                 inputRow
             }
         }
+        .task {
+            await loadInitial()
+            await pollLoop()
+        }
+    }
+
+    // MARK: - Data flow
+
+    @MainActor
+    private func loadInitial() async {
+        guard let bearer else { isLoading = false; return }
+        do {
+            let dtos = try await ChatService.fetchMessages(bearer: bearer)
+            messages = dtos.map { mapDTO($0) }
+            loadFailed = false
+            await markReadIfNeeded(dtos: dtos)
+        } catch {
+            loadFailed = true
+        }
+        isLoading = false
+    }
+
+    /// Poll for new messages while the view is alive. Cancelled automatically
+    /// when the `.task` is torn down (view dismissed).
+    private func pollLoop() async {
+        guard bearer != nil else { return }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: Self.pollInterval)
+            if Task.isCancelled { return }
+            await refresh()
+        }
+    }
+
+    @MainActor
+    private func refresh() async {
+        guard let bearer else { return }
+        do {
+            let dtos = try await ChatService.fetchMessages(bearer: bearer)
+            reconcile(with: dtos)
+            loadFailed = false
+            await markReadIfNeeded(dtos: dtos)
+        } catch {
+            // Transient poll failure — keep showing what we have.
+        }
+    }
+
+    /// Merge server truth with any optimistic (still-sending) local messages.
+    /// Server messages win; local pending ones not yet confirmed are appended.
+    @MainActor
+    private func reconcile(with dtos: [ChatMessageDTO]) {
+        let serverMessages = dtos.map { mapDTO($0) }
+        let serverBodies = Set(dtos.compactMap { $0.body })
+        // Keep optimistic messages that the server hasn't echoed back yet.
+        let pending = messages.filter { msg in
+            if case .pending = msg.status, case let .text(body) = msg.kind {
+                return !serverBodies.contains(body)
+            }
+            return false
+        }
+        messages = serverMessages + pending
+    }
+
+    @MainActor
+    private func markReadIfNeeded(dtos: [ChatMessageDTO]) async {
+        guard let bearer else { return }
+        // Mark read up to the newest coach message (anything not from me).
+        guard let newestCoach = dtos.last(where: { !isMine($0.senderUserId) }) else { return }
+        await ChatService.markRead(bearer: bearer, upToMessageId: newestCoach.id)
+    }
+
+    private func send() {
+        let trimmed = draft.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        draft = ""
+        Haptics.light()
+
+        let localId = "local-\(UUID().uuidString)"
+        let optimistic = ChatMessage(
+            id: localId,
+            sender: .me,
+            kind: .text(trimmed),
+            timestamp: ChatMessage.todayLabel,
+            status: .pending
+        )
+        messages.append(optimistic)
+
+        Task { await deliver(body: trimmed, localId: localId) }
+    }
+
+    @MainActor
+    private func deliver(body: String, localId: String) async {
+        guard let bearer else {
+            // No session — leave the message marked as sending; it'll surface
+            // on next launch once auth is present (queue still records it).
+            await enqueueOffline(body: body, localId: localId)
+            return
+        }
+        do {
+            let saved = try await ChatService.sendMessage(bearer: bearer, body: body)
+            // Learn + persist my own user id from the confirmed message.
+            if myUserId == nil {
+                myUserId = saved.senderUserId
+                UserDefaults.standard.set(saved.senderUserId, forKey: Self.myUserIdKey)
+            }
+            // Replace the optimistic row with the persisted one.
+            if let idx = messages.firstIndex(where: { $0.id == localId }) {
+                messages[idx] = mapDTO(saved)
+            }
+        } catch {
+            await enqueueOffline(body: body, localId: localId)
+        }
+    }
+
+    @MainActor
+    private func enqueueOffline(body: String, localId: String) async {
+        if let data = ChatService.encodeSendBody(body) {
+            await RequestQueue.shared.enqueue(path: ChatService.sendPath, body: data, bearer: bearer)
+        }
+        // Keep the message visible with a "sending…" affordance.
+        if let idx = messages.firstIndex(where: { $0.id == localId }) {
+            messages[idx].status = .sending
+        }
+    }
+
+    // MARK: - Sender attribution
+
+    private func isMine(_ senderUserId: String) -> Bool {
+        // Once we've learned our own id (from a sent message), trust it.
+        if let mine = myUserId { return senderUserId == mine }
+        // Cold start before the athlete has written: every existing message is
+        // the coach's (backend creates the thread on coach's first message, so
+        // the athlete never opens to their own un-attributed text).
+        return false
+    }
+
+    private func mapDTO(_ dto: ChatMessageDTO) -> ChatMessage {
+        let sender: ChatMessage.Sender = isMine(dto.senderUserId) ? .me : .coach
+        let kind: ChatMessage.Kind
+        if dto.attachmentKind == "voice" {
+            kind = .voice(durationLabel: ChatView.voiceDurationLabel(from: dto))
+        } else {
+            kind = .text(dto.body ?? "")
+        }
+        return ChatMessage(
+            id: dto.id,
+            sender: sender,
+            kind: kind,
+            timestamp: ChatView.relativeLabel(for: dto.createdAt),
+            status: .sent
+        )
+    }
+
+    private static func voiceDurationLabel(from dto: ChatMessageDTO) -> String {
+        // Voice metadata isn't decoded into the DTO yet; show a neutral marker.
+        "audio"
+    }
+
+    private static func relativeLabel(for date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return ChatMessage.todayLabel }
+        if cal.isDateInYesterday(date) { return ChatMessage.yesterdayLabel }
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "es_ES")
+        fmt.dateFormat = "d MMM"
+        return fmt.string(from: date)
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 12) {
+            Button(action: { Haptics.light(); dismiss() }) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(width: 32, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cerrar chat")
             ZStack {
                 Circle().fill(Theme.Color.surface).frame(width: 36, height: 36)
                 Text("PC")
@@ -52,42 +247,57 @@ struct ChatView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text("Pablo Casals")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
-                HStack(spacing: 4) {
-                    Circle().fill(Theme.Color.ok).frame(width: 6, height: 6)
-                    Text("Coach Fabrik · activo")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Theme.Color.muted)
-                }
+                Text("Coach Fabrik")
+                    .scaledFont(10, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.muted)
             }
             Spacer()
-            Image(systemName: "phone")
-                .font(.system(size: 16))
-                .foregroundStyle(Theme.Color.muted)
-            Image(systemName: "ellipsis")
-                .font(.system(size: 16))
-                .foregroundStyle(Theme.Color.muted)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
     }
 
+    // MARK: - States
+
+    private var loadingState: some View {
+        VStack(spacing: 10) {
+            ProgressView().tint(Theme.Color.muted)
+            Text("Cargando conversación…")
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 80)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Text(loadFailed ? "No se pudo cargar el chat" : "Escribe a Pablo para empezar")
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.foreground)
+            Text(loadFailed
+                 ? "Revisa tu conexión. Tus mensajes se enviarán cuando vuelvas."
+                 : "Tu coach responde aquí. Dudas, RPE, sensaciones.")
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.muted)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 32)
+        .padding(.top, 80)
+    }
+
     // MARK: - Input
 
     private var inputRow: some View {
-        HStack(spacing: 8) {
-            Button(action: { Haptics.light() }) {
-                Image(systemName: "plus.circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            .buttonStyle(.plain)
-
+        let canSend = !draft.trimmingCharacters(in: .whitespaces).isEmpty
+        return HStack(spacing: 8) {
             TextField("", text: $draft, prompt: Text("Escribe a Pablo…").foregroundColor(Theme.Color.muted))
                 .focused($inputFocused)
-                .font(.system(size: 14))
+                .scaledFont(14, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
@@ -95,40 +305,20 @@ struct ChatView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .submitLabel(.send)
                 .onSubmit { send() }
+                .accessibilityLabel("Mensaje para Pablo")
 
-            if draft.trimmingCharacters(in: .whitespaces).isEmpty {
-                Button(action: { Haptics.light() }) {
-                    Image(systemName: "mic")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button(action: send) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(Theme.Color.accent)
-                }
-                .buttonStyle(.plain)
+            Button(action: send) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(canSend ? Theme.Color.accent : Theme.Color.muted)
             }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .accessibilityLabel("Enviar mensaje")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Theme.Color.background)
-    }
-
-    private func send() {
-        let trimmed = draft.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        let new = ChatMessage(
-            id: UUID(),
-            sender: .me,
-            kind: .text(trimmed),
-            timestamp: ChatMessage.todayLabel
-        )
-        messages.append(new)
-        draft = ""
-        Haptics.light()
     }
 }
 
@@ -140,23 +330,16 @@ private struct ChatMessage: Identifiable {
         case text(String)
         case voice(durationLabel: String)
     }
+    enum Status { case sent, pending, sending }
 
-    let id: UUID
+    let id: String
     let sender: Sender
     let kind: Kind
     let timestamp: String
+    var status: Status
 
     static let todayLabel = "hoy"
     static let yesterdayLabel = "ayer"
-
-    static let seed: [ChatMessage] = [
-        .init(id: UUID(), sender: .coach, kind: .text("Bien metido en el sled hoy. Mañana threshold, mantén 3:55-4:00/km."), timestamp: yesterdayLabel),
-        .init(id: UUID(), sender: .me,    kind: .text("Confirmado. Dormí 7h12 y HRV alto. Listo."), timestamp: yesterdayLabel),
-        .init(id: UUID(), sender: .coach, kind: .text("Recordatorio: post-workout report tu RPE. Te llega notificación."), timestamp: todayLabel),
-        .init(id: UUID(), sender: .me,    kind: .text("Hecho 8/10. Wall ball duro últimos 10."), timestamp: todayLabel),
-        .init(id: UUID(), sender: .coach, kind: .text("Confío. Mañana descanso activo."), timestamp: todayLabel),
-        .init(id: UUID(), sender: .coach, kind: .voice(durationLabel: "0:34"), timestamp: todayLabel),
-    ]
 }
 
 // MARK: - Message row
@@ -169,21 +352,37 @@ private struct MessageRow: View {
             if message.sender == .me { Spacer(minLength: 40) }
 
             VStack(alignment: message.sender == .me ? .trailing : .leading, spacing: 4) {
-                if message.sender == .coach {
-                    Text("\(message.timestamp) · pablo")
-                        .font(.system(size: 9, design: .monospaced))
-                        .tracking(1.0)
-                        .foregroundStyle(Theme.Color.muted)
-                } else {
-                    Text("\(message.timestamp) · marc")
-                        .font(.system(size: 9, design: .monospaced))
-                        .tracking(1.0)
-                        .foregroundStyle(Theme.Color.muted)
-                }
+                Text(metaLabel)
+                    .font(.system(size: 9, design: .monospaced))
+                    .tracking(1.0)
+                    .foregroundStyle(Theme.Color.muted)
                 bubble
             }
 
             if message.sender == .coach { Spacer(minLength: 40) }
+        }
+        // Read the whole row as one coherent VoiceOver element instead of
+        // "meta, text" fragments. Voice notes set their own label on `bubble`.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(voiceOverLabel)
+    }
+
+    private var metaLabel: String {
+        let who = message.sender == .me ? "tú" : "pablo"
+        switch message.status {
+        case .sending: return "enviando… · \(who)"
+        case .pending, .sent: return "\(message.timestamp) · \(who)"
+        }
+    }
+
+    /// Coherent VoiceOver summary: who, when, and the message content.
+    private var voiceOverLabel: String {
+        let who = message.sender == .me ? "Tú" : "Pablo"
+        switch message.kind {
+        case .text(let body):
+            return "\(who), \(message.timestamp): \(body)"
+        case .voice(let duration):
+            return "\(who), \(message.timestamp): nota de voz, \(duration)"
         }
     }
 
@@ -192,28 +391,31 @@ private struct MessageRow: View {
         switch message.kind {
         case .text(let body):
             Text(body)
-                .font(.system(size: 13))
-                .foregroundStyle(message.sender == .me ? Color.white : Theme.Color.foreground)
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.foreground)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
                 .background(message.sender == .me ? Theme.Color.accent : Theme.Color.surface)
                 .clipShape(BubbleShape(isMe: message.sender == .me))
                 .frame(maxWidth: 280, alignment: message.sender == .me ? .trailing : .leading)
+                .opacity(message.status == .sent ? 1 : 0.6)
         case .voice(let durationLabel):
             HStack(spacing: 8) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(message.sender == .me ? Color.white : Theme.Color.accent)
-                Waveform(filledColor: message.sender == .me ? Color.white : Theme.Color.foreground)
+                    .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.accent)
+                Waveform(filledColor: message.sender == .me ? Theme.Color.accentOn : Theme.Color.foreground)
                     .frame(width: 90, height: 18)
                 Text(durationLabel)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(message.sender == .me ? Color.white : Theme.Color.muted)
+                    .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.muted)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(message.sender == .me ? Theme.Color.accent : Theme.Color.surface)
             .clipShape(BubbleShape(isMe: message.sender == .me))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Nota de voz, \(durationLabel)")
         }
     }
 }

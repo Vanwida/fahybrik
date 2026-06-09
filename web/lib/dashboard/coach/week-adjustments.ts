@@ -1,0 +1,152 @@
+import 'server-only';
+
+import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
+import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
+import {
+  weekAdjustmentProposalJsonSchema,
+  type WeekAdjustmentProposalJson,
+} from '@fahybrid/shared/schema/week-adjustment';
+
+export type PendingAdjustment = {
+  id: string;
+  athlete_id: string;
+  athlete_name: string;
+  week_start: string;
+  verdict: string;
+  coach_summary: string | null;
+  proposal: WeekAdjustmentProposalJson;
+};
+
+export class WeekAdjustmentError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'WeekAdjustmentError';
+  }
+}
+
+export async function listPendingWeekAdjustments(params: {
+  coach_id: number | bigint;
+  client?: Sql | undefined;
+}): Promise<PendingAdjustment[]> {
+  const client = params.client ?? defaultSql;
+  try {
+    const rows = await client<
+    Array<{
+      id: string;
+      athlete_id: string;
+      athlete_name: string;
+      week_start: string;
+      verdict: string;
+      proposal_json: unknown;
+    }>
+  >`
+    select
+      p.id::text,
+      p.athlete_id::text,
+      a.full_name as athlete_name,
+      to_char(p.week_start, 'YYYY-MM-DD') as week_start,
+      p.verdict,
+      p.proposal_json
+    from week_adjustment_proposals p
+    join athletes a on a.id = p.athlete_id
+    where a.coach_id = ${params.coach_id}
+      and p.status = 'pending'
+    order by p.week_start asc, a.full_name asc
+  `;
+
+    return rows.map((r) => {
+      const proposal = weekAdjustmentProposalJsonSchema.parse(r.proposal_json);
+      return {
+        id: r.id,
+        athlete_id: r.athlete_id,
+        athlete_name: r.athlete_name,
+        week_start: r.week_start,
+        verdict: r.verdict,
+        coach_summary: proposal.coach_summary ?? null,
+        proposal,
+      };
+    });
+  } catch (err) {
+    if (isPgMissingRelation(err, 'week_adjustment_proposals')) return [];
+    throw err;
+  }
+}
+
+export async function getPendingProposalForAthlete(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  client?: Sql;
+}): Promise<PendingAdjustment | null> {
+  const all = await listPendingWeekAdjustments({ coach_id: params.coach_id, client: params.client });
+  return all.find((p) => p.athlete_id === String(params.athlete_id)) ?? null;
+}
+
+export async function approveWeekAdjustment(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  proposal_id: number;
+  client?: Sql;
+}): Promise<void> {
+  const client = params.client ?? defaultSql;
+  const rows = await client<Array<{ proposal_json: unknown }>>`
+    select p.proposal_json
+    from week_adjustment_proposals p
+    join athletes a on a.id = p.athlete_id
+    where p.id = ${params.proposal_id}
+      and p.athlete_id = ${params.athlete_id}
+      and a.coach_id = ${params.coach_id}
+      and p.status = 'pending'
+    limit 1
+  `;
+  if (!rows[0]) throw new WeekAdjustmentError('not_found', 'Propuesta no encontrada', 404);
+
+  const proposal = weekAdjustmentProposalJsonSchema.parse(rows[0].proposal_json);
+
+  for (const change of proposal.slot_changes) {
+    if (!change.to_template_id) continue;
+    const versionRows = await client<Array<{ version: number }>>`
+      select coalesce(max(version), 1)::int as version from templates where id = ${Number(change.to_template_id)}
+    `;
+    await client`
+      update workout_assignments
+      set template_id = ${Number(change.to_template_id)},
+          template_version = ${versionRows[0]?.version ?? 1},
+          updated_at = now()
+      where athlete_id = ${params.athlete_id}
+        and scheduled_for = ${change.date}::date
+        and status = 'scheduled'
+    `;
+  }
+
+  await client`
+    update week_adjustment_proposals
+    set status = 'approved', reviewed_by_coach_id = ${params.coach_id}, reviewed_at = now()
+    where id = ${params.proposal_id}
+  `;
+}
+
+export async function rejectWeekAdjustment(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  proposal_id: number;
+  client?: Sql;
+}): Promise<void> {
+  const client = params.client ?? defaultSql;
+  const rows = await client<Array<{ id: string }>>`
+    update week_adjustment_proposals p
+    set status = 'rejected', reviewed_by_coach_id = ${params.coach_id}, reviewed_at = now()
+    from athletes a
+    where p.id = ${params.proposal_id}
+      and p.athlete_id = ${params.athlete_id}
+      and a.id = p.athlete_id
+      and a.coach_id = ${params.coach_id}
+      and p.status = 'pending'
+    returning p.id::text
+  `;
+  if (!rows[0]) throw new WeekAdjustmentError('not_found', 'Propuesta no encontrada', 404);
+}

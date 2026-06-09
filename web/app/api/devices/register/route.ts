@@ -14,6 +14,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
+import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,14 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!user_id) {
     return jsonError('unauthorized', 'Coach session or athlete bearer required', 401);
   }
+
+  // A1: cap device re-registration churn per user.
+  const rl = await withRateLimit({
+    scope: 'user',
+    identifier: user_id.toString(),
+    ...RATE_LIMITS.devicesRegister,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
 
   let body: unknown;
   try {

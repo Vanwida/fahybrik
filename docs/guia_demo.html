@@ -1,0 +1,68 @@
+<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>FAHYBRIK · Guía del demo</title>
+<style>
+:root{--bg:#F7F4EF;--card:#fff;--ink:#1A1714;--muted:#6B6258;--line:#E7E0D6;--accent:#E5562A;--ok:#2F8F5B;--okbg:#E6F3EC;--warn:#B5791B;--warnbg:#FBF0DD}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,Inter,Segoe UI,Helvetica,Arial,sans-serif;padding:0 0 90px}
+.wrap{max-width:880px;margin:0 auto;padding:0 22px}
+header{padding:58px 0 30px}.kicker{color:var(--accent);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+h1{font-size:clamp(32px,6vw,48px);margin:12px 0 8px;font-weight:800;font-style:italic;letter-spacing:-.02em}
+.lede{color:var(--muted);max-width:680px;margin:0;font-size:18px}
+h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:44px 0 14px;display:flex;align-items:center;gap:10px}
+h2::before{content:"";width:26px;height:2px;background:var(--accent);display:inline-block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 24px;margin:12px 0}
+.step{display:flex;gap:16px;align-items:flex-start;padding:14px 0;border-bottom:1px dashed var(--line)}.step:last-child{border-bottom:0}
+.num{flex:0 0 30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.step .t{font-weight:700}.step .s{color:var(--muted);font-size:15px}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.ok{background:var(--okbg);color:var(--ok)}.warn{background:var(--warnbg);color:var(--warn)}
+ul{margin:6px 0;padding-left:20px;color:var(--muted)}li{margin:5px 0}
+.grid{display:grid;gap:12px}@media(min-width:680px){.grid.c2{grid-template-columns:1fr 1fr}}
+strong{color:var(--ink)}.mono{font-family:ui-monospace,Menlo,monospace;font-size:14px;background:#FAF7F2;padding:1px 6px;border-radius:6px}
+.foot{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;font-style:italic}
+</style></head><body><div class=wrap>
+<header><div class=kicker>FAHYBRIK · cómo enseñarlo mañana</div><h1>Guía del demo.</h1>
+<p class=lede>El plan de 12 semanas montado, el dashboard del coach, la app del atleta con vista Concept2 + PM5, y las analíticas run-vs-remo. Esto es qué enseñar, en qué orden, y qué necesitas tener listo.</p></header>
+
+<h2>Antes de empezar (5 min tuyos)</h2>
+<div class=card>
+<div class=step><div class=num>1</div><div><div class=t>Reinstala la app iOS</div><div class=s>iPhone 17 Pro (o tu iPhone). Trae todos los arreglos de hoy: vista Concept2, StatsView, captura por segmento, marca FAHYBRIK.</div></div></div>
+<div class=step><div class=num>2</div><div><div class=t>Concede permiso de Apple Health</div><div class=s>Al abrir la app → Salud. Eso sube tus biométricas (FC, HRV, FC reposo, sueño, peso) y entrenos al backend → se ven en la pestaña "Cuerpo" del coach.</div></div></div>
+<div class=step><div class=num>3</div><div><div class=t>Empareja el PM5 (o usa el mock)</div><div class=s>Bluetooth con el remo Concept2 → datos en vivo. Si no hay erg a mano, el <strong>simulador trae un mock</strong> que emite ~2:00/500m, así el demo se ve igual.</div></div></div>
+<div class=step><div class=num>4</div><div><div class=t>Login</div><div class=s>Coach/atleta = <span class=mono>alexsole@gmail.com</span> (Clerk). Eres admin + coach + atleta con un solo login.</div></div></div>
+</div>
+
+<h2>Demo · parte del COACH (dashboard web)</h2>
+<div class=card>
+<div class=step><div class=num>1</div><div><div class=t>Lista de atletas</div><div class=s>Entras y ves a <strong>Alex Solé</strong> con su plan <strong>activo</strong> (Acumulación · semana 4). Sin alertas falsas.</div></div></div>
+<div class=step><div class=num>2</div><div><div class=t>Ficha del atleta → Plan</div><div class=s>El plan de 12 semanas como <strong>3 microciclos (bloques ATR)</strong>: Acumulación (5 sem, activo) · Transformación (4) · Realización (3). Calendario poblado con las sesiones reales. Botón <strong>"Asignar / aprobar siguiente bloque"</strong>.</div></div></div>
+<div class=step><div class=num>3</div><div><div class=t>Rendimiento → analíticas</div><div class=s>Cards <strong>Run vs Remo</strong> (volumen, ritmo /km y split /500m, tendencia semanal) + entrenos recientes desglosados por segmento (el sistema distingue qué es run y qué es remo).</div></div></div>
+<div class=step><div class=num>4</div><div><div class=t>Cuerpo</div><div class=s>Biométricas de Apple Health (FC reposo, sueño, HRV, peso) + readiness.</div></div></div>
+<div class=step><div class=num>5</div><div><div class=t>Programación (crear/editar)</div><div class=s>El studio: autorea cualquier modalidad — <strong>correr por ritmo, remo por /500m, fuerza por %RM/RIR, bloque mixto HYROX</strong> (run + remo + estación) — todo estructurado, nada de texto libre.</div></div></div>
+</div>
+
+<h2>Demo · parte del ATLETA (app iOS)</h2>
+<div class=card>
+<div class=step><div class=num>1</div><div><div class=t>Su plan, semana actual</div><div class=s>"Semana 4 · Acumulación · Descarga" con las sesiones reales y la <strong>prescripción completa</strong> (reps, carga, zona, ritmo, distancia).</div></div></div>
+<div class=step><div class=num>2</div><div><div class=t>Entrenar un bloque mixto (remo + compromised run)</div><div class=s>Empiezas el entreno → <strong>vista estilo Concept2</strong>: split /500m + watts + SPM + distancia + tiempo, y la <strong>tira de segmentos estructurada</strong> (qué tramo estás haciendo). En tramo de remo, el PM5 se conecta solo y manda datos en vivo.</div></div></div>
+<div class=step><div class=num>3</div><div><div class=t>Al acabar → registro</div><div class=s>Cada segmento genera un <strong>registro</strong> (modalidad, distancia, ritmo, potencia, FC, calorías) que sube al backend → alimenta las analíticas.</div></div></div>
+<div class=step><div class=num>4</div><div><div class=t>Pestaña Stats</div><div class=s>Volumen run vs remo, ritmos con tendencia (Swift Charts), entrenos recientes con sus segmentos.</div></div></div>
+</div>
+
+<h2>Fuentes de datos</h2>
+<div class=grid c2>
+<div class=card><span class="pill ok">FUNCIONA YA</span><p style="margin:10px 0 4px"><strong>Apple Health</strong></p><p style="margin:0;color:var(--muted);font-size:15px">Permiso en el dispositivo y listo. Lee entrenos, FC, HRV, FC reposo, VO2max, sueño, peso → biométricas + readiness.</p></div>
+<div class=card><span class="pill ok">FUNCIONA YA</span><p style="margin:10px 0 4px"><strong>PM5 / Concept2</strong></p><p style="margin:0;color:var(--muted);font-size:15px">Bluetooth nativo (parser completo: potencia/ritmo/distancia/SPM/calorías). Mock en simulador si no hay erg.</p></div>
+<div class=card><span class="pill warn">PENDIENTE DE TI</span><p style="margin:10px 0 4px"><strong>Garmin</strong></p><p style="margin:0;color:var(--muted);font-size:15px">Código listo (enchufar y listo). Necesitas <strong>solicitar la Garmin Health API</strong> en developer.garmin.com — revisión de días/semanas. Pasos en <span class=mono>docs/garmin_setup.md</span>. No estará en vivo mañana.</p></div>
+<div class=card><span class="pill ok">MONTADO</span><p style="margin:10px 0 4px"><strong>El plan (12 semanas)</strong></p><p style="margin:0;color:var(--muted);font-size:15px">Importado del Excel, 3 microciclos ATR, 3 perfiles en sem 1-5, todo estructurado (medida × objetivo × modalidad), 616 prescripciones válidas.</p></div>
+</div>
+
+<h2>Honesto — lo que sabrás de antemano</h2>
+<div class=card><ul>
+<li><strong>Garmin</strong>: pendiente de tu solicitud a Garmin (lo de arriba).</li>
+<li><strong>Detalle de pirámides de fuerza en iOS</strong>: si una serie varía reps (10/8/8/6), iOS muestra "4 series" + carga; el detalle por-serie viaja en el dato estructurado pero la pantalla iOS aún no lo pinta serie a serie (mejora menor, no afecta correr/remo/zonas).</li>
+<li><strong>Bloques <span class=mono>needs_review</span></strong>: algunos WOD/simulaciones específicos los creé desde tu plan y están marcados para que <strong>Pablo los valide</strong> (contenido suyo).</li>
+<li><strong>Vocabulario "microciclo"</strong>: usamos tu definición (bloque ATR = microciclo); el Excel/BD aún lo usan para "semana" — unificación marcada para limpieza.</li>
+</ul></div>
+
+<div class=foot>Construido con capacidad plena (decenas de agentes en paralelo), DRY, build verde (tsc/lint/tests), y auditoría final con verificación adversarial. FAHYBRIK.</div>
+</div></body></html>

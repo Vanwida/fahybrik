@@ -21,6 +21,14 @@ function createClient() {
 
 export type Sql = ReturnType<typeof createClient>;
 
+/**
+ * The client handed to a `sql.begin(async (tx) => …)` callback. It exposes the
+ * tagged-template query API but NOT the connection-lifecycle methods (END,
+ * CLOSE, …). Helpers that must run inside an existing transaction should accept
+ * `Sql | TransactionClient` so callers can pass either the pool or a `tx`.
+ */
+export type TransactionClient = postgres.TransactionSql<{ readonly bigint: bigint }>;
+
 declare global {
   var __fahybrik_sql: Sql | undefined;
 }

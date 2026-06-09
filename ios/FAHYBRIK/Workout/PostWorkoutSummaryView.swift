@@ -7,19 +7,30 @@ import SwiftUI
 // per-segment table, RPE 1-10 selector. No motivational copy.
 struct PostWorkoutSummaryView: View {
     let session: WorkoutSession
+    /// Backend assignment to attribute this execution to. Nil for free
+    /// workouts (e.g. demo plan with no plan-week context) — in that case we
+    /// skip the sync and just close locally.
+    let assignmentId: String?
     let onSave: () -> Void
 
     @State private var rpe: Int = 7
     @State private var notes: String = ""
+    @State private var isSaving: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     tightHeader
-                    zonesStackedBar
-                    metricTiles
-                    segmentsTable
+                    if hasZoneData {
+                        zonesStackedBar
+                    }
+                    if hasHRData {
+                        metricTiles
+                    }
+                    if session.plan.segments.count > 1 {
+                        segmentsTable
+                    }
                     rpeCard
                     notesCard
                 }
@@ -27,12 +38,85 @@ struct PostWorkoutSummaryView: View {
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
-            ExpertPrimaryButton(title: "GUARDAR", height: 46, action: onSave)
+            ExpertPrimaryButton(
+                title: isSaving ? "GUARDANDO…" : "GUARDAR",
+                height: 46,
+                action: handleSave
+            )
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.m)
                 .padding(.top, Theme.Spacing.s)
+                .disabled(isSaving)
         }
         .background(Theme.Color.background.ignoresSafeArea())
+    }
+
+    // Fire-and-forget the sync (RequestQueue handles retry on failure), then
+    // close. Closing is never blocked on a successful network round-trip per
+    // élite-UX brief: a slow API must not trap the athlete in the summary.
+    private func handleSave() {
+        guard !isSaving else { return }
+        isSaving = true
+        let bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        let payload = buildPayload()
+        if let payload {
+            Task {
+                await WorkoutExecutionAPI.submit(payload, bearer: bearer)
+            }
+        }
+        onSave()
+    }
+
+    private func buildPayload() -> WorkoutExecutionPayload? {
+        guard let assignmentId, !assignmentId.isEmpty else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let endedAt = Date()
+        let startedAt = session.startedAt
+        let segments = buildSegments(iso: iso)
+        return WorkoutExecutionPayload(
+            assignment_id: assignmentId,
+            perceived_exertion: rpe,
+            total_duration_seconds: Int(session.elapsedSeconds.rounded()),
+            notes: notes.isEmpty ? nil : notes,
+            started_at: iso.string(from: startedAt),
+            ended_at: iso.string(from: endedAt),
+            segments: segments.isEmpty ? nil : segments
+        )
+    }
+
+    // Map each captured segment lap to the wire DTO. Position-ordered so the
+    // backend can match on `position` when no integer segment id is available.
+    private func buildSegments(iso: ISO8601DateFormatter) -> [SegmentExecutionDTO] {
+        session.laps
+            .sorted { $0.position < $1.position }
+            .map { lap in
+                let zones: [String: Int]? = lap.zoneSecondsByZone.isEmpty
+                    ? nil
+                    : lap.zoneSecondsByZone.reduce(into: [String: Int]()) {
+                        $0["z\($1.key)"] = Int($1.value.rounded())
+                    }
+                return SegmentExecutionDTO(
+                    template_segment_id: nil,
+                    position: lap.position,
+                    modality: lap.modality,
+                    started_at: iso.string(from: lap.startedAt),
+                    ended_at: iso.string(from: lap.endedAt),
+                    duration_seconds: Int(lap.durationSeconds.rounded()),
+                    distance_meters: lap.distanceCoveredMeters,
+                    avg_pace_s_per_500m: lap.avgPaceSecPer500m,
+                    avg_pace_s_per_km: lap.avgPaceSecPerKm,
+                    avg_power_w: lap.avgPowerWatts,
+                    stroke_rate_spm: lap.strokeRateSpm,
+                    avg_hr: lap.avgHRBpm,
+                    max_hr: lap.maxHRBpm,
+                    calories: lap.calories,
+                    reps_completed: lap.repsCompleted,
+                    weight_used_kg: lap.weightUsedKg,
+                    zone_seconds_json: zones,
+                    source: lap.source
+                )
+            }
     }
 
     // MARK: - Header
@@ -42,22 +126,23 @@ struct PostWorkoutSummaryView: View {
                 .font(.system(size: 18))
                 .foregroundStyle(Theme.Color.ok)
             HeroNumber(text: WorkoutSession.formatElapsed(session.elapsedSeconds), size: 36)
-            prPill
             Spacer()
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
     }
 
-    private var prPill: some View {
-        Text("PR −2:14")
-            .font(.system(size: 10, weight: .bold))
-            .tracking(1.0)
-            .foregroundStyle(Theme.Color.ok)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(Theme.Color.ok.opacity(0.15))
-            .clipShape(Capsule())
+    // MARK: - Real-data gates
+    //
+    // We only render a section when we have genuine data for it. HR/zone
+    // metrics depend on a connected strap feeding `injectLiveHR`; with no
+    // wearable they stay hidden rather than show invented numbers.
+    private var hasHRData: Bool {
+        !session.laps.compactMap(\.avgHRBpm).isEmpty
+            || !session.laps.compactMap(\.maxHRBpm).isEmpty
+    }
+    private var hasZoneData: Bool {
+        session.laps.contains { !$0.zoneSecondsByZone.isEmpty }
     }
 
     // MARK: - Zones stacked bar
@@ -89,43 +174,31 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Demo zone distribution mirrors workout.jsx ZONE_DIST when no live data
-    // is available (laps haven't accumulated zone seconds yet). When laps have
-    // data we use the real percentages.
+    // Real zone distribution from accumulated lap data. Only rendered when
+    // `hasZoneData` is true, so there is no demo fallback here.
     private var zoneDistribution: [(zone: HRZone, pct: Int, time: Double)] {
         let totals = HRZone.allCases.map { z -> (HRZone, Double) in
             let secs = session.laps.reduce(into: 0.0) { $0 += $1.zoneSecondsByZone[z.rawValue] ?? 0 }
             return (z, secs)
         }
         let total = totals.reduce(0) { $0 + $1.1 }
-        if total > 0 {
-            return totals.map { (z, secs) in
-                let pct = Int((secs / total * 100).rounded())
-                return (z, pct, secs)
-            }
+        guard total > 0 else { return [] }
+        return totals.map { (z, secs) in
+            let pct = Int((secs / total * 100).rounded())
+            return (z, pct, secs)
         }
-        // Fallback demo distribution from design system.
-        return [
-            (.z1, 3, 84),
-            (.z2, 7, 198),
-            (.z3, 31, 882),
-            (.z4, 42, 1194),
-            (.z5, 17, 485),
-        ]
     }
 
-    // MARK: - 2x3 metric tiles
+    // MARK: - HR metric tiles
+    //
+    // Only the metrics we actually measure: avg + max HR from the strap.
+    // Decoupling / recovery / power require sensor streams we don't capture
+    // yet, so we don't fabricate them.
     private var metricTiles: some View {
         let cols = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
-        let avgHR = avgHRBpm
-        let maxHR = maxHRBpm
         return LazyVGrid(columns: cols, spacing: 6) {
-            ExpertCell(label: "Avg HR", value: avgHR.map { "\($0)" } ?? "161", unit: "bpm")
-            ExpertCell(label: "Max HR", value: maxHR.map { "\($0)" } ?? "184", unit: "bpm")
-            ExpertCell(label: "Decoup", value: "+4.2", unit: "%", color: Theme.Color.warning)
-            ExpertCell(label: "Rec 60s", value: "−42", unit: "bpm", color: Theme.Color.ok)
-            ExpertCell(label: "Avg Pwr", value: "232", unit: "W")
-            ExpertCell(label: "Peak", value: "318", unit: "W")
+            ExpertCell(label: "Avg HR", value: avgHRBpm.map { "\($0)" } ?? "—", unit: "bpm")
+            ExpertCell(label: "Max HR", value: maxHRBpm.map { "\($0)" } ?? "—", unit: "bpm")
         }
     }
 
@@ -153,23 +226,16 @@ struct PostWorkoutSummaryView: View {
                     let timeStr = lap.map { WorkoutSession.formatElapsed($0.durationSeconds) } ?? "—"
                     HStack(alignment: .center, spacing: 6) {
                         Text(seg.title)
-                            .font(.system(size: 11))
+                            .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.foreground)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
-                            .frame(width: 44, alignment: .trailing)
-                        Text(trendArrow(idx: idx))
-                            .font(.system(size: 10))
-                            .foregroundStyle(trendColor(idx: idx))
-                            .frame(width: 18, alignment: .center)
+                            .frame(width: 60, alignment: .trailing)
                         if let z = seg.targetZone {
                             ZBadge(zone: z).frame(width: 38, alignment: .trailing)
-                        } else {
-                            Color.clear.frame(width: 38)
                         }
-                        MonoText(text: "\(95 - idx * 2)%", size: 10, color: weakIdx(idx) ? Theme.Color.warning : Theme.Color.muted)
-                            .frame(width: 36, alignment: .trailing)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -177,20 +243,6 @@ struct PostWorkoutSummaryView: View {
             }
         }
     }
-
-    private func trendArrow(idx: Int) -> String {
-        // Placeholder pattern from design fixture (▲ ─ ▼ ─ ▲); real engine
-        // compares to prior 4-week median per segment kind.
-        ["▲", "─", "▼", "─", "▲"][safe: idx] ?? "─"
-    }
-    private func trendColor(idx: Int) -> Color {
-        switch trendArrow(idx: idx) {
-        case "▲": return Theme.Color.ok
-        case "▼": return Theme.Color.danger
-        default:  return Theme.Color.muted
-        }
-    }
-    private func weakIdx(_ idx: Int) -> Bool { idx == 2 } // wall balls flagged
 
     // MARK: - RPE
     private var rpeCard: some View {
@@ -201,13 +253,15 @@ struct PostWorkoutSummaryView: View {
                     ForEach(1...10, id: \.self) { n in
                         Button(action: { rpe = n; Haptics.light() }) {
                             Text("\(n)")
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold, relativeTo: .caption)
                                 .foregroundStyle(rpe == n ? Color.white : Theme.Color.foreground)
                                 .frame(width: 26, height: 26)
                                 .background(rpe == n ? Theme.Color.accent : Theme.Color.surfaceElevated)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Esfuerzo percibido \(n) de 10")
+                        .accessibilityAddTraits(rpe == n ? .isSelected : [])
                     }
                 }
             }
@@ -221,16 +275,11 @@ struct PostWorkoutSummaryView: View {
                 LabelText(text: "Notas", size: 9)
                 TextField("Opcional", text: $notes, axis: .vertical)
                     .lineLimit(2...4)
-                    .font(.system(size: 13))
+                    .scaledFont(13, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                     .padding(.vertical, 4)
+                    .accessibilityLabel("Notas del entreno")
             }
         }
-    }
-}
-
-private extension Array {
-    subscript(safe i: Int) -> Element? {
-        indices.contains(i) ? self[i] : nil
     }
 }

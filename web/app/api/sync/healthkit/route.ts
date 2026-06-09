@@ -16,6 +16,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
 import { healthkitSyncRequestSchema } from '@/lib/sync/schema';
+import { captureRouteError } from '@/lib/observability/capture';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,20 +39,32 @@ export async function POST(req: Request): Promise<NextResponse> {
     return jsonError('invalid_request', 'Invalid sync batch', 400, parsed.error.flatten());
   }
 
-  const result = await ingestHealthkitBatch({
-    sql,
-    athlete_id: auth.athlete_id,
-    batch: parsed.data.batch,
-  });
+  try {
+    const result = await ingestHealthkitBatch({
+      sql,
+      athlete_id: auth.athlete_id,
+      batch: parsed.data.batch,
+    });
 
-  // Update the per-athlete last_sync_at marker so coach UI can show
-  // "last synced 2m ago".
-  await sql`
-    insert into healthkit_sync_state (athlete_id, last_sync_at, updated_at)
-    values (${auth.athlete_id as unknown as number}, now(), now())
-    on conflict (athlete_id) do update
-      set last_sync_at = now(), updated_at = now()
-  `;
+    // Update the per-athlete last_sync_at marker so coach UI can show
+    // "last synced 2m ago".
+    await sql`
+      insert into healthkit_sync_state (athlete_id, last_sync_at, updated_at)
+      values (${auth.athlete_id as unknown as number}, now(), now())
+      on conflict (athlete_id) do update
+        set last_sync_at = now(), updated_at = now()
+    `;
 
-  return jsonOk({ ok: true, result });
+    return jsonOk({ ok: true, result });
+  } catch (err) {
+    captureRouteError(err, {
+      route: 'api/sync/healthkit.POST',
+      meta: {
+        athlete_id: String(auth.athlete_id),
+        workouts: parsed.data.batch.workouts?.length ?? 0,
+        samples: parsed.data.batch.samples?.length ?? 0,
+      },
+    });
+    return jsonError('internal', 'HealthKit ingest failed', 500);
+  }
 }

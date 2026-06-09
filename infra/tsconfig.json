@@ -3,6 +3,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // Scripts run via `tsx`, which resolves and strips `.ts` extensions in
+    // relative imports (e.g. `import { getSql } from './_db.ts'`). Allow the
+    // explicit `.ts` extension so the typecheck matches how the scripts actually
+    // run. Safe under `noEmit` (we never emit JS from this config).
+    "allowImportingTsExtensions": true,
     "lib": ["ES2022"],
     "strict": true,
     "noUncheckedIndexedAccess": true,

@@ -1,4 +1,4 @@
-# FAHYBRIK
+# FAHYBRID
 
 HYROX / hybrid training platform. Single-coach (Pablo, Fabrik Training Club Barcelona) + elite-athlete iOS app. Template-based personalization indexed by RAG over Pablo's ATR methodology.
 

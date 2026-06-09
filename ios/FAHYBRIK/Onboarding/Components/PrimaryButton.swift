@@ -15,7 +15,7 @@ struct PrimaryButton: View {
                 .font(.system(size: 16, weight: .heavy, design: .default))
                 .italic()
                 .tracking(1.2)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Theme.Color.accentOn)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
                 .background(Theme.Color.accent.opacity(enabled ? 1 : 0.4))

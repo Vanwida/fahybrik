@@ -8,10 +8,10 @@ struct HyroxStationsStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 6,
+            stepIndex: 14,
             title: "Estaciones",
             subtitle: "Bests por estación HYROX",
-            hint: "Marca \"sin testear\" lo que no tengas. Lo programamos en bloque ACC.",
+            hint: "Marca \"sin testear\" lo que no tengas. Lo programamos en el bloque de \(atrPhaseLabel("ACC")).",
             primaryEnabled: true,
             skipTitle: "Saltar",
             onBack: onBack,

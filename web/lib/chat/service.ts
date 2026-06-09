@@ -8,6 +8,26 @@ import type { Sql } from '@/lib/db';
 import type { ChatAttachmentKind, MessageDTO, SendMessageInput } from './schema';
 import { notifyOpposite } from './notify';
 
+// Postgres `timestamptz::text` renders `2026-05-29 11:06:13.234292+00` — a space
+// instead of `T` and a `+00` offset. That is NOT valid ISO 8601, so the iOS
+// JSONDecoder (.iso8601) rejects it and the whole chat payload fails to decode.
+// Normalize any wire-bound timestamp to strict ISO 8601 with a `Z` zulu suffix
+// and millisecond precision, which both the iOS decoder and the `messageDtoSchema`
+// (z.string().datetime) accept. Cursors keep the raw Postgres text (full µs
+// precision) — they are opaque strings to the client and `::timestamptz` re-parses
+// either form.
+export function toWireIso(pgText: string | null): string | null {
+  if (pgText == null) return null;
+  // Postgres renders the zone as `+00` / `+02` (no minutes), which `new Date()`
+  // rejects. Normalize to `T` separator and a `+HH:MM` offset before parsing.
+  const normalized = pgText
+    .replace(' ', 'T')
+    .replace(/([+-]\d{2})$/, '$1:00');
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return pgText; // defensive: leave untouched if unparseable
+  return d.toISOString();
+}
+
 export type ThreadSummary = {
   thread_id: string;
   coach_id: string;
@@ -143,9 +163,9 @@ export async function listMessages(args: {
     attachment_url: r.attachment_url,
     attachment_kind: (r.attachment_kind as ChatAttachmentKind | null) ?? null,
     attachment_meta: (r.attachment_meta as Record<string, unknown> | null) ?? null,
-    created_at: r.created_at,
-    read_at: r.read_at,
-    edited_at: r.edited_at,
+    created_at: toWireIso(r.created_at)!,
+    read_at: toWireIso(r.read_at),
+    edited_at: toWireIso(r.edited_at),
   }));
   return { messages, next_cursor };
 }
@@ -218,6 +238,8 @@ export async function sendMessage(args: {
         : `[${input.attachment_kind ?? 'attachment'}]`,
   }).catch(() => undefined);
 
+  const createdAtIso = toWireIso(row.created_at)!;
+
   // Publish to SSE subscribers.
   publishMessage(BigInt(row.thread_id), {
     id: row.id,
@@ -227,7 +249,7 @@ export async function sendMessage(args: {
     attachment_url: row.attachment_url,
     attachment_kind: (row.attachment_kind as ChatAttachmentKind | null) ?? null,
     attachment_meta: (row.attachment_meta as Record<string, unknown> | null) ?? null,
-    created_at: row.created_at,
+    created_at: createdAtIso,
     read_at: null,
     edited_at: null,
   });
@@ -240,7 +262,7 @@ export async function sendMessage(args: {
     attachment_url: row.attachment_url,
     attachment_kind: (row.attachment_kind as ChatAttachmentKind | null) ?? null,
     attachment_meta: (row.attachment_meta as Record<string, unknown> | null) ?? null,
-    created_at: row.created_at,
+    created_at: createdAtIso,
     read_at: null,
     edited_at: null,
   };

@@ -4,7 +4,7 @@ import {
   idSchema,
   isoDateTime,
   slugSchema,
-} from './_primitives.js';
+} from './_primitives';
 
 export const defaultMetricsSchema = z.object({
   reps: z.boolean().optional(),

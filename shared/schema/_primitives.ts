@@ -130,11 +130,45 @@ export const notificationType = z.enum([
   'recovery_alert',
   'milestone',
   'system',
+  // Coach inbox triggers (phase 1c):
+  'week_adjustment_pending',
+  'monthly_block_pending',
+  'intake_pending',
+  'atr_transition_suggested',
 ]);
 export type NotificationType = z.infer<typeof notificationType>;
 
 export const auditAction = z.enum(['create', 'update', 'delete', 'restore']);
 export type AuditAction = z.infer<typeof auditAction>;
+
+// Languages supported by the user-facing surfaces (iOS + Pablo dashboard).
+// Mirrored by users.idioma CHECK constraint (migration 0021).
+export const userLanguage = z.enum(['es', 'en']);
+export type UserLanguage = z.infer<typeof userLanguage>;
+
+// Dobles HYROX: which partner does this assignment belong to, visibility-wise.
+// 'shared' (default) → both partners see it; 'self_only' → only the assigned
+// athlete sees it (e.g. solo strength work inside a Dobles plan).
+export const partnerVisibility = z.enum(['shared', 'self_only']);
+export type PartnerVisibility = z.infer<typeof partnerVisibility>;
+
+// weekly_plans.status — coach planning lifecycle (migration 0021).
+export const weeklyPlanStatus = z.enum(['draft', 'published', 'archived']);
+export type WeeklyPlanStatus = z.infer<typeof weeklyPlanStatus>;
+
+// subscriptions.plan_type — billing tiers (migration 0021).
+export const subscriptionPlanType = z.enum(['individual', 'dobles', 'pro_elite']);
+export type SubscriptionPlanType = z.infer<typeof subscriptionPlanType>;
+
+// subscriptions.status — mirrors the subscription_status pg enum.
+export const subscriptionStatus = z.enum([
+  'active',
+  'past_due',
+  'canceled',
+  'incomplete',
+  'trialing',
+]);
+export type SubscriptionStatus = z.infer<typeof subscriptionStatus>;
 
 // Embedding dimension matches DB methodology_chunks.embedding vector(1536).
 // Migration path documented in 0001_init.sql.

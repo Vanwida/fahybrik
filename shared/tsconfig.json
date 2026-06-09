@@ -14,5 +14,5 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["schema/**/*.ts", "tokens.ts"]
+  "include": ["schema/**/*.ts", "domain/**/*.ts", "tokens.ts"]
 }

@@ -8,7 +8,7 @@ struct ConnectionsStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 11,
+            stepIndex: 17,
             title: "Conexiones",
             subtitle: "Sincroniza tus dispositivos",
             hint: nil,
@@ -19,20 +19,17 @@ struct ConnectionsStep: View {
             onSkip: onSkip
         ) {
             VStack(spacing: Theme.Spacing.m) {
+                // Garmin OAuth is not live yet. Be honest: surface it as coming
+                // soon rather than faking a connected state. When the backend
+                // OAuth flow lands, swap the nil action for the real deep link
+                // and re-enable the connect button.
                 ConnectionCard(
                     title: "Garmin",
-                    description: "FIT files, training load, recovery, HRV",
-                    actionTitle: state.garminConnected ? "Conectado ✓" : "Conectar",
-                    isConnected: state.garminConnected
-                ) {
-                    Task {
-                        // Garmin OAuth flow placeholder — backend agent handles
-                        // the actual flow in `garmin_oauth_scaffolding`. For
-                        // onboarding it suffices to record intent; we'll deep
-                        // link to OAuth when backend lands.
-                        state.garminConnected = true
-                    }
-                }
+                    description: "FIT files, training load, recovery, HRV. Próximamente.",
+                    actionTitle: nil,
+                    isConnected: false,
+                    action: nil
+                )
 
                 ConnectionCard(
                     title: "Apple Health",
@@ -41,8 +38,15 @@ struct ConnectionsStep: View {
                     isConnected: state.healthkitGranted
                 ) {
                     Task {
-                        let granted = await HealthKitPermissions.request()
-                        state.healthkitGranted = granted
+                        // HealthKit never reports read-grant status, so a
+                        // successful request = the sheet was presented. Treat
+                        // as connected; only a thrown error means it failed.
+                        do {
+                            try await HealthKitPermissions.request()
+                            state.healthkitGranted = true
+                        } catch {
+                            state.healthkitGranted = false
+                        }
                     }
                 }
 

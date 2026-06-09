@@ -5,7 +5,7 @@ import {
   idSchema,
   isoDateTime,
   methodologySourceType,
-} from './_primitives.js';
+} from './_primitives';
 
 export const methodologyDocumentSchema = z.object({
   id: idSchema,

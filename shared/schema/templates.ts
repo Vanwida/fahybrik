@@ -4,7 +4,8 @@ import {
   isoDateTime,
   targetBlock,
   templateFormat,
-} from './_primitives.js';
+} from './_primitives';
+import { prescriptionSchema } from '../domain/prescription';
 
 export const templateSchema = z.object({
   id: idSchema,
@@ -23,6 +24,7 @@ export const templateSchema = z.object({
   warmup: z.string().max(2000).nullable(),
   cooldown: z.string().max(2000).nullable(),
   coach_notes: z.string().max(4000).nullable(),
+  demo_video_url: z.string().url().max(500).nullable(),
   meta_json: z.record(z.unknown()).default({}),
   archived_at: isoDateTime.nullable(),
   created_at: isoDateTime,
@@ -119,6 +121,9 @@ export const segmentParamsSchema = z.object({
   // Mobility intensity
   intensity: z.enum(['light', 'medium', 'hard']).optional(),
 
+  // Per-segment demo (YouTube) — overrides exercise catalog video when set
+  video_url: z.string().url().max(500).optional(),
+
   // Élite advanced features
   week_variants: z.array(segmentWeekVariantSchema).max(20).optional(),
   conditional: segmentConditionalSchema.optional(),
@@ -145,6 +150,11 @@ export const templateSegmentInputSchema = z.object({
   position: z.number().int().nonnegative(),
   params_json: segmentParamsSchema.default({}),
   notes: z.string().max(4000).nullable().optional(),
+  // Structured per-set prescription (migration 0043). TRANSITION: accepted
+  // alongside params_json; readers prefer prescription_json when present.
+  // Validated against the shared model so an invalid shape is rejected
+  // server-side. null/undefined = not provided (legacy params_json still used).
+  prescription_json: prescriptionSchema.nullable().optional(),
 });
 export type TemplateSegmentInput = z.infer<typeof templateSegmentInputSchema>;
 
@@ -160,6 +170,8 @@ export const templateUpsertSchema = z.object({
   warmup: z.string().max(2000).nullable().optional(),
   cooldown: z.string().max(2000).nullable().optional(),
   coach_notes: z.string().max(4000).nullable().optional(),
+  demo_video_url: z.string().url().max(500).nullable().optional(),
+  meta_json: z.record(z.unknown()).optional(),
   segments: z.array(templateSegmentInputSchema).max(60),
 });
 export type TemplateUpsert = z.infer<typeof templateUpsertSchema>;

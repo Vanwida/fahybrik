@@ -2,6 +2,7 @@
 
 import type { BuilderSegment } from './template-types';
 import { summarize } from './segment-row';
+import { YouTubeEmbed } from '@/components/media/YouTubeEmbed';
 import { cn } from '@/lib/utils';
 
 const ZONE_TINT_VAR: Record<number, string> = {
@@ -27,6 +28,7 @@ interface Props {
   format: string;
   warmup: string | null;
   cooldown: string | null;
+  demoVideoUrl: string | null;
   segments: BuilderSegment[];
   level: 1 | 2 | 3;
   onLevelChange: (lvl: 1 | 2 | 3) => void;
@@ -39,6 +41,7 @@ export function AthletePreview({
   format,
   warmup,
   cooldown,
+  demoVideoUrl,
   segments,
   level,
   onLevelChange,
@@ -55,7 +58,7 @@ export function AthletePreview({
       aria-label="Vista atleta"
     >
       <div
-        className="ml-auto h-full w-[30%] min-w-[360px] max-w-[440px] bg-[var(--bg)] border-l border-[var(--hairline)] flex flex-col"
+        className="ml-auto h-full w-full sm:w-[min(100%,440px)] md:w-[38%] lg:w-[30%] min-w-0 bg-[var(--bg)] border-l border-[var(--hairline)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-12 px-4 flex items-center justify-between border-b border-[var(--hairline)]">
@@ -96,6 +99,12 @@ export function AthletePreview({
           <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)] mt-1">
             {format}
           </div>
+
+          {demoVideoUrl ? (
+            <Card title="Video demo">
+              <YouTubeEmbed url={demoVideoUrl} title={name} />
+            </Card>
+          ) : null}
 
           {warmup && (
             <Card title="Calentamiento">

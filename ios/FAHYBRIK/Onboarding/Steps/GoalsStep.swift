@@ -1,5 +1,8 @@
 import SwiftUI
 
+// Step 10 — Metas. The athlete's own framing: horizon goals, realism check,
+// locus of control, and what they want from the coach. Qualitative inputs that
+// orient the IA + give Pablo context the numbers don't carry.
 struct GoalsStep: View {
     @Bindable var state: OnboardingState
     let onBack: () -> Void
@@ -8,9 +11,9 @@ struct GoalsStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 10,
-            title: "Tu A-event",
-            subtitle: "El objetivo que ancla el plan",
+            stepIndex: 9,
+            title: "Tus metas",
+            subtitle: "Dónde quieres llegar, con tus palabras",
             hint: nil,
             primaryEnabled: true,
             skipTitle: "Saltar",
@@ -18,67 +21,97 @@ struct GoalsStep: View {
             onPrimary: onNext,
             onSkip: onSkip
         ) {
-            VStack(spacing: 0) {
-                TextRow(label: "Evento", placeholder: "p.ej. HYROX BCN 2026", value: $state.aEventName)
-
-                DateRow(
-                    label: "Fecha",
-                    value: $state.aEventDate,
-                    range: Date()...Date(timeIntervalSinceNow: 60 * 60 * 24 * 365 * 4)
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                MultilineField(
+                    label: "Corto plazo (semanas)",
+                    placeholder: "p.ej. correr 5K sin parar",
+                    text: $state.goalShort
                 )
-
-                LabeledRow(label: "División") {
-                    HStack(spacing: 6) {
-                        ForEach(HyroxDivision.allCases) { d in
-                            Chip(title: d.label, selected: state.aEventDivision == d) {
-                                state.aEventDivision = (state.aEventDivision == d) ? nil : d
-                            }
-                        }
-                    }
-                }
+                MultilineField(
+                    label: "Medio plazo (meses)",
+                    placeholder: "p.ej. bajar de 1h30 en HYROX",
+                    text: $state.goalMid
+                )
+                MultilineField(
+                    label: "Largo plazo (años)",
+                    placeholder: "p.ej. clasificar para el mundial",
+                    text: $state.goalLong
+                )
             }
-            .brandSurface()
 
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                Text("Objetivo")
-                    .font(Theme.Typography.dataLabel)
-                    .uppercaseTracked()
-                    .foregroundStyle(Theme.Color.muted)
-                VStack(spacing: 0) {
-                    ForEach(GoalKind.allCases) { g in
-                        Button {
-                            state.goalKind = (state.goalKind == g) ? nil : g
-                        } label: {
-                            HStack {
-                                Image(systemName: state.goalKind == g
-                                      ? "largecircle.fill.circle"
-                                      : "circle")
-                                    .foregroundStyle(state.goalKind == g
-                                                     ? Theme.Color.accent
-                                                     : Theme.Color.muted)
-                                Text(g.label)
-                                    .font(Theme.Typography.body)
-                                    .foregroundStyle(Theme.Color.foreground)
-                                Spacer()
-                            }
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, Theme.Spacing.l)
-                            .overlay(
-                                Rectangle()
-                                    .fill(Theme.Color.muted.opacity(0.18))
-                                    .frame(height: 1),
-                                alignment: .bottom
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    if state.goalKind == .time {
-                        TimeHourMinSecRow(label: "Tiempo objetivo", seconds: $state.goalTimeSeconds)
-                    }
-                }
-                .brandSurface()
+                SectionLabel("¿Alcanzable en 2-4 meses?")
+                ChoiceGrid(
+                    options: Achievable.allCases,
+                    label: achievableLabel,
+                    isSelected: { state.achievable24Months == $0 },
+                    onTap: { state.achievable24Months = (state.achievable24Months == $0) ? nil : $0 },
+                    columns: 3
+                )
             }
             .padding(.top, Theme.Spacing.l)
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                MultilineField(
+                    label: "Tu mayor obstáculo",
+                    placeholder: "p.ej. la constancia, las lesiones, el tiempo",
+                    text: $state.biggestObstacle
+                )
+            }
+            .padding(.top, Theme.Spacing.l)
+
+            VStack(spacing: 0) {
+                SliderRow(
+                    label: "¿Cuánto depende de ti?",
+                    value: $state.pctDependsOnMe,
+                    range: 0...10,
+                    minLabel: "Nada",
+                    maxLabel: "Todo"
+                )
+            }
+            .brandSurface()
+            .padding(.top, Theme.Spacing.l)
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                MultilineField(
+                    label: "¿Qué esperas del coach?",
+                    placeholder: "p.ej. que me exija, que me ajuste cuando falle",
+                    text: $state.coachRole
+                )
+            }
+            .padding(.top, Theme.Spacing.l)
+        }
+    }
+
+    private func achievableLabel(_ a: Achievable) -> String {
+        switch a {
+        case .yes: return "Sí"
+        case .no: return "No"
+        case .unknown: return "No sé"
+        }
+    }
+}
+
+// Multiline labeled text input on the brand surface — reused by the goal fields.
+struct MultilineField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            SectionLabel(label)
+            TextField(placeholder, text: $text, axis: .vertical)
+                .lineLimit(2...4)
+                .font(Theme.Typography.body)
+                .padding(Theme.Spacing.m)
+                .background(Theme.Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                        .stroke(Theme.Color.hairline, lineWidth: 1)
+                )
+                .foregroundStyle(Theme.Color.foreground)
         }
     }
 }

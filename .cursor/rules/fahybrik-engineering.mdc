@@ -1,0 +1,14 @@
+---
+description: FAHYBRIK engineering protocol — Vanwida, fases plan maestro, calidad
+alwaysApply: true
+---
+
+# FAHYBRIK — Ingeniería
+
+- Cuenta **Vanwida** únicamente (`github.com/Vanwida/fahybrik`, `vanwida@aistudios.pro`).
+- Secrets en `~/.openclaw/credentials/vanwida-tokens.env` y `.env.local` — nunca commitear.
+- **Commits / PR / push** solo cuando Alex lo pida explícitamente.
+- Seguir **fases del plan maestro** (0 → 1a → 1b → 1c → 1d); metodología editable y tests Fabrik = **fase 2+**.
+- Lint + typecheck antes de declarar hecho; bloque **Verificado:** con 3–5 comprobaciones.
+- Pablo IA **Compose** (crear) vs **Adapt** (ajustar runtime con approve).
+- No proponer modelo LLM (Alex elige).

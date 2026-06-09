@@ -3,8 +3,8 @@ import {
   DEFAULT_BLOCK_SPECS,
   findCurrentBlock,
   planMacrocycle,
-} from '@/lib/atr/planner';
-import { addDays, isoDateString, parseIsoDate } from '@/lib/atr/dates';
+} from '@fahybrid/shared/domain/atr/planner';
+import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
 
 describe('planMacrocycle', () => {
   test('default specs lay 13 weeks ending on the event date', () => {

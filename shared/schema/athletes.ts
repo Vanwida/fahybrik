@@ -6,7 +6,7 @@ import {
   idSchema,
   isoDate,
   isoDateTime,
-} from './_primitives.js';
+} from './_primitives';
 
 export const injurySchema = z.object({
   area: z.string().min(1).max(120),

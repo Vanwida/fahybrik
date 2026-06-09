@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { recommendTransition } from '@/lib/atr/transitions';
+import { recommendTransition } from '@fahybrid/shared/domain/atr/transitions';
 
 describe('recommendTransition', () => {
   test('advances when block complete + healthy load + benchmark improvement', () => {

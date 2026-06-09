@@ -3,9 +3,36 @@ import { Resend } from 'resend';
 import { sql } from '../db';
 import { AUTH_CONFIG } from './config';
 
-export function isCoachAllowlisted(email: string): boolean {
-  const allowlist = AUTH_CONFIG.coachAllowlist();
-  return allowlist.includes(email.toLowerCase());
+/**
+ * Is this email allowed to sign in as a coach?
+ *
+ * Source of truth is the `coach_allowlist` DB table (migration 0040, status
+ * workflow added in 0041) so coaches can be approved self-serve from the admin
+ * surface with no redeploy. Only an email whose row is status='approved' passes
+ * the DB check. The COACH_ALLOWLIST env var is still honoured (compat /
+ * break-glass): an email passes if it's in EITHER. If the DB lookup throws
+ * (transient outage), we don't fail open — we fall back to the env allowlist
+ * only.
+ */
+export async function isCoachAllowlisted(email: string): Promise<boolean> {
+  const normalized = email.toLowerCase();
+
+  if (AUTH_CONFIG.coachAllowlist().includes(normalized)) {
+    return true;
+  }
+
+  try {
+    const rows = await sql<{ ok: boolean }[]>`
+      select true as ok from coach_allowlist
+      where email = ${normalized} and status = 'approved' limit 1
+    `;
+    return rows.length > 0;
+  } catch (err) {
+    // Don't fail open: a DB error means we can only trust the env allowlist
+    // (already checked above → false here). Surface for observability.
+    console.error('[isCoachAllowlisted] db lookup failed, env-only fallback', err);
+    return false;
+  }
 }
 
 function hashToken(plaintext: string): string {

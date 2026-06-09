@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, isoDateTime, notificationType } from './_primitives.js';
+import { idSchema, isoDateTime, notificationType } from './_primitives';
 
 export const notificationSchema = z.object({
   id: idSchema,

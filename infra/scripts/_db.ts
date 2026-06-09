@@ -40,8 +40,12 @@ export function getSql() {
   if (!url) {
     throw new Error('DATABASE_URL is not set (expected in .env.local)');
   }
+  // Production (Neon) requires SSL. Honor an explicit `sslmode=disable` in the
+  // URL so a LOCAL or EPHEMERAL throwaway DB (no SSL) can be targeted for
+  // migration/seed verification without weakening the prod default.
+  const ssl: 'require' | false = /[?&]sslmode=disable\b/.test(url) ? false : 'require';
   return postgres(url, {
-    ssl: 'require',
+    ssl,
     prepare: false,
     max: 4,
     idle_timeout: 5,

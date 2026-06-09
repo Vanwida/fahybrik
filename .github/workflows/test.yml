@@ -1,0 +1,43 @@
+name: coach tests
+
+on:
+  pull_request:
+    paths:
+      - 'coach/**'
+      - 'shared/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'coach/**'
+      - 'shared/**'
+      - 'pnpm-lock.yaml'
+
+jobs:
+  test:
+    name: typecheck + unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (coach)
+        run: pnpm --filter @fahybrid/coach exec tsc --noEmit
+
+      - name: Unit tests (coach)
+        run: pnpm --filter @fahybrid/coach test

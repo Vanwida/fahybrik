@@ -27,7 +27,8 @@ struct LabelText: View {
     var body: some View {
         Text(text)
             .font(.system(size: size, weight: .semibold))
-            .tracking(1.6)
+            // +0.08em tracked uppercase micro-label (≈1.76pt at 11pt).
+            .tracking(Theme.Tracking.dataLabel)
             .textCase(.uppercase)
             .foregroundStyle(color)
     }
@@ -62,12 +63,22 @@ struct HeroNumber: View {
 }
 
 // MARK: - Card
+//
+// Instrument-panel card: an elevated near-black face that floats off the canvas
+// under a soft shadow, sealed by a top-lit hairline so it never reads flat.
+// API unchanged (padding/radius/topAccent/leftAccent) — only the look is lifted.
 struct CardSurface<Content: View>: View {
     var padding: CGFloat = Theme.Spacing.l
     var radius: CGFloat = Theme.Radius.l
     var topAccent: Bool = false
     var leftAccent: Bool = false
+    /// Raise onto the brightest layer (use for the hero card on a screen).
+    var elevated: Bool = false
     @ViewBuilder var content: () -> Content
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -78,13 +89,79 @@ struct CardSurface<Content: View>: View {
                 .padding(padding)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Theme.Color.surface)
+        .background {
+            // Layered fill: a near-vertical gradient from elevated → surface
+            // gives the face a faint top-lit sheen rather than a flat slab.
+            shape.fill(
+                LinearGradient(
+                    colors: elevated
+                        ? [Theme.Color.surfaceElevated, Theme.Color.surface]
+                        : [Theme.Color.surface, Theme.Color.surface.opacity(0.92)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
         .overlay(alignment: .leading) {
             if leftAccent {
-                Rectangle().fill(Theme.Color.accent).frame(width: 2)
+                Rectangle().fill(Theme.Color.accent).frame(width: 3)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        // Hairline seam — slightly brighter at the top edge (the lit lip).
+        .overlay {
+            shape.stroke(
+                LinearGradient(
+                    colors: [Theme.Color.hairlineStrong, Theme.Color.hairline],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+        }
+        .clipShape(shape)
+        .brandShadow(elevated ? Theme.Shadow.hero : Theme.Shadow.card)
+    }
+}
+
+// MARK: - Instrument readout (THE signature)
+//
+// Big mono number on a near-black face with a tiny tracked-uppercase label and
+// optional unit — the erg-monitor / race-clock voice. `accent: true` paints the
+// number Fabrik orange (the key metric). Reads as one VoiceOver element.
+struct InstrumentReadout: View {
+    let label: String
+    let value: String
+    var unit: String = ""
+    var accent: Bool = true
+    var size: CGFloat = 72
+    /// Optional trailing delta (e.g. "▲4 vs 7d"), shown muted/ok/warning.
+    var trailing: AnyView? = nil
+
+    private var valueColor: Color { accent ? Theme.Color.accent : Theme.Color.foreground }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                LabelText(text: label)
+                Spacer(minLength: 8)
+                if let trailing { trailing }
+            }
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text(value)
+                    .font(.system(size: size, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(valueColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: max(12, size * 0.2), weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.muted)
+                        .tracking(0.5)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(unit.isEmpty ? "\(label), \(value)" : "\(label), \(value) \(unit)")
     }
 }
 
@@ -113,17 +190,17 @@ struct PillChip: View {
     var body: some View {
         Button(action: { Haptics.light(); action?() }) {
             Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(selected ? Color.white : Theme.Color.foreground)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(selected ? Theme.Color.accent : Theme.Color.surface)
+                .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(selected ? Theme.Color.accent : Theme.Color.surfaceElevated)
                 .overlay(
-                    Capsule().stroke(selected ? Theme.Color.accent : Theme.Color.muted.opacity(0.35), lineWidth: 1)
+                    Capsule().stroke(selected ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
                 )
                 .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScaleStyle())
         .disabled(action == nil)
     }
 }
@@ -144,7 +221,7 @@ struct RecoveryRing: View {
                 .stroke(color, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text("\(value)")
-                .font(.system(size: size * 0.36, weight: .heavy, design: .default).italic())
+                .font(.system(size: size * 0.34, weight: .heavy, design: .monospaced).monospacedDigit())
                 .foregroundStyle(Theme.Color.foreground)
         }
         .frame(width: size, height: size)
@@ -191,15 +268,20 @@ struct MetricRowsList: View {
                         .foregroundStyle(Theme.Color.foreground)
                     Spacer()
                     Text(it.value)
-                        .font(.system(size: dense ? 14 : 16, weight: .semibold).monospacedDigit())
+                        .font(.system(size: dense ? 14 : 16, weight: .semibold, design: .monospaced).monospacedDigit())
                         .foregroundStyle(it.color ?? Theme.Color.foreground)
                 }
                 .padding(.vertical, dense ? 10 : 14)
                 .padding(.horizontal, dense ? 14 : 16)
             }
         }
-        .background(Theme.Color.surface)
+        .background(Theme.Color.surfaceElevated)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .brandShadow(Theme.Shadow.cardTight)
     }
 }
 
@@ -211,24 +293,32 @@ struct DashTile: View {
     var color: Color = Theme.Color.foreground
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: label, size: 9)
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: label, size: 11)
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
                 Text(value)
-                    .font(.system(size: 24, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .font(.system(size: 36, weight: .heavy, design: .default).italic().monospacedDigit())
                     .foregroundStyle(color)
                 if !unit.isEmpty {
                     Text(unit)
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surface)
+        .background(Theme.Color.surfaceElevated)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .brandShadow(Theme.Shadow.cardTight)
+        // Read as one element: "Readiness, 78, /100" instead of 3 fragments.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(unit.isEmpty ? "\(label), \(value)" : "\(label), \(value) \(unit)")
     }
 }
 
@@ -262,24 +352,31 @@ struct ExpertCell: View {
     var color: Color = Theme.Color.foreground
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            LabelText(text: label, size: 9)
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: label, size: 11)
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .font(.system(size: 30, weight: .heavy, design: .default).italic().monospacedDigit())
                     .foregroundStyle(color)
                 if !unit.isEmpty {
                     Text(unit)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(Theme.Color.surfaceElevated)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .brandShadow(Theme.Shadow.cardTight)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(unit.isEmpty ? "\(label), \(value)" : "\(label), \(value) \(unit)")
     }
 }
 
@@ -318,21 +415,36 @@ struct ExpertPrimaryButton: View {
             Text(title)
                 .font(.system(size: 16, weight: .heavy, design: .default).italic())
                 .tracking(1)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Theme.Color.accentOn)
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
-                .background(Theme.Color.accent.opacity(enabled ? 1 : 0.3))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
         }
-        .buttonStyle(PressScaleStyle())
+        .buttonStyle(AccentFillButtonStyle(enabled: enabled, radius: Theme.Radius.l))
         .disabled(!enabled)
     }
 }
 
+/// Scale-only press feedback (no color change). For neutral / chip buttons.
 struct PressScaleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+/// Accent-filled CTA: shifts to the pressed orange (#D85A20) and dips slightly
+/// on touch — the tactile "key" press of the instrument panel.
+struct AccentFillButtonStyle: ButtonStyle {
+    var enabled: Bool = true
+    var radius: CGFloat = Theme.Radius.l
+    func makeBody(configuration: Configuration) -> some View {
+        let base = enabled ? Theme.Color.accent : Theme.Color.accent.opacity(0.3)
+        return configuration.label
+            .background(configuration.isPressed ? Theme.Color.accentPress : base)
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .brandShadow(configuration.isPressed ? Theme.Shadow.cardTight : Theme.Shadow.card)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
+            .animation(.easeInOut(duration: 0.16), value: configuration.isPressed)
     }
 }

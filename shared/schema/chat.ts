@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, isoDateTime } from './_primitives.js';
+import { idSchema, isoDateTime } from './_primitives';
 
 export const chatThreadSchema = z.object({
   id: idSchema,

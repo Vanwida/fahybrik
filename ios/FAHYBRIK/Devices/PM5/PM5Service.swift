@@ -1,0 +1,256 @@
+import CoreBluetooth
+import Foundation
+
+// MARK: - Service-level state
+
+enum PM5BluetoothState {
+    case unknown
+    case unauthorized
+    case poweredOff
+    case poweredOn
+    case unsupported
+
+    init(_ s: CBManagerState) {
+        switch s {
+        case .poweredOn:    self = .poweredOn
+        case .poweredOff:   self = .poweredOff
+        case .unauthorized: self = .unauthorized
+        case .unsupported:  self = .unsupported
+        default:            self = .unknown
+        }
+    }
+}
+
+enum PM5ConnectionState: Equatable {
+    case idle
+    case scanning
+    case connecting
+    case discoveringServices
+    case streaming
+    case disconnecting
+    case failed(String)
+}
+
+struct PM5Discovered: Identifiable, Equatable {
+    let id: UUID
+    let name: String
+    let rssi: Int
+}
+
+// Service emits parsed samples + state changes. The store subscribes; views
+// observe the store. Keeps the service free of SwiftUI imports so it can be
+// unit-tested with synthetic chunks.
+protocol PM5ServiceDelegate: AnyObject {
+    func pm5Service(_ service: PM5Service, didChangeBluetoothState state: PM5BluetoothState)
+    func pm5Service(_ service: PM5Service, didUpdateDiscovered devices: [PM5Discovered])
+    func pm5Service(_ service: PM5Service, didChangeConnection state: PM5ConnectionState)
+    func pm5Service(_ service: PM5Service, didConnect deviceName: String, identifier: UUID)
+    func pm5Service(_ service: PM5Service, didReceiveSample sample: PM5LiveSample)
+    func pm5Service(_ service: PM5Service, didDisconnect error: Error?)
+}
+
+// CoreBluetooth wrapper. Single-peripheral usage — we only ever want one PM5
+// at a time. Auto-reconnect on disconnect is intentionally OFF here; the
+// store decides whether to call `reconnectLastPaired()` based on whether
+// we're inside an active row/ski-erg segment.
+final class PM5Service: NSObject {
+    static let shared = PM5Service()
+
+    weak var delegate: PM5ServiceDelegate?
+
+    private var central: CBCentralManager!
+    private var peripheral: CBPeripheral?
+    private var rowingService: CBService?
+    private var sample: PM5LiveSample = PM5LiveSample()
+    private var discovered: [UUID: PM5Discovered] = [:]
+    private var pendingScan: Bool = false
+
+    private(set) var bluetoothState: PM5BluetoothState = .unknown
+    private(set) var connectionState: PM5ConnectionState = .idle
+
+    override init() {
+        super.init()
+        // queue: nil → main, fine for our 1Hz parsing rate.
+        self.central = CBCentralManager(delegate: self, queue: nil, options: [
+            CBCentralManagerOptionShowPowerAlertKey: true,
+        ])
+    }
+
+    // MARK: - public API
+
+    func startScan() {
+        guard bluetoothState == .poweredOn else {
+            pendingScan = true
+            return
+        }
+        discovered.removeAll()
+        delegate?.pm5Service(self, didUpdateDiscovered: [])
+        update(connection: .scanning)
+        central.scanForPeripherals(
+            withServices: [PM5GATT.infoService],
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
+        )
+    }
+
+    func stopScan() {
+        if central.isScanning { central.stopScan() }
+        if case .scanning = connectionState { update(connection: .idle) }
+    }
+
+    func connect(_ id: UUID) {
+        if let known = central.retrievePeripherals(withIdentifiers: [id]).first {
+            stopScan()
+            connect(peripheral: known)
+            return
+        }
+        if let entry = discovered[id],
+           let known = central.retrievePeripherals(withIdentifiers: [entry.id]).first {
+            stopScan()
+            connect(peripheral: known)
+        }
+    }
+
+    func disconnect() {
+        guard let peripheral else { return }
+        update(connection: .disconnecting)
+        central.cancelPeripheralConnection(peripheral)
+    }
+
+    func forgetPaired() {
+        UserDefaults.standard.removeObject(forKey: PM5Defaults.lastPairedIdentifier)
+        UserDefaults.standard.removeObject(forKey: PM5Defaults.lastPairedName)
+        disconnect()
+    }
+
+    func reconnectLastPaired() {
+        guard bluetoothState == .poweredOn else {
+            pendingScan = true
+            return
+        }
+        guard let raw = UserDefaults.standard.string(forKey: PM5Defaults.lastPairedIdentifier),
+              let id = UUID(uuidString: raw),
+              let known = central.retrievePeripherals(withIdentifiers: [id]).first else {
+            startScan()
+            return
+        }
+        connect(peripheral: known)
+    }
+
+    // MARK: - internal
+
+    private func connect(peripheral: CBPeripheral) {
+        self.peripheral = peripheral
+        peripheral.delegate = self
+        update(connection: .connecting)
+        central.connect(peripheral, options: nil)
+    }
+
+    private func update(connection state: PM5ConnectionState) {
+        connectionState = state
+        delegate?.pm5Service(self, didChangeConnection: state)
+    }
+}
+
+// MARK: - CBCentralManagerDelegate
+
+extension PM5Service: CBCentralManagerDelegate {
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        bluetoothState = PM5BluetoothState(central.state)
+        delegate?.pm5Service(self, didChangeBluetoothState: bluetoothState)
+        if bluetoothState == .poweredOn, pendingScan {
+            pendingScan = false
+            startScan()
+        }
+    }
+
+    func centralManager(
+        _ central: CBCentralManager,
+        didDiscover peripheral: CBPeripheral,
+        advertisementData: [String: Any],
+        rssi RSSI: NSNumber
+    ) {
+        let name = peripheral.name ?? (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? "PM5"
+        let entry = PM5Discovered(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
+        discovered[peripheral.identifier] = entry
+        let sorted = discovered.values.sorted { $0.rssi > $1.rssi }
+        delegate?.pm5Service(self, didUpdateDiscovered: sorted)
+    }
+
+    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        update(connection: .discoveringServices)
+        peripheral.discoverServices([PM5GATT.infoService, PM5GATT.rowingService])
+    }
+
+    func centralManager(
+        _ central: CBCentralManager,
+        didFailToConnect peripheral: CBPeripheral,
+        error: Error?
+    ) {
+        update(connection: .failed(error?.localizedDescription ?? "Connection failed"))
+        self.peripheral = nil
+    }
+
+    func centralManager(
+        _ central: CBCentralManager,
+        didDisconnectPeripheral peripheral: CBPeripheral,
+        error: Error?
+    ) {
+        update(connection: .idle)
+        self.peripheral = nil
+        self.rowingService = nil
+        delegate?.pm5Service(self, didDisconnect: error)
+    }
+}
+
+// MARK: - CBPeripheralDelegate
+
+extension PM5Service: CBPeripheralDelegate {
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        guard error == nil, let services = peripheral.services else {
+            update(connection: .failed(error?.localizedDescription ?? "Service discovery failed"))
+            return
+        }
+        for s in services {
+            if s.uuid == PM5GATT.rowingService { rowingService = s }
+            peripheral.discoverCharacteristics(nil, for: s)
+        }
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didDiscoverCharacteristicsFor service: CBService,
+        error: Error?
+    ) {
+        guard error == nil, let chars = service.characteristics else { return }
+        if service.uuid == PM5GATT.rowingService {
+            for ch in chars where PM5GATT.allNotifyChars.contains(ch.uuid) {
+                if ch.properties.contains(.notify) {
+                    peripheral.setNotifyValue(true, for: ch)
+                }
+            }
+            update(connection: .streaming)
+            UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: PM5Defaults.lastPairedIdentifier)
+            UserDefaults.standard.set(peripheral.name ?? "PM5", forKey: PM5Defaults.lastPairedName)
+            sample = PM5LiveSample()
+            delegate?.pm5Service(
+                self,
+                didConnect: peripheral.name ?? "PM5",
+                identifier: peripheral.identifier
+            )
+        }
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didUpdateValueFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        guard error == nil, let data = characteristic.value else { return }
+        PM5DataParser.applyChunk(
+            uuid: characteristic.uuid.uuidString,
+            data: data,
+            into: &sample
+        )
+        delegate?.pm5Service(self, didReceiveSample: sample)
+    }
+}

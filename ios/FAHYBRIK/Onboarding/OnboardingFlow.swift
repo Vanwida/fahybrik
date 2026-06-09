@@ -22,29 +22,55 @@ struct OnboardingFlow: View {
                 .transition(stepTransition)
             case 1:
                 PersonalBasicsStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
                 )
                 .transition(stepTransition)
             case 2:
-                AthleticBackgroundStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
+                GoalRelationStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
                 )
                 .transition(stepTransition)
             case 3:
-                HyroxHistoryStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
+                HabitsStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
                 )
                 .transition(stepTransition)
             case 4:
+                InjuriesLimitationsStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 5:
+                AvailabilityStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 6:
+                PreferredWeekStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 7:
+                FacilityStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 8:
+                DevicesStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 9:
+                GoalsStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 10:
+                AthleticBackgroundStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 11:
                 StrengthOneRMStep(
                     state: state,
                     onBack: goBack,
@@ -52,63 +78,37 @@ struct OnboardingFlow: View {
                     onSkip: advance
                 )
                 .transition(stepTransition)
-            case 5:
-                EnduranceBenchmarksStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
-            case 6:
-                HyroxStationsStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
-            case 7:
-                ThresholdStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
-            case 8:
-                TrainingContextStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
-            case 9:
-                RecoveryStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
-            case 10:
-                GoalsStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
-            case 11:
-                ConnectionsStep(
-                    state: state,
-                    onBack: goBack,
-                    onNext: advance,
-                    onSkip: advance
-                )
-                .transition(stepTransition)
             case 12:
+                EnduranceBenchmarksStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 13:
+                ThresholdStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 14:
+                HyroxStationsStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 15:
+                HyroxHistoryStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 16:
+                AEventStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 17:
+                ConnectionsStep(
+                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                )
+                .transition(stepTransition)
+            case 18:
                 DoneStep(onEnter: finish)
                     .transition(stepTransition)
             default:

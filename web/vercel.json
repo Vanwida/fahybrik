@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/account-deletion-runner",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/expire-invitations",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-evaluation",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/publish-weekly-plans",
+      "schedule": "59 23 * * 6"
+    }
+  ]
+}

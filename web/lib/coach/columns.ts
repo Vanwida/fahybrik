@@ -1,4 +1,4 @@
-import type { ColumnKey } from './types';
+import type { ColumnKey } from '@fahybrid/shared/domain/coach/types';
 
 export const COLUMN_LABELS: Record<ColumnKey, string> = {
   alert: 'Alerta',
@@ -22,6 +22,8 @@ export const COLUMN_LABELS: Record<ColumnKey, string> = {
   volume_7d: 'Volumen 7d',
   sessions_today: 'Sesiones hoy',
   last_checkin: 'Last check-in',
+  readiness: 'Readiness',
+  programming: 'Programación',
 };
 
 export const REQUIRED_COLUMNS: ReadonlyArray<ColumnKey> = ['alert', 'name'];
@@ -48,4 +50,6 @@ export const COLUMN_WIDTHS: Record<ColumnKey, string> = {
   volume_7d: 'w-[72px]',
   sessions_today: 'w-[88px]',
   last_checkin: 'w-[88px]',
+  readiness: 'w-[72px]',
+  programming: 'w-[120px]',
 };

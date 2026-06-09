@@ -6,7 +6,7 @@ import {
   isoDate,
   isoDateTime,
   macrocycleStatus,
-} from './_primitives.js';
+} from './_primitives';
 
 export const atrMacrocycleSchema = z.object({
   id: idSchema,

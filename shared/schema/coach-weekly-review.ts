@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { atrBlockType, idSchema, isoDate, isoDateTime } from './_primitives.js';
+import { atrBlockType, isoDate, isoDateTime } from './_primitives';
 
 // Status of a weekly review record.
 //   draft     — open, Pablo hasn't approved yet
@@ -179,9 +179,13 @@ export type WeeklyReviewPlanEdit = z.infer<typeof weeklyReviewPlanEditSchema>;
 // Aggregate record (returned by GET /current and /:id)
 // -----------------------------------------------------------------------------
 
+// `id` arrives serialized as text (bigint::text) from the DB before reaching
+// the client; type as nullable string to avoid bigint leakage into JSON.
+// `coach_id` stays a bigint on the server boundary (rowToReview wraps with
+// BigInt()); API edge serializes to string before responding.
 export const coachWeeklyReviewSchema = z.object({
-  id: idSchema.nullable(),
-  coach_id: idSchema,
+  id: z.string().nullable(),
+  coach_id: z.bigint(),
   iso_week_start: isoDate,
   status: coachWeeklyReviewStatus,
   snapshot: weeklyReviewSnapshotSchema,
@@ -201,6 +205,7 @@ export type CoachWeeklyReview = z.infer<typeof coachWeeklyReviewSchema>;
 
 export const saveWeeklyReviewRequestSchema = z.object({
   action: z.enum(['save_draft', 'approve', 'defer']),
+  iso_week_start: isoDate,
   decisions: z.array(weeklyReviewDecisionSchema).optional(),
   notes: z.array(weeklyReviewNoteSchema).optional(),
   plan_edits: z.array(weeklyReviewPlanEditSchema).optional(),
@@ -209,7 +214,7 @@ export const saveWeeklyReviewRequestSchema = z.object({
 export type SaveWeeklyReviewRequest = z.infer<typeof saveWeeklyReviewRequestSchema>;
 
 export const weeklyReviewHistoryItemSchema = z.object({
-  id: idSchema,
+  id: z.string(),
   iso_week_start: isoDate,
   status: coachWeeklyReviewStatus,
   approved_at: isoDateTime.nullable(),

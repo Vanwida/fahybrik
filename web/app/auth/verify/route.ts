@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   const consumed = await consumeMagicLink(token);
   if (!consumed) return failureRedirect('invalid_or_expired');
 
-  if (!isCoachAllowlisted(consumed.email)) {
+  if (!(await isCoachAllowlisted(consumed.email))) {
     return failureRedirect('not_allowed');
   }
 

@@ -6,6 +6,7 @@ import {
   sendMagicLinkEmail,
 } from '@/lib/auth/magic-link';
 import { getClientIp, jsonError } from '@/lib/api/responses';
+import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,15 @@ const emailRequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // A1: throttle magic-link requests per IP to prevent email enumeration/spam.
+  const rlIp = getClientIp(req) ?? 'unknown';
+  const rl = await withRateLimit({
+    scope: 'ip',
+    identifier: rlIp,
+    ...RATE_LIMITS.authEmail,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   let payload: unknown;
   try {
     payload = await req.json();
@@ -29,12 +39,11 @@ export async function POST(req: Request) {
 
   const email = parsed.data.email;
 
-  if (!isCoachAllowlisted(email)) {
+  if (!(await isCoachAllowlisted(email))) {
     return new Response(null, { status: 204 });
   }
 
-  const ip = getClientIp(req);
-  const link = await createMagicLink(email, { requested_ip: ip });
+  const link = await createMagicLink(email, { requested_ip: getClientIp(req) });
   const url = new URL(`${AUTH_CONFIG.appUrl()}/auth/verify`);
   url.searchParams.set('token', link.token_plaintext);
 

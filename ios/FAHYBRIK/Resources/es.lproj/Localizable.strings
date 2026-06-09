@@ -1,0 +1,190 @@
+/*
+  Localizable.strings (es)
+
+  FAHYBRIK — Spanish (Castilian, tú-informal). DEFAULT locale.
+
+  Voice: spare, precise, no motivational filler. Coach-shorthand mid-sentence
+  is fine. Sport vocabulary brand-locked: HYROX, AMRAP, EMOM, RPE, Z1-Z5,
+  sled push, wall ball, ski erg, Z2, Z3, etc. — never translated.
+
+  Anchor phrases:
+    - "Entrenar al detalle."
+    - "Cuanto más sepa Pablo, más preciso será tu plan."
+    - "Pablo está armando tu plan."
+
+  Glyphs allowed: ▶ ✓ ✗ ▲ ▼ · → ← " " ○ ●     NO emoji ever.
+*/
+
+// MARK: - Brand
+"brand.anchor_tagline" = "Entrenar al detalle.";
+"brand.anchor_pablo_more" = "Cuanto más sepa Pablo, más preciso será tu plan.";
+"brand.anchor_pablo_building" = "Pablo está armando tu plan.";
+
+// MARK: - Common
+"common.back" = "Atrás";
+"common.next" = "Siguiente";
+"common.save" = "Guardar";
+"common.cancel" = "Cancelar";
+"common.confirm" = "Confirmar";
+"common.close" = "Cerrar";
+"common.skip" = "Saltar";
+"common.continue" = "Continuar";
+"common.retry" = "Reintentar";
+"common.loading" = "Cargando…";
+"common.error_generic" = "Algo no fue bien.";
+"common.today" = "Hoy";
+"common.yesterday" = "Ayer";
+"common.search" = "Buscar";
+"common.search_and_pair" = "Buscar y emparejar";
+"common.signout" = "Cerrar sesión";
+"common.abandon" = "Abandonar";
+
+// MARK: - Tabs
+"tabs.today" = "Today";
+"tabs.plan" = "Plan";
+"tabs.stats" = "Stats";
+"tabs.chat" = "Chat";
+"tabs.profile" = "Perfil";
+
+// MARK: - Today screen
+"today.brief_title" = "Brief";
+"today.checkin_pending" = "Check-in pendiente";
+"today.checkin_pending_skip_question" = "¿Saltar y volver luego?";
+"today.race_day_title" = "Día de carrera";
+"today.profile_title" = "Perfil";
+"today.coming_soon" = "Próximamente";
+
+// MARK: - Daily check-in
+"checkin.title" = "Check-in matinal";
+"checkin.how_did_you_feel" = "¿Cómo lo sentiste?";
+"checkin.sleep_quality" = "Calidad sueño";
+"checkin.energy" = "Energía";
+"checkin.muscle_load" = "Carga";
+"checkin.notes_placeholder" = "Algo que añadir…";
+"checkin.submit" = "Enviar";
+"checkin.skip_for_now" = "Saltar por ahora";
+"checkin.skip_dialog_question" = "¿Saltar y volver luego?";
+
+// MARK: - Workout execution
+"workout.start" = "Empezar";
+"workout.lap" = "Lap";
+"workout.next" = "Próximo";
+"workout.cad_short" = "Cad";
+"workout.pace" = "Pace";
+"workout.power" = "Potencia";
+"workout.spm" = "SPM";
+"workout.bpm" = "bpm";
+"workout.zone_short" = "Zona";
+"workout.summary" = "Resumen";
+"workout.brief_title" = "Brief de la sesión";
+"workout.post_summary_title" = "Resumen post-sesión";
+"workout.abandon_confirm" = "¿Abandonar la sesión? — se guarda lo registrado hasta ahora";
+
+// MARK: - Plan view
+"plan.next_two_weeks" = "Próximas 2 semanas";
+"plan.no_session_today" = "Hoy: descanso";
+"plan.macrocycle_label" = "Macrociclo";
+
+// MARK: - Stats view
+"stats.title" = "Estadísticas";
+"stats.weight_label" = "Peso";
+"stats.height_label" = "Altura";
+"stats.training_years" = "Años entrenando";
+"stats.completed_races" = "Carreras completadas";
+"stats.race_completed" = "Carrera completada";
+"stats.station_analysis" = "Análisis por estación";
+
+// MARK: - Onboarding
+"onboarding.welcome_title" = "Bienvenido a FAHYBRIK.";
+"onboarding.welcome_subtitle" = "Cuanto más sepa Pablo, más preciso será tu plan.";
+"onboarding.start_cta" = "Empezar";
+"onboarding.continue_cta" = "Continuar";
+"onboarding.terms_prefix" = "Al continuar aceptas los ";
+"onboarding.terms_link" = "términos";
+"onboarding.terms_and" = " y la ";
+"onboarding.privacy_link" = "política de privacidad";
+"onboarding.personal_basics_title" = "Datos básicos";
+"onboarding.athletic_background_title" = "Fondo atlético";
+"onboarding.training_context_title" = "Contexto de entrenamiento";
+"onboarding.hyrox_history_title" = "Historial HYROX";
+"onboarding.hyrox_stations_title" = "Estaciones HYROX";
+"onboarding.endurance_benchmarks_title" = "Benchmarks de fondo";
+"onboarding.threshold_title" = "Umbral";
+"onboarding.strength_title" = "Fuerza · 1RM";
+"onboarding.recovery_title" = "Recuperación";
+"onboarding.connections_title" = "Conexiones";
+"onboarding.goals_title" = "Objetivos";
+"onboarding.done_title" = "Listo";
+"onboarding.done_subtitle" = "Pablo está armando tu plan.";
+
+// MARK: - Onboarding fields & confirms
+"onboarding.height_label" = "Altura";
+"onboarding.weight_label" = "Peso";
+"onboarding.confirm_back_squat" = "¿%@kg back squat? Confirmar";
+"onboarding.confirm_bench" = "¿%@kg bench? Confirmar";
+"onboarding.confirm_clean" = "¿%@kg clean? Confirmar";
+"onboarding.confirm_deadlift" = "¿%@kg deadlift? Confirmar";
+"onboarding.confirm_snatch" = "¿%@kg snatch? Confirmar";
+
+// MARK: - Strength names (brand-locked)
+"strength.back_squat" = "Back squat";
+"strength.bench_press" = "Bench press";
+"strength.clean" = "Clean";
+"strength.deadlift" = "Deadlift";
+"strength.snatch" = "Snatch";
+
+// MARK: - HYROX stations (brand-locked, kept English)
+"hyrox.station.ski_erg" = "Ski Erg";
+"hyrox.station.sled_push" = "Sled Push";
+"hyrox.station.sled_pull" = "Sled Pull";
+"hyrox.station.burpee_broad_jumps" = "Burpee Broad Jumps";
+"hyrox.station.row" = "Row";
+"hyrox.station.farmers_carry" = "Farmers Carry";
+"hyrox.station.sandbag_lunges" = "Sandbag Lunges";
+"hyrox.station.wall_balls" = "Wall Balls";
+
+// MARK: - Race plan & race day
+"race.plan_title" = "Plan de carrera";
+"race.day_title" = "Día de carrera";
+"race.checklist_title" = "Material";
+"race.anchor_phrase_title" = "Frase ancla";
+"race.station_pacing_title" = "Pacing por estación";
+"race.nutrition_title" = "Nutrición";
+"race.energy_during_label" = "Energía durante";
+"race.add_gel_minus10" = "Añadir gel electrolitos -10min";
+"race.trust_message_example" = "Confío en ti. Pace controlado primeros 3km. Vamos a por el sub-1:05.";
+"race.post_debrief_title" = "Debrief post-carrera";
+"race.post_debrief_what_worked" = "Qué funcionó";
+"race.post_debrief_what_to_improve" = "Qué mejorar";
+"race.post_debrief_save" = "Guardar debrief";
+"race.station_count_completed" = "%@ estaciones completadas";
+"race.simulation_did" = "%@ lo has hecho en simulación";
+"race.cramp" = "Calambre";
+"race.calf_compression" = "Compresión gemelos";
+
+// MARK: - Concept2 / Bluetooth
+"bluetooth.off_title" = "Bluetooth apagado";
+"bluetooth.blocked_title" = "Bluetooth bloqueado";
+"bluetooth.search_and_pair" = "Buscar y emparejar";
+"concept2.connect_title" = "Conectar Concept2";
+"concept2.disconnect" = "Desconectar";
+"concept2.last_paired" = "Último emparejamiento";
+
+// MARK: - Sign-in / auth
+"auth.sign_in_with_apple" = "Iniciar sesión con Apple";
+"auth.signing_in" = "Entrando…";
+"auth.error_generic" = "No pudimos iniciar sesión. Inténtalo de nuevo.";
+"auth.sign_out_confirm" = "¿Cerrar sesión?";
+
+// MARK: - HealthKit & permissions (Info.plist usage strings come from project.yml)
+"health.permissions_intro" = "FAHYBRIK lee tus métricas de Apple Health para que Pablo afine tu plan.";
+"health.connect_cta" = "Conectar Apple Health";
+"health.connected" = "Conectado";
+"health.disconnected" = "Desconectado";
+"garmin.connect_cta" = "Conectar Garmin";
+"garmin.connected" = "Conectado";
+"garmin.disconnected" = "Desconectado";
+
+// MARK: - Misc
+"misc.coming_soon_label" = "Próximamente";
+"misc.no_data" = "Sin datos aún.";

@@ -1,13 +1,19 @@
 // Chat attachment storage abstraction.
 //
-// Production: Vercel Blob (FAHYBRIK_BLOB_READ_WRITE_TOKEN env). When the env
-// is absent, we fall back to local-fs at /tmp/fahybrik-uploads in dev. R2
-// adapter is a TODO when we move off Vercel hosting.
+// Production: Vercel Blob (BLOB_READ_WRITE_TOKEN env). When the env is absent,
+// we fall back to local-fs at /tmp/fahybrik-uploads in dev. R2 adapter is a
+// TODO when we move off Vercel hosting.
 //
 // Layout: every blob lives under
 //   chat/<athlete_id>/<yyyy>/<mm>/<uuid>.<ext>
-// so the read URL never exposes other athletes' uploads through path
-// guessing.
+//
+// A3 (security): blobs are uploaded with `access: 'private'`, so the raw blob
+// URL is NOT publicly fetchable. We never hand the blob URL to clients.
+// Instead `storeAttachment` returns a URL pointing at our own authenticated
+// proxy endpoint (`/api/chat/attachments/<pathname>`), which verifies the
+// requester belongs to the thread and then redirects to a short-lived signed
+// download URL. The stored `attachment_url` therefore stays opaque + access
+// is always gated by thread membership.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -91,17 +97,27 @@ export async function storeAttachment(args: {
             put?: (
               path: string,
               data: Buffer,
-              opts: { access: 'public'; contentType: string; token: string },
-            ) => Promise<{ url: string }>;
+              // A3: 'private' so the blob URL is never directly fetchable.
+              opts: { access: 'private'; contentType: string; token: string; addRandomSuffix?: boolean },
+            ) => Promise<{ pathname: string }>;
           }
         | null;
       if (mod && typeof mod.put === 'function') {
         const res = await mod.put(path, bytes, {
-          access: 'public',
+          access: 'private',
           contentType: mime_type,
           token: blobToken,
+          // We already namespace by uuid; don't append Vercel's random suffix
+          // so the stored pathname matches what the proxy endpoint expects.
+          addRandomSuffix: false,
         });
-        return { url: res.url, size_bytes: bytes.length, mime_type, kind };
+        // Never return the raw blob URL — return our authenticated proxy URL.
+        return {
+          url: attachmentProxyUrl(res.pathname),
+          size_bytes: bytes.length,
+          mime_type,
+          kind,
+        };
       }
     } catch {
       // Fall through to local fs.
@@ -114,12 +130,46 @@ export async function storeAttachment(args: {
   await mkdir(dir, { recursive: true });
   const fullPath = join(dir, `${id}.${ext}`);
   await writeFile(fullPath, bytes);
-  // Local URL — only useful in dev. Production ALWAYS uses Vercel Blob.
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  // Local URL — only useful in dev. Routed through the same authenticated
+  // proxy endpoint as prod so the access model is identical everywhere.
   return {
-    url: `${baseUrl}/api/chat/uploads/${encodeURIComponent(path)}`,
+    url: attachmentProxyUrl(path),
     size_bytes: bytes.length,
     mime_type,
     kind,
   };
+}
+
+/** Path prefix of the authenticated attachment proxy endpoint. */
+export const ATTACHMENT_PROXY_PREFIX = '/api/chat/attachments/';
+
+/**
+ * Build the absolute, authenticated proxy URL for a stored blob `pathname`
+ * (e.g. `chat/42/2026/05/<uuid>.jpg`). The pathname segments are individually
+ * encoded so the catch-all route can decode them back. We return an absolute
+ * URL because `sendMessageSchema.attachment_url` requires `.url()`.
+ */
+export function attachmentProxyUrl(pathname: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'http://localhost:3000';
+  const encoded = pathname.split('/').map(encodeURIComponent).join('/');
+  return `${baseUrl}${ATTACHMENT_PROXY_PREFIX}${encoded}`;
+}
+
+/**
+ * Extract the owning athlete_id from a blob pathname of the shape
+ * `chat/<athlete_id>/<yyyy>/<mm>/<file>`. Returns null when the pathname
+ * doesn't match the expected layout (defensive — never trust path input).
+ */
+export function athleteIdFromPathname(pathname: string): bigint | null {
+  const segments = pathname.split('/').filter(Boolean);
+  // ['chat', '<athlete_id>', '<yyyy>', '<mm>', '<file>']
+  if (segments.length < 5) return null;
+  if (segments[0] !== 'chat') return null;
+  const athleteSeg = segments[1];
+  if (!athleteSeg || !/^\d+$/.test(athleteSeg)) return null;
+  try {
+    return BigInt(athleteSeg);
+  } catch {
+    return null;
+  }
 }

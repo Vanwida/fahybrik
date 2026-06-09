@@ -8,7 +8,7 @@ struct StrengthOneRMStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 4,
+            stepIndex: 11,
             title: "1RMs",
             subtitle: "Tus máximos en fuerza",
             hint: "Si no tienes datos recientes, salta. Te programaremos tests.",

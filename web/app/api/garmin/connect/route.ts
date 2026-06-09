@@ -4,7 +4,14 @@
 // redirects the browser to Garmin's authorize page; on partner-approval gating
 // (env vars missing) returns 503.
 
-import { gatedResponse, GARMIN_ENDPOINTS, loadGarminConfig, signOAuth1 } from '@/lib/garmin';
+import {
+  buildRequestTokenCookie,
+  gatedResponse,
+  GARMIN_ENDPOINTS,
+  loadGarminConfig,
+  signOAuth1,
+} from '@/lib/garmin';
+import { isCryptoConfigured } from '@/lib/crypto/aes-gcm';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,6 +26,16 @@ export async function GET(request: Request): Promise<Response> {
 
   const cfg = loadGarminConfig();
   if (!cfg.ok) return gatedResponse(cfg.missing);
+
+  // We persist the request-token secret in an encrypted cookie for the
+  // access_token exchange, so ENCRYPTION_KEY must be set before we begin.
+  if (!isCryptoConfigured()) {
+    return jsonError(
+      503,
+      'encryption_not_configured',
+      'ENCRYPTION_KEY env var is required to begin the Garmin OAuth flow. See /docs/garmin_setup.md.',
+    );
+  }
 
   // The callback URL gets the athlete_id appended so the callback handler can
   // pair the inbound oauth_token with the right athlete. (Garmin echoes the
@@ -53,12 +70,30 @@ export async function GET(request: Request): Promise<Response> {
   const text = await res.text();
   const parsed = parseFormUrlEncoded(text);
   const oauth_token = parsed.get('oauth_token');
-  if (!oauth_token) {
-    return jsonError(502, 'garmin_invalid_response', 'request_token response missing oauth_token');
+  const oauth_token_secret = parsed.get('oauth_token_secret');
+  if (!oauth_token || !oauth_token_secret) {
+    return jsonError(
+      502,
+      'garmin_invalid_response',
+      'request_token response missing oauth_token / oauth_token_secret',
+    );
   }
 
+  // Stash the request-token secret (encrypted, HttpOnly, SameSite=Lax) so the
+  // callback can use it as the OAuth1 token secret for the access_token
+  // exchange. Garmin's signing key for that step is consumer_secret&token_secret.
+  const cookie = buildRequestTokenCookie({
+    athlete_id,
+    oauth_token,
+    oauth_token_secret,
+    secure: url.protocol === 'https:',
+  });
+
   const authorizeUrl = `${GARMIN_ENDPOINTS.authorize}?oauth_token=${encodeURIComponent(oauth_token)}`;
-  return Response.redirect(authorizeUrl, 302);
+  return new Response(null, {
+    status: 302,
+    headers: { location: authorizeUrl, 'set-cookie': cookie },
+  });
 }
 
 function appendQuery(base: string, params: Record<string, string>): string {

@@ -10,6 +10,7 @@ import { resolveChatPrincipal } from '@/lib/chat/auth';
 import {
   getOrCreateThreadForAthlete,
   listThreadsForCoach,
+  toWireIso,
 } from '@/lib/chat/service';
 
 export const runtime = 'nodejs';
@@ -65,5 +66,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     where t.id = ${thread.thread_id}::bigint
     limit 1
   `;
-  return jsonOk({ threads: rows });
+  // Normalize the Postgres `timestamptz::text` to strict ISO 8601 so the iOS
+  // decoder (.iso8601) accepts `last_message_at` — same fix as the messages DTO.
+  const threads = rows.map((r) => ({ ...r, last_message_at: toWireIso(r.last_message_at) }));
+  return jsonOk({ threads });
 }

@@ -30,6 +30,27 @@ enum SegmentKind: String, Codable {
     case sled
     case reps
     case strength
+
+    /// Wire `modality` value for the per-segment execution record. MUST be one
+    /// of the backend's canonical modalities (run | row | ski | bike | strength
+    /// | other — see normalizeModality in ingest-execution-segments.ts); any
+    /// other string is silently bucketed as "other" and breaks the run-vs-row
+    /// analytics. The live grid collapses row/ski/bike into a single PM5-fed
+    /// `rowOrSki` kind, so we emit "row" (the dominant HYROX erg); ski/bike
+    /// distinction is a known follow-up that needs the erg subtype threaded onto
+    /// the segment. `sled`/`reps` are HYROX-station work with no dedicated
+    /// bucket → "other".
+    var modality: String {
+        switch self {
+        case .running:  return "run"
+        case .rowOrSki: return "row"
+        case .strength: return "strength"
+        case .sled, .reps: return "other"
+        }
+    }
+
+    /// True when this segment is driven by the Concept2 PM5 erg (row/ski/bike).
+    var isErg: Bool { self == .rowOrSki }
 }
 
 struct ZoneTarget: Codable {
@@ -50,6 +71,8 @@ struct WorkoutSegment: Codable, Identifiable {
     let targetPowerWatts: Int?
     let targetZone: HRZone?
     let loadKg: Double?
+    /// YouTube watch URL — embedded in-app during brief / active workout.
+    let videoUrl: String?
 
     init(
         id: UUID = UUID(),
@@ -62,7 +85,8 @@ struct WorkoutSegment: Codable, Identifiable {
         targetPaceSecondsPerKm: Int? = nil,
         targetPowerWatts: Int? = nil,
         targetZone: HRZone? = nil,
-        loadKg: Double? = nil
+        loadKg: Double? = nil,
+        videoUrl: String? = nil
     ) {
         self.id = id
         self.order = order
@@ -75,6 +99,7 @@ struct WorkoutSegment: Codable, Identifiable {
         self.targetPowerWatts = targetPowerWatts
         self.targetZone = targetZone
         self.loadKg = loadKg
+        self.videoUrl = videoUrl
     }
 }
 
@@ -83,17 +108,27 @@ struct WorkoutPlan: Codable, Identifiable {
     let name: String
     let format: WorkoutFormat
     let estimatedDurationSeconds: Int
-    let blockContext: String        // "REAL · sem 2 · día 4"
+    let blockContext: String        // pedagogical phase, e.g. "Tapering · sem 2 · día 4"
     let zoneTargets: [ZoneTarget]
     let equipment: [String]
     let segments: [WorkoutSegment]
     let coachNote: String?
+    let demoVideoUrl: String?
     let warmupChecklist: [String]
 }
 
+// One completed segment's measured execution. This is the on-device source of
+// truth that PostWorkoutSummaryView maps into the `segments[]` upload — so every
+// dimension the analytics contract needs lives here (no recomputation
+// downstream). Erg fields (pace/500m, power, SPM, calories) are aggregated from
+// the PM5 stream over the segment window; they stay nil for non-erg modalities.
 struct LapRecord: Codable, Identifiable {
     let id: UUID
     let segmentId: UUID
+    /// 1-based coach order — drives `position` on the wire.
+    let position: Int
+    /// Wire modality from `SegmentKind.modality` (run | erg | strength | reps | sled).
+    let modality: String
     let startedAt: Date
     let endedAt: Date
     let durationSeconds: Double
@@ -102,39 +137,210 @@ struct LapRecord: Codable, Identifiable {
     let zoneSecondsByZone: [Int: Double]   // zone(rawValue) -> seconds
     let repsCompleted: Int?
     let distanceCoveredMeters: Double?
+    // Intensity targets / measured outputs.
+    let avgPaceSecPer500m: Double?         // erg only — mean of PM5 split samples
+    let avgPaceSecPerKm: Double?           // run only — prescribed pace
+    let avgPowerWatts: Double?             // erg only — mean of PM5 power samples
+    let strokeRateSpm: Double?             // erg only — mean of PM5 SPM samples
+    let calories: Double?                  // erg only — final PM5 kcal in window
+    let weightUsedKg: Double?              // strength/sled — prescribed load
+    /// Provenance of the metrics: "pm5" for erg segments fed by the Concept2,
+    /// "healthkit" when HR came from a wearable, else "manual".
+    let source: String
 }
 
-// Demo plan used during dev; real plans come from the backend.
+// Per-segment execution record on the wire. Property names are already
+// snake_case (like WorkoutExecutionPayload) so the encoder's
+// `.convertToSnakeCase` is a no-op and the keys can't desync from the backend
+// Zod schema. The backend consumes this to attribute measured work to each
+// prescribed segment (erg splits, run pace, strength load) for analytics + IA
+// adaptation.
+struct SegmentExecutionDTO: Codable {
+    /// Backend segment/item id when known. WorkoutSegment carries no integer
+    /// backend id today (assignment items are string uids, not Ints), so this is
+    /// null until the detail mapping threads an integer id through — the backend
+    /// then falls back to matching on `position`.
+    let template_segment_id: Int?
+    let position: Int
+    let modality: String
+    let started_at: String           // ISO8601
+    let ended_at: String             // ISO8601
+    let duration_seconds: Int
+    let distance_meters: Double?
+    let avg_pace_s_per_500m: Double?
+    let avg_pace_s_per_km: Double?
+    let avg_power_w: Double?
+    let stroke_rate_spm: Double?
+    let avg_hr: Int?
+    let max_hr: Int?
+    let calories: Double?
+    let reps_completed: Int?
+    let weight_used_kg: Double?
+    let zone_seconds_json: [String: Int]?
+    let source: String
+}
+
+// POST /api/sync/workout-execution body. Explicit snake_case keys to match the
+// Zod schema in web/app/api/sync/workout-execution/route.ts so the encoder's
+// key strategy can't accidentally desync field names.
+struct WorkoutExecutionPayload: Codable {
+    let assignment_id: String
+    let perceived_exertion: Int?
+    let total_duration_seconds: Int?
+    let notes: String?
+    let started_at: String?
+    let ended_at: String?
+    /// Per-segment measured execution. Omitted (nil) for sessions with a single
+    /// freeform segment and no captured laps; populated for structured workouts.
+    let segments: [SegmentExecutionDTO]?
+}
+
+// Offline-first sync helper for post-workout summary. Mirrors the CheckinAPI
+// pattern: try the POST, on any failure enqueue for replay through the shared
+// RequestQueue so closing the workout view is never blocked by network.
+enum WorkoutExecutionAPI {
+    static let path = "/api/sync/workout-execution"
+
+    static func submit(_ payload: WorkoutExecutionPayload, bearer: String?) async {
+        do {
+            try await APIClient.shared.postRaw(path: path, body: payload, bearer: bearer)
+        } catch {
+            if let body = try? JSONEncoder().encode(payload) {
+                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+            }
+        }
+    }
+}
+
+// Minimal real plan used to run the timer/lap engine when we only know the
+// assignment title. The per-assignment workout BODY (segments, zone targets,
+// equipment) is not yet exposed in a shape the live execution engine consumes
+// (the detail endpoint returns blocks/items, not WorkoutSegments) — so we
+// surface only what we truly have: the session title and a single freeform
+// segment. No invented segments, zones, equipment or coach notes.
 extension WorkoutPlan {
-    static let demo = WorkoutPlan(
-        id: UUID(),
-        name: "Sled Push + Wall Ball Circuit",
-        format: .forTime,
-        estimatedDurationSeconds: 52 * 60,
-        blockContext: "REAL · sem 2 · día 4",
-        zoneTargets: [
-            ZoneTarget(zone: .z3, percent: 60),
-            ZoneTarget(zone: .z4, percent: 30),
-            ZoneTarget(zone: .z5, percent: 10),
-        ],
-        equipment: ["Sled 50kg", "Wall ball 9kg", "PM5"],
-        segments: [
-            WorkoutSegment(order: 1, title: "Run 400m", kind: .running,
-                          targetDistanceMeters: 400, targetPaceSecondsPerKm: 270, targetZone: .z3),
-            WorkoutSegment(order: 2, title: "Sled push 100m · 50kg", kind: .sled,
-                          targetDistanceMeters: 100, targetZone: .z5, loadKg: 50),
-            WorkoutSegment(order: 3, title: "Wall balls · 50 reps · 9kg", kind: .reps,
-                          targetReps: 50, targetZone: .z4, loadKg: 9),
-            WorkoutSegment(order: 4, title: "Run 400m", kind: .running,
-                          targetDistanceMeters: 400, targetPaceSecondsPerKm: 270, targetZone: .z3),
-            WorkoutSegment(order: 5, title: "Row 500m · TGT 240W", kind: .rowOrSki,
-                          targetDistanceMeters: 500, targetPowerWatts: 240, targetZone: .z4),
-        ],
-        coachNote: "Mantén la cadencia controlada en run. Sled all-out.",
-        warmupChecklist: [
-            "5 min easy bike o jog",
-            "10 air squats + 10 push-ups",
-            "2 series 5 wall balls técnica",
-        ]
-    )
+    static func minimal(title: String?) -> WorkoutPlan {
+        let name = (title?.isEmpty == false) ? title! : "Sesión"
+        return WorkoutPlan(
+            id: UUID(),
+            name: name,
+            format: .forTime,
+            estimatedDurationSeconds: 0,
+            blockContext: "",
+            zoneTargets: [],
+            equipment: [],
+            segments: [
+                WorkoutSegment(order: 1, title: name, kind: .reps)
+            ],
+            coachNote: nil,
+            demoVideoUrl: nil,
+            warmupChecklist: []
+        )
+    }
+
+    /// Build a runnable plan from the real assignment detail (blocks + items +
+    /// params) returned by GET /api/athlete/assignments/{id}/detail. This is what
+    /// "EMPEZAR" must run — the same body the athlete sees in Plan — not an empty
+    /// title-only shell. Every value comes from the coach's prescription; nothing
+    /// is invented. Returns nil for rest days (no workout body).
+    static func from(detail: AssignmentDetail) -> WorkoutPlan? {
+        guard let workout = detail.workout else { return nil }
+
+        // One segment per exercise item, ordered by block position then item
+        // order, so the live timer/lap engine walks the session in coach order.
+        var order = 0
+        let segments: [WorkoutSegment] = workout.blocks
+            .sorted { $0.blockPosition < $1.blockPosition }
+            .flatMap { block -> [WorkoutSegment] in
+                block.items.map { item in
+                    order += 1
+                    return segment(from: item, order: order)
+                }
+            }
+
+        // No items at all → fall back to a single freeform segment titled with
+        // the workout name (rather than presenting zero segments to the engine).
+        let resolvedSegments = segments.isEmpty
+            ? [WorkoutSegment(order: 1, title: workout.name, kind: .reps)]
+            : segments
+
+        let format = workoutFormat(from: workout.blocks.first?.format)
+
+        return WorkoutPlan(
+            id: UUID(),
+            name: workout.name,
+            format: format,
+            estimatedDurationSeconds: (workout.estimatedDurationMinutes ?? 0) * 60,
+            blockContext: workout.focus ?? "",
+            zoneTargets: [],
+            equipment: [],
+            segments: resolvedSegments,
+            coachNote: workout.coachNote,
+            demoVideoUrl: nil,
+            warmupChecklist: []
+        )
+    }
+
+    private static func segment(from item: WorkoutItem, order: Int) -> WorkoutSegment {
+        let p = item.paramsJson
+        let distanceMeters: Double? = p.distanceMeters.map(Double.init)
+            ?? p.distanceKm.map { $0 * 1000 }
+        return WorkoutSegment(
+            order: order,
+            title: item.exerciseName,
+            kind: segmentKind(category: item.exerciseCategory, slug: item.exerciseSlug),
+            targetReps: p.reps,
+            targetDistanceMeters: distanceMeters,
+            targetDurationSeconds: p.durationSeconds,
+            targetPaceSecondsPerKm: p.paceSecPerKm,
+            targetPowerWatts: nil,
+            targetZone: p.hrZone.flatMap { HRZone(rawValue: $0) },
+            loadKg: p.loadKg,
+            videoUrl: item.exerciseVideoUrl
+        )
+    }
+
+    // Map the DB `exercise_category` enum (cardio | strength | skill |
+    // hyrox_station | mobility | plyometric | core) to the live-execution
+    // SegmentKind that drives which data grid + timer behaviour is shown.
+    //
+    // `cardio` is the catch-all bucket for run/row/ski/bike, so — exactly like
+    // the backend's modality resolver — we disambiguate by slug: erg work
+    // (row/ski/bike) gets the PM5-fed `rowOrSki` grid; everything else cardio
+    // is treated as running (distance/pace grid). `hyrox_station` sleds get the
+    // sled grid; the rest of the stations are rep-driven. strength → strength.
+    private static func segmentKind(category: String, slug: String) -> SegmentKind {
+        let s = slug.lowercased()
+        switch category {
+        case "cardio":
+            if s.contains("row") || s.contains("ski") || s.contains("bike") || s.contains("cycl") {
+                return .rowOrSki
+            }
+            return .running   // run / treadmill / generic cardio
+        case "strength":
+            return .strength
+        case "hyrox_station":
+            return s.contains("sled") ? .sled : .reps
+        default:
+            return .reps   // skill | mobility | plyometric | core
+        }
+    }
+
+    // Map the DB `template_format` enum (block_format override) to the live
+    // WorkoutFormat that drives the execution timer. Covers every enum value:
+    // amrap | for_time | emom | intervals | strength_block | hyrox_sim | tempo
+    // | circuit. strength_block → strength; hyrox_sim → hyroxSim; tempo →
+    // intervals (paced work intervals); circuit / unknown → circuit.
+    private static func workoutFormat(from blockFormat: String?) -> WorkoutFormat {
+        switch blockFormat {
+        case "for_time":       return .forTime
+        case "amrap":          return .amrap
+        case "emom":           return .emom
+        case "intervals":      return .intervals
+        case "tempo":          return .intervals
+        case "strength_block": return .strength
+        case "hyrox_sim":      return .hyroxSim
+        default:               return .circuit   // circuit | nil | unknown
+        }
+    }
 }

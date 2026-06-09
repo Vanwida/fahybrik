@@ -54,8 +54,9 @@ export async function POST(
     return jsonOk({ note }, 201);
   } catch (err) {
     if (err instanceof AthleteDeepDiveError) {
-      const status = err.code === 'forbidden' ? 403 : 404;
-      return jsonError(err.code, err.message, status);
+      // 'forbidden' (athlete not assigned to this coach) is surfaced as 404
+      // so we don't disclose the existence of other coaches' athletes.
+      return jsonError('not_found', 'Athlete not found', 404);
     }
     throw err;
   }

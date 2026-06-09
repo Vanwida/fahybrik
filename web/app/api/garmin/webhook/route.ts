@@ -11,6 +11,7 @@
 // over HealthKit when a workout exists in both sources.
 
 import { gatedResponse, loadGarminConfig, verifyWebhookSignature } from '@/lib/garmin';
+import { hashGarminAccessToken } from '@/lib/garmin/token-store';
 import { sql } from '@/lib/db';
 import { ingestGarminPayload, type GarminPayload } from '@/lib/sync/ingest-garmin';
 
@@ -55,25 +56,19 @@ export async function POST(request: Request): Promise<Response> {
   });
 }
 
-// Resolve a Garmin userAccessToken → athlete_id. Tokens are encrypted at
-// rest in `garmin_oauth_tokens.access_token_encrypted`; we decrypt the row
-// set and match. Acceptable while the connected athlete count is small;
-// switch to a sha256-of-token index column when it grows.
+// Resolve a Garmin userAccessToken → athlete_id via a single indexed lookup on
+// `garmin_oauth_tokens.access_token_sha256` (Finding M15). We hash the incoming
+// token and match the UNIQUE index — O(1), and we never decrypt anyone's token
+// here. The plaintext token is only needed to CALL Garmin (loadGarminTokens),
+// not to identify the athlete, so no decrypt happens on the inbound path.
 async function resolveUserAccessToken(userAccessToken: string): Promise<bigint | null> {
-  const { decrypt } = await import('@/lib/crypto/aes-gcm');
-  const rows = await sql<{ athlete_id: bigint; access_token_encrypted: Buffer }[]>`
-    select athlete_id, access_token_encrypted from garmin_oauth_tokens
+  const hash = hashGarminAccessToken(userAccessToken);
+  const rows = await sql<{ athlete_id: bigint }[]>`
+    select athlete_id from garmin_oauth_tokens
+    where access_token_sha256 = ${hash}
+    limit 1
   `;
-  for (const r of rows) {
-    let plain: string;
-    try {
-      plain = decrypt(r.access_token_encrypted);
-    } catch {
-      continue;
-    }
-    if (plain === userAccessToken) return r.athlete_id;
-  }
-  return null;
+  return rows[0]?.athlete_id ?? null;
 }
 
 function jsonError(status: number, code: string, message: string): Response {

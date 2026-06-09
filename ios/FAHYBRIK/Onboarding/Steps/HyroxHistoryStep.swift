@@ -8,7 +8,7 @@ struct HyroxHistoryStep: View {
 
     var body: some View {
         StepShell(
-            stepIndex: 3,
+            stepIndex: 15,
             title: "HYROX",
             subtitle: "Tu historial de carreras",
             hint: (state.hyroxRacesCompleted ?? 0) == 0

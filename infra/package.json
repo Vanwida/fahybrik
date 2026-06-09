@@ -1,5 +1,5 @@
 {
-  "name": "@fahybrik/infra",
+  "name": "@fahybrid/infra",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,10 +10,26 @@
     "seed:exercises": "tsx scripts/seed_exercises.ts",
     "seed:templates": "tsx scripts/seed_example_templates.ts",
     "seed:day-paired": "tsx scripts/seed_day_paired_templates.ts",
-    "seed:all": "pnpm seed:exercises && pnpm seed:templates && pnpm seed:day-paired"
+    "seed:events": "tsx scripts/seed_events.ts",
+    "seed:demo-race": "tsx scripts/seed_demo_race.ts",
+    "seed:programs": "tsx scripts/seed_program_templates.ts",
+    "seed:programs-levels": "tsx scripts/seed_program_levels.ts",
+    "seed:methodology": "tsx scripts/seed_methodology.ts",
+    "seed:all": "pnpm seed:exercises && pnpm seed:templates && pnpm seed:day-paired && pnpm seed:events && pnpm seed:programs && pnpm seed:programs-levels",
+    "import:blocks": "tsx scripts/import_blocks_xlsx.ts",
+    "import:plan": "tsx scripts/import_plan_html.ts",
+    "parse:blocks": "tsx scripts/parse_blocks_structured.ts",
+    "backfill:metrics": "tsx scripts/backfill_exercise_metrics.ts",
+    "backfill:garmin-hash": "tsx scripts/backfill_garmin_token_hash.ts",
+    "backfill:prescriptions": "tsx scripts/backfill_prescriptions.ts",
+    "backfill:prescriptions:dry-run": "tsx scripts/backfill_prescriptions.ts --dry-run",
+    "repair:0017": "tsx scripts/repair_0017.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:backfill": "tsx scripts/migrate.ts --backfill",
+    "migrate:dry-run": "tsx scripts/migrate.ts --dry-run"
   },
   "dependencies": {
-    "@fahybrik/shared": "workspace:*",
+    "@fahybrid/shared": "workspace:*",
     "postgres": "^3.4.9",
     "zod": "^3.23.8"
   },
