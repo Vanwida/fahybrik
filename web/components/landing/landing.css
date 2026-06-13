@@ -1,0 +1,64 @@
+/* FAHYBRID landing — scoped helpers + keyframes.
+ *
+ * Imported by app/[locale]/(marketing)/layout.tsx. Most styling is Tailwind; this
+ * file holds only landing-only keyframes / helper classes that are awkward in
+ * Tailwind. It does NOT redefine design tokens — those live in globals.css.
+ *
+ * All keyframed helpers respect prefers-reduced-motion (animation removed when the
+ * user opts out). GSAP-driven reveals handle reduced motion in JS separately. */
+
+/* ── Film-grain overlay ──────────────────────────────────────────────────────
+   A faint, fixed grain texture for premium depth on the near-black canvas. Apply
+   to a full-bleed absolutely/fixed-positioned element behind content. Pointer-
+   events:none so it never intercepts clicks. The SVG fractal noise is inline so
+   there is no extra network request. */
+.landing-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+}
+
+/* ── Marquee ─────────────────────────────────────────────────────────────────
+   A horizontally scrolling track (e.g. a band of station names / brand line).
+   Wrap two identical content copies inside .landing-marquee__track for a seamless
+   loop; the track translates -50% over one cycle. */
+@keyframes landing-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.landing-marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.landing-marquee__track {
+  display: inline-flex;
+  width: max-content;
+  animation: landing-marquee 32s linear infinite;
+  will-change: transform;
+}
+
+/* ── Hairline divider helper ─────────────────────────────────────────────────
+   A 1px brand hairline as a class, for spots where a Tailwind border is awkward
+   (pseudo-elements, grid gaps). Mirrors --hairline. */
+.landing-hairline {
+  background: var(--hairline);
+  height: 1px;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-marquee__track {
+    animation: none;
+  }
+}
