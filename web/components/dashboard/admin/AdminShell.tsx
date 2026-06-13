@@ -31,7 +31,7 @@ export function AdminShell({ email, children }: AdminShellProps) {
             {email}
           </span>
           <Link
-            href="/"
+            href="/hoy"
             className="flex items-center gap-1.5 text-xs font-semibold text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--fg)]"
           >
             <MIcon name="arrow_back" size={16} />

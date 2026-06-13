@@ -41,6 +41,8 @@ export async function GET(req: Request) {
 
   await setCoachSessionCookie({ token: session.token, expires_at: session.expires_at });
 
-  const home = new URL(AUTH_CONFIG.appUrl());
+  // Coach home moved from the locale root to /hoy (the root is now the public
+  // marketing landing). next-intl prefixes the locale on the bare /hoy redirect.
+  const home = new URL('/hoy', AUTH_CONFIG.appUrl());
   return NextResponse.redirect(home);
 }

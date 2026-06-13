@@ -12,7 +12,7 @@ export interface NavItem {
 // Metodología moved under Ajustes, Biblioteca folded into /programar (fase 2,
 // biblioteca única). Business metrics stay on the admin surface (/admin, 0041).
 export const NAV_ITEMS: readonly NavItem[] = [
-  { href: '/', labelKey: 'today', icon: 'today', badgeKey: 'inbox' },
+  { href: '/hoy', labelKey: 'today', icon: 'today', badgeKey: 'inbox' },
   { href: '/atletas', labelKey: 'athletes', icon: 'groups' },
   { href: '/programar', labelKey: 'programming', icon: 'edit_calendar' },
 ] as const;

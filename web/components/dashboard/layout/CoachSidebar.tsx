@@ -37,7 +37,7 @@ export function CoachSidebar({ pending_inbox_count = 0, is_admin = false }: Coac
     >
       {/* Logo */}
       <Link
-        href="/"
+        href="/hoy"
         aria-label="FAHYBRIK"
         title="FAHYBRIK"
         className="flex h-16 shrink-0 items-center gap-3 border-b border-[color:var(--border-subtle)] px-5"

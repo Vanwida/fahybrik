@@ -40,10 +40,10 @@ const isProtectedRoute = createRouteMatcher([
   '/:locale/ajustes/:path*',
   '/:locale/metodologia/:path*',
   '/:locale/admin/:path*',
-  // Raíz del dashboard coach (page.tsx del grupo (app)). Las páginas públicas
-  // viven en (public) con sus propios segmentos, así que la home localizada
-  // pertenece al dashboard.
-  '/:locale',
+  // Home del dashboard coach. La movimos a /:locale/hoy: la raíz /:locale es ahora
+  // la landing pública de marketing (grupo (marketing)) y NO se protege. Solo /hoy
+  // y las secciones del dashboard exigen login Clerk.
+  '/:locale/hoy',
   // APIs de coach/admin.
   '/api/coach/:path*',
   '/api/admin/:path*',
