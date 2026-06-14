@@ -43,7 +43,7 @@ export const HERO = {
   eyebrow: 'ENTRENAMIENTO PERSONAL · HYROX & DEKA',
   // headline rendered as kinetic lines (array = lines):
   headlineLines: ['DEJA DE IMPROVISAR', 'TU HYROX.'],
-  sub: 'Construimos tu plan y lo ajustamos cada semana a tu nivel, tu material y tu próxima carrera. Tú no decides qué toca hoy: solo entrenas.',
+  sub: 'Tu plan semanal, ajustado a tu nivel, tu material y tu próxima carrera. Tú solo entrenas. Nosotros pensamos por ti.',
   primaryCta: 'Empieza tu plan',
   secondaryCta: 'Cómo funciona',
   trust: 'Desde 70€/mes · 30 días de garantía · Disponible en iOS',
@@ -73,7 +73,7 @@ export const PROMISE = {
 
 export const HOW = {
   label: 'CÓMO FUNCIONA',
-  heading: 'Tu entrenador, contigo. En cuatro pasos.',
+  heading: 'De cero a tu carrera. En cuatro pasos.',
   steps: [
     {
       n: '01',
@@ -83,7 +83,7 @@ export const HOW = {
     {
       n: '02',
       title: 'Construimos tu plan',
-      body: 'Te montamos tu entrenamiento a medida, listo en 48–72h. Para ti, no de plantilla.',
+      body: 'En menos de 72h tienes tu plan 1:1 en la app. Diseñado desde cero para ti.',
     },
     {
       n: '03',
@@ -92,8 +92,8 @@ export const HOW = {
     },
     {
       n: '04',
-      title: 'Lo ajustamos a cómo vas',
-      body: 'Nos dices cómo fue y ajustamos lo que viene. Tu plan evoluciona contigo, carrera tras carrera.',
+      title: 'El plan evoluciona. Igual que tú.',
+      body: 'Pablo revisa cómo respondiste y adapta la semana siguiente. El plan nunca se queda estático.',
     },
   ],
 } as const;
@@ -101,7 +101,7 @@ export const HOW = {
 export const METHODOLOGY = {
   label: 'TU ENTRENAMIENTO',
   heading: 'Preparado para cada parte de la carrera.',
-  sub: 'Carrera, fuerza, ergómetros, las estaciones, simulaciones... Tu plan combina todo lo que necesitas para llegar a meta — dosificado para ti y para tu próxima prueba.',
+  sub: 'Running, fuerza, ergómetros, estaciones específicas y simulacros completos. Todo en un plan diseñado para lo que te espera en carrera.',
   pillars: [
     { id: 1, name: 'Fuerza', colorVar: '--grp-fuerza-base', body: 'Más fuerte en sled, farmers y wall balls. La base sobre la que se construye todo.' },
     { id: 2, name: 'Potencia', colorVar: '--grp-fuerza-explosiva-pliometrica', body: 'Explosividad y reactividad para moverte rápido, también cuando llega la fatiga.' },
@@ -120,7 +120,7 @@ export const METHODOLOGY = {
 export const ANALYTICS = {
   label: 'TUS CARRERAS',
   heading: 'Cada split te dice dónde mejorar.',
-  sub: 'Registra tu carrera estación por estación. Vemos tus 2–3 puntos débiles y se convierten en el foco de las próximas semanas. Ver cómo bajan tus tiempos, carrera tras carrera, engancha.',
+  sub: 'Analizamos tu carrera estación por estación. Los puntos débiles se convierten en el plan de las semanas siguientes. Y ver cómo bajan esos tiempos, carrera tras carrera, es lo que te hace seguir.',
   // TODO: real athlete data when available.
   stations: [
     { key: 'ski', name: 'SkiErg', seconds: 232, weak: false },
@@ -161,8 +161,8 @@ export const APP = {
 
 export const COACH = {
   label: 'TU ENTRENADOR',
-  heading: 'Tu entrenador es Pablo. Una persona, no una plantilla.',
-  body: 'Lleva Fabrik, los dos boxes con más comunidad HYROX de Barcelona. Ve cómo entrenas, conoce tu objetivo y ajusta tu plan cada semana — contigo, no en automático. No te bajas un plan: tienes a alguien que te lleva hasta la línea de salida.',
+  heading: 'Tu entrenador es Pablo. Programación 1:1 que se adapta a ti cada semana.',
+  body: 'Pablo lleva Fabrik, la mayor comunidad HYROX de Barcelona. Ahora lleva también tu programación 1:1: te conoce, sigue tu progreso y ajusta cada semana hasta que cruces la línea de meta.',
   // Portrait-plate label.
   plate: {
     title: 'Pablo', // TODO: ¿"Pablo Amigo"? confirmar con Alex
@@ -241,7 +241,7 @@ export const PRICING = {
 
 export const FAQ = {
   label: 'PREGUNTAS',
-  heading: 'Lo que necesitas saber.',
+  heading: 'Resolvemos tus dudas.',
   items: [
     {
       q: '¿Quién hace mi plan?',
