@@ -318,7 +318,7 @@ export function Hero() {
     <section
       id={SECTION_IDS.hero}
       aria-labelledby="hero-headline"
-      className="relative flex min-h-[100svh] w-full items-end overflow-hidden scroll-mt-20 bg-[color:var(--bg)] md:scroll-mt-24"
+      className="relative flex min-h-[100svh] w-full flex-col overflow-hidden scroll-mt-20 bg-[color:var(--bg)] md:scroll-mt-24"
     >
       {/* LAYER 2 — CSS fallback (ALWAYS present, behind canvas). */}
       <div aria-hidden="true" className="absolute inset-0">
@@ -366,21 +366,20 @@ export function Hero() {
         />
       </div>
 
-      {/* Mobile/tablet: feature the FH mark in the empty upper area of the hero
-          (the desktop watermark has no room here). Visible + branded, sits behind
-          the content and never touches the headline below. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-6 top-[13%] z-0 flex justify-center select-none lg:hidden"
-      >
-        <FahybridMark
-          color="var(--fg)"
-          className="h-[clamp(5rem,27vw,9rem)] w-auto opacity-80"
-        />
-      </div>
-
-      {/* LAYER 3 — Foreground content. */}
-      <div className="relative z-10 mx-auto w-full max-w-[1180px] px-6 pb-28 pt-32 md:px-10 md:pb-32">
+      {/* LAYER 3 — Foreground content. Flex column filling the hero:
+          • mobile/tablet → justify-between puts the FH mark at the TOP (in flow) and the
+            text block at the BOTTOM, with a guaranteed gap → they can NEVER overlap
+            (the old absolute top-% version collided with the eyebrow on short real
+            devices).
+          • desktop → content vertically centred so tall windows (Safari) don't leave a
+            big void above; the right-edge watermark handles the empty right side. */}
+      <div className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-between px-6 pt-24 pb-20 md:px-10 lg:justify-center lg:pt-28 lg:pb-28">
+        <div aria-hidden="true" className="flex shrink-0 justify-center pt-2 select-none lg:hidden">
+          <FahybridMark
+            color="var(--fg)"
+            className="h-[clamp(4rem,15vw,6rem)] w-auto opacity-80"
+          />
+        </div>
         <div>
           <SectionLabel className="mb-6">{HERO.eyebrow}</SectionLabel>
 
