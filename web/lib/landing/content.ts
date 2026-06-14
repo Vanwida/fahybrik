@@ -215,7 +215,7 @@ export const PRICING = {
     },
     {
       key: 'pro_elite',
-      name: 'Pro',
+      name: 'Elite',
       price: '95€',
       period: '/mes',
       highlight: false,

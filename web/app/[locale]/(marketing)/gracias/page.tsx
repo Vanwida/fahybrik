@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 const PLAN_LABEL: Record<string, string> = {
   individual: 'Individual',
   dobles: 'Dobles',
-  pro_elite: 'Pro',
+  pro_elite: 'Elite',
 };
 
 // Stripe Payment Links redirect here after a successful payment (see lib/landing/cta).
