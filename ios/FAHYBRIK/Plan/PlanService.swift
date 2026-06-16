@@ -320,6 +320,7 @@ extension PlanWeek {
                 title: title,
                 subtitle: subtitle.isEmpty ? "—" : subtitle,
                 isRest: d.isRest || d.sessions.isEmpty,
+                status: primary?.status,
                 partnerVisibility: primary?.partnerVisibility
             )
         }

@@ -238,8 +238,10 @@ struct PlanView: View {
         let isSelected = di == selectedDay
         let isToday = di == week.todayIndex
         let isPast = di < week.todayIndex
-        let isDone = (isPast && !day.isRest)
-            || (day.assignmentId.map { CompletedAssignmentsStore.isCompleted($0) } ?? false)
+        // ✓ reflects ACTUAL completion (server status 'completed' or local
+        // optimistic mark), never the mere passage of the date. A past session
+        // left unfinished therefore stays a scheduled dot, not a checkmark.
+        let isDone = day.isCompleted
 
         return Button {
             Haptics.light()
@@ -628,10 +630,26 @@ struct PlanDay: Identifiable, Hashable {
     let title: String            // primary session title
     let subtitle: String         // joined modality summary
     let isRest: Bool
+    /// Server-side assignment status of the primary session: 'scheduled' |
+    /// 'completed' | 'missed' | 'in_progress' (see deep-dive-plan PLAN_STATUS).
+    /// Nil on rest / empty days. The ✓ glyph is driven by this — NOT by whether
+    /// the date has passed — so a skipped past session never shows as done.
+    let status: String?
     /// "shared" → display "Con [partner]" badge when the athlete has a
     /// Dobles partner. "self_only" → individual session inside a Dobles plan.
     /// Nil → individual modality / backend hasn't shipped the field.
     let partnerVisibility: String?
+
+    /// True when the session is actually finished: the server marked it
+    /// 'completed' OR we recorded it locally (optimistic completion before the
+    /// next /week refetch lands). Mirrors the `nextWorkout` active-predicate so
+    /// Today and Plan agree on what "done" means. Rest days are never done.
+    var isCompleted: Bool {
+        guard !isRest else { return false }
+        if status?.lowercased() == "completed" { return true }
+        if let id = assignmentId, CompletedAssignmentsStore.isCompleted(id) { return true }
+        return false
+    }
 }
 
 struct PlanWeek {
