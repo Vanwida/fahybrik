@@ -6,7 +6,7 @@ import SwiftUI
 // HRV/CTL/TSB/ACR default-visible.
 struct TodayView: View {
     // Stable tab identifiers so push deep links can switch tabs programmatically.
-    private enum Tab: Hashable { case today, plan, nutrition, stats, profile }
+    private enum Tab: Hashable { case today, plan, stats, profile }
     @State private var selectedTab: Tab = .today
 
     @State private var showWorkout: Bool = false
@@ -48,9 +48,6 @@ struct TodayView: View {
             PlanView(bearer: bearer)
                 .tabItem { Label("Plan", systemImage: "calendar") }
                 .tag(Tab.plan)
-            NutritionView(bearer: bearer)
-                .tabItem { Label("Nutrición", systemImage: "fork.knife") }
-                .tag(Tab.nutrition)
             StatsView(bearer: bearer)
                 .tabItem { Label("Analíticas", systemImage: "chart.bar") }
                 .tag(Tab.stats)
