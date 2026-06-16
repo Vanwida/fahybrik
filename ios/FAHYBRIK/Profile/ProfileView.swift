@@ -614,14 +614,14 @@ struct ProfileView: View {
                 profileRow(
                     icon: "lock.shield",
                     title: "Privacidad",
-                    subtitle: "fahybrik.com/privacy",
+                    subtitle: "fahybrid.com/privacy",
                     action: { sheet = .privacy }
                 )
                 Hairline()
                 profileRow(
                     icon: "doc.text",
                     title: "Términos",
-                    subtitle: "fahybrik.com/terms",
+                    subtitle: "fahybrid.com/terms",
                     action: { sheet = .terms }
                 )
             }
@@ -931,8 +931,8 @@ private struct LegalSheet: View {
 }
 
 private enum LegalCopy {
-    static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrik.com/privacy. Si tienes dudas, escribe a privacy@fahybrik.com."
-    static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrik.com/terms."
+    static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a privacy@fahybrid.com."
+    static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
 }
 
 // MARK: - Export Share Sheet plumbing

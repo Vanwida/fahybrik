@@ -2,7 +2,7 @@ import SwiftUI
 import AuthenticationServices
 
 // Landing surface shown when the athlete opens a coach invite deep link
-// (`fahybrid://invite?token=…` or `https://fahybrik.com/invite/<token>`).
+// (`fahybrid://invite?token=…` or `https://fahybrid.com/invite/<token>`).
 // Triggered from AppRoot via `onOpenURL`, mirroring the Dobles partner-redeem
 // flow (PartnerRedeemView) — same deep-link plumbing, same Sign-in-with-Apple
 // → POST → AuthState handoff.

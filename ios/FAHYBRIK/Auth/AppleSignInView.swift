@@ -91,8 +91,8 @@ struct AppleSignInView: View {
 }
 
 private struct LegalAcknowledgementText: View {
-    private static let privacyURL = URL(string: "https://fahybrik.com/privacy")!
-    private static let termsURL = URL(string: "https://fahybrik.com/terms")!
+    private static let privacyURL = URL(string: "https://fahybrid.com/privacy")!
+    private static let termsURL = URL(string: "https://fahybrid.com/terms")!
 
     var body: some View {
         let attributed: AttributedString = {

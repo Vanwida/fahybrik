@@ -41,9 +41,9 @@ struct WelcomeStep: View {
                     SkipLink(title: "¿Saltar y volver luego?", action: onResumeLater)
 
                     HStack(spacing: Theme.Spacing.l) {
-                        Link("Privacidad", destination: URL(string: "https://fahybrik.com/privacy")!)
+                        Link("Privacidad", destination: URL(string: "https://fahybrid.com/privacy")!)
                         Text("·").foregroundStyle(Theme.Color.muted)
-                        Link("Términos", destination: URL(string: "https://fahybrik.com/terms")!)
+                        Link("Términos", destination: URL(string: "https://fahybrid.com/terms")!)
                     }
                     .font(Theme.Typography.caption)
                     .tint(Theme.Color.accent)
