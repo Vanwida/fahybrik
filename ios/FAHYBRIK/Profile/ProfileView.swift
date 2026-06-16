@@ -45,8 +45,6 @@ struct ProfileView: View {
     private enum SheetKind: String, Identifiable {
         case methodology
         case coach
-        case editProfile
-        case notifications
         case privacy
         case terms
         var id: String { rawValue }
@@ -77,6 +75,7 @@ struct ProfileView: View {
                         SectionHeader(title: "Privacidad y datos")
                         privacyAndDataCard
                         signOutButton
+                        deleteAccountRow
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
@@ -379,13 +378,16 @@ struct ProfileView: View {
     private var devicesCard: some View {
         CardSurface(padding: 0) {
             VStack(spacing: 0) {
-                deviceRow(
+                // Non-interactive placeholder: Garmin sync is not shipped yet,
+                // so the row is informational only (no tap target → it must not
+                // open the unfinished "edit profile" sheet).
+                deviceRowContent(
                     icon: "watch.analog",
                     title: "Garmin",
                     subtitle: "Sincronización próximamente",
                     statusText: "no conectado",
                     statusColor: Theme.Color.muted
-                ) { sheet = .editProfile }
+                )
                 Hairline()
                 appleHealthRow
                 Hairline()
@@ -523,26 +525,6 @@ struct ProfileView: View {
         showToast("Apple Health conectado")
     }
 
-    private func deviceRow(
-        icon: String,
-        title: String,
-        subtitle: String,
-        statusText: String,
-        statusColor: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: { Haptics.light(); action() }) {
-            deviceRowContent(
-                icon: icon,
-                title: title,
-                subtitle: subtitle,
-                statusText: statusText,
-                statusColor: statusColor
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
     private func deviceRowContent(
         icon: String,
         title: String,
@@ -597,8 +579,8 @@ struct ProfileView: View {
                 Hairline()
                 profileRow(
                     icon: "person.crop.rectangle",
-                    title: "Tu coach: Pablo Casals",
-                    subtitle: "Fabrik Studio · Barcelona · 12 años élite",
+                    title: "Tu coach: Pablo",
+                    subtitle: "Fabrik Studio · Barcelona",
                     action: { sheet = .coach }
                 )
             }
@@ -620,20 +602,6 @@ struct ProfileView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                Hairline()
-                profileRow(
-                    icon: "person.fill",
-                    title: "Modificar perfil",
-                    subtitle: "Nombre, peso, talla, 1RMs, mejores tiempos",
-                    action: { sheet = .editProfile }
-                )
-                Hairline()
-                profileRow(
-                    icon: "bell",
-                    title: "Notificaciones",
-                    subtitle: "Push · Check-in · Mensajes de Pablo",
-                    action: { sheet = .notifications }
-                )
             }
         }
     }
@@ -699,8 +667,6 @@ struct ProfileView: View {
         CardSurface(padding: 0) {
             VStack(spacing: 0) {
                 exportDataRow
-                Hairline()
-                deleteAccountRow
             }
         }
     }
@@ -743,34 +709,23 @@ struct ProfileView: View {
         .accessibilityHint("Descarga un JSON con todo lo que guardamos sobre ti")
     }
 
+    // De-emphasised footer link. Behaviour (typed-confirmation guard in
+    // DeleteAccountConfirmView) is unchanged — only the visual weight is
+    // lowered so deletion is not a prominent main-path action.
     private var deleteAccountRow: some View {
         Button {
             Haptics.medium()
             showDeleteAccount = true
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "trash")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.danger)
-                    .frame(width: 26)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Eliminar mi cuenta")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.danger)
-                    Text("Permanente · 30 días de gracia · cancela suscripción")
-                        .scaledFont(11, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
+            Text("Eliminar mi cuenta")
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Spacing.s)
         }
         .buttonStyle(.plain)
         .disabled(bearer == nil)
+        .padding(.top, Theme.Spacing.s)
         .accessibilityLabel("Eliminar mi cuenta")
         .accessibilityHint("Permanente, 30 días de gracia, cancela suscripción")
     }
@@ -842,8 +797,6 @@ struct ProfileView: View {
         switch kind {
         case .methodology: MethodologySheet()
         case .coach:       CoachSheet()
-        case .editProfile: EditProfileSheet(identity: identity)
-        case .notifications: NotificationsSheet()
         case .privacy:     LegalSheet(title: "Política de privacidad", bodyText: LegalCopy.privacy)
         case .terms:       LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms)
         }
@@ -931,12 +884,12 @@ private struct CoachSheet: View {
                     HStack(spacing: 14) {
                         ZStack {
                             Circle().fill(Theme.Color.surface).frame(width: 64, height: 64)
-                            Text("PC")
+                            Text("P")
                                 .font(.system(size: 20, weight: .heavy, design: .default).italic())
                                 .foregroundStyle(Theme.Color.foreground)
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Pablo Casals")
+                            Text("Pablo")
                                 .font(Theme.Typography.headlineS)
                                 .foregroundStyle(Theme.Color.foreground)
                             Text("Coach · Fabrik Studio Barcelona")
@@ -944,137 +897,13 @@ private struct CoachSheet: View {
                                 .foregroundStyle(Theme.Color.muted)
                         }
                     }
-                    bullet("12 años entrenando atletas élite de HYROX y CrossFit.")
-                    bullet("Top 50 HYROX World Championships 2023, 2024.")
-                    bullet("Especialidad: polarización + ATR + análisis fisiológico continuo.")
-                    bullet("Atletas actuales en cohorte Fabrik: 23 (3 Pro Men, 5 Pro Women).")
-                    Hairline()
                     Text("Pablo escribe la metodología detrás de tu plan. Cada workout que ves se basa en una plantilla validada por él, ajustada a tu CTL/ATL/TSB y a tus weaknesses por estación.")
                         .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .padding(20)
-            }
-        }
-    }
-
-    private func bullet(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("·")
-                .font(.system(size: 14, weight: .heavy))
-                .foregroundStyle(Theme.Color.accent)
-            Text(text)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.foreground)
-        }
-    }
-}
-
-private struct EditProfileSheet: View {
-    let identity: AthleteIdentity?
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Mi perfil")
-                        .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Estos son los datos que tu coach usa para ajustar tu plan. La edición desde la app llegará pronto.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                    if let id = identity {
-                        fieldRow(label: "Nombre", value: id.fullName)
-                        if let age = id.age { fieldRow(label: "Edad", value: "\(age)") }
-                        fieldRow(label: "Talla / peso", value: bodyValue(id))
-                        if let yrs = id.trainingExperienceYears, yrs > 0 {
-                            fieldRow(label: "Experiencia", value: "\(Int(yrs)) años")
-                        }
-                        if let disc = id.primaryDiscipline, !disc.isEmpty {
-                            fieldRow(label: "Disciplina", value: disc)
-                        }
-                        if let days = id.trainingDaysPerWeek {
-                            fieldRow(label: "Días/semana", value: "\(days)")
-                        }
-                    } else {
-                        Text("No pudimos cargar tu perfil. Revisa tu conexión.")
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
                 }
                 .padding(20)
             }
         }
-    }
-
-    private func bodyValue(_ id: AthleteIdentity) -> String {
-        switch (id.heightCm, id.weightKg) {
-        case let (h?, w?): return "\(Int(h)) cm / \(Int(w)) kg"
-        case let (h?, nil): return "\(Int(h)) cm"
-        case let (nil, w?): return "\(Int(w)) kg"
-        default: return "—"
-        }
-    }
-
-    private func fieldRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-            Spacer()
-            Text(value)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.Color.foreground)
-        }
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct NotificationsSheet: View {
-    @State private var checkin = true
-    @State private var coach = true
-    @State private var summary = false
-    @State private var quietHours = true
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Notificaciones")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    toggleRow(title: "Check-in matinal", subtitle: "07:30 · si no lo has hecho", binding: $checkin)
-                    toggleRow(title: "Mensajes de Pablo", subtitle: "Coach · alta prioridad", binding: $coach)
-                    toggleRow(title: "Resumen post-workout", subtitle: "RPE + zonas + recuperación", binding: $summary)
-                    toggleRow(title: "Modo silencio · 22:00–07:00", subtitle: "Excepto coach urgente", binding: $quietHours)
-                }
-                .padding(20)
-            }
-        }
-    }
-
-    private func toggleRow(title: String, subtitle: String, binding: Binding<Bool>) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(subtitle)
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer()
-            Toggle("", isOn: binding)
-                .labelsHidden()
-                .tint(Theme.Color.accent)
-                .accessibilityLabel("\(title). \(subtitle)")
-        }
-        .padding(12)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -1103,7 +932,7 @@ private struct LegalSheet: View {
 
 private enum LegalCopy {
     static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrik.com/privacy. Si tienes dudas, escribe a privacy@fahybrik.com."
-    static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo Casals y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrik.com/terms."
+    static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrik.com/terms."
 }
 
 // MARK: - Export Share Sheet plumbing
