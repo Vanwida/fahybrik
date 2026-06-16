@@ -21,8 +21,12 @@ struct ChatView: View {
     @State private var myUserId: String? = UserDefaults.standard.string(forKey: Self.myUserIdKey)
     private static let myUserIdKey = "fahybrik.chat.myUserId"
 
-    // Poll cadence while the conversation is on screen.
-    private static let pollInterval: Duration = .seconds(6)
+    // Poll cadence while the conversation is on screen. Single source of truth
+    // for the polling interval (no SSE on iOS yet; see note below). 3s halves
+    // perceived reply latency vs the prior 6s without tripling backend load.
+    // Long-term fix: consume the backend SSE stream (/api/chat/stream) instead
+    // of polling — currently exposed server-side but ignored by iOS.
+    private static let pollInterval: Duration = .seconds(3)
 
     var body: some View {
         ZStack {
