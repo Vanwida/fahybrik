@@ -191,7 +191,7 @@ final class OnboardingState {
             one_rm_ohp_kg: oneRmOhp,
             one_rm_clean_kg: oneRmClean,
             one_rm_snatch_kg: oneRmSnatch,
-            pull_ups_max: pullUpsMax,
+            strict_pull_ups_max: pullUpsMax,
             push_ups_per_minute: pushUpsPerMinute,
             time_5k_seconds: time5kSeconds,
             time_10k_seconds: time10kSeconds,
@@ -242,17 +242,42 @@ final class OnboardingState {
     // The A-event becomes the athlete's primary race. Modeled as a list so the
     // backend can ingest several races later without a wire change.
     private func racesPayload() -> [RaceDTO] {
-        guard !aEventName.isEmpty || aEventDate != nil || aEventDivision != nil else { return [] }
+        // Web raceSchema requires a name AND race_date; without both we cannot
+        // build a valid race, so skip rather than 400 the entire submit.
+        guard !aEventName.isEmpty, let date = aEventDate else { return [] }
+        let (format, division) = Self.formatAndDivision(for: aEventDivision)
         return [
             RaceDTO(
-                name: aEventName.isEmpty ? nil : aEventName,
-                date: aEventDate.map { Self.dateFormatter.string(from: $0) },
-                division: aEventDivision?.rawValue,
-                priority: "A",
-                goal_kind: goalKind?.rawValue,
-                goal_time_seconds: goalTimeSeconds
+                name: aEventName,
+                event_type: "hyrox",            // HYROX-first product; the A-event default
+                format: format,
+                division: division,
+                gender_category: Self.genderCategory(for: sex),
+                priority: "target",             // the A-event IS the target race
+                race_date: Self.dateFormatter.string(from: date),
+                goal_time_seconds: goalKind == .time ? goalTimeSeconds : nil
             )
         ]
+    }
+
+    /// HyroxDivision conflates division (pro/open) and format (doubles/relay);
+    /// decompose into the web schema's separate `format` + `division` axes.
+    private static func formatAndDivision(for d: HyroxDivision?) -> (format: String, division: String) {
+        switch d {
+        case .pro:     return ("singles", "pro")
+        case .open:    return ("singles", "open")
+        case .doubles: return ("doubles", "open")
+        case .relay:   return ("relay", "open")
+        case .none:    return ("singles", "open")
+        }
+    }
+
+    private static func genderCategory(for sex: Sex?) -> String {
+        switch sex {
+        case .male:         return "men"
+        case .female:       return "women"
+        case .other, .none: return "mixed"
+        }
     }
 
     // MARK: - Draft persistence
@@ -325,7 +350,7 @@ final class OnboardingState {
         oneRmOhp = s.one_rm_ohp_kg
         oneRmClean = s.one_rm_clean_kg
         oneRmSnatch = s.one_rm_snatch_kg
-        pullUpsMax = s.pull_ups_max
+        pullUpsMax = s.strict_pull_ups_max
         pushUpsPerMinute = s.push_ups_per_minute
         time5kSeconds = s.time_5k_seconds
         time10kSeconds = s.time_10k_seconds
@@ -548,11 +573,13 @@ struct InjuryDTO: Codable {
 }
 
 struct RaceDTO: Codable {
-    let name: String?
-    let date: String?
-    let division: String?
+    let name: String
+    let event_type: String
+    let format: String
+    let division: String
+    let gender_category: String
     let priority: String
-    let goal_kind: String?
+    let race_date: String
     let goal_time_seconds: Int?
 }
 
@@ -664,7 +691,7 @@ struct OnboardingSnapshot: Codable {
     let one_rm_ohp_kg: Double?
     let one_rm_clean_kg: Double?
     let one_rm_snatch_kg: Double?
-    let pull_ups_max: Int?
+    let strict_pull_ups_max: Int?
     let push_ups_per_minute: Int?
 
     // Resistencia
