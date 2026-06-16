@@ -58,7 +58,7 @@ actor APIClient {
         body: TBody,
         bearer: String? = nil
     ) async throws -> TResp {
-        var req = URLRequest(url: APIBase.url.appendingPathComponent(path))
+        var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
@@ -91,7 +91,7 @@ actor APIClient {
         path: String,
         bearer: String? = nil
     ) async throws -> TResp {
-        var req = URLRequest(url: APIBase.url.appendingPathComponent(path))
+        var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "GET"
         req.addValue("application/json", forHTTPHeaderField: "Accept")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
@@ -115,7 +115,7 @@ actor APIClient {
         path: String,
         bearer: String? = nil
     ) async throws -> (data: Data, filename: String, mimeType: String) {
-        var req = URLRequest(url: APIBase.url.appendingPathComponent(path))
+        var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "GET"
         req.addValue("application/json", forHTTPHeaderField: "Accept")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
@@ -148,7 +148,7 @@ actor APIClient {
         bearer: String? = nil
     ) async throws -> TResp {
         let boundary = "Boundary-\(UUID().uuidString)"
-        var req = URLRequest(url: APIBase.url.appendingPathComponent(path))
+        var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "POST"
         req.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
@@ -180,7 +180,7 @@ actor APIClient {
         body: TBody?,
         bearer: String? = nil
     ) async throws -> TResp {
-        var req = URLRequest(url: APIBase.url.appendingPathComponent(path))
+        var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "DELETE"
         req.addValue("application/json", forHTTPHeaderField: "Accept")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
@@ -206,6 +206,21 @@ actor APIClient {
     }
 
     // MARK: - Helpers
+
+    /// Builds a request URL from a path that MAY include a query string
+    /// ("a/b?x=1&y=2"). `appendingPathComponent` percent-encodes "?", which
+    /// breaks query params, so split it off and attach it as a real query.
+    /// Callers already percent-encode their query values.
+    private static func requestURL(path: String) -> URL {
+        let parts = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        let base = APIBase.url.appendingPathComponent(String(parts[0]))
+        guard parts.count == 2, !parts[1].isEmpty,
+              var comps = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            return base
+        }
+        comps.percentEncodedQuery = String(parts[1])
+        return comps.url ?? base
+    }
 
     /// Best-effort filename extraction from a `Content-Disposition` header.
     /// Handles RFC 6266 `filename*=UTF-8''...` and plain `filename="..."`.
