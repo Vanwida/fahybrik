@@ -42,7 +42,9 @@ extension PartnerInfo {
     }
 
     /// Initials for the avatar circle: first + last word for multi-part names,
-    /// or a single letter when only one name component is available.
+    /// or the first two letters when only one name component is available.
+    /// Single-character names degrade to just that letter (`prefix(2)` is
+    /// bounds-safe), and an empty/whitespace-only name falls back to a bullet.
     var initials: String {
         let parts = fullName
             .split(whereSeparator: { $0.isWhitespace })
@@ -52,8 +54,8 @@ extension PartnerInfo {
            let last = parts.last?.first {
             return "\(first)\(last)".uppercased()
         }
-        if let only = parts.first?.first {
-            return String(only).uppercased()
+        if let only = parts.first {
+            return String(only.prefix(2)).uppercased()
         }
         return "·"
     }
