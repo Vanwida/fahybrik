@@ -61,7 +61,7 @@ struct SubscriptionView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             LabelText(text: "Plan")
-            Text(info?.modalityLabel ?? "HYROX Athlete")
+            Text(info?.displayPlanLabel ?? "HYROX Athlete")
                 .font(Theme.Typography.headlineM)
                 .foregroundStyle(Theme.Color.foreground)
         }
@@ -76,7 +76,7 @@ struct SubscriptionView: View {
                     Spacer()
                     statusPill(info)
                 }
-                Text(info.modalityLabel)
+                Text(info.displayPlanLabel)
                     .font(Theme.Typography.bodyEmph)
                     .foregroundStyle(Theme.Color.foreground)
                 if let date = info.formattedPeriodEnd {

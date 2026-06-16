@@ -78,6 +78,12 @@ struct SubscriptionInfo: Decodable, Equatable {
     /// price in this string ("HYROX Athlete · €89/mes"). We MUST NOT render it
     /// verbatim — `modalityLabel` derives a price-free label instead.
     let planLabel: String?
+    /// Stable plan identifier from the backend: "individual" | "dobles" |
+    /// "pro_elite". This is the authoritative source for the plan name —
+    /// `planLabel` is a free-form marketing string that may embed a price and
+    /// must not be rendered verbatim (Apple Guideline 3.1.3(b)). Nil when no
+    /// subscription. See `displayPlanLabel`.
+    let planType: String?
     /// ISO-8601 timestamp of the next renewal (or access cutoff when the plan
     /// is set to cancel at period end). Decoded as String — we format it
     /// ourselves with an es_ES calendar.
@@ -87,6 +93,7 @@ struct SubscriptionInfo: Decodable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case subscribed, status
         case planLabel, currentPeriodEnd, cancelAtPeriodEnd
+        case planType = "plan_type"
     }
 
     init(from decoder: Decoder) throws {
@@ -94,6 +101,7 @@ struct SubscriptionInfo: Decodable, Equatable {
         subscribed = (try? c.decode(Bool.self, forKey: .subscribed)) ?? false
         status = try? c.decodeIfPresent(String.self, forKey: .status)
         planLabel = try? c.decodeIfPresent(String.self, forKey: .planLabel)
+        planType = try? c.decodeIfPresent(String.self, forKey: .planType)
         currentPeriodEnd = try? c.decodeIfPresent(String.self, forKey: .currentPeriodEnd)
         cancelAtPeriodEnd = (try? c.decode(Bool.self, forKey: .cancelAtPeriodEnd)) ?? false
     }
@@ -103,12 +111,14 @@ struct SubscriptionInfo: Decodable, Equatable {
         subscribed: Bool,
         status: String?,
         planLabel: String?,
+        planType: String? = nil,
         currentPeriodEnd: String?,
         cancelAtPeriodEnd: Bool
     ) {
         self.subscribed = subscribed
         self.status = status
         self.planLabel = planLabel
+        self.planType = planType
         self.currentPeriodEnd = currentPeriodEnd
         self.cancelAtPeriodEnd = cancelAtPeriodEnd
     }
@@ -135,6 +145,20 @@ extension SubscriptionInfo {
             .first?
             .trimmingCharacters(in: .whitespaces) ?? raw
         return head.isEmpty ? "HYROX Athlete" : head
+    }
+
+    /// Authoritative, price-free plan name shown in the UI. Maps the stable
+    /// `plan_type` identifier to its display name; falls back to the
+    /// price-stripped `modalityLabel` when `planType` is absent (older
+    /// snapshots) and finally to "HYROX Athlete". ("pro_elite" → "Elite":
+    /// the product renamed Pro → Elite.)
+    var displayPlanLabel: String {
+        switch planType {
+        case "individual": return "Individual"
+        case "dobles":     return "Dobles"
+        case "pro_elite":  return "Elite"
+        default:           return modalityLabel
+        }
     }
 
     /// Formatted next-renewal / access-cutoff date (dd/MM/yyyy, es_ES), or nil.
