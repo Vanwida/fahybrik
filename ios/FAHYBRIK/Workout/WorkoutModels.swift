@@ -312,6 +312,14 @@ extension WorkoutPlan {
     private static func segmentKind(category: String, slug: String) -> SegmentKind {
         let s = slug.lowercased()
         switch category {
+        // Modern prescription modalities (web displayCategoryForModality)
+        case "running":
+            return .running
+        case "rowing", "ski_erg", "bike_erg":
+            return .rowOrSki
+        case "functional":
+            return s.contains("sled") ? .sled : .reps
+        // Legacy raw exercise_category fallback
         case "cardio":
             if s.contains("row") || s.contains("ski") || s.contains("bike") || s.contains("cycl") {
                 return .rowOrSki
@@ -322,7 +330,7 @@ extension WorkoutPlan {
         case "hyrox_station":
             return s.contains("sled") ? .sled : .reps
         default:
-            return .reps   // skill | mobility | plyometric | core
+            return .reps   // mobility | skill | plyometric | core | other
         }
     }
 
