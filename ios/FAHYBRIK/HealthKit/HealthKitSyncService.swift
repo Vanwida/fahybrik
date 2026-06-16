@@ -104,13 +104,21 @@ final class HealthKitSyncService {
             )
         }
 
-        let energy = workout.statistics(for: .quantityType(forIdentifier: .activeEnergyBurned)!)?
+        // Apple ships these identifiers, so the lookups never fail in practice —
+        // but a force-unwrap is a latent crash. Resolve once; if an identifier is
+        // ever nil, the corresponding metric stays nil (DTO fields are optional)
+        // instead of trapping.
+        let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)
+        let bpmUnit = HKUnit(from: "count/min")
+
+        let energy = energyType.flatMap { workout.statistics(for: $0) }?
             .sumQuantity()?.doubleValue(for: .kilocalorie())
         let distance = workout.totalDistance?.doubleValue(for: .meter())
-        let avgHR = workout.statistics(for: .quantityType(forIdentifier: .heartRate)!)?
-            .averageQuantity()?.doubleValue(for: HKUnit(from: "count/min"))
-        let maxHR = workout.statistics(for: .quantityType(forIdentifier: .heartRate)!)?
-            .maximumQuantity()?.doubleValue(for: HKUnit(from: "count/min"))
+        let avgHR = heartRateType.flatMap { workout.statistics(for: $0) }?
+            .averageQuantity()?.doubleValue(for: bpmUnit)
+        let maxHR = heartRateType.flatMap { workout.statistics(for: $0) }?
+            .maximumQuantity()?.doubleValue(for: bpmUnit)
 
         return HKWorkoutDTO(
             source_workout_id: workout.uuid.uuidString,
