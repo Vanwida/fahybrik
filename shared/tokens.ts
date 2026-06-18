@@ -22,7 +22,7 @@ export const tokens = {
     scrim: 'rgba(0,0,0,0.55)',
     accent: '#F06A2A',
     accentPress: '#D85A20',
-    accentOn: '#FFFFFF',
+    accentOn: '#0A0A0A',
     ok: '#3FC773',
     warning: '#F2A52E',
     danger: '#F23F3F',

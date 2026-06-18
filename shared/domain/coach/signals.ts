@@ -1,0 +1,248 @@
+// Coach-attention signal taxonomy + the pure-evaluator contract.
+//
+// This is the SINGLE SOURCE OF TRUTH for the HOY signal engine (SPEC §8). It is
+// deliberately framework-free (no DB, no `server-only`, no Next): the per-app
+// layer feeds it `SignalFacts` and the registry of pure `SignalEvaluator`s turns
+// those facts into `SignalResult`s. That purity is what makes the engine
+// unit-testable against Pablo's real cohort without a database.
+//
+// WHY A SEPARATE `SIGNAL_KINDS` FROM `ALERT_KINDS`
+// ------------------------------------------------
+// `ALERT_KINDS` (types.ts) is the DISPLAY vocabulary the legacy cohort table
+// already paints. The attention store is BROADER: it also persists coach-queue
+// decision items (intake / week-adjustment / monthly-block) and operational
+// signals (readiness_low, a_event_near, billing_at_risk) that were previously
+// computed ad-hoc in inbox.ts. `SIGNAL_KINDS` is that superset. Every member is
+// either BACKED (an evaluator emits it today) or FLAGGED-OFF (F7 follow-up —
+// the evaluator exists but `enabled: false`, so it emits nothing). No member is
+// free text: each one drives the card UI, the indexed queue read, and the
+// resurface logic.
+
+import type { AtrBlockType } from './types';
+
+// ── Severity ──────────────────────────────────────────────────────────────────
+//
+// Two LIVE tiers (Crítico → Vigilar) per SPEC §10; `info` is the neutral floor
+// for non-actionable context. Lower rank = worse = sorts first (peor-primero).
+// NOTE: this mirrors SEVERITY_RANK in the app's signal-config.ts; it is repeated
+// here only so the pure domain layer has no dependency direction into the app.
+
+export const SIGNAL_SEVERITIES = ['critical', 'warning', 'info'] as const;
+export type SignalSeverity = (typeof SIGNAL_SEVERITIES)[number];
+
+export const SIGNAL_SEVERITY_RANK: Record<SignalSeverity, number> = {
+  critical: 0,
+  warning: 1,
+  info: 2,
+};
+
+/** Lower rank wins (worse). Returns the more-severe of two severities. */
+export function worseSeverity(a: SignalSeverity, b: SignalSeverity): SignalSeverity {
+  return SIGNAL_SEVERITY_RANK[a] <= SIGNAL_SEVERITY_RANK[b] ? a : b;
+}
+
+// ── Signal kinds ────────────────────────────────────────────────────────────
+
+export const SIGNAL_KINDS = [
+  // Biometric / behaviour (extracted from cohort.ts::computeAlerts)
+  'hrv_crash',
+  'no_sync',
+  'missed_sessions',
+  'rpe_high',
+  'checkin_skipped',
+  'message_unanswered',
+  'readiness_low',
+  'transition_ready',
+  // Programming / ATR
+  'programming_status',
+  'microcycle_ending',
+  'a_event_near',
+  // Coach-queue decision items (fed by existing loaders, persisted here so the
+  // HOY queue is ONE indexed read instead of N+1 across surfaces)
+  'intake_pending',
+  'week_adjustment_pending',
+  'monthly_block_pending',
+  // Operational (extracted from inbox.ts listInboxAlerts)
+  'billing_at_risk',
+  // ── F7 follow-up — evaluator FLAGGED-OFF, emits nothing until backed ────────
+  'test_due',
+  'video_review_pending',
+  'mass_adjustment_pending',
+  'compliance_drop',
+] as const;
+
+export type SignalKind = (typeof SIGNAL_KINDS)[number];
+
+/**
+ * Signals whose backing data does NOT yet exist (SPEC §8 "gap" rows). Their
+ * evaluators are registered but disabled, so the engine shape is complete and a
+ * single flag flip (plus the F7 migration) turns them on. They emit NOTHING now.
+ */
+export const FLAGGED_OFF_SIGNAL_KINDS = [
+  'test_due',
+  'video_review_pending',
+  'mass_adjustment_pending',
+  'compliance_drop',
+] as const satisfies ReadonlyArray<SignalKind>;
+
+export type FlaggedOffSignalKind = (typeof FLAGGED_OFF_SIGNAL_KINDS)[number];
+
+export function isFlaggedOff(kind: SignalKind): boolean {
+  return (FLAGGED_OFF_SIGNAL_KINDS as ReadonlyArray<SignalKind>).includes(kind);
+}
+
+// ── Trend ───────────────────────────────────────────────────────────────────
+
+export const SIGNAL_TRENDS = ['up', 'down', 'flat'] as const;
+export type SignalTrend = (typeof SIGNAL_TRENDS)[number];
+
+// ── Facts (the per-athlete input to every evaluator) ──────────────────────────
+//
+// One flat, fully-typed record per athlete. The app's `rollupAthleteFacts`
+// builds it from the batched CTEs; the evaluators only READ it. Every field is
+// nullable because the source data may be absent (no wearable, no plan yet) —
+// an evaluator that needs an absent fact simply does not fire (auto-resolve).
+
+export interface SignalFacts {
+  athlete_id: string;
+  coach_id: string;
+  full_name: string;
+
+  // Biometrics / behaviour
+  /** Δ ms of the 7d HRV mean vs the 60d baseline (negative = suppressed). */
+  hrv_delta_ms: number | null;
+  /** Distinct days of HRV data backing the baseline — guards false crashes. */
+  hrv_baseline_days: number | null;
+  /** Minutes since the most recent wearable sample of any kind. */
+  sync_minutes_ago: number | null;
+  /** Sessions with status='missed' in the trailing 7 days. */
+  missed_sessions_7d: number;
+  /** Max perceived_exertion logged yesterday (0–10), or null if none. */
+  rpe_yesterday: number | null;
+  /** Most recent daily check-in timestamp (drives "skipped" age). */
+  last_checkin_at: Date | null;
+  /** Age in minutes of the oldest unanswered athlete message, or null. */
+  unread_message_age_min: number | null;
+  /** Latest daily readiness score (0–100), or null if uncomputed. */
+  readiness_score: number | null;
+
+  // ATR / programming
+  /** Programming health from getAthleteProgrammingStatus. */
+  programming_status: 'ok' | 'no_month' | 'pending_proposal' | 'empty_week' | 'month_2_pending';
+  programming_label: string | null;
+  programming_detail: string | null;
+  /** End date (YYYY-MM-DD) of the athlete's CURRENT microcycle, or null. */
+  current_microcycle_end_iso: string | null;
+  current_block_type: AtrBlockType | null;
+  /** ATR transition engine says 'advance' → ready to move to the next block. */
+  transition_recommendation: 'advance' | 'hold' | 'extend' | null;
+  transition_detail: string | null;
+  /** Days until the soonest A-priority target event, or null. */
+  days_to_a_event: number | null;
+  a_event_name: string | null;
+
+  // Coach-queue decision items (presence = the item is pending)
+  /** Hours since onboarding completed with no plan yet (intake pending), or null. */
+  intake_pending_hours: number | null;
+  intake_a_event_name: string | null;
+  intake_a_event_days: number | null;
+  /** Pending week-adjustment proposal id (newest), or null if none. */
+  week_adjustment_proposal_id: string | null;
+  week_adjustment_summary: string | null;
+  /** Pending monthly-block proposal id, or null if none. */
+  monthly_block_proposal_id: string | null;
+  monthly_block_month_name: string | null;
+
+  // Billing
+  /** 'past_due' | 'renewal_soon' | null — derived in the rollup query. */
+  billing_risk: 'past_due' | 'renewal_soon' | null;
+  /** Days to period end when billing_risk === 'renewal_soon'. */
+  billing_days_to_period_end: number | null;
+}
+
+// ── Result (the per-fired-signal output) ──────────────────────────────────────
+
+export interface SignalResult {
+  kind: SignalKind;
+  /** Whether this signal currently fires for the athlete. */
+  fires: boolean;
+  severity: SignalSeverity;
+  /** The signal's defining numeric value (for resurface threshold-crossing). */
+  value: number | null;
+  /** The baseline the value is measured against, when meaningful. */
+  baseline: number | null;
+  trend: SignalTrend | null;
+  /** Short human label for the card chip (e.g. "HRV crash"). */
+  label: string;
+  /** One-line evidence detail (e.g. "▼ 14 ms vs baseline 60d"). */
+  detail: string;
+  /**
+   * Stable identity within (athlete, kind). For value-only signals this is just
+   * `${kind}:${athlete_id}`; for proposal-backed signals it includes the proposal
+   * id so a NEW proposal after one is approved is a distinct item (avoids a
+   * resolved card masking a fresh one). Used as the override match key.
+   */
+  dedupe_key: string;
+}
+
+// ── Effective threshold passed to evaluators ──────────────────────────────────
+//
+// The whole `SIGNAL_THRESHOLDS` object (from the app's signal-config.ts) is
+// passed through unchanged — evaluators read only the keys they need. Typed as a
+// readonly numeric record so the pure layer needs no import from the app.
+
+export type EffectiveThresholds = Readonly<Record<string, number>>;
+
+// ── Evaluator contract ────────────────────────────────────────────────────────
+
+export interface SignalEvaluator {
+  kind: SignalKind;
+  /** Default tier when no per-instance severity applies (UI fallback). */
+  default_severity: SignalSeverity;
+  /** F7 gate — a disabled evaluator always returns `fires: false`. */
+  enabled: boolean;
+  /**
+   * Pure decision. MUST be deterministic given (facts, thresholds, now) and MUST
+   * NOT touch I/O. Returns a non-firing result (or null) when the signal is
+   * absent — the engine treats both as auto-resolve.
+   */
+  evaluate(
+    facts: SignalFacts,
+    thresholds: EffectiveThresholds,
+    now: Date,
+  ): SignalResult | null;
+}
+
+// ── Small shared helpers for evaluators (pure) ────────────────────────────────
+
+export function dedupeKey(kind: SignalKind, athlete_id: string, suffix?: string): string {
+  return suffix ? `${kind}:${athlete_id}:${suffix}` : `${kind}:${athlete_id}`;
+}
+
+/** A non-firing result — the canonical "auto-resolve / no card" sentinel. */
+export function noFire(kind: SignalKind, athlete_id: string): SignalResult {
+  return {
+    kind,
+    fires: false,
+    severity: 'info',
+    value: null,
+    baseline: null,
+    trend: null,
+    label: '',
+    detail: '',
+    dedupe_key: dedupeKey(kind, athlete_id),
+  };
+}
+
+/** Hours between two instants (positive when `later` is after `earlier`). */
+export function hoursBetween(earlier: Date, later: Date): number {
+  return (later.getTime() - earlier.getTime()) / 3_600_000;
+}
+
+/** Whole days from a YYYY-MM-DD date to `now` (positive when the date is future). */
+export function daysFromNowToIso(iso: string, now: Date): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  const target = Date.UTC(y!, m! - 1, d!);
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((target - today) / 86_400_000);
+}

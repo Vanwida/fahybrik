@@ -33,6 +33,13 @@
   --color-ok: var(--ok);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-neutral: var(--neutral);
+  --color-ok-tint: var(--ok-tint);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger-tint: var(--danger-tint);
+  --color-info-tint: var(--info-tint);
+  --color-neutral-tint: var(--neutral-tint);
 
   /* HR zones — workout charts ONLY (orange forbidden here) */
   --color-z1: var(--z1);
@@ -118,12 +125,20 @@
   /* ----- brand accent (single) ----- */
   --accent:           #F06A2A;            /* Fabrik orange */
   --accent-press:     #D85A20;
-  --accent-on:        #FFFFFF;            /* label color on orange fill */
+  --accent-on:        #0A0A0A;            /* label color on orange fill — black-on-orange (Fabrik wordmark, AA ~6.5:1) */
 
   /* ----- semantic ----- */
   --ok:               #3FC773;
   --warning:          #F2A52E;
   --danger:           #F23F3F;
+  --info:             #4D9EEB;            /* info blue (shared hue with --z2 / --tertiary) */
+  --neutral:          #A1A1A1;            /* "no signal / resting" grey (= --muted) */
+  /* Low-alpha fills for status chips/badges (color+icon+label, never color alone). */
+  --ok-tint:          rgba(63, 199, 115, 0.14);
+  --warning-tint:     rgba(242, 165, 46, 0.14);
+  --danger-tint:      rgba(242, 63, 63, 0.14);
+  --info-tint:        rgba(77, 158, 235, 0.14);
+  --neutral-tint:     rgba(161, 161, 161, 0.14);
 
   /* ----- HR zones (workout charts ONLY — no orange here) ----- */
   --z1:               #C7C7C7;

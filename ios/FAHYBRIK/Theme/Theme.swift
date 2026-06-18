@@ -37,6 +37,16 @@ enum Theme {
         static let ok = SwiftUI.Color(red: 0x3F/255, green: 0xC7/255, blue: 0x73/255)
         static let warning = SwiftUI.Color(red: 0xF2/255, green: 0xA5/255, blue: 0x2E/255)
         static let danger = SwiftUI.Color(red: 0xF2/255, green: 0x3F/255, blue: 0x3F/255)
+        static let info = SwiftUI.Color(red: 0x4D/255, green: 0x9E/255, blue: 0xEB/255)    // #4D9EEB info blue (= web --info / --z2)
+        static let neutral = SwiftUI.Color(red: 0xA1/255, green: 0xA1/255, blue: 0xA1/255) // #A1A1A1 "no signal" grey (= web --neutral)
+
+        // Low-alpha status fills for chips/badges — parity with web --*-tint
+        // (color + icon + label, never color alone). 0.14 alpha over the base hue.
+        static let okTint = ok.opacity(0.14)
+        static let warningTint = warning.opacity(0.14)
+        static let dangerTint = danger.opacity(0.14)
+        static let infoTint = info.opacity(0.14)
+        static let neutralTint = neutral.opacity(0.14)
 
         // Asset-catalog brand colors, kept for anything that must track the
         // shared catalog 1:1 (e.g. cross-platform parity checks).

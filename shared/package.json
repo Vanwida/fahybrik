@@ -30,6 +30,10 @@
       "types": "./domain/methodology/index.ts",
       "default": "./domain/methodology/index.ts"
     },
+    "./domain/adherence": {
+      "types": "./domain/adherence/index.ts",
+      "default": "./domain/adherence/index.ts"
+    },
     "./domain/*": {
       "types": "./domain/*.ts",
       "default": "./domain/*.ts"

@@ -22,16 +22,17 @@ import { listPendingWeekAdjustments } from '@/lib/dashboard/coach/week-adjustmen
 import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-block-proposal';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
+import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 
-// ── Thresholds (spec §1) ─────────────────────────────────────────────────────
+// ── Thresholds (signal-config.ts — single source of truth, spec §10) ─────────
 /** Intake older than this many hours escalates to the Crítico group. */
-const INTAKE_CRITICAL_HOURS = 48;
+const INTAKE_CRITICAL_HOURS = SIGNAL_THRESHOLDS.intake_critical_hours;
 /** Days without completed session NOR check-in before the inactivity alert fires. */
-const INACTIVITY_ALERT_DAYS = 2;
+const INACTIVITY_ALERT_DAYS = SIGNAL_THRESHOLDS.inactivity_alert_days;
 /** Subscription ends (cancel_at_period_end) within this many days → renewal alert. */
-const RENEWAL_ALERT_DAYS = 7;
+const RENEWAL_ALERT_DAYS = SIGNAL_THRESHOLDS.renewal_alert_days;
 /** Max diff rows surfaced inline on a week-adjustment card. */
-const MAX_DIFF_ROWS = 3;
+const MAX_DIFF_ROWS = SIGNAL_THRESHOLDS.max_diff_rows;
 
 // ── Types (snake_case — API contract) ───────────────────────────────────────
 

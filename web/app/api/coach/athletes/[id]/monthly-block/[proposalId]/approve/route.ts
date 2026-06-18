@@ -5,6 +5,7 @@ import {
   MonthlyBlockError,
   approveMonthlyBlockProposal,
 } from '@/lib/dashboard/coach/monthly-block-proposal';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,8 @@ export async function POST(
       athlete_id: Number(parsedId.data.id),
       proposal_id: numericProposalId,
     });
+    // Fire-and-forget: approving clears monthly_block_pending / programming gaps.
+    void recomputeAthlete({ athlete_id: Number(parsedId.data.id) }).catch(() => {});
     return jsonOk(result);
   } catch (err) {
     if (err instanceof MonthlyBlockError) {

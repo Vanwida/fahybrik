@@ -8,8 +8,15 @@
 
 import { z } from 'zod';
 
+/** Coach message body cap (chars). Single source for the schema + the UI guard. */
+export const COACH_MESSAGE_BODY_MAX = 2000;
+
 export const sendCoachMessageSchema = z.object({
-  body: z.string().trim().min(1, 'Mensaje vacío').max(2000, 'Máx. 2000 caracteres'),
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Mensaje vacío')
+    .max(COACH_MESSAGE_BODY_MAX, `Máx. ${COACH_MESSAGE_BODY_MAX} caracteres`),
 });
 export type SendCoachMessageInput = z.infer<typeof sendCoachMessageSchema>;
 
