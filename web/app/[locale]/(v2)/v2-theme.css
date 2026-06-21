@@ -1,0 +1,204 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   FAHYBRID v2 — SCOPED design tokens (dark + light).
+
+   THEME ISOLATION (hard constraint): every token lives under `.v2-root[data-theme]`,
+   NEVER on <html>. The legacy app is dark-only and toggles `.dark` on <html>; v2
+   must not bleed into it. A v2 page mounts a single `.v2-root` wrapper carrying
+   `data-theme="dark|light"`; all v2 surfaces read these vars and nothing else.
+
+   Both palettes share the SAME Fabrik orange accent (#F06A2A) so the brand reads
+   identically in either mode. Dark = near-black surfaces matching the current app.
+   Light = warm off-white (NOT pure #fff) with ink text, AA-legible. Fonts reuse the
+   families already loaded at the app root (Archivo italic-black display, Geist UI,
+   Geist Mono data) — see app/layout.tsx; we only reference the --font-* vars.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.v2-root {
+  /* ── Brand accent — IDENTICAL in both themes (the one constant) ──────────── */
+  --v2-accent: #f06a2a; /* Fabrik orange */
+  --v2-accent-press: #d85a20;
+  /* Text/icon color that sits ON an accent fill. Black-on-orange is the Fabrik
+     wordmark relationship and clears AA (~6.5:1) in both themes. */
+  --v2-accent-fg: #0a0a0a;
+
+  /* ── Modality axis — categorical hues encoding TRAINING MODALITY (left
+        border / dot on session cards). MEANING, not decoration. Chosen so each
+        hue is distinct in BOTH themes and none collides with the brand orange's
+        "selection/brand" meaning.
+
+        carrera (running) is a WARM CORAL-RED (#e5484d), deliberately offset from
+        the pure brand orange so "this card is a run" never reads as "this card is
+        selected/branded". ergo = blue (shared system info hue), fuerza = amber
+        gold, circuito (metcon/conditioning) = green, calentamiento = neutral.
+        Color is never the only signal — every card also carries a text label. ── */
+  --v2-mod-carrera: #e5484d; /* running — warm coral-red, ≠ brand orange */
+  --v2-mod-ergo: #4d9eeb; /* rowing / ski erg — blue */
+  --v2-mod-fuerza: #e0a93b; /* strength — amber gold */
+  --v2-mod-circuito: #3fc773; /* conditioning / metcon — green */
+  --v2-mod-calentamiento: #9b9b9b; /* warm-up — neutral grey */
+
+  /* Type scale tokens shared across both themes (values, not colors). */
+  --v2-font-display: var(--font-archivo), "SF Pro Display", system-ui, sans-serif;
+  --v2-font-sans: var(--font-geist-sans), "SF Pro Text", system-ui, sans-serif;
+  --v2-font-mono: var(--font-geist-mono), "SF Mono", ui-monospace, monospace;
+
+  /* Radii + spacing — one source for both themes. */
+  --v2-r-xs: 6px;
+  --v2-r-s: 8px;
+  --v2-r-m: 12px;
+  --v2-r-l: 16px;
+  --v2-r-pill: 9999px;
+}
+
+/* ── DARK (default) — near-black depth, matches the current app canvas ─────── */
+.v2-root[data-theme="dark"] {
+  /* Core surfaces / text */
+  --v2-bg: #0a0a0a; /* page canvas */
+  --v2-surface: #141414; /* cards, rows */
+  --v2-surface-2: #1a1a1a; /* nested fill (tracks, chips) */
+  --v2-elevated: #1f1f1f; /* lifted panel, hover */
+  --v2-border: rgba(255, 255, 255, 0.08); /* hairline */
+  --v2-border-strong: rgba(255, 255, 255, 0.16);
+  --v2-fg: #f5f5f5; /* primary text */
+  --v2-muted: #a1a1a1; /* secondary text */
+  --v2-faint: #6e6e6e; /* tertiary / disabled */
+
+  /* Accent tint (orange-washed surface for active / brand fills). */
+  --v2-accent-soft: rgba(240, 106, 42, 0.14);
+
+  /* Semantic — derived from the app's #3FC773 / #F2A52E / #F23F3F / #4D9EEB.
+     Dark variants stay close to source (already legible on near-black). */
+  --v2-ok: #3fc773;
+  --v2-ok-soft: rgba(63, 199, 115, 0.14);
+  --v2-warn: #f2a52e;
+  --v2-warn-soft: rgba(242, 165, 46, 0.14);
+  --v2-danger: #f2504f;
+  --v2-danger-soft: rgba(242, 80, 79, 0.14);
+  --v2-info: #4d9eeb;
+  --v2-info-soft: rgba(77, 158, 235, 0.14);
+
+  /* Soft tints for the modality axis (card left-fill, chip bg). */
+  --v2-mod-carrera-soft: rgba(229, 72, 77, 0.14);
+  --v2-mod-ergo-soft: rgba(77, 158, 235, 0.14);
+  --v2-mod-fuerza-soft: rgba(224, 169, 59, 0.14);
+  --v2-mod-circuito-soft: rgba(63, 199, 115, 0.14);
+  --v2-mod-calentamiento-soft: rgba(155, 155, 155, 0.14);
+
+  --v2-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -12px rgba(0, 0, 0, 0.7);
+  --v2-shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.8);
+}
+
+/* ── LIGHT — warm off-white, ink text, same orange. WCAG AA throughout. ────── */
+.v2-root[data-theme="light"] {
+  --v2-bg: #faf8f4; /* warm off-white canvas (NOT pure #fff) */
+  --v2-surface: #ffffff; /* cards lift off the warm canvas */
+  --v2-surface-2: #f3efe8; /* nested fill (tracks, chips) */
+  --v2-elevated: #ffffff; /* lifted panel — separated by shadow, not tint */
+  --v2-border: rgba(28, 25, 23, 0.1); /* warm ink hairline */
+  --v2-border-strong: rgba(28, 25, 23, 0.18);
+  --v2-fg: #1c1917; /* warm near-black ink (≈14:1 on canvas) */
+  --v2-muted: #6b6259; /* warm grey-brown (≈4.8:1 on canvas — AA body) */
+  --v2-faint: #9a9089; /* tertiary (AA for large/UI only) */
+
+  --v2-accent-soft: rgba(240, 106, 42, 0.12);
+
+  /* Semantic — DARKENED variants so colored text/icons clear 4.5:1 on the
+     light canvas (the dark-mode greens/ambers are too pale on off-white). */
+  --v2-ok: #1f9d57; /* readable green on light */
+  --v2-ok-soft: rgba(31, 157, 87, 0.12);
+  --v2-warn: #b9751a; /* readable amber on light */
+  --v2-warn-soft: rgba(185, 117, 26, 0.12);
+  --v2-danger: #d63a3a; /* readable red on light */
+  --v2-danger-soft: rgba(214, 58, 58, 0.1);
+  --v2-info: #2f7fce; /* readable blue on light */
+  --v2-info-soft: rgba(47, 127, 206, 0.1);
+
+  /* Modality hues — darkened to stay AA-legible as text/border on light. The
+     dot/border still reads as the same family as dark mode. */
+  --v2-mod-carrera: #cf3137;
+  --v2-mod-ergo: #2f7fce;
+  --v2-mod-fuerza: #a9791d;
+  --v2-mod-circuito: #1f9d57;
+  --v2-mod-calentamiento: #7c736b;
+  --v2-mod-carrera-soft: rgba(207, 49, 55, 0.1);
+  --v2-mod-ergo-soft: rgba(47, 127, 206, 0.1);
+  --v2-mod-fuerza-soft: rgba(169, 121, 29, 0.1);
+  --v2-mod-circuito-soft: rgba(31, 157, 87, 0.1);
+  --v2-mod-calentamiento-soft: rgba(124, 115, 107, 0.1);
+
+  --v2-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04),
+    0 8px 24px -12px rgba(28, 25, 23, 0.18);
+  --v2-shadow-pop: 0 16px 40px -12px rgba(28, 25, 23, 0.24);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Base surface styling for the v2 root + a few reusable helpers. Scoped so the
+   block can never touch the legacy app. Everything else is Tailwind utilities
+   reading the vars above via arbitrary `[color:var(--v2-…)]` values.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.v2-root {
+  background: var(--v2-bg);
+  color: var(--v2-fg);
+  font-family: var(--v2-font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* Italic-black display heading — the Fabrik wordmark voice. */
+.v2-display {
+  font-family: var(--v2-font-display);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+/* Tracked uppercase micro-label (lane headers, stat labels). */
+.v2-micro {
+  font-family: var(--v2-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--v2-muted);
+}
+
+/* Mono tabular number — counts + stats never jitter. */
+.v2-num {
+  font-family: var(--v2-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Focus ring (WCAG 2.4.7) — two-layer ring legible on any v2 surface. */
+.v2-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--v2-bg), 0 0 0 4px var(--v2-accent);
+  border-radius: inherit;
+}
+
+/* Staggered reveal on mount — one orchestrated entrance, reduced-motion safe. */
+@keyframes v2-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.v2-stagger {
+  opacity: 0;
+  animation: v2-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--v2-stagger-i, 0) * 40ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .v2-stagger {
+    opacity: 1;
+    animation: none;
+  }
+}

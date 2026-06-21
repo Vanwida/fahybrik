@@ -1,0 +1,170 @@
+'use client';
+
+// PERFIL & OBJETIVOS — the test→objetivos resolver surface. Two columns joined by
+// an accent "→": LEFT the athlete's reference tests (from the app), RIGHT the
+// derived training targets the resolver produces from them. A test with no result
+// reads "pendiente"; a derived target with no value reads "—" + a tinted row when
+// the coach has adjusted it by hand. The SHAPE is the real resolver contract, so
+// the engine drops in without touching this view.
+
+import { MIcon } from '@/components/dashboard/MIcon';
+import { Pill } from '@/components/v2/Pill';
+import { EmptyState } from '@/components/v2/EmptyState';
+import { Panel, DashedAction, relativeDate } from './parts';
+import type { PerfilTabData } from '@/lib/dashboard/v2/atleta-detalle-types';
+import { cn } from '@/lib/utils';
+
+function TestCard({
+  icon,
+  label,
+  value,
+  date_iso,
+}: {
+  icon: string;
+  label: string;
+  value: string | null;
+  date_iso: string | null;
+}) {
+  const has = value != null;
+  const rel = relativeDate(date_iso);
+  return (
+    <div className="flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)]">
+        <MIcon name={icon} size={20} />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{label}</span>
+        {has ? (
+          <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">{value}</span>
+        ) : (
+          <span className="text-xs text-[color:var(--v2-faint)]">Pendiente de registro</span>
+        )}
+      </div>
+      {has && rel ? (
+        <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">{rel}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function ObjectiveRow({
+  zone_label,
+  target,
+  adjusted,
+}: {
+  zone_label: string;
+  target: string | null;
+  adjusted: boolean;
+}) {
+  return (
+    <tr
+      className={cn(
+        'border-b border-[color:var(--v2-border)] last:border-0',
+        adjusted && 'bg-[color:var(--v2-warn-soft)]',
+      )}
+    >
+      <td className="py-2 pl-1 pr-2 text-xs font-medium text-[color:var(--v2-fg)]">
+        <span className="flex items-center gap-1.5">
+          {zone_label}
+          {adjusted ? (
+            <Pill tone="warn" variant="soft" className="px-1.5 py-0">
+              ajustado
+            </Pill>
+          ) : null}
+        </span>
+      </td>
+      <td className="v2-num py-2 px-2 text-right text-xs text-[color:var(--v2-muted)]">
+        {target ?? '—'}
+      </td>
+      <td className="py-2 pl-2 pr-1 text-right">
+        <button
+          type="button"
+          aria-label={`Ajustar ${zone_label}`}
+          className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+        >
+          <MIcon name="edit" size={15} />
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+export function PerfilTab({ data }: { data: PerfilTabData }) {
+  const versionLabel =
+    data.profile_version != null
+      ? `versión ${data.profile_version} · recalculada tras re-test`
+      : 'sin versionar todavía';
+
+  return (
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_auto_1fr]">
+      {/* LEFT · reference tests */}
+      <Panel
+        title="Tests de referencia · desde la app"
+        bodyClassName="flex flex-col gap-2.5"
+      >
+        {data.reference_tests.map((t) => (
+          <TestCard key={t.slug} icon={t.icon} label={t.label} value={t.value} date_iso={t.date_iso} />
+        ))}
+        <DashedAction icon="autorenew" label="Programar re-test" />
+      </Panel>
+
+      {/* Accent join → */}
+      <div className="hidden items-center justify-center self-center lg:flex" aria-hidden>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]">
+          <MIcon name="arrow_forward" size={20} />
+        </span>
+      </div>
+
+      {/* RIGHT · derived objectives */}
+      <Panel
+        title="Objetivos derivados"
+        action={
+          <Pill tone="info" variant="soft">
+            {versionLabel}
+          </Pill>
+        }
+        bodyClassName="flex flex-col gap-3"
+      >
+        {data.objectives.every((o) => o.target == null) ? (
+          <EmptyState
+            icon="hub"
+            title="Aún sin objetivos derivados"
+            description="Los objetivos se calculan automáticamente al registrar los tests de referencia."
+            className="border-none py-6"
+          />
+        ) : (
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[color:var(--v2-border)]">
+                <th className="v2-micro py-1.5 pl-1 text-left">Zona / ritmo</th>
+                <th className="v2-micro py-1.5 px-2 text-right">Objetivo</th>
+                <th className="py-1.5 pr-1 text-right" />
+              </tr>
+            </thead>
+            <tbody>
+              {data.objectives.map((o) => (
+                <ObjectiveRow key={o.zone_label} {...o} />
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+          >
+            <MIcon name="tune" size={15} />
+            Ajustar a mano
+          </button>
+          <button
+            type="button"
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+          >
+            <MIcon name="history" size={15} />
+            Ver versiones{data.profile_version != null ? ` (${data.profile_version})` : ''}
+          </button>
+        </div>
+      </Panel>
+    </div>
+  );
+}
