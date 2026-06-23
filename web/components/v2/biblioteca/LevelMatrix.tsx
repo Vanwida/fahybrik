@@ -6,6 +6,7 @@
 // open the block editor; empty cells open the block creator with level + days
 // pre-filled.
 
+import { Link } from '@/i18n/navigation';
 import { MatrixCell, type MatrixCellData } from './MatrixCell';
 
 export interface LevelRow {
@@ -30,7 +31,14 @@ export function LevelMatrix({ levels, cells, onCellClick }: LevelMatrixProps) {
       <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-8 text-center">
         <p className="text-sm font-semibold text-[color:var(--v2-fg)]">Sin niveles definidos</p>
         <p className="text-xs text-[color:var(--v2-muted)]">
-          Define los niveles de atleta en Metodología para activar la matriz.
+          Define los niveles de atleta en{' '}
+          <Link
+            href="/v2/periodizacion?area=niveles"
+            className="v2-focus font-semibold text-[color:var(--v2-accent)] hover:underline"
+          >
+            Periodización
+          </Link>{' '}
+          para activar la matriz.
         </p>
       </div>
     );

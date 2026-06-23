@@ -1,9 +1,9 @@
 // v2 · BIBLIOTECA — "Codificar el método." Server component: loads the three
-// library surfaces (sesiones = templates, bloques = library blocks, fases = the
-// coach's periodization phases) via the existing loaders, shapes them into the
-// v2 view model, and hands the result to the client <BibliotecaView> for tab +
-// rail filtering + live search. The active tab is reflected in ?tab= so it is
-// linkable; the client owns the in-page interactions.
+// library surfaces (sesiones = templates, bloques = library blocks, microciclos =
+// month templates) via the existing loaders, shapes them into the v2 view model,
+// and hands the result to the client <BibliotecaView> for tab + rail filtering +
+// live search. The active tab is reflected in ?tab= so it is linkable; the client
+// owns the in-page interactions. (Periodization phases live in /v2/periodizacion.)
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -12,7 +12,7 @@ import { BibliotecaView, type BibliotecaTab } from '@/components/v2/biblioteca/B
 
 export const dynamic = 'force-dynamic';
 
-const VALID_TABS: readonly BibliotecaTab[] = ['sesiones', 'bloques', 'microciclos', 'fases'];
+const VALID_TABS: readonly BibliotecaTab[] = ['sesiones', 'bloques', 'microciclos'];
 
 function resolveTab(raw: string | string[] | undefined): BibliotecaTab {
   const v = Array.isArray(raw) ? raw[0] : raw;
@@ -41,8 +41,7 @@ export default async function V2BibliotecaPage({
     sesiones: [],
     bloques: [],
     microciclos: [],
-    fases: [],
-    counts: { sesiones: 0, bloques: 0, microciclos: 0, fases: 0 },
+    counts: { sesiones: 0, bloques: 0, microciclos: 0 },
   }));
 
   return <BibliotecaView data={data} initialTab={initialTab} />;

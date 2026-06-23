@@ -1,8 +1,8 @@
 import 'server-only';
 
 // v2 · BIBLIOTECA — server data shaper. Loads the three library surfaces (sesiones
-// = templates, bloques = library blocks, fases = the coach's periodization phases)
-// in parallel via the EXISTING loaders, then maps each row into the v2 view model:
+// = templates, bloques = library blocks, microciclos = month templates) in parallel
+// via the EXISTING loaders, then maps each row into the v2 view model:
 // a training MODALITY (the categorical color axis) + an OBJECTIVE bucket (the
 // secondary rail) + a usage count. No new schema — pure read + classify.
 //
@@ -17,11 +17,6 @@ import { listBlocks } from '@/lib/dashboard/coach/blocks';
 import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
 import { formatLabel } from '@/lib/dashboard/constants/week-day-part-presets';
-import {
-  ATR_BLOCKS_DEFAULT,
-  OBJECTIVE_OPTIONS,
-  type AtrBlockDefault,
-} from '@/lib/dashboard/coach/methodology/defaults';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import type { Block } from '@fahybrid/shared/schema/blocks';
 import type { V2Modality } from '@/components/v2/constants';
@@ -152,16 +147,6 @@ export interface V2BloqueItem {
   needs_review: boolean;
 }
 
-export interface V2FaseItem {
-  id: 'ACC' | 'TRANS' | 'REAL';
-  name: string;
-  duration_weeks: number;
-  order: number;
-  /** Human-readable objectives (resolved from the objective vocabulary). */
-  objectives: string[];
-  intensity_ceiling: string;
-}
-
 /** A microcycle template (program_month_templates) — the multi-week unit the
  *  athlete lives. Links to the existing editor at /v2/microciclos/[id]. */
 export interface V2MicrocicloItem {
@@ -177,8 +162,7 @@ export interface V2BibliotecaData {
   sesiones: V2SesionItem[];
   bloques: V2BloqueItem[];
   microciclos: V2MicrocicloItem[];
-  fases: V2FaseItem[];
-  counts: { sesiones: number; bloques: number; microciclos: number; fases: number };
+  counts: { sesiones: number; bloques: number; microciclos: number };
 }
 
 // ── Minutes estimation ────────────────────────────────────────────────────────
@@ -231,23 +215,19 @@ export async function loadBibliotecaData(params: {
   ]);
 
   const groupLabel = new Map<number, string>(groups.map((g) => [g.id, g.name_es]));
-  const objectiveLabel = new Map<string, string>(OBJECTIVE_OPTIONS.map((o) => [o.id, o.label]));
 
   const sesiones = templates.map((t) => mapSesion(t, usage));
   const bloques = blocks.map((b) => mapBloque(b, groupLabel));
   const microciclos = months.map(mapMicrociclo);
-  const fases = ATR_BLOCKS_DEFAULT.map((p) => mapFase(p, objectiveLabel));
 
   return {
     sesiones,
     bloques,
     microciclos,
-    fases,
     counts: {
       sesiones: sesiones.length,
       bloques: bloques.length,
       microciclos: microciclos.length,
-      fases: fases.length,
     },
   };
 }
@@ -299,17 +279,6 @@ function mapBloque(b: Block, groupLabel: Map<number, string>): V2BloqueItem {
     group_label: groupLabel.get(b.methodology_group_id) ?? `Grupo ${b.methodology_group_id}`,
     atr_hint: b.atr_block_hint,
     needs_review: b.needs_review,
-  };
-}
-
-function mapFase(p: AtrBlockDefault, objectiveLabel: Map<string, string>): V2FaseItem {
-  return {
-    id: p.block,
-    name: p.labelAthlete,
-    duration_weeks: p.durationWeeks,
-    order: p.order,
-    objectives: p.objectives.map((o) => objectiveLabel.get(o) ?? o),
-    intensity_ceiling: p.intensityCeiling,
   };
 }
 

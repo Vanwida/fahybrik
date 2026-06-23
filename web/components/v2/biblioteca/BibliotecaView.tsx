@@ -20,7 +20,6 @@ import { CategoryRail } from '@/components/v2/biblioteca/CategoryRail';
 import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
 import { BloqueCard } from '@/components/v2/biblioteca/BloqueCard';
 import { MicrocicloCard } from '@/components/v2/biblioteca/MicrocicloCard';
-import { FaseCard } from '@/components/v2/biblioteca/FaseCard';
 import { LevelMatrix } from '@/components/v2/biblioteca/LevelMatrix';
 import type { LevelRow } from '@/components/v2/biblioteca/LevelMatrix';
 import type { MatrixCellData } from '@/components/v2/biblioteca/MatrixCell';
@@ -33,7 +32,8 @@ import {
 import type { V2BibliotecaData } from '@/lib/dashboard/v2/biblioteca-data';
 import { cn } from '@/lib/utils';
 
-export type BibliotecaTab = 'sesiones' | 'bloques' | 'microciclos' | 'fases';
+// Periodization phases (Fases) live in the Periodización section now, not here.
+export type BibliotecaTab = 'sesiones' | 'bloques' | 'microciclos';
 
 /** Whether the bloques sub-tab shows a card grid or the level × days matrix. */
 type BloqueView = 'lista' | 'matriz';
@@ -47,7 +47,6 @@ const TAB_OPTIONS = (
   { value: 'sesiones', label: `Sesiones · ${counts.sesiones}` },
   { value: 'bloques', label: `Bloques · ${counts.bloques}` },
   { value: 'microciclos', label: `Microciclos · ${counts.microciclos}` },
-  { value: 'fases', label: `Fases · ${counts.fases}` },
 ];
 
 const BLOQUE_VIEW_OPTIONS: ReadonlyArray<{ value: BloqueView; label: string }> = [
@@ -152,12 +151,6 @@ export function BibliotecaView({
     return data.microciclos.filter((m) => matchesText(`${m.name} ${m.level}`, q));
   }, [data.microciclos, q]);
 
-  // Fases are not modality/objective scoped — only text-filtered.
-  const fases = useMemo(() => {
-    if (!q) return data.fases;
-    return data.fases.filter((f) => matchesText(`${f.name} ${f.objectives.join(' ')}`, q));
-  }, [data.fases, q]);
-
   // The modality/objective rail only makes sense for sesiones + bloques.
   const railVisible = tab === 'sesiones' || tab === 'bloques';
   const filteredCount =
@@ -165,9 +158,7 @@ export function BibliotecaView({
       ? sesiones.length
       : tab === 'bloques'
         ? bloques.length
-        : tab === 'microciclos'
-          ? microciclos.length
-          : fases.length;
+        : microciclos.length;
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col">
@@ -263,10 +254,8 @@ export function BibliotecaView({
               error={matrixError}
               onCellClick={handleMatrixCellClick}
             />
-          ) : tab === 'microciclos' ? (
-            <MicrociclosGrid items={microciclos} hasAny={data.microciclos.length > 0} />
           ) : (
-            <FasesGrid items={fases} hasAny={data.fases.length > 0} />
+            <MicrociclosGrid items={microciclos} hasAny={data.microciclos.length > 0} />
           )}
 
           {/* Footer count — honest, reflects active filters. */}
@@ -277,9 +266,7 @@ export function BibliotecaView({
                 ? 'sesiones'
                 : tab === 'bloques'
                   ? 'bloques'
-                  : tab === 'microciclos'
-                    ? 'microciclos'
-                    : 'fases'}
+                  : 'microciclos'}
             </p>
           ) : null}
         </div>
@@ -393,29 +380,6 @@ function MicrociclosGrid({
     <div className={GRID_CLS}>
       {items.map((m, i) => (
         <MicrocicloCard key={m.id} microciclo={m} index={i} />
-      ))}
-    </div>
-  );
-}
-
-function FasesGrid({ items, hasAny }: { items: V2BibliotecaData['fases']; hasAny: boolean }) {
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={hasAny ? 'search_off' : 'view_timeline'}
-        title={hasAny ? 'Ninguna fase coincide' : 'Aún no hay fases'}
-        description={
-          hasAny
-            ? 'Prueba con otro término de búsqueda.'
-            : 'Define las fases de tu periodización en Metodología.'
-        }
-      />
-    );
-  }
-  return (
-    <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-3">
-      {items.map((f, i) => (
-        <FaseCard key={f.id} fase={f} index={i} />
       ))}
     </div>
   );
