@@ -27,6 +27,7 @@ import { readinessBucket } from '@/lib/dashboard/constants/readiness';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
+import { sql } from '@/lib/db';
 
 // ── Thresholds (single source: signal-config) ────────────────────────────────
 /** Compliance below this % counts as "falló sesiones". */
@@ -93,6 +94,29 @@ export interface V2HoyData {
   need_attention_count: number;
   /** Athletes waiting on a reply (blue top chip). */
   awaiting_reply_count: number;
+  /** Athletes with an algorithm-suggested level pending coach confirmation. */
+  nivel_sugerido_cards: V2NivelSugeridoCard[];
+}
+
+/**
+ * A decision card for a new athlete whose level has been algorithmically
+ * suggested but not yet confirmed by the coach.
+ *
+ * Rendered above the 4-lane board; requires two interactive buttons
+ * (Aceptar / Ver atleta) so it lives outside the standard V2LaneCard shape.
+ */
+export interface V2NivelSugeridoCard {
+  /** Stable React key: `nivel:${athlete_id}` */
+  id: string;
+  athlete_id: number;
+  athlete_name: string;
+  /** Confirmed level_id to write on accept (FK → athlete_levels.id). */
+  suggested_level_id: number;
+  /** Short code, e.g. "N2". */
+  suggested_level_name: string;
+  /** Human label, e.g. "Desarrollo". */
+  suggested_level_label: string;
+  confidence: 'low' | 'medium' | 'high';
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -140,14 +164,60 @@ function physioReason(a: AthleteRow): string {
   return 'Señal fisiológica a vigilar.';
 }
 
+// ── Level suggestion query ────────────────────────────────────────────────────
+
+interface NivelSugeridoRow {
+  athlete_id: string;
+  athlete_name: string;
+  suggested_level_id: string;
+  suggested_level_name: string;
+  suggested_level_label: string;
+  level_confidence: string;
+}
+
+/**
+ * Returns all athletes for this coach that have a suggested level but no
+ * confirmed level yet. Called by the page alongside the main loaders.
+ */
+export async function fetchNivelSugeridoCards(
+  coachId: bigint | number,
+): Promise<V2NivelSugeridoCard[]> {
+  const rows = await sql<NivelSugeridoRow[]>`
+    SELECT
+      a.id::text                   AS athlete_id,
+      a.full_name                  AS athlete_name,
+      a.suggested_level_id::text   AS suggested_level_id,
+      al.name                      AS suggested_level_name,
+      al.label                     AS suggested_level_label,
+      a.level_confidence
+    FROM athletes a
+    JOIN athlete_levels al ON al.id = a.suggested_level_id
+    WHERE a.coach_id = ${coachId as number}
+      AND a.suggested_level_id IS NOT NULL
+      AND a.level_id IS NULL
+    ORDER BY a.created_at ASC
+  `;
+
+  return rows.map((r) => ({
+    id: `nivel:${r.athlete_id}`,
+    athlete_id: Number(r.athlete_id),
+    athlete_name: r.athlete_name,
+    suggested_level_id: Number(r.suggested_level_id),
+    suggested_level_name: r.suggested_level_name,
+    suggested_level_label: r.suggested_level_label,
+    confidence: r.level_confidence as V2NivelSugeridoCard['confidence'],
+  }));
+}
+
 // ── Public assembler ──────────────────────────────────────────────────────────
 
 export function buildHoyLanes(params: {
   athletes: AthleteRow[];
   threads: CoachThreadSummary[];
   inbox: CoachInbox | null;
+  nivel_sugerido_cards?: V2NivelSugeridoCard[];
 }): V2HoyData {
-  const { athletes, threads, inbox } = params;
+  const { athletes, threads, inbox, nivel_sugerido_cards = [] } = params;
 
   // Inactivity days by athlete (reinforces "falló sesiones" reasons).
   const inactivityByAthlete = new Map<string, number>();
@@ -283,6 +353,7 @@ export function buildHoyLanes(params: {
     total_athletes: athletes.length,
     need_attention_count: flaggedAthleteIds.size,
     awaiting_reply_count: awaitingIds.size,
+    nivel_sugerido_cards,
   };
 }
 

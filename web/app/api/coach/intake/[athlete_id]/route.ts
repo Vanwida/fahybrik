@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { commitIntake, IntakeError, loadIntakeProfile } from '@/lib/coach/intake';
 import { proposeFirstMonthForIntake } from '@/lib/coach/intake-month-proposal';
 import { intakeLevelToProgramLevel } from '@/lib/coach/athlete-training-level';
+import { computeAndStoreLevelSuggestion } from '@/lib/coach/level-proposal';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,18 +71,30 @@ export async function POST(req: Request, ctx: Ctx) {
     return jsonError('invalid_json', 'Body must be valid JSON', 400);
   }
 
+  let result;
   try {
-    const result = await commitIntake({
+    result = await commitIntake({
       athlete_id: id,
       coach_id: session.coach_id,
       coach_user_id: session.user_id,
       payload: body,
     });
-    return jsonOk(result);
   } catch (err) {
     if (err instanceof IntakeError) {
       return jsonError(err.code, err.message, err.status);
     }
     throw err;
   }
+
+  // Fire-and-forget: compute and persist the algorithmic level suggestion for
+  // this athlete. Runs after the response is formed so it never delays the
+  // intake commit. Errors are logged to server stderr, not surfaced to Pablo.
+  computeAndStoreLevelSuggestion(
+    Number(id),
+    Number(session.coach_id),
+  ).catch((e: unknown) => {
+    console.error('[level-proposal] computeAndStoreLevelSuggestion failed', e);
+  });
+
+  return jsonOk(result);
 }
