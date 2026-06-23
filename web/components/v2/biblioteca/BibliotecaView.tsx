@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { CategoryRail } from '@/components/v2/biblioteca/CategoryRail';
 import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
 import { BloqueCard } from '@/components/v2/biblioteca/BloqueCard';
+import { MicrocicloCard } from '@/components/v2/biblioteca/MicrocicloCard';
 import { FaseCard } from '@/components/v2/biblioteca/FaseCard';
 import { LevelMatrix } from '@/components/v2/biblioteca/LevelMatrix';
 import type { LevelRow } from '@/components/v2/biblioteca/LevelMatrix';
@@ -32,7 +33,7 @@ import {
 import type { V2BibliotecaData } from '@/lib/dashboard/v2/biblioteca-data';
 import { cn } from '@/lib/utils';
 
-export type BibliotecaTab = 'sesiones' | 'bloques' | 'fases';
+export type BibliotecaTab = 'sesiones' | 'bloques' | 'microciclos' | 'fases';
 
 /** Whether the bloques sub-tab shows a card grid or the level × days matrix. */
 type BloqueView = 'lista' | 'matriz';
@@ -45,6 +46,7 @@ const TAB_OPTIONS = (
 ): ReadonlyArray<{ value: BibliotecaTab; label: string }> => [
   { value: 'sesiones', label: `Sesiones · ${counts.sesiones}` },
   { value: 'bloques', label: `Bloques · ${counts.bloques}` },
+  { value: 'microciclos', label: `Microciclos · ${counts.microciclos}` },
   { value: 'fases', label: `Fases · ${counts.fases}` },
 ];
 
@@ -144,15 +146,28 @@ export function BibliotecaView({
     });
   }, [data.bloques, modality, objective, q]);
 
+  // Microciclos are not modality/objective scoped — only text-filtered.
+  const microciclos = useMemo(() => {
+    if (!q) return data.microciclos;
+    return data.microciclos.filter((m) => matchesText(`${m.name} ${m.level}`, q));
+  }, [data.microciclos, q]);
+
   // Fases are not modality/objective scoped — only text-filtered.
   const fases = useMemo(() => {
     if (!q) return data.fases;
     return data.fases.filter((f) => matchesText(`${f.name} ${f.objectives.join(' ')}`, q));
   }, [data.fases, q]);
 
-  const railVisible = tab !== 'fases';
+  // The modality/objective rail only makes sense for sesiones + bloques.
+  const railVisible = tab === 'sesiones' || tab === 'bloques';
   const filteredCount =
-    tab === 'sesiones' ? sesiones.length : tab === 'bloques' ? bloques.length : fases.length;
+    tab === 'sesiones'
+      ? sesiones.length
+      : tab === 'bloques'
+        ? bloques.length
+        : tab === 'microciclos'
+          ? microciclos.length
+          : fases.length;
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col">
@@ -248,6 +263,8 @@ export function BibliotecaView({
               error={matrixError}
               onCellClick={handleMatrixCellClick}
             />
+          ) : tab === 'microciclos' ? (
+            <MicrociclosGrid items={microciclos} hasAny={data.microciclos.length > 0} />
           ) : (
             <FasesGrid items={fases} hasAny={data.fases.length > 0} />
           )}
@@ -256,7 +273,13 @@ export function BibliotecaView({
           {filteredCount > 0 ? (
             <p className="mt-4 text-xs text-[color:var(--v2-faint)]">
               <span className="v2-num">{filteredCount}</span>{' '}
-              {tab === 'sesiones' ? 'sesiones' : tab === 'bloques' ? 'bloques' : 'fases'}
+              {tab === 'sesiones'
+                ? 'sesiones'
+                : tab === 'bloques'
+                  ? 'bloques'
+                  : tab === 'microciclos'
+                    ? 'microciclos'
+                    : 'fases'}
             </p>
           ) : null}
         </div>
@@ -341,6 +364,35 @@ function BloquesGrid({
     <div className={GRID_CLS}>
       {items.map((b, i) => (
         <BloqueCard key={b.id} bloque={b} index={i} />
+      ))}
+    </div>
+  );
+}
+
+function MicrociclosGrid({
+  items,
+  hasAny,
+}: {
+  items: V2BibliotecaData['microciclos'];
+  hasAny: boolean;
+}) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={hasAny ? 'search_off' : 'calendar_view_week'}
+        title={hasAny ? 'Ningún microciclo coincide' : 'Aún no has creado microciclos'}
+        description={
+          hasAny
+            ? 'Prueba con otro término de búsqueda.'
+            : 'Los microciclos son estructuras de varias semanas que vivirá el atleta. Aparecerán aquí cuando los crees.'
+        }
+      />
+    );
+  }
+  return (
+    <div className={GRID_CLS}>
+      {items.map((m, i) => (
+        <MicrocicloCard key={m.id} microciclo={m} index={i} />
       ))}
     </div>
   );

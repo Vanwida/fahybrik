@@ -14,6 +14,7 @@ import 'server-only';
 import { sql as defaultSql, type Sql } from '@/lib/db';
 import { listTemplatesForCoach, type TemplateListRow } from '@/lib/dashboard/coach/templates';
 import { listBlocks } from '@/lib/dashboard/coach/blocks';
+import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
 import { formatLabel } from '@/lib/dashboard/constants/week-day-part-presets';
 import {
@@ -161,11 +162,23 @@ export interface V2FaseItem {
   intensity_ceiling: string;
 }
 
+/** A microcycle template (program_month_templates) — the multi-week unit the
+ *  athlete lives. Links to the existing editor at /v2/microciclos/[id]. */
+export interface V2MicrocicloItem {
+  id: string;
+  name: string;
+  /** program_level value (raw enum; capitalized for display in the card). */
+  level: string;
+  /** Number of weeks defined (via program_month_weeks). */
+  week_count: number;
+}
+
 export interface V2BibliotecaData {
   sesiones: V2SesionItem[];
   bloques: V2BloqueItem[];
+  microciclos: V2MicrocicloItem[];
   fases: V2FaseItem[];
-  counts: { sesiones: number; bloques: number; fases: number };
+  counts: { sesiones: number; bloques: number; microciclos: number; fases: number };
 }
 
 // ── Minutes estimation ────────────────────────────────────────────────────────
@@ -209,10 +222,11 @@ export async function loadBibliotecaData(params: {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
 
-  const [templates, blocks, groups, usage] = await Promise.all([
+  const [templates, blocks, groups, months, usage] = await Promise.all([
     listTemplatesForCoach(coachId, client),
     listBlocks(null, client),
     listMethodologyGroups(client),
+    listMonthTemplates({ coach_id: coachId, client }),
     loadTemplateUsage(coachId, client).catch(() => new Map<string, number>()),
   ]);
 
@@ -221,13 +235,34 @@ export async function loadBibliotecaData(params: {
 
   const sesiones = templates.map((t) => mapSesion(t, usage));
   const bloques = blocks.map((b) => mapBloque(b, groupLabel));
+  const microciclos = months.map(mapMicrociclo);
   const fases = ATR_BLOCKS_DEFAULT.map((p) => mapFase(p, objectiveLabel));
 
   return {
     sesiones,
     bloques,
+    microciclos,
     fases,
-    counts: { sesiones: sesiones.length, bloques: bloques.length, fases: fases.length },
+    counts: {
+      sesiones: sesiones.length,
+      bloques: bloques.length,
+      microciclos: microciclos.length,
+      fases: fases.length,
+    },
+  };
+}
+
+function mapMicrociclo(m: {
+  id: string;
+  name: string;
+  level: string;
+  week_count: number;
+}): V2MicrocicloItem {
+  return {
+    id: m.id,
+    name: m.name,
+    level: m.level,
+    week_count: m.week_count,
   };
 }
 
