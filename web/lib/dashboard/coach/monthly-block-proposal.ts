@@ -127,14 +127,27 @@ export async function proposeNextMonthlyBlock(params: {
     mondayOfWeek(addDays(parseIsoDate(lastMonth[0].end_date), 1)),
   );
 
-  const levelRows = await client<Array<{ level: number | null }>>`
-    select (intake_notes_json ->> 'level')::int as level
-    from athletes where id = ${params.athlete_id as number} limit 1
+  // Nivel del atleta = fuente AGNÓSTICA única: athletes.level_id → athlete_levels
+  // (por coach, N1-N5). Preferimos el nivel ASIGNADO por el coach (level_id) y, si
+  // no hay, el SUGERIDO por el algoritmo (suggested_level_id). El antiguo
+  // `intake_notes_json ->> 'level'` (1-4 del wizard V1) ya NO es el eje del flujo.
+  //
+  // La query de plantilla todavía usa el enum legacy `program_level` (tagging axis,
+  // sin migrar — ver D1). Hacemos el puente vía sort_order de athlete_levels acotado
+  // a 1-4 (N5 → elite, reutilizando la regla 4=elite existente; no es un enum nuevo)
+  // hasta que las plantillas se taggeen por level_id.
+  const levelRows = await client<Array<{ sort_order: number | null }>>`
+    select coalesce(al.sort_order, sal.sort_order) as sort_order
+    from athletes a
+    left join athlete_levels al  on al.id = a.level_id
+    left join athlete_levels sal on sal.id = a.suggested_level_id
+    where a.id = ${params.athlete_id as number}
+    limit 1
   `;
-  const rawLevel = levelRows[0]?.level;
+  const sortOrder = levelRows[0]?.sort_order;
   const programLevel: ProgramLevel =
-    rawLevel != null && rawLevel >= 1 && rawLevel <= 4
-      ? intakeLevelToProgramLevel(rawLevel as 1 | 2 | 3 | 4)
+    sortOrder != null && sortOrder >= 1
+      ? intakeLevelToProgramLevel(Math.min(4, sortOrder) as 1 | 2 | 3 | 4)
       : 'intermediate';
 
   const proposal = await proposeFirstMonthForIntake({
