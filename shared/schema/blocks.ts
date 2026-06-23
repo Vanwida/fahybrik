@@ -54,6 +54,11 @@ export const blockUpdateSchema = z
     description: z.string().trim().min(1).max(4000),
     methodology_group_id: z.number().int().min(1).max(10),
     atr_block_hint: atrBlockHint.nullable(),
+    // Level range + days/week tags (migration 0057). FK to athlete_levels; null = any.
+    min_level_id: z.number().int().positive().nullable(),
+    max_level_id: z.number().int().positive().nullable(),
+    // Meaningful training days: 3–6 (less than 3 is not a block prescription).
+    days_per_week: z.number().int().min(3).max(6).nullable(),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, {

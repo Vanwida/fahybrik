@@ -207,6 +207,12 @@ export async function updateBlock(
     assignments.push(client`methodology_group_id = ${patch.methodology_group_id}`);
   if (patch.atr_block_hint !== undefined)
     assignments.push(client`atr_block_hint = ${patch.atr_block_hint}`);
+  if (patch.min_level_id !== undefined)
+    assignments.push(client`min_level_id = ${patch.min_level_id}`);
+  if (patch.max_level_id !== undefined)
+    assignments.push(client`max_level_id = ${patch.max_level_id}`);
+  if (patch.days_per_week !== undefined)
+    assignments.push(client`days_per_week = ${patch.days_per_week}`);
   if (assignments.length === 0) return getBlockById(blockId, client);
 
   // Une los fragmentos parametrizados con comas, todos como tagged templates.
