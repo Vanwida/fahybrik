@@ -37,7 +37,8 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/v2/hoy', label: 'Hoy', icon: 'today', group: 'operar' },
   { href: '/v2/atletas', label: 'Atletas', icon: 'groups', group: 'operar' },
   { href: '/v2/mensajes', label: 'Mensajes', icon: 'forum', group: 'operar', badge: 'mensajes' },
-  // Construir el método — the reusable library. (Periodización lands here later.)
+  // Construir el método — the framework first, then the reusable library.
+  { href: '/v2/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'construir' },
   { href: '/v2/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'construir' },
 ] as const;
 
