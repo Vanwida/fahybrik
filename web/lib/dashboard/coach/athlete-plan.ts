@@ -7,6 +7,8 @@ import { getCurrentBlock } from '@/lib/atr/service';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
+import { loadCoachPhases } from './phases';
+import { resolvePhase } from './resolve-phase';
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
 
@@ -44,6 +46,14 @@ export interface AthletePlanPayload {
   range_start: string;
   range_end: string;
   current_block: string | null;
+  /**
+   * Display label for the athlete's current block, resolved through the coach's
+   * own `methodology_phases` (0052) — the agnostic source of truth. Falls back to
+   * the legacy ATR label when the block has no `phase_id` (pre-migration / unlinked)
+   * or the coach has no phases. null when there's no active block. The UI renders
+   * THIS instead of mapping the raw `current_block` enum locally.
+   */
+  current_block_label: string | null;
   weeks: PlanWeekRow[];
   macro: MacroProgressPayload;
   total_sessions: number;
@@ -228,6 +238,19 @@ export async function buildAthletePlan(params: {
   const block = await getCurrentBlock({ athlete_id: params.athlete_id, client });
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
 
+  // Resolve the current block's label through the coach's own methodology_phases
+  // (0052) so the UI shows the COACH's phase name, not a hardcoded ATR map. The
+  // resolver falls back to the legacy ATR label when the block has no phase_id or
+  // the coach has no phases — so this is non-breaking pre-migration.
+  let current_block_label: string | null = null;
+  if (block) {
+    const coachPhases = await loadCoachPhases(params.coach_id, client);
+    current_block_label = resolvePhase(
+      { type: block.block_type, phase_id: block.phase_id },
+      coachPhases,
+    ).label;
+  }
+
   return {
     athlete_id: header[0].id,
     athlete_name: header[0].full_name,
@@ -235,6 +258,7 @@ export async function buildAthletePlan(params: {
     range_start: startIso,
     range_end: endIso,
     current_block: block?.block_type ?? null,
+    current_block_label,
     weeks,
     macro,
     total_sessions: rows.length,

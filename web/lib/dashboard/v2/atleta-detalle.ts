@@ -63,23 +63,26 @@ export type {
   PerfilTabData,
 } from './atleta-detalle-types';
 
-// ── Block-type → Spanish phase label (coach voice; ATR default) ────────────────
-const BLOCK_LABEL: Record<string, string> = {
-  ACC: 'Acumulación',
-  TRANS: 'Transformación',
-  REAL: 'Realización',
-};
-
 const MODALITY_LABEL: Record<string, string> = {
   individual: 'Individual',
   dobles: 'Dobles',
   pro_elite: 'Pro · Elite',
 };
 
-function phaseLabel(shell: AthleteProfileShell | null): string | null {
-  if (!shell?.block_type) return null;
-  const name = BLOCK_LABEL[shell.block_type] ?? shell.block_type;
-  return shell.block_week != null ? `${name} · sem ${shell.block_week}` : name;
+/**
+ * Header phase label. The phase NAME is resolved through the coach's own
+ * methodology_phases (0052) by `buildAthletePlan` (→ `plan.current_block_label`),
+ * the single source of truth — NOT a hardcoded ATR map. We append the
+ * block-relative week from the shell. Falls back to the shell's raw enum only
+ * when there's no resolved label and no plan.
+ */
+function phaseLabel(
+  shell: AthleteProfileShell | null,
+  plan: AthletePlanPayload | null,
+): string | null {
+  const name = plan?.current_block_label ?? shell?.block_type ?? null;
+  if (!name) return null;
+  return shell?.block_week != null ? `${name} · sem ${shell.block_week}` : name;
 }
 
 /** Account/training status — readiness alarm wins over the plain active state. */
@@ -164,7 +167,7 @@ export async function loadAthleteDetalle(params: {
     status,
     status_label: label,
     tenure_label: tenureLabel(plan),
-    phase_label: phaseLabel(shell),
+    phase_label: phaseLabel(shell, plan),
     modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
   };
 
