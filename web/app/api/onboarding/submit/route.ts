@@ -2,6 +2,26 @@ import { z } from 'zod';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { suggestAthleteTrainingLevel } from '@/lib/coach/athlete-training-level';
+import {
+  BENCH_BACK_SQUAT_1RM,
+  BENCH_DEADLIFT_1RM,
+  BENCH_BENCH_PRESS_1RM,
+  BENCH_OHP_1RM,
+  BENCH_CLEAN_1RM,
+  BENCH_SNATCH_1RM,
+  BENCH_STRICT_PULL_UP_MAX,
+  BENCH_PUSH_UPS_PER_MIN,
+  BENCH_RUN_5K,
+  BENCH_RUN_10K,
+  BENCH_RUN_HALF,
+  BENCH_RUN_MARATHON,
+  BENCH_ROW_2K,
+  BENCH_SKI_1K,
+  BENCHMARK_UNIT_KG,
+  BENCHMARK_UNIT_REPS,
+  BENCHMARK_UNIT_SECONDS,
+  hyroxBenchmarkSlug,
+} from '@fahybrid/shared/domain/coach/benchmark-slugs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -193,7 +213,18 @@ const onboardingSnapshotSchema = z
     time_10k_seconds: intRange(0, 28_800).optional(),
     time_half_seconds: intRange(0, 43_200).optional(),
     time_marathon_seconds: intRange(0, 86_400).optional(),
+    // Ergo time trials — captured by iOS onboarding, previously dropped into the
+    // catchall blob; now modeled + persisted as benchmark rows (the level
+    // algorithm + intake suggestions read row_2k / ski_1k).
+    time_2k_row_seconds: intRange(0, 3_600).optional(),
+    time_1k_ski_seconds: intRange(0, 1_800).optional(),
     hybrid_tests_notes: longText.optional(),
+
+    // ── HYROX history (carried from the legacy flat snapshot) ─────────────────
+    // hyrox_best_time_seconds + the declared division feed the level algorithm's
+    // hyrox_open / hyrox_pro benchmark. Previously only reached intake_notes_json.
+    hyrox_best_time_seconds: intRange(0, 14_400).optional(),
+    hyrox_divisions: z.array(z.string().max(40)).max(8).optional(),
 
     // ── Step 12 — A-event + carreras -> races rows ───────────────────────────
     races: z.array(raceSchema).max(12).optional(),
@@ -255,21 +286,34 @@ function toDeviceType(brand: string | undefined): string | null {
 function benchmarksFromSnapshot(
   snap: Snapshot,
 ): Array<{ exercise_slug: string; value: number; unit: string }> {
+  // Division for the HYROX best-time benchmark: 'pro' if any declared division
+  // is pro, else open. Open is the algorithm's default.
+  const hyroxDivision = (snap.hyrox_divisions ?? []).some(
+    (d) => d.toLowerCase().includes('pro'),
+  )
+    ? 'pro'
+    : 'open';
+
   const defs: Array<[number | undefined, string, string]> = [
     // Step 10 — strength (kg, except rep-count tests)
-    [snap.one_rm_back_squat_kg, 'back_squat_1rm', 'kg'],
-    [snap.one_rm_deadlift_kg, 'deadlift_1rm', 'kg'],
-    [snap.one_rm_bench_press_kg, 'bench_press_1rm', 'kg'],
-    [snap.one_rm_ohp_kg, 'ohp_1rm', 'kg'],
-    [snap.one_rm_clean_kg, 'clean_1rm', 'kg'],
-    [snap.one_rm_snatch_kg, 'snatch_1rm', 'kg'],
-    [snap.strict_pull_ups_max, 'strict_pull_up_max', 'reps'],
-    [snap.push_ups_per_minute, 'push_ups_per_min', 'reps'],
+    [snap.one_rm_back_squat_kg, BENCH_BACK_SQUAT_1RM, BENCHMARK_UNIT_KG],
+    [snap.one_rm_deadlift_kg, BENCH_DEADLIFT_1RM, BENCHMARK_UNIT_KG],
+    [snap.one_rm_bench_press_kg, BENCH_BENCH_PRESS_1RM, BENCHMARK_UNIT_KG],
+    [snap.one_rm_ohp_kg, BENCH_OHP_1RM, BENCHMARK_UNIT_KG],
+    [snap.one_rm_clean_kg, BENCH_CLEAN_1RM, BENCHMARK_UNIT_KG],
+    [snap.one_rm_snatch_kg, BENCH_SNATCH_1RM, BENCHMARK_UNIT_KG],
+    [snap.strict_pull_ups_max, BENCH_STRICT_PULL_UP_MAX, BENCHMARK_UNIT_REPS],
+    [snap.push_ups_per_minute, BENCH_PUSH_UPS_PER_MIN, BENCHMARK_UNIT_REPS],
     // Step 11 — endurance / hybrid (seconds)
-    [snap.time_5k_seconds, 'run_5k', 'seconds'],
-    [snap.time_10k_seconds, 'run_10k', 'seconds'],
-    [snap.time_half_seconds, 'run_half', 'seconds'],
-    [snap.time_marathon_seconds, 'run_marathon', 'seconds'],
+    [snap.time_5k_seconds, BENCH_RUN_5K, BENCHMARK_UNIT_SECONDS],
+    [snap.time_10k_seconds, BENCH_RUN_10K, BENCHMARK_UNIT_SECONDS],
+    [snap.time_half_seconds, BENCH_RUN_HALF, BENCHMARK_UNIT_SECONDS],
+    [snap.time_marathon_seconds, BENCH_RUN_MARATHON, BENCHMARK_UNIT_SECONDS],
+    // Ergo time trials (seconds) — previously captured but dropped.
+    [snap.time_2k_row_seconds, BENCH_ROW_2K, BENCHMARK_UNIT_SECONDS],
+    [snap.time_1k_ski_seconds, BENCH_SKI_1K, BENCHMARK_UNIT_SECONDS],
+    // HYROX best time (seconds) — previously only in the notes blob.
+    [snap.hyrox_best_time_seconds, hyroxBenchmarkSlug(hyroxDivision), BENCHMARK_UNIT_SECONDS],
   ];
   const rows: Array<{ exercise_slug: string; value: number; unit: string }> = [];
   for (const [value, exercise_slug, unit] of defs) {

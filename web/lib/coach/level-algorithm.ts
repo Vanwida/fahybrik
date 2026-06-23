@@ -1,3 +1,10 @@
+import {
+  BENCH_BACK_SQUAT_1RM,
+  BENCH_HYROX_OPEN,
+  BENCH_RUN_5K,
+  BENCH_ROW_2K,
+} from '@fahybrid/shared/domain/coach/benchmark-slugs'
+
 export type Benchmark = {
   exercise_slug: string
   value: number // in SI units: seconds for time, kg for weight
@@ -20,15 +27,15 @@ export type LevelResult = {
 // Each array has 4 entries representing the upper boundary for levels 1–4.
 // Interpretation: if value > thresholds[i], level = i+1; if value ≤ all thresholds, level = 5.
 const THRESHOLDS = {
-  hyrox_open: {
+  [BENCH_HYROX_OPEN]: {
     male: [5400, 4500, 3900, 3300], // N1≤90min, N2≤75min, N3≤65min, N4≤55min, N5=faster
     female: [6000, 5100, 4500, 3900],
   },
-  run_5k: {
+  [BENCH_RUN_5K]: {
     male: [1680, 1440, 1260, 1080], // seconds
     female: [1920, 1620, 1440, 1260],
   },
-  row_2k: {
+  [BENCH_ROW_2K]: {
     male: [480, 440, 410, 380],
     female: [560, 510, 470, 440],
   },
@@ -74,17 +81,17 @@ export function suggestLevel(
   const signals: Array<{ slug: string; level: number }> = []
 
   // Time benchmarks (lower value = better performance = higher level)
-  for (const slug of ['hyrox_open', 'run_5k', 'row_2k'] as const) {
+  for (const slug of [BENCH_HYROX_OPEN, BENCH_RUN_5K, BENCH_ROW_2K] as const) {
     const bm = benchmarks.find(b => b.exercise_slug === slug)
     if (!bm) continue
     signals.push({ slug, level: scoreTimeBenchmark(bm.value, slug, sex) })
   }
 
   // Back squat relative to bodyweight
-  const squat = benchmarks.find(b => b.exercise_slug === 'back_squat')
+  const squat = benchmarks.find(b => b.exercise_slug === BENCH_BACK_SQUAT_1RM)
   if (squat && profile.weight_kg !== null && profile.weight_kg > 0) {
     const ratio = squat.value / profile.weight_kg
-    signals.push({ slug: 'back_squat', level: scoreSquatRatio(ratio) })
+    signals.push({ slug: BENCH_BACK_SQUAT_1RM, level: scoreSquatRatio(ratio) })
   }
 
   // Fallback: training experience years (only when no benchmarks available)

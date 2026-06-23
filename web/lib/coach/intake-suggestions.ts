@@ -5,6 +5,22 @@
 // the goal is a sensible starting point that handles the bulk of cases.
 
 import { DEFAULT_BLOCK_SPECS, type BlockSpec } from '@fahybrid/shared/domain/atr/planner';
+import {
+  BENCH_BACK_SQUAT_1RM,
+  BENCH_DEADLIFT_1RM,
+  BENCH_BENCH_PRESS_1RM,
+  BENCH_OHP_1RM,
+  BENCH_CLEAN_1RM,
+  BENCH_SNATCH_1RM,
+  BENCH_STRICT_PULL_UP_MAX,
+  BENCH_PUSH_UPS_PER_MIN,
+  BENCH_RUN_5K,
+  BENCH_RUN_10K,
+  BENCH_RUN_HALF,
+  BENCH_ROW_2K,
+  BENCH_SKI_1K,
+  BENCH_HYROX_PRO,
+} from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import type {
   AthleteLevel,
   IntakeBaselineTest,
@@ -55,7 +71,10 @@ export function proposeBlockSpecs(total_days: number): IntakeBlockSpec[] {
 }
 
 function toIntakeBlockSpec(b: BlockSpec): IntakeBlockSpec {
-  return { type: b.type, weeks: b.weeks };
+  // Intake opera sobre el set ATR legacy (el schema valida el enum). El planner
+  // generalizó `type` a string (fases de coach arbitrarias); aquí siempre llega
+  // un código ATR (DEFAULT_BLOCK_SPECS / proposeBlockSpecs) → narrow seguro.
+  return { type: b.type as IntakeBlockSpec['type'], weeks: b.weeks };
 }
 
 // =============================================================================
@@ -162,7 +181,7 @@ export function inferLevel(params: InferLevelParams): AthleteLevel {
   const eliteHits = countEliteHits(params.benchmarks);
   const strongHits = countStrongHits(params.benchmarks);
   const hasHyroxElite = params.benchmarks.some(
-    (b) => b.exercise_slug === 'hyrox_pro' && b.value > 0 && b.value <= 60 * 60,
+    (b) => b.exercise_slug === BENCH_HYROX_PRO && b.value > 0 && b.value <= 60 * 60,
   );
 
   // Nivel 4 (élite competitivo): sub-1h HYROX + >=4y, o >=4 marcas élite + >=5y.
@@ -183,38 +202,40 @@ export function inferLevel(params: InferLevelParams): AthleteLevel {
   return base;
 }
 
+// Thresholds keyed by the CANONICAL benchmark slugs the onboarding route writes
+// (see @fahybrid/shared/domain/coach/benchmark-slugs). Values unchanged.
 const ELITE_THRESHOLDS: Record<string, { value: number; better_when: 'gte' | 'lte' }> = {
-  back_squat: { value: 130, better_when: 'gte' },
-  deadlift: { value: 170, better_when: 'gte' },
-  bench_press: { value: 95, better_when: 'gte' },
-  ohp: { value: 60, better_when: 'gte' },
-  clean: { value: 90, better_when: 'gte' },
-  snatch: { value: 65, better_when: 'gte' },
-  pull_ups: { value: 20, better_when: 'gte' },
-  push_ups: { value: 60, better_when: 'gte' },
-  '5k_run': { value: 21 * 60, better_when: 'lte' },
-  '10k_run': { value: 44 * 60, better_when: 'lte' },
-  half_marathon: { value: 1.6 * 3600, better_when: 'lte' },
-  '2k_row': { value: 7 * 60 + 20, better_when: 'lte' },
-  '1k_ski': { value: 4 * 60 + 5, better_when: 'lte' },
-  hyrox_pro: { value: 70 * 60, better_when: 'lte' },
+  [BENCH_BACK_SQUAT_1RM]: { value: 130, better_when: 'gte' },
+  [BENCH_DEADLIFT_1RM]: { value: 170, better_when: 'gte' },
+  [BENCH_BENCH_PRESS_1RM]: { value: 95, better_when: 'gte' },
+  [BENCH_OHP_1RM]: { value: 60, better_when: 'gte' },
+  [BENCH_CLEAN_1RM]: { value: 90, better_when: 'gte' },
+  [BENCH_SNATCH_1RM]: { value: 65, better_when: 'gte' },
+  [BENCH_STRICT_PULL_UP_MAX]: { value: 20, better_when: 'gte' },
+  [BENCH_PUSH_UPS_PER_MIN]: { value: 60, better_when: 'gte' },
+  [BENCH_RUN_5K]: { value: 21 * 60, better_when: 'lte' },
+  [BENCH_RUN_10K]: { value: 44 * 60, better_when: 'lte' },
+  [BENCH_RUN_HALF]: { value: 1.6 * 3600, better_when: 'lte' },
+  [BENCH_ROW_2K]: { value: 7 * 60 + 20, better_when: 'lte' },
+  [BENCH_SKI_1K]: { value: 4 * 60 + 5, better_when: 'lte' },
+  [BENCH_HYROX_PRO]: { value: 70 * 60, better_when: 'lte' },
 };
 
 const STRONG_THRESHOLDS: Record<string, { value: number; better_when: 'gte' | 'lte' }> = {
-  back_squat: { value: 110, better_when: 'gte' },
-  deadlift: { value: 140, better_when: 'gte' },
-  bench_press: { value: 80, better_when: 'gte' },
-  ohp: { value: 50, better_when: 'gte' },
-  clean: { value: 75, better_when: 'gte' },
-  snatch: { value: 55, better_when: 'gte' },
-  pull_ups: { value: 12, better_when: 'gte' },
-  push_ups: { value: 45, better_when: 'gte' },
-  '5k_run': { value: 23 * 60, better_when: 'lte' },
-  '10k_run': { value: 48 * 60, better_when: 'lte' },
-  half_marathon: { value: 1.85 * 3600, better_when: 'lte' },
-  '2k_row': { value: 7 * 60 + 50, better_when: 'lte' },
-  '1k_ski': { value: 4 * 60 + 30, better_when: 'lte' },
-  hyrox_pro: { value: 80 * 60, better_when: 'lte' },
+  [BENCH_BACK_SQUAT_1RM]: { value: 110, better_when: 'gte' },
+  [BENCH_DEADLIFT_1RM]: { value: 140, better_when: 'gte' },
+  [BENCH_BENCH_PRESS_1RM]: { value: 80, better_when: 'gte' },
+  [BENCH_OHP_1RM]: { value: 50, better_when: 'gte' },
+  [BENCH_CLEAN_1RM]: { value: 75, better_when: 'gte' },
+  [BENCH_SNATCH_1RM]: { value: 55, better_when: 'gte' },
+  [BENCH_STRICT_PULL_UP_MAX]: { value: 12, better_when: 'gte' },
+  [BENCH_PUSH_UPS_PER_MIN]: { value: 45, better_when: 'gte' },
+  [BENCH_RUN_5K]: { value: 23 * 60, better_when: 'lte' },
+  [BENCH_RUN_10K]: { value: 48 * 60, better_when: 'lte' },
+  [BENCH_RUN_HALF]: { value: 1.85 * 3600, better_when: 'lte' },
+  [BENCH_ROW_2K]: { value: 7 * 60 + 50, better_when: 'lte' },
+  [BENCH_SKI_1K]: { value: 4 * 60 + 30, better_when: 'lte' },
+  [BENCH_HYROX_PRO]: { value: 80 * 60, better_when: 'lte' },
 };
 
 export function countEliteHits(bench: SuggestionBenchmark[]): number {
@@ -298,7 +319,12 @@ export function recommendBaselineTests(params: RecommendTestsParams): IntakeBase
     });
   }
 
-  const missing1RM = ['back_squat', 'deadlift', 'bench_press', 'clean'].filter((s) => !slugs.has(s));
+  const missing1RM = [
+    BENCH_BACK_SQUAT_1RM,
+    BENCH_DEADLIFT_1RM,
+    BENCH_BENCH_PRESS_1RM,
+    BENCH_CLEAN_1RM,
+  ].filter((s) => !slugs.has(s));
   if (missing1RM.length >= 2) {
     tests.push({
       slug: 'one_rm_battery',
@@ -308,7 +334,7 @@ export function recommendBaselineTests(params: RecommendTestsParams): IntakeBase
     });
   }
 
-  if (!slugs.has('5k_run') && !slugs.has('10k_run')) {
+  if (!slugs.has(BENCH_RUN_5K) && !slugs.has(BENCH_RUN_10K)) {
     tests.push({
       slug: 'endurance_5k',
       label: '5K test endurance',
@@ -349,14 +375,14 @@ export function composeWelcomeDraft(params: {
 // =============================================================================
 
 const OUTLIER_CAPS: Record<string, number> = {
-  back_squat: 220,
-  deadlift: 260,
-  bench_press: 160,
-  ohp: 110,
-  clean: 150,
-  snatch: 120,
-  pull_ups: 50,
-  push_ups: 120,
+  [BENCH_BACK_SQUAT_1RM]: 220,
+  [BENCH_DEADLIFT_1RM]: 260,
+  [BENCH_BENCH_PRESS_1RM]: 160,
+  [BENCH_OHP_1RM]: 110,
+  [BENCH_CLEAN_1RM]: 150,
+  [BENCH_SNATCH_1RM]: 120,
+  [BENCH_STRICT_PULL_UP_MAX]: 50,
+  [BENCH_PUSH_UPS_PER_MIN]: 120,
 };
 
 export function detectBenchmarkOutliers(bench: SuggestionBenchmark[]): string[] {

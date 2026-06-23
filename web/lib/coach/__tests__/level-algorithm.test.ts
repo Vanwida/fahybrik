@@ -89,16 +89,17 @@ describe('suggestLevel', () => {
     expect(result.signals_used).toEqual(['experience_years'])
   })
 
-  // Case 6: back_squat=80kg, weight_kg=70kg → ratio=1.14
+  // Case 6: back_squat_1rm=80kg, weight_kg=70kg → ratio=1.14
   // SQUAT_RATIOS = [0.9, 1.2, 1.5, 1.8]; ratio=1.14
   // i=0: 1.14 < 0.9? No. i=1: 1.14 < 1.2? Yes → level = i+1 = 2.
-  it('back_squat 80kg / weight 70kg → ratio 1.14 → level 2, confidence low', () => {
+  // Slug is the canonical `back_squat_1rm` the onboarding route writes.
+  it('back_squat_1rm 80kg / weight 70kg → ratio 1.14 → level 2, confidence low', () => {
     const result = suggestLevel(
-      [bm('back_squat', 80, 'kg')],
+      [bm('back_squat_1rm', 80, 'kg')],
       profile({ weight_kg: 70 }),
     )
     expect(result.suggested_level).toBe(2)
     expect(result.confidence).toBe('low')
-    expect(result.signals_used).toEqual(['back_squat'])
+    expect(result.signals_used).toEqual(['back_squat_1rm'])
   })
 })
