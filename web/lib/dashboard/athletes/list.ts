@@ -29,8 +29,22 @@ export interface AthleteRow {
   athlete_id: string;
   full_name: string;
   primary_discipline: string | null;
+  /** Athlete's assigned level name (e.g. 'N1'–'N5') from athlete_levels, null if not set. */
+  level_name: string | null;
+  /** sort_order from athlete_levels — used to rank levels; 0 when unset. */
+  level_sort: number;
   block_type: 'ACC' | 'TRANS' | 'REAL' | null;
+  /**
+   * Coach phase id (methodology_phases.id) the current block links to — drives
+   * the phase resolver so the roster shows the coach's phase name, consistent
+   * with the athlete page. null pre-migration (0052 not applied) OR for any
+   * block still on the legacy `type` enum → resolver falls back to ATR.
+   */
+  block_phase_id: string | null;
+  /** Week-in-block (relative to the current block), matching the athlete Hub. */
   block_week: number | null;
+  /** Total microcycles in the current block (the "de N" denominator). */
+  block_total: number | null;
   readiness_score: number | null;
   compliance_pct: number | null;
   programming_status: ProgrammingStatus;
@@ -61,13 +75,36 @@ export async function fetchAthletesForCoach(params: {
   const raceTodayIso = isoDateString(startOfDayInBox(new Date()));
 
   const modalityFilter = params.modality ?? null;
+
+  // `atr_blocks.phase_id` is additive (0052) and may not exist yet pre-migration.
+  // Guard the column (same pattern as assign-block.ts): when absent, emit
+  // null::text so the running app (no 0052) keeps reading blocks as before and
+  // the resolver falls back to the legacy ATR enum. The fragment is injected into
+  // the lateral subquery; `client.unsafe` is used only on this fixed literal
+  // (never on user input), so there's no injection surface.
+  const hasPhaseId = await client<Array<{ t: number }>>`
+    select 1 as t
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'atr_blocks'
+      and column_name = 'phase_id'
+    limit 1
+  `;
+  const blockPhaseIdExpr = client.unsafe(
+    hasPhaseId.length > 0 ? 'b.phase_id::text' : 'null::text',
+  );
+
   const rows = await client<
     Array<{
       athlete_id: string;
       full_name: string;
       primary_discipline: string | null;
+      level_name: string | null;
+      level_sort: number;
       block_type: string | null;
+      block_phase_id: string | null;
       block_week: number | null;
+      block_total: number | null;
       readiness_score: number | null;
       scheduled: number;
       completed: number;
@@ -85,10 +122,18 @@ export async function fetchAthletesForCoach(params: {
       a.id::text as athlete_id,
       a.full_name,
       a.primary_discipline::text as primary_discipline,
+      al.name as level_name,
+      coalesce(al.sort_order, 0)::int as level_sort,
       a.onboarded_at,
       a.intake_completed_at,
       ab.type::text as block_type,
-      ab.week_number as block_week,
+      ab.block_phase_id as block_phase_id,
+      -- Semana RELATIVA AL BLOQUE (week-in-block), idéntica al Hub
+      -- (AthleteShell.buildPhaseLine → macro-progress): week_number macro del
+      -- microciclo actual − first_week del bloque + 1. NO la week_number macro
+      -- (que daría "sem 6" cuando el Hub muestra "Semana 1 de 4").
+      (ab.week_number - ab.block_first_week + 1) as block_week,
+      ab.block_week_count as block_total,
       rds.score as readiness_score,
       coalesce(wa.scheduled, 0)::int as scheduled,
       coalesce(wa.completed, 0)::int as completed,
@@ -99,14 +144,30 @@ export async function fetchAthletesForCoach(params: {
       tr.race_date_iso as target_race_date,
       tr.days_until as target_race_days_until
     from athletes a
+    left join athlete_levels al on al.id = a.level_id
     left join lateral (
       -- The microcycle that CONTAINS today (its latest one already started),
       -- not the macrocycle's final week — otherwise every athlete with a fully
       -- materialized plan reads as REAL/Tapering regardless of the current date.
-      select b.type, mc.week_number
+      -- block_first_week / block_week_count come from the SAME block (min/count
+      -- of its microcycles) so the roster derives week-in-block exactly like the
+      -- Hub (shared macro-progress: block_week = week_number − first_week + 1).
+      select
+        b.type,
+        ${blockPhaseIdExpr} as block_phase_id,
+        mc.week_number,
+        bspan.first_week as block_first_week,
+        bspan.week_count as block_week_count
       from atr_macrocycles mac
       join atr_blocks b on b.macrocycle_id = mac.id
       join microcycles mc on mc.block_id = b.id
+      join lateral (
+        select
+          min(mc2.week_number)::int as first_week,
+          count(mc2.id)::int        as week_count
+        from microcycles mc2
+        where mc2.block_id = b.id
+      ) bspan on true
       where mac.athlete_id = a.id and mac.status = 'active'
         and mc.start_date <= ${raceTodayIso}::date
       order by mc.start_date desc
@@ -197,8 +258,12 @@ export async function fetchAthletesForCoach(params: {
       athlete_id: r.athlete_id,
       full_name: r.full_name,
       primary_discipline: r.primary_discipline,
+      level_name: r.level_name,
+      level_sort: r.level_sort,
       block_type: r.block_type as AthleteRow['block_type'],
+      block_phase_id: r.block_phase_id,
       block_week: r.block_week,
+      block_total: r.block_total,
       readiness_score: r.readiness_score,
       compliance_pct,
       programming_status,

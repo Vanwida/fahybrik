@@ -23,6 +23,10 @@ export type AthleteProfileShell = {
   intake_pending: boolean;
   /** Modalidad de plan (suscripción más reciente) — null si aún no hay suscripción. */
   modality: AthleteModality | null;
+  /** Real level name from athlete_levels.name (e.g. 'N1'–'N5'); null when not assigned. */
+  level_name: string | null;
+  /** sort_order from athlete_levels for ranking; 0 when null. */
+  level_sort: number;
   /** Pareja de Dobles (users.partner_id → atleta del mismo coach), null si no aplica. */
   partner: { athlete_id: string; full_name: string } | null;
 };
@@ -45,6 +49,8 @@ export async function fetchAthleteProfileShell(params: {
     Array<{
       id: string;
       full_name: string;
+      level_name: string | null;
+      level_sort: number;
       block_type: string | null;
       block_week: number | null;
       readiness_score: number | null;
@@ -59,6 +65,8 @@ export async function fetchAthleteProfileShell(params: {
     select
       a.id::text,
       a.full_name,
+      al.name as level_name,
+      coalesce(al.sort_order, 0)::int as level_sort,
       ab.type::text as block_type,
       mc.week_number as block_week,
       rds.score as readiness_score,
@@ -76,6 +84,7 @@ export async function fetchAthleteProfileShell(params: {
       pa.id::text as partner_athlete_id,
       pa.full_name as partner_full_name
     from athletes a
+    left join athlete_levels al on al.id = a.level_id
     left join lateral (
       select s.plan_type
       from subscriptions s
@@ -147,6 +156,8 @@ export async function fetchAthleteProfileShell(params: {
       intake_completed_at: row.intake_completed_at,
     }),
     modality: isAthleteModality(row.modality) ? row.modality : null,
+    level_name: row.level_name,
+    level_sort: row.level_sort,
     partner:
       row.partner_athlete_id && row.partner_full_name
         ? { athlete_id: row.partner_athlete_id, full_name: row.partner_full_name }
