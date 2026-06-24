@@ -286,9 +286,11 @@ export async function makeExercise(params: {
   name?: string;
 }): Promise<number> {
   const slug = uniq('ex');
+  // exercises.modality is NOT NULL (0053+); mirror the 'strength' category default
+  // so the fixture insert satisfies the live constraint (drift the fixture predated).
   const rows = await params.fx.sql<Array<{ id: string }>>`
-    insert into exercises (slug, name, category)
-    values (${slug}, ${params.name ?? slug}, 'strength'::exercise_category)
+    insert into exercises (slug, name, category, modality)
+    values (${slug}, ${params.name ?? slug}, 'strength'::exercise_category, 'strength')
     returning id::text
   `;
   const id = Number(rows[0]!.id);

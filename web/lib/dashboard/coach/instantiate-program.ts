@@ -305,6 +305,9 @@ async function ensureMacrocycleForMonthAssign(params: {
   startMonday: Date;
   weekCount: number;
 }): Promise<{ id: string; status: string }> {
+  const startIso = isoDateString(params.startMonday);
+  const endIso = isoDateString(addDays(params.startMonday, params.weekCount * 7 - 1));
+
   const existing = await params.client<Array<{ id: string; status: string }>>`
     select id::text, status::text
     from atr_macrocycles
@@ -313,10 +316,30 @@ async function ensureMacrocycleForMonthAssign(params: {
     order by start_date desc
     limit 1
   `;
-  if (existing[0]) return existing[0];
-
-  const startIso = isoDateString(params.startMonday);
-  const endIso = isoDateString(addDays(params.startMonday, params.weekCount * 7 - 1));
+  if (existing[0]) {
+    // Reusing the athlete's active macro for a SUBSEQUENT microciclo (the sequence
+    // walk's next item, or a second assign-month). The macro + its blocks were sized
+    // for the PRIOR window, so a forward window can fall past the last block — which
+    // makes resolveOrCreateMicrocycle throw `no_block`. Extend the macro and its
+    // latest block forward to cover the new window. Idempotent: greatest() never
+    // shrinks an already-covering range, so the in-range case is a no-op.
+    await params.client`
+      update atr_macrocycles
+      set end_date = greatest(end_date, ${endIso}::date), updated_at = now()
+      where id = ${Number(existing[0].id)}
+    `;
+    await params.client`
+      update atr_blocks
+      set end_date = greatest(end_date, ${endIso}::date)
+      where id = (
+        select id from atr_blocks
+        where macrocycle_id = ${Number(existing[0].id)}
+        order by position desc, end_date desc
+        limit 1
+      )
+    `;
+    return existing[0];
+  }
 
   const ins = await params.client<Array<{ id: string; status: string }>>`
     insert into atr_macrocycles (athlete_id, target_event_id, start_date, end_date, status)
@@ -385,11 +408,26 @@ async function resolveOrCreateMicrocycle(params: {
     );
   }
 
+  // week_number is unique within a block (microcycles_week_unique). The caller
+  // numbers weeks 1..N PER microciclo; when a block already holds microcycles from
+  // a PRIOR microciclo (the sequence walk's earlier item, or a second assign-month
+  // sharing the reused/extended block) that restart-at-1 collides. Use the passed
+  // number when it's free, else continue past the block's current max — keeping the
+  // intuitive 1..N for a fresh block (no change to the common case) while making
+  // sequential microciclos in one block monotonic and collision-free.
+  const taken = await db<Array<{ max_week: number | null }>>`
+    select max(week_number)::int as max_week
+    from microcycles
+    where block_id = ${Number(blockId)}
+  `;
+  const maxWeek = taken[0]?.max_week ?? 0;
+  const weekNumber = params.week_number > maxWeek ? params.week_number : maxWeek + 1;
+
   const ins = await db<Array<{ id: string }>>`
     insert into microcycles (block_id, week_number, start_date, end_date)
     values (
       ${Number(blockId)},
-      ${params.week_number},
+      ${weekNumber},
       ${params.week_start}::date,
       ${params.week_end}::date
     )
