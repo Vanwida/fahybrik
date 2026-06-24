@@ -28,6 +28,10 @@ import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { sql } from '@/lib/db';
+import {
+  resolveSequenceForAthlete,
+  type ResolveFailureReason,
+} from '@/lib/dashboard/coach/assign-sequence';
 
 // ── Thresholds (single source: signal-config) ────────────────────────────────
 /** Compliance below this % counts as "falló sesiones". */
@@ -96,6 +100,12 @@ export interface V2HoyData {
   awaiting_reply_count: number;
   /** Athletes with an algorithm-suggested level pending coach confirmation. */
   nivel_sugerido_cards: V2NivelSugeridoCard[];
+  /**
+   * Classified athletes (level set) with NO active sequence enrollment: the
+   * coach's one-click auto-assignment proposals — or, when their (level × days)
+   * cell can't resolve, an ACTIONABLE "why not" so it's NEVER silently hidden.
+   */
+  asignacion_sugerida_cards: V2AsignacionSugeridaCard[];
 }
 
 /**
@@ -209,6 +219,194 @@ export async function fetchNivelSugeridoCards(
   }));
 }
 
+// ── Auto-assignment proposals (Hoy) ───────────────────────────────────────────
+//
+// For each CLASSIFIED athlete with NO active sequence enrollment we resolve their
+// (level × days) sequence cell via the SAME `resolveSequenceForAthlete` contract
+// the assign endpoint uses (single source of truth — no parallel resolution).
+//
+//   · ok        → an "Asignación sugerida" card: accept → one POST materializes
+//                 the first microciclo. The card shows the first microciclo's name
+//                 + week count so the coach SEES what they're approving.
+//   · why-not   → an ACTIONABLE card (e.g. "no hay secuencia para N4·5d → crear
+//                 una"). NEVER silently hidden (the failure mode of the old B6).
+//
+// `not_classified` athletes are intentionally EXCLUDED here: that's the
+// NivelSugeridoCard's job (confirm level first), so we don't double-surface them.
+
+/**
+ * A one-click auto-assignment proposal for a classified, not-yet-enrolled athlete.
+ * Two shapes, discriminated by `kind`:
+ *   · 'ok'     → ready to assign; carries the first microciclo preview.
+ *   · 'blocked'→ resolver returned a "why not"; carries an actionable fix.
+ */
+export type V2AsignacionSugeridaCard =
+  | {
+      kind: 'ok';
+      /** Stable React key: `asig:${athlete_id}`. */
+      id: string;
+      athlete_id: number;
+      athlete_name: string;
+      /** Real level code from athlete_levels.name (e.g. "N2"). */
+      level_name: string;
+      /** Training days per week resolved for the athlete. */
+      days_per_week: number;
+      /** Name of the FIRST microciclo to materialize on accept. */
+      first_microciclo_name: string;
+      /** Weeks defined in that first microciclo (via program_month_weeks). */
+      first_microciclo_weeks: number;
+    }
+  | {
+      kind: 'blocked';
+      id: string;
+      athlete_id: number;
+      athlete_name: string;
+      /** Real level code (always present — these athletes are classified). */
+      level_name: string;
+      /** The structured "why not" code from the resolver. */
+      reason: ResolveFailureReason;
+      /** Human one-liner from the resolver (e.g. "No hay secuencia para N4·5d."). */
+      message: string;
+    };
+
+type EligibleAthleteRow = {
+  athlete_id: string;
+  athlete_name: string;
+};
+
+type FirstItemPreviewRow = {
+  athlete_id: string;
+  name: string;
+  week_count: number;
+};
+
+/**
+ * Compute auto-assignment proposals for every classified athlete who has no
+ * active sequence enrollment yet. Resolution uses `resolveSequenceForAthlete`
+ * (the assign endpoint's contract) so the card and the action can never diverge.
+ *
+ * Degrades safely: any unexpected error on a single athlete drops that athlete
+ * from the strip rather than failing the page (the page also catch-wraps us).
+ */
+export async function fetchAsignacionSugeridaCards(
+  coachId: bigint | number,
+): Promise<V2AsignacionSugeridaCard[]> {
+  // Eligible = classified (level_id set) AND no active enrollment. Ordered oldest
+  // first so the longest-unassigned athlete surfaces at the front of the strip.
+  const eligible = await sql<EligibleAthleteRow[]>`
+    SELECT a.id::text AS athlete_id, a.full_name AS athlete_name
+    FROM athletes a
+    WHERE a.coach_id = ${coachId as number}
+      AND a.level_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM athlete_sequence_progress asp
+        WHERE asp.athlete_id = a.id AND asp.status = 'active'
+      )
+    ORDER BY a.created_at ASC
+  `;
+  if (eligible.length === 0) return [];
+
+  // Resolve each athlete's cell via the real contract.
+  const resolutions = await Promise.all(
+    eligible.map(async (row) => {
+      const athleteId = Number(row.athlete_id);
+      try {
+        const res = await resolveSequenceForAthlete(athleteId, coachId);
+        return { row, res };
+      } catch {
+        // Integrity throw (athlete vanished mid-read) — drop, don't fail the strip.
+        return null;
+      }
+    }),
+  );
+
+  // Collect the first microciclo (position 1) of each resolvable sequence so we
+  // can show its name + week count in ONE batched query (DRY with secuencias:
+  // week_count = count of program_month_weeks rows for the template).
+  const firstItemByAthlete = new Map<string, { month_template_id: number | bigint }>();
+  for (const r of resolutions) {
+    if (r?.res.ok) {
+      const first =
+        r.res.sequence.items.find((it) => it.position === 1) ?? r.res.sequence.items[0]!;
+      firstItemByAthlete.set(r.row.athlete_id, {
+        month_template_id: first.month_template_id,
+      });
+    }
+  }
+
+  const previewByAthlete = new Map<string, { name: string; week_count: number }>();
+  if (firstItemByAthlete.size > 0) {
+    const monthIds = [...new Set([...firstItemByAthlete.values()].map((v) => v.month_template_id))];
+    const previews = await sql<FirstItemPreviewRow[]>`
+      SELECT pmt.id::text AS athlete_id,
+             pmt.name      AS name,
+             (SELECT count(*) FROM program_month_weeks pmw
+               WHERE pmw.month_template_id = pmt.id)::int AS week_count
+      FROM program_month_templates pmt
+      WHERE pmt.id = ANY(${monthIds}::bigint[])
+    `;
+    const byTemplate = new Map<string, { name: string; week_count: number }>();
+    for (const p of previews) {
+      byTemplate.set(p.athlete_id, { name: p.name, week_count: p.week_count });
+    }
+    for (const [athleteId, { month_template_id }] of firstItemByAthlete) {
+      const preview = byTemplate.get(String(month_template_id));
+      if (preview) previewByAthlete.set(athleteId, preview);
+    }
+  }
+
+  const cards: V2AsignacionSugeridaCard[] = [];
+  for (const r of resolutions) {
+    if (!r) continue;
+    const { row, res } = r;
+    const athleteId = Number(row.athlete_id);
+
+    if (res.ok) {
+      const preview = previewByAthlete.get(row.athlete_id);
+      // No preview means the first microciclo template vanished — treat as a
+      // blocked (empty) state rather than rendering a nameless proposal.
+      if (!preview) {
+        cards.push({
+          kind: 'blocked',
+          id: `asig:${athleteId}`,
+          athlete_id: athleteId,
+          athlete_name: row.athlete_name,
+          level_name: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
+          reason: 'empty_sequence',
+          message: 'El primer microciclo de la secuencia ya no existe.',
+        });
+        continue;
+      }
+      cards.push({
+        kind: 'ok',
+        id: `asig:${athleteId}`,
+        athlete_id: athleteId,
+        athlete_name: row.athlete_name,
+        level_name: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
+        days_per_week: res.athlete.training_days_per_week!,
+        first_microciclo_name: preview.name,
+        first_microciclo_weeks: preview.week_count,
+      });
+      continue;
+    }
+
+    // why-not — ACTIONABLE card. `not_classified` can't occur here (filtered by
+    // the eligible query), but if it ever did we'd skip it (NivelSugerido's job).
+    if (res.reason === 'not_classified') continue;
+    cards.push({
+      kind: 'blocked',
+      id: `asig:${athleteId}`,
+      athlete_id: athleteId,
+      athlete_name: row.athlete_name,
+      level_name: res.athlete?.level_name ?? 'Sin nivel',
+      reason: res.reason,
+      message: res.message,
+    });
+  }
+
+  return cards;
+}
+
 // ── Public assembler ──────────────────────────────────────────────────────────
 
 export function buildHoyLanes(params: {
@@ -216,8 +414,15 @@ export function buildHoyLanes(params: {
   threads: CoachThreadSummary[];
   inbox: CoachInbox | null;
   nivel_sugerido_cards?: V2NivelSugeridoCard[];
+  asignacion_sugerida_cards?: V2AsignacionSugeridaCard[];
 }): V2HoyData {
-  const { athletes, threads, inbox, nivel_sugerido_cards = [] } = params;
+  const {
+    athletes,
+    threads,
+    inbox,
+    nivel_sugerido_cards = [],
+    asignacion_sugerida_cards = [],
+  } = params;
 
   // Inactivity days by athlete (reinforces "falló sesiones" reasons).
   const inactivityByAthlete = new Map<string, number>();
@@ -354,6 +559,7 @@ export function buildHoyLanes(params: {
     need_attention_count: flaggedAthleteIds.size,
     awaiting_reply_count: awaitingIds.size,
     nivel_sugerido_cards,
+    asignacion_sugerida_cards,
   };
 }
 

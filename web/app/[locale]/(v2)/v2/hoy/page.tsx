@@ -9,7 +9,11 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { loadCoachInbox, type CoachInbox } from '@/lib/dashboard/coach/inbox';
-import { buildHoyLanes, fetchNivelSugeridoCards } from '@/lib/dashboard/v2/hoy-lanes';
+import {
+  buildHoyLanes,
+  fetchNivelSugeridoCards,
+  fetchAsignacionSugeridaCards,
+} from '@/lib/dashboard/v2/hoy-lanes';
 import { HoyBoard } from '@/components/v2/hoy/HoyBoard';
 
 export const dynamic = 'force-dynamic';
@@ -33,14 +37,22 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
   if (!session) return null;
 
   // Independent safe loads — a dead loader contributes nothing, never throws.
-  const [athletes, threads, inbox, nivel_sugerido_cards] = await Promise.all([
-    fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
-    listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
-    loadCoachInbox({ coach_id: session.coach_id }).catch((): CoachInbox | null => null),
-    fetchNivelSugeridoCards(session.coach_id).catch(() => []),
-  ]);
+  const [athletes, threads, inbox, nivel_sugerido_cards, asignacion_sugerida_cards] =
+    await Promise.all([
+      fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
+      listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
+      loadCoachInbox({ coach_id: session.coach_id }).catch((): CoachInbox | null => null),
+      fetchNivelSugeridoCards(session.coach_id).catch(() => []),
+      fetchAsignacionSugeridaCards(session.coach_id).catch(() => []),
+    ]);
 
-  const data = buildHoyLanes({ athletes, threads, inbox, nivel_sugerido_cards });
+  const data = buildHoyLanes({
+    athletes,
+    threads,
+    inbox,
+    nivel_sugerido_cards,
+    asignacion_sugerida_cards,
+  });
 
   return (
     <HoyBoard

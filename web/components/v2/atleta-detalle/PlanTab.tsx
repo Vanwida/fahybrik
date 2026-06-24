@@ -137,14 +137,14 @@ export function PlanTab({
       <EmptyState
         icon="event_busy"
         title="Sin plan asignado todavía"
-        description="Asigna un microciclo desde el plan por fases para empezar a programar."
+        description="Cuando el atleta esté clasificado, su secuencia se propone en Hoy para asignarla en un clic."
         action={
           <Link
-            href="/v2/planes"
+            href="/v2/hoy"
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
           >
-            <MIcon name="add" size={17} />
-            Asignar microciclo
+            <MIcon name="play_arrow" size={17} />
+            Asignar secuencia en Hoy
           </Link>
         }
       />

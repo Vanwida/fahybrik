@@ -12,6 +12,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
+import { AsignacionSugeridaStrip } from '@/components/v2/hoy/AsignacionSugeridaCard';
 import {
   IntroStrip,
   InfoDot,
@@ -69,10 +70,14 @@ export function HoyBoard({
   const q = query.trim().toLowerCase();
   const orient = useOrientationState(coachKey, SECTION_KEY);
 
-  // The whole board is empty when no lane holds a card and no new athlete awaits
-  // a level — the "all in order" signal (and we're not mid-search).
+  // The whole board is empty when no lane holds a card, no new athlete awaits a
+  // level, and no auto-assignment proposal is pending — the "all in order" signal
+  // (and we're not mid-search).
   const totalCards = data.lanes.reduce((n, l) => n + l.cards.length, 0);
-  const boardEmpty = totalCards === 0 && data.nivel_sugerido_cards.length === 0;
+  const boardEmpty =
+    totalCards === 0 &&
+    data.nivel_sugerido_cards.length === 0 &&
+    data.asignacion_sugerida_cards.length === 0;
 
   // Filter cards per lane by the search query (empty query → all cards).
   const filteredLanes = useMemo(
@@ -148,6 +153,10 @@ export function HoyBoard({
 
       {/* ── Nivel sugerido strip (new athletes awaiting level confirmation) ── */}
       <NivelSugeridoStrip cards={data.nivel_sugerido_cards} />
+
+      {/* ── Asignación sugerida strip (classified athletes ready to auto-assign,
+          or an actionable gap when their sequence cell can't resolve) ── */}
+      <AsignacionSugeridaStrip cards={data.asignacion_sugerida_cards} />
 
       {boardEmpty && !q ? (
         /* Empty board is a GOOD signal, not an error — teach the reframe. */
