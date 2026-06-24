@@ -5,9 +5,16 @@ import { sql as defaultSql } from '@/lib/db';
 import {
   addDays,
   isoDateString,
+  mondayOfWeek,
   mondayOfWeekInBox,
+  parseIsoDate,
+  startOfDayInBox,
 } from '@fahybrid/shared/domain/atr/dates';
-import type { ProgramSequence } from '@fahybrid/shared/schema/program-sequences';
+import type {
+  ProgramSequence,
+  ProgramSequenceItem,
+  SequenceEndPolicy,
+} from '@fahybrid/shared/schema/program-sequences';
 import { getCoachSequenceCell } from './sequences';
 import {
   instantiateMonthFromTemplate,
@@ -322,4 +329,477 @@ export async function assignSequenceToAthlete(
     already_enrolled: false,
     materialization,
   };
+}
+
+// =============================================================================
+// SEQUENCE WALK — advance an athlete to the NEXT microciclo, or resolve the
+// end-policy when the current microciclo is the LAST item of the sequence.
+//
+// "current microciclo finished" — the gate for advancing — is true when the
+// athlete's CURRENT position has a materialization receipt (athlete_month_assignments)
+// whose date window is over EITHER by the calendar (end_date < today, box tz)
+// OR by the work (every workout_assignment in that window is in a terminal
+// status: completed | missed | skipped — only `scheduled` is outstanding). Either
+// condition means the microciclo is done; we don't advance while sessions remain.
+//
+// END-POLICY at the last item (program_sequences.end_policy):
+//   · repeat   → re-materialize item[1] (a fresh loop), cursor back to 1.
+//                NOTE: the per-loop progression increment (progression_pct) is NOT
+//                applied yet — the loop repeats VERBATIM. Progressive overload is
+//                the immediate next piece (see deferral note in the build report);
+//                we do NOT fake a scaled prescription.
+//   · level_up → next level by athlete_levels.sort_order (strictly greater,
+//                nearest). Re-resolve the sequence for (next level, SAME days). If
+//                a sequence exists there: mark the current enrollment completed,
+//                promote the athlete (athletes.level_id := next level), create a
+//                NEW active enrollment on the next level's sequence and materialize
+//                ITS item[1]. If there's no next level OR no sequence there → fall
+//                back to `stop` with a clear reason (never silently dead-ends).
+//   · stop     → mark the enrollment completed, no further materialization.
+//
+// REUSES the chunk-1 materializer (instantiateMonthFromTemplate) verbatim and the
+// chunk-1 resolver (resolveSequenceForAthlete) for the level_up re-resolution.
+// AGNOSTIC: levels via athlete_levels.sort_order, microciclos via month templates.
+// =============================================================================
+
+/** Outcome of an advancement attempt — a discriminated union the UI/endpoint map. */
+export type AdvanceOutcome =
+  | 'not_yet_finished' // current microciclo still has outstanding sessions / future dates
+  | 'advanced' // moved to the next item in the same sequence
+  | 'looped' // last item + repeat → restarted at item 1 (verbatim, no +% yet)
+  | 'leveled_up' // last item + level_up → promoted to the next level's sequence
+  | 'stopped' // last item + stop (or level_up fallback) → enrollment completed
+  | 'no_active_enrollment'; // athlete has no active sequence to advance
+
+export type AdvanceSequenceResult = {
+  outcome: AdvanceOutcome;
+  /** Sequence the athlete is on AFTER the call (changes only on level_up). */
+  sequence_id: number | null;
+  /** 1-indexed cursor AFTER the call (null when no enrollment / stopped). */
+  position: number | null;
+  /** The microciclo materialized this call, if any (null for no-op / stop). */
+  materialized_month_template_id: number | null;
+  materialization: InstantiateMonthResult | null;
+  /** Human one-liner — always set, including the no-op / fallback reasons. */
+  message: string;
+};
+
+type ActiveEnrollmentRow = {
+  id: string;
+  sequence_id: string;
+  current_position: number;
+};
+
+/**
+ * Is the athlete's CURRENT microciclo (the materialized item at `monthTemplateId`)
+ * finished? True when its latest receipt window has elapsed (end_date < today) OR
+ * every workout in that window is terminal. False (don't advance) when there's no
+ * receipt yet (nothing materialized → nothing to finish) or sessions remain.
+ */
+async function isCurrentMicrocicloFinished(
+  athleteId: number,
+  monthTemplateId: number,
+  client: Sql,
+): Promise<boolean> {
+  // Latest materialization receipt for THIS position's microciclo template.
+  const receipts = await client<{ end_date: string; microcycle_ids: string[] }[]>`
+    select to_char(end_date, 'YYYY-MM-DD') as end_date,
+           microcycle_ids
+    from athlete_month_assignments
+    where athlete_id = ${athleteId}
+      and month_template_id = ${monthTemplateId}
+    order by start_date desc
+    limit 1
+  `;
+  const receipt = receipts[0];
+  if (!receipt) return false; // never materialized → not "finished", just not started
+
+  // Time-done: the whole dated window is in the past (box tz).
+  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  if (receipt.end_date < todayIso) return true;
+
+  // Work-done: every workout_assignment of this receipt's microcycles is terminal
+  // (completed | missed | skipped). Only `scheduled` is outstanding. A window with
+  // zero assignments is NOT considered done by work (avoids advancing past an
+  // empty-but-future microciclo); the time branch above handles the past case.
+  const microIds = receipt.microcycle_ids.map(Number).filter((n) => Number.isFinite(n));
+  if (microIds.length === 0) return false;
+  const outstanding = await client<{ n: number }[]>`
+    select count(*)::int as n
+    from workout_assignments
+    where athlete_id = ${athleteId}
+      and microcycle_id = any(${microIds}::bigint[])
+      and status = 'scheduled'
+  `;
+  const total = await client<{ n: number }[]>`
+    select count(*)::int as n
+    from workout_assignments
+    where athlete_id = ${athleteId}
+      and microcycle_id = any(${microIds}::bigint[])
+  `;
+  return (total[0]?.n ?? 0) > 0 && (outstanding[0]?.n ?? 0) === 0;
+}
+
+/**
+ * Start date for the NEXT microciclo. Prefer the Monday AFTER the current
+ * microciclo's window (seamless continuation). If that Monday is already in the
+ * past — the athlete finished EARLY (work-done before the calendar) — fall back to
+ * next Monday so we never dump already-elapsed days (same discipline as the
+ * initial assign). Always Monday-aligned (the materializer re-aligns downstream).
+ */
+async function nextMicrocicloStartDate(
+  athleteId: number,
+  currentMonthTemplateId: number,
+  client: Sql,
+): Promise<string> {
+  const receipts = await client<{ end_date: string }[]>`
+    select to_char(end_date, 'YYYY-MM-DD') as end_date
+    from athlete_month_assignments
+    where athlete_id = ${athleteId}
+      and month_template_id = ${currentMonthTemplateId}
+    order by start_date desc
+    limit 1
+  `;
+  const nextMonday = isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+  const end = receipts[0]?.end_date;
+  if (!end) return nextMonday;
+  // Monday after the current window's end.
+  const afterWindow = isoDateString(mondayOfWeek(addDays(parseIsoDate(end), 7)));
+  return afterWindow > nextMonday ? afterWindow : nextMonday;
+}
+
+/** Item at a given 1-indexed position (by value, not array index — robust to gaps). */
+function itemAtPosition(
+  sequence: ProgramSequence,
+  position: number,
+): ProgramSequenceItem | null {
+  return sequence.items.find((it) => it.position === position) ?? null;
+}
+
+export async function advanceSequenceForAthlete(
+  athleteId: number,
+  coachId: number | bigint,
+  client: Sql = defaultSql,
+): Promise<AdvanceSequenceResult> {
+  // 1) The athlete's active enrollment cursor.
+  const enrollments = await client<ActiveEnrollmentRow[]>`
+    select id::text, sequence_id::text, current_position
+    from athlete_sequence_progress
+    where athlete_id = ${athleteId}
+      and coach_id = ${String(coachId)}
+      and status = 'active'
+    limit 1
+  `;
+  const enrollment = enrollments[0];
+  if (!enrollment) {
+    return {
+      outcome: 'no_active_enrollment',
+      sequence_id: null,
+      position: null,
+      materialized_month_template_id: null,
+      materialization: null,
+      message: 'El atleta no está inscrito en ninguna secuencia activa.',
+    };
+  }
+
+  const progressId = Number(enrollment.id);
+  const currentPosition = enrollment.current_position;
+
+  // 2) Load the enrolled sequence cell directly (the cursor's sequence_id is the
+  //    source of truth — NOT a re-resolve, which could drift if the athlete's
+  //    level/days changed mid-walk). We read its rows via the same loader.
+  const sequence = await loadSequenceById(Number(enrollment.sequence_id), coachId, client);
+  if (!sequence || sequence.items.length === 0) {
+    // The sequence was emptied/deleted under the athlete — close the enrollment so
+    // it stops surfacing as advanceable; surfacing a card for a vanished sequence
+    // would be a dead control.
+    await markEnrollmentCompleted(progressId, client);
+    return {
+      outcome: 'stopped',
+      sequence_id: Number(enrollment.sequence_id),
+      position: null,
+      materialized_month_template_id: null,
+      materialization: null,
+      message: 'La secuencia ya no existe o no tiene microciclos; inscripción cerrada.',
+    };
+  }
+
+  const currentItem = itemAtPosition(sequence, currentPosition);
+  if (!currentItem) {
+    // Cursor points past the sequence's items (sequence shrank). Treat as last-item
+    // and resolve the end-policy from where it stands.
+    return resolveEndPolicy({
+      athleteId,
+      coachId,
+      sequence,
+      progressId,
+      currentMonthTemplateId: null,
+      client,
+    });
+  }
+
+  // 3) Gate: only advance once the current microciclo is finished.
+  const finished = await isCurrentMicrocicloFinished(
+    athleteId,
+    Number(currentItem.month_template_id),
+    client,
+  );
+  if (!finished) {
+    return {
+      outcome: 'not_yet_finished',
+      sequence_id: Number(sequence.id),
+      position: currentPosition,
+      materialized_month_template_id: null,
+      materialization: null,
+      message: 'El microciclo actual aún no ha terminado.',
+    };
+  }
+
+  const lastPosition = sequence.items.reduce((max, it) => Math.max(max, it.position), 0);
+
+  // 4a) MID-SEQUENCE — a next item exists → materialize it, advance the cursor.
+  if (currentPosition < lastPosition) {
+    const nextItem = itemAtPosition(sequence, currentPosition + 1);
+    if (nextItem) {
+      const start = await nextMicrocicloStartDate(
+        athleteId,
+        Number(currentItem.month_template_id),
+        client,
+      );
+      const materialization = await materializeItem({
+        coachId,
+        athleteId,
+        monthTemplateId: Number(nextItem.month_template_id),
+        startDate: start,
+        client,
+      });
+      await client`
+        update athlete_sequence_progress
+        set current_position = ${currentPosition + 1}, updated_at = now()
+        where id = ${progressId}
+      `;
+      return {
+        outcome: 'advanced',
+        sequence_id: Number(sequence.id),
+        position: currentPosition + 1,
+        materialized_month_template_id: Number(nextItem.month_template_id),
+        materialization,
+        message: `Avanzado al microciclo ${currentPosition + 1}.`,
+      };
+    }
+  }
+
+  // 4b) LAST ITEM — resolve the end-policy.
+  return resolveEndPolicy({
+    athleteId,
+    coachId,
+    sequence,
+    progressId,
+    currentMonthTemplateId: Number(currentItem.month_template_id),
+    client,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// End-policy resolution (last item reached).
+// ---------------------------------------------------------------------------
+async function resolveEndPolicy(params: {
+  athleteId: number;
+  coachId: number | bigint;
+  sequence: ProgramSequence;
+  progressId: number;
+  /** The current item's microciclo (for start-date continuation); null if cursor drifted. */
+  currentMonthTemplateId: number | null;
+  client: Sql;
+}): Promise<AdvanceSequenceResult> {
+  const { athleteId, coachId, sequence, progressId, currentMonthTemplateId, client } =
+    params;
+  const policy: SequenceEndPolicy = sequence.end_policy;
+
+  const startDate = currentMonthTemplateId
+    ? await nextMicrocicloStartDate(athleteId, currentMonthTemplateId, client)
+    : isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+
+  if (policy === 'repeat') {
+    const firstItem = itemAtPosition(sequence, 1) ?? sequence.items[0]!;
+    // The loop repeats VERBATIM — the +% progression increment is deferred (see
+    // the build report). We materialize item[1] again and reset the cursor to 1.
+    const materialization = await materializeItem({
+      coachId,
+      athleteId,
+      monthTemplateId: Number(firstItem.month_template_id),
+      startDate,
+      client,
+    });
+    await client`
+      update athlete_sequence_progress
+      set current_position = 1, updated_at = now()
+      where id = ${progressId}
+    `;
+    return {
+      outcome: 'looped',
+      sequence_id: Number(sequence.id),
+      position: 1,
+      materialized_month_template_id: Number(firstItem.month_template_id),
+      materialization,
+      message: 'Secuencia terminada; reiniciando el ciclo desde el primer microciclo.',
+    };
+  }
+
+  if (policy === 'level_up') {
+    const promotion = await resolveLevelUp(athleteId, coachId, sequence, client);
+    if (promotion) {
+      // Mark current enrollment completed, promote the athlete, create a NEW active
+      // enrollment on the next level's sequence + materialize ITS first microciclo.
+      await markEnrollmentCompleted(progressId, client);
+      await client`
+        update athletes
+        set level_id = ${promotion.nextLevelId}, level_source = 'algorithm'
+        where id = ${athleteId}
+      `;
+      const firstItem =
+        itemAtPosition(promotion.nextSequence, 1) ?? promotion.nextSequence.items[0]!;
+      const materialization = await materializeItem({
+        coachId,
+        athleteId,
+        monthTemplateId: Number(firstItem.month_template_id),
+        startDate,
+        client,
+      });
+      await client`
+        insert into athlete_sequence_progress
+          (athlete_id, coach_id, sequence_id, current_position, status)
+        values (${athleteId}, ${String(coachId)}, ${promotion.nextSequence.id}, 1, 'active')
+      `;
+      return {
+        outcome: 'leveled_up',
+        sequence_id: Number(promotion.nextSequence.id),
+        position: 1,
+        materialized_month_template_id: Number(firstItem.month_template_id),
+        materialization,
+        message: `Subido a ${promotion.nextLevelName}; empezando su primer microciclo.`,
+      };
+    }
+    // Fall back to `stop` with a clear reason (no next level / no sequence there).
+    await markEnrollmentCompleted(progressId, client);
+    return {
+      outcome: 'stopped',
+      sequence_id: Number(sequence.id),
+      position: null,
+      materialized_month_template_id: null,
+      materialization: null,
+      message:
+        'Secuencia terminada. No hay un nivel superior con secuencia definida; plan en pausa.',
+    };
+  }
+
+  // policy === 'stop'
+  await markEnrollmentCompleted(progressId, client);
+  return {
+    outcome: 'stopped',
+    sequence_id: Number(sequence.id),
+    position: null,
+    materialized_month_template_id: null,
+    materialization: null,
+    message: 'Secuencia terminada (política: detener).',
+  };
+}
+
+/**
+ * Find the next level (athlete_levels.sort_order strictly greater, nearest) that
+ * ALSO has a sequence for the athlete's current days/week. Returns null when
+ * there's no higher level or no sequence cell there (→ stop fallback).
+ */
+async function resolveLevelUp(
+  athleteId: number,
+  coachId: number | bigint,
+  currentSequence: ProgramSequence,
+  client: Sql,
+): Promise<{ nextLevelId: number; nextLevelName: string; nextSequence: ProgramSequence } | null> {
+  // The current level's sort_order (anchored on the enrolled sequence's level).
+  const cur = await client<{ sort_order: number }[]>`
+    select sort_order from athlete_levels
+    where id = ${currentSequence.level_id} and coach_id = ${String(coachId)}
+    limit 1
+  `;
+  const currentSort = cur[0]?.sort_order;
+  if (currentSort == null) return null;
+
+  // Ascending candidates strictly above the current level (nearest first).
+  const candidates = await client<{ id: string; name: string }[]>`
+    select id::text, name from athlete_levels
+    where coach_id = ${String(coachId)}
+      and sort_order > ${currentSort}
+    order by sort_order asc
+  `;
+
+  for (const cand of candidates) {
+    const nextSequence = await getCoachSequenceCell(
+      coachId,
+      Number(cand.id),
+      currentSequence.days_per_week,
+      client,
+    );
+    if (nextSequence && nextSequence.items.length > 0) {
+      return {
+        nextLevelId: Number(cand.id),
+        nextLevelName: cand.name,
+        nextSequence,
+      };
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Small shared helpers (DRY across the advancement paths).
+// ---------------------------------------------------------------------------
+
+/** Load a sequence cell by its id (coach-scoped), reusing the existing cell loader. */
+async function loadSequenceById(
+  sequenceId: number,
+  coachId: number | bigint,
+  client: Sql,
+): Promise<ProgramSequence | null> {
+  const rows = await client<{ level_id: string; days_per_week: number }[]>`
+    select level_id::text, days_per_week
+    from program_sequences
+    where id = ${sequenceId} and coach_id = ${String(coachId)}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return getCoachSequenceCell(coachId, Number(row.level_id), row.days_per_week, client);
+}
+
+/** Materialize one microciclo via the chunk-1 pipeline; map its errors faithfully. */
+async function materializeItem(params: {
+  coachId: number | bigint;
+  athleteId: number;
+  monthTemplateId: number;
+  startDate: string;
+  client: Sql;
+}): Promise<InstantiateMonthResult> {
+  try {
+    return await instantiateMonthFromTemplate({
+      coach_id: params.coachId,
+      athlete_id: params.athleteId,
+      month_template_id: params.monthTemplateId,
+      start_date: params.startDate,
+      client: params.client,
+    });
+  } catch (err) {
+    if (err instanceof InstantiateProgramError) {
+      throw new AssignSequenceError(err.code, err.message, err.status);
+    }
+    throw err;
+  }
+}
+
+async function markEnrollmentCompleted(progressId: number, client: Sql): Promise<void> {
+  await client`
+    update athlete_sequence_progress
+    set status = 'completed', updated_at = now()
+    where id = ${progressId}
+  `;
 }
