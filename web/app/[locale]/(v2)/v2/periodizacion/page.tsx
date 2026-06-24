@@ -8,6 +8,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadPeriodizacionData } from '@/lib/dashboard/v2/periodizacion';
+import { loadSecuenciasData } from '@/lib/dashboard/v2/secuencias';
 import {
   PeriodizacionView,
   type PeriodizacionArea,
@@ -15,7 +16,9 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const VALID_AREAS: readonly PeriodizacionArea[] = ['niveles', 'fases'];
+const VALID_AREAS: readonly PeriodizacionArea[] = ['niveles', 'fases', 'secuencias'];
+
+const EMPTY_SECUENCIAS = { levels: [], phases: [], microciclos: [], cells: {} };
 
 function resolveArea(raw: string | string[] | undefined): PeriodizacionArea {
   const v = Array.isArray(raw) ? raw[0] : raw;
@@ -38,10 +41,10 @@ export default async function V2PeriodizacionPage({
   const { area } = await searchParams;
   const initialArea = resolveArea(area);
 
-  const data = await loadPeriodizacionData(session.coach_id).catch(() => ({
-    levels: [],
-    phases: [],
-  }));
+  const [data, secuencias] = await Promise.all([
+    loadPeriodizacionData(session.coach_id).catch(() => ({ levels: [], phases: [] })),
+    loadSecuenciasData(session.coach_id).catch(() => EMPTY_SECUENCIAS),
+  ]);
 
-  return <PeriodizacionView data={data} initialArea={initialArea} />;
+  return <PeriodizacionView data={data} secuencias={secuencias} initialArea={initialArea} />;
 }
