@@ -32,6 +32,7 @@ import {
   resolveSequenceForAthlete,
   type ResolveFailureReason,
 } from '@/lib/dashboard/coach/assign-sequence';
+import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
 
 // ── Thresholds (single source: signal-config) ────────────────────────────────
 /** Compliance below this % counts as "falló sesiones". */
@@ -106,6 +107,11 @@ export interface V2HoyData {
    * cell can't resolve, an ACTIONABLE "why not" so it's NEVER silently hidden.
    */
   asignacion_sugerida_cards: V2AsignacionSugeridaCard[];
+  /**
+   * Athletes whose CURRENT microciclo has finished: a one-click proposal to walk
+   * the sequence to the next microciclo (or repeat / level up / close per policy).
+   */
+  siguiente_microciclo_cards: V2SiguienteMicrocicloCard[];
 }
 
 /**
@@ -407,6 +413,229 @@ export async function fetchAsignacionSugeridaCards(
   return cards;
 }
 
+// ── Siguiente microciclo (sequence walk) ────────────────────────────────────────
+// For athletes whose CURRENT microciclo has FINISHED (its dated window is in the
+// past OR every session in it is terminal), a one-click proposal to advance the
+// sequence walk. The action label reflects what advancing will DO, derived from the
+// cursor position vs the sequence length + the end-policy:
+//   · 'advance'  → next microciclo exists           → "siguiente: «{name}»"
+//   · 'repeat'   → last item + end_policy 'repeat'   → "repetir el ciclo" (+% deferred)
+//   · 'level_up' → last item + end_policy 'level_up' → "subir a {nivel}" (when resolvable)
+//   · 'stop'     → last item + 'stop' / level_up dead-end → "cerrar el plan"
+// Mirrors AsignacionSugeridaCard's one-click + optimistic-remove pattern; the
+// action POSTs to /advance-sequence which runs advanceSequenceForAthlete.
+
+export type V2SiguienteMicrocicloAction = 'advance' | 'repeat' | 'level_up' | 'stop';
+
+export interface V2SiguienteMicrocicloCard {
+  /** Stable React key: `seq-next:${athlete_id}`. */
+  id: string;
+  athlete_id: number;
+  athlete_name: string;
+  /** Real level code from athlete_levels.name (e.g. "N2"). */
+  level_name: string;
+  /** What advancing will do (drives the copy + button). */
+  action: V2SiguienteMicrocicloAction;
+  /** Name of the microciclo the athlete just finished. */
+  finished_microciclo_name: string;
+  /** 1-indexed position the athlete is finishing (for "terminó microciclo N"). */
+  finished_position: number;
+  /** Name of the NEXT microciclo to materialize ('advance'/'repeat' only). */
+  next_microciclo_name: string | null;
+  /** Target level name when action is 'level_up' (e.g. "N3"). */
+  next_level_name: string | null;
+}
+
+type SeqEnrollmentRow = {
+  athlete_id: string;
+  athlete_name: string;
+  level_name: string | null;
+  sequence_id: string;
+  current_position: number;
+  end_policy: string;
+};
+
+type SeqItemRow = {
+  sequence_id: string;
+  position: number;
+  month_template_id: string;
+  month_name: string | null;
+};
+
+/**
+ * Build "siguiente microciclo" cards. ONE batched pass:
+ *   1. all active enrollments for the coach (+ the cell's end_policy);
+ *   2. all their sequence items (position → microciclo name);
+ *   3. the latest materialization receipt per (athlete, current microciclo) to
+ *      decide FINISHED (end_date past) and, when not past, whether all its sessions
+ *      are terminal. Only finished ones yield a card.
+ * Degrades safely: any single bad row is dropped, never fails the strip.
+ */
+export async function fetchSiguienteMicrocicloCards(
+  coachId: bigint | number,
+): Promise<V2SiguienteMicrocicloCard[]> {
+  const enrollments = await sql<SeqEnrollmentRow[]>`
+    SELECT a.id::text          AS athlete_id,
+           a.full_name         AS athlete_name,
+           al.name             AS level_name,
+           asp.sequence_id::text AS sequence_id,
+           asp.current_position,
+           ps.end_policy
+    FROM athlete_sequence_progress asp
+    JOIN athletes a   ON a.id = asp.athlete_id
+    JOIN program_sequences ps ON ps.id = asp.sequence_id
+    LEFT JOIN athlete_levels al ON al.id = a.level_id
+    WHERE asp.coach_id = ${coachId as number}
+      AND asp.status = 'active'
+    ORDER BY asp.updated_at ASC
+  `;
+  if (enrollments.length === 0) return [];
+
+  const seqIds = [...new Set(enrollments.map((e) => e.sequence_id))];
+  const items = await sql<SeqItemRow[]>`
+    SELECT psi.sequence_id::text AS sequence_id,
+           psi.position,
+           psi.month_template_id::text AS month_template_id,
+           pmt.name AS month_name
+    FROM program_sequence_items psi
+    LEFT JOIN program_month_templates pmt ON pmt.id = psi.month_template_id
+    WHERE psi.sequence_id = ANY(${seqIds}::bigint[])
+    ORDER BY psi.sequence_id, psi.position
+  `;
+  const itemsBySeq = new Map<string, SeqItemRow[]>();
+  for (const it of items) {
+    const list = itemsBySeq.get(it.sequence_id) ?? [];
+    list.push(it);
+    itemsBySeq.set(it.sequence_id, list);
+  }
+
+  const cards: V2SiguienteMicrocicloCard[] = [];
+  for (const e of enrollments) {
+    const seqItems = itemsBySeq.get(e.sequence_id);
+    if (!seqItems || seqItems.length === 0) continue;
+    const currentItem = seqItems.find((it) => it.position === e.current_position);
+    if (!currentItem) continue;
+
+    // FINISHED check — reuse the same definition as the advancement core
+    // (time-done OR work-done) so the card and the action can never diverge.
+    const finished = await isMicrocicloFinishedForCard(
+      Number(e.athlete_id),
+      Number(currentItem.month_template_id),
+    );
+    if (!finished) continue;
+
+    const lastPosition = seqItems.reduce((m, it) => Math.max(m, it.position), 0);
+    let action: V2SiguienteMicrocicloAction;
+    let nextName: string | null = null;
+    let nextLevelName: string | null = null;
+
+    if (e.current_position < lastPosition) {
+      action = 'advance';
+      nextName = seqItems.find((it) => it.position === e.current_position + 1)?.month_name ?? null;
+    } else if (e.end_policy === 'repeat') {
+      action = 'repeat';
+      nextName = seqItems.find((it) => it.position === 1)?.month_name ?? null;
+    } else if (e.end_policy === 'level_up') {
+      // Only show "subir a N" when a higher level WITH a sequence actually exists;
+      // otherwise it degrades to a stop (close the plan) — never promise a level
+      // the coach hasn't built a sequence for.
+      const promo = await resolveLevelUpTargetForCard(coachId, e.sequence_id);
+      if (promo) {
+        action = 'level_up';
+        nextLevelName = promo;
+      } else {
+        action = 'stop';
+      }
+    } else {
+      action = 'stop';
+    }
+
+    cards.push({
+      id: `seq-next:${e.athlete_id}`,
+      athlete_id: Number(e.athlete_id),
+      athlete_name: e.athlete_name,
+      level_name: e.level_name ?? 'Sin nivel',
+      action,
+      finished_microciclo_name: currentItem.month_name ?? `Microciclo ${e.current_position}`,
+      finished_position: e.current_position,
+      next_microciclo_name: nextName,
+      next_level_name: nextLevelName,
+    });
+  }
+
+  return cards;
+}
+
+/**
+ * FINISHED check for the card — mirrors isCurrentMicrocicloFinished in
+ * assign-sequence.ts: time-done (end_date past, box tz) OR work-done (every
+ * workout terminal). Kept here to avoid a server-only import cycle; both read the
+ * identical receipt + status model so the card and the action agree.
+ */
+async function isMicrocicloFinishedForCard(
+  athleteId: number,
+  monthTemplateId: number,
+): Promise<boolean> {
+  const receipts = await sql<{ end_date: string; microcycle_ids: string[] }[]>`
+    SELECT to_char(end_date, 'YYYY-MM-DD') AS end_date, microcycle_ids
+    FROM athlete_month_assignments
+    WHERE athlete_id = ${athleteId} AND month_template_id = ${monthTemplateId}
+    ORDER BY start_date DESC
+    LIMIT 1
+  `;
+  const receipt = receipts[0];
+  if (!receipt) return false;
+
+  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  if (receipt.end_date < todayIso) return true;
+
+  const microIds = receipt.microcycle_ids.map(Number).filter((n) => Number.isFinite(n));
+  if (microIds.length === 0) return false;
+  const counts = await sql<{ total: number; outstanding: number }[]>`
+    SELECT count(*)::int AS total,
+           count(*) FILTER (WHERE status = 'scheduled')::int AS outstanding
+    FROM workout_assignments
+    WHERE athlete_id = ${athleteId}
+      AND microcycle_id = ANY(${microIds}::bigint[])
+  `;
+  const c = counts[0];
+  return !!c && c.total > 0 && c.outstanding === 0;
+}
+
+/**
+ * For a 'level_up' card: the name of the next level (sort_order strictly greater,
+ * nearest) that ALSO has a sequence for the same days. Null when none — mirrors
+ * resolveLevelUp in assign-sequence.ts so the card never promises a level the
+ * advancement would fall back from.
+ */
+async function resolveLevelUpTargetForCard(
+  coachId: bigint | number,
+  sequenceId: string,
+): Promise<string | null> {
+  const rows = await sql<{ next_level_name: string }[]>`
+    WITH cur AS (
+      SELECT ps.level_id, ps.days_per_week, al.sort_order
+      FROM program_sequences ps
+      JOIN athlete_levels al ON al.id = ps.level_id
+      WHERE ps.id = ${sequenceId}::bigint AND ps.coach_id = ${coachId as number}
+    )
+    SELECT al.name AS next_level_name
+    FROM athlete_levels al
+    JOIN cur ON al.sort_order > cur.sort_order
+    JOIN program_sequences nps
+      ON nps.coach_id = ${coachId as number}
+     AND nps.level_id = al.id
+     AND nps.days_per_week = cur.days_per_week
+    WHERE al.coach_id = ${coachId as number}
+      AND EXISTS (
+        SELECT 1 FROM program_sequence_items psi WHERE psi.sequence_id = nps.id
+      )
+    ORDER BY al.sort_order ASC
+    LIMIT 1
+  `;
+  return rows[0]?.next_level_name ?? null;
+}
+
 // ── Public assembler ──────────────────────────────────────────────────────────
 
 export function buildHoyLanes(params: {
@@ -415,6 +644,7 @@ export function buildHoyLanes(params: {
   inbox: CoachInbox | null;
   nivel_sugerido_cards?: V2NivelSugeridoCard[];
   asignacion_sugerida_cards?: V2AsignacionSugeridaCard[];
+  siguiente_microciclo_cards?: V2SiguienteMicrocicloCard[];
 }): V2HoyData {
   const {
     athletes,
@@ -422,6 +652,7 @@ export function buildHoyLanes(params: {
     inbox,
     nivel_sugerido_cards = [],
     asignacion_sugerida_cards = [],
+    siguiente_microciclo_cards = [],
   } = params;
 
   // Inactivity days by athlete (reinforces "falló sesiones" reasons).
@@ -560,6 +791,7 @@ export function buildHoyLanes(params: {
     awaiting_reply_count: awaitingIds.size,
     nivel_sugerido_cards,
     asignacion_sugerida_cards,
+    siguiente_microciclo_cards,
   };
 }
 

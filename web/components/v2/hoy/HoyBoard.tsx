@@ -13,6 +13,7 @@ import { Pill } from '@/components/v2/Pill';
 import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
 import { AsignacionSugeridaStrip } from '@/components/v2/hoy/AsignacionSugeridaCard';
+import { SiguienteMicrocicloStrip } from '@/components/v2/hoy/SiguienteMicrocicloCard';
 import {
   IntroStrip,
   InfoDot,
@@ -77,7 +78,8 @@ export function HoyBoard({
   const boardEmpty =
     totalCards === 0 &&
     data.nivel_sugerido_cards.length === 0 &&
-    data.asignacion_sugerida_cards.length === 0;
+    data.asignacion_sugerida_cards.length === 0 &&
+    data.siguiente_microciclo_cards.length === 0;
 
   // Filter cards per lane by the search query (empty query → all cards).
   const filteredLanes = useMemo(
@@ -157,6 +159,10 @@ export function HoyBoard({
       {/* ── Asignación sugerida strip (classified athletes ready to auto-assign,
           or an actionable gap when their sequence cell can't resolve) ── */}
       <AsignacionSugeridaStrip cards={data.asignacion_sugerida_cards} />
+
+      {/* ── Siguiente microciclo strip (athletes whose current microciclo is
+          ending — one-click walk to the next step / repeat / level up) ── */}
+      <SiguienteMicrocicloStrip cards={data.siguiente_microciclo_cards} />
 
       {boardEmpty && !q ? (
         /* Empty board is a GOOD signal, not an error — teach the reframe. */

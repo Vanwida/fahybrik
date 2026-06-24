@@ -13,6 +13,7 @@ import {
   buildHoyLanes,
   fetchNivelSugeridoCards,
   fetchAsignacionSugeridaCards,
+  fetchSiguienteMicrocicloCards,
 } from '@/lib/dashboard/v2/hoy-lanes';
 import { HoyBoard } from '@/components/v2/hoy/HoyBoard';
 
@@ -37,14 +38,21 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
   if (!session) return null;
 
   // Independent safe loads — a dead loader contributes nothing, never throws.
-  const [athletes, threads, inbox, nivel_sugerido_cards, asignacion_sugerida_cards] =
-    await Promise.all([
-      fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
-      listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
-      loadCoachInbox({ coach_id: session.coach_id }).catch((): CoachInbox | null => null),
-      fetchNivelSugeridoCards(session.coach_id).catch(() => []),
-      fetchAsignacionSugeridaCards(session.coach_id).catch(() => []),
-    ]);
+  const [
+    athletes,
+    threads,
+    inbox,
+    nivel_sugerido_cards,
+    asignacion_sugerida_cards,
+    siguiente_microciclo_cards,
+  ] = await Promise.all([
+    fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
+    listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
+    loadCoachInbox({ coach_id: session.coach_id }).catch((): CoachInbox | null => null),
+    fetchNivelSugeridoCards(session.coach_id).catch(() => []),
+    fetchAsignacionSugeridaCards(session.coach_id).catch(() => []),
+    fetchSiguienteMicrocicloCards(session.coach_id).catch(() => []),
+  ]);
 
   const data = buildHoyLanes({
     athletes,
@@ -52,6 +60,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     inbox,
     nivel_sugerido_cards,
     asignacion_sugerida_cards,
+    siguiente_microciclo_cards,
   });
 
   return (
