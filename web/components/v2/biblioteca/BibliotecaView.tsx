@@ -16,6 +16,16 @@ import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/dashboard/MIcon';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { EmptyState } from '@/components/v2/EmptyState';
+import {
+  IntroStrip,
+  InfoDot,
+  PipelineCue,
+  ContextHint,
+  TeachingEmptyState,
+  useOrientationState,
+  type IntroMicroStep,
+} from '@/components/v2/orientacion';
+import type { PipelineProgress, PipelineStepKey } from '@/lib/dashboard/v2/orientacion-types';
 import { CategoryRail } from '@/components/v2/biblioteca/CategoryRail';
 import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
 import { BloqueCard } from '@/components/v2/biblioteca/BloqueCard';
@@ -41,6 +51,47 @@ type BloqueView = 'lista' | 'matriz';
 /** Route to create a brand-new sesión (owned by the editing-cluster agent). */
 const NUEVA_SESION_HREF = '/v2/biblioteca/sesion/nueva';
 
+// ── Inline orientation (shared primitives) ──────────────────────────────────
+const SECTION_KEY = 'biblioteca';
+
+// Biblioteca spans steps 2–4 of the build pipeline.
+const BIBLIOTECA_STEPS: readonly PipelineStepKey[] = ['sesiones', 'bloques', 'microciclos'];
+
+// The IntroStrip line defines the CURRENT tab (one sentence each, ≤22 words).
+const TAB_INTRO_LINE: Record<BibliotecaTab, React.ReactNode> = {
+  sesiones: (
+    <>
+      Una <b>sesión</b> es un entreno tipado — el ladrillo con el que armas tus bloques.
+    </>
+  ),
+  bloques: (
+    <>
+      Un <b>bloque</b> es un conjunto reutilizable de sesiones — la pieza de los días de tus microciclos.
+    </>
+  ),
+  microciclos: (
+    <>
+      Un <b>microciclo</b> es una estructura de varias semanas — la unidad que vivirá tu atleta.
+    </>
+  ),
+};
+
+// The 3 micro-steps teach the size ordering — the typical confusion in Biblioteca.
+const INTRO_STEPS: IntroMicroStep[] = [
+  {
+    title: 'Sesión',
+    body: <>Un entreno tipado. El ladrillo más pequeño de tu método.</>,
+  },
+  {
+    title: 'Bloque',
+    body: <>Varias sesiones reutilizables. Lo que pones en cada día.</>,
+  },
+  {
+    title: 'Microciclo',
+    body: <>Varias semanas de días. Lo que luego ordenas en Secuencias.</>,
+  },
+];
+
 const TAB_OPTIONS = (
   counts: V2BibliotecaData['counts'],
 ): ReadonlyArray<{ value: BibliotecaTab; label: string }> => [
@@ -63,12 +114,17 @@ function matchesText(haystack: string, q: string): boolean {
 export function BibliotecaView({
   data,
   initialTab,
+  coachKey,
+  progress,
 }: {
   data: V2BibliotecaData;
   initialTab: BibliotecaTab;
+  coachKey: string;
+  progress: PipelineProgress;
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const orient = useOrientationState(coachKey, SECTION_KEY);
 
   const [tab, setTab] = useState<BibliotecaTab>(initialTab);
   const [modality, setModality] = useState<ModalityRailId>('todas');
@@ -167,6 +223,9 @@ export function BibliotecaView({
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1 className="v2-display text-3xl sm:text-4xl">
             <span className="text-[color:var(--v2-fg)]">Biblioteca</span>
+            {orient.hydrated && !orient.visible ? (
+              <InfoDot onClick={orient.recall} className="ml-2" />
+            ) : null}
           </h1>
           <p className="text-sm text-[color:var(--v2-muted)]">Codificar el método.</p>
         </div>
@@ -200,8 +259,33 @@ export function BibliotecaView({
         </div>
       </div>
 
+      {/* ── Inline orientation: pipeline cue + intro strip ───────────────── */}
+      <div className="mt-5">
+        <PipelineCue
+          coachKey={coachKey}
+          sectionKey={SECTION_KEY}
+          activeKeys={BIBLIOTECA_STEPS}
+          progress={progress}
+          line={
+            <>
+              Tu <b>contenido</b> reutilizable: Sesiones → Bloques → Microciclos. Lo que ordenas en Periodización.
+            </>
+          }
+        />
+        {orient.visible ? (
+          <IntroStrip
+            icon="dashboard"
+            line={TAB_INTRO_LINE[tab]}
+            steps={INTRO_STEPS}
+            expanded={orient.expanded}
+            onToggle={orient.toggleExpanded}
+            onDismiss={orient.dismiss}
+          />
+        ) : null}
+      </div>
+
       {/* ── Tab bar ──────────────────────────────────────────────────────── */}
-      <div className="mt-4 border-b border-[color:var(--v2-border)] pb-3">
+      <div className="mt-1 border-b border-[color:var(--v2-border)] pb-3">
         <SegmentedControl<BibliotecaTab>
           options={TAB_OPTIONS(data.counts)}
           value={tab}
@@ -209,6 +293,12 @@ export function BibliotecaView({
           ariaLabel="Tipo de biblioteca"
         />
       </div>
+
+      {/* size-ordering context — the typical Biblioteca confusion */}
+      <ContextHint className="mt-3">
+        De lo más pequeño a lo más grande: <b>Sesión</b> (un entreno) → <b>Bloque</b> (varias sesiones) →{' '}
+        <b>Microciclo</b> (varias semanas).
+      </ContextHint>
 
       {/* ── Two-pane: category rail + grid ───────────────────────────────── */}
       <div
@@ -287,25 +377,31 @@ function SesionesGrid({
   hasAny: boolean;
 }) {
   if (items.length === 0) {
+    // Filtered-to-empty → plain prompt. Genuinely empty → teaching moment.
+    if (hasAny) {
+      return (
+        <EmptyState
+          icon="filter_alt_off"
+          title="Ninguna sesión con estos filtros"
+          description="Ajusta la modalidad, el objetivo o la búsqueda."
+        />
+      );
+    }
     return (
-      <EmptyState
-        icon={hasAny ? 'filter_alt_off' : 'library_add'}
-        title={hasAny ? 'Ninguna sesión con estos filtros' : 'Aún no hay sesiones'}
-        description={
-          hasAny
-            ? 'Ajusta la modalidad, el objetivo o la búsqueda.'
-            : 'Crea tu primera sesión para empezar a codificar el método.'
-        }
+      <TeachingEmptyState
+        icon="library_add"
+        title="Aún no tienes sesiones"
+        whatToDo={<>Crea tu primera sesión: un entreno tipado, el ladrillo de tu método.</>}
+        why={<><b>Por qué importa:</b> con las sesiones armas los bloques, y con los bloques los microciclos.</>}
+        highlightStep="sesiones"
         action={
-          hasAny ? undefined : (
-            <Link
-              href={NUEVA_SESION_HREF}
-              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-            >
-              <MIcon name="add" size={16} />
-              Nueva sesión
-            </Link>
-          )
+          <Link
+            href={NUEVA_SESION_HREF}
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+          >
+            <MIcon name="add" size={16} />
+            Crear mi primera sesión
+          </Link>
         }
       />
     );
@@ -335,15 +431,22 @@ function BloquesGrid({
   hasAny: boolean;
 }) {
   if (items.length === 0) {
+    if (hasAny) {
+      return (
+        <EmptyState
+          icon="filter_alt_off"
+          title="Ningún bloque con estos filtros"
+          description="Ajusta la modalidad, el objetivo o la búsqueda."
+        />
+      );
+    }
     return (
-      <EmptyState
-        icon={hasAny ? 'filter_alt_off' : 'dashboard'}
-        title={hasAny ? 'Ningún bloque con estos filtros' : 'Aún no hay bloques'}
-        description={
-          hasAny
-            ? 'Ajusta la modalidad, el objetivo o la búsqueda.'
-            : 'Los bloques reutilizables de tu metodología aparecerán aquí.'
-        }
+      <TeachingEmptyState
+        icon="dashboard"
+        title="Aún no tienes bloques"
+        whatToDo={<>Un bloque agrupa varias sesiones reutilizables — lo que pones en cada día.</>}
+        why={<><b>Por qué importa:</b> los bloques son las piezas con las que armas los días de tus microciclos.</>}
+        highlightStep="bloques"
       />
     );
   }
@@ -364,15 +467,22 @@ function MicrociclosGrid({
   hasAny: boolean;
 }) {
   if (items.length === 0) {
+    if (hasAny) {
+      return (
+        <EmptyState
+          icon="search_off"
+          title="Ningún microciclo coincide"
+          description="Prueba con otro término de búsqueda."
+        />
+      );
+    }
     return (
-      <EmptyState
-        icon={hasAny ? 'search_off' : 'calendar_view_week'}
-        title={hasAny ? 'Ningún microciclo coincide' : 'Aún no has creado microciclos'}
-        description={
-          hasAny
-            ? 'Prueba con otro término de búsqueda.'
-            : 'Los microciclos son estructuras de varias semanas que vivirá el atleta. Aparecerán aquí cuando los crees.'
-        }
+      <TeachingEmptyState
+        icon="calendar_view_week"
+        title="Aún no tienes microciclos"
+        whatToDo={<>Un microciclo es una estructura de varias semanas — la unidad que vivirá tu atleta.</>}
+        why={<><b>Por qué importa:</b> son las piezas que luego encadenas en Periodización → Secuencias.</>}
+        highlightStep="microciclos"
       />
     );
   }

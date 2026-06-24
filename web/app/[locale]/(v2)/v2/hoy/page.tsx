@@ -47,6 +47,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
       data={data}
       today={todayLabel()}
       coach_name={session.full_name}
+      coachKey={String(session.coach_id)}
     />
   );
 }

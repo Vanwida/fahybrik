@@ -8,6 +8,10 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadBibliotecaData } from '@/lib/dashboard/v2/biblioteca-data';
+import {
+  loadPipelineProgress,
+  EMPTY_PIPELINE_PROGRESS,
+} from '@/lib/dashboard/v2/orientacion';
 import { BibliotecaView, type BibliotecaTab } from '@/components/v2/biblioteca/BibliotecaView';
 
 export const dynamic = 'force-dynamic';
@@ -37,12 +41,22 @@ export default async function V2BibliotecaPage({
 
   // A dead loader must never 500 the page — degrade to empty and let the view
   // render its EmptyState per tab.
-  const data = await loadBibliotecaData({ coach_id: session.coach_id }).catch(() => ({
-    sesiones: [],
-    bloques: [],
-    microciclos: [],
-    counts: { sesiones: 0, bloques: 0, microciclos: 0 },
-  }));
+  const [data, progress] = await Promise.all([
+    loadBibliotecaData({ coach_id: session.coach_id }).catch(() => ({
+      sesiones: [],
+      bloques: [],
+      microciclos: [],
+      counts: { sesiones: 0, bloques: 0, microciclos: 0 },
+    })),
+    loadPipelineProgress(session.coach_id).catch(() => EMPTY_PIPELINE_PROGRESS),
+  ]);
 
-  return <BibliotecaView data={data} initialTab={initialTab} />;
+  return (
+    <BibliotecaView
+      data={data}
+      initialTab={initialTab}
+      coachKey={String(session.coach_id)}
+      progress={progress}
+    />
+  );
 }

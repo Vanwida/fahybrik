@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { LevelDaysGrid, type MatrixLevelRow } from '@/components/v2/LevelDaysGrid';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/dashboard/MIcon';
+import { ContextHint, TeachingEmptyState } from '@/components/v2/orientacion';
 import type { V2SecuenciasData, V2Sequence } from '@/lib/dashboard/v2/secuencias';
 import type { V2PhaseItem, V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import type { PhaseRole } from '../role-style';
@@ -127,27 +128,24 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
     );
   }
 
-  // ── No levels: matrix has no rows — redirect to Niveles ─────────────────────
+  // ── No levels: matrix has no rows — the order says "primero, niveles" ────────
   if (data.levels.length === 0) {
     return (
-      <div className="flex flex-col items-center rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
-        <span
-          className="mb-3.5 flex h-13 w-13 items-center justify-center rounded-[var(--v2-r-m)] p-3"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          <MIcon name="grid_view" size={26} />
-        </span>
-        <p className="text-base font-bold text-[color:var(--v2-fg)]">Define tus niveles para activar la matriz</p>
-        <p className="mx-auto mt-1.5 max-w-[400px] text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
-          Sin niveles no hay filas de la matriz. Los niveles clasifican a tus atletas y forman las filas de Secuencias.
-        </p>
-        <Link
-          href="/v2/periodizacion?area=niveles"
-          className="v2-focus mt-4 inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-        >
-          Ir a Niveles <MIcon name="arrow_forward" size={16} />
-        </Link>
-      </div>
+      <TeachingEmptyState
+        icon="grid_view"
+        title="Define tus niveles primero"
+        whatToDo="Sin niveles no hay filas de la matriz: créalos en Niveles para activar Secuencias."
+        why={<><b>Por qué importa:</b> tus niveles clasifican al atleta y forman las filas de la matriz.</>}
+        highlightStep="niveles_fases"
+        action={
+          <Link
+            href="/v2/periodizacion?area=niveles"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+          >
+            Ir a Niveles <MIcon name="arrow_forward" size={16} />
+          </Link>
+        }
+      />
     );
   }
 
@@ -155,26 +153,22 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
   if (filledCells === 0) {
     const firstLevel = data.levels[0]!;
     return (
-      <div className="flex flex-col items-center rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
-        <span
-          className="mb-3.5 flex h-13 w-13 items-center justify-center rounded-[var(--v2-r-m)] p-3"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
-        >
-          <MIcon name="grid_view" size={26} />
-        </span>
-        <p className="text-base font-bold text-[color:var(--v2-fg)]">Aún no has montado tus secuencias</p>
-        <p className="mx-auto mt-1.5 max-w-[420px] text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
-          Una secuencia ordena tus microciclos (1 → 2 → 3 …) para un perfil de atleta — nivel × días. El atleta cae en su
-          celda y recorre la secuencia solo. Móntala una vez por celda.
-        </p>
-        <button
-          type="button"
-          onClick={() => setOpen({ level: firstLevel, days: SEQUENCE_DAYS_OPTIONS[0] })}
-          className="v2-focus mt-4 inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-        >
-          <MIcon name="add" size={16} /> Crear mi primera secuencia
-        </button>
-      </div>
+      <TeachingEmptyState
+        icon="grid_view"
+        title="Aún no has montado tus secuencias"
+        whatToDo={<>Una secuencia ordena tus microciclos (1 → 2 → 3 …) para un perfil: nivel × días.</>}
+        why={<><b>Por qué importa:</b> es el último paso. Hecho esto, el atleta cae en su celda y recibe el plan solo.</>}
+        highlightStep="secuencias"
+        action={
+          <button
+            type="button"
+            onClick={() => setOpen({ level: firstLevel, days: SEQUENCE_DAYS_OPTIONS[0] })}
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+          >
+            <MIcon name="add" size={16} /> Crear mi primera secuencia
+          </button>
+        }
+      />
     );
   }
 
@@ -237,6 +231,14 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
           </button>
         </div>
       ) : null}
+
+      {/* contextual micro-copy for the matrix control */}
+      <ContextHint
+        className="mb-3"
+        more={<>Una celda vacía es un <b>hueco</b> por cubrir; cúbrela ordenando tus microciclos para ese perfil.</>}
+      >
+        Cada celda = la periodización para ese <b>nivel</b> y nº de <b>días/semana</b>.
+      </ContextHint>
 
       <LevelDaysGrid
         levels={levelRows}

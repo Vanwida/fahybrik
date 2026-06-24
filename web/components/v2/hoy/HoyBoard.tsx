@@ -12,6 +12,14 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
+import {
+  IntroStrip,
+  InfoDot,
+  TeachingEmptyState,
+  useOrientationState,
+  type IntroMicroStep,
+} from '@/components/v2/orientacion';
+import { Link } from '@/i18n/navigation';
 import type { V2HoyData, V2LaneCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { cn } from '@/lib/utils';
 
@@ -19,17 +27,52 @@ function matches(card: V2LaneCard, q: string): boolean {
   return card.athlete_name.toLowerCase().includes(q);
 }
 
+// ── Inline orientation (shared primitives) ──────────────────────────────────
+// Hoy is OPERATE, not build → it sits OUTSIDE the construction pipeline, so it
+// carries NO PipelineCue. The orientation here reframes the mental model
+// ("vigilas, no asignas"), not an order of steps.
+const SECTION_KEY = 'hoy';
+
+const HOY_INTRO_LINE: React.ReactNode = (
+  <>
+    <b>Hoy</b> reúne solo lo que necesita tu decisión. El sistema sigue tu método solo — tú aceptas las excepciones.
+  </>
+);
+
+const HOY_INTRO_STEPS: IntroMicroStep[] = [
+  {
+    title: 'El sistema propone',
+    body: <>Cada atleta cae en su secuencia y recibe el plan automáticamente.</>,
+  },
+  {
+    title: 'Solo sube lo que decide',
+    body: <>Aquí aparece lo que se sale del molde: una señal, un mensaje, un ajuste.</>,
+  },
+  {
+    title: 'Tú aceptas o ajustas',
+    body: <>Una bandeja vacía significa que todo va según tu método.</>,
+  },
+];
+
 export function HoyBoard({
   data,
   today,
   coach_name,
+  coachKey,
 }: {
   data: V2HoyData;
   today: string;
   coach_name: string;
+  coachKey: string;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
+  const orient = useOrientationState(coachKey, SECTION_KEY);
+
+  // The whole board is empty when no lane holds a card and no new athlete awaits
+  // a level — the "all in order" signal (and we're not mid-search).
+  const totalCards = data.lanes.reduce((n, l) => n + l.cards.length, 0);
+  const boardEmpty = totalCards === 0 && data.nivel_sugerido_cards.length === 0;
 
   // Filter cards per lane by the search query (empty query → all cards).
   const filteredLanes = useMemo(
@@ -49,6 +92,9 @@ export function HoyBoard({
           <h1 className="v2-display text-3xl sm:text-4xl">
             <span className="text-[color:var(--v2-fg)]">Hoy</span>
             <span className="text-[color:var(--v2-muted)]"> · {today}</span>
+            {orient.hydrated && !orient.visible ? (
+              <InfoDot onClick={orient.recall} label="Cómo funciona Hoy" className="ml-2" />
+            ) : null}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="neutral" variant="soft">
@@ -86,15 +132,59 @@ export function HoyBoard({
         </div>
       </div>
 
+      {/* ── Inline orientation: intro strip (no pipeline cue — Hoy operates) ── */}
+      {orient.visible ? (
+        <div className="mt-5">
+          <IntroStrip
+            icon="visibility"
+            line={HOY_INTRO_LINE}
+            steps={HOY_INTRO_STEPS}
+            expanded={orient.expanded}
+            onToggle={orient.toggleExpanded}
+            onDismiss={orient.dismiss}
+          />
+        </div>
+      ) : null}
+
       {/* ── Nivel sugerido strip (new athletes awaiting level confirmation) ── */}
       <NivelSugeridoStrip cards={data.nivel_sugerido_cards} />
 
-      {/* ── Board · 4 equal lanes ────────────────────────────────────────── */}
-      <div className="mt-4 grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-        {filteredLanes.map(({ lane, cards }) => (
-          <HoyLane key={lane.id} lane={lane} cards={cards} />
-        ))}
-      </div>
+      {boardEmpty && !q ? (
+        /* Empty board is a GOOD signal, not an error — teach the reframe. */
+        <div className="mt-4">
+          <TeachingEmptyState
+            icon="check_circle"
+            title="Nada requiere tu atención"
+            whatToDo={
+              <>
+                Tus <span className="v2-num">{data.total_athletes}</span> atletas siguen su plan. El sistema sigue
+                tu método solo.
+              </>
+            }
+            why={
+              <>
+                <b>Esto es buena señal:</b> Hoy se llena solo cuando un atleta se sale del molde — una sesión fallada,
+                un mensaje, alguien listo para subir de nivel.
+              </>
+            }
+            action={
+              <Link
+                href="/v2/atletas"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              >
+                Ver todos los atletas <MIcon name="arrow_forward" size={16} />
+              </Link>
+            }
+          />
+        </div>
+      ) : (
+        /* ── Board · 4 equal lanes ──────────────────────────────────────── */
+        <div className="mt-4 grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {filteredLanes.map(({ lane, cards }) => (
+            <HoyLane key={lane.id} lane={lane} cards={cards} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

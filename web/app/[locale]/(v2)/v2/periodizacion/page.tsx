@@ -10,6 +10,10 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadPeriodizacionData } from '@/lib/dashboard/v2/periodizacion';
 import { loadSecuenciasData } from '@/lib/dashboard/v2/secuencias';
 import {
+  loadPipelineProgress,
+  EMPTY_PIPELINE_PROGRESS,
+} from '@/lib/dashboard/v2/orientacion';
+import {
   PeriodizacionView,
   type PeriodizacionArea,
 } from '@/components/v2/periodizacion/PeriodizacionView';
@@ -41,10 +45,19 @@ export default async function V2PeriodizacionPage({
   const { area } = await searchParams;
   const initialArea = resolveArea(area);
 
-  const [data, secuencias] = await Promise.all([
+  const [data, secuencias, progress] = await Promise.all([
     loadPeriodizacionData(session.coach_id).catch(() => ({ levels: [], phases: [] })),
     loadSecuenciasData(session.coach_id).catch(() => EMPTY_SECUENCIAS),
+    loadPipelineProgress(session.coach_id).catch(() => EMPTY_PIPELINE_PROGRESS),
   ]);
 
-  return <PeriodizacionView data={data} secuencias={secuencias} initialArea={initialArea} />;
+  return (
+    <PeriodizacionView
+      data={data}
+      secuencias={secuencias}
+      initialArea={initialArea}
+      coachKey={String(session.coach_id)}
+      progress={progress}
+    />
+  );
 }
