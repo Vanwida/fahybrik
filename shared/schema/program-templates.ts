@@ -248,6 +248,46 @@ export const programWeekTemplateSchema = z.object({
 });
 export type ProgramWeekTemplate = z.infer<typeof programWeekTemplateSchema>;
 
+// ── Day editor save (v2 studio) ──────────────────────────────────────────────
+// The v2 day editor edits ONE day of a week's slots_json and saves just that day.
+// This is the validated wire shape the editor POSTs (the inverse of the editor
+// loaders): a day_of_week + its sessions, each with blocks of exercise items
+// carrying the structured Prescription. The server merges it into the week's
+// other days (preserving them) before upserting the full week. `slot` is NOT sent
+// — it is positional (derived from array order), so it round-trips losslessly.
+export const editorItemInputSchema = z.object({
+  uid: z.string().min(1).max(64),
+  // null = an incomplete authoring line; the server drops these (never persisted).
+  exercise_id: idSchema.nullable(),
+  exercise_name: z.string().max(200).default(''),
+  prescription: prescriptionSchema,
+  notes: z.string().max(500).optional(),
+});
+export type EditorItemInput = z.infer<typeof editorItemInputSchema>;
+
+export const editorBlockInputSchema = z.object({
+  uid: z.string().min(1).max(64),
+  title: z.string().min(1).max(120),
+  format: templateFormat.nullable().optional(),
+  methodology_group_id: z.number().int().min(1).max(10).nullable().optional(),
+  source_block_id: z.number().int().positive().nullable().optional(),
+  items: z.array(editorItemInputSchema).max(24).default([]),
+});
+export type EditorBlockInput = z.infer<typeof editorBlockInputSchema>;
+
+export const editorSessionInputSchema = z.object({
+  uid: z.string().min(1).max(64),
+  slot: z.enum(['am', 'pm', 'extra']),
+  blocks: z.array(editorBlockInputSchema).max(16).default([]),
+});
+export type EditorSessionInput = z.infer<typeof editorSessionInputSchema>;
+
+export const dayEditorSaveSchema = z.object({
+  day_of_week: z.number().int().min(1).max(7),
+  sessions: z.array(editorSessionInputSchema).max(6),
+});
+export type DayEditorSave = z.infer<typeof dayEditorSaveSchema>;
+
 export const programWeekUpsertSchema = z.object({
   name: z.string().min(1).max(200),
   level: programLevelSchema,

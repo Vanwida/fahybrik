@@ -72,6 +72,8 @@ export interface SessionEditorModel {
 export interface DayEditorModel {
   month_id: string;
   month_name: string;
+  /** program_week_templates.id this day lives in — the PUT/save target. */
+  week_id: string;
   /** Week within the month this day belongs to (0-based position). */
   week_index: number;
   week_name: string;
