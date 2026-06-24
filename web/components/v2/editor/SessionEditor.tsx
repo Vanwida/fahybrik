@@ -202,6 +202,7 @@ export function SessionEditor({
       {addToGroup !== null ? (
         <AddBlockModal
           destinationLabel={groupLabel(addToGroup)}
+          destinationGroup={addToGroup}
           libraryBlocks={libraryBlocks}
           onClose={() => setAddToGroup(null)}
           onAdd={addBlock}

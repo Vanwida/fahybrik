@@ -10,9 +10,11 @@
 import { useState, useEffect } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
 import { MIcon } from '@/components/dashboard/MIcon';
 import { cn } from '@/lib/utils';
 import { PrescriptionFields } from './PrescriptionFields';
+import { ArchetypeBlockForm } from './ArchetypeBlockForm';
 import { AthletePreviewLine } from './AthletePreviewLine';
 import { TextCell, v2SelectCell } from './fields';
 
@@ -51,6 +53,12 @@ export function BlockEditor({
   );
   const activeItem =
     block.items.find((it) => it.uid === activeItemUid) ?? block.items[0] ?? null;
+
+  // The archetype-first tailored form is the DEFAULT when the block resolves to a
+  // pattern (explicit archetype_id or a known format). Only legacy/unknown blocks
+  // with items fall back to the per-item axes editor.
+  const hasArchetypeForm =
+    block.items.length > 0 && patternForBlock(block.archetype_id, block.format) !== null;
 
   const [levels, setLevels] = useState<LevelOption[]>([]);
   useEffect(() => {
@@ -181,62 +189,73 @@ export function BlockEditor({
         </label>
       </div>
 
-      {/* Item tabs — one block, multiple items (compromised blocks). */}
-      {block.items.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {block.items.map((it) => (
-            <button
-              key={it.uid}
-              type="button"
-              onClick={() => setActiveItemUid(it.uid)}
-              className={cn(
-                'v2-focus rounded-[var(--v2-r-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
-                it.uid === activeItem?.uid
-                  ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
-                  : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-              )}
-            >
-              {it.exercise_name || 'Ejercicio'}
-            </button>
-          ))}
-          {onAddItem ? (
-            <button
-              type="button"
-              onClick={onAddItem}
-              aria-label="Añadir ejercicio"
-              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3 py-1 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-            >
-              <MIcon name="add" size={14} />
-              ejercicio
-            </button>
+      {/* DEFAULT — the archetype-first tailored form (the simple input). It owns
+          the exercise name, the type-specific fields, the phase tag, the athlete
+          preview AND the "Ajuste avanzado" hatch (the full axes, reused). */}
+      {hasArchetypeForm ? (
+        <ArchetypeBlockForm
+          block={block}
+          athleteName={athleteName}
+          onChange={onChange}
+        />
+      ) : block.items.length > 0 ? (
+        // Legacy / unknown-format block — keep the per-item axes editor as fallback.
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {block.items.map((it) => (
+              <button
+                key={it.uid}
+                type="button"
+                onClick={() => setActiveItemUid(it.uid)}
+                className={cn(
+                  'v2-focus rounded-[var(--v2-r-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
+                  it.uid === activeItem?.uid
+                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                    : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+                )}
+              >
+                {it.exercise_name || 'Ejercicio'}
+              </button>
+            ))}
+            {onAddItem ? (
+              <button
+                type="button"
+                onClick={onAddItem}
+                aria-label="Añadir ejercicio"
+                className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3 py-1 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              >
+                <MIcon name="add" size={14} />
+                ejercicio
+              </button>
+            ) : null}
+          </div>
+
+          {activeItem ? (
+            <div className="space-y-4">
+              <label className="block space-y-1.5">
+                <span className="v2-micro">Ejercicio</span>
+                <TextCell
+                  value={activeItem.exercise_name}
+                  ariaLabel="Nombre del ejercicio"
+                  maxLength={200}
+                  placeholder="p. ej. Sentadilla trasera"
+                  onChange={(name) => updateItem(activeItem.uid, { exercise_name: name })}
+                />
+              </label>
+
+              <PrescriptionFields
+                value={activeItem.prescription}
+                onChange={(p) => setItemPrescription(activeItem.uid, p)}
+              />
+
+              <AthletePreviewLine
+                prescription={activeItem.prescription}
+                exerciseName={activeItem.exercise_name}
+                athleteName={athleteName}
+              />
+            </div>
           ) : null}
-        </div>
-      ) : null}
-
-      {activeItem ? (
-        <div className="space-y-4">
-          <label className="block space-y-1.5">
-            <span className="v2-micro">Ejercicio</span>
-            <TextCell
-              value={activeItem.exercise_name}
-              ariaLabel="Nombre del ejercicio"
-              maxLength={200}
-              placeholder="p. ej. Sentadilla trasera"
-              onChange={(name) => updateItem(activeItem.uid, { exercise_name: name })}
-            />
-          </label>
-
-          <PrescriptionFields
-            value={activeItem.prescription}
-            onChange={(p) => setItemPrescription(activeItem.uid, p)}
-          />
-
-          <AthletePreviewLine
-            prescription={activeItem.prescription}
-            exerciseName={activeItem.exercise_name}
-            athleteName={athleteName}
-          />
-        </div>
+        </>
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-[color:var(--v2-muted)]">
