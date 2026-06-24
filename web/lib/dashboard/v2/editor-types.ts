@@ -36,6 +36,13 @@ export interface EditorBlock {
   title: string;
   /** template_format-style label, e.g. 'strength_block' | 'amrap' | 'emom'. */
   format: string | null;
+  /**
+   * Archetype the block was created from (UX pase — archetype-first editor).
+   * CLIENT-ONLY: drives which tailored form renders; it is NOT persisted (the
+   * serializer reads only the known WeekDayPart fields). On reload a block's
+   * pattern is re-derived from its `format` + items, so nothing is lost.
+   */
+  archetype_id?: import('@/lib/dashboard/v2/archetypes').ArchetypeId;
   /** Methodology group (1..10) when the block came from the library. */
   methodology_group_id?: number | null;
   /** Structure group the block belongs to (rail heading). */
