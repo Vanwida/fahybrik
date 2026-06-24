@@ -1,0 +1,325 @@
+import 'server-only';
+
+import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
+import {
+  addDays,
+  isoDateString,
+  mondayOfWeekInBox,
+} from '@fahybrid/shared/domain/atr/dates';
+import type { ProgramSequence } from '@fahybrid/shared/schema/program-sequences';
+import { getCoachSequenceCell } from './sequences';
+import {
+  instantiateMonthFromTemplate,
+  InstantiateProgramError,
+  type InstantiateMonthResult,
+} from './instantiate-program';
+
+// =============================================================================
+// AUTO-ASSIGNMENT CORE — translate an athlete's RESOLVED sequence into REAL dated
+// workout_assignments (the piece that previously faked it as "B6").
+//
+// Flow:
+//   athlete (level_id + training_days_per_week)
+//     → resolveSequenceForAthlete  → the program_sequence cell + ordered items
+//     → assignSequenceToAthlete     → materialize item[position=1]'s microciclo
+//                                      via the EXISTING month-instantiation pipeline
+//                                      (instantiateMonthFromTemplate) + record the
+//                                      enrollment cursor in athlete_sequence_progress.
+//
+// We REUSE instantiateMonthFromTemplate verbatim — it bootstraps the macrocycle +
+// block, resolves per-week microcycles, Monday-aligns, and inserts real dated
+// workout_assignments (template_id NOT NULL, status 'scheduled') the athlete reads
+// via /api/athlete/plan/week. We do NOT reinvent that pipeline.
+//
+// AGNOSTIC: resolution is by athlete_levels.level_id + training_days_per_week →
+// program_sequences cell. NO program_level enum, NO atr_block_type anywhere here.
+// =============================================================================
+
+export class AssignSequenceError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'AssignSequenceError';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// resolveSequenceForAthlete — athlete → the program_sequence cell for their
+// (level_id, training_days_per_week), or a structured "why not" the UI can show.
+//
+// Returns a discriminated result rather than throwing for the "not resolvable"
+// cases (not classified / no matching cell): those are normal product states a
+// coach screen needs to render ("no hay secuencia para N4·5d"), not errors.
+// Genuine integrity failures (athlete absent / not owned) DO throw.
+// ---------------------------------------------------------------------------
+export type ResolveSequenceResult =
+  | { ok: true; athlete: ResolvedAthlete; sequence: ProgramSequence }
+  | { ok: false; reason: ResolveFailureReason; message: string; athlete?: ResolvedAthlete };
+
+export type ResolvedAthlete = {
+  athlete_id: number;
+  coach_id: number;
+  level_id: number | null;
+  level_name: string | null;
+  training_days_per_week: number | null;
+};
+
+export type ResolveFailureReason =
+  | 'not_classified' // level_id is null
+  | 'no_training_days' // training_days_per_week is null
+  | 'days_out_of_band' // training_days_per_week outside the 3-6 sequence band
+  | 'no_sequence_for_cell' // coach has no sequence for (level, days)
+  | 'empty_sequence'; // sequence exists but has zero microciclos
+
+// Sequences are only defined for a realistic 3-6 sessions/week band
+// (shared/schema/program-sequences.ts sequenceDaysPerWeek). Mirror it here so the
+// resolver reports `days_out_of_band` instead of a silent miss.
+const SEQUENCE_DAYS_MIN = 3;
+const SEQUENCE_DAYS_MAX = 6;
+
+type AthleteRow = {
+  athlete_id: string;
+  coach_id: string;
+  level_id: string | null;
+  level_name: string | null;
+  training_days_per_week: number | null;
+};
+
+async function loadResolvedAthlete(
+  athleteId: number,
+  coachId: number | bigint,
+  client: Sql,
+): Promise<ResolvedAthlete> {
+  // Ownership-gated read: an athlete not owned by this coach is reported as
+  // not-found (404), never disclosed (same posture as the deep-dive services).
+  const rows = await client<AthleteRow[]>`
+    select a.id::text as athlete_id,
+           a.coach_id::text as coach_id,
+           a.level_id::text as level_id,
+           al.name as level_name,
+           a.training_days_per_week
+    from athletes a
+    left join athlete_levels al on al.id = a.level_id
+    where a.id = ${athleteId} and a.coach_id = ${String(coachId)}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) {
+    throw new AssignSequenceError(
+      'athlete_not_found',
+      'Atleta no encontrado para este coach.',
+      404,
+    );
+  }
+  return {
+    athlete_id: Number(row.athlete_id),
+    coach_id: Number(row.coach_id),
+    level_id: row.level_id == null ? null : Number(row.level_id),
+    level_name: row.level_name,
+    training_days_per_week: row.training_days_per_week,
+  };
+}
+
+export async function resolveSequenceForAthlete(
+  athleteId: number,
+  coachId: number | bigint,
+  client: Sql = defaultSql,
+): Promise<ResolveSequenceResult> {
+  const athlete = await loadResolvedAthlete(athleteId, coachId, client);
+
+  if (athlete.level_id == null) {
+    return {
+      ok: false,
+      reason: 'not_classified',
+      message: 'El atleta aún no está clasificado en un nivel.',
+      athlete,
+    };
+  }
+  if (athlete.training_days_per_week == null) {
+    return {
+      ok: false,
+      reason: 'no_training_days',
+      message: 'El atleta no tiene definidos los días de entrenamiento por semana.',
+      athlete,
+    };
+  }
+  if (
+    athlete.training_days_per_week < SEQUENCE_DAYS_MIN ||
+    athlete.training_days_per_week > SEQUENCE_DAYS_MAX
+  ) {
+    return {
+      ok: false,
+      reason: 'days_out_of_band',
+      message: `Las secuencias cubren ${SEQUENCE_DAYS_MIN}-${SEQUENCE_DAYS_MAX} días/semana; el atleta tiene ${athlete.training_days_per_week}.`,
+      athlete,
+    };
+  }
+
+  const sequence = await getCoachSequenceCell(
+    coachId,
+    athlete.level_id,
+    athlete.training_days_per_week,
+    client,
+  );
+  if (!sequence) {
+    const cell = `${athlete.level_name ?? `nivel ${athlete.level_id}`}·${athlete.training_days_per_week}d`;
+    return {
+      ok: false,
+      reason: 'no_sequence_for_cell',
+      message: `No hay secuencia para ${cell}.`,
+      athlete,
+    };
+  }
+  if (sequence.items.length === 0) {
+    const cell = `${athlete.level_name ?? `nivel ${athlete.level_id}`}·${athlete.training_days_per_week}d`;
+    return {
+      ok: false,
+      reason: 'empty_sequence',
+      message: `La secuencia de ${cell} no tiene microciclos definidos.`,
+      athlete,
+    };
+  }
+
+  return { ok: true, athlete, sequence };
+}
+
+// ---------------------------------------------------------------------------
+// assignSequenceToAthlete — enroll an athlete in their resolved sequence and
+// MATERIALIZE the first microciclo into real dated workout_assignments.
+//
+// START DATE choice: next Monday (box timezone). The materializer Monday-aligns
+// whatever start_date it receives; passing "today" mid-week would align BACKWARDS
+// into the current (partly past) week, dumping already-elapsed days. The next full
+// Mon–Sun week is the clean, predictable start the athlete sees on their plan.
+// A caller may override with an explicit start_date (also Monday-aligned downstream).
+//
+// IDEMPOTENCY: instantiateMonthFromTemplate has NO dedup guard (it double-inserts
+// on re-call). We guard at THIS layer: if the athlete already has an active
+// athlete_sequence_progress row for this sequence at position 1, we DO NOT
+// re-materialize — we return the existing enrollment (already_enrolled: true).
+// This is the discipline that prevents the duplicate-workout / fake-assignment
+// failure mode.
+// ---------------------------------------------------------------------------
+export type AssignSequenceResult = {
+  sequence_id: number;
+  position: number;
+  month_template_id: number;
+  progress_id: number;
+  already_enrolled: boolean;
+  materialization: InstantiateMonthResult | null;
+};
+
+type ProgressRow = {
+  id: string;
+  sequence_id: string;
+  current_position: number;
+  status: string;
+};
+
+export async function assignSequenceToAthlete(
+  athleteId: number,
+  coachId: number | bigint,
+  startDate?: string,
+  client: Sql = defaultSql,
+): Promise<AssignSequenceResult> {
+  const resolved = await resolveSequenceForAthlete(athleteId, coachId, client);
+  if (!resolved.ok) {
+    throw new AssignSequenceError(resolved.reason, resolved.message, 409);
+  }
+  const { sequence } = resolved;
+
+  // position=1 item is the first microciclo to materialize. Items are returned
+  // ordered by position asc, and position is 1-indexed/contiguous (0059), so the
+  // first element IS position 1 — but resolve it by value, not by index, to be safe.
+  const firstItem =
+    sequence.items.find((it) => it.position === 1) ?? sequence.items[0]!;
+
+  // Idempotency guard: an existing active enrollment on THIS sequence at position 1
+  // means we already materialized; don't double-insert.
+  const existing = await client<ProgressRow[]>`
+    select id::text, sequence_id::text, current_position, status
+    from athlete_sequence_progress
+    where athlete_id = ${athleteId} and status = 'active'
+    limit 1
+  `;
+  const active = existing[0];
+  if (
+    active &&
+    Number(active.sequence_id) === Number(sequence.id) &&
+    active.current_position === 1
+  ) {
+    return {
+      sequence_id: Number(sequence.id),
+      position: 1,
+      month_template_id: Number(firstItem.month_template_id),
+      progress_id: Number(active.id),
+      already_enrolled: true,
+      materialization: null,
+    };
+  }
+
+  const start = startDate ?? isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+
+  // Materialize the first microciclo via the EXISTING pipeline. We pass the
+  // top-level pooled client (NOT a transaction): instantiateMonthFromTemplate owns
+  // and opens its OWN transaction internally via `client.begin` (postgres.js tx
+  // objects expose `.savepoint`, not `.begin`, so it must be given a top-level
+  // client — wrapping it in our own sql.begin would break it). Its materialization
+  // is therefore atomic on its own.
+  //
+  // We then write the enrollment cursor in a SEPARATE statement. Order is
+  // materialize → progress (not the reverse) so the cursor only exists once real
+  // workouts exist: the primary idempotency guard above keys on the progress row,
+  // so the normal "assigned twice" case is a no-op. A crash strictly between the
+  // (committed) materialization and the progress insert is the only window that
+  // could leave workouts without a cursor — consistent with the existing
+  // assign-month semantics (no cross-call dedup) and recoverable by re-assigning.
+  let materialization: InstantiateMonthResult;
+  try {
+    materialization = await instantiateMonthFromTemplate({
+      coach_id: coachId,
+      athlete_id: athleteId,
+      month_template_id: firstItem.month_template_id,
+      start_date: start,
+      client,
+    });
+  } catch (err) {
+    if (err instanceof InstantiateProgramError) {
+      // Surface the materializer's own codes (not_found/empty_month/no_block/…) so
+      // the API maps them faithfully — no swallowing into a generic 500.
+      throw new AssignSequenceError(err.code, err.message, err.status);
+    }
+    throw err;
+  }
+
+  // Upsert the enrollment cursor. If a different active sequence existed, move the
+  // athlete onto this one at position 1 (the partial-unique on status='active'
+  // guarantees a single active row; we update it in place via the partial-index
+  // conflict target).
+  const upserted = await client<{ id: string }[]>`
+    insert into athlete_sequence_progress
+      (athlete_id, coach_id, sequence_id, current_position, status)
+    values (${athleteId}, ${String(coachId)}, ${Number(sequence.id)}, 1, 'active')
+    on conflict (athlete_id) where status = 'active'
+    do update set
+      coach_id = excluded.coach_id,
+      sequence_id = excluded.sequence_id,
+      current_position = 1,
+      updated_at = now()
+    returning id::text
+  `;
+  const progressId = Number(upserted[0]!.id);
+
+  return {
+    sequence_id: Number(sequence.id),
+    position: 1,
+    month_template_id: Number(firstItem.month_template_id),
+    progress_id: progressId,
+    already_enrolled: false,
+    materialization,
+  };
+}
