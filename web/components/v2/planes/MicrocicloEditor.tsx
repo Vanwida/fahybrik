@@ -36,9 +36,14 @@ export interface MicroLibraryItem {
 
 type ViewMode = 'foco' | 'general';
 
-const VIEW_OPTIONS = [
+// Week count is the coach's choice (a microciclo can be 2, 3, 5, 6… weeks) —
+// derive the label from the real data, never hardcode it.
+const viewOptions = (weekCount: number) => [
   { value: 'foco' as const, label: 'Editor · semana en foco' },
-  { value: 'general' as const, label: 'Vista general · 4 semanas' },
+  {
+    value: 'general' as const,
+    label: `Vista general · ${weekCount} ${weekCount === 1 ? 'semana' : 'semanas'}`,
+  },
 ];
 
 export function MicrocicloEditor({
@@ -71,7 +76,7 @@ export function MicrocicloEditor({
           <p className="text-sm capitalize text-[color:var(--v2-muted)]">{level}</p>
         </div>
         <SegmentedControl
-          options={VIEW_OPTIONS}
+          options={viewOptions(weeks.length)}
           value={view}
           onChange={setView}
           ariaLabel="Vista del microciclo"
