@@ -16,13 +16,22 @@
 //
 // WHY HERE
 // --------
-// This is the bridge between the methodology zone tables (methodology_zones,
-// migration 0048) and the structured prescription a workout actually carries.
-// Single-sourced in shared so web (preview), infra (seed/backfill) and the IA
-// adapter all resolve identically. Output is a Target the existing
-// targetSchema (0043) accepts unchanged.
+// This is the bridge between the methodology zone tables (methodology_zones, the
+// 6-zone OFFSET model — migration 0061) and the structured prescription a workout
+// actually carries. The pace-zone bands are single-sourced in zone-model.ts (the
+// SAME offsets the migration seeds and resolveZonesForAthlete applies), so the
+// label path here and the test/profile path never diverge. Single-sourced in
+// shared so web (preview), infra (seed/backfill) and the IA adapter all resolve
+// identically. Output is a Target the existing targetSchema (0043) accepts.
 
 import type { Modality, Target } from '../prescription/types';
+import {
+  resolveZonesForAthlete,
+  findResolvedZone,
+  type CoachZone,
+  type ResolvedZone,
+  type ZonePaceUnit,
+} from './zone-model';
 
 // ── Athlete benchmark inputs (onboarding output_field names, spec §8) ────────
 // All optional: the resolver applies the documented fallback chain when an anchor
@@ -52,9 +61,13 @@ export interface AthleteBenchmarks {
   hyrox_goal_run_total_seconds?: number | null;
 }
 
-// ── Zone model (spec §5) ────────────────────────────────────────────────────
+// ── Zone model (spec §5; pace zones extended to 6 — migration 0061) ──────────
+// HR zones stay a 5-zone %LTHR model (an HR target kind is 1-5 in the
+// prescription schema). PACE zones are the 6-zone OFFSET model: every pace zone
+// is an offset band in seconds from the threshold (test) pace, single-sourced as
+// methodology_zones rows. Z6 = Sprint / máxima potencia.
 export type HrZone = 1 | 2 | 3 | 4 | 5;
-export type PaceZone = 1 | 2 | 3 | 4 | 5;
+export type PaceZone = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface ResolvedTarget {
   target: Target;
@@ -80,34 +93,57 @@ const HR_ZONE_FRACTIONS: Record<HrZone, { lo: number; hi: number }> = {
   5: { lo: 1.03, hi: 1.15 }, // open-ended ≥1.03; capped at a sane physiological hi
 };
 
-// Run pace offsets in s/km ADDED to pace5K (spec §5). Negative = faster than 5K.
-const RUN_PACE_OFFSETS: Record<PaceZone, { lo: number; hi: number }> = {
-  1: { lo: 95, hi: 125 },
-  2: { lo: 75, hi: 95 },
-  3: { lo: 35, hi: 50 },
-  4: { lo: 5, hi: 15 },
-  5: { lo: -20, hi: -10 },
-};
+// ── Standard 6-zone offset bands (the SEEDED default — migration 0061) ───────
+// These are the SAME numbers migration 0061 seeds into methodology_zones, kept
+// here as the in-code default so the label resolver (resolveTarget) and the test
+// resolver (resolveZonesForAthlete) apply ONE source of offsets when no coach
+// rows are passed. A caller WITH the coach's methodology_zones should pass them
+// in (resolveTarget opts.coachZones) so per-coach edits win. The anchor is the
+// THRESHOLD (the Z4 lower bound = test result), not pace5K/split2K — a test
+// produces the threshold directly. Pablo verified the per_500m bands.
+export const STANDARD_ZONES_PER_500M: readonly CoachZone[] = [
+  { code: 'Z1', label: 'Recuperación activa', color: '#22C55E', role: 'recovery', sort_order: 1, pace_unit: 'per_500m', low_offset_s: 22, high_offset_s: null },
+  { code: 'Z2', label: 'Aeróbico extensivo', color: '#3B82F6', role: 'aerobic_base', sort_order: 2, pace_unit: 'per_500m', low_offset_s: 14, high_offset_s: 21 },
+  { code: 'Z3', label: 'Aeróbico intensivo', color: '#F59E0B', role: 'aerobic_threshold', sort_order: 3, pace_unit: 'per_500m', low_offset_s: 8, high_offset_s: 13 },
+  { code: 'Z4', label: 'Umbral anaeróbico', color: '#EF4444', role: 'threshold', sort_order: 4, pace_unit: 'per_500m', low_offset_s: 0, high_offset_s: 7 },
+  { code: 'Z5', label: 'VO2max / Potencia', color: '#991B1B', role: 'vo2max', sort_order: 5, pace_unit: 'per_500m', low_offset_s: -3, high_offset_s: -1 },
+  { code: 'Z6', label: 'Sprint / Potencia máxima', color: '#111827', role: 'sprint', sort_order: 6, pace_unit: 'per_500m', low_offset_s: -7, high_offset_s: -4 },
+] as const;
+
+export const STANDARD_ZONES_PER_KM: readonly CoachZone[] = [
+  { code: 'Z1', label: 'Recuperación activa', color: '#22C55E', role: 'recovery', sort_order: 1, pace_unit: 'per_km', low_offset_s: 44, high_offset_s: null },
+  { code: 'Z2', label: 'Aeróbico extensivo', color: '#3B82F6', role: 'aerobic_base', sort_order: 2, pace_unit: 'per_km', low_offset_s: 28, high_offset_s: 42 },
+  { code: 'Z3', label: 'Aeróbico intensivo', color: '#F59E0B', role: 'aerobic_threshold', sort_order: 3, pace_unit: 'per_km', low_offset_s: 16, high_offset_s: 26 },
+  { code: 'Z4', label: 'Umbral anaeróbico', color: '#EF4444', role: 'threshold', sort_order: 4, pace_unit: 'per_km', low_offset_s: 0, high_offset_s: 14 },
+  { code: 'Z5', label: 'VO2max / Potencia', color: '#991B1B', role: 'vo2max', sort_order: 5, pace_unit: 'per_km', low_offset_s: -6, high_offset_s: -2 },
+  { code: 'Z6', label: 'Sprint / Potencia máxima', color: '#111827', role: 'sprint', sort_order: 6, pace_unit: 'per_km', low_offset_s: -14, high_offset_s: -8 },
+] as const;
+
+/** The standard zone set for a pace unit (per_500m ergo | per_km run). */
+export function standardZonesFor(unit: ZonePaceUnit): readonly CoachZone[] {
+  return unit === 'per_km' ? STANDARD_ZONES_PER_KM : STANDARD_ZONES_PER_500M;
+}
+
 // HYROX race-pace offset over pace5K (spec §5): +50..60 s/km.
 const RUN_HYROX_RACE_OFFSET = { lo: 50, hi: 60 };
 
-// Erg (row/ski) offsets in s/500m ADDED to split2K (spec §5).
-const ERG_SPLIT_OFFSETS: Record<PaceZone, { lo: number; hi: number }> = {
-  1: { lo: 20, hi: 25 },
-  2: { lo: 12, hi: 18 },
-  3: { lo: 5, hi: 9 },
-  4: { lo: 0, hi: 4 },
-  5: { lo: -8, hi: -3 },
-};
-
-// Bike %FTP (Coggan) → power Target (watts). [lo,hi] fraction of FTP.
+// Bike %FTP (Coggan) → power Target (watts). [lo,hi] fraction of FTP. Bike power
+// is a fraction-of-FTP model (orthogonal to the pace offset bands), so it keeps
+// its own 6-zone table; Z6 is the supramaximal/neuromuscular sprint band.
 const BIKE_FTP_FRACTIONS: Record<PaceZone, { lo: number; hi: number }> = {
   1: { lo: 0.0, hi: 0.55 },
   2: { lo: 0.56, hi: 0.75 },
   3: { lo: 0.76, hi: 0.9 },
   4: { lo: 0.91, hi: 1.05 },
   5: { lo: 1.06, hi: 1.2 },
+  6: { lo: 1.21, hi: 1.5 },
 };
+
+// HR zones extend to 6 only for label completeness; the %LTHR model is 5-zone,
+// so Z6 reuses the Z5 ceiling band (an HR target can't distinguish VO2max from
+// neuromuscular sprint — that distinction is a pace/power one). Callers prescribing
+// a true sprint use pace/power, not HR.
+const HR_ZONE_Z6_FALLBACK: HrZone = 5;
 
 // ── Anchor derivations ──────────────────────────────────────────────────────
 
@@ -150,6 +186,29 @@ function resolveSkiSplit500(b: AthleteBenchmarks): { s_per_500m: number; source:
   if (b.time_1k_ski_seconds != null)
     return { s_per_500m: b.time_1k_ski_seconds / 2, source: 'time_1k_ski_seconds' };
   return null;
+}
+
+// ── THRESHOLD anchors (the Z4 lower bound = the test result) ─────────────────
+// The 6-zone OFFSET model (0061) measures every band from the THRESHOLD pace. A
+// test produces that threshold directly. These resolvers derive it per modality
+// from the athlete's benchmarks, with the documented fallbacks.
+
+/** s/km from the 5K pace; threshold ≈ 5K pace + ~10 s/km (existing spec comment). */
+const RUN_THRESHOLD_OVER_5K_S = 10;
+
+/** Run THRESHOLD pace in s/km (the test result). Prefers a direct threshold test. */
+function resolveRunThresholdPerKm(b: AthleteBenchmarks): { s_per_km: number; source: string; estimated: boolean } | null {
+  if (b.time_threshold_pace_s_per_km != null)
+    return { s_per_km: b.time_threshold_pace_s_per_km, source: 'time_threshold_pace_s_per_km', estimated: false };
+  const p = resolvePace5kPerKm(b);
+  if (!p) return null;
+  // threshold ≈ 5K pace + ~10 s/km (5K is run slightly above threshold).
+  return { s_per_km: p.s_per_km + RUN_THRESHOLD_OVER_5K_S, source: `${p.source}+threshold_offset`, estimated: true };
+}
+
+/** Erg THRESHOLD split in s/500m (the test result). The 2K/1K TT pace ≈ threshold. */
+function resolveErgThreshold500(modality: 'row' | 'ski', b: AthleteBenchmarks): { s_per_500m: number; source: string } | null {
+  return modality === 'ski' ? resolveSkiSplit500(b) : resolveRowSplit500(b);
 }
 
 // ── Label parsing (spec §5 labels) ──────────────────────────────────────────
@@ -205,10 +264,12 @@ export function parseZoneLabel(raw: string): ZoneLabel | null {
   // race pace
   if (/race\s*pace|race$|hyrox\s*pace/.test(s)) return { kind: 'race_pace', modality: 'run' };
 
-  // zone Zn / "zone n"
-  const z = s.match(/z(?:one)?\s*([1-5])/);
+  // zone Zn / "zone n" — pace zones are 1-6 (Z6 = Sprint); HR zones are 1-5, so a
+  // bare "Z6" with no pacing modality resolves to the Z5 HR ceiling (HR can't
+  // distinguish VO2max from sprint).
+  const z = s.match(/z(?:one)?\s*([1-6])/);
   if (z) {
-    const zone = Number(z[1]) as HrZone & PaceZone;
+    const n = Number(z[1]);
     const modality: 'run' | 'row' | 'ski' | 'bike' | null = /ski/.test(s)
       ? 'ski'
       : /row|remo/.test(s)
@@ -218,8 +279,9 @@ export function parseZoneLabel(raw: string): ZoneLabel | null {
           : /run|corr/.test(s)
             ? 'run'
             : null;
-    if (modality) return { kind: 'pace_zone', zone, modality };
-    return { kind: 'hr_zone', zone };
+    if (modality) return { kind: 'pace_zone', zone: n as PaceZone, modality };
+    const hrZone = (n === 6 ? HR_ZONE_Z6_FALLBACK : n) as HrZone;
+    return { kind: 'hr_zone', zone: hrZone };
   }
 
   return null;
@@ -242,31 +304,39 @@ function hrTarget(zone: HrZone, b: AthleteBenchmarks): ResolvedTarget | null {
   return { target, source: l.source, estimated: l.estimated };
 }
 
-function runPaceTarget(zone: PaceZone, b: AthleteBenchmarks): ResolvedTarget | null {
-  const p = resolvePace5kPerKm(b);
-  if (!p) return null;
-  const o = RUN_PACE_OFFSETS[zone];
-  // offset ADDED to pace5K; lo offset = faster bound, hi offset = slower bound.
-  const min_s = Math.round(p.s_per_km + o.lo);
-  const max_s = Math.round(p.s_per_km + o.hi);
-  return {
-    target: { kind: 'pace', unit: 'per_km', min_s: Math.min(min_s, max_s), max_s: Math.max(min_s, max_s) },
-    source: p.source,
-    estimated: p.source.startsWith('est_'),
-  };
+/**
+ * Turn one resolved absolute zone band into a pace Target. fast_s = faster bound
+ * (smaller seconds → min_s); slow_s = slower bound (→ max_s). An open band (slow_s
+ * null, the Z1 case) yields a one-sided "no faster than" range with only min_s.
+ */
+function zoneToPaceTarget(zone: ResolvedZone, unit: ZonePaceUnit): Target {
+  const min_s = Math.round(zone.fast_s);
+  if (zone.slow_s === null) return { kind: 'pace', unit, min_s };
+  const max_s = Math.round(zone.slow_s);
+  return { kind: 'pace', unit, min_s: Math.min(min_s, max_s), max_s: Math.max(min_s, max_s) };
 }
 
-function ergPaceTarget(zone: PaceZone, modality: 'row' | 'ski', b: AthleteBenchmarks): ResolvedTarget | null {
-  const s = modality === 'ski' ? resolveSkiSplit500(b) : resolveRowSplit500(b);
-  if (!s) return null;
-  const o = ERG_SPLIT_OFFSETS[zone];
-  const min_s = Math.round(s.s_per_500m + o.lo);
-  const max_s = Math.round(s.s_per_500m + o.hi);
-  return {
-    target: { kind: 'pace', unit: 'per_500m', min_s: Math.min(min_s, max_s), max_s: Math.max(min_s, max_s) },
-    source: s.source,
-    estimated: false,
-  };
+/** The zone band for a 1-6 zone number, from coach rows or the standard default. */
+function bandForZone(zone: PaceZone, unit: ZonePaceUnit, threshold_s: number, coachZones?: CoachZone[]): ResolvedZone | null {
+  const model = coachZones && coachZones.some((z) => z.pace_unit === unit) ? coachZones : standardZonesFor(unit).slice();
+  const resolved = resolveZonesForAthlete({ modality: unit === 'per_km' ? 'run' : 'row', threshold_s, pace_unit: unit }, model);
+  return findResolvedZone(resolved, `Z${zone}`);
+}
+
+function runPaceTarget(zone: PaceZone, b: AthleteBenchmarks, coachZones?: CoachZone[]): ResolvedTarget | null {
+  const t = resolveRunThresholdPerKm(b);
+  if (!t) return null;
+  const band = bandForZone(zone, 'per_km', t.s_per_km, coachZones);
+  if (!band) return null;
+  return { target: zoneToPaceTarget(band, 'per_km'), source: t.source, estimated: t.estimated };
+}
+
+function ergPaceTarget(zone: PaceZone, modality: 'row' | 'ski', b: AthleteBenchmarks, coachZones?: CoachZone[]): ResolvedTarget | null {
+  const t = resolveErgThreshold500(modality, b);
+  if (!t) return null;
+  const band = bandForZone(zone, 'per_500m', t.s_per_500m, coachZones);
+  if (!band) return null;
+  return { target: zoneToPaceTarget(band, 'per_500m'), source: t.source, estimated: false };
 }
 
 function bikePowerTarget(zone: PaceZone, b: AthleteBenchmarks): ResolvedTarget | null {
@@ -281,9 +351,11 @@ function bikePowerTarget(zone: PaceZone, b: AthleteBenchmarks): ResolvedTarget |
   // via hr if available; otherwise the zone itself.
   const minW = Math.round((b.ftp_watts ?? 0) * f.lo);
   const maxW = Math.round((b.ftp_watts ?? 0) * f.hi);
-  const hr = hrTarget(zone as HrZone, b);
+  // HR has only 5 zones; Z6 (sprint) maps onto the Z5 HR ceiling.
+  const hrZone = (zone === 6 ? HR_ZONE_Z6_FALLBACK : zone) as HrZone;
+  const hr = hrTarget(hrZone, b);
   if (hr) return { ...hr, source: `${hr.source} (bike ${minW}-${maxW}W @${Math.round(f.hi * 100)}%FTP)` };
-  return { target: { kind: 'hr_zone', value: zone }, source: `bike ${minW}-${maxW}W @FTP`, estimated: true };
+  return { target: { kind: 'hr_zone', value: hrZone }, source: `bike ${minW}-${maxW}W @FTP`, estimated: true };
 }
 
 function racePaceTarget(b: AthleteBenchmarks): ResolvedTarget | null {
@@ -304,6 +376,11 @@ export interface ResolveOpts {
   // Modality of the line being prescribed; disambiguates a bare "Z2" → use pace
   // zone for pacing modalities (run/row/ski/bike) instead of HR.
   modality?: Modality;
+  // The coach's methodology_zones rows (the 6-zone OFFSET model, 0061). When
+  // provided, pace-zone bands come from the coach's edited model; otherwise the
+  // seeded STANDARD bands are used. Single source — the same rows the test
+  // resolver (resolveZonesForAthlete) and the stored athlete_zone_profiles use.
+  coachZones?: CoachZone[];
 }
 
 /**
@@ -335,17 +412,17 @@ export function resolveTarget(
     case 'race_pace':
       return racePaceTarget(benchmarks);
     case 'pace_zone':
-      if (parsed.modality === 'run') return runPaceTarget(parsed.zone, benchmarks);
+      if (parsed.modality === 'run') return runPaceTarget(parsed.zone, benchmarks, opts.coachZones);
       if (parsed.modality === 'row' || parsed.modality === 'ski')
-        return ergPaceTarget(parsed.zone, parsed.modality, benchmarks);
+        return ergPaceTarget(parsed.zone, parsed.modality, benchmarks, opts.coachZones);
       if (parsed.modality === 'bike') return bikePowerTarget(parsed.zone, benchmarks);
       return null;
     case 'hr_zone': {
       // Bare "Z2": if the line's modality is a pacing one, prefer the pace zone.
       const m = opts.modality;
-      if (m === 'run') return runPaceTarget(parsed.zone, benchmarks) ?? hrTarget(parsed.zone, benchmarks);
+      if (m === 'run') return runPaceTarget(parsed.zone, benchmarks, opts.coachZones) ?? hrTarget(parsed.zone, benchmarks);
       if (m === 'row' || m === 'ski')
-        return ergPaceTarget(parsed.zone, m, benchmarks) ?? hrTarget(parsed.zone, benchmarks);
+        return ergPaceTarget(parsed.zone, m, benchmarks, opts.coachZones) ?? hrTarget(parsed.zone, benchmarks);
       if (m === 'bike') return bikePowerTarget(parsed.zone, benchmarks);
       return hrTarget(parsed.zone, benchmarks);
     }

@@ -13,6 +13,7 @@ import {
   ruleAuthored,
   ruleScope,
   ruleTriggerPhase,
+  ZONE_ROLES,
 } from '../domain/methodology/index';
 
 // ── coach_methodology (1 row / coach) — global scalars (spec §4 areas 1,5,6,8,14)
@@ -106,25 +107,63 @@ export const methodologyBlockSchema = z.object({
 });
 export type MethodologyBlock = z.infer<typeof methodologyBlockSchema>;
 
-// ── methodology_zones (coach × system × zone) — Área 5 ───────────────────────
-export const zoneSystem = z.enum(['hr', 'pace', 'erg', 'power']);
-export type ZoneSystem = z.infer<typeof zoneSystem>;
+// ── methodology_zones — the per-coach 6-zone OFFSET model (Área 5, migration 0061)
+// A zone = identity (code/label/color/role/sort_order) + an offset band in seconds
+// from the threshold (test) pace, in pace_unit (per_500m ergo | per_km run). The
+// agnostic `role` axis + `ZonePaceUnit` are single-sourced in the domain module.
+export const zoneRole = z.enum(ZONE_ROLES);
+export const zonePaceUnit = z.enum(['per_500m', 'per_km']);
 
 export const methodologyZoneSchema = z.object({
   id: idSchema,
   coach_id: idSchema,
-  system: zoneSystem,
-  modality: z.string().max(20).nullable(), // run|row|ski|bike for pace/erg/power
-  zone: z.number().int().min(1).max(5),
-  label: z.string().max(40),
-  anchor: z.string().max(40), // lthr | pace5k | split2k | split1k | ftp
-  lower: z.number(), // fraction (HR/power) or s offset (pace/erg)
-  upper: z.number(),
-  unit: z.enum(['fraction_of_anchor', 's_per_km', 's_per_500m', 'pct_ftp']),
+  code: z.string().min(1).max(8), // 'Z1'..'Z6'
+  label: z.string().max(60),
+  color: z.string().max(40), // token or hex
+  role: zoneRole,
+  sort_order: z.number().int().min(1).max(12),
+  anchor: z.string().max(40).default('threshold'), // what the offsets are measured against
+  pace_unit: zonePaceUnit,
+  low_offset_s: z.number(), // fast edge, seconds from threshold (negative = faster)
+  high_offset_s: z.number().nullable(), // slow edge; null = open (Z1 = +infinity)
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });
 export type MethodologyZone = z.infer<typeof methodologyZoneSchema>;
+
+// ── athlete_zone_profiles — VERSIONED resolved zones (migration 0061) ────────
+// The single stored source the plan resolver + calculator read: a test threshold
+// in + the 6 absolute zone bands snapshot out. Highest version = current.
+const ZONE_PROFILE_MODALITY = z.enum(['row', 'ski', 'run', 'bike']);
+
+// One resolved absolute band inside zones_json. Mirrors ResolvedZone in the domain
+// module: absolute seconds per pace_unit; slow_s null = open-ended (Z1).
+export const resolvedZoneSnapshotSchema = z.object({
+  code: z.string().min(1).max(8),
+  label: z.string().max(60),
+  color: z.string().max(40),
+  role: zoneRole,
+  sort_order: z.number().int().min(1).max(12),
+  fast_s: z.number().nonnegative(),
+  slow_s: z.number().nonnegative().nullable(),
+});
+export type ResolvedZoneSnapshot = z.infer<typeof resolvedZoneSnapshotSchema>;
+
+export const athleteZoneProfileSchema = z.object({
+  id: idSchema,
+  athlete_id: idSchema,
+  modality: ZONE_PROFILE_MODALITY,
+  threshold_s: z.number().positive(),
+  pace_unit: zonePaceUnit,
+  source_test_slug: z.string().max(60).nullable(),
+  source_benchmark_id: idSchema.nullable(),
+  // Exactly the 6 resolved bands (second net behind the DB CHECK).
+  zones_json: z.array(resolvedZoneSnapshotSchema).length(6),
+  version: z.number().int().min(1),
+  recorded_at: isoDateTime,
+  created_at: isoDateTime,
+});
+export type AthleteZoneProfile = z.infer<typeof athleteZoneProfileSchema>;
 
 // ── methodology_tests (coach × test) — Área 8 ────────────────────────────────
 export const methodologyTestSchema = z.object({
