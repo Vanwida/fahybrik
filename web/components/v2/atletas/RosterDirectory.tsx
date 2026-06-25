@@ -14,7 +14,9 @@ import { Pill } from '@/components/v2/Pill';
 import { FilterDropdown, type DropdownOption } from '@/components/v2/atletas/FilterDropdown';
 import { RosterTable } from '@/components/v2/atletas/RosterTable';
 import { AddAthleteModal } from '@/components/v2/atletas/AddAthleteModal';
+import { DoublesPairsPanel } from '@/components/v2/atletas/DoublesPairsPanel';
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
+import type { DoublesPair } from '@/lib/dashboard/coach/doubles-pairs';
 import { toRosterRow, type RosterRow } from '@/lib/dashboard/v2/atletas-row';
 import type { RosterStatus } from '@/lib/dashboard/v2/atletas-status';
 import { cn } from '@/lib/utils';
@@ -86,9 +88,11 @@ interface DirectoryRow extends RosterRow {
 export function RosterDirectory({
   athletes,
   coach_name,
+  doubles_pairs = [],
 }: {
   athletes: AthleteRow[];
   coach_name: string;
+  doubles_pairs?: DoublesPair[];
 }) {
   const [query, setQuery] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -243,6 +247,9 @@ export function RosterDirectory({
           />
         </div>
       </div>
+
+      {/* ── Dobles — coach-created training pairs ────────────────────────── */}
+      <DoublesPairsPanel pairs={doubles_pairs} athletes={athletes} />
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
       <RosterTable rows={filtered} total={rows.length} hasAnyAthletes={rows.length > 0} />

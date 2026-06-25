@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOBLES — una pareja, un plan, se empujan entre ellos · FAHYBRID</title>
+<style>
+  /* ───── DOC SHELL (light, readable) — vocabulario del pase hermano ───── */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.6}
+  .container{max-width:1040px;margin:0 auto}
+  .kicker{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.4px;color:#f06a2a;margin-bottom:10px}
+  h1{font-size:34px;font-weight:800;letter-spacing:-0.6px;margin-bottom:8px;line-height:1.08}
+  h1 em{font-style:italic;color:#f06a2a}
+  .sub{color:#888;font-size:14px;margin-bottom:30px}
+  h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.9px;color:#999;margin:48px 0 14px;display:flex;align-items:center;gap:10px}
+  h2::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  /* ───── FLOW — 5 pasos compactos ───── */
+  .flow{display:grid;grid-template-columns:1fr 22px 1fr 22px 1fr 22px 1fr 22px 1fr;align-items:stretch;background:#0a0a0a;border-radius:16px;padding:18px 16px;margin:6px 0}
+  .flow .step{display:flex;flex-direction:column;justify-content:flex-start;text-align:center;padding:6px 8px}
+  .flow .ic{width:42px;height:42px;border-radius:12px;margin:0 auto 9px;display:flex;align-items:center;justify-content:center;font-size:20px;background:#1a1a1a;border:1px solid rgba(255,255,255,.08)}
+  .flow .n{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#f08a4d;margin-bottom:4px}
+  .flow .t{font-size:12.5px;font-weight:800;color:#f4f4f0;line-height:1.25}
+  .flow .d{font-size:10.5px;color:#9a9a96;line-height:1.35;margin-top:5px}
+  .flow .step.hero .ic{background:#f06a2a;border-color:transparent}
+  .flow .step.hero .n{color:#ffb88c}
+  .flow .arr{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#f06a2a}
+
+  /* duo badge inside step 1 */
+  .duo{display:flex;align-items:center;justify-content:center;gap:3px}
+  .duo .av{width:18px;height:18px;border-radius:50%;font-size:8.5px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#0a0a0a;font-family:'SF Mono',monospace}
+
+  /* ───── INTENSITY STRIP — mismo plan, cada uno a su intensidad ───── */
+  .intro{background:#fff;border:1px solid #e8e8e3;border-radius:14px;padding:20px 24px;margin:6px 0}
+  .intro .lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#999;margin-bottom:4px}
+  .intro h3{font-size:18px;font-weight:800;letter-spacing:-0.3px;margin-bottom:14px}
+  .intro h3 em{font-style:italic;color:#f06a2a}
+  .it-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;align-items:center;border-top:1px solid #f0f0ec;padding:11px 0}
+  .it-row:last-child{padding-bottom:2px}
+  .it-ex{font-size:14px;font-weight:800;color:#1a1a1a}
+  .it-ex .sub{display:block;font-size:11.5px;font-weight:600;color:#999;margin-top:1px}
+  .it-ath{display:flex;align-items:center;gap:9px;justify-content:flex-end}
+  .it-ath .av{width:24px;height:24px;border-radius:50%;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'SF Mono',monospace;flex-shrink:0}
+  .it-ath .num{font-size:14px;font-weight:800;font-family:'SF Mono',monospace;color:#1a1a1a;letter-spacing:-.01em}
+  .it-ath .num .u{font-size:10px;font-weight:600;color:#aaa;margin-left:1px}
+  .it-ath .pct{font-size:10px;font-weight:700;color:#999;display:block;text-align:right;margin-top:0}
+  .av-a{background:#f06a2a} .av-b{background:#3a6ea5}
+  .it-foot{font-size:12px;color:#888;margin-top:14px;padding-top:13px;border-top:1px solid #f0f0ec;line-height:1.5}
+  .it-foot b{color:#555}
+
+  /* ───── HERO — dos iPhones lado a lado ───── */
+  .herowrap{background:#0a0a0a;border-radius:20px;padding:30px 26px 34px;margin:6px 0;box-shadow:0 28px 70px -28px rgba(0,0,0,.55)}
+  .herowrap .htop{text-align:center;margin-bottom:24px}
+  .herowrap .htag{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#f08a4d;background:rgba(240,106,42,.13);padding:5px 13px;border-radius:9999px;margin-bottom:12px}
+  .herowrap .hh{font-size:23px;font-weight:800;letter-spacing:-0.4px;color:#f4f4f0;line-height:1.15}
+  .herowrap .hh em{font-style:italic;color:#f06a2a}
+  .herowrap .hsub{font-size:13px;color:#9a9a96;margin-top:7px}
+
+  .phones{display:grid;grid-template-columns:1fr 1fr;gap:26px;max-width:760px;margin:0 auto;align-items:start}
+
+  /* phone frame */
+  .ph{background:#000;border-radius:38px;padding:9px;border:1px solid rgba(255,255,255,.1);box-shadow:0 18px 44px -18px rgba(0,0,0,.7)}
+  .ph-screen{background:#0a0a0a;border-radius:30px;overflow:hidden;position:relative}
+  .ph-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:108px;height:24px;background:#000;border-bottom-left-radius:14px;border-bottom-right-radius:14px;z-index:5}
+  .ph-status{display:flex;justify-content:space-between;align-items:center;padding:9px 20px 4px;font-size:10.5px;font-weight:700;color:#f5f5f5;font-family:'SF Mono',monospace}
+  .ph-body{padding:6px 15px 18px}
+  .ph-owner{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:#6e6e6e;text-align:center;margin-top:10px}
+  .ph-owner b{color:#f06a2a}
+
+  .ph-h{font-weight:900;font-style:italic;font-size:21px;color:#f5f5f5;letter-spacing:-.01em;margin:8px 2px 2px;font-family:'Archivo Black','SF Pro Display',system-ui,sans-serif}
+  .ph-date{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6e6e6e;margin:0 2px 12px}
+
+  /* section caption inside phone */
+  .ph-cap{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#8a8a8a;margin:0 2px 7px;display:flex;align-items:center;gap:6px}
+  .ph-cap .pin{color:#f06a2a}
+
+  /* MY workout card */
+  .wcard{background:#141414;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 13px;margin-bottom:14px}
+  .wrow{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid rgba(255,255,255,.06)}
+  .wrow:first-child{border-top:none;padding-top:2px}
+  .wrow:last-child{padding-bottom:2px}
+  .wrow .wdot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+  .wd-carrera{background:#e5484d} .wd-fuerza{background:#e0a93b}
+  .wrow .wnm{flex:1;font-size:12px;font-weight:700;color:#f5f5f5;line-height:1.15}
+  .wrow .wnm .ws{display:block;font-size:9.5px;font-weight:600;color:#6e6e6e;margin-top:1px;text-transform:uppercase;letter-spacing:.06em}
+  .wrow .wval{font-size:12px;font-weight:800;font-family:'SF Mono',monospace;color:#f06a2a;white-space:nowrap}
+  .wrow .wval .u{font-size:9px;color:#6e6e6e;font-weight:600;margin-left:1px}
+
+  /* PARTNER panel — the highlight */
+  .pcard{border-radius:14px;padding:13px 14px;border:1px solid}
+  .pcard.done{background:rgba(63,199,115,.08);border-color:rgba(63,199,115,.28)}
+  .pcard.pend{background:rgba(242,165,46,.07);border-color:rgba(242,165,46,.26)}
+  .pcard .phd{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+  .pcard .pav{width:34px;height:34px;border-radius:50%;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'SF Mono',monospace;flex-shrink:0}
+  .pcard .pwho{flex:1;min-width:0}
+  .pcard .pwho .pn{font-size:13px;font-weight:800;color:#f5f5f5;line-height:1.1}
+  .pcard .pwho .pr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8a8a;margin-top:2px}
+  .pcard .pstat{font-size:10.5px;font-weight:800;padding:5px 10px;border-radius:9999px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .pcard .pstat.ok{background:rgba(63,199,115,.16);color:#3fc773}
+  .pcard .pstat.wt{background:rgba(242,165,46,.16);color:#f2a52e}
+
+  .pmetrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+  .pmet{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:8px 10px}
+  .pmet .pk{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#7a7a7a}
+  .pmet .pv{font-size:14px;font-weight:800;font-family:'SF Mono',monospace;color:#f5f5f5;letter-spacing:-.01em;margin-top:2px}
+  .pmet .pv .u{font-size:9px;color:#6e6e6e;font-weight:600;margin-left:1px}
+  .pmet.muted .pv{color:#6e6e6e}
+
+  /* progress line */
+  .pprog{display:flex;align-items:center;gap:9px}
+  .pprog .pbar{flex:1;height:6px;border-radius:9999px;background:rgba(255,255,255,.08);overflow:hidden}
+  .pprog .pfill{height:100%;border-radius:9999px}
+  .pprog .pfill.g{background:#3fc773}
+  .pprog .pfill.a{background:#f2a52e}
+  .pprog .plab{font-size:10px;font-weight:800;font-family:'SF Mono',monospace;color:#9a9a96;white-space:nowrap}
+
+  .nudge{margin-top:11px;text-align:center;font-size:10.5px;font-weight:700;color:#0a0a0a;background:#f06a2a;border-radius:9px;padding:8px 10px;letter-spacing:.01em}
+  .nudge.ghost{background:rgba(255,255,255,.05);color:#cfcfcf;border:1px solid rgba(255,255,255,.1)}
+
+  /* ───── qué cambia vs individual ───── */
+  .delta{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:6px 0}
+  .dcard{background:#fff;border:1px solid #e8e8e3;border-radius:13px;padding:18px 20px;border-top:3px solid #f06a2a}
+  .dcard .dic{font-size:22px;margin-bottom:9px}
+  .dcard .dt{font-size:15px;font-weight:800;letter-spacing:-.2px;margin-bottom:4px}
+  .dcard .dd{font-size:12.5px;color:#777;line-height:1.45}
+  .dcard .dd b{color:#444}
+
+  footer{margin-top:54px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12px;color:#aaa}
+
+  @media(max-width:860px){
+    .flow{grid-template-columns:1fr}
+    .flow .arr{transform:rotate(90deg);height:24px}
+    .phones{grid-template-columns:1fr;max-width:330px}
+    .it-row{grid-template-columns:1fr;gap:8px;text-align:center}
+    .it-ath{justify-content:center}
+    .delta{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="kicker">FAHYBRID · HYROX Dobles</div>
+  <h1>DOBLES — una pareja, un plan,<br><em>se empujan entre ellos.</em></h1>
+  <div class="sub">Cómo funciona el formato de pareja · FAHYBRID · 26 jun 2026</div>
+
+
+  <!-- ════════ FLOW ════════ -->
+  <h2>El recorrido, de un vistazo</h2>
+  <div class="flow">
+    <div class="step">
+      <div class="ic"><div class="duo"><span class="av av-a">A</span><span class="av av-b">B</span></div></div>
+      <div class="n">Pack doble</div>
+      <div class="t">2 atletas, 1 suscripción</div>
+      <div class="d">Se vende la pareja, a precio conjunto</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="step">
+      <div class="ic">🔗</div>
+      <div class="n">La pareja</div>
+      <div class="t">Vinculados</div>
+      <div class="d">Mismo nivel, mismo plan</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="step">
+      <div class="ic">📋</div>
+      <div class="n">El coach</div>
+      <div class="t">Monta 1 plan</div>
+      <div class="d">Uno para los dos, no dos</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="step">
+      <div class="ic">🎯</div>
+      <div class="n">Cada uno</div>
+      <div class="t">A su intensidad</div>
+      <div class="d">Mismo entreno, sus números</div>
+    </div>
+    <div class="arr">→</div>
+    <div class="step hero">
+      <div class="ic">👀</div>
+      <div class="n">En la app</div>
+      <div class="t">Se ven entre ellos</div>
+      <div class="d">Se empujan a diario</div>
+    </div>
+  </div>
+
+
+  <!-- ════════ INTENSIDAD ════════ -->
+  <h2>Mismo entreno, cada uno a su intensidad</h2>
+  <div class="intro">
+    <div class="lbl">Entreno de hoy · idéntico para los dos</div>
+    <h3>El plan es el mismo. Los <em>números</em> son de cada uno.</h3>
+
+    <div class="it-row">
+      <div class="it-ex">Sentadilla<span class="sub">4 × 5</span></div>
+      <div class="it-ath"><span class="av av-a">A</span><div><span class="num">100<span class="u">kg</span></span><span class="pct">75% de su RM</span></div></div>
+      <div class="it-ath"><span class="av av-b">B</span><div><span class="num">80<span class="u">kg</span></span><span class="pct">75% de su RM</span></div></div>
+    </div>
+    <div class="it-row">
+      <div class="it-ex">Carrera<span class="sub">5 × 1 km</span></div>
+      <div class="it-ath"><span class="av av-a">A</span><div><span class="num">4:00<span class="u">/km</span></span><span class="pct">su ritmo umbral</span></div></div>
+      <div class="it-ath"><span class="av av-b">B</span><div><span class="num">4:20<span class="u">/km</span></span><span class="pct">su ritmo umbral</span></div></div>
+    </div>
+
+    <div class="it-foot">Cada atleta hizo su test, así que cada uno tiene <b>sus pesos y sus ritmos</b>. El coach no calcula nada dos veces: la app traduce el mismo plan a los números de cada uno.</div>
+  </div>
+
+
+  <!-- ════════ HERO ════════ -->
+  <h2>Lo que hace especial a Dobles</h2>
+  <div class="herowrap">
+    <div class="htop">
+      <span class="htag">★ La pantalla clave</span>
+      <div class="hh">Cada uno ve cómo va <em>su pareja</em></div>
+      <div class="hsub">Si hizo el entreno de hoy, sus tiempos, cómo va. Eso los engancha.</div>
+    </div>
+
+    <div class="phones">
+
+      <!-- PHONE A -->
+      <div>
+        <div class="ph">
+          <div class="ph-screen">
+            <div class="ph-notch"></div>
+            <div class="ph-status"><span>9:41</span><span>● ● ●</span></div>
+            <div class="ph-body">
+              <div class="ph-h">Hoy</div>
+              <div class="ph-date">Jueves · 26 jun</div>
+
+              <div class="ph-cap"><span class="pin">▸</span> Tu entreno de hoy</div>
+              <div class="wcard">
+                <div class="wrow"><span class="wdot wd-fuerza"></span><span class="wnm">Sentadilla<span class="ws">4 × 5</span></span><span class="wval">100<span class="u">kg</span></span></div>
+                <div class="wrow"><span class="wdot wd-carrera"></span><span class="wnm">Carrera<span class="ws">5 × 1 km</span></span><span class="wval">4:00<span class="u">/km</span></span></div>
+              </div>
+
+              <div class="ph-cap"><span class="pin">▸</span> Tu pareja</div>
+              <div class="pcard done">
+                <div class="phd">
+                  <div class="pav av-b">B</div>
+                  <div class="pwho"><div class="pn">Bruno</div><div class="pr">Hoy · mismo entreno</div></div>
+                  <div class="pstat ok">✓ Hecho</div>
+                </div>
+                <div class="pmetrics">
+                  <div class="pmet"><div class="pk">Sentadilla</div><div class="pv">80<span class="u">kg</span></div></div>
+                  <div class="pmet"><div class="pk">Carrera 5×1k</div><div class="pv">4:20<span class="u">/km</span></div></div>
+                </div>
+                <div class="pprog"><span class="plab">Semana</span><div class="pbar"><span class="pfill g" style="width:86%"></span></div><span class="plab">6/7</span></div>
+                <div class="nudge">Bruno ya ha entrenado hoy 🔥</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ph-owner">La pantalla de <b>Andrea</b></div>
+      </div>
+
+      <!-- PHONE B -->
+      <div>
+        <div class="ph">
+          <div class="ph-screen">
+            <div class="ph-notch"></div>
+            <div class="ph-status"><span>9:41</span><span>● ● ●</span></div>
+            <div class="ph-body">
+              <div class="ph-h">Hoy</div>
+              <div class="ph-date">Jueves · 26 jun</div>
+
+              <div class="ph-cap"><span class="pin">▸</span> Tu entreno de hoy</div>
+              <div class="wcard">
+                <div class="wrow"><span class="wdot wd-fuerza"></span><span class="wnm">Sentadilla<span class="ws">4 × 5</span></span><span class="wval">80<span class="u">kg</span></span></div>
+                <div class="wrow"><span class="wdot wd-carrera"></span><span class="wnm">Carrera<span class="ws">5 × 1 km</span></span><span class="wval">4:20<span class="u">/km</span></span></div>
+              </div>
+
+              <div class="ph-cap"><span class="pin">▸</span> Tu pareja</div>
+              <div class="pcard pend">
+                <div class="phd">
+                  <div class="pav av-a">A</div>
+                  <div class="pwho"><div class="pn">Andrea</div><div class="pr">Hoy · mismo entreno</div></div>
+                  <div class="pstat wt">⏳ Pendiente</div>
+                </div>
+                <div class="pmetrics">
+                  <div class="pmet muted"><div class="pk">Sentadilla</div><div class="pv">—</div></div>
+                  <div class="pmet muted"><div class="pk">Carrera 5×1k</div><div class="pv">—</div></div>
+                </div>
+                <div class="pprog"><span class="plab">Semana</span><div class="pbar"><span class="pfill a" style="width:71%"></span></div><span class="plab">5/7</span></div>
+                <div class="nudge ghost">Andrea aún no ha entrenado hoy</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ph-owner">La pantalla de <b>Bruno</b></div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════ DELTA ════════ -->
+  <h2>Qué cambia frente a entrenar solo</h2>
+  <div class="delta">
+    <div class="dcard">
+      <div class="dic">📋</div>
+      <div class="dt">El coach monta 1 plan</div>
+      <div class="dd">Uno para la pareja, <b>no dos</b>. La mitad del trabajo.</div>
+    </div>
+    <div class="dcard">
+      <div class="dic">🔗</div>
+      <div class="dt">Los dos vinculados</div>
+      <div class="dd">Mismo nivel, mismo plan. <b>Compiten juntos</b>, entrenan juntos.</div>
+    </div>
+    <div class="dcard">
+      <div class="dic">👀</div>
+      <div class="dt">Se ven entre ellos</div>
+      <div class="dd">Cada uno ve si el otro entrenó y cómo va. <b>Se empujan.</b></div>
+    </div>
+  </div>
+
+
+  <footer>FAHYBRID · Dobles · documento visual para enseñar la idea · 26 jun 2026</footer>
+
+</div>
+</body>
+</html>
