@@ -9,9 +9,10 @@
 //         height day columns (weekly calendar) under a week-step header.
 //       · "Vista general · N semanas" — the week×day grid.
 //     Day cells link to `/microciclos/[id]?dia=idx` (in-place, no navigation).
-//   · with day (DÍA) — the SAME canvas zooms in: the week compacts to the slim
-//     WeekContextStrip (rendered inside DayEditor) and the day editor fills below.
-//     "← Volver a la semana" clears `?dia` and returns to the week calendar.
+//   · with day (DÍA) — the SAME canvas reflows to MASTER-DETAIL inside the week
+//     calendar: the open day's COLUMN grows to host the editor inline while the
+//     other six SHRINK to a thin clickable rail (the week IS the editor). The
+//     column-grow animates; "← Semana completa" clears `?dia`.
 
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
@@ -19,7 +20,6 @@ import type { DayModalityInfo, WeekLoad } from '@/lib/dashboard/v2/planes-model'
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MicrocicloV2 } from '@/components/v2/planes/MicrocicloV2';
 import { MicrocicloV1 } from '@/components/v2/planes/MicrocicloV1';
-import { DayEditor } from '@/components/v2/editor/DayEditor';
 
 export interface MicroWeek {
   id: string;
@@ -65,12 +65,12 @@ export function MicrocicloEditor({
 }) {
   const [view, setView] = useState<ViewMode>('foco');
 
-  // DÍA zoom level — the canvas shows the day editor (which carries its own week-
-  // context strip on top). Switching `?dia` re-renders this page server-side as a
-  // soft navigation, so the week↔day transition stays in place (no full reload).
-  if (dayModel) {
-    return <DayEditor model={dayModel} />;
-  }
+  // DÍA zoom level lives ON the week grid: MicrocicloV2 reflows to master-detail
+  // (the open day's column grows into the editor, the rest become a thin rail) —
+  // "the week IS the editor". So when a day is open we force the week-calendar
+  // view (the matrix has no master-detail) and let MicrocicloV2 expand a column.
+  // Switching `?dia` is a soft, in-place navigation, so the column-grow animates.
+  const effectiveView: ViewMode = dayModel ? 'foco' : view;
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col">
@@ -83,20 +83,25 @@ export function MicrocicloEditor({
           </h1>
           <p className="text-sm capitalize text-[color:var(--v2-muted)]">{level}</p>
         </div>
-        <SegmentedControl
-          options={viewOptions(weeks.length)}
-          value={view}
-          onChange={setView}
-          ariaLabel="Vista del microciclo"
-        />
+        {/* The view toggle is a full-week affordance; while a day is open the
+            canvas is locked to the master-detail week calendar. */}
+        {dayModel ? null : (
+          <SegmentedControl
+            options={viewOptions(weeks.length)}
+            value={view}
+            onChange={setView}
+            ariaLabel="Vista del microciclo"
+          />
+        )}
       </div>
 
       <div className="mt-4">
-        {view === 'foco' ? (
+        {effectiveView === 'foco' ? (
           <MicrocicloV2
             microcycle_id={microcycle_id}
             weeks={weeks}
             groupNames={groupNames}
+            dayModel={dayModel}
           />
         ) : (
           <MicrocicloV1 microcycle_id={microcycle_id} weeks={weeks} />

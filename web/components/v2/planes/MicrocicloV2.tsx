@@ -1,14 +1,19 @@
 'use client';
 
-// Screen 7 · V2 "Editor · semana en foco". A week-step header (one card per week:
-// dot + "Sk · etiqueta" + N ses + load bar; selected = accent ring) over the
-// focused week laid out as a full-height weekly calendar: 7 day COLUMNS across
-// the full width (no side rail), each stretched to fill the viewport so the plan
-// reads at a glance with no dead void. Every column shows its REAL content stacked
-// top→bottom — the day's blocks, each with a modality color, title, agnostic group
-// tag and the real exercise/dose lines (rendered from prescription_json). A
-// coach-placed rest day reads "Descanso"; a fully empty day shows the dashed add
-// affordance. Clicking a column opens that day's editor.
+// Screen 7 · V2 "Editor · semana en foco" + the DÍA master-detail. A week-step
+// header (one card per week: dot + "Sk · etiqueta" + N ses + load bar; selected =
+// accent ring) over the focused week laid out as a full-height weekly calendar.
+//
+// FULL WEEK (no `?dia`): 7 equal day COLUMNS across the full width, each stretched
+// to fill the viewport, showing its REAL content stacked top→bottom — the day's
+// blocks (modality color, title, agnostic group tag, real exercise/dose lines from
+// prescription_json). Rest → "Descanso"; empty → dashed add affordance.
+//
+// OPEN DAY (`?dia=N`): the SAME grid reflows to MASTER-DETAIL — the open day's
+// column GROWS (animated grid-template-columns) to host the DayEditor inline,
+// while the other six SHRINK to a thin clickable rail (letter + modality hue +
+// compact summary). "the week IS the editor": the coach never leaves the week,
+// they just open one column. Clicking a rail day switches `?dia` in place.
 
 import { useMemo, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -18,14 +23,23 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { LoadBar } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
+  DAY_LABELS_SHORT,
   dayCanvasHref,
   type DayBlockInfo,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
+import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
+import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { cn } from '@/lib/utils';
+
+// Master-detail track weights (fr). When a day is open its column grows to
+// ~62% of the week, the other six shrink to a thin clickable rail. Both states
+// use the SAME grid-template form (7 minmax tracks) so the width change ANIMATES.
+const ACTIVE_FR = 10;
+const RAIL_FR = 1;
 
 // The day column's primary heading: the first session focus the coach set, else
 // the dominant (first) block title — so the column always names the work.
@@ -237,19 +251,129 @@ function DayColumn({
   );
 }
 
+// A thin, clickable day column shown in the rail while another day is open. It is
+// the SAME week's other days, right there — letter + modality hue + a compact
+// honest summary ("Fuerza · 2 ej" / "Descanso" / "+"). Click switches `?dia`.
+function RailCell({
+  day,
+  dayIndex,
+  href,
+}: {
+  day: DayModalityInfo;
+  dayIndex: number;
+  href: string;
+}) {
+  const mod = day.dominant;
+  const isWorkout = day.session_count > 0 && !!mod;
+  const summary = isWorkout
+    ? `${day.block_count} bl${day.item_count > 0 ? ` · ${day.item_count} ej` : ''}`
+    : null;
+
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-label={
+        isWorkout
+          ? `${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label} · ${summary}`
+          : day.is_rest
+            ? `${DAY_LABELS_FULL[dayIndex]} · descanso`
+            : `${DAY_LABELS_FULL[dayIndex]} · añadir sesión`
+      }
+      className={cn(
+        'v2-focus group flex h-full min-w-0 flex-col gap-1.5 overflow-hidden rounded-[var(--v2-r-m)] border p-1.5 transition-colors',
+        isWorkout
+          ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]'
+          : day.is_rest
+            ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]'
+            : 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
+      )}
+      style={
+        isWorkout && mod
+          ? { borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }
+          : undefined
+      }
+    >
+      <span className="text-center text-[12px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+        {DAY_LABELS_SHORT[dayIndex]}
+      </span>
+      {isWorkout ? (
+        <div className="flex min-w-0 flex-col items-center gap-0.5 text-center">
+          <span
+            className="w-full truncate text-[9.5px] font-semibold"
+            style={{ color: `var(${MODALITY_META[mod].colorVar})` }}
+          >
+            {MODALITY_META[mod].label}
+          </span>
+          <span className="v2-num w-full truncate text-[9px] text-[color:var(--v2-faint)]">
+            {summary}
+          </span>
+        </div>
+      ) : day.is_rest ? (
+        <div className="flex flex-col items-center gap-0.5">
+          <MIcon name="bedtime" size={14} />
+          <span className="text-[9px] font-semibold">Descanso</span>
+        </div>
+      ) : (
+        <MIcon name="add" size={16} className="mx-auto" />
+      )}
+    </Link>
+  );
+}
+
+// The grown column: the SAME week grid track, now hosting the full day editor
+// inline (the week IS the editor). A slim header gives the one-click way back to
+// the full 7-column week (clears `?dia`); the body is the reused DayEditor.
+function ActiveDayColumn({
+  microcycleId,
+  dayModel,
+}: {
+  microcycleId: string;
+  dayModel: DayEditorModel;
+}) {
+  return (
+    <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] ring-1 ring-[color:var(--v2-accent)]">
+      <div className="flex shrink-0 items-center gap-2 border-b border-[color:var(--v2-border)] px-3 py-2">
+        <Link
+          href={`/microciclos/${microcycleId}`}
+          scroll={false}
+          className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+        >
+          <MIcon name="arrow_back" size={15} />
+          Semana completa
+        </Link>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <DayEditor model={dayModel} embedded />
+      </div>
+    </div>
+  );
+}
+
 export function MicrocicloV2({
   microcycle_id,
   weeks,
   groupNames,
+  dayModel,
 }: {
   microcycle_id: string;
   weeks: MicroWeek[];
   /** methodology_group_id → coach label (agnostic) for the per-block group tag. */
   groupNames: Record<number, string>;
+  /** DÍA zoom level: the open day's editor model (`?dia=N`). null = full week. */
+  dayModel?: DayEditorModel | null;
 }) {
   const router = useRouter();
   const [focusIndex, setFocusIndex] = useState(0);
-  const focus = useMemo(() => weeks[focusIndex] ?? weeks[0] ?? null, [weeks, focusIndex]);
+  // When a day is open, the focused week is dictated by the URL (the day's week),
+  // not the local stepper — so the master-detail always shows the right week.
+  const effectiveFocusIndex = dayModel ? dayModel.week_index : focusIndex;
+  // Active day within the focused week (0=Mon … 6=Sun), or null in the full week.
+  const activeDayIndex = dayModel ? dayModel.day_of_week - 1 : null;
+  const focus = useMemo(
+    () => weeks[effectiveFocusIndex] ?? weeks[0] ?? null,
+    [weeks, effectiveFocusIndex],
+  );
   const focusModalities = useMemo(
     () => (focus ? weekModalities(focus.days) : []),
     [focus],
@@ -287,7 +411,12 @@ export function MicrocicloV2({
   }
 
   // Day editor offset: continuous day index across the microcycle.
-  const dayBase = focusIndex * 7;
+  const dayBase = effectiveFocusIndex * 7;
+  // Animated master-detail tracks: 7 minmax columns; the open day grows. Same
+  // template form in both states so grid-template-columns interpolates smoothly.
+  const templateCols = (focus?.days ?? [])
+    .map((_, i) => `minmax(0, ${activeDayIndex === i ? ACTIVE_FR : RAIL_FR}fr)`)
+    .join(' ');
 
   return (
     <div className="flex flex-col gap-3">
@@ -308,12 +437,17 @@ export function MicrocicloV2({
       {/* Week-step cards */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {weeks.map((w, i) => {
-          const active = i === focusIndex;
+          const active = i === effectiveFocusIndex;
           return (
             <button
               key={w.id}
               type="button"
-              onClick={() => setFocusIndex(i)}
+              onClick={() => {
+                setFocusIndex(i);
+                // If a day is open, switching weeks closes it (back to the full
+                // week of the chosen step) by clearing `?dia`.
+                if (dayModel) router.push(`/microciclos/${microcycle_id}`, { scroll: false });
+              }}
               aria-pressed={active}
               className={cn(
                 'v2-focus flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] p-2.5 text-left transition-colors',
@@ -349,7 +483,7 @@ export function MicrocicloV2({
         {/* Week toolbar */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="text-sm font-bold text-[color:var(--v2-fg)]">
-            Semana {focusIndex + 1}
+            Semana {effectiveFocusIndex + 1}
             {focus?.label ? (
               <span className="ml-1.5 font-medium text-[color:var(--v2-muted)]">
                 · {focus.label}
@@ -410,17 +544,98 @@ export function MicrocicloV2({
           </div>
         </div>
 
-        {/* 7 day columns — stretched to fill the viewport (no dead void below). */}
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-h-[62vh] lg:grid-cols-7 lg:[grid-template-rows:minmax(0,1fr)]">
-          {(focus?.days ?? []).map((day, i) => (
-            <DayColumn
-              key={day.day_of_week}
-              day={day}
-              dayIndex={i}
-              href={dayCanvasHref(microcycle_id, dayBase + i)}
-              groupNames={groupNames}
-            />
-          ))}
+        {/* Day columns = the week grid. In the full week (no `?dia`) all 7 are
+            equal rich columns. Open a day and the grid REFLOWS to master-detail
+            on the SAME canvas: that day's column grows to host the editor inline,
+            the other six shrink to a thin clickable rail. The grid-template-
+            columns change animates (~300ms) so the column visibly grows. */}
+
+        {/* Desktop (lg+) — one animated master-detail grid */}
+        <div
+          className="mt-3 hidden gap-2 transition-[grid-template-columns] duration-300 ease-out lg:grid lg:min-h-[62vh] lg:[grid-template-rows:minmax(0,1fr)]"
+          style={{ gridTemplateColumns: templateCols }}
+        >
+          {(focus?.days ?? []).map((day, i) =>
+            activeDayIndex === i && dayModel ? (
+              <ActiveDayColumn
+                key={day.day_of_week}
+                microcycleId={microcycle_id}
+                dayModel={dayModel}
+              />
+            ) : activeDayIndex === null ? (
+              <DayColumn
+                key={day.day_of_week}
+                day={day}
+                dayIndex={i}
+                href={dayCanvasHref(microcycle_id, dayBase + i)}
+                groupNames={groupNames}
+              />
+            ) : (
+              <RailCell
+                key={day.day_of_week}
+                day={day}
+                dayIndex={i}
+                href={dayCanvasHref(microcycle_id, dayBase + i)}
+              />
+            ),
+          )}
+        </div>
+
+        {/* Mobile (<lg) — stacks: full week = card grid; open day = a top day
+            switcher strip (the rail, horizontal) + the editor below. */}
+        <div className="mt-3 lg:hidden">
+          {activeDayIndex !== null && dayModel ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {(focus?.days ?? []).map((day, i) => {
+                  const isActive = i === activeDayIndex;
+                  return (
+                    <Link
+                      key={day.day_of_week}
+                      href={
+                        isActive
+                          ? `/microciclos/${microcycle_id}`
+                          : dayCanvasHref(microcycle_id, dayBase + i)
+                      }
+                      scroll={false}
+                      aria-current={isActive ? 'page' : undefined}
+                      aria-label={DAY_LABELS_FULL[i]}
+                      className={cn(
+                        'v2-focus flex h-12 w-11 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--v2-r-s)] border text-[12px] font-bold transition-colors',
+                        isActive
+                          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)] ring-1 ring-[color:var(--v2-accent)]'
+                          : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]',
+                      )}
+                    >
+                      <span>{DAY_LABELS_SHORT[i]}</span>
+                      {day.dominant ? (
+                        <span
+                          aria-hidden
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ background: `var(${MODALITY_META[day.dominant].colorVar})` }}
+                        />
+                      ) : (
+                        <span aria-hidden className="h-1.5 w-1.5" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+              <ActiveDayColumn microcycleId={microcycle_id} dayModel={dayModel} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(focus?.days ?? []).map((day, i) => (
+                <DayColumn
+                  key={day.day_of_week}
+                  day={day}
+                  dayIndex={i}
+                  href={dayCanvasHref(microcycle_id, dayBase + i)}
+                  groupNames={groupNames}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

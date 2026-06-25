@@ -22,7 +22,6 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionPartCard } from './SessionPartCard';
-import { WeekContextStrip } from './WeekContextStrip';
 import { CopyDayModal } from './CopyDayModal';
 import { AddBlockModal } from './AddBlockModal';
 import { BlockEditor } from './BlockEditor';
@@ -74,7 +73,11 @@ const SAVE_ICON: Record<SaveState, string> = {
   error: 'error',
 };
 
-export function DayEditor({ model }: { model: DayEditorModel }) {
+// `embedded` = rendered INSIDE the expanded day-column of the week master-detail
+// grid (the week IS the editor). In that mode the week frame is the surrounding
+// rail of thin day columns, so the editor drops its own week strip, its outer
+// max-width and the standalone "← Volver" link (the column header owns "back").
+export function DayEditor({ model, embedded = false }: { model: DayEditorModel; embedded?: boolean }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -314,29 +317,23 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
     : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
-      {/* WEEK CONTEXT — the permanent week frame: the coach composes this day
-          while seeing the other six. Clicking a cell navigates to that day. */}
-      <WeekContextStrip
-        microcycleId={model.month_id}
-        weekName={model.week_name}
-        weekDays={model.week_days}
-        weekDayBase={model.week_day_base}
-        currentDayOfWeek={model.day_of_week}
-      />
-
+    <div className={embedded ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-[1480px] flex-col gap-5'}>
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          <Link
-            href={`/microciclos/${model.month_id}`}
-            scroll={false}
-            className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="arrow_back" size={15} />
-            Volver a la semana
-          </Link>
-          <h1 className="v2-display text-3xl sm:text-4xl">{model.day_label}</h1>
+          {!embedded ? (
+            <Link
+              href={`/microciclos/${model.month_id}`}
+              scroll={false}
+              className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="arrow_back" size={15} />
+              Volver a la semana
+            </Link>
+          ) : null}
+          <h1 className={embedded ? 'v2-display text-2xl sm:text-3xl' : 'v2-display text-3xl sm:text-4xl'}>
+            {model.day_label}
+          </h1>
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="neutral" variant="soft">
               <span className="v2-num">{sessions.length}</span>&nbsp;sesiones
