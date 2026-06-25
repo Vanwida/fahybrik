@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paridad V1 → V2 — auditoría flujo a flujo antes del corte limpio</title>
+<style>
+  :root{
+    --bg:#fafaf8; --card:#ffffff; --ink:#1a1a1a; --muted:#6b6b6b;
+    --line:#e6e4df; --accent:#e8552a; --accent-soft:#fdeee9;
+    --green:#1f7a3d; --green-bg:#e9f5ee; --red:#b3261e; --red-bg:#fbeae9;
+    --amber:#8a5800; --amber-bg:#fbf2dd; --blue:#1856b8; --blue-bg:#eaf0fb;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 28px 96px}
+  header.doc{border-bottom:3px solid var(--accent);padding-bottom:20px;margin-bottom:8px}
+  h1{font-size:30px;font-style:italic;font-weight:800;letter-spacing:-.5px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px}
+  .meta{font-size:13px;color:var(--muted);margin-top:6px}
+  h2{font-size:21px;margin:48px 0 10px;font-weight:800;letter-spacing:-.3px;
+    border-left:4px solid var(--accent);padding-left:12px}
+  h3{font-size:16px;margin:26px 0 8px;font-weight:700}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:#f1efe9;padding:1px 6px;border-radius:5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:14px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  tr:last-child td{border-bottom:none}
+  .tag{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;
+    letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}
+  .t-already{background:var(--green-bg);color:var(--green)}
+  .t-port{background:var(--blue-bg);color:var(--blue)}
+  .t-dead{background:#efeae4;color:#777}
+  .t-shared{background:var(--amber-bg);color:var(--amber)}
+  .t-verify{background:var(--red-bg);color:var(--red)}
+  .eff{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:6px;background:#f1efe9;color:#555}
+  .eff.l{background:#fbeae9;color:var(--red)}
+  .eff.m{background:#fbf2dd;color:var(--amber)}
+  .eff.s{background:#e9f5ee;color:var(--green)}
+  .callout{border-radius:12px;padding:16px 18px;margin:16px 0;border:1px solid}
+  .c-danger{background:var(--red-bg);border-color:#f0c9c6}
+  .c-safe{background:var(--green-bg);border-color:#bfe2cc}
+  .c-info{background:var(--blue-bg);border-color:#c5d6f3}
+  .c-warn{background:var(--amber-bg);border-color:#ecd8a6}
+  .callout b{display:block;margin-bottom:4px}
+  ul,ol{margin:10px 0 10px 4px;padding-left:22px}
+  li{margin:6px 0}
+  .small{font-size:13px;color:var(--muted)}
+  .rec{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:10px;padding:14px 18px;margin:12px 0}
+  .rec h4{margin:0 0 6px;font-size:15px}
+  .rec .verdict{font-weight:800;font-style:italic}
+  hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;margin:18px 0}
+  .kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:120px}
+  .kpi b{display:block;font-size:24px;font-style:italic}
+  .kpi span{font-size:12px;color:var(--muted)}
+  .legend{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+  .legend .tag{margin-right:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Paridad V1 → V2 — auditoría flujo a flujo antes del corte limpio</h1>
+  <div class="sub">Verificación de cada flujo V1 antes de borrar V1 · solo análisis (read-only) · ningún código tocado</div>
+  <div class="meta">FAHYBRIK / web · rama <code>feat/landing</code> · 2026-06-25 · complementa el mini-mapa de consolidación · leído del árbol real</div>
+</header>
+
+<div class="callout c-danger">
+  <b>TL;DR — esto NO es un corte limpio todavía.</b>
+  Las rutas se mueven fácil. Pero V2 <b>aún no tiene</b> tres capacidades de coach que existen y funcionan en V1: <b>crear un plan/microciclo desde cero</b>, <b>dar de alta / invitar a un atleta</b>, y <b>la composición de semana/entreno con IA</b>. Más la <b>revisión de intake</b> (alta de atleta), que en V2 es solo una etiqueta muerta. Si se borra <code>(app)/*</code> hoy, Pablo se queda sin poder arrancar un plan ni meter un atleta nuevo desde el dashboard. <b>Hay que portar el bloque crítico ANTES de borrar V1</b>, o mantener <code>(app)</code> vivo durante una migración por fases.
+</div>
+
+<div class="kpi">
+  <div><b>4</b><span>flujos del encargo auditados</span></div>
+  <div><b>11</b><span>features V1-only extra encontradas</span></div>
+  <div><b>5</b><span>port-needed críticos (no hay corte limpio)</span></div>
+  <div><b>3</b><span>ya-en-V2 (backend compartido)</span></div>
+  <div><b>2</b><span>dead/stub (descartables)</span></div>
+</div>
+
+<p class="legend">
+  <span class="tag t-already">already-in-v2</span> ya está en V2 — borrar copia V1
+  <span class="tag t-shared">backend-shared</span> la lógica es lib compartida; solo la UI es V1
+  <span class="tag t-port">port-needed</span> feature real, V2 no la tiene — portar antes de borrar
+  <span class="tag t-dead">dead/stub</span> no funciona ni en V1 — descartable
+  <span class="tag t-verify">decisión Alex</span> producto, no técnico
+</p>
+
+<!-- ============================================================ -->
+<h2>1 · Los 4 flujos del encargo</h2>
+
+<table>
+  <thead><tr>
+    <th>Flujo</th><th>Qué hace</th><th>Dónde (V1)</th><th>¿En V2?</th><th>¿Con datos / uso?</th><th>Veredicto</th><th>Portar</th>
+  </tr></thead>
+  <tbody>
+
+  <tr>
+    <td><b>1. Revisión semanal</b><br><span class="small">(evaluate-week)</span></td>
+    <td>Evalúa la semana cerrada de un atleta → veredicto <code>ok</code>/<code>needs_adjustment</code> con señales reales (cumplimiento &lt;60%, readiness &lt;45, caída HRV &gt;15%, sesiones perdidas) y, si toca, propuesta IA para la semana siguiente. Dos disparadores: botón "Evaluar semana" + cron semanal.</td>
+    <td><code>(app)/review</code> = solo <code>redirect('/')</code> (muerto).<br>UI real: <code>components/dashboard/athletes/EvaluateWeekButton.tsx</code> + <code>EvaluateWeekResultDialog.tsx</code> en <code>AthleteShell</code> de <code>(app)/atletas/[id]/page.tsx</code>.<br>Motor: <code>lib/dashboard/coach/weekly-evaluation.ts</code> → <code>@fahybrid/shared/domain/coach/*</code>. Cron: <code>api/cron/weekly-evaluation</code>.</td>
+    <td><b>Ninguna UI.</b> Cero hits de evaluate/weekly/verdict en <code>(v2)</code>, <code>components/v2</code>, <code>lib/dashboard/v2</code>. El detalle de atleta V2 no tiene AttentionZone ni botón evaluar.</td>
+    <td><b>Sí, real.</b> Lee <code>athletes</code>, <code>workout_assignments</code>, <code>daily_checkins</code>, <code>workout_executions</code>, <code>biometric_streams</code>… Persiste en <code>week_adjustment_proposals</code>. Cron registrado en <code>vercel.json</code> (lunes).</td>
+    <td><span class="tag t-shared">backend-shared</span> motor<br><span class="tag t-port">port-needed</span> UI<br><span class="tag t-dead">dead/stub</span> ruta <code>/review</code></td>
+    <td><span class="eff s">pequeño</span><br><span class="small">solo soltar botón+diálogo en detalle V2; API y dominio ya existen</span></td>
+  </tr>
+
+  <tr>
+    <td><b>2a. Autorregulación</b><br><span class="small">(rule-builder)</span></td>
+    <td>UI para componer reglas de autorregulación ("si HRV cae &gt;15%, cambia run PM → remo Z2"): textarea NL → "parse IA" → chips editables; las reglas de Pablo precargan.</td>
+    <td><code>(app)/metodologia/autorregulacion/page.tsx</code><br><code>components/dashboard/methodology/AutoregulationSection.tsx</code> (+ RuleChip)<br><code>lib/dashboard/coach/methodology/{rule-vm,use-rule-parse,defaults}.ts</code></td>
+    <td><b>Ninguna.</b> Sin ruta/componente/link en V2.</td>
+    <td><b>No — STUB.</b> El "parse IA" es un mock hardcodeado con delay falso de 650ms ("STUB for now"). Lista en <code>useState</code> en memoria; refresco = todo perdido. Endpoint <code>/api/coach/methodology/parse-rule</code> <b>no existe</b>. Tabla <code>methodology_rules</code> (mig 0048) + seed existen pero <b>huérfanos</b>: ningún código las lee/escribe.</td>
+    <td><span class="tag t-dead">dead/stub</span></td>
+    <td><span class="eff">no portar</span><br><span class="small">portarlo = mover un demo no-funcional. Es un build nuevo, no un port.</span></td>
+  </tr>
+
+  <tr>
+    <td><b>2b. Week-adjustment</b><br><span class="small">(la autorregulación REAL)</span></td>
+    <td>El mecanismo que sí funciona: el cron genera una propuesta de ajuste (veredicto + cambios de slot); el coach aprueba/rechaza; al aprobar reescribe los <code>workout_assignments</code> de esa semana.</td>
+    <td><code>lib/dashboard/coach/week-adjustments.ts</code><br>Endpoints: <code>api/coach/athletes/[id]/week-adjustment/{propose,approve,reject}</code>, <code>api/coach/review/pending</code><br>UI: <code>components/dashboard/athletes/shell/*</code> (AthleteReviewPublish)</td>
+    <td><b>Parcial (backend compartido).</b> <code>week-adjustments.ts</code> alimenta <code>inbox.ts</code> + <code>recompute.ts</code> → triage de <code>/v2/hoy</code>. Pero la UI de aprobar/rechazar vive solo en V1.</td>
+    <td><b>Sí, real + persistido.</b> Tabla <code>week_adjustment_proposals</code> (mig 0017). Aprobar muta <code>workout_assignments</code>. Zod-validado.</td>
+    <td><span class="tag t-shared">backend-shared</span><br><span class="tag t-port">port-needed</span> UI aprobar/rechazar</td>
+    <td><span class="eff m">medio</span><br><span class="small">lib/endpoints/tipos ya compartidos; rehacer el panel de revisión en V2</span></td>
+  </tr>
+
+  <tr>
+    <td><b>3. Dobles-simulación</b></td>
+    <td>El coach escribe la estrategia conjunta de un equipo HYROX Doubles (A + su <code>partner_id</code> = B): por cada una de las 8 estaciones fija <code>assigned_to</code> (A/Juntos/B) + slider de reparto, y 3 notas libres (plan carrera, relevos RoxZone, táctica). iOS lo lee per-atleta.</td>
+    <td><code>(app)/atletas/[id]/dobles-simulacion/page.tsx</code><br><code>components/dashboard/dobles/SimulationEditor.tsx</code><br>API: <code>api/coach/athletes/[id]/dobles-simulation</code> (GET+PUT, Zod, upsert)<br>Schema: <code>@fahybrid/shared/schema/dobles-simulation</code> · Mig <code>0055</code></td>
+    <td><b>Ninguna.</b> Tabs V2 = perfil/plan/ritmos/historico/biometria/mensajes. Sin tab dobles. (<code>SimulacionHyroxForm</code> de V2 es OTRA cosa: plantilla de bloque race solo.)</td>
+    <td><b>Sí, funcional (no mockup).</b> Tabla real <code>dobles_simulations</code> (mig 0055) con FKs/constraints. Pairing por <code>users.partner_id</code>. iOS ya lo consume (<code>DoblesService.swift</code>). <span class="small">Ojo: en V1 NO está enlazada en la nav — solo accesible por URL directa ("not yet wired").</span></td>
+    <td><span class="tag t-shared">backend-shared</span><br><span class="tag t-port">port-needed</span> UI</td>
+    <td><span class="eff s">pequeño</span><br><span class="small">tabla+schema+API+iOS reusables tal cual; tab condicional "Dobles" si hay partner + retoque de tokens V2</span></td>
+  </tr>
+
+  <tr>
+    <td><b>4a. Atleta · cuerpo</b><br><span class="small">(biometría)</span></td>
+    <td>Deep-dive de señales de cuerpo/recuperación (HRV, RHR, sueño, composición, VO₂max, check-ins).</td>
+    <td><code>(app)/atletas/[id]/cuerpo</code> = redirect a <code>?section=cuerpo</code> del shell<br><code>lib/dashboard/coach/deep-dive-body.ts</code></td>
+    <td><b>Full.</b> <code>components/v2/atleta-detalle/BiometriaTab.tsx</code> importa el <b>mismo</b> <code>buildAthleteBody</code>.</td>
+    <td><b>Sí</b> (backend compartido; lee <code>biometric_streams</code> + <code>notifications</code>).</td>
+    <td><span class="tag t-already">already-in-v2</span><br><span class="tag t-shared">backend-shared</span></td>
+    <td><span class="eff s">—</span><br><span class="small">V2 muestra subset más ligero; confirmar con Alex si faltan tarjetas wellness/composición</span></td>
+  </tr>
+
+  <tr>
+    <td><b>4b. Atleta · rendimiento</b></td>
+    <td>Deep-dive de series de ejercicio, polarización, economía de carrera, umbral, capacidad anaeróbica, race-readiness.</td>
+    <td><code>(app)/atletas/[id]/rendimiento</code> = redirect a shell<br><code>lib/dashboard/coach/deep-dive-performance.ts</code></td>
+    <td><b>Parcial.</b> Repartido en <code>HistoricoTab.tsx</code> + <code>PerfilTab.tsx</code>, que importan el <b>mismo</b> <code>buildAthletePerformance</code> — pero V2 solo consume el trozo de tests. Polarización, economía, umbral, anaeróbico, race-readiness <b>no se muestran</b> en ningún tab V2.</td>
+    <td><b>Sí</b> (<code>segment_executions</code>, <code>biometric_streams</code>, <code>training_load</code>).</td>
+    <td><span class="tag t-shared">backend-shared</span><br><span class="tag t-port">port-needed</span> parcial</td>
+    <td><span class="eff m">medio</span><br><span class="small">datos ya cargados; faltan tiles de UI, sin queries nuevas</span></td>
+  </tr>
+
+  <tr>
+    <td><b>4c. Atleta · intake</b><br><span class="small">(EL HUECO)</span></td>
+    <td>Página de revisión de alta del atleta: 6 tarjetas de decisión + gate, aprueba/construye el plan inicial.</td>
+    <td><code>(app)/atletas/[id]/intake/page.tsx</code> (única sub-ruta V1 real, no redirect)<br><code>IntakeReview</code> + <code>@/lib/coach/intake</code> + <code>components/dashboard/intake/*</code></td>
+    <td><b>Ninguna.</b> Cero rutas/componentes/libs intake en V2. V2 solo <i>reconoce</i> el estado: filtro de roster "Alta sin revisar" + etiqueta de cabecera NO clicable. Sin botón, sin destino.</td>
+    <td><b>V1 sí; V2 no tiene UI.</b> Un coach en V2 no puede revisar un alta — tendría que teclear la URL V1.</td>
+    <td><span class="tag t-port">port-needed</span> hueco real</td>
+    <td><span class="eff l">grande</span><br><span class="small">superficie de revisión + gate + libs intake-month-proposal</span></td>
+  </tr>
+
+  <tr>
+    <td><b>4d. Atleta · plan</b></td>
+    <td>Vista calendario-first del plan del atleta (3 zooms).</td>
+    <td><code>(app)/atletas/[id]/plan</code> = redirect a shell<br><code>buildAthletePlan</code></td>
+    <td><b>Full.</b> <code>components/v2/atleta-detalle/PlanTab.tsx</code>, mismo <code>buildAthletePlan</code> + <code>buildAthleteResumen</code>.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-already">already-in-v2</span></td>
+    <td><span class="eff s">—</span><br><span class="small">V2 más compacto y read-leaning; el flujo de edición/asignación pesado es aparte (ver §2-E/K)</span></td>
+  </tr>
+
+  </tbody>
+</table>
+
+<div class="callout c-info">
+  <b>Nota sobre el detalle de atleta.</b> En V1 <code>cuerpo</code>/<code>rendimiento</code>/<code>plan</code> NO son sub-rutas reales: son <code>redirect()</code> a un único shell <code>?section=…</code>. La única sub-página standalone real es <code>intake</code>. V2 lo sustituye por un detalle de 6 tabs (<code>?tab=…</code>). Los loaders <code>deep-dive-*</code> son <b>literalmente las mismas funciones</b> en ambos → el backend está single-sourced; los ports son solo UI.
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · Features V1-only EXTRA (más allá de los 4)</h2>
+
+<p class="small">Hallazgo meta verificado: <b>ningún archivo V2 importa un componente de feature V1</b>. La única dependencia componente V1→V2 es <code>components/dashboard/programming/studio/prescription-model.ts</code> (modelo de tipos puro — conservar). Todo lo demás que V2 reusa es de <code>lib/dashboard/*</code> (capa de datos, sobrevive). Por tanto toda UI V1 de abajo <b>muere con <code>(app)/*</code></b> salvo que se porte.</p>
+
+<table>
+  <thead><tr>
+    <th>Feature</th><th>Qué hace</th><th>Dónde (V1)</th><th>¿En V2?</th><th>¿Real?</th><th>Veredicto</th><th>Portar</th>
+  </tr></thead>
+  <tbody>
+
+  <tr>
+    <td><b>C · Crear microciclo / plan desde cero</b><br><span class="small">★ HUECO CRÍTICO</span></td>
+    <td>La <b>única</b> UI para crear un microciclo nuevo (nombre+nivel+fase+foco → nuevo <code>month_template</code>). Sin esto un coach <b>no puede arrancar un plan en V2</b>.</td>
+    <td><code>components/dashboard/programming/NewMicrocycleWizard.tsx</code> (vía <code>ProgramarHub</code>)</td>
+    <td><b>Ninguna.</b> V2 solo abre/edita month_templates existentes. Sin wizard de creación.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff m">medio</span></td>
+  </tr>
+
+  <tr>
+    <td><b>D · Alta / invitar atleta</b><br><span class="small">★ HUECO CRÍTICO</span></td>
+    <td>Añadir un atleta nuevo + generar invitación.</td>
+    <td><code>components/dashboard/athletes/AddAthleteModal.tsx</code> + <code>InviteAthleteButton.tsx</code> (en <code>AthletesList</code>)</td>
+    <td><b>Ninguna.</b> <code>RosterDirectory</code> V2 tiene búsqueda/filtro/orden pero <b>ningún</b> botón de alta.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff s">peq/medio</span></td>
+  </tr>
+
+  <tr>
+    <td><b>A · Composición IA de semana / entreno</b><br><span class="small">"Pablo IA Compose"</span></td>
+    <td>Genera una semana o entreno completo desde un prompt; LLM real env-gated con fallback heurístico a plantillas reales.</td>
+    <td><code>components/dashboard/programming/studio/PabloIAComposeModal.tsx</code> → <code>api/coach/ai/{suggest-week,suggest-week-from-blocks,suggest-workout}</code></td>
+    <td><b>Ninguna.</b> Ningún componente V2 llama esos endpoints; el editor V2 es manual. Las rutas API sobreviven pero quedan inalcanzables.</td>
+    <td><b>Sí, verificado.</b> Montado en 2 superficies V1 vivas (<code>LibrarySessionDrawer</code>, <code>ProgrammingWeekStudio</code>), sin feature flag. Endpoints llaman LLM real (OpenRouter/OpenAI env-gated) con fallback heurístico — no es stub.</td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff l">grande</span></td>
+  </tr>
+
+  <tr>
+    <td><b>E · Studio visual de semana + editor de prescripción</b></td>
+    <td>Canvas 7 días (dnd), editor estructurado de prescripción (modalidad/medida/objetivo/esquema, quick-fill, tabla por set), picker de la biblioteca de ~97 bloques de Pablo, undo/redo.</td>
+    <td><code>components/dashboard/programming/studio/*</code> (vía <code>/programar/weeks/[id]</code>)</td>
+    <td><b>Parcial.</b> V2 es día-céntrico (<code>/v2/microciclos/[id]/dia/[idx]</code> <code>DayEditor</code>) con formularios por arquetipo; <b>sin</b> canvas de semana, <b>sin</b> carrusel de esquema/quick-fill, <b>sin</b> picker de bloques existentes.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff l">grande</span></td>
+  </tr>
+
+  <tr>
+    <td><b>J · /hoy triage interactivo</b></td>
+    <td>Cola accionable: multi-select + acciones masivas (snooze/resolver), broadcast de grupo, anillo team-pulse, glance activity-today, capa de teclado.</td>
+    <td><code>(app)/hoy</code> + <code>components/dashboard/hoy/*</code> + <code>lib/dashboard/coach/{team-pulse,activity-today,hoy-data}.ts</code></td>
+    <td><b>Parcial / distinto.</b> <code>/v2/hoy</code> <code>HoyBoard</code> = tablero de 4 lanes de <i>sugerencia</i> no interactivo: sin multi-select, sin acciones masivas, sin team-pulse, sin activity-today. La respuesta inline se movió a <code>/v2/mensajes</code>.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-port">port-needed</span> o <span class="tag t-verify">decisión Alex</span></td>
+    <td><span class="eff l">grande</span></td>
+  </tr>
+
+  <tr>
+    <td><b>G · Propuesta mensual de bloque (IA)</b></td>
+    <td>Bloque mensual propuesto por IA por atleta (primer mes / siguiente bloque); el coach aprueba/rechaza.</td>
+    <td><code>components/dashboard/MonthlyBlockProposalPanel.tsx</code> → <code>api/coach/.../monthly-block[/approve|/reject]</code></td>
+    <td><b>Ninguna.</b> PlanTab V2 read-only; el hoy V2 solo hace el <code>assign-sequence</code> más simple.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff m">medio</span></td>
+  </tr>
+
+  <tr>
+    <td><b>F · Session-drawer inline + "guardar bloque a biblioteca"</b></td>
+    <td>Editar una sesión in-place vía drawer/modal; guardar un bloque a la biblioteca desde una sesión.</td>
+    <td><code>components/dashboard/session-drawer/SessionDrawer.tsx</code> (+ <code>save-block-template.ts</code>)</td>
+    <td><b>Parcial.</b> V2 fuerza edición a página completa (<code>/v2/biblioteca/sesion/[id]</code>); sin drawer inline, sin guardar-a-biblioteca desde sesión.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff m">medio</span></td>
+  </tr>
+
+  <tr>
+    <td><b>B · Sugerencias IA inline ("✨")</b></td>
+    <td>Micro-sugerencias LLM para nombres de entreno/bloque/semana/plantilla y notas del coach.</td>
+    <td><code>components/dashboard/TextAiSuggestButton.tsx</code>, <code>pablo-ia/PabloIAInput.tsx</code> → <code>/api/coach/ai/text-suggest</code></td>
+    <td><b>Ninguna.</b></td>
+    <td><b>Sí</b> (env-gated).</td>
+    <td><span class="tag t-port">port-needed</span></td>
+    <td><span class="eff s">pequeño</span></td>
+  </tr>
+
+  <tr>
+    <td><b>K · Asignar mes / bloque / draft</b><br><span class="small">(<code>AssignFlow</code>)</span></td>
+    <td>Mapea una plantilla sobre el calendario real del atleta (<code>assign-month</code>, <code>assign-draft</code>, <code>assign-block</code>).</td>
+    <td><code>components/dashboard/assign-flow/*</code><br><code>lib/dashboard/coach/instantiate-program.ts</code> (sobrevive vía proposals/cron)</td>
+    <td><b>Parcial.</b> V2 lo sustituye por <code>assign-sequence</code>/<code>advance-sequence</code> agnóstico. La UI de assign mes/bloque/draft no tiene caller V2.</td>
+    <td><b>Sí.</b></td>
+    <td><span class="tag t-shared">backend-shared</span> + <span class="tag t-verify">decisión Alex</span></td>
+    <td><span class="eff m">medio</span><br><span class="small">¿lo retiran del todo las sequences?</span></td>
+  </tr>
+
+  </tbody>
+</table>
+
+<h3>Sobreviven al corte (NO portar, NO borrar a ciegas)</h3>
+<ul class="small">
+  <li><code>components/dashboard/admin/*</code> (<code>AdminShell</code>, <code>BusinessMetrics</code>, <code>CoachRequests</code>) — los usa <code>(admin)/admin</code>, route group <b>separado</b> que sobrevive. Conservar.</li>
+  <li><code>components/dashboard/MIcon</code> (~147 usos, incl. V2) y <code>.../studio/prescription-model.ts</code> (lo usa el editor V2) — átomos/modelo compartidos. Conservar (idealmente mover a ubicación neutra).</li>
+  <li><code>lib/dashboard/coach/*</code> y <code>lib/dashboard/v2/*</code> — backend de producción; <code>api/athlete/zones</code> (iOS) importa de <code>lib/dashboard/v2</code>. Conservar íntegros.</li>
+  <li>El motor de evaluación semanal + cron + <code>instantiate-program</code> + sequences/levels — alcanzados por API/cron/V2 que sobreviven.</li>
+</ul>
+
+<h3>Ya muerto (borrable sin pérdida)</h3>
+<ul class="small">
+  <li><code>(app)/review</code> — solo <code>redirect('/')</code>, sin feature.</li>
+  <li><code>(app)/metodologia/autorregulacion</code> rule-builder — STUB no persistido (ver §1-2a).</li>
+  <li><code>components/dashboard/atoms/AthleteQuickview.tsx</code> — solo en barrel, sin página.</li>
+  <li><code>lib/coach/{ai-suggest-week,ai-suggest-workout,ai-chat,ai-persist-workout}.ts</code> — isla mutuamente aislada, sin importador externo (ya huérfana, no es regresión de V2).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>3 · Recomendación por flujo — decide cada uno en 10 segundos</h2>
+
+<div class="rec">
+  <h4>Revisión semanal &nbsp;<span class="tag t-port">portar UI (pequeño)</span></h4>
+  <p class="small"><span class="verdict">PORTAR</span> el botón "Evaluar semana" + diálogo al detalle de atleta V2 (POST al endpoint que ya existe). El motor y el cron son agnósticos, no se tocan. La ruta <code>/review</code> se <b>borra</b> (es redirect). <span class="small">Verifica con Alex: ¿quiere el botón manual en V2, o le basta el cron surfaceando propuestas en <code>/hoy</code>?</span></p>
+</div>
+
+<div class="rec">
+  <h4>Autorregulación (rule-builder) &nbsp;<span class="tag t-dead">descartar</span></h4>
+  <p class="small"><span class="verdict">DESCARTAR.</span> Es un demo con parse mock y sin persistencia. Portarlo solo movería algo que no funciona. La tabla <code>methodology_rules</code> + seed existen pero están desconectadas. Si la autorregulación por reglas está en el roadmap, es un <b>build nuevo</b>, no un port. <span class="small">Decisión Alex: ¿roadmap o se cae?</span></p>
+</div>
+
+<div class="rec">
+  <h4>Week-adjustment (autorregulación real) &nbsp;<span class="tag t-port">portar UI aprobar/rechazar (medio)</span></h4>
+  <p class="small"><span class="verdict">PORTAR</span> solo el panel de aprobar/rechazar a V2. Lib + endpoints + tabla ya están compartidos y el <code>readiness_score</code> ya alimenta el triage V2; falta la interacción de revisión.</p>
+</div>
+
+<div class="rec">
+  <h4>Dobles-simulación &nbsp;<span class="tag t-port">portar UI (pequeño)</span></h4>
+  <p class="small"><span class="verdict">PORTAR</span> como tab condicional "Dobles" en el detalle de atleta V2 (solo si hay partner). Tabla, schema, API e iOS reutilizables tal cual; solo retocar tokens V2. <span class="small">Subjetivo (Alex): ¿tab propio o panel dentro de Plan?</span></p>
+</div>
+
+<div class="rec">
+  <h4>Atleta · cuerpo &nbsp;<span class="tag t-already">ya en V2</span> &nbsp;· plan &nbsp;<span class="tag t-already">ya en V2</span></h4>
+  <p class="small"><span class="verdict">YA ESTÁ.</span> Mismo backend (<code>buildAthleteBody</code> / <code>buildAthletePlan</code>). Borrar copia V1. <span class="small">(Opcional: confirmar si faltan tarjetas wellness ricas en cuerpo.)</span></p>
+</div>
+
+<div class="rec">
+  <h4>Atleta · rendimiento &nbsp;<span class="tag t-port">portar tiles (medio)</span></h4>
+  <p class="small"><span class="verdict">PORTAR parcial.</span> Backend idéntico ya cargado, pero V2 solo enseña el trozo de tests. Faltan polarización, economía de carrera, umbral, anaeróbico, race-readiness. Sin queries nuevas, solo UI.</p>
+</div>
+
+<div class="rec">
+  <h4>Atleta · intake &nbsp;<span class="tag t-port">portar (grande) — HUECO real</span></h4>
+  <p class="small"><span class="verdict">PORTAR.</span> En V2 un coach no puede revisar un alta: solo ve una etiqueta muerta. Es la superficie de revisión completa + gate + libs <code>intake-month-proposal</code>. <b>Bloqueante para onboarding de atletas en V2.</b></p>
+</div>
+
+<hr>
+
+<div class="callout c-warn">
+  <b>El bloque que hay que portar ANTES de borrar V1 (o el corte rompe a Pablo):</b>
+  <ol style="margin-top:8px">
+    <li><b>C · Crear microciclo/plan desde cero</b> — sin esto no se arranca un plan en V2.</li>
+    <li><b>D · Alta/invitar atleta</b> — sin esto no entra un atleta nuevo desde V2.</li>
+    <li><b>4c · Revisión de intake</b> — sin esto no se aprueba un alta en V2.</li>
+    <li><b>A · Composición IA</b> — la feature IA estrella; queda inalcanzable.</li>
+    <li><b>E · Studio de semana + editor de prescripción</b> — V2 solo edita por día, sin canvas ni picker de bloques.</li>
+  </ol>
+  Los demás port-needed (B, F, G, J, 1-UI, 2b, 3, 4b) son importantes pero no bloquean el día 1. <b>J (hoy interactivo)</b> y <b>K (assign-month)</b> pueden ser cambios de UX <i>deliberados</i> de V2 — confirmar con Alex si la versión más simple es intencional antes de marcarlos como pérdida.
+</div>
+
+<div class="callout c-info">
+  <b>Recomendación de secuencia.</b> No borrar <code>(app)/*</code> aún. O bien (a) portar el bloque crítico C/D/4c/A/E primero y luego cortar, o (b) mantener <code>(app)</code> vivo en <code>/v1/*</code> durante una migración por fases con el login ya apuntando a V2. El routing del mini-mapa es la parte fácil; <b>la paridad de features es el gate real</b>.
+</div>
+
+<div class="small" style="margin-top:40px;color:var(--muted)">
+  Documento de análisis · no se modificó ningún código ni ruta · generado leyendo el árbol en <code>feat/landing</code> con 5 auditorías paralelas (flujo a flujo + barrido).
+</div>
+
+</div>
+</body>
+</html>
