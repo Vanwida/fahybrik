@@ -99,8 +99,8 @@ async function main() {
       return existing[0].id;
     }
     const ins = await sql<{ id: string }[]>`
-      insert into program_week_templates (coach_id, name, level, atr_block_hint, slots_json)
-      values (${coachId}, ${name}, 'pro'::program_level, null, ${sql.json(slots) as never})
+      insert into program_week_templates (coach_id, name, slots_json)
+      values (${coachId}, ${name}, ${sql.json(slots) as never})
       returning id::text
     `;
     return ins[0]!.id;
@@ -153,13 +153,13 @@ async function main() {
       await sql`delete from program_month_weeks where month_template_id = ${Number(monthId)}`;
       await sql`
         update program_month_templates
-        set atr_block_hint = ${blockHint}, updated_at = now()
+        set updated_at = now()
         where id = ${Number(monthId)}
       `;
     } else {
       const ins = await sql<{ id: string }[]>`
-        insert into program_month_templates (coach_id, name, level, atr_block_hint)
-        values (${coachId}, ${name}, 'pro'::program_level, ${blockHint})
+        insert into program_month_templates (coach_id, name)
+        values (${coachId}, ${name})
         returning id::text
       `;
       monthId = ins[0]!.id;
@@ -202,8 +202,8 @@ async function main() {
     await sql`delete from program_macrocycle_blocks where macrocycle_template_id = ${Number(macroId)}`;
   } else {
     const ins = await sql<{ id: string }[]>`
-      insert into program_macrocycle_templates (coach_id, name, level, is_default, total_weeks)
-      values (${coachId}, ${macroName}, 'pro'::program_level, true, 12)
+      insert into program_macrocycle_templates (coach_id, name, is_default, total_weeks)
+      values (${coachId}, ${macroName}, true, 12)
       returning id::text
     `;
     macroId = ins[0]!.id;

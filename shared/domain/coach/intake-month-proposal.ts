@@ -1,12 +1,10 @@
 import type { Sql } from 'postgres';
-import type { ProgramLevel } from '../../schema/program-templates';
 import { mondayOfWeek, mondayOfWeekInBox, isoDateString, parseIsoDate } from '../atr/dates';
 
 export type IntakeMonthProposal = {
   month_template_id: string;
   month_name: string;
-  level: ProgramLevel;
-  atr_block_hint: string | null;
+  level: string;
   suggested_start_date: string;
   rationale: string;
 };
@@ -14,21 +12,22 @@ export type IntakeMonthProposal = {
 export async function proposeFirstMonthForIntake(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
-  level: ProgramLevel;
+  level_id: number | bigint;
   client: Sql;
 }): Promise<IntakeMonthProposal | null> {
   const client = params.client;
 
   const rows = await client<
-    Array<{ id: string; name: string; level: string; atr_block_hint: string | null }>
+    Array<{ id: string; name: string; level: string }>
   >`
-    select id::text, name, level::text, atr_block_hint::text
-    from program_month_templates
-    where coach_id = ${params.coach_id as number}
-      and level = ${params.level}::program_level
+    select m.id::text, m.name, coalesce(al.name, '') as level
+    from program_month_templates m
+    left join athlete_levels al on al.id = m.level_id
+    where m.coach_id = ${params.coach_id as number}
+      and m.level_id = ${params.level_id as number}
     order by
-      case when name ilike '%mes 1%' or name ilike '%month 1%' then 0 else 1 end,
-      updated_at desc
+      case when m.name ilike '%mes 1%' or m.name ilike '%month 1%' then 0 else 1 end,
+      m.updated_at desc
     limit 1
   `;
   const tpl = rows[0];
@@ -49,9 +48,8 @@ export async function proposeFirstMonthForIntake(params: {
   return {
     month_template_id: tpl.id,
     month_name: tpl.name,
-    level: params.level,
-    atr_block_hint: tpl.atr_block_hint,
+    level: tpl.level,
     suggested_start_date: isoDateString(mondayOfWeek(parseIsoDate(start))),
-    rationale: `Mes plantilla recomendado para nivel ${params.level}`,
+    rationale: `Mes plantilla recomendado para nivel ${tpl.level || 'del atleta'}`,
   };
 }

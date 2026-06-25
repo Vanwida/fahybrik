@@ -2,7 +2,7 @@
  * Real-DB integration tests for editing a library block's master fields
  * (Biblioteca de Bloques, 0037). `updateBlock` backs `PATCH /api/coach/blocks/[id]`,
  * which lets the coach edit the GLOBAL master library (title / description /
- * methodology_group_id / atr_block_hint). Mutating affects every future
+ * methodology_group_id / nivel / días). Mutating affects every future
  * materialization. The structured `block_exercises` are NOT touched here.
  *
  * Also covers the Zod contract (`blockUpdateSchema`) the route validates against.
@@ -34,7 +34,7 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     return fx;
   }
 
-  test('updates title / description / group / atr and returns the new block', async () => {
+  test('updates title / description / group and returns the new block', async () => {
     const fx = await fixture();
     const blockId = await makeLibraryBlock({
       fx,
@@ -49,7 +49,6 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
         title: 'Editado',
         description: 'Nueva prescripción',
         methodology_group_id: 3,
-        atr_block_hint: 'TRANS',
       },
       sql,
     );
@@ -58,13 +57,11 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     expect(updated!.title).toBe('Editado');
     expect(updated!.description).toBe('Nueva prescripción');
     expect(updated!.methodology_group_id).toBe(3);
-    expect(updated!.atr_block_hint).toBe('TRANS');
 
     // Persisted.
     const reread = await getBlockById(blockId, sql);
     expect(reread!.title).toBe('Editado');
     expect(reread!.methodology_group_id).toBe(3);
-    expect(reread!.atr_block_hint).toBe('TRANS');
   });
 
   test('partial patch leaves untouched fields intact', async () => {
@@ -79,19 +76,6 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     const updated = await updateBlock(blockId, { title: 'Nuevo título' }, sql);
     expect(updated!.title).toBe('Nuevo título');
     expect(updated!.description).toBe('Esta descripción no debe cambiar');
-  });
-
-  test('can clear atr_block_hint by setting it to null', async () => {
-    const fx = await fixture();
-    const blockId = await makeLibraryBlock({
-      fx,
-      title: 'Con fase',
-      description: 'X',
-      exercises: [],
-    });
-    await updateBlock(blockId, { atr_block_hint: 'ACC' }, sql);
-    const cleared = await updateBlock(blockId, { atr_block_hint: null }, sql);
-    expect(cleared!.atr_block_hint).toBeNull();
   });
 
   test('unknown block id returns null', async () => {
@@ -134,12 +118,11 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     expect(blockUpdateSchema.safeParse({ methodology_group_id: 11 }).success).toBe(false);
   });
 
-  test('accepts atr_block_hint: null and trims title', () => {
-    const parsed = blockUpdateSchema.safeParse({ title: '  Hola  ', atr_block_hint: null });
+  test('trims title', () => {
+    const parsed = blockUpdateSchema.safeParse({ title: '  Hola  ' });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.title).toBe('Hola');
-      expect(parsed.data.atr_block_hint).toBeNull();
     }
   });
 });

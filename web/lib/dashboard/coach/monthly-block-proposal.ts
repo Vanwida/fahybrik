@@ -5,8 +5,6 @@ import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
 import { buildAthleteContextPack } from './pablo-ia-context';
 import { proposeFirstMonthForIntake } from './intake-month-proposal';
-import type { ProgramLevel } from '@fahybrid/shared/schema/program-templates';
-import { intakeLevelToProgramLevel } from './athlete-training-level';
 import { instantiateMonthFromTemplate } from './instantiate-program';
 
 export type MonthlyBlockProposal = {
@@ -128,38 +126,34 @@ export async function proposeNextMonthlyBlock(params: {
   );
 
   // Nivel del atleta = fuente AGNÓSTICA única: athletes.level_id → athlete_levels
-  // (por coach, N1-N5). Preferimos el nivel ASIGNADO por el coach (level_id) y, si
-  // no hay, el SUGERIDO por el algoritmo (suggested_level_id). El antiguo
-  // `intake_notes_json ->> 'level'` (1-4 del wizard V1) ya NO es el eje del flujo.
-  //
-  // La query de plantilla todavía usa el enum legacy `program_level` (tagging axis,
-  // sin migrar — ver D1). Hacemos el puente vía sort_order de athlete_levels acotado
-  // a 1-4 (N5 → elite, reutilizando la regla 4=elite existente; no es un enum nuevo)
-  // hasta que las plantillas se taggeen por level_id.
-  const levelRows = await client<Array<{ sort_order: number | null }>>`
-    select coalesce(al.sort_order, sal.sort_order) as sort_order
+  // (por coach). Preferimos el nivel ASIGNADO por el coach (level_id) y, si no hay,
+  // el SUGERIDO por el algoritmo (suggested_level_id). Las plantillas de microciclo
+  // se seleccionan por ese mismo level_id.
+  const levelRows = await client<Array<{ level_id: string | null }>>`
+    select coalesce(a.level_id, a.suggested_level_id)::text as level_id
     from athletes a
-    left join athlete_levels al  on al.id = a.level_id
-    left join athlete_levels sal on sal.id = a.suggested_level_id
     where a.id = ${params.athlete_id as number}
     limit 1
   `;
-  const sortOrder = levelRows[0]?.sort_order;
-  const programLevel: ProgramLevel =
-    sortOrder != null && sortOrder >= 1
-      ? intakeLevelToProgramLevel(Math.min(4, sortOrder) as 1 | 2 | 3 | 4)
-      : 'intermediate';
+  const levelId = levelRows[0]?.level_id;
+  if (levelId == null) {
+    throw new MonthlyBlockError(
+      'no_level',
+      'El atleta no tiene nivel asignado. Asigna un nivel antes de proponer el siguiente microciclo.',
+      409,
+    );
+  }
 
   const proposal = await proposeFirstMonthForIntake({
     coach_id: params.coach_id,
     athlete_id: params.athlete_id,
-    level: programLevel,
+    level_id: Number(levelId),
     client,
   });
   if (!proposal) {
     throw new MonthlyBlockError(
       'no_template',
-      `No hay mes plantilla nivel ${programLevel} para este coach.`,
+      `No hay mes plantilla para el nivel del atleta en este coach.`,
       409,
     );
   }

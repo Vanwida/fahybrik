@@ -45,12 +45,6 @@ export type BlockMicrocycleView = {
 export type AtrBlockView = {
   block_id: string;
   type: AtrBlockType;
-  /**
-   * Coach phase id (methodology_phases.id) this block links to — drives the
-   * resolver (label/color/role). null pre-migration (0052 not applied) OR for any
-   * block still on the legacy `type` enum, where the resolver falls back to ATR.
-   */
-  phase_id: string | null;
   position: number;
   /** Estado del bloque: planned | active | completed | skipped (block_status). */
   status: string;
@@ -131,56 +125,26 @@ export async function buildAthleteBlocksView(params: {
     };
   }
 
-  // `atr_blocks.phase_id` is additive (0052) and may not exist yet pre-migration.
-  // Guard the column so the running app (no 0052) keeps reading blocks as before;
-  // when absent, phase_id resolves to null and the resolver falls back to legacy.
-  const hasPhaseId = await client<Array<{ t: string | null }>>`
-    select 1 as t
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'atr_blocks'
-      and column_name = 'phase_id'
-    limit 1
-  `;
-  const phaseIdExists = hasPhaseId.length > 0;
-
   type BlockRow = {
     block_id: string;
     type: AtrBlockType;
-    phase_id: string | null;
     position: number;
     status: string;
     start_date: string;
     end_date: string;
   };
-  const blockRows = phaseIdExists
-    ? await client<Array<BlockRow>>`
-        select
-          id::text as block_id,
-          type::text as type,
-          phase_id::text as phase_id,
-          position,
-          status::text as status,
-          to_char(start_date, 'YYYY-MM-DD') as start_date,
-          to_char(end_date, 'YYYY-MM-DD') as end_date
-        from atr_blocks
-        where macrocycle_id = ${Number(macro.id)}
-        order by position asc
-      `
-    : (
-        await client<Array<Omit<BlockRow, 'phase_id'>>>`
-          select
-            id::text as block_id,
-            type::text as type,
-            position,
-            status::text as status,
-            to_char(start_date, 'YYYY-MM-DD') as start_date,
-            to_char(end_date, 'YYYY-MM-DD') as end_date
-          from atr_blocks
-          where macrocycle_id = ${Number(macro.id)}
-          order by position asc
-        `
-      ).map((b) => ({ ...b, phase_id: null }));
+  const blockRows = await client<Array<BlockRow>>`
+    select
+      id::text as block_id,
+      type::text as type,
+      position,
+      status::text as status,
+      to_char(start_date, 'YYYY-MM-DD') as start_date,
+      to_char(end_date, 'YYYY-MM-DD') as end_date
+    from atr_blocks
+    where macrocycle_id = ${Number(macro.id)}
+    order by position asc
+  `;
 
   const microRows = await client<
     Array<{
@@ -219,17 +183,15 @@ export async function buildAthleteBlocksView(params: {
   `;
   const draftWeeks = new Set(draftRows.map((r) => r.week_start));
 
-  // Plantillas de semana disponibles por fase (atr_block_hint) para el coach.
-  const tplRows = await client<Array<{ atr_block_hint: string | null; n: number }>>`
-    select atr_block_hint::text, count(*)::int as n
+  // Plantillas de semana del coach disponibles (ya NO se taggean por fase: el
+  // microciclo se identifica por nombre + nivel + nº semanas, y el orden ES la
+  // periodización). Conteo único usado para todos los bloques.
+  const tplCountRows = await client<Array<{ n: number }>>`
+    select count(*)::int as n
     from program_week_templates
     where coach_id = ${Number(params.coach_id)}
-    group by atr_block_hint
   `;
-  const tplByPhase = new Map<string, number>();
-  for (const r of tplRows) {
-    if (r.atr_block_hint) tplByPhase.set(r.atr_block_hint, r.n);
-  }
+  const availableWeekTemplates = tplCountRows[0]?.n ?? 0;
 
   const microByBlock = new Map<string, BlockMicrocycleView[]>();
   for (const m of microRows) {
@@ -259,7 +221,6 @@ export async function buildAthleteBlocksView(params: {
     return {
       block_id: b.block_id,
       type: b.type,
-      phase_id: b.phase_id,
       position: b.position,
       status: b.status,
       start_date: b.start_date,
@@ -268,7 +229,7 @@ export async function buildAthleteBlocksView(params: {
       microcycles: micros,
       assignment_count,
       is_assigned: assignment_count > 0,
-      available_week_templates: tplByPhase.get(b.type) ?? 0,
+      available_week_templates: availableWeekTemplates,
     };
   });
 
@@ -371,14 +332,13 @@ export async function assignBlockToAthlete(params: {
         PLANNED_WEEKS_DAYS,
     ) + 1;
 
-  // Plantillas de semana en orden de semana del bloque. Se seleccionan por la
-  // FASE del coach (block.phase_id → methodology_phases.code, agnóstico); el enum
-  // legacy `block.type` queda solo como fallback cuando el bloque no tiene fase.
+  // Plantillas de semana en orden de semana del bloque. Las explícitas (elegidas
+  // por el coach) mandan; en automático se toman las plantillas del coach
+  // ordenadas por el nº de semana parseado del nombre.
   const weekTemplateIds = await resolveWeekTemplateIds({
     client,
     coach_id: params.coach_id,
-    phase_hint: await resolveBlockPhaseHint({ client, phase_id: block.phase_id }),
-    atr_block: block.type,
+    block_type: block.type,
     explicit_ids: params.program_week_template_ids,
     needed_weeks: plannedWeeks,
   });
@@ -475,27 +435,9 @@ export async function assignBlockToAthlete(params: {
 type TargetBlock = {
   block_id: string;
   type: AtrBlockType;
-  /** Coach phase id (methodology_phases.id) — the agnostic select axis; null when
-   *  the block is on the legacy enum only (pre-0052 or unlinked). */
-  phase_id: string | null;
   start_date: string;
   end_date: string;
 };
-
-// `atr_blocks.phase_id` is additive (0052) and may be absent pre-migration.
-// Cache the existence check per process so resolveTargetBlock can pick the right
-// projection without re-querying information_schema on every call.
-async function atrBlocksHasPhaseId(client: Sql): Promise<boolean> {
-  const rows = await client<Array<{ t: number }>>`
-    select 1 as t
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'atr_blocks'
-      and column_name = 'phase_id'
-    limit 1
-  `;
-  return rows.length > 0;
-}
 
 async function resolveTargetBlock(params: {
   client: Sql;
@@ -505,17 +447,14 @@ async function resolveTargetBlock(params: {
   start_date?: string | undefined;
 }): Promise<TargetBlock> {
   const { client } = params;
-  const hasPhaseId = await atrBlocksHasPhaseId(client);
-  const phaseIdCol = hasPhaseId ? client`phase_id::text` : client`null::text`;
 
   if (params.atr_block) {
     const rows = await client<
-      Array<{ block_id: string; type: AtrBlockType; phase_id: string | null; start_date: string; end_date: string }>
+      Array<{ block_id: string; type: AtrBlockType; start_date: string; end_date: string }>
     >`
       select
         id::text as block_id,
         type::text as type,
-        ${phaseIdCol} as phase_id,
         to_char(start_date, 'YYYY-MM-DD') as start_date,
         to_char(end_date, 'YYYY-MM-DD') as end_date
       from atr_blocks
@@ -539,12 +478,11 @@ async function resolveTargetBlock(params: {
   // o el primer bloque planificado del macrociclo si no se pasa fecha.
   const anchorIso = params.start_date ?? null;
   const rows = await client<
-    Array<{ block_id: string; type: AtrBlockType; phase_id: string | null; start_date: string; end_date: string }>
+    Array<{ block_id: string; type: AtrBlockType; start_date: string; end_date: string }>
   >`
     select
       id::text as block_id,
       type::text as type,
-      ${phaseIdCol} as phase_id,
       to_char(start_date, 'YYYY-MM-DD') as start_date,
       to_char(end_date, 'YYYY-MM-DD') as end_date
     from atr_blocks
@@ -568,35 +506,16 @@ async function resolveTargetBlock(params: {
 }
 
 /**
- * The block's coach phase `code` (methodology_phases) used to select week
- * templates by phase — the AGNOSTIC axis. Returns null when the block has no
- * `phase_id` (pre-0052 / unlinked), so the caller falls back to the legacy enum.
- */
-async function resolveBlockPhaseHint(params: {
-  client: Sql;
-  phase_id: string | null;
-}): Promise<string | null> {
-  if (!params.phase_id) return null;
-  const rows = await params.client<Array<{ code: string }>>`
-    select code from methodology_phases where id = ${Number(params.phase_id)} limit 1
-  `;
-  return rows[0]?.code ?? null;
-}
-
-/**
  * Devuelve los ids de `program_week_templates` en orden de semana para el bloque.
  * - Explícitas → se respetan tal cual (orden del coach).
- * - Auto (por fase) → plantillas con ese `atr_block_hint`, una por semana,
- *   ordenadas por el nº de semana parseado del nombre ("Semana N") y, dentro de
- *   la misma semana, la variante base (nombre más corto → sin sufijo de modalidad).
+ * - Auto → todas las plantillas del coach, una por semana, ordenadas por el nº de
+ *   semana parseado del nombre ("Semana N") y, dentro de la misma semana, la
+ *   variante base (nombre más corto → sin sufijo de modalidad).
  */
 async function resolveWeekTemplateIds(params: {
   client: Sql;
   coach_id: number | bigint;
-  /** Coach phase code (methodology_phases) — the agnostic select axis. Preferred
-   *  over `atr_block`; null when the block has no phase link (legacy fallback). */
-  phase_hint: string | null;
-  atr_block: AtrBlockType;
+  block_type: AtrBlockType;
   explicit_ids?: Array<number | bigint> | undefined;
   needed_weeks: number;
 }): Promise<number[]> {
@@ -619,36 +538,19 @@ async function resolveWeekTemplateIds(params: {
     return ids;
   }
 
-  // Selección por FASE del coach (agnóstico): preferimos el código de fase del
-  // coach (block.phase_id → methodology_phases.code), comparado case-insensitive
-  // contra el `atr_block_hint` de la plantilla. Si esa fase no tiene plantillas
-  // (o el bloque no tiene fase enlazada), caemos al enum legacy `atr_block` (mismo
-  // valor 1:1 para el set ATR por defecto: code 'acc' ↔ enum 'ACC'). Así un coach
-  // con fases propias selecciona por SU fase, no por el enum hardcodeado.
-  const phaseHint = params.phase_hint?.trim() || null;
-  let rows: Array<{ id: string; name: string }> = [];
-  if (phaseHint) {
-    rows = await params.client<Array<{ id: string; name: string }>>`
-      select id::text, name
-      from program_week_templates
-      where coach_id = ${Number(params.coach_id)}
-        and lower(atr_block_hint::text) = lower(${phaseHint})
-      order by id asc
-    `;
-  }
-  if (rows.length === 0) {
-    rows = await params.client<Array<{ id: string; name: string }>>`
-      select id::text, name
-      from program_week_templates
-      where coach_id = ${Number(params.coach_id)}
-        and atr_block_hint = ${params.atr_block}
-      order by id asc
-    `;
-  }
+  // Auto: todas las plantillas de semana del coach. El microciclo ya no se taggea
+  // por fase — el orden de las plantillas (por nº de semana del nombre) ES la
+  // periodización. El coach afina con ids explícitas cuando lo necesita.
+  const rows = await params.client<Array<{ id: string; name: string }>>`
+    select id::text, name
+    from program_week_templates
+    where coach_id = ${Number(params.coach_id)}
+    order by id asc
+  `;
   if (rows.length === 0) {
     throw new AssignBlockError(
       'no_week_templates',
-      `No hay plantillas de semana para la fase ${phaseHint ?? params.atr_block}.`,
+      `No hay plantillas de semana para el bloque ${params.block_type}. Crea plantillas de semana antes de asignar.`,
       409,
     );
   }

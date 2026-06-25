@@ -239,11 +239,10 @@ export async function makeMonthTemplate(params: {
 }): Promise<{ monthId: number; weekIds: number[] }> {
   const sql = params.fx.sql;
   const coachId = params.fx.coachId;
-  const level = params.level ?? 'elite';
 
   const month = await sql<Array<{ id: string }>>`
-    insert into program_month_templates (coach_id, name, level, atr_block_hint)
-    values (${coachId}, 'Test month', ${level}::program_level, 'ACC')
+    insert into program_month_templates (coach_id, name)
+    values (${coachId}, 'Test month')
     returning id::text
   `;
   const monthId = Number(month[0]!.id);
@@ -257,12 +256,10 @@ export async function makeMonthTemplate(params: {
       })),
     };
     const week = await sql<Array<{ id: string }>>`
-      insert into program_week_templates (coach_id, name, level, atr_block_hint, slots_json)
+      insert into program_week_templates (coach_id, name, slots_json)
       values (
         ${coachId},
         ${`Test week ${i + 1}`},
-        ${level}::program_level,
-        'ACC',
         ${sql.json(slots as Parameters<typeof sql.json>[0])}
       )
       returning id::text
@@ -366,11 +363,10 @@ export async function makeInlineMonthTemplate(params: {
 }): Promise<{ monthId: number; weekIds: number[] }> {
   const sql = params.fx.sql;
   const coachId = params.fx.coachId;
-  const level = params.level ?? 'elite';
 
   const month = await sql<Array<{ id: string }>>`
-    insert into program_month_templates (coach_id, name, level, atr_block_hint)
-    values (${coachId}, 'Inline month', ${level}::program_level, 'ACC')
+    insert into program_month_templates (coach_id, name)
+    values (${coachId}, 'Inline month')
     returning id::text
   `;
   const monthId = Number(month[0]!.id);
@@ -402,12 +398,10 @@ export async function makeInlineMonthTemplate(params: {
   const weekIds: number[] = [];
   for (let i = 0; i < params.weekCount; i++) {
     const week = await sql<Array<{ id: string }>>`
-      insert into program_week_templates (coach_id, name, level, atr_block_hint, slots_json)
+      insert into program_week_templates (coach_id, name, slots_json)
       values (
         ${coachId},
         ${`Inline week ${i + 1}`},
-        ${level}::program_level,
-        'ACC',
         ${sql.json(slots as Parameters<typeof sql.json>[0])}
       )
       returning id::text

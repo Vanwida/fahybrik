@@ -6,7 +6,6 @@ import {
   evaluateAtrTransitionReadiness,
   type AtrTransitionReadiness,
 } from './atr-transition-detector';
-import { loadCoachPhases } from './phases';
 
 // Idempotency window: don't re-notify the coach about the same from→to
 // transition for the same athlete inside this window. 14 days mirrors what
@@ -25,26 +24,14 @@ export type AtrTransitionCheckOutcome = {
 export async function checkAndNotifyAtrTransition(params: {
   athlete_id: number | bigint;
   on_date?: Date;
-  /** Coach phases (optional). If omitted, resolved from the athlete's coach. */
+  /** Kept for call-site compatibility; the detector no longer needs the coach. */
   coach_id?: number | bigint;
   client?: Sql;
 }): Promise<AtrTransitionCheckOutcome> {
   const client = params.client ?? defaultSql;
 
-  // Resolve the athlete's coach so the detector reads its configured phase set.
-  // loadCoachPhases is guarded (returns [] pre-migration) → legacy ATR fallback.
-  let coachId = params.coach_id;
-  if (coachId == null) {
-    const rows = await client<Array<{ coach_id: string }>>`
-      select coach_id::text as coach_id from athletes where id = ${params.athlete_id as number} limit 1
-    `;
-    coachId = rows[0]?.coach_id != null ? Number(rows[0].coach_id) : undefined;
-  }
-  const coachPhases = coachId != null ? await loadCoachPhases(coachId, client) : [];
-
   const evaluation = await evaluateAtrTransitionReadiness({
     athlete_id: params.athlete_id,
-    coachPhases,
     on_date: params.on_date,
     client,
   });

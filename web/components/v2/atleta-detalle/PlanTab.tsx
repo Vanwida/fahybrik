@@ -151,8 +151,8 @@ export function PlanTab({
     );
   }
 
-  // Phase label resolved server-side through the coach's methodology_phases
-  // (agnostic). Falls back to the raw enum only if the resolver yielded nothing.
+  // Block label resolved server-side (the legacy ATR full-word label). Falls back
+  // to the raw block type only if no label was resolved.
   const blockName = plan.current_block_label ?? plan.current_block ?? '—';
   const blockWeek = plan.macro.block_week;
   const microName = plan.macro.phase_assignments.find(

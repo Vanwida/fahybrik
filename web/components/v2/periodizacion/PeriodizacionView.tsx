@@ -1,19 +1,18 @@
 'use client';
 
 // PeriodizacionView — the client orchestrator for the Periodización section. Owns
-// the active area (Niveles | Fases | Secuencias), mirrored to ?area= so it's
-// linkable, and a SegmentedControl to switch between the three. All areas are the
-// coach's framework DATA, edited in place and persisted to the real APIs.
+// the active area (Niveles | Secuencias), mirrored to ?area= so it's linkable, and
+// a SegmentedControl to switch between them. Both areas are the coach's framework
+// DATA, edited in place and persisted to the real APIs.
 //
 //   · Niveles    — the rows of the matrix (athlete_levels).
-//   · Fases      — the optional color axis (methodology_phases).
-//   · Secuencias — the matrix itself (nivel × días) + the in-cell sequence editor.
+//   · Secuencias — the matrix itself (nivel × días) + the in-cell sequence editor;
+//                  the ORDER of microciclos in a cell IS the periodization.
 //
 // Inline orientation (shared primitives, DRY): a PipelineCue (this section owns
 // steps 1 & 5 of the build flow) + a dismissable IntroStrip + an InfoDot recall
 // in the title. The Secuencias matrix carries a ContextHint (placed inside its
-// panel). All orientation is light, agnostic ("tus niveles/fases/microciclos")
-// and fully turn-off-able.
+// panel). All orientation is light, agnostic and fully turn-off-able.
 
 import { useCallback, useState } from 'react';
 import { useRouter, usePathname } from '@/i18n/navigation';
@@ -29,20 +28,17 @@ import type { PipelineProgress, PipelineStepKey } from '@/lib/dashboard/v2/orien
 import type { V2PeriodizacionData } from '@/lib/dashboard/v2/periodizacion';
 import type { V2SecuenciasData } from '@/lib/dashboard/v2/secuencias';
 import { NivelesPanel } from './NivelesPanel';
-import { FasesPanel } from './FasesPanel';
 import { SecuenciasPanel } from './secuencias/SecuenciasPanel';
 
-export type PeriodizacionArea = 'niveles' | 'fases' | 'secuencias';
+export type PeriodizacionArea = 'niveles' | 'secuencias';
 
 const AREA_OPTIONS: ReadonlyArray<{ value: PeriodizacionArea; label: string }> = [
   { value: 'niveles', label: 'Niveles' },
-  { value: 'fases', label: 'Fases' },
   { value: 'secuencias', label: 'Secuencias' },
 ];
 
 const AREA_TITLE: Record<PeriodizacionArea, string> = {
   niveles: 'niveles',
-  fases: 'fases',
   secuencias: 'secuencias',
 };
 
@@ -58,11 +54,6 @@ const AREA_INTRO_LINE: Record<PeriodizacionArea, React.ReactNode> = {
       <b>Tus niveles</b> clasifican a cada atleta — son las filas de la matriz de Secuencias.
     </>
   ),
-  fases: (
-    <>
-      <b>Tus fases</b> dan color y orden al método — el eje opcional sobre tus microciclos.
-    </>
-  ),
   secuencias: (
     <>
       La matriz <b>nivel × días</b>: en cada celda, el orden de tus microciclos.
@@ -74,10 +65,10 @@ const AREA_INTRO_LINE: Record<PeriodizacionArea, React.ReactNode> = {
 // teach the flow, not the current tab).
 const INTRO_STEPS: IntroMicroStep[] = [
   {
-    title: 'Define niveles y fases',
+    title: 'Define tus niveles',
     body: (
       <>
-        El marco de tu método: los niveles clasifican al atleta, las fases dan color.
+        El marco de tu método: los niveles clasifican al atleta — las filas de la matriz.
       </>
     ),
   },
@@ -159,7 +150,7 @@ export function PeriodizacionView({
               </>
             ) : (
               <>
-                Define <b>tus niveles y fases</b> · el marco de tu método
+                Define <b>tus niveles</b> · el marco de tu método
               </>
             )
           }
@@ -179,8 +170,6 @@ export function PeriodizacionView({
       <div className="mt-1">
         {area === 'niveles' ? (
           <NivelesPanel initialLevels={data.levels} />
-        ) : area === 'fases' ? (
-          <FasesPanel initialPhases={data.phases} />
         ) : (
           <SecuenciasPanel initial={secuencias} />
         )}

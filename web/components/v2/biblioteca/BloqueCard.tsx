@@ -1,22 +1,14 @@
 'use client';
 
 // BloqueCard — one reusable library block. Modality-colored left border, the
-// block title, its methodology-group label, an optional ATR phase hint, a clamped
-// verbatim preview, and a "sin desglosar" flag for blocks pending Pablo's
-// structured review. Blocks are not yet individually editable in v2, so the card
-// is a non-link surface (no detail route assigned to this agent).
+// block title, its methodology-group label, a clamped verbatim preview, and a
+// "sin desglosar" flag for blocks pending Pablo's structured review. Blocks are
+// not yet individually editable in v2, so the card is a non-link surface.
 
 import { MIcon } from '@/components/ui/MIcon';
-import { Pill } from '@/components/v2/Pill';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
 import type { V2BloqueItem } from '@/lib/dashboard/v2/biblioteca-data';
-
-const ATR_LABEL: Record<'ACC' | 'TRANS' | 'REAL', string> = {
-  ACC: 'Acumulación',
-  TRANS: 'Transformación',
-  REAL: 'Realización',
-};
 
 export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: number }) {
   const meta = MODALITY_META[bloque.modality];
@@ -50,7 +42,7 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
         ) : null}
       </div>
 
-      {/* Group + ATR tags */}
+      {/* Group tag */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span
           className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
@@ -58,11 +50,6 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
         >
           {bloque.group_label}
         </span>
-        {bloque.atr_hint ? (
-          <Pill tone="neutral" variant="outline" className="uppercase">
-            {ATR_LABEL[bloque.atr_hint]}
-          </Pill>
-        ) : null}
       </div>
 
       {/* Verbatim preview */}

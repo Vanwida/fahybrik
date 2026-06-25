@@ -11,7 +11,7 @@ import {
   type WeekDay,
   type BlockUseModifiers,
 } from '@fahybrid/shared/schema/program-templates';
-import type { AtrBlockHint, Block } from '@fahybrid/shared/schema/blocks';
+import type { Block } from '@fahybrid/shared/schema/blocks';
 import { isPabloIaLlmConfigured, callPabloIaLlmJson, PabloIaLlmError } from './llm';
 import { createPartFromLibraryBlock } from '@/lib/dashboard/programming/block-to-part';
 
@@ -148,7 +148,6 @@ export interface ComposableBlock {
   description: string;
   methodology_group_id: number;
   format: string | null;
-  atr_block_hint: AtrBlockHint | null;
   source_ref: string | null;
   default_modifiers: BlockUseModifiers | null;
 }
@@ -162,13 +161,12 @@ async function loadComposableBlocks(client: Sql): Promise<ComposableBlock[]> {
       description: string;
       methodology_group_id: number;
       format: string | null;
-      atr_block_hint: AtrBlockHint | null;
       source_ref: string | null;
       default_modifiers: BlockUseModifiers | null;
     }>
   >`
     select id, slug, title, description, methodology_group_id,
-           format, atr_block_hint, source_ref, default_modifiers
+           format, source_ref, default_modifiers
     from blocks
     where coach_id is null
     order by methodology_group_id asc, id asc
@@ -215,7 +213,6 @@ function toBlock(b: ComposableBlock): Block {
     description: b.description,
     methodology_group_id: b.methodology_group_id,
     format: b.format,
-    atr_block_hint: b.atr_block_hint,
     source_ref: b.source_ref,
     // El composer solo trabaja con bloques desglosables (con block_exercises);
     // el materializador no usa este flag. Completa el shape `Block`.
@@ -412,26 +409,15 @@ export function composeWeekHeuristic(args: HeuristicArgs): ComposeResult {
   const trainingSet = new Set(args.training_days);
   const phase = args.atr_block;
 
-  // Agrupa bloques por methodology_group, priorizando los que tengan el
-  // atr_block_hint de la fase (si hay fase). Dentro de cada grupo: hint-match
-  // primero, luego el resto.
+  // Agrupa bloques por methodology_group. El orden dentro del grupo es por id.
   const byGroup = new Map<number, ComposableBlock[]>();
   for (const b of args.blocks) {
     const arr = byGroup.get(b.methodology_group_id);
     if (arr) arr.push(b);
     else byGroup.set(b.methodology_group_id, [b]);
   }
-  if (phase) {
-    for (const arr of byGroup.values()) {
-      arr.sort((a, b) => {
-        const am = a.atr_block_hint === phase ? 0 : 1;
-        const bm = b.atr_block_hint === phase ? 0 : 1;
-        return am - bm;
-      });
-    }
-  }
 
-  // Orden de grupos a recorrer según la fase (o fallback: por id).
+  // Orden de grupos a recorrer según el bloque ATR (o fallback: por id).
   const groupOrder = phase
     ? PHASE_GROUP_PRIORITY[phase].filter((g) => byGroup.has(g))
     : [...byGroup.keys()].sort((a, b) => a - b);
@@ -613,7 +599,7 @@ export async function composeWeekLlm(args: LlmComposeArgs): Promise<ComposeResul
   const catalog = args.blocks
     .map(
       (b) =>
-        `- id=${b.id} | "${b.title}" | grupo=${b.methodology_group_id} (${GROUP_NAMES_ES[b.methodology_group_id] ?? '?'}) | atr=${b.atr_block_hint ?? '—'} | fmt=${b.format ?? '—'}`,
+        `- id=${b.id} | "${b.title}" | grupo=${b.methodology_group_id} (${GROUP_NAMES_ES[b.methodology_group_id] ?? '?'}) | fmt=${b.format ?? '—'}`,
     )
     .join('\n');
 

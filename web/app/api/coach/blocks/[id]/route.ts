@@ -36,7 +36,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 }
 
 // PATCH /api/coach/blocks/[id] — edita los campos del bloque en la BIBLIOTECA
-// MAESTRA global (title / description / methodology_group_id / atr_block_hint).
+// MAESTRA global (title / description / methodology_group_id / nivel / días).
 // Mutar afecta a TODA materialización futura del bloque (no a los entrenos ya
 // asignados). NO edita los `block_exercises` estructurados (paso aparte). Auth
 // coach, validación server-side con Zod, SQL tagged templates. snake_case.

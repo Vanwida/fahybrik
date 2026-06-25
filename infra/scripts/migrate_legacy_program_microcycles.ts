@@ -26,8 +26,8 @@ async function ensureLegacyMonth(name: string): Promise<number> {
   `;
   if (existing[0]) return Number(existing[0].id);
   const inserted = await sql<Array<{ id: string }>>`
-    insert into program_month_templates (coach_id, name, level, atr_block_hint)
-    values (${COACH_ID}, ${name}, 'pro'::program_level, 'ACC')
+    insert into program_month_templates (coach_id, name)
+    values (${COACH_ID}, ${name})
     returning id::text
   `;
   return Number(inserted[0]!.id);

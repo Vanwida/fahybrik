@@ -27,9 +27,6 @@ export type ComputeMacrocycleResult = {
   blocks: Array<{
     id: bigint;
     type: AtrBlockType;
-    /** Coach phase id (methodology_phases.id) this block links to — the agnostic
-     * source of truth. null pre-0052 or when no coach phase matched the block. */
-    phase_id: string | null;
     position: number;
     start_date: string;
     end_date: string;
@@ -66,19 +63,6 @@ export async function computeMacrocycle(params: {
     block_specs: params.block_specs ?? DEFAULT_BLOCK_SPECS,
   });
 
-  // 0052/0058: resolve each block's coach phase so `atr_blocks.phase_id` (the
-  // agnostic source of truth) is persisted, NOT just the legacy `type` enum.
-  // `phase_id` from the planner wins (specs built from a coach's phase set);
-  // otherwise we match the block's code to the coach's `methodology_phases.code`
-  // (legacy ATR specs carry the enum 'ACC'/'TRANS'/'REAL', which the 0052 seed
-  // mirrors as lower-case codes 'acc'/'trans'/'real'). The legacy `type` enum is
-  // still written as the derived fallback so V1 + pre-0052 reads keep working.
-  const phaseLink = await resolvePhaseLinks({
-    client,
-    athlete_id: params.athlete_id,
-    block_codes: plan.blocks.map((b) => b.type),
-  });
-
   return await client.begin(async (tx) => {
     const macroInsert = await tx<Array<{ id: bigint }>>`
       insert into atr_macrocycles (athlete_id, target_event_id, start_date, end_date, status)
@@ -95,15 +79,9 @@ export async function computeMacrocycle(params: {
 
     const blocks: ComputeMacrocycleResult['blocks'] = [];
     for (const block of plan.blocks) {
-      const phaseIdStr =
-        normalizePhaseId(block.phase_id) ?? phaseLink.byCode.get(phaseCodeKey(block.type)) ?? null;
-      // Bind as a number for the bigint FK (null stays null). The map values come
-      // from `mp.id::text`, always a numeric string → Number() is exact for ids.
-      const phaseIdParam = phaseIdStr != null ? Number(phaseIdStr) : null;
       const blockInsert = await tx<Array<{ id: bigint }>>`
         insert into atr_blocks (
           macrocycle_id, type, position, start_date, end_date, status
-          ${phaseLink.columnExists ? tx`, phase_id` : tx``}
         )
         values (
           ${macrocycle_id as unknown as number},
@@ -112,7 +90,6 @@ export async function computeMacrocycle(params: {
           ${block.start_date}::date,
           ${block.end_date}::date,
           'planned'
-          ${phaseLink.columnExists ? tx`, ${phaseIdParam}` : tx``}
         )
         returning id
       `;
@@ -144,7 +121,6 @@ export async function computeMacrocycle(params: {
         // aquí el código es siempre ATR legacy (DEFAULT_BLOCK_SPECS) → narrow.
         id: block_id,
         type: block.type as AtrBlockType,
-        phase_id: phaseIdStr,
         position: block.position,
         start_date: block.start_date,
         end_date: block.end_date,
@@ -161,69 +137,10 @@ export async function computeMacrocycle(params: {
   });
 }
 
-/** A coach phase id from a planner spec → string | null (normalized for the map). */
-function normalizePhaseId(v: number | bigint | string | null | undefined): string | null {
-  if (v == null) return null;
-  const s = String(v).trim();
-  return s.length > 0 ? s : null;
-}
-
-/**
- * Normalize a block code to a `methodology_phases.code` lookup key: lower-cased
- * so the legacy ATR enum ('ACC'/'TRANS'/'REAL') matches the 0052 seed codes
- * ('acc'/'trans'/'real'), and a coach-defined code matches itself.
- */
-function phaseCodeKey(code: string): string {
-  return code.trim().toLowerCase();
-}
-
-/**
- * Resolve the athlete's coach `methodology_phases` into a code→phase_id map so
- * `computeMacrocycle` can link each planned block to its coach phase. Returns
- * `columnExists=false` (skip the phase_id column entirely) when 0052 hasn't been
- * applied yet, so a pre-migration DB keeps inserting blocks exactly as before.
- */
-async function resolvePhaseLinks(params: {
-  client: Sql;
-  athlete_id: number | bigint;
-  block_codes: ReadonlyArray<string>;
-}): Promise<{ columnExists: boolean; byCode: Map<string, string> }> {
-  const { client } = params;
-
-  const hasColumn = await client<Array<{ t: number }>>`
-    select 1 as t
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'atr_blocks'
-      and column_name = 'phase_id'
-    limit 1
-  `;
-  const columnExists = hasColumn.length > 0;
-  const byCode = new Map<string, string>();
-  if (!columnExists) return { columnExists, byCode };
-
-  const rows = await client<Array<{ id: string; code: string }>>`
-    select mp.id::text as id, mp.code as code
-    from methodology_phases mp
-    join athletes a on a.id = ${params.athlete_id as number}
-    where mp.coach_id = a.coach_id
-  `;
-  for (const r of rows) byCode.set(phaseCodeKey(r.code), r.id);
-  return { columnExists, byCode };
-}
-
 export type CurrentBlockResult = {
   macrocycle_id: bigint;
   block_id: bigint;
   block_type: AtrBlockType;
-  /**
-   * Coach phase id (methodology_phases.id) the active block links to — drives the
-   * phase resolver (label/color/role) so the Hub/rail/calendar show the coach's
-   * phase name, identical to the Macro roadmap. null pre-migration (0052 column
-   * absent) OR for a block still on the legacy `type` enum → resolver falls back
-   * to the ATR label. SELECTed only when the column exists (guarded below).
-   */
-  phase_id: string | null;
   block_position: number;
   microcycle_id: bigint;
   week_number: number;
@@ -239,26 +156,11 @@ export async function getCurrentBlock(params: {
   const today = startOfDayInBox(params.on_date ?? new Date());
   const todayIso = isoDateString(today);
 
-  // `atr_blocks.phase_id` is additive (0052) and may not exist yet pre-migration.
-  // Guard the column (same pattern as buildAthleteBlocksView) so a running app
-  // without 0052 keeps reading the block as before; when absent, phase_id is null
-  // and the resolver falls back to the legacy ATR label.
-  const hasPhaseId = await client<Array<{ t: number }>>`
-    select 1 as t
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'atr_blocks'
-      and column_name = 'phase_id'
-    limit 1
-  `;
-  const phaseIdExists = hasPhaseId.length > 0;
-
   const rows = await client<
     Array<{
       macrocycle_id: bigint;
       block_id: bigint;
       block_type: AtrBlockType;
-      phase_id: string | null;
       block_position: number;
       microcycle_id: bigint;
       week_number: number;
@@ -269,7 +171,6 @@ export async function getCurrentBlock(params: {
       m.id as macrocycle_id,
       b.id as block_id,
       b.type as block_type,
-      ${phaseIdExists ? client`b.phase_id::text` : client`null::text`} as phase_id,
       b.position as block_position,
       mc.id as microcycle_id,
       mc.week_number,
@@ -294,7 +195,6 @@ export async function getCurrentBlock(params: {
     macrocycle_id: row.macrocycle_id,
     block_id: row.block_id,
     block_type: row.block_type,
-    phase_id: row.phase_id ?? null,
     block_position: row.block_position,
     microcycle_id: row.microcycle_id,
     week_number: row.week_number,

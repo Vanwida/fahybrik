@@ -8,8 +8,8 @@ import { idSchema, isoDate, atrBlockType } from './_primitives';
  * semanas (cada `program_week_template` → un microciclo + workout_assignments).
  *
  * Dos formas de identificar qué semanas materializar (exclusivas):
- *  - `atr_block`: el servidor resuelve las plantillas de semana con ese
- *    `atr_block_hint`, ordenadas, y rellena las N semanas del bloque planificado.
+ *  - `atr_block`: el servidor resuelve las plantillas de semana del coach,
+ *    ordenadas, y rellena las N semanas del bloque planificado.
  *  - `program_week_template_ids`: el coach fija explícitamente las plantillas en
  *    orden de semana (override fino, p.ej. variante Resistencia/Fuerza por semana).
  *

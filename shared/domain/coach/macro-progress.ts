@@ -20,7 +20,6 @@ export type MacroPhaseAssignment = {
   month_template_id: string;
   name: string;
   level: string;
-  atr_block_hint: AtrBlockType | null;
   start_date: string;
   end_date: string;
 };
@@ -43,13 +42,6 @@ export type MacroProgressPayload = {
   athlete_id: string;
   macrocycle_id: string | null;
   block: AtrBlockType | null;
-  /**
-   * Coach phase id (methodology_phases.id) of the ACTIVE block — drives the phase
-   * resolver so the Hub header / context rail / calendar show the coach's phase
-   * name, identical to the Macro roadmap. null pre-migration or for a legacy
-   * block → the resolver falls back to the ATR label.
-   */
-  block_phase_id: string | null;
   current_microcycle_index: number;
   /**
    * Semana ACTUAL relativa al bloque activo (1-indexed): para A2 hoy → ACC
@@ -196,7 +188,6 @@ export async function buildMacroProgress(params: {
       month_template_id: string;
       name: string;
       level: string;
-      atr_block_hint: string | null;
       start_date: string;
       end_date: string;
     }>
@@ -205,12 +196,12 @@ export async function buildMacroProgress(params: {
       ama.id::text                                    as microcycle_id,
       ama.month_template_id::text                     as month_template_id,
       m.name                                          as name,
-      m.level::text                                   as level,
-      m.atr_block_hint::text                          as atr_block_hint,
+      coalesce(al.name, '')                           as level,
       to_char(ama.start_date, 'YYYY-MM-DD')           as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')           as end_date
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
+    left join athlete_levels al on al.id = m.level_id
     where ama.athlete_id = ${params.athlete_id as number}
     order by ama.start_date asc
   `;
@@ -220,7 +211,6 @@ export async function buildMacroProgress(params: {
     month_template_id: r.month_template_id,
     name: r.name,
     level: r.level,
-    atr_block_hint: (r.atr_block_hint as AtrBlockType | null) ?? null,
     start_date: r.start_date,
     end_date: r.end_date,
   }));
@@ -229,7 +219,6 @@ export async function buildMacroProgress(params: {
     athlete_id: String(params.athlete_id),
     macrocycle_id: block ? String(block.macrocycle_id) : null,
     block: block?.block_type ?? null,
-    block_phase_id: block?.phase_id ?? null,
     current_microcycle_index: monthAssignCount[0]?.n ?? 0,
     block_week,
     block_spans,
@@ -258,7 +247,6 @@ export type MicrocycleDetailPayload = {
   month_template_id: string;
   name: string;
   level: string;
-  atr_block_hint: AtrBlockType | null;
   start_date: string;
   end_date: string;
   scheduled_total: number;
@@ -281,7 +269,6 @@ export async function loadMicrocycleDetail(params: {
       month_template_id: string;
       name: string;
       level: string;
-      atr_block_hint: string | null;
       start_date: string;
       end_date: string;
     }>
@@ -290,12 +277,12 @@ export async function loadMicrocycleDetail(params: {
       ama.id::text                                   as microcycle_id,
       ama.month_template_id::text                    as month_template_id,
       m.name                                         as name,
-      m.level::text                                  as level,
-      m.atr_block_hint::text                         as atr_block_hint,
+      coalesce(al.name, '')                          as level,
       to_char(ama.start_date, 'YYYY-MM-DD')          as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')          as end_date
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
+    left join athlete_levels al on al.id = m.level_id
     where ama.id = ${params.microcycle_id as number}
       and ama.athlete_id = ${params.athlete_id as number}
     limit 1
@@ -379,7 +366,6 @@ export async function loadMicrocycleDetail(params: {
     month_template_id: row.month_template_id,
     name: row.name,
     level: row.level,
-    atr_block_hint: (row.atr_block_hint as AtrBlockType | null) ?? null,
     start_date: row.start_date,
     end_date: row.end_date,
     scheduled_total,

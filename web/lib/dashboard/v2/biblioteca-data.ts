@@ -145,7 +145,6 @@ export interface V2BloqueItem {
   objective: V2LibObjective | null;
   group_id: number;
   group_label: string;
-  atr_hint: 'ACC' | 'TRANS' | 'REAL' | null;
   needs_review: boolean;
 }
 
@@ -154,7 +153,7 @@ export interface V2BloqueItem {
 export interface V2MicrocicloItem {
   id: string;
   name: string;
-  /** program_level value (raw enum; capitalized for display in the card). */
+  /** Agnostic level name (athlete_levels.name); '' when no level set. */
   level: string;
   /** Number of weeks defined (via program_month_weeks). */
   week_count: number;
@@ -279,7 +278,6 @@ function mapBloque(b: Block, groupLabel: Map<number, string>): V2BloqueItem {
     objective: GROUP_OBJECTIVE[b.methodology_group_id] ?? null,
     group_id: b.methodology_group_id,
     group_label: groupLabel.get(b.methodology_group_id) ?? `Grupo ${b.methodology_group_id}`,
-    atr_hint: b.atr_block_hint,
     needs_review: b.needs_review,
   };
 }

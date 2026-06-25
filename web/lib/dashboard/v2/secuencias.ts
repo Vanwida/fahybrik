@@ -9,22 +9,19 @@ import 'server-only';
 //   · levels      → loadCoachLevels        (athlete_levels, the rows)
 //   · microciclos → listMonthTemplates     (the coach's month templates: the
 //                   picker source + week-count/name lookup for previews)
-//   · phases      → loadCoachPhasesV2       (label + role → color for items)
 //   · sequences   → listCoachSequences      (program_sequences + ordered items)
 //
 // Cells are keyed `${level_id}_${days}` (the matrix coordinate). Each filled cell
 // carries a DERIVED preview: item count, total weeks, and a per-item sparkline
-// (segment width ∝ that microciclo's weeks, color = the item's phase role; neutral
-// when the item has no phase). Weeks/role are resolved from the microciclo and
-// phase maps, so the preview is honest data we already have — never invented.
+// (segment width ∝ that microciclo's weeks). The ORDER of the items IS the
+// periodization — there is no phase entity.
 //
-// AGNOSTIC: levels via athlete_levels (NOT program_level), phases via
-// methodology_phases (NOT atr_block_type). Strictly coach-scoped.
+// AGNOSTIC: levels via athlete_levels. Strictly coach-scoped.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { loadCoachLevels, loadCoachPhasesV2 } from './periodizacion';
-import type { V2LevelItem, V2PhaseItem } from './periodizacion';
+import { loadCoachLevels } from './periodizacion';
+import type { V2LevelItem } from './periodizacion';
 import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { listCoachSequences } from '@/lib/dashboard/coach/sequences';
 import type { ProgramSequence } from '@fahybrid/shared/schema/program-sequences';
@@ -40,12 +37,10 @@ export interface V2SequenceMicrociclo {
   week_count: number;
 }
 
-/** One ordered item of a sequence, resolved for display (microciclo + phase). */
+/** One ordered item of a sequence (a microciclo slot). */
 export interface V2SequenceItem {
   /** The microciclo this slot references. */
   month_template_id: string;
-  /** Optional methodology_phases label (null => no phase). */
-  phase_id: string | null;
 }
 
 /** A whole sequence (one matrix cell) as the client edits it. */
@@ -61,7 +56,6 @@ export interface V2Sequence {
 
 export interface V2SecuenciasData {
   levels: V2LevelItem[];
-  phases: V2PhaseItem[];
   microciclos: V2SequenceMicrociclo[];
   /** Sequences keyed by `${level_id}_${days}` (the matrix coordinate). */
   cells: Record<string, V2Sequence>;
@@ -83,7 +77,6 @@ function toV2Sequence(s: ProgramSequence): V2Sequence {
     progression_applies_to: s.progression_applies_to,
     items: s.items.map((it) => ({
       month_template_id: String(it.month_template_id),
-      phase_id: it.phase_id == null ? null : String(it.phase_id),
     })),
   };
 }
@@ -94,9 +87,8 @@ export async function loadSecuenciasData(
   coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<V2SecuenciasData> {
-  const [levels, phases, months, sequences] = await Promise.all([
+  const [levels, months, sequences] = await Promise.all([
     loadCoachLevels(coachId, client),
-    loadCoachPhasesV2(coachId, client),
     listMonthTemplates({ coach_id: coachId, client }),
     listCoachSequences(coachId, client),
   ]);
@@ -116,5 +108,5 @@ export async function loadSecuenciasData(
     cells[cellKey(s.level_id, s.days_per_week)] = toV2Sequence(s);
   }
 
-  return { levels, phases, microciclos, cells };
+  return { levels, microciclos, cells };
 }

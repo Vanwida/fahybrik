@@ -1,7 +1,7 @@
 // POST /api/coach/program-months/[id]/weeks
 // Añade una semana VACÍA al final del microciclo (la acción "+ Añadir semana" del
 // editor): nueva program_week_templates con 7 días en descanso, heredando
-// level/level_id/phase_id del microciclo, enganchada en max(position)+1.
+// el level_id del microciclo, enganchada en max(position)+1.
 // Coach-ownership gated.
 
 import { jsonError, jsonOk } from '@/lib/api/responses';

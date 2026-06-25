@@ -34,13 +34,6 @@ export interface AthleteRow {
   /** sort_order from athlete_levels — used to rank levels; 0 when unset. */
   level_sort: number;
   block_type: 'ACC' | 'TRANS' | 'REAL' | null;
-  /**
-   * Coach phase id (methodology_phases.id) the current block links to — drives
-   * the phase resolver so the roster shows the coach's phase name, consistent
-   * with the athlete page. null pre-migration (0052 not applied) OR for any
-   * block still on the legacy `type` enum → resolver falls back to ATR.
-   */
-  block_phase_id: string | null;
   /** Week-in-block (relative to the current block), matching the athlete Hub. */
   block_week: number | null;
   /** Total microcycles in the current block (the "de N" denominator). */
@@ -76,24 +69,6 @@ export async function fetchAthletesForCoach(params: {
 
   const modalityFilter = params.modality ?? null;
 
-  // `atr_blocks.phase_id` is additive (0052) and may not exist yet pre-migration.
-  // Guard the column (same pattern as assign-block.ts): when absent, emit
-  // null::text so the running app (no 0052) keeps reading blocks as before and
-  // the resolver falls back to the legacy ATR enum. The fragment is injected into
-  // the lateral subquery; `client.unsafe` is used only on this fixed literal
-  // (never on user input), so there's no injection surface.
-  const hasPhaseId = await client<Array<{ t: number }>>`
-    select 1 as t
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'atr_blocks'
-      and column_name = 'phase_id'
-    limit 1
-  `;
-  const blockPhaseIdExpr = client.unsafe(
-    hasPhaseId.length > 0 ? 'b.phase_id::text' : 'null::text',
-  );
-
   const rows = await client<
     Array<{
       athlete_id: string;
@@ -102,7 +77,6 @@ export async function fetchAthletesForCoach(params: {
       level_name: string | null;
       level_sort: number;
       block_type: string | null;
-      block_phase_id: string | null;
       block_week: number | null;
       block_total: number | null;
       readiness_score: number | null;
@@ -127,7 +101,6 @@ export async function fetchAthletesForCoach(params: {
       a.onboarded_at,
       a.intake_completed_at,
       ab.type::text as block_type,
-      ab.block_phase_id as block_phase_id,
       -- Semana RELATIVA AL BLOQUE (week-in-block), idéntica al Hub
       -- (AthleteShell.buildPhaseLine → macro-progress): week_number macro del
       -- microciclo actual − first_week del bloque + 1. NO la week_number macro
@@ -154,7 +127,6 @@ export async function fetchAthletesForCoach(params: {
       -- Hub (shared macro-progress: block_week = week_number − first_week + 1).
       select
         b.type,
-        ${blockPhaseIdExpr} as block_phase_id,
         mc.week_number,
         bspan.first_week as block_first_week,
         bspan.week_count as block_week_count
@@ -261,7 +233,6 @@ export async function fetchAthletesForCoach(params: {
       level_name: r.level_name,
       level_sort: r.level_sort,
       block_type: r.block_type as AthleteRow['block_type'],
-      block_phase_id: r.block_phase_id,
       block_week: r.block_week,
       block_total: r.block_total,
       readiness_score: r.readiness_score,

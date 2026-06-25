@@ -19,7 +19,6 @@ import {
   type MonthTemplateWeekFull,
   type MonthTemplateWithWeeks,
 } from '@fahybrid/shared/domain/coach/program-months';
-import { PROGRAM_LEVELS, type ProgramLevel } from '@fahybrid/shared/schema/program-templates';
 import {
   emptyWeekSlots,
   normalizeWeekSlots,
@@ -48,7 +47,6 @@ export type {
 
 export async function listMonthTemplates(params: {
   coach_id: number | bigint;
-  level?: string;
   client?: Sql;
 }) {
   return _listMonthTemplates({ ...params, client: params.client ?? defaultSql });
@@ -111,30 +109,13 @@ function emptyWeekSlotsJson(): any {
 }
 
 /**
- * Maps a coach athlete_level (agnostic, by sort_order rank) onto a legacy
- * `program_level` enum value — purely for BACK-COMPAT. `level` is NOT NULL on the
- * template tables, but `level_id` is the real source of truth (displayed
- * everywhere via coalesce). This shim spreads the level's 0-based rank across the
- * four enum buckets so anything still reading the enum gets a sane value.
- * Transitional: drop once every microciclo reader keys on `level_id`.
- */
-function legacyLevelForRank(rankIndex: number, total: number): ProgramLevel {
-  if (total <= 1) return 'intermediate';
-  const span = PROGRAM_LEVELS.length - 1;
-  const b = Math.round((rankIndex / (total - 1)) * span);
-  return PROGRAM_LEVELS[Math.min(Math.max(b, 0), span)]!;
-}
-
-/**
  * Crea un microciclo desde cero (AGNÓSTICO) + sus N semanas vacías + la junction
  * `program_month_weeks` (positions 0..N-1) en una transacción.
  *
- * `level_id` (athlete_levels) y `phase_id` opcional (methodology_phases) son DATO
- * DEL COACH — la fuente de verdad. El enum legacy `program_level` se DERIVA por
- * rango sólo para satisfacer la columna NOT NULL (back-compat); `atr_block_hint`
- * se deja NULL (la fase es agnóstica vía `phase_id`). Cada semana hereda
- * level/level_id/phase_id; nombre "{name} · Semana k"; `slots_json` = 7 días en
- * descanso. `week_count` lo elige el coach (1..8) — nunca un número fijo.
+ * `level_id` (athlete_levels) es DATO DEL COACH — la identidad del microciclo es
+ * nombre + nivel + nº semanas (el orden en una secuencia ES la periodización; no
+ * hay entidad fase). Cada semana hereda el `level_id`; nombre "{name} · Semana k";
+ * `slots_json` = 7 días en descanso. `week_count` lo elige el coach (1..8).
  *
  * Local (no shared): usa `normalizeWeekSlots` de este surface.
  */
@@ -156,8 +137,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
   const weeks: Array<{ id: string; week_index: number }> = [];
 
   await client.begin(async (tx) => {
-    // Level must be one of THIS coach's athlete_levels; its rank derives the
-    // legacy enum shim (level_id is the real value).
+    // Level must be one of THIS coach's athlete_levels (level_id is the value).
     const levels = await tx<Array<{ id: string }>>`
       select id::text from athlete_levels
       where coach_id = ${coach_id}
@@ -167,26 +147,11 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
     if (rank < 0) {
       throw new ProgramMonthError('invalid_level', 'El nivel no pertenece a este coach', 400);
     }
-    const legacyLevel = legacyLevelForRank(rank, levels.length);
-
-    // Phase (optional) must be one of THIS coach's methodology_phases.
-    const phaseId = body.phase_id ?? null;
-    if (phaseId != null) {
-      const owned = await tx<Array<{ id: string }>>`
-        select id::text from methodology_phases
-        where id = ${phaseId} and coach_id = ${coach_id}
-        limit 1
-      `;
-      if (!owned[0]) {
-        throw new ProgramMonthError('invalid_phase', 'La fase no pertenece a este coach', 400);
-      }
-    }
 
     const monthRows = await tx<Array<{ id: string }>>`
-      insert into program_month_templates (coach_id, name, level, level_id, phase_id, atr_block_hint)
+      insert into program_month_templates (coach_id, name, level_id)
       values (
-        ${coach_id}, ${body.name}, ${legacyLevel}::program_level,
-        ${body.level_id}, ${phaseId}, null
+        ${coach_id}, ${body.name}, ${body.level_id}
       )
       returning id::text
     `;
@@ -196,11 +161,10 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
       const weekName = `${body.name} · Semana ${i + 1}`;
       const weekRows = await tx<Array<{ id: string }>>`
         insert into program_week_templates (
-          coach_id, name, level, level_id, phase_id, atr_block_hint, focus, slots_json
+          coach_id, name, level_id, focus, slots_json
         )
         values (
-          ${coach_id}, ${weekName}, ${legacyLevel}::program_level,
-          ${body.level_id}, ${phaseId}, null, null, ${tx.json(slotsJson)}
+          ${coach_id}, ${weekName}, ${body.level_id}, null, ${tx.json(slotsJson)}
         )
         returning id::text
       `;
@@ -220,7 +184,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
 /**
  * Añade UNA semana vacía al final del microciclo (la operación "+ Añadir semana"
  * del editor): inserta una `program_week_templates` nueva con `slots_json` de 7
- * días en descanso, heredando level/level_id/phase_id del microciclo, y la
+ * días en descanso, heredando el level_id del microciclo, y la
  * engancha en la junction en la posición `max(position)+1`. Devuelve la nueva
  * semana + su `week_index`. Ownership del microciclo validado. Transacción.
  *
@@ -242,9 +206,9 @@ export async function appendEmptyWeekToMonth(params: {
 
   await client.begin(async (tx) => {
     const monthRows = await tx<
-      Array<{ name: string; level: string; level_id: string | null; phase_id: string | null }>
+      Array<{ name: string; level_id: string | null }>
     >`
-      select name, level::text as level, level_id::text, phase_id::text
+      select name, level_id::text
       from program_month_templates
       where id = ${month_id} and coach_id = ${coach_id}
       limit 1
@@ -263,13 +227,12 @@ export async function appendEmptyWeekToMonth(params: {
 
     const inserted = await tx<Array<{ id: string }>>`
       insert into program_week_templates (
-        coach_id, name, level, level_id, phase_id, atr_block_hint, focus, slots_json
+        coach_id, name, level_id, focus, slots_json
       )
       values (
-        ${coach_id}, ${weekName}, ${month.level}::program_level,
+        ${coach_id}, ${weekName},
         ${month.level_id ? Number(month.level_id) : null},
-        ${month.phase_id ? Number(month.phase_id) : null},
-        null, null, ${tx.json(slotsJson)}
+        null, ${tx.json(slotsJson)}
       )
       returning id::text
     `;
@@ -290,8 +253,8 @@ export async function appendEmptyWeekToMonth(params: {
  * junction justo DESPUÉS de la semana origen (posición origen + 1), desplazando
  * las posteriores. Devuelve la nueva semana + su `week_index`.
  *
- * CLON PURO: NO ajusta cargas/%RM/ritmos ni añade fechas. `exercise_id`,
- * `level_id` y `phase_id` se conservan. `slots_json` se copia VERBATIM (jsonb).
+ * CLON PURO: NO ajusta cargas/%RM/ritmos ni añade fechas. `exercise_id` y
+ * `level_id` se conservan. `slots_json` se copia VERBATIM (jsonb).
  * La PK `(month_template_id, position)` obliga a desplazar las posiciones >= P+1
  * en orden DESCENDENTE para no colisionar. Todo en una transacción.
  */
@@ -336,15 +299,12 @@ export async function duplicateWeekIntoMonth(params: {
 
     const cloned = await tx<Array<{ id: string }>>`
       insert into program_week_templates (
-        coach_id, name, level, level_id, phase_id, atr_block_hint, focus, coach_notes, slots_json
+        coach_id, name, level_id, focus, coach_notes, slots_json
       )
       select
         coach_id,
         name || ' (copia)',
-        level,
         level_id,
-        phase_id,
-        atr_block_hint,
         focus,
         coach_notes,
         slots_json
@@ -472,8 +432,6 @@ export async function copyWeekContentInto(params: {
         payload: {
           // Conserva la identidad del destino; sólo reemplaza el contenido.
           name: target.name,
-          level: target.level,
-          atr_block_hint: target.atr_block_hint,
           focus: target.focus,
           coach_notes: target.coach_notes,
           slots_json: clonedSlots,
@@ -500,28 +458,22 @@ export async function loadMonthTemplateWithWeeks(params: {
 }): Promise<MonthTemplateWithWeeks | null> {
   const client = params.client ?? defaultSql;
 
-  // Level + phase are AGNOSTIC: prefer the coach's athlete_levels.name /
-  // methodology_phases.label (level_id/phase_id), falling back to the legacy enum
-  // for pre-0063 rows that never carried an FK. The display layer never sees the
-  // raw program_level enum when a coach level is set.
+  // Level is AGNOSTIC: the coach's athlete_levels.name (via level_id), '' when no
+  // level is set. There is no phase entity — the order of microciclos IS the
+  // periodization.
   const monthRows = await client<
     Array<{
       id: string;
       name: string;
       level: string;
-      atr_block_hint: string | null;
-      phase_label: string | null;
     }>
   >`
     select
       m.id::text,
       m.name,
-      coalesce(al.name, m.level::text) as level,
-      m.atr_block_hint::text,
-      mp.label as phase_label
+      coalesce(al.name, '') as level
     from program_month_templates m
     left join athlete_levels al on al.id = m.level_id
-    left join methodology_phases mp on mp.id = m.phase_id
     where m.id = ${Number(params.month_id)} and m.coach_id = ${Number(params.coach_id)}
     limit 1
   `;
@@ -536,7 +488,6 @@ export async function loadMonthTemplateWithWeeks(params: {
       level: string;
       focus: string | null;
       coach_notes: string | null;
-      atr_block_hint: string | null;
       slots_json: unknown;
     }>
   >`
@@ -544,13 +495,13 @@ export async function loadMonthTemplateWithWeeks(params: {
       w.id::text,
       mw.position,
       w.name,
-      w.level::text,
+      coalesce(alw.name, '') as level,
       w.focus,
       w.coach_notes,
-      w.atr_block_hint::text,
       w.slots_json
     from program_month_weeks mw
     join program_week_templates w on w.id = mw.week_template_id
+    left join athlete_levels alw on alw.id = w.level_id
     where mw.month_template_id = ${Number(params.month_id)}
       and w.coach_id = ${Number(params.coach_id)}
     order by mw.position
@@ -563,7 +514,6 @@ export async function loadMonthTemplateWithWeeks(params: {
     level: row.level,
     focus: row.focus,
     coach_notes: row.coach_notes,
-    atr_block_hint: row.atr_block_hint,
     slots_json: parseWeekSlotsFromDb(row.slots_json),
   }));
 

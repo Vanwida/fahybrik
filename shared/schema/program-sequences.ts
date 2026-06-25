@@ -6,8 +6,8 @@ import { idSchema, isoDateTime } from './_primitives';
 // coach: an ORDERED list of microciclos (program_month_templates) the athlete
 // walks through automatically, plus an end-policy and a per-loop progression.
 //
-// AGNOSTIC: levels via athlete_levels (NOT the program_level enum); item phases
-// via methodology_phases (NOT atr_block_type). All identity/coach scope is filled
+// AGNOSTIC: levels via athlete_levels (NOT a level enum). The ORDER of items IS
+// the periodization — there is no phase entity. All identity/coach scope is filled
 // from the session server-side, never trusted from the client.
 
 // ---------------------------------------------------------------------------
@@ -34,8 +34,6 @@ export const programSequenceItemSchema = z.object({
   position: z.number().int().min(1),
   // The microciclo (program_month_templates row) this slot points at.
   month_template_id: idSchema,
-  // Optional methodology_phases label. NULL => no label.
-  phase_id: idSchema.nullable(),
 });
 export type ProgramSequenceItem = z.infer<typeof programSequenceItemSchema>;
 
@@ -69,8 +67,6 @@ export type ProgramSequence = z.infer<typeof programSequenceSchema>;
 export const programSequenceItemEditSchema = z.object({
   // The microciclo this slot points at. Required.
   month_template_id: idSchema,
-  // Optional methodology_phases label for this item.
-  phase_id: idSchema.nullish(),
 });
 export type ProgramSequenceItemEdit = z.infer<typeof programSequenceItemEditSchema>;
 

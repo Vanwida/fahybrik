@@ -6,20 +6,15 @@
 // Biblioteca MatrixCell look so the two matrices read identically.
 //
 // The sparkline = one segment per microciclo, in order; width ∝ that microciclo's
-// weeks, color = the item's phase role (neutral when no phase). It is derived
-// from data we already have (microciclo week_count + the item's phase), never
+// weeks. It is derived from data we already have (microciclo week_count), never
 // invented.
 
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
-import { roleV2Color } from '../role-style';
-import type { PhaseRole } from '../role-style';
 
 export interface SequenceSparkSegment {
   /** Relative width — the microciclo's week count (>=1). */
   weeks: number;
-  /** Phase role for color, or null => neutral segment. */
-  role: PhaseRole | null;
 }
 
 export interface SequenceCellPreview {
@@ -99,7 +94,7 @@ function Sparkline({ segments }: { segments: SequenceSparkSegment[] }) {
           className="h-1.5 rounded-[2px]"
           style={{
             width: `${(Math.max(seg.weeks, 1) / total) * 100}%`,
-            background: seg.role ? roleV2Color(seg.role) : 'var(--v2-muted)',
+            background: 'var(--v2-muted)',
           }}
         />
       ))}

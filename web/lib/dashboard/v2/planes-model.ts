@@ -18,11 +18,6 @@ import type {
   WeekSlots,
 } from '@fahybrid/shared/schema/program-templates';
 import { legacyItemToPrescription, prescriptionToText } from '@fahybrid/shared/domain/prescription';
-import {
-  ATR_BLOCKS_DEFAULT,
-  type AtrBlockDefault,
-  OBJECTIVE_OPTIONS,
-} from '@/lib/dashboard/coach/methodology/defaults';
 
 // Per-day card limits — keep the 7-column week scannable: at most a couple of
 // dose lines per block, a couple of blocks summarised; the rest collapses to
@@ -232,50 +227,6 @@ export function deriveWeekModalities(slots: WeekSlots): DayModalityInfo[] {
 /** Total workout sessions in a week (for week-card "N sesiones"). */
 export function weekSessionCount(days: DayModalityInfo[]): number {
   return days.reduce((n, d) => n + d.session_count, 0);
-}
-
-// ── Phases (ATR defaults) → derived weeks ────────────────────────────────────
-export interface PlanPhase {
-  /** Stable id (the ATR block code, lower-cased). */
-  id: string;
-  block: AtrBlockDefault['block'];
-  /** Coach-facing name (e.g. "Acumulación"). */
-  name: string;
-  /** Weeks derived from the phase duration. */
-  week_count: number;
-  order: number;
-  /** Human objective labels (resolved from OBJECTIVE_OPTIONS). */
-  objectives: string[];
-  intensity_ceiling: AtrBlockDefault['intensityCeiling'];
-  /** Draft vs published — the builder gate. ATR defaults ship as published. */
-  status: 'published' | 'draft';
-}
-
-const OBJECTIVE_LABEL = new Map(OBJECTIVE_OPTIONS.map((o) => [o.id, o.label]));
-
-/**
- * The coach's periodization phases. SOURCE: the real Pablo ATR defaults
- * (ACC 5 / TRANS 4 / REAL 3) — see methodology/defaults.ts. Per the agnostic
- * phase system these are editable per-coach data; until a per-coach phases loader
- * is wired here, the default set is the truthful content. Each phase's weeks are
- * DERIVED from its duration (a 5-week phase → 5 week cards).
- *
- * TODO(model): swap ATR_BLOCKS_DEFAULT for a fetch of methodology_phases once a
- * web loader for the per-coach phase set exists (agnostic-phase migration 0052).
- */
-export function buildPlanPhases(): PlanPhase[] {
-  return ATR_BLOCKS_DEFAULT.map((b, i) => ({
-    id: b.block.toLowerCase(),
-    block: b.block,
-    name: b.labelAthlete,
-    week_count: b.durationWeeks,
-    order: b.order,
-    objectives: b.objectives.map((o) => OBJECTIVE_LABEL.get(o) ?? o),
-    intensity_ceiling: b.intensityCeiling,
-    // The first phase ships as the working draft so the borrador→publicar gate is
-    // demonstrable on a real phase; later phases read as published.
-    status: i === 0 ? 'draft' : 'published',
-  }));
 }
 
 // ── Load curve (entrada → carga → pico → descarga) ───────────────────────────

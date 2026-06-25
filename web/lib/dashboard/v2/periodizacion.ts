@@ -1,18 +1,14 @@
-// v2 · PERIODIZACIÓN — server loaders for the coach's framework data:
+// v2 · PERIODIZACIÓN — server loader for the coach's framework data:
 //   · Niveles (athlete_levels)        — the "who" axis, with live athlete counts.
-//   · Fases   (methodology_phases)     — the "color" axis, via the shared loader.
 //
-// AGNOSTIC: both are 100% coach-owned data. Niveles carry a free código + etiqueta
-// + descripción (the classification criteria live in the description as text, a
-// confirmed product decision). Fases carry a free label; the ONLY closed field is
-// `role` (volume|intensity|peak|recovery|maintenance), which exists solely to give
-// a coherent color. The ATR/N1–N5 examples are editable seed data, never system
-// concepts.
+// AGNOSTIC: 100% coach-owned data. Niveles carry a free código + etiqueta +
+// descripción (the classification criteria live in the description as text, a
+// confirmed product decision). The N1–N5 examples are editable seed data, never
+// system concepts. There is no phase entity — the ORDER of microciclos in a
+// sequence IS the periodization.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { loadCoachPhases } from '@/lib/dashboard/coach/phases';
-import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 
 // =============================================================================
 // NIVELES
@@ -75,62 +71,17 @@ export async function loadCoachLevels(
 }
 
 // =============================================================================
-// FASES — thin re-shape of the shared loader so the client gets string ids.
-// =============================================================================
-
-/** One coach phase as the v2 client needs it (ids as strings — bigint-safe). */
-export interface V2PhaseItem {
-  id: string;
-  code: string;
-  label: string;
-  role: MethodologyPhase['role'];
-  /** Explicit color override; null => derived from role (the normal case). */
-  color: string | null;
-  default_weeks: number | null;
-  sequence_order: number;
-  is_deload: boolean;
-  description: string | null;
-}
-
-function toV2Phase(p: MethodologyPhase): V2PhaseItem {
-  return {
-    id: String(p.id),
-    code: p.code,
-    label: p.label,
-    role: p.role,
-    color: p.color,
-    default_weeks: p.default_weeks,
-    sequence_order: p.sequence_order,
-    is_deload: p.is_deload,
-    description: p.description,
-  };
-}
-
-/** Load the coach's phases ordered by sequence_order (re-uses loadCoachPhases). */
-export async function loadCoachPhasesV2(
-  coachId: number | bigint,
-  client: Sql = defaultSql,
-): Promise<V2PhaseItem[]> {
-  const phases = await loadCoachPhases(coachId, client);
-  return phases.map(toV2Phase);
-}
-
-// =============================================================================
-// PAGE DATA — both axes in one shape for the server page.
+// PAGE DATA — the levels axis for the server page.
 // =============================================================================
 
 export interface V2PeriodizacionData {
   levels: V2LevelItem[];
-  phases: V2PhaseItem[];
 }
 
 export async function loadPeriodizacionData(
   coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<V2PeriodizacionData> {
-  const [levels, phases] = await Promise.all([
-    loadCoachLevels(coachId, client),
-    loadCoachPhasesV2(coachId, client),
-  ]);
-  return { levels, phases };
+  const levels = await loadCoachLevels(coachId, client);
+  return { levels };
 }

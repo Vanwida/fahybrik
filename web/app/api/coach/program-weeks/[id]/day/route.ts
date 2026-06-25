@@ -3,8 +3,8 @@
 // edited day (preserving block-level config + the week's other days), and upserts
 // the full week. The existing full-week PUT at ../route.ts stays untouched.
 //
-// AGNOSTIC: name/level/focus/coach_notes are passed THROUGH from the stored week
-// unchanged — this route never touches program_level / ATR semantics.
+// AGNOSTIC: name/focus/coach_notes are passed THROUGH from the stored week
+// unchanged — this route only edits one day's slots_json.
 
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
@@ -62,13 +62,9 @@ export async function PUT(
     const nextDay = serializeDay({ day_of_week, sessions, original: originalDay });
     const nextDays = mergeDayIntoDays(days, nextDay);
 
-    // Pass week-level fields through unchanged (agnostic — no enum logic here).
-    // The stored row's level/atr_block_hint are DB enum values, valid as-is; let
-    // the upsert's own Zod re-validate them.
+    // Pass week-level fields through unchanged; only slots_json changes here.
     const payload: ProgramWeekUpsert = {
       name: week.name,
-      level: week.level as ProgramWeekUpsert['level'],
-      atr_block_hint: week.atr_block_hint as ProgramWeekUpsert['atr_block_hint'],
       focus: week.focus,
       coach_notes: week.coach_notes,
       slots_json: { days: nextDays },

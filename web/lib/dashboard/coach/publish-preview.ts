@@ -81,8 +81,6 @@ export type PreviewWeek = {
   week_number: number;
   /** Nombre de la plantilla de semana. */
   name: string;
-  /** Pista ATR de la semana (ACC/TRANS/REAL) o null. */
-  atr_hint: string | null;
   /** Lunes ISO de la semana. */
   week_start: string;
   /** Domingo ISO de la semana. */
@@ -219,7 +217,6 @@ export async function buildPublishPreview(params: {
     weeks.push({
       week_number: wi + 1,
       name: weekTpl.name,
-      atr_hint: weekTpl.atr_block_hint ?? null,
       week_start: isoDateString(weekStart),
       week_end: isoDateString(weekEnd),
       days,

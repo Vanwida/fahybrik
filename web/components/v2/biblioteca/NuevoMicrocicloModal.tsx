@@ -1,10 +1,11 @@
 'use client';
 
-// NuevoMicrocicloModal — "crear microciclo desde cero". AGNOSTIC: nivel y fase se
-// eligen de los catálogos del coach (athlete_levels / methodology_phases),
-// cargados en vivo — nunca texto libre, nunca enums ATR/level hardcodeados. El
-// coach define nombre + nivel + nº de semanas (1..8) + fase OPCIONAL. Al guardar
-// se crea el program_month_template con N semanas vacías y se entra al editor.
+// NuevoMicrocicloModal — "crear microciclo desde cero". AGNOSTIC: el nivel se
+// elige del catálogo del coach (athlete_levels), cargado en vivo — nunca texto
+// libre, nunca enums hardcodeados. El coach define nombre + nivel + nº de semanas
+// (1..8). La identidad del microciclo = nombre + nivel + nº semanas (el orden en
+// una secuencia ES la periodización; no hay entidad fase). Al guardar se crea el
+// program_month_template con N semanas vacías y se entra al editor.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
@@ -20,10 +21,6 @@ interface LevelOption {
   name: string;
   label: string;
 }
-interface PhaseOption {
-  id: number;
-  label: string;
-}
 
 const selectClass =
   'h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]';
@@ -34,32 +31,27 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [levels, setLevels] = useState<LevelOption[]>([]);
-  const [phases, setPhases] = useState<PhaseOption[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   const [name, setName] = useState('');
   const [levelId, setLevelId] = useState('');
-  const [phaseId, setPhaseId] = useState(''); // '' = sin fase
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load the coach's level + phase catalogs (agnostic data sources).
+  // Load the coach's level catalog (agnostic data source).
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      fetch('/api/coach/levels', { credentials: 'include' }).then((r) => r.json()),
-      fetch('/api/coach/methodology/phases', { credentials: 'include' }).then((r) => r.json()),
-    ])
-      .then(([lv, ph]: [{ levels?: LevelOption[] }, { phases?: PhaseOption[] }]) => {
+    fetch('/api/coach/levels', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((lv: { levels?: LevelOption[] }) => {
         if (!alive) return;
         const lvls = lv.levels ?? [];
         setLevels(lvls);
-        setPhases(ph.phases ?? []);
         if (lvls[0]) setLevelId(lvls[0].id);
       })
       .catch(() => {
-        if (alive) setError('No se pudieron cargar tus niveles y fases.');
+        if (alive) setError('No se pudieron cargar tus niveles.');
       })
       .finally(() => {
         if (alive) setLoadingData(false);
@@ -93,7 +85,6 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           name: name.trim(),
           level_id: Number(levelId),
-          phase_id: phaseId === '' ? null : Number(phaseId),
           week_count: weeks,
         }),
       });
@@ -141,7 +132,7 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
         {loadingData ? (
           <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-[color:var(--v2-muted)]">
             <MIcon name="progress_activity" size={18} className="animate-spin" />
-            Cargando tus niveles y fases…
+            Cargando tus niveles…
           </div>
         ) : levels.length === 0 ? (
           <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-[13px] text-[color:var(--v2-muted)]">
@@ -199,26 +190,6 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
                   className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
                 />
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="micro-phase" className={labelClass}>
-                Fase <span className="font-normal normal-case text-[color:var(--v2-faint)]">(opcional)</span>
-              </label>
-              <select
-                id="micro-phase"
-                value={phaseId}
-                onChange={(e) => setPhaseId(e.target.value)}
-                className={selectClass}
-                disabled={phases.length === 0}
-              >
-                <option value="">Sin fase</option>
-                {phases.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {error ? (

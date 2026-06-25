@@ -1,8 +1,7 @@
-// Pure macrocycle planner. Given a target event date, lay down the coach's
-// periodization phases backwards from the event, each split into 1-week
-// microcycles. The DEFAULT phase set is the classical ATR 3-block sequence, but
-// a plan can be built from ANY coach-defined phase set (arbitrary count / names /
-// weeks) by passing `block_specs` — the planner is agnostic to the phase code.
+// Pure macrocycle planner. Given a target event date, lay down the legacy ATR
+// blocks backwards from the event, each split into 1-week microcycles. The
+// DEFAULT set is the classical ATR 3-block sequence; a plan can be built from ANY
+// ordered block set by passing `block_specs` — the planner is agnostic to the code.
 //
 // The shape follows Issurin's classical block periodization but compressed: the
 // default ACC (volume + general capacity) → TRANS (race-specific threshold) →
@@ -20,16 +19,10 @@ export type AtrBlockType = 'ACC' | 'TRANS' | 'REAL';
 export type BlockPhaseCode = AtrBlockType | (string & {});
 
 export type BlockSpec = {
-  /** Phase code — legacy ATR (ACC/TRANS/REAL) or a coach-defined phase code. */
+  /** Block code — legacy ATR (ACC/TRANS/REAL) or any coach-defined code. */
   type: BlockPhaseCode;
   /** Number of 7-day microcycles in this block. */
   weeks: number;
-  /**
-   * Optional coach phase id (methodology_phases.id) this block materializes from.
-   * When present, the persisted atr_block can link to the coach phase (0052);
-   * absent → the block stays on the legacy `type` enum (pre-migration default).
-   */
-  phase_id?: number | bigint | string | null;
 };
 
 // Defaults per the brief. REAL last (closest to event), ACC first (furthest).
@@ -41,31 +34,6 @@ export const DEFAULT_BLOCK_SPECS: ReadonlyArray<BlockSpec> = [
   { type: 'REAL', weeks: 3 },
 ];
 
-/**
- * Build the ordered block specs for a coach's configured phase set. Each phase
- * contributes one block, in `sequence_order`; `default_weeks` drives its length
- * (falling back to `fallback_weeks` when a phase has none). Returns null when the
- * coach has NO phases, so callers degrade to DEFAULT_BLOCK_SPECS (legacy ATR).
- */
-export function blockSpecsFromPhases(
-  phases: ReadonlyArray<{
-    code: string;
-    sequence_order: number;
-    default_weeks: number | null;
-    id?: number | bigint | string | null;
-  }>,
-  fallback_weeks = 4,
-): ReadonlyArray<BlockSpec> | null {
-  if (phases.length === 0) return null;
-  return [...phases]
-    .sort((a, b) => a.sequence_order - b.sequence_order)
-    .map((p) => ({
-      type: p.code,
-      weeks: p.default_weeks ?? fallback_weeks,
-      phase_id: p.id ?? null,
-    }));
-}
-
 export type PlannedMicrocycle = {
   week_number: number;       // 1-indexed within the block
   start_date: string;        // YYYY-MM-DD
@@ -73,10 +41,8 @@ export type PlannedMicrocycle = {
 };
 
 export type PlannedBlock = {
-  /** Phase code — legacy ATR or a coach-defined phase code. */
+  /** Block code — legacy ATR or a coach-defined code. */
   type: BlockPhaseCode;
-  /** Coach phase id this block links to (0052), or null on the legacy enum. */
-  phase_id: number | bigint | string | null;
   position: number;          // 0-indexed within macrocycle
   start_date: string;
   end_date: string;          // inclusive
@@ -137,7 +103,6 @@ export function planMacrocycle(input: PlanInput): PlannedMacrocycle {
     const blockEnd = addDays(blockStart, spec.weeks * 7 - 1);
     blocks.push({
       type: spec.type,
-      phase_id: spec.phase_id ?? null,
       position: i,
       start_date: isoDateString(blockStart),
       end_date: isoDateString(blockEnd),

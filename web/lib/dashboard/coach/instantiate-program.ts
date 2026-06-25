@@ -48,7 +48,9 @@ const TEMPLATE_FORMATS: readonly TemplateFormat[] = [
   'tempo',
   'circuit',
 ];
-/** month.atr_block_hint → templates.target_block ('any' when unset). */
+/** templates.target_block enum domain. Microciclos no longer carry a block hint
+ *  (identity = name + level + nº weeks; order = periodization), so materialized
+ *  templates target 'any'. */
 const TARGET_BLOCKS = ['ACC', 'TRANS', 'REAL', 'any'] as const;
 
 /**
@@ -235,11 +237,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
       ? (weekTpl.slots_json as WeekSlots)
       : parseWeekSlotsFromDb(weekTpl.slots_json);
 
-  const targetBlock = (TARGET_BLOCKS as readonly string[]).includes(
-    weekTpl.atr_block_hint ?? '',
-  )
-    ? (weekTpl.atr_block_hint as (typeof TARGET_BLOCKS)[number])
-    : 'any';
+  const targetBlock: (typeof TARGET_BLOCKS)[number] = 'any';
 
   // Step 5/6 intake — place sessions only on the athlete's `program` days and
   // softly honour their preferred day-TYPE layout. No availability declared →

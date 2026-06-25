@@ -6,7 +6,6 @@ export * from './events';
 export * from './exercises';
 export * from './templates';
 export * from './periodization';
-export * from './methodology-phases';
 export * from './workouts';
 export * from './biometrics';
 export * from './chat';

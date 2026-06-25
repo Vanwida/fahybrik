@@ -1,9 +1,8 @@
 // v2 · PERIODIZACIÓN — "El marco de tu método." Server component: loads the
-// coach's framework data (Niveles = athlete_levels with live counts, Fases =
-// methodology_phases) and hands it to the client <PeriodizacionView> for the
-// area switch + in-place CRUD. The active area is reflected in ?area= so it's
-// linkable. A dead loader degrades to empty (the panels render their empty
-// states) instead of 500-ing the page.
+// coach's framework data (Niveles = athlete_levels with live counts) and hands it
+// to the client <PeriodizacionView> for the area switch + in-place CRUD. The
+// active area is reflected in ?area= so it's linkable. A dead loader degrades to
+// empty (the panels render their empty states) instead of 500-ing the page.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -20,9 +19,9 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const VALID_AREAS: readonly PeriodizacionArea[] = ['niveles', 'fases', 'secuencias'];
+const VALID_AREAS: readonly PeriodizacionArea[] = ['niveles', 'secuencias'];
 
-const EMPTY_SECUENCIAS = { levels: [], phases: [], microciclos: [], cells: {} };
+const EMPTY_SECUENCIAS = { levels: [], microciclos: [], cells: {} };
 
 function resolveArea(raw: string | string[] | undefined): PeriodizacionArea {
   const v = Array.isArray(raw) ? raw[0] : raw;
@@ -46,7 +45,7 @@ export default async function V2PeriodizacionPage({
   const initialArea = resolveArea(area);
 
   const [data, secuencias, progress] = await Promise.all([
-    loadPeriodizacionData(session.coach_id).catch(() => ({ levels: [], phases: [] })),
+    loadPeriodizacionData(session.coach_id).catch(() => ({ levels: [] })),
     loadSecuenciasData(session.coach_id).catch(() => EMPTY_SECUENCIAS),
     loadPipelineProgress(session.coach_id).catch(() => EMPTY_PIPELINE_PROGRESS),
   ]);

@@ -17,7 +17,6 @@ export type AthleteProfileShell = {
   readiness_score: number | null;
   readiness_label: ReadinessLabel | null;
   a_event: { name: string; iso_date: string; days_until: number } | null;
-  program_level: string | null;
   macro_block: AtrBlockType | null;
   /** Athlete finished onboarding but the coach hasn't reviewed intake yet. */
   intake_pending: boolean;
@@ -54,7 +53,6 @@ export async function fetchAthleteProfileShell(params: {
       block_type: string | null;
       block_week: number | null;
       readiness_score: number | null;
-      program_level: string | null;
       onboarded_at: Date | null;
       intake_completed_at: Date | null;
       modality: string | null;
@@ -72,14 +70,6 @@ export async function fetchAthleteProfileShell(params: {
       rds.score as readiness_score,
       a.onboarded_at,
       a.intake_completed_at,
-      (
-        select m.level::text
-        from athlete_month_assignments ama
-        join program_month_templates m on m.id = ama.month_template_id
-        where ama.athlete_id = a.id
-        order by ama.start_date desc
-        limit 1
-      ) as program_level,
       sub.plan_type as modality,
       pa.id::text as partner_athlete_id,
       pa.full_name as partner_full_name
@@ -146,7 +136,6 @@ export async function fetchAthleteProfileShell(params: {
     block_week: row.block_week,
     readiness_score: row.readiness_score,
     readiness_label: readinessLabel(row.readiness_score),
-    program_level: row.program_level,
     a_event: aEventRows[0]
       ? { name: aEventRows[0].name, iso_date: aEventRows[0].iso, days_until: aEventRows[0].days }
       : null,

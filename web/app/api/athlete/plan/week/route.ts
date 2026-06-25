@@ -362,29 +362,20 @@ function estimateDurationMinutes(paramsList: Array<Record<string, unknown> | nul
   return Math.max(1, Math.round(totalSeconds / 60));
 }
 
-// Resolve the periodization-phase name for the week's microcycle:
-//   microcycle -> atr_block -> methodology_phase.label
-// Falls back to a label derived from atr_blocks.type when phase_id IS NULL
-// (or no methodology_phase row matched). Returns null when there's no
-// microcycle (free-planned week). The LEFT JOIN to methodology_phases degrades
-// gracefully even if the agnostic-phase system (0052) isn't populated.
+// Resolve the periodization label for the week's microcycle:
+//   microcycle -> atr_block.type -> ATR full-word label.
+// Returns null when there's no microcycle (free-planned week).
 async function resolveMicrocicloName(microcycleId: string | null): Promise<string | null> {
   if (!microcycleId) return null;
-  const rows = await sql<
-    Array<{ phase_label: string | null; block_type: string | null }>
-  >`
-    select
-      mp.label as phase_label,
-      b.type::text as block_type
+  const rows = await sql<Array<{ block_type: string | null }>>`
+    select b.type::text as block_type
     from microcycles mc
     join atr_blocks b on b.id = mc.block_id
-    left join methodology_phases mp on mp.id = b.phase_id
     where mc.id = ${microcycleId}::bigint
     limit 1
   `;
   const row = rows[0];
   if (!row) return null;
-  if (row.phase_label && row.phase_label.trim().length > 0) return row.phase_label;
   return atrTypeLabel(row.block_type);
 }
 

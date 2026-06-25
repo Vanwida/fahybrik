@@ -48,7 +48,6 @@ type ItemRow = {
   sequence_id: string;
   position: number;
   month_template_id: string;
-  phase_id: string | null;
 };
 
 function mapItemRow(r: ItemRow): ProgramSequenceItem {
@@ -57,7 +56,6 @@ function mapItemRow(r: ItemRow): ProgramSequenceItem {
     sequence_id: Number(r.sequence_id),
     position: r.position,
     month_template_id: Number(r.month_template_id),
-    phase_id: r.phase_id == null ? null : Number(r.phase_id),
   };
 }
 
@@ -108,7 +106,7 @@ export async function listCoachSequences(
   const seqIds = seqRows.map((r) => r.id);
   const itemRows = await client<ItemRow[]>`
     select id::text, sequence_id::text, position,
-           month_template_id::text, phase_id::text
+           month_template_id::text
     from program_sequence_items
     where sequence_id = any(${seqIds}::bigint[])
     order by sequence_id asc, position asc
@@ -151,7 +149,7 @@ export async function getCoachSequenceCell(
 
   const itemRows = await client<ItemRow[]>`
     select id::text, sequence_id::text, position,
-           month_template_id::text, phase_id::text
+           month_template_id::text
     from program_sequence_items
     where sequence_id = ${seq.id}
     order by position asc
@@ -172,7 +170,7 @@ export async function getCoachSequenceCell(
 // the simplest correct model and avoids transient UNIQUE(sequence_id, position)
 // violations on reorder.
 //
-// Validates that every referenced month_template_id and phase_id is OWNED by this
+// Validates that every referenced month_template_id is OWNED by this
 // coach before writing (no cross-coach references). Strictly coach-scoped.
 // =============================================================================
 export async function saveCoachSequence(
@@ -220,30 +218,6 @@ export async function saveCoachSequence(
     }
   }
 
-  // Ownership guard: every phase referenced (when present) must belong to coach.
-  const phaseIds = [
-    ...new Set(
-      payload.items
-        .map((it) => it.phase_id)
-        .filter((p): p is NonNullable<typeof p> => p != null)
-        .map((p) => String(p)),
-    ),
-  ];
-  if (phaseIds.length > 0) {
-    const ownedPhases = await client<{ id: string }[]>`
-      select id::text from methodology_phases
-      where coach_id = ${coach} and id = any(${phaseIds}::bigint[])
-    `;
-    const ownedSet = new Set(ownedPhases.map((r) => r.id));
-    const missing = phaseIds.filter((id) => !ownedSet.has(id));
-    if (missing.length > 0) {
-      throw new SaveSequenceError(
-        'invalid_phase',
-        `Fase(s) no encontradas o no pertenecen al coach: ${missing.join(', ')}.`,
-      );
-    }
-  }
-
   await client.begin(async (tx) => {
     // Upsert the cell. The unique (coach_id, level_id, days_per_week) lets us
     // INSERT ... ON CONFLICT update the policy/progression in place.
@@ -270,10 +244,10 @@ export async function saveCoachSequence(
       const item = payload.items[i]!;
       await tx`
         insert into program_sequence_items
-          (sequence_id, position, month_template_id, phase_id)
+          (sequence_id, position, month_template_id)
         values (
           ${sequenceId}, ${i + 1},
-          ${String(item.month_template_id)}, ${item.phase_id == null ? null : String(item.phase_id)}
+          ${String(item.month_template_id)}
         )
       `;
     }

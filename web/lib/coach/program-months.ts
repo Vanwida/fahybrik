@@ -44,7 +44,6 @@ const WEEK_LABELS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4 (deload)'] as
 
 export async function listMonthTemplates(params: {
   coach_id: number | bigint;
-  level?: string;
   client?: Sql;
 }) {
   return _listMonthTemplates({ ...params, client: params.client ?? defaultSql });
@@ -125,12 +124,10 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
 
   await client.begin(async (tx) => {
     const monthRows = await tx<Array<{ id: string }>>`
-      insert into program_month_templates (coach_id, name, level, atr_block_hint)
+      insert into program_month_templates (coach_id, name)
       values (
         ${Number(params.coach_id)},
-        ${body.name},
-        ${body.level}::program_level,
-        ${body.atr_block_hint ?? null}
+        ${body.name}
       )
       returning id::text
     `;
@@ -141,13 +138,11 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
       const weekName = `${body.name} · ${label}`;
       const weekRows = await tx<Array<{ id: string }>>`
         insert into program_week_templates (
-          coach_id, name, level, atr_block_hint, focus, slots_json
+          coach_id, name, focus, slots_json
         )
         values (
           ${Number(params.coach_id)},
           ${weekName},
-          ${body.level}::program_level,
-          ${body.atr_block_hint ?? null},
           ${body.focus ?? null},
           ${tx.json(slotsJson)}
         )
@@ -185,12 +180,12 @@ export async function loadMonthTemplateWithWeeks(params: {
       id: string;
       name: string;
       level: string;
-      atr_block_hint: string | null;
     }>
   >`
-    select id::text, name, level::text, atr_block_hint::text
-    from program_month_templates
-    where id = ${Number(params.month_id)} and coach_id = ${Number(params.coach_id)}
+    select m.id::text, m.name, coalesce(al.name, '') as level
+    from program_month_templates m
+    left join athlete_levels al on al.id = m.level_id
+    where m.id = ${Number(params.month_id)} and m.coach_id = ${Number(params.coach_id)}
     limit 1
   `;
   const month = monthRows[0];
@@ -204,7 +199,6 @@ export async function loadMonthTemplateWithWeeks(params: {
       level: string;
       focus: string | null;
       coach_notes: string | null;
-      atr_block_hint: string | null;
       slots_json: unknown;
     }>
   >`
@@ -212,13 +206,13 @@ export async function loadMonthTemplateWithWeeks(params: {
       w.id::text,
       mw.position,
       w.name,
-      w.level::text,
+      coalesce(alw.name, '') as level,
       w.focus,
       w.coach_notes,
-      w.atr_block_hint::text,
       w.slots_json
     from program_month_weeks mw
     join program_week_templates w on w.id = mw.week_template_id
+    left join athlete_levels alw on alw.id = w.level_id
     where mw.month_template_id = ${Number(params.month_id)}
       and w.coach_id = ${Number(params.coach_id)}
     order by mw.position
@@ -231,11 +225,8 @@ export async function loadMonthTemplateWithWeeks(params: {
     level: row.level,
     focus: row.focus,
     coach_notes: row.coach_notes,
-    atr_block_hint: row.atr_block_hint,
     slots_json: parseWeekSlotsFromDb(row.slots_json),
   }));
 
-  // 0063: the shared month shape now carries phase_label. This legacy duplicate
-  // path never set the agnostic phase, so report it as none (null).
-  return { month: { ...month, phase_label: null }, weeks };
+  return { month, weeks };
 }

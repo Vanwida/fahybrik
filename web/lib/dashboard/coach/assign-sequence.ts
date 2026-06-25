@@ -41,7 +41,7 @@ import {
 // via /api/athlete/plan/week. We do NOT reinvent that pipeline.
 //
 // AGNOSTIC: resolution is by athlete_levels.level_id + training_days_per_week →
-// program_sequences cell. NO program_level enum, NO atr_block_type anywhere here.
+// program_sequences cell. The ORDER of the sequence items IS the periodization.
 // =============================================================================
 
 export class AssignSequenceError extends Error {

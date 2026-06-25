@@ -8,7 +8,8 @@
 // no second matrix) with a sequence-preview cell. Clicking a cell opens the editor
 // for that (level, days); saving PUTs the cell atomically and refetches the whole
 // matrix so previews + coverage stay truthful. All data is the coach's own
-// (athlete_levels rows, methodology_phases color, program_month_templates pieces).
+// (athlete_levels rows, program_month_templates pieces). The ORDER of microciclos
+// in a cell IS the periodization — there is no phase entity.
 
 import { useCallback, useMemo, useState } from 'react';
 import { LevelDaysGrid, type MatrixLevelRow } from '@/components/v2/LevelDaysGrid';
@@ -16,8 +17,7 @@ import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { ContextHint, TeachingEmptyState } from '@/components/v2/orientacion';
 import type { V2SecuenciasData, V2Sequence } from '@/lib/dashboard/v2/secuencias';
-import type { V2PhaseItem, V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
-import type { PhaseRole } from '../role-style';
+import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { SEQUENCE_DAYS_OPTIONS } from './days';
 import { SequenceCell, type SequenceCellPreview } from './SequenceCell';
 import { SequenceEditor } from './SequenceEditor';
@@ -36,7 +36,6 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
     () => new Map(data.microciclos.map((m) => [m.id, m])),
     [data.microciclos],
   );
-  const phaseById = useMemo(() => new Map(data.phases.map((p) => [p.id, p])), [data.phases]);
 
   // month_template_id → number of distinct cells that reference it (the picker
   // hint "usado en N secuencias" + the shared-cell detection).
@@ -91,10 +90,7 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
       const segments = seq.items.map((it) => {
         const weeks = microById.get(it.month_template_id)?.week_count ?? 0;
         totalWeeks += weeks;
-        const role: PhaseRole | null = it.phase_id
-          ? phaseById.get(it.phase_id)?.role ?? null
-          : null;
-        return { weeks, role };
+        return { weeks };
       });
       return {
         microciclo_count: seq.items.length,
@@ -102,7 +98,7 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
         segments,
       };
     },
-    [microById, phaseById],
+    [microById],
   );
 
   // ── Editor view ─────────────────────────────────────────────────────────────
@@ -119,7 +115,6 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
         days={open.days}
         sequence={seq}
         microciclos={data.microciclos}
-        phases={data.phases}
         usageById={usageById}
         isShared={isShared}
         onClose={() => setOpen(null)}
@@ -276,19 +271,10 @@ export function SecuenciasPanel({ initial }: { initial: V2SecuenciasData }) {
       </div>
 
       {/* sparkline legend */}
-      <PhaseLegend phases={data.phases} />
+      <p className="mt-3 text-[11px] leading-relaxed text-[color:var(--v2-faint)]">
+        Cada celda muestra nº de microciclos · semanas totales y un sparkline: un segmento por microciclo, ancho ∝ semanas.{' '}
+        <b className="text-[color:var(--v2-muted)]">＋</b> = crear secuencia.
+      </p>
     </div>
-  );
-}
-
-// The sparkline reads by PHASE ROLE color (not a separate per-microciclo modality
-// axis, which we don't persist). This legend makes the color mapping explicit.
-function PhaseLegend({ phases }: { phases: V2PhaseItem[] }) {
-  if (phases.length === 0) return null;
-  return (
-    <p className="mt-3 text-[11px] leading-relaxed text-[color:var(--v2-faint)]">
-      Cada celda muestra nº de microciclos · semanas totales y un sparkline: un segmento por microciclo, ancho ∝ semanas,
-      color = la fase de ese microciclo (gris si no tiene). <b className="text-[color:var(--v2-muted)]">＋</b> = crear secuencia.
-    </p>
   );
 }

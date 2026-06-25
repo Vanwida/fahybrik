@@ -1,8 +1,18 @@
-import type { ProgramLevel } from '../../schema/program-templates';
-import { programLevelFromAthleteLevel } from '../../schema/program-templates';
+// Athlete experience tier — a self-contained, in-memory classification derived
+// from onboarding answers. Independent of any DB enum; the athlete's real level
+// lives in athlete_levels (level_id).
+export const ATHLETE_TIERS = ['beginner', 'intermediate', 'pro', 'elite'] as const;
+export type AthleteTier = (typeof ATHLETE_TIERS)[number];
+
+/** Map intake levels 1–3 to an experience tier; 3 → pro. */
+function tierFromIntakeLevel(level: 1 | 2 | 3): AthleteTier {
+  if (level === 1) return 'beginner';
+  if (level === 2) return 'intermediate';
+  return 'pro';
+}
 
 export type TrainingLevelSuggestion = {
-  suggested_level: ProgramLevel;
+  suggested_level: AthleteTier;
   confidence: 'low' | 'medium' | 'high';
   reasons: string[];
 };
@@ -23,7 +33,7 @@ export function suggestAthleteTrainingLevel(input: {
   }
 
   if (input.athlete_level != null) {
-    const base = programLevelFromAthleteLevel(
+    const base = tierFromIntakeLevel(
       Math.min(3, input.athlete_level) as 1 | 2 | 3,
     );
     reasons.push(`Nivel intake ${input.athlete_level}`);
@@ -47,8 +57,8 @@ export function suggestAthleteTrainingLevel(input: {
   return { suggested_level: 'intermediate', confidence: 'low', reasons: ['Datos insuficientes — revisar intake'] };
 }
 
-/** Map intake level 1-4 to program level including elite. */
-export function intakeLevelToProgramLevel(level: 1 | 2 | 3 | 4): ProgramLevel {
+/** Map intake level 1-4 to an experience tier including elite. */
+export function intakeLevelToProgramLevel(level: 1 | 2 | 3 | 4): AthleteTier {
   if (level === 4) return 'elite';
-  return programLevelFromAthleteLevel(level as 1 | 2 | 3);
+  return tierFromIntakeLevel(level as 1 | 2 | 3);
 }

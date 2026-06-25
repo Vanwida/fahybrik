@@ -61,12 +61,9 @@ describe('parseBlocks (pure)', () => {
     expect(blocks[2].title).toBe("Side plank 4x40''/20''");
   });
 
-  test('applies per-group format + atr hints', () => {
+  test('applies per-group format', () => {
     expect(blocks[0].format).toBe('strength_block');
-    expect(blocks[0].atr_block_hint).toBe('ACC');
-    // group 8 (core) is ambiguous across phases → atr null
     expect(blocks[2].format).toBe('core_mobility');
-    expect(blocks[2].atr_block_hint).toBeNull();
   });
 
   test('source_ref carries the session hint', () => {

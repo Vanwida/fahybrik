@@ -2,10 +2,6 @@ import { z } from 'zod';
 import { atrBlockType, idSchema, isoDateTime, templateFormat } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
 
-export const PROGRAM_LEVELS = ['beginner', 'intermediate', 'pro', 'elite'] as const;
-export const programLevelSchema = z.enum(PROGRAM_LEVELS);
-export type ProgramLevel = z.infer<typeof programLevelSchema>;
-
 export const weekSlotKindSchema = z.enum(['rest', 'workout']);
 
 export const weekDayBlockSectionSchema = z.enum([
@@ -240,8 +236,6 @@ export const programWeekTemplateSchema = z.object({
   id: idSchema,
   coach_id: idSchema,
   name: z.string().min(1).max(200),
-  level: programLevelSchema,
-  atr_block_hint: atrBlockType.nullable().optional(),
   slots_json: weekSlotsSchema,
   created_at: isoDateTime,
   updated_at: isoDateTime,
@@ -338,8 +332,6 @@ export type WeekContentCopy = z.infer<typeof weekContentCopySchema>;
 
 export const programWeekUpsertSchema = z.object({
   name: z.string().min(1).max(200),
-  level: programLevelSchema,
-  atr_block_hint: atrBlockType.nullable().optional(),
   focus: z.string().max(200).nullable().optional(),
   coach_notes: z.string().max(4000).nullable().optional(),
   slots_json: weekSlotsSchema,
@@ -348,8 +340,6 @@ export type ProgramWeekUpsert = z.infer<typeof programWeekUpsertSchema>;
 
 export const programMonthUpsertSchema = z.object({
   name: z.string().min(1).max(200),
-  level: programLevelSchema,
-  atr_block_hint: atrBlockType.nullable().optional(),
   week_template_ids: z.array(idSchema).min(1).max(6),
 });
 export type ProgramMonthUpsert = z.infer<typeof programMonthUpsertSchema>;
@@ -361,15 +351,7 @@ export const programMacrocycleBlockInputSchema = z.object({
 
 export const programMacrocycleUpsertSchema = z.object({
   name: z.string().min(1).max(200),
-  level: programLevelSchema,
   is_default: z.boolean().optional(),
   blocks: z.array(programMacrocycleBlockInputSchema).min(1).max(6),
 });
 export type ProgramMacrocycleUpsert = z.infer<typeof programMacrocycleUpsertSchema>;
-
-/** Map legacy intake levels 1–3 to program levels; 3 → pro, add elite via tests later. */
-export function programLevelFromAthleteLevel(level: 1 | 2 | 3): ProgramLevel {
-  if (level === 1) return 'beginner';
-  if (level === 2) return 'intermediate';
-  return 'pro';
-}

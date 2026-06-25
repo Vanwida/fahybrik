@@ -22,9 +22,6 @@ export const blockFormat = z.enum([
 ]);
 export type BlockFormat = z.infer<typeof blockFormat>;
 
-export const atrBlockHint = z.enum(['ACC', 'TRANS', 'REAL']);
-export type AtrBlockHint = z.infer<typeof atrBlockHint>;
-
 export const blockSchema = z.object({
   id: z.number().int().positive(),
   slug: slugSchema,
@@ -32,7 +29,6 @@ export const blockSchema = z.object({
   description: z.string().min(1),
   methodology_group_id: z.number().int().min(1).max(10),
   format: z.string().nullable(),
-  atr_block_hint: atrBlockHint.nullable(),
   source_ref: z.string().nullable(),
   // true when the verbatim couldn't be mapped to the catalog with confidence
   // (dense WODs / ambiguous formats). Such blocks keep only their verbatim and
@@ -53,7 +49,6 @@ export const blockUpdateSchema = z
     title: z.string().trim().min(1).max(160),
     description: z.string().trim().min(1).max(4000),
     methodology_group_id: z.number().int().min(1).max(10),
-    atr_block_hint: atrBlockHint.nullable(),
     // Level range + days/week tags (migration 0057). FK to athlete_levels; null = any.
     min_level_id: z.number().int().positive().nullable(),
     max_level_id: z.number().int().positive().nullable(),

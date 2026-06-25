@@ -612,9 +612,19 @@ async function seedDemoMicrocycle(
     where coach_id = ${coachId} and name like ${MONTH_NAME + ' · Semana %'}
   `;
 
+  // Agnostic level: pick the coach's first athlete_level (by sort_order) so the
+  // seeded microciclo carries a real level_id. Null when the coach has no levels.
+  const lvlRows = await sql<{ id: string }[]>`
+    select id::text from athlete_levels
+    where coach_id = ${coachId}
+    order by sort_order asc, id asc
+    limit 1
+  `;
+  const levelId = lvlRows[0] ? Number(lvlRows[0].id) : null;
+
   const monthRows = await sql<{ id: string }[]>`
-    insert into program_month_templates (coach_id, name, level, atr_block_hint)
-    values (${coachId}, ${MONTH_NAME}, 'intermediate'::program_level, 'ACC'::atr_block_type)
+    insert into program_month_templates (coach_id, name, level_id)
+    values (${coachId}, ${MONTH_NAME}, ${levelId})
     returning id::text
   `;
   const monthId = Number(monthRows[0]!.id);
@@ -629,10 +639,10 @@ async function seedDemoMicrocycle(
     });
     const slots = { days };
     await sql<{ id: string }[]>`
-      insert into program_week_templates (coach_id, name, level, atr_block_hint, focus, slots_json)
+      insert into program_week_templates (coach_id, name, level_id, focus, slots_json)
       values (
-        ${coachId}, ${`${MONTH_NAME} · Semana ${i + 1}`}, 'intermediate'::program_level,
-        'ACC'::atr_block_type, ${WEEK_FOCUS[i]!}, ${sql.json(slots as never)}
+        ${coachId}, ${`${MONTH_NAME} · Semana ${i + 1}`}, ${levelId},
+        ${WEEK_FOCUS[i]!}, ${sql.json(slots as never)}
       )
       returning id::text
     `.then(async (wkRows) => {

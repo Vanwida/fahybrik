@@ -21,14 +21,14 @@ export async function listBlocks(
     groupId === null
       ? await client<BlockRow[]>`
           select id, slug, title, description, methodology_group_id,
-                 format, atr_block_hint, source_ref, needs_review
+                 format, source_ref, needs_review
           from blocks
           where coach_id is null
           order by methodology_group_id asc, id asc
         `
       : await client<BlockRow[]>`
           select id, slug, title, description, methodology_group_id,
-                 format, atr_block_hint, source_ref, needs_review
+                 format, source_ref, needs_review
           from blocks
           where coach_id is null
             and methodology_group_id = ${groupId}
@@ -44,7 +44,6 @@ type BlockRow = {
   description: string;
   methodology_group_id: number;
   format: string | null;
-  atr_block_hint: 'ACC' | 'TRANS' | 'REAL' | null;
   source_ref: string | null;
   needs_review: boolean;
 };
@@ -126,7 +125,7 @@ export async function getBlockById(
 ): Promise<Block | null> {
   const rows = await client<BlockRow[]>`
     select id, slug, title, description, methodology_group_id,
-           format, atr_block_hint, source_ref, needs_review
+           format, source_ref, needs_review
     from blocks
     where id = ${blockId}
       and coach_id is null
@@ -187,7 +186,7 @@ export async function getBlockLibraryExercises(
 
 /**
  * Actualiza los campos editables por el coach de un bloque de la biblioteca
- * maestra (title / description / methodology_group_id / atr_block_hint). NO toca
+ * maestra (title / description / methodology_group_id / nivel / días). NO toca
  * los `block_exercises` estructurados. Mutar afecta a TODA materialización futura
  * del bloque. Devuelve el bloque actualizado o null si no existe (coach_id null).
  *
@@ -205,8 +204,6 @@ export async function updateBlock(
   if (patch.description !== undefined) assignments.push(client`description = ${patch.description}`);
   if (patch.methodology_group_id !== undefined)
     assignments.push(client`methodology_group_id = ${patch.methodology_group_id}`);
-  if (patch.atr_block_hint !== undefined)
-    assignments.push(client`atr_block_hint = ${patch.atr_block_hint}`);
   if (patch.min_level_id !== undefined)
     assignments.push(client`min_level_id = ${patch.min_level_id}`);
   if (patch.max_level_id !== undefined)
@@ -226,7 +223,7 @@ export async function updateBlock(
     where id = ${blockId}
       and coach_id is null
     returning id, slug, title, description, methodology_group_id,
-              format, atr_block_hint, source_ref, needs_review
+              format, source_ref, needs_review
   `;
   const r = rows[0];
   if (!r) return null;

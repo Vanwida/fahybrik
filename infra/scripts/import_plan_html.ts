@@ -564,12 +564,10 @@ async function main(): Promise<void> {
 
       // Inserta el microciclo.
       const monthRows = await tx<Array<{ id: string }>>`
-        insert into program_month_templates (coach_id, name, level, atr_block_hint)
+        insert into program_month_templates (coach_id, name)
         values (
           ${COACH_ID},
-          ${MONTH_NAME},
-          ${MONTH_LEVEL}::program_level,
-          ${MONTH_ATR_HINT}
+          ${MONTH_NAME}
         )
         returning id::text
       `;
@@ -593,13 +591,11 @@ async function main(): Promise<void> {
         const weekName = `${MONTH_NAME} · ${WEEK_LABELS[i]}`;
         const weekRows = await tx<Array<{ id: string }>>`
           insert into program_week_templates (
-            coach_id, name, level, atr_block_hint, focus, slots_json
+            coach_id, name, focus, slots_json
           )
           values (
             ${COACH_ID},
             ${weekName},
-            ${MONTH_LEVEL}::program_level,
-            ${MONTH_ATR_HINT},
             ${null},
             ${tx.json(slotsForDb(slots) as never)}
           )
@@ -629,7 +625,6 @@ async function main(): Promise<void> {
 
       console.log('============================================================');
       console.log(`Microciclo creado: "${MONTH_NAME}" (id ${monthId}) coach ${COACH_ID}`);
-      console.log(`  level=${MONTH_LEVEL} atr_block_hint=${MONTH_ATR_HINT}`);
       console.log(`  Semanas: 3 con detalle (W7,W8,W9) + 1 vacía (deload placeholder)`);
       console.log(`  Días con sesiones: ${weekSlotsByIndex.reduce((n,w)=>n+w.days.filter(d=>d.sessions.length>0).length,0)}`);
       console.log(`  Sesiones: ${totalSessions}`);

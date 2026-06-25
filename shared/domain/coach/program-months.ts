@@ -1,12 +1,10 @@
 import type { Sql } from 'postgres';
 import { z } from 'zod';
 import {
-  programLevelSchema,
   programMonthUpsertSchema,
   type ProgramMonthUpsert,
   type WeekSlots,
 } from '../../schema/program-templates';
-import { atrBlockType } from '../../schema/_primitives';
 
 /**
  * Núcleo compartido CRUD de microciclos (mes-plantilla), behavior-agnostic.
@@ -21,8 +19,6 @@ import { atrBlockType } from '../../schema/_primitives';
 /** Body validation for POST /api/coach/program-months/create. */
 export const programMonthCreateSchema = z.object({
   name: z.string().min(1).max(200),
-  level: programLevelSchema,
-  atr_block_hint: atrBlockType.nullable().optional(),
   focus: z.string().max(200).nullable().optional(),
 });
 export type ProgramMonthCreate = z.infer<typeof programMonthCreateSchema>;
@@ -33,16 +29,13 @@ export const MICROCICLO_MAX_WEEKS = 8;
 
 /**
  * Body validation for POST /api/coach/program-months/create — the AGNOSTIC
- * "create from scratch" flow. Level + phase reference the coach's own catalogs
- * (athlete_levels / methodology_phases) — never the legacy program_level /
- * atr_block enums, never free text. `phase_id` is OPTIONAL (a microciclo may
- * carry no phase). The legacy enum columns are derived server-side for
- * back-compat (see createMonthTemplateWithEmptyWeeks).
+ * "create from scratch" flow. A microciclo's identity = name + level
+ * (athlete_levels, level_id) + nº weeks. There is no phase entity — the ORDER of
+ * microciclos in a sequence IS the periodization.
  */
 export const programMonthScratchSchema = z.object({
   name: z.string().min(1).max(200),
   level_id: z.coerce.number().int().positive(),
-  phase_id: z.coerce.number().int().positive().nullable().optional(),
   week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS),
 });
 export type ProgramMonthScratch = z.infer<typeof programMonthScratchSchema>;
@@ -54,8 +47,6 @@ export type ProgramMonthScratch = z.infer<typeof programMonthScratchSchema>;
 export const programMonthUpdateSchema = z
   .object({
     name: z.string().min(1).max(200).optional(),
-    level: programLevelSchema.optional(),
-    atr_block_hint: atrBlockType.nullable().optional(),
     focus: z.string().max(200).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
@@ -68,7 +59,6 @@ export type MonthRow = {
   id: string;
   name: string;
   level: string;
-  atr_block_hint: string | null;
   focus: string | null;
   updated_at: string;
 };
@@ -80,7 +70,6 @@ export type MonthTemplateWeekFull = {
   level: string;
   focus: string | null;
   coach_notes: string | null;
-  atr_block_hint: string | null;
   slots_json: WeekSlots;
 };
 
@@ -88,18 +77,14 @@ export type MonthTemplateWithWeeks = {
   month: {
     id: string;
     name: string;
-    /** Agnostic level name (athlete_levels.name); legacy enum fallback for old rows. */
+    /** Agnostic level name (athlete_levels.name); '' when no level set. */
     level: string;
-    atr_block_hint: string | null;
-    /** Agnostic phase label (methodology_phases.label), null when none set. */
-    phase_label: string | null;
   };
   weeks: MonthTemplateWeekFull[];
 };
 
 export async function listMonthTemplates(params: {
   coach_id: number | bigint;
-  level?: string;
   client: Sql;
 }) {
   const client = params.client;
@@ -108,7 +93,6 @@ export async function listMonthTemplates(params: {
       id: string;
       name: string;
       level: string;
-      atr_block_hint: string | null;
       focus: string | null;
       week_count: number;
       updated_at: string;
@@ -117,8 +101,7 @@ export async function listMonthTemplates(params: {
     select
       m.id::text,
       m.name,
-      coalesce(al.name, m.level::text) as level,
-      m.atr_block_hint::text,
+      coalesce(al.name, '') as level,
       fw.focus as focus,
       coalesce(w.cnt, 0)::int as week_count,
       m.updated_at::text
@@ -138,7 +121,6 @@ export async function listMonthTemplates(params: {
       limit 1
     ) fw on true
     where m.coach_id = ${params.coach_id as number}
-      and (${params.level ?? null}::program_level is null or m.level = ${params.level ?? null}::program_level)
     order by m.updated_at desc
   `;
 }
@@ -162,12 +144,12 @@ export async function getMonthTemplate(params: {
       id: string;
       name: string;
       level: string;
-      atr_block_hint: string | null;
     }>
   >`
-    select id::text, name, level::text, atr_block_hint::text
-    from program_month_templates
-    where id = ${params.id as number} and coach_id = ${params.coach_id as number}
+    select m.id::text, m.name, coalesce(al.name, '') as level
+    from program_month_templates m
+    left join athlete_levels al on al.id = m.level_id
+    where m.id = ${params.id as number} and m.coach_id = ${params.coach_id as number}
     limit 1
   `;
   const row = rows[0];
@@ -209,8 +191,6 @@ export async function upsertMonthTemplate(params: {
       update program_month_templates
       set
         name = ${body.name},
-        level = ${body.level}::program_level,
-        atr_block_hint = ${body.atr_block_hint ?? null},
         updated_at = now()
       where id = ${params.id as number} and coach_id = ${params.coach_id as number}
       returning id::text
@@ -222,12 +202,10 @@ export async function upsertMonthTemplate(params: {
     `;
   } else {
     const rows = await client<Array<{ id: string }>>`
-      insert into program_month_templates (coach_id, name, level, atr_block_hint)
+      insert into program_month_templates (coach_id, name)
       values (
         ${params.coach_id as number},
-        ${body.name},
-        ${body.level}::program_level,
-        ${body.atr_block_hint ?? null}
+        ${body.name}
       )
       returning id::text
     `;
@@ -257,8 +235,6 @@ export async function duplicateMonthTemplate(params: {
     coach_id: params.coach_id,
     payload: {
       name: `${src.name} (copia)`,
-      level: src.level as ProgramMonthUpsert['level'],
-      atr_block_hint: src.atr_block_hint as ProgramMonthUpsert['atr_block_hint'],
       week_template_ids: src.weeks.map((w) => w.week_template_id),
     },
     client: params.client,
@@ -268,9 +244,7 @@ export async function duplicateMonthTemplate(params: {
 /**
  * Actualiza la metadata de un microciclo (partial update).
  *
- * - `name`, `level`, `atr_block_hint` → updatean `program_month_templates`.
- * - `level` y `atr_block_hint` se propagan a las semanas hijas para mantener
- *   coherencia (la UI de la semana lee estos campos del propio week template).
+ * - `name` → updatea `program_month_templates`.
  * - `focus` no vive en `program_month_templates`; si llega, se propaga a las
  *   semanas hijas (`program_week_templates.focus`), igual que hace `create`.
  *
@@ -311,38 +285,6 @@ export async function updateMonthTemplate(params: {
         where id = ${month_id} and coach_id = ${coach_id}
       `;
     }
-    if (patch.level !== undefined) {
-      await tx`
-        update program_month_templates
-        set level = ${patch.level}::program_level, updated_at = now()
-        where id = ${month_id} and coach_id = ${coach_id}
-      `;
-      // Propaga level a las semanas hijas.
-      await tx`
-        update program_week_templates w
-        set level = ${patch.level}::program_level, updated_at = now()
-        from program_month_weeks mw
-        where mw.week_template_id = w.id
-          and mw.month_template_id = ${month_id}
-          and w.coach_id = ${coach_id}
-      `;
-    }
-    if (patch.atr_block_hint !== undefined) {
-      await tx`
-        update program_month_templates
-        set atr_block_hint = ${patch.atr_block_hint}, updated_at = now()
-        where id = ${month_id} and coach_id = ${coach_id}
-      `;
-      // Propaga atr_block_hint a las semanas hijas.
-      await tx`
-        update program_week_templates w
-        set atr_block_hint = ${patch.atr_block_hint}, updated_at = now()
-        from program_month_weeks mw
-        where mw.week_template_id = w.id
-          and mw.month_template_id = ${month_id}
-          and w.coach_id = ${coach_id}
-      `;
-    }
     if (patch.focus !== undefined) {
       // `focus` no vive en `program_month_templates`; sólo en las semanas hijas.
       await tx`
@@ -361,11 +303,11 @@ export async function updateMonthTemplate(params: {
     select
       m.id::text,
       m.name,
-      m.level::text,
-      m.atr_block_hint::text,
+      coalesce(al.name, '') as level,
       fw.focus as focus,
       m.updated_at::text
     from program_month_templates m
+    left join athlete_levels al on al.id = m.level_id
     left join lateral (
       select wt.focus
       from program_month_weeks mw

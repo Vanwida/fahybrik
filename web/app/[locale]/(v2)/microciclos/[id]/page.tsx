@@ -74,7 +74,7 @@ export default async function V2MicrocicloPage({
       index: i,
       name: w.name,
       focus: w.focus,
-      label: w.atr_block_hint ?? w.focus ?? `Semana ${i + 1}`,
+      label: w.focus ?? `Semana ${i + 1}`,
       session_count: weekSessionCount(days),
       days,
       load: loads[i] ?? null,
@@ -105,7 +105,6 @@ export default async function V2MicrocicloPage({
       microcycle_id={id}
       name={full.month.name}
       level={full.month.level}
-      phaseLabel={full.month.phase_label}
       weeks={weeks}
       groupNames={groupNames}
       dayModel={dayModel}

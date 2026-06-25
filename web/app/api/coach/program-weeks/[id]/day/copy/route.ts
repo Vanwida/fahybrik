@@ -8,7 +8,7 @@
 // metodología, no tech) ni añade fechas.
 //
 // AGNOSTIC: name/level/focus/coach_notes de la semana destino pasan TAL CUAL —
-// esta ruta nunca toca program_level / semántica ATR.
+// esta ruta solo copia el contenido (slots_json) de un día a otro(s).
 
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
@@ -109,8 +109,6 @@ export async function PUT(
 
     const payload: ProgramWeekUpsert = {
       name: targetWeek.name,
-      level: targetWeek.level as ProgramWeekUpsert['level'],
-      atr_block_hint: targetWeek.atr_block_hint as ProgramWeekUpsert['atr_block_hint'],
       focus: targetWeek.focus,
       coach_notes: targetWeek.coach_notes,
       slots_json: { days: nextDays },

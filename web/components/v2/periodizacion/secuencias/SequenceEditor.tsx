@@ -3,9 +3,9 @@
 // SequenceEditor — the heart of Secuencias. Opens on a matrix cell (level × days)
 // and builds the ORDERED chain of microciclos the athlete walks through. Each card
 // = one microciclo (referenced via month_template_id, never copied) with its order,
-// name, weeks, and an optional phase label (role color). Cards reorder by drag
-// (HTML5, adjacent-swap like ReorderRow) with keyboard ↑/↓ fallback; the order IS
-// the walkthrough order. Below: the running total ribbon + the end/progression panel.
+// name and weeks. Cards reorder by drag (HTML5, adjacent-swap like ReorderRow) with
+// keyboard ↑/↓ fallback; the order IS the periodization. Below: the running total
+// ribbon + the end/progression panel.
 //
 // SAVE = PUT /api/coach/sequences (the atomic full-set cell save): the ordered items
 // (the server derives 1..N positions from array order) + end_policy + progression.
@@ -24,17 +24,15 @@ import type {
   V2SequenceMicrociclo,
   V2SequenceItem,
 } from '@/lib/dashboard/v2/secuencias';
-import type { V2PhaseItem, V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
-import { roleV2Color, roleV2Soft } from '../role-style';
+import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { AddMicrocicloPicker } from './AddMicrocicloPicker';
 import { EndPolicyPanel } from './EndPolicyPanel';
 
-// A working item: the persisted (month_template_id, phase_id) pair + a client-only
-// key so React can track cards across reorders without a server id.
+// A working item: the persisted month_template_id + a client-only key so React can
+// track cards across reorders without a server id.
 interface DraftItem {
   key: string;
   month_template_id: string;
-  phase_id: string | null;
 }
 
 let keySeq = 0;
@@ -47,7 +45,6 @@ function toDraftItems(items: V2SequenceItem[]): DraftItem[] {
   return items.map((it) => ({
     key: nextKey(),
     month_template_id: it.month_template_id,
-    phase_id: it.phase_id,
   }));
 }
 
@@ -56,7 +53,6 @@ export function SequenceEditor({
   days,
   sequence,
   microciclos,
-  phases,
   usageById,
   isShared,
   onClose,
@@ -67,7 +63,6 @@ export function SequenceEditor({
   /** The existing sequence for this cell, or null when creating a new one. */
   sequence: V2Sequence | null;
   microciclos: V2SequenceMicrociclo[];
-  phases: V2PhaseItem[];
   /** month_template_id → how many sequences use it (for the picker hint). */
   usageById: Record<string, number>;
   /** True when this same cell's microciclos appear in >1 matrix cell. */
@@ -91,7 +86,6 @@ export function SequenceEditor({
     () => new Map(microciclos.map((m) => [m.id, m])),
     [microciclos],
   );
-  const phaseById = useMemo(() => new Map(phases.map((p) => [p.id, p])), [phases]);
 
   const totalWeeks = useMemo(
     () => items.reduce((sum, it) => sum + (microById.get(it.month_template_id)?.week_count ?? 0), 0),
@@ -117,12 +111,8 @@ export function SequenceEditor({
     setError(null);
   }, []);
 
-  const setItemPhase = useCallback((key: string, phaseId: string | null) => {
-    setItems((prev) => prev.map((it) => (it.key === key ? { ...it, phase_id: phaseId } : it)));
-  }, []);
-
   const addMicrociclo = useCallback((m: V2SequenceMicrociclo) => {
-    setItems((prev) => [...prev, { key: nextKey(), month_template_id: m.id, phase_id: null }]);
+    setItems((prev) => [...prev, { key: nextKey(), month_template_id: m.id }]);
     setPickerOpen(false);
     setError(null);
   }, []);
@@ -144,7 +134,6 @@ export function SequenceEditor({
           progression_applies_to: endPolicy === 'repeat' ? progressionTarget : null,
           items: items.map((it) => ({
             month_template_id: Number(it.month_template_id),
-            phase_id: it.phase_id == null ? null : Number(it.phase_id),
           })),
         }),
       });
@@ -222,7 +211,6 @@ export function SequenceEditor({
       <div className="flex flex-wrap items-stretch gap-0">
         {items.map((it, i) => {
           const micro = microById.get(it.month_template_id);
-          const phase = it.phase_id ? phaseById.get(it.phase_id) ?? null : null;
           return (
             <div key={it.key} className="flex items-stretch">
               <MicrocicloCard
@@ -231,12 +219,9 @@ export function SequenceEditor({
                 total={items.length}
                 name={micro?.name ?? 'Microciclo eliminado'}
                 weeks={micro?.week_count ?? 0}
-                phase={phase}
-                phases={phases}
                 missing={!micro}
                 onMove={move}
                 onRemove={() => remove(it.key)}
-                onPhase={(pid) => setItemPhase(it.key, pid)}
               />
               <div className="flex w-[26px] items-center justify-center text-lg font-bold text-[color:var(--v2-accent)]">
                 →
@@ -255,7 +240,7 @@ export function SequenceEditor({
             {items.length === 1 ? 'microciclo' : 'microciclos'} ·{' '}
             <b className="v2-num text-[color:var(--v2-fg)]">{totalWeeks}</b> semanas en total
           </span>
-          <TotalBar items={items} microById={microById} phaseById={phaseById} />
+          <TotalBar items={items} microById={microById} />
           {endPolicy === 'repeat' && progressionPct != null ? (
             <span className="text-[color:var(--v2-faint)]">↻ vuelve a empezar con +{progressionPct}%</span>
           ) : endPolicy === 'level_up' ? (
@@ -311,24 +296,18 @@ function MicrocicloCard({
   total,
   name,
   weeks,
-  phase,
-  phases,
   missing,
   onMove,
   onRemove,
-  onPhase,
 }: {
   order: number;
   index: number;
   total: number;
   name: string;
   weeks: number;
-  phase: V2PhaseItem | null;
-  phases: V2PhaseItem[];
   missing: boolean;
   onMove: (index: number, delta: -1 | 1) => void;
   onRemove: () => void;
-  onPhase: (phaseId: string | null) => void;
 }) {
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', String(index));
@@ -394,9 +373,6 @@ function MicrocicloCard({
         </span>
       </div>
 
-      {/* phase picker (optional label, role color) */}
-      <PhaseSelect phase={phase} phases={phases} onChange={onPhase} />
-
       <div className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-muted)]">
         <MIcon name="date_range" size={13} className="opacity-70" />
         <b className="v2-num">{weeks}</b> {weeks === 1 ? 'semana' : 'semanas'}
@@ -433,53 +409,6 @@ function MicrocicloCard({
   );
 }
 
-function PhaseSelect({
-  phase,
-  phases,
-  onChange,
-}: {
-  phase: V2PhaseItem | null;
-  phases: V2PhaseItem[];
-  onChange: (phaseId: string | null) => void;
-}) {
-  // No phases defined by the coach → don't surface an empty control (agnostic:
-  // phases are optional; a sequence works with no color at all).
-  if (phases.length === 0) return null;
-
-  return (
-    <div
-      className="inline-flex items-center self-start rounded-[var(--v2-r-pill)] pr-1"
-      style={
-        phase
-          ? { background: roleV2Soft(phase.role) }
-          : { background: 'var(--v2-surface-2)' }
-      }
-    >
-      {phase ? (
-        <span
-          aria-hidden
-          className="ml-2 mr-1 h-1.5 w-1.5 shrink-0 rounded-full"
-          style={{ background: roleV2Color(phase.role) }}
-        />
-      ) : null}
-      <label className="sr-only">Fase del microciclo</label>
-      <select
-        value={phase?.id ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-        className="v2-focus cursor-pointer rounded-[var(--v2-r-pill)] bg-transparent py-0.5 pl-1.5 pr-1 text-[10px] font-bold uppercase tracking-[0.04em] focus:outline-none"
-        style={{ color: phase ? roleV2Color(phase.role) : 'var(--v2-faint)' }}
-      >
-        <option value="">Sin fase</option>
-        {phases.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 function AddCard({
   onClick,
   levelName,
@@ -509,19 +438,16 @@ function AddCard({
 }
 
 // The running-total ribbon's segmented bar — one segment per microciclo, width ∝
-// weeks, color = phase role (neutral when none).
+// weeks.
 function TotalBar({
   items,
   microById,
-  phaseById,
 }: {
   items: DraftItem[];
   microById: Map<string, V2SequenceMicrociclo>;
-  phaseById: Map<string, V2PhaseItem>;
 }) {
   const segs = items.map((it) => ({
     weeks: Math.max(microById.get(it.month_template_id)?.week_count ?? 1, 1),
-    role: it.phase_id ? phaseById.get(it.phase_id)?.role ?? null : null,
   }));
   const total = segs.reduce((sum, s) => sum + s.weeks, 0);
   if (total === 0) return null;
@@ -533,7 +459,7 @@ function TotalBar({
           className="h-2 rounded-[2px]"
           style={{
             width: `${(s.weeks / total) * 100}%`,
-            background: s.role ? roleV2Color(s.role) : 'var(--v2-muted)',
+            background: 'var(--v2-muted)',
           }}
         />
       ))}

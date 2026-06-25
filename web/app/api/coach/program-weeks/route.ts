@@ -1,26 +1,15 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { listWeekTemplates, ProgramWeekError, upsertWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
-import { programLevelSchema } from '@fahybrid/shared/schema/program-templates';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
 
-  const url = new URL(req.url);
-  const levelRaw = url.searchParams.get('level');
-  const level = levelRaw ? programLevelSchema.safeParse(levelRaw) : null;
-  if (levelRaw && !level?.success) {
-    return jsonError('bad_request', 'Filtro de nivel inválido', 400);
-  }
-
-  const weeks = await listWeekTemplates({
-    coach_id: session.coach_id,
-    level: level?.success ? level.data : undefined,
-  });
+  const weeks = await listWeekTemplates({ coach_id: session.coach_id });
   return jsonOk({ weeks });
 }
 

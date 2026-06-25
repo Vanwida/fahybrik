@@ -50,7 +50,6 @@ export function MicrocicloEditor({
   microcycle_id,
   name,
   level,
-  phaseLabel,
   weeks,
   groupNames,
   dayModel,
@@ -58,8 +57,6 @@ export function MicrocicloEditor({
   microcycle_id: string;
   name: string;
   level: string;
-  /** Agnostic phase label (methodology_phases.label); null = microciclo sin fase. */
-  phaseLabel?: string | null;
   weeks: MicroWeek[];
   /** methodology_group_id → coach label (agnostic; for the per-block group tag). */
   groupNames: Record<number, string>;
@@ -86,11 +83,6 @@ export function MicrocicloEditor({
           </h1>
           <p className="flex flex-wrap items-center gap-1.5 text-sm text-[color:var(--v2-muted)]">
             <span>{level}</span>
-            {phaseLabel ? (
-              <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-xs font-semibold text-[color:var(--v2-fg)]">
-                {phaseLabel}
-              </span>
-            ) : null}
           </p>
         </div>
         {/* The view toggle is a full-week affordance; while a day is open the

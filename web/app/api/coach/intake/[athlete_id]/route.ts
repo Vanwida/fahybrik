@@ -2,8 +2,8 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { commitIntake, IntakeError, loadIntakeProfile } from '@/lib/coach/intake';
 import { proposeFirstMonthForIntake } from '@/lib/coach/intake-month-proposal';
-import { intakeLevelToProgramLevel } from '@/lib/coach/athlete-training-level';
 import { computeAndStoreLevelSuggestion } from '@/lib/coach/level-proposal';
+import { sql } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,12 +38,23 @@ export async function GET(_req: Request, ctx: Ctx) {
       athlete_id: id,
       coach_id: session.coach_id,
     });
-    const programLevel = intakeLevelToProgramLevel(profile.suggestions.level as 1 | 2 | 3 | 4);
-    const month_proposal = await proposeFirstMonthForIntake({
-      coach_id: session.coach_id,
-      athlete_id: id,
-      level: programLevel,
-    });
+    // The athlete's level = athlete_levels (level_id), preferring the coach's
+    // assigned level over the algorithm's suggestion. The month proposal selects a
+    // microciclo template tagged with that same level_id; null when no level yet.
+    const levelRows = await sql<Array<{ level_id: string | null }>>`
+      select coalesce(a.level_id, a.suggested_level_id)::text as level_id
+      from athletes a
+      where a.id = ${Number(id)} and a.coach_id = ${Number(session.coach_id)}
+      limit 1
+    `;
+    const levelId = levelRows[0]?.level_id ?? null;
+    const month_proposal = levelId
+      ? await proposeFirstMonthForIntake({
+          coach_id: session.coach_id,
+          athlete_id: id,
+          level_id: Number(levelId),
+        })
+      : null;
     return jsonOk({ profile, month_proposal });
   } catch (err) {
     if (err instanceof IntakeError) {

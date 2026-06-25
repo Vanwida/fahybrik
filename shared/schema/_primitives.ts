@@ -66,14 +66,6 @@ export type AtrBlockType = z.infer<typeof atrBlockType>;
 export const targetBlock = z.enum(['ACC', 'TRANS', 'REAL', 'any']);
 export type TargetBlock = z.infer<typeof targetBlock>;
 
-// Agnostic periodization-phase intensity axis (migration 0052
-// methodology_phases.role CHECK). The ONLY closed dimension of a coach-defined
-// phase: label/code are free strings. Drives the generic color ramp + AI
-// semantics: volume->green, intensity->amber, peak->red, recovery->blue,
-// maintenance->neutral.
-export const phaseRole = z.enum(['volume', 'intensity', 'peak', 'recovery', 'maintenance']);
-export type PhaseRole = z.infer<typeof phaseRole>;
-
 export const macrocycleStatus = z.enum(['planned', 'active', 'completed', 'cancelled']);
 export type MacrocycleStatus = z.infer<typeof macrocycleStatus>;
 

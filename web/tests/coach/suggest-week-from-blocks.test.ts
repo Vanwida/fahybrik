@@ -39,7 +39,6 @@ function fixtureBlocks(): ComposableBlock[] {
     id: number,
     title: string,
     group: number,
-    atr: ComposableBlock['atr_block_hint'],
     format: string,
     mods: ComposableBlock['default_modifiers'] = null,
   ): ComposableBlock => ({
@@ -49,19 +48,18 @@ function fixtureBlocks(): ComposableBlock[] {
     description: `${title} — prescripción verbatim de Pablo`,
     methodology_group_id: group,
     format,
-    atr_block_hint: atr,
     source_ref: `S1 – Día ${id}`,
     default_modifiers: mods,
   });
   return [
-    mk(1, 'Front squat 5x10', 1, 'ACC', 'strength_block', { intensity_pct: 70 }),
-    mk(2, 'Strict press 5x8', 1, 'ACC', 'strength_block'),
-    mk(3, 'Row 4x3min', 3, 'ACC', 'erg_intervals'),
-    mk(4, 'SkiErg 6x500m', 3, 'TRANS', 'erg_intervals'),
-    mk(5, 'Z2 run 45min', 5, 'ACC', 'zone2'),
-    mk(6, 'Core circuit', 5, null, 'core_mobility'),
-    mk(7, 'HYROX sim half', 7, 'REAL', 'race_sim'),
-    mk(8, 'Metcon AMRAP', 7, 'TRANS', 'metcon'),
+    mk(1, 'Front squat 5x10', 1, 'strength_block', { intensity_pct: 70 }),
+    mk(2, 'Strict press 5x8', 1, 'strength_block'),
+    mk(3, 'Row 4x3min', 3, 'erg_intervals'),
+    mk(4, 'SkiErg 6x500m', 3, 'erg_intervals'),
+    mk(5, 'Z2 run 45min', 5, 'zone2'),
+    mk(6, 'Core circuit', 5, 'core_mobility'),
+    mk(7, 'HYROX sim half', 7, 'race_sim'),
+    mk(8, 'Metcon AMRAP', 7, 'metcon'),
   ];
 }
 

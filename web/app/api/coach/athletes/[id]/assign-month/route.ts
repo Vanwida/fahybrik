@@ -117,12 +117,13 @@ export async function GET(
       ama.id::text,
       ama.month_template_id::text,
       m.name as month_name,
-      m.level::text,
+      coalesce(al.name, '') as level,
       to_char(ama.start_date, 'YYYY-MM-DD') as start_date,
       to_char(ama.end_date, 'YYYY-MM-DD') as end_date,
       ama.assignment_count
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
+    left join athlete_levels al on al.id = m.level_id
     join athletes a on a.id = ama.athlete_id
     where ama.athlete_id = ${Number(parsedId.data.id)}
       and a.coach_id = ${session.coach_id}

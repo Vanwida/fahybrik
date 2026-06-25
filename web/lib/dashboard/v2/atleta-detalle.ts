@@ -71,11 +71,10 @@ const MODALITY_LABEL: Record<string, string> = {
 };
 
 /**
- * Header phase label. The phase NAME is resolved through the coach's own
- * methodology_phases (0052) by `buildAthletePlan` (→ `plan.current_block_label`),
- * the single source of truth — NOT a hardcoded ATR map. We append the
- * block-relative week from the shell. Falls back to the shell's raw enum only
- * when there's no resolved label and no plan.
+ * Header block label. The block NAME comes from `buildAthletePlan`
+ * (→ `plan.current_block_label`, the legacy ATR full-word label via atrPhaseLabel).
+ * We append the block-relative week from the shell. Falls back to the shell's raw
+ * block type only when there's no resolved label and no plan.
  */
 function phaseLabel(
   shell: AthleteProfileShell | null,

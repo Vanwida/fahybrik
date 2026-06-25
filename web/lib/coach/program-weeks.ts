@@ -10,7 +10,6 @@ import { normalizeWeekSlots, parseWeekSlotsFromDb } from './program-week-slots';
 
 export async function listWeekTemplates(params: {
   coach_id: number | bigint;
-  level?: string;
   client?: Sql;
 }) {
   const client = params.client ?? defaultSql;
@@ -20,20 +19,18 @@ export async function listWeekTemplates(params: {
       name: string;
       level: string;
       focus: string | null;
-      atr_block_hint: string | null;
       updated_at: string;
     }>
   >`
     select
       w.id::text,
       w.name,
-      w.level::text,
+      coalesce(al.name, '') as level,
       w.focus,
-      w.atr_block_hint::text,
       w.updated_at::text
     from program_week_templates w
+    left join athlete_levels al on al.id = w.level_id
     where w.coach_id = ${params.coach_id as number}
-      and (${params.level ?? null}::program_level is null or w.level = ${params.level ?? null}::program_level)
     order by w.updated_at desc
   `;
 }
@@ -51,20 +48,19 @@ export async function getWeekTemplate(params: {
       level: string;
       focus: string | null;
       coach_notes: string | null;
-      atr_block_hint: string | null;
       slots_json: unknown;
     }>
   >`
     select
-      id::text,
-      name,
-      level::text,
-      focus,
-      coach_notes,
-      atr_block_hint::text,
-      slots_json
-    from program_week_templates
-    where id = ${params.id} and coach_id = ${params.coach_id}
+      w.id::text,
+      w.name,
+      coalesce(al.name, '') as level,
+      w.focus,
+      w.coach_notes,
+      w.slots_json
+    from program_week_templates w
+    left join athlete_levels al on al.id = w.level_id
+    where w.id = ${params.id} and w.coach_id = ${params.coach_id}
     limit 1
   `;
   const row = rows[0];
@@ -92,8 +88,6 @@ export async function upsertWeekTemplate(params: {
       update program_week_templates
       set
         name = ${body.name},
-        level = ${body.level}::program_level,
-        atr_block_hint = ${body.atr_block_hint ?? null},
         focus = ${body.focus ?? null},
         coach_notes = ${body.coach_notes ?? null},
         slots_json = ${client.json(slotsForDb as unknown as Parameters<typeof client.json>[0])},
@@ -107,13 +101,11 @@ export async function upsertWeekTemplate(params: {
 
   const rows = await client<Array<{ id: string }>>`
     insert into program_week_templates (
-      coach_id, name, level, atr_block_hint, focus, coach_notes, slots_json
+      coach_id, name, focus, coach_notes, slots_json
     )
     values (
       ${params.coach_id},
       ${body.name},
-      ${body.level}::program_level,
-      ${body.atr_block_hint ?? null},
       ${body.focus ?? null},
       ${body.coach_notes ?? null},
       ${client.json(slotsForDb as unknown as Parameters<typeof client.json>[0])}
@@ -135,8 +127,6 @@ export async function duplicateWeekTemplate(params: {
     coach_id: params.coach_id,
     payload: {
       name: `${src.name} (copia)`,
-      level: src.level as ProgramWeekUpsert['level'],
-      atr_block_hint: src.atr_block_hint as ProgramWeekUpsert['atr_block_hint'],
       focus: src.focus,
       coach_notes: src.coach_notes,
       slots_json: src.slots_json,
