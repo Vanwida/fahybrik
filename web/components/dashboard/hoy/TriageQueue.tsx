@@ -27,7 +27,7 @@ import {
   type AthleteSearchResult,
   type AthleteAction,
 } from '@/components/dashboard/ui';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { TriageCard } from './TriageCard';
 import { AthleteSidePanel } from './AthleteSidePanel';
 import { ThreadDrawer } from './ThreadDrawer';

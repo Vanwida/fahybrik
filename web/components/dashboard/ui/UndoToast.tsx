@@ -8,7 +8,7 @@
 // renders the window. Pairs with BulkActionBar and the Toast provider.
 
 import { useEffect, useRef, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 /** Default undo window (s), matching the inbox approval flow (SPEC §4/§6). */

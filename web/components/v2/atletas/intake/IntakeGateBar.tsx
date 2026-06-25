@@ -5,7 +5,7 @@
 // "Asignar plan" button (orange, disabled until canAssign; "Asignando…" while
 // pending). Submit error renders role=alert above the bar.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
 

@@ -17,7 +17,7 @@
 
 import type { ReactNode } from 'react';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import type { PipelineStepKey } from '@/lib/dashboard/v2/orientacion-types';
 import { PIPELINE_STEP_META } from './pipeline';
 

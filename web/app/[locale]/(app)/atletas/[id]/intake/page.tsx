@@ -5,7 +5,7 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadIntakeProfile, IntakeError, type IntakeProfile } from '@/lib/coach/intake';
 import { IntakeReview } from '@/components/dashboard/intake/IntakeReview';
 import { AthleteAvatar } from '@/components/dashboard/atoms/AthleteAvatar';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export const dynamic = 'force-dynamic';
 

@@ -7,7 +7,7 @@
 // obvious. Keyboard + click-outside + Escape accessible.
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface DropdownOption<T extends string> {

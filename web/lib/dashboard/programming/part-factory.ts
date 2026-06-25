@@ -11,7 +11,7 @@ import {
   defaultMeasureForModality,
   defaultSchemeForModality,
   defaultTargetForModality,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 // `defaultParamsForExercise` is no longer used for item seeding — items now carry
 // a structured prescription_json and derive params from it. The helper remains

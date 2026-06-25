@@ -1,7 +1,7 @@
 'use client';
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { fmtDayShort, sesionesLabel } from '@/components/dashboard/assign-flow/helpers';
 
 // =============================================================================

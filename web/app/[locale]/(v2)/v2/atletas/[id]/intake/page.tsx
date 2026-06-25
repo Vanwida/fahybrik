@@ -19,7 +19,7 @@ import { loadCoachPhases } from '@/lib/dashboard/coach/phases';
 import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { IntakeReviewV2 } from '@/components/v2/atletas/intake/IntakeReviewV2';
 
 export const dynamic = 'force-dynamic';

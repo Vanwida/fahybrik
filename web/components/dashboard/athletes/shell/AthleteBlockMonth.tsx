@@ -11,7 +11,7 @@
 import type { Roadmap, RoadmapBlock, RoadmapWeek } from './block-roadmap';
 import { WEEK_STATE_LABEL, weekRangeLabel, weekStateTone } from './block-roadmap';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 interface AthleteBlockMonthProps {
   roadmap: Roadmap;

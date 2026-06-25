@@ -13,7 +13,7 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from '@/i18n/navigation';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { EmptyState } from '@/components/v2/EmptyState';
 import {

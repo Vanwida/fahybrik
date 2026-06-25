@@ -1,5 +1,5 @@
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 // Shared header for a methodology sub-section: back link + area number + title.
 export function SectionHeader({

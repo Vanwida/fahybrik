@@ -3,7 +3,7 @@
 import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
 import { PROGRAM_LEVEL_LABELS, type ProgramLevel } from '@/lib/dashboard/constants/program-levels';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   initials,
   mondayOptionLabel,

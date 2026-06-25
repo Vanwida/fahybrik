@@ -17,7 +17,7 @@ import {
   TEST_TYPES,
   TEST_TARGET_RPE,
 } from '@fahybrid/shared/domain/methodology';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_LABEL, paceUnitLabel } from '@/lib/dashboard/v2/zone-view';
 import {
   testPrescription,

@@ -21,7 +21,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { cn } from '@/lib/utils';

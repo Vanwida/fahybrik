@@ -2,7 +2,7 @@
 // Optional icon (Material Symbols name) + title + description + optional action
 // slot. Used by Hoy lanes when a bucket is empty and by the placeholder pages.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export function EmptyState({

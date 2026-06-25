@@ -9,7 +9,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { COACH_MESSAGE_BODY_MAX } from '@/lib/dashboard/chat/schema';
 import { cn } from '@/lib/utils';
 

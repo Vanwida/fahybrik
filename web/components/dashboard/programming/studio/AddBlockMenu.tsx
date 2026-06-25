@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GROUPED_PART_PRESETS } from '@/lib/dashboard/constants/week-day-part-presets';
 import { usePortalMount } from '@/lib/dashboard/programming/use-portal-mount';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface AddBlockMenuProps {

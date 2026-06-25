@@ -8,7 +8,7 @@ import { useState, useTransition } from 'react';
 import type { PlanDay } from '@/lib/dashboard/coach/athlete-plan';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { TextAiSuggestButton } from '@/components/dashboard/TextAiSuggestButton';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 interface SessionCreateDialogProps {
   athleteId: string;

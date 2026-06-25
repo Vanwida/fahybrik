@@ -18,7 +18,7 @@ import {
   readinessBucket,
 } from '@/lib/dashboard/constants/readiness';
 import { AthleteAvatar, type AthleteAvatarSize } from '@/components/dashboard/atoms/AthleteAvatar';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export type AthleteGlyphSize = Extract<AthleteAvatarSize, 'sm' | 'md' | 'lg'>;

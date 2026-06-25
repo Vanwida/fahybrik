@@ -18,7 +18,7 @@
 // or places <InfoDot> by its title when dismissed.
 
 import type { ReactNode } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface IntroMicroStep {

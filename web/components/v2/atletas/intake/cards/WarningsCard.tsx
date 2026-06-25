@@ -7,7 +7,7 @@
 // allWarningsAcked gate preserved from V1.
 
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import type { IntakeWarning } from '@/lib/coach/intake';
 import { DecisionCard } from '../ui/DecisionCard';

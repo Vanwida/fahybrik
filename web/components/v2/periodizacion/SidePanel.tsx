@@ -7,7 +7,7 @@
 // closes; focus lands on the panel on open.
 
 import { useEffect, useRef } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export function SidePanel({

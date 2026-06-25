@@ -23,7 +23,7 @@ import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phase
 import { formatDaysUntilShort } from '@/lib/dashboard/coach/race-labels';
 import { cn } from '@/lib/utils';
 import { AthleteAvatar } from '@/components/dashboard/atoms/AthleteAvatar';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 // ── Bandera de "necesita tu decisión" ───────────────────────────────────────
 // Deriva de intake + estado de programación. UNA bandera (la más urgente), no

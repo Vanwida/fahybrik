@@ -23,7 +23,7 @@
 // shared API + shared zod types.
 
 import { useEffect, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Pill } from '@/components/v2/Pill';
 import { Panel } from './parts';

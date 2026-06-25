@@ -16,7 +16,7 @@
 
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export function AthletePreviewLine({
   prescription,

@@ -21,7 +21,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { SESSION_STATUS_LABEL } from '@/lib/dashboard/constants/session-status';
 import { cn } from '@/lib/utils';

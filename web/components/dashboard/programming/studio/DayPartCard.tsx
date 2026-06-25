@@ -11,7 +11,7 @@ import { groupColorFor } from '@/lib/dashboard/programming/group-colors';
 import type { SessionIndex, StudioSelection } from '@/lib/dashboard/programming/studio-types';
 import { dropIdPart, sortIdItem, sortIdPart } from '@/lib/dashboard/programming/studio-types';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { DayPartItemRow } from '@/components/dashboard/programming/studio/DayPartItemRow';
 import { DragGrip } from '@/components/dashboard/programming/studio/DragGrip';
 

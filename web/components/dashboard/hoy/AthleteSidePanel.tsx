@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { DetailSidePanel, StatusChip } from '@/components/dashboard/ui';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { TriageItem } from './triage-types';
 

@@ -7,7 +7,7 @@
 
 import type { SemanticTier } from '@/lib/dashboard/constants/status-semantics';
 import { SEMANTIC_TIER_META } from '@/lib/dashboard/constants/status-semantics';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export type StatusChipSize = 'sm' | 'md';

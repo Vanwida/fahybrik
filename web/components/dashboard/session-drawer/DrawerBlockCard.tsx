@@ -13,7 +13,7 @@ import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { blockOrigin } from '@/lib/dashboard/programming/block-origin';
 import { blockPrescription } from '@/lib/dashboard/programming/block-panel';
 import { groupColorFor } from '@/lib/dashboard/programming/group-colors';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { ExercisePicker } from '@/components/dashboard/programming/studio/ExercisePicker';
 import { DrawerExerciseRow } from './DrawerExerciseRow';
 

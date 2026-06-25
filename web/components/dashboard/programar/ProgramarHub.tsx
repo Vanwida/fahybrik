@@ -10,7 +10,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Block } from '@fahybrid/shared/schema/blocks';
 import type { MethodologyGroup } from '@fahybrid/shared/schema/methodology-groups';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { NewMicrocycleWizard } from '@/components/dashboard/programming/NewMicrocycleWizard';
 import { SessionsCatalog } from './SessionsCatalog';
 import { MicrocyclesGrid, type MicrocycleRow } from './MicrocyclesGrid';

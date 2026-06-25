@@ -6,7 +6,7 @@
 // (honest empty states). Ported faithfully from V1 in V2 tokens.
 
 import type { IntakeProfile } from '@/lib/coach/intake';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { RailCard } from './ui/RailCard';
 import { Empty, Instrument, Ledger, MetaChip } from './ui/RailPrimitives';
 import {

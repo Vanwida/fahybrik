@@ -14,7 +14,7 @@ import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import {
   TARGET_LABEL,
   blockMeasureOf,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 import { MEASURE_FIELD_LABEL } from './prescription-presets';
 
 // ── Uniform-sets view (the collapsed "N series iguales" representation) ──────

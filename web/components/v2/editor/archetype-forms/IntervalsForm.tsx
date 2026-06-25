@@ -14,7 +14,7 @@
 
 import type { Measure, Modality, Prescription, Target } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
-import { defaultTargetForModality } from '@/components/dashboard/programming/studio/prescription-model';
+import { defaultTargetForModality } from '@/lib/programming/prescription-model';
 import {
   ClockCell,
   DistanceCell,

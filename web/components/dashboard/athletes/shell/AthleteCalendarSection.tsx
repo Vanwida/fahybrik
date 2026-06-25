@@ -23,7 +23,7 @@ import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
 import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 import { AthleteReviewPublish } from './AthleteReviewPublish';
 import { MonthlyBlockProposalPanel } from '@/components/dashboard/MonthlyBlockProposalPanel';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { firstName } from '@/components/dashboard/assign-flow/helpers';
 import { AthleteWeekCalendar } from './AthleteWeekCalendar';
 import { AthleteBlockMonth } from './AthleteBlockMonth';

@@ -7,7 +7,7 @@
 // list. Pure presentational; the table owns data + ordering.
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { AdherenceBar } from '@/components/v2/AdherenceBar';

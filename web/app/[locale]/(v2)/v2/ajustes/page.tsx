@@ -6,7 +6,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SettingRow } from '@/components/v2/ajustes/SettingRow';

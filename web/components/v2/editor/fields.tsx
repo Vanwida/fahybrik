@@ -14,7 +14,7 @@ import {
   kmToMeters,
   metersToKm,
   parseClock,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 
 export const v2FieldCell = cn(
   'v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',

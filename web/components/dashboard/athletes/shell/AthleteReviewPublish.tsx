@@ -39,7 +39,7 @@ import {
 } from '@fahybrid/shared/domain/atr/dates';
 import { firstName } from '@/components/dashboard/assign-flow/helpers';
 import type { CreatedDraftInfo } from '@/components/dashboard/assign-flow/AssignFlow';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface AthleteReviewPublishProps {

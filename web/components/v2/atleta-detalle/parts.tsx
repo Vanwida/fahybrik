@@ -4,7 +4,7 @@
 // reused across Perfil/Plan/Histórico/Biometría so each tab file stays focused
 // and under the 500-line budget. All read v2 tokens only.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
 

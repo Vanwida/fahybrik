@@ -25,7 +25,7 @@ import {
 } from './block-roadmap';
 import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 interface RaceAnchor {
   name: string;

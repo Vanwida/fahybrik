@@ -16,7 +16,7 @@ import type { PendingAdjustment } from '@/lib/dashboard/coach/week-adjustments';
 import type { MonthlyBlockProposal } from '@/lib/dashboard/coach/monthly-block-proposal';
 import type { ProgrammingStatus } from '@/lib/dashboard/coach/programming-status';
 import type { AtrTransitionReadiness } from '@/lib/dashboard/coach/atr-transition-detector';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EvaluateWeekButton } from '@/components/dashboard/athletes/EvaluateWeekButton';
 import { cn } from '@/lib/utils';

@@ -5,7 +5,7 @@
 // dead loader degrades a section instead of 500-ing the page. role="alert" so
 // it's announced.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface ErrorStateProps {

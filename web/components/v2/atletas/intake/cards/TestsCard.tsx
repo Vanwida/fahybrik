@@ -3,7 +3,7 @@
 // row: checkbox at LEFT → LEADING kind chip → label. includedTests Set state
 // preserved from V1.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import type { IntakeBaselineTest } from '@/lib/coach/intake-schema';
 import { DecisionCard } from '../ui/DecisionCard';

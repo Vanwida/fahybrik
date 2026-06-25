@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { usePortalMount } from '@/lib/dashboard/programming/use-portal-mount';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface ExercisePickerProps {

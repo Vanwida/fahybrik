@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { ReadinessRing } from '@/components/dashboard/ui';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 const HEADER_DATE = new Intl.DateTimeFormat('es-ES', {

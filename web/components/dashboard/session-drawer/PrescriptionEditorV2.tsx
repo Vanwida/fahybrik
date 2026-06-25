@@ -24,13 +24,13 @@ import type {
 } from '@fahybrid/shared/domain/prescription';
 import { prescriptionToText, safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   defaultMeasureForModality,
   defaultSchemeForModality,
   defaultTargetForModality,
   measureToSchemeFields,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 import {
   MODALITY_SEGMENT,
   SCHEME_NATURAL_LABEL,

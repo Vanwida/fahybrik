@@ -14,7 +14,7 @@
 // the returned message inline.
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import type { AthleteModality } from '@/lib/dashboard/athletes/list';
 import { cn } from '@/lib/utils';
 

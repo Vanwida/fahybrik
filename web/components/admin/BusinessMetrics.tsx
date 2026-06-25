@@ -1,5 +1,5 @@
 import type { BusinessMetrics as BusinessMetricsData } from '@/lib/dashboard/coach/business-metrics';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface BusinessMetricsProps {

@@ -10,7 +10,7 @@
 
 import type { Prescription, Target, TargetKind } from '@fahybrid/shared/domain/prescription';
 import { setTarget } from '@fahybrid/shared/domain/prescription';
-import { emptyTargetOfKind } from '@/components/dashboard/programming/studio/prescription-model';
+import { emptyTargetOfKind } from '@/lib/programming/prescription-model';
 import { StrengthFields } from '../prescription-field-groups';
 import { Field, InlineToggle } from './form-controls';
 

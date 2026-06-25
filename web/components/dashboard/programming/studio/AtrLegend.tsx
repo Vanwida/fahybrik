@@ -9,7 +9,7 @@ import {
   type AtrBlockType,
 } from '@/lib/dashboard/constants/atr-phases';
 import { ROLE_HINT } from '@/lib/dashboard/coach/phase-roles';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface AtrLegendProps {

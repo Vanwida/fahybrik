@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { computeAthleteState } from '@/lib/dashboard/coach/athlete-status';
 import { AthleteAvatar } from '@/components/dashboard/atoms/AthleteAvatar';
 import { InviteAthleteButton } from '@/components/dashboard/athletes/InviteAthleteButton';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export type AthleteSection = 'calendario' | 'cuerpo' | 'rendimiento';
 

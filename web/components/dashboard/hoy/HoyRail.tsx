@@ -6,7 +6,7 @@
 
 import { Link } from '@/i18n/navigation';
 import type { TeamPulse } from '@/lib/dashboard/coach/team-pulse';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 /** A scheduled-today summary for the rail. */

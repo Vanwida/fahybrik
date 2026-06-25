@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { PrescriptionFields } from './PrescriptionFields';
 import { ArchetypeBlockForm } from './ArchetypeBlockForm';

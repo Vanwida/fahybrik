@@ -12,7 +12,7 @@
 // (lenses, actions) are passed in as `commands`.
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 /** Athlete result shape from /api/coach/search (F1 owns the endpoint). */

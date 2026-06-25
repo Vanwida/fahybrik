@@ -3,7 +3,7 @@
 // `.rail-card` treatment with design-system tokens only.
 
 import type { ReactNode } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export function RailCard({
   title,

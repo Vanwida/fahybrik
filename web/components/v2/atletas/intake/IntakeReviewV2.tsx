@@ -22,7 +22,7 @@ import type {
   IntakeBlockSpec,
   IntakeCommit,
 } from '@/lib/coach/intake-schema';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { EventCard, type EventOption, type OnboardingRace } from './cards/EventCard';
 import { LevelCard } from './cards/LevelCard';
 import { StructureCard } from './cards/StructureCard';

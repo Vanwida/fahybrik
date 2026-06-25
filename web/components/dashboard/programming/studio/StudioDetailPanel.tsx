@@ -24,7 +24,7 @@ import type { SessionIndex, StudioSelection } from '@/lib/dashboard/programming/
 import { dayLabel } from '@/lib/dashboard/constants/calendar';
 import type { WeekSlots } from '@fahybrid/shared/schema/program-templates';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { PabloIAInput, PabloIATextarea } from '@/components/dashboard/pablo-ia/PabloIAInput';
 import { ExercisePicker } from '@/components/dashboard/programming/studio/ExercisePicker';
 import { PrescriptionEditor } from '@/components/dashboard/programming/studio/PrescriptionEditor';

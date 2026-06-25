@@ -12,7 +12,7 @@
 // document.activeElement at open time) so focus can return on close.
 
 import { useEffect, useRef } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface DetailSidePanelProps {

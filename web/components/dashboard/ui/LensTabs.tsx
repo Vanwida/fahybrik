@@ -9,7 +9,7 @@
 // arrow-key navigation (SPEC §9 "100% teclado").
 
 import { useId, useRef } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface Lens<K extends string = string> {

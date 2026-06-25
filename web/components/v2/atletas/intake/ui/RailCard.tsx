@@ -4,7 +4,7 @@
 
 import type { ReactNode } from 'react';
 import { Card } from '@/components/v2/Card';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export function RailCard({
   title,

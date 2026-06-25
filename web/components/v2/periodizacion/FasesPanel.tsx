@@ -15,7 +15,7 @@
 // breaks. Deleting a level in use is blocked. Phase = decorative/organizational.
 
 import { useCallback, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import type { V2PhaseItem } from '@/lib/dashboard/v2/periodizacion';
 import {
   PHASE_ROLES,

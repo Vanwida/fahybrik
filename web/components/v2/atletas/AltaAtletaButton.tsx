@@ -5,7 +5,7 @@
 // roster via router.refresh() so the new athlete appears without a reload.
 
 import { useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AltaAtletaModal } from '@/components/v2/atletas/AltaAtletaModal';
 import { useRouter } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';

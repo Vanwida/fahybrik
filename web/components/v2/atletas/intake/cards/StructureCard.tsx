@@ -12,7 +12,7 @@
 // fresh ATR label map, no hardcoded hue map.
 
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
 import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 import type { IntakeProfile } from '@/lib/coach/intake';

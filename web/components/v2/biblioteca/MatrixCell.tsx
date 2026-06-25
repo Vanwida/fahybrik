@@ -4,7 +4,7 @@
 // filled state (dark surface, block name, optional review dot) or an empty
 // state (dashed border, "+" icon) to invite creation.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface MatrixCellData {

@@ -6,7 +6,7 @@
 // card. All from the real BodyPayload (HRV/RHR/sleep/composition/wellness). When
 // the athlete has no synced signals, a single EmptyState replaces the grid.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, ChartPlaceholder } from './parts';
 import type { BodyPayload, BodyPoint } from '@/lib/dashboard/coach/deep-dive-body';

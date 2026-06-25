@@ -6,7 +6,7 @@
 // structured review. Blocks are not yet individually editable in v2, so the card
 // is a non-link surface (no detail route assigned to this agent).
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';

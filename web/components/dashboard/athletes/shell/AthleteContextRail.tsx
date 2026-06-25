@@ -16,7 +16,7 @@ import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
 import { formatRaceTime, raceCategoryLineEs } from '@/lib/dashboard/coach/race-labels';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface AthleteContextRailProps {

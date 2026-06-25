@@ -3,7 +3,7 @@
 // ThemeToggle — flips the v2 theme (dark ↔ light), persisted via V2ThemeProvider.
 // Icon-only with an aria-label; shows the icon of the mode it will switch TO.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { useV2Theme } from '@/components/v2/theme/V2ThemeProvider';
 import { cn } from '@/lib/utils';
 

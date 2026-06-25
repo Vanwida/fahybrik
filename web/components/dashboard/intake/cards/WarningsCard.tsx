@@ -9,7 +9,7 @@
 // ackedWarnings state + allWarningsAcked gate preserved from IntakeDecision.
 
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { StatusChip } from '@/components/dashboard/ui';
 import type { IntakeWarning } from '@/lib/coach/intake';
 import { DecisionCard } from '../ui/DecisionCard';

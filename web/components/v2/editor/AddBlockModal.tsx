@@ -16,7 +16,7 @@ import type {
   LibraryBlockRow,
   StructureGroup,
 } from '@/lib/dashboard/v2/editor-types';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { cn } from '@/lib/utils';

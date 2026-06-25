@@ -23,7 +23,7 @@ import {
   patternForBlock,
   type Archetype,
 } from '@/lib/dashboard/v2/archetypes';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { TextCell } from './fields';
 import { AdvancedHatch } from './AdvancedHatch';
 import { AthletePreviewLine } from './AthletePreviewLine';

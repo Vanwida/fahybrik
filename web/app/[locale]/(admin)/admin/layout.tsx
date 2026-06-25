@@ -1,7 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { getAdminSession } from '@/lib/auth/admin-session';
-import { AdminShell } from '@/components/dashboard/admin/AdminShell';
+import { AdminShell } from '@/components/admin/AdminShell';
 
 // Admin surface layout (multi-role RBAC, migration 0041).
 //

@@ -2,7 +2,7 @@
 // tasteful "en construcción · llega en este build" state inside the shell, so the
 // nav is fully navigable now and later agents drop their screen in. Server-safe.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export function UnderConstruction({ title, icon }: { title: string; icon: string }) {
   return (

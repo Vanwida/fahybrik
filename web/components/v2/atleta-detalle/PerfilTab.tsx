@@ -7,7 +7,7 @@
 // the coach has adjusted it by hand. The SHAPE is the real resolver contract, so
 // the engine drops in without touching this view.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, DashedAction, relativeDate } from './parts';

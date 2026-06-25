@@ -20,7 +20,7 @@ import {
 import { formatLabel } from '@/lib/studio/section-types';
 import type { TemplateFormat } from '@/lib/templates/schema';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 interface AthleteWeekCalendarProps {
   week: PlanWeekRow;
