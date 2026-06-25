@@ -2,7 +2,7 @@
 
 // MicrocicloCard — one microcycle template in the Biblioteca › Microciclos index.
 // Unlike BloqueCard, this is a LINK: the whole card opens the existing editor at
-// /v2/microciclos/[id]. Shows the name, the program level, and the number of
+// /microciclos/[id]. Shows the name, the program level, and the number of
 // weeks defined. Matches the BloqueCard surface (rounded, bordered, hover).
 
 import { Link } from '@/i18n/navigation';

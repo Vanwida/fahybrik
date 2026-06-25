@@ -6,7 +6,7 @@
 // Rendered in a horizontal scroll strip above the 4-lane board in HoyBoard.
 // Two actions:
 //   · Aceptar nivel  → PATCH /api/coach/athletes/{id}/level, then removes card
-//   · Ver atleta →   → navigates to /v2/atletas/{id}
+//   · Ver atleta →   → navigates to /atletas/{id}
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

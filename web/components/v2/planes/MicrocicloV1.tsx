@@ -4,7 +4,7 @@
 // row (semana↓ / día→), then one row per week — a left meta cell (week label +
 // descriptor + load bar + "⎘ duplicar") and 7 day cells (mini session chips with
 // modality left-border, or "+"/"descanso"). The load bars across the rows trace
-// the entrada→carga→pico→descarga ramp. Day chip → /v2/microciclos/[id]/dia/[idx].
+// the entrada→carga→pico→descarga ramp. Day chip → /microciclos/[id]/dia/[idx].
 
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';

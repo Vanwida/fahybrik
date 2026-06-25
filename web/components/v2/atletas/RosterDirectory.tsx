@@ -1,6 +1,6 @@
 'use client';
 
-// RosterDirectory — client orchestrator for /v2/atletas. Owns the top bar
+// RosterDirectory — client orchestrator for /atletas. Owns the top bar
 // (display title + real count chips + live search + coach avatar), the filter row
 // (Estado · Nivel · Fase · Test pendiente + an "ordenar" sort), and the table.
 // All filtering/sorting is client-side over the server-loaded rows (the full

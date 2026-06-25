@@ -3,7 +3,7 @@
 // month templates) via the existing loaders, shapes them into the v2 view model,
 // and hands the result to the client <BibliotecaView> for tab + rail filtering +
 // live search. The active tab is reflected in ?tab= so it is linkable; the client
-// owns the in-page interactions. (Periodization phases live in /v2/periodizacion.)
+// owns the in-page interactions. (Periodization phases live in /periodizacion.)
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';

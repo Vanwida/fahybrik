@@ -5,7 +5,7 @@
 //   · V2 "Editor · semana en foco" (default) — one week expanded into 7 day
 //     columns, week-step header, library rail.
 //   · V1 "Vista general · 4 semanas" — the classic week×day grid.
-// Both link day cells to /v2/microciclos/[id]/dia/[idx] (owned by the day editor).
+// Both link day cells to /microciclos/[id]/dia/[idx] (owned by the day editor).
 
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';

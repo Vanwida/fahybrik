@@ -11,7 +11,7 @@
 //                 «{microciclo}» ({N} semanas)". Actions:
 //                   - Asignar    → POST /api/coach/athletes/{id}/assign-sequence
 //                                  → on success the card disappears (optimistic).
-//                   - Ver atleta → navigates to /v2/atletas/{id}.
+//                   - Ver atleta → navigates to /atletas/{id}.
 //   · 'blocked' → an ACTIONABLE "why not" (e.g. "No hay secuencia para N4·5d").
 //                 Links to the surface that fixes it (sequences editor for the
 //                 sequence gaps; the athlete's profile for the days gaps). Never

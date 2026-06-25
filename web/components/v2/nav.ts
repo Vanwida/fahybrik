@@ -1,6 +1,6 @@
-// v2 IA — the new sidebar nav. Distinct from lib/dashboard/nav.ts (v1) so the
-// two surfaces evolve independently. Routes are locale-relative (/v2/...); the
-// next-intl Link prefixes /es|/en. `badge: 'mensajes'` renders the unread count.
+// Dashboard IA — the coach sidebar nav (the single dashboard surface after the
+// V2 consolidation). Routes are locale-relative (/hoy, /atletas…); the next-intl
+// Link prefixes /es|/en. `badge: 'mensajes'` renders the unread count.
 //
 // The primary nav is split into two GROUPS that mirror the two jobs of the coach:
 //   · "operar"     — the daily loop: watch athletes, accept what the system proposes.

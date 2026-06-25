@@ -10,7 +10,7 @@ import { routing } from './i18n/routing';
 // de locale a next-intl SOLO en las páginas localizadas.
 //
 // Reglas de scope (ver matcher abajo):
-//   - PROTEGIDO (requiere login Clerk): dashboard coach `(app)`, admin
+//   - PROTEGIDO (requiere login Clerk): dashboard coach (grupo `(v2)`), admin
 //     `(admin)`, y `/api/coach/*` + `/api/admin/*`.
 //   - NUNCA protegido / fuera de Clerk: `/api/athlete/*` (iOS usa Bearer propio,
 //     ver lib/auth/athlete-session.ts), `/api/webhooks/*` (Clerk/Garmin llaman
@@ -25,25 +25,22 @@ const handleI18nRouting = createMiddleware(routing);
 const NON_LOCALIZED_PREFIXES = ['/sign-in', '/sign-up'];
 
 // Superficies que exigen sesión Clerk. Páginas → redirect a /sign-in; API →
-// 404/401 vía auth.protect(). El grupo de rutas `(app)`/`(admin)` no aparece en
-// la URL, así que matcheamos los paths reales del dashboard y del admin.
+// 404/401 vía auth.protect(). Los grupos de rutas `(v2)`/`(admin)` no aparecen
+// en la URL, así que matcheamos los paths reales del dashboard y del admin.
 const isProtectedRoute = createRouteMatcher([
-  // Dashboard coach (grupo (app)): todo bajo /:locale excepto las páginas
-  // públicas del grupo (public) y las superficies de auth. Para no enumerar
-  // cada sección, protegemos las APIs explícitas y las páginas del dashboard
-  // por sus segmentos reales.
-  '/:locale/atletas/:path*',
-  // /biblioteca y /programacion ya no existen como páginas: next.config los
-  // redirige (antes del middleware) a /programar.
-  '/:locale/programar/:path*',
-  '/:locale/review/:path*',
-  '/:locale/ajustes/:path*',
-  '/:locale/metodologia/:path*',
-  '/:locale/admin/:path*',
-  // Home del dashboard coach. La movimos a /:locale/hoy: la raíz /:locale es ahora
-  // la landing pública de marketing (grupo (marketing)) y NO se protege. Solo /hoy
-  // y las secciones del dashboard exigen login Clerk.
+  // Dashboard coach (grupo (v2), única versión tras consolidar): todas las
+  // secciones bajo /:locale. La raíz /:locale es la landing pública de
+  // marketing (grupo (marketing)) y NO se protege — solo las secciones del
+  // dashboard exigen login Clerk.
   '/:locale/hoy',
+  '/:locale/atletas/:path*',
+  '/:locale/mensajes/:path*',
+  '/:locale/biblioteca/:path*',
+  '/:locale/planes/:path*',
+  '/:locale/periodizacion/:path*',
+  '/:locale/microciclos/:path*',
+  '/:locale/ajustes/:path*',
+  '/:locale/admin/:path*',
   // APIs de coach/admin.
   '/api/coach/:path*',
   '/api/admin/:path*',

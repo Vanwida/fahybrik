@@ -9,7 +9,7 @@
 //
 // On submit it POSTs to the EXISTING create endpoint (/api/coach/program-months/
 // create), which transactionally inserts the program_month_template + its N empty
-// weeks, then opens the real V2 editor at /v2/microciclos/[id]. No V1 imports.
+// weeks, then opens the real V2 editor at /microciclos/[id]. No V1 imports.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';

@@ -16,7 +16,7 @@
 // and is NEVER a status tier. Status uses the green/amber/red/blue/grey scale.
 //
 // Icons are Material Symbols name strings (the dashboard's icon system — see
-// components/dashboard/MIcon.tsx). Label keys are next-intl message keys under
+// components/ui/MIcon.tsx). Label keys are next-intl message keys under
 // the `coach.semantics` namespace; the raw enum keys are the contract, the copy
 // lives in the locale files.
 
