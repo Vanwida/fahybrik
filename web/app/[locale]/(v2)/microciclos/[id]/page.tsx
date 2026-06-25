@@ -1,7 +1,14 @@
-// v2 · SCREEN 7 · MICROCICLO — server component. Loads ONE real microcycle
-// (program_month_templates → its weeks → slots) via loadMonthTemplateWithWeeks,
-// derives each week's day modalities + session content, and hands a flattened,
-// client-safe model to the editor. A missing/foreign microcycle → EmptyState.
+// v2 · SCREEN 7 · MICROCICLO — server component for the UNIFIED canvas. Loads ONE
+// real microcycle (program_month_templates → its weeks → slots) via
+// loadMonthTemplateWithWeeks, derives each week's day modalities + session
+// content, and hands a flattened, client-safe model to the editor. A missing/
+// foreign microcycle → EmptyState.
+//
+// ONE canvas, two zoom levels driven by the `?dia=N` query param (no separate
+// day route): no `?dia` → SEMANA (the week calendar); `?dia=N` → DÍA (the same
+// canvas compacts the week to a strip + opens the day editor). When `?dia` is a
+// valid flat day index, this page ALSO loads that day's editor model server-side
+// (loadDayEditorModel) so switching days is a smooth in-place soft navigation.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -13,17 +20,23 @@ import {
   weekSessionCount,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
+import { loadDayEditorModel } from '@/lib/dashboard/v2/editor-data';
 import { MicrocicloEditor, type MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
 import { EmptyState } from '@/components/v2/EmptyState';
 
 export const dynamic = 'force-dynamic';
 
+const DAYS_PER_WEEK = 7;
+
 export default async function V2MicrocicloPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; id: string }>;
+  searchParams: Promise<{ dia?: string }>;
 }) {
   const { locale, id } = await params;
+  const { dia } = await searchParams;
   setRequestLocale(locale);
 
   const session = await getCoachSession();
@@ -68,6 +81,25 @@ export default async function V2MicrocicloPage({
     };
   });
 
+  // DÍA zoom level: `?dia=N` is a valid flat day index across the microciclo →
+  // load that day's editor model on the SAME canvas. Out-of-range / non-numeric
+  // → ignored (the canvas stays in the SEMANA state). The week calendar and the
+  // day editor share this single server render, so switching `?dia` is a soft,
+  // in-place navigation (no full page reload).
+  const totalDays = weeks.length * DAYS_PER_WEEK;
+  const dayIndex = dia !== undefined ? Number(dia) : null;
+  const activeDay =
+    dayIndex !== null && Number.isInteger(dayIndex) && dayIndex >= 0 && dayIndex < totalDays
+      ? dayIndex
+      : null;
+
+  const dayModel =
+    activeDay !== null
+      ? await loadDayEditorModel({ coach_id, month_id: monthId, day_index: activeDay }).catch(
+          () => null,
+        )
+      : null;
+
   return (
     <MicrocicloEditor
       microcycle_id={id}
@@ -75,6 +107,7 @@ export default async function V2MicrocicloPage({
       level={full.month.level}
       weeks={weeks}
       groupNames={groupNames}
+      dayModel={dayModel}
     />
   );
 }

@@ -332,6 +332,16 @@ export function loadCurve(total: number): WeekLoad[] {
   return out;
 }
 
+// ── Microciclo canvas href ───────────────────────────────────────────────────
+// The microciclo is ONE canvas at `/microciclos/[id]`; the day editor is a zoom
+// LEVEL on the same canvas, driven by the `?dia=N` query param (N = flat day
+// index across the microciclo). No separate day route. Single source of truth so
+// the week calendar, the 4-week grid, the week-context strip and the cross-week
+// copy all build the SAME in-place link.
+export function dayCanvasHref(microcycleId: string | number, dayIndex: number): string {
+  return `/microciclos/${microcycleId}?dia=${dayIndex}`;
+}
+
 // ── Spanish day labels (Mon→Sun) ─────────────────────────────────────────────
 export const DAY_LABELS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 export const DAY_LABELS_FULL = [

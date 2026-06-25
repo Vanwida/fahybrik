@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { LoadBar } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
+  dayCanvasHref,
   type DayBlockInfo,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
@@ -146,6 +147,7 @@ function DayColumn({
         {header}
         <Link
           href={href}
+          scroll={false}
           aria-label={`${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label} · ${day.block_count} bloques`}
           className={cn(
             baseCard,
@@ -197,6 +199,7 @@ function DayColumn({
         {header}
         <Link
           href={href}
+          scroll={false}
           aria-label={`${DAY_LABELS_FULL[dayIndex]} · descanso`}
           className={cn(
             baseCard,
@@ -220,6 +223,7 @@ function DayColumn({
       {header}
       <Link
         href={href}
+        scroll={false}
         aria-label={`${DAY_LABELS_FULL[dayIndex]} · añadir sesión`}
         className={cn(
           baseCard,
@@ -413,7 +417,7 @@ export function MicrocicloV2({
               key={day.day_of_week}
               day={day}
               dayIndex={i}
-              href={`/microciclos/${microcycle_id}/dia/${dayBase + i}`}
+              href={dayCanvasHref(microcycle_id, dayBase + i)}
               groupNames={groupNames}
             />
           ))}

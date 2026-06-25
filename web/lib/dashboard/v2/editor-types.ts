@@ -105,7 +105,7 @@ export interface DayEditorModel {
   week_days: DayModalityInfo[];
   /**
    * Flat 0-based day index of THIS week's Monday across the month, so the strip
-   * can build the nav href for each cell: `/microciclos/{month}/dia/{base + i}`.
+   * can build the in-place canvas href for each cell: `/microciclos/{month}?dia={base + i}`.
    */
   week_day_base: number;
   /**

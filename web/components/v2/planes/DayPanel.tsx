@@ -16,6 +16,7 @@ import { ModalityTag, ModalityDot } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
   DAY_LABELS_SHORT,
+  dayCanvasHref,
   type DayModalityInfo,
   type PlanPhase,
 } from '@/lib/dashboard/v2/planes-model';
@@ -91,10 +92,7 @@ export function DayPanel({
   const dayLabel = DAY_LABELS_FULL[dayIndex] ?? '';
   const hasSessions = day.session_count > 0;
   const draft = phase?.status === 'draft';
-  const editHref =
-    first_month_id != null
-      ? `/microciclos/${first_month_id}/dia/${dayIndex}`
-      : null;
+  const editHref = first_month_id != null ? dayCanvasHref(first_month_id, dayIndex) : null;
 
   return (
     <section

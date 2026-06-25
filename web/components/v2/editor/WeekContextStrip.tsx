@@ -23,6 +23,7 @@ import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import {
   DAY_LABELS_SHORT,
   DAY_LABELS_FULL,
+  dayCanvasHref,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
 import { cn } from '@/lib/utils';
@@ -63,6 +64,7 @@ function DayCell({
   return (
     <Link
       href={href}
+      scroll={false}
       aria-label={aria}
       aria-current={isCurrent ? 'page' : undefined}
       className={cn(
@@ -177,7 +179,7 @@ export function WeekContextStrip({
             key={day.day_of_week}
             day={day}
             dayIndex={i}
-            href={`/microciclos/${microcycleId}/dia/${weekDayBase + i}`}
+            href={dayCanvasHref(microcycleId, weekDayBase + i)}
             isCurrent={day.day_of_week === currentDayOfWeek}
           />
         ))}

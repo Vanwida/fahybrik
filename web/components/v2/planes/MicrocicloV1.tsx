@@ -4,7 +4,8 @@
 // row (semana↓ / día→), then one row per week — a left meta cell (week label +
 // descriptor + load bar + "⎘ duplicar") and 7 day cells (mini session chips with
 // modality left-border, or "+"/"descanso"). The load bars across the rows trace
-// the entrada→carga→pico→descarga ramp. Day chip → /v2/microciclos/[id]/dia/[idx].
+// the entrada→carga→pico→descarga ramp. Day chip → /microciclos/[id]?dia=[idx]
+// (the DÍA zoom level of the same canvas — in-place, no navigation).
 
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
@@ -13,6 +14,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { LoadBar } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
+  dayCanvasHref,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
 import { MODALITY_META } from '@/components/v2/constants';
@@ -36,6 +38,7 @@ function DayChip({
     return (
       <Link
         href={href}
+        scroll={false}
         aria-label={`${DAY_LABELS_FULL[dayIndex]} · añadir sesión`}
         className="v2-focus flex min-h-[52px] items-center justify-center rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
       >
@@ -51,6 +54,7 @@ function DayChip({
   return (
     <Link
       href={href}
+      scroll={false}
       aria-label={`${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label}`}
       className="v2-focus flex min-h-[52px] flex-col gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 transition-colors hover:border-[color:var(--v2-border-strong)]"
       style={{ borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }}
@@ -155,7 +159,7 @@ export function MicrocicloV1({
                   key={day.day_of_week}
                   day={day}
                   dayIndex={di}
-                  href={`/microciclos/${microcycle_id}/dia/${wi * 7 + di}`}
+                  href={dayCanvasHref(microcycle_id, wi * 7 + di)}
                 />
               ))}
             </div>

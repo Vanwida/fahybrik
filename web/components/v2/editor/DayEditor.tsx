@@ -10,8 +10,8 @@
 // Prescription; the save persists the structured day.
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
+import { dayCanvasHref } from '@/lib/dashboard/v2/planes-model';
 import type {
   DayEditorModel,
   EditorBlock,
@@ -297,7 +297,7 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
       const targetWeek = model.weeks.find((w) => w.id === toWeekId);
       const base = (targetWeek?.week_index ?? model.week_index) * 7;
       const firstDay = [...toDays].sort((a, b) => a - b)[0] ?? model.day_of_week;
-      router.push(`/microciclos/${model.month_id}/dia/${base + (firstDay - 1)}`);
+      router.push(dayCanvasHref(model.month_id, base + (firstDay - 1)), { scroll: false });
       return 'ok';
     } catch {
       return 'error';
@@ -330,10 +330,11 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
         <div className="flex min-w-0 flex-col gap-2">
           <Link
             href={`/microciclos/${model.month_id}`}
+            scroll={false}
             className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="arrow_back" size={15} />
-            {model.month_name} · {model.week_name}
+            Volver a la semana
           </Link>
           <h1 className="v2-display text-3xl sm:text-4xl">{model.day_label}</h1>
           <div className="flex flex-wrap items-center gap-2">

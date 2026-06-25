@@ -125,7 +125,7 @@ export async function loadDayEditorModel(params: {
     (week.slots_json as WeekSlots | null) ?? { days: [] },
   );
   // The week's Monday in the month-wide flat index space → each strip cell links
-  // to `/microciclos/{month}/dia/{week_day_base + (dow-1)}`.
+  // in-place to `/microciclos/{month}?dia={week_day_base + (dow-1)}`.
   const week_day_base = week.week_index * DAYS_PER_WEEK;
 
   // ALL weeks of the microciclo, summarised, for the cross-week "Copiar día a…"

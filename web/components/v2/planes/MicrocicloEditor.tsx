@@ -1,17 +1,25 @@
 'use client';
 
-// v2 · SCREEN 7 · MICROCICLO — client orchestrator. A SegmentedControl toggles
-// between two views over the SAME real microcycle data:
-//   · V2 "Editor · semana en foco" (default) — one week expanded into 7 full-
-//     height day columns (weekly calendar) under a week-step header.
-//   · V1 "Vista general · 4 semanas" — the classic week×day grid.
-// Both link day cells to /v2/microciclos/[id]/dia/[idx] (owned by the day editor).
+// v2 · SCREEN 7 · MICROCICLO — the UNIFIED canvas orchestrator. ONE canvas, two
+// zoom levels driven by the `?dia=N` query param (resolved server-side into
+// `dayModel`):
+//   · no day (SEMANA) — a SegmentedControl toggles between two WEEK views over
+//     the SAME real microcycle data:
+//       · "Editor · semana en foco" (default) — one week expanded into 7 full-
+//         height day columns (weekly calendar) under a week-step header.
+//       · "Vista general · N semanas" — the week×day grid.
+//     Day cells link to `/microciclos/[id]?dia=idx` (in-place, no navigation).
+//   · with day (DÍA) — the SAME canvas zooms in: the week compacts to the slim
+//     WeekContextStrip (rendered inside DayEditor) and the day editor fills below.
+//     "← Volver a la semana" clears `?dia` and returns to the week calendar.
 
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import type { DayModalityInfo, WeekLoad } from '@/lib/dashboard/v2/planes-model';
+import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MicrocicloV2 } from '@/components/v2/planes/MicrocicloV2';
 import { MicrocicloV1 } from '@/components/v2/planes/MicrocicloV1';
+import { DayEditor } from '@/components/v2/editor/DayEditor';
 
 export interface MicroWeek {
   id: string;
@@ -44,6 +52,7 @@ export function MicrocicloEditor({
   level,
   weeks,
   groupNames,
+  dayModel,
 }: {
   microcycle_id: string;
   name: string;
@@ -51,8 +60,17 @@ export function MicrocicloEditor({
   weeks: MicroWeek[];
   /** methodology_group_id → coach label (agnostic; for the per-block group tag). */
   groupNames: Record<number, string>;
+  /** DÍA zoom level: present iff `?dia=N` resolved to a real day server-side. */
+  dayModel?: DayEditorModel | null;
 }) {
   const [view, setView] = useState<ViewMode>('foco');
+
+  // DÍA zoom level — the canvas shows the day editor (which carries its own week-
+  // context strip on top). Switching `?dia` re-renders this page server-side as a
+  // soft navigation, so the week↔day transition stays in place (no full reload).
+  if (dayModel) {
+    return <DayEditor model={dayModel} />;
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col">
