@@ -17,7 +17,7 @@
 // a card switches `?dia` in place (soft-nav, animated). "← Semana completa" returns
 // to the 7-equal-column SEMANA calendar, which stays unchanged.
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
@@ -36,6 +36,19 @@ import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { cn } from '@/lib/utils';
+
+// Shared view-transition-name (see v2-theme.css `.vt-day-editor`). The open-day
+// editor carries it via className; the day column/card it morphs from/to gets it
+// imperatively (forward) or via className (collapse), so the box interpolates.
+const VT_DAY_EDITOR = 'vt-day-editor';
+// Belt-and-braces guard around the API + reduced-motion (the CSS guards too).
+function vtEnabled(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    typeof document.startViewTransition === 'function' &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 // The day column's primary heading: the first session focus the coach set, else
 // the dominant (first) block title — so the column always names the work.
@@ -123,16 +136,35 @@ function DayColumn({
   dayIndex,
   href,
   groupNames,
+  onNavigate,
+  carryMorphName = false,
 }: {
   day: DayModalityInfo;
   dayIndex: number;
   href: string;
   groupNames: Record<number, string>;
+  /** SEMANA → DÍA: animate the clicked column growing into the editor. */
+  onNavigate: (href: string) => void;
+  /** DÍA → SEMANA: this is the column the editor collapses back into, so its
+   *  card carries the shared morph name in the rebuilt SEMANA snapshot. */
+  carryMorphName?: boolean;
 }) {
   const mod = day.dominant;
   const isWorkout = day.session_count > 0 && !!mod;
   const blocks = isWorkout ? dayBlocks(day) : [];
   const headline = isWorkout ? dayHeadline(day) : null;
+  const morphClass = carryMorphName ? VT_DAY_EDITOR : undefined;
+
+  // Intercept the soft-nav: tag THIS column with the shared morph name (so the
+  // old snapshot maps it to the editor box) then hand off to the VT-wrapped push.
+  // Plain Link semantics (cmd/middle-click, no-JS) are preserved by the href.
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    if (!vtEnabled()) return; // let the Link soft-nav as today (instant)
+    e.preventDefault();
+    e.currentTarget.style.setProperty('view-transition-name', VT_DAY_EDITOR);
+    onNavigate(href);
+  };
 
   // Column header (day name + session count) — shared across all three states.
   const header = (
@@ -158,9 +190,11 @@ function DayColumn({
         <Link
           href={href}
           scroll={false}
+          onClick={handleClick}
           aria-label={`${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label} · ${day.block_count} bloques`}
           className={cn(
             baseCard,
+            morphClass,
             'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]',
           )}
           style={{ borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }}
@@ -210,9 +244,11 @@ function DayColumn({
         <Link
           href={href}
           scroll={false}
+          onClick={handleClick}
           aria-label={`${DAY_LABELS_FULL[dayIndex]} · descanso`}
           className={cn(
             baseCard,
+            morphClass,
             'items-center justify-center border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]',
           )}
         >
@@ -234,9 +270,11 @@ function DayColumn({
       <Link
         href={href}
         scroll={false}
+        onClick={handleClick}
         aria-label={`${DAY_LABELS_FULL[dayIndex]} · añadir sesión`}
         className={cn(
           baseCard,
+          morphClass,
           'items-center justify-center border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
         )}
       >
@@ -257,11 +295,14 @@ function DayCard({
   dayIndex,
   href,
   active,
+  onNavigate,
 }: {
   day: DayModalityInfo;
   dayIndex: number;
   href: string;
   active: boolean;
+  /** DÍA → DÍA: switch the open day (editor cross-fades, highlight slides). */
+  onNavigate: (href: string) => void;
 }) {
   const mod = day.dominant;
   const isWorkout = day.session_count > 0 && !!mod;
@@ -282,6 +323,8 @@ function DayCard({
 
   const className = cn(
     'v2-focus flex flex-col gap-1 rounded-[var(--v2-r-m)] border p-2.5 text-left transition-colors',
+    // The active card carries the shared highlight name so it slides between days.
+    active && 'vt-active-day',
     active
       ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] ring-1 ring-[color:var(--v2-accent)]'
       : isWorkout
@@ -345,8 +388,21 @@ function DayCard({
       </div>
     );
   }
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    if (!vtEnabled()) return;
+    e.preventDefault();
+    onNavigate(href);
+  };
   return (
-    <Link href={href} scroll={false} className={className} style={style} aria-label={ariaLabel}>
+    <Link
+      href={href}
+      scroll={false}
+      onClick={handleClick}
+      className={className}
+      style={style}
+      aria-label={ariaLabel}
+    >
       {body}
     </Link>
   );
@@ -358,16 +414,26 @@ function DayCard({
 function ActiveDayColumn({
   microcycleId,
   dayModel,
+  onBack,
 }: {
   microcycleId: string;
   dayModel: DayEditorModel;
+  /** DÍA → SEMANA: collapse the editor back into its day column. */
+  onBack: () => void;
 }) {
+  const handleBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    if (!vtEnabled()) return;
+    e.preventDefault();
+    onBack();
+  };
   return (
-    <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] ring-1 ring-[color:var(--v2-accent)]">
+    <div className="vt-day-editor flex h-full min-w-0 flex-col overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] ring-1 ring-[color:var(--v2-accent)]">
       <div className="flex shrink-0 items-center gap-2 border-b border-[color:var(--v2-border)] px-3 py-2">
         <Link
           href={`/microciclos/${microcycleId}`}
           scroll={false}
+          onClick={handleBack}
           className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="arrow_back" size={15} />
@@ -409,6 +475,49 @@ export function MicrocicloV2({
     () => (focus ? weekModalities(focus.days) : []),
     [focus],
   );
+
+  // ── View-transition soft-nav ────────────────────────────────────────────
+  // Wrap the `?dia` push in document.startViewTransition so the canvas morphs
+  // as one surface. The new snapshot must wait for the server-driven dayModel
+  // to commit, so the VT callback returns a promise we resolve from an effect
+  // keyed on the day identity (with a safety timeout so it can never hang).
+  const pendingResolve = useRef<(() => void) | null>(null);
+  const dayKey = dayModel ? `${dayModel.week_index}-${dayModel.day_of_week}` : 'week';
+  useEffect(() => {
+    if (pendingResolve.current) {
+      pendingResolve.current();
+      pendingResolve.current = null;
+    }
+  }, [dayKey]);
+  // DÍA → SEMANA: the column index the editor collapses back into (carries the
+  // shared morph name in the rebuilt SEMANA grid). Cleared once the VT settles.
+  const [collapseDay, setCollapseDay] = useState<number | null>(null);
+  const navigate = useCallback(
+    (href: string) => {
+      if (!vtEnabled()) {
+        router.push(href, { scroll: false });
+        return;
+      }
+      const vt = document.startViewTransition(() => {
+        router.push(href, { scroll: false });
+        return new Promise<void>((resolve) => {
+          pendingResolve.current = resolve;
+          // Never hang if the target render doesn't change the day key.
+          window.setTimeout(() => {
+            if (pendingResolve.current === resolve) pendingResolve.current = null;
+            resolve();
+          }, 600);
+        });
+      });
+      vt.finished.finally(() => setCollapseDay(null));
+    },
+    [router],
+  );
+  // Close the open day back to the full week, collapsing the editor into its day.
+  const closeDay = useCallback(() => {
+    if (activeDayIndex !== null) setCollapseDay(activeDayIndex);
+    navigate(`/microciclos/${microcycle_id}`);
+  }, [activeDayIndex, navigate, microcycle_id]);
 
   // Duplicar la semana en foco: clon puro (sin progresión) enganchado justo
   // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
@@ -471,8 +580,8 @@ export function MicrocicloV2({
               onClick={() => {
                 setFocusIndex(i);
                 // If a day is open, switching weeks closes it (back to the full
-                // week of the chosen step) by clearing `?dia`.
-                if (dayModel) router.push(`/microciclos/${microcycle_id}`, { scroll: false });
+                // week of the chosen step), collapsing the editor on the way out.
+                if (dayModel) closeDay();
               }}
               aria-pressed={active}
               className={cn(
@@ -586,6 +695,7 @@ export function MicrocicloV2({
                   dayIndex={i}
                   href={dayCanvasHref(microcycle_id, dayBase + i)}
                   active={i === activeDayIndex}
+                  onNavigate={navigate}
                 />
               ))}
             </div>
@@ -596,6 +706,7 @@ export function MicrocicloV2({
               key={`${dayModel.week_index}-${dayModel.day_of_week}`}
               microcycleId={microcycle_id}
               dayModel={dayModel}
+              onBack={closeDay}
             />
           </div>
         ) : (
@@ -607,6 +718,8 @@ export function MicrocicloV2({
                 dayIndex={i}
                 href={dayCanvasHref(microcycle_id, dayBase + i)}
                 groupNames={groupNames}
+                onNavigate={navigate}
+                carryMorphName={i === collapseDay}
               />
             ))}
           </div>
@@ -620,19 +733,28 @@ export function MicrocicloV2({
               <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {(focus?.days ?? []).map((day, i) => {
                   const isActive = i === activeDayIndex;
+                  const dayHref = isActive
+                    ? `/microciclos/${microcycle_id}`
+                    : dayCanvasHref(microcycle_id, dayBase + i);
                   return (
                     <Link
                       key={day.day_of_week}
-                      href={
-                        isActive
-                          ? `/microciclos/${microcycle_id}`
-                          : dayCanvasHref(microcycle_id, dayBase + i)
-                      }
+                      href={dayHref}
                       scroll={false}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
+                          return;
+                        if (!vtEnabled()) return;
+                        e.preventDefault();
+                        if (isActive) closeDay();
+                        else navigate(dayHref);
+                      }}
                       aria-current={isActive ? 'page' : undefined}
                       aria-label={DAY_LABELS_FULL[i]}
                       className={cn(
                         'v2-focus flex h-12 w-11 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--v2-r-s)] border text-[12px] font-bold transition-colors',
+                        // The active day-pill slides between days like the desktop highlight.
+                        isActive && 'vt-active-day',
                         isActive
                           ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)] ring-1 ring-[color:var(--v2-accent)]'
                           : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]',
@@ -656,6 +778,7 @@ export function MicrocicloV2({
                 key={`${dayModel.week_index}-${dayModel.day_of_week}`}
                 microcycleId={microcycle_id}
                 dayModel={dayModel}
+                onBack={closeDay}
               />
             </div>
           ) : (
@@ -667,6 +790,8 @@ export function MicrocicloV2({
                   dayIndex={i}
                   href={dayCanvasHref(microcycle_id, dayBase + i)}
                   groupNames={groupNames}
+                  onNavigate={navigate}
+                  carryMorphName={i === collapseDay}
                 />
               ))}
             </div>

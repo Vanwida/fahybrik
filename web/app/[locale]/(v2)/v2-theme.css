@@ -238,3 +238,36 @@
     animation: none;
   }
 }
+
+/* ── View Transitions (microciclo canvas) ─────────────────────────────────
+   The canvas (SEMANA ↔ DÍA, DÍA ↔ DÍA) animates as ONE surface reorganizing,
+   via document.startViewTransition wrapped around the `?dia` soft-nav.
+   - .vt-day-editor: shared name carried by BOTH the open-day editor container
+     AND the day column/card it grew from → the morph (column ↔ editor).
+   - .vt-active-day: the master-list active highlight → slides between days.
+   Only one element may carry each name at paint time (the off-breakpoint copy
+   is display:none, so it is excluded from the snapshot). */
+.vt-day-editor {
+  view-transition-name: vt-day-editor;
+}
+.vt-active-day {
+  view-transition-name: vt-active-day;
+}
+
+/* Premium, Whoop-like easing/duration for every snapshot pair (~280ms). */
+::view-transition-group(vt-day-editor),
+::view-transition-group(vt-active-day),
+::view-transition-group(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Respect reduced-motion: the JS guard already falls back to an instant push,
+   this is the belt-and-braces for any transition that still gets created. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
