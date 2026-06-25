@@ -35,7 +35,7 @@ export function DetalleTabBar({
         return (
           <Link
             key={tab}
-            href={`/v2/atletas/${athlete_id}?tab=${tab}`}
+            href={`/atletas/${athlete_id}?tab=${tab}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               'v2-focus relative -mb-px shrink-0 whitespace-nowrap px-3 py-2.5 text-[13px] font-semibold transition-colors',

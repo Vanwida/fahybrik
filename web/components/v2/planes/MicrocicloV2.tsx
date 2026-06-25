@@ -328,7 +328,7 @@ export function MicrocicloV2({
                 key={day.day_of_week}
                 day={day}
                 dayIndex={i}
-                href={`/v2/microciclos/${microcycle_id}/dia/${dayBase + i}`}
+                href={`/microciclos/${microcycle_id}/dia/${dayBase + i}`}
                 groupNames={groupNames}
               />
             ))}
@@ -360,7 +360,7 @@ export function MicrocicloV2({
                 {library.slice(0, 6).map((b) => (
                   <Link
                     key={b.id}
-                    href={`/v2/biblioteca/sesion/${b.id}`}
+                    href={`/biblioteca/sesion/${b.id}`}
                     className="v2-focus flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 transition-colors hover:border-[color:var(--v2-border-strong)]"
                     style={{
                       borderLeftWidth: '3px',

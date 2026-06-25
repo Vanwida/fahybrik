@@ -95,9 +95,9 @@ export function DetalleHeader({
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <HeaderAction href="/v2/mensajes" icon="forum" label="Mensaje" />
+          <HeaderAction href="/mensajes" icon="forum" label="Mensaje" />
           <HeaderAction
-            href={`/v2/atletas/${header.athlete_id}?tab=plan`}
+            href={`/atletas/${header.athlete_id}?tab=plan`}
             icon="calendar_month"
             label="Ver plan"
             primary

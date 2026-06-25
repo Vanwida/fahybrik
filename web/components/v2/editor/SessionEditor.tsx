@@ -127,7 +127,7 @@ export function SessionEditor({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Link
-            href="/v2/biblioteca?tab=sesiones"
+            href="/biblioteca?tab=sesiones"
             className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="arrow_back" size={15} />

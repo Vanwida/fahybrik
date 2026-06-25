@@ -97,7 +97,7 @@ export function V2Sidebar({ unread_messages = 0 }: { unread_messages?: number })
     >
       {/* Logo / brand — hexagon mark + italic-bold FAHYBRID wordmark */}
       <Link
-        href="/v2/hoy"
+        href="/hoy"
         aria-label="FAHYBRID"
         title="FAHYBRID"
         className="flex h-16 shrink-0 items-center gap-3 border-b border-[color:var(--v2-border)] px-5 v2-focus"

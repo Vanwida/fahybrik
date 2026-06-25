@@ -23,7 +23,7 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
 
   return (
     <Link
-      href={`/v2/atletas/${row.athlete_id}`}
+      href={`/atletas/${row.athlete_id}`}
       className={cn(
         'v2-focus v2-stagger group grid items-center gap-3 border-b border-[color:var(--v2-border)] px-3 py-2.5',
         'transition-colors hover:bg-[color:var(--v2-elevated)]',

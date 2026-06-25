@@ -22,7 +22,7 @@ import type { MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
 
 /** Light poll cadence for new athlete messages while a thread is open (ms). */
 const POLL_INTERVAL_MS = 3000;
-const ATHLETE_ROUTE = '/v2/atletas';
+const ATHLETE_ROUTE = '/atletas';
 
 type OptimisticMessage = CoachChatMessage & { pending?: boolean; failed?: boolean };
 

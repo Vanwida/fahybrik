@@ -26,12 +26,12 @@ interface ActionMeta {
 
 // Placeholder routes (atletas/mensajes detail pages arrive in later builds).
 const ACTION_META: Record<V2LaneAction, ActionMeta> = {
-  ver: { label: 'Ver', icon: 'visibility', href: (id) => `/v2/atletas/${id}` },
-  mensaje: { label: 'Mensaje', icon: 'forum', href: () => `/v2/mensajes` },
-  responder: { label: 'Responder', icon: 'reply', href: () => `/v2/mensajes`, primary: true },
+  ver: { label: 'Ver', icon: 'visibility', href: (id) => `/atletas/${id}` },
+  mensaje: { label: 'Mensaje', icon: 'forum', href: () => `/mensajes` },
+  responder: { label: 'Responder', icon: 'reply', href: () => `/mensajes`, primary: true },
   // No progression endpoint yet — opens the athlete to act there.
   // TODO(endpoint): wire to the phase-adjust action once it exists.
-  ajustar_fase: { label: 'Ajustar fase', icon: 'tune', href: (id) => `/v2/atletas/${id}` },
+  ajustar_fase: { label: 'Ajustar fase', icon: 'tune', href: (id) => `/atletas/${id}` },
   // No load-export endpoint yet.
   // TODO(endpoint): wire "Descargar carga" to the deload action when available.
   descargar_carga: { label: 'Descargar carga', icon: 'trending_down' },

@@ -89,7 +89,7 @@ export function MensajesTab({
         description="Vuelve a intentarlo en unos segundos o abre el chat completo."
         action={
           <Link
-            href="/v2/mensajes"
+            href="/mensajes"
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-[13px] font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
           >
             Abrir en Mensajes
@@ -117,7 +117,7 @@ export function MensajesTab({
           </div>
         </div>
         <Link
-          href="/v2/mensajes"
+          href="/mensajes"
           className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
         >
           Abrir en Mensajes

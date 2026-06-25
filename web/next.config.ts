@@ -43,31 +43,6 @@ const nextConfig: NextConfig = {
     return [
       { source: "/privacy", destination: "/es/privacy", permanent: true },
       { source: "/terms", destination: "/es/terms", permanent: true },
-      // UX redesign fase 2: /programacion → /programar (sub-paths intactos) y
-      // /biblioteca → la biblioteca única dentro de /programar. Locale-aware:
-      // variantes con prefijo explícito + bare URLs al locale por defecto
-      // (mismo patrón que /privacy y /terms). Permanentes: la URL canónica es
-      // la nueva.
-      {
-        source: "/:locale(es|en)/programacion/:path*",
-        destination: "/:locale/programar/:path*",
-        permanent: true,
-      },
-      {
-        source: "/programacion/:path*",
-        destination: "/es/programar/:path*",
-        permanent: true,
-      },
-      {
-        source: "/:locale(es|en)/biblioteca",
-        destination: "/:locale/programar?tab=sesiones",
-        permanent: true,
-      },
-      {
-        source: "/biblioteca",
-        destination: "/es/programar?tab=sesiones",
-        permanent: true,
-      },
     ];
   },
 };
