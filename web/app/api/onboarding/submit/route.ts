@@ -516,6 +516,18 @@ export async function POST(request: Request) {
   // violate the FK or pollute the shared catalog. `races` is the correct,
   // self-owning destination for intake races.
 
+  // Auto-derive the athlete's zone profiles from the benchmarks just stored, so
+  // the coach doesn't have to re-register a test by hand for ritmos to resolve.
+  // Fire-and-forget (best-effort, same posture as the level suggestion): a
+  // failure here never fails the onboarding submit. The service is idempotent and
+  // never clobbers a coach test, so a later re-submit is safe.
+  try {
+    const { deriveAndStoreOnboardingZones } = await import('@/lib/dashboard/v2/onboarding-zones');
+    await deriveAndStoreOnboardingZones({ athlete_id: athleteId, client: sql });
+  } catch {
+    // auto-zones best-effort — the coach can still register a test manually.
+  }
+
   // Notify Pablo so an intake-pending athlete doesn't sit invisible. Only fire
   // the first time the athlete onboards (intake_completed_at is still null).
   try {

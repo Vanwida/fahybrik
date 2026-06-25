@@ -13,7 +13,10 @@
 // (--v2-z1..--v2-z6), the AA-adapted family of the original; the stored band
 // `color` remains the coach's data of record (rendered model-agnostic via tokens).
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
+import { MIcon } from '@/components/ui/MIcon';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import {
   MODALITY_LABEL,
@@ -26,6 +29,61 @@ import {
   type ProfileModality,
 } from '@/lib/dashboard/v2/zone-view';
 import { TEST_TARGET_RPE } from '@fahybrid/shared/domain/methodology';
+
+// Review strip shown atop a column whose current profile is an auto-derived
+// (onboarding) one the coach hasn't confirmed yet. "Confirmar" validates the
+// zones (clears needs_review); to CHANGE them the coach registers a manual test
+// (the "Nuevo resultado" form), which writes a coach_test that always wins.
+function AutoReviewStrip({
+  athleteId,
+  modality,
+}: {
+  athleteId: string;
+  modality: ProfileModality;
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+
+  const confirm = async () => {
+    setSaving(true);
+    setError(false);
+    try {
+      const res = await fetch(`/api/coach/athletes/${athleteId}/zone-profile/confirm`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ modality }),
+      });
+      if (!res.ok) {
+        setError(true);
+        setSaving(false);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError(true);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mb-2 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn-border,var(--v2-border-strong))] bg-[color:var(--v2-warn-soft,var(--v2-surface-2))] px-2.5 py-1.5">
+      <MIcon name="auto_awesome" size={13} className="shrink-0 text-[color:var(--v2-muted)]" />
+      <span className="min-w-0 flex-1 text-[10.5px] font-semibold leading-tight text-[color:var(--v2-muted)]">
+        Auto del onboarding · revisar
+      </span>
+      <button
+        type="button"
+        onClick={confirm}
+        disabled={saving}
+        className="v2-focus inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2 py-0.5 text-[10.5px] font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
+      >
+        <MIcon name={saving ? 'hourglass_empty' : 'check'} size={12} />
+        {error ? 'Reintenta' : saving ? 'Guardando…' : 'Confirmar'}
+      </button>
+    </div>
+  );
+}
 
 // ── One zone card (a row in a column) ────────────────────────────────────────
 function ZoneCard({
@@ -76,11 +134,14 @@ function ZoneCard({
 }
 
 // ── One modality column (header + the 6 cards) ───────────────────────────────
-function ZoneColumn({ profile }: { profile: AthleteZoneProfile }) {
+function ZoneColumn({ profile, athleteId }: { profile: AthleteZoneProfile; athleteId: string }) {
   const unit = profile.pace_unit;
   const zones = [...profile.zones_json].sort((a, b) => a.sort_order - b.sort_order);
   return (
     <div className="min-w-0">
+      {profile.needs_review ? (
+        <AutoReviewStrip athleteId={athleteId} modality={profile.modality} />
+      ) : null}
       <div className="mb-2.5 flex items-center gap-2 border-b border-[color:var(--v2-border)] pb-2">
         <span
           aria-hidden
@@ -156,9 +217,11 @@ function titleFamily(profiles: AthleteZoneProfile[]): string {
 }
 
 export function ZoneCalculator({
+  athleteId,
   athleteName,
   profiles,
 }: {
+  athleteId: string;
   athleteName: string;
   profiles: AthleteZoneProfile[];
 }) {
@@ -201,7 +264,7 @@ export function ZoneCalculator({
           style={{ gridTemplateColumns: `repeat(${Math.min(ergo.length, 2)}, minmax(0, 1fr))` }}
         >
           {ergo.map((p) => (
-            <ZoneColumn key={`${p.modality}-${p.id}`} profile={p} />
+            <ZoneColumn key={`${p.modality}-${p.id}`} profile={p} athleteId={athleteId} />
           ))}
         </div>
       ) : null}
@@ -209,7 +272,7 @@ export function ZoneCalculator({
       {run.length > 0 ? (
         <div className="mx-auto mt-4 max-w-[520px]">
           {run.map((p) => (
-            <ZoneColumn key={`${p.modality}-${p.id}`} profile={p} />
+            <ZoneColumn key={`${p.modality}-${p.id}`} profile={p} athleteId={athleteId} />
           ))}
         </div>
       ) : null}

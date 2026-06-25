@@ -147,6 +147,10 @@ export const resolvedIntensitySchema = z.object({
   fast_s: z.number().nonnegative(),
   slow_s: z.number().nonnegative().nullable(),
   pace_unit: z.enum(['per_km', 'per_500m']),
+  // True when these zones come from an UNCONFIRMED auto profile (derived from the
+  // athlete's onboarding benchmarks, pending the coach's review). Defaulted false
+  // for backward-compat with payloads built before the field existed.
+  needs_review: z.boolean().default(false),
 });
 export type ResolvedIntensity = z.infer<typeof resolvedIntensitySchema>;
 

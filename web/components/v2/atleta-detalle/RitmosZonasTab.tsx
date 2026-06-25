@@ -48,7 +48,7 @@ export function RitmosZonasTab({
             }
             bodyClassName="p-0 border-0 bg-transparent shadow-none"
           >
-            <ZoneCalculator athleteName={athleteName} profiles={profiles} />
+            <ZoneCalculator athleteId={athleteId} athleteName={athleteName} profiles={profiles} />
           </Panel>
 
           {recording ? (

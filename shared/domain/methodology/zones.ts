@@ -211,6 +211,44 @@ function resolveErgThreshold500(modality: 'row' | 'ski', b: AthleteBenchmarks): 
   return modality === 'ski' ? resolveSkiSplit500(b) : resolveRowSplit500(b);
 }
 
+// ── Benchmarks → per-modality threshold (the onboarding→zones bridge) ─────────
+// One threshold per pacing modality the athlete has a benchmark for. This is the
+// SAME math the manual test entry uses (a test produces a threshold directly),
+// only the threshold is DERIVED from the onboarding benchmark instead of typed:
+// run from the 5K/10K time (+threshold offset, estimated), row/ski from the
+// 2K/1K erg TT (≈ threshold). A modality with no benchmark is honestly absent
+// from the result — never fabricated. The caller feeds each threshold to
+// `resolveZonesForAthlete` (the single zone resolver) to get the 6 bands.
+
+/** A modality's threshold pace derived from benchmarks, ready for the resolver. */
+export interface ModalityThreshold {
+  modality: 'run' | 'row' | 'ski';
+  /** Threshold pace (the Z4 lower bound) in seconds per `pace_unit`. */
+  threshold_s: number;
+  pace_unit: ZonePaceUnit;
+  /** Which anchor produced it (audit) — e.g. 'time_5k_seconds'. */
+  source: string;
+  /** True when a fallback/estimation was used (e.g. run threshold from 5K pace). */
+  estimated: boolean;
+}
+
+/**
+ * Derive a threshold pace per pacing modality (run/row/ski) from an athlete's
+ * benchmarks, reusing the documented per-modality threshold resolvers. Only
+ * modalities WITH a usable benchmark appear in the result (honest — no fabricated
+ * zone for a modality the athlete never tested). Pure.
+ */
+export function deriveModalityThresholds(b: AthleteBenchmarks): ModalityThreshold[] {
+  const out: ModalityThreshold[] = [];
+  const run = resolveRunThresholdPerKm(b);
+  if (run) out.push({ modality: 'run', threshold_s: run.s_per_km, pace_unit: 'per_km', source: run.source, estimated: run.estimated });
+  const row = resolveErgThreshold500('row', b);
+  if (row) out.push({ modality: 'row', threshold_s: row.s_per_500m, pace_unit: 'per_500m', source: row.source, estimated: false });
+  const ski = resolveErgThreshold500('ski', b);
+  if (ski) out.push({ modality: 'ski', threshold_s: ski.s_per_500m, pace_unit: 'per_500m', source: ski.source, estimated: false });
+  return out;
+}
+
 // ── Label parsing (spec §5 labels) ──────────────────────────────────────────
 export type ZoneLabel =
   | { kind: 'hr_zone'; zone: HrZone }

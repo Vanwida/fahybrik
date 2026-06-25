@@ -136,6 +136,14 @@ export type MethodologyZone = z.infer<typeof methodologyZoneSchema>;
 // in + the 6 absolute zone bands snapshot out. Highest version = current.
 const ZONE_PROFILE_MODALITY = z.enum(['row', 'ski', 'run', 'bike']);
 
+// Provenance of a stored zone profile (migration 0066). A profile is either
+// AUTO-derived from the athlete's onboarding benchmarks ('onboarding_auto',
+// pending coach review) or recorded from a coach-entered test ('coach_test',
+// already validated). A coach test always wins over the auto profile.
+export const ZONE_PROFILE_SOURCES = ['coach_test', 'onboarding_auto'] as const;
+export const zoneProfileSource = z.enum(ZONE_PROFILE_SOURCES);
+export type ZoneProfileSource = z.infer<typeof zoneProfileSource>;
+
 // One resolved absolute band inside zones_json. Mirrors ResolvedZone in the domain
 // module: absolute seconds per pace_unit; slow_s null = open-ended (Z1).
 export const resolvedZoneSnapshotSchema = z.object({
@@ -157,6 +165,10 @@ export const athleteZoneProfileSchema = z.object({
   pace_unit: zonePaceUnit,
   source_test_slug: z.string().max(60).nullable(),
   source_benchmark_id: idSchema.nullable(),
+  // Provenance + review gate (migration 0066). Defaulted so rows predating the
+  // columns (all coach-recorded, already validated) read as confirmed coach tests.
+  source: zoneProfileSource.default('coach_test'),
+  needs_review: z.boolean().default(false),
   // Exactly the 6 resolved bands (second net behind the DB CHECK).
   zones_json: z.array(resolvedZoneSnapshotSchema).length(6),
   version: z.number().int().min(1),

@@ -109,6 +109,11 @@ export interface ResolvedIntensity {
   fast_s: number;
   slow_s: number | null;
   pace_unit: 'per_km' | 'per_500m';
+  // True when the zones feeding this band come from an UNCONFIRMED auto profile
+  // (derived from onboarding benchmarks, pending the coach's review). The band
+  // still resolves (better the athlete's real zones than none); iOS can mark it
+  // "sin confirmar" until the coach confirms.
+  needs_review: boolean;
 }
 
 // Spec-normalized params (DB columns differ — `weight_kg`/`weight_pct_1rm`/
@@ -281,22 +286,27 @@ export async function loadAssignmentDetail(
 // bike); we index the matching profile's snapshot bands by it. `bike` and `ski`
 // share the per_500m unit but are SEPARATE profiles (separate tests), so the key
 // is the profile modality verbatim — no collapsing.
-export type ZoneLookup = Partial<Record<AthleteZoneProfile['modality'], ResolvedZone[]>>;
+export type ZoneLookup = Partial<
+  Record<AthleteZoneProfile['modality'], { bands: ResolvedZone[]; needs_review: boolean }>
+>;
 
 function buildZoneLookup(profiles: AthleteZoneProfile[]): ZoneLookup {
   const out: ZoneLookup = {};
   for (const p of profiles) {
     // zones_json already holds the resolved absolute bands (snapshot). Adapt the
     // stored snapshot shape to the domain ResolvedZone shape the resolver reads.
-    out[p.modality] = p.zones_json.map((z) => ({
-      code: z.code,
-      label: z.label,
-      color: z.color,
-      role: z.role,
-      sort_order: z.sort_order,
-      fast_s: z.fast_s,
-      slow_s: z.slow_s,
-    }));
+    out[p.modality] = {
+      bands: p.zones_json.map((z) => ({
+        code: z.code,
+        label: z.label,
+        color: z.color,
+        role: z.role,
+        sort_order: z.sort_order,
+        fast_s: z.fast_s,
+        slow_s: z.slow_s,
+      })),
+      needs_review: p.needs_review,
+    };
   }
   return out;
 }
@@ -534,11 +544,11 @@ function resolveIntensityForItem(
   const target = lineTarget(prescription);
   if (!target || target.kind !== 'hr_zone') return null;
 
-  const bands = zoneLookup[modality];
-  if (!bands || bands.length === 0) return null;
+  const profile = zoneLookup[modality];
+  if (!profile || profile.bands.length === 0) return null;
 
   const band = resolvePaceBandFromZones(
-    bands,
+    profile.bands,
     { value: target.value, min: target.min, max: target.max },
     modality === 'run' ? 'per_km' : 'per_500m',
   );
@@ -554,6 +564,7 @@ function resolveIntensityForItem(
     fast_s: band.fast_s,
     slow_s: band.slow_s,
     pace_unit: band.pace_unit,
+    needs_review: profile.needs_review,
   };
 }
 

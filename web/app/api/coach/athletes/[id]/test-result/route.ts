@@ -4,13 +4,14 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import {
   resolveZonesForAthlete,
-  type CoachZone,
   type ZonePaceUnit,
 } from '@fahybrid/shared/domain/methodology';
+import type { ResolvedZoneSnapshot } from '@fahybrid/shared/schema/methodology-system';
 import {
-  resolvedZoneSnapshotSchema,
-  type ResolvedZoneSnapshot,
-} from '@fahybrid/shared/schema/methodology-system';
+  loadCoachZonesForUnit,
+  insertZoneProfileVersion,
+  toZonesSnapshot,
+} from '@/lib/dashboard/v2/zone-derivation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,38 +41,6 @@ const bodySchema = z.object({
   // Optional provenance: the test type slug that produced this (TEST_TYPES.slug).
   source_test_slug: z.string().min(1).max(60).optional(),
 });
-
-// A methodology_zones row as returned from the DB.
-interface ZoneRow {
-  code: string;
-  label: string;
-  color: string;
-  role: string;
-  sort_order: number;
-  pace_unit: string;
-  low_offset_s: number;
-  high_offset_s: number | null;
-}
-
-async function loadCoachZones(coach_id: number, pace_unit: ZonePaceUnit): Promise<CoachZone[]> {
-  const rows = await sql<ZoneRow[]>`
-    select code, label, color, role, sort_order,
-           pace_unit, low_offset_s::float8 as low_offset_s, high_offset_s::float8 as high_offset_s
-    from methodology_zones
-    where coach_id = ${coach_id} and pace_unit = ${pace_unit}
-    order by sort_order asc
-  `;
-  return rows.map((r) => ({
-    code: r.code,
-    label: r.label,
-    color: r.color,
-    role: r.role as CoachZone['role'],
-    sort_order: r.sort_order,
-    pace_unit: r.pace_unit as ZonePaceUnit,
-    low_offset_s: r.low_offset_s,
-    high_offset_s: r.high_offset_s,
-  }));
-}
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getCoachSession();
@@ -108,7 +77,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   // Resolve the coach's offset bands against this threshold → 6 absolute bands.
-  const coachZones = await loadCoachZones(coach_id, pace_unit);
+  const coachZones = await loadCoachZonesForUnit(sql, coach_id, pace_unit);
   if (coachZones.length !== 6) {
     return jsonError(
       'precondition_failed',
@@ -118,49 +87,31 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   let zones_json: ResolvedZoneSnapshot[];
+  let inserted: { id: string; version: number; recorded_at: Date };
   try {
     const resolved = resolveZonesForAthlete({ modality, threshold_s, pace_unit }, coachZones);
     // Validate the snapshot shape (second net behind the DB CHECK + the resolver).
-    zones_json = z.array(resolvedZoneSnapshotSchema).length(6).parse(
-      resolved.map((zone) => ({
-        code: zone.code,
-        label: zone.label,
-        color: zone.color,
-        role: zone.role,
-        sort_order: zone.sort_order,
-        fast_s: zone.fast_s,
-        slow_s: zone.slow_s,
-      })),
+    zones_json = toZonesSnapshot(resolved);
+    // A coach-entered test is the validated source of record: it always wins over
+    // any onboarding-auto profile, so it's stored confirmed (needs_review=false).
+    inserted = await insertZoneProfileVersion(
+      {
+        athlete_id,
+        modality,
+        threshold_s,
+        pace_unit,
+        source_test_slug: source_test_slug ?? null,
+        source_benchmark_id: null,
+        zones: resolved,
+        source: 'coach_test',
+        needs_review: false,
+      },
+      sql,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'No se pudieron calcular las zonas';
     return jsonError('unprocessable', msg, 422);
   }
-
-  // Insert a new version = max(version for athlete×modality) + 1. The select +
-  // insert run in one transaction so concurrent records don't collide the unique
-  // (athlete, modality, version).
-  const inserted = await sql.begin(async (tx) => {
-    const [{ next_version }] = await tx<{ next_version: number }[]>`
-      select coalesce(max(version), 0) + 1 as next_version
-      from athlete_zone_profiles
-      where athlete_id = ${athlete_id} and modality = ${modality}
-    `;
-    const rows = await tx<
-      { id: string; version: number; recorded_at: Date }[]
-    >`
-      insert into athlete_zone_profiles
-        (athlete_id, modality, threshold_s, pace_unit, source_test_slug, zones_json, version)
-      values (
-        ${athlete_id}, ${modality}, ${threshold_s}, ${pace_unit},
-        ${source_test_slug ?? null},
-        ${tx.json(zones_json as unknown as Parameters<typeof tx.json>[0])},
-        ${next_version}
-      )
-      returning id::text, version, recorded_at
-    `;
-    return rows[0];
-  });
 
   return jsonOk(
     {
@@ -171,6 +122,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         threshold_s,
         pace_unit,
         source_test_slug: source_test_slug ?? null,
+        source: 'coach_test',
+        needs_review: false,
         zones_json,
         version: inserted.version,
         recorded_at: inserted.recorded_at.toISOString(),

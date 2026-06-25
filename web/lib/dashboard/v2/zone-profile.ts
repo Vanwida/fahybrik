@@ -24,6 +24,8 @@ interface ZoneProfileRow {
   pace_unit: string;
   source_test_slug: string | null;
   source_benchmark_id: string | null;
+  source: string;
+  needs_review: boolean;
   zones_json: unknown;
   version: number;
   // Returned as JS Date by the postgres driver (timestamptz, uncast) → .toISOString().
@@ -63,6 +65,8 @@ export async function loadAthleteZoneProfiles(params: {
       zp.pace_unit,
       zp.source_test_slug,
       zp.source_benchmark_id::text,
+      zp.source,
+      zp.needs_review,
       zp.zones_json,
       zp.version,
       zp.recorded_at,
@@ -105,6 +109,8 @@ export async function loadAthleteZoneProfilesForAthlete(params: {
       zp.pace_unit,
       zp.source_test_slug,
       zp.source_benchmark_id::text,
+      zp.source,
+      zp.needs_review,
       zp.zones_json,
       zp.version,
       zp.recorded_at,
@@ -131,6 +137,8 @@ function parseProfileRows(rows: ZoneProfileRow[]): AthleteZoneProfile[] {
       pace_unit: r.pace_unit,
       source_test_slug: r.source_test_slug,
       source_benchmark_id: r.source_benchmark_id,
+      source: r.source,
+      needs_review: r.needs_review,
       zones_json: r.zones_json,
       version: r.version,
       recorded_at: r.recorded_at.toISOString(),

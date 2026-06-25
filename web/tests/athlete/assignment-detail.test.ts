@@ -379,6 +379,8 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       pace_unit: 'per_km' as const,
       source_test_slug: null,
       source_benchmark_id: null,
+      source: 'coach_test' as const,
+      needs_review: false,
       version: 1,
       recorded_at: '2026-05-20T10:00:00.000Z',
       created_at: '2026-05-20T10:00:00.000Z',
