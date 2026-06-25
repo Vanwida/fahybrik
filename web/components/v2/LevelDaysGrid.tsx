@@ -43,7 +43,7 @@ export function LevelDaysGrid({
         <p className="text-xs text-[color:var(--v2-muted)]">
           Define los niveles de atleta en{' '}
           <Link
-            href="/periodizacion?area=niveles"
+            href="/periodizacion"
             className="v2-focus font-semibold text-[color:var(--v2-accent)] hover:underline"
           >
             Periodización

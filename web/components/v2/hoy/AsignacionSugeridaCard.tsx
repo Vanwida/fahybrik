@@ -45,8 +45,8 @@ function blockedFix(
       return { label: 'Editar días', href: `/atletas/${card.athlete_id}?tab=perfil` };
     case 'no_sequence_for_cell':
     case 'empty_sequence':
-      // The fix is the (level × days) sequence → the matrix editor.
-      return { label: 'Crear secuencia', href: `/periodizacion?area=secuencias` };
+      // The fix is the (level × days) sequence → the level's periodization.
+      return { label: 'Crear secuencia', href: `/periodizacion` };
     case 'not_classified':
     default:
       // Unreachable for these cards (classified-only), but keep a safe fallback.

@@ -1,8 +1,8 @@
 'use client';
 
 // SidePanel — the create/edit panel that sits to the right of the list (the list
-// stays visible, dimmed, behind it — wired by the parent grid). Shared by Niveles
-// and Fases so both editors look identical. Owns only chrome: header (title + ✕),
+// stays visible, dimmed, behind it — wired by the parent grid). Used by the Niveles
+// create/edit flow. Owns only chrome: header (title + ✕),
 // a scrollable body (the fields), and a sticky footer (Cancelar / Guardar). ESC
 // closes; focus lands on the panel on open.
 

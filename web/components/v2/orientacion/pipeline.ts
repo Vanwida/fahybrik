@@ -23,7 +23,7 @@ export interface PipelineStepMeta {
 }
 
 export const PIPELINE_STEP_META: readonly PipelineStepMeta[] = [
-  { key: 'niveles_fases', ord: 1, name: 'Niveles & Fases', where: 'Periodización' },
+  { key: 'niveles_fases', ord: 1, name: 'Niveles', where: 'Periodización' },
   { key: 'sesiones', ord: 2, name: 'Sesiones', where: 'Biblioteca' },
   { key: 'bloques', ord: 3, name: 'Bloques', where: 'Biblioteca' },
   { key: 'microciclos', ord: 4, name: 'Microciclos', where: 'Biblioteca' },

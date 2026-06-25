@@ -1,6 +1,7 @@
 'use client';
 
-// ReorderRow — the shared row shell for the two ordered lists (Niveles, Fases).
+// ReorderRow — the shared row shell for the Niveles ordered list (and the in-editor
+// microciclo chain reuses the same pattern).
 // It owns the reorder affordances (drag grip + ↑/↓ arrow fallback) and the row
 // chrome; callers pass the row body + the right-side actions. Drag-and-drop is
 // the premium path; the arrows guarantee keyboard + touch accessibility (the

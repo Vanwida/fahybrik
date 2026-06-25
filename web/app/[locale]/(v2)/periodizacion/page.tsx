@@ -1,8 +1,12 @@
 // v2 · PERIODIZACIÓN — "El marco de tu método." Server component: loads the
-// coach's framework data (Niveles = athlete_levels with live counts) and hands it
-// to the client <PeriodizacionView> for the area switch + in-place CRUD. The
-// active area is reflected in ?area= so it's linkable. A dead loader degrades to
-// empty (the panels render their empty states) instead of 500-ing the page.
+// coach's framework data (Niveles = athlete_levels with live counts) + the
+// periodization sequences, and hands them to the client <PeriodizacionView>.
+//
+// The IA is levels-first and NESTED: the levels home is the primary view; clicking
+// a level enters its periodization (its días-variants + the microciclo sequence).
+// The open level is reflected in ?level=<id> so it's linkable. The legacy ?area=
+// param is ignored — those links land on the levels home. A dead loader degrades
+// to empty (the panels render their empty states) instead of 500-ing the page.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -12,20 +16,15 @@ import {
   loadPipelineProgress,
   EMPTY_PIPELINE_PROGRESS,
 } from '@/lib/dashboard/v2/orientacion';
-import {
-  PeriodizacionView,
-  type PeriodizacionArea,
-} from '@/components/v2/periodizacion/PeriodizacionView';
+import { PeriodizacionView } from '@/components/v2/periodizacion/PeriodizacionView';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_AREAS: readonly PeriodizacionArea[] = ['niveles', 'secuencias'];
-
 const EMPTY_SECUENCIAS = { levels: [], microciclos: [], cells: {} };
 
-function resolveArea(raw: string | string[] | undefined): PeriodizacionArea {
+function resolveLevelId(raw: string | string[] | undefined): string | null {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return VALID_AREAS.includes(v as PeriodizacionArea) ? (v as PeriodizacionArea) : 'niveles';
+  return v && /^\d+$/.test(v) ? v : null;
 }
 
 export default async function V2PeriodizacionPage({
@@ -33,7 +32,7 @@ export default async function V2PeriodizacionPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ area?: string | string[] }>;
+  searchParams: Promise<{ level?: string | string[] }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -41,8 +40,8 @@ export default async function V2PeriodizacionPage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  const { area } = await searchParams;
-  const initialArea = resolveArea(area);
+  const { level } = await searchParams;
+  const initialLevelId = resolveLevelId(level);
 
   const [data, secuencias, progress] = await Promise.all([
     loadPeriodizacionData(session.coach_id).catch(() => ({ levels: [] })),
@@ -54,7 +53,7 @@ export default async function V2PeriodizacionPage({
     <PeriodizacionView
       data={data}
       secuencias={secuencias}
-      initialArea={initialArea}
+      initialLevelId={initialLevelId}
       coachKey={String(session.coach_id)}
       progress={progress}
     />

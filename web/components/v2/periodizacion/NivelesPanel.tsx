@@ -53,7 +53,14 @@ function emptyDraft(): LevelDraft {
   return { id: null, name: '', label: '', description: '' };
 }
 
-export function NivelesPanel({ initialLevels }: { initialLevels: V2LevelItem[] }) {
+export function NivelesPanel({
+  initialLevels,
+  onEnter,
+}: {
+  initialLevels: V2LevelItem[];
+  /** Open a level's periodization (its días-variants + microciclo sequence). */
+  onEnter: (level: V2LevelItem) => void;
+}) {
   const [levels, setLevels] = useState<V2LevelItem[]>(initialLevels);
   const [draft, setDraft] = useState<LevelDraft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -263,10 +270,17 @@ export function NivelesPanel({ initialLevels }: { initialLevels: V2LevelItem[] }
                 selected={draft?.id === lvl.id}
                 actions={
                   <>
-                    <span className="mr-1 inline-flex items-center gap-1 text-[11.5px] text-[color:var(--v2-faint)]">
+                    <span className="mr-1 hidden items-center gap-1 text-[11.5px] text-[color:var(--v2-faint)] sm:inline-flex">
                       <MIcon name="person" size={14} />
                       <b className="v2-num">{lvl.athlete_count}</b> atletas
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => onEnter(lvl)}
+                      className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-[11.5px] font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)]"
+                    >
+                      Periodización <MIcon name="arrow_forward" size={13} />
+                    </button>
                     <RowIconButton
                       icon="edit"
                       label="Editar nivel"
@@ -280,19 +294,30 @@ export function NivelesPanel({ initialLevels }: { initialLevels: V2LevelItem[] }
                   </>
                 }
               >
-                <div className="flex items-center gap-2.5">
-                  <LevelBadge level={lvl.name} />
-                  <span className="truncate text-[14.5px] font-bold text-[color:var(--v2-fg)]">{lvl.label}</span>
-                </div>
-                {lvl.description ? (
-                  <p className="mt-0.5 truncate text-xs text-[color:var(--v2-muted)]">{lvl.description}</p>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onEnter(lvl)}
+                  className="v2-focus group/enter -m-1 block w-full rounded-[var(--v2-r-s)] p-1 text-left"
+                  title={`Abrir la periodización de ${lvl.name} · ${lvl.label}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <LevelBadge level={lvl.name} />
+                    <span className="truncate text-[14.5px] font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
+                      {lvl.label}
+                    </span>
+                  </span>
+                  {lvl.description ? (
+                    <span className="mt-0.5 block truncate text-xs text-[color:var(--v2-muted)]">
+                      {lvl.description}
+                    </span>
+                  ) : null}
+                </button>
               </ReorderRow>
             ))}
 
             <PurposeStrip>
-              Con estos niveles el sistema <b className="text-[color:var(--v2-fg)]">clasifica a cada atleta al alta</b> y construye las{' '}
-              <b className="text-[color:var(--v2-fg)]">filas de tu matriz de Secuencias</b>. Reordénalos para fijar la progresión de menor a mayor.
+              Con estos niveles el sistema <b className="text-[color:var(--v2-fg)]">clasifica a cada atleta al alta</b>. Entra en un nivel para{' '}
+              <b className="text-[color:var(--v2-fg)]">ordenar su periodización</b> (su secuencia de microciclos por días/semana). Reordénalos para fijar la progresión de menor a mayor.
             </PurposeStrip>
           </div>
 
@@ -419,7 +444,7 @@ function EmptyLevels({
       </span>
       <p className="text-base font-bold text-[color:var(--v2-fg)]">No tienes niveles definidos</p>
       <p className="mx-auto mt-1.5 max-w-[380px] text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
-        Los niveles clasifican a tus atletas y son las filas de tu matriz de Secuencias. Sin al menos uno, el sistema no puede colocar a nadie.
+        Los niveles clasifican a tus atletas. Cada uno guarda su propia periodización. Sin al menos uno, el sistema no puede colocar a nadie.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2.5">
         <PanelButton variant="primary" onClick={onCreate}>
@@ -479,7 +504,7 @@ function ConfirmDeleteDialog({
           ¿Eliminar «{level.name} · {level.label}»?
         </p>
         <p className="mt-1.5 text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
-          Ningún atleta tiene este nivel asignado. Se eliminará de tu catálogo y de las filas de Secuencias.
+          Ningún atleta tiene este nivel asignado. Se eliminará de tu catálogo junto con su periodización.
         </p>
         <div className="mt-4 flex gap-2">
           <PanelButton variant="danger" onClick={onConfirm}>
