@@ -22,6 +22,10 @@
  * Run: pnpm --filter @fahybrid/infra seed:methodology
  */
 import { methodologyRuleRowSchema } from '@fahybrid/shared/schema';
+import {
+  STANDARD_ZONES_PER_500M,
+  STANDARD_ZONES_PER_KM,
+} from '@fahybrid/shared/domain/methodology';
 import { getSql } from './_db.ts';
 import { PABLO_DEFAULT_RULES } from './seed_methodology_rules.ts';
 
@@ -165,46 +169,25 @@ async function seedBlocks(sql: Sql, coachId: string): Promise<void> {
   }
 }
 
-// ── methodology_zones (Área 5) — HR (%LTHR), run pace (s/km over 5K), erg ─────
-// (s/500m over split2K), bike (%FTP). All from §5 matrices.
-const ZONES: Array<{
-  system: string; modality: string | null; zone: number; label: string;
-  anchor: string; lower: number; upper: number; unit: string;
-}> = [
-  // HR — fractions of LTHR
-  { system: 'hr', modality: null, zone: 1, label: 'Z1 Recuperación', anchor: 'lthr', lower: 0.0, upper: 0.81, unit: 'fraction_of_anchor' },
-  { system: 'hr', modality: null, zone: 2, label: 'Z2 Aeróbico', anchor: 'lthr', lower: 0.82, upper: 0.88, unit: 'fraction_of_anchor' },
-  { system: 'hr', modality: null, zone: 3, label: 'Z3 Tempo', anchor: 'lthr', lower: 0.89, upper: 0.94, unit: 'fraction_of_anchor' },
-  { system: 'hr', modality: null, zone: 4, label: 'Z4 Umbral', anchor: 'lthr', lower: 0.95, upper: 1.02, unit: 'fraction_of_anchor' },
-  { system: 'hr', modality: null, zone: 5, label: 'Z5 VO2max', anchor: 'lthr', lower: 1.03, upper: 1.15, unit: 'fraction_of_anchor' },
-  // Run pace — s/km offset over pace5K
-  { system: 'pace', modality: 'run', zone: 1, label: 'Z1', anchor: 'pace5k', lower: 95, upper: 125, unit: 's_per_km' },
-  { system: 'pace', modality: 'run', zone: 2, label: 'Z2', anchor: 'pace5k', lower: 75, upper: 95, unit: 's_per_km' },
-  { system: 'pace', modality: 'run', zone: 3, label: 'Z3', anchor: 'pace5k', lower: 35, upper: 50, unit: 's_per_km' },
-  { system: 'pace', modality: 'run', zone: 4, label: 'Z4', anchor: 'pace5k', lower: 5, upper: 15, unit: 's_per_km' },
-  { system: 'pace', modality: 'run', zone: 5, label: 'Z5', anchor: 'pace5k', lower: -20, upper: -10, unit: 's_per_km' },
-  // Erg row — s/500m offset over split2K
-  { system: 'erg', modality: 'row', zone: 1, label: 'Z1', anchor: 'split2k', lower: 20, upper: 25, unit: 's_per_500m' },
-  { system: 'erg', modality: 'row', zone: 2, label: 'Z2', anchor: 'split2k', lower: 12, upper: 18, unit: 's_per_500m' },
-  { system: 'erg', modality: 'row', zone: 3, label: 'Z3', anchor: 'split2k', lower: 5, upper: 9, unit: 's_per_500m' },
-  { system: 'erg', modality: 'row', zone: 4, label: 'Z4', anchor: 'split2k', lower: 0, upper: 4, unit: 's_per_500m' },
-  { system: 'erg', modality: 'row', zone: 5, label: 'Z5', anchor: 'split2k', lower: -8, upper: -3, unit: 's_per_500m' },
-  // Erg ski — same offsets, anchored to split1K (normalized per athlete by resolver)
-  { system: 'erg', modality: 'ski', zone: 2, label: 'Z2', anchor: 'split1k', lower: 12, upper: 18, unit: 's_per_500m' },
-  { system: 'erg', modality: 'ski', zone: 4, label: 'Z4', anchor: 'split1k', lower: 0, upper: 4, unit: 's_per_500m' },
-  // Bike — %FTP (Coggan)
-  { system: 'power', modality: 'bike', zone: 2, label: 'Z2', anchor: 'ftp', lower: 0.56, upper: 0.75, unit: 'pct_ftp' },
-  { system: 'power', modality: 'bike', zone: 4, label: 'Z4', anchor: 'ftp', lower: 0.91, upper: 1.05, unit: 'pct_ftp' },
-];
+// ── methodology_zones (Área 5) — the 6-zone OFFSET model (migration 0061). ────
+// The standard bands are single-sourced in @fahybrid/shared (Pablo's VERIFIED
+// per_500m bands + the per_km run set). Migration 0061 already seeds them on
+// apply; this keeps the upsert in sync if the seed is run independently.
+const ZONES = [...STANDARD_ZONES_PER_500M, ...STANDARD_ZONES_PER_KM];
 
 async function seedZones(sql: Sql, coachId: string): Promise<void> {
   for (const z of ZONES) {
     await sql`
-      insert into methodology_zones (coach_id, system, modality, zone, label, anchor, lower, upper, unit)
-      values (${coachId}::bigint, ${z.system}, ${z.modality}, ${z.zone}, ${z.label}, ${z.anchor}, ${z.lower}, ${z.upper}, ${z.unit})
-      on conflict (coach_id, system, modality, zone) do update set
-        label = excluded.label, anchor = excluded.anchor,
-        lower = excluded.lower, upper = excluded.upper, unit = excluded.unit, updated_at = now()
+      insert into methodology_zones
+        (coach_id, code, label, color, role, sort_order, anchor, pace_unit, low_offset_s, high_offset_s)
+      values
+        (${coachId}::bigint, ${z.code}, ${z.label}, ${z.color}, ${z.role}, ${z.sort_order},
+         'threshold', ${z.pace_unit}, ${z.low_offset_s}, ${z.high_offset_s})
+      on conflict (coach_id, pace_unit, code) do update set
+        label = excluded.label, color = excluded.color, role = excluded.role,
+        sort_order = excluded.sort_order, anchor = excluded.anchor,
+        low_offset_s = excluded.low_offset_s, high_offset_s = excluded.high_offset_s,
+        updated_at = now()
     `;
   }
 }
