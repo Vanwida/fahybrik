@@ -6,9 +6,10 @@ interface AdminShellProps {
   children: React.ReactNode;
 }
 
-// Minimal admin shell — the platform-owner surface. Deliberately NOT the coach
-// AppShell (different audience, different nav). A slim top-bar with the brand,
-// an "Admin" marker, the owner's email, and a link back to the coach dashboard.
+// Minimal admin shell — the platform-owner surface. Deliberately separate from
+// the coach dashboard shell (V2Shell): different audience, different nav. A slim
+// top-bar with the brand, an "Admin" marker, the owner's email, and a link back
+// to the coach dashboard.
 export function AdminShell({ email, children }: AdminShellProps) {
   return (
     <div className="min-h-screen bg-[color:var(--bg)]">
