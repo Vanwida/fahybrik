@@ -203,12 +203,12 @@ private struct AddInjuryButton: View {
                 Text("Añadir lesión")
                     .font(Theme.Typography.bodyEmph)
             }
-            .foregroundStyle(Theme.Color.accent)
+            .foregroundStyle(Theme.Color.accentText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                    .stroke(Theme.Color.accentText.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
             )
         }
         .buttonStyle(PressScaleStyle())

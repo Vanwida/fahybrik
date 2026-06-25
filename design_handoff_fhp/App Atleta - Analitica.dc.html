@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    html,body{margin:0;padding:0;}
+    *{box-sizing:border-box;}
+    ::-webkit-scrollbar{width:0;height:0;}
+  </style>
+</helmet>
+
+<div style="min-width:100%;width:max-content;min-height:100vh;background:#070A0E;padding:44px 48px;font-family:'Saira',sans-serif;color:#F2F5F8;">
+
+  <div style="margin-bottom:28px;max-width:920px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;"><img src="uploads/marca-1781876709103.png" alt="FHP" style="height:24px;width:auto;"><span style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#E23B2E;font-weight:700;">App del atleta · analítica de rendimiento</span></div>
+    <div style="font-size:32px;font-weight:800;font-style:italic;line-height:1.02;">Métricas completas — running y las 8 estaciones</div>
+    <div style="font-size:15px;color:#93A0AE;margin-top:10px;line-height:1.55;max-width:840px;">Cada métrica enlaza con el <b style="color:#F2F5F8;">entrenamiento</b> que la trabaja. El running tiene su propia analítica (es media carrera de HYROX) y cada estación su detalle con tendencia entre carreras, sub-métricas y los grupos de entreno asociados.</div>
+  </div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;">
+
+    <!-- ====== HUB · ESTACIONES ====== -->
+    <div style="display:flex;flex-direction:column;gap:14px;flex:none;width:390px;">
+      <div><div style="font-size:18px;font-weight:700;">1 · Hub de rendimiento</div><div style="font-size:13px;color:#5C6773;">running + las 8 estaciones de un vistazo</div></div>
+      <div style="width:390px;height:822px;background:#000;border-radius:52px;padding:11px;box-shadow:0 30px 70px rgba(0,0,0,.6);flex:none;">
+        <div style="position:relative;width:100%;height:100%;background:#0A0E14;border-radius:42px;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:32px;background:#000;border-radius:18px;z-index:20;"></div>
+          <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 7px;"><span style="font-family:'Space Mono';font-size:14px;font-weight:700;">9:41</span><div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Space Mono';font-size:12px;">5G</span><div style="width:24px;height:12px;border:1.5px solid #F2F5F8;border-radius:3px;padding:1.5px;"><div style="width:85%;height:100%;background:#F2F5F8;border-radius:1px;"></div></div></div></div>
+
+          <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:6px 18px 16px;">
+            <div style="font-size:26px;font-weight:800;font-style:italic;margin-bottom:12px;">Rendimiento</div>
+            <div style="display:flex;gap:7px;margin-bottom:16px;"><span style="background:#1B2430;border:1px solid #283341;color:#93A0AE;border-radius:999px;padding:6px 15px;font-size:12px;">Running</span><span style="background:#E23B2E;color:#fff;border-radius:999px;padding:6px 15px;font-size:12px;font-weight:700;">Estaciones</span><span style="background:#1B2430;border:1px solid #283341;color:#93A0AE;border-radius:999px;padding:6px 15px;font-size:12px;">RoxZone</span></div>
+
+            <!-- running summary tile -->
+            <div style="background:linear-gradient(135deg,#10131c,#141A22);border:1px solid #283341;border-radius:16px;padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+              <div style="flex:1;"><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#5C6773;">Running · umbral</div><div style="font-family:'Space Mono';font-size:24px;font-weight:700;">4:05<span style="font-size:13px;color:#93A0AE;">/km</span></div></div>
+              <span style="font-size:12px;color:#E23B2E;font-weight:700;">Ver análisis ›</span>
+            </div>
+
+            <div style="font-size:12px;color:#5C6773;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;">8 estaciones · vs benchmark Pro</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">SkiErg</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">3:58</span><span style="font-family:'Space Mono';font-size:11px;color:#34C77B;">−0:03</span></div></div>
+              <div style="background:#11161D;border:1px solid #4a2420;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Sled Push ⚑</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">2:48</span><span style="font-family:'Space Mono';font-size:11px;color:#E23B2E;">+0:42</span></div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Sled Pull</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">3:12</span><span style="font-family:'Space Mono';font-size:11px;color:#34C77B;">−0:08</span></div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Burpee BJ</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">4:05</span><span style="font-family:'Space Mono';font-size:11px;color:#E0A93B;">+0:14</span></div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Row</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">3:50</span><span style="font-family:'Space Mono';font-size:11px;color:#E0A93B;">+0:02</span></div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Farmer Carry</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">1:42</span><span style="font-family:'Space Mono';font-size:11px;color:#34C77B;">−0:05</span></div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Sandbag Lunge</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">3:30</span><span style="font-family:'Space Mono';font-size:11px;color:#E0A93B;">+0:09</span></div></div>
+              <div style="background:#11161D;border:1px solid #4a2420;border-radius:12px;padding:11px;"><div style="font-size:12px;color:#93A0AE;margin-bottom:4px;">Wall Balls ⚑</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-family:'Space Mono';font-size:17px;font-weight:700;">4:48</span><span style="font-family:'Space Mono';font-size:11px;color:#E23B2E;">+0:31</span></div></div>
+            </div>
+
+            <div style="background:#11161D;border:1px solid #283341;border-radius:12px;padding:13px;margin-top:8px;display:flex;align-items:center;"><div style="flex:1;"><div style="font-size:12px;color:#93A0AE;">RoxZone · transiciones</div><div style="font-family:'Space Mono';font-size:18px;font-weight:700;color:#E0A93B;">4:02 <span style="font-size:11px;color:#5C6773;">+0:18 vs media</span></div></div><span style="font-size:18px;color:#5C6773;">›</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== RUNNING DEEP-DIVE ====== -->
+    <div style="display:flex;flex-direction:column;gap:14px;flex:none;width:390px;">
+      <div><div style="font-size:18px;font-weight:700;color:#E23B2E;">2 · Running · análisis completo</div><div style="font-size:13px;color:#5C6773;">ritmos, zonas, splits, progresión + entrenos</div></div>
+      <div style="width:390px;height:822px;background:#000;border-radius:52px;padding:11px;box-shadow:0 30px 70px rgba(0,0,0,.6);flex:none;">
+        <div style="position:relative;width:100%;height:100%;background:#0A0E14;border-radius:42px;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:32px;background:#000;border-radius:18px;z-index:20;"></div>
+          <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 7px;"><span style="font-family:'Space Mono';font-size:14px;font-weight:700;">9:41</span><div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Space Mono';font-size:12px;">5G</span><div style="width:24px;height:12px;border:1.5px solid #F2F5F8;border-radius:3px;padding:1.5px;"><div style="width:85%;height:100%;background:#F2F5F8;border-radius:1px;"></div></div></div></div>
+
+          <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:4px 18px 16px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="width:32px;height:32px;border-radius:50%;background:#1B2430;display:flex;align-items:center;justify-content:center;font-size:18px;color:#F2F5F8;">‹</span><div style="font-size:24px;font-weight:800;font-style:italic;">Running</div></div>
+
+            <!-- key metrics -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+              <div style="background:#141A22;border:1px solid #283341;border-radius:12px;padding:12px;"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#5C6773;">Ritmo umbral</div><div style="font-family:'Space Mono';font-size:21px;font-weight:700;color:#E23B2E;">4:05<span style="font-size:11px;color:#93A0AE;">/km</span></div></div>
+              <div style="background:#141A22;border:1px solid #283341;border-radius:12px;padding:12px;"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#5C6773;">VO₂ est.</div><div style="font-family:'Space Mono';font-size:21px;font-weight:700;">54</div></div>
+              <div style="background:#141A22;border:1px solid #283341;border-radius:12px;padding:12px;"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#5C6773;">Mejor 1 km</div><div style="font-family:'Space Mono';font-size:21px;font-weight:700;">3:38</div></div>
+              <div style="background:#141A22;border:1px solid #283341;border-radius:12px;padding:12px;"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#5C6773;">Vol. semana</div><div style="font-family:'Space Mono';font-size:21px;font-weight:700;">42<span style="font-size:11px;color:#93A0AE;">km</span></div></div>
+            </div>
+
+            <!-- hyrox run splits -->
+            <div style="font-size:13px;font-weight:700;margin-bottom:9px;">Splits de carrera · 8×1 km <span style="font-size:11px;color:#5C6773;font-weight:400;">(última)</span></div>
+            <div style="background:#141A22;border:1px solid #283341;border-radius:14px;padding:13px;margin-bottom:16px;">
+              <div style="display:flex;align-items:flex-end;gap:5px;height:64px;"><div style="flex:1;background:#34C77B;border-radius:3px 3px 0 0;height:48%;"></div><div style="flex:1;background:#34C77B;border-radius:3px 3px 0 0;height:50%;"></div><div style="flex:1;background:#34C77B;border-radius:3px 3px 0 0;height:54%;"></div><div style="flex:1;background:#E0A93B;border-radius:3px 3px 0 0;height:60%;"></div><div style="flex:1;background:#E0A93B;border-radius:3px 3px 0 0;height:66%;"></div><div style="flex:1;background:#E0A93B;border-radius:3px 3px 0 0;height:74%;"></div><div style="flex:1;background:#E23B2E;border-radius:3px 3px 0 0;height:88%;"></div><div style="flex:1;background:#E23B2E;border-radius:3px 3px 0 0;height:100%;"></div></div>
+              <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="font-size:11px;color:#93A0AE;">medio <span style="font-family:'Space Mono';color:#F2F5F8;">4:46/km</span></span><span style="font-size:11px;color:#E0A93B;">+18s/km final ⚠</span></div>
+            </div>
+
+            <!-- pace zones -->
+            <div style="font-size:13px;font-weight:700;margin-bottom:9px;">Zonas de ritmo</div>
+            <div style="background:#141A22;border:1px solid #283341;border-radius:14px;overflow:hidden;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;padding:9px 13px;border-bottom:1px solid #1b2230;"><span style="width:8px;height:8px;border-radius:50%;background:#3B82D9;"></span><span style="font-size:13px;flex:1;margin-left:9px;color:#93A0AE;">Z2 · rodaje</span><span style="font-family:'Space Mono';font-size:13px;">5:10–5:30</span></div>
+              <div style="display:flex;align-items:center;padding:9px 13px;border-bottom:1px solid #1b2230;"><span style="width:8px;height:8px;border-radius:50%;background:#34C77B;"></span><span style="font-size:13px;flex:1;margin-left:9px;color:#93A0AE;">Z3 · medio</span><span style="font-family:'Space Mono';font-size:13px;">4:35</span></div>
+              <div style="display:flex;align-items:center;padding:9px 13px;border-bottom:1px solid #1b2230;"><span style="width:8px;height:8px;border-radius:50%;background:#E0A93B;"></span><span style="font-size:13px;flex:1;margin-left:9px;color:#93A0AE;">Z4 · umbral</span><span style="font-family:'Space Mono';font-size:13px;color:#E23B2E;">4:05</span></div>
+              <div style="display:flex;align-items:center;padding:9px 13px;"><span style="width:8px;height:8px;border-radius:50%;background:#E23B2E;"></span><span style="font-size:13px;flex:1;margin-left:9px;color:#93A0AE;">Z5 · VO₂</span><span style="font-family:'Space Mono';font-size:13px;">3:45</span></div>
+            </div>
+
+            <!-- progression -->
+            <div style="font-size:13px;font-weight:700;margin-bottom:9px;">Progresión · ritmo umbral</div>
+            <div style="background:#141A22;border:1px solid #283341;border-radius:14px;padding:13px;display:flex;align-items:flex-end;gap:12px;height:90px;margin-bottom:16px;">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:58px;background:#283341;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#5C6773;">4:20</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:48px;background:#283341;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#5C6773;">4:14</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:40px;background:#283341;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#5C6773;">4:09</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:30px;background:#E23B2E;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#E23B2E;">4:05</span></div>
+            </div>
+
+            <!-- entrenos que lo trabajan -->
+            <div style="font-size:13px;font-weight:700;margin-bottom:9px;">Entrenos que lo trabajan</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;gap:11px;background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px 13px;"><span style="width:7px;height:7px;border-radius:50%;background:#E23B2E;"></span><div style="flex:1;"><div style="font-size:13px;font-weight:600;">Series 5×1000 m</div><div style="font-size:11px;color:#5C6773;">G04 · running</div></div><span style="font-family:'Space Mono';font-size:12px;color:#93A0AE;">×6</span></div>
+              <div style="display:flex;align-items:center;gap:11px;background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px 13px;"><span style="width:7px;height:7px;border-radius:50%;background:#E23B2E;"></span><div style="flex:1;"><div style="font-size:13px;font-weight:600;">Tempo umbral</div><div style="font-size:11px;color:#5C6773;">G04 · running</div></div><span style="font-family:'Space Mono';font-size:12px;color:#93A0AE;">×4</span></div>
+              <div style="display:flex;align-items:center;gap:11px;background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px 13px;"><span style="width:7px;height:7px;border-radius:50%;background:#3B82D9;"></span><div style="flex:1;"><div style="font-size:13px;font-weight:600;">Rodaje Z2 largo</div><div style="font-size:11px;color:#5C6773;">G05 · base aeróbica</div></div><span style="font-family:'Space Mono';font-size:12px;color:#93A0AE;">×9</span></div>
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(226,59,46,.08);border:1px solid #3a2326;border-radius:12px;padding:11px 13px;"><span style="font-size:12px;color:#E23B2E;">→ próximo</span><span style="font-size:13px;flex:1;">6×1000 m · viernes</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STATION DEEP-DIVE ====== -->
+    <div style="display:flex;flex-direction:column;gap:14px;flex:none;width:390px;">
+      <div><div style="font-size:18px;font-weight:700;color:#E23B2E;">3 · Estación · Sled Push</div><div style="font-size:13px;color:#5C6773;">tendencia entre carreras + entrenos que la mejoran</div></div>
+      <div style="width:390px;height:822px;background:#000;border-radius:52px;padding:11px;box-shadow:0 30px 70px rgba(0,0,0,.6);flex:none;">
+        <div style="position:relative;width:100%;height:100%;background:#0A0E14;border-radius:42px;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:32px;background:#000;border-radius:18px;z-index:20;"></div>
+          <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 7px;"><span style="font-family:'Space Mono';font-size:14px;font-weight:700;">9:41</span><div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Space Mono';font-size:12px;">5G</span><div style="width:24px;height:12px;border:1.5px solid #F2F5F8;border-radius:3px;padding:1.5px;"><div style="width:85%;height:100%;background:#F2F5F8;border-radius:1px;"></div></div></div></div>
+
+          <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:4px 18px 16px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="width:32px;height:32px;border-radius:50%;background:#1B2430;display:flex;align-items:center;justify-content:center;font-size:18px;color:#F2F5F8;">‹</span><div style="font-size:23px;font-weight:800;font-style:italic;">Sled Push</div><span style="margin-left:auto;font-size:11px;color:#E23B2E;">⚑ a mejorar</span></div>
+
+            <!-- video -->
+            <div style="height:66px;border-radius:12px;background:repeating-linear-gradient(115deg,#11161d,#11161d 10px,#0e131a 10px,#0e131a 20px);display:flex;align-items:center;justify-content:center;gap:8px;color:#5C6773;font-size:12px;margin-bottom:14px;"><span style="width:28px;height:28px;border-radius:50%;background:#E23B2E;color:#fff;display:flex;align-items:center;justify-content:center;">▶</span> técnica de empuje</div>
+
+            <!-- last vs benchmark -->
+            <div style="background:linear-gradient(135deg,#1a1012,#141A22);border:1px solid #3a2326;border-radius:16px;padding:15px;margin-bottom:14px;">
+              <div style="display:flex;align-items:baseline;gap:10px;"><div><div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#5C6773;">Tu última</div><div style="font-family:'Space Mono';font-size:28px;font-weight:700;">2:48</div></div><div style="margin-left:auto;text-align:right;"><div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#5C6773;">Benchmark Pro</div><div style="font-family:'Space Mono';font-size:18px;color:#93A0AE;">2:06</div></div></div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:10px;"><span style="font-family:'Space Mono';font-size:13px;color:#E23B2E;font-weight:700;">+0:42</span><div style="flex:1;height:6px;border-radius:4px;background:#283341;overflow:hidden;"><div style="width:78%;height:100%;background:#E23B2E;"></div></div><span style="font-size:11px;color:#93A0AE;">top 42%</span></div>
+            </div>
+
+            <!-- trend across races -->
+            <div style="font-size:13px;font-weight:700;margin-bottom:9px;">Tendencia · últimas carreras</div>
+            <div style="background:#141A22;border:1px solid #283341;border-radius:14px;padding:13px;display:flex;align-items:flex-end;gap:14px;height:88px;margin-bottom:14px;">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:56px;background:#283341;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#5C6773;">3:30</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:48px;background:#283341;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#5C6773;">3:12</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:42px;background:#283341;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#5C6773;">2:58</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:100%;height:36px;background:#E23B2E;border-radius:5px;"></div><span style="font-family:'Space Mono';font-size:9px;color:#E23B2E;">2:48</span></div>
+            </div>
+
+            <!-- sub metrics -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:10px;color:#5C6773;letter-spacing:.06em;text-transform:uppercase;">Mejor</div><div style="font-family:'Space Mono';font-size:18px;font-weight:700;">2:48</div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:10px;color:#5C6773;letter-spacing:.06em;text-transform:uppercase;">Medio</div><div style="font-family:'Space Mono';font-size:18px;font-weight:700;">3:02</div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:10px;color:#5C6773;letter-spacing:.06em;text-transform:uppercase;">Peso trineo</div><div style="font-family:'Space Mono';font-size:18px;font-weight:700;">152<span style="font-size:11px;color:#93A0AE;">kg</span></div></div>
+              <div style="background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px;"><div style="font-size:10px;color:#5C6773;letter-spacing:.06em;text-transform:uppercase;">Paradas</div><div style="font-family:'Space Mono';font-size:18px;font-weight:700;color:#E0A93B;">2</div></div>
+            </div>
+
+            <!-- entrenos -->
+            <div style="font-size:13px;font-weight:700;margin-bottom:9px;">Entrenos que la trabajan</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+              <div style="display:flex;align-items:center;gap:11px;background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px 13px;"><span style="width:7px;height:7px;border-radius:50%;background:#E0A93B;"></span><div style="flex:1;"><div style="font-size:13px;font-weight:600;">Fuerza base · piernas</div><div style="font-size:11px;color:#5C6773;">G01 · sentadilla, empuje</div></div><span style="font-family:'Space Mono';font-size:12px;color:#93A0AE;">×8</span></div>
+              <div style="display:flex;align-items:center;gap:11px;background:#11161D;border:1px solid #1f2733;border-radius:12px;padding:11px 13px;"><span style="width:7px;height:7px;border-radius:50%;background:#34C77B;"></span><div style="flex:1;"><div style="font-size:13px;font-weight:600;">Circuitos fuerza-resist.</div><div style="font-size:11px;color:#5C6773;">G09 · sin paradas</div></div><span style="font-family:'Space Mono';font-size:12px;color:#93A0AE;">×5</span></div>
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(226,59,46,.08);border:1px solid #3a2326;border-radius:12px;padding:11px 13px;"><span style="font-size:12px;color:#E23B2E;">→ hoy PM</span><span style="font-size:13px;flex:1;">Fuerza · tren inferior</span></div>
+            </div>
+
+            <!-- IA reco -->
+            <div style="background:#141A22;border:1px solid #283341;border-left:3px solid #E23B2E;border-radius:12px;padding:13px;"><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#E23B2E;font-weight:700;margin-bottom:6px;">Recomendación IA</div><div style="font-size:12px;color:#93A0AE;line-height:1.55;">Prioriza fuerza de empuje y piernas; trabaja sin parar el trineo (tus 2 paradas cuestan ~0:20). Objetivo: <b style="color:#F2F5F8;">sub 2:20</b>.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -105,10 +105,9 @@ struct YouTubeSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.accent)
+                        .foregroundStyle(Theme.Color.accentText)
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 }

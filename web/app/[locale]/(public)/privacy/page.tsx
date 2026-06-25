@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Política de privacidad — FAHYBRIK',
+  title: 'Política de privacidad — FAHYBRID',
   description:
-    'Política de privacidad de FAHYBRIK, plataforma de coaching HYROX operada por Vanwida (España). Cumplimiento RGPD.',
+    'Política de privacidad de FAHYBRID, plataforma de coaching HYROX operada por el equipo de FAHYBRID (España). Cumplimiento RGPD.',
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = '8 de mayo de 2026';
-const VERSION = '1.0';
+const LAST_UPDATED = '22 de junio de 2026';
+const VERSION = '1.1';
 
 function H2({ children, id }: { children: React.ReactNode; id: string }) {
   return (
@@ -68,64 +68,75 @@ export default function PrivacyPage() {
           English summary
         </p>
         <p className="text-[14px] leading-6 text-[color:var(--fg)]/90">
-          FAHYBRIK is a coaching platform operated by Vanwida (Spain, EU). We process
+          FAHYBRID is a coaching platform operated by the FAHYBRID team (Spain, EU). We process
           health, training, and biometric data — including data sourced from{' '}
           <Term>Garmin Connect (Health &amp; Activity APIs)</Term>,{' '}
+          <Term>COROS</Term>, <Term>WHOOP</Term>, <Term>Amazfit (Zepp / Huami)</Term>,{' '}
           <Term>Apple HealthKit</Term>, and <Term>Concept2 PM5</Term> — under{' '}
           <Term>Art. 6(1)(a) and Art. 9(2)(a) GDPR (explicit consent)</Term> for the sole
           purpose of athletic coaching. Data is stored encrypted in the EU (Neon Postgres,
           Frankfurt). Users can revoke consent and request erasure at any time at{' '}
           <a
-            href="mailto:privacy@vanwida.pro"
+            href="mailto:hello@fahybrid.com"
             className="text-[color:var(--accent)] underline-offset-4 hover:underline"
           >
-            privacy@vanwida.pro
+            hello@fahybrid.com
           </a>
-          . Garmin disconnections are honoured within 30 days; OAuth tokens are destroyed
-          immediately upon deregistration. Full policy below in Spanish.
+          . Wearable disconnections (Garmin, COROS, WHOOP, Amazfit) are honoured within 30
+          days; OAuth tokens are destroyed immediately upon disconnection. WHOOP data is
+          fetched on demand and not retained long-term, per WHOOP&apos;s API terms. Full policy below
+          in Spanish.
         </p>
       </section>
 
       <P>
-        En FAHYBRIK tomamos en serio tu privacidad. Esta política explica qué datos
+        En FAHYBRID tomamos en serio tu privacidad. Esta política explica qué datos
         recogemos, por qué los recogemos, cómo los protegemos y los derechos que tienes
         sobre ellos. Está redactada para que la entiendas — si algo no te queda claro,
         escríbenos a{' '}
         <a
-          href="mailto:privacy@vanwida.pro"
+          href="mailto:hello@fahybrid.com"
           className="text-[color:var(--accent)] underline-offset-4 hover:underline"
         >
-          privacy@vanwida.pro
+          hello@fahybrid.com
         </a>
         .
       </P>
 
       <H2 id="responsable">1. Quién es el responsable</H2>
       <P>
-        El responsable del tratamiento de tus datos es <Term>Vanwida</Term>, sociedad
-        legalmente establecida en España, operadora del producto FAHYBRIK. Tu entrenador
-        de referencia dentro de la plataforma es <Term>Pablo (Fabrik Training Club, Barcelona)</Term>,
-        que actúa como destinatario de los datos que tú decides compartir con él para tu
-        coaching.
+        El responsable del tratamiento es la entidad que opera FAHYBRID. La identificación
+        legal completa (razón social, forma jurídica, NIF y domicilio) se incorporará en
+        cuanto se constituya la entidad operadora; para cualquier asunto de privacidad o
+        ejercicio de derechos, escríbenos a{' '}
+        <a
+          href="mailto:hello@fahybrid.com"
+          className="text-[color:var(--accent)] underline-offset-4 hover:underline"
+        >
+          hello@fahybrid.com
+        </a>
+        . Tu entrenador de referencia dentro de la plataforma es{' '}
+        <Term>Pablo (Fabrik Training Club, Barcelona)</Term>, que actúa como destinatario
+        de los datos que tú decides compartir con él para tu coaching.
       </P>
       <P>Datos de contacto:</P>
       <UL>
         <li>
           Privacidad y RGPD:{' '}
           <a
-            href="mailto:privacy@vanwida.pro"
+            href="mailto:hello@fahybrid.com"
             className="text-[color:var(--accent)] underline-offset-4 hover:underline"
           >
-            privacy@vanwida.pro
+            hello@fahybrid.com
           </a>
         </li>
         <li>
           Asuntos legales:{' '}
           <a
-            href="mailto:legal@vanwida.pro"
+            href="mailto:hello@fahybrid.com"
             className="text-[color:var(--accent)] underline-offset-4 hover:underline"
           >
-            legal@vanwida.pro
+            hello@fahybrid.com
           </a>
         </li>
         <li>Jurisdicción: España. Legislación aplicable: RGPD (UE 2016/679) y LOPDGDD.</li>
@@ -190,7 +201,7 @@ export default function PrivacyPage() {
       <H3>2.6 Datos técnicos del dispositivo</H3>
       <UL>
         <li>Modelo de iPhone, versión de iOS, idioma del sistema.</li>
-        <li>Modelo del wearable conectado (Garmin Forerunner / Fenix / Epix, Apple Watch).</li>
+        <li>Modelo del wearable conectado (Garmin, COROS, WHOOP, Amazfit, Apple Watch).</li>
         <li>Identificadores opacos de sesión (no compartidos con redes publicitarias).</li>
         <li>Logs técnicos de errores (sin contenido personal).</li>
       </UL>
@@ -232,8 +243,8 @@ export default function PrivacyPage() {
       <UL>
         <li>
           <Term>Consentimiento explícito (Art. 6(1)(a) y Art. 9(2)(a) RGPD)</Term> para
-          datos de salud, biométricos y recuperación. Lo otorgas en onboarding y al
-          conectar Garmin / Apple Health, y puedes retirarlo en cualquier momento.
+          datos de salud, biométricos y recuperación. Te lo solicitamos antes de procesar
+          estos datos y puedes retirarlo en cualquier momento.
         </li>
         <li>
           <Term>Ejecución del contrato (Art. 6(1)(b) RGPD)</Term> para los datos
@@ -271,26 +282,57 @@ export default function PrivacyPage() {
           alertas. Acceso solo al email y al contenido del correo enviado.
         </li>
         <li>
+          <Term>Stripe (procesamiento de pagos).</Term> Procesa los datos de pago y
+          facturación necesarios para tu suscripción; FAHYBRID no almacena números de
+          tarjeta. Stripe puede tratar datos en EE. UU. bajo Cláusulas Contractuales Tipo
+          (SCCs) / EU-US Data Privacy Framework.
+        </li>
+        <li>
           <Term>Garmin Connect Developer Program (Health &amp; Activity APIs).</Term>{' '}
-          Cuando conectas Garmin, autorizas que Vanwida reciba tus datos de Garmin Connect
-          mediante OAuth 2.0 con PKCE. Garmin actúa como fuente de origen; Vanwida los
+          Cuando conectas Garmin, autorizas que FAHYBRID reciba tus datos de Garmin Connect
+          mediante una conexión autorizada (OAuth). Garmin actúa como fuente de origen; FAHYBRID los
           almacena cifrados en la UE. Puedes revocar la conexión desde Garmin Connect o
           desde la app — tus datos derivados de Garmin se eliminan en un máximo de 30
-          días tras la deregistración.
+          días tras la deregistración. Consulta la Política de privacidad de Garmin Connect
+          en{' '}
+          <a
+            href="https://www.garmin.com/privacy/connect"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[color:var(--accent)] underline-offset-4 hover:underline"
+          >
+            garmin.com/privacy/connect
+          </a>
+          .
+        </li>
+        <li>
+          <Term>COROS, WHOOP y Amazfit (plataforma Zepp / Huami).</Term> Si conectas uno de
+          estos wearables, autorizas mediante OAuth 2.0 que FAHYBRID reciba tus datos de
+          entrenamiento, sueño, frecuencia cardíaca y recuperación desde la nube del
+          fabricante. Cada proveedor actúa como fuente de origen; FAHYBRID almacena los datos
+          cifrados en la UE y no comparte tu información con ellos más allá de lo necesario
+          para la conexión. Puedes revocar la conexión en cualquier momento desde la app o
+          desde la cuenta del fabricante; tus datos derivados se eliminan en un máximo de 30
+          días tras la desconexión y los tokens OAuth se destruyen de inmediato.
+        </li>
+        <li>
+          <Term>WHOOP — tratamiento específico.</Term> Conforme a los términos de la API de
+          WHOOP, <Term>no conservamos copias permanentes</Term> de los datos de WHOOP: se
+          consultan bajo demanda para tu coaching y se purgan al desconectar; los datos de
+          WHOOP <Term>no se incluyen en el archivado de 12 meses</Term> descrito en la
+          sección de conservación.
         </li>
         <li>
           <Term>Apple HealthKit.</Term> Apple HealthKit funciona en tu propio iPhone:
-          Vanwida solo recibe los datos que tú apruebas explícitamente sincronizar. Apple
+          FAHYBRID solo recibe los datos que tú apruebas explícitamente sincronizar. Apple
           no actúa como encargado externo en el sentido tradicional — controla tu
           dispositivo, tú controlas la sincronización.
         </li>
         <li>
-          <Term>Anthropic (Claude) y/o OpenAI / OpenRouter (LLM).</Term> Algunas funciones
-          internas del coach pueden usar modelos de lenguaje para resumir notas o redactar
-          borradores. Cuando esto ocurre, los datos enviados al modelo son los
-          estrictamente necesarios y nunca se usan para entrenar modelos de terceros (los
-          proveedores ofrecen rutas de API con esa garantía contractual). El proveedor LLM
-          definitivo se confirmará antes de la activación del coaching.
+          <Term>Proveedor de modelos de lenguaje (LLM).</Term> Algunas funciones del coach
+          usan un proveedor de IA para resumir notas o redactar borradores, bajo contrato de
+          encargado de tratamiento (DPA) con compromiso de no entrenar modelos con tus datos.
+          Se envían únicamente los datos necesarios para esa función.
         </li>
       </UL>
       <P>
@@ -301,22 +343,22 @@ export default function PrivacyPage() {
       <H2 id="seguridad">6. Cómo los protegemos</H2>
       <UL>
         <li>
-          <Term>Cifrado en tránsito:</Term> TLS 1.2+ en todas las conexiones cliente ↔
+          <Term>Cifrado en tránsito:</Term> TLS en todas las conexiones cliente ↔
           servidor y servidor ↔ proveedores.
         </li>
         <li>
           <Term>Cifrado en reposo:</Term> Neon Postgres con cifrado AES-256 gestionado.
-          Tokens OAuth (Garmin, Apple) cifrados a nivel de columna con AES-256-GCM y clave
+          Tokens OAuth (Garmin, COROS, WHOOP, Amazfit, Apple) cifrados a nivel de columna con AES-256-GCM y clave
           gestionada por entorno.
         </li>
         <li>
-          <Term>Aislamiento de entornos:</Term> producción separada de desarrollo, sin
-          datos reales en entornos no productivos.
+          <Term>Separación de entornos:</Term> mantenemos separados los entornos de
+          producción y de desarrollo.
         </li>
         <li>
-          <Term>Control de acceso:</Term> el equipo técnico de Vanwida accede vía SSO con
-          MFA y registro de auditoría. Pablo solo ve datos de atletas que han consentido
-          compartir con él.
+          <Term>Control de acceso:</Term> el equipo accede mediante inicio de sesión seguro
+          (SSO) y controles de acceso restringido. Pablo solo ve los datos de los atletas
+          asignados a él.
         </li>
         <li>
           <Term>Sin secretos en logs.</Term> No registramos contenido personal, mensajes
@@ -329,8 +371,8 @@ export default function PrivacyPage() {
       </UL>
       <P>
         Si detectamos una brecha de seguridad que afecte a tus datos personales, te
-        notificaremos sin demora indebida y, en cualquier caso, dentro de las 72 horas
-        siguientes a su confirmación, conforme al Art. 34 RGPD.
+        notificaremos sin demora indebida (Art. 34 RGPD) y comunicaremos la brecha a la
+        autoridad de control (AEPD) en un máximo de 72 horas conforme al Art. 33 RGPD.
       </P>
 
       <H2 id="retencion">7. Cuánto tiempo conservamos tus datos</H2>
@@ -349,9 +391,12 @@ export default function PrivacyPage() {
           caso lo hacemos en un máximo de 30 días).
         </li>
         <li>
-          <Term>Datos derivados de Garmin tras desconexión:</Term> eliminados en un máximo
-          de 30 días tras recibir el evento de deregistración. Los tokens OAuth se
-          destruyen inmediatamente.
+          <Term>Datos derivados de wearables (Garmin, COROS, WHOOP, Amazfit) tras
+          desconexión:</Term> al desconectar o al recibir el evento de deregistración
+          detenemos de inmediato toda ingestión y procesamiento de nuevos datos de ese
+          proveedor; los datos ya almacenados se eliminan en un máximo de 30 días y los
+          tokens OAuth se destruyen inmediatamente. Los datos de WHOOP no se archivan y se
+          purgan al desconectar (ver sección de proveedores).
         </li>
         <li>
           <Term>Datos contables (facturas, pagos):</Term> conservados durante el período
@@ -380,7 +425,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <Term>Portabilidad (Art. 20):</Term> recibir tus datos en formato estructurado y
-          legible por máquina (JSON / CSV).
+          legible por máquina (JSON).
         </li>
         <li>
           <Term>Oposición (Art. 21):</Term> oponerte al tratamiento basado en interés
@@ -394,10 +439,10 @@ export default function PrivacyPage() {
       <P>
         Para ejercer cualquiera de estos derechos, escríbenos a{' '}
         <a
-          href="mailto:privacy@vanwida.pro"
+          href="mailto:hello@fahybrid.com"
           className="text-[color:var(--accent)] underline-offset-4 hover:underline"
         >
-          privacy@vanwida.pro
+          hello@fahybrid.com
         </a>
         . Responderemos en un máximo de 30 días.
       </P>
@@ -418,7 +463,7 @@ export default function PrivacyPage() {
 
       <H2 id="cookies">9. Cookies y almacenamiento local</H2>
       <P>
-        FAHYBRIK no usa cookies de seguimiento ni de publicidad. Solo usamos cookies
+        FAHYBRID no usa cookies de seguimiento ni de publicidad. Solo usamos cookies
         técnicas estrictamente necesarias para la sesión:
       </P>
       <UL>
@@ -438,7 +483,7 @@ export default function PrivacyPage() {
 
       <H2 id="menores">10. Menores</H2>
       <P>
-        FAHYBRIK está diseñada para atletas <Term>mayores de 16 años</Term>. Si tienes
+        FAHYBRID está diseñada para atletas <Term>mayores de 16 años</Term>. Si tienes
         entre 14 y 16 años, necesitamos el consentimiento expreso de uno de tus
         progenitores o tutores legales (Art. 8 RGPD y Art. 7 LOPDGDD). No procesamos datos
         de menores de 14 años bajo ninguna circunstancia. Si descubrimos que hemos
@@ -473,19 +518,19 @@ export default function PrivacyPage() {
         <li>
           Privacidad y derechos RGPD:{' '}
           <a
-            href="mailto:privacy@vanwida.pro"
+            href="mailto:hello@fahybrid.com"
             className="text-[color:var(--accent)] underline-offset-4 hover:underline"
           >
-            privacy@vanwida.pro
+            hello@fahybrid.com
           </a>
         </li>
         <li>
           Asuntos legales generales:{' '}
           <a
-            href="mailto:legal@vanwida.pro"
+            href="mailto:hello@fahybrid.com"
             className="text-[color:var(--accent)] underline-offset-4 hover:underline"
           >
-            legal@vanwida.pro
+            hello@fahybrid.com
           </a>
         </li>
       </UL>

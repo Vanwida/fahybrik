@@ -5,6 +5,10 @@ import {
   isoDateTime,
   slugSchema,
 } from './_primitives';
+// Modality is an INTRINSIC property of the exercise (migration 0053). Reuse the
+// canonical prescription Modality enum so the catalog row, the DB CHECK, and the
+// per-line prescription all agree on the same 9 values (single source of truth).
+import { modalitySchema } from '../domain/prescription';
 
 export const defaultMetricsSchema = z.object({
   reps: z.boolean().optional(),
@@ -22,6 +26,9 @@ export const exerciseSchema = z.object({
   slug: slugSchema,
   name: z.string().min(1).max(200),
   category: exerciseCategory,
+  // The exercise's training modality — intrinsic, the default source of truth a
+  // prescription line derives its modality from (migration 0053).
+  modality: modalitySchema,
   primary_muscle_groups: z.array(z.string().min(1).max(60)).default([]),
   equipment: z.array(z.string().min(1).max(60)).default([]),
   default_metrics_json: defaultMetricsSchema.default({}),

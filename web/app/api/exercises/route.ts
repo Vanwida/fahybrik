@@ -37,6 +37,7 @@ export async function GET(req: Request) {
       slug,
       name,
       category::text as category,
+      modality,
       primary_muscle_groups,
       equipment,
       default_metrics_json,

@@ -73,7 +73,7 @@ struct FoodSearchView: View {
                         if let errorText {
                             Text(errorText)
                                 .font(.system(size: 12))
-                                .foregroundStyle(Theme.Color.accent)
+                                .foregroundStyle(Theme.Color.accentText)
                         }
                         saveButton
                     }
@@ -85,7 +85,7 @@ struct FoodSearchView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancelar") { dismiss() }
-                        .tint(Theme.Color.accent)
+                        .tint(Theme.Color.accentText)
                 }
             }
         }
@@ -159,7 +159,7 @@ struct FoodSearchView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .tint(Theme.Color.accent)
+                .tint(Theme.Color.accentText)
                 .padding(.horizontal, 8)
                 .background(Theme.Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

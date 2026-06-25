@@ -10,7 +10,7 @@ struct WelcomeStep: View {
             VStack(spacing: Theme.Spacing.xl) {
                 Spacer()
                 HStack(spacing: 0) {
-                    Text("[F]").foregroundStyle(Theme.Color.accent)
+                    Text("[F]").foregroundStyle(Theme.Color.accentText)
                     Text("AHYBRIK").foregroundStyle(Theme.Color.foreground)
                 }
                 .font(Theme.Typography.display)
@@ -46,7 +46,7 @@ struct WelcomeStep: View {
                         Link("Términos", destination: URL(string: "https://fahybrid.com/terms")!)
                     }
                     .font(Theme.Typography.caption)
-                    .tint(Theme.Color.accent)
+                    .tint(Theme.Color.accentText)
                     .padding(.top, Theme.Spacing.s)
                 }
                 .padding(.horizontal, Theme.Spacing.xl)

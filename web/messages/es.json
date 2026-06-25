@@ -1,8 +1,8 @@
 {
   "$comment": "Spanish (Castilian) — DEFAULT locale. Voice: tú-informal, spare, precise, no motivational filler. Sport vocabulary brand-locked: HYROX, AMRAP, EMOM, RPE, Z1-Z5, sled push, wall ball, ski erg, Z2, Z3, etc. — never translated. Anchor: 'Entrenar al detalle.' / 'Cuanto más sepa Pablo, más preciso será tu plan.' / 'Pablo está armando tu plan.'",
   "brand": {
-    "name": "FAHYBRIK",
-    "wordmark_aria": "FAHYBRIK",
+    "name": "FAHYBRID",
+    "wordmark_aria": "FAHYBRID",
     "anchor_tagline": "Entrenar al detalle.",
     "anchor_pablo_more": "Cuanto más sepa Pablo, más preciso será tu plan.",
     "anchor_pablo_building": "Pablo está armando tu plan.",
@@ -64,7 +64,7 @@
   "footer": {
     "privacy": "Privacidad",
     "terms": "Términos",
-    "copyright": "© {year} Vanwida — FAHYBRIK"
+    "copyright": "© {year} FAHYBRID"
   },
   "cohort": {
     "title": "Atletas",

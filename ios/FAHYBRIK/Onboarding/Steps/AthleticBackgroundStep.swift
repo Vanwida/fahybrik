@@ -45,7 +45,7 @@ struct AthleticBackgroundStep: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .foregroundStyle(state.trainingLevel == level.rawValue ? Color.black : Theme.Color.foreground)
+                            .foregroundStyle(state.trainingLevel == level.rawValue ? Theme.Color.accentOn : Theme.Color.foreground)
                             .background(state.trainingLevel == level.rawValue ? Theme.Color.accent : Theme.Color.surface)
                             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
                         }

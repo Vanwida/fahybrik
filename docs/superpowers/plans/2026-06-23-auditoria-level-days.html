@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoría de sentido — Sistema Level × Días (A + B6)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.6}
+  .container{max-width:880px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:32px}
+  h2{font-size:21px;font-weight:700;margin:48px 0 16px;padding-bottom:10px;border-bottom:2px solid #e8e8e3}
+  p{font-size:15px;margin-bottom:12px;color:#2a2a2a}
+
+  .verdict{border-radius:14px;padding:28px;margin:24px 0;border:1px solid}
+  .verdict.partial{background:#fff8ec;border-color:#f5d58a}
+  .verdict-tag{display:inline-block;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:4px 12px;border-radius:6px;margin-bottom:14px;background:#e6920a;color:#fff}
+  .verdict p{font-size:15.5px;color:#3a2e10;margin:0}
+
+  .crit{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #d63a3a;border-radius:10px;padding:20px 22px;margin:16px 0}
+  .crit h3{font-size:16px;font-weight:700;color:#b32424;margin-bottom:10px}
+  .crit .blk{margin-top:10px}
+  .crit .lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#999;margin-bottom:3px}
+  .crit .txt{font-size:14px;color:#333}
+
+  .fix{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:18px 20px;margin:12px 0}
+  .fix .prob{font-size:14px;color:#444;margin-bottom:10px}
+  .fix .prob b{color:#b32424}
+  .fix .corr{font-size:14px;color:#1a5e2a;background:#f0f8f1;border-radius:7px;padding:12px 14px}
+  .fix .corr b{color:#0d7a2e}
+
+  ul.gaps{list-style:none;padding:0}
+  ul.gaps li{font-size:14px;padding:11px 0 11px 26px;border-bottom:1px solid #efefe9;position:relative;color:#333}
+  ul.gaps li::before{content:'▹';position:absolute;left:4px;color:#e6920a;font-weight:700}
+
+  .state{background:#fbe9e9;border:1px solid #e8b4b4;border-radius:10px;padding:18px 20px;margin:16px 0;font-size:14px;color:#7a1f1f}
+  .state b{color:#b32424}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+
+  .rec{background:#101010;color:#f4f4f0;border-radius:14px;padding:28px;margin:24px 0}
+  .rec h2{color:#fff;border-color:#333;margin-top:0}
+  .rec ol{padding-left:22px}
+  .rec li{font-size:14.5px;margin-bottom:12px;color:#e0e0db}
+  .rec li b{color:#ffb340}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+  .meta-row{display:flex;gap:24px;font-size:13px;color:#888;margin-top:8px}
+  .meta-row b{color:#555}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Auditoría de sentido — Sistema Level × Días</h1>
+  <div class="sub">Secciones A + B6 · análisis de razonamiento / flujo / dominio (no código) · 23 jun 2026</div>
+  <div class="meta-row">
+    <span><b>4</b> lentes</span>
+    <span><b>31</b> hallazgos</span>
+    <span><b>30</b> confirmados tras verificación adversarial</span>
+    <span><b>36</b> agentes</span>
+  </div>
+
+  <div class="verdict partial">
+    <span class="verdict-tag">Tiene sentido: parcial</span>
+    <p>El sistema Level×Días resuelve un problema (clasificar al atleta y proponerle algo automáticamente) pero está construido sobre un modelo de dominio <b>incompleto y desconectado del modelo de asignación real del producto</b>. La Sección A (sugerir nivel) está commiteada y es coherente en superficie, pero el algoritmo que la alimenta tiene fallos de sentido graves. La Sección B6 (asignar el bloque sugerido) está a medias, sin commitear, y <b>no entrega nada</b>: el clic final de "Asignar" falla en silencio o asigna algo distinto a lo que se mostró. Hay un eslabón perdido estructural: tres entidades distintas se llaman "block" y el artefacto que produce la auto-propuesta no lo consume ningún endpoint de asignación. <b>No se debe seguir con la Sección B encima de esto.</b></p>
+  </div>
+
+  <h2>Las 3 incoherencias críticas</h2>
+
+  <div class="crit">
+    <h3>1 · Eslabón perdido: el bloque que el coach acepta nunca se asigna</h3>
+    <div class="blk"><div class="lbl">Qué pasa</div><div class="txt"><code>computeAndStoreSuggestedBlock</code> busca y guarda un <code>blocks.id</code> de la <b>biblioteca</b> en <code>athletes.suggested_block_id</code>. Pero la tarjeta "Asignar" no envía ese id: envía solo <code>{ atr_block: 'ACC'|'TRANS'|'REAL' }</code>. El endpoint <code>assign-block</code> ignora cualquier <code>blocks.id</code> y resuelve el destino dentro de los <code>atr_blocks</code> (tabla distinta) por tipo. El <code>block_id</code> solo se usa para el link "Ver bloque". Se computa, se guarda, se enseña… y se tira.</div></div>
+    <div class="blk"><div class="lbl">Impacto</div><div class="txt">La promesa central ("el coach acepta → el sistema asigna el bloque propuesto en un clic") es <b>falsa</b>. Para el usuario diana exacto (atleta recién dado de alta) no hay <code>atr_macrocycle</code> → <code>assign-block</code> devuelve 409 <code>no_macrocycle</code>, y como la card solo se quita si <code>res.ok</code>, el coach pulsa y no pasa nada: sin error, sin feedback. Rompe la regla nº1 del producto: el acto mínimo del coach no funciona.</div></div>
+  </div>
+
+  <div class="crit">
+    <h3>2 · Falta el eje Fase: el modelo no representa la periodización</h3>
+    <div class="blk"><div class="lbl">Qué pasa</div><div class="txt">Ground-truth: una asignación = 3 microciclos = bloques en <b>secuencia</b> (Acumulación→Transformación→Realización); las fases son datos por coach (<code>methodology_phases</code>, mig 0052). Pero la matriz Level×Días modela <b>una celda = un bloque suelto, sin eje fase</b>. El editor solo tiene pickers de nivel-min/máx/días — cero picker de fase. El único dato de fase que sobrevive es <code>atr_block_hint</code>, el enum ATR hardcodeado que la migración 0052 construyó <b>para jubilar</b>. La feature resucita lo que el sistema ya había abstraído a datos-por-coach.</div></div>
+    <div class="blk"><div class="lbl">Impacto</div><div class="txt">Confluye dos cosas incompatibles: "level×días" (dificultad/logística) con "asignación" (secuencia de fases). El sistema solo puede proponer el día 1 y abandona en la semana 5; el coach vuelve al modo manual que B6 pretendía eliminar.</div></div>
+  </div>
+
+  <div class="crit">
+    <h3>3 · Tres vocabularios de "nivel/bloque" que no se hablan</h3>
+    <div class="blk"><div class="lbl">Qué pasa</div><div class="txt">Coexisten: (1) <code>athlete_levels</code> N1-N5 por coach (nuevo) — lo que el coach ve y acepta; (2) <code>program_level</code> beginner/intermediate/pro/elite (mig 0014) — por el que <b>sí</b> se filtran las plantillas reales; (3) <code>blocks</code> (biblioteca) vs <code>atr_blocks</code> (instancia), dos tablas sin FK. La sugerencia razona en N1-N5 + <code>blocks.id</code>, pero el contenido real (<code>resolveWeekTemplateIds</code>) se elige solo por <code>atr_block_hint</code> — el nivel del atleta <b>no entra</b> en qué workout recibe.</div></div>
+    <div class="blk"><div class="lbl">Impacto</div><div class="txt">Un atleta N4 puede recibir contenido de plantilla 'beginner'. El nivel que la UI promete no mueve nada aguas abajo. Es el mismo patrón "dos loaders que divergen" que la memoria marca como bug class recurrente (el bug bike-as-Fuerza).</div></div>
+  </div>
+
+  <h2>Correcciones de modelo (no parches)</h2>
+
+  <div class="fix"><div class="prob"><b>Nivel = media plana de capacidades heterogéneas.</b> Un runner élite con fuerza floja y un powerlifter sin motor salen ambos N3 pese a necesitar bloques opuestos. HYROX es un deporte de eslabón más débil.</div><div class="corr"><b>→</b> El nivel no puede ser una media. Perfil multi-dimensional (motor / fuerza / estaciones) y elegir el bloque por el eje que importa; o como mínimo ponderar el motor muy por encima de la fuerza aislada y <b>surfacear el desequilibrio</b> al coach en vez de esconderlo en un número.</div></div>
+
+  <div class="fix"><div class="prob"><b>Confianza = nº de señales, no su acuerdo.</b> 3 señales contradictorias (N5/N1/N3) dan "confianza alta" — justo el caso donde el nivel es menos fiable y donde el coach más debería intervenir.</div><div class="corr"><b>→</b> La confianza debe medir <b>dispersión</b>, no cantidad. Señales que se contradicen → forzar "baja" y empujar a revisar. Persistir y mostrar <code>signals_used</code> (hoy se calcula y se tira) para que el coach vea qué capacidades discrepan.</div></div>
+
+  <div class="fix"><div class="prob"><b><code>max_level_id</code> es columna muerta.</b> El editor promete rango (N2-N4), el coach lo etiqueta y se persiste, pero toda la lectura usa <code>min_level_id</code> exacto. Un bloque N2-N4 solo se propone a un atleta N2. Verificado: solo escritura, 0 lecturas.</div><div class="corr"><b>→</b> Decisión binaria: o se elimina <code>max_level_id</code> y la UI deja de prometer rango, o toda la lectura pasa a <code>BETWEEN min AND coalesce(max,min)</code>. Hoy es una mentira de UI: trabajo del coach descartado en silencio.</div></div>
+
+  <div class="fix"><div class="prob"><b>El match ignora variables objetivamente necesarias:</b> age-group (se compite por franjas), modalidad Individual/Dobles/Pro (cargas dobles), <b>lesiones</b> del onboarding (puede sugerir squat a un atleta con lesión de rodilla — el mapeo de contraindicados ya existe), y la <b>fecha de carrera</b> (periodización inversa: 3 sem a carrera = entrar en Realización, no en Acumulación de 5 sem que acaba después de la carrera).</div><div class="corr"><b>→</b> Son variables del modelo, no nice-to-have. El eje de match debe ser al menos nivel × días × (fase de entrada según semanas-a-carrera), con filtro de seguridad por lesiones. El dato ya existe en el sistema — falta cablearlo.</div></div>
+
+  <div class="fix"><div class="prob"><b>El nivel se calcula una vez y nunca se reevalúa.</b> El recompute es no-op tras la primera aceptación (<code>WHERE level_id IS NULL</code>). Un atleta que progresa N2→N4 recibe bloques N2 para siempre. Y no hay path para registrar benchmarks post-onboarding: los inputs están congelados.</div><div class="corr"><b>→</b> Necesita: recompute del nivel con nuevos benchmarks, una señal en Hoy ("tus benchmarks sugieren subir a N4"), un path para registrar benchmarks tras el alta, e invalidar <code>suggested_block_id</code> al cambiar el nivel.</div></div>
+
+  <div class="fix"><div class="prob"><b>Auto-propuesta one-shot sin casos límite.</b> Si no hay bloque que case → return silencioso (el coach no ve nada). Con varios candidatos elige por <code>id ASC</code> (criterio sin sentido de entrenamiento). Sin datos → default N1 confianza low, pero igual dispara la propuesta.</div><div class="corr"><b>→</b> "No hay bloque" debe ser un estado accionable ("No hay bloque N4·4d → crear uno"), no un return. El default sin datos debe ser "sin sugerencia / pedir test", no N1 (N1 es un dato, no un "no sé"). El desempate, por fase/secuencia, no por id.</div></div>
+
+  <h2>Huecos de flujo</h2>
+  <ul class="gaps">
+    <li><b>B6 no entrega nada:</b> el clic "Asignar" falla en silencio (409 para atleta nuevo, el caso dominante) o asigna un bloque distinto del mostrado.</li>
+    <li><b>Sin progresión multi-bloque:</b> la propuesta solo cubre el bloque 1; los bloques 2-3 salen como señales que llevan al perfil para asignar a mano (más fricción que la card).</li>
+    <li><b>Sin re-nivelado:</b> el flujo se dispara una sola vez en el intake; nada recalcula nivel ni propone el siguiente microciclo al terminar un bloque.</li>
+    <li><b>Días/semana es decorativo donde debería restringir:</b> la matriz lo enseña, el editor lo edita, el algoritmo lo machea — pero no participa en <code>resolveWeekTemplateIds</code>. "N3·4d" y "N3·6d" materializan la misma semana.</li>
+    <li><b>Dos aceptaciones donde el dominio pide una:</b> "aceptar nivel" y "aceptar el primer bloque" son la misma decisión partida en dos cards. Debería ser una: "N3 (confianza alta) → empieza con [Bloque] · Aceptar", con "ajustar nivel" opcional.</li>
+    <li><b>La fase de entrada ignora el calendario de carreras:</b> dos atletas N3·4d con carreras a 3 y 16 semanas reciben el mismo bloque inicial.</li>
+    <li><b>Etiquetas de fase incoherentes entre pantallas v2:</b> el mismo bloque dice "Intensificación" en el roster y "Transformación" en el detalle (leen el enum ATR legacy en vez del resolver agnóstico).</li>
+  </ul>
+
+  <h2>Estado de B6</h2>
+  <div class="state">
+    <b>ROTO Y SIN COMMITEAR.</b> 3 ficheros untracked (<code>block-proposal.ts</code>, <code>AsignacionSugeridaCard.tsx</code>, <code>0058_athlete_suggested_block.sql</code>) y varios ficheros de la era A modificados sin commit para cablear B6 (<code>level/route.ts</code>, <code>HoyBoard.tsx</code>, <code>hoy-lanes.ts</code>, <code>(v2)/v2/hoy/page.tsx</code>). La Sección A está limpia hasta el commit <code>61ed768</code>. B6 compila pero el acto final no entrega nada. No corrompe datos (es aditivo y no desplegado), pero no aporta valor. Riesgo: quien retome esto no puede distinguir A de B6 por el historial, y existe el riesgo de commitear A+B6 juntos dando por bueno un flujo que falla en silencio.
+  </div>
+
+  <div class="rec">
+    <h2>Recomendación antes de la Sección B</h2>
+    <p style="color:#ccc">No seguir con B encima de esto. Los fallos son de raíz, no parcheables. Parar y rediseñar el modelo (build-right):</p>
+    <ol>
+      <li><b>Decidir qué unidad propone el sistema.</b> Una asignación = secuencia de 3 fases. La auto-propuesta debe entregar el <b>primer microciclo de una secuencia explícita</b>, con su fase, referenciando <code>methodology_phases</code> (no el enum ATR).</li>
+      <li><b>Definir el traductor que hoy no existe:</b> (blocks de biblioteca | nivel | días | fase) → (atr_blocks materializados). Mientras <code>blocks</code> y <code>atr_blocks</code> no tengan puente, cualquier sugerencia de <code>blocks.id</code> es un artefacto que nadie consume.</li>
+      <li><b>Arreglar el eje Fase:</b> añadirlo al modelo, o aceptar que Level×Días es solo un filtro de dificultad que se <b>compone con</b> la fase, nunca un sustituto del plan.</li>
+      <li><b>Rehacer el algoritmo:</b> ponderar motor &gt; fuerza (o multi-dimensión), confianza por dispersión, incluir age-group/modalidad/lesiones/carrera, soportar re-nivelado.</li>
+      <li><b>Decidir el destino de <code>max_level_id</code>:</b> rango real o borrarlo.</li>
+      <li><b>Una sola tarjeta de decisión,</b> no dos.</li>
+      <li><b>Unificar los 3 vocabularios de "nivel"</b> o mapearlos explícitamente.</li>
+    </ol>
+    <p style="color:#ccc;margin-top:8px">Hasta que (1) y (2) estén resueltos, la Sección B asignaría sobre un modelo incoherente y heredaría el fallo silencioso. Descartar el cableado B6 actual (revert de los ficheros M de B6, borrar los 3 untracked) o congelarlo en una rama aparte para no contaminar el historial de A.</p>
+  </div>
+
+  <footer>
+    Auditoría generada por workflow multi-agente (Opus 4.8, ultracode) · FAHYBRIK / vanwida · 23 jun 2026 · Sección A commiteada hasta 61ed768 · B6 sin commitear
+  </footer>
+
+</div>
+</body>
+</html>

@@ -11,6 +11,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { ingestCheckin } from './checkin';
 import { checkinRequestSchema } from './schema';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export async function handleCheckinPost(req: Request): Promise<NextResponse> {
   const auth = await getAthleteSessionFromBearer(req.headers.get('authorization'));
@@ -35,6 +36,9 @@ export async function handleCheckinPost(req: Request): Promise<NextResponse> {
     athlete_id: auth.athlete_id,
     snapshot: parsed.data.checkin,
   });
+
+  // Fire-and-forget: a fresh check-in can clear checkin_skipped / move readiness.
+  void recomputeAthlete({ athlete_id: auth.athlete_id }).catch(() => {});
 
   return jsonOk({ ok: true, result });
 }

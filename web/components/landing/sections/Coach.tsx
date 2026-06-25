@@ -65,7 +65,7 @@ export function Coach() {
             {/* Top: large brand glyph as the plate's anchor (self-labels "FAHYBRID"). */}
             <FahybridMark
               className="h-12 w-auto opacity-90 md:h-14"
-              color="var(--accent-on)"
+              color="var(--fg)"
             />
 
             {/* Bottom: role + place line (no personal name for now). */}

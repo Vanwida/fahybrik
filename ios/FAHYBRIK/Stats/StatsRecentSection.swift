@@ -161,7 +161,7 @@ struct ModalityChip: View {
                 .font(.system(size: 9, weight: .heavy, design: .monospaced))
                 .tracking(0.6)
         }
-        .foregroundStyle(modality.color)
+        .foregroundStyle(modality.textColor)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(modality.color.opacity(0.12))
@@ -278,7 +278,7 @@ struct FlowMetrics: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(Theme.Color.background.opacity(0.6))
+            .background(Theme.Color.surfaceSunken)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
     }

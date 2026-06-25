@@ -70,7 +70,7 @@ struct ManualStepperField: View {
         Button(action: { adjust(delta) }) {
             Image(systemName: systemName)
                 .font(.system(size: 14, weight: .heavy))
-                .foregroundStyle(Theme.Color.accent)
+                .foregroundStyle(Theme.Color.accentText)
                 .frame(width: 36, height: 36)
                 .background(Theme.Color.surfaceElevated)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))

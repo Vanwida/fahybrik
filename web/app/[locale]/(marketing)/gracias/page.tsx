@@ -53,10 +53,10 @@ export default async function GraciasPage({
       <p className="mt-10 text-[13px] text-[color:var(--muted)]">
         Disponible en iOS · ¿Algo no cuadra?{' '}
         <a
-          href="mailto:hola@fahybrid.com"
+          href="mailto:hello@fahybrid.com"
           className="text-[color:var(--fg)] underline-offset-4 hover:underline"
         >
-          hola@fahybrid.com
+          hello@fahybrid.com
         </a>
       </p>
     </section>

@@ -8,7 +8,11 @@ import { sql as defaultSql } from '@/lib/db';
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 import { templateFormat, targetBlock } from '@fahybrid/shared/schema/_primitives';
 import { segmentParamsSchema } from '@fahybrid/shared/schema/templates';
-import { prescriptionSchema } from '@fahybrid/shared/domain/prescription';
+import {
+  prescriptionSchema,
+  safeParsePrescription,
+  type Prescription,
+} from '@fahybrid/shared/domain/prescription';
 
 /**
  * Templates catalog helpers — list/create/update/delete + usage count.
@@ -142,7 +146,13 @@ export interface TemplateDetailItem {
   exercise_id: string;
   exercise_name: string;
   exercise_category: string;
+  // Intrinsic modality of the exercise (migration 0053). Used as the fallback
+  // modality for legacy items that have no structured prescription_json.
+  exercise_modality: string;
   params_json: Record<string, unknown>;
+  // Structured per-set prescription (migration 0043). Editor prefers this over
+  // params_json so the coach sees the real modality/sets, not a legacy default.
+  prescription_json: Prescription | null;
   notes: string | null;
 }
 
@@ -194,7 +204,9 @@ export async function getTemplateDetail(params: {
       exercise_id: string;
       exercise_name: string;
       exercise_category: string;
+      exercise_modality: string;
       params_json: Record<string, unknown> | null;
+      prescription_json: unknown;
       notes: string | null;
     }>
   >`
@@ -207,7 +219,9 @@ export async function getTemplateDetail(params: {
       s.exercise_id::text as exercise_id,
       e.name as exercise_name,
       e.category::text as exercise_category,
+      e.modality::text as exercise_modality,
       s.params_json,
+      s.prescription_json,
       s.notes
     from template_segments s
     join exercises e on e.id = s.exercise_id
@@ -228,13 +242,16 @@ export async function getTemplateDetail(params: {
       };
       blocksMap.set(key, block);
     }
+    const parsedPresc = safeParsePrescription(row.prescription_json);
     block.items.push({
       id: row.id,
       position: row.position,
       exercise_id: row.exercise_id,
       exercise_name: row.exercise_name,
       exercise_category: row.exercise_category,
+      exercise_modality: row.exercise_modality,
       params_json: (row.params_json ?? {}) as Record<string, unknown>,
+      prescription_json: parsedPresc.success ? (parsedPresc.data as Prescription) : null,
       notes: row.notes,
     });
   }

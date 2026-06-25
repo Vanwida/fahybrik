@@ -57,6 +57,7 @@ const SELECT_COLUMNS = [
   'slug',
   'name',
   'category::text as category',
+  'modality',
   'primary_muscle_groups',
   'equipment',
   'default_metrics_json',
@@ -65,6 +66,41 @@ const SELECT_COLUMNS = [
   'cues',
   'video_url',
 ] as const;
+
+// Modality is INTRINSIC and DERIVED from category(+name) — migration 0053. When a
+// coach edits category or name, modality must be recomputed with the SAME
+// deterministic rule the migration used, so it never drifts out of sync. Kept as
+// one SQL expression here (single source of truth alongside the migration). It
+// references the row's POST-update values via the same columns, so it must be
+// applied AFTER the user-supplied SET fragments.
+function modalityExpr(): ReturnType<typeof sql> {
+  return sql`
+    case
+      when category = 'strength'   then 'strength'
+      when category = 'core'       then 'core'
+      when category = 'mobility'   then 'mobility'
+      when category = 'plyometric' then 'functional'
+      when category = 'skill'      then 'functional'
+      when category = 'cardio' then
+        case
+          when lower(name) like '%ski%' then 'ski'
+          when lower(name) like '%row%' then 'row'
+          when lower(name) like '%bike%' or lower(name) like '%assault%'
+            or lower(name) like '%echo%' or lower(name) like '%cycl%' then 'bike'
+          when lower(name) like '%run%' or lower(name) like '%treadmill%'
+            or lower(name) like '%jog%' then 'run'
+          else 'other'
+        end
+      when category = 'hyrox_station' then
+        case
+          when lower(name) like '%ski%' then 'ski'
+          when lower(name) like '%row%' then 'row'
+          when lower(name) like '%run%' then 'run'
+          else 'functional'
+        end
+      else 'other'
+    end`;
+}
 
 /**
  * Apply a partial update to a catalog exercise and return the fresh row.
@@ -90,12 +126,28 @@ export async function updateExercise(
 
   const setClause = assignments.reduce((acc, frag) => sql`${acc}, ${frag}`);
 
-  const rows = await sql<CatalogExercise[]>`
-    update exercises
-    set ${setClause}, updated_at = now()
-    where id = ${id}
-    returning ${sql.unsafe(SELECT_COLUMNS.join(', '))}
-  `;
+  // If category or name changed, modality must be recomputed from the NEW row.
+  // Postgres evaluates every SET RHS against the OLD row, so the recompute can't
+  // read the just-set values in the same statement. We chain a second UPDATE that
+  // reads the now-persisted category/name. Done inside one transaction so the row
+  // is never observed mid-update.
+  const recomputesModality = patch.category !== undefined || patch.name !== undefined;
+
+  const rows = await sql.begin(async (tx) => {
+    const updated = await tx<CatalogExercise[]>`
+      update exercises
+      set ${setClause}, updated_at = now()
+      where id = ${id}
+      returning ${tx.unsafe(SELECT_COLUMNS.join(', '))}
+    `;
+    if (updated.length === 0 || !recomputesModality) return updated;
+    return tx<CatalogExercise[]>`
+      update exercises
+      set modality = ${modalityExpr()}
+      where id = ${id}
+      returning ${tx.unsafe(SELECT_COLUMNS.join(', '))}
+    `;
+  });
 
   const row = rows[0];
   if (!row) {

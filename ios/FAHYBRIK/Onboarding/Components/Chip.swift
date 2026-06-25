@@ -9,14 +9,14 @@ struct Chip: View {
         Button(action: { Haptics.light(); action() }) {
             Text(title)
                 .font(Theme.Typography.small)
-                .foregroundStyle(selected ? Color.white : Theme.Color.foreground)
+                .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(selected ? Theme.Color.accent : Theme.Color.surface)
                 .clipShape(Capsule())
                 .overlay(
                     Capsule().stroke(
-                        selected ? Theme.Color.accent : Theme.Color.muted.opacity(0.35),
+                        selected ? Theme.Color.accent : Theme.Color.hairlineStrong,
                         lineWidth: 1
                     )
                 )
@@ -74,7 +74,7 @@ struct RadioRow: View {
         Button(action: { Haptics.light(); action() }) {
             HStack {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(selected ? Theme.Color.accent : Theme.Color.muted)
+                    .foregroundStyle(selected ? Theme.Color.accentText : Theme.Color.muted)
                 Text(title)
                     .font(Theme.Typography.body)
                     .foregroundStyle(Theme.Color.foreground)
@@ -86,7 +86,7 @@ struct RadioRow: View {
             .contentShape(Rectangle())
             .overlay(
                 Rectangle()
-                    .fill(Theme.Color.muted.opacity(0.18))
+                    .fill(Theme.Color.hairline)
                     .frame(height: 1),
                 alignment: .bottom
             )
@@ -133,7 +133,7 @@ struct ChoiceGrid<Option: Hashable>: View {
                         Button(action: { Haptics.light(); onTap(opt) }) {
                             Text(label(opt))
                                 .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                                .foregroundStyle(sel ? Color.black : Theme.Color.foreground)
+                                .foregroundStyle(sel ? Theme.Color.accentOn : Theme.Color.foreground)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(sel ? Theme.Color.accent : Theme.Color.surface)

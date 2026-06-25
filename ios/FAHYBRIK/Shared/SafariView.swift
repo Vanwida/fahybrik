@@ -9,7 +9,9 @@ import SafariServices
 // compliant way to send athletes to an external, web-based payment surface
 // (Guideline 3.1.3(b)) — it shares cookies with Safari and shows the real URL.
 //
-// Brand-tinted: bar tint = Fabrik orange accent, controls = dark surface.
+// Brand-tinted: bar tint = adaptive surface, controls = orange-as-text accent
+// (darker on light so the tappable Done/nav glyphs clear the 3:1 UI floor on
+// the white bar; brand orange on the dark bar).
 struct SafariView: UIViewControllerRepresentable {
     let url: URL
 
@@ -18,7 +20,7 @@ struct SafariView: UIViewControllerRepresentable {
         config.entersReaderIfAvailable = false
         let vc = SFSafariViewController(url: url, configuration: config)
         vc.preferredBarTintColor = UIColor(Theme.Color.surface)
-        vc.preferredControlTintColor = UIColor(Theme.Color.accent)
+        vc.preferredControlTintColor = UIColor(Theme.Color.accentText)
         vc.dismissButtonStyle = .close
         return vc
     }

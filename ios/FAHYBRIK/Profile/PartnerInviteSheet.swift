@@ -40,14 +40,13 @@ struct PartnerInviteSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - UI
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "DOBLES", color: Theme.Color.accent)
+            LabelText(text: "DOBLES", color: Theme.Color.accentText)
             Text("Invita a tu compañero/a")
                 .font(Theme.Typography.headlineS)
                 .foregroundStyle(Theme.Color.foreground)
@@ -108,7 +107,7 @@ struct PartnerInviteSheet: View {
                 } label: {
                     Text("Hecho")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accent)
+                        .foregroundStyle(Theme.Color.accentText)
                         .padding(.top, 4)
                 }
                 .buttonStyle(.plain)

@@ -51,10 +51,9 @@ struct PostRaceDebriefView: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Hecho") { focusedField = nil }
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: Hero

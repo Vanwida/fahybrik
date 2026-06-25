@@ -90,10 +90,10 @@ private struct ConnectionCard: View {
                 Button(action: { Haptics.light(); action() }) {
                     Text(actionTitle)
                         .font(.system(size: 14, weight: .heavy)).italic()
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(isConnected ? Theme.Color.muted : Theme.Color.accentOn)
                         .padding(.horizontal, Theme.Spacing.l)
                         .padding(.vertical, 10)
-                        .background(isConnected ? Theme.Color.muted.opacity(0.4) : Theme.Color.accent)
+                        .background(isConnected ? Theme.Color.surfaceSunken : Theme.Color.accent)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)

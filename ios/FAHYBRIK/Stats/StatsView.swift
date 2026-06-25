@@ -38,7 +38,7 @@ struct StatsView: View {
     private var content: some View {
         if loading && analytics == nil {
             ProgressView()
-                .tint(Theme.Color.accent)
+                .tint(Theme.Color.accentText)
                 .accessibilityLabel("Cargando analíticas")
         } else if let analytics, !analytics.isEmpty {
             loadedScroll(analytics)
@@ -87,7 +87,7 @@ struct StatsView: View {
         let parts = StatsFormat.distanceParts(totalMeters)
         return VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: "ANALÍTICAS", color: Theme.Color.accent)
+                LabelText(text: "ANALÍTICAS", color: Theme.Color.accentText)
                 Text("Tu volumen")
                     .scaledFont(30, weight: .heavy, relativeTo: .title, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
@@ -239,7 +239,7 @@ struct StatsVolumeSection: View {
             HStack(spacing: 14) {
                 Image(systemName: m.symbol)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(m.color)
+                    .foregroundStyle(m.textColor)
                     .frame(width: 30)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(m.fullName)
@@ -313,7 +313,7 @@ struct StatsPaceSection: View {
                     HStack(spacing: 8) {
                         Image(systemName: m.symbol)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(m.color)
+                            .foregroundStyle(m.textColor)
                         Text(m.fullName)
                             .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                             .foregroundStyle(Theme.Color.foreground)
@@ -323,12 +323,12 @@ struct StatsPaceSection: View {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(pace)
                                 .font(Theme.Typography.readoutS)
-                                .foregroundStyle(Theme.Color.accent)
+                                .foregroundStyle(Theme.Color.accentText)
                             LabelText(text: "RITMO MEDIO", size: 9)
                         }
                     }
                 }
-                StatsWeeklyTrendChart(series: series, color: m.color)
+                StatsWeeklyTrendChart(series: series, color: m.textColor)
                     .frame(height: 96)
             }
             .accessibilityElement(children: .combine)
@@ -422,7 +422,12 @@ struct StatsWeeklyTrendChart: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     StatsView()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    StatsView()
+        .preferredColorScheme(.light)
 }

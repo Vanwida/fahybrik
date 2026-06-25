@@ -5,7 +5,7 @@
 // propuestas pendientes que abre la superficie canónica de revisión, empty
 // state con CTA único de asignación y edición en sitio vía SessionDrawer.
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type {
   AthletePlanPayload,
   PlanDay,
@@ -17,30 +17,20 @@ import type { PendingAdjustment } from '@/lib/dashboard/coach/week-adjustments';
 import type { MonthlyBlockProposal } from '@/lib/dashboard/coach/monthly-block-proposal';
 import type { ProgrammingStatus } from '@/lib/dashboard/coach/programming-status';
 import type { AthleteBlocksView } from '@/lib/dashboard/coach/assign-block';
-import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
-import { ATR_PHASE_LABEL } from '@/lib/dashboard/constants/atr-phases';
+import type { CreatedDraftInfo } from '@/components/dashboard/assign-flow/AssignFlow';
+import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
+import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
 import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
-import { WeekReviewPanel } from '@/components/dashboard/WeekReviewPanel';
+import { AthleteReviewPublish } from './AthleteReviewPublish';
 import { MonthlyBlockProposalPanel } from '@/components/dashboard/MonthlyBlockProposalPanel';
-import { MonthAssignmentBanner } from '@/components/dashboard/MonthAssignmentBanner';
-import { EvaluateWeekButton } from '@/components/dashboard/athletes/EvaluateWeekButton';
-import { AthleteRaceSection } from '@/components/dashboard/athletes/AthleteRaceSection';
-import { SubscriptionStatusCard } from '@/components/dashboard/athletes/SubscriptionStatusCard';
 import { MIcon } from '@/components/dashboard/MIcon';
 import { firstName } from '@/components/dashboard/assign-flow/helpers';
 import { AthleteWeekCalendar } from './AthleteWeekCalendar';
-import { AthleteMonthCalendar, weekCompliancePct } from './AthleteMonthCalendar';
-import { AthleteMacroView } from './AthleteMacroView';
+import { AthleteBlockMonth } from './AthleteBlockMonth';
+import { AthleteMacroRoadmap } from './AthleteMacroRoadmap';
+import { buildRoadmap } from './block-roadmap';
 import { AthleteSessionDrawerHost } from './AthleteSessionDrawerHost';
 import { SessionCreateDialog } from './SessionCreateDialog';
-
-export interface MonthAssignmentSummary {
-  month_name: string;
-  level: string;
-  start_date: string;
-  end_date: string;
-  assignment_count: number;
-}
 
 interface AthleteCalendarSectionProps {
   athleteName: string;
@@ -49,13 +39,26 @@ interface AthleteCalendarSectionProps {
   onZoomChange: (zoom: PlanViewMode) => void;
   programmingStatus: ProgrammingStatus;
   pendingProposal: PendingAdjustment | null;
+  /** Nombres de plantilla resueltos del diff de la propuesta (id → name). */
+  proposalTemplateNames: Record<string, string>;
   monthlyBlockProposal: MonthlyBlockProposal | null;
-  currentMonth: MonthAssignmentSummary | null;
   blocksView: AthleteBlocksView | null;
-  subscription: AthleteSubscriptionStatus | null;
+  /** Fases de periodización del coach (0052). [] → fallback ATR legacy. */
+  coachPhases: MethodologyPhase[];
   blockWeek: number | null;
+  /** Carrera objetivo (header) — ancla del final del roadmap Macro. */
+  race: { name: string; days_until: number } | null;
   /** Deep-link ?focus=review — aterriza con la revisión abierta y enfocada. */
   focusReview: boolean;
+  /** Apertura controlada de la superficie de revisión (la dispara la shell). */
+  reviewOpen: boolean;
+  onReviewOpenChange: (open: boolean) => void;
+  /**
+   * Bloque recién creado en borrador (AssignFlow). Cuando está presente y NO hay
+   * propuesta semanal, la revisión ancla en la primera semana real del bloque y
+   * publica todas sus semanas de golpe (cierra el loop crear→revisar→publicar).
+   */
+  createdDraft: CreatedDraftInfo | null;
   /** Se incrementa cuando AssignFlow publica — recarga el plan. */
   planReloadKey: number;
   onAssignOpen: () => void;
@@ -79,10 +82,20 @@ function weekRangeLabel(week: PlanWeekRow): string {
     : `${start.getDate()} ${month(start)} – ${end.getDate()} ${month(end)}`;
 }
 
-function blockContextLabel(plan: AthletePlanPayload, blockWeek: number | null): string | null {
+function blockContextLabel(
+  plan: AthletePlanPayload,
+  blockWeek: number | null,
+  coachPhases: ReadonlyArray<MethodologyPhase>,
+): string | null {
   const block = plan.macro.block;
   if (!block) return null;
-  const phase = ATR_PHASE_LABEL[block as AtrBlockType] ?? block;
+  // Nombre de fase del resolver: usa el phase_id del bloque ACTIVO (0052) para
+  // mostrar la fase del coach — idéntico al Macro roadmap. Sin phase_id / sin
+  // fases del coach → cae al label ATR legacy.
+  const phase = resolvePhase(
+    { type: block as AtrBlockType, phase_id: plan.macro.block_phase_id },
+    coachPhases,
+  ).label;
   const week = plan.macro.block_week ?? blockWeek;
   return week != null ? `${phase} · Semana ${week}` : phase;
 }
@@ -94,19 +107,22 @@ export function AthleteCalendarSection({
   onZoomChange,
   programmingStatus,
   pendingProposal,
+  proposalTemplateNames,
   monthlyBlockProposal,
-  currentMonth,
   blocksView,
-  subscription,
+  coachPhases,
   blockWeek,
+  race,
   focusReview,
+  reviewOpen,
+  onReviewOpenChange,
+  createdDraft,
   planReloadKey,
   onAssignOpen,
 }: AthleteCalendarSectionProps) {
   const [plan, setPlan] = useState(initialPlan);
   const [anchorIso, setAnchorIso] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(focusReview);
   const [selected, setSelected] = useState<{ day: PlanDay; session: PlanSession } | null>(null);
   const [createDay, setCreateDay] = useState<PlanDay | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -162,10 +178,28 @@ export function AthleteCalendarSection({
     reloadPlan('week', next);
   };
 
+  // Click en una semana de Mes/Macro → salta a la vista Semana anclada a esa
+  // fecha. Fijamos el ancla y disparamos el cambio de zoom (el effect de zoom
+  // recarga el plan con ese anchor).
+  const openWeek = (weekStartIso: string) => {
+    setAnchorIso(weekStartIso);
+    if (zoom !== 'week') {
+      onZoomChange('week');
+    } else {
+      reloadPlan('week', weekStartIso);
+    }
+  };
+
+  // Roadmap derivado de la vista por-bloque (fuente única de Mes + Macro). Hoy
+  // se calcula en cliente; estable por render.
+  const roadmap = useMemo(
+    () => buildRoadmap(blocksView, new Date().toISOString().slice(0, 10), coachPhases),
+    [blocksView, coachPhases],
+  );
+
   const showEmpty = programmingStatus === 'no_month' && plan.total_sessions === 0;
   const currentWeek =
     zoom === 'week' ? plan.weeks[0] : plan.weeks.find((w) => w.days.some((d) => d.is_today));
-  const weekAdherence = currentWeek ? weekCompliancePct(currentWeek) : null;
   const weekDone = currentWeek
     ? currentWeek.days.reduce(
         (n, d) => n + d.sessions.filter((s) => s.status === 'completed').length,
@@ -176,47 +210,37 @@ export function AthleteCalendarSection({
     ? currentWeek.days.reduce((n, d) => n + d.sessions.length, 0)
     : 0;
 
-  const reviewables: string[] = [];
-  if (pendingProposal) reviewables.push('ajuste semanal');
-  if (monthlyBlockProposal) reviewables.push(`bloque mensual · ${monthlyBlockProposal.month_name}`);
+  // El panel de bloque mensual (otra decisión del coach) sigue siendo una
+  // superficie hermana de la revisión de la semana cuando hay propuesta de
+  // bloque pendiente o estamos al final del microciclo.
   const monthlyPanelVisible =
     monthlyBlockProposal != null || programmingStatus === 'month_2_pending';
-  if (!monthlyBlockProposal && programmingStatus === 'month_2_pending') {
-    reviewables.push('fin de microciclo — propuesta del siguiente bloque');
-  }
-  const hasReview = reviewables.length > 0;
-  const todayIso = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Banner fino: propuesta de Pablo IA pendiente (§2b paneles contextuales) */}
-      {hasReview && !reviewOpen ? (
-        <div className="banner-review" role="status">
-          <div className="flex min-w-0 items-center gap-3">
-            <MIcon name="pending_actions" size={18} className="shrink-0 text-[color:var(--accent)]" />
-            <p className="truncate text-[13px] font-semibold text-[color:var(--fg)]">
-              Propuesta de Pablo IA pendiente{' '}
-              <span className="font-medium text-[color:var(--text-muted)]">
-                · {reviewables.join(' · ')}
-              </span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setReviewOpen(true)}
-            className="focus-ring shrink-0 rounded-[var(--r-s)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-elevated)] px-3 py-1.5 text-xs font-semibold text-[color:var(--fg)] transition-colors hover:border-[color:color-mix(in_srgb,var(--accent)_35%,var(--border-subtle))]"
-          >
-            Revisar
-          </button>
-        </div>
-      ) : null}
-
-      {/* Superficie canónica de revisión (Antes/Propuesto · Aprobar/Rechazar) */}
-      {hasReview && reviewOpen ? (
+      {/* Superficie canónica "Revisar & publicar" — el coach revisa EXACTAMENTE
+          lo que verá el atleta (semana propuesta en BORRADOR, con el porqué + un
+          diff con NOMBRES) y publica. La apertura la dispara la zona "Tus
+          decisiones" (shell). El panel de bloque mensual (otra decisión) se
+          mantiene como superficie hermana cuando aplica. */}
+      {reviewOpen ? (
         <div id="athlete-review-surface" className="flex flex-col gap-4">
-          {pendingProposal ? (
-            <WeekReviewPanel proposal={pendingProposal} highlighted={focusReview} />
-          ) : null}
+          <AthleteReviewPublish
+            athleteId={plan.athlete_id}
+            athleteName={athleteName}
+            proposal={pendingProposal}
+            createdDraft={createdDraft}
+            templateNames={proposalTemplateNames}
+            phaseLine={blockContextLabel(plan, blockWeek, coachPhases)}
+            onClose={() => onReviewOpenChange(false)}
+            onEditInCalendar={(weekStartIso) => {
+              // "Editar plan": cierra la revisión y aterriza en la SEMANA
+              // revisada (vista Semana anclada) para editar en sitio vía el
+              // drawer de sesión — sin redirigir ni resetear el contexto.
+              onReviewOpenChange(false);
+              openWeek(weekStartIso);
+            }}
+          />
           {monthlyPanelVisible ? (
             <MonthlyBlockProposalPanel
               athlete_id={plan.athlete_id}
@@ -226,42 +250,38 @@ export function AthleteCalendarSection({
         </div>
       ) : null}
 
-      {/* Meta del calendario: rango + navegación + adherencia + evaluación */}
-      {!showEmpty ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Calendario regular — OCULTO durante la revisión: la superficie de
+          revisión toma el área del calendario (revisión enfocada, sin duplicar
+          la semana ni alargar la página). Vuelve con "× Cerrar". */}
+      {reviewOpen ? null : (
+        <>
+      {/* Meta del calendario SOLO en Semana: rango + navegación + conteo, todo
+          en una fila izq→dcha (§11). Mes y Macro traen su propia cabecera
+          (bloque + semanas), así que aquí no duplicamos título (§12). */}
+      {!showEmpty && zoom === 'week' ? (
+        <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-3">
-            {zoom === 'week' ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => navigateWeek(-DAYS_PER_WEEK)}
-                  disabled={isPending}
-                  aria-label="Semana anterior"
-                  className="focus-ring flex h-7 w-7 items-center justify-center rounded-[var(--r-s)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--fg)] disabled:opacity-50"
-                >
-                  <MIcon name="chevron_left" size={18} aria-hidden />
-                </button>
-                <h3 className="font-heading uppercase text-[color:var(--fg)]">
-                  {currentWeek ? weekRangeLabel(currentWeek) : 'Semana'}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => navigateWeek(DAYS_PER_WEEK)}
-                  disabled={isPending}
-                  aria-label="Semana siguiente"
-                  className="focus-ring flex h-7 w-7 items-center justify-center rounded-[var(--r-s)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--fg)] disabled:opacity-50"
-                >
-                  <MIcon name="chevron_right" size={18} aria-hidden />
-                </button>
-              </>
-            ) : (
-              <h3 className="font-heading uppercase text-[color:var(--fg)]">
-                {zoom === 'month' ? 'Microciclo' : 'Macrociclo'}
-              </h3>
-            )}
-            {blockContextLabel(plan, blockWeek) ? (
-              <span className="micro-label">{blockContextLabel(plan, blockWeek)}</span>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => navigateWeek(-DAYS_PER_WEEK)}
+              disabled={isPending}
+              aria-label="Semana anterior"
+              className="focus-ring flex h-7 w-7 items-center justify-center rounded-[var(--r-s)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--fg)] disabled:opacity-50"
+            >
+              <MIcon name="chevron_left" size={18} aria-hidden />
+            </button>
+            <h3 className="font-heading uppercase text-[color:var(--fg)]">
+              {currentWeek ? weekRangeLabel(currentWeek) : 'Semana'}
+            </h3>
+            <button
+              type="button"
+              onClick={() => navigateWeek(DAYS_PER_WEEK)}
+              disabled={isPending}
+              aria-label="Semana siguiente"
+              className="focus-ring flex h-7 w-7 items-center justify-center rounded-[var(--r-s)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--fg)] disabled:opacity-50"
+            >
+              <MIcon name="chevron_right" size={18} aria-hidden />
+            </button>
             {isPending ? (
               <span className="text-xs text-[color:var(--text-muted)]" role="status">
                 Cargando…
@@ -269,20 +289,19 @@ export function AthleteCalendarSection({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-4">
-            {zoom === 'week' && weekAdherence != null ? (
-              <p className="flex items-baseline gap-2">
-                <span className="micro-label">Adherencia semana</span>
-                <span className="metric-num text-sm font-semibold text-[color:var(--status-success)]">
-                  {weekAdherence}%
-                </span>
-                <span className="micro-label tracking-[0.06em]">
-                  {weekDone}/{weekScheduled} hechas
-                </span>
-              </p>
-            ) : null}
-            {zoom === 'week' ? <EvaluateWeekButton athleteId={plan.athlete_id} /> : null}
-          </div>
+          {/* Conteo de la semana junto al resumen — SIN repetir el % (el hero
+              del header ya es el cumplimiento) ni la fase ATR (§11, §12). */}
+          {weekScheduled > 0 ? (
+            <p className="flex items-baseline gap-2">
+              <span className="micro-label">Esta semana</span>
+              <span className="metric-num text-sm font-semibold text-[color:var(--fg)]">
+                {weekDone}/{weekScheduled}
+              </span>
+              <span className="micro-label tracking-[0.06em]">hechas</span>
+            </p>
+          ) : (
+            <span className="micro-label">Semana de descanso</span>
+          )}
         </div>
       ) : null}
 
@@ -302,7 +321,11 @@ export function AthleteCalendarSection({
         </p>
       ) : null}
 
-      {/* Calendario por zoom — o empty state con CTA único */}
+      {/* Calendario por zoom — o empty state con CTA único.
+          SEMANA: training-log de días (sin cambios). MES: semanas del bloque
+          actual como filas. MACRO: el roadmap ATR del macrociclo. Mes y Macro
+          se construyen sobre el roadmap (vista por-bloque), NO sobre el rango
+          de plan.weeks (que dependía de athlete_month_assignments, desalineado). */}
       {showEmpty ? (
         <EmptyCalendar athleteName={athleteName} onAssignOpen={onAssignOpen} />
       ) : zoom === 'week' ? (
@@ -314,29 +337,21 @@ export function AthleteCalendarSection({
           />
         ) : null
       ) : zoom === 'month' ? (
-        <>
-          {currentMonth ? <MonthAssignmentBanner assignment={currentMonth} /> : null}
-          <AthleteMonthCalendar
-            weeks={plan.weeks}
-            todayIso={todayIso}
-            onSelectSession={(day, session) => setSelected({ day, session })}
-          />
-        </>
+        <AthleteBlockMonth roadmap={roadmap} onOpenWeek={openWeek} />
       ) : (
-        <AthleteMacroView
-          plan={plan}
-          blockWeek={blockWeek}
-          blocksView={blocksView}
-          onZoomToMonth={() => onZoomChange('month')}
-          onBlockAssigned={() => reloadPlan('macro', null)}
+        <AthleteMacroRoadmap
+          roadmap={roadmap}
+          coachPhases={coachPhases}
+          race={race}
+          onOpenWeek={openWeek}
+          onProgramBlock={onAssignOpen}
         />
       )}
+        </>
+      )}
 
-      {/* Contexto del plan: carreras (el macro apunta a la A-race) + suscripción */}
-      <div className="mt-4 grid gap-[var(--gutter)] lg:grid-cols-[2fr_1fr]">
-        <AthleteRaceSection athleteId={plan.athlete_id} />
-        <SubscriptionStatusCard subscription={subscription} />
-      </div>
+      {/* Carreras y suscripción se han movido al rail de contexto (AthleteContextRail,
+          §6) — el contexto del plan vive en la columna derecha, no aquí debajo. */}
 
       {/* Drawer de sesión (edición en sitio, §2b) */}
       {selected ? (
@@ -344,7 +359,7 @@ export function AthleteCalendarSection({
           athleteId={plan.athlete_id}
           session={selected.session}
           dayOfWeek={selected.day.day_of_week}
-          blockLabel={blockContextLabel(plan, blockWeek)}
+          blockLabel={blockContextLabel(plan, blockWeek, coachPhases)}
           onClose={() => setSelected(null)}
           onSaved={() => reloadPlan(zoom, anchorIso)}
         />
@@ -391,7 +406,7 @@ function EmptyCalendar({
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
         <p className="font-heading text-[color:var(--fg)]">Sin plan publicado</p>
         <p className="max-w-sm text-sm text-[color:var(--text-muted)]">
-          Asigna un microciclo y publícalo para que {firstName(athleteName)} lo vea en su móvil.
+          Programa el próximo bloque y publícalo para que {firstName(athleteName)} lo vea en su móvil.
         </p>
         <button
           type="button"
@@ -399,7 +414,7 @@ function EmptyCalendar({
           aria-haspopup="dialog"
           className="focus-ring rounded-[var(--r-m)] bg-[color:var(--accent)] px-5 py-2.5 text-sm font-semibold text-[color:var(--accent-on)] transition-colors hover:bg-[color:var(--accent-press)]"
         >
-          Asignar microciclo
+          Programar bloque
         </button>
       </div>
     </div>

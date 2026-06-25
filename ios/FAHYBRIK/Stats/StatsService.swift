@@ -161,9 +161,12 @@ enum AnalyticsModality: String {
         }
     }
 
-    /// Brand-consistent accent. Orange is reserved for the global accent, so
-    /// running owns it (the dominant HYROX modality) and ergs borrow zone hues
-    /// to stay distinguishable without inventing new palette entries.
+    /// Brand-consistent FILL color (bars, dots, tints). Orange is reserved for
+    /// the global accent, so running owns it (the dominant HYROX modality) and
+    /// ergs borrow zone hues to stay distinguishable without inventing new
+    /// palette entries. Use this where the color is a FILL (≥3:1 floor). For
+    /// the SAME identity rendered as TEXT / a small icon / a thin chart line on
+    /// the white canvas, use `textColor` instead (run's #F06A2A fails AA there).
     var color: Color {
         switch self {
         case .run:      return Theme.Color.accent
@@ -172,6 +175,19 @@ enum AnalyticsModality: String {
         case .bike:     return HRZone.z4.color   // amber
         case .strength: return HRZone.z5.color   // red
         case .other:    return Theme.Color.muted
+        }
+    }
+
+    /// Text/glyph/thin-line variant of `color`, role-split exactly like
+    /// `Theme.Color.accent` vs `accentText`. Identical to `color` in every mode
+    /// EXCEPT running on the LIGHT canvas, where brand orange (#F06A2A, ~2.6:1)
+    /// is replaced by the darkened `accentText` (#B5430B, ≥4.5:1 as text). The
+    /// erg zone hues already darken for light (text-safe in both modes), so they
+    /// pass straight through. Use for labels, icons, and chart lines/points.
+    var textColor: Color {
+        switch self {
+        case .run:  return Theme.Color.accentText
+        default:    return color
         }
     }
 

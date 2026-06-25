@@ -87,7 +87,7 @@ struct ErgLiveHUD: View {
                         value: watts.map { "\($0)" } ?? "—",
                         unit: "W",
                         caption: "Power",
-                        color: Theme.Color.accent,
+                        color: Theme.Color.accentText,
                         hero: false
                     )
                 }
@@ -169,7 +169,7 @@ struct RunLiveHUD: View {
                     value: paceString,
                     unit: "/km",
                     caption: paceCaption,
-                    color: hasLiveDistance ? Theme.Color.accent : Theme.Color.foreground,
+                    color: hasLiveDistance ? Theme.Color.accentText : Theme.Color.foreground,
                     hero: true
                 )
             }
@@ -271,7 +271,7 @@ struct StrengthLiveHUD: View {
                         value: repsString,
                         unit: "reps",
                         caption: "Reps · toca para +1",
-                        color: Theme.Color.accent,
+                        color: Theme.Color.accentText,
                         hero: true
                     )
                 }
@@ -392,13 +392,13 @@ struct ConnectionStrip: View {
                 .tracking(0.6)
                 .lineLimit(1)
         }
-        .foregroundStyle(on ? Theme.Color.accent : Theme.Color.muted)
+        .foregroundStyle(on ? Theme.Color.accentText : Theme.Color.muted)
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(on ? Theme.Color.accent.opacity(0.14) : Theme.Color.surface)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                .stroke(on ? Theme.Color.accent.opacity(0.5) : Theme.Color.outline, lineWidth: 1)
+                .stroke(on ? Theme.Color.accentText.opacity(0.5) : Theme.Color.outline, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
     }
@@ -489,7 +489,7 @@ private struct IntervalChip: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(state == .current ? Theme.Color.accent : Theme.Color.hairline, lineWidth: state == .current ? 1.5 : 1)
+                .stroke(state == .current ? Theme.Color.accentText : Theme.Color.hairline, lineWidth: state == .current ? 1.5 : 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         .brandShadow(Theme.Shadow.cardTight)
@@ -500,7 +500,7 @@ private struct IntervalChip: View {
 
     private var titleColor: Color {
         switch state {
-        case .current: return Theme.Color.accent
+        case .current: return Theme.Color.accentText
         case .done: return Theme.Color.muted
         case .upcoming: return Theme.Color.foreground
         }

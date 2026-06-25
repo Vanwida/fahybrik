@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pase de UX — Editor por arquetipos (FAHYBRIK V2)</title>
+<style>
+  /* ───────────────────────── DOC SHELL (light, readable) ───────────────────────── */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1040px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:22px;font-weight:800;margin:54px 0 6px;letter-spacing:-0.3px}
+  h2 .surf{font-size:13px;font-weight:700;color:#fff;background:#ff6600;padding:3px 9px;border-radius:6px;vertical-align:middle;margin-right:10px;letter-spacing:0}
+  h3{font-size:15.5px;font-weight:700;margin:26px 0 8px;color:#1a1a1a}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0 8px}
+  .toc a{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:16px 18px;transition:border-color .15s}
+  .toc a:hover{border-color:#ff6600}
+  .toc .n{font-size:11px;font-weight:800;color:#ff6600;text-transform:uppercase;letter-spacing:0.6px}
+  .toc .t{font-size:16px;font-weight:700;margin:4px 0 4px}
+  .toc .d{font-size:12.5px;color:#777;line-height:1.4}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:26px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+  .note{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 18px;margin:10px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.act .h .ic{background:#eef4ff;color:#1a4ba0}
+  .note.copy .h .ic{background:#fdf0e6;color:#b07000}
+  .note.state .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note.rule .h .ic{background:#f3ecff;color:#5a2da0}
+  .note ul{list-style:none;padding:0;font-size:13.5px;color:#3a3a3a}
+  .note li{padding:5px 0 5px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .note.copy li::before{content:'“';color:#b07000;font-size:16px;top:2px}
+  .note.rule li::before{content:'✓';color:#5a2da0;font-weight:800}
+  .note .k{font-weight:700;color:#1a1a1a}
+  .note p{font-size:13.5px;margin:0}
+
+  .risk{background:#fff8ec;border:1px solid #f5d58a;border-radius:8px;padding:9px 14px;margin:10px 0;font-size:13.5px;color:#5a4410}
+  .risk b{color:#b07000}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:16px 20px;margin:14px 0}
+  .decision .q{font-weight:700;font-size:15px;margin-bottom:6px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:10px}
+  .decision .opts{display:flex;flex-direction:column;gap:6px}
+  .decision .opt{font-size:13.5px;padding:7px 12px;border-radius:7px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:#ff6600;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  /* evidence bar (real-data callout) */
+  .evid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:#101010;border-radius:14px;padding:6px;margin:14px 0}
+  .evid .e{padding:14px 16px;text-align:center}
+  .evid .e .big{font-family:'SF Mono',ui-monospace,monospace;font-size:24px;font-weight:800;color:#ff8a3d;letter-spacing:-0.02em}
+  .evid .e .lab{font-size:11px;color:#bdbdb8;line-height:1.4;margin-top:4px}
+  .evid .e .lab b{color:#fff;font-weight:700}
+
+  /* before/after split */
+  .ba{display:grid;grid-template-columns:1fr 44px 1fr;gap:0;align-items:stretch;margin:14px 0}
+  .ba .ba-arrow{display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#ff6600}
+  .ba-side{border-radius:14px;padding:18px 18px 20px}
+  .ba-side.before{background:#1a1413;border:1px solid #3a2a22}
+  .ba-side.after{background:#0d1a12;border:1px solid #1f3a28}
+  .ba-side .tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  .ba-side.before .tag{color:#e5704a}
+  .ba-side.after .tag{color:#3fc773}
+  .ba-side .cnt{font-family:'SF Mono',ui-monospace,monospace;font-size:30px;font-weight:800;color:#f5f5f5;letter-spacing:-0.02em}
+  .ba-side .cnt .u{font-size:13px;font-weight:600;color:#a1a1a1;margin-left:5px}
+  .ba-side .ls{list-style:none;padding:0;margin:12px 0 0;font-size:12.5px;color:#cfcfca}
+  .ba-side .ls li{padding:4px 0 4px 18px;position:relative;line-height:1.45}
+  .ba-side.before .ls li::before{content:'✕';position:absolute;left:0;color:#e5704a;font-weight:800;font-size:11px}
+  .ba-side.after .ls li::before{content:'✓';position:absolute;left:0;color:#3fc773;font-weight:800;font-size:11px}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  /* ════════════════════════ DARK MOCKUP CANVAS (real product) ════════════════════════
+     Mirrors web/app/[locale]/(v2)/v2-theme.css EXACTLY (dark) + components/v2 modality
+     tokens, so the mockups read as the real product. Scoped under .mock. ────── */
+  .mock{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-press:#d85a20; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.14);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.14);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.14);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.14);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.14);
+    --mod-carrera:#e5484d; --mod-ergo:#4d9eeb; --mod-fuerza:#e0a93b; --mod-circuito:#3fc773; --mod-calentamiento:#9b9b9b;
+    --mod-carrera-soft:rgba(229,72,77,0.14); --mod-ergo-soft:rgba(77,158,235,0.14);
+    --mod-fuerza-soft:rgba(224,169,59,0.14); --mod-circuito-soft:rgba(63,199,115,0.14); --mod-calentamiento-soft:rgba(155,155,155,0.14);
+    --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
+    background:var(--bg); color:var(--fg);
+    border-radius:18px; padding:26px 26px 28px; margin:14px 0 6px;
+    border:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 24px 60px -24px rgba(0,0,0,0.55);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+    line-height:1.45;
+  }
+  .mock-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:18px 0 7px;display:flex;align-items:center;gap:8px}
+  .mock-tag::before{content:'▸';color:#ff6600}
+
+  .mock *{box-sizing:border-box}
+  .mk-display{font-weight:900;font-style:italic;letter-spacing:-0.01em;line-height:1;font-family:'Archivo Black','SF Pro Display',system-ui,sans-serif}
+  .mk-micro{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+  .mk-num{font-family:'SF Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+  .mi{font-family:-apple-system,system-ui,sans-serif;display:inline-block;line-height:1}
+
+  /* topbar */
+  .mk-topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+  .mk-h1{font-size:26px}
+  .mk-h1 .dim{color:var(--muted);font-weight:900}
+  .mk-pills{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .mk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:3px 10px;font-size:11px;font-weight:600}
+  .mk-pill.neutral{background:var(--surface2);color:var(--muted)}
+  .mk-pill.accent{background:var(--accent-soft);color:var(--accent)}
+  .mk-pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .mk-pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .mk-pill.info{background:var(--info-soft);color:var(--info)}
+
+  .mk-seg{display:inline-flex;gap:2px;border-radius:var(--r-pill);padding:2px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:700}
+  .mk-seg span{padding:5px 12px;border-radius:var(--r-pill);color:var(--muted)}
+  .mk-seg span.on{background:var(--accent);color:var(--accent-fg)}
+
+  .mk-btn{display:inline-flex;align-items:center;gap:5px;height:30px;border-radius:var(--r-s);padding:0 11px;font-size:11.5px;font-weight:700;border:1px solid var(--border);color:var(--muted)}
+  .mk-btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .mk-btn.ghost{background:transparent}
+  .mk-btn .mi{font-size:15px}
+  .mk-btn.lg{height:34px;font-size:12.5px}
+  .mk-btn.sm{height:26px;font-size:11px;padding:0 9px}
+
+  /* ── ARCHETYPE PICKER · grid of type cards ───────────────────────────────────
+     Each card = a session/block TYPE. icon tile carries the modality hue. ────── */
+  .mk-arch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .mk-arch{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 15px;position:relative;cursor:pointer;transition:border-color .15s}
+  .mk-arch:hover{border-color:var(--border-strong)}
+  .mk-arch.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .mk-arch .ico{width:34px;height:34px;border-radius:var(--r-s);display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
+  .mk-arch .nm{font-size:13px;font-weight:800;color:var(--fg);line-height:1.2}
+  .mk-arch .wh{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+  .mk-arch .frq{position:absolute;top:12px;right:12px;font-size:9.5px;font-weight:800;font-family:'SF Mono',monospace;color:var(--faint);background:var(--surface2);border-radius:var(--r-pill);padding:1px 7px}
+  .mk-arch.sel .frq{color:var(--accent);background:var(--accent-soft)}
+  /* modality tints for the icon tile */
+  .ti-carrera{background:var(--mod-carrera-soft);color:var(--mod-carrera)}
+  .ti-ergo{background:var(--mod-ergo-soft);color:var(--mod-ergo)}
+  .ti-fuerza{background:var(--mod-fuerza-soft);color:var(--mod-fuerza)}
+  .ti-circuito{background:var(--mod-circuito-soft);color:var(--mod-circuito)}
+  .ti-cal{background:var(--mod-calentamiento-soft);color:var(--mod-calentamiento)}
+  .ti-accent{background:var(--accent-soft);color:var(--accent)}
+
+  /* ── SESSION SCAFFOLD · warmup / main / cooldown skeleton ──────────────────── */
+  .mk-scaffold{display:flex;flex-direction:column;gap:0}
+  .mk-role{position:relative;padding-left:0}
+  .mk-rolehdr{display:flex;align-items:center;gap:9px;margin:0 0 8px}
+  .mk-rolehdr .rk{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+  .mk-rolehdr .rdot{width:8px;height:8px;border-radius:50%}
+  .mk-rolehdr .rc{font-size:10.5px;font-weight:800;color:var(--faint);font-family:'SF Mono',monospace;margin-left:auto}
+  .mk-blockcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;border-left-width:3px;border-left-style:solid}
+  .mk-blockcard .bnm{font-size:12.5px;font-weight:700;color:var(--fg)}
+  .mk-blockcard .bmt{font-size:11px;color:var(--muted);margin-top:2px}
+  .mk-blockcard .btype{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:var(--r-pill);margin-left:auto;white-space:nowrap}
+  .mk-addblock{border:1px dashed var(--border-strong);border-radius:var(--r-m);padding:11px 14px;display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:14px;cursor:pointer}
+  .mk-addblock .mi{color:var(--accent);font-size:16px}
+  .mk-rolerule{border:none;border-top:1px dashed var(--border);margin:6px 0 16px}
+
+  /* ── TAILORED FORM · field rows + the series table ───────────────────────── */
+  .mk-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:16px 18px}
+  .mk-formhdr{display:flex;align-items:center;gap:11px;margin-bottom:14px;padding-bottom:13px;border-bottom:1px solid var(--border)}
+  .mk-formhdr .ico{width:30px;height:30px;border-radius:var(--r-s);display:inline-flex;align-items:center;justify-content:center;font-size:16px}
+  .mk-formhdr .ft{font-size:14px;font-weight:800;color:var(--fg)}
+  .mk-formhdr .fs{font-size:11px;color:var(--muted);margin-top:1px}
+  .mk-formhdr .chg{margin-left:auto;font-size:11px;font-weight:700;color:var(--accent);cursor:pointer}
+
+  .mk-frow{display:grid;gap:10px;margin-bottom:11px}
+  .mk-field label{display:block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:5px}
+  .mk-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 11px;font-size:13px;color:var(--fg);font-weight:600;display:flex;align-items:center;gap:6px;min-height:36px}
+  .mk-input .un{color:var(--muted);font-weight:600;font-size:12px}
+  .mk-input.ph{color:var(--faint);font-weight:500}
+  .mk-input .mk-num{color:var(--fg)}
+  .mk-input.sel-ctrl{justify-content:space-between}
+  .mk-input.sel-ctrl .car{color:var(--faint);font-size:11px}
+
+  /* series table */
+  .mk-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .mk-tbl th{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left;padding:0 8px 8px;white-space:nowrap}
+  .mk-tbl td{padding:0 4px 7px 0;vertical-align:middle}
+  .mk-tbl td:first-child{padding-left:0}
+  .mk-cell{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-xs);padding:7px 9px;font-size:12.5px;color:var(--fg);font-weight:600;text-align:center;display:flex;align-items:center;justify-content:center;gap:4px;min-height:32px}
+  .mk-cell .un{color:var(--muted);font-weight:500;font-size:11px}
+  .mk-tbl .setno{width:30px;text-align:center;color:var(--faint);font-weight:800;font-family:'SF Mono',monospace}
+  .mk-tbl .delcol{width:24px;text-align:center;color:var(--faint);font-size:14px}
+  .mk-addrow{margin-top:4px;font-size:11.5px;font-weight:700;color:var(--accent);display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+
+  /* component list (WOD / circuit) */
+  .mk-comp{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 12px;display:flex;align-items:center;gap:11px;margin-bottom:7px}
+  .mk-comp .ord{width:20px;height:20px;border-radius:50%;background:var(--surface);color:var(--faint);font-size:10.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-family:'SF Mono',monospace;flex-shrink:0}
+  .mk-comp .mv{font-size:12.5px;font-weight:700;color:var(--fg);flex:1}
+  .mk-comp .dose{font-size:12px;color:var(--muted);font-family:'SF Mono',monospace;white-space:nowrap}
+  .mk-comp .grip{color:var(--faint);font-size:13px}
+
+  /* hyrox station template */
+  .mk-stations{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .mk-stn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 11px;display:flex;align-items:center;gap:9px}
+  .mk-stn .sn{width:18px;height:18px;border-radius:var(--r-xs);background:var(--surface);color:var(--faint);font-size:9.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-family:'SF Mono',monospace;flex-shrink:0}
+  .mk-stn .smv{font-size:11.5px;font-weight:700;color:var(--fg);flex:1;line-height:1.2}
+  .mk-stn .sp{font-size:11px;color:var(--muted);font-family:'SF Mono',monospace}
+  .mk-stn.run{border-color:var(--mod-carrera);background:var(--mod-carrera-soft)}
+  .mk-stn.run .sn{color:var(--mod-carrera);background:transparent}
+  .mk-stn.run .smv{color:var(--mod-carrera)}
+
+  /* advanced escape hatch */
+  .mk-adv{margin-top:14px;border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);overflow:hidden}
+  .mk-adv .ah{display:flex;align-items:center;gap:9px;padding:11px 15px;cursor:pointer}
+  .mk-adv .ah .cv{color:var(--faint);font-size:12px}
+  .mk-adv .ah .at{font-size:12.5px;font-weight:700;color:var(--muted)}
+  .mk-adv .ah .as{font-size:11px;color:var(--faint);margin-left:auto}
+  .mk-adv .abody{border-top:1px solid var(--border);padding:14px 15px;background:var(--surface2)}
+  .mk-axis{margin-bottom:11px}
+  .mk-axis:last-child{margin-bottom:0}
+  .mk-axis .axl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:6px}
+  .mk-axis .pills{display:flex;gap:6px;flex-wrap:wrap}
+  .mk-axis .ap{font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--r-pill);background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+  .mk-axis .ap.on{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+
+  /* save bar */
+  .mk-savebar{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+  .mk-savebar .st{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
+  .mk-savebar .st .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .mk-savebar .sp{margin-left:auto;display:flex;gap:9px}
+
+  /* help line (carryover from /v2 micro-copy) */
+  .mk-help{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.4}
+  .mk-help .mi{color:var(--accent);font-size:13px;flex-shrink:0;opacity:.8}
+  .mk-help b{color:var(--muted);font-weight:700}
+
+  /* phase / methodology tag chooser (agnostic) */
+  .mk-tagrow{display:flex;align-items:center;gap:9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 13px;margin-top:12px}
+  .mk-tagrow .tl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .mk-tagrow .tg{font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--r-pill);background:var(--surface);border:1px solid var(--border-strong);color:var(--muted)}
+  .mk-tagrow .tg.on{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+  .mk-tagrow .opt{font-size:10.5px;color:var(--faint);margin-left:auto}
+
+  @media(max-width:820px){
+    .toc,.grid3,.evid{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+    .mk-arch-grid{grid-template-columns:1fr 1fr}
+    .mk-stations{grid-template-columns:1fr}
+    .ba{grid-template-columns:1fr}
+    .ba .ba-arrow{transform:rotate(90deg);height:38px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Pase de UX — Editor por arquetipos</h1>
+  <div class="sub">Para sign-off · ANTES de codear · Editor de microciclo / sesión del dashboard del coach V2 · FAHYBRIK · 24 jun 2026</div>
+
+  <div class="principle">
+    <p><b>El problema.</b> El editor actual es <b>variable-first</b>: para UNA línea de ejercicio el coach mueve modalidad × cómo-se-mide × contra-qué-objetivo × formato — cuatro o cinco toggles, unas quince pills, más de treinta controles — antes de llegar a un campo real. Le pedimos que arme el tablero abstracto de la prescripción en vez de prescribir. Y encima <b>no guarda</b>.</p>
+    <p><b>Pero un coach híbrido no piensa en ese tablero.</b> Piensa en <b>tipos de sesión / bloque</b>: un metcon, un rodaje, una serie, una sesión de fuerza, una simulación. El editor reimaginado es <b>arquetipo-first</b>: el coach elige el TIPO de bloque y rellena un formulario <b>hecho a medida de ese tipo</b> — solo las variables que ese tipo necesita, con valores por defecto sensatos. Los ejes abstractos se esconden detrás de "ajuste avanzado" para el caso raro.</p>
+    <p><b>Software completo para coaches híbridos.</b> Los arquetipos SON el vocabulario de sesión del deporte (HYROX / híbrido, nuestra vertical). Son <b>agnósticos a la metodología</b>: cada bloque se etiqueta opcionalmente con la fase / grupo metodológico <b>del coach</b> (su dato), pero el TIPO estructural es vocabulario híbrido universal. ATR aparece solo como ejemplo de etiqueta, nunca como concepto del sistema.</p>
+    <p><b>Esto es un pase de diseño, no código.</b> Los mockups usan los <b>tokens reales del producto</b> — negro <code style="background:#222;color:#ffb340">#0a0a0a</code>, naranja Fabrik <code style="background:#222;color:#ffb340">#f06a2a</code>, y los hues de modalidad <code style="background:#222;color:#ffb340">carrera #e5484d · ergo #4d9eeb · fuerza #e0a93b · circuito #3fc773</code> — para que se lea como el producto real.</p>
+  </div>
+
+  <!-- evidence -->
+  <div class="seclbl">La evidencia (qué dice el dato real del plan de Pablo)</div>
+  <p class="lead">El tablero abstracto ofrece una combinatoria que el coach casi nunca usa. Los datos reales muestran un puñado de formatos, pocos objetivos, pocas medidas, y la modalidad casi nunca se toca a mano. El editor debe optimizar para lo que el coach hace el 95% del tiempo, no para la matriz completa.</p>
+  <div class="evid">
+    <div class="e"><div class="big">~8</div><div class="lab"><b>formatos de bloque</b> cubren casi todo: tempo·104, intervalos·87, fuerza·47, simulación·35, circuito·33, for-time·21, emom/amrap raros</div></div>
+    <div class="e"><div class="big">~5</div><div class="lab"><b>objetivos</b> reales (no 9): RPE, zona, %RM/kg, bodyweight, ritmo</div></div>
+    <div class="e"><div class="big">~3</div><div class="lab"><b>medidas</b> (no 4): distancia, tiempo, reps — calorías marginal</div></div>
+    <div class="e"><div class="big">~0</div><div class="lab"><b>veces</b> que el coach fija "modalidad" a mano: se infiere del ejercicio</div></div>
+  </div>
+  <p style="font-size:13px;color:#666;margin-top:6px">Y la mayoría de bloques son de <b>1 ejercicio</b>; los multi-componente (WOD / circuito / simulación) son la excepción. El editor actual trata todo bloque como un tablero multi-eje y multi-componente — paga el coste del caso raro en cada bloque simple.</p>
+
+  <div class="toc">
+    <a href="#scaffold"><div class="n">1 · El marco</div><div class="t">El esqueleto de la sesión</div><div class="d">Calentamiento · Bloque(s) principal(es) · Vuelta a la calma. El coach añade bloques; cada uno tiene su rol.</div></a>
+    <a href="#picker"><div class="n">2 · Elegir el tipo</div><div class="t">El selector de arquetipos</div><div class="d">9 tarjetas: el coach elige el TIPO de bloque primero. Cada una con icono + para qué sirve.</div></a>
+    <a href="#forms"><div class="n">3 · El corazón</div><div class="t">Formularios a medida</div><div class="d">Fuerza · Series de carrera · Z2/Tempo · WOD/Metcon · Simulación HYROX · Test. Solo los campos que cada tipo necesita.</div></a>
+    <a href="#beforeafter"><div class="n">4 · Antes / después</div><div class="t">El bloque de fuerza</div><div class="d">~30 controles del tablero abstracto vs la tabla de series directa.</div></a>
+    <a href="#escape"><div class="n">5 · El poder, escondido</div><div class="t">Ajuste avanzado</div><div class="d">Los ejes completos modalidad/medida/objetivo/esquema, colapsados, para el caso raro.</div></a>
+    <a href="#save"><div class="n">6 · No negociable</div><div class="t">Tiene que GUARDAR</div><div class="d">El "Guardado" actual es un toast falso. Lo nº1 a arreglar: persistir de verdad.</div></a>
+  </div>
+
+
+  <!-- ══════════════════════════════ 1 · SCAFFOLD ══════════════════════════════ -->
+  <h2 id="scaffold"><span class="surf">1</span>El marco: el esqueleto de la sesión</h2>
+  <p class="lead">Una sesión es <b>Calentamiento · Bloque(s) principal(es) · Vuelta a la calma</b> — tres roles. El coach construye la sesión añadiendo bloques, y cada bloque vive bajo un rol. El editor actual ignora esta estructura por completo; el dato real confirma que así es como se componen las sesiones de verdad. El esqueleto da el contexto: añadir un bloque siempre es "añadir un bloque <b>a un rol</b>".</p>
+
+  <div class="mock-tag">Mockup · esqueleto de la sesión (Calentamiento / Principal / Vuelta a la calma)</div>
+  <div class="mock">
+    <div class="mk-topbar">
+      <div>
+        <div class="mk-display mk-h1">Martes <span class="dim">· Fuerza + ergo</span></div>
+        <div class="mk-pills">
+          <span class="mk-pill neutral"><b class="mk-num">3</b>&nbsp;bloques</span>
+          <span class="mk-pill neutral">≈ <b class="mk-num">62</b>&nbsp;min</span>
+          <span class="mk-pill accent">Microciclo · Acumulación · sem 2</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="mk-btn ghost"><span class="mi">⤢</span> Vista atleta</div>
+        <div class="mk-btn primary lg"><span class="mi">✓</span> Guardar sesión</div>
+      </div>
+    </div>
+
+    <div class="mk-scaffold">
+      <!-- WARMUP -->
+      <div class="mk-role">
+        <div class="mk-rolehdr"><span class="rdot" style="background:var(--mod-calentamiento)"></span><span class="rk">Calentamiento</span><span class="rc">1 bloque · ≈10 min</span></div>
+        <div class="mk-blockcard" style="border-left-color:var(--mod-calentamiento)">
+          <div><div class="bnm">Activación · movilidad + bandas</div><div class="bmt">5 movimientos · 8–10 min · RPE 3</div></div>
+          <span class="btype" style="background:var(--mod-calentamiento-soft);color:var(--mod-calentamiento)">Activación</span>
+        </div>
+        <div class="mk-addblock"><span class="mi">＋</span> Añadir bloque al calentamiento</div>
+      </div>
+
+      <!-- MAIN -->
+      <div class="mk-role">
+        <div class="mk-rolehdr"><span class="rdot" style="background:var(--accent)"></span><span class="rk">Bloque(s) principal(es)</span><span class="rc">2 bloques · ≈42 min</span></div>
+        <div class="mk-blockcard" style="border-left-color:var(--mod-fuerza)">
+          <div><div class="bnm">Sentadilla trasera · fuerza</div><div class="bmt">5×3 @ 82% · descanso 3' · tempo 30X1</div></div>
+          <span class="btype" style="background:var(--mod-fuerza-soft);color:var(--mod-fuerza)">Fuerza</span>
+        </div>
+        <div class="mk-blockcard" style="border-left-color:var(--mod-ergo)">
+          <div><div class="bnm">Intervalos RowErg</div><div class="bmt">6 × 500 m @ 1:48/500 · descanso 2'</div></div>
+          <span class="btype" style="background:var(--mod-ergo-soft);color:var(--mod-ergo)">Series · ergo</span>
+        </div>
+        <div class="mk-addblock"><span class="mi">＋</span> Añadir bloque principal</div>
+      </div>
+
+      <!-- COOLDOWN -->
+      <div class="mk-role">
+        <div class="mk-rolehdr"><span class="rdot" style="background:var(--mod-carrera)"></span><span class="rk">Vuelta a la calma</span><span class="rc">1 bloque · ≈10 min</span></div>
+        <div class="mk-blockcard" style="border-left-color:var(--mod-carrera)">
+          <div><div class="bnm">Trote suave Z1</div><div class="bmt">10 min · zona 1 · respiración nasal</div></div>
+          <span class="btype" style="background:var(--mod-carrera-soft);color:var(--mod-carrera)">Z2/Tempo</span>
+        </div>
+        <div class="mk-addblock"><span class="mi">＋</span> Añadir bloque a la vuelta a la calma</div>
+      </div>
+    </div>
+
+    <div class="mk-help"><span class="mi">ⓘ</span> Cada bloque lleva su <b>rol</b> (calentamiento / principal / vuelta a la calma) y su <b>tipo</b>. El color del rail = la modalidad, inferida del tipo de bloque — el coach no la elige a mano.</div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El rail izquierdo y la etiqueta de tipo de cada bloque usan los hues de modalidad reales (fuerza ámbar, ergo azul, carrera coral). La modalidad <b>se deriva</b> del arquetipo + ejercicio — no es un toggle. Añadir un bloque parte siempre de un rol, así que el siguiente paso (elegir el tipo) ya tiene contexto.</p>
+
+
+  <!-- ══════════════════════════════ 2 · PICKER ══════════════════════════════ -->
+  <h2 id="picker"><span class="surf">2</span>El selector de arquetipos (elige el TIPO primero)</h2>
+  <p class="lead">Al pulsar "Añadir bloque", el coach no ve un tablero de ejes: ve <b>tarjetas de tipo</b>. Cada una con icono, nombre y una línea de "para qué sirve". Elige el tipo, y solo entonces aparece el formulario a medida. Las tarjetas están ordenadas por frecuencia real (las que más usa, arriba). El badge de la esquina muestra cuántas veces aparece ese tipo en su plan — orientación, no obligación.</p>
+
+  <div class="mock-tag">Mockup · selector de arquetipos (9 tipos = vocabulario del deporte híbrido)</div>
+  <div class="mock">
+    <div class="mk-topbar" style="margin-bottom:14px">
+      <div>
+        <div class="mk-display mk-h1">Añadir bloque <span class="dim">· principal</span></div>
+        <div class="mk-pills"><span class="mk-pill neutral">¿Qué tipo de trabajo es?</span></div>
+      </div>
+      <div class="mk-btn ghost"><span class="mi">✕</span> Cancelar</div>
+    </div>
+
+    <div class="mk-arch-grid">
+      <div class="mk-arch sel">
+        <span class="frq">104×</span>
+        <div class="ico ti-carrera mi">↗</div>
+        <div class="nm">Carrera continua / Z2</div>
+        <div class="wh">Rodaje o tempo. Duración o distancia @ zona / RPE.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">87×</span>
+        <div class="ico ti-carrera mi">≣</div>
+        <div class="nm">Series / Intervalos</div>
+        <div class="wh">Run o ergo. N × (distancia | tiempo) @ ritmo | RPE + descanso.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">47×</span>
+        <div class="ico ti-fuerza mi">▥</div>
+        <div class="nm">Fuerza</div>
+        <div class="wh">Ejercicio + tabla de series: reps × %RM/kg × descanso × tempo.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">35×</span>
+        <div class="ico ti-circuito mi">◆</div>
+        <div class="nm">Simulación HYROX/DEKA</div>
+        <div class="wh">Plantilla de 8 estaciones + 8×1 km en orden + ritmos objetivo.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">33×</span>
+        <div class="ico ti-circuito mi">⊞</div>
+        <div class="nm">Circuito / Core</div>
+        <div class="wh">Mezcla de movimientos por reps o tiempo. Carga ligera / bodyweight.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">21×</span>
+        <div class="ico ti-circuito mi">⏱</div>
+        <div class="nm">WOD / Metcon</div>
+        <div class="wh">For Time o AMRAP. Lista de componentes (movimiento + dosis) + cap.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">rara</span>
+        <div class="ico ti-fuerza mi">⚡</div>
+        <div class="nm">Fuerza-potencia / EMOM</div>
+        <div class="wh">Rondas o EMOM con ventana de trabajo + %RM / bodyweight.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">clave</span>
+        <div class="ico ti-accent mi">◎</div>
+        <div class="nm">Test</div>
+        <div class="wh">Distancia / tiempo @ RPE 10. Almacena ritmo → alimenta el plan.</div>
+      </div>
+      <div class="mk-arch">
+        <span class="frq">ciclo</span>
+        <div class="ico ti-cal mi">~</div>
+        <div class="nm">Activación / Tapering</div>
+        <div class="wh">Volúmenes bajos, strides, movilidad. Para descarga o pre-competición.</div>
+      </div>
+    </div>
+
+    <div class="mk-help"><span class="mi">ⓘ</span> Los tipos son <b>vocabulario del deporte</b>, iguales para todo coach híbrido. La <b>fase / grupo</b> de tu método se etiqueta aparte, dentro del formulario — el tipo nunca depende de tu metodología.</div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Nueve arquetipos cubren todo lo que el dato real muestra. El icono lleva el hue de la modalidad que ese tipo implica (carrera coral, fuerza ámbar, conditioning verde, test naranja brand). El badge de frecuencia ("104×", "clave", "raro") es orientación honesta: el coach ve dónde concentra su trabajo. <b>Test</b> y <b>Simulación</b> son ciudadanos de primera clase aquí — hoy ambos caen a texto libre.</p>
+
+
+  <!-- ══════════════════════════════ 3 · FORMS ══════════════════════════════ -->
+  <h2 id="forms"><span class="surf">3</span>Formularios a medida — el corazón</h2>
+  <p class="lead">Una vez elegido el tipo, el coach ve <b>solo</b> los campos que ese tipo necesita, con valores por defecto pre-rellenados. Cero toggles de modalidad/medida/objetivo: cada arquetipo ya sabe qué variables lleva. Mostramos seis. Fíjate en lo poco que pide cada uno frente a los 30+ controles del tablero abstracto.</p>
+
+  <!-- ── FUERZA ── -->
+  <div class="mock-tag">Mockup · Fuerza — directo a la tabla de series, cero toggles</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-fuerza mi">▥</div>
+        <div><div class="ft">Fuerza</div><div class="fs">Ejercicio + tabla de series · objetivo %RM o kg</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr">
+        <div class="mk-field">
+          <label>Ejercicio</label>
+          <div class="mk-input sel-ctrl"><span>Sentadilla trasera</span><span class="car mi">▾</span></div>
+        </div>
+      </div>
+
+      <div class="mk-field" style="margin-bottom:6px"><label>Series</label></div>
+      <table class="mk-tbl">
+        <thead><tr><th class="setno">#</th><th>Reps</th><th>Objetivo</th><th>Descanso</th><th>Tempo</th><th class="delcol"></th></tr></thead>
+        <tbody>
+          <tr><td class="setno">1</td><td><div class="mk-cell"><span class="mk-num">3</span></div></td><td><div class="mk-cell"><span class="mk-num">82</span><span class="un">%RM</span></div></td><td><div class="mk-cell"><span class="mk-num">3</span><span class="un">min</span></div></td><td><div class="mk-cell"><span class="mk-num">30X1</span></div></td><td class="delcol mi">✕</td></tr>
+          <tr><td class="setno">2</td><td><div class="mk-cell"><span class="mk-num">3</span></div></td><td><div class="mk-cell"><span class="mk-num">82</span><span class="un">%RM</span></div></td><td><div class="mk-cell"><span class="mk-num">3</span><span class="un">min</span></div></td><td><div class="mk-cell"><span class="mk-num">30X1</span></div></td><td class="delcol mi">✕</td></tr>
+          <tr><td class="setno">3</td><td><div class="mk-cell"><span class="mk-num">3</span></div></td><td><div class="mk-cell"><span class="mk-num">84</span><span class="un">%RM</span></div></td><td><div class="mk-cell"><span class="mk-num">3</span><span class="un">min</span></div></td><td><div class="mk-cell"><span class="mk-num">30X1</span></div></td><td class="delcol mi">✕</td></tr>
+        </tbody>
+      </table>
+      <span class="mk-addrow"><span class="mi">＋</span> Añadir serie</span>
+
+      <div class="mk-tagrow">
+        <span class="tl">Fase del método</span>
+        <span class="tg on">Acumulación</span>
+        <span class="tg">Transformación</span>
+        <span class="tg">Realización</span>
+        <span class="opt">opcional · tu metodología</span>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> El objetivo por defecto es <b>%RM</b>; pulsa la celda para cambiarlo a <b>kg</b> sin salir de la tabla. La modalidad (fuerza) y la medida (reps) las da el tipo — no se preguntan.</div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El bloque más común de fuerza: ejercicio + tabla. Cada fila es una serie con reps, objetivo (%RM/kg), descanso y tempo — exactamente lo que un coach de fuerza prescribe, ni más ni menos. La fila de "Fase del método" es la etiqueta agnóstica: ATR es el set por defecto editable de Pablo, no un concepto del sistema.</p>
+
+  <!-- ── SERIES DE CARRERA ── -->
+  <div class="mock-tag">Mockup · Series de carrera — N × dist/tiempo @ ritmo + descanso</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-carrera mi">≣</div>
+        <div><div class="ft">Series / Intervalos</div><div class="fs">Run o ergo · N repeticiones @ ritmo + descanso</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr 1fr">
+        <div class="mk-field"><label>Superficie / ergo</label><div class="mk-input sel-ctrl"><span>Pista (carrera)</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Repeticiones</label><div class="mk-input"><span class="mk-num">6</span><span class="un">× series</span></div></div>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="mk-field"><label>Cada repetición</label><div class="mk-input"><span class="mk-num">800</span><span class="un">m</span></div></div>
+        <div class="mk-field"><label>Ritmo objetivo</label><div class="mk-input"><span class="mk-num">3:25</span><span class="un">/km</span></div></div>
+        <div class="mk-field"><label>Descanso</label><div class="mk-input"><span class="mk-num">2:00</span><span class="un">min</span></div></div>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr 1fr">
+        <div class="mk-field"><label>Tipo de descanso</label><div class="mk-input sel-ctrl"><span>Pasivo</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Notas (opcional)</label><div class="mk-input ph">Mantener cadencia &gt; 180</div></div>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> Cambia "Cada repetición" entre <b>distancia</b> y <b>tiempo</b> pulsando la unidad; el objetivo alterna <b>ritmo ↔ RPE</b> igual. La modalidad (carrera o ergo) sale del primer campo, no de un toggle.</div>
+    </div>
+  </div>
+
+  <!-- ── Z2 / TEMPO ── -->
+  <div class="mock-tag">Mockup · Z2 / Tempo — una sola línea</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-carrera mi">↗</div>
+        <div><div class="ft">Carrera continua / Z2</div><div class="fs">Rodaje o tempo · una línea: duración + zona/RPE</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1.2fr 1fr 1fr">
+        <div class="mk-field"><label>Modo</label><div class="mk-input sel-ctrl"><span>Por duración</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Duración</label><div class="mk-input"><span class="mk-num">45</span><span class="un">min</span></div></div>
+        <div class="mk-field"><label>Objetivo</label><div class="mk-input sel-ctrl"><span class="mk-num" style="color:var(--mod-carrera)">Zona 2</span><span class="car mi">▾</span></div></div>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> El bloque más simple: lo que el coach piensa como "45 min en Z2" se escribe en una línea. "Por distancia" cambia el campo del medio a km; "Objetivo" alterna entre <b>zona</b> y <b>RPE</b>.</div>
+    </div>
+  </div>
+
+  <!-- ── WOD / METCON ── -->
+  <div class="mock-tag">Mockup · WOD / Metcon — formato + lista de componentes + cap</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-circuito mi">⏱</div>
+        <div><div class="ft">WOD / Metcon</div><div class="fs">For Time o AMRAP · componentes + objetivo / cap</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="mk-field"><label>Formato</label>
+          <div class="mk-seg" style="width:100%"><span class="on" style="flex:1;text-align:center">For Time</span><span style="flex:1;text-align:center">AMRAP</span><span style="flex:1;text-align:center">EMOM</span></div>
+        </div>
+        <div class="mk-field"><label>Rondas</label><div class="mk-input"><span class="mk-num">3</span><span class="un">rondas</span></div></div>
+        <div class="mk-field"><label>Time cap</label><div class="mk-input"><span class="mk-num">18:00</span><span class="un">min</span></div></div>
+      </div>
+
+      <div class="mk-field" style="margin-bottom:6px"><label>Componentes (cada ronda)</label></div>
+      <div class="mk-comp"><span class="grip mi">⋮⋮</span><span class="ord">1</span><span class="mv">Wall balls</span><span class="dose">20 reps · 9 kg</span><span class="delcol mi" style="color:var(--faint)">✕</span></div>
+      <div class="mk-comp"><span class="grip mi">⋮⋮</span><span class="ord">2</span><span class="mv">Burpees broad jump</span><span class="dose">15 reps</span><span class="delcol mi" style="color:var(--faint)">✕</span></div>
+      <div class="mk-comp"><span class="grip mi">⋮⋮</span><span class="ord">3</span><span class="mv">RowErg</span><span class="dose">500 m</span><span class="delcol mi" style="color:var(--faint)">✕</span></div>
+      <span class="mk-addrow"><span class="mi">＋</span> Añadir movimiento</span>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> "For Time" muestra <b>rondas + cap</b>; al cambiar a "AMRAP" el campo Rondas desaparece y aparece <b>duración total</b>. La lista de componentes es reordenable (arrastra <span style="color:var(--muted)">⋮⋮</span>). Cada movimiento lleva solo su dosis — la modalidad la infiere.</div>
+    </div>
+  </div>
+
+  <!-- ── SIMULACIÓN HYROX ── -->
+  <div class="mock-tag">Mockup · Simulación HYROX — plantilla propia de las 8 estaciones + 8×1 km en orden</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-circuito mi">◆</div>
+        <div><div class="ft">Simulación HYROX</div><div class="fs">Plantilla oficial · 8 estaciones intercaladas con 8×1 km · ritmos objetivo</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="mk-field"><label>Formato</label><div class="mk-input sel-ctrl"><span>Full (8 estaciones)</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Ritmo run objetivo</label><div class="mk-input"><span class="mk-num" style="color:var(--mod-carrera)">4:30</span><span class="un">/km</span></div></div>
+        <div class="mk-field"><label>Objetivo total</label><div class="mk-input"><span class="mk-num">1:08</span><span class="un">h:mm</span></div></div>
+      </div>
+
+      <div class="mk-field" style="margin-bottom:6px"><label>Estaciones (orden oficial · run de 1 km entre cada una)</label></div>
+      <div class="mk-stations">
+        <div class="mk-stn run"><span class="sn">R1</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">1</span><span class="smv">SkiErg</span><span class="sp">1000 m</span></div>
+        <div class="mk-stn run"><span class="sn">R2</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">2</span><span class="smv">Sled Push</span><span class="sp">50 m · 152 kg</span></div>
+        <div class="mk-stn run"><span class="sn">R3</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">3</span><span class="smv">Sled Pull</span><span class="sp">50 m · 103 kg</span></div>
+        <div class="mk-stn run"><span class="sn">R4</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">4</span><span class="smv">Burpee Broad Jump</span><span class="sp">80 m</span></div>
+        <div class="mk-stn run"><span class="sn">R5</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">5</span><span class="smv">RowErg</span><span class="sp">1000 m</span></div>
+        <div class="mk-stn run"><span class="sn">R6</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">6</span><span class="smv">Farmers Carry</span><span class="sp">200 m · 2×24 kg</span></div>
+        <div class="mk-stn run"><span class="sn">R7</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">7</span><span class="smv">Sandbag Lunges</span><span class="sp">100 m · 20 kg</span></div>
+        <div class="mk-stn run"><span class="sn">R8</span><span class="smv">Run 1 km</span><span class="sp">4:30</span></div>
+        <div class="mk-stn"><span class="sn">8</span><span class="smv">Wall Balls</span><span class="sp">100 reps · 9 kg</span></div>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> Las 8 estaciones + los 8 km vienen <b>pre-cargados en el orden oficial</b> con las cargas estándar. El coach solo ajusta cargas y ritmos a su atleta. Hoy esto cae a texto libre — la plantilla propia lo convierte en dato estructurado.</div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El arquetipo de mayor palanca: la simulación es la sesión clave de un coach HYROX y hoy se escribe a mano como texto. Una plantilla con las 8 estaciones en orden + los runs intercalados + ritmos da estructura real (la app puede cronometrar, comparar contra objetivo, segmentar). Las cargas mostradas son las estándar de la división open; editables por atleta.</p>
+
+  <!-- ── TEST ── -->
+  <div class="mock-tag">Mockup · Test — dist/tiempo @ RPE 10 + "almacena ritmo" (primera clase)</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-accent mi">◎</div>
+        <div><div class="ft">Test</div><div class="fs">Esfuerzo máximo · el resultado alimenta los ritmos del plan</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="mk-field"><label>Protocolo</label><div class="mk-input sel-ctrl"><span>Test 5 km (VDOT)</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Mide</label><div class="mk-input"><span class="mk-num">5</span><span class="un">km @ RPE 10</span></div></div>
+        <div class="mk-field"><label>Esfuerzo</label><div class="mk-input"><span class="mk-num" style="color:var(--accent)">RPE 10</span></div></div>
+      </div>
+
+      <div class="mk-tagrow" style="background:var(--accent-soft);border-color:transparent">
+        <span class="tl" style="color:var(--accent)">⤓ Almacena ritmo</span>
+        <span class="tg on" style="background:var(--surface);color:var(--fg);border-color:var(--border)">Ritmo umbral → VDOT</span>
+        <span class="opt" style="color:var(--muted)">alimenta los ritmos objetivo de todo el plan</span>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> El test es un <b>resolutor</b>: cuando el atleta lo completa, su resultado se guarda como <b>perfil de ritmos</b> y todos los bloques de carrera del plan se recalculan a partir de él. Por eso es ciudadano de primera clase, no un bloque más.</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="note act">
+      <div class="h"><span class="ic">▥</span>Fuerza-potencia / EMOM</div>
+      <p>Variante del EMOM/rondas: <b>ventana de trabajo</b> (ej. "0:00–0:40 trabajo / resto descanso") + movimiento + <b>%RM o bodyweight</b>. Comparte la base de WOD pero con foco en potencia y carga submáxima. Pocos campos, sin toggles.</p>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">⊞</span>Circuito / Core · Activación</div>
+      <p><b>Circuito:</b> lista de movimientos por reps o tiempo, carga ligera/bodyweight — como WOD sin cap ni puntuación. <b>Activación/Tapering:</b> volúmenes bajos, strides y movilidad; la misma lista de movimientos con RPE bajo por defecto. Reutilizan la lista de componentes.</p>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Los tres arquetipos restantes (Fuerza-potencia/EMOM, Circuito/Core, Activación/Tapering) reutilizan dos patrones de formulario ya vistos — la <b>tabla de series</b> y la <b>lista de componentes</b> — con defaults distintos. Nueve tipos, pero solo cuatro patrones de formulario subyacentes (línea simple · tabla de series · serie temporal N× · lista de componentes). DRY de verdad.</p>
+
+
+  <!-- ══════════════════════════════ 4 · BEFORE/AFTER ══════════════════════════════ -->
+  <h2 id="beforeafter"><span class="surf">4</span>Antes / después — el bloque de fuerza</h2>
+  <p class="lead">El mismo objetivo del coach — "5×3 de sentadilla al 82% con 3' de descanso" — en el editor actual y en el reimaginado. La diferencia no es estética: es el número de decisiones que el coach toma antes de tocar un dato real.</p>
+
+  <div class="ba">
+    <div class="ba-side before">
+      <div class="tag">Antes · variable-first</div>
+      <div class="cnt">~30<span class="u">controles</span></div>
+      <ul class="ls">
+        <li>Toggle <b>Modalidad</b>: 5 pills (carrera/ergo/fuerza/circuito/cal)</li>
+        <li>Toggle <b>Cómo se mide</b>: 4 pills (dist/tiempo/reps/cal)</li>
+        <li>Toggle <b>Contra qué objetivo</b>: 9 pills (RPE/zona/%RM/kg/ritmo/…)</li>
+        <li>Select <b>Formato</b>: series / rondas / EMOM / AMRAP…</li>
+        <li>Tabla de series — al fin, tras todo lo anterior</li>
+        <li>Resultado: el coach configura el tablero abstracto antes de prescribir</li>
+        <li>Y al pulsar Guardar… <b>toast falso, no persiste</b></li>
+      </ul>
+    </div>
+    <div class="ba-arrow">→</div>
+    <div class="ba-side after">
+      <div class="tag">Después · arquetipo-first</div>
+      <div class="cnt">~0<span class="u">toggles</span></div>
+      <ul class="ls">
+        <li>Pulsa la tarjeta <b>"Fuerza"</b> en el selector</li>
+        <li>Aparece directamente la <b>tabla de series</b></li>
+        <li>Modalidad (fuerza) y medida (reps): <b>las da el tipo</b></li>
+        <li>Objetivo por defecto %RM, editable en la celda (→ kg)</li>
+        <li>Defaults pre-rellenados: 3 series, 3', tempo estándar</li>
+        <li>El coach prescribe desde el primer segundo</li>
+        <li>Guardar <b>persiste de verdad</b> (ver §6)</li>
+      </ul>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El tablero abstracto no desaparece — vive en "ajuste avanzado" (§5) para el bloque raro que un arquetipo no cubre. Pero el 95% de bloques nunca necesita verlo. El coste del caso raro deja de pagarse en cada bloque.</p>
+
+
+  <!-- ══════════════════════════════ 5 · ESCAPE HATCH ══════════════════════════════ -->
+  <h2 id="escape"><span class="surf">5</span>La salida de emergencia — "ajuste avanzado"</h2>
+  <p class="lead">El poder no se pierde, se esconde. Cada formulario lleva un "Ajuste avanzado" colapsado que abre los ejes completos — modalidad, medida, objetivo, esquema — para el bloque rarísimo que ningún arquetipo cubre exactamente. Quien lo necesite, lo tiene; quien no (casi todos), nunca lo ve.</p>
+
+  <div class="mock-tag">Mockup · ajuste avanzado (colapsado por defecto · abierto para mostrar los ejes)</div>
+  <div class="mock">
+    <!-- collapsed -->
+    <div class="mk-adv">
+      <div class="ah"><span class="cv mi">▸</span><span class="at">Ajuste avanzado</span><span class="as">modalidad · medida · objetivo · esquema — para el caso que el tipo no cubre</span></div>
+    </div>
+
+    <!-- expanded -->
+    <div class="mk-adv" style="margin-top:10px">
+      <div class="ah"><span class="cv mi">▾</span><span class="at">Ajuste avanzado</span><span class="as">override de los ejes de la prescripción</span></div>
+      <div class="abody">
+        <div class="mk-axis">
+          <div class="axl">Modalidad <span style="color:var(--faint);font-weight:500;text-transform:none;letter-spacing:0">· por defecto inferida del ejercicio</span></div>
+          <div class="pills"><span class="ap on">Fuerza</span><span class="ap">Carrera</span><span class="ap">Ergo</span><span class="ap">Circuito</span><span class="ap">Calentamiento</span></div>
+        </div>
+        <div class="mk-axis">
+          <div class="axl">Cómo se mide</div>
+          <div class="pills"><span class="ap on">Reps</span><span class="ap">Distancia</span><span class="ap">Tiempo</span><span class="ap">Calorías</span></div>
+        </div>
+        <div class="mk-axis">
+          <div class="axl">Contra qué objetivo</div>
+          <div class="pills"><span class="ap on">%RM</span><span class="ap">kg</span><span class="ap">RPE</span><span class="ap">RIR</span><span class="ap">Zona</span><span class="ap">Ritmo</span><span class="ap">Bodyweight</span></div>
+        </div>
+        <div class="mk-axis">
+          <div class="axl">Esquema</div>
+          <div class="pills"><span class="ap on">Series</span><span class="ap">Rondas</span><span class="ap">EMOM</span><span class="ap">AMRAP</span><span class="ap">For Time</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mk-help"><span class="mi">ⓘ</span> Esto es <b>exactamente</b> el editor actual — los mismos ejes — pero ahora es la excepción, no la puerta de entrada. Cambiar un eje aquí re-deriva el formulario; el arquetipo elegido sigue marcando los defaults.</div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El tablero variable-first completo cabe en un acordeón. Conserva toda la potencia del modelo de dominio (modalidad × medida × objetivo × esquema) para el coach avanzado o el bloque exótico, sin imponérselo a nadie. Es la promesa "software completo": no quitamos capacidad, la jerarquizamos.</p>
+
+
+  <!-- ══════════════════════════════ 6 · SAVE ══════════════════════════════ -->
+  <h2 id="save"><span class="surf">6</span>No negociable: tiene que GUARDAR</h2>
+  <p class="lead">El editor actual muestra un toast de "Guardado" que <b>no persiste nada</b> — el bug nº1, y el más dañino, porque destruye la confianza en silencio: el coach cree que tiene su trabajo guardado y no lo tiene. El editor reimaginado <b>persiste de verdad</b>, con estado de guardado honesto y visible.</p>
+
+  <div class="mock-tag">Mockup · barra de guardado honesta (estado real, no un toast vacío)</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-fuerza mi">▥</div>
+        <div><div class="ft">Sentadilla trasera · fuerza</div><div class="fs">5×3 @ 82% · descanso 3' · tempo 30X1</div></div>
+      </div>
+      <div class="mk-savebar">
+        <div class="st"><span class="dot"></span> Guardado a las 18:42 · auto-guardado activo</div>
+        <div class="sp">
+          <div class="mk-btn ghost">Descartar cambios</div>
+          <div class="mk-btn primary"><span class="mi">✓</span> Guardar bloque</div>
+        </div>
+      </div>
+      <div class="mk-help"><span class="mi">ⓘ</span> Estado <b>real</b>: "Guardado a las 18:42" solo aparece tras confirmar la escritura en la base de datos. Si la escritura falla, el punto se pone rojo y dice <b>"No se pudo guardar — reintentar"</b>. Nunca un "Guardado" que miente.</div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="note state">
+      <div class="h"><span class="ic">✓</span>Guardado confirmado</div>
+      <p>Punto verde + hora real. Solo tras respuesta OK del backend. El auto-guardado escribe en cada cambio significativo (debounced).</p>
+    </div>
+    <div class="note copy">
+      <div class="h"><span class="ic">…</span>Guardando</div>
+      <p>Punto ámbar pulsando + "Guardando…". Visible mientras la escritura está en vuelo. El coach sabe que algo está pasando.</p>
+    </div>
+    <div class="note rule">
+      <div class="h"><span class="ic">!</span>Error</div>
+      <p>Punto rojo + "No se pudo guardar — reintentar". Conserva los cambios en local; nada se pierde en silencio. Opuesto exacto del toast falso de hoy.</p>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Coherente con la filosofía honesta del resto de V2: cero estados falsos. Un "Guardado" debe significar guardado. Este es el cambio que más confianza devuelve al coach, y la condición de que cualquier rediseño del editor valga algo.</p>
+
+
+  <!-- ══════════════════════════════ RECAP ══════════════════════════════ -->
+  <div class="seclbl">El cambio en una frase</div>
+  <div class="principle">
+    <p>De <b>"configura el tablero abstracto de la prescripción y luego prescribe"</b> a <b>"di qué tipo de trabajo es y rellena solo lo de ese tipo"</b>. Nueve arquetipos = el vocabulario de sesión del deporte híbrido. Cuatro patrones de formulario debajo. El esqueleto Calentamiento·Principal·Vuelta a la calma como marco. La fase/metodología como etiqueta del coach, nunca como concepto del sistema. El tablero completo, intacto, escondido en "ajuste avanzado". Y guarda de verdad.</p>
+  </div>
+
+
+  <!-- ══════════════════════════════ DECISIONS ══════════════════════════════ -->
+  <h2 style="border:none;margin-top:60px">Decisiones que necesito que confirmes</h2>
+  <p class="lead">Lo objetivo ya está resuelto: el editor es arquetipo-first, los tipos son vocabulario del deporte (agnósticos), la fase es etiqueta del coach, el tablero completo vive en "ajuste avanzado", reutiliza los tokens/componentes de <code>/v2</code>, y guarda de verdad. Lo de abajo es <b>subjetivo</b> — el set exacto, el alcance de esta entrega, cómo aflora lo avanzado. Marco mi recomendación; decides tú.</p>
+
+  <div class="decision">
+    <div class="q">1 · El set de arquetipos: ¿estos 9, o una lista más corta?</div>
+    <div class="ctx">Propongo 9: Carrera continua/Z2, Series/Intervalos, Fuerza, Fuerza-potencia/EMOM, WOD/Metcon, Circuito/Core, Simulación HYROX/DEKA, Test, Activación/Tapering. Algunos son raros en el dato (EMOM, AMRAP). ¿Vale la pena un tipo dedicado para algo que aparece poco, o lo metemos como variante de otro?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Los 9, pero con jerarquía de frecuencia visible.</b> El selector ordena por uso real y marca los raros con su badge ("raro", "ciclo"). Tener tipo propio para EMOM/AMRAP cuesta poco (reutilizan el formulario de WOD) y le da al coach el vocabulario exacto que usa. Cubre el deporte completo sin obligar a nadie a escarbar. La completitud del vocabulario es objetiva; el deporte tiene estos formatos.</div>
+      <div class="opt"><b>Lista corta de 6</b> (fusionar EMOM/AMRAP dentro de WOD, Activación dentro de Z2/Circuito). Menos tarjetas, pero el coach pierde nombres que SÍ usa ("hoy toca un EMOM") y tiene que recordar dónde se esconde cada variante. Lo descarto salvo que prefieras un selector más minimalista de entrada.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">2 · ¿La plantilla de Simulación HYROX entra en esta entrega o es follow-up?</div>
+    <div class="ctx">La simulación es el arquetipo de mayor palanca (sesión clave del coach HYROX, hoy texto libre), pero también el más complejo: plantilla de 8 estaciones + runs + cargas estándar + divisiones (open/pro/dobles). ¿La construimos en este pase o entregamos primero los 8 arquetipos "simples" y la simulación como segunda fase?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>En esta entrega, versión "Full open" primero.</b> Es justo lo que hoy duele más (cae a texto libre = cero analítica). Entregar la plantilla full con cargas estándar open ya da el 80% del valor; las variantes (pro, dobles, DEKA) las añadimos como opciones del selector "Formato" en una iteración. No dejar la pieza de mayor palanca para "luego" — pero acotar el alcance de la v1 a la división más usada.</div>
+      <div class="opt"><b>Follow-up completo.</b> Entregar primero los 8 arquetipos simples y la simulación entera (todas las divisiones) después. Más limpio de construir, pero deja el dolor real (sim como texto) sin resolver en esta entrega.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">3 · ¿Cómo aflora "ajuste avanzado"?</div>
+    <div class="ctx">El acordeón colapsado al pie de cada formulario, ¿siempre visible (aunque cerrado), o solo aparece cuando el coach lo busca? ¿Y debería el sistema sugerirlo cuando detecta que el coach está "luchando" contra el arquetipo?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Siempre presente, colapsado, al pie.</b> Una línea discreta "Ajuste avanzado" en color muted al final del formulario. No se esconde del todo (el coach avanzado tiene que poder encontrarlo sin documentación) pero tampoco compite (cerrado, faint, abajo). Cero "sugerencias inteligentes" de afloramiento automático — eso es ruido y huele a IA. Si el coach lo necesita, lo abre; si no, no lo ve.</div>
+      <div class="opt"><b>Oculto hasta pedirlo</b> (un enlace "opciones" en un menú). Más limpio, pero un coach que necesita un override exótico no sabría que existe sin un manual — rompe la promesa "software completo, todo accesible".</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">4 · La etiqueta de fase/metodología: ¿obligatoria o opcional por bloque?</div>
+    <div class="ctx">Cada bloque puede etiquetarse con la fase del método del coach (Acumulación/Transformación/Realización en el ejemplo ATR de Pablo). ¿Forzamos elegir una al crear el bloque, o es opcional y el bloque hereda la fase del microciclo donde vive?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Opcional, hereda del microciclo por defecto.</b> El bloque toma la fase del microciclo que lo contiene; el coach solo la sobrescribe si ESE bloque concreto es de otra fase (raro). Así no le pedimos una decisión metodológica en cada bloque, y mantiene la agnosticidad (la fase es su dato, no del sistema). Coherente con "no preguntar lo obvio".</div>
+      <div class="opt"><b>Obligatoria por bloque.</b> Más explícito, pero añade una decisión a cada bloque que casi siempre es la misma que su microciclo — fricción sin valor.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">5 · ¿El selector de arquetipo aparece como sheet/modal o inline en el esqueleto?</div>
+    <div class="ctx">Al pulsar "Añadir bloque", ¿abrimos el grid de 9 tarjetas en un sheet superpuesto, o lo expandimos inline dentro del rol de la sesión (empujando el contenido)?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Sheet/overlay.</b> El grid de 9 tarjetas necesita espacio para leerse bien (icono + nombre + para-qué). Un sheet lo presenta como un momento de decisión claro ("¿qué tipo es?") sin descomponer el esqueleto de la sesión. Al elegir, el sheet se reemplaza por el formulario a medida, que sí vive inline en el rol. Es el patrón estándar de "elegir de un catálogo".</div>
+      <div class="opt"><b>Inline expandible.</b> Mantiene todo en una pantalla, pero el grid empuja mucho contenido y el esqueleto pierde legibilidad con 9 tarjetas intercaladas. Lo descarto salvo que prefieras evitar overlays.</div>
+    </div>
+  </div>
+
+  <footer>
+    Pase de UX · Editor por arquetipos (microciclo / sesión · dashboard del coach V2) · FAHYBRIK / vanwida · 24 jun 2026 · Mockups con tokens reales de <code>/v2</code> (<code>#0a0a0a</code> · <code>#f06a2a</code> · hues de modalidad) · Arquetipos = vocabulario del deporte híbrido, agnósticos a metodología · ATR solo como ejemplo de etiqueta editable · Pendiente de tu sign-off antes de construir
+  </footer>
+
+</div>
+</body>
+</html>

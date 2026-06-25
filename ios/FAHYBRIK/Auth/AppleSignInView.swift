@@ -4,6 +4,7 @@ import AuthenticationServices
 struct AppleSignInView: View {
     let onAuthenticated: (AppleAuthResponse) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var error: String?
     @State private var inProgress: Bool = false
 
@@ -14,7 +15,7 @@ struct AppleSignInView: View {
                 Spacer()
 
                 HStack(spacing: 0) {
-                    Text("[F]").foregroundStyle(Theme.Color.accent)
+                    Text("[F]").foregroundStyle(Theme.Color.accentText)
                     Text("AHYBRIK").foregroundStyle(Theme.Color.foreground)
                 }
                 .font(Theme.Typography.display)
@@ -65,7 +66,7 @@ struct AppleSignInView: View {
                         }
                     }
                 }
-                .signInWithAppleButtonStyle(.white)
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 54)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -78,7 +79,7 @@ struct AppleSignInView: View {
                 }
 
                 if inProgress {
-                    ProgressView().tint(Theme.Color.accent)
+                    ProgressView().tint(Theme.Color.accentText)
                 }
 
                 LegalAcknowledgementText()
@@ -99,13 +100,13 @@ private struct LegalAcknowledgementText: View {
             var s = AttributedString("Al continuar aceptas los ")
             var terms = AttributedString("Términos")
             terms.link = Self.termsURL
-            terms.foregroundColor = Theme.Color.accent
+            terms.foregroundColor = Theme.Color.accentText
             terms.underlineStyle = .single
             s += terms
             s += AttributedString(" y la ")
             var privacy = AttributedString("Política de privacidad")
             privacy.link = Self.privacyURL
-            privacy.foregroundColor = Theme.Color.accent
+            privacy.foregroundColor = Theme.Color.accentText
             privacy.underlineStyle = .single
             s += privacy
             s += AttributedString(".")
@@ -116,6 +117,6 @@ private struct LegalAcknowledgementText: View {
             .font(Theme.Typography.caption)
             .foregroundStyle(Theme.Color.muted)
             .multilineTextAlignment(.center)
-            .tint(Theme.Color.accent)
+            .tint(Theme.Color.accentText)
     }
 }

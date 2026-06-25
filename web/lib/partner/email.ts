@@ -69,14 +69,14 @@ export async function sendPartnerInvitationEmail(
   const { error } = await resend.emails.send({
     from: AUTH_CONFIG.resendFromEmail(),
     to: input.to,
-    subject: `Únete a ${inviterLabelHtml} en FAHYBRIK`,
+    subject: `Únete a ${inviterLabelHtml} en FAHYBRID`,
     text:
-      `${inviterLabel} te ha invitado a entrenar en pareja en FAHYBRIK (modalidad Dobles HYROX).\n\n` +
+      `${inviterLabel} te ha invitado a entrenar en pareja en FAHYBRID (modalidad Dobles HYROX).\n\n` +
       `Acepta la invitación aquí (sin pago, tu compañero/a ya cubre la suscripción Dobles):\n\n${link}\n\n` +
       `El enlace expira en ${expiresDays} días.\n\nSi no esperabas este correo, ignóralo.`,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
-        <h1 style="margin:0 0 12px;font-size:22px;letter-spacing:-0.01em;">FAHYBRIK · Dobles HYROX</h1>
+        <h1 style="margin:0 0 12px;font-size:22px;letter-spacing:-0.01em;">FAHYBRID · Dobles HYROX</h1>
         <p style="margin:0 0 8px;line-height:1.5;">
           <strong>${inviterLabelHtml}</strong> te ha invitado a entrenar en pareja.
         </p>

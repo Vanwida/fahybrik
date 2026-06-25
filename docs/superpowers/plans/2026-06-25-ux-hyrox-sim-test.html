@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pase de UX — Simulación HYROX + Test &amp; calculadora de zonas (FAHYBRIK V2)</title>
+<style>
+  /* ───────────────────────── DOC SHELL (light, readable) ─────────────────────────
+     Idéntico al pase hermano 2026-06-24-ux-editor-arquetipos.html para continuidad. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1040px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:22px;font-weight:800;margin:54px 0 6px;letter-spacing:-0.3px}
+  h2 .surf{font-size:13px;font-weight:700;color:#fff;background:#ff6600;padding:3px 9px;border-radius:6px;vertical-align:middle;margin-right:10px;letter-spacing:0}
+  h3{font-size:15.5px;font-weight:700;margin:26px 0 8px;color:#1a1a1a}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0 8px}
+  .toc a{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:16px 18px;transition:border-color .15s}
+  .toc a:hover{border-color:#ff6600}
+  .toc .n{font-size:11px;font-weight:800;color:#ff6600;text-transform:uppercase;letter-spacing:0.6px}
+  .toc .t{font-size:16px;font-weight:700;margin:4px 0 4px}
+  .toc .d{font-size:12.5px;color:#777;line-height:1.4}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:26px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+  .note{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 18px;margin:10px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.act .h .ic{background:#eef4ff;color:#1a4ba0}
+  .note.copy .h .ic{background:#fdf0e6;color:#b07000}
+  .note.state .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note.rule .h .ic{background:#f3ecff;color:#5a2da0}
+  .note ul{list-style:none;padding:0;font-size:13.5px;color:#3a3a3a}
+  .note li{padding:5px 0 5px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .note.rule li::before{content:'✓';color:#5a2da0;font-weight:800}
+  .note .k{font-weight:700;color:#1a1a1a}
+  .note p{font-size:13.5px;margin:0}
+
+  .risk{background:#fff8ec;border:1px solid #f5d58a;border-radius:8px;padding:9px 14px;margin:10px 0;font-size:13.5px;color:#5a4410}
+  .risk b{color:#b07000}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:16px 20px;margin:14px 0}
+  .decision .q{font-weight:700;font-size:15px;margin-bottom:6px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:10px}
+  .decision .opts{display:flex;flex-direction:column;gap:6px}
+  .decision .opt{font-size:13.5px;padding:7px 12px;border-radius:7px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:#ff6600;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  /* flow diagram (test → zones → plan) */
+  .flow{display:grid;grid-template-columns:1fr 30px 1fr 30px 1fr 30px 1fr;gap:0;align-items:stretch;margin:16px 0;background:#101010;border-radius:14px;padding:16px 14px}
+  .flow .step{padding:12px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+  .flow .step .n{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#ff8a3d;margin-bottom:5px}
+  .flow .step .t{font-size:13px;font-weight:700;color:#f4f4f0;line-height:1.3}
+  .flow .step .d{font-size:11px;color:#bdbdb8;line-height:1.4;margin-top:4px}
+  .flow .arr{display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#ff6600}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  /* ════════════════════════ DARK MOCKUP CANVAS (real product) ════════════════════════
+     Espejo EXACTO de web/app/[locale]/(v2)/v2-theme.css (dark) + tokens de modalidad.
+     Scoped bajo .mock. Mismos valores que el pase hermano. ────── */
+  .mock{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-press:#d85a20; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.14);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.14);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.14);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.14);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.14);
+    --mod-carrera:#e5484d; --mod-ergo:#4d9eeb; --mod-fuerza:#e0a93b; --mod-circuito:#3fc773; --mod-calentamiento:#9b9b9b;
+    --mod-carrera-soft:rgba(229,72,77,0.14); --mod-ergo-soft:rgba(77,158,235,0.14);
+    --mod-fuerza-soft:rgba(224,169,59,0.14); --mod-circuito-soft:rgba(63,199,115,0.14); --mod-calentamiento-soft:rgba(155,155,155,0.14);
+    /* ── Zonas de entrenamiento (réplica de la calculadora de Pablo, adaptada a dark).
+          La paleta de zona = SEMÁNTICA de intensidad, no decoración. Z1 verde frío →
+          Z6 negro/granate. Elegidas para distinguirse en near-black y no chocar con el
+          naranja brand (= "seleccionado"). El color nunca es la única señal: cada zona
+          lleva número + label. ── */
+    --z1:#34c46a; --z1-soft:rgba(52,196,106,0.13);   /* recuperación activa — verde */
+    --z2:#4d9eeb; --z2-soft:rgba(77,158,235,0.13);   /* aeróbico extensivo — azul */
+    --z3:#e0a93b; --z3-soft:rgba(224,169,59,0.13);   /* aeróbico intensivo — ámbar */
+    --z4:#f2504f; --z4-soft:rgba(242,80,79,0.13);    /* umbral anaeróbico — rojo */
+    --z5:#b13a52; --z5-soft:rgba(177,58,82,0.16);    /* VO2max / potencia — granate */
+    --z6:#e8e8e8; --z6-soft:rgba(255,255,255,0.06);  /* sprint / potencia máx — claro sobre negro */
+    --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
+    background:var(--bg); color:var(--fg);
+    border-radius:18px; padding:26px 26px 28px; margin:14px 0 6px;
+    border:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 24px 60px -24px rgba(0,0,0,0.55);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+    line-height:1.45;
+  }
+  .mock-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:18px 0 7px;display:flex;align-items:center;gap:8px}
+  .mock-tag::before{content:'▸';color:#ff6600}
+
+  .mock *{box-sizing:border-box}
+  .mk-display{font-weight:900;font-style:italic;letter-spacing:-0.01em;line-height:1;font-family:'Archivo Black','SF Pro Display',system-ui,sans-serif}
+  .mk-micro{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+  .mk-num{font-family:'SF Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+  .mi{font-family:-apple-system,system-ui,sans-serif;display:inline-block;line-height:1}
+
+  /* topbar — idéntico al pase hermano */
+  .mk-topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+  .mk-h1{font-size:26px}
+  .mk-h1 .dim{color:var(--muted);font-weight:900}
+  .mk-pills{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .mk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:3px 10px;font-size:11px;font-weight:600}
+  .mk-pill.neutral{background:var(--surface2);color:var(--muted)}
+  .mk-pill.accent{background:var(--accent-soft);color:var(--accent)}
+  .mk-pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .mk-pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .mk-pill.info{background:var(--info-soft);color:var(--info)}
+
+  .mk-seg{display:inline-flex;gap:2px;border-radius:var(--r-pill);padding:2px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:700}
+  .mk-seg span{padding:5px 12px;border-radius:var(--r-pill);color:var(--muted)}
+  .mk-seg span.on{background:var(--accent);color:var(--accent-fg)}
+
+  .mk-btn{display:inline-flex;align-items:center;gap:5px;height:30px;border-radius:var(--r-s);padding:0 11px;font-size:11.5px;font-weight:700;border:1px solid var(--border);color:var(--muted)}
+  .mk-btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .mk-btn.ghost{background:transparent}
+  .mk-btn .mi{font-size:15px}
+  .mk-btn.lg{height:34px;font-size:12.5px}
+  .mk-btn.sm{height:26px;font-size:11px;padding:0 9px}
+
+  /* form scaffolding — idéntico al pase hermano */
+  .mk-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:16px 18px}
+  .mk-formhdr{display:flex;align-items:center;gap:11px;margin-bottom:14px;padding-bottom:13px;border-bottom:1px solid var(--border)}
+  .mk-formhdr .ico{width:30px;height:30px;border-radius:var(--r-s);display:inline-flex;align-items:center;justify-content:center;font-size:16px}
+  .mk-formhdr .ft{font-size:14px;font-weight:800;color:var(--fg)}
+  .mk-formhdr .fs{font-size:11px;color:var(--muted);margin-top:1px}
+  .mk-formhdr .chg{margin-left:auto;font-size:11px;font-weight:700;color:var(--accent);cursor:pointer}
+
+  .mk-frow{display:grid;gap:10px;margin-bottom:11px}
+  .mk-field label{display:block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:5px}
+  .mk-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 11px;font-size:13px;color:var(--fg);font-weight:600;display:flex;align-items:center;gap:6px;min-height:36px}
+  .mk-input .un{color:var(--muted);font-weight:600;font-size:12px}
+  .mk-input.ph{color:var(--faint);font-weight:500}
+  .mk-input .mk-num{color:var(--fg)}
+  .mk-input.sel-ctrl{justify-content:space-between}
+  .mk-input.sel-ctrl .car{color:var(--faint);font-size:11px}
+
+  .ti-carrera{background:var(--mod-carrera-soft);color:var(--mod-carrera)}
+  .ti-ergo{background:var(--mod-ergo-soft);color:var(--mod-ergo)}
+  .ti-fuerza{background:var(--mod-fuerza-soft);color:var(--mod-fuerza)}
+  .ti-circuito{background:var(--mod-circuito-soft);color:var(--mod-circuito)}
+  .ti-cal{background:var(--mod-calentamiento-soft);color:var(--mod-calentamiento)}
+  .ti-accent{background:var(--accent-soft);color:var(--accent)}
+
+  /* help line + tag row — idénticos al pase hermano */
+  .mk-help{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.4}
+  .mk-help .mi{color:var(--accent);font-size:13px;flex-shrink:0;opacity:.8}
+  .mk-help b{color:var(--muted);font-weight:700}
+  .mk-tagrow{display:flex;align-items:center;gap:9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 13px;margin-top:12px;flex-wrap:wrap}
+  .mk-tagrow .tl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .mk-tagrow .tg{font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--r-pill);background:var(--surface);border:1px solid var(--border-strong);color:var(--muted)}
+  .mk-tagrow .tg.on{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+  .mk-tagrow .opt{font-size:10.5px;color:var(--faint);margin-left:auto}
+
+  /* ── HYROX SIMULATION TEMPLATE · stations + intercalated runs ─────────────────
+     Carril de timeline a la izquierda; estación = fila editable. ────── */
+  .mk-sim-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:6px}
+  .mk-simlist{display:flex;flex-direction:column;gap:0;position:relative;padding-left:26px;margin-top:8px}
+  /* the vertical timeline rail */
+  .mk-simlist::before{content:'';position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--mod-carrera) 0%,var(--mod-circuito) 100%);opacity:.35;border-radius:2px}
+  .mk-simrow{position:relative;display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 12px;margin-bottom:7px;border-left-width:3px;border-left-style:solid}
+  .mk-simrow .node{position:absolute;left:-23px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;border:2px solid var(--bg)}
+  .mk-simrow .sn{width:24px;height:24px;border-radius:var(--r-xs);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;font-family:'SF Mono',monospace;flex-shrink:0}
+  .mk-simrow .smv{font-size:12.5px;font-weight:700;color:var(--fg);flex:1;line-height:1.2}
+  .mk-simrow .smv .sub{font-size:10.5px;font-weight:600;color:var(--faint);display:block;margin-top:1px}
+  .mk-simrow .sdose{display:flex;align-items:center;gap:6px}
+  .mk-simrow .sdose .pill{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xs);padding:4px 8px;font-size:11.5px;font-weight:700;font-family:'SF Mono',monospace;color:var(--fg);display:flex;align-items:center;gap:4px}
+  .mk-simrow .sdose .pill .un{color:var(--muted);font-weight:500;font-size:10px}
+  .mk-simrow .sdose .pill.editable{border-color:var(--border-strong)}
+  .mk-simrow .sdose .pill .pen{color:var(--faint);font-size:10px}
+  /* run rows carry the carrera hue */
+  .mk-simrow.run{border-left-color:var(--mod-carrera);background:var(--mod-carrera-soft)}
+  .mk-simrow.run .node{background:var(--mod-carrera)}
+  .mk-simrow.run .sn{color:var(--mod-carrera);background:transparent}
+  .mk-simrow.run .smv{color:var(--mod-carrera)}
+  .mk-simrow.run .sdose .pill{border-color:rgba(229,72,77,.3)}
+  /* station rows carry the circuito hue */
+  .mk-simrow.stn{border-left-color:var(--mod-circuito)}
+  .mk-simrow.stn .node{background:var(--mod-circuito)}
+  .mk-simrow.stn .sn{color:var(--mod-circuito);background:var(--mod-circuito-soft)}
+
+  /* ── ZONE CALCULATOR · Pablo's visualization, dark v2 ─────────────────────────
+     Two columns (per modality) of zone cards. Each card = dot + zona N · label +
+     pace range. Plus the result bar at the bottom. ────── */
+  .mk-calc-hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:4px}
+  .mk-calc-hdr .athlete{display:flex;align-items:center;gap:11px}
+  .mk-calc-hdr .av{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:14px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-family:'SF Mono',monospace}
+  .mk-calc-hdr .who .nm{font-size:15px;font-weight:800;color:var(--fg)}
+  .mk-calc-hdr .who .dt{font-size:11px;color:var(--muted);margin-top:1px}
+  .mk-calc-title{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);text-align:right;line-height:1.5}
+  .mk-calc-title b{display:block;color:var(--accent);font-size:13px;letter-spacing:.04em}
+
+  .mk-zone-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .mk-zone-col .colhdr{display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .mk-zone-col .colhdr .mdot{width:9px;height:9px;border-radius:2px}
+  .mk-zone-col .colhdr .cn{font-size:12.5px;font-weight:800;color:var(--fg)}
+  .mk-zone-col .colhdr .cb{font-size:11px;color:var(--muted);margin-left:auto;font-family:'SF Mono',monospace}
+  .mk-zone-col .colhdr .cb b{color:var(--fg)}
+
+  .mk-zone{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:10px 13px;margin-bottom:7px;border-left-width:3px;border-left-style:solid}
+  .mk-zone .zdot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  .mk-zone .zmeta{flex:1;min-width:0}
+  .mk-zone .zmeta .zt{font-size:12.5px;font-weight:800;color:var(--fg);line-height:1.2}
+  .mk-zone .zmeta .zl{font-size:11px;color:var(--muted);margin-top:1px;line-height:1.3}
+  .mk-zone .zrange{font-size:13px;font-weight:800;font-family:'SF Mono',monospace;color:var(--fg);white-space:nowrap;letter-spacing:-0.01em}
+  .mk-zone .zrange .un{font-size:10px;color:var(--faint);font-weight:600;margin-left:2px}
+  .mk-zone .zbadge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:var(--surface2);color:var(--muted);border-radius:var(--r-pill);padding:2px 7px;margin-left:8px}
+  /* zone hues on dot + left rail */
+  .z-1{border-left-color:var(--z1)} .z-1 .zdot{background:var(--z1)}
+  .z-2{border-left-color:var(--z2)} .z-2 .zdot{background:var(--z2)}
+  .z-3{border-left-color:var(--z3)} .z-3 .zdot{background:var(--z3)}
+  .z-4{border-left-color:var(--z4)} .z-4 .zdot{background:var(--z4)}
+  .z-5{border-left-color:var(--z5)} .z-5 .zdot{background:var(--z5)}
+  .z-6{border-left-color:var(--z6)} .z-6 .zdot{background:var(--z6);box-shadow:0 0 0 1px var(--border-strong)}
+  .z-6 .zbadge{background:#000;color:#e8e8e8;border:1px solid var(--border-strong)}
+
+  /* result bar */
+  .mk-result{display:flex;align-items:center;gap:16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-m);padding:13px 16px;margin-top:16px;flex-wrap:wrap}
+  .mk-result .rl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--accent)}
+  .mk-result .rv{display:flex;align-items:baseline;gap:6px}
+  .mk-result .rv .rk{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .mk-result .rv .rn{font-size:17px;font-weight:800;font-family:'SF Mono',monospace;color:var(--fg);letter-spacing:-0.01em}
+  .mk-result .rv .ru{font-size:11px;color:var(--muted);font-weight:600}
+  .mk-result .sep{width:1px;align-self:stretch;background:var(--border);margin:-2px 0}
+  .mk-result .rdate{margin-left:auto;font-size:11px;color:var(--faint);font-family:'SF Mono',monospace}
+
+  /* "estimada" warning chip (resolver fallback) */
+  .mk-estchip{display:inline-flex;align-items:center;gap:5px;background:var(--warn-soft);color:var(--warn);border-radius:var(--r-pill);padding:3px 10px;font-size:10.5px;font-weight:700}
+
+  /* single-modality run-test variant: zone table with /km */
+  .mk-zone-single{max-width:520px;margin:0 auto}
+
+  /* feeds-the-plan callout strip */
+  .mk-feeds{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,var(--accent-soft),transparent);border:1px solid rgba(240,106,42,.25);border-left:3px solid var(--accent);border-radius:var(--r-s);padding:11px 15px;margin-top:14px}
+  .mk-feeds .fi{font-size:18px;color:var(--accent);flex-shrink:0}
+  .mk-feeds .ftx{font-size:12px;color:var(--muted);line-height:1.45}
+  .mk-feeds .ftx b{color:var(--fg);font-weight:700}
+  .mk-feeds .ftx .mk-num{color:var(--accent);font-weight:700}
+
+  /* before/after prescription-resolution chip pair */
+  .mk-resolve{display:grid;grid-template-columns:1fr 30px 1fr;gap:0;align-items:center;margin-top:10px}
+  .mk-resolve .rc{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:10px 13px}
+  .mk-resolve .rc .lbl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:4px}
+  .mk-resolve .rc .val{font-size:13px;font-weight:700;color:var(--fg);font-family:'SF Mono',monospace}
+  .mk-resolve .rc.rel .val{color:var(--muted)}
+  .mk-resolve .rc.abs{border-color:rgba(240,106,42,.3)}
+  .mk-resolve .rc.abs .val{color:var(--accent)}
+  .mk-resolve .arr{text-align:center;color:var(--accent);font-size:16px;font-weight:800}
+
+  @media(max-width:820px){
+    .toc,.grid3,.flow{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+    .mk-sim-meta{grid-template-columns:1fr}
+    .mk-zone-cols{grid-template-columns:1fr}
+    .flow .arr{transform:rotate(90deg);height:30px}
+    .mk-resolve{grid-template-columns:1fr}
+    .mk-resolve .arr{transform:rotate(90deg);padding:6px 0}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Pase de UX — Simulación HYROX + Test &amp; calculadora de zonas</h1>
+  <div class="sub">Para sign-off · ANTES de codear · Dos arquetipos aplazados del editor por arquetipos · Dashboard del coach V2 · FAHYBRIK · 25 jun 2026</div>
+
+  <div class="principle">
+    <p><b>Qué es esto.</b> El <a href="2026-06-24-ux-editor-arquetipos.html" style="color:#ffb340">pase del editor por arquetipos</a> dejó dos piezas señaladas como "primera clase" pero sin diseño completo: la <b>Simulación HYROX</b> (plantilla de las 8 estaciones) y el <b>Test</b> con su salida — la <b>calculadora de zonas</b>. Las dos son hoy lo que más duele: <b>caen a texto libre</b>, sin estructura, sin analítica, sin que la app "meta los ritmos". Este pase las diseña enteras.</p>
+    <p><b>Por qué importan más que el resto.</b> La simulación es la sesión <b>clave</b> de un coach HYROX. El test no es un bloque: es el <b>resolutor</b> de todo el plan — el atleta lo hace una vez, sus zonas se calculan, y a partir de ahí <b>cada</b> prescripción en zona/RPE/ritmo se traduce a SUS ritmos absolutos. Sin el test, la biblioteca de Pablo "canta" igual para todos; con él, el mismo bloque sale en números distintos por atleta.</p>
+    <p><b>La referencia que Pablo aprobó.</b> Pablo hizo a mano una "Calculadora de Zonas Ski-Erg &amp; Remo" que le gustó: de un test (Remo 1:55, Ski 2:04) calcula 6 zonas en dos columnas con su dot de color, su label y su rango de ritmo /500m. <b>Replicamos esa estructura exacta</b>, llevada al dark V2 (#0a0a0a, naranja Fabrik, los colores de zona). Pablo juzga esto — tiene que ser fiel.</p>
+    <p><b>Agnóstico, como todo.</b> El <b>tipo</b> "Simulación" y "Test" es vocabulario del deporte (universal). Pero las <b>matemáticas y los labels de las zonas son metodología</b> — vienen de <code style="background:#222;color:#ffb340">shared/domain/methodology/zones.ts</code>, son el modelo de zonas del coach, <b>no inventados por nosotros</b>. Nosotros damos la herramienta y la visualización; el coach posee las definiciones. (Ver decisión 1: zonas fijas vs configurables — y el desajuste 5↔6 zonas a resolver.)</p>
+  </div>
+
+  <div class="toc">
+    <a href="#sim"><div class="n">1 · Simulación HYROX</div><div class="t">Plantilla de 8 estaciones</div><div class="d">El coach elige "Simulación", obtiene las 8 estaciones + 8×1 km en orden oficial. Ajusta cargas y ritmo. Variantes open/pro/dobles/DEKA.</div></a>
+    <a href="#test-author"><div class="n">2 · Test · autoría</div><div class="t">El coach añade un test</div><div class="d">Elige el TIPO (remo 2k, ski 2k, run 3'/9'/30'…), modalidad auto, objetivo RPE10 + "almacena ritmo/zonas". Formulario ligero.</div></a>
+    <a href="#calc"><div class="n">3 · Calculadora de zonas</div><div class="t">La salida, réplica de Pablo</div><div class="d">El atleta hace el test → 6 zonas calculadas → tarjetas con dot + label + rango. Multi-modalidad (remo+ski) y single (run).</div></a>
+    <a href="#chain"><div class="n">4 · La cadena</div><div class="t">Test → zonas → ritmos absolutos</div><div class="d">Cómo el resultado del test alimenta TODA prescripción del plan. El resolutor en acción.</div></a>
+    <a href="#where"><div class="n">5 · Dónde vive</div><div class="t">Ubicación de la calculadora</div><div class="d">En el perfil del atleta y en el resultado del test. Una sola fuente de verdad de zonas.</div></a>
+    <a href="#agnostic"><div class="n">6 · Agnosticismo</div><div class="t">Quién posee las zonas</div><div class="d">El modelo (math + labels) es del coach, vive en zones.ts. Nosotros: herramienta + viz. Decisión: fijas vs configurables.</div></a>
+  </div>
+
+
+  <!-- ══════════════════════════════ 1 · SIMULACIÓN HYROX ══════════════════════════════ -->
+  <h2 id="sim"><span class="surf">1</span>Simulación HYROX — plantilla propia de las 8 estaciones</h2>
+  <p class="lead">El formato HYROX es fijo: <b>8 carreras de 1 km intercaladas con 8 estaciones en orden</b>. No es una lista de componentes en blanco que el coach tenga que armar — es una <b>plantilla pre-cargada</b> con las 8 estaciones, los 8 runs entre ellas, y las cargas estándar de la división. El coach solo elige la división, ajusta las cargas/objetivos por atleta y fija el ritmo de carrera. Hoy esto se escribe a mano como texto → cero analítica. La plantilla lo convierte en dato estructurado que la app puede cronometrar, segmentar y comparar contra objetivo.</p>
+
+  <div class="mock-tag">Mockup · Simulación HYROX — plantilla oficial, 8 estaciones + 8×1 km en orden, cargas editables</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-circuito mi">◆</div>
+        <div><div class="ft">Simulación HYROX</div><div class="fs">Plantilla oficial · 8 estaciones intercaladas con 8×1 km · cargas + ritmos objetivo</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <!-- division + run pace + total goal -->
+      <div class="mk-sim-meta">
+        <div class="mk-field"><label>División</label><div class="mk-input sel-ctrl"><span>Full · Open ♂</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Ritmo run objetivo</label><div class="mk-input"><span class="mk-num" style="color:var(--mod-carrera)">4:30</span><span class="un">/km</span></div></div>
+        <div class="mk-field"><label>Objetivo total</label><div class="mk-input"><span class="mk-num">1:08</span><span class="un">h:mm</span></div></div>
+      </div>
+      <div class="mk-help" style="margin-top:4px"><span class="mi">ⓘ</span> Al elegir la división, las 8 estaciones se pre-cargan con sus <b>cargas estándar</b>. Cambia la división y las cargas se actualizan solas; ajusta una carga concreta tocando su pastilla.</div>
+
+      <div class="mk-field" style="margin:14px 0 4px"><label>Recorrido (orden oficial · 1 km de carrera antes de cada estación)</label></div>
+      <div class="mk-simlist">
+        <!-- R1 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R1</span><span class="smv">Run 1 km<span class="sub">carrera</span></span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 1 SkiErg -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">1</span><span class="smv">SkiErg<span class="sub">ergo</span></span><div class="sdose"><span class="pill"><span class="mk-num">1000</span><span class="un">m</span></span><span class="pill editable"><span class="mk-num">2:08</span><span class="un">/500m</span><span class="pen mi">✎</span></span></div></div>
+        <!-- R2 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R2</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 2 Sled Push -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">2</span><span class="smv">Sled Push<span class="sub">fuerza</span></span><div class="sdose"><span class="pill"><span class="mk-num">50</span><span class="un">m</span></span><span class="pill editable"><span class="mk-num">152</span><span class="un">kg</span><span class="pen mi">✎</span></span></div></div>
+        <!-- R3 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R3</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 3 Sled Pull -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">3</span><span class="smv">Sled Pull<span class="sub">fuerza</span></span><div class="sdose"><span class="pill"><span class="mk-num">50</span><span class="un">m</span></span><span class="pill editable"><span class="mk-num">103</span><span class="un">kg</span><span class="pen mi">✎</span></span></div></div>
+        <!-- R4 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R4</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 4 Burpee Broad Jump -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">4</span><span class="smv">Burpee Broad Jump<span class="sub">circuito</span></span><div class="sdose"><span class="pill"><span class="mk-num">80</span><span class="un">m</span></span></div></div>
+        <!-- R5 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R5</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 5 RowErg -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">5</span><span class="smv">RowErg<span class="sub">ergo</span></span><div class="sdose"><span class="pill"><span class="mk-num">1000</span><span class="un">m</span></span><span class="pill editable"><span class="mk-num">1:58</span><span class="un">/500m</span><span class="pen mi">✎</span></span></div></div>
+        <!-- R6 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R6</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 6 Farmers Carry -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">6</span><span class="smv">Farmers Carry<span class="sub">fuerza</span></span><div class="sdose"><span class="pill"><span class="mk-num">200</span><span class="un">m</span></span><span class="pill editable"><span class="mk-num">2×24</span><span class="un">kg</span><span class="pen mi">✎</span></span></div></div>
+        <!-- R7 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R7</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 7 Sandbag Lunges -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">7</span><span class="smv">Sandbag Lunges<span class="sub">fuerza</span></span><div class="sdose"><span class="pill"><span class="mk-num">100</span><span class="un">m</span></span><span class="pill editable"><span class="mk-num">20</span><span class="un">kg</span><span class="pen mi">✎</span></span></div></div>
+        <!-- R8 -->
+        <div class="mk-simrow run"><span class="node"></span><span class="sn">R8</span><span class="smv">Run 1 km</span><div class="sdose"><span class="pill editable"><span class="mk-num">4:30</span><span class="un">/km</span><span class="pen mi">✎</span></span></div></div>
+        <!-- 8 Wall Balls -->
+        <div class="mk-simrow stn"><span class="node"></span><span class="sn">8</span><span class="smv">Wall Balls<span class="sub">circuito</span></span><div class="sdose"><span class="pill"><span class="mk-num">100</span><span class="un">reps</span></span><span class="pill editable"><span class="mk-num">9</span><span class="un">kg</span><span class="pen mi">✎</span></span></div></div>
+      </div>
+
+      <div class="mk-tagrow">
+        <span class="tl">Fase del método</span>
+        <span class="tg">Acumulación</span>
+        <span class="tg">Transformación</span>
+        <span class="tg on">Realización</span>
+        <span class="opt">opcional · hereda del microciclo</span>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> El carril vertical = la línea de tiempo de la carrera (coral run → verde estación). Las 17 entradas (8 runs + 8 estaciones + el orden) vienen <b>bloqueadas en su orden oficial</b>; el coach no las reordena ni las borra. Solo edita las pastillas ✎ (cargas, ritmos). Esto es lo que diferencia la plantilla de un WOD genérico: la <b>estructura es el dato</b>.</div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:14px">
+    <div class="note rule">
+      <div class="h"><span class="ic">✓</span>Por qué plantilla, no lista en blanco</div>
+      <ul>
+        <li><span class="k">Orden y estructura fijos</span> = la app puede segmentar el simulacro lap a lap y comparar contra el objetivo de cada estación.</li>
+        <li><span class="k">Cargas estándar por división</span> = el coach parte de lo correcto; ajusta solo lo del atleta.</li>
+        <li><span class="k">Run intercalado explícito</span> = los 8×1 km son entrenamiento medible, no "y luego corres".</li>
+        <li><span class="k">Cero texto libre</span> = analítica real (split por estación, pacing, comparación inter-simulacros).</li>
+      </ul>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">◆</span>Variantes — qué entra en este pase</div>
+      <p style="margin-bottom:8px">El selector "División" abre las variantes oficiales. Para acotar el alcance de v1 (ver decisión 2):</p>
+      <ul>
+        <li><span class="k">Full · Open</span> (♂ 152/103 kg · ♀ 102/78 kg) — <b style="color:#0d7a2e">este pase</b>. La división más usada.</li>
+        <li><span class="k">Full · Pro</span> (cargas elevadas) — <b style="color:#0d7a2e">este pase</b>, mismo layout, otras cargas estándar.</li>
+        <li><span class="k">Dobles</span> (reparto de estaciones entre 2) — <span style="color:#b07000">follow-up</span>: cambia la lógica de quién hace qué.</li>
+        <li><span class="k">DEKA</span> (otro formato de estaciones) — <span style="color:#b07000">follow-up</span>: plantilla distinta, no es HYROX.</li>
+      </ul>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Open ♂/♀ y Pro comparten exactamente este layout — solo cambian las cargas estándar pre-cargadas, que son un dato (no UI nueva). Dobles y DEKA cambian la <b>estructura</b> (reparto / formato distinto) → son plantillas propias, follow-up. Entregar Full Open+Pro ya resuelve el 80% del dolor (la sim clave que hoy es texto). Las cargas estándar mostradas son las oficiales de HYROX para la temporada vigente; el coach las sobrescribe por atleta.</p>
+
+
+  <!-- ══════════════════════════════ 2 · TEST · AUTORÍA ══════════════════════════════ -->
+  <h2 id="test-author"><span class="surf">2</span>Test — autoría (el coach añade el bloque)</h2>
+  <p class="lead">En el editor, el bloque "Test" es <b>ligero</b>: el coach elige el <b>tipo de test</b> de su batería, la modalidad se auto-fija, y el objetivo es siempre <b>RPE 10</b> (esfuerzo máximo). Lo que distingue al test de cualquier otro bloque es la línea naranja: <b>"almacena ritmo/zonas"</b> — declara que el resultado de este bloque no es un registro más, sino que <b>actualiza el perfil de ritmos del atleta</b> y dispara la calculadora de zonas. Hay <b>varios tipos de test</b>, no solo remo/ski.</p>
+
+  <div class="mock-tag">Mockup · Test — el coach elige el tipo; modalidad auto; RPE10; "almacena ritmo/zonas"</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-accent mi">◎</div>
+        <div><div class="ft">Test</div><div class="fs">Esfuerzo máximo · el resultado calcula las zonas y alimenta los ritmos del plan</div></div>
+        <span class="chg">↺ Cambiar tipo</span>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1.3fr 1fr 0.9fr">
+        <div class="mk-field"><label>Tipo de test</label><div class="mk-input sel-ctrl"><span>Remo + Ski 2 km</span><span class="car mi">▾</span></div></div>
+        <div class="mk-field"><label>Modalidad</label><div class="mk-input"><span style="color:var(--mod-ergo)">Ergo · remo + ski</span></div></div>
+        <div class="mk-field"><label>Esfuerzo</label><div class="mk-input"><span class="mk-num" style="color:var(--accent)">RPE 10</span></div></div>
+      </div>
+
+      <div class="mk-field" style="margin-bottom:5px"><label>Protocolo (de tu batería de tests)</label></div>
+      <div class="mk-tagrow" style="margin-top:0">
+        <span class="tg on">Remo 2 km</span>
+        <span class="tg on">Ski 2 km</span>
+        <span class="opt" style="margin-left:0;color:var(--muted)">2000 m a tope por máquina → split /500m → bandas Concept2</span>
+      </div>
+
+      <div class="mk-tagrow" style="background:var(--accent-soft);border-color:transparent;margin-top:10px">
+        <span class="tl" style="color:var(--accent)">⤓ Almacena ritmo / zonas</span>
+        <span class="tg on" style="background:var(--surface);color:var(--fg);border-color:var(--border)">Split /500m → 6 zonas (Concept2)</span>
+        <span class="opt" style="color:var(--muted)">recalcula los ritmos objetivo de remo y ski en todo el plan</span>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> El <b>cálculo</b> (split → zonas) es objetivo y fijo por tipo de test: remo/ski → <b>bandas Concept2</b>, correr → <b>VDOT</b>, fuerza → <b>%RM (Epley)</b>. El coach personaliza el <b>protocolo</b> (qué distancia, qué máquinas, qué semana), no la fórmula. Por eso "la app mete los ritmos sola".</div>
+    </div>
+  </div>
+
+  <div class="grid3" style="margin-top:14px">
+    <div class="note act">
+      <div class="h"><span class="ic ti-ergo mi" style="background:var(--bg)">≣</span>Tests de ergo</div>
+      <p><b>Remo / Ski / Bike 2 km</b> → split /500m → <b>bandas Concept2</b> (réplica de la calculadora de Pablo). Referencia POR máquina: remo ≠ ski ≠ bike.</p>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic ti-carrera mi" style="background:var(--bg)">↗</span>Tests de carrera</div>
+      <p><b>Run 3' / 9' / 30'</b> o time-trial 5 km → <b>VDOT (Jack Daniels)</b> → ritmos (suave/umbral/interval) + zonas. Salida en /km.</p>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic ti-fuerza mi" style="background:var(--bg)">▥</span>Tests de fuerza</div>
+      <p><b>RM por levantamiento</b> → <b>1RM (Epley)</b> → tabla de cargas por %RM + RIR. Alimenta los objetivos de los bloques de fuerza.</p>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Tres familias de test, cada una con su derivación estándar publicada (cero ojo del coach en el cálculo). El test es un <b>apartado propio de cada coach</b> — igual que la biblioteca de bloques — donde crea/edita/archiva sus protocolos. Lo que NO se personaliza: la fórmula de cálculo (correr→VDOT, ergo→Concept2, fuerza→Epley). En este pase diseñamos la salida del <b>ergo</b> (la imagen de Pablo) y del <b>run</b> (single-modalidad); fuerza usa tabla de cargas, no zonas de ritmo.</p>
+
+
+  <!-- ══════════════════════════════ 3 · CALCULADORA DE ZONAS ══════════════════════════════ -->
+  <h2 id="calc"><span class="surf">3</span>Calculadora de zonas — la salida (réplica de Pablo, dark V2)</h2>
+  <p class="lead">Cuando el atleta completa el test, su resultado se convierte en su <b>perfil de zonas</b>. Esta es la vista que Pablo hizo a mano y aprobó: dos columnas (una por modalidad), cada zona = un dot de color + "Zona N · label" + el rango de ritmo /500m, y una barra de resultado abajo. La replicamos <b>fielmente</b>, llevada al canvas dark V2 con el naranja Fabrik y los colores de zona.</p>
+
+  <div class="mock-tag">Mockup · calculadora de zonas — MULTI-modalidad (Remo | Ski), réplica de la imagen de Pablo</div>
+  <div class="mock">
+    <!-- header: athlete + date + branded title -->
+    <div class="mk-calc-hdr">
+      <div class="athlete">
+        <div class="av">MR</div>
+        <div class="who"><div class="nm">Marta Ruiz</div><div class="dt">Test completado · 24 jun 2026</div></div>
+      </div>
+      <div class="mk-calc-title">Calculadora de zonas<b>Remo &amp; Ski-Erg</b></div>
+    </div>
+
+    <div class="mk-zone-cols">
+      <!-- COLUMN: REMO -->
+      <div class="mk-zone-col">
+        <div class="colhdr"><span class="mdot" style="background:var(--mod-ergo)"></span><span class="cn">Remo</span><span class="cb">test <b>1:55</b> /500m</span></div>
+        <div class="mk-zone z-1"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 1</div><div class="zl">Recuperación activa</div></div><div class="zrange">&gt; 2:17</div></div>
+        <div class="mk-zone z-2"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 2</div><div class="zl">Aeróbico extensivo</div></div><div class="zrange">2:09–2:16</div></div>
+        <div class="mk-zone z-3"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 3</div><div class="zl">Aeróbico intensivo</div></div><div class="zrange">2:03–2:08</div></div>
+        <div class="mk-zone z-4"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 4</div><div class="zl">Umbral anaeróbico</div></div><div class="zrange">1:55–2:02</div></div>
+        <div class="mk-zone z-5"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 5</div><div class="zl">VO2 max / Potencia</div></div><div class="zrange">1:52–1:54</div></div>
+        <div class="mk-zone z-6"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 6 <span class="zbadge">≤30 s</span></div><div class="zl">Sprint / Potencia máxima</div></div><div class="zrange">1:48–1:51</div></div>
+      </div>
+
+      <!-- COLUMN: SKI-ERG -->
+      <div class="mk-zone-col">
+        <div class="colhdr"><span class="mdot" style="background:var(--mod-ergo)"></span><span class="cn">Ski-Erg</span><span class="cb">test <b>2:04</b> /500m</span></div>
+        <div class="mk-zone z-1"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 1</div><div class="zl">Recuperación activa</div></div><div class="zrange">&gt; 2:26</div></div>
+        <div class="mk-zone z-2"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 2</div><div class="zl">Aeróbico extensivo</div></div><div class="zrange">2:18–2:25</div></div>
+        <div class="mk-zone z-3"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 3</div><div class="zl">Aeróbico intensivo</div></div><div class="zrange">2:12–2:17</div></div>
+        <div class="mk-zone z-4"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 4</div><div class="zl">Umbral anaeróbico</div></div><div class="zrange">2:04–2:11</div></div>
+        <div class="mk-zone z-5"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 5</div><div class="zl">VO2 max / Potencia</div></div><div class="zrange">2:01–2:03</div></div>
+        <div class="mk-zone z-6"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 6 <span class="zbadge">≤30 s</span></div><div class="zl">Sprint / Potencia máxima</div></div><div class="zrange">1:57–2:00</div></div>
+      </div>
+    </div>
+
+    <!-- RESULT BAR -->
+    <div class="mk-result">
+      <span class="rl">Resultado del test</span>
+      <div class="sep"></div>
+      <div class="rv"><span class="rk">Remo</span><span class="rn">1:55</span><span class="ru">/500m</span></div>
+      <div class="rv"><span class="rk">Ski-Erg</span><span class="rn">2:04</span><span class="ru">/500m</span></div>
+      <span class="rdate">Marta Ruiz · 24 jun 2026</span>
+    </div>
+
+    <div class="mk-feeds">
+      <span class="fi mi">⤓</span>
+      <div class="ftx">Estas zonas <b>alimentan el plan de Marta</b>: cada bloque de remo o ski escrito en <span class="mk-num">Z2</span> / <span class="mk-num">Z4</span> / "split umbral" se resuelve a SU rango concreto. La biblioteca de Pablo se escribe en relativo; el test la individualiza.</div>
+    </div>
+
+    <div class="mk-help"><span class="mi">ⓘ</span> Estructura fiel a la calculadora de Pablo: dos columnas, dot de color por zona, "Zona N · label", rango /500m, barra de resultado abajo con atleta + fecha. Adaptado al dark V2 — los colores de zona (Z1 verde → Z6 claro/granate) son los mismos que la imagen original, ajustados para contraste AA sobre near-black.</div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Réplica 1:1 de lo que Pablo aprobó, en el lenguaje visual del producto. La <b>Z6</b> de la imagen (Sprint, badge "≤30s") se mantiene aunque <code>zones.ts</code> hoy define <b>5</b> zonas — ver el flag de la decisión 1 (5↔6). El badge "≤30s" comunica que esa zona es de esfuerzos cortísimos. Cada rango sale del split de test del atleta vía el modelo de zonas (offsets /500m), no a ojo.</p>
+
+  <!-- SINGLE-MODALITY VARIANT -->
+  <div class="mock-tag">Mockup · calculadora de zonas — SINGLE modalidad (test de carrera), salida en /km</div>
+  <div class="mock">
+    <div class="mk-calc-hdr">
+      <div class="athlete">
+        <div class="av">JL</div>
+        <div class="who"><div class="nm">Jordi López</div><div class="dt">Test 5 km · 22 jun 2026</div></div>
+      </div>
+      <div class="mk-calc-title">Calculadora de zonas<b>Carrera · VDOT</b></div>
+    </div>
+
+    <div class="mk-zone-single">
+      <div class="mk-zone-col">
+        <div class="colhdr"><span class="mdot" style="background:var(--mod-carrera)"></span><span class="cn">Carrera</span><span class="cb">5 km test <b>19:10</b> · VDOT <b>52</b></span></div>
+        <div class="mk-zone z-1"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 1</div><div class="zl">Rodaje suave / recuperación</div></div><div class="zrange">5:05–5:35<span class="un">/km</span></div></div>
+        <div class="mk-zone z-2"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 2</div><div class="zl">Aeróbico extensivo</div></div><div class="zrange">4:45–5:05<span class="un">/km</span></div></div>
+        <div class="mk-zone z-3"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 3</div><div class="zl">Aeróbico intensivo / maratón</div></div><div class="zrange">4:05–4:20<span class="un">/km</span></div></div>
+        <div class="mk-zone z-4"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 4</div><div class="zl">Umbral anaeróbico</div></div><div class="zrange">3:35–3:45<span class="un">/km</span></div></div>
+        <div class="mk-zone z-5"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 5</div><div class="zl">VO2 max / Intervalos</div></div><div class="zrange">3:10–3:20<span class="un">/km</span></div></div>
+        <div class="mk-zone z-6"><span class="zdot"></span><div class="zmeta"><div class="zt">Zona 6 <span class="zbadge">≤30 s</span></div><div class="zl">Repetición / Velocidad</div></div><div class="zrange">2:55–3:05<span class="un">/km</span></div></div>
+      </div>
+
+      <div class="mk-result">
+        <span class="rl">Resultado del test</span>
+        <div class="sep"></div>
+        <div class="rv"><span class="rk">5 km</span><span class="rn">19:10</span></div>
+        <div class="rv"><span class="rk">VDOT</span><span class="rn">52</span></div>
+        <div class="rv"><span class="rk">Ritmo HYROX</span><span class="rn">4:18</span><span class="ru">/km</span></div>
+        <span class="rdate">Jordi López · 22 jun 2026</span>
+      </div>
+    </div>
+
+    <div class="mk-feeds">
+      <span class="fi mi">⤓</span>
+      <div class="ftx">El test de carrera también deriva el <b>ritmo objetivo HYROX</b> de Jordi (<span class="mk-num">4:18 /km</span>) — el ritmo de los 8×1 km de carrera. Cualquier rodaje en <span class="mk-num">Z2</span> o serie "a ritmo umbral" del plan usa estas zonas.</div>
+    </div>
+
+    <div class="mk-help"><span class="mi">ⓘ</span> Misma estructura de tarjetas, una sola columna (test de una modalidad). La salida de carrera va en <b>/km</b> (vs /500m del ergo). El test de carrera deriva también el ritmo objetivo de las carreras del simulacro HYROX — la pieza que conecta el test con la Simulación (§1).</div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Una sola plantilla de calculadora, parametrizada por modalidad: ergo en /500m (2 columnas remo+ski), carrera en /km (1 columna), bike en watts (%FTP). La estructura visual es idéntica — lo que cambia es la unidad y el número de columnas. DRY: un componente, varias entradas.</p>
+
+
+  <!-- ══════════════════════════════ 4 · LA CADENA ══════════════════════════════ -->
+  <h2 id="chain"><span class="surf">4</span>La cadena: test → zonas → ritmos absolutos en TODO el plan</h2>
+  <p class="lead">Esto es lo que hace al test "primera clase" y no un bloque más. El test es el <b>resolutor</b> del plan entero. El coach escribe su biblioteca en <b>relativo</b> ("Z2", "ritmo umbral", "Z4 remo"); el test produce los números del atleta; y a partir de ahí <b>cada</b> prescripción se traduce a los ritmos absolutos de ESE atleta. La misma plantilla, pasada por dos atletas distintos, sale en ritmos distintos.</p>
+
+  <div class="flow">
+    <div class="step"><div class="n">1 · Autoría</div><div class="t">Bloque "Test"</div><div class="d">El coach añade el test a una semana (§2). Define protocolo + RPE10.</div></div>
+    <div class="arr">→</div>
+    <div class="step"><div class="n">2 · El atleta</div><div class="t">Hace el test</div><div class="d">Resultado real: 2 km a tope → su split /500m (o tiempo 5 km → VDOT).</div></div>
+    <div class="arr">→</div>
+    <div class="step"><div class="n">3 · La calculadora</div><div class="t">6 zonas (§3)</div><div class="d">El modelo (zones.ts) convierte el resultado en su perfil de zonas, versionado con fecha.</div></div>
+    <div class="arr">→</div>
+    <div class="step"><div class="n">4 · El plan</div><div class="t">Ritmos absolutos</div><div class="d">Cada Z2/RPE/split del plan se resuelve a SU rango. La app "mete los ritmos".</div></div>
+  </div>
+
+  <div class="mock-tag">Mockup · el resolutor en acción — la misma línea de la biblioteca, dos atletas distintos</div>
+  <div class="mock">
+    <div class="mk-form">
+      <div class="mk-formhdr">
+        <div class="ico ti-ergo mi">≣</div>
+        <div><div class="ft">Intervalos RowErg · de la biblioteca de Pablo</div><div class="fs">Escrito en relativo: 6 × 500 m @ Z4 · descanso 2'</div></div>
+      </div>
+
+      <div class="mk-frow" style="grid-template-columns:1fr;margin-bottom:6px">
+        <div class="mk-field"><label>Prescripción de la plantilla (relativa · igual para todos)</label>
+          <div class="mk-input"><span>6 × 500 m</span><span class="un">@</span><span style="color:var(--z4);font-weight:800">Zona 4 · umbral anaeróbico</span><span class="un">· descanso 2:00</span></div>
+        </div>
+      </div>
+
+      <div class="mk-field" style="margin:10px 0 5px"><label>Resuelto por el test de cada atleta → ritmo absoluto</label></div>
+      <div class="mk-resolve">
+        <div class="rc rel">
+          <div class="lbl">Marta · test 1:55 /500m</div>
+          <div class="val" style="color:var(--accent)">6 × 500 m @ 1:55–2:02 /500m</div>
+        </div>
+        <div class="arr mi">≠</div>
+        <div class="rc abs">
+          <div class="lbl">Jordi · test 1:48 /500m</div>
+          <div class="val">6 × 500 m @ 1:48–1:55 /500m</div>
+        </div>
+      </div>
+
+      <div class="mk-help"><span class="mi">ⓘ</span> La <b>misma</b> línea de la biblioteca ("@Z4") sale en <b>ritmos distintos</b> para cada atleta — porque cada uno tiene su perfil de zonas del test. Así el plan no "canta" igual y el coach pone el método, no los ritmos a mano. Esto es <code>resolveTarget("Z4 row", benchmarks)</code> de <code>zones.ts</code>.</div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El resolutor ya existe en código (<code>shared/domain/methodology/zones.ts</code> · <code>resolveTarget</code>). Lo que diseña este pase es: (a) la <b>autoría</b> del test que lo dispara, (b) la <b>visualización</b> de las zonas que produce. La resolución relativa→absoluta es la lógica de negocio detrás — la UI solo la hace visible y honesta (un rango "estimado" si falta el anchor del atleta se marca, ver §6).</p>
+
+
+  <!-- ══════════════════════════════ 5 · DÓNDE VIVE ══════════════════════════════ -->
+  <h2 id="where"><span class="surf">5</span>Dónde vive la calculadora</h2>
+  <p class="lead">La calculadora de zonas no es una pantalla suelta: es la <b>cara visible del perfil de ritmos del atleta</b>. Aparece en dos sitios, ambos leyendo la <b>misma fuente de verdad</b> (el perfil versionado del atleta) — nunca dos cálculos distintos.</p>
+
+  <div class="grid2">
+    <div class="note act">
+      <div class="h"><span class="ic">①</span>En el resultado del test (momento del cálculo)</div>
+      <p style="margin-bottom:8px">Justo cuando el atleta completa el test, o cuando el coach revisa ese resultado. Es la confirmación "esto es lo que el test produjo". Incluye la barra de resultado con la fecha — es la foto de ESE test.</p>
+      <p style="color:#777">Acceso: desde el bloque de test completado, en la sesión del atleta.</p>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">②</span>En el perfil del atleta (estado vigente)</div>
+      <p style="margin-bottom:8px">La pestaña de <b>biometría / ritmos</b> del perfil muestra las zonas <b>actuales</b> (del último test válido). Es el estado vigente que alimenta el plan AHORA. Con histórico: el delta entre tests = progreso medible.</p>
+      <p style="color:#777">Acceso: perfil del atleta → pestaña Ritmos / Zonas.</p>
+    </div>
+  </div>
+
+  <div class="risk"><b>Una sola fuente de verdad.</b> El perfil de zonas se calcula UNA vez (al guardar el resultado del test) y se almacena versionado con fecha + <code>source: tested | self_reported | estimated</code>. Las dos ubicaciones <b>leen</b> ese perfil — no recalculan. El resolutor del plan lee el MISMO perfil. Así nunca hay divergencia entre "lo que dice el perfil" y "lo que usa el plan" (el bug clásico de los dos cálculos).</p></div>
+
+  <div class="mk-help" style="color:#888;margin-top:10px"><span class="mi" style="color:#ff6600">ⓘ</span> Atleta nuevo sin test → perfil <b>provisional</b> (ritmos auto-declarados en el onboarding) marcado <code>estimado</code> hasta el primer test real. La calculadora se muestra igual pero con el chip "estimada · testear" sobre cada rango derivado de un fallback (ver §6).</div>
+
+
+  <!-- ══════════════════════════════ 6 · AGNOSTICISMO ══════════════════════════════ -->
+  <h2 id="agnostic"><span class="surf">6</span>Quién posee las zonas — agnosticismo y el flag 5↔6</h2>
+  <p class="lead">Punto crítico de coherencia con todo el sistema. El <b>tipo</b> "Test" y "Simulación" es vocabulario del deporte (universal). Pero las <b>matemáticas y los labels de las zonas son metodología</b> — la definición de qué es "Z4" o cuántas zonas hay es del coach, no nuestra. Nosotros damos la <b>herramienta</b> (el resolutor) y la <b>visualización</b> (la calculadora); el coach posee las <b>definiciones</b>.</p>
+
+  <div class="grid2">
+    <div class="note rule">
+      <div class="h"><span class="ic">✓</span>Lo que es NUESTRO (objetivo, fijo)</div>
+      <ul>
+        <li>La <span class="k">herramienta</span>: el resolutor relativo→absoluto (<code>zones.ts</code>).</li>
+        <li>La <span class="k">visualización</span>: la calculadora dark V2 (esta réplica de Pablo).</li>
+        <li>El <span class="k">mapeo a derivación estándar</span>: ergo→Concept2, run→VDOT, fuerza→Epley.</li>
+        <li>La <span class="k">honestidad</span>: marcar "estimada" cuando se usa un fallback.</li>
+      </ul>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">◎</span>Lo que es del COACH (metodología, su dato)</div>
+      <ul>
+        <li>Las <span class="k">definiciones de zona</span>: cuántas (5 o 6), sus límites, sus labels.</li>
+        <li>El <span class="k">protocolo del test</span>: distancia, máquinas, semana del ciclo.</li>
+        <li>Los <span class="k">offsets</span> que separan cada zona (los números de <code>zones.ts</code> son los de la metodología, editables).</li>
+        <li>El <span class="k">override por atleta</span>: ajustar un valor concreto sobre el cálculo.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="risk" style="margin-top:14px"><b>FLAG objetivo a resolver — 5 zonas (código) vs 6 zonas (imagen de Pablo).</b> El modelo en <code>shared/domain/methodology/zones.ts</code> define hoy <b>5</b> zonas (Z1–Z5: offsets de pace/split y fracciones de LTHR). La calculadora que <b>Pablo aprobó</b> muestra <b>6</b> — añade <b>Z6 Sprint / Potencia máxima</b> (badge "≤30s", el tramo más rápido). Esto es un desajuste objetivo del dominio, no estético: o el código gana una Z6, o la viz se queda en 5. <b>Mi recomendación: alinear el código a 6 zonas</b> para ser fiel a lo que Pablo aprobó (es su metodología, y la Z6 de sprint tiene sentido físico para potencia máxima). Lo marco como decisión porque toca el modelo de datos, no solo la UI.</div>
+
+  <div class="decision">
+    <div class="q">1 · Zonas: ¿límites FIJOS (estándar) o CONFIGURABLES por el coach?</div>
+    <div class="ctx">Las matemáticas de zona (offsets /500m, fracciones de LTHR, número de zonas) viven en <code>zones.ts</code>. Hoy son constantes. ¿Las dejamos fijas como estándar de mercado, o el coach puede editarlas (definir sus propias zonas, como editó las fases en el sistema agnóstico)? Incluye resolver el 5↔6 de arriba.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Fijas en v1, con la estructura preparada para configurables.</b> Arrancamos con el set estándar (alineado a 6 zonas, fiel a Pablo) como constantes — es el estándar de mercado y cero fricción. PERO modelamos las zonas como <b>dato del coach</b> desde el principio (igual que hicimos con las fases): una tabla <code>methodology_zones</code> editable, sembrada con el set estándar. Así v1 funciona sin que el coach toque nada, y cuando otro coach quiera sus propias zonas, la estructura ya está. Evita el error de hardcodear y luego tener que migrar.</div>
+      <div class="opt"><b>Configurables ya en v1</b> (editor de zonas completo). Más fiel al agnosticismo, pero añade una superficie de edición (definir 6 zonas × N modalidades × offsets) que Pablo no ha pedido y que retrasa la calculadora. Lo descarto para v1: la estructura agnóstica sí, el editor de zonas no todavía.</div>
+      <div class="opt"><b>Fijas y hardcodeadas, punto.</b> Lo más rápido, pero contradice el principio agnóstico del sistema (las zonas son metodología del coach, como las fases). Cuando llegue un 2º coach con otras zonas, toca migrar. Lo descarto.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">2 · Simulación HYROX: ¿qué variantes entran en este pase?</div>
+    <div class="ctx">Full Open (♂/♀) y Full Pro comparten layout (solo cambian cargas estándar = dato). Dobles (reparto entre 2) y DEKA (otro formato) cambian la estructura. ¿Entregamos las 4 o acotamos?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Full Open + Full Pro en este pase; Dobles y DEKA como follow-up.</b> Open y Pro son la misma plantilla con distintas cargas estándar (sin UI nueva) → entran las dos por el coste de una. Resuelven el dolor real (la sim que hoy es texto). Dobles cambia la lógica de reparto de estaciones y DEKA es un formato distinto (no HYROX) → plantillas propias, segunda fase. No dejar la pieza de mayor palanca para "luego", pero acotar v1 a las divisiones individuales.</div>
+      <div class="opt"><b>Solo Full Open en v1.</b> Aún más acotado. Lo descarto: Pro sale gratis (mismo layout) y muchos atletas de Pablo compiten en Pro.</div>
+      <div class="opt"><b>Las 4 en este pase.</b> Completo, pero Dobles/DEKA son rediseños de estructura que retrasan la entrega de lo que más duele. Follow-up.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">3 · ¿Dónde vive la calculadora de zonas — perfil del atleta, resultado del test, o ambos?</div>
+    <div class="ctx">La calculadora puede aparecer en el resultado del test (foto del cálculo), en el perfil del atleta (estado vigente), o ambos leyendo la misma fuente.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Ambos, una sola fuente de verdad.</b> En el <b>resultado del test</b> como confirmación del cálculo (con fecha = foto de ese test), y en el <b>perfil del atleta</b> (pestaña Ritmos/Zonas) como estado vigente que alimenta el plan. Las dos LEEN el perfil versionado del atleta — nunca recalculan. El resolutor del plan lee el MISMO perfil. Cero divergencia entre lo que ve el coach y lo que usa el plan.</div>
+      <div class="opt"><b>Solo en el perfil del atleta.</b> Más simple, pero pierde el momento "esto produjo tu test" y el histórico de tests queda sin su foto. Lo descarto.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">4 · El badge "≤30s" de la Z6: ¿lo mantenemos tal cual lo puso Pablo?</div>
+    <div class="ctx">La imagen de Pablo pone un badge "≤30s" en la Z6 (sprint). Es metadata de duración de esfuerzo, no un rango de ritmo. ¿Lo replicamos literal (fidelidad a Pablo) o lo generalizamos a "duración máx de esfuerzo por zona"?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Literal en Z6, como Pablo.</b> Pablo juzga esto y lo aprobó con ese badge. Lo replicamos tal cual. Si más adelante el coach quiere duraciones por zona, se generaliza — pero v1 es fiel a la imagen aprobada, sin inventar.</div>
+      <div class="opt"><b>Generalizar a duración por zona.</b> Más sistemático, pero se aleja de lo que Pablo aprobó y añade un campo que no ha pedido. Follow-up si surge.</div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════ RECAP ══════════════════════════════ -->
+  <div class="seclbl">El cambio en una frase</div>
+  <div class="principle">
+    <p>Las dos piezas que hoy <b>caen a texto libre</b> se vuelven dato estructurado. La <b>Simulación HYROX</b> deja de ser un párrafo y pasa a una plantilla de 8 estaciones + 8×1 km en orden oficial, con cargas estándar editables — analítica real, no prosa. El <b>Test</b> deja de ser un bloque suelto y se revela como el <b>resolutor</b> del plan: el atleta lo hace una vez, la <b>calculadora de zonas</b> (réplica fiel de la que Pablo aprobó, en dark V2) calcula sus 6 zonas, y a partir de ahí cada Z2/RPE/split del plan se traduce a SUS ritmos absolutos. La math de zona es metodología del coach (vive en <code>zones.ts</code>); nosotros damos la herramienta y la viz. Una sola fuente de verdad de zonas, leída por el perfil y por el plan.</p>
+  </div>
+
+  <h2 style="border:none;margin-top:60px">Resumen de decisiones que necesito que confirmes</h2>
+  <p class="lead">Lo objetivo está resuelto: las plantillas son dato estructurado (no texto), el test es el resolutor, la calculadora replica fielmente la de Pablo en dark V2, la math de zona es metodología del coach (no inventada), una sola fuente de verdad. Lo subjetivo (abajo) lo decides tú. Marco mi recomendación.</p>
+  <div class="grid2">
+    <div class="note rule"><div class="h"><span class="ic">1</span>Zonas fijas vs configurables (+ flag 5↔6)</div><p><b>Rec:</b> fijas en v1 alineadas a <b>6 zonas</b> (fiel a Pablo, alinear <code>zones.ts</code>), pero modeladas como dato del coach (<code>methodology_zones</code> sembrada) para no migrar luego.</p></div>
+    <div class="note rule"><div class="h"><span class="ic">2</span>Variantes de Simulación</div><p><b>Rec:</b> Full Open + Full Pro en este pase (mismo layout, cargas distintas); Dobles y DEKA como follow-up (cambian estructura).</p></div>
+    <div class="note rule"><div class="h"><span class="ic">3</span>Dónde vive la calculadora</div><p><b>Rec:</b> en el resultado del test Y en el perfil del atleta, ambos leyendo la misma fuente versionada (cero recálculo, cero divergencia).</p></div>
+    <div class="note rule"><div class="h"><span class="ic">4</span>Badge "≤30s" de la Z6</div><p><b>Rec:</b> literal, como Pablo lo aprobó. Generalizar a duración-por-zona solo si surge después.</p></div>
+  </div>
+
+  <footer>
+    Pase de UX · Simulación HYROX + Test &amp; calculadora de zonas (dashboard del coach V2) · FAHYBRIK / vanwida · 25 jun 2026 · Mockups con tokens reales de <code>/v2</code> (<code>#0a0a0a</code> · <code>#f06a2a</code> · hues de modalidad + colores de zona) · Calculadora = réplica fiel de la que Pablo aprobó, adaptada a dark · Math de zona = metodología del coach (<code>shared/domain/methodology/zones.ts</code>), no inventada por nosotros · Arquetipos aplazados del pase <code>2026-06-24-ux-editor-arquetipos.html</code> · Pendiente de tu sign-off antes de construir
+  </footer>
+
+</div>
+</body>
+</html>

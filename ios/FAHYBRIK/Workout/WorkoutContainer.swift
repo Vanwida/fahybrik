@@ -24,12 +24,16 @@ struct WorkoutContainer: View {
 
     enum LoadState: Equatable {
         case loading
-        case ready(WorkoutPlan)
+        // The runnable `WorkoutPlan` (live engine) plus the OPTIONAL rich
+        // `AssignmentDetail` (structured prescription + true block grouping) the
+        // brief renders from when available. The detail is nil for ad-hoc /
+        // title-only sessions, where the brief falls back to the flat plan.
+        case ready(WorkoutPlan, AssignmentDetail?)
 
         static func == (lhs: LoadState, rhs: LoadState) -> Bool {
             switch (lhs, rhs) {
             case (.loading, .loading): return true
-            case let (.ready(a), .ready(b)): return a.id == b.id
+            case let (.ready(a, _), .ready(b, _)): return a.id == b.id
             default: return false
             }
         }
@@ -51,8 +55,8 @@ struct WorkoutContainer: View {
             switch loadState {
             case .loading:
                 loadingView
-            case .ready(let plan):
-                content(plan: plan)
+            case let .ready(plan, detail):
+                content(plan: plan, detail: detail)
             }
 
             if let recovery = crashRecoveryPrompt {
@@ -69,11 +73,12 @@ struct WorkoutContainer: View {
     }
 
     @ViewBuilder
-    private func content(plan: WorkoutPlan) -> some View {
+    private func content(plan: WorkoutPlan, detail: AssignmentDetail?) -> some View {
         switch phase {
             case .brief:
                 PreWorkoutBriefView(
                     plan: plan,
+                    detail: detail,
                     connections: .current,
                     onStart: {
                         let new = WorkoutSession(plan: plan)
@@ -135,18 +140,18 @@ struct WorkoutContainer: View {
         guard case .loading = loadState else { return }
 
         guard let assignmentId else {
-            loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle))
+            loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
             return
         }
 
         if let cached = AssignmentDetailCache.load(assignmentId),
            let plan = WorkoutPlan.from(detail: cached) {
-            loadState = .ready(plan)
+            loadState = .ready(plan, cached)
         }
 
         guard let bearer else {
             if case .loading = loadState {
-                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle))
+                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
             }
             return
         }
@@ -155,15 +160,15 @@ struct WorkoutContainer: View {
             let detail = try await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
             AssignmentDetailCache.save(detail)
             if let plan = WorkoutPlan.from(detail: detail) {
-                loadState = .ready(plan)
+                loadState = .ready(plan, detail)
             } else if case .loading = loadState {
                 // Rest day (no workout body) reached via EMPEZAR — degrade to the
                 // minimal plan rather than blocking on the spinner.
-                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle))
+                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
             }
         } catch {
             if case .loading = loadState {
-                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle))
+                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
             }
         }
     }
@@ -171,7 +176,7 @@ struct WorkoutContainer: View {
     @ViewBuilder
     private func recoveryModal(_ saved: PersistedWorkoutState) -> some View {
         ZStack {
-            Color.black.opacity(0.65).ignoresSafeArea()
+            Theme.Color.scrim.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.m) {
                 Text("Workout sin guardar")
                     .font(Theme.Typography.headlineS)

@@ -169,7 +169,7 @@ struct OnboardingFlow: View {
     @ViewBuilder
     private func outlierConfirmModal(message: String) -> some View {
         ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
+            Theme.Color.scrim.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.l) {
                 Text(message)
                     .font(Theme.Typography.body)

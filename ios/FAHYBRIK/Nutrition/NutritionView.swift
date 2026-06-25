@@ -33,7 +33,7 @@ struct NutritionView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .bold))
                     }
-                    .tint(Theme.Color.accent)
+                    .tint(Theme.Color.accentText)
                     .accessibilityLabel("Añadir comida")
                 }
             }
@@ -68,7 +68,7 @@ struct NutritionView: View {
             Divider().background(Theme.Color.hairline)
             if service.isLoading && service.entries.isEmpty {
                 Spacer()
-                ProgressView().tint(Theme.Color.accent)
+                ProgressView().tint(Theme.Color.accentText)
                 Spacer()
             } else if service.entries.isEmpty {
                 emptyState
@@ -242,7 +242,7 @@ struct NutritionView: View {
             if let err = service.lastError {
                 Text(err)
                     .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
                     .multilineTextAlignment(.center)
             }
             Spacer()

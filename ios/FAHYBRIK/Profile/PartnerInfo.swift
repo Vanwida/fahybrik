@@ -78,7 +78,7 @@ struct PartnerBadge: View {
                 .font(.system(size: compact ? 10 : 11, weight: .semibold))
                 .lineLimit(1)
         }
-        .foregroundStyle(Theme.Color.accent)
+        .foregroundStyle(Theme.Color.accentText)
         .padding(.horizontal, compact ? 6 : 8)
         .padding(.vertical, compact ? 2 : 3)
         .background(Theme.Color.accent.opacity(0.15))

@@ -6,6 +6,7 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachThread, markCoachRead } from '@/lib/dashboard/chat/service';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,5 +22,7 @@ export async function POST(_req: Request, ctx: Ctx): Promise<Response> {
   if (!owned) return jsonError('not_found', 'Thread no encontrado', 404);
 
   const result = await markCoachRead({ thread_id: threadId });
+  // Fire-and-forget: marking read clears the message_unanswered signal.
+  void recomputeAthlete({ athlete_id: owned.athlete_id }).catch(() => {});
   return jsonOk({ ok: true, ...result });
 }

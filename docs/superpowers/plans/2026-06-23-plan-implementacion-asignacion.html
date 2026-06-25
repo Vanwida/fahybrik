@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan de implementación — Modelo de asignación agnóstico</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.6}
+  .container{max-width:920px;margin:0 auto}
+  h1{font-size:29px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:20px;font-weight:700;margin:14px 0}
+  p{font-size:14.5px;margin-bottom:11px;color:#2a2a2a}
+  code{font-family:'Menlo',monospace;font-size:12px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:#666;margin:18px 0 28px;padding:14px 18px;background:#fff;border:1px solid #e8e8e3;border-radius:10px}
+  .legend b{color:#1a1a1a}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .dot.be{background:#0d7a2e}.dot.ux{background:#b07000}.dot.fe{background:#1a4ba0}
+
+  .phase{background:#fff;border:1px solid #e8e8e3;border-radius:12px;margin:18px 0;overflow:hidden}
+  .phase-h{background:#101010;color:#fff;padding:16px 22px;display:flex;align-items:center;gap:14px}
+  .phase-n{background:#ff6600;color:#fff;font-size:13px;font-weight:800;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .phase-t{font-size:16px;font-weight:700}
+  .phase-g{margin-left:auto;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.85}
+  .phase-b{padding:8px 22px 18px}
+
+  .gate{background:#fff8ec;border:1px solid #f5d58a;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px;color:#5a4410}
+  .gate b{color:#b07000}
+
+  .task{border-left:3px solid #e8e8e3;padding:12px 0 12px 16px;margin:14px 0}
+  .task .tt{font-weight:700;font-size:14.5px}
+  .task .tt .dot{margin-right:6px}
+  .task .meta{font-size:12px;color:#888;margin:4px 0 6px}
+  .task .meta code{font-size:11.5px}
+  .task ul{list-style:none;padding:0;font-size:13.5px;color:#444}
+  .task li{padding:3px 0 3px 16px;position:relative}
+  .task li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .task .verify{font-size:12.5px;color:#0d7a2e;margin-top:6px;background:#f0f8f1;border-radius:6px;padding:6px 10px}
+
+  .risk{background:#fbf3f3;border:1px solid #e8c4c4;border-radius:8px;padding:8px 14px;margin:8px 0;font-size:13px;color:#7a1f1f}
+  .risk b{color:#b32424}
+  footer{margin-top:50px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Plan de implementación — Modelo de asignación agnóstico</h1>
+  <div class="sub">Deriva del modelo firmado (2026-06-23-modelo-asignacion-agnostico.html) · FAHYBRIK · 23 jun 2026</div>
+
+  <p><b>Objetivo:</b> que un coach monte su biblioteca (niveles × días → secuencias de microciclos, relativas, con progresión) y que los atletas se asignen y avancen solos, interrumpiendo al coach solo con excepciones — para gestionar 200-400 atletas.</p>
+
+  <div class="legend">
+    <span><b>Leyenda de tareas:</b></span>
+    <span><span class="dot be"></span>Backend / datos (sin gate visual)</span>
+    <span><span class="dot ux"></span>Pase de UX → tu visto bueno antes de codear</span>
+    <span><span class="dot fe"></span>Frontend (tras diseño firmado)</span>
+  </div>
+
+  <!-- FASE 0 -->
+  <div class="phase">
+    <div class="phase-h"><div class="phase-n">0</div><div class="phase-t">Fundación de datos — agnóstico</div><div class="phase-g">Backend · sin gate</div></div>
+    <div class="phase-b">
+      <p>Unificar los conceptos antes de tocar UI. Aquí muere la incoherencia de raíz que encontró la auditoría. Todo additivo + migración de datos; nada se rompe en producción.</p>
+
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>0.1 · Un solo vocabulario de Nivel</div>
+        <div class="meta">migración nueva · <code>athlete_levels</code> ya existe (0057) · retira <code>program_level</code> como eje</div>
+        <ul>
+          <li>El contenido se etiqueta por <code>level_id</code> FK → <code>athlete_levels</code> (no por enum beginner/elite)</li>
+          <li>Mapear las ~30 <code>program_week_templates</code> con <code>level</code> enum a los niveles del coach</li>
+          <li><code>program_level</code> queda solo de lectura legacy durante la transición</li>
+        </ul>
+        <div class="verify">Verificar: cada plantilla queda con level_id no-null; cero pérdida de filas.</div>
+      </div>
+
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>0.2 · Secuencia + microciclo agnósticos</div>
+        <div class="meta">tabla <code>cycle_sequences</code> (por coach, nivel_id, días) + <code>sequence_items</code> (orden → microciclo) · reconciliar nombre microciclo</div>
+        <ul>
+          <li>Microciclo = unidad multi-semana; semana = unidad de entrega (resolver el choque de nombre con la tabla <code>microcycles</code>=1 semana)</li>
+          <li>El microciclo referencia la fase del coach por <code>phase_id</code> → <code>methodology_phases</code> (opcional), NUNCA el enum ATR</li>
+          <li>La secuencia define orden, política de fin (repetir / subir nivel / parar) y regla de incremento por vuelta</li>
+        </ul>
+        <div class="verify">Verificar: se puede modelar el ATR de Pablo (3 microciclos) Y una periodización de 4 fases o lineal, sin tocar código.</div>
+      </div>
+
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>0.3 · Enlace contenido↔fase por phase_id (matar el enum como eje)</div>
+        <div class="meta"><code>shared/domain/atr/service.ts</code> (planner persiste phase_id), <code>assign-block.ts</code> (selección por phase_id)</div>
+        <ul>
+          <li>El planner deja de descartar <code>phase_id</code>; lo persiste en la instancia</li>
+          <li>La selección de plantillas pasa de <code>atr_block_hint</code> exacto a la fase/orden del coach</li>
+          <li>El enum ATR (<code>atr_block_type</code>, <code>atr_block_hint</code>, <code>target_block</code>) queda solo de fallback</li>
+        </ul>
+        <div class="verify">Verificar: un coach con fases propias (no ACC/TRANS/REAL) materializa un plan correcto.</div>
+      </div>
+
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>0.4 · Grupos por coach + slugs de benchmark coherentes</div>
+        <div class="meta"><code>methodology_groups</code> +coach_id · <code>onboarding/submit/route.ts</code> + <code>level-algorithm.ts</code></div>
+        <ul>
+          <li><code>methodology_groups</code> pasa a tener <code>coach_id</code> (cada coach su taxonomía)</li>
+          <li>UNA fuente de slugs de benchmark: el onboarding y el algoritmo hablan el mismo vocabulario</li>
+          <li>Persistir remo/ski (hoy se capturan en iOS pero no se guardan como benchmark)</li>
+        </ul>
+        <div class="verify">Verificar: tras onboarding, el algoritmo lee TODOS los benchmarks escritos (squat, run, row, ski) — el nivel ya no se calcula con datos rotos.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FASE 1 -->
+  <div class="phase">
+    <div class="phase-h"><div class="phase-n">1</div><div class="phase-t">Autoría visual del coach</div><div class="phase-g">UX gate · luego frontend</div></div>
+    <div class="phase-b">
+      <div class="gate"><b>GATE UX — tu visto bueno obligatorio antes de codear.</b> Estas son las pantallas que tienen que ser obvias y fáciles para el coach. Primero diseño (jerarquía, estados, copy, interacción), te lo enseño, lo firmas, y solo entonces se construye.</div>
+
+      <div class="task">
+        <div class="tt"><span class="dot ux"></span>1.1 · Pase de diseño UX de las 3 superficies</div>
+        <ul>
+          <li><b>Matriz nivel × días</b>: visión de cobertura; celda llena = secuencia, vacía = crear</li>
+          <li><b>Editor de secuencia</b>: arrastrar/ordenar microciclos (microciclo 1 → 2 → 3), fin de ciclo, regla de incremento</li>
+          <li><b>Cola de excepciones (/hoy)</b>: tarjetas Aceptar / Cambiar / Ajustar + aceptar en lote por cohorte</li>
+        </ul>
+        <div class="verify">Entregable: diseño visual de las 3 + estados (vacío, lleno, error) + copy. Sign-off de Alex.</div>
+      </div>
+
+      <div class="task">
+        <div class="tt"><span class="dot fe"></span>1.2 · Matriz nivel × días (build)</div>
+        <div class="meta">reusar la base que ya existe en v2 biblioteca · API <code>/api/coach/blocks/matrix</code> → secuencias</div>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot fe"></span>1.3 · Editor de secuencia (build)</div>
+        <div class="meta">drag-order de microciclos, política de fin, incremento por vuelta · reusa el editor de microciclo/semana existente</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FASE 2 -->
+  <div class="phase">
+    <div class="phase-h"><div class="phase-n">2</div><div class="phase-t">Motor de asignación + materialización</div><div class="phase-g">Backend</div></div>
+    <div class="phase-b">
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>2.1 · Clasificar → emparejar secuencia</div>
+        <div class="meta"><code>level-algorithm.ts</code> (ya existe, arreglado en 0.4) → secuencia de (nivel × días)</div>
+        <ul><li>Confianza por dispersión de señales (no por cantidad); si contradictorias → baja + revisar</li></ul>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>2.2 · Materializar el microciclo (cerrar el eslabón perdido)</div>
+        <div class="meta">reusar <code>instantiateWeekIntoMicrocycle</code> (ya existe y funciona a nivel semana)</div>
+        <ul>
+          <li>Lo que el coach asigna llega TAL CUAL al atleta (no un id que nadie consume)</li>
+          <li>Fechar las semanas del microciclo en el timeline del atleta, remapeadas a sus días disponibles</li>
+        </ul>
+        <div class="verify">Verificar end-to-end: aceptar tarjeta → el atleta ve la semana 1 con las prescripciones del coach.</div>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>2.3 · Resolutor relativo (prescripción → números del atleta)</div>
+        <div class="meta">tests → ritmos/cargas absolutas (enlaza con el modelo de tests ya especificado)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FASE 3 -->
+  <div class="phase">
+    <div class="phase-h"><div class="phase-n">3</div><div class="phase-t">Entrega semanal + progresión</div><div class="phase-g">Backend</div></div>
+    <div class="phase-b">
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>3.1 · Entrega semanal</div>
+        <ul><li>El atleta ve la semana actual; el sábado se desbloquea la siguiente (sin tarjeta mientras va en rumbo)</li></ul>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>3.2 · Fin de microciclo → siguiente de la secuencia</div>
+        <ul><li>Al agotar las semanas, se propone el siguiente microciclo; al cerrar la secuencia, su política de fin (repetir / subir nivel / parar)</li></ul>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>3.3 · Progresión: re-test (capa 1) + incremento por vuelta (capa 2)</div>
+        <ul>
+          <li>Re-test actualiza benchmarks → el plan relativo recalcula solo (necesita path de re-test, hoy inexistente)</li>
+          <li>Incremento por vuelta (+%) aplicado automáticamente a la siguiente repetición; la palanca de "sobre qué" la pone el coach</li>
+          <li>Subir de nivel → re-clasificar a otra secuencia</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- FASE 4 -->
+  <div class="phase">
+    <div class="phase-h"><div class="phase-n">4</div><div class="phase-t">Escala — automático + solo excepciones</div><div class="phase-g">Backend + frontend</div></div>
+    <div class="phase-b">
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>4.1 · Motor de excepciones (las señales que generan tarjeta)</div>
+        <ul><li>Dispara tarjeta solo ante: atleta nuevo, fin de secuencia, o señal (faltas, lesión reportada, estancamiento, readiness baja)</li></ul>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot fe"></span>4.2 · Lote por cohorte</div>
+        <ul><li>Aceptar N atletas de golpe ("12 N3·4d → repiten +5%"); filtros por nivel/cohorte</li></ul>
+      </div>
+      <div class="task">
+        <div class="tt"><span class="dot be"></span>4.3 · El dial de escala</div>
+        <ul><li>Por defecto excepciones-only; interruptor "auto-aprobar progresión rutinaria" por cohorte</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <h2>Riesgos que vigilo durante el build</h2>
+  <div class="risk"><b>Plantilla vs instancia:</b> editar una secuencia no debe romper a quien está a mitad. Instancia separada + el coach elige si propaga.</div>
+  <div class="risk"><b>Migración de nivel:</b> mapear el enum viejo a los niveles del coach sin perder plantillas.</div>
+  <div class="risk"><b>Fiabilidad de las señales:</b> el modo automático solo es seguro si las excepciones se detectan bien. Si fallan, el coach pierde visibilidad.</div>
+  <div class="risk"><b>iOS:</b> hoy el iOS mapea fases a ATR localmente; al ser agnóstico debe mostrar el label del coach (ya llega por API, falta limpiar el fallback local).</div>
+
+  <h2>Orden propuesto</h2>
+  <p>Fase 0 (datos) se puede empezar ya — no necesita tu visto bueno visual. En paralelo preparo el pase de UX de la Fase 1 para que lo firmes. Fases 2-4 vienen detrás sobre la fundación limpia.</p>
+
+  <footer>
+    Plan de implementación · FAHYBRIK / vanwida · 23 jun 2026 · Pendiente de tu OK para arrancar Fase 0 · Las superficies visuales esperan sign-off de UX</footer>
+
+</div>
+</body>
+</html>

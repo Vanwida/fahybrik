@@ -4,10 +4,17 @@ import SwiftUI
 // Backed by the live chat API (ChatService): messages load on appear, poll while
 // the view is visible, and sends are optimistic with an offline queue fallback.
 // Voice notes render a static waveform + duration. Castilian throughout.
+//
+// Presentation: Chat is a first-class TAB root (AppShell). It is ALSO raised as
+// a sheet from the Inicio "coach note" shortcut and the Plan header. We read
+// `\.isPresented` to know which: as a sheet we show a close affordance; as the
+// tab root the header is clean (no back chevron — the bottom bar owns nav),
+// matching the handoff `chat` screen.
 struct ChatView: View {
     let bearer: String?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.isPresented) private var isPresented
 
     @State private var messages: [ChatMessage] = []
     @State private var draft: String = ""
@@ -48,7 +55,8 @@ struct ChatView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
+                            .padding(.top, 16)
+                            .padding(.bottom, 14)
                         }
                     }
                     .onChange(of: messages.count) { _, _ in
@@ -231,37 +239,41 @@ struct ChatView: View {
     }
 
     // MARK: - Header
-
+    //
+    // Coach identity card (avatar + name + role), mirroring the handoff `chat`
+    // header. We deliberately DON'T claim live presence ("en línea") — the
+    // backend exposes no coach-presence signal, so asserting it would be
+    // fabricated. The role line is the honest substitute. When raised as a
+    // sheet, a trailing close button is shown; as the tab root it is omitted.
     private var header: some View {
         HStack(spacing: 12) {
-            Button(action: { Haptics.light(); dismiss() }) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 32, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar chat")
-            ZStack {
-                Circle().fill(Theme.Color.surface).frame(width: 36, height: 36)
-                Text("PC")
-                    .font(.system(size: 12, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-            }
+            CoachAvatar(initials: "PC", size: 36)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Pablo Casals")
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                    .scaledFont(15, weight: .bold, relativeTo: .subheadline, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Coach Fabrik")
-                    .scaledFont(10, relativeTo: .caption2)
+                    .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
-            Spacer()
+            Spacer(minLength: 8)
+            if isPresented {
+                Button(action: { Haptics.light(); dismiss() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Cerrar chat")
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Conversación con Pablo Casals, coach Fabrik")
     }
 
     // MARK: - States
@@ -278,9 +290,10 @@ struct ChatView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            CoachAvatar(initials: "PC", size: 56)
             Text(loadFailed ? "No se pudo cargar el chat" : "Escribe a Pablo para empezar")
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .scaledFont(15, weight: .bold, relativeTo: .subheadline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
             Text(loadFailed
                  ? "Revisa tu conexión. Tus mensajes se enviarán cuando vuelvas."
@@ -291,37 +304,46 @@ struct ChatView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 32)
-        .padding(.top, 80)
+        .padding(.top, 72)
     }
 
     // MARK: - Input
-
+    //
+    // Composer: a pill text field + circular ORANGE send button, per the handoff.
+    // Send glyph fills accent (enabled) / sunken (disabled). Wiring unchanged.
     private var inputRow: some View {
         let canSend = !draft.trimmingCharacters(in: .whitespaces).isEmpty
-        return HStack(spacing: 8) {
-            TextField("", text: $draft, prompt: Text("Escribe a Pablo…").foregroundColor(Theme.Color.muted))
+        return HStack(spacing: 10) {
+            TextField("", text: $draft, prompt: Text("Mensaje…").foregroundColor(Theme.Color.faint))
                 .focused($inputFocused)
                 .scaledFont(14, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+                .frame(height: 40)
                 .background(Theme.Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    Capsule().stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                )
+                .clipShape(Capsule())
                 .submitLabel(.send)
                 .onSubmit { send() }
                 .accessibilityLabel("Mensaje para Pablo")
 
             Button(action: send) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(canSend ? Theme.Color.accent : Theme.Color.muted)
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(canSend ? Theme.Color.accentOn : Theme.Color.faint)
+                    .frame(width: 40, height: 40)
+                    .background(canSend ? Theme.Color.accent : Theme.Color.surfaceElevated)
+                    .clipShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressScaleStyle())
             .disabled(!canSend)
             .accessibilityLabel("Enviar mensaje")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
         .background(Theme.Color.background)
     }
 }
@@ -356,11 +378,11 @@ private struct MessageRow: View {
             if message.sender == .me { Spacer(minLength: 40) }
 
             VStack(alignment: message.sender == .me ? .trailing : .leading, spacing: 4) {
+                bubble
                 Text(metaLabel)
                     .font(.system(size: 9, design: .monospaced))
                     .tracking(1.0)
-                    .foregroundStyle(Theme.Color.muted)
-                bubble
+                    .foregroundStyle(Theme.Color.faint)
             }
 
             if message.sender == .coach { Spacer(minLength: 40) }
@@ -395,11 +417,18 @@ private struct MessageRow: View {
         switch message.kind {
         case .text(let body):
             Text(body)
-                .scaledFont(13, relativeTo: .footnote)
+                .scaledFont(14, relativeTo: .footnote)
                 .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.foreground)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 10)
                 .background(message.sender == .me ? Theme.Color.accent : Theme.Color.surface)
+                .overlay {
+                    // Received bubbles get a hairline seam (handoff `#283341`
+                    // border); sent bubbles are a solid orange fill, no border.
+                    if message.sender == .coach {
+                        BubbleShape(isMe: false).stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                    }
+                }
                 .clipShape(BubbleShape(isMe: message.sender == .me))
                 .frame(maxWidth: 280, alignment: message.sender == .me ? .trailing : .leading)
                 .opacity(message.status == .sent ? 1 : 0.6)
@@ -407,16 +436,21 @@ private struct MessageRow: View {
             HStack(spacing: 8) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.accent)
+                    .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.accentText)
                 Waveform(filledColor: message.sender == .me ? Theme.Color.accentOn : Theme.Color.foreground)
                     .frame(width: 90, height: 18)
                 Text(durationLabel)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.muted)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 13)
             .padding(.vertical, 10)
             .background(message.sender == .me ? Theme.Color.accent : Theme.Color.surface)
+            .overlay {
+                if message.sender == .coach {
+                    BubbleShape(isMe: false).stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                }
+            }
             .clipShape(BubbleShape(isMe: message.sender == .me))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Nota de voz, \(durationLabel)")
@@ -441,15 +475,18 @@ private struct Waveform: View {
     }
 }
 
+// Asymmetric bubble matching the handoff: the "tail" corner is the TOP corner
+// on the speaker's side — received = top-leading flattened (4pt), sent =
+// top-trailing flattened (4pt). All other corners 14pt.
 private struct BubbleShape: Shape {
     let isMe: Bool
     func path(in rect: CGRect) -> Path {
         let radius: CGFloat = 14
         let small: CGFloat = 4
-        let topLeft     = isMe ? radius : radius
-        let topRight    = isMe ? radius : radius
-        let bottomLeft  = isMe ? radius : small
-        let bottomRight = isMe ? small  : radius
+        let topLeft     = isMe ? radius : small
+        let topRight    = isMe ? small  : radius
+        let bottomLeft  = radius
+        let bottomRight = radius
         var p = Path()
         p.move(to: CGPoint(x: rect.minX + topLeft, y: rect.minY))
         p.addLine(to: CGPoint(x: rect.maxX - topRight, y: rect.minY))

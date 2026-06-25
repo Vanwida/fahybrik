@@ -9,34 +9,81 @@ import SwiftUI
 // elevated so cards visibly float off the canvas under a soft shadow.
 enum Theme {
     enum Color {
-        // Layered near-blacks for DEPTH (canvas → card → raised). Defined as
-        // literal sRGB so the step between layers is exact and reads as depth,
-        // not a flat single black. Asset-backed brand colors stay available via
-        // the *Asset accessors below for anything that must track the catalog.
-        static let background = SwiftUI.Color(red: 0x0B/255, green: 0x0B/255, blue: 0x0C/255)   // #0B0B0C canvas
-        static let surface = SwiftUI.Color(red: 0x14/255, green: 0x14/255, blue: 0x16/255)      // #141416 card
-        static let surfaceElevated = SwiftUI.Color(red: 0x1C/255, green: 0x1C/255, blue: 0x1F/255) // #1C1C1F raised
-        // A touch deeper than the canvas, for wells / inset instrument faces.
-        static let surfaceSunken = SwiftUI.Color(red: 0x08/255, green: 0x08/255, blue: 0x09/255)    // #080809 well
+        // MARK: - Adaptive resolution
+        //
+        // Every semantic token below resolves PER interface style: the DARK
+        // value is the original instrument-panel near-black palette (unchanged);
+        // the LIGHT value is the "Cool Clean" set — white canvas, cool light-gray
+        // cards, cool near-black text. The app follows the SYSTEM appearance
+        // (AppRoot no longer forces dark). Light hexes were contrast-checked
+        // against their real backgrounds (text ≥4.5:1, UI/large ≥3:1, WCAG AA).
+        static func dyn(light: UIColor, dark: UIColor) -> SwiftUI.Color {
+            SwiftUI.Color(UIColor { tc in
+                tc.userInterfaceStyle == .dark ? dark : light
+            })
+        }
+        /// sRGB UIColor from an 0xRRGGBB literal (keeps the per-channel exactness
+        /// the design memory pins, without repeating the /255 boilerplate).
+        private static func ui(_ rgb: UInt32) -> UIColor {
+            UIColor(
+                red: CGFloat((rgb >> 16) & 0xFF) / 255,
+                green: CGFloat((rgb >> 8) & 0xFF) / 255,
+                blue: CGFloat(rgb & 0xFF) / 255,
+                alpha: 1
+            )
+        }
 
-        static let foreground = SwiftUI.Color(red: 0xF5/255, green: 0xF3/255, blue: 0xF0/255)   // #F5F3F0 warm white
-        static let muted = SwiftUI.Color(red: 0x9A/255, green: 0x93/255, blue: 0x8B/255)        // #9A938B
-        static let faint = SwiftUI.Color(red: 0x6B/255, green: 0x62/255, blue: 0x58/255)        // #6B6258 faint
+        // Layered surfaces. DARK = near-black depth (canvas → card → raised →
+        // well). LIGHT = white canvas, cool light-gray cards, raised cards back
+        // to white so they "float" off the gray, well a touch deeper gray.
+        static let background       = dyn(light: ui(0xFFFFFF), dark: ui(0x0B0B0C)) // canvas
+        static let surface          = dyn(light: ui(0xF6F7F9), dark: ui(0x141416)) // card
+        static let surfaceElevated  = dyn(light: ui(0xFFFFFF), dark: ui(0x1C1C1F)) // raised
+        static let surfaceSunken    = dyn(light: ui(0xECEEF1), dark: ui(0x080809)) // well
 
-        // Hairlines are warm-white at very low alpha — the instrument-panel seam.
-        static let hairline = SwiftUI.Color.white.opacity(0.07)
-        static let hairlineStrong = SwiftUI.Color.white.opacity(0.12)
-        static let outline = SwiftUI.Color.white.opacity(0.10)
-        static let scrim = SwiftUI.Color.black.opacity(0.55)
+        static let foreground = dyn(light: ui(0x0F1217), dark: ui(0xF5F3F0)) // text   (18.8:1 / —)
+        static let muted      = dyn(light: ui(0x474D55), dark: ui(0x9A938B)) // muted  (8.5:1)
+        static let faint      = dyn(light: ui(0x79808A), dark: ui(0x6B6258)) // faint  (UI 3.99:1)
 
-        static let accent = SwiftUI.Color(red: 0xF0/255, green: 0x6A/255, blue: 0x2A/255)       // #F06A2A Fabrik orange
-        static let accentPress = SwiftUI.Color(red: 0xD8/255, green: 0x5A/255, blue: 0x20/255)  // #D85A20 pressed
-        // #511900 brown — 4.57:1 on #F06A2A (WCAG AA), paridad with coach
-        // (--accent-on). White was 3.09:1 (fails AA).
-        static let accentOn = SwiftUI.Color(red: 0x51/255, green: 0x19/255, blue: 0x00/255)
-        static let ok = SwiftUI.Color(red: 0x3F/255, green: 0xC7/255, blue: 0x73/255)
-        static let warning = SwiftUI.Color(red: 0xF2/255, green: 0xA5/255, blue: 0x2E/255)
-        static let danger = SwiftUI.Color(red: 0xF2/255, green: 0x3F/255, blue: 0x3F/255)
+        // Hairlines / outlines flip from warm-white-on-black to black-on-white at
+        // the same low alphas — the instrument-panel seam, inverted.
+        static let hairline       = dyn(light: UIColor.black.withAlphaComponent(0.07),
+                                        dark:  UIColor.white.withAlphaComponent(0.07))
+        static let hairlineStrong = dyn(light: UIColor.black.withAlphaComponent(0.12),
+                                        dark:  UIColor.white.withAlphaComponent(0.12))
+        static let outline        = dyn(light: UIColor.black.withAlphaComponent(0.10),
+                                        dark:  UIColor.white.withAlphaComponent(0.10))
+        // Scrim sits over content under sheets/overlays — lighter on light so it
+        // dims without going muddy.
+        static let scrim          = dyn(light: UIColor.black.withAlphaComponent(0.40),
+                                        dark:  UIColor.black.withAlphaComponent(0.55))
+
+        // Brand orange is the FILL in BOTH modes (button bg, bars, active pill);
+        // unchanged. accentOn (#511900 brown) is the text/glyph ON that fill —
+        // 4.57:1 on #F06A2A, valid in both modes.
+        static let accent      = dyn(light: ui(0xF06A2A), dark: ui(0xF06A2A)) // #F06A2A Fabrik orange
+        static let accentPress = dyn(light: ui(0xD85A20), dark: ui(0xD85A20)) // #D85A20 pressed
+        static let accentOn    = dyn(light: ui(0x511900), dark: ui(0x511900)) // brown on orange
+        // Orange as TEXT/links/small glyphs fails AA on a light canvas, so on
+        // light it darkens to #B5430B (5.6:1 on white / 5.2:1 on surface). On
+        // dark it stays the brand orange. Use this — NOT `accent` — for text.
+        static let accentText  = dyn(light: ui(0xB5430B), dark: ui(0xF06A2A))
+
+        // Semantic hues. DARK = the vivid instrument set. LIGHT = darkened so
+        // each still passes ≥4.5:1 as TEXT on the white/surface canvas.
+        static let ok      = dyn(light: ui(0x157A45), dark: ui(0x3FC773)) // green   (5.4:1 / 5.0:1)
+        static let warning = dyn(light: ui(0x8A5A00), dark: ui(0xF2A52E)) // amber   (5.9:1 / 5.5:1)
+        static let danger  = dyn(light: ui(0xC62F2F), dark: ui(0xF23F3F)) // red     (5.5:1 / 5.1:1)
+        static let info    = dyn(light: ui(0x1F6FCC), dark: ui(0x4D9EEB)) // blue    (5.0:1 / 4.7:1)
+        static let neutral = dyn(light: ui(0x6B7177), dark: ui(0xA1A1A1)) // "no signal" grey (UI 4.9:1)
+
+        // Low-alpha status fills for chips/badges — parity with web --*-tint
+        // (color + icon + label, never color alone). 0.14 alpha over the base hue.
+        static let okTint = ok.opacity(0.14)
+        static let warningTint = warning.opacity(0.14)
+        static let dangerTint = danger.opacity(0.14)
+        static let infoTint = info.opacity(0.14)
+        static let neutralTint = neutral.opacity(0.14)
 
         // Asset-catalog brand colors, kept for anything that must track the
         // shared catalog 1:1 (e.g. cross-platform parity checks).
@@ -45,15 +92,53 @@ enum Theme {
         static let foregroundAsset = SwiftUI.Color("BrandForeground")
         static let mutedAsset = SwiftUI.Color("BrandMuted")
         static let accentAsset = SwiftUI.Color("BrandAccent")
+
+        // Partner identity in Dobles: the handoff colors Ana orange (= our brand
+        // accent) and Marcos blue (= our info). The "self" athlete always reads
+        // as the brand accent; the partner reads as info blue.
+        static let partner = info
+    }
+
+    // MARK: - Modality
+    //
+    // A training session's modality drives a single dot/badge color across the
+    // redesign (Plan day rows, compact session rows, day-detail switcher).
+    // The handoff maps run → brand accent, ergometers (row/ski/bike) → info blue,
+    // strength → neutral foreground. Strings come from the API's modality field;
+    // we normalize loosely (substring match) so "row"/"rowerg"/"remo" all land on
+    // the ergometer color without an exhaustive enum the backend doesn't promise.
+    enum Modality {
+        /// Color for a modality string (case-insensitive, substring match).
+        static func color(_ raw: String?) -> SwiftUI.Color {
+            let s = (raw ?? "").lowercased()
+            if s.contains("run") || s.contains("corr") || s.contains("carrera") {
+                return Color.accent
+            }
+            if s.contains("erg") || s.contains("row") || s.contains("remo")
+                || s.contains("ski") || s.contains("bike") || s.contains("bici")
+                || s.contains("assault") {
+                return Color.info
+            }
+            // Strength / lifting / accessory / WOD-mixed → neutral foreground dot.
+            return Color.foreground
+        }
     }
 
     // MARK: - Depth (soft shadows for elevated instrument cards)
     enum Shadow {
         /// Resting card — a soft, dramatic drop so the card floats off the canvas.
+        /// Shadow alpha is adaptive: heavy on the dark canvas, soft on light (a
+        /// 0.45 black shadow on white reads as a grimy halo).
         struct Spec { let color: SwiftUI.Color; let radius: CGFloat; let x: CGFloat; let y: CGFloat }
-        static let card = Spec(color: .black.opacity(0.45), radius: 18, x: 0, y: 10)
-        static let cardTight = Spec(color: .black.opacity(0.35), radius: 10, x: 0, y: 5)
-        static let hero = Spec(color: .black.opacity(0.55), radius: 28, x: 0, y: 16)
+        private static func shadowColor(light: CGFloat, dark: CGFloat) -> SwiftUI.Color {
+            Color.dyn(
+                light: UIColor.black.withAlphaComponent(light),
+                dark:  UIColor.black.withAlphaComponent(dark)
+            )
+        }
+        static let card = Spec(color: shadowColor(light: 0.10, dark: 0.45), radius: 18, x: 0, y: 10)
+        static let cardTight = Spec(color: shadowColor(light: 0.07, dark: 0.35), radius: 10, x: 0, y: 5)
+        static let hero = Spec(color: shadowColor(light: 0.14, dark: 0.55), radius: 28, x: 0, y: 16)
     }
 
     // MARK: - Motion (one orchestrated staggered reveal on appear)
@@ -219,33 +304,41 @@ extension View {
 /// perceptible noise so large near-black fields gain depth instead of banding.
 /// Decorative only — ignored by VoiceOver and hit-testing.
 struct BrandVignette: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        ZStack {
-            RadialGradient(
-                colors: [.clear, .black.opacity(0.38)],
-                center: .center,
-                startRadius: 140,
-                endRadius: 620
-            )
-            // Fine grain: a tiny tiled dot pattern at very low alpha.
-            Canvas { ctx, size in
-                let dot = Path(ellipseIn: CGRect(x: 0, y: 0, width: 1, height: 1))
-                var seed: UInt64 = 0x9E3779B9
-                func rnd() -> CGFloat {
-                    seed = seed &* 6364136223846793005 &+ 1442695040888963407
-                    return CGFloat((seed >> 33) & 0xFFFF) / 65535.0
-                }
-                let count = Int((size.width * size.height) / 900)
-                for _ in 0..<max(0, count) {
-                    let x = rnd() * size.width
-                    let y = rnd() * size.height
-                    ctx.fill(dot.offsetBy(dx: x, dy: y), with: .color(.white.opacity(0.018)))
+        // In light mode the dark radial + white grain read as dirt on the white
+        // canvas, so render nothing. In dark mode keep the original behaviour.
+        if colorScheme == .light {
+            SwiftUI.Color.clear
+        } else {
+            ZStack {
+                RadialGradient(
+                    colors: [.clear, .black.opacity(0.38)],
+                    center: .center,
+                    startRadius: 140,
+                    endRadius: 620
+                )
+                // Fine grain: a tiny tiled dot pattern at very low alpha.
+                Canvas { ctx, size in
+                    let dot = Path(ellipseIn: CGRect(x: 0, y: 0, width: 1, height: 1))
+                    var seed: UInt64 = 0x9E3779B9
+                    func rnd() -> CGFloat {
+                        seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                        return CGFloat((seed >> 33) & 0xFFFF) / 65535.0
+                    }
+                    let count = Int((size.width * size.height) / 900)
+                    for _ in 0..<max(0, count) {
+                        let x = rnd() * size.width
+                        let y = rnd() * size.height
+                        ctx.fill(dot.offsetBy(dx: x, dy: y), with: .color(.white.opacity(0.018)))
+                    }
                 }
             }
+            .blendMode(.plusLighter)
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
         }
-        .blendMode(.plusLighter)
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
     }
 }
 

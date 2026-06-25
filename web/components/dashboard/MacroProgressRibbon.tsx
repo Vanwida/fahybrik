@@ -1,8 +1,16 @@
 import type { MacroProgressPayload } from '@/lib/dashboard/coach/macro-progress';
+import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
+import { ATR_PHASE_ORDER } from '@/lib/dashboard/constants/atr-phases';
 
 interface MacroProgressRibbonProps {
   progress: MacroProgressPayload;
   compact?: boolean;
+  /**
+   * Coach-defined periodization phases (migration 0052). When provided, the pill
+   * row iterates these (ordered by sequence_order) instead of the legacy ATR
+   * triplet. Empty/omitted => legacy ACC/TRANS/REAL fallback (zero regression).
+   */
+  coachPhases?: ReadonlyArray<MethodologyPhase>;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -12,9 +20,11 @@ const STATUS_COLOR: Record<string, string> = {
   missed: 'var(--danger)',
 };
 
-const BLOCK_PHASES = ['ACC', 'TRANS', 'REAL'] as const;
-
-export function MacroProgressRibbon({ progress, compact }: MacroProgressRibbonProps) {
+export function MacroProgressRibbon({
+  progress,
+  compact,
+  coachPhases = [],
+}: MacroProgressRibbonProps) {
   if (progress.weeks.length === 0) {
     return (
       <section className="card-surface px-4 py-3">
@@ -24,6 +34,26 @@ export function MacroProgressRibbon({ progress, compact }: MacroProgressRibbonPr
       </section>
     );
   }
+
+  // Pill row data source. When the coach has configured phases (0052), iterate
+  // those ordered by sequence_order; otherwise fall back to the legacy ATR
+  // triplet (byte-for-byte identical to the previous BLOCK_PHASES render).
+  // `code` is the compact badge text; `active` matches against progress.block
+  // case-insensitively (coach seed codes are lowercase 'acc' vs legacy 'ACC').
+  const activeCode = progress.block?.toUpperCase() ?? null;
+  const phasePills =
+    coachPhases.length > 0
+      ? [...coachPhases]
+          .sort((a, b) => a.sequence_order - b.sequence_order)
+          .map((p) => {
+            const code = p.code.toUpperCase();
+            return { key: String(p.id), code, active: code === activeCode };
+          })
+      : ATR_PHASE_ORDER.map((code) => ({
+          key: code,
+          code,
+          active: progress.block === code,
+        }));
 
   return (
     <section aria-label="Progreso macrociclo" className="card-surface px-4 py-3">
@@ -37,16 +67,16 @@ export function MacroProgressRibbon({ progress, compact }: MacroProgressRibbonPr
       </div>
       {!compact ? (
         <div className="mt-2 flex gap-2">
-          {BLOCK_PHASES.map((phase) => (
+          {phasePills.map((phase) => (
             <span
-              key={phase}
+              key={phase.key}
               className={`rounded-[var(--r-pill)] px-2 py-0.5 text-[9px] font-bold tracking-[0.08em] ${
-                progress.block === phase
+                phase.active
                   ? 'bg-[color:var(--accent)] text-[color:var(--accent-on)]'
                   : 'border border-[color:var(--hairline)] text-[color:var(--muted)]'
               }`}
             >
-              {phase}
+              {phase.code}
             </span>
           ))}
         </div>

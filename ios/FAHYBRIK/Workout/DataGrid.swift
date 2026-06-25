@@ -40,7 +40,7 @@ struct DataGrid2x2: View {
                 DataCell(label: bottomRight.label, value: bottomRight.value, emphasis: bottomRight.color)
             }
         }
-        .background(Theme.Color.muted.opacity(0.18))
+        .background(Theme.Color.hairlineStrong)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
     }
 }

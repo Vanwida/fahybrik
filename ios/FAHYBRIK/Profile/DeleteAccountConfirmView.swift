@@ -39,7 +39,6 @@ struct DeleteAccountConfirmView: View {
                 form
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Form (pre-confirmation)
@@ -184,11 +183,11 @@ struct DeleteAccountConfirmView: View {
 
     private var closingScreen: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LabelText(text: "Cuenta marcada para eliminación", color: Theme.Color.accent)
+            LabelText(text: "Cuenta marcada para eliminación", color: Theme.Color.accentText)
             Text("Tu cuenta se eliminará en 30 días.")
                 .font(Theme.Typography.headlineS)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("Te enviamos un email de confirmación. Puedes contactar privacy@fahybrid.com si necesitas cancelar la solicitud antes de 30 días.")
+            Text("Te enviamos un email de confirmación. Puedes contactar hello@fahybrid.com si necesitas cancelar la solicitud antes de 30 días.")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.Color.muted)
             Spacer().frame(height: Theme.Spacing.l)

@@ -254,7 +254,7 @@ struct PostWorkoutSummaryView: View {
                         Button(action: { rpe = n; Haptics.light() }) {
                             Text("\(n)")
                                 .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                                .foregroundStyle(rpe == n ? Color.white : Theme.Color.foreground)
+                                .foregroundStyle(rpe == n ? Theme.Color.accentOn : Theme.Color.foreground)
                                 .frame(width: 26, height: 26)
                                 .background(rpe == n ? Theme.Color.accent : Theme.Color.surfaceElevated)
                                 .clipShape(Circle())

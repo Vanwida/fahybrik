@@ -25,6 +25,22 @@ import {
 import { proposeBlockEmphasis, type BlockEmphasis } from './intake-suggestions';
 import { suggestAthleteTrainingLevel } from './athlete-training-level';
 import {
+  BENCH_BACK_SQUAT_1RM,
+  BENCH_DEADLIFT_1RM,
+  BENCH_BENCH_PRESS_1RM,
+  BENCH_OHP_1RM,
+  BENCH_CLEAN_1RM,
+  BENCH_SNATCH_1RM,
+  BENCH_STRICT_PULL_UP_MAX,
+  BENCH_PUSH_UPS_PER_MIN,
+  BENCH_RUN_5K,
+  BENCH_RUN_10K,
+  BENCH_RUN_HALF,
+  BENCH_RUN_MARATHON,
+  BENCH_ROW_2K,
+  BENCH_SKI_1K,
+} from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import {
   deriveTrainingDaysPerWeek,
   injuryContraindications,
   missingEquipmentTags,
@@ -44,6 +60,11 @@ import {
   type IntakeCommit,
   type IntakeNotesSnapshot,
 } from './intake-schema';
+import type { AtrBlockType } from '@fahybrid/shared/domain/atr/planner';
+
+// Number of days per microcycle (week). Local mirror of the assign-draft route
+// constant so first-block weeks are stepped identically.
+const DAYS_PER_WEEK = 7;
 
 // Re-export pure helpers for callers / tests.
 export {
@@ -227,6 +248,18 @@ export interface CommitResult {
   scheduled_assignments: number;
   month_assignment_count?: number;
   welcome_sent: boolean;
+  /**
+   * First ATR block (Acumulación) materialized IN DRAFT on commit (default
+   * path). `null` when a month template was assigned instead, or when the coach
+   * has no ACC week templates yet (degraded: macrocycle persists, no draft).
+   */
+  first_block_draft?: {
+    block_type: AtrBlockType;
+    start_date: string;
+    week_count: number;
+    week_starts: string[];
+    assignment_count: number;
+  } | null;
 }
 
 export class IntakeError extends Error {
@@ -1053,6 +1086,7 @@ export async function commitIntake(params: {
 
   // Optional: assign first month from template when Pablo confirms in intake.
   let month_assignment_count = 0;
+  let first_block_draft: FirstBlockDraftResult | null = null;
   if (commit.month_template_id && commit.month_start_date) {
     const { instantiateMonthFromTemplate } = await import('./instantiate-program');
     const assignResult = await instantiateMonthFromTemplate({
@@ -1063,14 +1097,106 @@ export async function commitIntake(params: {
       client,
     });
     month_assignment_count = assignResult.assignment_count;
+  } else {
+    // Default path (the form never sends month_template_id): materialize the
+    // FIRST ATR block (Acumulación) IN DRAFT, reusing the same create-in-draft
+    // logic as /assign-draft — `assignBlockToAthlete` materializes the block's
+    // weeks from the coach's ACC week templates (the library default), then we
+    // mark each week as draft so Pablo lands on a reviewable draft, NOT an empty
+    // calendar. Soft-fails: if the coach has no ACC week templates yet, the
+    // macrocycle still persists and Pablo can program the block manually — the
+    // intake must not 500 over a template gap (the costly part, the macrocycle,
+    // already committed above).
+    first_block_draft = await materializeFirstBlockDraft({
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      client,
+    });
   }
 
   return {
     athlete_id: String(params.athlete_id),
     macrocycle_id: String(macroResult.macrocycle_id),
-    scheduled_assignments: month_assignment_count || programmedCount,
+    scheduled_assignments:
+      month_assignment_count || first_block_draft?.assignment_count || programmedCount,
     month_assignment_count,
     welcome_sent,
+    first_block_draft,
+  };
+}
+
+// =============================================================================
+// First-block draft (default intake path) — reuses the Phase-3 create-in-draft
+// path: assignBlockToAthlete materializes the ACC block's weeks, then each week
+// is marked draft via markWeekDraft (same gate as the /assign-draft route).
+// =============================================================================
+
+type FirstBlockDraftResult = {
+  block_type: AtrBlockType;
+  start_date: string;
+  week_count: number;
+  week_starts: string[];
+  assignment_count: number;
+};
+
+async function materializeFirstBlockDraft(params: {
+  coach_id: bigint | number;
+  athlete_id: bigint | number;
+  client: Sql;
+}): Promise<FirstBlockDraftResult | null> {
+  const { assignBlockToAthlete, AssignBlockError } = await import(
+    '@/lib/dashboard/coach/assign-block'
+  );
+  const { markWeekDraft } = await import('./publish-week');
+  const { addDays, isoDateString, mondayOfWeek, parseIsoDate } = await import(
+    '@fahybrid/shared/domain/atr/dates'
+  );
+
+  let assign: Awaited<ReturnType<typeof assignBlockToAthlete>>;
+  try {
+    // First ACC block: assignBlockToAthlete resolves the macrocycle's ACC block
+    // (just created by computeMacrocycle) and materializes its weeks from the
+    // coach's ACC week templates.
+    assign = await assignBlockToAthlete({
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      atr_block: 'ACC',
+      client: params.client,
+    });
+  } catch (err) {
+    // No ACC week templates / no block to materialize → degrade gracefully:
+    // keep the macrocycle, skip the draft. Pablo can program the block manually.
+    if (err instanceof AssignBlockError) {
+      return null;
+    }
+    throw err;
+  }
+
+  // Mark each materialized week as draft (gate lives at the confirmation level,
+  // identical to /assign-draft) so the block stays hidden from the athlete until
+  // Pablo publishes from "Revisar & publicar". Anchor to Monday so the week_start
+  // dates mirror EXACTLY the microcycles the materializer created (it aligns each
+  // week to Monday); a draft on the wrong week_start would not hide the real week.
+  const startMonday = mondayOfWeek(parseIsoDate(assign.start_date));
+  const weekCount = assign.microcycle_ids.length;
+  const weekStarts: string[] = [];
+  for (let i = 0; i < weekCount; i += 1) {
+    const weekStart = isoDateString(addDays(startMonday, i * DAYS_PER_WEEK));
+    await markWeekDraft({
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      week_start: weekStart,
+      client: params.client,
+    });
+    weekStarts.push(weekStart);
+  }
+
+  return {
+    block_type: assign.block_type,
+    start_date: assign.start_date,
+    week_count: weekCount,
+    week_starts: weekStarts,
+    assignment_count: assign.assignment_count,
   };
 }
 
@@ -1129,19 +1255,25 @@ async function sendWelcomeMessage(params: {
 // =============================================================================
 
 function classifyBenchmark(slug: string): BenchmarkGroup {
-  const oneRmSlugs = new Set([
-    'back_squat',
-    'front_squat',
-    'deadlift',
-    'bench_press',
-    'ohp',
-    'clean',
-    'snatch',
-    'pull_ups',
-    'push_ups',
+  // Canonical benchmark slugs (the ones the onboarding route actually writes)
+  // single-sourced in @fahybrid/shared/domain/coach/benchmark-slugs.
+  const oneRmSlugs = new Set<string>([
+    BENCH_BACK_SQUAT_1RM,
+    BENCH_DEADLIFT_1RM,
+    BENCH_BENCH_PRESS_1RM,
+    BENCH_OHP_1RM,
+    BENCH_CLEAN_1RM,
+    BENCH_SNATCH_1RM,
+    BENCH_STRICT_PULL_UP_MAX,
+    BENCH_PUSH_UPS_PER_MIN,
   ]);
-  const enduranceSlugs = new Set(['5k_run', '10k_run', 'half_marathon', 'marathon']);
-  const stationSlugs = new Set([
+  const enduranceSlugs = new Set<string>([
+    BENCH_RUN_5K,
+    BENCH_RUN_10K,
+    BENCH_RUN_HALF,
+    BENCH_RUN_MARATHON,
+  ]);
+  const stationSlugs = new Set<string>([
     'wall_balls',
     'sled_push',
     'sled_pull',
@@ -1151,7 +1283,7 @@ function classifyBenchmark(slug: string): BenchmarkGroup {
     'rowing_erg',
     'ski_erg',
   ]);
-  const anaerobicSlugs = new Set(['2k_row', '1k_ski', '3min_row_max', 'lt_threshold']);
+  const anaerobicSlugs = new Set<string>([BENCH_ROW_2K, BENCH_SKI_1K, '3min_row_max', 'lt_threshold']);
   if (oneRmSlugs.has(slug)) return 'one_rm';
   if (enduranceSlugs.has(slug)) return 'endurance';
   if (stationSlugs.has(slug)) return 'hyrox_station';

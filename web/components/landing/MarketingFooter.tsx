@@ -14,7 +14,7 @@ import { FahybridWordmark } from './FahybridMark';
 
 const BRAND_LINE = 'HYROX · DEKA · Atleta híbrido';
 // TODO: real contact address.
-const CONTACT_EMAIL = 'hola@fahybrid.com';
+const CONTACT_EMAIL = 'hello@fahybrid.com';
 
 export function MarketingFooter() {
   const year = new Date().getFullYear();

@@ -24,4 +24,10 @@ enum Haptics {
         g.prepare()
         g.notificationOccurred(.success)
     }
+
+    static func error() {
+        let g = UINotificationFeedbackGenerator()
+        g.prepare()
+        g.notificationOccurred(.error)
+    }
 }

@@ -6,6 +6,7 @@ import {
   ingestExecutionSegments,
   segmentInputSchema,
 } from '@/lib/sync/ingest-execution-segments';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,11 @@ export async function POST(request: Request) {
     set status = 'completed', updated_at = now()
     where id = ${assignmentId} and athlete_id = ${athleteId}
   `;
+
+  // Fire-and-forget: refresh the coach attention queue for this athlete (a
+  // completed workout can clear missed_sessions / compliance signals). Never
+  // throws into the sync response.
+  void recomputeAthlete({ athlete_id: athleteId }).catch(() => {});
 
   return jsonOk({
     saved: true,

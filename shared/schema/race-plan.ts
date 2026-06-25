@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, isoDateTime } from './_primitives.js';
+import { idSchema, isoDateTime } from './_primitives';
 
 // Race plan + race result + race debrief schemas.
 //

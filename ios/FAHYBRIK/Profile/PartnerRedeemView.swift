@@ -17,6 +17,7 @@ struct PartnerRedeemView: View {
     let auth: AuthState
     let onCompleted: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var error: String? = nil
     @State private var inProgress: Bool = false
 
@@ -29,7 +30,7 @@ struct PartnerRedeemView: View {
                 Wordmark(size: 28)
 
                 VStack(spacing: 12) {
-                    LabelText(text: "INVITACIÓN A DOBLES", color: Theme.Color.accent)
+                    LabelText(text: "INVITACIÓN A DOBLES", color: Theme.Color.accentText)
                     Text("Bienvenido/a")
                         .font(Theme.Typography.headlineM)
                         .foregroundStyle(Theme.Color.foreground)
@@ -47,7 +48,7 @@ struct PartnerRedeemView: View {
                 } onCompletion: { result in
                     handleApple(result)
                 }
-                .signInWithAppleButtonStyle(.white)
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 54)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -62,13 +63,12 @@ struct PartnerRedeemView: View {
                         .multilineTextAlignment(.center)
                 }
                 if inProgress {
-                    ProgressView().tint(Theme.Color.accent)
+                    ProgressView().tint(Theme.Color.accentText)
                 }
 
                 Spacer().frame(height: Theme.Spacing.xl)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private func handleApple(_ result: Result<ASAuthorization, Error>) {

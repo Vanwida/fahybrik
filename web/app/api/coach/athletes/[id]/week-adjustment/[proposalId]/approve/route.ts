@@ -6,6 +6,7 @@ import {
   rejectWeekAdjustment,
   WeekAdjustmentError,
 } from '@/lib/dashboard/coach/week-adjustments';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,8 @@ export async function POST(
       athlete_id: Number(parsedId.data.id),
       proposal_id: Number(proposalId),
     });
+    // Fire-and-forget: approving clears the week_adjustment_pending signal.
+    void recomputeAthlete({ athlete_id: Number(parsedId.data.id) }).catch(() => {});
     return jsonOk({ ok: true });
   } catch (err) {
     if (err instanceof WeekAdjustmentError) {

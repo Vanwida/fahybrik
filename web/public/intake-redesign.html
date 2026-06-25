@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FAHYBRID · Intake (mock de diseño)</title>
+
+<!-- Fonts + icons (CDN) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+<link
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  :root {
+    /* ----- surfaces ----- */
+    --bg: #0A0A0A;
+    --surface-card: #141414;
+    --surface-elevated: #1F1F1F;
+    --surface-container: #201F1F;
+    --surface-container-high: #2A2A2A;
+    --surface-variant: #353534;
+
+    /* ----- text / lines ----- */
+    --fg: #F5F5F5;
+    --text-muted: #A1A1A1;
+    --border-subtle: #222222;
+    --hairline: rgba(161, 161, 161, 0.18);
+
+    /* ----- brand accent (selection / active ONLY — never a status) ----- */
+    --accent: #F06A2A;
+    --accent-press: #D85A20;
+    --accent-on: #0A0A0A;
+    --accent-tint: rgba(240, 106, 42, 0.10);
+
+    /* ----- semantic ----- */
+    --ok: #3FC773;
+    --warning: #F2A52E;
+    --danger: #F23F3F;
+    --info: #4D9EEB;
+    --neutral: #A1A1A1;
+    --ok-tint: rgba(63, 199, 115, 0.14);
+    --warning-tint: rgba(242, 165, 46, 0.14);
+    --danger-tint: rgba(242, 63, 63, 0.14);
+    --info-tint: rgba(77, 158, 235, 0.14);
+    --neutral-tint: rgba(161, 161, 161, 0.14);
+
+    /* ----- methodology phase hues (muted, NOT orange) ----- */
+    --phase-acc: #4D9EEB;
+    --phase-int: #3FB6A8;
+    --phase-tap: #C2A18C;
+
+    /* ----- radius ----- */
+    --r-s: 6px;
+    --r-m: 10px;
+    --r-l: 14px;
+    --r-pill: 9999px;
+
+    /* ----- fonts ----- */
+    --font-display: "Archivo", "SF Pro Display", system-ui, sans-serif;
+    --font-sans: "Geist", "SF Pro Text", system-ui, sans-serif;
+    --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
+
+    /* ----- shadows ----- */
+    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.4);
+
+    /* ----- layout chrome ----- */
+    --banner-h: 26px;
+    --header-h: 96px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    padding-top: var(--banner-h);
+  }
+
+  /* ---------- mock banner ---------- */
+  .mock-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: var(--banner-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--surface-container);
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+  }
+  .mock-banner .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--warning);
+    opacity: 0.7;
+  }
+
+  /* ---------- typography helpers ---------- */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+  }
+  .accent-dot {
+    color: var(--accent);
+  }
+  .micro-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  .metric-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .muted {
+    color: var(--text-muted);
+  }
+
+  /* Material icon sizing */
+  .msi {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+    font-size: 18px;
+  }
+
+  /* ---------- card ---------- */
+  .card-elevated {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-l);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s ease;
+  }
+  .card-elevated:hover {
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+  }
+
+  /* ---------- status chip ---------- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: var(--r-s);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .chip .msi {
+    font-size: 13px;
+  }
+  .chip-ok {
+    background: var(--ok-tint);
+    color: var(--ok);
+  }
+  .chip-warning {
+    background: var(--warning-tint);
+    color: var(--warning);
+  }
+  .chip-danger {
+    background: var(--danger-tint);
+    color: var(--danger);
+  }
+  .chip-info {
+    background: var(--info-tint);
+    color: var(--info);
+  }
+  .chip-neutral {
+    background: var(--neutral-tint);
+    color: var(--text-muted);
+  }
+
+  /* neutral identity chips (header) */
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--r-pill);
+    background: var(--surface-container);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* ---------- buttons ---------- */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border: none;
+    border-radius: var(--r-m);
+    background: var(--accent);
+    color: var(--accent-on);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .btn-primary .msi {
+    font-size: 16px;
+  }
+  .btn-primary:hover {
+    background: var(--accent-press);
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-m);
+    background: var(--surface-container);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .btn-secondary .msi {
+    font-size: 15px;
+  }
+  .btn-secondary:hover {
+    background: var(--surface-elevated);
+  }
+
+  .select-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-m);
+    background: var(--surface-card);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* ---------- header ---------- */
+  .site-header {
+    position: sticky;
+    top: var(--banner-h);
+    z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .wrapper {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .breadcrumb .msi {
+    font-size: 14px;
+    opacity: 0.6;
+  }
+  .breadcrumb .crumb-current {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .identity-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0 16px;
+  }
+  .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--surface-container);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--fg);
+    flex-shrink: 0;
+  }
+  .identity-text .eyebrow {
+    margin-bottom: 2px;
+  }
+  .identity-name {
+    font-size: 24px;
+    line-height: 1.05;
+  }
+  .identity-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+  }
+  .ml-auto {
+    margin-left: auto;
+  }
+
+  /* ---------- body grid ---------- */
+  main {
+    padding: 20px 24px 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    align-items: start;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .decisions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  /* ---------- decision card ---------- */
+  .decision-card {
+    padding: 20px;
+    position: relative;
+  }
+  .decision-card.has-stripe {
+    overflow: hidden;
+  }
+  .left-stripe {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+  .left-stripe.danger {
+    background: var(--danger);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .num-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--surface-container);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--fg);
+    flex-shrink: 0;
+  }
+  .card-title {
+    font-size: 18px;
+    line-height: 1.1;
+  }
+  .head-eyebrow {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: right;
+  }
+  .card-subline {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    margin-left: 38px;
+  }
+
+  /* suggestion block (card 1) */
+  .suggestion {
+    margin-left: 38px;
+    background: var(--surface-container);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-m);
+    padding: 14px;
+  }
+  .suggestion-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .suggestion-row .msi.lead {
+    font-size: 20px;
+    color: var(--text-muted);
+  }
+  .race-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+  }
+  .race-name {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .race-sep {
+    color: var(--hairline);
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+  .race-meta {
+    color: var(--text-muted);
+    font-size: 12.5px;
+  }
+  .secondary-line {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .gate-note {
+    margin-left: 38px;
+    margin-top: 12px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .gate-note .msi {
+    font-size: 14px;
+    color: var(--danger);
+  }
+
+  /* segmented control (card 2) */
+  .body-pad {
+    margin-left: 38px;
+  }
+  .segmented {
+    display: inline-flex;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-m);
+    overflow: hidden;
+    background: var(--surface-card);
+  }
+  .segment {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border-subtle);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .segment:last-child {
+    border-right: none;
+  }
+  .segment .seg-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0.7;
+  }
+  .segment.active {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface-card));
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .segment.active .seg-num {
+    opacity: 1;
+  }
+  .justify-line {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .justify-metric {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* timeline (card 3) */
+  .timeline {
+    margin-left: 38px;
+    display: flex;
+    height: 36px;
+    border-radius: var(--r-s);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border-subtle);
+  }
+  .tl-seg {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .tl-acc {
+    background: color-mix(in srgb, var(--phase-acc) 22%, transparent);
+    color: var(--phase-acc);
+  }
+  .tl-int {
+    background: color-mix(in srgb, var(--phase-int) 22%, transparent);
+    color: var(--phase-int);
+  }
+  .tl-tap {
+    background: color-mix(in srgb, var(--phase-tap) 24%, transparent);
+    color: var(--phase-tap);
+    position: relative;
+  }
+  .tl-flag {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--fg);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .phase-rows {
+    margin-left: 38px;
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .phase-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .phase-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .phase-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .stepper {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .step-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-s);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-container);
+    color: var(--fg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .step-btn .msi {
+    font-size: 16px;
+  }
+  .step-val {
+    min-width: 38px;
+    height: 26px;
+    border-radius: var(--r-s);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-card);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .step-unit {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .advisory {
+    margin-left: 38px;
+    margin-top: 14px;
+    padding-top: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .advisory .msi {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+
+  /* test groups (card 4) */
+  .test-group {
+    margin-left: 38px;
+    margin-top: 14px;
+  }
+  .test-group:first-of-type {
+    margin-top: 4px;
+  }
+  .test-group .group-label {
+    margin-bottom: 8px;
+  }
+  .test-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--r-s);
+    transition: background 0.12s ease;
+  }
+  .test-row:hover {
+    background: var(--surface-container);
+  }
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .checkbox .msi {
+    font-size: 15px;
+    color: var(--accent-on);
+  }
+  .checkbox.hollow {
+    background: transparent;
+    border: 1.5px solid var(--border-subtle);
+  }
+  .test-label {
+    font-size: 13.5px;
+  }
+
+  /* warning rows (card 5) */
+  .warn-list {
+    margin-left: 38px;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .warn-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px 12px 16px;
+    border-radius: var(--r-m);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+  }
+  .warn-row .wstripe {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+  .warn-row.danger {
+    background: color-mix(in srgb, var(--danger) 5%, var(--surface-card));
+  }
+  .warn-row.danger .wstripe {
+    background: var(--danger);
+  }
+  .warn-row.danger > .lead-icon {
+    color: var(--danger);
+  }
+  .warn-row.amber {
+    background: color-mix(in srgb, var(--warning) 5%, var(--surface-card));
+  }
+  .warn-row.amber .wstripe {
+    background: var(--warning);
+  }
+  .warn-row.amber > .lead-icon {
+    color: var(--warning);
+  }
+  .warn-row .lead-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .warn-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .warn-title {
+    font-weight: 700;
+    font-size: 13.5px;
+  }
+  .warn-detail {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    flex-basis: 100%;
+  }
+  .warn-trailing {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .warn-resolve-note {
+    font-size: 11.5px;
+    font-style: italic;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .warn-resolve-note .msi {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+
+  /* welcome / notes (card 6) */
+  .toggle-row {
+    margin-left: 38px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .toggle-row .label {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .textarea-box {
+    margin-left: 38px;
+    position: relative;
+    background: var(--surface-container);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-m);
+    padding: 12px 14px 24px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--fg);
+    min-height: 110px;
+  }
+  .char-counter {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .notes-block {
+    margin-left: 38px;
+    margin-top: 16px;
+  }
+  .notes-block .micro-label {
+    margin-bottom: 8px;
+    display: block;
+  }
+  .textarea-box.empty {
+    margin-left: 0;
+    min-height: 64px;
+    color: var(--text-muted);
+    padding-bottom: 12px;
+  }
+
+  /* ---------- evidence rail ---------- */
+  .rail {
+    position: sticky;
+    top: calc(var(--banner-h) + var(--header-h) + 12px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .rail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .rail-head a {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .rail-head a:hover {
+    color: var(--fg);
+  }
+  .rail-head a .msi {
+    font-size: 13px;
+  }
+  .rail-card {
+    padding: 16px;
+  }
+  .rail-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .rail-card-head .msi {
+    font-size: 16px;
+    color: var(--text-muted);
+  }
+  .goal-line {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .goal-terms {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .goal-term {
+    display: flex;
+    gap: 8px;
+    font-size: 12.5px;
+  }
+  .goal-term .term-k {
+    color: var(--text-muted);
+    min-width: 48px;
+  }
+
+  .instruments {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .instrument {
+    flex: 1;
+    text-align: center;
+  }
+  .instrument .ival {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .instrument .ival small {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .instrument .micro-label {
+    margin-top: 6px;
+    display: block;
+  }
+  .ival.caution {
+    color: var(--warning);
+  }
+
+  .stack-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stack-lines .ln {
+    font-size: 13px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .stack-lines .ln .k {
+    color: var(--text-muted);
+    font-size: 12.5px;
+  }
+
+  .injury-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .injury-row .ml-auto {
+    margin-left: auto;
+  }
+
+  .avail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .avail-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .avail-line .big {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .avail-line .sub {
+    color: var(--text-muted);
+    font-size: 12.5px;
+  }
+  .week-dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .wd {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-s);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--surface-container);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+  }
+  .wd.on {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
+    color: var(--accent);
+  }
+
+  .bench-table {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+  }
+  .bench-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .bench-cell .bk {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .bench-cell .bv {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .bench-more {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  .equip-chips,
+  .device-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .equip-chips .meta-chip,
+  .device-chips .meta-chip {
+    height: 22px;
+    font-size: 10.5px;
+    padding: 0 8px;
+  }
+  .equip-note {
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .equip-note .msi {
+    font-size: 13px;
+    color: var(--warning);
+  }
+  .facility-line {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  /* ---------- sticky assign footer ---------- */
+  .assign-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+    margin-top: 24px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .assign-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .gate-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .assign-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .assign-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .assign-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .btn-primary.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* responsive stack */
+  @media (max-width: 1000px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .rail {
+      position: static;
+    }
+  }
+</style>
+</head>
+
+<body>
+  <!-- mock banner -->
+  <div class="mock-banner">
+    <span class="dot"></span>
+    MOCK DE DISEÑO · intake reimaginado · estático
+  </div>
+
+  <!-- ============ STICKY HEADER ============ -->
+  <header class="site-header">
+    <div class="wrapper">
+      <nav class="breadcrumb" aria-label="ruta">
+        <span>Atletas</span>
+        <span class="msi">chevron_right</span>
+        <span>Alex Solé</span>
+        <span class="msi">chevron_right</span>
+        <span class="crumb-current">Intake</span>
+      </nav>
+
+      <div class="identity-row">
+        <div class="avatar">AS</div>
+        <div class="identity-text">
+          <div class="micro-label eyebrow">Intake pendiente de revisión</div>
+          <span class="display identity-name">Alex Solé</span>
+        </div>
+        <div class="identity-meta">
+          <span class="meta-chip">28 años</span>
+          <span class="meta-chip">Masculino</span>
+          <span class="meta-chip">HYROX</span>
+        </div>
+        <div class="ml-auto">
+          <span class="chip chip-warning">
+            <span class="msi">hourglass_top</span>
+            Esperando 3 días
+          </span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ BODY ============ -->
+  <main>
+    <div class="grid">
+
+      <!-- ======== LEFT: DECISIONES ======== -->
+      <section class="decisions" aria-label="Decisiones">
+
+        <!-- CARD 1 — EVENTO OBJETIVO (A) -->
+        <article class="card-elevated decision-card has-stripe">
+          <span class="left-stripe danger"></span>
+          <header class="card-head">
+            <span class="num-badge">1</span>
+            <h2 class="display card-title">Evento objetivo (A)</h2>
+            <div class="head-eyebrow">
+              <span class="micro-label">Ancla el plan</span>
+              <span class="chip chip-danger"><span class="msi">block</span>Gate</span>
+            </div>
+          </header>
+          <p class="card-subline">El plan se construye hacia atrás desde esta fecha.</p>
+
+          <div class="suggestion">
+            <div class="suggestion-row">
+              <span class="msi lead">flag</span>
+              <span class="muted" style="font-size:12.5px;">El atleta indicó en el alta:</span>
+              <div class="race-line">
+                <span class="race-name">HYROX Barcelona Open</span>
+                <span class="race-sep">·</span>
+                <span class="race-meta metric-num">12 oct 2026</span>
+                <span class="race-sep">·</span>
+                <span class="race-meta">Pro</span>
+              </div>
+              <button class="btn-primary">
+                <span class="msi">check</span>
+                Usar esta carrera
+              </button>
+            </div>
+            <div class="secondary-line">
+              <span>¿No es la correcta?</span>
+              <button class="select-pill">
+                o elige del catálogo
+                <span class="msi" style="font-size:16px;">expand_more</span>
+              </button>
+            </div>
+          </div>
+
+          <p class="gate-note">
+            <span class="msi">error</span>
+            Aún no anclado — elige una carrera para poder asignar.
+          </p>
+        </article>
+
+        <!-- CARD 2 — NIVEL DEL ATLETA -->
+        <article class="card-elevated decision-card">
+          <header class="card-head">
+            <span class="num-badge">2</span>
+            <h2 class="display card-title">Nivel del atleta</h2>
+            <div class="head-eyebrow">
+              <span class="micro-label">Decisión</span>
+            </div>
+          </header>
+
+          <div class="body-pad">
+            <div class="segmented" role="group" aria-label="Nivel">
+              <span class="segment active"><span class="seg-num">1</span>Principiante</span>
+              <span class="segment"><span class="seg-num">2</span>Intermedio</span>
+              <span class="segment"><span class="seg-num">3</span>Pro</span>
+              <span class="segment"><span class="seg-num">4</span>Élite</span>
+            </div>
+            <p class="justify-line">Sugerido: Principiante — datos limitados de onboarding.</p>
+            <p class="justify-metric metric-num">Basado en · 2 de 8 benchmarks · 0 años de experiencia declarada</p>
+          </div>
+        </article>
+
+        <!-- CARD 3 — ESTRUCTURA DEL BLOQUE -->
+        <article class="card-elevated decision-card">
+          <header class="card-head">
+            <span class="num-badge">3</span>
+            <h2 class="display card-title">Estructura del bloque</h2>
+            <div class="head-eyebrow">
+              <span class="micro-label">ATR · 12 semanas · termina 12 oct</span>
+            </div>
+          </header>
+
+          <div class="timeline" role="img" aria-label="Línea temporal del bloque ATR de 12 semanas">
+            <div class="tl-seg tl-acc" style="flex: 5;">Acumulación · 5 sem</div>
+            <div class="tl-seg tl-int" style="flex: 4;">Intensificación · 4 sem</div>
+            <div class="tl-seg tl-tap" style="flex: 3;">
+              Tapering · 3 sem
+              <span class="tl-flag"><span class="msi" style="font-size:13px;">sports_score</span>12 oct</span>
+            </div>
+          </div>
+
+          <div class="phase-rows">
+            <div class="phase-row">
+              <span class="phase-dot" style="background: var(--phase-acc);"></span>
+              <span class="phase-name">Acumulación</span>
+              <div class="stepper">
+                <button class="step-btn" aria-label="restar semana"><span class="msi">remove</span></button>
+                <span class="step-val">5</span>
+                <button class="step-btn" aria-label="sumar semana"><span class="msi">add</span></button>
+                <span class="step-unit">sem</span>
+              </div>
+            </div>
+            <div class="phase-row">
+              <span class="phase-dot" style="background: var(--phase-int);"></span>
+              <span class="phase-name">Intensificación</span>
+              <div class="stepper">
+                <button class="step-btn" aria-label="restar semana"><span class="msi">remove</span></button>
+                <span class="step-val">4</span>
+                <button class="step-btn" aria-label="sumar semana"><span class="msi">add</span></button>
+                <span class="step-unit">sem</span>
+              </div>
+            </div>
+            <div class="phase-row">
+              <span class="phase-dot" style="background: var(--phase-tap);"></span>
+              <span class="phase-name">Tapering</span>
+              <div class="stepper">
+                <button class="step-btn" aria-label="restar semana"><span class="msi">remove</span></button>
+                <span class="step-val">3</span>
+                <button class="step-btn" aria-label="sumar semana"><span class="msi">add</span></button>
+                <span class="step-unit">sem</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="advisory">
+            <span class="msi">lightbulb</span>
+            Énfasis sugerido · Equilibrado — advisory, Pablo decide la programación.
+          </p>
+        </article>
+
+        <!-- CARD 4 — TESTS DE LA SEMANA 1 -->
+        <article class="card-elevated decision-card">
+          <header class="card-head">
+            <span class="num-badge">4</span>
+            <h2 class="display card-title">Tests de la semana 1</h2>
+            <div class="head-eyebrow">
+              <span class="micro-label">Decisión</span>
+            </div>
+          </header>
+
+          <div class="test-group">
+            <span class="micro-label group-label">Pasivos · automáticos</span>
+            <div class="test-row">
+              <span class="checkbox"><span class="msi">check</span></span>
+              <span class="chip chip-neutral">Pasivo</span>
+              <span class="test-label">HRV baseline · 7 días</span>
+            </div>
+            <div class="test-row">
+              <span class="checkbox"><span class="msi">check</span></span>
+              <span class="chip chip-neutral">Pasivo</span>
+              <span class="test-label">Sueño · 7 días</span>
+            </div>
+          </div>
+
+          <div class="test-group">
+            <span class="micro-label group-label">Programados · los agenda Pablo</span>
+            <div class="test-row">
+              <span class="checkbox"><span class="msi">check</span></span>
+              <span class="chip chip-info">Programado</span>
+              <span class="test-label">HYROX simulación (half)</span>
+            </div>
+            <div class="test-row">
+              <span class="checkbox"><span class="msi">check</span></span>
+              <span class="chip chip-info">Programado</span>
+              <span class="test-label">Actualizar 1RMs · faltan 4</span>
+            </div>
+            <div class="test-row">
+              <span class="checkbox"><span class="msi">check</span></span>
+              <span class="chip chip-info">Programado</span>
+              <span class="test-label">Test 5K · resistencia</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- CARD 5 — AVISOS POR CONFIRMAR -->
+        <article class="card-elevated decision-card">
+          <header class="card-head">
+            <span class="num-badge">5</span>
+            <h2 class="display card-title">Avisos por confirmar</h2>
+            <div class="head-eyebrow">
+              <span class="chip chip-warning"><span class="msi">shield</span>Gate · 1/2 confirmados</span>
+            </div>
+          </header>
+          <p class="card-subline">Confirma cada aviso para poder asignar.</p>
+
+          <div class="warn-list">
+            <div class="warn-row danger">
+              <span class="wstripe"></span>
+              <span class="msi lead-icon">priority_high</span>
+              <div class="warn-body">
+                <span class="warn-title">Sin evento A configurado</span>
+                <span class="chip chip-danger"><span class="msi">warning</span>Crítico</span>
+                <span class="warn-detail">Ancla una carrera arriba para resolverlo.</span>
+              </div>
+              <div class="warn-trailing">
+                <span class="warn-resolve-note">
+                  <span class="msi">arrow_upward</span>
+                  Se resuelve al anclar el evento
+                </span>
+              </div>
+            </div>
+
+            <div class="warn-row amber">
+              <span class="wstripe"></span>
+              <span class="msi lead-icon">info</span>
+              <div class="warn-body">
+                <span class="warn-title">Onboarding incompleto</span>
+                <span class="chip chip-warning"><span class="msi">flag</span>Aviso</span>
+                <span class="warn-detail">Faltan: días/sem, altura, peso, benchmarks.</span>
+              </div>
+              <div class="warn-trailing">
+                <button class="btn-secondary">
+                  <span class="msi">check</span>
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- CARD 6 — BIENVENIDA & NOTAS -->
+        <article class="card-elevated decision-card">
+          <header class="card-head">
+            <span class="num-badge">6</span>
+            <h2 class="display card-title">Bienvenida &amp; notas</h2>
+            <div class="head-eyebrow">
+              <span class="micro-label">Opcional</span>
+            </div>
+          </header>
+
+          <div class="toggle-row">
+            <span class="checkbox"><span class="msi">check</span></span>
+            <span class="label">Enviar mensaje al atleta al asignar</span>
+          </div>
+
+          <div class="textarea-box">
+            Hola Alex, bienvenido. He revisado tu perfil — tienes buena base. Vamos a definir tu evento objetivo en los próximos días. Esta semana es testing + arranque de bloque. Cualquier duda, escríbeme. Vamos.
+            <span class="char-counter metric-num">247 / 2000</span>
+          </div>
+
+          <div class="notes-block">
+            <span class="micro-label">Notas internas · privadas</span>
+            <div class="textarea-box empty">Notas para ti, no visibles para el atleta…</div>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- ======== RIGHT: EVIDENCE RAIL ======== -->
+      <aside class="rail" aria-label="Respuestas del atleta">
+        <div class="rail-head">
+          <span class="micro-label">Respuestas del atleta</span>
+          <a href="#">Ver respuestas completas <span class="msi">north_east</span></a>
+        </div>
+
+        <!-- OBJETIVOS -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Objetivos</span>
+            <span class="msi">target</span>
+          </div>
+          <div class="goal-line">
+            Mejorar marca HYROX
+            <span class="chip chip-ok"><span class="msi">trending_up</span>Alcanzable 2-4 meses</span>
+          </div>
+          <div class="goal-terms">
+            <div class="goal-term"><span class="term-k">Corto</span><span>Bajar de 1:25 en sim</span></div>
+            <div class="goal-term"><span class="term-k">Medio</span><span>Sub-1:20 en Barcelona Open</span></div>
+            <div class="goal-term"><span class="term-k">Largo</span><span>Clasificar a HYROX World</span></div>
+          </div>
+        </article>
+
+        <!-- ESTADO BASAL -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Estado basal</span>
+            <span class="msi">monitor_heart</span>
+          </div>
+          <div class="instruments">
+            <div class="instrument">
+              <div class="ival">6<small>/10</small></div>
+              <span class="micro-label">Sueño</span>
+            </div>
+            <div class="instrument">
+              <div class="ival caution">7<small>/10</small></div>
+              <span class="micro-label">Estrés</span>
+            </div>
+            <div class="instrument">
+              <div class="ival">9<small>/10</small></div>
+              <span class="micro-label">Compromiso</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- EXPERIENCIA -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Experiencia</span>
+            <span class="msi">fitness_center</span>
+          </div>
+          <div class="stack-lines">
+            <div class="ln"><span class="k">Carrera</span><span>·</span><span>Cómodo</span></div>
+            <div class="ln"><span class="k">Fuerza</span><span>·</span><span>Con guía</span></div>
+            <div class="ln metric-num"><span class="k">Experiencia</span><span>·</span><span>0 años declarados</span></div>
+          </div>
+        </article>
+
+        <!-- LESIONES -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Lesiones</span>
+            <span class="msi">healing</span>
+          </div>
+          <div class="injury-row">
+            <span>Rodilla · molestia · activa</span>
+            <span class="ml-auto chip chip-warning"><span class="msi">do_not_step</span>Evita impacto</span>
+          </div>
+        </article>
+
+        <!-- DISPONIBILIDAD -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Disponibilidad</span>
+            <span class="msi">event_available</span>
+          </div>
+          <div class="avail-grid">
+            <div class="avail-line">
+              <span class="big">4</span><span class="sub">días/sem</span>
+              <span class="race-sep">·</span>
+              <span class="metric-num">18:00–20:00</span>
+              <span class="race-sep">·</span>
+              <span class="sub metric-num">60 min/sesión</span>
+            </div>
+            <div class="week-dots" aria-label="Días de la semana programados">
+              <span class="wd on">L</span>
+              <span class="wd">M</span>
+              <span class="wd on">X</span>
+              <span class="wd on">J</span>
+              <span class="wd">V</span>
+              <span class="wd on">S</span>
+              <span class="wd">D</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- BENCHMARKS -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Benchmarks</span>
+            <span class="msi">leaderboard</span>
+          </div>
+          <div class="bench-table">
+            <div class="bench-cell"><span class="bk">Back squat</span><span class="bv">90 kg</span></div>
+            <div class="bench-cell"><span class="bk">5K</span><span class="bv">24:10</span></div>
+            <div class="bench-cell"><span class="bk">2K row</span><span class="bv">8:05</span></div>
+          </div>
+          <div class="bench-more metric-num">+ ver todos (2/8)</div>
+        </article>
+
+        <!-- INSTALACIÓN & EQUIPO -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Instalación &amp; equipo</span>
+            <span class="msi">warehouse</span>
+          </div>
+          <div class="facility-line">Gimnasio comercial</div>
+          <div class="equip-chips">
+            <span class="meta-chip">Barra</span>
+            <span class="meta-chip">Mancuernas</span>
+            <span class="meta-chip">Remo</span>
+          </div>
+          <div class="equip-note">
+            <span class="msi">swap_horiz</span>
+            Sin trineo · 3 ejercicios con sustitución
+          </div>
+        </article>
+
+        <!-- DISPOSITIVOS -->
+        <article class="card-elevated rail-card">
+          <div class="rail-card-head">
+            <span class="micro-label">Dispositivos</span>
+            <span class="msi">watch</span>
+          </div>
+          <div class="device-chips">
+            <span class="meta-chip">Apple Watch</span>
+            <span class="meta-chip">Banda HR</span>
+          </div>
+        </article>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- ============ STICKY ASSIGN FOOTER ============ -->
+  <div class="assign-bar">
+    <div class="assign-inner">
+      <div class="assign-left">
+        <span class="micro-label">Listo para asignar</span>
+        <div class="gate-chips">
+          <span class="chip chip-danger"><span class="msi">close</span>Evento</span>
+          <span class="chip chip-ok"><span class="msi">check</span>Nivel</span>
+          <span class="chip chip-ok"><span class="msi">check</span>Estructura</span>
+          <span class="chip chip-warning"><span class="msi">pending</span>Avisos 1/2</span>
+          <span class="chip chip-ok"><span class="msi">check</span>Bienvenida</span>
+        </div>
+      </div>
+      <div class="assign-right">
+        <span class="assign-sub">1 gate y 1 aviso por resolver</span>
+        <button class="btn-primary is-disabled" aria-disabled="true" disabled>
+          <span class="msi">lock</span>
+          Asignar plan
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

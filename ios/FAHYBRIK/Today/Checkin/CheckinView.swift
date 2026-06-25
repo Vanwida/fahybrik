@@ -59,13 +59,12 @@ struct CheckinView: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Hecho") { notesFocused = false }
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
             }
         }
         .onAppear {
             answers.notes = CheckinStore.loadDraftNotes()
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Sections

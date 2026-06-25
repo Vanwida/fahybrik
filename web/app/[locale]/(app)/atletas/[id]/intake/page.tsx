@@ -3,19 +3,18 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadIntakeProfile, IntakeError, type IntakeProfile } from '@/lib/coach/intake';
-import { IntakeDecision } from '@/components/dashboard/intake/IntakeDecision';
-import { IntakeAnswers } from '@/components/dashboard/intake/IntakeAnswers';
+import { IntakeReview } from '@/components/dashboard/intake/IntakeReview';
+import { AthleteAvatar } from '@/components/dashboard/atoms/AthleteAvatar';
 import { MIcon } from '@/components/dashboard/MIcon';
 
 export const dynamic = 'force-dynamic';
 
 // Coach intake-review page. The deep link `notifyCoach('intake_pending')` lands
-// here (see app/api/onboarding/submit/route.ts). Since the calendar-first
-// redesign, the athlete shell header lives in /atletas/[id] — this page is
-// standalone: it renders its own breadcrumb back to the ficha, the
-// intake-specific header (countdown + time waiting), then the editable
-// proposal (IntakeDecision, prominent) over the read-only answers
-// (IntakeAnswers, the evidence).
+// here (see app/api/onboarding/submit/route.ts). Layout (redesign, approved
+// mock at /public/intake-redesign.html): a sticky identity header that bleeds
+// past the gutter, a 2-col body (six numbered decision cards · evidence rail),
+// and a sticky gate footer — all rendered by IntakeReview. This server page owns
+// the loader + already-done / error / empty states + the static header chrome.
 
 export default async function AthleteIntakePage({
   params,
@@ -37,8 +36,8 @@ export default async function AthleteIntakePage({
 
   if (loaded.kind === 'error') {
     return (
-      <div className="flex flex-col gap-4">
-        <IntakeBreadcrumb athleteId={id} athleteName={null} />
+      <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-col gap-4">
+        <Breadcrumb athleteId={id} athleteName={null} />
         <IntakeErrorState message={loaded.message} />
       </div>
     );
@@ -49,41 +48,99 @@ export default async function AthleteIntakePage({
   // Already reviewed → nothing pending. Honest empty state instead of a stale form.
   if (profile.athlete.intake_completed_at) {
     return (
-      <div className="flex flex-col gap-4">
-        <IntakeBreadcrumb athleteId={id} athleteName={profile.athlete.full_name} />
+      <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-col gap-4">
+        <Breadcrumb athleteId={id} athleteName={profile.athlete.full_name} />
         <IntakeAlreadyDone profile={profile} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4">
-        <IntakeBreadcrumb athleteId={id} athleteName={profile.athlete.full_name} />
-        <IntakeHeader profile={profile} />
+    <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-col">
+      <IntakeHeader profile={profile} athleteId={id} />
+      <div className="pt-5">
+        <IntakeReview profile={profile} athleteId={id} />
       </div>
-      <IntakeDecision profile={profile} athleteId={id} />
-      <section className="flex flex-col gap-4">
-        <h2 className="font-heading flex items-center gap-2 text-[color:var(--fg)]">
-          <MIcon name="assignment_ind" size={18} className="text-[color:var(--muted)]" />
-          Respuestas del atleta
-        </h2>
-        <IntakeAnswers profile={profile} />
-      </section>
     </div>
   );
 }
 
-// Breadcrumb propio (la shell de atleta ya no envuelve esta página).
-function IntakeBreadcrumb({
+// ─────────────────────────────────────────────────────────────────────────────
+// Sticky identity header — bleeds past the gutter (negative -mx, re-padded),
+// sticky under the app top bar, backdrop-blur. Breadcrumb + identity tier
+// (avatar + name in italic-black display + neutral identity chips) + a
+// warning-tint waiting chip pushed right.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function IntakeHeader({ profile, athleteId }: { profile: IntakeProfile; athleteId: string }) {
+  const { athlete } = profile;
+  const waiting = waitingLabel(athlete.onboarded_at);
+  const sexLabel = athlete.sex ? SEX_LABELS[athlete.sex] : null;
+
+  return (
+    <header className="sticky top-14 z-20 -mx-4 -mt-4 border-b border-[color:var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--bg)_92%,transparent)] px-4 pb-4 pt-3 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-4">
+      <Breadcrumb athleteId={athleteId} athleteName={athlete.full_name} className="mb-2.5" />
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <AthleteAvatar name={athlete.full_name} size="md" />
+
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="micro-label flex items-center gap-1.5 text-[color:var(--accent)]">
+            <MIcon name="how_to_reg" size={13} filled aria-hidden />
+            Intake pendiente de revisión
+          </p>
+          <h1 className="font-headline-md uppercase leading-none text-[color:var(--fg)]">
+            {athlete.full_name}
+          </h1>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {athlete.age != null ? <IdentityChip>{athlete.age} años</IdentityChip> : null}
+          {sexLabel ? <IdentityChip>{sexLabel}</IdentityChip> : null}
+          {athlete.primary_discipline ? (
+            <IdentityChip>{athlete.primary_discipline}</IdentityChip>
+          ) : null}
+        </div>
+
+        {waiting ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-[var(--r-s)] bg-[color:var(--warning-tint)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--warning)]">
+            <MIcon name="hourglass_top" size={14} weight={600} aria-hidden />
+            Esperando {waiting}
+          </span>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+const SEX_LABELS: Record<'male' | 'female' | 'other', string> = {
+  male: 'Masculino',
+  female: 'Femenino',
+  other: 'Otro',
+};
+
+function IdentityChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex h-6 items-center rounded-[var(--r-pill)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container)] px-2.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+      {children}
+    </span>
+  );
+}
+
+function Breadcrumb({
   athleteId,
   athleteName,
+  className,
 }: {
   athleteId: string;
   athleteName: string | null;
+  className?: string;
 }) {
   return (
-    <nav aria-label="Ruta" className="flex items-center gap-1.5 text-xs">
+    <nav
+      aria-label="Ruta"
+      className={`flex items-center gap-1.5 text-xs${className ? ` ${className}` : ''}`}
+    >
       <Link
         href="/atletas"
         className="focus-ring rounded-[var(--r-s)] font-semibold text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--fg)]"
@@ -123,74 +180,7 @@ async function loadIntakeProfileSafe(coach_id: bigint, athlete_id: number): Prom
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Header — athlete name (echoed for context), age, A-event countdown, waiting.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function IntakeHeader({ profile }: { profile: IntakeProfile }) {
-  const { athlete, target_event } = profile;
-  const waiting = waitingLabel(athlete.onboarded_at);
-
-  return (
-    <header className="flex flex-col gap-4 rounded-[var(--r-l)] border border-[color:color-mix(in_srgb,var(--accent)_30%,var(--border-subtle))] bg-[color:color-mix(in_srgb,var(--accent)_7%,var(--surface-card))] p-5 md:flex-row md:items-center md:justify-between">
-      <div className="flex flex-col gap-2">
-        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--accent)]">
-          <MIcon name="how_to_reg" size={14} filled />
-          Intake pendiente de revisión
-        </p>
-        <h1 className="font-headline-md text-[color:var(--fg)]">{athlete.full_name}</h1>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--muted)]">
-          {athlete.age != null ? <span>{athlete.age} años</span> : null}
-          {athlete.primary_discipline ? (
-            <>
-              <Dot />
-              <span>{athlete.primary_discipline}</span>
-            </>
-          ) : null}
-          {waiting ? (
-            <>
-              <Dot />
-              <span className="inline-flex items-center gap-1">
-                <MIcon name="hourglass_top" size={13} />
-                Esperando {waiting}
-              </span>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {target_event ? (
-        <div className="flex items-center gap-3 rounded-[var(--r-m)] border border-[color:color-mix(in_srgb,var(--accent)_38%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_12%,transparent)] px-4 py-3">
-          <MIcon name="flag" size={20} filled className="text-[color:var(--accent)]" />
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--accent)]">
-              Carrera objetivo
-            </span>
-            <span className="text-sm font-semibold text-[color:var(--fg)]">{target_event.name}</span>
-            <span className="metric-num text-xs text-[color:var(--muted)]">
-              {countdownLabel(target_event.days_to_event, target_event.is_in_past)}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 rounded-[var(--r-m)] border border-[color:var(--border-subtle)] px-4 py-3 text-xs text-[color:var(--muted)]">
-          <MIcon name="event_busy" size={16} />
-          Sin carrera objetivo
-        </div>
-      )}
-    </header>
-  );
-}
-
-function Dot() {
-  return (
-    <span aria-hidden className="opacity-40">
-      ·
-    </span>
-  );
-}
-
-// onboarded_at → "3 h" / "2 días" / "ahora". Returns null when unknown.
+// onboarded_at → "3 h" / "2 días" / "menos de 1 h". Returns null when unknown.
 function waitingLabel(onboarded_at: string | null): string | null {
   if (!onboarded_at) return null;
   const t = new Date(onboarded_at).getTime();
@@ -203,12 +193,6 @@ function waitingLabel(onboarded_at: string | null): string | null {
   return `${d} día${d === 1 ? '' : 's'}`;
 }
 
-function countdownLabel(daysToEvent: number, isInPast: boolean): string {
-  if (isInPast) return 'fecha pasada';
-  if (daysToEvent <= 0) return 'hoy';
-  return `faltan ${daysToEvent} día${daysToEvent === 1 ? '' : 's'}`;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty / error states.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,7 +202,7 @@ function IntakeAlreadyDone({ profile }: { profile: IntakeProfile }) {
     <div className="flex flex-col items-center gap-3 rounded-[var(--r-l)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] p-10 text-center">
       <MIcon name="task_alt" size={32} className="text-[color:var(--accent)]" filled />
       <h1 className="font-heading text-[color:var(--fg)]">Intake ya revisado</h1>
-      <p className="max-w-md text-sm text-[color:var(--muted)]">
+      <p className="max-w-md text-sm text-[color:var(--text-muted)]">
         El intake de {profile.athlete.full_name} ya fue procesado y su plan inicial está asignado.
       </p>
     </div>
@@ -227,10 +211,10 @@ function IntakeAlreadyDone({ profile }: { profile: IntakeProfile }) {
 
 function IntakeErrorState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[var(--r-l)] border border-[color:color-mix(in_srgb,#ef4444_30%,var(--border-subtle))] bg-[color:var(--surface-card)] p-10 text-center">
-      <MIcon name="error" size={32} className="text-red-400" filled />
+    <div className="flex flex-col items-center gap-3 rounded-[var(--r-l)] border border-[color:color-mix(in_srgb,var(--danger)_30%,var(--border-subtle))] bg-[color:var(--surface-card)] p-10 text-center">
+      <MIcon name="error" size={32} className="text-[color:var(--danger)]" filled />
       <h1 className="font-heading text-[color:var(--fg)]">No se pudo cargar el intake</h1>
-      <p className="max-w-md text-sm text-[color:var(--muted)]">{message}</p>
+      <p className="max-w-md text-sm text-[color:var(--text-muted)]">{message}</p>
     </div>
   );
 }

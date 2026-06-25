@@ -32,6 +32,21 @@ struct ChatThreadDTO: Decodable, Equatable {
     let coachName: String?
     let lastMessageAt: Date?
     let unreadForAthlete: Int?
+    /// Body of the latest message authored BY THE COACH (not the athlete). Drives
+    /// the Today coach-note preview. Nil when the coach hasn't messaged yet, or
+    /// when their latest message is an attachment with no text.
+    let lastCoachMessage: String?
+    /// Duration in milliseconds of the coach's latest VOICE note, when present in
+    /// the message's attachment metadata. Nil when not a voice note / not stored.
+    let lastCoachVoiceDurationMs: Int?
+
+    /// The coach voice-note duration formatted as m:ss for a compact chip
+    /// ("Nota de voz · 0:42"). Nil when there's no voice duration.
+    var coachVoiceDurationLabel: String? {
+        guard let ms = lastCoachVoiceDurationMs, ms > 0 else { return nil }
+        let totalSeconds = ms / 1000
+        return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
+    }
 }
 
 // MARK: - Wire envelopes

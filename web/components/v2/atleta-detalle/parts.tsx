@@ -1,0 +1,185 @@
+'use client';
+
+// Shared presentational parts for the athlete-detalle sub-tabs. Small, themed,
+// reused across Perfil/Plan/Histórico/Biometría so each tab file stays focused
+// and under the 500-line budget. All read v2 tokens only.
+
+import { MIcon } from '@/components/dashboard/MIcon';
+import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
+import { cn } from '@/lib/utils';
+
+/** Tracked uppercase section label with an optional right-aligned action slot. */
+export function SectionHeading({
+  children,
+  action,
+  className,
+}: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex items-center justify-between gap-2', className)}>
+      <h3 className="v2-micro">{children}</h3>
+      {action ?? null}
+    </div>
+  );
+}
+
+/** A labelled panel: section heading + a card body. The workhorse layout unit. */
+export function Panel({
+  title,
+  action,
+  children,
+  className,
+  bodyClassName,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className={cn('flex flex-col gap-2.5', className)}>
+      <SectionHeading action={action}>{title}</SectionHeading>
+      <div
+        className={cn(
+          'rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]',
+          bodyClassName,
+        )}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** Themed chart placeholder — used where a real chart component is not in scope
+ *  for this build (the loaders expose the series; charting lands later). Never
+ *  shows fake data, just a labelled, dashed canvas so the layout reads right. */
+export function ChartPlaceholder({
+  label,
+  height = 160,
+  className,
+}: {
+  label: string;
+  height?: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-center rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 text-center',
+        className,
+      )}
+      style={{ height }}
+    >
+      <span className="flex items-center gap-2 text-xs font-medium text-[color:var(--v2-faint)]">
+        <MIcon name="show_chart" size={18} />
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/** Dashed "add / program" button row — the recurring affordance across tabs. */
+export function DashedAction({
+  icon,
+  label,
+  onClick,
+  className,
+}: {
+  icon: string;
+  label: string;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'v2-focus flex w-full items-center justify-center gap-2 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors',
+        'hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
+        className,
+      )}
+    >
+      <MIcon name={icon} size={16} />
+      {label}
+    </button>
+  );
+}
+
+/** A small colored dot for the training-modality axis (label-paired by caller). */
+export function ModalityDot({ modality, size = 8 }: { modality: V2Modality; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block shrink-0 rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background: `var(${MODALITY_META[modality].colorVar})`,
+      }}
+    />
+  );
+}
+
+/** 7-day week strip: each cell tinted by that day's modality (rest = dashed).
+ *  Used by the Plan "esta semana" row. */
+export interface WeekStripDay {
+  label: string;
+  modality: V2Modality | null;
+  state: 'done' | 'today' | 'scheduled' | 'rest';
+}
+
+export function WeekStrip({ days }: { days: WeekStripDay[] }) {
+  return (
+    <div className="grid grid-cols-7 gap-1.5">
+      {days.map((d, i) => {
+        const isRest = d.state === 'rest' || d.modality == null;
+        const color = d.modality ? `var(${MODALITY_META[d.modality].colorVar})` : undefined;
+        return (
+          <div
+            key={`${d.label}-${i}`}
+            className={cn(
+              'flex flex-col items-center gap-1 rounded-[var(--v2-r-s)] border px-1 py-1.5 text-center',
+              isRest
+                ? 'border-dashed border-[color:var(--v2-border)]'
+                : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
+              d.state === 'today' && 'ring-1 ring-[color:var(--v2-accent)]',
+            )}
+            style={!isRest ? { borderLeft: `2px solid ${color}` } : undefined}
+            title={d.label}
+          >
+            <span className="v2-micro text-[9px]">{d.label}</span>
+            {d.state === 'done' ? (
+              <MIcon name="check" size={13} className="text-[color:var(--v2-ok)]" />
+            ) : d.state === 'today' ? (
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--v2-accent)' }} />
+            ) : isRest ? (
+              <span className="text-[10px] text-[color:var(--v2-faint)]">·</span>
+            ) : (
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Relative date label "hace N d/sem/meses" from an ISO date string. */
+export function relativeDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return null;
+  const days = Math.floor((Date.now() - ms) / 86_400_000);
+  if (days < 0) return null;
+  if (days === 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 14) return `hace ${days} d`;
+  if (days < 60) return `hace ${Math.round(days / 7)} sem`;
+  return `hace ${Math.round(days / 30)} meses`;
+}

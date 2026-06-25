@@ -43,6 +43,13 @@ export type MacroProgressPayload = {
   athlete_id: string;
   macrocycle_id: string | null;
   block: AtrBlockType | null;
+  /**
+   * Coach phase id (methodology_phases.id) of the ACTIVE block — drives the phase
+   * resolver so the Hub header / context rail / calendar show the coach's phase
+   * name, identical to the Macro roadmap. null pre-migration or for a legacy
+   * block → the resolver falls back to the ATR label.
+   */
+  block_phase_id: string | null;
   current_microcycle_index: number;
   /**
    * Semana ACTUAL relativa al bloque activo (1-indexed): para A2 hoy → ACC
@@ -222,6 +229,7 @@ export async function buildMacroProgress(params: {
     athlete_id: String(params.athlete_id),
     macrocycle_id: block ? String(block.macrocycle_id) : null,
     block: block?.block_type ?? null,
+    block_phase_id: block?.phase_id ?? null,
     current_microcycle_index: monthAssignCount[0]?.n ?? 0,
     block_week,
     block_spans,

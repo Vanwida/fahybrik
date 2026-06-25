@@ -11,6 +11,42 @@ struct AthleteWeekDaySession: Decodable, Identifiable {
     /// the field on the week endpoint (see workout_assignments table). Nil for
     /// individual athletes or when backend doesn't expose the column yet.
     let partnerVisibility: String?
+    /// Estimated session duration in minutes, DERIVED from the template's blocks
+    /// (work + rest, scaled by sets/rounds). Nil when the template carries no
+    /// time-estimable segments — callers keep their honest non-duration copy.
+    let estDurationMinutes: Int?
+    /// Number of blocks in the session (warmup / metcon / cooldown …). Nil when
+    /// the template has no segments.
+    let blocksCount: Int?
+    /// One-line structure summary, e.g. "Calentamiento · Series · Vuelta a la
+    /// calma". Nil when nothing is summarizable.
+    let shortPrescription: String?
+    /// True when this session is a TEST (its template stores measurable results
+    /// that feed the athlete's profile). Drives the amber test badge. Defaults
+    /// false when the backend omits it (old payloads).
+    let isTest: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case assignmentId, slot, title, modality, status, partnerVisibility
+        case estDurationMinutes, blocksCount, shortPrescription, isTest
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        assignmentId = try c.decode(String.self, forKey: .assignmentId)
+        slot = try c.decode(String.self, forKey: .slot)
+        title = try c.decode(String.self, forKey: .title)
+        modality = try c.decodeIfPresent(String.self, forKey: .modality)
+        status = try c.decode(String.self, forKey: .status)
+        partnerVisibility = try c.decodeIfPresent(String.self, forKey: .partnerVisibility)
+        estDurationMinutes = try c.decodeIfPresent(Int.self, forKey: .estDurationMinutes)
+        blocksCount = try c.decodeIfPresent(Int.self, forKey: .blocksCount)
+        shortPrescription = try c.decodeIfPresent(String.self, forKey: .shortPrescription)
+        isTest = try c.decodeIfPresent(Bool.self, forKey: .isTest)
+    }
+
+    /// Whether to render the test badge — true only when the backend says so.
+    var isTestSession: Bool { isTest ?? false }
 }
 
 struct AthleteWeekDay: Decodable, Identifiable {
@@ -25,6 +61,11 @@ struct AthleteWeekPayload: Decodable {
     let weekStart: String
     let weekEnd: String
     let todayIso: String
+    /// The periodization phase this published week belongs to (e.g.
+    /// "Acumulación"). DERIVED from the week's microcycle -> ATR block -> phase,
+    /// falling back to the ATR-type label. Nil when the week is outside any
+    /// microcycle (free planning) — callers keep their generic subtitle.
+    let microcicloName: String?
     let days: [AthleteWeekDay]
 }
 
@@ -147,12 +188,17 @@ struct AthletePlanWeekResponse: Decodable {
     /// sooner than the target (or the same object as `targetRace`). Surfaced as
     /// a small secondary chip only when it differs from the target.
     let nextRace: AthleteNextRace?
+    /// The athlete's coach display name (athletes.coach_id -> coaches.full_name).
+    /// Surfaced on the "Tu semana" subtitle. Nil when the athlete has no coach —
+    /// callers fall back to generic copy.
+    let coachName: String?
 
     enum CodingKeys: String, CodingKey {
         case week
         case macroSummary
         case targetRace
         case nextRace
+        case coachName
     }
 
     init(from decoder: Decoder) throws {
@@ -161,6 +207,7 @@ struct AthletePlanWeekResponse: Decodable {
         macroSummary = try c.decode(AthleteMacroSummary.self, forKey: .macroSummary)
         targetRace = try c.decodeIfPresent(AthleteNextRace.self, forKey: .targetRace)
         nextRace = try c.decodeIfPresent(AthleteNextRace.self, forKey: .nextRace)
+        coachName = try c.decodeIfPresent(String.self, forKey: .coachName)
     }
 }
 

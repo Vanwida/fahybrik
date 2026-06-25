@@ -9,6 +9,7 @@ import { getDailyTssSeries, summarizeLoad } from '@/lib/training-load';
 import { buildDemoCohort } from './demo-data';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
+import { SIGNAL_THRESHOLDS } from './signal-config';
 import type { AlertReason, AtrBlockType, CohortRow } from '@fahybrid/shared/domain/coach/types';
 
 const DEMO_THRESHOLD = 3;
@@ -264,7 +265,8 @@ async function rollupAthlete(
     transition_ready: false,
     test_today: false,
     twice_daily_today: a.scheduled_today >= 2,
-    a_event_within_30d: days_to_a_event != null && days_to_a_event <= 30,
+    a_event_within_30d:
+      days_to_a_event != null && days_to_a_event <= SIGNAL_THRESHOLDS.a_event_near_days,
   };
 
   const [programming, readiness, transition] = await Promise.all([
@@ -391,7 +393,10 @@ function computeAlerts(params: {
 }): AlertReason[] {
   const out: AlertReason[] = [];
 
-  if (params.hrv_delta_ms != null && params.hrv_delta_ms <= -10) {
+  if (
+    params.hrv_delta_ms != null &&
+    params.hrv_delta_ms <= SIGNAL_THRESHOLDS.hrv_crash_delta_ms
+  ) {
     out.push({
       kind: 'hrv_crash',
       severity: 'critical',
@@ -399,22 +404,28 @@ function computeAlerts(params: {
       detail: `▼ ${Math.abs(params.hrv_delta_ms).toFixed(0)} ms vs baseline`,
     });
   }
-  if (params.sync_minutes_ago != null && params.sync_minutes_ago > 60 * 48) {
+  if (
+    params.sync_minutes_ago != null &&
+    params.sync_minutes_ago > SIGNAL_THRESHOLDS.no_sync_critical_hours * 60
+  ) {
     out.push({
       kind: 'no_sync',
       severity: 'critical',
       label: `${Math.floor(params.sync_minutes_ago / 60 / 24)}d sin sync`,
       detail: 'wearable offline',
     });
-  } else if (params.sync_minutes_ago != null && params.sync_minutes_ago > 60 * 24) {
+  } else if (
+    params.sync_minutes_ago != null &&
+    params.sync_minutes_ago > SIGNAL_THRESHOLDS.no_sync_warning_hours * 60
+  ) {
     out.push({
       kind: 'no_sync',
       severity: 'warning',
-      label: 'Sync >24h',
+      label: `Sync >${SIGNAL_THRESHOLDS.no_sync_warning_hours}h`,
       detail: 'comprobar wearable',
     });
   }
-  if (params.missed_sessions_7d >= 2) {
+  if (params.missed_sessions_7d >= SIGNAL_THRESHOLDS.missed_sessions_min) {
     out.push({
       kind: 'missed_sessions',
       severity: 'warning',
@@ -422,7 +433,7 @@ function computeAlerts(params: {
       detail: 'última 7 días',
     });
   }
-  if (params.rpe_yesterday != null && params.rpe_yesterday >= 9) {
+  if (params.rpe_yesterday != null && params.rpe_yesterday >= SIGNAL_THRESHOLDS.rpe_high_min) {
     out.push({
       kind: 'rpe_high',
       severity: 'warning',
@@ -430,7 +441,10 @@ function computeAlerts(params: {
       detail: 'monitor sobreesfuerzo',
     });
   }
-  if (params.unread_message_age_min != null && params.unread_message_age_min > 60 * 12) {
+  if (
+    params.unread_message_age_min != null &&
+    params.unread_message_age_min > SIGNAL_THRESHOLDS.message_unanswered_hours * 60
+  ) {
     out.push({
       kind: 'message_unanswered',
       severity: 'warning',
@@ -442,7 +456,7 @@ function computeAlerts(params: {
     params.last_checkin_at == null
       ? Number.POSITIVE_INFINITY
       : (params.now.getTime() - params.last_checkin_at.getTime()) / 3_600_000;
-  if (checkinAgeH > 48) {
+  if (checkinAgeH > SIGNAL_THRESHOLDS.checkin_skipped_hours) {
     out.push({
       kind: 'checkin_skipped',
       severity: 'warning',

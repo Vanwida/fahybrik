@@ -21,7 +21,7 @@ export function Wordmark({ size = 'md', href, className }: WordmarkProps) {
         SIZE_CLASS[size],
         className,
       )}
-      aria-label="FAHYBRIK"
+      aria-label="FAHYBRID"
     >
       <span className="text-[color:var(--accent)]">[F]</span>
       <span className="text-[color:var(--fg)]">AHYBRIK</span>

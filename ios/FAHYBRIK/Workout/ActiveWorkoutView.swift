@@ -168,10 +168,10 @@ struct ActiveWorkoutView: View {
             .background(Theme.Color.surface)
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(0.6), lineWidth: 1)
+                    .stroke(Theme.Color.accentText.opacity(0.6), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .foregroundStyle(Theme.Color.accent)
+            .foregroundStyle(Theme.Color.accentText)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 4)
@@ -203,7 +203,7 @@ struct ActiveWorkoutView: View {
                 Button(action: { Haptics.light(); showSegmentVideo = true }) {
                     Image(systemName: "play.rectangle.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(Theme.Color.accent)
+                        .foregroundStyle(Theme.Color.accentText)
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
@@ -236,7 +236,7 @@ struct ActiveWorkoutView: View {
     private var nextSegmentChip: some View {
         if let next = session.nextSegment {
             HStack(spacing: Theme.Spacing.s) {
-                LabelText(text: "NEXT", color: Theme.Color.accent, size: 10)
+                LabelText(text: "NEXT", color: Theme.Color.accentText, size: 10)
                 Text(next.title)
                     .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
@@ -330,7 +330,7 @@ private struct ExpertLapButton: View {
                 Text("LAP")
                     .font(.system(size: 56, weight: .heavy, design: .default).italic())
                     .tracking(4)
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Theme.Color.accentOn)
             }
         }
         .buttonStyle(PressScaleStyle())

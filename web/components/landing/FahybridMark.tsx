@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 // Mask asset: alpha channel = the shape, so backgroundColor paints the glyph.
 // 720×334 → aspect-ratio preserves proportions; height is set via className.
 const FH_MARK_SRC = '/brand/fh-mark.png';
-const FH_MARK_ASPECT = '720 / 334';
+const FH_MARK_ASPECT = '1200 / 507';
 
 interface FahybridMarkProps {
   className?: string;

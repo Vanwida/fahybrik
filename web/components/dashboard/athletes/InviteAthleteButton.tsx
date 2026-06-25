@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { MIcon } from '@/components/dashboard/MIcon';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface InviteAthleteButtonProps {
@@ -23,7 +24,7 @@ const BTN_BASE = cn(
 
 const BTN_ACCENT = cn(
   BTN_BASE,
-  'bg-[color:var(--accent)] px-4 py-2.5 text-[color:var(--accent-on)] hover:brightness-110',
+  'bg-[color:var(--accent)] px-4 py-2.5 text-[color:var(--accent-on)] hover:bg-[color:var(--accent-press)]',
 );
 
 const BTN_GHOST = cn(
@@ -124,10 +125,10 @@ export function InviteAthleteButton({ athleteId, athleteName }: InviteAthleteBut
 
   const mailtoHref = invite
     ? `mailto:?subject=${encodeURIComponent(
-        'Tu invitación a FAHYBRIK',
+        'Tu invitación a FAHYBRID',
       )}&body=${encodeURIComponent(
         `Hola ${athleteName},\n\n` +
-          `Activa tu cuenta en FAHYBRIK desde la app de iOS abriendo este enlace:\n\n` +
+          `Activa tu cuenta en FAHYBRID desde la app de iOS abriendo este enlace:\n\n` +
           `${invite.invite_url}\n\n` +
           `Firma con Apple para entrar — no necesitas contraseña.\n\nNos vemos en el entreno.`,
       )}`
@@ -137,10 +138,15 @@ export function InviteAthleteButton({ athleteId, athleteName }: InviteAthleteBut
 
   return (
     <>
-      <button type="button" onClick={() => void requestInvite()} className={BTN_ACCENT}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => void requestInvite()}
+        className="h-9 gap-2 px-4 text-[13px] font-semibold"
+      >
         <MIcon name="mail" size={18} aria-hidden />
         Enviar invitación
-      </button>
+      </Button>
 
       {open ? (
         <div

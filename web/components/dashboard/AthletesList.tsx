@@ -2,14 +2,21 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import type { AthleteModality, AthleteRow } from '@/lib/dashboard/athletes/list';
+import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
+import { indexPhasesById } from '@/lib/dashboard/coach/resolve-phase';
 import {
   READINESS_BUCKET_LABEL,
   isReadinessBucket,
   readinessBucket,
   type ReadinessBucket,
 } from '@/lib/dashboard/constants/readiness';
-import { AthleteCard } from '@/components/dashboard/athletes/AthleteCard';
+import {
+  AthleteRosterRow,
+  athleteStateRead,
+} from '@/components/dashboard/athletes/AthleteRosterRow';
+import { ATHLETE_STATE_SORT_RANK } from '@/lib/dashboard/coach/athlete-status';
 import { AddAthleteModal } from '@/components/dashboard/athletes/AddAthleteModal';
 import { SearchInput } from '@/components/dashboard/ui/SearchInput';
 import { FilterChip } from '@/components/dashboard/ui/FilterChip';
@@ -94,11 +101,20 @@ function matchesFilter(athlete: AthleteRow, filter: AthleteFilter): boolean {
 
 interface AthletesListProps {
   athletes: AthleteRow[];
+  /**
+   * Fases de periodización del coach (migración 0052). Se indexan una vez y se
+   * pasan a cada fila para resolver el nombre de fase de su bloque igual que la
+   * ficha del atleta. [] pre-migración → el resolver cae al enum ATR legacy.
+   */
+  coachPhases: MethodologyPhase[];
 }
 
-export function AthletesList({ athletes }: AthletesListProps) {
+export function AthletesList({ athletes, coachPhases }: AthletesListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Índice id→fase construido UNA vez (no por fila) para el resolver de fase.
+  const phasesById = useMemo(() => indexPhasesById(coachPhases), [coachPhases]);
 
   // Filtros persistidos en URL (?filter=&modality=&readiness=&q=) — UX
   // redesign §2a: no se resetean al navegar; el rail de HOY enlaza con
@@ -194,102 +210,152 @@ export function AthletesList({ athletes }: AthletesListProps) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return athletes.filter((a) => {
+    const rows = athletes.filter((a) => {
       if (!matchesFilter(a, filter)) return false;
       if (!matchesModality(a, modalityFilter)) return false;
       if (!matchesReadiness(a, readinessFilter)) return false;
       if (!q) return true;
       return a.full_name.toLowerCase().includes(q);
     });
+    // Orden por URGENCIA (triage): Necesita atención → Seguir de cerca → En
+    // ritmo → Sin datos. Un atleta con bandera de acción (intake / plan
+    // pendiente) sube por delante de su mismo nivel. Desempate alfabético para
+    // un orden estable.
+    return rows
+      .map((a) => ({
+        a,
+        rank: ATHLETE_STATE_SORT_RANK[athleteStateRead(a).level],
+        needsAction: a.intake_pending || a.programming_status !== 'ok',
+      }))
+      .sort((x, y) => {
+        if (x.rank !== y.rank) return x.rank - y.rank;
+        if (x.needsAction !== y.needsAction) return x.needsAction ? -1 : 1;
+        return x.a.full_name.localeCompare(y.a.full_name);
+      })
+      .map((r) => r.a);
   }, [athletes, filter, modalityFilter, readinessFilter, search]);
 
+  const atrNote =
+    atrStatus.state === 'done'
+      ? atrStatus.suggested > 0
+        ? `${atrStatus.suggested} sugerencia${atrStatus.suggested === 1 ? '' : 's'} nueva${atrStatus.suggested === 1 ? '' : 's'}`
+        : atrStatus.suppressed > 0
+          ? 'Sin cambios (ya notificadas)'
+          : `0/${atrStatus.checked} listos`
+      : atrStatus.state === 'error'
+        ? 'Error al revisar'
+        : null;
+
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <nav className="mb-2 flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
-            <span>Dashboard</span>
-            <ChevronIcon />
-            <span className="text-[color:var(--fg)]">Atletas</span>
-          </nav>
-          <h1 className="font-display-lg text-[color:var(--fg)]">Atletas Activos</h1>
+    <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-col gap-[var(--s-l)]">
+      {/* HEADER — identidad + buscar + acciones (primaria naranja + secundaria
+          ATR junto al header, NO varada al otro lado del vacío). */}
+      <header className="flex flex-col gap-[var(--s-m)]">
+        <nav className="flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
+          <span>Dashboard</span>
+          <MIcon name="chevron_right" size={14} aria-hidden />
+          <span className="text-[color:var(--fg)]">Atletas</span>
+        </nav>
+        <div className="flex flex-col items-start gap-[var(--s-m)] sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-baseline gap-3">
+            <h1 className="font-display-lg text-[color:var(--fg)]">Atletas</h1>
+            <span className="metric-num text-sm font-semibold text-[color:var(--text-muted)]">
+              {filtered.length}
+              {filtered.length !== athletes.length ? ` / ${athletes.length}` : ''}
+            </span>
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-[var(--s-s)] sm:w-auto">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Buscar atleta…"
+              className="w-full sm:w-56"
+            />
+            <button
+              type="button"
+              onClick={handleRevisarTransiciones}
+              disabled={atrStatus.state === 'loading' || isPending}
+              title="Revisar transiciones ATR de todos los atletas"
+              className="focus-ring inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--r-m)] border border-[color:var(--border-subtle)] bg-transparent px-3 text-[13px] font-semibold text-[color:var(--text-muted)] transition-colors hover:border-[color:var(--accent)] hover:text-[color:var(--fg)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MIcon name="published_with_changes" size={16} aria-hidden />
+              {atrStatus.state === 'loading' ? 'Revisando…' : 'Transiciones ATR'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="focus-ring inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--r-m)] bg-[color:var(--accent)] px-4 text-[13px] font-semibold text-[color:var(--accent-on)] transition-colors hover:bg-[color:var(--accent-press)]"
+            >
+              <MIcon name="person_add" size={17} aria-hidden />
+              Añadir atleta
+            </button>
+          </div>
         </div>
-        <div className="flex w-full items-center gap-3 md:w-auto">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Buscar atleta…"
-            className="w-full md:w-64"
-          />
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-[var(--r-sm)] bg-[color:var(--accent)] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[color:var(--accent-on)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--accent)_45%,transparent)]"
+        {atrNote ? (
+          <span
+            className={cn(
+              'text-xs',
+              atrStatus.state === 'error'
+                ? 'text-[color:var(--danger)]'
+                : 'text-[color:var(--text-muted)]',
+            )}
           >
-            <MIcon name="person_add" size={18} />
-            Añadir atleta
-          </button>
-        </div>
+            {atrNote}
+          </span>
+        ) : null}
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {MODALITY_FILTERS.map(({ key, label }) => (
-          <FilterChip
-            key={`modality-${key}`}
-            label={label}
-            active={modalityFilter === key}
-            onClick={() => setModalityFilter(key)}
-          />
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {READINESS_FILTERS.map(({ key, label }) => (
-          <FilterChip
-            key={`readiness-${key}`}
-            label={label}
-            active={readinessFilter === key}
-            onClick={() => setReadinessFilter(key)}
-          />
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTERS.map(({ key, label }) => (
-          <FilterChip key={key} label={label} active={filter === key} onClick={() => setFilter(key)} />
-        ))}
-        <div className="ml-auto flex items-center gap-2">
-          {atrStatus.state === 'done' ? (
-            <span className="text-xs text-[color:var(--text-muted)]">
-              {atrStatus.suggested > 0
-                ? `${atrStatus.suggested} sugerencia${atrStatus.suggested === 1 ? '' : 's'} nueva${atrStatus.suggested === 1 ? '' : 's'}`
-                : atrStatus.suppressed > 0
-                  ? 'sin cambios (ya notificadas)'
-                  : `0/${atrStatus.checked} listos`}
-            </span>
-          ) : null}
-          {atrStatus.state === 'error' ? (
-            <span className="text-xs text-red-400">Error</span>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleRevisarTransiciones}
-            disabled={atrStatus.state === 'loading' || isPending}
-            className="rounded-md border border-[color:var(--border)] bg-transparent px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)] transition hover:border-[color:var(--accent)] hover:text-[color:var(--fg)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {atrStatus.state === 'loading' ? 'Revisando…' : 'Revisar transiciones ATR'}
-          </button>
+      {/* FILTROS — barra compacta única: modalidad + readiness + estado de
+          programación, agrupados con separadores en lugar de 3 filas apiladas. */}
+      <div className="flex flex-wrap items-center gap-x-[var(--s-m)] gap-y-[var(--s-s)]">
+        <div className="flex flex-wrap items-center gap-[var(--s-xs)]">
+          {MODALITY_FILTERS.map(({ key, label }) => (
+            <FilterChip
+              key={`modality-${key}`}
+              label={label}
+              active={modalityFilter === key}
+              onClick={() => setModalityFilter(key)}
+            />
+          ))}
+        </div>
+        <span aria-hidden className="hidden h-5 w-px bg-[color:var(--border-subtle)] md:block" />
+        <div className="flex flex-wrap items-center gap-[var(--s-xs)]">
+          {READINESS_FILTERS.map(({ key, label }) => (
+            <FilterChip
+              key={`readiness-${key}`}
+              label={label}
+              active={readinessFilter === key}
+              onClick={() => setReadinessFilter(key)}
+            />
+          ))}
+        </div>
+        <span aria-hidden className="hidden h-5 w-px bg-[color:var(--border-subtle)] md:block" />
+        <div className="flex flex-wrap items-center gap-[var(--s-xs)]">
+          {FILTERS.map(({ key, label }) => (
+            <FilterChip key={key} label={label} active={filter === key} onClick={() => setFilter(key)} />
+          ))}
         </div>
       </div>
 
+      {/* LISTA — filas densas de atleta, ordenadas por urgencia (triage). */}
       {filtered.length === 0 ? (
         <p className="text-sm text-[color:var(--text-muted)]">
           {athletes.length === 0 ? 'No hay atletas todavía.' : 'Ningún atleta coincide con el filtro.'}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-[var(--gutter)] md:grid-cols-2 xl:grid-cols-3">
+        <div
+          className="overflow-hidden rounded-[var(--r-l)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)]"
+          role="list"
+          aria-label="Atletas, ordenados por urgencia"
+        >
           {filtered.map((athlete, i) => (
-            <AthleteCard key={athlete.athlete_id} athlete={athlete} index={i} />
+            <AthleteRosterRow
+              key={athlete.athlete_id}
+              athlete={athlete}
+              phasesById={phasesById}
+              withDivider={i > 0}
+              index={i}
+            />
           ))}
         </div>
       )}
@@ -303,14 +369,6 @@ export function AthletesList({ athletes }: AthletesListProps) {
         }}
       />
     </div>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z" />
-    </svg>
   );
 }
 

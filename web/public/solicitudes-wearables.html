@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta name="robots" content="noindex, nofollow" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Solicitudes de API de wearables — FAHYBRID</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#2a2e33; --head:#16181c; --muted:#6d7278;
+    --line:#e8e6e0; --line-2:#d9d6ce; --page:#f7f6f3; --card:#fff;
+    --accent:#c2410c; --accent-soft:#d2691e; --accent-wash:#fbf2ea; --accent-edge:#ecd6c4;
+    --code-bg:#f3f2ee; --ok:#2f7d4a; --ok-wash:#f0f8f1; --ok-edge:#c7e3cd;
+    --radius:14px; --maxw:820px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  ::selection{background:#ffe3cf}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 26px 90px}
+  header.top{max-width:var(--maxw);margin:0 auto;padding:50px 26px 28px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 13px}
+  header.top h1{font-size:clamp(26px,4.6vw,36px);font-weight:700;letter-spacing:-.02em;line-height:1.1;color:var(--head);margin:0 0 13px;max-width:24ch}
+  header.top .lead{font-size:16.5px;color:var(--muted);margin:0;max-width:62ch}
+  header.top .lead b{color:var(--ink);font-weight:600}
+  .rule{max-width:var(--maxw);margin:0 auto;height:1px;background:var(--line)}
+  section.block{margin:30px 0;scroll-margin-top:16px}
+  .sec-title{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-family:"IBM Plex Mono",monospace;color:var(--muted);margin:0 0 15px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .card-pad{padding:22px 26px}
+
+  /* warning */
+  .warn{border:1px solid var(--accent-edge);background:var(--accent-wash);border-radius:var(--radius);padding:20px 24px;display:flex;gap:15px;align-items:flex-start}
+  .warn .ico{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;font-size:16px;margin-top:1px}
+  .warn h3{margin:0 0 5px;font-size:17px;font-weight:700;color:#5a2f10;letter-spacing:-.01em}
+  .warn p{margin:0;font-size:15px;color:#6e3b18;line-height:1.55}
+  .warn p b{color:#5a2f10;font-weight:600}
+
+  /* label/value rows */
+  .rows{display:flex;flex-direction:column}
+  .row{display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .lbl{flex:0 0 40%;color:var(--head);font-weight:600;font-size:14.5px}
+  .row .val{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+
+  /* provider cards */
+  .prov-head{display:flex;align-items:center;gap:14px;padding:18px 26px;border-bottom:1px solid var(--line);background:#fcfbf9}
+  .badge{flex:0 0 auto;width:42px;height:42px;border-radius:11px;background:#f0eee8;color:var(--head);border:1px solid var(--line-2);display:grid;place-items:center;font-weight:700;font-size:18px}
+  .prov-head h2{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1;color:var(--head)}
+  .prov-head .status{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;padding:6px 12px;border-radius:999px;white-space:nowrap;border:1px solid var(--line-2);background:#f6f5f2;color:var(--muted)}
+
+  a.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;font-weight:600;font-size:15px;padding:11px 19px;border-radius:10px;text-decoration:none;border:none}
+  a.btn:hover{background:#a8380a}
+  .src{font-size:13px;color:var(--muted);margin:10px 0 0}
+  .src a{color:var(--accent);border-bottom:1px solid var(--accent-edge);text-decoration:none}
+
+  .label-sm{font-size:13px;font-weight:600;color:var(--head);margin:22px 0 10px;letter-spacing:.01em}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  thead th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:#f6f4ef;padding:9px 13px;border-bottom:1px solid var(--line-2)}
+  tbody td{padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:nth-child(even) td{background:#fcfbf8}
+  td.f{color:var(--head);font-weight:500;width:42%}
+  td.v{color:var(--ink)}
+
+  ul.notes{list-style:none;margin:14px 0 0;padding:0}
+  ul.notes li{position:relative;padding:5px 0 5px 18px;font-size:14px;color:var(--ink)}
+  ul.notes li::before{content:"";position:absolute;left:3px;top:13px;width:5px;height:5px;border-radius:50%;background:var(--accent-soft)}
+  ul.notes li b{color:var(--head);font-weight:600}
+
+  code.v{font-family:"IBM Plex Mono",monospace;font-size:12.5px;background:var(--code-bg);border:1px solid var(--line-2);border-radius:6px;padding:2px 8px;color:#33373d;cursor:pointer;position:relative;transition:background .15s,border-color .15s;word-break:break-all}
+  code.v:hover{background:#ecebe6;border-color:#c9c5bc}
+  code.v::after{content:"clic para copiar";position:absolute;bottom:100%;left:50%;transform:translate(-50%,-5px);font-size:10px;letter-spacing:.04em;text-transform:uppercase;background:#33373d;color:#fff;padding:3px 8px;border-radius:5px;opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap;z-index:2}
+  code.v:hover::after{opacity:.96}
+  code.v.copied::after{content:"copiado ✓";background:var(--ok);opacity:1}
+  .fill{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;background:var(--accent-wash);color:var(--accent);border:1px dashed var(--accent-edge);border-radius:6px;padding:2px 8px;white-space:nowrap}
+  .tag{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap;border:1px solid var(--ok-edge);background:var(--ok-wash);color:var(--ok)}
+  .hint{color:var(--muted);font-size:13px}
+
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent-edge)}
+  a:hover{border-bottom-color:var(--accent)}
+  footer{margin-top:42px;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.05em;color:var(--muted);line-height:1.7}
+
+  @media (max-width:580px){.row{flex-direction:column;gap:5px}.row .lbl{flex:none}.td.f{width:auto}.prov-head .status{display:none}a.btn{width:100%;justify-content:center}}
+  @media print{
+    body{background:#fff;font-size:12px}.wrap,header.top{padding-left:0;padding-right:0;max-width:none}
+    code.v::after{display:none!important}.card,.warn{break-inside:avoid}section.block{break-inside:avoid}.prov-head{break-after:avoid}table{break-inside:avoid}
+    code.v{cursor:default}a{color:var(--ink);border-bottom:none}
+    code.v,.fill,.tag,.badge,.warn,a.btn,thead th,tbody tr:nth-child(even) td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @page{margin:14mm 12mm}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <p class="eyebrow">Solicitudes de API · wearables</p>
+  <h1>Datos para las solicitudes de wearables</h1>
+  <p class="lead">Para cada proveedor: el <b>enlace oficial de solicitud</b> (verificado contra su web oficial — la fuente está citada), y una tabla con <b>cada campo del formulario y el valor a poner</b>. Lo marcado <span class="fill">[RELLENAR]</span> son datos de empresa que aún hay que aportar.</p>
+</header>
+<div class="rule"></div>
+
+<div class="wrap">
+
+  <!-- AVISO NOMBRE LEGAL -->
+  <section class="block" style="margin-top:28px">
+    <div class="warn">
+      <div class="ico">!</div>
+      <div>
+        <h3>Falta el nombre legal de la empresa</h3>
+        <p>Tres de los formularios piden el nombre de una <b>empresa</b> (COROS, Garmin y Amazfit exigen uso empresarial / solicitante corporativo). Sin una sociedad o un alta de autónomo no se pueden completar esas tres. <b>WHOOP</b> sí permite empezar sin eso.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DATOS DE EMPRESA -->
+  <section class="block">
+    <p class="sec-title">Datos de la empresa (se repiten en todos)</p>
+    <div class="card"><div class="card-pad"><div class="rows">
+      <div class="row"><div class="lbl">Nombre de la app</div><div class="val"><code class="v">FAHYBRID</code></div></div>
+      <div class="row"><div class="lbl">Nombre legal / razón social</div><div class="val"><span class="fill">[RELLENAR]</span> <span class="hint">obligatorio — entidad legal (sociedad o autónomo)</span></div></div>
+      <div class="row"><div class="lbl">Email de contacto</div><div class="val"><code class="v">hello@fahybrid.com</code></div></div>
+      <div class="row"><div class="lbl">Web</div><div class="val"><code class="v">https://fahybrid.com</code></div></div>
+      <div class="row"><div class="lbl">Política de privacidad</div><div class="val"><code class="v">https://fahybrid.com/privacy</code> <span class="tag">en vivo</span></div></div>
+      <div class="row"><div class="lbl">Términos</div><div class="val"><code class="v">https://fahybrid.com/terms</code> <span class="tag">en vivo</span></div></div>
+      <div class="row"><div class="lbl">Logo (URLs en vivo)</div><div class="val"><code class="v">https://fahybrid.com/brand/fh-icon-300.png</code> <span class="hint">icono cuadrado (para formularios)</span><br><code class="v">https://fahybrid.com/brand/fh-logo-orange.png</code> · <code class="v">https://fahybrid.com/brand/fh-logo-white.png</code> · <code class="v">https://fahybrid.com/brand/fh-logo-black.png</code> <span class="hint">marca transparente — naranja / blanco / negro</span></div></div>
+      <div class="row"><div class="lbl">Nº de usuarios</div><div class="val"><span class="fill">[RELLENAR]</span> <span class="hint">estimación</span></div></div>
+    </div></div></div>
+  </section>
+
+  <!-- PÁGINAS LEGALES -->
+  <section class="block">
+    <p class="sec-title">Páginas legales — revísalas</p>
+    <div class="card"><div class="card-pad">
+      <p style="margin:0 0 16px;font-size:15px">Están publicadas y en vivo. Ábrelas para revisarlas: son las que verán los proveedores y los usuarios.</p>
+      <a class="btn" href="https://fahybrid.com/privacy" target="_blank" rel="noopener">Ver privacidad →</a>
+      <a class="btn" href="https://fahybrid.com/terms" target="_blank" rel="noopener" style="margin-left:10px">Ver términos →</a>
+    </div></div>
+  </section>
+
+  <!-- ===================== PROVEEDORES ===================== -->
+  <section class="block">
+    <p class="sec-title">Proveedores</p>
+
+    <!-- WHOOP -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="prov-head"><span class="badge">W</span><h2>WHOOP</h2><span class="status">Alta inmediata · gratis</span></div>
+      <div class="card-pad">
+        <a class="btn" href="https://developer-dashboard.whoop.com/apps/create" target="_blank" rel="noopener">Crear app en WHOOP →</a>
+        <p class="src">Fuente oficial: <a href="https://developer.whoop.com/docs/developing/getting-started" target="_blank" rel="noopener">developer.whoop.com</a> · La cuenta se crea al instante (hasta 10 usuarios y 5 apps sin aprobación).</p>
+
+        <p class="label-sm">Al crear la app, rellena:</p>
+        <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
+          <tr><td class="f">App Name</td><td class="v"><code class="v">FAHYBRID</code></td></tr>
+          <tr><td class="f">Scopes</td><td class="v"><code class="v">read:recovery read:cycles read:workout read:sleep read:profile read:body_measurement offline</code></td></tr>
+          <tr><td class="f">Redirect URI</td><td class="v"><code class="v">https://fahybrid.com/api/whoop/callback</code></td></tr>
+          <tr><td class="f">Webhook URL</td><td class="v"><code class="v">https://fahybrid.com/api/whoop/webhook</code></td></tr>
+          <tr><td class="f">Contact Email</td><td class="v"><code class="v">hello@fahybrid.com</code></td></tr>
+          <tr><td class="f">Privacy Policy URL</td><td class="v"><code class="v">https://fahybrid.com/privacy</code></td></tr>
+        </tbody></table>
+
+        <p class="label-sm">Para pasar de 10 usuarios (producción):</p>
+        <a class="btn" href="https://whoopinc.typeform.com/to/XmzituEp" target="_blank" rel="noopener">Formulario de producción →</a>
+        <ul class="notes">
+          <li>Pide tu <b>nombre</b> y unas preguntas; la app debe tener arriba el Contact Email y la Privacy Policy URL puestos.</li>
+          <li>Cada usuario final necesita su propia membresía WHOOP de pago.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- COROS -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="prov-head"><span class="badge">C</span><h2>COROS</h2><span class="status">Solicitud · gratis</span></div>
+      <div class="card-pad">
+        <a class="btn" href="https://coros-teams.feishu.cn/share/base/form/shrcnLqSduZsaNhbvDJTO2x0Vlf" target="_blank" rel="noopener">Abrir formulario de COROS →</a>
+        <p class="src">Fuente oficial: artículo de COROS <a href="https://support.coros.com/hc/en-us/articles/17085887816340-Submitting-an-API-Application" target="_blank" rel="noopener">«Submitting an API Application»</a> (support.coros.com), que enlaza a este formulario. Sin coste; COROS revisa cada solicitud y no acepta a todos.</p>
+
+        <p class="label-sm">Rellena el formulario con:</p>
+        <table><thead><tr><th>Campo del formulario</th><th>Valor a poner</th></tr></thead><tbody>
+          <tr><td class="f">Platform / Application Name</td><td class="v"><code class="v">FAHYBRID</code></td></tr>
+          <tr><td class="f">Company Name</td><td class="v"><span class="fill">[RELLENAR]</span></td></tr>
+          <tr><td class="f">Primary / Secondary Contact Email</td><td class="v"><code class="v">hello@fahybrid.com</code></td></tr>
+          <tr><td class="f">Privacy Officer Email</td><td class="v"><code class="v">hello@fahybrid.com</code></td></tr>
+          <tr><td class="f">Company Owner Name and Title</td><td class="v"><span class="fill">[RELLENAR]</span></td></tr>
+          <tr><td class="f">Platform / Application URL</td><td class="v"><code class="v">https://fahybrid.com</code></td></tr>
+          <tr><td class="f">Application Description (máx. 100 car.)</td><td class="v"><span class="fill">[RELLENAR]</span> <span class="hint">aparece en su web pública</span></td></tr>
+          <tr><td class="f">Total Active Users</td><td class="v"><span class="fill">[RELLENAR]</span> <span class="hint">desplegable por tramos</span></td></tr>
+          <tr><td class="f">Primary Region</td><td class="v"><span class="fill">[RELLENAR]</span> <span class="hint">EU / España</span></td></tr>
+          <tr><td class="f">Which API function(s) — marcar</td><td class="v"><b>Activity / Workout Data Sync (two ways)</b> + <b>Structured Workouts and Training Plans Sync</b></td></tr>
+          <tr><td class="f">Authorized Callback Domain (redirect_url)</td><td class="v"><code class="v">https://fahybrid.com/api/coros/callback</code></td></tr>
+          <tr><td class="f">Workout Data Receiving Endpoint URL</td><td class="v"><code class="v">https://fahybrid.com/api/coros/webhook</code></td></tr>
+          <tr><td class="f">Service Status Check URL</td><td class="v"><code class="v">https://fahybrid.com/api/coros/webhook</code></td></tr>
+          <tr><td class="f">Bluetooth/ANT+ link</td><td class="v"><code class="v">N/A</code></td></tr>
+          <tr><td class="f">Personal or public use</td><td class="v"><code class="v">Public</code></td></tr>
+          <tr><td class="f">Commercial or non-commercial</td><td class="v"><code class="v">Commercial</code></td></tr>
+          <tr><td class="f">Intended use of data</td><td class="v"><span class="fill">[RELLENAR]</span> <span class="hint">cómo se usan los datos del atleta</span></td></tr>
+          <tr><td class="f">Expected Integration Launch Date</td><td class="v"><span class="fill">[RELLENAR]</span></td></tr>
+          <tr><td class="f">Agree to API Application Terms / API Agreement</td><td class="v"><code class="v">Yes</code> / <code class="v">Yes</code></td></tr>
+          <tr><td class="f">Your name + Submit Date</td><td class="v"><span class="fill">[RELLENAR]</span></td></tr>
+          <tr><td class="f">Logos (PNG)</td><td class="v">144×144 → <code class="v">https://fahybrid.com/brand/fh-icon-144.png</code><br>102×102 → <code class="v">https://fahybrid.com/brand/fh-icon-102.png</code><br>120×120 → <code class="v">https://fahybrid.com/brand/fh-icon-120.png</code><br>300×300 → <code class="v">https://fahybrid.com/brand/fh-icon-300.png</code></td></tr>
+        </tbody></table>
+        <ul class="notes"><li>Tras aceptar, COROS exige añadir un <b>«Login Portal + Support Page»</b> en la web antes de salir a producción.</li></ul>
+      </div>
+    </div>
+
+    <!-- GARMIN -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="prov-head"><span class="badge">G</span><h2>Garmin</h2><span class="status">Solicitud · uso empresarial</span></div>
+      <div class="card-pad">
+        <a class="btn" href="https://www.garmin.com/en-US/forms/GarminConnectDeveloperAccess/" target="_blank" rel="noopener">Formulario de acceso →</a>
+        <p class="src">Fuente oficial: <a href="https://developer.garmin.com/gc-developer-program/program-faq/" target="_blank" rel="noopener">FAQ del Garmin Connect Developer Program</a> — invita a solicitar y dice que <b>confirman la solicitud en 2 días hábiles</b>. <b>Está abierto</b> (ninguna página oficial dice lo contrario). Las páginas de la API también enlazan un segundo formulario oficial, <a href="https://www.garmin.com/en-US/forms/developercontactus/" target="_blank" rel="noopener">«Developer Contact Us»</a> — si el de acceso no avanza, usa ese.</p>
+
+        <p class="label-sm">Datos para la solicitud:</p>
+        <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
+          <tr><td class="f">Empresa / contacto</td><td class="v"><span class="fill">[RELLENAR]</span> · <code class="v">hello@fahybrid.com</code></td></tr>
+          <tr><td class="f">Platform URL</td><td class="v"><code class="v">https://fahybrid.com</code></td></tr>
+          <tr><td class="f">APIs a solicitar</td><td class="v"><b>Health API · Activity API · Training API</b></td></tr>
+          <tr><td class="f">Redirect / callback URL</td><td class="v"><code class="v">https://fahybrid.com/api/garmin/callback</code></td></tr>
+          <tr><td class="f">Webhook URL</td><td class="v"><code class="v">https://fahybrid.com/api/garmin/webhook</code></td></tr>
+        </tbody></table>
+        <ul class="notes">
+          <li>Uso <b>empresarial</b>. Sin tasa de acceso; algunas métricas pueden requerir licencia o pedido mínimo de dispositivos.</li>
+          <li><b>Aviso honesto:</b> los nombres exactos de los campos del formulario de Garmin no se pudieron leer de fuente oficial (el formulario se carga por JavaScript). Rellénalo con los datos de empresa + estas URLs.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- AMAZFIT -->
+    <div class="card">
+      <div class="prov-head"><span class="badge">A</span><h2>Amazfit</h2><span class="status">Solicitud · solo empresas</span></div>
+      <div class="card-pad">
+        <a class="btn" href="https://dev.huami.com/#/home" target="_blank" rel="noopener">Registrarse / solicitar →</a>
+        <p class="src">Fuente oficial: <a href="https://github.com/zepp-health/rest-api/wiki" target="_blank" rel="noopener">wiki oficial de Zepp/Huami (zepp-health/rest-api)</a>. El alta de la API de datos se hace en <b>dev.huami.com</b> (no en developer.zepp.com, que es el SDK del reloj). Solo empresas; revisión de 3–7 días.</p>
+
+        <p class="label-sm">Rellena con:</p>
+        <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
+          <tr><td class="f">Application name</td><td class="v"><code class="v">FAHYBRID</code></td></tr>
+          <tr><td class="f">Logo CDN URLs</td><td class="v"><code class="v">https://fahybrid.com/brand/fh-icon-300.png</code></td></tr>
+          <tr><td class="f">Description</td><td class="v"><span class="fill">[RELLENAR]</span></td></tr>
+          <tr><td class="f">Privacy policy link</td><td class="v"><code class="v">https://fahybrid.com/privacy</code></td></tr>
+          <tr><td class="f">Redirect URIs</td><td class="v"><code class="v">https://fahybrid.com/api/amazfit/callback</code></td></tr>
+          <tr><td class="f">Webhook (recepción de datos)</td><td class="v"><code class="v">https://fahybrid.com/api/amazfit/webhook</code></td></tr>
+          <tr><td class="f">Tras aprobación: país / plataforma / nº usuarios / negocio</td><td class="v"><span class="fill">[RELLENAR]</span></td></tr>
+        </tbody></table>
+        <ul class="notes"><li>Solicitante <b>corporativo</b> obligatorio (no admiten particulares).</li></ul>
+      </div>
+    </div>
+
+    <!-- POLAR -->
+    <div class="card" style="margin-top:22px">
+      <div class="prov-head"><span class="badge">P</span><h2>Polar</h2><span class="status">Self-serve · gratis · sin empresa</span></div>
+      <div class="card-pad">
+        <p style="margin:0 0 14px;font-size:15px">No hay formulario ni aprobación de partner: <b>nos damos de alta nosotros mismos</b> y obtenemos las claves al instante. <b>Gratis</b>, y no hace falta empresa (igual que WHOOP).</p>
+
+        <p class="label-sm">Cómo darse de alta (pasos):</p>
+        <ul class="notes">
+          <li><b>1.</b> Crear una cuenta <b>Polar Flow</b> gratis en <a href="https://flow.polar.com" target="_blank" rel="noopener">flow.polar.com</a> (no hace falta tener un dispositivo Polar).</li>
+          <li><b>2.</b> Entrar en <a href="https://admin.polaraccesslink.com" target="_blank" rel="noopener">admin.polaraccesslink.com</a> e iniciar sesión con esa cuenta Polar Flow.</li>
+          <li><b>3.</b> Pulsar <b>«Create new client»</b> → poner el nombre de la app + la <b>Redirect URL</b> de abajo.</li>
+          <li><b>4.</b> Polar da al momento un <code class="v">client_id</code> y un <code class="v">client_secret</code> → se guardan (van al backend, no se publican).</li>
+        </ul>
+
+        <p class="label-sm">Valores a usar:</p>
+        <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
+          <tr><td class="f">Redirect / callback URL</td><td class="v"><code class="v">https://fahybrid.com/api/polar/callback</code></td></tr>
+          <tr><td class="f">Webhook URL</td><td class="v"><code class="v">https://fahybrid.com/api/polar/webhook</code></td></tr>
+          <tr><td class="f">Scopes</td><td class="v"><code class="v">training_sessions:read activity:read sleep:read continuous_samples:read nightly_recharge:read profile:read sports:read tests:read</code></td></tr>
+          <tr><td class="f">Auth</td><td class="v">OAuth 2.0 (Polar AccessLink v4)</td></tr>
+        </tbody></table>
+        <ul class="notes">
+          <li>Gratis · abierto a particular o empresa → <b>no necesita entidad legal</b>.</li>
+          <li>Requiere consentimiento del usuario (OAuth) + política de privacidad (ya la tenemos) y no crear un servicio que compita con Polar.</li>
+        </ul>
+      </div>
+    </div>
+
+  </section>
+
+  <footer>Enlaces verificados contra la web oficial de cada proveedor (sin foros) · URLs de FAHYBRID en vivo en fahybrid.com · Generado 24 jun 2026</footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('code.v').forEach(function(el){
+    el.setAttribute('role','button');el.setAttribute('tabindex','0');el.setAttribute('aria-label','Copiar: '+el.textContent);
+    function copy(){if(navigator.clipboard){navigator.clipboard.writeText(el.textContent).then(function(){el.classList.add('copied');setTimeout(function(){el.classList.remove('copied')},1200)})}}
+    el.addEventListener('click',copy);
+    el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();copy()}});
+  });
+</script>
+
+</body>
+</html>

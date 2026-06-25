@@ -22,7 +22,10 @@ struct Scale1to5Picker: View {
                             .fill(value == i ? Theme.Color.accent : Color.clear)
                             .overlay(
                                 Circle().stroke(
-                                    value == i ? Theme.Color.accent : Theme.Color.muted.opacity(0.55),
+                                    // Empty ring uses `faint` (documented UI ≥3.99:1
+                                    // in both modes). The old muted@0.55 fell to
+                                    // ~2.7:1 on white — below the 3:1 UI floor.
+                                    value == i ? Theme.Color.accent : Theme.Color.faint,
                                     lineWidth: 1.5
                                 )
                             )

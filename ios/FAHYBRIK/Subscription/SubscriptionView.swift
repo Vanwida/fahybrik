@@ -28,7 +28,7 @@ struct SubscriptionView: View {
                     header
                     if loading {
                         ProgressView()
-                            .tint(Theme.Color.accent)
+                            .tint(Theme.Color.accentText)
                             .frame(maxWidth: .infinity)
                             .padding(.top, Theme.Spacing.xl)
                     } else if let info {

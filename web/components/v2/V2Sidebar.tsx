@@ -18,32 +18,17 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * FAHYBRID brand mark — a pointy-top hexagon glyph carrying an italic "F" cut from
- * the fill (the Fabrik black-on-orange wordmark relationship). Pure inline SVG so
- * it scales crisply and reads as a real brand mark, not a generic icon tile. The
- * hexagon nods to the modular/HYROX grid; the orange is the one brand constant.
+ * FAHYBRID brand mark — the real FHP icon tile (orange on dark), self-contained so
+ * it reads correctly on both the light and dark v2 surfaces. Sourced from the
+ * standardized brand set in /public/brand. Not a generic icon, the actual logo.
  */
 function HexMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32"
-      role="img"
-      aria-hidden
-      className={className}
-      fill="none"
-    >
-      {/* Pointy-top hexagon filled with brand orange (regular, centered, rounded
-          vertices). Width 26 across, inset 3px each side. */}
-      <path
-        d="M16 2.31l11.85 6.84a1.6 1.6 0 0 1 .8 1.39v13.68a1.6 1.6 0 0 1-.8 1.39L16 29.69a1.6 1.6 0 0 1-1.6 0L2.55 23.61a1.6 1.6 0 0 1-.8-1.39V8.54a1.6 1.6 0 0 1 .8-1.39L14.4 2.31a1.6 1.6 0 0 1 1.6 0Z"
-        fill="var(--v2-accent)"
-      />
-      {/* Italic "F" cut in accent-foreground (black-on-orange wordmark relationship). */}
-      <path
-        d="M21.4 9.6l-.55 2.62h-6.06l-.62 2.96h5.2l-.52 2.5h-5.2l-1.13 5.42h-3.1L11.9 9.6h9.5Z"
-        fill="var(--v2-accent-fg)"
-      />
-    </svg>
+    <img
+      src="/brand/fh-icon-300.png"
+      alt="FAHYBRID"
+      className={cn('rounded-[var(--v2-r-s)] object-contain', className)}
+    />
   );
 }
 

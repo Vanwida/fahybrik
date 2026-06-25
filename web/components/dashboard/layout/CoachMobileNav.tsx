@@ -70,7 +70,7 @@ export function CoachMobileNav({ pending_inbox_count = 0, is_admin = false }: Co
           'border-b border-[color:var(--border-subtle)] bg-[color:var(--bg)] px-4',
         )}
       >
-        <Link href="/hoy" aria-label="FAHYBRIK" className="flex items-center gap-2">
+        <Link href="/hoy" aria-label="FAHYBRID" className="flex items-center gap-2">
           <span
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--r-sm)]',

@@ -46,8 +46,8 @@ const archivoNarrow = Archivo_Narrow({
 });
 
 export const metadata: Metadata = {
-  title: "FAHYBRIK",
-  description: "FAHYBRIK — Coach dashboard",
+  title: "FAHYBRID",
+  description: "FAHYBRID — Coach dashboard",
 };
 
 export default async function RootLayout({

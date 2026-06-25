@@ -21,8 +21,40 @@ struct ExerciseDetailView: View {
         return YouTubeLinkParser.videoId(from: url)
     }
 
+    // Legacy single-line summary, used only when the item carries no structured
+    // prescription (or a structured prescription with no usable detail).
     private var paramsSummary: String? {
         WorkoutItemParamsFormatter.summary(item.paramsJson, category: item.exerciseCategory)
+    }
+
+    // Structured per-set rows for a strength prescription (pyramid → one row/set,
+    // uniform → collapsed line). Nil for non-strength / no structured sets.
+    private var setRows: [PrescriptionRenderer.SetRow]? {
+        guard let p = item.prescription,
+              p.modality == .strength || (p.modality == nil && item.exerciseCategory.lowercased() == "strength")
+        else { return nil }
+        return PrescriptionRenderer.setRows(p)
+    }
+
+    private var collapsedSets: String? {
+        guard let p = item.prescription, setRows != nil,
+              PrescriptionRenderer.setsAreUniform(p)
+        else { return nil }
+        return PrescriptionRenderer.collapsedSetsLabel(p)
+    }
+
+    // A modality summary line for non-strength items, built from the structured
+    // prescription when present.
+    private var structuredLine: String? {
+        guard let p = item.prescription, setRows == nil else { return nil }
+        let line = PrescriptionRenderer.summaryLine(p)
+        var parts: [String] = []
+        if let h = line.headline { parts.append(h) }
+        if let pace = line.pace { parts.append(pace) }
+        if let z = line.zone { parts.append(z.label) }
+        if let det = line.detail { parts.append(det) }
+        if let header = PrescriptionRenderer.wodHeader(p) { parts.insert(header, at: 0) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -40,11 +72,7 @@ struct ExerciseDetailView: View {
                                 .accessibilityLabel("Vídeo demostración de \(item.exerciseName)")
                         }
 
-                        if let summary = paramsSummary {
-                            section(title: "PRESCRIPCIÓN") {
-                                MonoText(text: summary, size: 15, color: Theme.Color.foreground)
-                            }
-                        }
+                        prescriptionSection
 
                         if let cues = item.cues, !cues.isEmpty {
                             section(title: "CONSEJOS") {
@@ -83,7 +111,85 @@ struct ExerciseDetailView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+    }
+
+    // PRESCRIPCIÓN — prefers the structured per-set prescription:
+    //   · strength pyramid → a per-set table (set#, reps, load, tempo, rest);
+    //   · uniform strength → a collapsed "N× …" line;
+    //   · run/ergo/functional/… → a modality summary line;
+    //   · legacy items (no structured prescription) → the scalar param summary.
+    @ViewBuilder
+    private var prescriptionSection: some View {
+        if let rows = setRows, !rows.isEmpty {
+            section(title: "PRESCRIPCIÓN") {
+                if let collapsed = collapsedSets {
+                    MonoText(text: collapsed, size: 15, color: Theme.Color.foreground)
+                } else {
+                    setTable(rows)
+                }
+            }
+        } else if let line = structuredLine {
+            section(title: "PRESCRIPCIÓN") {
+                MonoText(text: line, size: 15, color: Theme.Color.foreground)
+            }
+        } else if let summary = paramsSummary {
+            section(title: "PRESCRIPCIÓN") {
+                MonoText(text: summary, size: 15, color: Theme.Color.foreground)
+            }
+        }
+    }
+
+    private func setTable(_ rows: [PrescriptionRenderer.SetRow]) -> some View {
+        let showTempo = rows.contains { $0.tempo != nil }
+        let showRest = rows.contains { $0.rest != nil }
+        return CardSurface(padding: 0) {
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    detailSetHeader("SET", width: 40)
+                    detailSetHeader("REPS", width: 56)
+                    detailSetHeader("CARGA")
+                    if showTempo { detailSetHeader("TEMPO", width: 64) }
+                    if showRest { detailSetHeader("DESC.", width: 52) }
+                }
+                .padding(.vertical, 8)
+                .background(Theme.Color.surfaceSunken)
+                .overlay(alignment: .bottom) { Hairline() }
+                ForEach(rows) { row in
+                    if row.id > 0 { Hairline() }
+                    HStack(spacing: 0) {
+                        detailSetCell("\(row.index)", width: 40, color: Theme.Color.faint)
+                        detailSetCell(row.work, width: 56)
+                        detailSetCell(row.load ?? "—", color: row.load != nil ? Theme.Color.accentText : Theme.Color.faint)
+                        if showTempo { detailSetCell(row.tempo ?? "—", width: 64, color: row.tempo != nil ? Theme.Color.muted : Theme.Color.faint) }
+                        if showRest { detailSetCell(row.rest ?? "—", width: 52, color: row.rest != nil ? Theme.Color.muted : Theme.Color.faint) }
+                    }
+                    .padding(.vertical, 10)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailSetHeader(_ text: String, width: CGFloat? = nil) -> some View {
+        let label = Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.8)
+            .foregroundStyle(Theme.Color.muted)
+            .padding(.horizontal, 10)
+        if let width { label.frame(width: width, alignment: .leading) }
+        else { label.frame(maxWidth: .infinity, alignment: .leading) }
+    }
+
+    @ViewBuilder
+    private func detailSetCell(_ text: String, width: CGFloat? = nil, color: Color = Theme.Color.foreground) -> some View {
+        let cell = Text(text)
+            .font(.system(size: 13, weight: .medium, design: .monospaced))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 10)
+        if let width { cell.frame(width: width, alignment: .leading) }
+        else { cell.frame(maxWidth: .infinity, alignment: .leading) }
     }
 
     private var header: some View {
@@ -102,7 +208,7 @@ struct ExerciseDetailView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: title, color: Theme.Color.accent)
+            LabelText(text: title, color: Theme.Color.accentText)
             content()
         }
     }

@@ -10,7 +10,10 @@ struct Wordmark: View {
     var size: CGFloat = 22
     var body: some View {
         HStack(spacing: 0) {
-            Text("[F]").foregroundStyle(Theme.Color.accent)
+            // Orange [F] is a display GLYPH (text) — on the light canvas the
+            // brand orange fails AA, so use the role-split accentText (darkens to
+            // #B5430B on light, stays #F06A2A on dark).
+            Text("[F]").foregroundStyle(Theme.Color.accentText)
             Text("AHYBRIK").foregroundStyle(Theme.Color.foreground)
         }
         .font(.system(size: size, weight: .heavy, design: .default).italic())
@@ -137,7 +140,9 @@ struct InstrumentReadout: View {
     /// Optional trailing delta (e.g. "▲4 vs 7d"), shown muted/ok/warning.
     var trailing: AnyView? = nil
 
-    private var valueColor: Color { accent ? Theme.Color.accent : Theme.Color.foreground }
+    // The value is a big mono number rendered as TEXT, so the key-metric tint
+    // uses accentText (darkens to #B5430B on light where brand orange fails AA).
+    private var valueColor: Color { accent ? Theme.Color.accentText : Theme.Color.foreground }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -215,7 +220,9 @@ struct RecoveryRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.08), lineWidth: stroke)
+                // Adaptive track seam — a baked white alpha vanished on the
+                // light canvas; hairline flips black-on-white / white-on-black.
+                .stroke(Theme.Color.hairline, lineWidth: stroke)
             Circle()
                 .trim(from: 0, to: max(0, min(1, CGFloat(value) / 100)))
                 .stroke(color, style: StrokeStyle(lineWidth: stroke, lineCap: .round))

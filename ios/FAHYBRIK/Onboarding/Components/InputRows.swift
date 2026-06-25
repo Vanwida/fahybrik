@@ -18,7 +18,7 @@ struct LabeledRow<Trailing: View>: View {
         .frame(maxWidth: .infinity)
         .overlay(
             Rectangle()
-                .fill(Theme.Color.muted.opacity(0.18))
+                .fill(Theme.Color.hairline)
                 .frame(height: 1),
             alignment: .bottom
         )
@@ -212,7 +212,7 @@ struct SliderRow: View {
                 Spacer()
                 Text("\(value)")
                     .font(Theme.Typography.readoutS)
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
             }
             Slider(
                 value: binding,
@@ -235,7 +235,7 @@ struct SliderRow: View {
         .frame(maxWidth: .infinity)
         .overlay(
             Rectangle()
-                .fill(Theme.Color.muted.opacity(0.18))
+                .fill(Theme.Color.hairline)
                 .frame(height: 1),
             alignment: .bottom
         )
@@ -256,7 +256,6 @@ struct DateRow: View {
                 displayedComponents: .date
             )
             .labelsHidden()
-            .colorScheme(.dark)
         }
     }
 }

@@ -72,7 +72,7 @@ export function AssignFlowPreview({
 
       {!ready ? (
         <p className="py-8 text-center text-sm text-[color:var(--text-muted)]">
-          Elige atleta y microciclo para ver la vista previa.
+          Elige atleta y bloque para ver la vista previa.
         </p>
       ) : error ? (
         <div role="alert" className="grid justify-items-center gap-3 py-8 text-center">
@@ -96,8 +96,8 @@ export function AssignFlowPreview({
               role="alert"
               className="mb-3 rounded-[var(--r-m)] border border-[color:var(--warning)] bg-[color:color-mix(in_srgb,var(--warning)_12%,transparent)] px-3 py-2 text-xs text-[color:var(--warning)]"
             >
-              Este microciclo no tiene sesiones con estructura: publicar no entregaría
-              ninguna sesión. Añade bloques antes de publicar.
+              Este bloque no tiene sesiones con estructura: crearlo no entregaría
+              ninguna sesión. Añade contenido antes de programarlo.
             </p>
           ) : null}
           <PreviewCalendar weeks={preview.weeks} />

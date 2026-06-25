@@ -25,7 +25,7 @@ struct LapButton: View {
                 Text("LAP")
                     .font(.system(size: 56, weight: .heavy, design: .default))
                     .italic()
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Theme.Color.accentOn)
                     .tracking(6)
             }
         }

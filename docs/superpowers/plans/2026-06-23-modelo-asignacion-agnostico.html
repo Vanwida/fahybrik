@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modelo de asignación — rediseño agnóstico (propuesta)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:920px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:21px;font-weight:700;margin:46px 0 14px;padding-bottom:10px;border-bottom:2px solid #e8e8e3}
+  h3{font-size:15.5px;font-weight:700;margin:22px 0 8px}
+  p{font-size:15px;margin-bottom:12px;color:#2a2a2a}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:24px 28px;margin:22px 0}
+  .principle p{color:#e0e0db;margin:0 0 10px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .goal{background:#0d7a2e;color:#fff;border-radius:12px;padding:18px 24px;margin:22px 0;font-size:16px;font-weight:600;text-align:center}
+  .goal span{display:block;font-size:13px;font-weight:400;opacity:0.9;margin-top:4px}
+
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .col{border-radius:10px;padding:18px 20px;border:1px solid #e8e8e3;background:#fff}
+  .col.ours{border-left:5px solid #0d7a2e}
+  .col.coach{border-left:5px solid #e6920a}
+  .col h3{margin-top:0}
+  .col ul{list-style:none;padding:0;font-size:13.5px}
+  .col li{padding:5px 0 5px 18px;position:relative;color:#333}
+  .col li::before{content:'·';position:absolute;left:4px;font-weight:800}
+  .col.ours li::before{color:#0d7a2e}
+  .col.coach li::before{color:#e6920a}
+
+  .concept{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 20px;margin:9px 0}
+  .concept .name{font-weight:700;font-size:15px}
+  .concept .tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 8px;border-radius:5px;margin-left:8px;background:#e8f5e9;color:#0d7a2e;vertical-align:middle}
+  .concept .tag.done{background:#eef0ff;color:#1a4ba0}
+  .concept .tag.opt{background:#f3f0e8;color:#8a6d20}
+  .concept .desc{font-size:13.5px;color:#444;margin-top:4px}
+
+  .matrix{border:1px solid #e8e8e3;border-radius:8px;overflow:hidden;margin:12px 0}
+  .matrix table{margin:0;width:100%;border-collapse:collapse;font-size:13px}
+  .matrix th{background:#101010;color:#fff;font-size:12.5px;text-align:center;padding:8px}
+  .matrix td{text-align:center;background:#fff;padding:9px;border-bottom:1px solid #efefe9}
+  .matrix td.lbl{text-align:left;font-weight:600;background:#f9f9f7;white-space:nowrap}
+  .matrix td.f{background:#e8f5e9}
+  .matrix td.e{color:#bbb}
+
+  .chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0;padding:16px;background:#fff;border:1px solid #e8e8e3;border-radius:10px}
+  .node{background:#101010;color:#fff;border-radius:8px;padding:10px 14px;font-size:12.5px;text-align:center;min-width:96px}
+  .node small{display:block;opacity:0.7;font-size:10.5px;margin-top:2px}
+  .arrow{color:#e6920a;font-weight:800;font-size:18px}
+  .loop{font-size:12px;color:#b07000;font-style:italic;margin-left:auto}
+
+  ol.flow{counter-reset:s;list-style:none;padding:0;margin:8px 0}
+  ol.flow li{position:relative;padding:11px 0 11px 42px;border-bottom:1px solid #efefe9;font-size:14.5px}
+  ol.flow li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:10px;width:26px;height:26px;background:#101010;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700}
+  ol.flow li b{color:#1a1a1a}
+
+  .layer{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:16px 20px;margin:10px 0}
+  .layer .h{font-weight:700;font-size:14.5px;margin-bottom:5px}
+  .layer .h .auto{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:#e8f5e9;color:#0d7a2e;padding:2px 8px;border-radius:5px;margin-left:8px}
+  .layer p{font-size:13.5px;margin:0;color:#444}
+
+  table.std{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+  table.std th{background:#f0f0ec;text-align:left;padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#666}
+  table.std td{padding:10px 12px;border-bottom:1px solid #efefe9;vertical-align:top}
+  table.std td:first-child{font-weight:600;white-space:nowrap}
+
+  .risk{background:#fff8ec;border:1px solid #f5d58a;border-radius:8px;padding:8px 14px;margin:8px 0;font-size:13.5px;color:#5a4410}
+  .risk b{color:#b07000}
+  .nope{background:#f5f5f2;border:1px solid #ddd;border-radius:8px;padding:14px 18px;font-size:14px;color:#555}
+
+  footer{margin-top:54px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Modelo de asignación — rediseño agnóstico</h1>
+  <div class="sub">Propuesta para sign-off · ANTES de escribir código · FAHYBRIK · 23 jun 2026</div>
+
+  <div class="principle">
+    <p><b>Principio.</b> Construimos la TECNOLOGÍA; el COACH (cualquiera — Pablo hoy, Javier mañana) construye el CONTENIDO. Sistema multi-coach y agnóstico. Lo único en lo que somos específicos es el deporte: <b>HYROX e híbrido</b>.</p>
+    <p>No diseño método. Doy las palancas para que el coach monte lo suyo (hoy ATR, mañana XYZ) y la máquina lo entregue bien.</p>
+  </div>
+
+  <div class="goal">
+    Un solo coach gestiona 200–400 atletas.
+    <span>Trabajo inicial fuerte (montar la base, una vez) → operación diaria mínima (solo aceptar excepciones).</span>
+  </div>
+
+  <h2>La línea: qué es nuestro, qué es del coach</h2>
+  <div class="twocol">
+    <div class="col ours">
+      <h3>Nuestro — tecnología (objetivo)</h3>
+      <ul>
+        <li>El modelo de datos (niveles, fases, microciclos, secuencias, semanas)</li>
+        <li>El tipo de prescripción HYROX/híbrido (modalidad × medida × objetivo)</li>
+        <li>Los editores de autoría</li>
+        <li>El algoritmo que clasifica al cliente</li>
+        <li>El pipeline que materializa y fecha el plan</li>
+        <li>La entrega semanal, la progresión y la escala (auto + excepciones)</li>
+      </ul>
+    </div>
+    <div class="col coach">
+      <h3>Del coach — contenido (dato)</h3>
+      <ul>
+        <li>Qué significan sus niveles y cuántos hay</li>
+        <li>Qué fases tiene (si las usa) y cómo ordena sus secuencias</li>
+        <li>El contenido de cada microciclo y semana</li>
+        <li>Las prescripciones (cargas, ritmos, RPE)</li>
+        <li>Cuánto progresa por vuelta (+5%, +10%…) y sobre qué</li>
+        <li>Lesiones / fecha de carrera / age-group / su método entero</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Los conceptos (todos agnósticos, por coach)</h2>
+
+  <div class="concept">
+    <span class="name">Nivel</span><span class="tag">por coach</span>
+    <div class="desc">Clasificación de capacidad del cliente. Lista editable (N1…Nk). El cliente tiene un nivel; el contenido se etiqueta por nivel. <span class="em">Hoy hay 3 vocabularios que no se hablan → unificar a uno.</span></div>
+  </div>
+  <div class="concept">
+    <span class="name">Microciclo</span><span class="tag">por coach</span>
+    <div class="desc">La unidad que el coach autora = <b>varias semanas</b>. Es el ladrillo del plan. (Ojo: la tabla DB llama "microcycle" a 1 semana → reconciliar nombre.)</div>
+  </div>
+  <div class="concept">
+    <span class="name">Secuencia</span><span class="tag">por coach</span>
+    <div class="desc">El <b>orden encadenado</b> de microciclos para un (nivel × días): microciclo 1 → 2 → 3 → … Esa secuencia <b>es</b> la periodización. Forma libre: 12 semanas, ATR de 3 fases, o lo que sea. Puede repetir en bucle al terminar.</div>
+  </div>
+  <div class="concept">
+    <span class="name">Fase</span><span class="tag opt">etiqueta opcional</span>
+    <div class="desc">Una etiqueta que el coach le pone a un microciclo para organizarse y darle color (p.ej. "Acumulación"). <b>No es el eje y no es obligatoria</b> — la secuencia funciona con o sin fases.</div>
+  </div>
+  <div class="concept">
+    <span class="name">Semana</span><span class="tag">unidad de entrega</span>
+    <div class="desc">El plan de 7 días dentro del microciclo. Es lo que el cliente ve: una cada vez; el sábado se desbloquea la siguiente.</div>
+  </div>
+  <div class="concept">
+    <span class="name">Sesión / Prescripción</span><span class="tag done">HYROX — ya hecho</span>
+    <div class="desc">Modalidad (correr/remo/ski/bike/fuerza/funcional) × medida (distancia/tiempo/reps/cal) × objetivo (ritmo/zona/RPE/%RM/RIR). Ya tipado, cero texto libre, y <b>relativo</b> (clave para la progresión, abajo).</div>
+  </div>
+
+  <h2>Lo que monta el coach: matriz nivel × días → secuencias</h2>
+  <p>La entrada es la tabla <b>nivel × días</b> (la que te gusta). Cada celda no es un microciclo suelto: es una <b>secuencia visual</b> de microciclos que el cliente recorrerá.</p>
+  <div class="matrix">
+    <table>
+      <thead><tr><th>Nivel \ Días</th><th>3 días</th><th>4 días</th><th>5 días</th><th>6 días</th></tr></thead>
+      <tbody>
+        <tr><td class="lbl">N1</td><td class="f">secuencia ▸</td><td class="f">secuencia ▸</td><td class="e">+</td><td class="e">+</td></tr>
+        <tr><td class="lbl">N2</td><td class="f">secuencia ▸</td><td class="f">secuencia ▸</td><td class="f">secuencia ▸</td><td class="e">+</td></tr>
+        <tr><td class="lbl">N3</td><td class="e">+</td><td class="f">secuencia ▸</td><td class="f">secuencia ▸</td><td class="f">secuencia ▸</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:13.5px;color:#666;margin-bottom:4px">Al abrir una celda (p.ej. N3 · 4 días), el coach ve y ordena su secuencia:</p>
+  <div class="chain">
+    <div class="node">Microciclo 1<small>4 sem · "Acumulación"</small></div>
+    <span class="arrow">→</span>
+    <div class="node">Microciclo 2<small>4 sem · "Transform."</small></div>
+    <span class="arrow">→</span>
+    <div class="node">Microciclo 3<small>3 sem · "Realización"</small></div>
+    <span class="loop">↻ vuelve a empezar (+ incremento)</span>
+  </div>
+  <p style="font-size:13.5px;color:#666">Los nombres/fases son del coach. Arrastra para ordenar, añade o quita microciclos. Esto es montar "el año" de una vez, por perfil.</p>
+
+  <h2>El flujo: automático + solo excepciones</h2>
+  <p>El cuello de botella a 400 atletas no es montar la base — es que "aceptar una tarjeta por atleta cada semana" también ahoga. Por eso el sistema va <b>en automático para el 90% que va en rumbo</b> y solo interrumpe al coach con <b>decisiones de juicio</b>.</p>
+  <ol class="flow">
+    <li>El coach monta su biblioteca <b>antes de captar</b>: niveles, microciclos y secuencias por nivel × días.</li>
+    <li>Entra un cliente → el <b>algoritmo lo clasifica</b> (nivel + días) → cae en la secuencia de su celda.</li>
+    <li><b>Tarjeta de excepción:</b> "Cliente X · N3 · 4 días → empieza con [Microciclo 1]. <b>Aceptar</b> / Cambiar / Ajustar". El coach solo verifica.</li>
+    <li>Al aceptar → se <b>materializa y fecha</b> el microciclo; el cliente ve la semana 1.</li>
+    <li><b>Entrega semanal automática:</b> el sábado se desbloquea la siguiente semana. Sin tarjeta mientras va en rumbo.</li>
+    <li>El coach <b>solo recibe tarjeta cuando hay que decidir</b>: atleta nuevo, fin de secuencia (repetir / subir nivel / cambiar), o una <b>señal</b> (faltó a sesiones, lesión, estancado, readiness baja).</li>
+    <li>Las decisiones se pueden aceptar <b>en lote por cohorte</b>: "12 atletas N3·4d acabaron ciclo → repiten +5% → aceptar los 12".</li>
+  </ol>
+
+  <h2>Progresión: cómo el plan sube cuando el cliente mejora</h2>
+  <div class="layer">
+    <div class="h">Capa 1 — Relativo + re-test <span class="auto">automático, sale gratis</span></div>
+    <p>Como las prescripciones son relativas ("5×5 al 80% RM", "corre al ritmo de tu test"), cuando el cliente <b>re-testea</b> y mejora, el mismo microciclo le da más kilos y ritmos más rápidos. El coach no toca nada — el plan se recalcula desde sus números nuevos.</p>
+  </div>
+  <div class="layer">
+    <div class="h">Capa 2 — Incremento por vuelta <span class="auto">el coach pone el número</span></div>
+    <p>Cuando la secuencia <b>vuelve a empezar</b>, el coach define "+5%", "+10%", "+1 serie"… y el sistema aplica ese salto a la siguiente vuelta automáticamente. Monta la secuencia una vez, la escala con un número.</p>
+  </div>
+  <div class="layer">
+    <div class="h">Eje 2 — Subir de nivel <span class="auto">re-clasificar</span></div>
+    <p>Si mejora mucho, no es "+10%": <b>sube de nivel</b> (N3→N4) y cae en otra celda/secuencia. Dos formas de avanzar: dentro del nivel (re-test + incremento) o cambiando de nivel.</p>
+  </div>
+  <div class="risk"><b>Palanca del coach (no la decido yo):</b> a qué se aplica el % — carga de fuerza, volumen, ritmo objetivo. No es lo mismo +10% de carga que de volumen. Se lo damos granular con un default simple. Es su método.</div>
+
+  <h2>No es rígido: el coach puede cambiar todo</h2>
+  <p>Lo que el coach monta son <b>plantillas</b>; lo que cada atleta tiene es una <b>instancia</b> que apunta a la plantilla pero puede divergir. Eso permite, sin efectos colaterales:</p>
+  <table class="std">
+    <tbody>
+      <tr><td>Cambiar lo siguiente</td><td>Sustituir el próximo microciclo de un atleta por otro de la biblioteca (botón "Cambiar" en la tarjeta)</td></tr>
+      <tr><td>Saltar / insertar</td><td>Reordenar, saltar o meter un microciclo para un atleta concreto</td></tr>
+      <tr><td>Ajuste puntual</td><td>Tocar una prescripción de un atleta sin afectar a los demás</td></tr>
+      <tr><td>Nuevos tipos</td><td>Añadir microciclos o secuencias nuevas cuando quiera</td></tr>
+      <tr><td>Editar la plantilla</td><td>Cambiar una secuencia y elegir: ¿solo nuevos atletas, o también los que están en curso?</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:13.5px;color:#666">Default = aceptar lo propuesto; cambiar está siempre a un clic. Nunca atrapa al coach.</p>
+
+  <h2>La escala: el dial que decides tú</h2>
+  <p>Antes dijiste "el coach acepta para verificar que todo está bien". A 40 atletas vale; a 400, no. Por eso lo hacemos <b>configurable</b>:</p>
+  <table class="std">
+    <thead><tr><th>Modo</th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td>Excepciones-only <span style="color:#0d7a2e;font-weight:700">(recomendado)</span></td><td>Progresión rutinaria automática; el coach solo ve atletas nuevos, fin de secuencia y señales</td></tr>
+      <tr><td>Auto-aprobar por cohorte</td><td>Interruptor por grupo: atleta nuevo/dudoso = manual; veterano en rumbo = automático</td></tr>
+      <tr><td>Verificar todo</td><td>El coach aprueba cada paso (solo viable con pocos atletas)</td></tr>
+    </tbody>
+  </table>
+  <p>Recomiendo arrancar en <b>excepciones-only</b> con auto-aprobado opcional por cohorte. El coach elige su balance entre control y escala — y puede empezar conservador y soltar a medida que confía.</p>
+
+  <h2>Cambios estructurales (unificar + rewiring agnóstico)</h2>
+  <table class="std">
+    <thead><tr><th>Cambio</th><th>De → A</th></tr></thead>
+    <tbody>
+      <tr><td>Nivel único</td><td>3 vocabularios → el contenido se etiqueta por <code>athlete_levels.id</code>; <code>program_level</code> deja de ser eje de selección</td></tr>
+      <tr><td>Secuencia agnóstica</td><td>el plan se ata al enum ATR → se enlaza por la fase/orden del coach (<code>methodology_phases</code> + orden de microciclos); el enum ATR queda solo de fallback durante la migración</td></tr>
+      <tr><td>Microciclo = varias semanas</td><td>plantillas de semana/mes sueltas → "microciclo" como secuencia de semanas; reconciliar el nombre <code>microcycle</code>=semana</td></tr>
+      <tr><td>Grupos por coach</td><td><code>methodology_groups</code> hoy global → añadir <code>coach_id</code></td></tr>
+      <tr><td>Benchmarks coherentes</td><td>onboarding escribe <code>back_squat_1rm</code>/<code>run_5k</code>, algoritmo lee <code>back_squat</code>/<code>row_2k</code> y el remo ni se guarda → una sola fuente de slugs; persistir remo/ski</td></tr>
+      <tr><td>Progresión paramétrica</td><td>prescripciones relativas + regla de incremento por vuelta aplicable automáticamente</td></tr>
+      <tr><td>Auto-propuesta real</td><td>guardaba un id que nadie asignaba → la tarjeta materializa el microciclo de verdad (cierra el eslabón perdido)</td></tr>
+      <tr><td>Motor de excepciones</td><td>señales (faltas, lesión, estancamiento, readiness) generan las tarjetas; lote por cohorte</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Riesgos que veo</h2>
+  <div class="risk"><b>Nomenclatura microciclo:</b> tú = varias semanas; la BD = 1 semana. Si no lo reconcilio limpio, se perpetúa la confusión. Deuda a cerrar en la migración.</div>
+  <div class="risk"><b>Migrar el nivel:</b> ~30 plantillas con el enum viejo (beginner-elite) hay que mapearlas a los niveles del coach sin romper lo existente.</div>
+  <div class="risk"><b>Editar plantilla vs atletas en curso:</b> propagar un cambio a quien ya está a mitad de secuencia es delicado — por eso instancia separada de plantilla y el coach elige si propaga.</div>
+  <div class="risk"><b>Auto-pilot vs confianza:</b> el modo automático solo es bueno si las señales de excepción son fiables. Si el motor de señales falla, el coach pierde visibilidad. Hay que acertar qué dispara una tarjeta.</div>
+
+  <h2>Lo que NO voy a hacer (es del coach)</h2>
+  <div class="nope">No hardcodeo: que el motor pese más que la fuerza al clasificar, reglas de lesión que filtren ejercicios solas, periodización automática por fecha de carrera, ni age-groups, ni cuánto se progresa. Eso es método del coach. Surfaceamos el dato (las lesiones ya salen como aviso) y él decide.</div>
+
+  <footer>
+    Propuesta de modelo · FAHYBRIK / vanwida · 23 jun 2026 · Pendiente de sign-off antes de implementar · Sobre ground-truth verificado (Excel + DB + código)
+  </footer>
+
+</div>
+</body>
+</html>

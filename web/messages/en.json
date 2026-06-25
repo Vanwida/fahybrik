@@ -1,8 +1,8 @@
 {
   "$comment": "English (informal you) — SECONDARY locale. Voice: spare, precise, no motivational filler. Sport vocabulary brand-locked: HYROX, AMRAP, EMOM, RPE, Z1-Z5, sled push, wall ball, ski erg, etc. — never translated. Anchor: 'Train at the detail.' / 'The more Pablo knows, the more precise your plan.' / 'Pablo is building your plan.'",
   "brand": {
-    "name": "FAHYBRIK",
-    "wordmark_aria": "FAHYBRIK",
+    "name": "FAHYBRID",
+    "wordmark_aria": "FAHYBRID",
     "anchor_tagline": "Train at the detail.",
     "anchor_pablo_more": "The more Pablo knows, the more precise your plan.",
     "anchor_pablo_building": "Pablo is building your plan.",
@@ -64,7 +64,7 @@
   "footer": {
     "privacy": "Privacy",
     "terms": "Terms",
-    "copyright": "© {year} Vanwida — FAHYBRIK"
+    "copyright": "© {year} FAHYBRID"
   },
   "cohort": {
     "title": "Athletes",

@@ -1,16 +1,21 @@
 'use client';
 
-// Header sticky de la ficha de atleta (UX redesign §2b): identidad + chips
-// (nivel, modalidad, pareja Dobles, A-event countdown), KPIs inline
-// (.metric-num), acciones (Asignar microciclo, invitación) y la nav de
-// secciones anclada (Calendario · Cuerpo · Rendimiento) con el zoom segmentado
-// del calendario. Cambiar de sección NO navega — estado local de la shell.
+// EL HUB de la ficha de atleta. El header responde, EN ORDEN, a las tres
+// preguntas del coach: "¿dónde está este atleta?" (bloque ATR + carrera) ·
+// "¿cómo está?" (UNA palabra de estado derivada de cumplimiento + readiness, con
+// la línea de métricas etiquetada de apoyo) · "¿qué necesita mi decisión?" (las
+// CTAs + la cola de decisiones, que vive aparte). Sustituye la "sopa" de números
+// flotantes por un read de estado legible de un vistazo. El naranja significa
+// SOLO acción primaria / identidad / hoy: el estado usa color SEMÁNTICO. Vocabulario
+// del fundador: "bloque"/nombre de fase, NUNCA "microciclo". Cambiar de sección
+// NO navega.
 
 import { Link } from '@/i18n/navigation';
 import type { AthleteProfileShell } from '@/lib/dashboard/coach/athlete-profile-shell';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { PlanViewMode } from '@/lib/dashboard/coach/athlete-plan';
 import { cn } from '@/lib/utils';
+import { computeAthleteState } from '@/lib/dashboard/coach/athlete-status';
 import { AthleteAvatar } from '@/components/dashboard/atoms/AthleteAvatar';
 import { InviteAthleteButton } from '@/components/dashboard/athletes/InviteAthleteButton';
 import { MIcon } from '@/components/dashboard/MIcon';
@@ -29,18 +34,23 @@ const ZOOM_OPTIONS: ReadonlyArray<{ key: PlanViewMode; label: string }> = [
   { key: 'macro', label: 'Macro' },
 ];
 
-const LEVEL_LABELS: Record<string, string> = {
-  beginner: 'Beginner',
-  intermediate: 'Intermediate',
-  pro: 'Pro',
-  elite: 'Elite',
-};
-
 const MODALITY_LABELS: Record<string, string> = {
   individual: 'Individual',
   dobles: 'Dobles',
   pro_elite: 'Pro Elite',
 };
+
+// ── Read de estado: UNA palabra a partir de cumplimiento (7d) + readiness ────
+// La lógica + umbrales viven en lib/dashboard/coach/athlete-status.ts (fuente de
+// verdad compartida con el roster /atletas — así el read coincide en ambas).
+
+/** Días enteros (UTC) entre una fecha ISO YYYY-MM-DD y hoy. null si no parsea. */
+function daysSinceIso(iso: string, todayIso: string): number | null {
+  const a = Date.parse(`${iso}T00:00:00Z`);
+  const b = Date.parse(`${todayIso}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.max(0, Math.round((b - a) / 86_400_000));
+}
 
 interface AthleteShellHeaderProps {
   profile: AthleteProfileShell;
@@ -54,18 +64,6 @@ interface AthleteShellHeaderProps {
   onAssignOpen: () => void;
 }
 
-function kpiTone(value: number | null, okFrom: number, warnFrom: number): string {
-  if (value == null) return 'text-[color:var(--text-muted)]';
-  if (value >= okFrom) return 'text-[color:var(--status-success)]';
-  if (value >= warnFrom) return 'text-[color:var(--status-warning)]';
-  return 'text-[color:var(--danger)]';
-}
-
-function weeksUntil(days: number): string {
-  const weeks = Math.max(0, Math.ceil(days / 7));
-  return weeks === 1 ? '1 sem' : `${weeks} sem`;
-}
-
 export function AthleteShellHeader({
   profile,
   resumen,
@@ -77,11 +75,36 @@ export function AthleteShellHeader({
   onAssignOpen,
 }: AthleteShellHeaderProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
-  const checkinLabel =
-    resumen.last_checkin_at === todayIso ? 'Check-in hoy' : 'Check-in';
-  const levelLabel = profile.program_level
-    ? (LEVEL_LABELS[profile.program_level] ?? profile.program_level)
-    : null;
+
+  const compliance = resumen.compliance_pct_7d;
+  const readiness = resumen.readiness_score;
+  const stateRead = computeAthleteState(compliance, readiness);
+
+  // Carrera objetivo (la meta a la que apunta el plan) → fallback a a_event.
+  const race =
+    resumen.target_race != null
+      ? { name: resumen.target_race.name, days_until: resumen.target_race.days_until }
+      : profile.a_event != null
+        ? { name: profile.a_event.name, days_until: profile.a_event.days_until }
+        : null;
+
+  // Check-in: recencia en días si hay fecha; "hoy" si es hoy; "—" si no hay.
+  const checkinDaysAgo =
+    resumen.last_checkin_at != null
+      ? resumen.last_checkin_at === todayIso
+        ? 0
+        : daysSinceIso(resumen.last_checkin_at, todayIso)
+      : null;
+  const checkinText =
+    checkinDaysAgo == null
+      ? 'Check-in —'
+      : checkinDaysAgo === 0
+        ? 'Check-in hoy'
+        : `Check-in hace ${checkinDaysAgo}d`;
+
+  // Conteo de la semana (hechas / total) — semana en curso (lun-dom).
+  const weekTotal = resumen.week_scheduled > 0 ? resumen.week_scheduled : null;
+  const weekDone = resumen.week_completed;
 
   return (
     <header className="sticky top-14 z-20 -mx-4 -mt-4 border-b border-[color:var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--bg)_92%,transparent)] px-4 pt-3 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-4">
@@ -98,87 +121,56 @@ export function AthleteShellHeader({
         </span>
       </nav>
 
-      {profile.intake_pending ? (
-        <Link
-          href={`/atletas/${profile.athlete_id}/intake`}
-          className="banner-review mb-3 transition-opacity hover:opacity-90"
-        >
-          <span className="flex min-w-0 items-center gap-2.5">
-            <MIcon name="how_to_reg" size={18} filled className="shrink-0 text-[color:var(--accent)]" />
-            <span className="truncate text-[13px] font-semibold text-[color:var(--fg)]">
-              Intake pendiente{' '}
-              <span className="font-medium text-[color:var(--text-muted)]">
-                · terminó el onboarding — revísalo para asignar el plan
-              </span>
-            </span>
-          </span>
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.04em] text-[color:var(--accent)]">
-            Revisar intake →
-          </span>
-        </Link>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-4">
+      {/* TIER 1 — identidad (avatar + nombre + modalidad) a la izquierda; SOLO el
+          par de CTAs a la derecha. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <AthleteAvatar name={profile.full_name} size="md" />
 
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="font-headline-md uppercase leading-none text-[color:var(--fg)]">
               {profile.full_name}
             </h1>
-            {levelLabel ? <Chip accent>{levelLabel}</Chip> : null}
             {profile.modality ? <Chip>{MODALITY_LABELS[profile.modality]}</Chip> : null}
             {profile.modality === 'dobles' && profile.partner ? (
               <Link
                 href={`/atletas/${profile.partner.athlete_id}`}
-                className="focus-ring inline-flex h-5 items-center gap-1 rounded-[var(--r-pill)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-low)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--fg)] transition-colors hover:border-[color:color-mix(in_srgb,var(--accent)_45%,var(--border-subtle))]"
+                className="focus-ring inline-flex h-5 items-center gap-1 rounded-[var(--r-pill)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-elevated)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)] transition-colors hover:border-[color:color-mix(in_srgb,var(--accent)_45%,var(--border-subtle))] hover:text-[color:var(--fg)]"
                 aria-label={`Pareja de Dobles: ${profile.partner.full_name} — abrir su ficha`}
               >
-                <MIcon name="group" size={12} className="text-[color:var(--accent)]" aria-hidden />
+                <MIcon name="group" size={12} aria-hidden />
                 {profile.partner.full_name}
               </Link>
             ) : null}
-            {profile.a_event ? (
-              <span className="inline-flex h-5 items-center gap-1 rounded-[var(--r-pill)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-container-low)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--fg)]">
-                <MIcon name="flag" size={12} className="text-[color:var(--accent)]" aria-hidden />
-                {profile.a_event.name} ·{' '}
-                <span className="metric-num">{weeksUntil(profile.a_event.days_until)}</span>
-              </span>
-            ) : null}
           </div>
-          {phaseLine ? <p className="micro-label">{phaseLine}</p> : null}
+
+          {/* DÓNDE ESTÁ — bloque ATR (fase + semana del bloque) · carrera + cuenta
+              atrás. Vocabulario del fundador: "bloque"/fase, nunca "microciclo". */}
+          {phaseLine || race ? (
+            <p className="micro-label flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              {phaseLine ? <span>{phaseLine}</span> : null}
+              {phaseLine && race ? (
+                <span aria-hidden className="text-[color:var(--tertiary)]">
+                  ·
+                </span>
+              ) : null}
+              {race ? (
+                <span className="inline-flex items-center gap-1">
+                  <MIcon name="flag" size={12} aria-hidden />
+                  {race.name}
+                  <span className="text-[color:var(--tertiary)]">·</span>
+                  <span className="metric-num text-[color:var(--text-muted)]">
+                    {race.days_until <= 0 ? 0 : race.days_until}
+                  </span>
+                  {race.days_until === 1 ? 'día' : 'días'}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
         </div>
 
-        <div
-          role="group"
-          aria-label="Indicadores del atleta"
-          className="ml-auto hidden items-center gap-5 md:flex"
-        >
-          <Kpi
-            label="Readiness"
-            value={resumen.readiness_score != null ? String(resumen.readiness_score) : '—'}
-            unit={resumen.readiness_score != null ? '%' : undefined}
-            tone={kpiTone(resumen.readiness_score, 70, 45)}
-          />
-          <KpiDivider />
-          <Kpi
-            label={checkinLabel}
-            value={
-              resumen.checkin_sub_score != null ? resumen.checkin_sub_score.toFixed(1) : '—'
-            }
-            unit={resumen.checkin_sub_score != null ? '/10' : undefined}
-            tone={kpiTone(resumen.checkin_sub_score, 7, 5)}
-          />
-          <KpiDivider />
-          <Kpi
-            label="Cumplimiento sem"
-            value={resumen.compliance_pct_7d != null ? String(resumen.compliance_pct_7d) : '—'}
-            unit={resumen.compliance_pct_7d != null ? '%' : undefined}
-            tone={kpiTone(resumen.compliance_pct_7d, 80, 50)}
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
+        {/* El par de CTAs: primario naranja + invitación outline. */}
+        <div className="ml-auto flex items-center gap-2">
           <InviteAthleteButton athleteId={profile.athlete_id} athleteName={profile.full_name} />
           <button
             type="button"
@@ -187,9 +179,51 @@ export function AthleteShellHeader({
             className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-[var(--r-m)] bg-[color:var(--accent)] px-4 text-[13px] font-semibold text-[color:var(--accent-on)] transition-colors hover:bg-[color:var(--accent-press)]"
           >
             <MIcon name="event_repeat" size={17} aria-hidden />
-            Asignar microciclo
+            Programar bloque
           </button>
         </div>
+      </div>
+
+      {/* TIER 2 — CÓMO ESTÁ: UNA palabra de estado (punto + palabra, el foco del
+          read) + la línea de métricas de apoyo, etiquetada (NO sopa de números).
+          El estado se mantiene en móvil; solo la línea de apoyo colapsa bajo md. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: stateRead.tone }}
+          />
+          <span
+            className="font-heading uppercase leading-none"
+            style={{ color: stateRead.tone }}
+          >
+            {stateRead.word}
+          </span>
+        </span>
+
+        <span aria-hidden className="hidden h-4 w-px self-center bg-[color:var(--border-subtle)] sm:block" />
+
+        {/* Línea de apoyo: cada métrica con su etiqueta en palabras. Colapsa bajo
+            sm (el read de estado solo). */}
+        <p className="hidden flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[color:var(--text-muted)] sm:flex">
+          <SupportMetric label="Cumplimiento" value={compliance != null ? `${compliance}%` : '—'} />
+          <Sep />
+          <SupportMetric label="Readiness" value={readiness != null ? String(readiness) : '—'} />
+          <Sep />
+          <span>{checkinText}</span>
+          {weekTotal != null ? (
+            <>
+              <Sep />
+              <span>
+                <span className="metric-num text-[color:var(--fg)]">
+                  {weekDone}/{weekTotal}
+                </span>{' '}
+                esta semana
+              </span>
+            </>
+          ) : null}
+        </p>
       </div>
 
       <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
@@ -241,45 +275,28 @@ export function AthleteShellHeader({
   );
 }
 
-function Chip({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
+/** Chip de identidad NEUTRO (modalidad): sin naranja (orange discipline). */
+function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className={cn(
-        'inline-flex h-5 items-center rounded-[var(--r-pill)] border px-2 text-[10px] font-bold uppercase tracking-[0.08em]',
-        accent
-          ? 'border-[color:color-mix(in_srgb,var(--accent)_55%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_8%,var(--surface-card))] text-[color:var(--accent)]'
-          : 'border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] text-[color:var(--text-muted)]',
-      )}
-    >
+    <span className="inline-flex h-5 items-center rounded-[var(--r-pill)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-elevated)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
       {children}
     </span>
   );
 }
 
-function Kpi({
-  label,
-  value,
-  unit,
-  tone,
-}: {
-  label: string;
-  value: string;
-  unit?: string | undefined;
-  tone: string;
-}) {
+/** Métrica de apoyo etiquetada en palabras: "Cumplimiento 82%". */
+function SupportMetric({ label, value }: { label: string; value: string }) {
   return (
-    <p className="flex flex-col gap-0.5">
-      <span className={cn('metric-num text-xl font-semibold leading-none', tone)}>
-        {value}
-        {unit ? (
-          <span className="ml-0.5 text-xs font-medium text-[color:var(--text-muted)]">{unit}</span>
-        ) : null}
-      </span>
-      <span className="micro-label">{label}</span>
-    </p>
+    <span className="whitespace-nowrap">
+      {label} <span className="metric-num font-semibold text-[color:var(--fg)]">{value}</span>
+    </span>
   );
 }
 
-function KpiDivider() {
-  return <span aria-hidden className="h-7 w-px bg-[color:var(--border-subtle)]" />;
+function Sep() {
+  return (
+    <span aria-hidden className="text-[color:var(--tertiary)]">
+      ·
+    </span>
+  );
 }

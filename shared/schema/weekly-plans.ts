@@ -53,3 +53,21 @@ export const weeklyPlanUpdateSchema = weeklyPlanSchema
   })
   .partial();
 export type WeeklyPlanUpdate = z.infer<typeof weeklyPlanUpdateSchema>;
+
+// Coach publish-gate input. Publishing flips weekly_plans.status to 'published',
+// which makes a week visible to the athlete plan endpoint.
+//   - `week_start`  : publish a SINGLE week (the proposal / next-week path).
+//   - `week_starts` : publish an entire ATR block at once (every week the block
+//                     spans), so a block created in draft via /assign-draft is
+//                     never left with holes hidden by the gate.
+// Exactly one of the two must be present.
+export const publishWeekInputSchema = z
+  .object({
+    week_start: isoDate.optional(),
+    week_starts: z.array(isoDate).min(1).optional(),
+  })
+  .refine(
+    (v) => (v.week_start != null) !== (v.week_starts != null),
+    'Indica week_start (una semana) o week_starts (un bloque), no ambos.',
+  );
+export type PublishWeekInput = z.infer<typeof publishWeekInputSchema>;

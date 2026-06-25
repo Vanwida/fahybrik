@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pase de UX — Periodización: Secuencias (FAHYBRIK)</title>
+<style>
+  /* ───────────────────────── DOC SHELL (light, readable) ───────────────────────── */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1040px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:22px;font-weight:800;margin:54px 0 6px;letter-spacing:-0.3px}
+  h2 .surf{font-size:13px;font-weight:700;color:#fff;background:#ff6600;padding:3px 9px;border-radius:6px;vertical-align:middle;margin-right:10px;letter-spacing:0}
+  h3{font-size:15.5px;font-weight:700;margin:26px 0 8px;color:#1a1a1a}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0 8px}
+  .toc a{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:16px 18px;transition:border-color .15s}
+  .toc a:hover{border-color:#ff6600}
+  .toc .n{font-size:11px;font-weight:800;color:#ff6600;text-transform:uppercase;letter-spacing:0.6px}
+  .toc .t{font-size:16px;font-weight:700;margin:4px 0 4px}
+  .toc .d{font-size:12.5px;color:#777;line-height:1.4}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:26px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .note{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 18px;margin:10px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.act .h .ic{background:#eef4ff;color:#1a4ba0}
+  .note.copy .h .ic{background:#fdf0e6;color:#b07000}
+  .note.state .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note ul{list-style:none;padding:0;font-size:13.5px;color:#3a3a3a}
+  .note li{padding:5px 0 5px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .note.copy li::before{content:'“';color:#b07000;font-size:16px;top:2px}
+  .note .k{font-weight:700;color:#1a1a1a}
+  .note p{font-size:13.5px;margin:0}
+
+  .risk{background:#fff8ec;border:1px solid #f5d58a;border-radius:8px;padding:9px 14px;margin:10px 0;font-size:13.5px;color:#5a4410}
+  .risk b{color:#b07000}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:16px 20px;margin:14px 0}
+  .decision .q{font-weight:700;font-size:15px;margin-bottom:6px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:10px}
+  .decision .opts{display:flex;flex-direction:column;gap:6px}
+  .decision .opt{font-size:13.5px;padding:7px 12px;border-radius:7px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:#ff6600;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  /* pipeline connector strip (light → echoes niveles-fases pase) */
+  .pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;background:#101010;border-radius:14px;padding:20px 22px;margin:14px 0}
+  .pipe .pn{flex:1;min-width:130px;color:#e8e8e3}
+  .pipe .pn .ord{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#ff8a3d}
+  .pipe .pn .nm{font-size:15px;font-weight:800;margin:3px 0 4px;color:#fff}
+  .pipe .pn .ds{font-size:11.5px;color:#bdbdb8;line-height:1.45}
+  .pipe .pn.now .nm{color:#ff8a3d}
+  .pipe .pn.dim{opacity:.5}
+  .pipe .parrow{display:flex;align-items:center;justify-content:center;width:34px;color:#ff8a3d;font-size:20px;font-weight:800;flex-shrink:0}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  /* ════════════════════════ DARK MOCKUP CANVAS (real product) ════════════════════════
+     Mirrors web/app/[locale]/(v2)/v2-theme.css EXACTLY (dark) + components/v2/constants.ts
+     modality tokens, so the mockups read as the real product. Scoped under .mock. ────── */
+  .mock{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-press:#d85a20; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.14);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.14);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.14);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.14);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.14);
+    /* modality axis — exact values from components/v2/constants.ts */
+    --mod-carrera:#e5484d; --mod-ergo:#4d9eeb; --mod-fuerza:#e0a93b; --mod-circuito:#3fc773; --mod-calentamiento:#9b9b9b;
+    --mod-circuito-soft:rgba(63,199,115,0.14);
+    --r-xs:6px; --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:9999px;
+    background:var(--bg); color:var(--fg);
+    border-radius:18px; padding:26px 26px 28px; margin:14px 0 6px;
+    border:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 24px 60px -24px rgba(0,0,0,0.55);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+    line-height:1.45;
+  }
+  .mock-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:18px 0 7px;display:flex;align-items:center;gap:8px}
+  .mock-tag::before{content:'▸';color:#ff6600}
+
+  .mock *{box-sizing:border-box}
+  .mk-display{font-weight:900;font-style:italic;letter-spacing:-0.01em;line-height:1;font-family:'Archivo Black','SF Pro Display',system-ui,sans-serif}
+  .mk-micro{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+  .mk-num{font-family:'SF Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+
+  /* topbar */
+  .mk-topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+  .mk-h1{font-size:28px}
+  .mk-h1 .dim{color:var(--muted);font-weight:900}
+  .mk-pills{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .mk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:3px 10px;font-size:11px;font-weight:600}
+  .mk-pill.neutral{background:var(--surface2);color:var(--muted)}
+  .mk-pill.accent{background:var(--accent-soft);color:var(--accent)}
+  .mk-pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .mk-pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .mk-pill.danger{background:var(--danger-soft);color:var(--danger)}
+  .mk-pill.info{background:var(--info-soft);color:var(--info)}
+
+  /* segmented */
+  .mk-seg{display:inline-flex;gap:2px;border-radius:var(--r-pill);padding:2px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:700}
+  .mk-seg span{padding:5px 12px;border-radius:var(--r-pill);color:var(--muted)}
+  .mk-seg span.on{background:var(--accent);color:var(--accent-fg)}
+
+  /* buttons */
+  .mk-btn{display:inline-flex;align-items:center;gap:5px;height:30px;border-radius:var(--r-s);padding:0 11px;font-size:11.5px;font-weight:700;border:1px solid var(--border);color:var(--muted)}
+  .mk-btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .mk-btn.ghost{background:transparent}
+  .mk-btn.danger{border-color:rgba(242,80,79,.4);color:var(--danger)}
+  .mk-btn .mi{font-size:15px}
+  .mk-btn.lg{height:34px;font-size:12.5px}
+  .mk-btn.sm{height:26px;font-size:11px;padding:0 9px}
+  .mi{font-family:-apple-system,system-ui,sans-serif;display:inline-block;line-height:1}
+
+  /* level code chip (LevelBadge.tsx — outlined, mono, neutral) */
+  .mk-lvl{display:inline-flex;align-items:center;border-radius:var(--r-xs);padding:1px 7px;border:1px solid var(--border-strong);color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.04em;font-family:'SF Mono',monospace}
+
+  /* ── 1. MATRIX ── */
+  .mk-matrix{width:100%;border-collapse:separate;border-spacing:0}
+  .mk-matrix th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:0 6px 12px;text-align:center}
+  .mk-matrix th.lbl{text-align:left;min-width:160px}
+  .mk-matrix td{padding:6px;vertical-align:top}
+  .mk-matrix td.rowlbl{vertical-align:middle}
+  .mk-rowname{font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:7px}
+  .mk-rowmeta{font-size:11px;color:var(--faint);margin-top:2px}
+  .mk-cell{min-height:92px;border-radius:var(--r-s);padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;gap:6px;cursor:pointer}
+  .mk-cell.filled{background:var(--surface);border:1px solid var(--border)}
+  .mk-cell.filled:hover{border-color:var(--border-strong);background:var(--surface2)}
+  .mk-cell.shared{border-color:rgba(240,106,42,0.28)}
+  .mk-cell.empty{border:1px dashed var(--border);color:var(--faint);align-items:center;justify-content:center;font-size:22px;font-weight:300}
+  .mk-cell.empty:hover{border-color:var(--accent);color:var(--accent)}
+  .mk-cell.skeleton{border:1px solid var(--border);background:linear-gradient(100deg,var(--surface) 30%,var(--surface2) 50%,var(--surface) 70%);cursor:default}
+  .mk-cell-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+  .mk-cell-name{font-size:11.5px;font-weight:700;line-height:1.25;color:var(--fg)}
+  .mk-cell-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:2px}
+  .mk-cell-meta{display:flex;gap:8px;align-items:center}
+  .mk-cell-meta .m{font-size:10px;color:var(--muted);display:inline-flex;align-items:center;gap:3px}
+  .mk-cell-meta .m .mi{font-size:12px;opacity:.7}
+  .mk-cell-shared{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  /* mini sequence preview: a stacked bar of microciclo segments, widths = nº semanas, color = phase role */
+  .mk-seqbar{display:flex;gap:2px;align-items:center;height:6px}
+  .mk-seqbar i{height:6px;border-radius:2px;display:block}
+  .mk-cov{display:flex;gap:10px;align-items:center;margin-top:16px;font-size:11.5px;color:var(--muted)}
+  .mk-cov .bar{flex:1;height:7px;border-radius:4px;background:var(--surface2);overflow:hidden;max-width:280px}
+  .mk-cov .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+
+  /* ── 2. SEQUENCE EDITOR ── */
+  .mk-rail{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:10px 13px;margin-bottom:14px;flex-wrap:wrap}
+  .mk-rail .lab{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-right:2px}
+  .mk-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:5px 10px;font-size:12px;font-weight:700;color:var(--fg);cursor:grab}
+  .mk-chip .grip{color:var(--faint);font-size:13px}
+  .mk-chip .wk{font-size:10.5px;color:var(--faint);font-weight:600}
+  .mk-chip .phasedot{width:7px;height:7px;border-radius:50%}
+  .mk-rail .go{margin-left:auto;color:var(--accent);font-weight:700;font-size:11.5px;white-space:nowrap}
+
+  .mk-chain{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .mk-mc{position:relative;width:184px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 13px;display:flex;flex-direction:column;gap:9px}
+  .mk-mc .top{display:flex;align-items:center;gap:7px}
+  .mk-mc .grip{color:var(--faint);font-size:15px;cursor:grab;line-height:1}
+  .mk-mc .ord{width:20px;height:20px;border-radius:6px;background:var(--surface2);color:var(--muted);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-family:'SF Mono',monospace}
+  .mk-mc .name{font-size:13px;font-weight:700;color:var(--fg);flex:1;min-width:0}
+  .mk-mc .edit{color:var(--faint);font-size:15px;cursor:pointer}
+  .mk-mc .rm{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--elevated);border:1px solid var(--border-strong);color:var(--muted);font-size:12px;display:none;align-items:center;justify-content:center;cursor:pointer}
+  .mk-mc:hover .rm{display:inline-flex}
+  .mk-mc .phase{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:var(--r-pill);align-self:flex-start}
+  .mk-mc .phase.none{background:var(--surface2);color:var(--faint);font-weight:700;text-transform:none;letter-spacing:0}
+  .mk-mc .wk{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .mk-mc .wk .mi{font-size:13px;opacity:.7}
+  .mk-mc .wkbar{display:flex;gap:3px}
+  .mk-mc .wkbar i{flex:1;height:4px;border-radius:2px;background:var(--surface2)}
+  .mk-mc .wkbar i.fill{background:var(--accent)}
+  .mk-mc .modline{display:flex;gap:2px;align-items:center;height:5px}
+  .mk-mc .modline i{height:5px;border-radius:2px;display:block}
+  .mk-arrow{display:flex;align-items:center;justify-content:center;width:30px;color:var(--accent);font-size:18px;font-weight:800;flex-shrink:0}
+  .mk-mc.add{border-style:dashed;align-items:center;justify-content:center;color:var(--faint);cursor:pointer;gap:6px;min-height:128px}
+  .mk-mc.add:hover{border-color:var(--accent);color:var(--accent)}
+  .mk-mc.add .mi{font-size:22px}
+  .mk-mc.add .t{font-size:11.5px;font-weight:700;text-align:center}
+  .mk-mc.ghost{opacity:.55;border-style:dashed;border-color:var(--accent);background:transparent}
+  .mk-mc.dragging{border-color:var(--accent);box-shadow:0 14px 30px -12px rgba(0,0,0,.7);transform:rotate(-1.4deg)}
+
+  /* the running-total ribbon under the chain */
+  .mk-total{display:flex;align-items:center;gap:12px;margin-top:14px;padding:11px 14px;background:var(--surface2);border-radius:var(--r-s);font-size:12px;color:var(--muted)}
+  .mk-total b{color:var(--fg);font-weight:800}
+  .mk-total .seg{display:flex;flex:1;gap:2px;align-items:center;height:8px;max-width:420px}
+  .mk-total .seg i{height:8px;border-radius:2px;display:block}
+
+  /* end-of-sequence policy panel */
+  .mk-endpanel{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:16px 18px}
+  .mk-endpanel.dim{opacity:.45;pointer-events:none}
+  .mk-endpanel .ttl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:13px;display:flex;align-items:center;gap:8px}
+  .mk-endpanel .ttl .mi{color:var(--accent);font-size:16px}
+  .mk-endrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .mk-endrow + .mk-endrow{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+  .mk-endrow .lab{font-size:12.5px;color:var(--muted);min-width:160px;font-weight:600}
+  .mk-radio{display:inline-flex;gap:3px;border-radius:var(--r-pill);padding:3px;border:1px solid var(--border);background:var(--surface2);font-size:11.5px;font-weight:700}
+  .mk-radio span{padding:5px 12px;border-radius:var(--r-pill);color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .mk-radio span.on{background:var(--accent);color:var(--accent-fg)}
+  .mk-radio span .mi{font-size:14px}
+  .mk-stepper{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:var(--r-s);overflow:hidden;background:var(--surface2)}
+  .mk-stepper b{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:16px;font-weight:700;cursor:pointer}
+  .mk-stepper .val{padding:0 14px;font-size:14px;font-weight:800;color:var(--fg);font-family:'SF Mono',monospace}
+  .mk-select{display:inline-flex;align-items:center;gap:6px;height:30px;border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface2);padding:0 11px;font-size:12px;font-weight:600;color:var(--fg);cursor:pointer}
+  .mk-select .mi{font-size:16px;color:var(--muted)}
+  .mk-disabled{opacity:.4;pointer-events:none}
+  .mk-hint{font-size:11.5px;color:var(--faint);margin-top:11px;line-height:1.55}
+  .mk-hint b{color:var(--muted)}
+
+  /* connection-to-athlete strip */
+  .mk-purpose{margin-top:14px;background:var(--surface);border:1px dashed var(--border-strong);border-radius:var(--r-m);padding:13px 16px;display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--muted)}
+  .mk-purpose .mi{color:var(--accent);font-size:18px;flex-shrink:0}
+  .mk-purpose b{color:var(--fg)}
+  .mk-purpose .go{margin-left:auto;color:var(--accent);font-weight:700;white-space:nowrap}
+
+  /* add-microciclo picker (modal sheet) */
+  .mk-sheet{background:var(--elevated);border:1px solid var(--border-strong);border-radius:var(--r-l);padding:18px;box-shadow:0 16px 40px -12px rgba(0,0,0,.8);max-width:560px}
+  .mk-sheet .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .mk-sheet .sh .t{font-size:14px;font-weight:800;color:var(--fg)}
+  .mk-sheet .sh .x{color:var(--faint);font-size:18px;cursor:pointer}
+  .mk-sheet .srch{height:34px;border:1px solid var(--border);background:var(--surface2);border-radius:var(--r-s);padding:0 11px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);margin-bottom:12px}
+  .mk-sheet .filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .mk-mclist{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:hidden}
+  .mk-mcrow{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:11px 13px;cursor:pointer}
+  .mk-mcrow:hover{border-color:var(--accent)}
+  .mk-mcrow .rail{width:4px;align-self:stretch;border-radius:2px}
+  .mk-mcrow .body{flex:1;min-width:0}
+  .mk-mcrow .nm{font-size:13px;font-weight:700;color:var(--fg)}
+  .mk-mcrow .meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:10px}
+  .mk-mcrow .add{color:var(--accent);font-size:18px;font-weight:700}
+  .mk-sheet .foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+
+  /* empty / arranque guiado */
+  .mk-empty{text-align:center;padding:44px 20px;border:1px dashed var(--border);border-radius:var(--r-l)}
+  .mk-empty .big{width:52px;height:52px;border-radius:var(--r-m);background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:14px}
+  .mk-empty .t{font-size:16px;font-weight:800;color:var(--fg)}
+  .mk-empty .d{font-size:13px;color:var(--muted);margin:7px auto 16px;max-width:400px;line-height:1.5}
+  .mk-empty .acts{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
+
+  /* error / confirm */
+  .mk-error{background:var(--danger-soft);border:1px solid rgba(242,80,79,.3);border-radius:var(--r-s);padding:10px 13px;font-size:12.5px;color:var(--danger);display:flex;align-items:center;gap:9px;margin-top:10px}
+  .mk-error .mi{font-size:16px}
+  .mk-error .mk-btn{margin-left:auto;border-color:rgba(242,80,79,.4);color:var(--danger)}
+  .mk-confirm{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-m);padding:18px 20px;max-width:440px}
+  .mk-confirm .ic{width:38px;height:38px;border-radius:var(--r-s);background:var(--warn-soft);color:var(--warn);display:inline-flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
+  .mk-confirm .t{font-size:15px;font-weight:800;color:var(--fg)}
+  .mk-confirm .d{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .mk-confirm .d b{color:var(--fg)}
+  .mk-confirm .acts{display:flex;gap:8px;margin-top:16px}
+
+  /* legend for sparkline reading */
+  .mk-legend{display:flex;flex-wrap:wrap;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:13px 16px;margin-top:12px}
+  .mk-legend .li{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
+  .mk-legend .li .swatch{width:18px;height:6px;border-radius:2px;flex-shrink:0}
+  .mk-legend .li b{color:var(--fg);font-weight:700}
+
+  @media(max-width:820px){
+    .toc{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+    .mk-chain{gap:8px}
+    .pipe{flex-direction:column} .pipe .parrow{width:auto;height:28px;transform:rotate(90deg)}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Pase de UX — Periodización: Secuencias</h1>
+  <div class="sub">Para sign-off · ANTES de codear · Paso 5 del pipeline de construcción · FAHYBRIK · 23 jun 2026</div>
+
+  <div class="principle">
+    <p><b>Dónde estamos.</b> En la IA aprobada, <b>Periodización</b> es <code style="background:#222;color:#ffb340">Niveles · Fases · Secuencias</code>. Niveles y Fases (el marco) ya tienen su pase. Esto es <b>Secuencias</b> — la tercera pestaña y el <b>último paso de autoría</b>: donde el coach, una sola vez, ordena cómo se encadena su contenido para cada perfil de atleta. Dos superficies: la <b>matriz nivel × días</b> (la entrada y el mapa de cobertura) y el <b>editor de secuencia</b> que se abre dentro de cada celda (el corazón).</p>
+    <p>Los mockups están renderizados con los <b>tokens reales del producto</b>: mismo negro <code style="background:#222;color:#ffb340">#0a0a0a</code>, mismo naranja Fabrik <code style="background:#222;color:#ffb340">#f06a2a</code>, mismos colores de modalidad de <code style="background:#222;color:#ffb340">constants.ts</code> y mismo look de matriz/celda que ya existe en Biblioteca. No son bocetos: es cómo se verá.</p>
+    <p><b>Agnóstico, lo más importante:</b> niveles, días, fases, microciclos y nombres son <b>dato del coach</b>. Lo de Pablo (N1–N3, ATR de 3 microciclos) aparece <b>solo como ejemplo</b> editable, nunca como concepto del sistema. La fase es una etiqueta opcional que solo aporta color; una secuencia funciona perfectamente sin ninguna fase.</p>
+  </div>
+
+  <div class="toc">
+    <a href="#s1"><div class="n">Superficie 1 · el mapa</div><div class="t">Matriz nivel × días</div><div class="d">La cobertura de un vistazo: qué secuencias hay montadas, dónde quedan huecos. La entrada al editor.</div></a>
+    <a href="#s2"><div class="n">Superficie 2 · el corazón</div><div class="t">Editor de secuencia</div><div class="d">La cadena ordenada de microciclos (1→2→3…) que recorre el atleta, arrastrable. Esto ES la periodización.</div></a>
+    <a href="#s3"><div class="n">Panel · la palanca</div><div class="t">Fin de secuencia + progresión</div><div class="d">Repetir / Subir nivel / Parar, y el incremento por vuelta (+5% sobre carga · volumen · ritmo).</div></a>
+  </div>
+
+
+  <!-- ══════════════════════════════ SURFACE 1 — MATRIZ ══════════════════════════════ -->
+  <h2 id="s1"><span class="surf">1</span>La matriz nivel × días</h2>
+  <p class="lead">La entrada a Secuencias y el <b>mapa de cobertura</b>. Filas = los niveles que el coach definió en la pantalla anterior (sus etiquetas, de <code>athlete_levels</code>); columnas = días/semana (3 · 4 · 5 · 6). Cada celda <b>llena</b> guarda una secuencia entera de microciclos y muestra un resumen compacto; cada celda <b>vacía</b> es una invitación a crear. El único trabajo de esta pantalla: que el coach vea, sin pensar, <b>qué tiene montado y dónde le faltan piezas</b> antes de empezar a captar atletas.</p>
+
+  <div class="mock-tag">Mockup · estado poblado (secuencias montadas + huecos)</div>
+  <div class="mock">
+    <div class="mk-topbar">
+      <div>
+        <div class="mk-display mk-h1">Periodización <span class="dim">· secuencias</span></div>
+        <div class="mk-pills">
+          <span class="mk-pill neutral"><b class="mk-num">5</b>&nbsp;secuencias</span>
+          <span class="mk-pill ok"><b class="mk-num">7/12</b>&nbsp;celdas cubiertas</span>
+          <span class="mk-pill warn"><b class="mk-num">5</b>&nbsp;huecos</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="mk-seg"><span>Niveles</span><span>Fases</span><span class="on">Secuencias</span></div>
+        <div class="mk-btn primary lg"><span class="mi">＋</span> Nueva secuencia</div>
+      </div>
+    </div>
+
+    <table class="mk-matrix">
+      <thead>
+        <tr>
+          <th class="lbl">Nivel \ Días</th>
+          <th>3 días</th><th>4 días</th><th>5 días</th><th>6 días</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- N1 -->
+        <tr>
+          <td class="rowlbl"><div class="mk-rowname"><span class="mk-lvl">N1</span> Iniciación</div><div class="mk-rowmeta">14 atletas</div></td>
+          <td>
+            <div class="mk-cell filled shared">
+              <div class="mk-cell-top"><span class="mk-cell-name">Base 12 sem</span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>3 mc</span><span class="m"><span class="mi">⌁</span>12 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:38px;background:var(--mod-circuito)"></i><i style="width:32px;background:var(--mod-fuerza)"></i><i style="width:24px;background:var(--mod-carrera)"></i></div>
+                <div class="mk-cell-shared" style="margin-top:6px">· en 2 celdas</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="mk-cell filled shared">
+              <div class="mk-cell-top"><span class="mk-cell-name">Base 12 sem</span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>3 mc</span><span class="m"><span class="mi">⌁</span>12 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:38px;background:var(--mod-circuito)"></i><i style="width:32px;background:var(--mod-fuerza)"></i><i style="width:24px;background:var(--mod-carrera)"></i></div>
+                <div class="mk-cell-shared" style="margin-top:6px">· en 2 celdas</div>
+              </div>
+            </div>
+          </td>
+          <td><div class="mk-cell empty">＋</div></td>
+          <td><div class="mk-cell empty">＋</div></td>
+        </tr>
+        <!-- N2 -->
+        <tr>
+          <td class="rowlbl"><div class="mk-rowname"><span class="mk-lvl">N2</span> Desarrollo</div><div class="mk-rowmeta">31 atletas</div></td>
+          <td>
+            <div class="mk-cell filled">
+              <div class="mk-cell-top"><span class="mk-cell-name">ATR estándar</span><span class="mk-cell-dot" title="pendiente de revisión"></span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>3 mc</span><span class="m"><span class="mi">⌁</span>11 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:30px;background:var(--mod-circuito)"></i><i style="width:26px;background:var(--mod-fuerza)"></i><i style="width:18px;background:var(--mod-carrera)"></i></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="mk-cell filled">
+              <div class="mk-cell-top"><span class="mk-cell-name">ATR estándar</span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>3 mc</span><span class="m"><span class="mi">⌁</span>11 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:30px;background:var(--mod-circuito)"></i><i style="width:26px;background:var(--mod-fuerza)"></i><i style="width:18px;background:var(--mod-carrera)"></i></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="mk-cell filled">
+              <div class="mk-cell-top"><span class="mk-cell-name">ATR alto vol.</span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>3 mc</span><span class="m"><span class="mi">⌁</span>11 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:34px;background:var(--mod-circuito)"></i><i style="width:24px;background:var(--mod-fuerza)"></i><i style="width:16px;background:var(--mod-ergo)"></i></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="mk-cell empty">＋</div></td>
+        </tr>
+        <!-- N3 -->
+        <tr>
+          <td class="rowlbl"><div class="mk-rowname"><span class="mk-lvl">N3</span> Rendimiento</div><div class="mk-rowmeta">9 atletas</div></td>
+          <td><div class="mk-cell empty">＋</div></td>
+          <td>
+            <div class="mk-cell filled">
+              <div class="mk-cell-top"><span class="mk-cell-name">Pico carrera</span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>4 mc</span><span class="m"><span class="mi">⌁</span>14 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:22px;background:var(--mod-circuito)"></i><i style="width:20px;background:var(--mod-fuerza)"></i><i style="width:18px;background:var(--mod-ergo)"></i><i style="width:16px;background:var(--mod-carrera)"></i></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="mk-cell filled">
+              <div class="mk-cell-top"><span class="mk-cell-name">Pico carrera</span></div>
+              <div>
+                <div class="mk-cell-meta"><span class="m"><span class="mi">▦</span>4 mc</span><span class="m"><span class="mi">⌁</span>14 sem</span></div>
+                <div class="mk-seqbar" style="margin-top:6px"><i style="width:22px;background:var(--mod-circuito)"></i><i style="width:20px;background:var(--mod-fuerza)"></i><i style="width:18px;background:var(--mod-ergo)"></i><i style="width:16px;background:var(--mod-carrera)"></i></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="mk-cell empty">＋</div></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="mk-cov">
+      <span class="mk-num" style="color:var(--fg);font-weight:700">Cobertura</span>
+      <div class="bar"><i style="width:58%"></i></div>
+      <span class="mk-num">7 / 12 celdas</span>
+      <span style="color:var(--faint)">· huecos en N1 (5–6d), N2 (6d) y N3 (3d · 6d)</span>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Lectura del mockup: celda llena = <b>nombre de la secuencia</b> + <b>nº de microciclos</b> (<code>mc</code>) + <b>total de semanas</b> + un <b>sparkline de modalidades</b> (un segmento por microciclo, ancho ∝ semanas, color = modalidad dominante de ese microciclo, tokens de <code>constants.ts</code>). El punto naranja = "pendiente de revisión". El "· en 2 celdas" marca una secuencia reutilizada. Celda vacía = <code>＋</code> punteado que invita a crear.</p>
+
+  <div class="seclbl">Cómo se lee el sparkline (los colores son los de modalidad reales)</div>
+  <div class="mock">
+    <div class="mk-legend">
+      <div class="li"><span class="swatch" style="background:var(--mod-carrera)"></span><b>Carrera</b></div>
+      <div class="li"><span class="swatch" style="background:var(--mod-ergo)"></span><b>Ergómetro</b></div>
+      <div class="li"><span class="swatch" style="background:var(--mod-fuerza)"></span><b>Fuerza</b></div>
+      <div class="li"><span class="swatch" style="background:var(--mod-circuito)"></span><b>Circuito</b></div>
+      <div class="li"><span class="swatch" style="background:var(--mod-calentamiento)"></span><b>Calentamiento</b></div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Un segmento por microciclo, en orden; el ancho es proporcional a las semanas y el color es la modalidad que más peso tiene dentro de ese microciclo. De un vistazo: "esta secuencia arranca en circuito, sube fuerza y acaba en carrera". Es información honesta y a coste cero (sale del contenido ya creado). Si a Pablo le sobra, se quita — lo marco abajo (decisión 2).</p>
+
+  <div class="seclbl">Estados</div>
+  <div class="grid2">
+    <div class="note state">
+      <div class="h"><span class="ic">▦</span>Vacío total (coach recién dado de alta)</div>
+      <p>Si no hay <b>ninguna</b> secuencia, la matriz no se muestra fría: arranque guiado — "Aún no has montado tus secuencias" + <b>Crear mi primera secuencia</b>, que abre el editor con un nivel × días preseleccionado (la primera celda libre). <b>Precondición:</b> si tampoco hay niveles, el vacío redirige a Niveles ("Define tus niveles para activar la matriz") — sin filas no hay matriz.</p>
+    </div>
+    <div class="note state">
+      <div class="h"><span class="ic">▦</span>Error de carga</div>
+      <p>Banner rojo discreto sobre la tabla: "No se pudieron cargar las secuencias" + <b>Reintentar</b>. La <b>estructura</b> de la matriz (filas de niveles, columnas de días — vienen de otra query) se mantiene visible para no perder contexto; solo las celdas muestran un esqueleto gris animado.</p>
+    </div>
+  </div>
+
+  <div class="mock-tag">Mockup · vacío total (arranque guiado)</div>
+  <div class="mock">
+    <div class="mk-empty">
+      <div class="big">▦</div>
+      <div class="t">Aún no has montado tus secuencias</div>
+      <div class="d">Una secuencia ordena tus microciclos (1 → 2 → 3 …) para un perfil de atleta — nivel × días. El atleta cae en su celda y recorre la secuencia solo. Móntala una vez por celda.</div>
+      <div class="acts">
+        <div class="mk-btn primary"><span class="mi">＋</span> Crear mi primera secuencia</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mock-tag">Mockup · error de carga (estructura visible, celdas en esqueleto)</div>
+  <div class="mock">
+    <div class="mk-error"><span class="mi">⚠</span>No se pudieron cargar las secuencias.<div class="mk-btn">Reintentar</div></div>
+    <table class="mk-matrix" style="margin-top:14px">
+      <thead><tr><th class="lbl">Nivel \ Días</th><th>3 días</th><th>4 días</th><th>5 días</th><th>6 días</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl"><div class="mk-rowname"><span class="mk-lvl">N1</span> Iniciación</div></td><td><div class="mk-cell skeleton"></div></td><td><div class="mk-cell skeleton"></div></td><td><div class="mk-cell skeleton"></div></td><td><div class="mk-cell skeleton"></div></td></tr>
+        <tr><td class="rowlbl"><div class="mk-rowname"><span class="mk-lvl">N2</span> Desarrollo</div></td><td><div class="mk-cell skeleton"></div></td><td><div class="mk-cell skeleton"></div></td><td><div class="mk-cell skeleton"></div></td><td><div class="mk-cell skeleton"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="seclbl">Copy exacto (ES)</div>
+  <div class="note copy">
+    <ul>
+      <li><span class="k">Título:</span> "Periodización · secuencias" · botón "Nueva secuencia"</li>
+      <li><span class="k">Encabezados:</span> Nivel \ Días · 3 días · 4 días · 5 días · 6 días</li>
+      <li><span class="k">Chips topbar:</span> "5 secuencias" · "7/12 celdas cubiertas" · "5 huecos"</li>
+      <li><span class="k">Celda llena (meta):</span> "3 mc · 11 sem" (mc = microciclos) · "· en 2 celdas" si está compartida</li>
+      <li><span class="k">Celda llena (tooltip):</span> nombre de la secuencia (p.ej. "ATR estándar")</li>
+      <li><span class="k">Celda vacía (aria):</span> "Crear secuencia para N3 · 5 días"</li>
+      <li><span class="k">Punto de revisión (aria):</span> "Pendiente de revisión"</li>
+      <li><span class="k">Barra de cobertura:</span> "Cobertura · 7 / 12 celdas · huecos en…"</li>
+      <li><span class="k">Vacío total:</span> "Aún no has montado tus secuencias" → "Crear mi primera secuencia"</li>
+      <li><span class="k">Sin niveles:</span> "Define tus niveles para activar la matriz" → "Ir a Niveles →"</li>
+      <li><span class="k">Error:</span> "No se pudieron cargar las secuencias · Reintentar"</li>
+    </ul>
+  </div>
+
+  <div class="seclbl">Interacción</div>
+  <div class="grid2">
+    <div class="note act">
+      <div class="h"><span class="ic">↳</span>Click en celda</div>
+      <ul>
+        <li><span class="k">Llena</span> → abre el <b>Editor de secuencia</b> (superficie 2) de esa celda.</li>
+        <li><span class="k">Vacía</span> → abre el editor en blanco con <b>nivel + días pre-rellenados</b>; el coach solo encadena microciclos.</li>
+        <li><span class="k">"Nueva secuencia"</span> (topbar) → editor en blanco que pide elegir nivel × días (o varias celdas, ver reutilización).</li>
+      </ul>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">↳</span>Reutilización entre celdas</div>
+      <ul>
+        <li>Una misma secuencia puede vivir en <b>varias celdas</b> (N1·3d y N1·4d comparten "Base 12 sem"); la celda lo señala con "· en 2 celdas" y borde naranja sutil.</li>
+        <li>Editar una secuencia compartida <b>avisa</b> a cuántas celdas afecta antes de guardar (ver superficie 2).</li>
+        <li>Si una columna de días no aplica para un nivel, la celda simplemente queda vacía — no se fuerza cobertura total.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="risk"><b>Reutiliza el componente ya construido.</b> La matriz es el mismo <code>LevelMatrix</code>/<code>MatrixCell</code> que ya existe en Biblioteca (mismas filas de nivel, mismo look de celda). Aquí solo cambia el <b>contenido</b> de la celda: en vez de un microciclo suelto, el resumen de una secuencia entera. No inventamos visual nuevo.</div>
+
+
+  <!-- ══════════════════════════════ SURFACE 2 — EDITOR ══════════════════════════════ -->
+  <h2 id="s2"><span class="surf">2</span>El editor de secuencia</h2>
+  <p class="lead">El corazón. Al abrir una celda, el coach ve y construye <b>la cadena ordenada de microciclos</b> que el atleta recorrerá: microciclo 1 → 2 → 3 → … Esta cadena <b>es</b> la periodización — sea ATR de 3 fases, 12 semanas lineales o lo que el coach invente. Tiene que sentirse como <b>ordenar cartas</b>, no como rellenar un formulario. Debajo, el panel de fin de secuencia y la progresión (superficie 3).</p>
+
+  <div class="mock-tag">Mockup · estado poblado (cadena de microciclos)</div>
+  <div class="mock">
+    <!-- header -->
+    <div class="mk-topbar" style="margin-bottom:18px">
+      <div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+          <span class="mk-btn ghost" style="height:26px;padding:0 8px">← Matriz</span>
+          <span class="mk-lvl">N2 · DESARROLLO</span>
+          <span class="mk-lvl">4 DÍAS</span>
+        </div>
+        <div class="mk-display" style="font-size:24px">ATR estándar</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="mk-pill neutral">en 2 celdas</span>
+        <div class="mk-btn ghost">Renombrar</div>
+        <div class="mk-btn primary"><span class="mi">✓</span> Guardar</div>
+      </div>
+    </div>
+
+    <!-- the chain -->
+    <div class="mk-chain">
+      <!-- mc 1 -->
+      <div class="mk-mc">
+        <span class="rm">✕</span>
+        <div class="top"><span class="grip">⠿</span><span class="ord mk-num">1</span><span class="name">Acumulación</span><span class="edit">✎</span></div>
+        <span class="phase" style="background:var(--ok-soft);color:var(--ok)">Acumulación</span>
+        <div class="wk"><span class="mi">⌁</span>4 semanas</div>
+        <div class="wkbar"><i class="fill"></i><i class="fill"></i><i class="fill"></i><i class="fill"></i></div>
+        <div class="modline"><i style="width:30px;background:var(--mod-circuito)"></i><i style="width:24px;background:var(--mod-fuerza)"></i><i style="width:14px;background:var(--mod-carrera)"></i></div>
+      </div>
+      <div class="mk-arrow">→</div>
+      <!-- mc 2 -->
+      <div class="mk-mc">
+        <span class="rm">✕</span>
+        <div class="top"><span class="grip">⠿</span><span class="ord mk-num">2</span><span class="name">Transform.</span><span class="edit">✎</span></div>
+        <span class="phase" style="background:var(--warn-soft);color:var(--warn)">Transformación</span>
+        <div class="wk"><span class="mi">⌁</span>4 semanas</div>
+        <div class="wkbar"><i class="fill"></i><i class="fill"></i><i class="fill"></i><i class="fill"></i></div>
+        <div class="modline"><i style="width:26px;background:var(--mod-fuerza)"></i><i style="width:22px;background:var(--mod-circuito)"></i><i style="width:18px;background:var(--mod-carrera)"></i></div>
+      </div>
+      <div class="mk-arrow">→</div>
+      <!-- mc 3 -->
+      <div class="mk-mc">
+        <span class="rm">✕</span>
+        <div class="top"><span class="grip">⠿</span><span class="ord mk-num">3</span><span class="name">Realización</span><span class="edit">✎</span></div>
+        <span class="phase" style="background:var(--danger-soft);color:var(--danger)">Realización</span>
+        <div class="wk"><span class="mi">⌁</span>3 semanas</div>
+        <div class="wkbar"><i class="fill"></i><i class="fill"></i><i class="fill"></i></div>
+        <div class="modline"><i style="width:28px;background:var(--mod-carrera)"></i><i style="width:20px;background:var(--mod-circuito)"></i><i style="width:12px;background:var(--mod-fuerza)"></i></div>
+      </div>
+      <div class="mk-arrow">→</div>
+      <!-- add -->
+      <div class="mk-mc add"><span class="mi">＋</span><span class="t">Añadir<br>microciclo</span></div>
+    </div>
+
+    <!-- running total ribbon -->
+    <div class="mk-total">
+      <span><b>3</b> microciclos · <b>11</b> semanas en total</span>
+      <div class="seg">
+        <i style="flex:4;background:var(--ok)" title="Acumulación · 4 sem"></i>
+        <i style="flex:4;background:var(--warn)" title="Transformación · 4 sem"></i>
+        <i style="flex:3;background:var(--danger)" title="Realización · 3 sem"></i>
+      </div>
+      <span style="color:var(--faint)">↻ vuelve a empezar con +5%</span>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Lectura del mockup: cada tarjeta = un microciclo, con su <b>orden</b> (1·2·3), nombre, <b>etiqueta de fase con color</b> (Acumulación verde, Transformación ámbar, Realización rojo — el rol de la fase da el color, exactamente el ramp de <code>phase-roles.ts</code>), las <b>semanas</b> como barras y la línea de <b>modalidad</b>. El <code>⠿</code> es el grip de arrastre; al hacer hover sale una <b>✕</b> para quitarlo de la secuencia. La cinta inferior es el <b>total acumulado</b> (11 semanas) con la barra por fase y el recordatorio de la vuelta.</p>
+
+  <div class="seclbl">Estados</div>
+  <div class="grid2">
+    <div class="note state">
+      <div class="h"><span class="ic">▦</span>Secuencia vacía (celda nueva)</div>
+      <p>Solo el bloque <b>Añadir microciclo</b> punteado, centrado, con sub-texto: "Encadena microciclos para montar la periodización de N3 · 5 días". El panel de fin de secuencia aparece <b>atenuado</b> hasta que hay al menos 1 microciclo (no hay vuelta que configurar con cero piezas).</p>
+    </div>
+    <div class="note state">
+      <div class="h"><span class="ic">▦</span>Arrastrando</div>
+      <p>La tarjeta cogida se inclina ligeramente y eleva (sombra); aparece un <b>hueco fantasma</b> punteado naranja donde caerá. Los números de orden (1·2·3) y las flechas → se <b>recalculan en vivo</b> al soltar; el total de semanas se actualiza solo.</p>
+    </div>
+    <div class="note state">
+      <div class="h"><span class="ic">▦</span>Microciclo sin fase</div>
+      <p>La fase es opcional. Un microciclo sin fase va con una etiqueta <b>neutra</b> (gris, "Sin fase" o nada) y sin color — la cadena funciona igual. Nunca se obliga a asignar fase. (Decisión 1 abajo: ¿se muestra "Sin fase" o nada?)</p>
+    </div>
+    <div class="note state">
+      <div class="h"><span class="ic">▦</span>Guardar secuencia compartida</div>
+      <p>Si la secuencia vive en varias celdas, al guardar se pregunta: "Esta secuencia se usa en 2 celdas. ¿Aplicar a las dos?" — nunca propaga en silencio. Y si hay atletas a mitad de la secuencia, además: "¿Solo nuevos atletas, o también los que están en curso?"</p>
+    </div>
+  </div>
+
+  <div class="mock-tag">Mockup · secuencia vacía (celda nueva) + microciclo sin fase</div>
+  <div class="mock">
+    <div class="mk-topbar" style="margin-bottom:16px">
+      <div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+          <span class="mk-btn ghost" style="height:26px;padding:0 8px">← Matriz</span>
+          <span class="mk-lvl">N3 · RENDIMIENTO</span>
+          <span class="mk-lvl">5 DÍAS</span>
+        </div>
+        <div class="mk-display" style="font-size:24px;color:var(--faint)">Secuencia sin nombre</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="mk-btn ghost">Renombrar</div>
+        <div class="mk-btn primary mk-disabled"><span class="mi">✓</span> Guardar</div>
+      </div>
+    </div>
+    <div class="mk-chain">
+      <!-- one microciclo with no phase -->
+      <div class="mk-mc">
+        <span class="rm">✕</span>
+        <div class="top"><span class="grip">⠿</span><span class="ord mk-num">1</span><span class="name">Semana ergo-foco</span><span class="edit">✎</span></div>
+        <span class="phase none">Sin fase</span>
+        <div class="wk"><span class="mi">⌁</span>2 semanas</div>
+        <div class="wkbar"><i class="fill"></i><i class="fill"></i></div>
+        <div class="modline"><i style="width:34px;background:var(--mod-ergo)"></i><i style="width:16px;background:var(--mod-circuito)"></i></div>
+      </div>
+      <div class="mk-arrow">→</div>
+      <div class="mk-mc add"><span class="mi">＋</span><span class="t">Añadir<br>microciclo</span></div>
+    </div>
+    <div class="mk-endpanel dim">
+      <div class="ttl"><span class="mi">↻</span>Al terminar la secuencia</div>
+      <div style="font-size:12px;color:var(--faint)">Añade al menos un microciclo para configurar qué pasa al acabar.</div>
+    </div>
+  </div>
+
+  <div class="mock-tag">Mockup · arrastrando para reordenar (hueco fantasma)</div>
+  <div class="mock" style="display:flex;align-items:center;gap:0">
+    <div class="mk-chain" style="gap:0">
+      <div class="mk-mc" style="opacity:.5"><div class="top"><span class="grip">⠿</span><span class="ord mk-num">1</span><span class="name">Acumulación</span></div><span class="phase" style="background:var(--ok-soft);color:var(--ok)">Acumulación</span><div class="wk"><span class="mi">⌁</span>4 sem</div></div>
+      <div class="mk-arrow">→</div>
+      <div class="mk-mc ghost"><div class="top"><span class="ord mk-num">2</span><span class="name" style="color:var(--accent)">soltar aquí</span></div><div class="wk" style="color:var(--accent)">↓</div></div>
+      <div class="mk-arrow">→</div>
+      <div class="mk-mc dragging"><div class="top"><span class="grip">⠿</span><span class="ord mk-num">3</span><span class="name">Realización</span><span class="edit">✎</span></div><span class="phase" style="background:var(--danger-soft);color:var(--danger)">Realización</span><div class="wk"><span class="mi">⌁</span>3 sem</div></div>
+    </div>
+  </div>
+
+  <div class="seclbl">Añadir microciclo — el picker (modal desde la Biblioteca)</div>
+  <p class="lead">Al pulsar <b>＋ Añadir microciclo</b> se abre un selector que lista los microciclos de la <b>Biblioteca del coach</b> (los que ya creó en Biblioteca → Microciclos). El coach busca, filtra por fase, y al elegir uno se inserta al final de la cadena. Salida secundaria: <b>crear uno nuevo</b> (lleva al editor de microciclo de la Biblioteca y vuelve con él ya insertado).</p>
+
+  <div class="mock-tag">Mockup · selector de microciclo (modal picker)</div>
+  <div class="mock">
+    <div class="mk-sheet">
+      <div class="sh"><span class="t">Añadir microciclo a la secuencia</span><span class="x">✕</span></div>
+      <div class="srch"><span class="mi">⌕</span>Buscar en tu biblioteca de microciclos…</div>
+      <div class="filters">
+        <span class="mk-seg" style="font-size:10.5px"><span class="on">Todas las fases</span><span>Acumulación</span><span>Transform.</span><span>Realización</span><span>Sin fase</span></span>
+      </div>
+      <div class="mk-mclist">
+        <div class="mk-mcrow">
+          <span class="rail" style="background:var(--ok)"></span>
+          <div class="body"><div class="nm">Acumulación base</div><div class="meta"><span>Acumulación</span><span>⌁ 4 sem</span><span>▦ usado en 3 secuencias</span></div></div>
+          <span class="add">＋</span>
+        </div>
+        <div class="mk-mcrow">
+          <span class="rail" style="background:var(--warn)"></span>
+          <div class="body"><div class="nm">Transformación HYROX</div><div class="meta"><span>Transformación</span><span>⌁ 4 sem</span><span>▦ usado en 2 secuencias</span></div></div>
+          <span class="add">＋</span>
+        </div>
+        <div class="mk-mcrow">
+          <span class="rail" style="background:var(--danger)"></span>
+          <div class="body"><div class="nm">Pico competición</div><div class="meta"><span>Realización</span><span>⌁ 3 sem</span><span>▦ usado en 1 secuencia</span></div></div>
+          <span class="add">＋</span>
+        </div>
+        <div class="mk-mcrow">
+          <span class="rail" style="background:var(--muted)"></span>
+          <div class="body"><div class="nm">Semana ergo-foco</div><div class="meta"><span>Sin fase</span><span>⌁ 2 sem</span><span>▦ sin usar aún</span></div></div>
+          <span class="add">＋</span>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="mk-btn ghost"><span class="mi">＋</span> Crear microciclo nuevo</div>
+        <div class="mk-btn">Cerrar</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Lectura: cada fila = un microciclo de la Biblioteca, con su <b>rail de color de fase</b>, nombre, fase, semanas y cuántas secuencias ya lo usan ("usado en 3 secuencias" — útil para reutilizar bien). Buscar + filtro por fase para listas largas. <b>Insertar</b> no duplica el microciclo: la secuencia lo <b>referencia</b>, así editarlo una vez en la Biblioteca se refleja donde se use. El picker es un modal (no un rail lateral) — ver decisión 3.</p>
+
+  <div class="seclbl">Copy exacto (ES)</div>
+  <div class="note copy">
+    <ul>
+      <li><span class="k">Header editor:</span> "← Matriz" · chips "N2 · DESARROLLO" + "4 DÍAS" · nombre de la secuencia</li>
+      <li><span class="k">Acciones header:</span> "Renombrar" · "Guardar" · pill "en 2 celdas" si compartida</li>
+      <li><span class="k">Microciclo (tarjeta):</span> nombre del coach + "4 semanas" + etiqueta de fase (o "Sin fase" neutra)</li>
+      <li><span class="k">Cinta total:</span> "3 microciclos · 11 semanas en total" · "↻ vuelve a empezar con +5%"</li>
+      <li><span class="k">Añadir:</span> "Añadir microciclo" · vacío: "Encadena microciclos para montar la periodización de N3 · 5 días"</li>
+      <li><span class="k">Picker:</span> "Añadir microciclo a la secuencia" · "Buscar en tu biblioteca de microciclos…" · filtros por fase · "Crear microciclo nuevo" · meta "usado en N secuencias"</li>
+      <li><span class="k">Aviso compartida:</span> "Esta secuencia se usa en 2 celdas. ¿Aplicar a las dos?"</li>
+      <li><span class="k">Aviso atletas en curso:</span> "¿Solo nuevos atletas, o también los que están a mitad?"</li>
+      <li><span class="k">Quitar (tooltip ✕):</span> "Quitar de la secuencia (no lo borra de la biblioteca)"</li>
+    </ul>
+  </div>
+
+  <div class="seclbl">Interacción</div>
+  <div class="grid2">
+    <div class="note act">
+      <div class="h"><span class="ic">↳</span>Construir la cadena</div>
+      <ul>
+        <li><span class="k">Arrastrar (grip ⠿)</span> → reordena; orden 1·2·3 y total de semanas se recalculan al soltar. Fallback de flechas para teclado/táctil (consistente con Niveles/Fases).</li>
+        <li><span class="k">＋ Añadir</span> → abre el <b>picker de microciclos</b> de la biblioteca; el elegido se inserta al final.</li>
+        <li><span class="k">✎ en la tarjeta</span> → abre el editor de <b>ese microciclo</b> (semanas/sesiones — editor de Biblioteca, fuera de este pase).</li>
+        <li><span class="k">✕ (hover)</span> → quita el microciclo de la secuencia; no lo borra de la biblioteca.</li>
+      </ul>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">↳</span>Plantilla vs instancia</div>
+      <ul>
+        <li>Editar la secuencia edita la <b>plantilla</b>. El atleta tiene una <b>instancia</b> que apunta a ella pero puede divergir.</li>
+        <li>Al guardar con atletas en curso → "¿Solo nuevos, o también los que están a mitad?" — nunca propaga en silencio.</li>
+        <li>El microciclo se <b>referencia</b>, no se copia: editarlo en la Biblioteca actualiza todas las secuencias que lo usan (el picker avisa de "usado en N").</li>
+      </ul>
+    </div>
+  </div>
+  <div class="risk"><b>Conexión con el atleta, visible.</b> El coach está montando esto <b>una sola vez</b>; debe quedar claro que esta cadena es lo que un atleta clasificado a (N2 · 4 días) recorrerá <b>automáticamente</b>. Lo hago explícito con el strip de abajo, presente en el editor.</div>
+
+  <div class="mock">
+    <div class="mk-purpose">
+      <span class="mi">⌖</span>
+      <div>Todo atleta clasificado a <b>N2 · 4 días</b> recorrerá esta secuencia automáticamente — empieza en el microciclo 1 y avanza una semana cada vez. La montas <b>una vez</b>; el sistema la entrega sin trabajo manual.</div>
+      <span class="go">Ver en Hoy →</span>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════ SURFACE 3 — FIN + PROGRESIÓN ══════════════════════════════ -->
+  <h2 id="s3"><span class="surf">3</span>Fin de secuencia + progresión</h2>
+  <p class="lead">El panel al pie del editor: define qué pasa <b>cuando el atleta termina la secuencia</b> y, si repite, <b>cuánto sube cada vuelta</b>. Son las dos palancas del coach para escalar el plan sin re-montarlo. Política de fin = <b>Repetir · Subir nivel · Parar</b>; progresión por vuelta = un <b>incremento</b> (+5% / +10% / +1 serie) <b>sobre</b> una palanca (carga de fuerza · volumen · ritmo objetivo).</p>
+
+  <div class="mock-tag">Mockup · panel de fin + incremento por vuelta (Repetir activo)</div>
+  <div class="mock">
+    <div class="mk-endpanel">
+      <div class="ttl"><span class="mi">↻</span>Al terminar la secuencia</div>
+
+      <div class="mk-endrow">
+        <span class="lab">Qué pasa al acabar</span>
+        <div class="mk-radio">
+          <span class="on"><span class="mi">↻</span>Repetir</span>
+          <span><span class="mi">↑</span>Subir nivel</span>
+          <span><span class="mi">■</span>Parar</span>
+        </div>
+      </div>
+
+      <div class="mk-endrow">
+        <span class="lab">Incremento por vuelta</span>
+        <div class="mk-stepper"><b>−</b><span class="val">+5%</span><b>+</b></div>
+        <span style="font-size:12px;color:var(--muted);font-weight:600">sobre</span>
+        <div class="mk-select">Carga de fuerza <span class="mi">▾</span></div>
+      </div>
+      <div class="mk-hint">El incremento se aplica solo cuando el atleta <b>vuelve a empezar</b> la secuencia (no entre microciclos). "+5% sobre carga" sube los kilos prescritos un 5%; el ritmo y el volumen no se tocan salvo que lo cambies. La progresión normal (re-test) ya sube los números sin que toques esto.</div>
+    </div>
+  </div>
+
+  <div class="mock-tag">Mockup · "Subir nivel" activo (el incremento se atenúa — no aplica)</div>
+  <div class="mock">
+    <div class="mk-endpanel">
+      <div class="ttl"><span class="mi">↻</span>Al terminar la secuencia</div>
+      <div class="mk-endrow">
+        <span class="lab">Qué pasa al acabar</span>
+        <div class="mk-radio">
+          <span><span class="mi">↻</span>Repetir</span>
+          <span class="on"><span class="mi">↑</span>Subir nivel</span>
+          <span><span class="mi">■</span>Parar</span>
+        </div>
+      </div>
+      <div class="mk-endrow mk-disabled">
+        <span class="lab">Incremento por vuelta</span>
+        <div class="mk-stepper"><b>−</b><span class="val">+5%</span><b>+</b></div>
+        <span style="font-size:12px;color:var(--muted);font-weight:600">sobre</span>
+        <div class="mk-select">Carga de fuerza <span class="mi">▾</span></div>
+      </div>
+      <div class="mk-hint">Con <b>Subir nivel</b>, al acabar la secuencia el atleta se re-clasifica al <b>nivel siguiente</b> (N2 → N3) y cae en la celda/secuencia de ese nivel. No hay vuelta que incrementar, así que el incremento por vuelta queda inactivo.</div>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Lectura: la política es un segmented de 3 (mismo control que el dial de /hoy). El incremento es un <b>stepper</b> (+5% por defecto) + un selector de <b>sobre qué</b> (carga · volumen · ritmo — palanca del coach, no la decidimos nosotros). Si la política no es "Repetir", el incremento se atenúa porque no hay vuelta. Carga, volumen y ritmo son <b>ejes separados</b>: +5% de carga ≠ +5% de volumen, nunca se mezclan.</p>
+
+  <div class="seclbl">Las tres políticas de fin (qué hace cada una)</div>
+  <div class="grid2">
+    <div class="note act">
+      <div class="h"><span class="ic">↻</span>Repetir</div>
+      <ul>
+        <li>Al acabar, vuelve al microciclo 1 aplicando el <b>incremento por vuelta</b>.</li>
+        <li>Genera una <b>tarjeta de excepción</b> en /hoy ("acabó secuencia → repite +5%") — agrupable por cohorte si el dial lo permite.</li>
+        <li>Es el default para el grueso de atletas en rumbo.</li>
+      </ul>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">↑</span>Subir nivel</div>
+      <ul>
+        <li>Al acabar, <b>re-clasifica</b> al atleta al nivel siguiente y cae en otra celda/secuencia.</li>
+        <li>El incremento por vuelta no aplica (se atenúa).</li>
+        <li>Tarjeta de excepción "fin de secuencia → subir a N3 · 4d".</li>
+      </ul>
+    </div>
+    <div class="note act">
+      <div class="h"><span class="ic">■</span>Parar</div>
+      <ul>
+        <li>La secuencia <b>termina</b>; el atleta no recibe más semanas automáticas.</li>
+        <li>Tarjeta de excepción "fin de secuencia · requiere tu criterio" — el coach decide el siguiente paso a mano.</li>
+        <li>Para planes finitos (preparación a una carrera concreta, p.ej.).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="seclbl">Copy exacto (ES)</div>
+  <div class="note copy">
+    <ul>
+      <li><span class="k">Título panel:</span> "Al terminar la secuencia"</li>
+      <li><span class="k">Política:</span> "Qué pasa al acabar" · Repetir · Subir nivel · Parar</li>
+      <li><span class="k">Incremento:</span> "Incremento por vuelta" · stepper "+5%" · "sobre" · selector [Carga de fuerza / Volumen / Ritmo objetivo]</li>
+      <li><span class="k">Hint (Repetir):</span> "Se aplica solo cuando el atleta vuelve a empezar la secuencia (no entre microciclos)…"</li>
+      <li><span class="k">Hint (Subir nivel):</span> "El atleta se re-clasifica al nivel siguiente. No hay vuelta que incrementar."</li>
+      <li><span class="k">Vacío (panel atenuado):</span> "Añade al menos un microciclo para configurar qué pasa al acabar."</li>
+    </ul>
+  </div>
+
+  <div class="risk"><b>Palanca del coach, no la decido yo.</b> "Sobre qué" se aplica el % (carga / volumen / ritmo) es método del coach: +10% de carga ≠ +10% de volumen. Damos el default simple (+5% sobre carga) y la opción granular; nunca hardcodeamos cuánto progresa nadie. (Decisión 4: ¿el incremento es por secuencia o por microciclo?)</div>
+
+
+  <!-- ══════════════════════════════ CONECTOR DE PIPELINE ══════════════════════════════ -->
+  <h2 id="s4"><span class="surf">→</span>Dónde encaja Secuencias en el pipeline</h2>
+  <p class="lead">Secuencias es el <b>último paso de autoría</b> y el que ata todo lo anterior. Niveles dan las filas, Fases dan el color, los Microciclos (en Biblioteca) son los ladrillos — y aquí se <b>ordenan</b>. Después de esto, el sistema opera solo: el atleta cae en su celda y recibe el plan.</p>
+
+  <div class="pipe">
+    <div class="pn">
+      <div class="ord">Periodización · paso 1</div>
+      <div class="nm">Niveles + Fases</div>
+      <div class="ds">N1…Nk (filas) + fases (color). El marco.</div>
+    </div>
+    <div class="parrow">→</div>
+    <div class="pn">
+      <div class="ord">Biblioteca · pasos 2–4</div>
+      <div class="nm">Microciclos</div>
+      <div class="ds">Sesiones → Bloques → Microciclos. Los ladrillos.</div>
+    </div>
+    <div class="parrow">→</div>
+    <div class="pn now">
+      <div class="ord">Este pase · paso 5</div>
+      <div class="nm">Secuencias</div>
+      <div class="ds">Matriz <b>nivel × días</b>; cada celda = una cadena de microciclos + progresión. <b>Esto ES la periodización.</b></div>
+    </div>
+    <div class="parrow">→</div>
+    <div class="pn dim">
+      <div class="ord">Opera solo · paso 6</div>
+      <div class="nm">Hoy / Atletas</div>
+      <div class="ds">El atleta cae en su celda y recibe la semana. Sin trabajo manual.</div>
+    </div>
+  </div>
+
+  <p style="font-size:13px;color:#666">El <b>SegmentedControl</b> de arriba (Niveles · Fases · Secuencias) deja saltar entre las tres sin salir de Periodización. La matriz reutiliza el componente <code>LevelMatrix</code>/<code>MatrixCell</code> que ya vive en Biblioteca; aquí cambia solo el contenido de la celda (resumen de secuencia en vez de microciclo suelto).</p>
+
+
+  <!-- ══════════════════════════════ DECISIONS ══════════════════════════════ -->
+  <h2 style="border:none;margin-top:60px">Decisiones que necesito que confirmes</h2>
+  <p class="lead">Lo objetivo (que el modelo entre completo, que sea agnóstico, que la matriz reutilice el componente ya construido, que el microciclo se referencie y no se copie, que borrar/quitar nunca rompa contenido) ya está resuelto en el diseño. Lo de abajo es <b>subjetivo</b> — naming visible, qué se enseña, cómo se añade, dónde vive el % — y es tuyo. Marco mi recomendación; decides tú.</p>
+
+  <div class="decision">
+    <div class="q">1 · Microciclo sin fase: ¿etiqueta "Sin fase" neutra o nada?</div>
+    <div class="ctx">La fase es opcional. Cuando un microciclo no la tiene, su tarjeta no lleva color. ¿Mostramos una etiqueta gris "Sin fase" o dejamos la tarjeta limpia sin etiqueta?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Sin etiqueta (tarjeta limpia).</b> Coherente con cómo tratamos las fases en su propio pase ("solo si el coach las usa"). Una etiqueta "Sin fase" vacía mete ruido a quien no periodiza por fases. Si todos los microciclos de una secuencia van sin fase, la cadena se ve perfectamente sin color y eso es correcto.</div>
+      <div class="opt">Etiqueta "Sin fase" gris siempre. Más consistente visualmente (todas las tarjetas tienen el mismo hueco) pero recuerda algo que falta cuando no falta nada.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">2 · El sparkline de modalidades en las celdas de la matriz</div>
+    <div class="ctx">Las barritas de color que resumen la modalidad dominante de cada microciclo dentro de la celda. Información honesta y gratis (sale del contenido), pero puede sobrar en una vista que ya tiene nombre + "3 mc · 11 sem".</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Mantenerlo.</b> Da textura útil de un vistazo (¿esta secuencia es de carrera o de fuerza?) sin texto. Atlético, denso, tipo Whoop — encaja con el v2. Usa colores de modalidad reales, no inventados.</div>
+      <div class="opt">Quitarlo y dejar solo "3 mc · 11 sem". Más limpio, menos información de un golpe de vista.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">3 · Añadir microciclo: ¿modal picker o rail/columna lateral arrastrable?</div>
+    <div class="ctx">Para meter un microciclo en la cadena: ¿un modal con buscador (como dibujé) o una columna lateral fija con la biblioteca desde la que se arrastra a la cadena?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Modal picker con buscador + filtro por fase.</b> La biblioteca de microciclos crecerá (decenas); un rail lateral fijo se queda corto y come ancho que la cadena necesita. El modal da buscar/filtrar/ver "usado en N", se inserta al final y luego se reordena arrastrando. Una sola forma de arrastrar (dentro de la cadena), no dos.</div>
+      <div class="opt">Rail lateral arrastrable (arrastrar de la biblioteca a la cadena). Más directo para pocas piezas, pero no escala visualmente y mezcla dos modos de drag (insertar vs reordenar).</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">4 · El incremento por vuelta: ¿por secuencia o por microciclo?</div>
+    <div class="ctx">¿El "+5% sobre carga" se define una vez para toda la secuencia, o el coach puede poner un incremento distinto por microciclo (p.ej. +5% en fuerza, +0% en la fase de pico)?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Por secuencia (un número), con override por microciclo plegado.</b> El caso normal es un solo % para la vuelta — simple de montar y de entender. Dejamos un "ajuste avanzado por microciclo" plegado para el coach que de verdad quiera afinar fase a fase, sin recargar el caso común. Empieza simple, escala si hace falta.</div>
+      <div class="opt">Siempre por microciclo (granular desde el inicio). Máxima precisión metodológica, pero multiplica decisiones en cada montaje y la mayoría pondría el mismo número en todos.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">5 · "Crear secuencia" desde celda vacía: ¿editor en blanco o copiar de otra celda?</div>
+    <div class="ctx">Al abrir una celda vacía, además del editor en blanco, ¿ofrecemos "duplicar una secuencia que ya tengo" como atajo (muy común: N2·5d casi igual que N2·4d)?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Editor en blanco + atajo "Duplicar de…".</b> El editor abre vacío con nivel×días pre-rellenado; arriba, un "Duplicar de otra celda ▾" que clona la cadena de una secuencia existente para tunearla. Cubre el caso real (variaciones de la misma base) sin obligar a re-encadenar desde cero. Es un atajo, no el camino principal.</div>
+      <div class="opt">Solo editor en blanco. Más simple de construir, pero el coach re-monta a mano secuencias casi idénticas (fricción real a 12 celdas).</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">6 · Reutilización entre celdas: ¿secuencia compartida (un objeto) o copia independiente?</div>
+    <div class="ctx">Cuando "ATR estándar" vive en N2·3d y N2·4d: ¿es el <b>mismo</b> objeto (editar uno cambia los dos, con aviso) o dos copias independientes que casualmente se llaman igual?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">rec</span><b>Compartida (un objeto), con aviso al editar.</b> Una secuencia es una plantilla con identidad; vivir en 2 celdas y mantenerse en sync es lo que el coach espera (corrige una vez, aplica a las dos). El aviso "se usa en 2 celdas, ¿aplicar a las dos?" da la salida cuando quiere divergir (entonces "Duplicar" de la decisión 5). Coherente con que el microciclo también se referencia.</div>
+      <div class="opt">Copias independientes. Cero efectos colaterales, pero el coach edita N veces lo mismo y se desincroniza sin darse cuenta.</div>
+    </div>
+  </div>
+
+  <footer>
+    Pase de UX · Periodización: Secuencias (paso 5 del pipeline de construcción) · FAHYBRIK / vanwida · 23 jun 2026 · Mockups con tokens reales de <code>/v2</code> (v2-theme.css + constants.ts) · Matriz reutiliza <code>LevelMatrix</code>/<code>MatrixCell</code> · Sobre el modelo de asignación agnóstico firmado · Pendiente de tu sign-off antes de construir
+  </footer>
+
+</div>
+</body>
+</html>

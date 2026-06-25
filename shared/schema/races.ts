@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { idSchema, isoDate, isoDateTime } from './_primitives';
+// Single source of truth for the HYROX 16-element layout (8 runs + 8 stations).
+import { HYROX_ELEMENT_COUNT } from './race-plan';
 
 // The RACE/COMPETITION domain. A `race` is a per-athlete competition entry — the
 // ANCHOR of the periodization (the ATR macrocycle peaks at it) and the source of
@@ -108,3 +110,82 @@ export const raceCreateInput = z.object({
   status: raceStatus.optional(), // defaults to 'registered' at the DB layer
 });
 export type RaceCreateInput = z.infer<typeof raceCreateInput>;
+
+// =============================================================================
+// HYROX result IMPORT (migration 0054 — additive columns on `races`)
+//
+// An imported HYROX official result is a FACTUAL per-athlete race record that
+// may have no coach race_plan. It lives on `races` (the per-athlete home), not
+// on `race_results` (which requires a race_plan_id). These schemas validate the
+// import INPUT (the link the athlete pastes) and project the STORED shape.
+//
+// HYROX is fixed: 8×1km runs interleaved with 8 stations. Splits arrive in the
+// canonical FIXED order. `station_splits[].index` is the 16-element station_index
+// (2,4,…,16 — see STATION_INDEX_STATION in race-plan.ts) so an imported result
+// reconciles 1:1 with race_plan station_pacing / station_actuals.
+// =============================================================================
+
+// races.source — provenance of the row.
+export const raceSource = z.enum(['manual', 'hyrox_import']);
+export type RaceSource = z.infer<typeof raceSource>;
+
+// Allowed HYROX results host (SSRF allowlist — the endpoint rejects any other).
+export const HYROX_RESULTS_HOST = 'results.hyrox.com' as const;
+
+// Bounds shared with the migration CHECK constraints.
+const splitSeconds = z.number().int().min(0).max(7200);
+
+// One station split. `index` is the canonical 16-element station_index
+// (2=SkiErg … 16=WallBalls). `rank` is the athlete's placing in that station
+// (null on the HYROX page → null here).
+export const hyroxStationSplitSchema = z.object({
+  index: z.number().int().min(1).max(HYROX_ELEMENT_COUNT),
+  seconds: splitSeconds.nullable(),
+  rank: z.number().int().positive().nullable(),
+});
+export type HyroxStationSplit = z.infer<typeof hyroxStationSplitSchema>;
+
+// The parsed + stored HYROX result projection (snake_case, iOS Codable contract).
+// Mirrors exactly the additive `races` columns the importer writes, plus the
+// derived `percentile`. `run_splits` are 8 ordered ints (run 1..8). 8 stations.
+export const hyroxImportedResultSchema = z.object({
+  race_id: idSchema,
+  athlete_id: idSchema,
+  name: z.string().min(1).max(200),
+  // Total finish time (HYROX "Net" finish) — also stored in result_time_seconds.
+  result_time_seconds: z.number().int().positive(),
+  division: raceDivision,
+  gender_category: raceGender,
+  age_group: z.string().max(80).nullable(),
+  nationality: z.string().max(8).nullable(),
+  bib: z.string().max(40).nullable(),
+  race_date: isoDate,
+  location: z.string().max(200).nullable(),
+  // 8 run laps in order (seconds). May be empty if the page lacked the table.
+  run_splits: z.array(splitSeconds).max(8),
+  // 8 stations in fixed order, each with the canonical index + rank.
+  station_splits: z.array(hyroxStationSplitSchema).max(8),
+  roxzone_seconds: z.number().int().min(0).max(7200).nullable(),
+  run_total_seconds: z.number().int().min(0).max(14400).nullable(),
+  best_run_lap_seconds: z.number().int().min(0).max(3600).nullable(),
+  overall_rank: z.number().int().positive().nullable(),
+  age_group_rank: z.number().int().positive().nullable(),
+  field_size: z.number().int().positive().nullable(),
+  // overall_rank / field_size as a 0..1 fraction (1 = last). null if either is
+  // missing. Lower is better.
+  percentile: z.number().min(0).max(1).nullable(),
+  source: raceSource,
+  source_idp: z.string().max(120).nullable(),
+  source_event: z.string().max(120).nullable(),
+  source_season: z.string().max(40).nullable(),
+  source_url: z.string().max(500).nullable(),
+  imported_at: isoDateTime.nullable(),
+});
+export type HyroxImportedResult = z.infer<typeof hyroxImportedResultSchema>;
+
+// POST /api/athlete/race-results/import — body. The athlete pastes the HYROX
+// detail link. Host is re-validated server-side against HYROX_RESULTS_HOST.
+export const hyroxImportInput = z.object({
+  result_url: z.string().url().max(500),
+});
+export type HyroxImportInput = z.infer<typeof hyroxImportInput>;

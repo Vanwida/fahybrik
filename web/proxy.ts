@@ -52,13 +52,20 @@ const isProtectedRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
 
+  // ⚠️ DEV-ONLY LOGIN BYPASS (solo `next dev` local). NODE_ENV es 'production'
+  // en TODO build/deploy de Vercel (incluidos previews), así que esto NUNCA se
+  // activa fuera de un `next dev` en la máquina del dev. Salta el gate de Clerk
+  // para entrar al dashboard sin login; getCoachSession() inyecta el coach de
+  // dev (pareja de este bypass). QUITAR cuando el login de Clerk funcione local.
+  const devAuthBypass = process.env.NODE_ENV === 'development';
+
   // API: Clerk corre en TODAS las APIs (para que `auth()` tenga contexto allí
   // donde se llama getCoachSession/getAdminSession — p.ej. /api/exercises,
   // /api/templates, /api/notifications…), pero SOLO protege coach/admin. El
   // resto (athlete con Bearer propio, webhooks server-to-server, auth legacy)
   // recibe contexto pero NO se protege → su lógica propia decide. Nunca i18n.
   if (pathname.startsWith('/api/')) {
-    if (isProtectedRoute(req)) {
+    if (!devAuthBypass && isProtectedRoute(req)) {
       await auth.protect();
     }
     return; // Sin i18n para APIs.
@@ -70,7 +77,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // Páginas protegidas: exige login; sin sesión → redirect a /sign-in.
-  if (isProtectedRoute(req)) {
+  if (!devAuthBypass && isProtectedRoute(req)) {
     await auth.protect({ unauthenticatedUrl: new URL('/sign-in', req.url).toString() });
   }
 

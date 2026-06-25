@@ -8,6 +8,7 @@ import { evaluateAthleteWeek } from './weekly-evaluation';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { chatCompletion, isChatConfigured } from './ai-chat';
 import { retrieveRelevant } from '@/lib/rag/retrieve';
+import { coerceJson } from '@/lib/json-column';
 import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
@@ -340,28 +341,39 @@ export async function proposeWeekAdjustment(params: {
     });
   }
 
-  await client`
-    update week_adjustment_proposals
-    set status = 'superseded', updated_at = now()
-    where athlete_id = ${params.athlete_id as number}
-      and week_start = ${nextWeekStart}::date
-      and status = 'pending'
-  `;
+  // Serializamos ANTES de tocar la DB: si la propuesta trae BigInt en los
+  // slot_changes, `JSON.stringify` reventaría — y antes lo hacía DESPUÉS del
+  // supersede, dejando al atleta con 0 propuestas pending. Con jsonSafeStringify
+  // + transacción, supersede e insert son atómicos: si algo falla, NADA cambia.
+  const contextPackJson = jsonSafeStringify(evaluation.context_pack);
+  const proposalJson = jsonSafeStringify(proposal);
 
-  const ins = await client<Array<{ id: string }>>`
-    insert into week_adjustment_proposals (
-      athlete_id, week_start, status, verdict, context_pack_json, proposal_json
-    )
-    values (
-      ${params.athlete_id as number},
-      ${nextWeekStart}::date,
-      'pending',
-      ${evaluation.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
-      ${JSON.stringify(evaluation.context_pack)}::jsonb,
-      ${jsonSafeStringify(proposal)}::jsonb
-    )
-    returning id::text
-  `;
+  // Supersede + insert en UNA transacción: el supersede de la propuesta pending
+  // previa NO se confirma hasta que la nueva se inserta con éxito. Un fallo en
+  // el insert revierte el supersede → el atleta nunca se queda sin propuesta.
+  const ins = await client.begin(async (tx) => {
+    await tx`
+      update week_adjustment_proposals
+      set status = 'superseded', updated_at = now()
+      where athlete_id = ${params.athlete_id as number}
+        and week_start = ${nextWeekStart}::date
+        and status = 'pending'
+    `;
+    return tx<Array<{ id: string }>>`
+      insert into week_adjustment_proposals (
+        athlete_id, week_start, status, verdict, context_pack_json, proposal_json
+      )
+      values (
+        ${params.athlete_id as number},
+        ${nextWeekStart}::date,
+        'pending',
+        ${evaluation.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
+        ${contextPackJson}::jsonb,
+        ${proposalJson}::jsonb
+      )
+      returning id::text
+    `;
+  });
 
   // Best-effort notify the coach: in-app inbox is the durable channel — a
   // failed notify must not roll back the proposal itself.
@@ -471,7 +483,7 @@ export async function approveWeekAdjustment(params: {
   const row = rows[0];
   if (!row) throw new WeekAdjustmentError('not_found', 'Proposal not found', 404);
 
-  const proposal = weekAdjustmentProposalJsonSchema.parse(row.proposal_json);
+  const proposal = weekAdjustmentProposalJsonSchema.parse(coerceJson(row.proposal_json));
 
   for (const change of proposal.slot_changes) {
     if (!change.to_template_id) continue;
@@ -556,6 +568,6 @@ export async function listPendingWeekAdjustments(params: {
     status: r.status,
     verdict: r.verdict,
     context_pack: r.context_pack_json,
-    proposal: weekAdjustmentProposalJsonSchema.parse(r.proposal_json),
+    proposal: weekAdjustmentProposalJsonSchema.parse(coerceJson(r.proposal_json)),
   }));
 }

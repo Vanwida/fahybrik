@@ -7,6 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01F0ADCE116AB3526203681A /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87F1AC20F4BE6E72DB1C1093 /* AppShell.swift */; };
+		5E30985B30BF36EE8631AC92 /* InicioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89DF680A363A72B98D8984F1 /* InicioView.swift */; };
+		17F18C29ADA987D48047F0EF /* RedesignComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AFA94AE7E29CBD3FA579A63 /* RedesignComponents.swift */; };
+		0D2927DDBDDD29ABCD85CB9C /* CarrerasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A79B4CFE71307314DB8356 /* CarrerasView.swift */; };
+		6E4DCA4B99B8E7CFEAEBB210 /* StationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F277DF11211F910BA199654E /* StationDetailView.swift */; };
+		33DF130732D1165ED5C7A834 /* RunningDeepDiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB209911E78E8D58F02064CF /* RunningDeepDiveView.swift */; };
+		C92FEA63D74EE7915568F58A /* CarrerasService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B12BF35D2233DCB0680B6EC8 /* CarrerasService.swift */; };
+		AD43FD55B3B606B31D1BC9A2 /* ImportRaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A3A6FC1A5C26AFCDE7E3BEF /* ImportRaceSheet.swift */; };
+		8540C04C179977836FFD2C90 /* DoblesPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D336A7A06DA7FD6AE3815143 /* DoblesPlanView.swift */; };
+		DC76D9EA8BEB2BA080676A19 /* DoblesSharedAnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597A82D2DB6942BC383E6BAF /* DoblesSharedAnalyticsView.swift */; };
+		7F04BFABF716BA321247F7DA /* DoblesTrainTogetherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4AA29240B27F635C165311E /* DoblesTrainTogetherView.swift */; };
+		545865C97B042882789572E0 /* DoblesSimulationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF502EC67A925631119A3CC /* DoblesSimulationView.swift */; };
+		D3D62D147950A227F899D86F /* DoblesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D73EE226C5801A10FA53FC /* DoblesService.swift */; };
 		00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */; };
 		025BA042FF524920D4C658A5 /* InviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0508E384288152EE74E19F1 /* InviteService.swift */; };
 		02784343797E16AF5E52AF3E /* HRZoneBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C6DFB6C89ACD18FE9791D6D /* HRZoneBadge.swift */; };
@@ -27,6 +40,8 @@
 		1260F5D25CAF33D77A4A70A7 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6638A2E174C3189F64CFDB4 /* CoreBluetooth.framework */; };
 		13CDD2668A7998ABDA91AA41 /* WorkoutLiveDataSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */; };
 		16052B47077FFD16589117BD /* AssignmentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C0C622AB4411D866FA012C /* AssignmentDetail.swift */; };
+		AA01PRESCRIPTIONBF01001A /* Prescription.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01PRESCRIPTIONFE01001A /* Prescription.swift */; };
+		AA02RENDERERBF02002B /* PrescriptionRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02RENDERERFE02002B /* PrescriptionRenderer.swift */; };
 		161B43BE72F64914405F658B /* YouTubeEmbedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ECB10E750AEF2622E5CA05B /* YouTubeEmbedView.swift */; };
 		1699C2BCA6C7685BF706CCFC /* InviteLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EF7B3C71957791C43C44FF /* InviteLandingView.swift */; };
 		178D2CE2F12CB48ECF81288B /* PreferredWeekStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1336EE556EDC1149E64E62DB /* PreferredWeekStep.swift */; };
@@ -150,6 +165,19 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		87F1AC20F4BE6E72DB1C1093 /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShell.swift; sourceTree = "<group>"; };
+		89DF680A363A72B98D8984F1 /* InicioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InicioView.swift; sourceTree = "<group>"; };
+		1AFA94AE7E29CBD3FA579A63 /* RedesignComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignComponents.swift; sourceTree = "<group>"; };
+		B3A79B4CFE71307314DB8356 /* CarrerasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarrerasView.swift; sourceTree = "<group>"; };
+		F277DF11211F910BA199654E /* StationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationDetailView.swift; sourceTree = "<group>"; };
+		AB209911E78E8D58F02064CF /* RunningDeepDiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningDeepDiveView.swift; sourceTree = "<group>"; };
+		B12BF35D2233DCB0680B6EC8 /* CarrerasService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarrerasService.swift; sourceTree = "<group>"; };
+		7A3A6FC1A5C26AFCDE7E3BEF /* ImportRaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRaceSheet.swift; sourceTree = "<group>"; };
+		D336A7A06DA7FD6AE3815143 /* DoblesPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesPlanView.swift; sourceTree = "<group>"; };
+		597A82D2DB6942BC383E6BAF /* DoblesSharedAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesSharedAnalyticsView.swift; sourceTree = "<group>"; };
+		B4AA29240B27F635C165311E /* DoblesTrainTogetherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesTrainTogetherView.swift; sourceTree = "<group>"; };
+		4EF502EC67A925631119A3CC /* DoblesSimulationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesSimulationView.swift; sourceTree = "<group>"; };
+		E8D73EE226C5801A10FA53FC /* DoblesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesService.swift; sourceTree = "<group>"; };
 		0798E2FD3FEDB4699B7A456A /* LiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutView.swift; sourceTree = "<group>"; };
 		09B1C18FB0D59D66BB13DA54 /* BarcodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerView.swift; sourceTree = "<group>"; };
 		0CBD389EFED94396D9270635 /* FAHYBRIK.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FAHYBRIK.entitlements; sourceTree = "<group>"; };
@@ -158,6 +186,8 @@
 		1336EE556EDC1149E64E62DB /* PreferredWeekStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferredWeekStep.swift; sourceTree = "<group>"; };
 		155C7267C644E8768F74865E /* HealthKitPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitPermissions.swift; sourceTree = "<group>"; };
 		15C0C622AB4411D866FA012C /* AssignmentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignmentDetail.swift; sourceTree = "<group>"; };
+		AA01PRESCRIPTIONFE01001A /* Prescription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prescription.swift; sourceTree = "<group>"; };
+		AA02RENDERERFE02002B /* PrescriptionRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrescriptionRenderer.swift; sourceTree = "<group>"; };
 		15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnduranceBenchmarksStep.swift; sourceTree = "<group>"; };
 		188E789D535F0AB8C94725AE /* ManualEntryControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualEntryControl.swift; sourceTree = "<group>"; };
 		1D68388A51BB12F5A37F852A /* Atoms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atoms.swift; sourceTree = "<group>"; };
@@ -315,6 +345,30 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		BA486A508E0E7A65EFF0DB08 /* Carreras */ = {
+			isa = PBXGroup;
+			children = (
+				B3A79B4CFE71307314DB8356 /* CarrerasView.swift */,
+				F277DF11211F910BA199654E /* StationDetailView.swift */,
+				AB209911E78E8D58F02064CF /* RunningDeepDiveView.swift */,
+				B12BF35D2233DCB0680B6EC8 /* CarrerasService.swift */,
+				7A3A6FC1A5C26AFCDE7E3BEF /* ImportRaceSheet.swift */,
+			);
+			path = Carreras;
+			sourceTree = "<group>";
+		};
+		442285E5991F5B4B76F3D5F9 /* Dobles */ = {
+			isa = PBXGroup;
+			children = (
+				D336A7A06DA7FD6AE3815143 /* DoblesPlanView.swift */,
+				597A82D2DB6942BC383E6BAF /* DoblesSharedAnalyticsView.swift */,
+				B4AA29240B27F635C165311E /* DoblesTrainTogetherView.swift */,
+				4EF502EC67A925631119A3CC /* DoblesSimulationView.swift */,
+				E8D73EE226C5801A10FA53FC /* DoblesService.swift */,
+			);
+			path = Dobles;
+			sourceTree = "<group>";
+		};
 		0878A6E7F648E7DAA346856F /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
@@ -334,6 +388,7 @@
 				FC94A17EBAE399DCC37750B5 /* Haptics.swift */,
 				5ABF59F238D4FB4A53CCDD05 /* Theme.swift */,
 				B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */,
+				1AFA94AE7E29CBD3FA579A63 /* RedesignComponents.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -437,6 +492,8 @@
 			isa = PBXGroup;
 			children = (
 				15C0C622AB4411D866FA012C /* AssignmentDetail.swift */,
+				AA01PRESCRIPTIONFE01001A /* Prescription.swift */,
+				AA02RENDERERFE02002B /* PrescriptionRenderer.swift */,
 				93222A913BECABC311537B62 /* ExerciseDetailView.swift */,
 				C3A6F6A06597A99FDB74B021 /* PlanService.swift */,
 				6864E864016B47E3286E44BA /* PlanStationsSection.swift */,
@@ -534,6 +591,7 @@
 				216925D67817CB5D89D58F6D /* Checkin */,
 				E61F84C0FCD2D3B53262EF35 /* ReadinessService.swift */,
 				BDF647B80717E54E6BC417DB /* TodayView.swift */,
+				89DF680A363A72B98D8984F1 /* InicioView.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -626,6 +684,8 @@
 				F03A1FB90E88D6FA49D2D804 /* App */,
 				B507A5872DD4C2C5063D5E8D /* Auth */,
 				F213DFE2BB116F6DA823F060 /* Chat */,
+				BA486A508E0E7A65EFF0DB08 /* Carreras */,
+				442285E5991F5B4B76F3D5F9 /* Dobles */,
 				FA6A17B5D68BFAC7737DB44D /* Devices */,
 				173FFBCC9FE92ACBFD90E6EC /* Events */,
 				9A052546EBC042909966659E /* HealthKit */,
@@ -659,6 +719,7 @@
 			children = (
 				B3E8F007672C98463F4570A9 /* AppRoot.swift */,
 				4A252932F06A936722323061 /* AuthState.swift */,
+				87F1AC20F4BE6E72DB1C1093 /* AppShell.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -853,6 +914,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				01F0ADCE116AB3526203681A /* AppShell.swift in Sources */,
+				5E30985B30BF36EE8631AC92 /* InicioView.swift in Sources */,
+				17F18C29ADA987D48047F0EF /* RedesignComponents.swift in Sources */,
+				0D2927DDBDDD29ABCD85CB9C /* CarrerasView.swift in Sources */,
+				6E4DCA4B99B8E7CFEAEBB210 /* StationDetailView.swift in Sources */,
+				33DF130732D1165ED5C7A834 /* RunningDeepDiveView.swift in Sources */,
+				C92FEA63D74EE7915568F58A /* CarrerasService.swift in Sources */,
+				AD43FD55B3B606B31D1BC9A2 /* ImportRaceSheet.swift in Sources */,
+				8540C04C179977836FFD2C90 /* DoblesPlanView.swift in Sources */,
+				DC76D9EA8BEB2BA080676A19 /* DoblesSharedAnalyticsView.swift in Sources */,
+				7F04BFABF716BA321247F7DA /* DoblesTrainTogetherView.swift in Sources */,
+				545865C97B042882789572E0 /* DoblesSimulationView.swift in Sources */,
+				D3D62D147950A227F899D86F /* DoblesService.swift in Sources */,
 				4B6EF93F38108F277207F2FB /* AEventStep.swift in Sources */,
 				5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */,
 				B97A4B0D751040A737CDF355 /* ATRPhase.swift in Sources */,
@@ -862,6 +936,8 @@
 				AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */,
 				E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */,
 				16052B47077FFD16589117BD /* AssignmentDetail.swift in Sources */,
+				AA01PRESCRIPTIONBF01001A /* Prescription.swift in Sources */,
+				AA02RENDERERBF02002B /* PrescriptionRenderer.swift in Sources */,
 				BA038CFE732F184BCF35D51B /* AthleticBackgroundStep.swift in Sources */,
 				6D06AB8AA48005DC130BCB31 /* Atoms.swift in Sources */,
 				091D5BAE1978D1D4640BDE66 /* AuthState.swift in Sources */,

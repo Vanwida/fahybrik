@@ -9,6 +9,8 @@ import {
 } from '@fahybrid/shared/domain/atr/dates';
 import {
   evaluateAthleteWeek as _evaluateAthleteWeek,
+  type FiredTrigger,
+  type WeekFeedSummary,
   type WeeklyEvaluationResult,
   type WeeklyVerdict,
 } from '@fahybrid/shared/domain/coach/weekly-evaluation';
@@ -31,7 +33,13 @@ export type WeekAdjustmentProposalRecord = {
   context_pack: AthleteContextPack;
   proposal: WeekAdjustmentProposalJson;
   evaluated_week_start: string;
+  /** Señales del veredicto YA disparadas, con número real (para el panel del coach). */
+  fired_triggers: FiredTrigger[];
+  /** Sesiones de la semana evaluada (lun→dom) — "lo que hizo el atleta". */
+  week_feed: WeekFeedSummary;
 };
+
+export type { FiredTrigger, WeekFeedSummary } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 
 export class WeekAdjustmentError extends Error {
   constructor(
@@ -56,6 +64,17 @@ export function evaluateAthleteWeek(params: {
     client: params.client ?? defaultSql,
     ...(params.week_start !== undefined ? { week_start: params.week_start } : {}),
   });
+}
+
+/**
+ * `JSON.stringify` LANZA sobre BigInt. Los `slot_changes` de la propuesta llevan
+ * `from_template_id`/`to_template_id` coercionados a BigInt por `idSchema`
+ * (`z.coerce.bigint()`). Los serializamos como Number para que entren en jsonb
+ * sin reventar (se re-parsean a BigInt al leer). Mismo replacer bigint-safe que
+ * usa `program-months` y el gemelo `lib/coach/ai-propose-week-adjustment`.
+ */
+function jsonSafeStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? Number(v) : v));
 }
 
 /**
@@ -125,31 +144,40 @@ export async function proposeWeekAdjustment(params: {
     });
   }
 
-  // Marcar cualquier propuesta pending previa para la misma semana como
-  // superseded para evitar duplicados.
-  await client`
-    update week_adjustment_proposals
-    set status = 'superseded', updated_at = now()
-    where athlete_id = ${params.athlete_id as number}
-      and week_start = ${nextWeekStart}::date
-      and status = 'pending'
-  `;
-
+  // Serializamos ANTES de tocar la DB: si la propuesta trae BigInt en los
+  // slot_changes, `JSON.stringify` reventaría — y antes lo hacía DESPUÉS del
+  // supersede, dejando al atleta con 0 propuestas pending. Con jsonSafeStringify
+  // + transacción, supersede e insert son atómicos: si algo falla, NADA cambia.
   const status = evaluation.verdict === 'ok' ? 'approved' : 'pending';
-  const ins = await client<Array<{ id: string }>>`
-    insert into week_adjustment_proposals (
-      athlete_id, week_start, status, verdict, context_pack_json, proposal_json
-    )
-    values (
-      ${params.athlete_id as number},
-      ${nextWeekStart}::date,
-      ${status},
-      ${evaluation.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
-      ${JSON.stringify(evaluation.context_pack)}::jsonb,
-      ${JSON.stringify(proposal)}::jsonb
-    )
-    returning id::text
-  `;
+  const contextPackJson = jsonSafeStringify(evaluation.context_pack);
+  const proposalJson = jsonSafeStringify(proposal);
+
+  // Supersede + insert en UNA transacción: el supersede de la propuesta pending
+  // previa NO se confirma hasta que la nueva se inserta con éxito. Un fallo en
+  // el insert revierte el supersede → el atleta nunca se queda sin propuesta.
+  const ins = await client.begin(async (tx) => {
+    await tx`
+      update week_adjustment_proposals
+      set status = 'superseded', updated_at = now()
+      where athlete_id = ${params.athlete_id as number}
+        and week_start = ${nextWeekStart}::date
+        and status = 'pending'
+    `;
+    return tx<Array<{ id: string }>>`
+      insert into week_adjustment_proposals (
+        athlete_id, week_start, status, verdict, context_pack_json, proposal_json
+      )
+      values (
+        ${params.athlete_id as number},
+        ${nextWeekStart}::date,
+        ${status},
+        ${evaluation.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
+        ${contextPackJson}::jsonb,
+        ${proposalJson}::jsonb
+      )
+      returning id::text
+    `;
+  });
 
   return {
     id: ins[0]!.id,
@@ -160,6 +188,8 @@ export async function proposeWeekAdjustment(params: {
     context_pack: evaluation.context_pack,
     proposal,
     evaluated_week_start: evaluation.week_start,
+    fired_triggers: evaluation.fired_triggers,
+    week_feed: evaluation.week_feed,
   };
 }
 

@@ -1,56 +1,83 @@
 import SwiftUI
 
-// Plan tab — macro strip + week-day selector + the SELECTED day's programming
-// inline.
+// Plan tab — the week published by the coach, rendered as the handoff hi-fi
+// (design_handoff_fhp/App Atleta - Flujo.dc.html · `plan` screen).
 //
-// UX model (Alex, 2026-06-05): the horizontal day pills are the week selector;
-// directly below we show ONLY the selected day's session — header, EMPEZAR, and
-// the full programming (coach note + stations + blocks/items). No duplicated
-// hero, no vertical all-days list: the pills already convey per-day status
-// (done ✓ / scheduled • / rest), so the week is fully navigable from them.
+// UX model (handoff): the athlete ALWAYS sees a week of days; the coach assigns
+// microciclos and the weeks "se publican solas". The screen is:
+//   · header — wordmark + "Dobles · {partner}" chip (cohort only) + avatar
+//   · title "Tu semana" + counter "N / M ›" + a subtitle naming the coach and
+//     the microciclo and that it publishes itself
+//   · a VERTICAL list of the 7 days (Lun–Dom) as sunken rows: day label (mono),
+//     a modality color dot, the session name, and a per-day status glyph
+//     (✓ done / future dot / rest muted). TODAY's row is EXPANDED + highlighted
+//     with an ORANGE border, listing its sessions (AM + PM when two).
+//   · a bottom legend of the modality colors (fuerza / ergómetro / carrera).
 //
-// Weekly summary comes from `GET /api/athlete/plan/week`. The per-session detail
-// (blocks, items, params) is fetched lazily for the selected day via
-// `GET /api/athlete/assignments/{id}/detail`, primed from cache for instant
-// switches. No mocked warmup / zones / coach note: if we don't have it, we don't
-// show it.
+// Tapping any day with a session opens its Detalle — the existing
+// PreWorkoutBrief → Workout flow via `WorkoutContainer`, exactly as Today's
+// "Empezar" does. There is no inline programming on Plan: the full blocks/items
+// live in Detalle, reachable from any day.
+//
+// Data comes from `GET /api/athlete/plan/week`. We keep the RAW per-day
+// sessions (`AthleteWeekDay`) so the today row can show both AM and PM — the
+// `PlanWeek` projection collapses a day to a single primary session, which is
+// enough for the collapsed rows but loses the second session. No mocked data:
+// if the coach hasn't published, we show an honest empty state.
 struct PlanView: View {
     var bearer: String? = nil
-    @State private var selectedDay: Int = 0
-    @State private var week: PlanWeek? = nil
+
+    // Raw week (all sessions per day) + the published-week metadata.
+    @State private var days: [AthleteWeekDay] = []
+    @State private var todayIso: String = ""
+    // Coach-authored freeform week label ("Semana 2/4", "Construcción · sem 2").
+    // Surfaced verbatim as the counter chip — never a fabricated denominator.
     @State private var macroLabel: String? = nil
-    @State private var macroWeeks: [AthleteMacroProgressWeek] = []
     @State private var aEventDays: Int? = nil
+    // Provenance for the "Tu semana" subtitle — the coach who publishes the week
+    // and the periodization phase (microciclo) it belongs to. Both honest-optional.
+    @State private var coachName: String? = nil
+    @State private var microcicloName: String? = nil
+
     @State private var loading = true
     @State private var loadFailed = false
-    @State private var showChat: Bool = false
+    @State private var showChat = false
     @State private var partner: PartnerInfo? = nil
+    @State private var showPartnerPlan = false
 
-    // Selected-day session detail (rendered inline under the selector).
-    @State private var detail: AssignmentDetail? = nil
-    @State private var detailLoading = false
-    @State private var detailError: SessionDetailError? = nil
+    // The day whose session the athlete tapped — drives the Detalle cover.
+    @State private var openAssignmentId: String? = nil
+    @State private var openFallbackTitle: String? = nil
     @State private var showWorkout = false
 
-    private let daysES = ["L", "M", "X", "J", "V", "S", "D"]
+    private var effectiveBearer: String? {
+        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+    }
+
+    /// True when the cohort is Dobles (athlete has a paired partner).
+    private var isDobles: Bool { partner != nil }
+
+    /// True once at least one day carries a real assignment. A week of pure
+    /// rest / empty days for a brand-new athlete reads as "no plan yet".
+    private var hasAnySession: Bool {
+        days.contains { day in day.sessions.contains { !$0.assignmentId.isEmpty } }
+    }
 
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
             if loading {
-                ProgressView()
-                    .tint(Theme.Color.accent)
-            } else if let week, week.hasAnySession {
+                ProgressView().tint(Theme.Color.accentText)
+            } else if hasAnySession {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                         headerRow
-                        if !macroWeeks.isEmpty {
-                            macroProgressStrip
-                        }
-                        weekStrip(week)
-                        selectedDaySection(week)
+                        titleBlock
+                        dayList
+                        legend
                         if let days = aEventDays {
                             aEventCard(days: days)
+                                .padding(.top, Theme.Spacing.xs)
                         }
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
@@ -61,90 +88,413 @@ struct PlanView: View {
                 emptyPlanState
             }
         }
-        .task {
-            await loadPlan()
-            await loadSelectedDetail()
-        }
-        .onChange(of: selectedDay) { _, _ in
-            Task { await loadSelectedDetail() }
-        }
-        // EMPEZAR — same path as Today's "Empezar" (presents WorkoutContainer for
-        // the selected day's assignment).
+        .task { await loadPlan() }
+        // Detalle — same path as Today's "Empezar" (presents the prescribed
+        // workout for the tapped day's assignment).
         .fullScreenCover(isPresented: $showWorkout) {
-            if let week {
-                let day = week.days[selectedDay]
-                WorkoutContainer(
-                    assignmentId: day.assignmentId,
-                    fallbackTitle: detail?.workout?.name ?? day.title,
-                    bearer: bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer"),
-                    onClose: { showWorkout = false },
-                    onCompleted: { _ in
-                        showWorkout = false
-                        // Refetch so the week + selected-day detail reflect completion.
-                        Task {
-                            await loadPlan()
-                            await loadSelectedDetail()
-                        }
-                    }
-                )
-            }
+            WorkoutContainer(
+                assignmentId: openAssignmentId,
+                fallbackTitle: openFallbackTitle,
+                bearer: effectiveBearer,
+                onClose: { showWorkout = false },
+                onCompleted: { _ in
+                    showWorkout = false
+                    // Refetch so the week reflects completion (✓) immediately.
+                    Task { await loadPlan() }
+                }
+            )
         }
         .sheet(isPresented: $showChat) {
-            ChatView(bearer: bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer"))
+            ChatView(bearer: effectiveBearer)
+        }
+        .fullScreenCover(isPresented: $showPartnerPlan) {
+            DoblesPlanView(bearer: effectiveBearer)
         }
     }
+
+    // MARK: - Header (wordmark + cohort chip + avatar)
 
     private var headerRow: some View {
         HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            if let macroLabel {
-                LabelText(text: macroLabel.uppercased())
+            Wordmark(size: 18)
+            Spacer(minLength: Theme.Spacing.s)
+            if isDobles, let partner {
+                // Cohort chip → opens the partner's connected plan (read-only).
+                Button {
+                    Haptics.light()
+                    showPartnerPlan = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(Theme.Color.partner)
+                            .frame(width: 6, height: 6)
+                        Text("Dobles · \(partner.firstName)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Theme.Color.surfaceElevated)
+                    .overlay(Capsule().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel("Modalidad Dobles con \(partner.firstName). Ver su plan")
             }
-            Spacer()
-            Button {
-                Haptics.light()
-                showChat = true
-            } label: {
-                Image(systemName: "message")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(Theme.Color.accent)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Chat con Pablo")
+            chatButton
         }
-        .frame(minHeight: 44)
+        .frame(minHeight: 36)
     }
 
-    private func loadPlan() async {
-        defer { loading = false }
-        guard let token = bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer") else {
-            loadFailed = true
-            return
+    private var chatButton: some View {
+        Button {
+            Haptics.light()
+            showChat = true
+        } label: {
+            Image(systemName: "message")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 40, height: 36)
+                .contentShape(Rectangle())
         }
-        do {
-            async let weekResp = PlanService.fetchWeek(bearer: token)
-            async let macroResp = PlanService.fetchMacroProgress(bearer: token)
-            async let partnerResp = PartnerService.fetchEnvelope(bearer: token)
-            let resp = try await weekResp
-            let macro = try? await macroResp
-            let envelope = try? await partnerResp
-            let built = PlanWeek.from(api: resp)
-            week = built
-            selectedDay = built.todayIndex
-            macroLabel = macro?.macro.weekLabel ?? resp.macroSummary.weekLabel
-            macroWeeks = macro?.macroProgress?.weeks ?? []
-            aEventDays = macro?.macro.aEventDays ?? resp.macroSummary.aEventDays
-            partner = envelope?.partner
-            loadFailed = false
-        } catch {
-            // No plan available — show an honest empty state, never demo data.
-            week = nil
-            loadFailed = true
+        .accessibilityLabel("Chat con tu coach")
+    }
+
+    // MARK: - Title block ("Tu semana" + counter + provenance subtitle)
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                Text("Tu semana")
+                    .scaledFont(26, weight: .heavy, relativeTo: .title, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                Spacer(minLength: Theme.Spacing.s)
+                if let counter = weekCounter {
+                    MonoText(text: counter, size: 12, weight: .bold, color: Theme.Color.muted)
+                }
+            }
+            // Provenance — the published week derives from the coach's microciclo
+            // and "se publica sola". The week endpoint now exposes the coach name
+            // and the microciclo (periodization phase); we name both when present
+            // and degrade to the generic line when either is missing.
+            provenanceSubtitle
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.faint)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    // Empty / error state for a new athlete whose coach hasn't published a
-    // plan yet (or a transient load failure).
+    /// The "Tu semana" subtitle: names the microciclo (periodization phase) and
+    /// the coach who publishes the week. Each part is optional and the copy
+    /// adapts so it never reads awkwardly when a field is absent.
+    private var provenanceSubtitle: Text {
+        let phase = microcicloName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let coach = coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch (phase?.isEmpty == false ? phase : nil, coach?.isEmpty == false ? coach : nil) {
+        case let (phase?, coach?):
+            // "Microciclo de Acumulación · publicada por Pablo"
+            return Text("Microciclo de ")
+                + Text(phase).foregroundStyle(Theme.Color.accentText)
+                + Text(" · publicada por \(coach)")
+        case let (phase?, nil):
+            return Text("Microciclo de ")
+                + Text(phase).foregroundStyle(Theme.Color.accentText)
+        case let (nil, coach?):
+            return Text("Publicada por \(coach)")
+        case (nil, nil):
+            return Text("Tu coach publica esta semana automáticamente")
+        }
+    }
+
+    /// The week counter chip ("Semana 2/4", "REAL w2", …). We surface the
+    /// coach-authored freeform label verbatim — never a fabricated denominator.
+    /// Nil when the published week carries no label.
+    private var weekCounter: String? {
+        guard let label = macroLabel, !label.isEmpty else { return nil }
+        return label
+    }
+
+    // MARK: - Day list (Lun–Dom, today expanded)
+
+    private var dayList: some View {
+        VStack(spacing: Theme.Spacing.s) {
+            ForEach(days) { day in
+                if day.isoDate == todayIso {
+                    todayRow(day)
+                } else {
+                    dayRow(day)
+                }
+            }
+        }
+    }
+
+    // A collapsed day row: day label (mono) · modality dot · session name ·
+    // status glyph. Rest days read muted with no dot; tapping a day with a real
+    // session opens its Detalle.
+    @ViewBuilder
+    private func dayRow(_ day: AthleteWeekDay) -> some View {
+        let primary = day.sessions.first
+        let rest = isRest(day)
+        let done = isDayCompleted(day)
+
+        Button {
+            guard let id = primary?.assignmentId, !id.isEmpty, !rest else { return }
+            Haptics.light()
+            open(assignmentId: id, title: primary?.title)
+        } label: {
+            HStack(spacing: Theme.Spacing.m) {
+                Text(dayLabelES(day.dayOfWeek))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.Color.faint)
+                    .frame(width: 32, alignment: .leading)
+
+                if rest {
+                    // Rest day: no modality dot — a muted hollow placeholder.
+                    Circle()
+                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                        .frame(width: 7, height: 7)
+                } else {
+                    ModalityDot(modality: primary?.modality, size: 7)
+                }
+
+                sessionTitleLine(day: day, rest: rest)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                trailingStatus(rest: rest, done: done, hasSession: primary != nil)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .disabled(rest || primary == nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(rowAccessibilityLabel(day: day, rest: rest, done: done))
+        .accessibilityAddTraits(rest || primary == nil ? [] : .isButton)
+    }
+
+    // TODAY's row: highlighted on the elevated surface with an ORANGE border,
+    // showing each session (AM/PM) on its own line. Tapping the card opens the
+    // first session's Detalle; tapping a specific session opens that one.
+    @ViewBuilder
+    private func todayRow(_ day: AthleteWeekDay) -> some View {
+        let rest = isRest(day)
+        let sessions = day.sessions.filter { !$0.assignmentId.isEmpty }
+        let multi = sessions.count > 1
+
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: Theme.Spacing.m) {
+                Text(dayLabelES(day.dayOfWeek))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 32, alignment: .leading)
+                Text(rest
+                     ? "Hoy · descanso"
+                     : multi ? "Hoy · \(sessions.count) sesiones" : "Hoy")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.Color.foreground)
+                Spacer(minLength: Theme.Spacing.s)
+                if !rest, !sessions.isEmpty {
+                    // The whole card opens the first session (see onTapGesture);
+                    // this is the affordance, not a separate hit target.
+                    HStack(spacing: 3) {
+                        Text("Abrir")
+                            .font(.system(size: 11, weight: .bold))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .foregroundStyle(Theme.Color.accentText)
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+                }
+            }
+
+            if rest {
+                Text("Sin sesión programada. Recupera, hidrata y duerme.")
+                    .scaledFont(13, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                    .padding(.leading, 44)
+            } else {
+                VStack(spacing: 7) {
+                    ForEach(Array(sessions.enumerated()), id: \.element.id) { _, session in
+                        todaySessionLine(session)
+                    }
+                }
+                .padding(.leading, 44)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .overlay(
+            // Today's brand "ring": a thin 1.5pt orange line. Raw accent on white
+            // (~2.4:1) disappears, so use the role-split accentText (darker orange
+            // on light, identical #F06A2A on dark) to keep the highlight visible.
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.accentText, lineWidth: 1.5)
+        )
+        .brandShadow(Theme.Shadow.cardTight)
+        // Tapping anywhere on the (non-rest) card opens the first session, while
+        // each session line below independently opens its own Detalle.
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .onTapGesture {
+            guard !rest, let first = day.sessions.first(where: { !$0.assignmentId.isEmpty }) else { return }
+            Haptics.light()
+            open(assignmentId: first.assignmentId, title: first.title)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    // One session line inside today's expanded card: slot badge + name + chevron.
+    private func todaySessionLine(_ session: AthleteWeekDaySession) -> some View {
+        let done = isSessionCompleted(session)
+        return Button {
+            Haptics.light()
+            open(assignmentId: session.assignmentId, title: session.title)
+        } label: {
+            HStack(spacing: Theme.Spacing.s) {
+                SlotBadge(
+                    slot: slot(for: session),
+                    color: Theme.Modality.color(session.modality)
+                )
+                Text(session.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                if session.isTestSession {
+                    TestBadge(compact: true)
+                }
+                if let badge = partnerBadge(for: session) {
+                    PartnerBadge(text: badge, compact: true)
+                }
+                Spacer(minLength: Theme.Spacing.s)
+                if done {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.Color.ok)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Theme.Color.faint)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(slot(for: session) == .am ? "Mañana" : "Tarde"), \(session.title)"
+            + (done ? ", completada" : "")
+        )
+        .accessibilityAddTraits(.isButton)
+    }
+
+    // Session name line shared by collapsed rows: name + optional partner chip,
+    // muted on rest days.
+    @ViewBuilder
+    private func sessionTitleLine(day: AthleteWeekDay, rest: Bool) -> some View {
+        if rest {
+            Text("Descanso")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.Color.faint)
+        } else {
+            HStack(spacing: 6) {
+                Text(day.sessions.first?.title ?? "Sesión")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.Color.foreground.opacity(0.92))
+                    .lineLimit(1)
+                if day.sessions.first?.isTestSession == true {
+                    TestBadge(compact: true)
+                }
+                if let session = day.sessions.first, let badge = partnerBadge(for: session) {
+                    PartnerBadge(text: badge, compact: true)
+                }
+                // A second session on a non-today day → small "+1" mono hint.
+                let extra = day.sessions.filter { !$0.assignmentId.isEmpty }.count - 1
+                if extra > 0 {
+                    Text("+\(extra)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.faint)
+                }
+            }
+        }
+    }
+
+    // Trailing glyph for a collapsed row: ✓ when done, a chevron (tap-to-open)
+    // for a pending session, nothing on rest days.
+    @ViewBuilder
+    private func trailingStatus(rest: Bool, done: Bool, hasSession: Bool) -> some View {
+        if rest || !hasSession {
+            EmptyView()
+        } else if done {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.Color.ok)
+        } else {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.Color.faint)
+        }
+    }
+
+    // MARK: - Legend (modality colors)
+
+    private var legend: some View {
+        HStack(spacing: Theme.Spacing.l) {
+            Spacer(minLength: 0)
+            legendItem(color: Theme.Modality.color("strength"), label: "fuerza")
+            legendItem(color: Theme.Color.info, label: "ergómetro")
+            legendItem(color: Theme.Color.accent, label: "carrera")
+            Spacer(minLength: 0)
+        }
+        .padding(.top, Theme.Spacing.xs)
+        .accessibilityHidden(true)
+    }
+
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.Color.muted)
+        }
+    }
+
+    // MARK: - A-event card
+    //
+    // The macro summary only exposes days-to-A-event (no event name / date / bib
+    // yet), so we surface exactly that. Hidden entirely when there is no value.
+    private func aEventCard(days: Int) -> some View {
+        CardSurface(padding: 16, topAccent: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                LabelText(text: "A-EVENT")
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text("\(days)")
+                        .font(.system(size: 56, weight: .heavy, design: .default).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text("días")
+                        .scaledFont(13, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                .padding(.top, 10)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Faltan \(days) días para tu A-event")
+            }
+        }
+    }
+
+    // MARK: - Empty / error state
+
     private var emptyPlanState: some View {
         VStack(spacing: Theme.Spacing.m) {
             Image(systemName: loadFailed ? "wifi.exclamationmark" : "calendar.badge.clock")
@@ -158,7 +508,7 @@ struct PlanView: View {
                 .multilineTextAlignment(.center)
             Text(loadFailed
                  ? "Revisa tu conexión e inténtalo de nuevo."
-                 : "Cuando Pablo asigne tus sesiones aparecerán aquí, día a día.")
+                 : "Cuando tu coach asigne tus sesiones aparecerán aquí, día a día.")
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
@@ -183,444 +533,114 @@ struct PlanView: View {
         .padding(.horizontal, Theme.Spacing.xxl)
     }
 
-    private var macroProgressStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(macroWeeks) { w in
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(macroWeekColor(w.status))
-                            .frame(width: 24, height: 32)
-                        Text(String(w.weekStart.suffix(5)))
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                }
-            }
+    // MARK: - Actions
+
+    private func open(assignmentId: String?, title: String?) {
+        guard let assignmentId, !assignmentId.isEmpty else { return }
+        openAssignmentId = assignmentId
+        openFallbackTitle = title
+        showWorkout = true
+    }
+
+    // MARK: - Load
+
+    private func loadPlan() async {
+        defer { loading = false }
+        guard let token = effectiveBearer else {
+            loadFailed = true
+            return
+        }
+        do {
+            async let weekResp = PlanService.fetchWeek(bearer: token)
+            async let macroResp = PlanService.fetchMacroProgress(bearer: token)
+            async let partnerResp = PartnerService.fetchEnvelope(bearer: token)
+            let resp = try await weekResp
+            let macro = try? await macroResp
+            let envelope = try? await partnerResp
+
+            days = resp.week.days
+            todayIso = resp.week.todayIso
+            // The week label is coach-authored freeform; we surface it verbatim.
+            // The raw ATR sigla (ACC/TRANS/REAL) is never sent here as a label
+            // (D2) — only the human `weekLabel` reaches the athlete.
+            macroLabel = macro?.macro.weekLabel ?? resp.macroSummary.weekLabel
+            aEventDays = macro?.macro.aEventDays ?? resp.macroSummary.aEventDays
+            coachName = resp.coachName
+            microcicloName = resp.week.microcicloName
+            partner = envelope?.partner
+            loadFailed = false
+        } catch {
+            // No plan available — honest empty state, never demo data.
+            days = []
+            loadFailed = true
         }
     }
 
-    private func macroWeekColor(_ status: String) -> Color {
-        switch status {
-        case "completed": return Theme.Color.ok
-        case "current": return Theme.Color.accent
-        case "missed": return Theme.Color.danger
-        default: return Theme.Color.surface
-        }
+    // MARK: - Per-day / per-session helpers
+
+    /// A day is rest when the backend flags it or it carries no real session.
+    private func isRest(_ day: AthleteWeekDay) -> Bool {
+        day.isRest || day.sessions.allSatisfy { $0.assignmentId.isEmpty }
     }
 
-    /// Returns the badge label ("Con [first name]") for sessions that the
-    /// athlete shares with their Dobles partner. Nil → no badge:
-    ///   - athlete has no partner
-    ///   - assignment has `partner_visibility == 'self_only'`
-    ///   - backend hasn't shipped `partner_visibility` yet
-    private func partnerBadgeLabel(for day: PlanDay) -> String? {
+    /// A session is done when the server marks it completed OR we recorded it
+    /// locally (optimistic completion before the next /week refetch lands).
+    private func isSessionCompleted(_ session: AthleteWeekDaySession) -> Bool {
+        if session.status.lowercased() == "completed" { return true }
+        return CompletedAssignmentsStore.isCompleted(session.assignmentId)
+    }
+
+    /// The collapsed-row ✓ reflects the PRIMARY session's completion. A day with
+    /// multiple sessions only reads "done" when every real session is finished —
+    /// otherwise it stays a pending row. Never driven by the date passing.
+    private func isDayCompleted(_ day: AthleteWeekDay) -> Bool {
+        let real = day.sessions.filter { !$0.assignmentId.isEmpty }
+        guard !real.isEmpty else { return false }
+        return real.allSatisfy { isSessionCompleted($0) }
+    }
+
+    /// The session's slot, defaulting to AM when the backend leaves it blank
+    /// (single-session days are conventionally AM in the handoff).
+    private func slot(for session: AthleteWeekDaySession) -> SessionSlot {
+        session.slot.lowercased().hasPrefix("pm") ? .pm : .am
+    }
+
+    /// "Con [partner]" badge for sessions shared with the Dobles partner. Nil
+    /// when the athlete has no partner, the session is self-only, or the backend
+    /// hasn't shipped `partner_visibility` yet (see PlanService).
+    private func partnerBadge(for session: AthleteWeekDaySession) -> String? {
         guard let partner else { return nil }
-        guard let vis = day.partnerVisibility, vis == "shared" else { return nil }
-        guard !day.isRest else { return nil }
+        guard session.partnerVisibility?.lowercased() == "shared" else { return nil }
         return "Con \(partner.firstName)"
     }
 
-    // MARK: - Week strip (selector)
-    private func weekStrip(_ week: PlanWeek) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            LabelText(text: "SEMANA · \(week.label)")
-            HStack(spacing: 6) {
-                ForEach(0..<7, id: \.self) { di in
-                    dayCell(week, di: di)
-                }
-            }
+    private func dayLabelES(_ dow: Int) -> String {
+        switch dow {
+        case 1: return "LUN"
+        case 2: return "MAR"
+        case 3: return "MIÉ"
+        case 4: return "JUE"
+        case 5: return "VIE"
+        case 6: return "SÁB"
+        default: return "DOM"
         }
     }
 
-    private func dayCell(_ week: PlanWeek, di: Int) -> some View {
-        let day = week.days[di]
-        let isSelected = di == selectedDay
-        let isToday = di == week.todayIndex
-        let isPast = di < week.todayIndex
-        // ✓ reflects ACTUAL completion (server status 'completed' or local
-        // optimistic mark), never the mere passage of the date. A past session
-        // left unfinished therefore stays a scheduled dot, not a checkmark.
-        let isDone = day.isCompleted
-
-        return Button {
-            Haptics.light()
-            selectedDay = di
-        } label: {
-            VStack(spacing: 4) {
-                Text(daysES[di])
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.white : Theme.Color.muted)
-                Text("\(day.dayNumber)")
-                    .font(.system(size: 18, weight: .heavy, design: .default).italic().monospacedDigit())
-                    .foregroundStyle(isSelected ? Color.white : Theme.Color.foreground)
-                statusGlyph(isDone: isDone, isRest: day.isRest, isSelected: isSelected)
-                    .frame(height: 8)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 4)
-            .background(isSelected ? Theme.Color.accent : Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(isToday && !isSelected ? Theme.Color.accent.opacity(0.5) : Color.clear, lineWidth: 1)
-            )
-            .opacity(isPast && !isSelected && !isDone ? 0.6 : 1)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(daysES[di]) \(day.dayNumber)\(day.isRest ? ", descanso" : isDone ? ", completado" : "")")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    /// Per-day status indicator inside the pill: ✓ when done, a dot when a
-    /// session is scheduled, nothing on rest days. Replaces the removed vertical
-    /// list as the carrier of per-day completion state.
-    @ViewBuilder
-    private func statusGlyph(isDone: Bool, isRest: Bool, isSelected: Bool) -> some View {
-        if isDone {
-            Image(systemName: "checkmark")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(isSelected ? Color.white : Theme.Color.ok)
-        } else if isRest {
-            Color.clear.frame(width: 6, height: 6)
-        } else {
-            Circle()
-                .fill(isSelected ? Color.white : Theme.Color.muted)
-                .frame(width: 6, height: 6)
-        }
-    }
-
-    // MARK: - Selected day (inline programming)
-    private func selectedDaySection(_ week: PlanWeek) -> some View {
-        let day = week.days[selectedDay]
-        return VStack(alignment: .leading, spacing: 16) {
-            sessionHeader(week, day: day)
-            if canStart(day) {
-                ExpertPrimaryButton(title: "▶ EMPEZAR", height: 54) {
-                    Haptics.medium()
-                    showWorkout = true
-                }
-            }
-            sessionBody(day)
-        }
-    }
-
-    private func sessionHeader(_ week: PlanWeek, day: PlanDay) -> some View {
-        let isToday = selectedDay == week.todayIndex
-        return VStack(alignment: .leading, spacing: 6) {
-            LabelText(
-                text: "\(isToday ? "HOY" : daysES[selectedDay]) · \(day.dayName)",
-                color: Theme.Color.accent
-            )
-            Text(detail?.workout?.name ?? day.title)
-                .scaledFont(28, weight: .heavy, relativeTo: .title, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .padding(.top, 4)
-            if let badge = partnerBadgeLabel(for: day) {
-                PartnerBadge(text: badge)
-                    .padding(.top, 2)
-            }
-            if let focus = detail?.workout?.focus, !focus.isEmpty {
-                MonoText(text: focus.uppercased(), size: 12, color: Theme.Color.muted)
-                    .padding(.top, 2)
-            }
-            if let mins = detail?.workout?.estimatedDurationMinutes {
-                MonoText(text: "~\(mins) min", size: 13, color: Theme.Color.muted)
-                    .padding(.top, 4)
-            } else {
-                MonoText(text: day.subtitle, size: 13, color: Theme.Color.muted)
-                    .padding(.top, 4)
-            }
-        }
-    }
-
-    /// Whether the selected day can be started: real assignment, not a rest day,
-    /// and (once loaded) carries a real workout body. Mirrors the Today gate.
-    private func canStart(_ day: PlanDay) -> Bool {
-        guard let id = day.assignmentId, !id.isEmpty else { return false }
-        if day.isRest { return false }
-        if let detail, detail.workout == nil { return false }
-        return true
-    }
-
-    @ViewBuilder
-    private func sessionBody(_ day: PlanDay) -> some View {
-        if day.assignmentId == nil || day.isRest {
-            restCard
-        } else if detailLoading && detail == nil {
-            HStack {
-                Spacer()
-                ProgressView().tint(Theme.Color.accent)
-                Spacer()
-            }
-            .padding(.top, 24)
-        } else if let err = detailError, detail == nil {
-            errorCard(err)
-        } else if let detail, let workout = detail.workout {
-            SessionProgrammingView(detail: detail, workout: workout, partner: partner)
-        } else if detail != nil {
-            // Detail loaded but no workout body → treat as rest.
-            restCard
-        }
-    }
-
-    private var restCard: some View {
-        CardSurface(padding: 16, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 6) {
-                LabelText(text: "DESCANSO")
-                Text("Día de descanso")
-                    .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Sin sesión programada. Recupera, hidrata y duerme.")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .padding(.top, 4)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func errorCard(_ err: SessionDetailError) -> some View {
-        CardSurface(padding: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: err.title, color: Theme.Color.danger)
-                Text(err.body)
-                    .scaledFont(14, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                if err != .notFound {
-                    Button {
-                        Haptics.light()
-                        Task { await loadSelectedDetail() }
-                    } label: {
-                        Text("Reintentar")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.accentOn)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Theme.Color.accent)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    // MARK: - A-event card
-    //
-    // The macro summary only exposes days-to-A-event (no event name / date /
-    // bib yet), so we surface exactly that. Hidden entirely when there is no
-    // A-event days value.
-    private func aEventCard(days: Int) -> some View {
-        CardSurface(padding: 16, topAccent: true) {
-            VStack(alignment: .leading, spacing: 0) {
-                LabelText(text: "A-EVENT")
-                HStack(alignment: .lastTextBaseline, spacing: 8) {
-                    Text("\(days)")
-                        .font(.system(size: 64, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.accent)
-                    Text("días")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .padding(.top, 10)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Faltan \(days) días para tu A-event")
-            }
-        }
-    }
-
-    // MARK: - Detail loading (selected day)
-    //
-    // Fetches the selected day's `AssignmentDetail`. Primes from cache so day
-    // switches render instantly, clears stale detail when moving to a day with
-    // no cache, and degrades to honest rest / error states. No assignment (rest
-    // cell) → no fetch.
-    private func loadSelectedDetail() async {
-        guard let week else { return }
-        let day = week.days[selectedDay]
-        detailError = nil
-        guard let assignmentId = day.assignmentId, !day.isRest else {
-            detail = nil
-            return
-        }
-        // Prime from cache (instant), else clear the previous day's detail so we
-        // never show stale programming under the new selection.
-        detail = AssignmentDetailCache.load(assignmentId)
-        guard let token = bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer") else {
-            detailError = .unauthorized
-            return
-        }
-        detailLoading = true
-        defer { detailLoading = false }
-        do {
-            let fresh = try await PlanService.fetchAssignmentDetail(assignmentId, bearer: token)
-            // Guard against a race where the user switched days mid-fetch.
-            guard let current = self.week?.days[safe: selectedDay],
-                  current.assignmentId == assignmentId else { return }
-            detail = fresh
-            detailError = nil
-            AssignmentDetailCache.save(fresh)
-        } catch let APIError.http(status, _) {
-            switch status {
-            case 401, 403: detailError = .unauthorized
-            case 404:      detailError = .notFound
-            default:       detailError = .other
-            }
-        } catch is URLError {
-            detailError = .offline
-        } catch {
-            detailError = .other
-        }
-    }
-}
-
-// MARK: - Session detail load error
-
-enum SessionDetailError: Equatable {
-    case notFound
-    case unauthorized
-    case offline
-    case other
-
-    var title: String {
-        switch self {
-        case .notFound:     return "NO DISPONIBLE"
-        case .unauthorized: return "SESIÓN CADUCADA"
-        case .offline:      return "SIN CONEXIÓN"
-        case .other:        return "ERROR"
-        }
-    }
-
-    var body: String {
-        switch self {
-        case .notFound:     return "Esta sesión ya no está disponible."
-        case .unauthorized: return "Tu sesión ha caducado. Vuelve a iniciar sesión para ver el detalle."
-        case .offline:      return "Sin conexión, intenta más tarde."
-        case .other:        return "No pudimos cargar el detalle. Intenta de nuevo."
-        }
-    }
-}
-
-// MARK: - Session programming (coach note + stations + blocks)
-//
-// Reusable render of a workout body. Lives here (not inside a modal) so the Plan
-// tab can show the selected day's full programming inline. Tapping an item still
-// opens its `ExerciseDetailView` (in-app video + cues) via `WorkoutItemRow`.
-
-struct SessionProgrammingView: View {
-    let detail: AssignmentDetail
-    let workout: WorkoutDetail
-    /// Paired partner (Dobles). When nil the stations section never renders.
-    var partner: PartnerInfo? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if let note = workout.coachNote, !note.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabelText(text: "PABLO DICE")
-                    CoachQuote(text: note)
-                }
-            }
-
-            stationsSection
-
-            ForEach(workout.blocks) { block in
-                blockSection(block)
-            }
-        }
-    }
-
-    /// Dobles stations — only renders when (1) the assignment carries a
-    /// `station_assignment`, (2) the athlete has a paired partner, and (3) we
-    /// can resolve "a"/"b" for this device. Otherwise stays invisible so the
-    /// individual flow remains unchanged.
-    @ViewBuilder
-    private var stationsSection: some View {
-        let assignment = detail.assignment
-        if let stations = assignment.stationAssignment?.stations,
-           !stations.isEmpty,
-           let partner,
-           let myRole = DoblesRole.resolveMyRole(
-                explicit: assignment.myRole,
-                currentAthleteId: assignment.athleteId,
-                partnerAthleteId: partner.athleteId
-           )
-        {
-            PlanStationsSection(stations: stations, partner: partner, myRole: myRole)
-        }
-    }
-
-    // A block rendered as a tight, scannable section: an accent rail on the
-    // left binds the whole block visually, a slim tracked header carries the
-    // block identity, and the movements are single-line rows separated by
-    // hairlines — the target prescription is the right-aligned mono anchor. This
-    // keeps the WHOLE block legible at a glance (no big floating cards with gaps
-    // that fragment the perception of the session).
-    private func blockSection(_ block: WorkoutBlock) -> some View {
-        // The session header already shows the workout name, so a single block
-        // titled the same suppresses its own title to avoid the echo.
-        let showTitle = !block.title.isEmpty && block.title != workout.name
-        return HStack(alignment: .top, spacing: 0) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Theme.Color.accent)
-                .frame(width: 3)
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .center, spacing: 8) {
-                    Text(showTitle ? block.title.uppercased() : blockCountLabel(block))
-                        .font(.system(size: 11, weight: .heavy))
-                        .tracking(1.2)
-                        .foregroundStyle(showTitle ? Theme.Color.foreground : Theme.Color.muted)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    PillChip(title: formatLabel(block.format))
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-                if let note = block.coachNote, !note.isEmpty {
-                    Text(note)
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
-                }
-
-                ForEach(Array(block.items.enumerated()), id: \.element.id) { idx, item in
-                    if idx > 0 {
-                        Rectangle()
-                            .fill(Theme.Color.hairline)
-                            .frame(height: 1)
-                            .padding(.leading, 14)
-                    }
-                    WorkoutItemRow(item: item)
-                }
-                .padding(.bottom, 6)
-            }
-        }
-        .background(Theme.Color.surface.opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-    }
-
-    /// Left-hand count label for a block whose title is suppressed: HYROX sims
-    /// read as rounds (run+station pairs), everything else as movement count.
-    private func blockCountLabel(_ block: WorkoutBlock) -> String {
-        let n = block.items.count
-        if block.format.lowercased() == "hyrox_sim", n % 2 == 0 {
-            return "\(n / 2) RONDAS"
-        }
-        return "\(n) MOVIMIENTOS"
+    private func rowAccessibilityLabel(day: AthleteWeekDay, rest: Bool, done: Bool) -> String {
+        let label = dayLabelES(day.dayOfWeek)
+        if rest { return "\(label), descanso" }
+        let title = day.sessions.first?.title ?? "sesión"
+        return "\(label), \(title)" + (done ? ", completada" : "")
     }
 }
 
 // MARK: - Week model (summary from /api/athlete/plan/week)
+//
+// The collapsed `PlanWeek`/`PlanDay` projection is built in
+// `PlanService.swift` (`PlanWeek.from(api:)`) and consumed by Today's
+// next-workout derivation. The Plan screen renders the RAW `AthleteWeekDay`
+// sessions directly (so today can show AM+PM), but these types stay here as the
+// shared one-primary-per-day projection other surfaces rely on.
 
 struct PlanDay: Identifiable, Hashable {
     let id = UUID()
@@ -664,84 +684,33 @@ struct PlanWeek {
     }
 }
 
-// Safe indexing so a day-switch race during an async fetch can never trap.
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
+// MARK: - Test badge
+//
+// Amber pill marking a session whose purpose is to MEASURE (a test/benchmark
+// that stores results into the athlete's profile), not to train. Mirrors
+// PartnerBadge's compact shape but uses the amber `warning` role so a test
+// reads as "do this fresh, it sets your numbers".
+struct TestBadge: View {
+    var compact: Bool = false
 
-// MARK: - Block helpers
-
-private func formatLabel(_ raw: String) -> String {
-    switch raw.lowercased() {
-    case "straight_sets":   return "STRAIGHT SETS"
-    case "amrap":           return "AMRAP"
-    case "for_time":        return "FOR TIME"
-    case "emom":            return "EMOM"
-    case "intervals":       return "INTERVALS"
-    case "tempo":           return "TEMPO"
-    case "circuit":         return "CIRCUIT"
-    case "free":            return "FREE"
-    case "warmup":          return "WARMUP"
-    case "cooldown":        return "COOLDOWN"
-    default:                return raw.uppercased().replacingOccurrences(of: "_", with: " ")
-    }
-}
-
-// Block timing summary. `config_json` keys are snake_case on the wire and are
-// NOT rewritten by `convertFromSnakeCase` (see JSONValue note in
-// AssignmentDetail.swift), so we read the canonical keys from
-// `weekDayPartConfigSchema`: time_cap_seconds, emom_interval_seconds, rounds,
-// work_seconds, rest_seconds.
-private func blockConfigSummary(_ block: WorkoutBlock) -> String? {
-    guard let cfg = block.configJson else { return nil }
-
-    let rounds = cfg.int("rounds")
-    let cap = cfg.int("time_cap_seconds")
-    let emom = cfg.int("emom_interval_seconds")
-    let work = cfg.int("work_seconds")
-    let rest = cfg.int("rest_seconds")
-
-    switch block.format.lowercased() {
-    case "amrap":
-        // AMRAP X min — the time cap is the defining parameter.
-        if let cap { return "AMRAP \(minutes(cap))" }
-    case "emom":
-        // EMOM X' · cada Y — total minutes + the interval window.
-        if let cap, let emom {
-            return "EMOM \(minutes(cap)) · cada \(formatDuration(emom))"
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "stopwatch")
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+            Text("Test")
+                .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                .lineLimit(1)
         }
-        if let emom { return "EMOM · cada \(formatDuration(emom))" }
-        if let cap { return "EMOM \(minutes(cap))" }
-    case "intervals":
-        // N × work/rest — rounds of a work/rest couplet.
-        if let rounds, let work, let rest {
-            return "\(rounds) × \(formatDuration(work))/\(formatDuration(rest))"
-        }
-        if let work, let rest {
-            return "\(formatDuration(work))/\(formatDuration(rest))"
-        }
-    default:
-        break
+        .foregroundStyle(Theme.Color.warning)
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.vertical, compact ? 2 : 3)
+        .background(Theme.Color.warningTint)
+        .clipShape(Capsule())
+        .accessibilityLabel("Sesión de test")
     }
-
-    // Generic fallback for other formats (for_time, circuit, straight_sets…).
-    var parts: [String] = []
-    if let rounds { parts.append("\(rounds) rounds") }
-    if let cap { parts.append("cap \(formatDuration(cap))") }
-    if let work, let rest {
-        parts.append("\(formatDuration(work))/\(formatDuration(rest))")
-    } else if let work {
-        parts.append("work \(formatDuration(work))")
-    }
-    return parts.isEmpty ? nil : parts.joined(separator: " · ")
 }
 
-private func minutes(_ seconds: Int) -> String {
-    let m = max(1, Int((Double(seconds) / 60.0).rounded()))
-    return "\(m) min"
-}
+// MARK: - Duration formatting (shared by the params formatter)
 
 private func formatDuration(_ seconds: Int) -> String {
     let m = seconds / 60
@@ -751,89 +720,55 @@ private func formatDuration(_ seconds: Int) -> String {
     return String(format: "%d:%02d", m, s)
 }
 
-// MARK: - Workout item row
-//
-// Context-aware: strength → sets×reps@load, running → duration · zone · pace,
-// ergo → duration · cal/min, functional → reps or duration.
-//
-// Tapping the row opens `ExerciseDetailView` (in-app YouTube embed + cues +
-// description + params). The row never links out to Safari/YouTube — the
-// embed lives inside the app.
-
-struct WorkoutItemRow: View {
-    let item: WorkoutItem
-    @State private var showingDetail = false
-
-    private var hasVideo: Bool {
-        guard let url = item.exerciseVideoUrl else { return false }
-        return YouTubeLinkParser.videoId(from: url) != nil
-    }
-
-    var body: some View {
-        // Compact single-line row: the movement name reads left, the target
-        // prescription is the right-aligned MONO anchor (the thing that matters),
-        // cues drop to one muted line only when present. No sub-card, no tag —
-        // the block section already groups; importance leads.
-        let summary = WorkoutItemParamsFormatter.summary(
-            item.paramsJson,
-            category: item.exerciseCategory
-        )
-        return Button {
-            Haptics.light()
-            showingDetail = true
-        } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(item.exerciseName)
-                        .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                    if hasVideo {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.Color.accent)
-                    }
-                    Spacer(minLength: 8)
-                    if let summary {
-                        Text(summary)
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                            .layoutPriority(1)
-                    }
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                if let cues = item.cues, !cues.isEmpty {
-                    Text(cues)
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(item.exerciseName)\(summary.map { ", \($0)" } ?? ""). Ver detalle\(hasVideo ? " y vídeo" : "")")
-        .accessibilityAddTraits(.isButton)
-        .sheet(isPresented: $showingDetail) {
-            ExerciseDetailView(item: item)
-        }
-    }
-}
-
 // MARK: - Workout params formatter
 //
-// Context-aware param summary shared by `WorkoutItemRow` and
-// `ExerciseDetailView` so there is a single source of truth for how
+// Context-aware param summary used by `ExerciseDetailView` (and any future
+// session-detail rendering) so there is a single source of truth for how
 // series/reps/load/zone/pace are rendered.
 
 enum WorkoutItemParamsFormatter {
+    // Item-level summary — the preferred entry point. PREFERS the structured
+    // `prescription_json` (per-set pyramids, ranges, ergo/run pace+zone) and only
+    // falls back to the flat scalar params for legacy items that lack it. Returns
+    // a single line; per-set tables are rendered by views, not this formatter.
+    static func summary(_ item: WorkoutItem) -> String? {
+        if let p = item.prescription {
+            let isStrength = p.modality == .strength
+                || (p.modality == nil && item.exerciseCategory.lowercased() == "strength")
+            if isStrength, let rows = PrescriptionRenderer.setRows(p), !rows.isEmpty {
+                if PrescriptionRenderer.setsAreUniform(p),
+                   let collapsed = PrescriptionRenderer.collapsedSetsLabel(p) {
+                    return collapsed
+                }
+                // Pyramid → "5 series · 10→6 · 60→75% 1RM" (count + work/load spread).
+                let works = rows.map(\.work)
+                let loads = rows.compactMap(\.load)
+                var parts = ["\(rows.count) series"]
+                if let first = works.first, let last = works.last, first != last {
+                    parts.append("\(first)→\(last)")
+                } else if let first = works.first {
+                    parts.append("× \(first)")
+                }
+                if let lo = loads.first, let hi = loads.last, lo != hi {
+                    parts.append("\(lo) → \(hi)")
+                } else if let lo = loads.first {
+                    parts.append(lo)
+                }
+                return parts.joined(separator: " · ")
+            }
+            // Non-strength → a modality summary line (run/ergo/functional/WOD…).
+            let line = PrescriptionRenderer.summaryLine(p)
+            var parts: [String] = []
+            if let header = PrescriptionRenderer.wodHeader(p) { parts.append(header) }
+            if let h = line.headline { parts.append(h) }
+            if let pace = line.pace { parts.append(pace) }
+            if let z = line.zone { parts.append(z.label) }
+            if let det = line.detail { parts.append(det) }
+            if !parts.isEmpty { return parts.joined(separator: " · ") }
+        }
+        return summary(item.paramsJson, category: item.exerciseCategory)
+    }
+
     static func summary(_ p: WorkoutItemParams, category: String) -> String? {
         switch category.lowercased() {
         case "running":
@@ -974,7 +909,9 @@ struct CategoryTag: View {
         case "rowing":     return HRZone.z2.color
         case "ski_erg":    return HRZone.z2.color
         case "bike_erg":    return HRZone.z2.color
-        case "functional": return Theme.Color.accent
+        // Rendered as TEXT over its own 0.12 tint → raw accent fails AA on white;
+        // accentText (darker orange on light, #F06A2A on dark) reads in both modes.
+        case "functional": return Theme.Color.accentText
         case "mobility":   return Theme.Color.muted
         default:           return Theme.Color.muted
         }
@@ -983,5 +920,4 @@ struct CategoryTag: View {
 
 #Preview {
     PlanView()
-        .preferredColorScheme(.dark)
 }

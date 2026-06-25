@@ -34,7 +34,7 @@ export function getStripeOrThrow(): StripeWithConfig {
       typescript: true,
       // Identify our integration in Stripe logs/dashboards.
       appInfo: {
-        name: 'FAHYBRIK',
+        name: 'FAHYBRID',
         version: '0.1.0',
       },
     });

@@ -222,7 +222,7 @@ struct PM5LiveStreamView: View {
             HStack(spacing: Theme.Spacing.m) {
                 Image(systemName: icon)
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(Theme.Typography.bodyEmph)

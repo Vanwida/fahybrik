@@ -167,10 +167,10 @@ struct RaceDayView: View {
                         showFullPlan = true
                     }) {
                         HStack(spacing: 4) {
-                            MonoText(text: "ver completo", size: 11, color: Theme.Color.accent)
+                            MonoText(text: "ver completo", size: 11, color: Theme.Color.accentText)
                             Image(systemName: "arrow.up.right")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(Theme.Color.accent)
+                                .foregroundStyle(Theme.Color.accentText)
                         }
                     }
                     .buttonStyle(.plain)
@@ -239,12 +239,12 @@ struct RaceDayView: View {
                 }) {
                     Text(kitReconfirmed ? "✓ Confirmado anoche" : "Re-confirmar kit")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(kitReconfirmed ? Theme.Color.muted : Theme.Color.accent)
+                        .foregroundStyle(kitReconfirmed ? Theme.Color.muted : Theme.Color.accentText)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             Capsule().stroke(
-                                kitReconfirmed ? Theme.Color.muted.opacity(0.4) : Theme.Color.accent,
+                                kitReconfirmed ? Theme.Color.muted.opacity(0.4) : Theme.Color.accentText,
                                 lineWidth: 1
                             )
                         )
@@ -306,7 +306,7 @@ struct RaceDayView: View {
             return AnyView(
                 CardSurface(padding: 14) {
                     VStack(alignment: .leading, spacing: 8) {
-                        LabelText(text: "Pablo dice", color: Theme.Color.accent)
+                        LabelText(text: "Pablo dice", color: Theme.Color.accentText)
                         CoachQuote(text: "\u{201C}\(note)\u{201D}")
                     }
                 }

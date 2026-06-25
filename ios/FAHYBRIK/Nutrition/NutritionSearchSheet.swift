@@ -50,7 +50,7 @@ struct NutritionSearchSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancelar") { dismiss() }
-                        .tint(Theme.Color.accent)
+                        .tint(Theme.Color.accentText)
                 }
             }
         }
@@ -79,7 +79,7 @@ struct NutritionSearchSheet: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.Color.foreground)
             if isSearching {
-                ProgressView().tint(Theme.Color.accent)
+                ProgressView().tint(Theme.Color.accentText)
             } else if !query.isEmpty {
                 Button {
                     query = ""
@@ -111,7 +111,7 @@ struct NutritionSearchSheet: View {
                 Text("Añadir manualmente")
                     .font(.system(size: 13, weight: .semibold))
             }
-            .foregroundStyle(Theme.Color.accent)
+            .foregroundStyle(Theme.Color.accentText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)

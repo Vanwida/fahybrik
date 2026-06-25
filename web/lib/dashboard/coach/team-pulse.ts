@@ -16,9 +16,10 @@ import {
 } from '@fahybrid/shared/domain/atr/dates';
 import { readinessBucket } from '@/lib/dashboard/constants/readiness';
 import { DAY_LABELS, WEEKDAY_COUNT } from '@/lib/dashboard/constants/calendar';
+import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 
-/** Compliance below this marks an athlete as needing attention. */
-const ATTENTION_COMPLIANCE_MAX = 70;
+/** Compliance below this marks an athlete as needing attention (signal-config.ts). */
+const ATTENTION_COMPLIANCE_MAX = SIGNAL_THRESHOLDS.compliance_attention_max_pct;
 /** Max athletes listed under "Necesitan atención". */
 const ATTENTION_LIST_SIZE = 3;
 

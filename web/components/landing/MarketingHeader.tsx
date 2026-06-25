@@ -22,7 +22,7 @@ import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV } from '@/lib/landing/content';
 import { CHOOSE_PLAN_HREF } from '@/lib/landing/cta';
-import { FahybridWordmark } from './FahybridMark';
+import { FahybridMark } from './FahybridMark';
 
 // Scroll distance (px) after which the header gains its solid treatment.
 const SCROLL_THRESHOLD = 40;
@@ -87,7 +87,7 @@ export function MarketingHeader() {
     >
       <div className="mx-auto flex h-16 w-full max-w-[1180px] items-center justify-between px-6 md:px-10">
         <a href={HOME_ANCHOR} className="inline-flex items-center" aria-label="FAHYBRID — inicio">
-          <FahybridWordmark size="md" />
+          <FahybridMark className="h-7" color="var(--accent)" />
         </a>
 
         {/* Desktop nav */}
@@ -129,7 +129,7 @@ export function MarketingHeader() {
           className="fixed inset-0 z-50 flex flex-col bg-[color:var(--bg)] md:hidden"
         >
           <div className="flex h-16 items-center justify-between px-6">
-            <FahybridWordmark size="md" />
+            <FahybridMark className="h-7" color="var(--accent)" />
             <button
               type="button"
               onClick={closeMenu}

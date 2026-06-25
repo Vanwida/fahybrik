@@ -70,7 +70,6 @@ struct AppRoot: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             auth.bootstrap()
             if auth.stage == .authenticated {
@@ -116,7 +115,7 @@ struct AppRoot: View {
                     }
                 )
             case .authenticated:
-                TodayView(onSignOut: { auth.signOut() })
+                AppShell(onSignOut: { auth.signOut() })
             case .unauthenticated:
                 // Unreachable — guarded by the outer switch. Render nothing.
                 EmptyView()

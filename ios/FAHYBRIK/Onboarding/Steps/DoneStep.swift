@@ -13,7 +13,7 @@ struct DoneStep: View {
 
                 Text("✓")
                     .font(.system(size: 96, weight: .heavy))
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
                     .scaleEffect(pulse ? 1.04 : 1.0)
                     .animation(
                         .easeInOut(duration: 1.6).repeatForever(autoreverses: true),

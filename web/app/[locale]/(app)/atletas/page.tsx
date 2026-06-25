@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
+import { loadCoachPhases } from '@/lib/dashboard/coach/phases';
 import { AthletesList } from '@/components/dashboard/AthletesList';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,14 @@ export default async function AtletasPage({ params }: { params: Promise<{ locale
   const session = await getCoachSession();
   if (!session) return null;
 
-  const athletes = await fetchAthletesForCoach({ coach_id: session.coach_id });
+  // Fases de periodización del coach (migración 0052). Carga ÚNICA aquí; se hilan
+  // al roster para resolver el nombre de fase de cada bloque igual que la ficha
+  // del atleta. loadCoachPhases está guardada: devuelve [] si la tabla no existe
+  // (pre-migración) → el resolver cae al enum ATR legacy y se ve idéntico a hoy.
+  const [athletes, coachPhases] = await Promise.all([
+    fetchAthletesForCoach({ coach_id: session.coach_id }),
+    loadCoachPhases(session.coach_id),
+  ]);
 
-  return <AthletesList athletes={athletes} />;
+  return <AthletesList athletes={athletes} coachPhases={coachPhases} />;
 }

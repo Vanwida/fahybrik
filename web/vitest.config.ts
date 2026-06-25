@@ -6,7 +6,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
+    // `tests/**` holds the cross-cutting suites; `lib/**` lets engine modules
+    // keep their unit tests co-located (e.g. the attention signal evaluators).
+    include: ['tests/**/*.test.ts', 'lib/**/*.test.ts'],
     environment: 'node',
     globals: false,
     setupFiles: [resolve(__dirname, 'tests/setup/env.ts')],

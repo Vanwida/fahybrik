@@ -37,5 +37,5 @@ export function tierStartHref(plan: string): string {
 /** Box-member special-price contact CTA. */
 // TODO: real contact path / email.
 export function boxContactHref(): string {
-  return 'mailto:hola@fahybrid.com?subject=Precio%20especial%20box';
+  return 'mailto:hello@fahybrid.com?subject=Precio%20especial%20box';
 }

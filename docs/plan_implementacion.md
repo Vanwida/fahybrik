@@ -426,7 +426,7 @@ Aspectos operacionales que el doc maestro y el plan v1 no cubrían:
 - Cron Vercel monitoreado: alertas si falla evaluación semanal.
 
 ### 8.3 Soporte cliente
-- Email transaccional: `soporte@fahybrid.com` con respuesta SLA 24h business days.
+- Email transaccional: `hello@fahybrid.com` con respuesta SLA 24h business days.
 - Tickets in-app: futuro Fase 3 con Intercom o similar.
 - FAQ web mínimo en `/ayuda` antes del lanzamiento (Fase 3).
 

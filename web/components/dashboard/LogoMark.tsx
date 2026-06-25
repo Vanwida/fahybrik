@@ -13,7 +13,7 @@ const SIZE_CLASS: Record<NonNullable<BrandLogoProps['size']>, string> = {
   lg: 'text-4xl',
 };
 
-/** Wordmark FAHYBRIK — F naranja + AHYBRIK blanco (mismo patrón que dashboard web). */
+/** Wordmark FAHYBRID — F naranja + AHYBRIK blanco (mismo patrón que dashboard web). */
 export function BrandLogo({
   className,
   size = 'md',
@@ -26,7 +26,7 @@ export function BrandLogo({
         SIZE_CLASS[size],
         className,
       )}
-      aria-label="FAHYBRIK"
+      aria-label="FAHYBRID"
     >
       <span className="text-[color:var(--accent)]">F</span>
       <span className={cn('text-[color:var(--fg)]', wordmarkClassName)}>AHYBRIK</span>

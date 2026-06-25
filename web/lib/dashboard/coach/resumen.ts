@@ -20,6 +20,10 @@ export interface AthleteResumen {
   programming: AthleteProgrammingStatus;
   readiness_score: number | null;
   compliance_pct_7d: number | null;
+  /** Sesiones programadas de la semana en curso (lun-dom) — denominador del read. */
+  week_scheduled: number;
+  /** Sesiones completadas de la semana en curso — numerador "{done}/{total}". */
+  week_completed: number;
   load_label: string | null;
   checkin_sub_score: number | null;
   last_checkin_at: string | null;
@@ -124,6 +128,8 @@ export async function buildAthleteResumen(params: {
     programming,
     readiness_score: readinessRows[0]?.score ?? null,
     compliance_pct_7d,
+    week_scheduled: scheduled,
+    week_completed: completed,
     load_label,
     checkin_sub_score: checkinRows[0]?.sub_score ?? null,
     last_checkin_at: checkinRows[0]?.recorded_for ?? null,

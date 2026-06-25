@@ -17,6 +17,7 @@ import { sql } from '@/lib/db';
 import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
 import { healthkitSyncRequestSchema } from '@/lib/sync/schema';
 import { captureRouteError } from '@/lib/observability/capture';
+import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,9 @@ export async function POST(req: Request): Promise<NextResponse> {
       on conflict (athlete_id) do update
         set last_sync_at = now(), updated_at = now()
     `;
+
+    // Fire-and-forget: fresh biometrics can clear no_sync / move HRV signals.
+    void recomputeAthlete({ athlete_id: auth.athlete_id }).catch(() => {});
 
     return jsonOk({ ok: true, result });
   } catch (err) {

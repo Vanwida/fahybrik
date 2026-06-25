@@ -29,10 +29,9 @@ struct RacePlanDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.accent)
+                        .foregroundStyle(Theme.Color.accentText)
                 }
             }
-            .preferredColorScheme(.dark)
         }
     }
 
@@ -177,13 +176,13 @@ struct RacePlanDetailView: View {
                                     MonoText(
                                         text: String(format: "%02d", i),
                                         size: 11,
-                                        color: Theme.Color.accent
+                                        color: Theme.Color.accentText
                                     )
                                     .frame(width: 24, alignment: .trailing)
                                 } else {
                                     Text("·")
                                         .font(.system(size: 13, weight: .bold))
-                                        .foregroundStyle(Theme.Color.accent)
+                                        .foregroundStyle(Theme.Color.accentText)
                                         .frame(width: 24, alignment: .trailing)
                                 }
                                 Text("\u{201C}\(cue.cue)\u{201D}")

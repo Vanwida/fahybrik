@@ -39,7 +39,7 @@ struct SecondaryButton: View {
                 .frame(height: 54)
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.muted.opacity(0.4), lineWidth: 1)
+                        .stroke(Theme.Color.outline, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

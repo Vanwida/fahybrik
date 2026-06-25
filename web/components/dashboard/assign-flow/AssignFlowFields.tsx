@@ -1,6 +1,7 @@
 'use client';
 
-import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
+import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
+import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
 import { PROGRAM_LEVEL_LABELS, type ProgramLevel } from '@/lib/dashboard/constants/program-levels';
 import { MIcon } from '@/components/dashboard/MIcon';
 import {
@@ -11,9 +12,10 @@ import {
 } from '@/components/dashboard/assign-flow/helpers';
 
 // =============================================================================
-// AssignFlow · zona 1 — campos de selección (mockup 04).
-// Atleta (chip bloqueado si viene preseleccionado de la ficha), microciclo y
-// lunes de inicio (el picker SOLO ofrece lunes, por construcción).
+// AssignFlow · zona 1 — campos de selección (PHASE 3, modelo del fundador).
+// Atleta (chip bloqueado si viene preseleccionado de la ficha), BLOQUE y lunes
+// de inicio (el picker SOLO ofrece lunes, por construcción). Vocabulario del
+// fundador: "bloque", nunca "microciclo".
 // =============================================================================
 
 const FIELD_CONTROL_CLASS =
@@ -74,17 +76,22 @@ export function MonthField({
   options,
   value,
   selected,
+  coachPhases = [],
   onChange,
 }: {
   options: AssignFlowMonthOption[];
   value: string;
   selected: AssignFlowMonthOption | null;
+  /** Fases del coach (0052) — para el nombre de fase; [] → ATR legacy. */
+  coachPhases?: ReadonlyArray<MethodologyPhase>;
   onChange: (v: string) => void;
 }) {
   const meta = selected
     ? [
         `${selected.week_count} ${selected.week_count === 1 ? 'semana' : 'semanas'}`,
-        selected.atr_block_hint ? `fase ${atrPhaseLabel(selected.atr_block_hint)}` : null,
+        selected.atr_block_hint
+          ? `fase ${resolvePhase({ type: selected.atr_block_hint }, coachPhases).label}`
+          : null,
         `nivel ${PROGRAM_LEVEL_LABELS[selected.level as ProgramLevel] ?? selected.level}`,
       ]
         .filter(Boolean)
@@ -94,7 +101,7 @@ export function MonthField({
   return (
     <div className="grid content-start gap-2">
       <span className="micro-label" id="assign-flow-month-label">
-        Microciclo
+        Bloque
       </span>
       <select
         aria-labelledby="assign-flow-month-label"
@@ -102,7 +109,7 @@ export function MonthField({
         onChange={(e) => onChange(e.target.value)}
         className={FIELD_CONTROL_CLASS}
       >
-        <option value="">Elige microciclo…</option>
+        <option value="">Elige bloque…</option>
         {options.map((m) => (
           <option key={m.id} value={m.id}>
             {m.name}

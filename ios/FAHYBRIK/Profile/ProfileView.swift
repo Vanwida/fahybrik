@@ -1,11 +1,12 @@
 import SwiftUI
 import HealthKit
 
-// Profile tab — élite athlete identity card + devices, methodology, account,
-// legal, sign out. Every row is navigable: opens a NavigationLink to the
-// existing detail (Suscripción → SubscriptionView, PM5 → PM5SettingsView)
-// or a sheet with mocked content for the Pablo demo. Sign out wires through
-// the onSignOut closure provided by AppRoot/TodayView.
+// Profile tab — élite athlete identity card + a clean, grouped settings list in
+// the handoff `perfil` aesthetic (label-left muted / value-right). Every actionable
+// row opens a NavigationLink to the existing detail (Suscripción → SubscriptionView,
+// PM5 → PM5SettingsView, Modalidad → DoblesPlanView when in Dobles) or a sheet
+// (Metodología, Legal). Read-only rows (Objetivo, Idioma) state status honestly.
+// Sign out wires through the onSignOut closure provided by AppRoot/TodayView.
 struct ProfileView: View {
     let bearer: String?
     let onSignOut: () -> Void
@@ -19,6 +20,7 @@ struct ProfileView: View {
     @State private var identity: AthleteIdentity? = nil
     @State private var aEventDays: Int? = nil
     @State private var blockLabel: String? = nil
+    @State private var targetRace: AthleteNextRace? = nil
 
     // RGPD state.
     @State private var exporting: Bool = false
@@ -57,23 +59,31 @@ struct ProfileView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                         identityCard
-                        if shouldShowPartnerSection {
-                            SectionHeader(title: "Tu compañero/a")
-                            partnerSection
+
+                        // Primary settings — the handoff's five at-a-glance rows,
+                        // restyled label-left / value-right. Each opens its detail.
+                        settingsCard
+
+                        if shouldShowPartnerSection, partner == nil {
+                            partnerInviteCard
                         }
+
                         if let days = aEventDays {
                             aEventCard(days: days)
                         }
+
                         SectionHeader(title: "Dispositivos")
                         devicesCard
+
                         SectionHeader(title: "Metodología")
                         methodologyCard
-                        SectionHeader(title: "Cuenta")
-                        accountCard
+
                         SectionHeader(title: "Legal")
                         legalCard
+
                         SectionHeader(title: "Privacidad y datos")
                         privacyAndDataCard
+
                         signOutButton
                         deleteAccountRow
                     }
@@ -96,7 +106,6 @@ struct ProfileView: View {
         }
         .sheet(item: $sheet) { kind in
             sheetView(for: kind)
-                .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showPartnerInvite) {
             PartnerInviteSheet(bearer: bearer) { _ in
@@ -105,7 +114,6 @@ struct ProfileView: View {
                 // expose a pending state in future iterations.
                 Task { await loadPartner() }
             }
-            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showDeleteAccount) {
             if let bearer {
@@ -118,62 +126,238 @@ struct ProfileView: View {
         }
         .sheet(item: $exportShareItem) { item in
             ShareSheet(items: [item.fileURL])
-                .preferredColorScheme(.dark)
+        }
+    }
+
+    // MARK: - Identity
+
+    private var identityCard: some View {
+        let name = identity?.fullName ?? "Tu perfil"
+        let initials = identity?.initials ?? "—"
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Theme.Color.accent)
+                    .frame(width: 60, height: 60)
+                Text(initials)
+                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.accentOn)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name)
+                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if let subtitle = identitySubtitle {
+                    Text(subtitle)
+                        .scaledFont(12, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, Theme.Spacing.xs)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Builds the identity subtitle from ONLY the fields the backend returns.
+    /// Division comes from the target race (real); there is NO athlete "nivel"
+    /// field, so we never render the handoff's "Nivel avanzado" — see BACKEND
+    /// GAP. Body metrics + experience fill the rest.
+    private var identitySubtitle: String? {
+        guard let id = identity else { return nil }
+        var parts: [String] = []
+        if let division = AthleteNextRace.divisionLabel(targetRace?.division) {
+            parts.append("división \(division)")
+        }
+        if let age = id.age { parts.append("\(age)") }
+        if let yrs = id.trainingExperienceYears, yrs > 0 {
+            parts.append("\(Int(yrs))y entrenando")
+        }
+        switch (id.heightCm, id.weightKg) {
+        case let (h?, w?): parts.append("\(Int(h))cm / \(Int(w))kg")
+        case let (h?, nil): parts.append("\(Int(h))cm")
+        case let (nil, w?): parts.append("\(Int(w))kg")
+        default: break
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    // MARK: - Settings card (handoff's five rows)
+    //
+    // Modalidad · Suscripción · Objetivo · Dispositivos (→ detail below) ·
+    // Idioma. Rendered as a single grouped card with hairline dividers; each
+    // row is label-left (muted) / value-right, navigable where a detail exists.
+    private var settingsCard: some View {
+        CardSurface(padding: 0) {
+            VStack(spacing: 0) {
+                modalityRow
+                Hairline()
+                NavigationLink {
+                    SubscriptionView(bearer: bearer)
+                } label: {
+                    SettingValueRow(
+                        label: "Suscripción",
+                        value: subscriptionValue,
+                        valueColor: subscriptionValueColor,
+                        showsChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
+                Hairline()
+                SettingValueRow(
+                    label: "Objetivo",
+                    value: goalValue,
+                    valueColor: targetRace == nil ? Theme.Color.muted : Theme.Color.foreground,
+                    showsChevron: false
+                )
+                Hairline()
+                SettingValueRow(
+                    label: "Idioma",
+                    value: languageValue,
+                    valueColor: Theme.Color.foreground,
+                    showsChevron: false
+                )
+            }
+        }
+    }
+
+    /// Modalidad row. In Dobles it links to the connected-plan screen
+    /// (DoblesPlanView). Otherwise it is read-only (Individual / Elite).
+    @ViewBuilder
+    private var modalityRow: some View {
+        if isDobles {
+            NavigationLink {
+                DoblesPlanView(bearer: bearer)
+            } label: {
+                SettingValueRow(
+                    label: "Modalidad",
+                    value: modalityValue,
+                    valueColor: partner == nil ? Theme.Color.foreground : Theme.Color.accentText,
+                    showsChevron: true
+                )
+            }
+            .buttonStyle(.plain)
+        } else {
+            SettingValueRow(
+                label: "Modalidad",
+                value: modalityValue,
+                valueColor: Theme.Color.foreground,
+                showsChevron: false
+            )
+        }
+    }
+
+    /// True when the athlete is on the Dobles modality — via subscription
+    /// plan_type OR a present partner OR the envelope modality hint.
+    private var isDobles: Bool {
+        if partner != nil { return true }
+        if subscription?.planType == "dobles" { return true }
+        if (athleteModality ?? "").lowercased() == "dobles" { return true }
+        return false
+    }
+
+    /// "Dobles · con {nombre}" when paired; "Dobles · invita a tu compañero/a"
+    /// when on Dobles but unpaired; otherwise the plan name (Individual / Elite).
+    private var modalityValue: String {
+        if let partner {
+            return "Dobles · con \(partner.firstName)"
+        }
+        if isDobles {
+            return "Dobles · invita a tu compañero/a"
+        }
+        return subscription?.displayPlanLabel ?? "Individual"
+    }
+
+    /// Goal time + target race, both real (from targetRace). Honest empty when
+    /// no target race is scheduled — never fabricated.
+    private var goalValue: String {
+        guard let race = targetRace else { return "Sin carrera objetivo" }
+        if let goal = race.goalTimeFormatted {
+            return "\(goal) · \(race.name)"
+        }
+        return race.name
+    }
+
+    /// The device's current language, shown honestly (we don't persist an app
+    /// language preference yet — see BACKEND GAP).
+    private var languageValue: String {
+        let code = Locale.current.language.languageCode?.identifier ?? "es"
+        return Locale.current.localizedString(forLanguageCode: code)?.capitalized
+            ?? (code == "es" ? "Español" : code.uppercased())
+    }
+
+    // MARK: - Subscription
+
+    /// Loads the read-only subscription snapshot so the "Suscripción" row shows
+    /// live status (no price — Apple compliance). Silent on failure; the row
+    /// falls back to a neutral subtitle and the detail screen retries.
+    private func loadSubscription() async {
+        guard let bearer else { return }
+        subscription = try? await SubscriptionService.fetchSubscription(bearer: bearer)
+    }
+
+    /// Real athlete identity (name, body metrics, training context) from
+    /// /api/auth/me, plus A-event days + block label + the target race from the
+    /// plan week. Silent on failure — the identity card falls back to neutral
+    /// copy and the dependent rows/cards hide or show honest empties.
+    private func loadIdentity() async {
+        guard let bearer else { return }
+        identity = try? await MeService.fetch(bearer: bearer)
+        if let resp = try? await PlanService.fetchWeek(bearer: bearer) {
+            aEventDays = resp.macroSummary.aEventDays
+            targetRace = resp.targetRace
+            if let label = resp.macroSummary.weekLabel, !label.isEmpty {
+                blockLabel = label
+            } else if let block = resp.macroSummary.block, !block.isEmpty {
+                blockLabel = atrPhaseLabel(block)
+            }
+        }
+    }
+
+    /// Status-driven value for the subscription row. NEVER includes a price.
+    private var subscriptionValue: String {
+        guard let sub = subscription else { return "Gestionar" }
+        switch sub.status {
+        case "active":
+            if let date = sub.formattedPeriodEnd {
+                return sub.cancelAtPeriodEnd ? "Termina el \(date)" : "Activa · renueva \(date)"
+            }
+            return "Activa"
+        case "trialing":
+            return "Prueba" + (sub.formattedPeriodEnd.map { " · hasta \($0)" } ?? "")
+        case "past_due", "unpaid", "incomplete":
+            return "Pago pendiente"
+        case "canceled", "incomplete_expired":
+            return "Cancelada"
+        case "paused":
+            return "Pausada"
+        default:
+            return "Gestionar"
+        }
+    }
+
+    /// Green when access is active/trialing, danger when payment failed/cancelled,
+    /// muted otherwise — color + label, never color alone.
+    private var subscriptionValueColor: Color {
+        switch subscription?.status {
+        case "active", "trialing": return Theme.Color.ok
+        case "past_due", "unpaid", "incomplete", "canceled", "incomplete_expired":
+            return Theme.Color.danger
+        default: return Theme.Color.muted
         }
     }
 
     // MARK: - Partner
 
-    /// Decision tree (W4 spec, adapted to backend reality):
-    ///   • partner != nil                 → always show (card with avatar + name)
-    ///   • athleteModality == "dobles"    → show invite card (forward-compat
-    ///                                      when backend ships the field)
-    ///   • partner == nil & no modality   → still show invite card. Backend
-    ///                                      doesn't expose self-modality on
-    ///                                      `/api/athlete/partner` (W4), and
-    ///                                      `POST /invite` is gated server-
-    ///                                      side via `assertInviterCanInvite`
-    ///                                      (returns 403 + message), so the
-    ///                                      InviteSheet handles ineligibility.
-    /// While loading we keep it hidden — flash-of-empty-state is worse than
-    /// a brief gap until the request resolves.
+    /// While loading we keep the invite card hidden — flash-of-empty-state is
+    /// worse than a brief gap until the request resolves. (When a partner IS
+    /// present, the Modalidad row already surfaces "con {nombre}", so we only
+    /// need the standalone invite prompt for the unpaired case.)
     private var shouldShowPartnerSection: Bool {
         if partnerLoading { return false }
         return true
-    }
-
-    @ViewBuilder
-    private var partnerSection: some View {
-        if let partner {
-            partnerCard(partner)
-        } else {
-            partnerInviteCard
-        }
-    }
-
-    private func partnerCard(_ p: PartnerInfo) -> some View {
-        CardSurface(padding: 14, topAccent: true) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.Color.surfaceElevated)
-                        .frame(width: 48, height: 48)
-                    Text(p.initials)
-                        .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(p.fullName)
-                        .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(partnerSubtitle(p))
-                        .scaledFont(11, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-                PartnerBadge(text: "Dobles")
-            }
-        }
     }
 
     private var partnerInviteCard: some View {
@@ -207,26 +391,6 @@ struct ProfileView: View {
         }
     }
 
-    private func partnerSubtitle(_ p: PartnerInfo) -> String {
-        var bits: [String] = ["Compañero/a en Dobles"]
-        if let since = formatOnboardedSince(p.onboardedAt) {
-            bits.append("desde \(since)")
-        }
-        return bits.joined(separator: " · ")
-    }
-
-    private func formatOnboardedSince(_ iso: String?) -> String? {
-        guard let iso else { return nil }
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = parser.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        guard let d = date else { return nil }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "es_ES")
-        fmt.dateFormat = "MMM yyyy"
-        return fmt.string(from: d)
-    }
-
     private func loadPartner() async {
         defer { partnerLoading = false }
         guard let bearer else { return }
@@ -241,121 +405,13 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Subscription
-
-    /// Loads the read-only subscription snapshot so the "Mi suscripción" row
-    /// shows live status (no price — Apple compliance). Silent on failure; the
-    /// row falls back to a neutral subtitle and the detail screen retries.
-    private func loadSubscription() async {
-        guard let bearer else { return }
-        subscription = try? await SubscriptionService.fetchSubscription(bearer: bearer)
-    }
-
-    /// Real athlete identity (name, body metrics, training context) from
-    /// /api/auth/me, plus A-event days + block label from the plan week macro
-    /// summary. Silent on failure — the identity card falls back to neutral
-    /// copy and the A-event card simply hides.
-    private func loadIdentity() async {
-        guard let bearer else { return }
-        identity = try? await MeService.fetch(bearer: bearer)
-        if let resp = try? await PlanService.fetchWeek(bearer: bearer) {
-            aEventDays = resp.macroSummary.aEventDays
-            if let label = resp.macroSummary.weekLabel, !label.isEmpty {
-                blockLabel = label
-            } else if let block = resp.macroSummary.block, !block.isEmpty {
-                blockLabel = atrPhaseLabel(block)
-            }
-        }
-    }
-
-    /// Status-driven subtitle for the account row. NEVER includes a price.
-    private var subscriptionRowSubtitle: String {
-        guard let sub = subscription else { return "Estado y gestión del plan" }
-        switch sub.status {
-        case "active":
-            if let date = sub.formattedPeriodEnd {
-                return sub.cancelAtPeriodEnd ? "Termina el \(date)" : "Activa · próximo cobro \(date)"
-            }
-            return "Activa"
-        case "trialing":
-            return "Prueba" + (sub.formattedPeriodEnd.map { " · hasta \($0)" } ?? "")
-        case "past_due", "unpaid", "incomplete":
-            return "Pago pendiente · gestiónala"
-        case "canceled", "incomplete_expired":
-            return "Cancelada · gestiónala en \(SubscriptionService.accountWebHost)"
-        case "paused":
-            return "Pausada"
-        default:
-            return "Estado y gestión del plan"
-        }
-    }
-
-    // MARK: - Identity
-
-    private var identityCard: some View {
-        let name = identity?.fullName ?? "Tu perfil"
-        let initials = identity?.initials ?? "—"
-        return CardSurface(padding: 14) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.Color.accent)
-                        .frame(width: 56, height: 56)
-                    Text(initials)
-                        .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Color.white)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name)
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    if let subtitle = identitySubtitle {
-                        Text(subtitle)
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Text("Coach · Pablo")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(Theme.Color.muted)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Theme.Color.surface)
-                        .overlay(
-                            Capsule().stroke(Theme.Color.muted.opacity(0.3), lineWidth: 1)
-                        )
-                        .clipShape(Capsule())
-                }
-                Spacer()
-            }
-        }
-    }
-
-    /// Builds the identity subtitle from ONLY the fields the backend returns.
-    /// Missing fields are skipped — never guessed.
-    private var identitySubtitle: String? {
-        guard let id = identity else { return nil }
-        var parts: [String] = []
-        if let age = id.age { parts.append("\(age)") }
-        if let yrs = id.trainingExperienceYears, yrs > 0 {
-            parts.append("\(Int(yrs))y entrenando")
-        }
-        switch (id.heightCm, id.weightKg) {
-        case let (h?, w?): parts.append("\(Int(h))cm / \(Int(w))kg")
-        case let (h?, nil): parts.append("\(Int(h))cm")
-        case let (nil, w?): parts.append("\(Int(w))kg")
-        default: break
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
     // A-event: only days-to-event + block label are available from the macro
     // summary (no event name / date / venue / bib endpoint yet). Card hidden
     // entirely when there is no A-event days value.
     private func aEventCard(days: Int) -> some View {
         CardSurface(padding: 14, topAccent: true) {
             VStack(alignment: .leading, spacing: 6) {
-                LabelText(text: "A-Event", color: Theme.Color.accent, size: 9)
+                LabelText(text: "A-Event", color: Theme.Color.accentText, size: 9)
                 HStack(alignment: .lastTextBaseline, spacing: 12) {
                     Text("Próximo A-event")
                         .font(Theme.Typography.headlineS)
@@ -363,7 +419,7 @@ struct ProfileView: View {
                     Spacer()
                     Text("\(days) días")
                         .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.accent)
+                        .foregroundStyle(Theme.Color.accentText)
                 }
                 if let blockLabel {
                     Hairline()
@@ -418,7 +474,7 @@ struct ProfileView: View {
         HStack(spacing: 12) {
             Image(systemName: "heart.text.square")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.Color.accent)
+                .foregroundStyle(Theme.Color.accentText)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Apple Health")
@@ -432,8 +488,8 @@ struct ProfileView: View {
             Spacer()
             appleHealthTrailing
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Apple Health, \(healthSubtitle)")
     }
@@ -452,7 +508,7 @@ struct ProfileView: View {
                 .background(Theme.Color.ok.opacity(0.15))
                 .clipShape(Capsule())
         } else if healthRequesting {
-            ProgressView().tint(Theme.Color.accent)
+            ProgressView().tint(Theme.Color.accentText)
         } else {
             connectButton(label: "Conectar", disabled: false)
         }
@@ -535,7 +591,7 @@ struct ProfileView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.Color.accent)
+                .foregroundStyle(Theme.Color.accentText)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -556,10 +612,10 @@ struct ProfileView: View {
                 .clipShape(Capsule())
             Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
+                .foregroundStyle(Theme.Color.faint)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle), \(statusText)")
         .accessibilityAddTraits(.isButton)
@@ -583,25 +639,6 @@ struct ProfileView: View {
                     subtitle: "Fabrik Studio · Barcelona",
                     action: { sheet = .coach }
                 )
-            }
-        }
-    }
-
-    // MARK: - Account
-
-    private var accountCard: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                NavigationLink {
-                    SubscriptionView(bearer: bearer)
-                } label: {
-                    profileRowContent(
-                        icon: "creditcard",
-                        title: "Mi suscripción",
-                        subtitle: subscriptionRowSubtitle
-                    )
-                }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -639,7 +676,7 @@ struct ProfileView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.Color.accent)
+                .foregroundStyle(Theme.Color.accentText)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -652,10 +689,10 @@ struct ProfileView: View {
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
+                .foregroundStyle(Theme.Color.faint)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle)")
         .accessibilityAddTraits(.isButton)
@@ -679,7 +716,7 @@ struct ProfileView: View {
             HStack(spacing: 12) {
                 Image(systemName: "square.and.arrow.up.on.square")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accent)
+                    .foregroundStyle(Theme.Color.accentText)
                     .frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Exportar mis datos")
@@ -693,15 +730,15 @@ struct ProfileView: View {
                 Spacer()
                 if exporting {
                     ProgressView()
-                        .tint(Theme.Color.accent)
+                        .tint(Theme.Color.accentText)
                 } else {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
+                        .foregroundStyle(Theme.Color.faint)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
         }
         .buttonStyle(.plain)
         .disabled(exporting || bearer == nil)
@@ -803,6 +840,43 @@ struct ProfileView: View {
     }
 }
 
+// MARK: - Setting value row
+//
+// The handoff's `perfil` row: label-left (muted) / value-right, in a flat
+// hairline-divided card. An optional trailing chevron marks a navigable row.
+// Renders as one VoiceOver element.
+private struct SettingValueRow: View {
+    let label: String
+    let value: String
+    var valueColor: Color = Theme.Color.foreground
+    var showsChevron: Bool = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+            Spacer(minLength: 12)
+            Text(value)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(valueColor)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), \(value)")
+        .accessibilityAddTraits(showsChevron ? .isButton : [])
+    }
+}
+
 // MARK: - Section header
 
 private struct SectionHeader: View {
@@ -861,7 +935,7 @@ private struct MethodologySheet: View {
                 HStack {
                     Text(atrPhaseLabel(code))
                         .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.accent)
+                        .foregroundStyle(Theme.Color.accentText)
                     Spacer()
                     Text(weeks)
                         .font(.system(size: 11, design: .monospaced))
@@ -931,7 +1005,7 @@ private struct LegalSheet: View {
 }
 
 private enum LegalCopy {
-    static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a privacy@fahybrid.com."
+    static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a hello@fahybrid.com."
     static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
 }
 
@@ -957,7 +1031,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 }
 
 // Slim "datos exportados" toast pinned to the top of the screen. Fabrik
-// accent border + dark surface, dismisses itself after ~2.4s via the caller's
+// accent border + elevated surface, dismisses itself after ~2.4s via the caller's
 // asyncAfter (so the parent owns the timing and can cancel if needed).
 struct ToastBanner: View {
     let text: String
@@ -976,9 +1050,14 @@ struct ToastBanner: View {
         .background(Theme.Color.surfaceElevated)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.accent.opacity(0.35), lineWidth: 1)
+                .stroke(Theme.Color.accentText.opacity(0.35), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .shadow(color: Color.black.opacity(0.25), radius: 12, x: 0, y: 4)
+        .shadow(
+            color: Theme.Shadow.cardTight.color,
+            radius: Theme.Shadow.cardTight.radius,
+            x: Theme.Shadow.cardTight.x,
+            y: Theme.Shadow.cardTight.y
+        )
     }
 }

@@ -234,7 +234,7 @@ export function AthleteSessionDrawerHost({
         className="absolute inset-0 cursor-default bg-[color:var(--scrim)]"
         tabIndex={-1}
       />
-      <div className="relative flex h-full w-full max-w-full flex-col sm:max-w-xl lg:w-[40%] lg:min-w-[480px]">
+      <div className="relative flex h-full w-full max-w-full flex-col sm:max-w-xl lg:w-[40%] lg:min-w-[560px] lg:max-w-3xl">
         {load.phase === 'ready' ? (
           <SessionDrawer
             kicker={kickerFor(session.iso_date, dayOfWeek, blockLabel)}

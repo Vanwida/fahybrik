@@ -60,7 +60,7 @@ struct InviteGateView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if inProgress {
-                        ProgressView().tint(Theme.Color.accent)
+                        ProgressView().tint(Theme.Color.accentText)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -68,7 +68,6 @@ struct InviteGateView: View {
                 Spacer().frame(height: Theme.Spacing.xl)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Retry (re-run Sign in with Apple)

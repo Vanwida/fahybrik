@@ -41,6 +41,8 @@ export async function GET(req: Request): Promise<NextResponse> {
       coach_name: string;
       last_message_at: string | null;
       last_message_preview: string | null;
+      last_coach_message: string | null;
+      last_coach_voice_duration_ms: number | null;
       unread_for_coach: number;
       unread_for_athlete: number;
     }[]
@@ -58,6 +60,29 @@ export async function GET(req: Request): Promise<NextResponse> {
              order by m.created_at desc
              limit 1
            ) as last_message_preview,
+           -- ADDITIVE: the latest message authored BY THE COACH (sender_user_id =
+           -- the coach's user_id, not coaches.id). Drives the Today coach-note row.
+           -- NULL when the coach has not messaged yet.
+           (
+             select m.body
+             from chat_messages m
+             where m.thread_id = t.id and m.deleted_at is null
+               and m.sender_user_id = c.user_id
+             order by m.created_at desc
+             limit 1
+           ) as last_coach_message,
+           -- Voice-note duration of that latest coach message when it is a voice
+           -- attachment (attachment_meta.duration_ms jsonb). NULL otherwise — no
+           -- migration: read straight from the existing jsonb if present.
+           (
+             select (m.attachment_meta->>'duration_ms')::int
+             from chat_messages m
+             where m.thread_id = t.id and m.deleted_at is null
+               and m.sender_user_id = c.user_id
+               and m.attachment_kind = 'voice'
+             order by m.created_at desc
+             limit 1
+           ) as last_coach_voice_duration_ms,
            t.unread_for_coach,
            t.unread_for_athlete
     from chat_threads t

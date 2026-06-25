@@ -15,6 +15,7 @@
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { coerceJson } from '@/lib/json-column';
 import { buildCohort } from './cohort';
 import type { CohortRow } from '@fahybrid/shared/domain/coach/types';
 import {
@@ -608,10 +609,10 @@ async function loadDraft(
 }
 
 function rowToReview(row: DbRow): CoachWeeklyReview {
-  const snapshot = weeklyReviewSnapshotSchema.parse(row.snapshot_json);
-  const decisions = z.array(weeklyReviewDecisionSchema).parse(row.decisions_json ?? []);
-  const notes = z.array(weeklyReviewNoteSchema).parse(row.notes_json ?? []);
-  const planEdits = z.array(weeklyReviewPlanEditSchema).parse(row.plan_edits_json ?? []);
+  const snapshot = weeklyReviewSnapshotSchema.parse(coerceJson(row.snapshot_json));
+  const decisions = z.array(weeklyReviewDecisionSchema).parse(coerceJson(row.decisions_json ?? []));
+  const notes = z.array(weeklyReviewNoteSchema).parse(coerceJson(row.notes_json ?? []));
+  const planEdits = z.array(weeklyReviewPlanEditSchema).parse(coerceJson(row.plan_edits_json ?? []));
   return {
     id: row.id,
     coach_id: BigInt(row.coach_id),

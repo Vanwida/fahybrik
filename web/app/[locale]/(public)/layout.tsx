@@ -56,10 +56,10 @@ export default async function PublicLayout({
               {t('terms')}
             </Link>
             <a
-              href="mailto:privacy@vanwida.pro"
+              href="mailto:hello@fahybrid.com"
               className="hover:text-[color:var(--fg)] normal-case tracking-normal"
             >
-              privacy@vanwida.pro
+              hello@fahybrid.com
             </a>
           </div>
         </div>

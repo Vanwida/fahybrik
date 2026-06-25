@@ -24,7 +24,10 @@ export type AtrMacrocycle = z.infer<typeof atrMacrocycleSchema>;
 export const atrBlockSchema = z.object({
   id: idSchema,
   macrocycle_id: idSchema,
+  // Legacy phase enum (kept as fallback). New writes set phase_id (0052).
   type: atrBlockType,
+  // FK -> methodology_phases (coach-defined phase). NULL => fall back to `type`.
+  phase_id: idSchema.nullable().optional(),
   position: z.number().int().nonnegative(),
   start_date: isoDate,
   end_date: isoDate,

@@ -33,8 +33,10 @@ export const ATR_PHASE_ORDER: AtrBlockType[] = ['ACC', 'TRANS', 'REAL'];
 
 /**
  * Clases Tailwind del badge de fase ATR (chip pill). Codificación ÚNICA en todo
- * el dashboard: ACC verde (base/volumen) · TRANS ámbar (intensidad) · REAL
- * naranja Fabrik (pico/competición). Antes duplicado en el hub de microciclos
+ * el dashboard como rampa de intensidad verde → ámbar → rojo: ACC verde
+ * (base/volumen) · TRANS ámbar (intensidad) · REAL rojo (pico/competición).
+ * El naranja Fabrik (--accent) queda RESERVADO para acción/hoy/identidad y NO
+ * se usa como color de estado de fase. Antes duplicado en el hub de microciclos
  * y el catálogo de entrenos (regla DRY: 3 usos → extraer).
  */
 export function atrBadgeClass(hint: string | null | undefined): string {
@@ -44,7 +46,7 @@ export function atrBadgeClass(hint: string | null | undefined): string {
     case 'TRANS':
       return 'border-[color:var(--status-warning)]/40 bg-[color:var(--status-warning)]/10 text-[color:var(--status-warning)]';
     case 'REAL':
-      return 'border-[color:var(--accent)]/40 bg-[color:var(--accent)]/10 text-[color:var(--accent)]';
+      return 'border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 text-[color:var(--danger)]';
     default:
       return 'border-[color:var(--border-subtle)] bg-[color:var(--surface-container-low)] text-[color:var(--text-muted)]';
   }

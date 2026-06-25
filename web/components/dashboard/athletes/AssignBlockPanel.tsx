@@ -13,6 +13,7 @@ type BlockMicrocycle = {
   end_date: string;
   scheduled: number;
   completed: number;
+  published: boolean;
 };
 
 type AtrBlockView = {
@@ -173,11 +174,11 @@ export function AssignBlockPanel({ athlete_id, initial = null, onAssigned }: Ass
   const nextBlockId = view.blocks.find((b) => !b.is_assigned)?.block_id ?? null;
 
   return (
-    <section aria-label="Plan por bloque ATR (microciclo)" className="card-surface p-4">
+    <section aria-label="Plan por bloque ATR" className="card-surface p-4">
       <header className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-            Plan por microciclo
+            Plan por bloque
           </p>
           <p className="text-sm font-semibold">Bloques ATR del macrociclo</p>
         </div>

@@ -8,7 +8,7 @@ struct ProgressDots: View {
         HStack(spacing: 6) {
             ForEach(0..<total, id: \.self) { i in
                 Circle()
-                    .fill(i <= current ? Theme.Color.accent : Theme.Color.muted.opacity(0.3))
+                    .fill(i <= current ? Theme.Color.accent : Theme.Color.faint)
                     .frame(width: 6, height: 6)
             }
         }

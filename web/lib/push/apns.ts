@@ -205,7 +205,7 @@ export async function smokeTestPush(args: {
   return sendPush({
     sql: args.sql,
     user_id: args.user_id,
-    title: 'FAHYBRIK',
+    title: 'FAHYBRID',
     body: 'Test push',
     category: 'system',
   });

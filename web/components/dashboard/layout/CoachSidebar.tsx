@@ -28,7 +28,7 @@ export function CoachSidebar({ pending_inbox_count = 0, is_admin = false }: Coac
   return (
     <aside
       className={cn(
-        'group/sidebar fixed inset-y-0 left-0 z-20 hidden lg:flex',
+        'group/sidebar fixed inset-y-0 left-0 z-30 hidden lg:flex',
         'w-20 hover:w-64 focus-within:w-64',
         'flex-col gap-4 overflow-hidden',
         'border-r border-[color:var(--border-subtle)] bg-[color:var(--surface-container-lowest)]',
@@ -38,8 +38,8 @@ export function CoachSidebar({ pending_inbox_count = 0, is_admin = false }: Coac
       {/* Logo */}
       <Link
         href="/hoy"
-        aria-label="FAHYBRIK"
-        title="FAHYBRIK"
+        aria-label="FAHYBRID"
+        title="FAHYBRID"
         className="flex h-16 shrink-0 items-center gap-3 border-b border-[color:var(--border-subtle)] px-5"
       >
         <span

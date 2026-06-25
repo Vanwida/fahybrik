@@ -82,8 +82,33 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     // assignment-detail endpoint yet (only `cues`); decodes nil until it does,
     // and ExerciseDetailView degrades honestly when absent.
     let exerciseDescription: String?
+    // Flat, iOS-ready scalar targets (the legacy path). Kept for back-compat and
+    // for the live-execution engine.
     let paramsJson: WorkoutItemParams
+    // Structured per-set prescription — the RICH form (pyramids, ranges, per-set
+    // rest/RPE/tempo, ergo/run pace+zone). Decoded from `prescription_json`,
+    // which `convertFromSnakeCase` rewrites to `prescriptionJson` (the CodingKey
+    // below). Null/absent for legacy segments that only carry scalar params, so
+    // renderers PREFER this when present and fall back to `paramsJson` otherwise.
+    let prescription: Prescription?
     let notes: String?
+
+    // Explicit keys are required because the wire field `prescription_json`
+    // converts (via convertFromSnakeCase) to `prescriptionJson`, not
+    // `prescription`. Every other key matches its converted camelCase form.
+    enum CodingKeys: String, CodingKey {
+        case uid
+        case exerciseId
+        case exerciseName
+        case exerciseSlug
+        case exerciseCategory
+        case exerciseVideoUrl
+        case cues
+        case exerciseDescription
+        case paramsJson
+        case prescription = "prescriptionJson"
+        case notes
+    }
 }
 
 struct WorkoutItemParams: Codable, Equatable {
