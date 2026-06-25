@@ -6,21 +6,14 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
-import { listTemplatesForCoach } from '@/lib/dashboard/coach/templates';
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
 import {
   deriveWeekModalities,
   loadCurve,
-  modalityForGroup,
   weekSessionCount,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
-import type { V2Modality } from '@/components/v2/constants';
-import {
-  MicrocicloEditor,
-  type MicroWeek,
-  type MicroLibraryItem,
-} from '@/components/v2/planes/MicrocicloEditor';
+import { MicrocicloEditor, type MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
 import { EmptyState } from '@/components/v2/EmptyState';
 
 export const dynamic = 'force-dynamic';
@@ -43,9 +36,8 @@ export default async function V2MicrocicloPage({
 
   const coach_id = session.coach_id;
 
-  const [full, templates, groups] = await Promise.all([
+  const [full, groups] = await Promise.all([
     loadMonthTemplateWithWeeks({ coach_id, month_id: monthId }).catch(() => null),
-    listTemplatesForCoach(coach_id).catch(() => []),
     listMethodologyGroups().catch(() => []),
   ]);
 
@@ -76,20 +68,12 @@ export default async function V2MicrocicloPage({
     };
   });
 
-  const library: MicroLibraryItem[] = templates.slice(0, 12).map((t) => ({
-    id: t.id,
-    name: t.name,
-    modality: (modalityForGroup(t.methodology_group_id) ?? 'circuito') as V2Modality,
-    block_count: t.block_count,
-  }));
-
   return (
     <MicrocicloEditor
       microcycle_id={id}
       name={full.month.name}
       level={full.month.level}
       weeks={weeks}
-      library={library}
       groupNames={groupNames}
     />
   );

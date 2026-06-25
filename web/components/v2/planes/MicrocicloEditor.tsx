@@ -2,15 +2,14 @@
 
 // v2 · SCREEN 7 · MICROCICLO — client orchestrator. A SegmentedControl toggles
 // between two views over the SAME real microcycle data:
-//   · V2 "Editor · semana en foco" (default) — one week expanded into 7 day
-//     columns, week-step header, library rail.
+//   · V2 "Editor · semana en foco" (default) — one week expanded into 7 full-
+//     height day columns (weekly calendar) under a week-step header.
 //   · V1 "Vista general · 4 semanas" — the classic week×day grid.
 // Both link day cells to /v2/microciclos/[id]/dia/[idx] (owned by the day editor).
 
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import type { DayModalityInfo, WeekLoad } from '@/lib/dashboard/v2/planes-model';
-import type { V2Modality } from '@/components/v2/constants';
 import { MicrocicloV2 } from '@/components/v2/planes/MicrocicloV2';
 import { MicrocicloV1 } from '@/components/v2/planes/MicrocicloV1';
 
@@ -25,13 +24,6 @@ export interface MicroWeek {
   /** Always 7 entries, Mon→Sun. */
   days: DayModalityInfo[];
   load: WeekLoad | null;
-}
-
-export interface MicroLibraryItem {
-  id: string;
-  name: string;
-  modality: V2Modality;
-  block_count: number;
 }
 
 type ViewMode = 'foco' | 'general';
@@ -51,14 +43,12 @@ export function MicrocicloEditor({
   name,
   level,
   weeks,
-  library,
   groupNames,
 }: {
   microcycle_id: string;
   name: string;
   level: string;
   weeks: MicroWeek[];
-  library: MicroLibraryItem[];
   /** methodology_group_id → coach label (agnostic; for the per-block group tag). */
   groupNames: Record<number, string>;
 }) {
@@ -88,7 +78,6 @@ export function MicrocicloEditor({
           <MicrocicloV2
             microcycle_id={microcycle_id}
             weeks={weeks}
-            library={library}
             groupNames={groupNames}
           />
         ) : (

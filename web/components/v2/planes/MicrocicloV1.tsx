@@ -95,13 +95,6 @@ export function MicrocicloV1({
         </Pill>
         <button
           type="button"
-          // TODO(endpoint): wire to assign-to-athlete.
-          className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
-        >
-          <MIcon name="person_add" size={15} /> Asignar
-        </button>
-        <button
-          type="button"
           // TODO(endpoint): wire to publish.
           className="v2-focus ml-auto inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
         >
