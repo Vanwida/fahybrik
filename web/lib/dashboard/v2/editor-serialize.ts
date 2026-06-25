@@ -123,8 +123,10 @@ function serializePart(
 // ── Session ────────────────────────────────────────────────────────────────--
 // EditorSession → WeekSession. The editor's `slot` (am/pm/extra) is positional
 // only — the loader derives it from array index, so it is NOT persisted (lossless
-// because array order is preserved). kind/template_id/focus/notes are preserved
-// from the original session matched by position.
+// because array order is preserved). kind/template_id/notes are preserved from the
+// original session matched by position. `focus` (the workout TITLE) is now editable
+// in the day editor, so it is taken AUTHORITATIVELY from the input: set when the
+// coach typed one, cleared when they emptied it (so clearing actually persists).
 function serializeSession(
   session: EditorSessionInput,
   original: WeekSession | undefined,
@@ -137,12 +139,18 @@ function serializeSession(
     serializePart(b, originalBlocksByUid.get(b.uid)),
   );
 
-  return {
+  const next: WeekSession = {
     ...(original ?? {}),
     kind: 'workout',
     template_id: original?.template_id ?? null,
     blocks,
   };
+
+  const focus = session.focus?.trim();
+  if (focus) next.focus = focus;
+  else delete next.focus;
+
+  return next;
 }
 
 // ── Day ──────────────────────────────────────────────────────────────────────

@@ -20,6 +20,9 @@ const SLOT_LABEL: Record<EditorSession['slot'], string> = {
 
 export function SessionPartCard({
   session,
+  onChangeFocus,
+  onSuggestTitle,
+  suggesting,
   onAddBlock,
   onEditItem,
   onAddItem,
@@ -28,6 +31,9 @@ export function SessionPartCard({
   onMoveItem,
 }: {
   session: EditorSession;
+  onChangeFocus: (focus: string) => void;
+  onSuggestTitle: () => void;
+  suggesting: boolean;
   onAddBlock: () => void;
   onEditItem: (blockUid: string, itemUid: string) => void;
   onAddItem: (blockUid: string) => void;
@@ -36,18 +42,51 @@ export function SessionPartCard({
   onMoveItem: (blockUid: string, itemUid: string, dir: -1 | 1) => void;
 }) {
   const totalMin = session.blocks.reduce((acc, b) => acc + (blockMinutes(b) ?? 0), 0);
+  const hasBlocks = session.blocks.length > 0;
 
   return (
     <section className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]">
       {/* Session header */}
-      <header className="flex flex-wrap items-center gap-2 border-b border-[color:var(--v2-border)] px-4 py-3">
-        <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
-          {SLOT_LABEL[session.slot]}
-          {session.time_hint ? ` · ${session.time_hint}` : ''}
-        </span>
-        <span className="v2-num text-xs text-[color:var(--v2-muted)]">
-          {session.blocks.length} bloques{totalMin > 0 ? ` · ~${totalMin} min` : ''}
-        </span>
+      <header className="flex flex-col gap-2.5 border-b border-[color:var(--v2-border)] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+            {SLOT_LABEL[session.slot]}
+            {session.time_hint ? ` · ${session.time_hint}` : ''}
+          </span>
+          <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+            {session.blocks.length} bloques{totalMin > 0 ? ` · ~${totalMin} min` : ''}
+          </span>
+        </div>
+
+        {/* Título del entreno — one input the coach AND athlete read at a glance
+            (persists to session.focus). "Sugerir título" derives it from the
+            session's content (LLM when configured, honest fallback otherwise). */}
+        <div className="flex items-center gap-2">
+          <label className="sr-only" htmlFor={`focus-${session.uid}`}>
+            Título del entreno
+          </label>
+          <input
+            id={`focus-${session.uid}`}
+            type="text"
+            value={session.focus ?? ''}
+            maxLength={120}
+            onChange={(e) => onChangeFocus(e.target.value)}
+            placeholder="Título del entreno · ej: Entreno de pierna"
+            className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-1.5 text-sm font-semibold text-[color:var(--v2-fg)] placeholder:font-normal placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+          />
+          {hasBlocks ? (
+            <button
+              type="button"
+              onClick={onSuggestTitle}
+              disabled={suggesting}
+              title="Sugerir un título a partir del contenido del entreno"
+              className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 text-[13px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+            >
+              <MIcon name={suggesting ? 'progress_activity' : 'lightbulb'} size={16} />
+              <span className="hidden sm:inline">{suggesting ? 'Sugiriendo…' : 'Sugerir título'}</span>
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {/* Blocks */}

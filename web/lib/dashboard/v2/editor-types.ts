@@ -63,6 +63,12 @@ export interface EditorSession {
   /** Coach-facing slot label: AM / PM / extra. */
   slot: 'am' | 'pm' | 'extra';
   time_hint?: string;
+  /**
+   * Workout TITLE (`WeekSession.focus`): a short name for this session the coach
+   * types and the athlete reads at a glance ("Entreno de pierna", "Series").
+   * Editable in the day editor; empty/undefined = untitled.
+   */
+  focus?: string;
   blocks: EditorBlock[];
 }
 

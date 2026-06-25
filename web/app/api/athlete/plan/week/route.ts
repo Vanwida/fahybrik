@@ -143,6 +143,12 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint) {
         return {
           assignment_id: s.assignment_id,
           slot: slotFromNotes(s.notes, s.template_day_position),
+          // Session TITLE the athlete reads at a glance ("Entreno de pierna").
+          // Source of truth = the coach's workout title (WeekSession.focus): the
+          // materializer writes it into templates.name for inline sessions
+          // (instantiate-program.ts → `session.focus?.trim() || name_base`), so
+          // template_name already carries the focus when the coach set one. Falls
+          // back to the template's own name, then a generic label — never empty.
           title: s.template_name ?? 'Sesión',
           // G5 — the REAL training modality (run/row/ski/bike/strength/functional/
           // core/mobility/other), derived from the template's segments (each

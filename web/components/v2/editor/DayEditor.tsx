@@ -70,6 +70,44 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
   const updateSession = (uid: string, next: EditorSession) =>
     setSessions((prev) => prev.map((s) => (s.uid === uid ? next : s)));
 
+  // Workout TITLE (session.focus) — one input near the session header.
+  const setSessionFocus = (uid: string, focus: string) =>
+    setSessions((prev) => prev.map((s) => (s.uid === uid ? { ...s, focus } : s)));
+
+  // "Sugerir título" — derive a short title from the session's blocks/exercises.
+  // Calls the coach AI endpoint (LLM when configured, honest content-derived
+  // fallback otherwise); the returned title fills the input so the coach can edit
+  // it before saving. Per-session in-flight flag avoids double requests.
+  const [suggestingUid, setSuggestingUid] = useState<string | null>(null);
+  const suggestTitle = async (session: EditorSession) => {
+    if (suggestingUid) return;
+    setSuggestingUid(session.uid);
+    try {
+      const res = await fetch('/api/coach/ai/suggest-session-title', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          blocks: session.blocks.map((b) => ({
+            title: b.title,
+            format: b.format,
+            items: b.items.map((it) => ({
+              exercise_name: it.exercise_name,
+              modality: it.prescription.modality,
+            })),
+          })),
+        }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { title?: string };
+      if (data.title) setSessionFocus(session.uid, data.title);
+    } catch {
+      // Silent: a failed suggestion just leaves the input as-is (no fake title).
+    } finally {
+      setSuggestingUid(null);
+    }
+  };
+
   const addSession = () => {
     const slot = NEXT_SLOT[sessions.length] ?? 'extra';
     setSessions((prev) => [
@@ -192,6 +230,7 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
           sessions: sessions.map((s) => ({
             uid: s.uid,
             slot: s.slot,
+            ...(s.focus && s.focus.trim() ? { focus: s.focus.trim() } : {}),
             blocks: s.blocks.map((b) => ({
               uid: b.uid,
               title: b.title,
@@ -318,6 +357,9 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
             <SessionPartCard
               key={session.uid}
               session={session}
+              onChangeFocus={(focus) => setSessionFocus(session.uid, focus)}
+              onSuggestTitle={() => suggestTitle(session)}
+              suggesting={suggestingUid === session.uid}
               onAddBlock={() => setAddTo({ sessionUid: session.uid })}
               onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
               onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}

@@ -280,6 +280,10 @@ export type EditorBlockInput = z.infer<typeof editorBlockInputSchema>;
 export const editorSessionInputSchema = z.object({
   uid: z.string().min(1).max(64),
   slot: z.enum(['am', 'pm', 'extra']),
+  // Workout title (`WeekSession.focus`): a short coach- AND athlete-facing name
+  // for the session ("Entreno de pierna", "Series"). Optional/agnostic; empty or
+  // absent leaves the session untitled (athlete falls back to template name).
+  focus: z.string().max(120).optional(),
   blocks: z.array(editorBlockInputSchema).max(16).default([]),
 });
 export type EditorSessionInput = z.infer<typeof editorSessionInputSchema>;

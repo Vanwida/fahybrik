@@ -148,6 +148,8 @@ function mapSession(s: DomainWeekSession, index: number): EditorSession {
     uid: `session-${index}`,
     slot,
     time_hint: slot === 'am' ? '08:00' : slot === 'pm' ? '18:00' : undefined,
+    // Workout title round-trips from slots_json (WeekSession.focus).
+    ...(s.focus ? { focus: s.focus } : {}),
     blocks: (s.blocks ?? []).map((b, bi) => mapPart(b, bi)),
   };
 }
