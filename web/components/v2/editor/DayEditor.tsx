@@ -21,6 +21,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionPartCard } from './SessionPartCard';
+import { WeekContextStrip } from './WeekContextStrip';
 import { AddBlockModal } from './AddBlockModal';
 import { BlockEditor } from './BlockEditor';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
@@ -227,6 +228,16 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
+      {/* WEEK CONTEXT — the permanent week frame: the coach composes this day
+          while seeing the other six. Clicking a cell navigates to that day. */}
+      <WeekContextStrip
+        microcycleId={model.month_id}
+        weekName={model.week_name}
+        weekDays={model.week_days}
+        weekDayBase={model.week_day_base}
+        currentDayOfWeek={model.day_of_week}
+      />
+
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">

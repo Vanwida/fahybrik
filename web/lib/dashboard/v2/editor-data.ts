@@ -17,6 +17,8 @@ import type {
   WeekSession as DomainWeekSession,
 } from '@fahybrid/shared/schema/program-templates';
 import { modalityColorSlug } from './editor-axes';
+import { deriveWeekModalities } from './planes-model';
+import type { WeekSlots } from '@fahybrid/shared/schema/program-templates';
 import type {
   DayEditorModel,
   EditorBlock,
@@ -115,6 +117,17 @@ export async function loadDayEditorModel(params: {
 
   if (!week) return null; // microcycle with no weeks → no day to edit
 
+  // The WEEK CONTEXT strip: summarise all 7 days of the focused week with the
+  // SAME derivation the microcycle screen uses (modality per block, dominant,
+  // honest counts). Reuse, don't reinvent. An empty/absent slots_json degrades
+  // to 7 empty days, never throws.
+  const week_days = deriveWeekModalities(
+    (week.slots_json as WeekSlots | null) ?? { days: [] },
+  );
+  // The week's Monday in the month-wide flat index space → each strip cell links
+  // to `/microciclos/{month}/dia/{week_day_base + (dow-1)}`.
+  const week_day_base = week.week_index * DAYS_PER_WEEK;
+
   return {
     month_id: monthData.month.id,
     month_name: monthData.month.name,
@@ -124,6 +137,8 @@ export async function loadDayEditorModel(params: {
     day_of_week: dayOfWeek,
     day_label: WEEKDAY_NAMES[dayOfWeek - 1] ?? `Día ${dayOfWeek}`,
     sessions,
+    week_days,
+    week_day_base,
   };
 }
 

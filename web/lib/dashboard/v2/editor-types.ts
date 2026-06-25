@@ -5,6 +5,7 @@
 // domain model, not a scalar fallback.
 
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import type { DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 
 /** Coach-facing structural group of a block inside a session (the rail headings). */
 export type StructureGroup = 'calentamiento' | 'principal' | 'vuelta';
@@ -88,6 +89,19 @@ export interface DayEditorModel {
   day_of_week: number;
   day_label: string; // "Lunes 12 · ene"
   sessions: EditorSession[];
+  /**
+   * The WHOLE focused week's 7 days (Mon→Sun) summarised for the WEEK CONTEXT
+   * strip above the editor — the coach edits one day while seeing the other six.
+   * Reuses the same derivation as the microcycle screen (deriveWeekModalities):
+   * per-day modalities + dominant + honest block/item counts + rest/empty flags.
+   * No invented metrics; an empty day is empty, a rest day is rest.
+   */
+  week_days: DayModalityInfo[];
+  /**
+   * Flat 0-based day index of THIS week's Monday across the month, so the strip
+   * can build the nav href for each cell: `/microciclos/{month}/dia/{base + i}`.
+   */
+  week_day_base: number;
 }
 
 // ── Library rail / add-block result rows (SCREEN 8 rail + SCREEN 9 modal) ─────
