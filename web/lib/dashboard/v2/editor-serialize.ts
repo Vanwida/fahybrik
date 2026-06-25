@@ -172,6 +172,35 @@ export function serializeDay(params: {
   };
 }
 
+// ── Day clone (copiar día → día) ─────────────────────────────────────────────
+// DEEP-clone a fully-serialized day onto another day_of_week of the SAME week.
+// PURE clone — copies every field verbatim (prescriptions, config_json,
+// coach_note, exercise_id, …); it does NOT touch loads/%RM/pace (progression is
+// the coach's methodology, not our tech — decision D2). Block AND item uids are
+// regenerated so the cloned day never collides with the source inside the one
+// week's slots_json (uids are a per-week key space). No dates are added —
+// templates carry none (dates only exist on athlete assignment).
+function freshUid(): string {
+  // Available in both Node (≥19) and the browser; well under the 64-char cap.
+  return globalThis.crypto.randomUUID();
+}
+
+export function cloneDayTo(source: WeekDay, targetDayOfWeek: number): WeekDay {
+  const copy = structuredClone(source) as WeekDay;
+  return {
+    ...copy,
+    day_of_week: targetDayOfWeek,
+    sessions: (copy.sessions ?? []).map((session) => ({
+      ...session,
+      blocks: (session.blocks ?? []).map((block) => ({
+        ...block,
+        uid: freshUid(),
+        items: (block.items ?? []).map((item) => ({ ...item, uid: freshUid() })),
+      })),
+    })),
+  };
+}
+
 // Replace (or insert) the given day inside a week's days[], keyed by day_of_week,
 // preserving every other day untouched. Returns a new days[] (no mutation).
 export function mergeDayIntoDays(

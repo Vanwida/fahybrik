@@ -171,6 +171,109 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
 }
 
 /**
+ * DUPLICA una semana DENTRO de su microciclo: clona la `program_week_templates`
+ * (incluido su `slots_json` ENTERO — días/sesiones/bloques/ítems + prescripciones,
+ * config_json, coach_note, uids, exercise_id) en una semana NUEVA y la engancha
+ * en la junction justo DESPUÉS de la semana origen (posición origen + 1),
+ * desplazando las posteriores. Devuelve la nueva semana + su `week_index`.
+ *
+ * CLON PURO (decisión D2): NO ajusta cargas/%RM/ritmos (la progresión es la
+ * metodología del coach, no nuestra tecnología). NO añade fechas (las plantillas
+ * no las llevan; sólo existen al asignar a un atleta). El `exercise_id` se
+ * conserva (referencia al catálogo — no se clonan ejercicios). El `slots_json`
+ * se copia VERBATIM a nivel jsonb, así que no hay pérdida ni texto libre.
+ *
+ * La PK `(month_template_id, position)` obliga a desplazar las posiciones >= P+1
+ * en orden DESCENDENTE para no colisionar. Todo en una transacción.
+ */
+export async function duplicateWeekIntoMonth(params: {
+  coach_id: number | bigint;
+  month_id: number | bigint;
+  week_id: number | bigint;
+  client?: Sql;
+}): Promise<{ id: string; week_index: number }> {
+  const client = params.client ?? defaultSql;
+  const coach_id = Number(params.coach_id);
+  const month_id = Number(params.month_id);
+  const week_id = Number(params.week_id);
+
+  let newWeekId = '';
+  let newPosition = 0;
+
+  await client.begin(async (tx) => {
+    // Ownership del microciclo.
+    const owned = await tx<Array<{ id: string }>>`
+      select id::text from program_month_templates
+      where id = ${month_id} and coach_id = ${coach_id}
+      limit 1
+    `;
+    if (!owned[0]) {
+      throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
+    }
+
+    // La semana debe pertenecer a este microciclo → posición origen P.
+    const junction = await tx<Array<{ position: number }>>`
+      select mw.position
+      from program_month_weeks mw
+      join program_week_templates w on w.id = mw.week_template_id
+      where mw.month_template_id = ${month_id}
+        and mw.week_template_id = ${week_id}
+        and w.coach_id = ${coach_id}
+      limit 1
+    `;
+    const srcPosition = junction[0]?.position;
+    if (srcPosition === undefined) {
+      throw new ProgramMonthError('not_found', 'Semana no encontrada en este microciclo', 404);
+    }
+    newPosition = srcPosition + 1;
+
+    // Clon VERBATIM de la semana (slots_json incluido) como fila nueva.
+    const cloned = await tx<Array<{ id: string }>>`
+      insert into program_week_templates (
+        coach_id, name, level, atr_block_hint, focus, coach_notes, slots_json
+      )
+      select
+        coach_id,
+        name || ' (copia)',
+        level,
+        atr_block_hint,
+        focus,
+        coach_notes,
+        slots_json
+      from program_week_templates
+      where id = ${week_id} and coach_id = ${coach_id}
+      returning id::text
+    `;
+    if (!cloned[0]) {
+      throw new ProgramMonthError('not_found', 'Semana no encontrada', 404);
+    }
+    newWeekId = cloned[0].id;
+
+    // Hueco en la posición P+1: desplaza las posteriores en DESC para respetar
+    // la PK (month_template_id, position) sin colisión transitoria.
+    const toShift = await tx<Array<{ position: number }>>`
+      select position from program_month_weeks
+      where month_template_id = ${month_id} and position >= ${newPosition}
+      order by position desc
+    `;
+    for (const { position } of toShift) {
+      await tx`
+        update program_month_weeks
+        set position = ${position + 1}
+        where month_template_id = ${month_id} and position = ${position}
+      `;
+    }
+
+    await tx`
+      insert into program_month_weeks (month_template_id, week_template_id, position)
+      values (${month_id}, ${Number(newWeekId)}, ${newPosition})
+    `;
+  });
+
+  return { id: newWeekId, week_index: newPosition };
+}
+
+/**
  * Carga un microciclo (mes) + sus 4 (o N) semanas con `slots_json` parseado,
  * validando ownership por coach. Devuelve `null` si el mes no existe o no
  * pertenece al coach.

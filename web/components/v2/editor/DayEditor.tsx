@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from '@/i18n/navigation';
 import type {
   DayEditorModel,
   EditorBlock,
@@ -22,12 +23,38 @@ import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionPartCard } from './SessionPartCard';
 import { WeekContextStrip } from './WeekContextStrip';
+import { CopyDayModal } from './CopyDayModal';
 import { AddBlockModal } from './AddBlockModal';
 import { BlockEditor } from './BlockEditor';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { defaultCategoryForModality, withPickedExercise } from '@/lib/dashboard/v2/pick-exercise';
+
+// Wire shape for one edited day's sessions — shared by "Guardar día" and
+// "Copiar día a…" so both send the IDENTICAL structured payload (`slot` omitted:
+// it is positional). Single source of truth, no drift between the two calls.
+function sessionsToWire(sessions: EditorSession[]) {
+  return sessions.map((s) => ({
+    uid: s.uid,
+    slot: s.slot,
+    ...(s.focus && s.focus.trim() ? { focus: s.focus.trim() } : {}),
+    blocks: s.blocks.map((b) => ({
+      uid: b.uid,
+      title: b.title,
+      format: b.format,
+      methodology_group_id: b.methodology_group_id ?? null,
+      source_block_id: b.source_block_id ?? null,
+      items: b.items.map((it) => ({
+        uid: it.uid,
+        exercise_id: it.exercise_id,
+        exercise_name: it.exercise_name,
+        prescription: it.prescription,
+        ...(it.notes ? { notes: it.notes } : {}),
+      })),
+    })),
+  }));
+}
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
 const NEXT_SLOT: Record<number, EditorSession['slot']> = { 0: 'am', 1: 'pm' };
@@ -48,8 +75,10 @@ const SAVE_ICON: Record<SaveState, string> = {
 };
 
 export function DayEditor({ model }: { model: DayEditorModel }) {
+  const router = useRouter();
   const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [copyOpen, setCopyOpen] = useState(false);
 
   // Add-block modal target (which session) + item-edit drawer target + the
   // "añadir ejercicio" picker target (which block gets the picked exercise).
@@ -227,25 +256,7 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           day_of_week: model.day_of_week,
-          sessions: sessions.map((s) => ({
-            uid: s.uid,
-            slot: s.slot,
-            ...(s.focus && s.focus.trim() ? { focus: s.focus.trim() } : {}),
-            blocks: s.blocks.map((b) => ({
-              uid: b.uid,
-              title: b.title,
-              format: b.format,
-              methodology_group_id: b.methodology_group_id ?? null,
-              source_block_id: b.source_block_id ?? null,
-              items: b.items.map((it) => ({
-                uid: it.uid,
-                exercise_id: it.exercise_id,
-                exercise_name: it.exercise_name,
-                prescription: it.prescription,
-                ...(it.notes ? { notes: it.notes } : {}),
-              })),
-            })),
-          })),
+          sessions: sessionsToWire(sessions),
         }),
       });
       if (!res.ok) throw new Error(`save failed (${res.status})`);
@@ -253,6 +264,36 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
       setTimeout(() => setSaveState('idle'), 2000);
     } catch {
       setSaveState('error');
+    }
+  };
+
+  // "Copiar día a…" — copies THIS day's live content into another day of the same
+  // week. Returns 'conflict' when the target already has content and the coach has
+  // not confirmed overwrite (the modal then asks). On success navigates to the
+  // target day so the coach lands on the copy. Pure clone — no progression bump.
+  const copyDayTo = async (
+    targetDayOfWeek: number,
+    overwrite: boolean,
+  ): Promise<'ok' | 'conflict' | 'error'> => {
+    try {
+      const res = await fetch(`/api/coach/program-weeks/${model.week_id}/day/copy`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          from_day_of_week: model.day_of_week,
+          to_day_of_week: targetDayOfWeek,
+          sessions: sessionsToWire(sessions),
+          overwrite,
+        }),
+      });
+      if (res.status === 409) return 'conflict';
+      if (!res.ok) return 'error';
+      setCopyOpen(false);
+      router.push(`/microciclos/${model.month_id}/dia/${model.week_day_base + (targetDayOfWeek - 1)}`);
+      return 'ok';
+    } catch {
+      return 'error';
     }
   };
 
@@ -308,6 +349,22 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
             <MIcon name="add" size={16} />
             Añadir sesión
           </button>
+          {sessions.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setCopyOpen(true)}
+              disabled={!gate.ok}
+              title={
+                gate.ok
+                  ? 'Copia este día a otro día de la semana'
+                  : 'Completa las líneas sin ejercicio antes de copiar'
+              }
+              className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
+            >
+              <MIcon name="content_copy" size={16} />
+              Copiar día a…
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleSave}
@@ -372,6 +429,17 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
           ))
         )}
       </div>
+
+      {/* Copiar día a… — pick a target day of the SAME week. A target with
+          content asks for overwrite confirmation before replacing it. */}
+      {copyOpen ? (
+        <CopyDayModal
+          currentDayOfWeek={model.day_of_week}
+          weekDays={model.week_days}
+          onCopy={copyDayTo}
+          onClose={() => setCopyOpen(false)}
+        />
+      ) : null}
 
       {/* Añadir bloque — the type chooser. Picking a type creates the block. */}
       {addTo && addToSession ? (

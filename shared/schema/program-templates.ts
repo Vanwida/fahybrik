@@ -294,6 +294,26 @@ export const dayEditorSaveSchema = z.object({
 });
 export type DayEditorSave = z.infer<typeof dayEditorSaveSchema>;
 
+// ── Copiar día → día (v2 day editor) ─────────────────────────────────────────
+// The coach copies the day they're editing into ANOTHER day of the SAME week.
+// CLONE semantics (no progression bump — that is methodology, not tech): the
+// source day's LIVE sessions (exactly what the coach sees, incl. unsaved edits)
+// are sent and written into `to_day_of_week`, fully replacing it. `overwrite`
+// must be true to replace a target day that already holds content (the client
+// asks for confirmation first). Block/item uids are regenerated server-side so
+// the cloned day never collides with the source inside one week's slots_json.
+export const dayCopySchema = z
+  .object({
+    from_day_of_week: z.number().int().min(1).max(7),
+    to_day_of_week: z.number().int().min(1).max(7),
+    sessions: z.array(editorSessionInputSchema).max(6),
+    overwrite: z.boolean().default(false),
+  })
+  .refine((v) => v.from_day_of_week !== v.to_day_of_week, {
+    message: 'El día de origen y el de destino no pueden ser el mismo',
+  });
+export type DayCopy = z.infer<typeof dayCopySchema>;
+
 export const programWeekUpsertSchema = z.object({
   name: z.string().min(1).max(200),
   level: programLevelSchema,

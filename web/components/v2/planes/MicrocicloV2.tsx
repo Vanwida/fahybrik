@@ -10,7 +10,7 @@
 // A right rail summarizes the week and offers draggable library mini-blocks.
 
 import { useMemo, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
@@ -210,8 +210,29 @@ export function MicrocicloV2({
   /** methodology_group_id → coach label (agnostic) for the per-block group tag. */
   groupNames: Record<number, string>;
 }) {
+  const router = useRouter();
   const [focusIndex, setFocusIndex] = useState(0);
   const focus = useMemo(() => weeks[focusIndex] ?? weeks[0] ?? null, [weeks, focusIndex]);
+
+  // Duplicar la semana en foco: clon puro (sin progresión) enganchado justo
+  // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
+  const [duplicating, setDuplicating] = useState(false);
+  const duplicateWeek = async () => {
+    if (!focus || duplicating) return;
+    setDuplicating(true);
+    try {
+      const res = await fetch(
+        `/api/coach/program-months/${microcycle_id}/weeks/${focus.id}/duplicate`,
+        { method: 'POST', credentials: 'include' },
+      );
+      if (!res.ok) return;
+      const next = focusIndex + 1;
+      router.refresh();
+      setFocusIndex(next);
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   if (weeks.length === 0) {
     return (
@@ -225,7 +246,6 @@ export function MicrocicloV2({
 
   // Day editor offset: continuous day index across the microcycle.
   const dayBase = focusIndex * 7;
-  const prevLabel = focusIndex > 0 ? `S${focusIndex}` : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -303,20 +323,18 @@ export function MicrocicloV2({
               ) : null}
             </h2>
             <div className="ml-auto flex items-center gap-1.5">
-              {prevLabel ? (
-                <button
-                  type="button"
-                  // TODO(endpoint): wire "copiar +5%" to the week-duplicate-with-progression action.
-                  className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
-                >
-                  <MIcon name="content_copy" size={14} /> copiar {prevLabel} +5%
-                </button>
-              ) : null}
               <button
                 type="button"
-                className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
+                onClick={duplicateWeek}
+                disabled={duplicating}
+                title="Crea una copia idéntica de esta semana justo después"
+                className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)] disabled:opacity-60"
               >
-                <MIcon name="add" size={14} /> desde plantilla
+                <MIcon
+                  name={duplicating ? 'progress_activity' : 'content_copy'}
+                  size={14}
+                />
+                {duplicating ? 'Duplicando…' : 'Duplicar semana'}
               </button>
             </div>
           </div>
