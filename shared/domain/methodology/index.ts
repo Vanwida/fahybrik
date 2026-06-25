@@ -17,3 +17,4 @@ export * from './rule';
 export * from './conflict';
 export * from './zone-model';
 export * from './zones';
+export * from './test-types';
