@@ -13,9 +13,10 @@ import type {
   ExerciseTimeSeries,
 } from '@/lib/dashboard/coach/deep-dive-performance';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
+import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-export const ATLETA_TABS = ['perfil', 'plan', 'historico', 'biometria', 'mensajes'] as const;
+export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'historico', 'biometria', 'mensajes'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
 
@@ -65,6 +66,9 @@ export interface V2AthleteDetalle {
   subscription: AthleteSubscriptionStatus | null;
   /** Initial chat messages (role-resolved), newest last; null if thread load failed. */
   chat: { thread_id: string; messages: DetalleChatMessage[] } | null;
+  /** Current versioned zone profiles per modality (Ritmos/Zonas tab). Empty = no
+   *  test yet. READ from athlete_zone_profiles — the calculator never recomputes. */
+  zone_profiles: AthleteZoneProfile[];
 }
 
 // ── Tests de referencia (Perfil tab, left column) ──────────────────────────────

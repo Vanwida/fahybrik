@@ -36,6 +36,7 @@ import {
   type CoachChatMessage,
 } from '@/lib/dashboard/chat/service';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
+import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import type { V2Status } from '@/components/v2/StatusDot';
 import {
   type DetalleHeader,
@@ -150,13 +151,14 @@ export async function loadAthleteDetalle(params: {
   const shell = await fetchAthleteProfileShell({ coach_id, athlete_id, client }).catch(() => null);
   if (!shell) return null;
 
-  const [resumen, plan, body, performance, subscription, chat] = await Promise.all([
+  const [resumen, plan, body, performance, subscription, chat, zone_profiles] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
     buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePerformance({ coach_id, athlete_id, client }).catch(() => null),
     getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
     loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
+    loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
   ]);
 
   const { status, label } = deriveStatus(shell, resumen);
@@ -180,6 +182,7 @@ export async function loadAthleteDetalle(params: {
     performance,
     subscription,
     chat,
+    zone_profiles,
   };
 }
 
