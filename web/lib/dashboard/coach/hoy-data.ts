@@ -24,7 +24,7 @@ import {
   type InboxIntakeItem,
   type InboxWeekAdjustmentItem,
 } from '@/lib/dashboard/coach/inbox';
-import { presentSignal, tierForSignalSeverity } from '@/components/dashboard/hoy/triage-presentation';
+import { presentSignal, tierForSignalSeverity } from '@/lib/dashboard/coach/triage-presentation';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import type { CoachThreadSummary } from '@/lib/dashboard/chat/service';
@@ -34,8 +34,8 @@ import type {
   TriageDecisionItem,
   TriageMessageItem,
   TriageData,
-} from '@/components/dashboard/hoy/triage-types';
-import type { RailSessionSummary, RailUpcomingEvent } from '@/components/dashboard/hoy/HoyRail';
+} from '@/lib/dashboard/coach/triage-types';
+import type { RailSessionSummary, RailUpcomingEvent } from '@/lib/dashboard/coach/hoy-rail-types';
 
 /**
  * Signal kinds owned by another render path — dropped from the attention queue
