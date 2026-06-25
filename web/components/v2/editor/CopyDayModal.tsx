@@ -1,16 +1,18 @@
 'use client';
 
-// CopyDayModal — target-day picker for "Copiar día a…". The coach copies the day
-// they're editing into ANOTHER day of the SAME week. Each target shows its HONEST
-// current state (the same week summary the strip uses): a workout day lists its
-// modality chips + counts, a rest day reads "Descanso", an empty day "Vacío".
-// Copying onto a day that already has content asks for explicit confirmation
-// before overwriting — never a silent clobber.
+// CopyDayModal — target picker for "Copiar día a…". The coach copies the day they
+// are editing into one or more days, in the SAME week or in ANOTHER week of the
+// microciclo (cross-week). Pick a target WEEK (chips at the top), then check one
+// or more target DAYS — each shows its HONEST current state (workout chips +
+// counts, "Descanso", or "Vacío"). Copying onto days that already hold content
+// asks for explicit confirmation before overwriting — never a silent clobber.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { DAY_LABELS_FULL, type DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
+import type { DayEditorWeekRef } from '@/lib/dashboard/v2/editor-types';
+import { cn } from '@/lib/utils';
 
 type CopyResult = 'ok' | 'conflict' | 'error';
 
@@ -23,38 +25,88 @@ function dayStateLabel(day: DayModalityInfo): string {
 }
 
 export function CopyDayModal({
+  currentWeekId,
   currentDayOfWeek,
-  weekDays,
+  weeks,
   onCopy,
   onClose,
 }: {
+  /** Week the source day lives in (its own day is not a valid target). */
+  currentWeekId: string;
   currentDayOfWeek: number;
-  /** The focused week's 7 days, Mon→Sun (index i → day_of_week i+1). */
-  weekDays: DayModalityInfo[];
-  onCopy: (targetDayOfWeek: number, overwrite: boolean) => Promise<CopyResult>;
+  /** All weeks of the microciclo (incl. the current one), summarised. */
+  weeks: DayEditorWeekRef[];
+  onCopy: (toWeekId: string, toDays: number[], overwrite: boolean) => Promise<CopyResult>;
   onClose: () => void;
 }) {
-  // Target awaiting overwrite confirmation (has content), and transient states.
-  const [confirming, setConfirming] = useState<number | null>(null);
-  const [busy, setBusy] = useState<number | null>(null);
-  const [errored, setErrored] = useState<number | null>(null);
+  const [targetWeekId, setTargetWeekId] = useState(currentWeekId);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  // null = not asking; true = awaiting overwrite confirmation.
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errored, setErrored] = useState(false);
 
-  const run = async (targetDow: number, overwrite: boolean) => {
-    setBusy(targetDow);
-    setErrored(null);
-    const result = await onCopy(targetDow, overwrite);
-    setBusy(null);
+  const targetWeek = useMemo(
+    () => weeks.find((w) => w.id === targetWeekId) ?? weeks[0] ?? null,
+    [weeks, targetWeekId],
+  );
+  const isSameWeek = targetWeek?.id === currentWeekId;
+
+  // A target day is the source itself only when we're on the source's own week.
+  const isSource = (dow: number) => isSameWeek && dow === currentDayOfWeek;
+
+  const toggleDay = (dow: number) => {
+    if (isSource(dow) || busy) return;
+    setConfirming(false);
+    setErrored(false);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(dow)) next.delete(dow);
+      else next.add(dow);
+      return next;
+    });
+  };
+
+  const pickWeek = (id: string) => {
+    if (busy) return;
+    setTargetWeekId(id);
+    setSelected(new Set());
+    setConfirming(false);
+    setErrored(false);
+  };
+
+  const selectedDays = useMemo(() => [...selected].sort((a, b) => a - b), [selected]);
+
+  // Which selected target days already hold content (would be overwritten).
+  const conflictCount = useMemo(() => {
+    if (!targetWeek) return 0;
+    return selectedDays.filter((dow) => {
+      const d = targetWeek.days.find((x) => x.day_of_week === dow);
+      return !!d && d.session_count > 0;
+    }).length;
+  }, [targetWeek, selectedDays]);
+
+  const run = async (overwrite: boolean) => {
+    if (!targetWeek || selectedDays.length === 0) return;
+    setBusy(true);
+    setErrored(false);
+    const result = await onCopy(targetWeek.id, selectedDays, overwrite);
+    setBusy(false);
     if (result === 'ok') return; // parent navigates + closes
-    if (result === 'conflict') setConfirming(targetDow);
-    else setErrored(targetDow);
+    if (result === 'conflict') setConfirming(true);
+    else setErrored(true);
   };
 
-  const onPick = (day: DayModalityInfo) => {
-    if (busy != null) return;
-    const hasContent = day.session_count > 0;
-    if (hasContent) setConfirming(day.day_of_week);
-    else void run(day.day_of_week, false);
+  const onSubmit = () => {
+    if (selectedDays.length === 0) return;
+    if (conflictCount > 0 && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    void run(conflictCount > 0);
   };
+
+  const days = targetWeek?.days ?? [];
 
   return (
     <div
@@ -64,7 +116,7 @@ export function CopyDayModal({
       <div
         role="dialog"
         aria-modal
-        aria-label="Copiar día a otro día de la semana"
+        aria-label="Copiar día a otro día o semana"
         onClick={(e) => e.stopPropagation()}
         className="flex w-full max-w-md flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
       >
@@ -85,16 +137,43 @@ export function CopyDayModal({
           </button>
         </header>
 
-        <div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto p-4">
-          {weekDays.map((day, i) => {
+        {/* Target-week chips (only when the microciclo has >1 week). */}
+        {weeks.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-[color:var(--v2-border)] px-4 py-3">
+            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+              Semana
+            </span>
+            {weeks.map((w) => {
+              const active = w.id === targetWeekId;
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => pickWeek(w.id)}
+                  aria-pressed={active}
+                  className={cn(
+                    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 text-[11px] font-semibold transition-colors',
+                    active
+                      ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                      : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
+                  )}
+                >
+                  S{w.week_index + 1}
+                  {w.id === currentWeekId ? ' · esta' : ''}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="flex max-h-[52vh] flex-col gap-1.5 overflow-y-auto p-4">
+          {days.map((day, i) => {
             const dow = day.day_of_week;
-            const isCurrent = dow === currentDayOfWeek;
             const fullLabel = DAY_LABELS_FULL[i] ?? `Día ${dow}`;
             const hasContent = day.session_count > 0;
-            const isConfirming = confirming === dow;
-            const isBusy = busy === dow;
+            const checked = selected.has(dow);
 
-            if (isCurrent) {
+            if (isSource(dow)) {
               return (
                 <div
                   key={dow}
@@ -110,46 +189,26 @@ export function CopyDayModal({
               );
             }
 
-            if (isConfirming) {
-              return (
-                <div
-                  key={dow}
-                  className="flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5"
-                >
-                  <span className="min-w-0 truncate text-[13px] text-[color:var(--v2-danger)]">
-                    {fullLabel} ya tiene contenido. ¿Sobrescribir?
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setConfirming(null)}
-                      className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void run(dow, true)}
-                      disabled={isBusy}
-                      className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-2.5 text-[11px] font-bold text-white transition-colors disabled:opacity-60"
-                    >
-                      {isBusy ? <MIcon name="progress_activity" size={13} /> : null}
-                      Sobrescribir
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
             return (
               <button
                 key={dow}
                 type="button"
-                onClick={() => onPick(day)}
-                disabled={busy != null}
-                className="v2-focus group flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5 text-left transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
+                onClick={() => toggleDay(dow)}
+                disabled={busy}
+                aria-pressed={checked}
+                className={cn(
+                  'v2-focus group flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border px-3 py-2.5 text-left transition-colors disabled:opacity-50',
+                  checked
+                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft,rgba(255,122,26,.08))]'
+                    : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]',
+                )}
               >
                 <span className="flex min-w-0 items-center gap-2">
+                  <MIcon
+                    name={checked ? 'check_box' : 'check_box_outline_blank'}
+                    size={18}
+                    className={checked ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]'}
+                  />
                   <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
                     {fullLabel}
                   </span>
@@ -170,26 +229,53 @@ export function CopyDayModal({
                     </span>
                   ) : null}
                 </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
-                    {dayStateLabel(day)}
-                  </span>
-                  {isBusy ? (
-                    <MIcon name="progress_activity" size={15} className="text-[color:var(--v2-muted)]" />
-                  ) : errored === dow ? (
-                    <MIcon name="error" size={15} className="text-[color:var(--v2-danger)]" />
-                  ) : (
-                    <MIcon
-                      name="content_copy"
-                      size={15}
-                      className="text-[color:var(--v2-faint)] group-hover:text-[color:var(--v2-fg)]"
-                    />
-                  )}
+                <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+                  {dayStateLabel(day)}
                 </span>
               </button>
             );
           })}
         </div>
+
+        {/* Footer — overwrite confirmation + copy action. */}
+        <footer className="flex flex-col gap-2 border-t border-[color:var(--v2-border)] px-4 py-3">
+          {confirming && conflictCount > 0 ? (
+            <p className="text-[12px] text-[color:var(--v2-danger)]">
+              {conflictCount === 1
+                ? '1 día destino ya tiene contenido y se sobrescribirá.'
+                : `${conflictCount} días destino ya tienen contenido y se sobrescribirán.`}
+            </p>
+          ) : errored ? (
+            <p className="text-[12px] text-[color:var(--v2-danger)]">
+              No se pudo copiar. Inténtalo de nuevo.
+            </p>
+          ) : null}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-[color:var(--v2-muted)]">
+              {selectedDays.length === 0
+                ? 'Elige uno o más días'
+                : `${selectedDays.length} día${selectedDays.length === 1 ? '' : 's'} seleccionado${selectedDays.length === 1 ? '' : 's'}`}
+            </span>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={busy || selectedDays.length === 0}
+              className={cn(
+                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-4 text-sm font-bold transition-colors disabled:opacity-50',
+                confirming && conflictCount > 0
+                  ? 'bg-[color:var(--v2-danger,#c0362c)] text-white'
+                  : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
+              )}
+            >
+              {busy ? (
+                <MIcon name="progress_activity" size={16} />
+              ) : (
+                <MIcon name="content_copy" size={16} />
+              )}
+              {confirming && conflictCount > 0 ? 'Sobrescribir' : 'Copiar'}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   );

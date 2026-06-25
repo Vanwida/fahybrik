@@ -267,12 +267,14 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
     }
   };
 
-  // "Copiar día a…" — copies THIS day's live content into another day of the same
-  // week. Returns 'conflict' when the target already has content and the coach has
-  // not confirmed overwrite (the modal then asks). On success navigates to the
-  // target day so the coach lands on the copy. Pure clone — no progression bump.
+  // "Copiar día a…" — copies THIS day's live content into one or more target days,
+  // in the SAME week or in ANOTHER week of the microciclo (cross-week). Returns
+  // 'conflict' when a target already has content and the coach has not confirmed
+  // overwrite (the modal then asks). On success navigates to the first target day
+  // (in its week) so the coach lands on the copy. Pure clone — no progression bump.
   const copyDayTo = async (
-    targetDayOfWeek: number,
+    toWeekId: string,
+    toDays: number[],
     overwrite: boolean,
   ): Promise<'ok' | 'conflict' | 'error'> => {
     try {
@@ -282,7 +284,8 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           from_day_of_week: model.day_of_week,
-          to_day_of_week: targetDayOfWeek,
+          ...(toWeekId !== model.week_id ? { to_week_id: Number(toWeekId) } : {}),
+          to_days: toDays,
           sessions: sessionsToWire(sessions),
           overwrite,
         }),
@@ -290,7 +293,11 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
       if (res.status === 409) return 'conflict';
       if (!res.ok) return 'error';
       setCopyOpen(false);
-      router.push(`/microciclos/${model.month_id}/dia/${model.week_day_base + (targetDayOfWeek - 1)}`);
+      // Land on the first target day in its own week (flat day index across month).
+      const targetWeek = model.weeks.find((w) => w.id === toWeekId);
+      const base = (targetWeek?.week_index ?? model.week_index) * 7;
+      const firstDay = [...toDays].sort((a, b) => a - b)[0] ?? model.day_of_week;
+      router.push(`/microciclos/${model.month_id}/dia/${base + (firstDay - 1)}`);
       return 'ok';
     } catch {
       return 'error';
@@ -434,8 +441,9 @@ export function DayEditor({ model }: { model: DayEditorModel }) {
           content asks for overwrite confirmation before replacing it. */}
       {copyOpen ? (
         <CopyDayModal
+          currentWeekId={model.week_id}
           currentDayOfWeek={model.day_of_week}
-          weekDays={model.week_days}
+          weeks={model.weeks}
           onCopy={copyDayTo}
           onClose={() => setCopyOpen(false)}
         />

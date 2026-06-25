@@ -22,6 +22,7 @@ import {
   normalizeWeekSlots,
   parseWeekSlotsFromDb,
 } from './program-week-slots';
+import { upsertWeekTemplate } from './program-weeks';
 
 // Re-exports — shared CRUD core + schemas/types. Slot-serializing functions
 // (createMonthTemplateWithEmptyWeeks / loadMonthTemplateWithWeeks) stay local
@@ -271,6 +272,113 @@ export async function duplicateWeekIntoMonth(params: {
   });
 
   return { id: newWeekId, week_index: newPosition };
+}
+
+/** Una semana "tiene contenido" si ALGÚN día lleva al menos una sesión. */
+function weekHasContent(slots: { days?: Array<{ sessions?: unknown[] }> } | null | undefined): boolean {
+  return (slots?.days ?? []).some(
+    (d) => Array.isArray(d?.sessions) && d.sessions.length > 0,
+  );
+}
+
+/**
+ * Copia el CONTENIDO de una semana origen sobre una o varias semanas DESTINO que
+ * ya existen en el microciclo (la operación cross-week clave: "monto la semana 1
+ * y la estampo en la 2/3/4"). SOBRESCRIBE el `slots_json` de cada destino con un
+ * clon profundo del de origen (días/sesiones/bloques/ítems + prescripciones,
+ * `exercise_id` preservado). Cada destino CONSERVA su identidad (name/level/focus/
+ * coach_notes) — sólo se reemplaza el CONTENIDO.
+ *
+ * CLON PURO (decisión D2): NO ajusta cargas/%RM/ritmos (la progresión es la
+ * metodología del coach, no nuestra tecnología) ni añade fechas (las plantillas
+ * no las llevan). El clon profundo se hace por destino (`structuredClone`) para
+ * que cada semana sea un documento independiente, sin referencias compartidas.
+ *
+ * Gate de sobrescritura: si algún destino ya tiene contenido y `overwrite` no es
+ * true → 409 (el cliente confirma antes). Valida ownership del microciclo y que
+ * origen + destinos pertenezcan a ESTE microciclo. Todo en una transacción.
+ */
+export async function copyWeekContentInto(params: {
+  coach_id: number | bigint;
+  month_id: number | bigint;
+  source_week_id: number | bigint;
+  target_week_ids: Array<number | bigint>;
+  overwrite: boolean;
+  client?: Sql;
+}): Promise<{ copied_week_ids: string[] }> {
+  const client = params.client ?? defaultSql;
+  const sourceId = String(params.source_week_id);
+  const targetIds = params.target_week_ids.map((id) => String(id));
+
+  const data = await loadMonthTemplateWithWeeks({
+    coach_id: params.coach_id,
+    month_id: params.month_id,
+    client,
+  });
+  if (!data) {
+    throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
+  }
+
+  const weeksById = new Map(data.weeks.map((w) => [w.id, w]));
+  const source = weeksById.get(sourceId);
+  if (!source) {
+    throw new ProgramMonthError('not_found', 'Semana origen no encontrada en este microciclo', 404);
+  }
+
+  // Destinos: deben pertenecer a este microciclo, ser distintos del origen y no
+  // repetirse. Cualquier id inválido aborta la operación entera (sin copias a medias).
+  const seen = new Set<string>();
+  const targets: MonthTemplateWeekFull[] = [];
+  for (const id of targetIds) {
+    if (id === sourceId) {
+      throw new ProgramMonthError('invalid_target', 'El origen no puede ser también destino', 400);
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const target = weeksById.get(id);
+    if (!target) {
+      throw new ProgramMonthError('not_found', 'Semana destino no encontrada en este microciclo', 404);
+    }
+    targets.push(target);
+  }
+  if (targets.length === 0) {
+    throw new ProgramMonthError('invalid_target', 'No hay semanas destino válidas', 400);
+  }
+
+  // Gate de sobrescritura: ningún destino con contenido se pisa sin confirmar.
+  if (!params.overwrite) {
+    const nonEmpty = targets.filter((t) => weekHasContent(t.slots_json));
+    if (nonEmpty.length > 0) {
+      throw new ProgramMonthError(
+        'weeks_not_empty',
+        `${nonEmpty.length} semana(s) destino ya tienen contenido`,
+        409,
+      );
+    }
+  }
+
+  await client.begin(async (tx) => {
+    for (const target of targets) {
+      // Clon profundo independiente por destino (sin referencias compartidas).
+      const clonedSlots = structuredClone(source.slots_json);
+      await upsertWeekTemplate({
+        coach_id: params.coach_id,
+        id: Number(target.id),
+        payload: {
+          // Conserva la identidad del destino; sólo reemplaza el contenido.
+          name: target.name,
+          level: target.level,
+          atr_block_hint: target.atr_block_hint,
+          focus: target.focus,
+          coach_notes: target.coach_notes,
+          slots_json: clonedSlots,
+        },
+        client: tx,
+      });
+    }
+  });
+
+  return { copied_week_ids: targets.map((t) => t.id) };
 }
 
 /**

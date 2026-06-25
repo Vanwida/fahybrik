@@ -24,6 +24,7 @@ import {
 } from '@/lib/dashboard/v2/planes-model';
 import { MODALITY_META } from '@/components/v2/constants';
 import type { MicroLibraryItem, MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
+import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { cn } from '@/lib/utils';
 
 // The day card's primary heading: the first session focus the coach set, else
@@ -217,6 +218,7 @@ export function MicrocicloV2({
   // Duplicar la semana en foco: clon puro (sin progresión) enganchado justo
   // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
   const [duplicating, setDuplicating] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const duplicateWeek = async () => {
     if (!focus || duplicating) return;
     setDuplicating(true);
@@ -323,6 +325,17 @@ export function MicrocicloV2({
               ) : null}
             </h2>
             <div className="ml-auto flex items-center gap-1.5">
+              {weeks.length > 1 && focus ? (
+                <button
+                  type="button"
+                  onClick={() => setCopyOpen(true)}
+                  title="Copia el contenido de esta semana sobre otras semanas del microciclo"
+                  className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
+                >
+                  <MIcon name="library_add" size={14} />
+                  Copiar a…
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={duplicateWeek}
@@ -396,6 +409,16 @@ export function MicrocicloV2({
           </section>
         </aside>
       </div>
+
+      {/* Copiar a… — estampa el contenido de la semana en foco sobre otras. */}
+      {copyOpen && focus ? (
+        <CopyWeekModal
+          microcycleId={microcycle_id}
+          sourceWeek={focus}
+          weeks={weeks}
+          onClose={() => setCopyOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

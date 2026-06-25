@@ -108,6 +108,22 @@ export interface DayEditorModel {
    * can build the nav href for each cell: `/microciclos/{month}/dia/{base + i}`.
    */
   week_day_base: number;
+  /**
+   * ALL the weeks of the microciclo (incl. the current one), summarised, so
+   * "Copiar día a…" can target ANOTHER week (cross-week) and show each candidate
+   * day's honest content state. Same DayModalityInfo derivation as week_days.
+   */
+  weeks: DayEditorWeekRef[];
+}
+
+export interface DayEditorWeekRef {
+  /** program_week_templates.id — the cross-week copy target. */
+  id: string;
+  /** 0-based position within the microciclo. */
+  week_index: number;
+  name: string;
+  /** Always 7 entries, Mon→Sun, for content-state display. */
+  days: DayModalityInfo[];
 }
 
 // ── Library rail / add-block result rows (SCREEN 8 rail + SCREEN 9 modal) ─────

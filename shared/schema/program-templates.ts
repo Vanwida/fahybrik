@@ -294,25 +294,47 @@ export const dayEditorSaveSchema = z.object({
 });
 export type DayEditorSave = z.infer<typeof dayEditorSaveSchema>;
 
-// ── Copiar día → día (v2 day editor) ─────────────────────────────────────────
-// The coach copies the day they're editing into ANOTHER day of the SAME week.
-// CLONE semantics (no progression bump — that is methodology, not tech): the
-// source day's LIVE sessions (exactly what the coach sees, incl. unsaved edits)
-// are sent and written into `to_day_of_week`, fully replacing it. `overwrite`
-// must be true to replace a target day that already holds content (the client
-// asks for confirmation first). Block/item uids are regenerated server-side so
-// the cloned day never collides with the source inside one week's slots_json.
+// ── Copiar día(s) → otra semana / otro día (v2 day editor) ───────────────────
+// The coach copies the day they're editing into one or more TARGET days, in the
+// SAME week or in ANOTHER week of the microciclo (cross-week). CLONE semantics
+// (no progression bump — that is methodology, not tech): the source day's LIVE
+// sessions (exactly what the coach sees, incl. unsaved edits) are sent and
+// written into each `to_days` entry of the target week, fully replacing it.
+// `to_week_id` omitted = same week as the source. `overwrite` must be true to
+// replace a target day that already holds content (the client confirms first).
+// Block/item uids are regenerated server-side so a clone never collides with the
+// source inside one week's slots_json.
 export const dayCopySchema = z
   .object({
     from_day_of_week: z.number().int().min(1).max(7),
-    to_day_of_week: z.number().int().min(1).max(7),
+    /** Omitted = copy within the SAME week as the source. */
+    to_week_id: idSchema.optional(),
+    /** One or more target days (1..7) to overwrite with the cloned source day. */
+    to_days: z.array(z.number().int().min(1).max(7)).min(1).max(7),
     sessions: z.array(editorSessionInputSchema).max(6),
     overwrite: z.boolean().default(false),
   })
-  .refine((v) => v.from_day_of_week !== v.to_day_of_week, {
-    message: 'El día de origen y el de destino no pueden ser el mismo',
+  // When staying in the SAME week (no to_week_id), a day can't be copied onto
+  // itself. The cross-week / explicit-same-id case is enforced server-side, which
+  // is the only place the source week id is known.
+  .refine((v) => v.to_week_id !== undefined || !v.to_days.includes(v.from_day_of_week), {
+    message: 'No se puede copiar un día sobre sí mismo',
   });
 export type DayCopy = z.infer<typeof dayCopySchema>;
+
+// ── Copiar el CONTENIDO de una semana → otra(s) semana(s) ────────────────────
+// The key cross-week op: the coach builds one week and stamps its content onto
+// other weeks ALREADY in the microciclo. OVERWRITES each target week's slots_json
+// with a deep clone of the source (days/sessions/blocks/items + prescriptions,
+// exercise_id preserved, NO dates, NO progression). Targets keep their own
+// identity (name/level/focus) — only the CONTENT is replaced. `overwrite` must be
+// true to replace a target that already holds content (the client confirms first).
+export const weekContentCopySchema = z.object({
+  /** Target weeks (program_week_templates.id) to receive the cloned content. */
+  target_week_ids: z.array(idSchema).min(1).max(12),
+  overwrite: z.boolean().default(false),
+});
+export type WeekContentCopy = z.infer<typeof weekContentCopySchema>;
 
 export const programWeekUpsertSchema = z.object({
   name: z.string().min(1).max(200),

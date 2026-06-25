@@ -128,6 +128,18 @@ export async function loadDayEditorModel(params: {
   // to `/microciclos/{month}/dia/{week_day_base + (dow-1)}`.
   const week_day_base = week.week_index * DAYS_PER_WEEK;
 
+  // ALL weeks of the microciclo, summarised, for the cross-week "Copiar día a…"
+  // target picker. Same per-day derivation as week_days; never throws on empties.
+  const weeks = monthData.weeks
+    .slice()
+    .sort((a, b) => a.week_index - b.week_index)
+    .map((w) => ({
+      id: w.id,
+      week_index: w.week_index,
+      name: w.name ?? `Semana ${w.week_index + 1}`,
+      days: deriveWeekModalities((w.slots_json as WeekSlots | null) ?? { days: [] }),
+    }));
+
   return {
     month_id: monthData.month.id,
     month_name: monthData.month.name,
@@ -139,6 +151,7 @@ export async function loadDayEditorModel(params: {
     sessions,
     week_days,
     week_day_base,
+    weeks,
   };
 }
 

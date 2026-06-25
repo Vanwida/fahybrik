@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
   programWeekUpsertSchema,
@@ -77,7 +77,8 @@ export async function upsertWeekTemplate(params: {
   coach_id: number | bigint;
   id?: number | bigint | undefined;
   payload: unknown;
-  client?: Sql | undefined;
+  // Accepts a transaction handle so callers can batch several upserts atomically.
+  client?: Sql | TransactionClient | undefined;
 }) {
   const parsed = programWeekUpsertSchema.safeParse(params.payload);
   if (!parsed.success) {
