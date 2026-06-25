@@ -28,13 +28,16 @@ import {
   defaultMeasureForModality,
   defaultTargetForModality,
 } from '@/components/dashboard/programming/studio/prescription-model';
+import { createHyroxSimBlock } from '@/lib/dashboard/v2/hyrox-template';
 
 // ── The four underlying form patterns (9 archetypes → 4 forms) ───────────────
 // STEADY      — one line: duración|distancia + zona|RPE|ritmo  (Z2 / tempo / activación / test)
 // INTERVALS   — N × (distancia|tiempo work) @ ritmo|RPE + descanso  (series / intervalos)
 // SETS_TABLE  — the per-set table: reps × %RM|kg × descanso × tempo  (fuerza)
-// COMPONENTS  — formato (For Time|AMRAP|EMOM|Rondas) + lista de componentes + cap  (WOD / metcon / circuito / sim)
-export type FormPattern = 'steady' | 'intervals' | 'sets_table' | 'components';
+// COMPONENTS  — formato (For Time|AMRAP|EMOM|Rondas) + lista de componentes + cap  (WOD / metcon / circuito)
+// HYROX_SIM   — the dedicated ORDERED race template: 16 fixed legs (8 runs + 8
+//               stations in official order) + Open/Pro standard loads  (Simulación HYROX)
+export type FormPattern = 'steady' | 'intervals' | 'sets_table' | 'components' | 'hyrox_sim';
 
 export type ArchetypeId =
   | 'steady_run'
@@ -110,18 +113,14 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'hyrox_sim',
-    name: 'Simulación HYROX/DEKA',
-    purpose: 'Plantilla de 8 estaciones + 8×1 km en orden + ritmos objetivo.',
+    name: 'Simulación HYROX',
+    purpose: 'Plantilla de carrera: 8 × 1 km + las 8 estaciones en orden + cargas Open/Pro.',
     icon: 'sports_score',
     modalitySlug: 'circuito',
-    pattern: 'components',
+    pattern: 'hyrox_sim',
     frequency: '35×',
     format: 'hyrox_sim',
     defaultTitle: 'Simulación HYROX',
-    deferred: {
-      routesTo: 'wod_metcon',
-      note: 'La plantilla oficial de 8 estaciones + runs intercalados llega en el siguiente chunk. Por ahora se edita como un WOD/Metcon For Time (añade las estaciones como componentes).',
-    },
   },
   {
     id: 'circuit_core',
@@ -342,6 +341,10 @@ export function createBlockFromArchetype(
   id: ArchetypeId,
   group: StructureGroup,
 ): EditorBlock {
+  // Simulación HYROX has a dedicated, ordered race template (16 pre-seeded legs
+  // with real exercise_ids + standard loads) — not the generic single-item seed.
+  if (id === 'hyrox_sim') return createHyroxSimBlock(group);
+
   const archetype = getArchetype(id);
   const prescription = seedArchetype(id);
   const now = Date.now();

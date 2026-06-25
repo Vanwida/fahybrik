@@ -31,6 +31,7 @@ import { SteadyForm } from './archetype-forms/SteadyForm';
 import { IntervalsForm } from './archetype-forms/IntervalsForm';
 import { SetsTableForm } from './archetype-forms/SetsTableForm';
 import { ComponentsForm } from './archetype-forms/ComponentsForm';
+import { SimulacionHyroxForm } from './archetype-forms/SimulacionHyroxForm';
 
 export function ArchetypeBlockForm({
   block,
@@ -53,8 +54,9 @@ export function ArchetypeBlockForm({
     : // Reloaded block: derive the header card from the stored format.
       archetypeForFormat(block.format);
 
-  // Single-item patterns operate on the first item's prescription; ensure one.
-  const isComponents = pattern === 'components';
+  // Multi-item patterns (components, hyrox_sim) edit the block's ITEM LIST; the
+  // single-item patterns (steady/intervals/sets_table) edit one item's prescription.
+  const isMultiItem = pattern === 'components' || pattern === 'hyrox_sim';
   const firstItem: EditorItem | undefined = block.items[0];
 
   const setFirstItem = (patch: Partial<EditorItem>) => {
@@ -90,7 +92,7 @@ export function ArchetypeBlockForm({
       ) : null}
 
       {/* Exercise name (single-item patterns) */}
-      {!isComponents && firstItem ? (
+      {!isMultiItem && firstItem ? (
         <label className="block space-y-1.5">
           <span className="v2-micro">Ejercicio</span>
           <TextCell
@@ -112,6 +114,8 @@ export function ArchetypeBlockForm({
         <SetsTableForm value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : pattern === 'components' ? (
         <ComponentsForm block={block} onChange={onChange} />
+      ) : pattern === 'hyrox_sim' ? (
+        <SimulacionHyroxForm block={block} onChange={onChange} />
       ) : (
         <p className="text-sm text-[color:var(--v2-muted)]">
           Elige un tipo de bloque para configurar la prescripción.
@@ -122,7 +126,7 @@ export function ArchetypeBlockForm({
       <PhaseInheritLine label={inheritedPhaseLabel} />
 
       {/* Athlete preview (the resolved line) — single-item patterns */}
-      {!isComponents && firstItem ? (
+      {!isMultiItem && firstItem ? (
         <AthletePreviewLine
           prescription={firstItem.prescription}
           exerciseName={firstItem.exercise_name}
@@ -131,7 +135,7 @@ export function ArchetypeBlockForm({
       ) : null}
 
       {/* Advanced escape hatch — full axes for the rare override (single-item) */}
-      {!isComponents && firstItem ? (
+      {!isMultiItem && firstItem ? (
         <AdvancedHatch value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : null}
     </div>
