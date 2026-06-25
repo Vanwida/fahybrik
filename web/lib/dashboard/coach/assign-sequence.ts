@@ -15,6 +15,10 @@ import type {
   ProgramSequenceItem,
   SequenceEndPolicy,
 } from '@fahybrid/shared/schema/program-sequences';
+import {
+  SEQUENCE_DAYS_MIN,
+  SEQUENCE_DAYS_MAX,
+} from '@fahybrid/shared/schema/program-sequences';
 import { getCoachSequenceCell } from './sequences';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import {
@@ -83,11 +87,9 @@ export type ResolveFailureReason =
   | 'no_sequence_for_cell' // coach has no sequence for (level, days)
   | 'empty_sequence'; // sequence exists but has zero microciclos
 
-// Sequences are only defined for a realistic 3-6 sessions/week band
-// (shared/schema/program-sequences.ts sequenceDaysPerWeek). Mirror it here so the
-// resolver reports `days_out_of_band` instead of a silent miss.
-const SEQUENCE_DAYS_MIN = 3;
-const SEQUENCE_DAYS_MAX = 6;
+// Sequences are only defined for a realistic 3-6 sessions/week band — the band
+// constants are single-sourced in shared/schema/program-sequences.ts (imported
+// above) so the resolver, the training-days endpoint and the selector agree.
 
 type AthleteRow = {
   athlete_id: string;

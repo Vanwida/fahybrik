@@ -21,8 +21,16 @@ export type SequenceEndPolicy = z.infer<typeof sequenceEndPolicy>;
 export const sequenceProgressionTarget = z.enum(['strength_load', 'volume', 'pace']);
 export type SequenceProgressionTarget = z.infer<typeof sequenceProgressionTarget>;
 
-// HYROX/hybrid realistic training cadence.
-export const sequenceDaysPerWeek = z.number().int().min(3).max(6);
+// HYROX/hybrid realistic training cadence. SINGLE SOURCE for the band: the Zod
+// schema, the assign-sequence resolver, the training-days endpoint and the
+// athlete-detail selector all derive from these two constants.
+export const SEQUENCE_DAYS_MIN = 3;
+export const SEQUENCE_DAYS_MAX = 6;
+export const sequenceDaysPerWeek = z
+  .number()
+  .int()
+  .min(SEQUENCE_DAYS_MIN)
+  .max(SEQUENCE_DAYS_MAX);
 
 // ---------------------------------------------------------------------------
 // Full row shapes (what GET returns).

@@ -37,11 +37,17 @@ import {
 } from '@/lib/dashboard/chat/service';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
+import { loadCoachLevels } from '@/lib/dashboard/v2/periodizacion';
+import {
+  SEQUENCE_DAYS_MIN,
+  SEQUENCE_DAYS_MAX,
+} from '@fahybrid/shared/schema/program-sequences';
 import type { V2Status } from '@/components/v2/StatusDot';
 import {
   type DetalleHeader,
   type DetalleStat,
   type DetalleChatMessage,
+  type ClasificacionData,
   type V2AthleteDetalle,
 } from './atleta-detalle-types';
 
@@ -58,6 +64,8 @@ export type {
   DetalleHeader,
   DetalleStat,
   DetalleChatMessage,
+  ClasificacionData,
+  ClasificacionLevelOption,
   V2AthleteDetalle,
   ReferenceTest,
   DerivedObjective,
@@ -136,6 +144,56 @@ function buildStats(resumen: AthleteResumen | null, body: BodyPayload | null): D
   ];
 }
 
+/**
+ * Loads the athlete's assignment classification: their current level_id +
+ * training_days_per_week, the algorithmic level suggestion (so the coach can
+ * confirm it inline), and the coach's full level set for the picker. Ownership is
+ * already gated by the shell load upstream; this reads the same athlete row.
+ */
+async function loadClassification(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  client: Sql;
+}): Promise<ClasificacionData> {
+  const { coach_id, athlete_id, client } = params;
+
+  const [rows, levels] = await Promise.all([
+    client<
+      Array<{
+        level_id: string | null;
+        level_name: string | null;
+        suggested_level_id: string | null;
+        suggested_level_name: string | null;
+        training_days_per_week: number | null;
+      }>
+    >`
+      select
+        a.level_id::text             as level_id,
+        al.name                      as level_name,
+        a.suggested_level_id::text   as suggested_level_id,
+        sal.name                     as suggested_level_name,
+        a.training_days_per_week
+      from athletes a
+      left join athlete_levels al  on al.id = a.level_id
+      left join athlete_levels sal on sal.id = a.suggested_level_id
+      where a.id = ${athlete_id} and a.coach_id = ${coach_id}
+      limit 1
+    `,
+    loadCoachLevels(coach_id, client),
+  ]);
+
+  const row = rows[0];
+  return {
+    level_id: row?.level_id ?? null,
+    level_name: row?.level_name ?? null,
+    suggested_level_id: row?.suggested_level_id ?? null,
+    suggested_level_name: row?.suggested_level_name ?? null,
+    training_days_per_week: row?.training_days_per_week ?? null,
+    levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label })),
+    days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
+  };
+}
+
 // ── Main orchestrator ───────────────────────────────────────────────────────────
 export async function loadAthleteDetalle(params: {
   coach_id: number | bigint;
@@ -150,15 +208,17 @@ export async function loadAthleteDetalle(params: {
   const shell = await fetchAthleteProfileShell({ coach_id, athlete_id, client }).catch(() => null);
   if (!shell) return null;
 
-  const [resumen, plan, body, performance, subscription, chat, zone_profiles] = await Promise.all([
-    buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
-    buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
-    buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
-    buildAthletePerformance({ coach_id, athlete_id, client }).catch(() => null),
-    getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
-    loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
-    loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
-  ]);
+  const [resumen, plan, body, performance, subscription, chat, zone_profiles, classification] =
+    await Promise.all([
+      buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
+      buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
+      buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
+      buildAthletePerformance({ coach_id, athlete_id, client }).catch(() => null),
+      getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
+      loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
+      loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
+      loadClassification({ coach_id, athlete_id, client }).catch(() => null),
+    ]);
 
   const { status, label } = deriveStatus(shell, resumen);
   const header: DetalleHeader = {
@@ -172,9 +232,22 @@ export async function loadAthleteDetalle(params: {
     modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
   };
 
+  // Degrade safely: a failed classification load renders the picker in its empty
+  // state (no level / no days) rather than 500-ing the page.
+  const safeClassification: ClasificacionData = classification ?? {
+    level_id: null,
+    level_name: null,
+    suggested_level_id: null,
+    suggested_level_name: null,
+    training_days_per_week: null,
+    levels: [],
+    days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
+  };
+
   return {
     header,
     stats: buildStats(resumen, body),
+    classification: safeClassification,
     resumen,
     plan,
     body,

@@ -55,10 +55,37 @@ export interface DetalleChatMessage {
   created_at: string;
 }
 
+// ── Clasificación (Perfil tab) — the two axes the assignment resolver needs ─────
+// An athlete becomes assignable once BOTH level_id and training_days_per_week are
+// set. This block carries the current values, the algorithmic level suggestion
+// (when the coach hasn't confirmed one), the coach's full level set for the
+// picker, and the valid days band — so nivel + días live in ONE place.
+export interface ClasificacionLevelOption {
+  id: string;
+  /** Short code shown as the chip, e.g. "N1". */
+  name: string;
+  /** Human-readable label, e.g. "Iniciación". */
+  label: string;
+}
+
+export interface ClasificacionData {
+  level_id: string | null;
+  level_name: string | null;
+  suggested_level_id: string | null;
+  suggested_level_name: string | null;
+  training_days_per_week: number | null;
+  /** The coach's levels, ordered, for the picker. */
+  levels: ClasificacionLevelOption[];
+  /** Inclusive valid band for días/semana (from the shared sequence schema). */
+  days_band: { min: number; max: number };
+}
+
 // ── The unified payload the page passes to the client ──────────────────────────
 export interface V2AthleteDetalle {
   header: DetalleHeader;
   stats: DetalleStat[];
+  /** Nivel + días/semana — the assignment classification (Perfil tab). */
+  classification: ClasificacionData;
   resumen: AthleteResumen | null;
   plan: AthletePlanPayload | null;
   body: BodyPayload | null;

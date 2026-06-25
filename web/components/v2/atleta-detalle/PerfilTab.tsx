@@ -11,7 +11,11 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, DashedAction, relativeDate } from './parts';
-import type { PerfilTabData } from '@/lib/dashboard/v2/atleta-detalle-types';
+import { ClasificacionCard } from './ClasificacionCard';
+import type {
+  PerfilTabData,
+  ClasificacionData,
+} from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
 
 function TestCard({
@@ -89,14 +93,26 @@ function ObjectiveRow({
   );
 }
 
-export function PerfilTab({ data }: { data: PerfilTabData }) {
+export function PerfilTab({
+  data,
+  classification,
+  athleteId,
+}: {
+  data: PerfilTabData;
+  classification: ClasificacionData;
+  athleteId: string;
+}) {
   const versionLabel =
     data.profile_version != null
       ? `versión ${data.profile_version} · recalculada tras re-test`
       : 'sin versionar todavía';
 
   return (
-    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_auto_1fr]">
+    <div className="flex flex-col gap-4">
+      {/* Clasificación — nivel + días (gates assignment) */}
+      <ClasificacionCard athleteId={athleteId} data={classification} />
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_auto_1fr]">
       {/* LEFT · reference tests */}
       <Panel
         title="Tests de referencia · desde la app"
@@ -165,6 +181,7 @@ export function PerfilTab({ data }: { data: PerfilTabData }) {
           </button>
         </div>
       </Panel>
+      </div>
     </div>
   );
 }

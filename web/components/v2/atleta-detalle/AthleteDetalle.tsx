@@ -32,7 +32,11 @@ export function AthleteDetalle({
 
       <div className="v2-stagger">
         {tab === 'perfil' ? (
-          <PerfilTab data={selectPerfilTab(detalle)} />
+          <PerfilTab
+            data={selectPerfilTab(detalle)}
+            classification={detalle.classification}
+            athleteId={header.athlete_id}
+          />
         ) : tab === 'plan' ? (
           <PlanTab plan={detalle.plan} resumen={detalle.resumen} athlete_id={header.athlete_id} />
         ) : tab === 'ritmos' ? (

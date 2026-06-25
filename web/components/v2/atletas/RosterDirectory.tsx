@@ -13,6 +13,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { FilterDropdown, type DropdownOption } from '@/components/v2/atletas/FilterDropdown';
 import { RosterTable } from '@/components/v2/atletas/RosterTable';
+import { AddAthleteModal } from '@/components/v2/atletas/AddAthleteModal';
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import { toRosterRow, type RosterRow } from '@/lib/dashboard/v2/atletas-row';
 import type { RosterStatus } from '@/lib/dashboard/v2/atletas-status';
@@ -90,6 +91,7 @@ export function RosterDirectory({
   coach_name: string;
 }) {
   const [query, setQuery] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const [status, setStatus] = useState<StatusFilter>('todos');
   const [level, setLevel] = useState<LevelFilter>('todos');
   const [phase, setPhase] = useState<PhaseFilter>('todas');
@@ -188,6 +190,14 @@ export function RosterDirectory({
               )}
             />
           </label>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+          >
+            <MIcon name="person_add" size={17} />
+            Agregar atleta
+          </button>
           <AthleteAvatar name={coach_name} size="md" />
         </div>
       </div>
@@ -236,6 +246,8 @@ export function RosterDirectory({
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
       <RosterTable rows={filtered} total={rows.length} hasAnyAthletes={rows.length > 0} />
+
+      {addOpen ? <AddAthleteModal onClose={() => setAddOpen(false)} /> : null}
     </div>
   );
 }
