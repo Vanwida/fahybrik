@@ -40,7 +40,17 @@ export type {
   MonthTemplateWithWeeks,
 };
 
-const WEEK_LABELS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4 (deload)'] as const;
+/**
+ * Builds the per-week labels for an N-week microciclo. "Semana N" for each, with
+ * "(deload)" appended to the LAST week when the block has ≥ 3 weeks (a 1–2 week
+ * block has no deload). Generalizes the old hardcoded 4-week label set.
+ */
+function weekLabels(weeks: number): string[] {
+  return Array.from({ length: weeks }, (_, i) => {
+    const isDeload = weeks >= 3 && i === weeks - 1;
+    return `Semana ${i + 1}${isDeload ? ' (deload)' : ''}`;
+  });
+}
 
 export async function listMonthTemplates(params: {
   coach_id: number | bigint;
@@ -97,10 +107,11 @@ export async function deleteMonthTemplate(params: {
 }
 
 /**
- * Crea un microciclo (mes ≈ 4 semanas) + sus 4 semanas vacías + entradas en la
- * junction `program_month_weeks` (positions 0-3) dentro de una transacción.
+ * Crea un microciclo (mes) + sus N semanas vacías + entradas en la junction
+ * `program_month_weeks` (positions 0..N-1) dentro de una transacción. N lo elige
+ * el coach (`weeks`, 1–6, default 4 — ver `programMonthCreateSchema`).
  *
- * Las 4 semanas heredan `level` y `atr_block_hint` del microciclo; nombres
+ * Las semanas heredan `level` y `atr_block_hint` del microciclo; nombres
  * "{name} · Semana N"; cada una con `slots_json` de 7 días en rest
  * (helper `emptyWeekSlots()`). El `focus` opcional se propaga a cada semana.
  *
@@ -140,8 +151,9 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
     `;
     monthId = monthRows[0]!.id;
 
-    for (let i = 0; i < 4; i++) {
-      const label = WEEK_LABELS[i]!;
+    const labels = weekLabels(body.weeks);
+    for (let i = 0; i < labels.length; i++) {
+      const label = labels[i]!;
       const weekName = `${body.name} · ${label}`;
       const weekRows = await tx<Array<{ id: string }>>`
         insert into program_week_templates (

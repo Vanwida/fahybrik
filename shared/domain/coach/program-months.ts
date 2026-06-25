@@ -1,8 +1,10 @@
 import type { Sql } from 'postgres';
 import { z } from 'zod';
 import {
+  PROGRAM_LEVELS,
   programLevelSchema,
   programMonthUpsertSchema,
+  type ProgramLevel,
   type ProgramMonthUpsert,
   type WeekSlots,
 } from '../../schema/program-templates';
@@ -18,10 +20,42 @@ import { atrBlockType } from '../../schema/_primitives';
  * funciones encima de este núcleo.
  */
 
-/** Body validation for POST /api/coach/program-months/create. */
+/**
+ * Realistic range for a microciclo's week count. HYROX/hybrid blocks run 1–6
+ * weeks (a deload-capped accumulation block tops out ~6); the agnostic default
+ * mirrors the historical "4-week month".
+ */
+export const MICROCYCLE_WEEKS_MIN = 1;
+export const MICROCYCLE_WEEKS_MAX = 6;
+export const MICROCYCLE_WEEKS_DEFAULT = 4;
+
+/**
+ * Default value for the legacy NOT-NULL `program_level` column. The agnostic
+ * model places a microciclo into the matrix via Secuencias (athlete_levels ×
+ * days_per_week), so this column is vestigial — no V2 surface filters or labels
+ * by it. We persist the first enum value to satisfy the constraint and never
+ * surface it to the coach.
+ */
+export const MICROCYCLE_DEFAULT_LEVEL: ProgramLevel = PROGRAM_LEVELS[0];
+
+/**
+ * Body validation for POST /api/coach/program-months/create.
+ *
+ * AGNOSTIC: the coach only chooses `name` + `weeks`. `level` is optional (the
+ * legacy enum is not surfaced; it defaults to MICROCYCLE_DEFAULT_LEVEL to satisfy
+ * the NOT-NULL column). `atr_block_hint`/`focus` stay optional for back-compat
+ * with any caller that still sends them, but the V2 create flow omits them.
+ */
 export const programMonthCreateSchema = z.object({
   name: z.string().min(1).max(200),
-  level: programLevelSchema,
+  weeks: z
+    .number()
+    .int()
+    .min(MICROCYCLE_WEEKS_MIN)
+    .max(MICROCYCLE_WEEKS_MAX)
+    .optional()
+    .default(MICROCYCLE_WEEKS_DEFAULT),
+  level: programLevelSchema.optional().default(MICROCYCLE_DEFAULT_LEVEL),
   atr_block_hint: atrBlockType.nullable().optional(),
   focus: z.string().max(200).nullable().optional(),
 });

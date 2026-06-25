@@ -30,6 +30,7 @@ import { CategoryRail } from '@/components/v2/biblioteca/CategoryRail';
 import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
 import { BloqueCard } from '@/components/v2/biblioteca/BloqueCard';
 import { MicrocicloCard } from '@/components/v2/biblioteca/MicrocicloCard';
+import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
 import { LevelMatrix } from '@/components/v2/biblioteca/LevelMatrix';
 import type { LevelRow } from '@/components/v2/biblioteca/LevelMatrix';
 import type { MatrixCellData } from '@/components/v2/biblioteca/MatrixCell';
@@ -127,6 +128,10 @@ export function BibliotecaView({
   const orient = useOrientationState(coachKey, SECTION_KEY);
 
   const [tab, setTab] = useState<BibliotecaTab>(initialTab);
+  // "Nuevo microciclo" create modal (microciclos tab). Lives here so the header
+  // action, the grid's dashed tile and the teaching empty state all open the same one.
+  const [nuevoMicrocicloOpen, setNuevoMicrocicloOpen] = useState(false);
+  const openNuevoMicrociclo = useCallback(() => setNuevoMicrocicloOpen(true), []);
   const [modality, setModality] = useState<ModalityRailId>('todas');
   const [objective, setObjective] = useState<V2LibObjective | null>(null);
   const [query, setQuery] = useState('');
@@ -249,13 +254,25 @@ export function BibliotecaView({
               )}
             />
           </label>
-          <Link
-            href={NUEVA_SESION_HREF}
-            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="add" size={18} />
-            Nueva sesión
-          </Link>
+          {/* Primary create action — contextual to the active tab. */}
+          {tab === 'microciclos' ? (
+            <button
+              type="button"
+              onClick={openNuevoMicrociclo}
+              className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="add" size={18} />
+              Nuevo microciclo
+            </button>
+          ) : (
+            <Link
+              href={NUEVA_SESION_HREF}
+              className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="add" size={18} />
+              Nueva sesión
+            </Link>
+          )}
         </div>
       </div>
 
@@ -345,7 +362,11 @@ export function BibliotecaView({
               onCellClick={handleMatrixCellClick}
             />
           ) : (
-            <MicrociclosGrid items={microciclos} hasAny={data.microciclos.length > 0} />
+            <MicrociclosGrid
+              items={microciclos}
+              hasAny={data.microciclos.length > 0}
+              onCreate={openNuevoMicrociclo}
+            />
           )}
 
           {/* Footer count — honest, reflects active filters. */}
@@ -361,6 +382,10 @@ export function BibliotecaView({
           ) : null}
         </div>
       </div>
+
+      {nuevoMicrocicloOpen ? (
+        <NuevoMicrocicloModal onClose={() => setNuevoMicrocicloOpen(false)} />
+      ) : null}
     </div>
   );
 }
@@ -462,9 +487,11 @@ function BloquesGrid({
 function MicrociclosGrid({
   items,
   hasAny,
+  onCreate,
 }: {
   items: V2BibliotecaData['microciclos'];
   hasAny: boolean;
+  onCreate: () => void;
 }) {
   if (items.length === 0) {
     if (hasAny) {
@@ -483,6 +510,16 @@ function MicrociclosGrid({
         whatToDo={<>Un microciclo es una estructura de varias semanas — la unidad que vivirá tu atleta.</>}
         why={<><b>Por qué importa:</b> son las piezas que luego encadenas en Periodización → Secuencias.</>}
         highlightStep="microciclos"
+        action={
+          <button
+            type="button"
+            onClick={onCreate}
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+          >
+            <MIcon name="add" size={16} />
+            Crear mi primer microciclo
+          </button>
+        }
       />
     );
   }
@@ -491,6 +528,15 @@ function MicrociclosGrid({
       {items.map((m, i) => (
         <MicrocicloCard key={m.id} microciclo={m} index={i} />
       ))}
+      {/* Dashed "+ nuevo microciclo" tile closes the grid (mirrors SesionesGrid). */}
+      <button
+        type="button"
+        onClick={onCreate}
+        className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+      >
+        <MIcon name="add" size={22} />
+        <span className="text-xs font-semibold">nuevo microciclo</span>
+      </button>
     </div>
   );
 }
