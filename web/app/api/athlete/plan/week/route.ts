@@ -144,7 +144,13 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint) {
           assignment_id: s.assignment_id,
           slot: slotFromNotes(s.notes, s.template_day_position),
           title: s.template_name ?? 'Sesión',
-          modality: s.template_format,
+          // G5 — the REAL training modality (run/row/ski/bike/strength/functional/
+          // core/mobility/other), derived from the template's segments (each
+          // line's exercise modality is the single source of truth; a per-line
+          // prescription override wins when present). This is what colors the iOS
+          // dot. Falls back to the workout FORMAT (amrap/emom/…) only when the
+          // template has no readable segments, so the field is never empty.
+          modality: summary?.modality ?? s.template_format,
           status: s.status,
           partner_visibility: s.partner_visibility,
           // DERIVED, additive. Null when the template has no segments to read.
@@ -179,6 +185,9 @@ type TemplateSummary = {
   est_duration_minutes: number | null;
   blocks_count: number | null;
   short_prescription: string | null;
+  // G5 — the session's REAL modality (the colorable run/row/ski/bike/strength/…),
+  // derived from its segments. Null when no segment carries a modality.
+  modality: string | null;
 };
 
 type SegmentRow = {
@@ -187,6 +196,10 @@ type SegmentRow = {
   block_title: string | null;
   position: number;
   params_json: Record<string, unknown> | null;
+  // exercises.modality is the single source of truth (migration 0053, NOT NULL);
+  // a per-line prescription_json.modality override wins when set on the segment.
+  exercise_modality: string | null;
+  prescription_modality: string | null;
 };
 
 // Batched per-template segment aggregation. Returns a map template_id ->
@@ -205,8 +218,11 @@ async function loadTemplateSummaries(
       ts.block_position as block_position,
       ts.block_title as block_title,
       ts.position as position,
-      ts.params_json as params_json
+      ts.params_json as params_json,
+      e.modality as exercise_modality,
+      ts.prescription_json->>'modality' as prescription_modality
     from template_segments ts
+    left join exercises e on e.id = ts.exercise_id
     where ts.template_id = any(${templateIds}::bigint[])
     order by ts.template_id, ts.block_position nulls first, ts.position
   `;
@@ -242,10 +258,42 @@ async function loadTemplateSummaries(
 
     const est_duration_minutes = estimateDurationMinutes(list.map((r) => r.params_json));
 
-    out.set(templateId, { est_duration_minutes, blocks_count, short_prescription });
+    const modality = dominantModality(list);
+
+    out.set(templateId, { est_duration_minutes, blocks_count, short_prescription, modality });
   }
 
   return out;
+}
+
+// Per-segment modality: a deliberate per-line prescription override wins, else
+// the exercise's intrinsic modality (the NOT-NULL single source of truth set by
+// migration 0053). Null only when neither is present (orphan/legacy segment).
+function segmentModality(r: SegmentRow): string | null {
+  return r.prescription_modality ?? r.exercise_modality ?? null;
+}
+
+// The session's REAL modality for the weekly card (G5). A session can mix
+// modalities (a HYROX sim, a compromised block); the card shows ONE colorable
+// dot, so we pick the DOMINANT modality by segment count. Tie-break is
+// deterministic: the first modality to reach the max count in segment order
+// (block_position, position — the query's ORDER BY), so the result is stable.
+// Returns null when no segment carries a modality (caller falls back to format).
+function dominantModality(segments: SegmentRow[]): string | null {
+  const counts = new Map<string, number>();
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const seg of segments) {
+    const m = segmentModality(seg);
+    if (!m) continue;
+    const next = (counts.get(m) ?? 0) + 1;
+    counts.set(m, next);
+    if (next > bestCount) {
+      bestCount = next;
+      best = m;
+    }
+  }
+  return best;
 }
 
 // One-line human summary of a session's structure. Prefers the named blocks

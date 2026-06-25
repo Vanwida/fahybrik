@@ -135,6 +135,21 @@ export const assignmentDetailParamsSchema = z.object({
 });
 export type AssignmentDetailParams = z.infer<typeof assignmentDetailParamsSchema>;
 
+// G1 — a zone target (@Zn) resolved to the athlete's ABSOLUTE pace band, read
+// from their versioned zone profile for the line's modality (run → /km; ergo →
+// /500m). `zone_label` is the coach zone code (Z4, or "Z3–Z4" for a span);
+// `range_label` is the ready-to-render pace string with unit ("4:15–4:25/km",
+// "> 2:17/500m"); raw seconds let iOS reformat. Present only when the line targets
+// a zone AND the athlete has a profile for that modality.
+export const resolvedIntensitySchema = z.object({
+  zone_label: z.string().min(1),
+  range_label: z.string().min(1),
+  fast_s: z.number().nonnegative(),
+  slow_s: z.number().nonnegative().nullable(),
+  pace_unit: z.enum(['per_km', 'per_500m']),
+});
+export type ResolvedIntensity = z.infer<typeof resolvedIntensitySchema>;
+
 export const assignmentDetailItemSchema = z.object({
   uid: z.string().min(1),
   exercise_id: idSchema,
@@ -152,6 +167,8 @@ export const assignmentDetailItemSchema = z.object({
   // can decode the rich form (per-set pyramids, ranges, pace units) later.
   // Null for legacy segments that only have scalar params.
   prescription_json: prescriptionSchema.nullable(),
+  // G1 — the line's zone target resolved to an absolute pace band, or null.
+  resolved_intensity: resolvedIntensitySchema.nullable(),
   notes: z.string().nullable(),
 });
 export type AssignmentDetailItem = z.infer<typeof assignmentDetailItemSchema>;

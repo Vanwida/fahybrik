@@ -357,4 +357,127 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(result.assignment.completed_at).toBe('2026-05-27T18:30:00+00:00');
     expect(result.assignment.perceived_exertion).toBe(7);
   });
+
+  // ── G1 — zone target resolved to an absolute pace band ────────────────────
+  // A run zone profile: threshold 4:00/km (240s); the standard per_km offsets
+  // give Z4 = +[0,14] → 4:00–4:14, Z2 = +[28,42] → 4:28–4:42, Z1 = +44 open.
+  // Built as a stored snapshot the way the resolver/test-result endpoint writes.
+  function runProfile(threshold_s: number) {
+    const offsets = [
+      { code: 'Z1', role: 'recovery', sort: 1, lo: 44, hi: null },
+      { code: 'Z2', role: 'aerobic_base', sort: 2, lo: 28, hi: 42 },
+      { code: 'Z3', role: 'aerobic_threshold', sort: 3, lo: 16, hi: 26 },
+      { code: 'Z4', role: 'threshold', sort: 4, lo: 0, hi: 14 },
+      { code: 'Z5', role: 'vo2max', sort: 5, lo: -6, hi: -2 },
+      { code: 'Z6', role: 'sprint', sort: 6, lo: -14, hi: -8 },
+    ] as const;
+    return {
+      id: 1,
+      athlete_id: 42,
+      modality: 'run' as const,
+      threshold_s,
+      pace_unit: 'per_km' as const,
+      source_test_slug: null,
+      source_benchmark_id: null,
+      version: 1,
+      recorded_at: '2026-05-20T10:00:00.000Z',
+      created_at: '2026-05-20T10:00:00.000Z',
+      zones_json: offsets.map((o) => ({
+        code: o.code,
+        label: o.code,
+        color: '#000000',
+        role: o.role,
+        sort_order: o.sort,
+        fast_s: threshold_s + o.lo,
+        slow_s: o.hi === null ? null : threshold_s + o.hi,
+      })),
+    };
+  }
+
+  const runSeg = (target: unknown) => ({
+    id: '60',
+    position: 0,
+    block_position: 0,
+    block_format: null,
+    block_title: null,
+    params_json: { time_seconds: 1800 },
+    prescription_json: { scheme: 'steady', modality: 'run', total_s: 1800, target },
+    notes: null,
+    exercise_id: '950',
+    exercise_name: 'Run',
+    exercise_slug: 'run',
+    exercise_category: 'cardio',
+    exercise_video_url: null,
+    exercise_cues: null,
+  });
+
+  it('resolves a @Z4 run target to the absolute pace band from the profile', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'hr_zone', value: 4 })],
+      zoneProfiles: [runProfile(240)],
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.params_json.hr_zone).toBe(4); // badge kept
+    expect(item.resolved_intensity).not.toBeNull();
+    expect(item.resolved_intensity!.zone_label).toBe('Z4');
+    expect(item.resolved_intensity!.range_label).toBe('4:00–4:14/km');
+    expect(item.resolved_intensity!.fast_s).toBe(240);
+    expect(item.resolved_intensity!.slow_s).toBe(254);
+    expect(item.resolved_intensity!.pace_unit).toBe('per_km');
+  });
+
+  it('resolves a @Z1 open band to "> fast/km"', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'hr_zone', value: 1 })],
+      zoneProfiles: [runProfile(240)],
+    });
+    const ri = result.workout!.blocks[0]!.items[0]!.resolved_intensity!;
+    expect(ri.range_label).toBe('> 4:44/km');
+    expect(ri.slow_s).toBeNull();
+  });
+
+  it('resolves a Z2–Z4 zone SPAN to the union band (fast of Z4, slow of Z2)', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'hr_zone', min: 2, max: 4 })],
+      zoneProfiles: [runProfile(240)],
+    });
+    const ri = result.workout!.blocks[0]!.items[0]!.resolved_intensity!;
+    expect(ri.zone_label).toBe('Z2–Z4');
+    expect(ri.fast_s).toBe(240); // Z4 fast edge
+    expect(ri.slow_s).toBe(282); // Z2 slow edge (240+42)
+    expect(ri.range_label).toBe('4:00–4:42/km');
+  });
+
+  it('keeps only the zone badge (no resolved pace) when the athlete has no profile', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'hr_zone', value: 4 })],
+      zoneProfiles: [], // no test yet
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.params_json.hr_zone).toBe(4);
+    expect(item.resolved_intensity).toBeNull();
+  });
+
+  it('does not resolve when the target is not a zone (e.g. an absolute pace)', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'pace', unit: 'per_km', value_s: 245 })],
+      zoneProfiles: [runProfile(240)],
+    });
+    expect(result.workout!.blocks[0]!.items[0]!.resolved_intensity).toBeNull();
+  });
 });

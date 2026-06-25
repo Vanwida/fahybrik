@@ -81,6 +81,7 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
               cues: null,
               params_json: { sets: 5, reps: 5, load_pct: 75, rest_seconds: 120 },
               prescription_json: null,
+              resolved_intensity: null,
               notes: null,
             },
           ],

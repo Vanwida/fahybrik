@@ -131,8 +131,108 @@ export function findResolvedZone(zones: ResolvedZone[], code: string): ResolvedZ
   return zones.find((z) => z.code.toLowerCase() === target) ?? null;
 }
 
+/**
+ * Find one resolved zone by its 1-based zone NUMBER (the value a prescription
+ * `hr_zone` target carries — Z4 → 4). Matches on the seeded `Z{n}` code first,
+ * then falls back to `sort_order === n` so a coach with agnostically-renamed
+ * codes still resolves. Returns null when no band matches.
+ */
+export function findResolvedZoneByNumber(zones: ResolvedZone[], n: number): ResolvedZone | null {
+  if (!Number.isInteger(n) || n < 1) return null;
+  const byCode = findResolvedZone(zones, `Z${n}`);
+  if (byCode) return byCode;
+  return zones.find((z) => z.sort_order === n) ?? null;
+}
+
+// ── Resolving a prescription zone target → an absolute pace band ─────────────
+// The plan/detail surfaces carry a coach target like `{kind:'hr_zone', value:4}`
+// (or a `min/max` zone SPAN, e.g. Z3-Z4). The athlete needs the ABSOLUTE pace
+// that zone maps to, read from their stored profile for the line's modality.
+
+/** Per-pace-unit suffix shared by every renderer ( /km run · /500m ergo ). */
+export type ResolvedPaceUnit = ZonePaceUnit;
+
+/**
+ * An absolute pace band resolved from a zone target against an athlete's stored
+ * profile. `fast_s`/`slow_s` are seconds per `pace_unit`; `slow_s` null = the
+ * open band (Z1). `zone_codes` records which zone(s) the band spans (for audit /
+ * a "Z3–Z4" sublabel). Pure data — formatting lives in the presentation layer.
+ */
+export interface ResolvedPaceBand {
+  fast_s: number;
+  slow_s: number | null;
+  pace_unit: ResolvedPaceUnit;
+  zone_codes: string[];
+}
+
+/**
+ * Resolve a zone NUMBER or zone SPAN (min..max) against a set of resolved bands
+ * into ONE absolute pace band. A single zone returns that band verbatim; a span
+ * (Z3-Z4) returns the union — the FAST edge of the faster zone to the SLOW edge
+ * of the slower zone. Returns null when neither endpoint resolves.
+ *
+ * Pure: takes the already-resolved bands (from the stored profile), never
+ * recomputes. Lower zone number = easier = slower pace (larger seconds); higher
+ * number = faster (smaller seconds), so the FAST edge comes from the HIGHER zone.
+ */
+export function resolvePaceBandFromZones(
+  zones: ResolvedZone[],
+  span: { min?: number; max?: number; value?: number },
+  pace_unit: ResolvedPaceUnit,
+): ResolvedPaceBand | null {
+  const lo = span.value ?? span.min; // easier / slower endpoint
+  const hi = span.value ?? span.max ?? span.min; // harder / faster endpoint
+  if (lo === undefined && hi === undefined) return null;
+
+  const loZone = lo !== undefined ? findResolvedZoneByNumber(zones, lo) : null;
+  const hiZone = hi !== undefined ? findResolvedZoneByNumber(zones, hi) : null;
+  if (!loZone && !hiZone) return null;
+
+  // FAST edge = the faster (higher-number) zone's fast bound; SLOW edge = the
+  // easier (lower-number) zone's slow bound (null = open band, e.g. Z1).
+  const fastZone = hiZone ?? loZone!;
+  const slowZone = loZone ?? hiZone!;
+
+  const codes = Array.from(new Set([slowZone.code, fastZone.code]));
+  return {
+    fast_s: fastZone.fast_s,
+    slow_s: slowZone.slow_s,
+    pace_unit,
+    zone_codes: codes,
+  };
+}
+
 // Round to 2 decimals so stored/compared paces don't carry float noise. Seeded
 // offsets are integers, so the standard model yields whole-second bounds.
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+// ── Pace band formatting (presentation, but pure → lives with the model) ─────
+
+/** Human suffix for a pace unit: `/km` for run, `/500m` for ergo. */
+export function paceUnitSuffix(unit: ResolvedPaceUnit): string {
+  return unit === 'per_km' ? '/km' : '/500m';
+}
+
+// seconds → m:ss, zero-padded. Mirrors the studio/calculator `formatClock`.
+function paceClock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * Format a resolved pace band as the athlete-facing string:
+ *   open band (slow_s null, the Z1 case) → "> 2:17/500m"
+ *   closed band                          → "4:15–4:25/km" (fast first, en-dash)
+ * The unit suffix is appended so the line is self-contained for iOS.
+ */
+export function formatResolvedPaceBand(band: ResolvedPaceBand): string {
+  const suffix = paceUnitSuffix(band.pace_unit);
+  const fast = paceClock(band.fast_s);
+  if (band.slow_s == null) return `> ${fast}${suffix}`;
+  const slow = paceClock(band.slow_s);
+  if (Math.round(band.fast_s) === Math.round(band.slow_s)) return `${fast}${suffix}`;
+  return `${fast}–${slow}${suffix}`;
 }

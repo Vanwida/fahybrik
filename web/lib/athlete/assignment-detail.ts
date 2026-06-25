@@ -2,8 +2,20 @@ import type { Sql } from '@/lib/db';
 import {
   prescriptionToParams,
   safeParsePrescription,
+  prescriptionTarget,
+  setTarget,
   type Prescription,
+  type Target,
 } from '@fahybrid/shared/domain/prescription';
+import {
+  resolvePaceBandFromZones,
+  formatResolvedPaceBand,
+  type ResolvedZone,
+} from '@fahybrid/shared/domain/methodology';
+import {
+  loadAthleteZoneProfilesForAthlete,
+} from '@/lib/dashboard/v2/zone-profile';
+import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 
 // =============================================================================
 // Assignment-detail loader
@@ -78,7 +90,25 @@ export interface AssignmentDetailItem {
   // iOS can decode the rich form later (per-set pyramids, ranges, pace units).
   // Null/absent for legacy segments that only have scalar params.
   prescription_json: Prescription | null;
+  // G1 — when the line targets a training ZONE (e.g. @Z4) AND this athlete has a
+  // stored zone profile for the line's modality, the zone is resolved to the
+  // ABSOLUTE pace band from the versioned profile (read, never recomputed). iOS
+  // shows "Z4 · @4:15/km": the zone badge stays in params_json.hr_zone, this
+  // field adds the resolved pace. Null when there's no zone target or no profile.
+  resolved_intensity: ResolvedIntensity | null;
   notes: string | null;
+}
+
+// The athlete's zone target resolved to an absolute pace band. `zone_label` is
+// the coach zone code (Z4, or "Z3–Z4" for a span); `range_label` is the ready-
+// to-render pace string with its unit ("4:15–4:25/km", "> 2:17/500m"); the raw
+// `fast_s`/`slow_s` (+ `pace_unit`) let iOS reformat if it wants its own style.
+export interface ResolvedIntensity {
+  zone_label: string;
+  range_label: string;
+  fast_s: number;
+  slow_s: number | null;
+  pace_unit: 'per_km' | 'per_500m';
 }
 
 // Spec-normalized params (DB columns differ — `weight_kg`/`weight_pct_1rm`/
@@ -177,6 +207,15 @@ export async function loadAssignmentDetail(
   const assignment = assignmentRows[0];
   if (!assignment) return null;
 
+  // G1 — the athlete's stored zone profiles (one current row per modality),
+  // derived coach-scoped from athletes.coach_id inside the loader. Used to
+  // resolve any @Zn target on a line into its absolute pace band. Empty (no test
+  // yet) → items simply carry the zone badge with no resolved pace.
+  const zoneProfiles = await loadAthleteZoneProfilesForAthlete({
+    athlete_id,
+    client: sql,
+  });
+
   // Execution (1:1 with assignment, may not exist yet if scheduled).
   const executionRows = await sql<ExecutionRow[]>`
     select
@@ -234,7 +273,32 @@ export async function loadAssignmentDetail(
     }
   }
 
-  return buildAssignmentDetail({ assignment, execution, template, segments });
+  return buildAssignmentDetail({ assignment, execution, template, segments, zoneProfiles });
+}
+
+// A modality → resolved-zone-bands lookup, built once per request from the
+// athlete's stored profiles. The plan target carries a modality (run/row/ski/
+// bike); we index the matching profile's snapshot bands by it. `bike` and `ski`
+// share the per_500m unit but are SEPARATE profiles (separate tests), so the key
+// is the profile modality verbatim — no collapsing.
+export type ZoneLookup = Partial<Record<AthleteZoneProfile['modality'], ResolvedZone[]>>;
+
+function buildZoneLookup(profiles: AthleteZoneProfile[]): ZoneLookup {
+  const out: ZoneLookup = {};
+  for (const p of profiles) {
+    // zones_json already holds the resolved absolute bands (snapshot). Adapt the
+    // stored snapshot shape to the domain ResolvedZone shape the resolver reads.
+    out[p.modality] = p.zones_json.map((z) => ({
+      code: z.code,
+      label: z.label,
+      color: z.color,
+      role: z.role,
+      sort_order: z.sort_order,
+      fast_s: z.fast_s,
+      slow_s: z.slow_s,
+    }));
+  }
+  return out;
 }
 
 // =============================================================================
@@ -246,8 +310,12 @@ export function buildAssignmentDetail(input: {
   execution: ExecutionRow | null;
   template: TemplateRow | null;
   segments: SegmentRow[];
+  // The athlete's stored zone profiles (G1). Default [] keeps the pure builder
+  // testable without zones — items then carry the zone badge but no resolved pace.
+  zoneProfiles?: AthleteZoneProfile[];
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
+  const zoneLookup = buildZoneLookup(input.zoneProfiles ?? []);
 
   const slot = slotFromNotes(assignment.notes);
 
@@ -276,7 +344,7 @@ export function buildAssignmentDetail(input: {
     focus: null,
     coach_note: template.coach_notes,
     estimated_duration_minutes: null,
-    blocks: buildBlocks(template, segments),
+    blocks: buildBlocks(template, segments, zoneLookup),
   };
 
   return base;
@@ -294,7 +362,11 @@ export function buildAssignmentDetail(input: {
 //   2. Collapse RUNS of consecutive single-segment blocks that share a format
 //      into one block. A block with >1 segment is a hard boundary and never
 //      merges — so genuinely multi-movement authored blocks are untouched.
-function buildBlocks(template: TemplateRow, segments: SegmentRow[]): AssignmentDetailBlock[] {
+function buildBlocks(
+  template: TemplateRow,
+  segments: SegmentRow[],
+  zoneLookup: ZoneLookup,
+): AssignmentDetailBlock[] {
   if (segments.length === 0) return [];
 
   // 1. Group by authored block_position, preserving order.
@@ -359,7 +431,7 @@ function buildBlocks(template: TemplateRow, segments: SegmentRow[]): AssignmentD
       // Coach studio doesn't persist per-block config separately today, so
       // this is an empty object until the studio adds it.
       config_json: {},
-      items: m.segs.map(buildItem),
+      items: m.segs.map((seg) => buildItem(seg, zoneLookup)),
     };
   });
 }
@@ -402,7 +474,7 @@ function displayCategoryForModality(modality: string | null | undefined): string
   }
 }
 
-function buildItem(seg: SegmentRow): AssignmentDetailItem {
+function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup): AssignmentDetailItem {
   // ROOT-CAUSE FIX: the rich targets (reps/load/zone/pace/distance/calories)
   // live in `prescription_json` (the unified measure/target model), not in the
   // thin `params_json` (which can be as bare as `{sets:4}`). When a valid
@@ -431,8 +503,71 @@ function buildItem(seg: SegmentRow): AssignmentDetailItem {
     cues: seg.exercise_cues,
     params_json: normalizeParams(source),
     prescription_json: prescription,
+    resolved_intensity: resolveIntensityForItem(prescription, modality, zoneLookup),
     notes: seg.notes,
   };
+}
+
+// Profile modalities that have a pace-zone profile (run = /km; row/ski/bike =
+// /500m). A prescription modality outside this set (strength, functional, core,
+// mobility, other) never carries a pace zone, so we don't resolve one.
+const PROFILE_MODALITIES = new Set<AthleteZoneProfile['modality']>(['run', 'row', 'ski', 'bike']);
+
+function isProfileModality(m: string | null | undefined): m is AthleteZoneProfile['modality'] {
+  return m != null && PROFILE_MODALITIES.has(m as AthleteZoneProfile['modality']);
+}
+
+// G1 — resolve a line's zone target to an absolute pace band from the athlete's
+// stored profile for that modality. Returns null when: there's no structured
+// prescription, the line's target isn't a zone (it's %RM / pace / RPE / …), the
+// modality has no pace profile, or the athlete hasn't tested that modality.
+function resolveIntensityForItem(
+  prescription: Prescription | null,
+  modality: string | null | undefined,
+  zoneLookup: ZoneLookup,
+): ResolvedIntensity | null {
+  if (!prescription) return null;
+  if (!isProfileModality(modality)) return null;
+
+  // The line's intensity target: block-level wins, else the first set that
+  // carries one (the representative target, mirroring prescriptionToParams).
+  const target = lineTarget(prescription);
+  if (!target || target.kind !== 'hr_zone') return null;
+
+  const bands = zoneLookup[modality];
+  if (!bands || bands.length === 0) return null;
+
+  const band = resolvePaceBandFromZones(
+    bands,
+    { value: target.value, min: target.min, max: target.max },
+    modality === 'run' ? 'per_km' : 'per_500m',
+  );
+  if (!band) return null;
+
+  // Zone label: a single code (Z4) or a span (Z3–Z4) read back from the band.
+  const zone_label =
+    band.zone_codes.length > 1 ? band.zone_codes.join('–') : (band.zone_codes[0] ?? '');
+
+  return {
+    zone_label,
+    range_label: formatResolvedPaceBand(band),
+    fast_s: band.fast_s,
+    slow_s: band.slow_s,
+    pace_unit: band.pace_unit,
+  };
+}
+
+// The representative intensity target for a line: the block-level target, else
+// the first per-set target. Mirrors `prescriptionToParams`'s precedence so the
+// resolved zone matches the scalar the rest of the item already exposes.
+function lineTarget(p: Prescription): Target | undefined {
+  const block = prescriptionTarget(p);
+  if (block) return block;
+  for (const s of p.sets ?? []) {
+    const t = setTarget(s);
+    if (t) return t;
+  }
+  return undefined;
 }
 
 // Validate-or-drop the structured prescription. A malformed JSONB is simply
