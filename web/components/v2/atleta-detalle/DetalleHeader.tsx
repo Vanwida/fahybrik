@@ -95,19 +95,19 @@ export function DetalleHeader({
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <HeaderAction href="/v2/mensajes" icon="forum" label="Mensaje" />
+          <HeaderAction href="/mensajes" icon="forum" label="Mensaje" />
           {header.status === 'alta' ? (
             // Intake pending (loader sets status 'alta' / 'Alta · revisar intake')
             // → the primary action is the intake review, which provisions the plan.
             <HeaderAction
-              href={`/v2/atletas/${header.athlete_id}/intake`}
+              href={`/atletas/${header.athlete_id}/intake`}
               icon="how_to_reg"
               label="Revisar intake"
               primary
             />
           ) : (
             <HeaderAction
-              href={`/v2/atletas/${header.athlete_id}?tab=plan`}
+              href={`/atletas/${header.athlete_id}?tab=plan`}
               icon="calendar_month"
               label="Ver plan"
               primary

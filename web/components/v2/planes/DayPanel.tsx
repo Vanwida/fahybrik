@@ -93,7 +93,7 @@ export function DayPanel({
   const draft = phase?.status === 'draft';
   const editHref =
     first_month_id != null
-      ? `/v2/microciclos/${first_month_id}/dia/${dayIndex}`
+      ? `/microciclos/${first_month_id}/dia/${dayIndex}`
       : null;
 
   return (
@@ -193,7 +193,7 @@ export function DayPanel({
               {candidates.slice(0, 5).map((c) => (
                 <Link
                   key={c.id}
-                  href={`/v2/biblioteca/sesion/${c.id}`}
+                  href={`/biblioteca/sesion/${c.id}`}
                   className="v2-focus flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2 transition-colors hover:border-[color:var(--v2-border-strong)]"
                   style={{
                     borderLeftWidth: '3px',

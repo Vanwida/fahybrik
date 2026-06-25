@@ -162,7 +162,7 @@ export function MicrocicloV1({
                   key={day.day_of_week}
                   day={day}
                   dayIndex={di}
-                  href={`/v2/microciclos/${microcycle_id}/dia/${wi * 7 + di}`}
+                  href={`/microciclos/${microcycle_id}/dia/${wi * 7 + di}`}
                 />
               ))}
             </div>

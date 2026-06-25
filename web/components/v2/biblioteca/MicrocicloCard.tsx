@@ -21,7 +21,7 @@ export function MicrocicloCard({
   const weeks = microciclo.week_count;
   return (
     <Link
-      href={`/v2/microciclos/${microciclo.id}`}
+      href={`/microciclos/${microciclo.id}`}
       aria-label={`Editar microciclo ${microciclo.name}`}
       className={cn(
         'v2-stagger v2-focus group flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',

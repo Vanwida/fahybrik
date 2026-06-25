@@ -19,7 +19,7 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
 
   return (
     <Link
-      href={`/v2/biblioteca/sesion/${sesion.id}`}
+      href={`/biblioteca/sesion/${sesion.id}`}
       className={cn(
         'v2-stagger v2-focus group flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
         'shadow-[var(--v2-shadow-card)] transition-colors hover:border-[color:var(--v2-border-strong)]',

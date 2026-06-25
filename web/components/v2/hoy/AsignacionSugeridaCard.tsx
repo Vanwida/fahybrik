@@ -42,15 +42,15 @@ function blockedFix(
     case 'no_training_days':
     case 'days_out_of_band':
       // The fix is the athlete's training days → their profile.
-      return { label: 'Editar días', href: `/v2/atletas/${card.athlete_id}?tab=perfil` };
+      return { label: 'Editar días', href: `/atletas/${card.athlete_id}?tab=perfil` };
     case 'no_sequence_for_cell':
     case 'empty_sequence':
       // The fix is the (level × days) sequence → the matrix editor.
-      return { label: 'Crear secuencia', href: `/v2/periodizacion?area=secuencias` };
+      return { label: 'Crear secuencia', href: `/periodizacion?area=secuencias` };
     case 'not_classified':
     default:
       // Unreachable for these cards (classified-only), but keep a safe fallback.
-      return { label: 'Ver atleta', href: `/v2/atletas/${card.athlete_id}` };
+      return { label: 'Ver atleta', href: `/atletas/${card.athlete_id}` };
   }
 }
 
@@ -143,7 +143,7 @@ function ProposalCard({
         </button>
         <button
           type="button"
-          onClick={() => router.push(`/v2/atletas/${card.athlete_id}`)}
+          onClick={() => router.push(`/atletas/${card.athlete_id}`)}
           className={cn(
             BTN_BASE,
             'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -201,7 +201,7 @@ function BlockedCard({
           {fix.label}
         </Link>
         <Link
-          href={`/v2/atletas/${card.athlete_id}`}
+          href={`/atletas/${card.athlete_id}`}
           className={cn(
             BTN_BASE,
             'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',

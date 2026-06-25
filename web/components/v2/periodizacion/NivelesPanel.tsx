@@ -451,7 +451,7 @@ function DeleteBlockedDialog({ level, onClose }: { level: V2LevelItem; onClose: 
           {level.athlete_count === 1 ? 'atleta tiene' : 'atletas tienen'} este nivel asignado. Reasígnalos a otro nivel antes de eliminarlo — así nadie se queda sin clasificación.
         </p>
         <div className="mt-4 flex gap-2">
-          <PanelButton variant="outline" onClick={onClose} href="/v2/atletas">
+          <PanelButton variant="outline" onClick={onClose} href="/atletas">
             Reasignar atletas →
           </PanelButton>
           <PanelButton variant="ghost" onClick={onClose}>

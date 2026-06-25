@@ -71,7 +71,7 @@ export default async function V2AthleteIntakePage({
           description={`El intake de ${profile.athlete.full_name} ya fue procesado y su plan inicial está asignado.`}
           action={
             <Link
-              href={`/v2/atletas/${id}`}
+              href={`/atletas/${id}`}
               className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-[13px] font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
             >
               <MIcon name="person" size={17} />
@@ -169,14 +169,14 @@ function Breadcrumb({
       className={`flex items-center gap-1.5 text-xs${className ? ` ${className}` : ''}`}
     >
       <Link
-        href="/v2/atletas"
+        href="/atletas"
         className="v2-focus rounded-[var(--v2-r-s)] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
       >
         Atletas
       </Link>
       <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-muted)]" aria-hidden />
       <Link
-        href={`/v2/atletas/${athleteId}`}
+        href={`/atletas/${athleteId}`}
         className="v2-focus rounded-[var(--v2-r-s)] font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
       >
         {athleteName ?? 'Ficha'}

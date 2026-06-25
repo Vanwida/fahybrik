@@ -14,7 +14,7 @@ import { SettingRow } from '@/components/v2/ajustes/SettingRow';
 export const dynamic = 'force-dynamic';
 
 // Canonical v2 route for the periodization editor (Niveles + Fases).
-const METODOLOGIA_HREF = '/v2/periodizacion';
+const METODOLOGIA_HREF = '/periodizacion';
 
 export default async function V2AjustesPage({
   params,

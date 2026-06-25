@@ -317,8 +317,8 @@ export function IntakeReviewV2({
         <Link
           href={
             result.first_block_draft
-              ? `/v2/atletas/${athleteId}?tab=plan`
-              : `/v2/atletas/${athleteId}`
+              ? `/atletas/${athleteId}?tab=plan`
+              : `/atletas/${athleteId}`
           }
           onClick={() => router.refresh()}
           className="v2-focus mt-6 inline-flex items-center justify-center gap-2 rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent)] px-6 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"

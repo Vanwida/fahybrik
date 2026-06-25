@@ -11,7 +11,7 @@
 export type V2NavGroup = 'operar' | 'construir';
 
 export interface V2NavItem {
-  /** Locale-relative href, e.g. "/v2/hoy". */
+  /** Locale-relative href, e.g. "/hoy". */
   href: string;
   label: string;
   /** Material Symbols Outlined icon name. */
@@ -34,12 +34,12 @@ export const V2_NAV_GROUP_ORDER: readonly V2NavGroup[] = ['operar', 'construir']
 /** Primary nav (top of the sidebar), in render order within each group. */
 export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   // Operar — the daily loop.
-  { href: '/v2/hoy', label: 'Hoy', icon: 'today', group: 'operar' },
-  { href: '/v2/atletas', label: 'Atletas', icon: 'groups', group: 'operar' },
-  { href: '/v2/mensajes', label: 'Mensajes', icon: 'forum', group: 'operar', badge: 'mensajes' },
+  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'operar' },
+  { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'operar' },
+  { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'operar', badge: 'mensajes' },
   // Construir el método — the framework first, then the reusable library.
-  { href: '/v2/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'construir' },
-  { href: '/v2/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'construir' },
+  { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'construir' },
+  { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'construir' },
 ] as const;
 
 /** Items belonging to a given group, in declaration order. */
@@ -49,7 +49,7 @@ export function v2NavItemsForGroup(group: V2NavGroup): V2NavItem[] {
 
 /** Pinned to the bottom of the sidebar. */
 export const V2_NAV_SETTINGS: V2NavItem = {
-  href: '/v2/ajustes',
+  href: '/ajustes',
   label: 'Ajustes',
   icon: 'settings',
   group: 'operar',

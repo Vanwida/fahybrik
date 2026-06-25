@@ -141,7 +141,7 @@ export function PlanTab({
         description="Cuando el atleta esté clasificado, su secuencia se propone en Hoy para asignarla en un clic."
         action={
           <Link
-            href="/v2/hoy"
+            href="/hoy"
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-[13px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="play_arrow" size={17} />
@@ -198,7 +198,7 @@ export function PlanTab({
         <div className="flex flex-wrap items-center gap-2">
           <EvaluarSemanaAction athleteId={athlete_id} />
           <Link
-            href={`/v2/atletas/${athlete_id}?tab=plan`}
+            href={`/atletas/${athlete_id}?tab=plan`}
             className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
           >
             Abrir en editor de día
@@ -309,7 +309,7 @@ export function PlanTab({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <PlanAction icon="forum" label="Mensaje" href="/v2/mensajes" />
+            <PlanAction icon="forum" label="Mensaje" href="/mensajes" />
             <PlanAction icon="event_repeat" label="Reprogramar" />
             <PlanAction icon="tune" label="Ajustar fase" />
           </div>

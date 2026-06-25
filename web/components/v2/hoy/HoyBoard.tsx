@@ -189,7 +189,7 @@ export function HoyBoard({
             }
             action={
               <Link
-                href="/v2/atletas"
+                href="/atletas"
                 className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
               >
                 Ver todos los atletas <MIcon name="arrow_forward" size={16} />

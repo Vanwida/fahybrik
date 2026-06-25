@@ -50,7 +50,7 @@ export type BibliotecaTab = 'sesiones' | 'bloques' | 'microciclos';
 type BloqueView = 'lista' | 'matriz';
 
 /** Route to create a brand-new sesión (owned by the editing-cluster agent). */
-const NUEVA_SESION_HREF = '/v2/biblioteca/sesion/nueva';
+const NUEVA_SESION_HREF = '/biblioteca/sesion/nueva';
 
 // ── Inline orientation (shared primitives) ──────────────────────────────────
 const SECTION_KEY = 'biblioteca';
@@ -170,9 +170,9 @@ export function BibliotecaView({
   const handleMatrixCellClick = useCallback(
     (levelId: number, days: number, existingBlockId?: number) => {
       if (existingBlockId != null) {
-        router.push(`/v2/biblioteca/bloque/${existingBlockId}`);
+        router.push(`/biblioteca/bloque/${existingBlockId}`);
       } else {
-        router.push(`/v2/biblioteca/bloque/nuevo?level=${levelId}&days=${days}`);
+        router.push(`/biblioteca/bloque/nuevo?level=${levelId}&days=${days}`);
       }
     },
     [router],

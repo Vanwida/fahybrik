@@ -77,7 +77,7 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
       }
       // Leave the modal open (submitting) while we navigate so it never flashes
       // back to the empty form before the editor mounts.
-      router.push(`/v2/microciclos/${json.id}`);
+      router.push(`/microciclos/${json.id}`);
     } catch {
       setError('No se pudo crear el microciclo · Reintenta.');
       setSubmitting(false);

@@ -151,7 +151,7 @@ function Card({
         </button>
         <button
           type="button"
-          onClick={() => router.push(`/v2/atletas/${card.athlete_id}`)}
+          onClick={() => router.push(`/atletas/${card.athlete_id}`)}
           className={cn(
             BTN_BASE,
             'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',

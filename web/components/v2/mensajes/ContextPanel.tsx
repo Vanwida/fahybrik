@@ -17,7 +17,7 @@ import { StatTile } from '@/components/v2/StatTile';
 import type { MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
 import { cn } from '@/lib/utils';
 
-const ATHLETE_ROUTE = '/v2/atletas';
+const ATHLETE_ROUTE = '/atletas';
 
 export function ContextPanel({
   thread,

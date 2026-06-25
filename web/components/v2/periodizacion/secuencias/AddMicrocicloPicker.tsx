@@ -127,7 +127,7 @@ export function AddMicrocicloPicker({
 
         <div className="mt-3.5 flex items-center justify-between border-t border-[color:var(--v2-border)] pt-3">
           <Link
-            href="/v2/biblioteca?tab=microciclos"
+            href="/biblioteca?tab=microciclos"
             className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="add" size={15} /> Crear microciclo nuevo
