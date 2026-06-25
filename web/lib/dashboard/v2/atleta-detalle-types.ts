@@ -16,7 +16,20 @@ import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscripti
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'historico', 'biometria', 'mensajes'] as const;
+// `dobles` is CONDITIONAL — only present for athletes in a Dobles modality (see
+// `DetalleHeader.is_dobles`); the tab bar + orchestrator hide it otherwise. It
+// still lives in the enum so a deep-link with ?tab=dobles normalizes correctly,
+// and `visibleAtletaTabs(header)` is the single source for which tabs to render.
+export const ATLETA_TABS = [
+  'perfil',
+  'plan',
+  'ritmos',
+  'rendimiento',
+  'historico',
+  'biometria',
+  'dobles',
+  'mensajes',
+] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
 
@@ -24,6 +37,13 @@ export function normalizeAtletaTab(raw: string | undefined): AtletaTab {
   return (ATLETA_TABS as readonly string[]).includes(raw ?? '')
     ? (raw as AtletaTab)
     : DEFAULT_ATLETA_TAB;
+}
+
+/** The tabs to actually render for this athlete. `dobles` is included only for a
+ *  Dobles-modality athlete; every other tab is always shown. Single source for
+ *  both the tab bar and the orchestrator so they never diverge. */
+export function visibleAtletaTabs(header: DetalleHeader): readonly AtletaTab[] {
+  return ATLETA_TABS.filter((t) => t !== 'dobles' || header.is_dobles);
 }
 
 // ── Header / identity projection ────────────────────────────────────────────────
@@ -39,6 +59,12 @@ export interface DetalleHeader {
   /** "Acumulación · sem 4" style current phase label, null when no plan. */
   phase_label: string | null;
   modality_label: string | null;
+  /** True when the athlete's modality is Dobles — gates the conditional Dobles
+   *  tab. Derived from the subscription plan_type, not a label string. */
+  is_dobles: boolean;
+  /** Linked Dobles partner's display name, null when unpaired / not Dobles.
+   *  Surfaced so the Dobles tab can label the split without a second load. */
+  partner_name: string | null;
 }
 
 // ── Stat cluster (the 4 header StatTiles) ──────────────────────────────────────

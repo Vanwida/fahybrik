@@ -6,31 +6,38 @@
 // The active tab carries an accent underline + filled label; the rest stay quiet.
 
 import { Link } from '@/i18n/navigation';
-import { ATLETA_TABS, type AtletaTab } from '@/lib/dashboard/v2/atleta-detalle-types';
+import {
+  visibleAtletaTabs,
+  type AtletaTab,
+  type DetalleHeader,
+} from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
 
 const TAB_LABEL: Record<AtletaTab, string> = {
   perfil: 'Perfil & objetivos',
   plan: 'Plan actual',
   ritmos: 'Ritmos / Zonas',
+  rendimiento: 'Rendimiento',
   historico: 'Histórico',
   biometria: 'Biometría',
+  dobles: 'Dobles',
   mensajes: 'Mensajes',
 };
 
 export function DetalleTabBar({
-  athlete_id,
+  header,
   active,
 }: {
-  athlete_id: string;
+  header: DetalleHeader;
   active: AtletaTab;
 }) {
+  const athlete_id = header.athlete_id;
   return (
     <nav
       aria-label="Secciones del atleta"
       className="flex items-center gap-1 overflow-x-auto border-b border-[color:var(--v2-border)]"
     >
-      {ATLETA_TABS.map((tab) => {
+      {visibleAtletaTabs(header).map((tab) => {
         const isActive = tab === active;
         return (
           <Link

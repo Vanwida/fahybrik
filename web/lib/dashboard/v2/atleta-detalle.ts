@@ -50,6 +50,7 @@ export {
   ATLETA_TABS,
   DEFAULT_ATLETA_TAB,
   normalizeAtletaTab,
+  visibleAtletaTabs,
   buildPerfilTab,
   selectPerfilTab,
 } from './atleta-detalle-types';
@@ -171,6 +172,8 @@ export async function loadAthleteDetalle(params: {
     tenure_label: tenureLabel(plan),
     phase_label: phaseLabel(shell, plan),
     modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
+    is_dobles: shell.modality === 'dobles',
+    partner_name: shell.partner?.full_name ?? null,
   };
 
   return {
