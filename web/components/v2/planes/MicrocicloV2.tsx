@@ -9,11 +9,13 @@
 // blocks (modality color, title, agnostic group tag, real exercise/dose lines from
 // prescription_json). Rest → "Descanso"; empty → dashed add affordance.
 //
-// OPEN DAY (`?dia=N`): the SAME grid reflows to MASTER-DETAIL — the open day's
-// column GROWS (animated grid-template-columns) to host the DayEditor inline,
-// while the other six SHRINK to a thin clickable rail (letter + modality hue +
-// compact summary). "the week IS the editor": the coach never leaves the week,
-// they just open one column. Clicking a rail day switches `?dia` in place.
+// OPEN DAY (`?dia=N`): a proper MASTER-DETAIL (Linear / mail / Notion). The MASTER
+// is a vertical LIST of 7 COMPACT day-cards (~30% width) — each natural height, with
+// modality accent + its real summary ("Fuerza · 2 ej" / "Descanso" / "+ Añadir");
+// the active day is highlighted. The DETAIL (~70%) hosts the embedded DayEditor.
+// Cards are content-filled and breathe — no stretched full-height "fideos". Clicking
+// a card switches `?dia` in place (soft-nav, animated). "← Semana completa" returns
+// to the 7-equal-column SEMANA calendar, which stays unchanged.
 
 import { useMemo, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -34,12 +36,6 @@ import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { cn } from '@/lib/utils';
-
-// Master-detail track weights (fr). When a day is open its column grows to
-// ~62% of the week, the other six shrink to a thin clickable rail. Both states
-// use the SAME grid-template form (7 minmax tracks) so the width change ANIMATES.
-const ACTIVE_FR = 10;
-const RAIL_FR = 1;
 
 // The day column's primary heading: the first session focus the coach set, else
 // the dominant (first) block title — so the column always names the work.
@@ -251,72 +247,107 @@ function DayColumn({
   );
 }
 
-// A thin, clickable day column shown in the rail while another day is open. It is
-// the SAME week's other days, right there — letter + modality hue + a compact
-// honest summary ("Fuerza · 2 ej" / "Descanso" / "+"). Click switches `?dia`.
-function RailCell({
+// A compact day-card in the MASTER list shown while a day is open. Natural height
+// (NOT a stretched full-height column) — day name + modality accent + the SAME
+// honest summary the calendar derives ("Fuerza · 2 ej" / "Descanso" / "+ Añadir").
+// The active day is highlighted (accent ring); the others are clickable Links that
+// switch `?dia` in place. Active = a non-link div (you're already there).
+function DayCard({
   day,
   dayIndex,
   href,
+  active,
 }: {
   day: DayModalityInfo;
   dayIndex: number;
   href: string;
+  active: boolean;
 }) {
   const mod = day.dominant;
   const isWorkout = day.session_count > 0 && !!mod;
+  const headline = isWorkout ? dayHeadline(day) : null;
+  // Honest summary from the real derivation: modality + exercise/block count, or
+  // the rest / add affordance. Same fields the calendar columns surface.
   const summary = isWorkout
-    ? `${day.block_count} bl${day.item_count > 0 ? ` · ${day.item_count} ej` : ''}`
-    : null;
+    ? `${MODALITY_META[mod].label}${
+        day.item_count > 0
+          ? ` · ${day.item_count} ej`
+          : day.block_count > 0
+            ? ` · ${day.block_count} bl`
+            : ''
+      }`
+    : day.is_rest
+      ? 'Descanso'
+      : 'Añadir';
 
-  return (
-    <Link
-      href={href}
-      scroll={false}
-      aria-label={
-        isWorkout
-          ? `${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label} · ${summary}`
-          : day.is_rest
-            ? `${DAY_LABELS_FULL[dayIndex]} · descanso`
-            : `${DAY_LABELS_FULL[dayIndex]} · añadir sesión`
-      }
-      className={cn(
-        'v2-focus group flex h-full min-w-0 flex-col gap-1.5 overflow-hidden rounded-[var(--v2-r-m)] border p-1.5 transition-colors',
-        isWorkout
-          ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]'
-          : day.is_rest
-            ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]'
-            : 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-      )}
-      style={
-        isWorkout && mod
-          ? { borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }
-          : undefined
-      }
-    >
-      <span className="text-center text-[12px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-        {DAY_LABELS_SHORT[dayIndex]}
-      </span>
-      {isWorkout ? (
-        <div className="flex min-w-0 flex-col items-center gap-0.5 text-center">
+  const className = cn(
+    'v2-focus flex flex-col gap-1 rounded-[var(--v2-r-m)] border p-2.5 text-left transition-colors',
+    active
+      ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] ring-1 ring-[color:var(--v2-accent)]'
+      : isWorkout
+        ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]'
+        : day.is_rest
+          ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] hover:border-[color:var(--v2-border-strong)]'
+          : 'border-dashed border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',
+  );
+  const style =
+    isWorkout && mod
+      ? { borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }
+      : undefined;
+
+  const body = (
+    <>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-fg)]">
+          {DAY_LABELS_FULL[dayIndex]}
+        </span>
+        {day.session_count > 1 ? (
+          <span className="v2-num shrink-0 text-[9.5px] text-[color:var(--v2-faint)]">
+            {day.session_count} ses
+          </span>
+        ) : null}
+      </div>
+      <div className="flex min-w-0 items-center gap-1.5">
+        {isWorkout ? (
           <span
-            className="w-full truncate text-[9.5px] font-semibold"
-            style={{ color: `var(${MODALITY_META[mod].colorVar})` }}
-          >
-            {MODALITY_META[mod].label}
-          </span>
-          <span className="v2-num w-full truncate text-[9px] text-[color:var(--v2-faint)]">
-            {summary}
-          </span>
-        </div>
-      ) : day.is_rest ? (
-        <div className="flex flex-col items-center gap-0.5">
-          <MIcon name="bedtime" size={14} />
-          <span className="text-[9px] font-semibold">Descanso</span>
-        </div>
-      ) : (
-        <MIcon name="add" size={16} className="mx-auto" />
-      )}
+            aria-hidden
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: `var(${MODALITY_META[mod].colorVar})` }}
+          />
+        ) : !day.is_rest ? (
+          <MIcon name="add" size={13} className="shrink-0 text-[color:var(--v2-faint)]" />
+        ) : (
+          <MIcon name="bedtime" size={13} className="shrink-0 text-[color:var(--v2-muted)]" />
+        )}
+        <span
+          className="truncate text-[11px] font-semibold"
+          style={isWorkout && mod ? { color: `var(${MODALITY_META[mod].colorVar})` } : undefined}
+        >
+          {summary}
+        </span>
+      </div>
+      {headline ? (
+        <span className="truncate text-[10px] leading-snug text-[color:var(--v2-muted)]">
+          {headline}
+        </span>
+      ) : null}
+    </>
+  );
+
+  const ariaLabel = `${DAY_LABELS_FULL[dayIndex]} · ${
+    isWorkout ? summary : day.is_rest ? 'descanso' : 'añadir sesión'
+  }`;
+
+  if (active) {
+    return (
+      <div className={className} style={style} aria-current="true" aria-label={ariaLabel}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <Link href={href} scroll={false} className={className} style={style} aria-label={ariaLabel}>
+      {body}
     </Link>
   );
 }
@@ -412,11 +443,6 @@ export function MicrocicloV2({
 
   // Day editor offset: continuous day index across the microcycle.
   const dayBase = effectiveFocusIndex * 7;
-  // Animated master-detail tracks: 7 minmax columns; the open day grows. Same
-  // template form in both states so grid-template-columns interpolates smoothly.
-  const templateCols = (focus?.days ?? [])
-    .map((_, i) => `minmax(0, ${activeDayIndex === i ? ACTIVE_FR : RAIL_FR}fr)`)
-    .join(' ');
 
   return (
     <div className="flex flex-col gap-3">
@@ -544,25 +570,37 @@ export function MicrocicloV2({
           </div>
         </div>
 
-        {/* Day columns = the week grid. In the full week (no `?dia`) all 7 are
-            equal rich columns. Open a day and the grid REFLOWS to master-detail
-            on the SAME canvas: that day's column grows to host the editor inline,
-            the other six shrink to a thin clickable rail. The grid-template-
-            columns change animates (~300ms) so the column visibly grows. */}
+        {/* The week grid. SEMANA (no `?dia`) = 7 equal rich day columns across the
+            full width (the calendar, unchanged). Open a day → MASTER-DETAIL: a list
+            of 7 compact day-cards (~30%) + the embedded editor (~70%). No fideos. */}
 
-        {/* Desktop (lg+) — one animated master-detail grid */}
-        <div
-          className="mt-3 hidden gap-2 transition-[grid-template-columns] duration-300 ease-out lg:grid lg:min-h-[62vh] lg:[grid-template-rows:minmax(0,1fr)]"
-          style={{ gridTemplateColumns: templateCols }}
-        >
-          {(focus?.days ?? []).map((day, i) =>
-            activeDayIndex === i && dayModel ? (
-              <ActiveDayColumn
-                key={day.day_of_week}
-                microcycleId={microcycle_id}
-                dayModel={dayModel}
-              />
-            ) : activeDayIndex === null ? (
+        {/* Desktop (lg+) */}
+        {activeDayIndex !== null && dayModel ? (
+          <div className="v2-stagger mt-3 hidden gap-3 lg:grid lg:min-h-[62vh] lg:grid-cols-[minmax(0,30%)_minmax(0,1fr)] lg:[grid-template-rows:minmax(0,1fr)]">
+            {/* Master — vertical list of compact day-cards */}
+            <div className="flex min-w-0 flex-col gap-2 overflow-y-auto pr-0.5">
+              {(focus?.days ?? []).map((day, i) => (
+                <DayCard
+                  key={day.day_of_week}
+                  day={day}
+                  dayIndex={i}
+                  href={dayCanvasHref(microcycle_id, dayBase + i)}
+                  active={i === activeDayIndex}
+                />
+              ))}
+            </div>
+            {/* Detail — the embedded day editor. Keyed on (week, day) so switching
+                days in place REMOUNTS DayEditor (its local state seeds from the
+                model on mount), instead of reusing a stale instance. */}
+            <ActiveDayColumn
+              key={`${dayModel.week_index}-${dayModel.day_of_week}`}
+              microcycleId={microcycle_id}
+              dayModel={dayModel}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 hidden gap-2 lg:grid lg:min-h-[62vh] lg:grid-cols-7 lg:[grid-template-rows:minmax(0,1fr)]">
+            {(focus?.days ?? []).map((day, i) => (
               <DayColumn
                 key={day.day_of_week}
                 day={day}
@@ -570,16 +608,9 @@ export function MicrocicloV2({
                 href={dayCanvasHref(microcycle_id, dayBase + i)}
                 groupNames={groupNames}
               />
-            ) : (
-              <RailCell
-                key={day.day_of_week}
-                day={day}
-                dayIndex={i}
-                href={dayCanvasHref(microcycle_id, dayBase + i)}
-              />
-            ),
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Mobile (<lg) — stacks: full week = card grid; open day = a top day
             switcher strip (the rail, horizontal) + the editor below. */}
@@ -621,7 +652,11 @@ export function MicrocicloV2({
                   );
                 })}
               </div>
-              <ActiveDayColumn microcycleId={microcycle_id} dayModel={dayModel} />
+              <ActiveDayColumn
+                key={`${dayModel.week_index}-${dayModel.day_of_week}`}
+                microcycleId={microcycle_id}
+                dayModel={dayModel}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
