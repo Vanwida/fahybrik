@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 import { MIcon } from '@/components/dashboard/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
+import { AltaAtletaButton } from '@/components/v2/atletas/AltaAtletaButton';
 import { FilterDropdown, type DropdownOption } from '@/components/v2/atletas/FilterDropdown';
 import { RosterTable } from '@/components/v2/atletas/RosterTable';
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
@@ -171,6 +172,7 @@ export function RosterDirectory({
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
+          <AltaAtletaButton />
           <label className="relative flex items-center">
             <span className="pointer-events-none absolute left-2.5 text-[color:var(--v2-faint)]">
               <MIcon name="search" size={18} />
