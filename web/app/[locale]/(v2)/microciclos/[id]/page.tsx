@@ -105,6 +105,7 @@ export default async function V2MicrocicloPage({
       microcycle_id={id}
       name={full.month.name}
       level={full.month.level}
+      phaseLabel={full.month.phase_label}
       weeks={weeks}
       groupNames={groupNames}
       dayModel={dayModel}

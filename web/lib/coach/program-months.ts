@@ -235,5 +235,7 @@ export async function loadMonthTemplateWithWeeks(params: {
     slots_json: parseWeekSlotsFromDb(row.slots_json),
   }));
 
-  return { month, weeks };
+  // 0063: the shared month shape now carries phase_label. This legacy duplicate
+  // path never set the agnostic phase, so report it as none (null).
+  return { month: { ...month, phase_label: null }, weeks };
 }

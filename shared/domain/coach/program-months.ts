@@ -27,6 +27,26 @@ export const programMonthCreateSchema = z.object({
 });
 export type ProgramMonthCreate = z.infer<typeof programMonthCreateSchema>;
 
+/** Sane bounds for a microciclo created from scratch (coach picks 1..8 weeks). */
+export const MICROCICLO_MIN_WEEKS = 1;
+export const MICROCICLO_MAX_WEEKS = 8;
+
+/**
+ * Body validation for POST /api/coach/program-months/create — the AGNOSTIC
+ * "create from scratch" flow. Level + phase reference the coach's own catalogs
+ * (athlete_levels / methodology_phases) — never the legacy program_level /
+ * atr_block enums, never free text. `phase_id` is OPTIONAL (a microciclo may
+ * carry no phase). The legacy enum columns are derived server-side for
+ * back-compat (see createMonthTemplateWithEmptyWeeks).
+ */
+export const programMonthScratchSchema = z.object({
+  name: z.string().min(1).max(200),
+  level_id: z.coerce.number().int().positive(),
+  phase_id: z.coerce.number().int().positive().nullable().optional(),
+  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS),
+});
+export type ProgramMonthScratch = z.infer<typeof programMonthScratchSchema>;
+
 /**
  * Body validation for PUT /api/coach/program-months/[id].
  * Partial update — all fields optional, but at least one must be present.
@@ -68,8 +88,11 @@ export type MonthTemplateWithWeeks = {
   month: {
     id: string;
     name: string;
+    /** Agnostic level name (athlete_levels.name); legacy enum fallback for old rows. */
     level: string;
     atr_block_hint: string | null;
+    /** Agnostic phase label (methodology_phases.label), null when none set. */
+    phase_label: string | null;
   };
   weeks: MonthTemplateWeekFull[];
 };
@@ -94,12 +117,13 @@ export async function listMonthTemplates(params: {
     select
       m.id::text,
       m.name,
-      m.level::text,
+      coalesce(al.name, m.level::text) as level,
       m.atr_block_hint::text,
       fw.focus as focus,
       coalesce(w.cnt, 0)::int as week_count,
       m.updated_at::text
     from program_month_templates m
+    left join athlete_levels al on al.id = m.level_id
     left join (
       select month_template_id, count(*)::int as cnt
       from program_month_weeks

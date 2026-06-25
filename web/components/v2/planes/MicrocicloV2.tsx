@@ -540,6 +540,26 @@ export function MicrocicloV2({
     }
   };
 
+  // Añadir una semana VACÍA al final del microciclo, y dejar al coach EN ella.
+  const [addingWeek, setAddingWeek] = useState(false);
+  const addWeek = async () => {
+    if (addingWeek) return;
+    setAddingWeek(true);
+    try {
+      const res = await fetch(`/api/coach/program-months/${microcycle_id}/weeks`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) return;
+      const appendedIndex = weeks.length; // new week lands at the end (0-based).
+      router.refresh();
+      setFocusIndex(appendedIndex);
+    } finally {
+      setAddingWeek(false);
+    }
+  };
+
+
   if (weeks.length === 0) {
     return (
       <EmptyState
@@ -560,6 +580,16 @@ export function MicrocicloV2({
         <Pill tone="neutral" variant="soft">
           <span className="v2-num">{weeks.length}</span>&nbsp;semanas
         </Pill>
+        <button
+          type="button"
+          onClick={addWeek}
+          disabled={addingWeek}
+          title="Añade una semana vacía al final del microciclo"
+          className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)] disabled:opacity-60"
+        >
+          <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={15} />
+          {addingWeek ? 'Añadiendo…' : 'Añadir semana'}
+        </button>
         <button
           type="button"
           // TODO(endpoint): wire to the microcycle publish mutation.
