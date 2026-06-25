@@ -15,6 +15,7 @@ import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
+import { EvaluarSemanaAction } from './EvaluarSemanaAction';
 import { sessionModality } from './modality';
 import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
@@ -194,13 +195,16 @@ export function PlanTab({
             publicado
           </Pill>
         </div>
-        <Link
-          href={`/v2/atletas/${athlete_id}?tab=plan`}
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          Abrir en editor de día
-          <MIcon name="arrow_forward" size={15} />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <EvaluarSemanaAction athleteId={athlete_id} />
+          <Link
+            href={`/v2/atletas/${athlete_id}?tab=plan`}
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+          >
+            Abrir en editor de día
+            <MIcon name="arrow_forward" size={15} />
+          </Link>
+        </div>
       </div>
 
       {/* Microcycle progress strip */}

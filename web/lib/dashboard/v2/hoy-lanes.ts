@@ -112,6 +112,12 @@ export interface V2HoyData {
    * the sequence to the next microciclo (or repeat / level up / close per policy).
    */
   siguiente_microciclo_cards: V2SiguienteMicrocicloCard[];
+  /**
+   * Coach DECISIONS pending approval: the weekly auto-regulation adjustment and
+   * the next monthly-block proposal (both IA-generated). Mapped from the inbox;
+   * each card approves/rejects the real proposal and disappears on success.
+   */
+  decision_cards: V2DecisionCard[];
 }
 
 /**
@@ -446,6 +452,49 @@ export interface V2SiguienteMicrocicloCard {
   next_level_name: string | null;
 }
 
+// ── Decision cards (coach approves/rejects an IA proposal) ──────────────────────
+// The two coach DECISIONS the inbox already aggregates: the weekly auto-regulation
+// adjustment (week_adjustment_proposals) and the next monthly-block proposal
+// (monthly_block_proposals). Both are a one-decision card (Aprobar / Rechazar)
+// wired to the REAL per-proposal endpoints; on success the card disappears
+// (optimistic). They are NOT re-queried here — they are mapped 1:1 from the
+// CoachInbox the page already loads, so the card preview and the inbox count never
+// diverge (single source of truth, mirrors how the fetchers reuse their resolver).
+
+export type V2DecisionCard =
+  | {
+      kind: 'week_adjustment';
+      /** Stable React key: `week_adjustment:${proposal_id}`. */
+      id: string;
+      athlete_id: number;
+      athlete_name: string;
+      /** Pending week_adjustment_proposals.id — the approve/reject path segment. */
+      proposal_id: string;
+      /** Recommendation title, e.g. "Ajuste de volumen". */
+      title: string;
+      /** One-line coach summary / rationale. */
+      summary: string;
+      /** Up to MAX_DIFF_ROWS day-level before→after changes (template NAMES). */
+      diff_rows: { day_label: string; before: string; after: string }[];
+      /** Changes beyond the surfaced diff rows ("+N más"). */
+      extra_change_count: number;
+    }
+  | {
+      kind: 'monthly_block';
+      /** Stable React key: `monthly_block:${proposal_id}`. */
+      id: string;
+      athlete_id: number;
+      athlete_name: string;
+      /** Pending monthly_block_proposals.id — the approve/reject path segment. */
+      proposal_id: string;
+      /** Proposed month/block template name. */
+      month_name: string;
+      /** ISO start date the block would begin on (Monday). */
+      proposed_start_date: string;
+      /** Why this block now (derived rationale), nullable. */
+      rationale: string | null;
+    };
+
 type SeqEnrollmentRow = {
   athlete_id: string;
   athlete_name: string;
@@ -636,6 +685,42 @@ async function resolveLevelUpTargetForCard(
   return rows[0]?.next_level_name ?? null;
 }
 
+// ── Decision-card extractor ─────────────────────────────────────────────────────
+// Maps the inbox's two coach-DECISION item types into V2DecisionCards. Pure: no
+// queries — the inbox already resolved athlete names + template names. Order is
+// preserved (the inbox sorts decisions by week_start / start_date).
+
+function extractDecisionCards(inbox: CoachInbox | null): V2DecisionCard[] {
+  const out: V2DecisionCard[] = [];
+  for (const item of inbox?.items ?? []) {
+    if (item.type === 'week_adjustment') {
+      out.push({
+        kind: 'week_adjustment',
+        id: item.id,
+        athlete_id: Number(item.athlete_id),
+        athlete_name: item.athlete_name,
+        proposal_id: item.proposal_id,
+        title: item.title,
+        summary: item.summary,
+        diff_rows: item.diff_rows,
+        extra_change_count: item.extra_change_count,
+      });
+    } else if (item.type === 'monthly_block') {
+      out.push({
+        kind: 'monthly_block',
+        id: item.id,
+        athlete_id: Number(item.athlete_id),
+        athlete_name: item.athlete_name,
+        proposal_id: item.proposal_id,
+        month_name: item.month_name,
+        proposed_start_date: item.proposed_start_date,
+        rationale: item.rationale,
+      });
+    }
+  }
+  return out;
+}
+
 // ── Public assembler ──────────────────────────────────────────────────────────
 
 export function buildHoyLanes(params: {
@@ -654,6 +739,10 @@ export function buildHoyLanes(params: {
     asignacion_sugerida_cards = [],
     siguiente_microciclo_cards = [],
   } = params;
+
+  // Coach decisions (IA proposals to approve/reject) — mapped from the inbox the
+  // page already loaded, so no extra query and the count can't drift.
+  const decision_cards = extractDecisionCards(inbox);
 
   // Inactivity days by athlete (reinforces "falló sesiones" reasons).
   const inactivityByAthlete = new Map<string, number>();
@@ -792,6 +881,7 @@ export function buildHoyLanes(params: {
     nivel_sugerido_cards,
     asignacion_sugerida_cards,
     siguiente_microciclo_cards,
+    decision_cards,
   };
 }
 

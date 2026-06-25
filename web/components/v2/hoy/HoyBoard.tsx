@@ -14,6 +14,7 @@ import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
 import { AsignacionSugeridaStrip } from '@/components/v2/hoy/AsignacionSugeridaCard';
 import { SiguienteMicrocicloStrip } from '@/components/v2/hoy/SiguienteMicrocicloCard';
+import { PropuestasStrip } from '@/components/v2/hoy/PropuestaCard';
 import {
   IntroStrip,
   InfoDot,
@@ -79,7 +80,8 @@ export function HoyBoard({
     totalCards === 0 &&
     data.nivel_sugerido_cards.length === 0 &&
     data.asignacion_sugerida_cards.length === 0 &&
-    data.siguiente_microciclo_cards.length === 0;
+    data.siguiente_microciclo_cards.length === 0 &&
+    data.decision_cards.length === 0;
 
   // Filter cards per lane by the search query (empty query → all cards).
   const filteredLanes = useMemo(
@@ -152,6 +154,9 @@ export function HoyBoard({
           />
         </div>
       ) : null}
+
+      {/* ── Propuestas para aprobar (autorregulación semanal + bloque mensual IA) ── */}
+      <PropuestasStrip cards={data.decision_cards} />
 
       {/* ── Nivel sugerido strip (new athletes awaiting level confirmation) ── */}
       <NivelSugeridoStrip cards={data.nivel_sugerido_cards} />
