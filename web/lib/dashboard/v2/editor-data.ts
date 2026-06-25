@@ -203,6 +203,9 @@ function blockFormatToModalitySlug(format: string | null): string {
     case 'tempo':
     case 'intervals':
       return 'carrera';
+    case 'test':
+      // The default test type is ergo; the form's hue follows the picked type.
+      return 'ergo';
     case 'amrap':
     case 'emom':
     case 'for_time':

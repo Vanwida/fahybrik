@@ -48,6 +48,7 @@ const TEMPLATE_FORMAT_MODALITY: Record<TemplateFormat, V2LibModalityFilter> = {
   emom: 'circuito',
   for_time: 'circuito',
   circuit: 'circuito',
+  test: 'ergo', // default test type is ergo; spans modalities by picked type
 };
 
 /** template.format → objective bucket (best-effort; null = unclassified). */
@@ -60,6 +61,7 @@ const TEMPLATE_FORMAT_OBJECTIVE: Record<TemplateFormat, V2LibObjective | null> =
   emom: 'vo2',
   for_time: 'vo2',
   circuit: 'umbral',
+  test: null, // a test is a calibration effort, not an objective bucket
 };
 
 /** block.methodology_group_id (1..10) → modality. Groups are the canonical

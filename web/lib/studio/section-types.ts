@@ -137,6 +137,7 @@ export function formatLabel(format: TemplateFormat): string {
     hyrox_sim: 'HYROX sim',
     tempo: 'Tempo',
     circuit: 'Circuit',
+    test: 'Test',
   };
   return map[format] ?? format;
 }

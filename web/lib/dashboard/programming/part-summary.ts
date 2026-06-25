@@ -77,6 +77,7 @@ const FORMAT_CHIP_LABEL: Record<TemplateFormat, string> = {
   hyrox_sim: 'Simulación',
   tempo: 'Continuo',
   circuit: 'Circuito',
+  test: 'Test',
 };
 
 export function formatChipLabel(format: TemplateFormat): string {

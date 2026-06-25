@@ -32,6 +32,7 @@ import { IntervalsForm } from './archetype-forms/IntervalsForm';
 import { SetsTableForm } from './archetype-forms/SetsTableForm';
 import { ComponentsForm } from './archetype-forms/ComponentsForm';
 import { SimulacionHyroxForm } from './archetype-forms/SimulacionHyroxForm';
+import { TestForm } from './archetype-forms/TestForm';
 
 export function ArchetypeBlockForm({
   block,
@@ -57,6 +58,12 @@ export function ArchetypeBlockForm({
   // Multi-item patterns (components, hyrox_sim) edit the block's ITEM LIST; the
   // single-item patterns (steady/intervals/sets_table) edit one item's prescription.
   const isMultiItem = pattern === 'components' || pattern === 'hyrox_sim';
+  // The Test pattern is single-item but SELF-CONTAINED: the test TYPE names the
+  // exercise + fully defines the prescription (round-trips from it), so it shows
+  // no free exercise-name input and no advanced-axes hatch (that would break the
+  // type round-trip). It also has no athlete "preview line" — its output is the
+  // zone calculator in the athlete profile, not an inline resolved line.
+  const isTest = pattern === 'test';
   const firstItem: EditorItem | undefined = block.items[0];
 
   const setFirstItem = (patch: Partial<EditorItem>) => {
@@ -91,8 +98,8 @@ export function ArchetypeBlockForm({
         </div>
       ) : null}
 
-      {/* Exercise name (single-item patterns) */}
-      {!isMultiItem && firstItem ? (
+      {/* Exercise name (single-item patterns, except Test — its type names it) */}
+      {!isMultiItem && !isTest && firstItem ? (
         <label className="block space-y-1.5">
           <span className="v2-micro">Ejercicio</span>
           <TextCell
@@ -116,6 +123,8 @@ export function ArchetypeBlockForm({
         <ComponentsForm block={block} onChange={onChange} />
       ) : pattern === 'hyrox_sim' ? (
         <SimulacionHyroxForm block={block} onChange={onChange} />
+      ) : pattern === 'test' && firstItem ? (
+        <TestForm value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : (
         <p className="text-sm text-[color:var(--v2-muted)]">
           Elige un tipo de bloque para configurar la prescripción.
@@ -125,8 +134,8 @@ export function ArchetypeBlockForm({
       {/* Phase / method tag — coach's optional tag, inherits from the microciclo */}
       <PhaseInheritLine label={inheritedPhaseLabel} />
 
-      {/* Athlete preview (the resolved line) — single-item patterns */}
-      {!isMultiItem && firstItem ? (
+      {/* Athlete preview (the resolved line) — single-item patterns (not Test) */}
+      {!isMultiItem && !isTest && firstItem ? (
         <AthletePreviewLine
           prescription={firstItem.prescription}
           exerciseName={firstItem.exercise_name}
@@ -134,8 +143,8 @@ export function ArchetypeBlockForm({
         />
       ) : null}
 
-      {/* Advanced escape hatch — full axes for the rare override (single-item) */}
-      {!isMultiItem && firstItem ? (
+      {/* Advanced escape hatch — full axes for the rare override (single-item, not Test) */}
+      {!isMultiItem && !isTest && firstItem ? (
         <AdvancedHatch value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : null}
     </div>

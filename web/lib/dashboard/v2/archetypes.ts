@@ -29,6 +29,7 @@ import {
   defaultTargetForModality,
 } from '@/components/dashboard/programming/studio/prescription-model';
 import { createHyroxSimBlock } from '@/lib/dashboard/v2/hyrox-template';
+import { createTestBlock, TEST_BLOCK_FORMAT } from '@/lib/dashboard/v2/test-template';
 
 // ── The four underlying form patterns (9 archetypes → 4 forms) ───────────────
 // STEADY      — one line: duración|distancia + zona|RPE|ritmo  (Z2 / tempo / activación / test)
@@ -37,7 +38,9 @@ import { createHyroxSimBlock } from '@/lib/dashboard/v2/hyrox-template';
 // COMPONENTS  — formato (For Time|AMRAP|EMOM|Rondas) + lista de componentes + cap  (WOD / metcon / circuito)
 // HYROX_SIM   — the dedicated ORDERED race template: 16 fixed legs (8 runs + 8
 //               stations in official order) + Open/Pro standard loads  (Simulación HYROX)
-export type FormPattern = 'steady' | 'intervals' | 'sets_table' | 'components' | 'hyrox_sim';
+// TEST        — the dedicated light resolver form: pick a test TYPE (modality +
+//               measure auto, RPE 10) whose result calculates the athlete's zones
+export type FormPattern = 'steady' | 'intervals' | 'sets_table' | 'components' | 'hyrox_sim' | 'test';
 
 export type ArchetypeId =
   | 'steady_run'
@@ -158,17 +161,13 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'test',
     name: 'Test',
-    purpose: 'Distancia / tiempo @ RPE 10. Almacena ritmo → alimenta el plan.',
+    purpose: 'Elige el tipo (remo/ski 2k · carrera 3′/9′/30′) @ RPE 10. Almacena ritmo → alimenta el plan.',
     icon: 'speed',
-    modalitySlug: 'carrera',
-    pattern: 'steady',
+    modalitySlug: 'ergo',
+    pattern: 'test',
     frequency: 'clave',
-    format: 'tempo',
+    format: TEST_BLOCK_FORMAT,
     defaultTitle: 'Test',
-    deferred: {
-      routesTo: 'steady_run',
-      note: 'El test es un resolutor: el "almacena ritmo → VDOT" que recalcula los ritmos del plan llega en el siguiente chunk. Por ahora se prescribe como un esfuerzo máximo (distancia/tiempo @ RPE 10).',
-    },
   },
   {
     id: 'activation',
@@ -207,7 +206,9 @@ const ARCHETYPE_AXIS: Record<ArchetypeId, AxisModalidad> = {
   wod_metcon: 'circuito',
   circuit_core: 'circuito',
   hyrox_sim: 'circuito',
-  test: 'carrera',
+  // Test defaults to ergo (the default test type is Remo 2k); createTestBlock owns
+  // the real seed, so this axis is only the picker-tile hue fallback.
+  test: 'ergo',
   activation: 'carrera',
 };
 
@@ -314,6 +315,7 @@ const FORMAT_TO_ARCHETYPE: Record<string, ArchetypeId> = {
   amrap: 'wod_metcon',
   circuit: 'circuit_core',
   hyrox_sim: 'hyrox_sim',
+  test: 'test',
 };
 
 /** Best-effort archetype for a reloaded block from its format (null = unknown). */
@@ -344,6 +346,9 @@ export function createBlockFromArchetype(
   // Simulación HYROX has a dedicated, ordered race template (16 pre-seeded legs
   // with real exercise_ids + standard loads) — not the generic single-item seed.
   if (id === 'hyrox_sim') return createHyroxSimBlock(group);
+  // Test has a dedicated factory: the prescription IS the test spec (modality +
+  // measure + amount from the test type), seeded at the default test type.
+  if (id === 'test') return createTestBlock(group);
 
   const archetype = getArchetype(id);
   const prescription = seedArchetype(id);
