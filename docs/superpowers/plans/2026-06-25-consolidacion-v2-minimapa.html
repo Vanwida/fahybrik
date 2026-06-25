@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini-mapa — Consolidación V2 como versión final del dashboard</title>
+<style>
+  :root{
+    --bg:#fafaf8; --card:#ffffff; --ink:#1a1a1a; --muted:#6b6b6b;
+    --line:#e6e4df; --accent:#e8552a; --accent-soft:#fdeee9;
+    --green:#1f7a3d; --green-bg:#e9f5ee; --red:#b3261e; --red-bg:#fbeae9;
+    --amber:#8a5800; --amber-bg:#fbf2dd; --blue:#1856b8; --blue-bg:#eaf0fb;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:48px 28px 96px}
+  header.doc{border-bottom:3px solid var(--accent);padding-bottom:20px;margin-bottom:8px}
+  h1{font-size:30px;font-style:italic;font-weight:800;letter-spacing:-.5px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px}
+  .meta{font-size:13px;color:var(--muted);margin-top:6px}
+  h2{font-size:21px;margin:48px 0 10px;font-weight:800;letter-spacing:-.3px;
+    border-left:4px solid var(--accent);padding-left:12px}
+  h3{font-size:16px;margin:26px 0 8px;font-weight:700}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:13px;background:#f1efe9;padding:1px 6px;border-radius:5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:14px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  tr:last-child td{border-bottom:none}
+  .tag{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;
+    letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}
+  .t-keep{background:var(--green-bg);color:var(--green)}
+  .t-del{background:var(--red-bg);color:var(--red)}
+  .t-move{background:var(--blue-bg);color:var(--blue)}
+  .t-care{background:var(--amber-bg);color:var(--amber)}
+  .callout{border-radius:12px;padding:16px 18px;margin:16px 0;border:1px solid}
+  .c-danger{background:var(--red-bg);border-color:#f0c9c6}
+  .c-safe{background:var(--green-bg);border-color:#bfe2cc}
+  .c-info{background:var(--blue-bg);border-color:#c5d6f3}
+  .c-warn{background:var(--amber-bg);border-color:#ecd8a6}
+  .callout b{display:block;margin-bottom:4px}
+  ul,ol{margin:10px 0 10px 4px;padding-left:22px}
+  li{margin:6px 0}
+  .step{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:10px;padding:14px 18px;margin:12px 0}
+  .step .n{font-style:italic;font-weight:800;color:var(--accent);font-size:13px;letter-spacing:.5px}
+  .step h4{margin:2px 0 6px;font-size:15px}
+  .small{font-size:13px;color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .kpi{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0}
+  .kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:130px}
+  .kpi b{display:block;font-size:24px;font-style:italic}
+  .kpi span{font-size:12px;color:var(--muted)}
+  .pathlist{font-family:var(--mono);font-size:13px;line-height:1.9}
+  hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+  .q{background:#fff;border:2px dashed var(--accent);border-radius:12px;padding:18px 20px;margin:16px 0}
+  .q b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Consolidación V2 — V2 pasa a ser la versión final del dashboard</h1>
+  <div class="sub">Mini-mapa cross-cutting · solo análisis (read-only) · requiere OK de Alex antes de ejecutar</div>
+  <div class="meta">FAHYBRIK / web · rama <code>feat/landing</code> · 2026-06-25 · alcance: <code>web/app/[locale]/(app)</code> → retiro, <code>(v2)</code> → primario</div>
+</header>
+
+<div class="kpi">
+  <div><b>9</b><span>pantallas V1 → mover</span></div>
+  <div><b>4</b><span>pantallas V1 sin gemela V2</span></div>
+  <div><b>~143</b><span>archivos en components/dashboard (V1, no todo borrable)</span></div>
+  <div><b>0</b><span>impacto en iOS</span></div>
+  <div><b>1</b><span>landing — fuera del radio, segura</span></div>
+</div>
+
+<div class="callout c-info">
+  <b>TL;DR</b>
+  Hoy <code>/es/hoy</code> sirve <b>V1</b> (los compañeros de Pablo aterrizan ahí; <code>app/auth/verify/route.ts</code> redirige a <code>/hoy</code>). V2 vive en <code>/es/v2/*</code>. La forma más limpia de hacer V2 primario es <b>quitar el prefijo <code>/v2</code></b> moviendo <code>(v2)/v2/*</code> al sitio de <code>(app)/*</code> y reapuntar el login a <code>/hoy</code>. El mayor riesgo NO es mover rutas — es <b>borrar código compartido</b>: <code>lib/dashboard/coach/*</code> y un puñado de <code>components/dashboard/*</code> (MIcon, prescription-model) los usa V2. La landing está en otro route group (<code>(marketing)</code>, sirve <code>/</code>) y no se toca.
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Inventario de rutas (V1 vs V2)</h2>
+
+<p>Los <i>route groups</i> entre paréntesis (<code>(app)</code>, <code>(v2)</code>, <code>(marketing)</code>…) <b>no añaden segmento de URL</b>. Por eso:</p>
+<ul>
+  <li><code>(app)/hoy</code> → URL <code>/es/hoy</code> &nbsp;(V1, lo que se sirve <b>hoy</b>)</li>
+  <li><code>(v2)/v2/hoy</code> → URL <code>/es/v2/hoy</code> &nbsp;(V2, el <code>/v2</code> es un segmento real dentro del grupo)</li>
+</ul>
+<p>El layout <code>(v2)/layout.tsx</code> envuelve TODO lo de <code>(v2)/v2/*</code> con <code>V2Shell</code> + <code>v2-theme.css</code> (tema scoped al wrapper <code>.v2-root</code>, no toca el <code>&lt;html&gt;</code>; por eso V1 y V2 conviven sin pisarse).</p>
+
+<h3>Tabla de movimiento — cada ruta V1 a su nuevo hogar</h3>
+<table>
+  <thead><tr><th>Ruta V1 actual</th><th>Gemela V2</th><th>Acción</th><th>URL final</th></tr></thead>
+  <tbody>
+    <tr><td><code>(app)/hoy</code></td><td><code>(v2)/v2/hoy</code></td><td><span class="tag t-move">mover V2→primaria</span></td><td><code>/es/hoy</code></td></tr>
+    <tr><td><code>(app)/atletas</code><br><span class="small">+ [id], /cuerpo, /rendimiento, /intake, /plan, /dobles-simulacion</span></td><td><code>(v2)/v2/atletas</code> + [id]</td><td><span class="tag t-move">mover V2→primaria</span> <span class="tag t-care">comprobar sub-rutas</span></td><td><code>/es/atletas</code></td></tr>
+    <tr><td><code>(app)/programar</code><br><span class="small">/microciclos, /microciclos/[id], /weeks, /weeks/[id]</span></td><td>Reparto V2: <code>/v2/biblioteca</code>, <code>/v2/planes</code>, <code>/v2/microciclos</code>, <code>/v2/microciclos/[id]/dia/[idx]</code></td><td><span class="tag t-care">remapear (no 1:1)</span></td><td>ver §abajo</td></tr>
+    <tr><td><code>(app)/metodologia</code><br><span class="small">/autorregulacion, /periodizacion-atr</span></td><td><code>(v2)/v2/periodizacion</code></td><td><span class="tag t-care">remapear parcial</span></td><td><code>/es/periodizacion</code> (+ ¿autorregulación?)</td></tr>
+    <tr><td><code>(app)/ajustes</code></td><td><code>(v2)/v2/ajustes</code></td><td><span class="tag t-move">mover V2→primaria</span></td><td><code>/es/ajustes</code></td></tr>
+    <tr><td><code>(app)/review</code></td><td><span class="small">— ninguna (V1 ya redirige a <code>/</code>)</span></td><td><span class="tag t-del">borrar</span></td><td>—</td></tr>
+    <tr><td><span class="small">(sin gemela V1)</span></td><td><code>(v2)/v2/mensajes</code></td><td><span class="tag t-keep">nuevo en V2 — conservar</span></td><td><code>/es/mensajes</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout c-warn">
+  <b>No es un mapeo 1:1 — V2 reorganizó la IA</b>
+  V2 reparte lo que en V1 vivía bajo <code>/programar</code> en tres destinos (<code>biblioteca</code> = sesiones/bloques, <code>planes</code>, <code>periodizacion</code>) y añade <code>mensajes</code> como pantalla propia. El <code>VersionSwitch</code> ya documenta este mapeo inverso: <code>biblioteca→/programar</code>, <code>planes→/programar</code>, <code>mensajes→/hoy</code>. Al consolidar hay que decidir las <b>URLs finales</b> de Biblioteca/Planes/Periodización (¿quedan como <code>/es/biblioteca</code>, <code>/es/planes</code>, <code>/es/periodizacion</code>? — recomendado, son las que ya usa el sidebar V2 sin el prefijo).
+</div>
+
+<h3>¿Dónde vive V2 una vez es primaria? Dos opciones</h3>
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">Opción A — <span style="color:var(--green)">recomendada</span><br>quitar el prefijo <code>/v2</code></h3>
+    <p class="small">Mover los archivos de <code>(v2)/v2/*</code> a <code>(v2)/*</code> (eliminando el segmento <code>v2</code>), borrar todo <code>(app)/*</code>, y renombrar el grupo <code>(v2)</code> → <code>(app)</code> (o dejarlo como <code>(v2)</code>; el nombre del grupo no afecta a la URL).</p>
+    <ul class="small">
+      <li>URLs finales limpias: <code>/es/hoy</code>, <code>/es/atletas</code>…</li>
+      <li>El <code>V2Shell</code> + tema scoped quedan como chrome único.</li>
+      <li>Los hrefs del sidebar V2 (<code>/v2/hoy</code>…) hay que reescribir a <code>/hoy</code>… (1 archivo: <code>components/v2/nav.ts</code> + el logo href en <code>V2Sidebar.tsx</code>).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Opción B — descartada<br>dejar V2 en <code>/v2</code> y redirigir</h3>
+    <p class="small">Mantener <code>/v2/*</code> como URLs reales y poner redirects <code>/hoy→/v2/hoy</code> etc. Más rápido pero deja el <code>/v2</code> permanente en las URLs (feo, "delata el rediseño"), redirects que mantener para siempre, y el <code>VersionSwitch</code> sin sentido.</p>
+    <p class="small">Solo válida como <b>paso intermedio</b> de transición, no como estado final.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · Mecánica de routing y el switch v1↔v2</h2>
+
+<div class="card">
+  <h3 style="margin-top:0">Cómo está cableado <code>(v2)</code></h3>
+  <ul>
+    <li><code>app/[locale]/(v2)/layout.tsx</code> — mismo gate de auth que V1 (<code>getCoachSession()</code> → <code>redirect('/sign-in')</code>), lee unread de chat, monta <code>&lt;V2ThemeScript/&gt;</code> + <code>&lt;V2Shell&gt;</code>. Importa <code>./v2-theme.css</code>.</li>
+    <li><code>(v2)/v2-theme.css</code> — tokens del tema V2, scoped a <code>.v2-root</code>.</li>
+    <li><code>components/v2/V2Shell.tsx</code> — chrome cliente: <code>V2ThemeProvider</code> + <code>V2Sidebar</code> + barra superior con <code>VersionSwitch</code>, <code>ThemeToggle</code> y nombre del coach.</li>
+    <li><code>components/v2/nav.ts</code> — IA del sidebar V2 (<code>V2_NAV_ITEMS</code>, hrefs <code>/v2/...</code>). <b>Totalmente independiente</b> de la nav V1 (el "import" aparente de <code>lib/dashboard/nav.ts</code> es solo un comentario, no una dependencia real).</li>
+  </ul>
+  <h3>Cómo está cableado <code>(app)</code> (V1)</h3>
+  <ul>
+    <li><code>(app)/layout.tsx</code> — <code>getCoachSession()</code> + <code>countCoachInboxItems()</code> → <code>&lt;AppShell&gt;</code> (de <code>components/dashboard/layout/AppShell</code>).</li>
+    <li>Nav V1: <code>lib/dashboard/nav.ts</code> + <code>components/dashboard/layout/CoachSidebar.tsx</code> / <code>CoachMobileNav.tsx</code>.</li>
+  </ul>
+</div>
+
+<div class="callout c-info">
+  <b>El switch "v1 / v2" de las capturas = <code>components/v2/VersionSwitch.tsx</code></b>
+  Es un toggle dentro de la barra superior de V2. La pastilla <code>v2</code> está activa (no es link, es el estado actual); la pastilla <code>v1</code> es un <code>&lt;Link&gt;</code> que mapea la pantalla V2 actual a su gemela V1 (<code>V2_TO_V1_ROUTE</code>: <code>hoy→/hoy</code>, <code>atletas→/atletas</code>, <code>biblioteca→/programar</code>…) y cae a <code>/hoy</code> si no hay gemela. <b>Solo existe en V2</b> (V1 no tiene botón para ir a V2 — a V2 se llega tecleando <code>/v2/...</code>). Al consolidar, este componente <b>se borra</b> (junto con su uso en <code>V2Shell</code>).
+</div>
+
+<!-- ============================================================ -->
+<h2>3 · Qué sirve <code>/es/hoy</code> HOY</h2>
+<div class="callout c-warn">
+  <b>Hoy sirve V1.</b>
+  Traza: el login del coach (magic-link) está en <code>app/auth/verify/route.ts</code> y en su línea 46 hace <code>NextResponse.redirect(new URL('/hoy', appUrl))</code> → next-intl prefija el locale → <code>/es/hoy</code> → resuelve a <code>(app)/hoy/page.tsx</code> (<b>V1</b>). Los compañeros de Pablo que entran online aterrizan en V1. A V2 solo se llega tecleando <code>/v2/...</code>. Por eso, consolidar <b>no es opcional</b> para que el redirect de login lleve a la versión buena: o se mueve V2 a <code>/hoy</code>, o se cambia el destino del redirect a <code>/v2/hoy</code>.
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Análisis de colisión / rotura</h2>
+
+<table>
+  <thead><tr><th>Si V2→primaria y V1 se borra…</th><th>¿Rompe?</th><th>Cómo manejarlo</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Redirect de login</b> <code>app/auth/verify/route.ts</code> → <code>/hoy</code></td>
+      <td><span class="tag t-care">sí, queda apuntando a V2 nuevo</span></td>
+      <td>Si Opción A (V2 vive en <code>/hoy</code>): <b>no tocar</b>, ya cae bien. Si Opción B: cambiar destino a <code>/v2/hoy</code>.</td>
+    </tr>
+    <tr>
+      <td><b>Sidebar V2</b> con hrefs <code>/v2/...</code> (<code>components/v2/nav.ts</code>, logo en <code>V2Sidebar.tsx</code>)</td>
+      <td><span class="tag t-care">sí (Opción A)</span></td>
+      <td>Reescribir <code>/v2/hoy</code>→<code>/hoy</code>, etc. en <b>2 archivos</b>. Decidir URL final de biblioteca/planes/periodización.</td>
+    </tr>
+    <tr>
+      <td><b><code>VersionSwitch</code></b> (mapea V2→V1)</td>
+      <td><span class="tag t-del">se borra</span></td>
+      <td>Quitar de <code>V2Shell.tsx</code> y del barrel <code>components/v2/index.ts</code>; borrar el archivo. Sin V1 no tiene a dónde apuntar.</td>
+    </tr>
+    <tr>
+      <td><b>Redirects en <code>next.config.ts</code></b> (<code>/programacion→/programar</code>, <code>/biblioteca→/programar?tab=sesiones</code>)</td>
+      <td><span class="tag t-care">revisar</span></td>
+      <td>Esos redirects llevan a <code>/programar</code> (V1, que se borra). Reapuntar a las nuevas URLs V2 (p.ej. <code>/biblioteca</code> directo) o eliminar. <b>NO tocar</b> <code>/privacy</code> y <code>/terms</code> (los usa iOS).</td>
+    </tr>
+    <tr>
+      <td><b>redirects internos en páginas <code>(app)</code></b> (<code>atletas/[id]→/intake</code>, <code>rendimiento→?section=…</code>, etc.)</td>
+      <td><span class="tag t-keep">se van con V1</span></td>
+      <td>Viven dentro de <code>(app)/atletas/*</code>; al borrar V1 desaparecen. Verificar que las pantallas V2 de atletas cubren esos sub-flujos (intake, secciones cuerpo/rendimiento) — si no, son <b>huecos funcionales</b> a portar, no roturas de link.</td>
+    </tr>
+    <tr>
+      <td><b>LANDING</b> (<code>(marketing)</code>, sirve <code>/</code>)</td>
+      <td><span class="tag t-keep">no rompe</span></td>
+      <td>Route group separado, layout propio, sin imports de <code>(app)</code> ni <code>(v2)</code>. Ver nota de seguridad §abajo.</td>
+    </tr>
+    <tr>
+      <td><b>iOS / <code>api/athlete/*</code></b></td>
+      <td><span class="tag t-keep">no rompe</span></td>
+      <td>API separada bajo <code>app/api/athlete/*</code>. Ver §6.</td>
+    </tr>
+    <tr>
+      <td><b><code>(admin)</code></b> (<code>/admin</code>)</td>
+      <td><span class="tag t-care">cuidado</span></td>
+      <td>Usa <code>components/dashboard/admin/AdminShell</code>. NO está dentro de <code>(app)</code> pero SÍ depende del árbol <code>components/dashboard</code>. Al "borrar V1" hay que <b>conservar</b> <code>components/dashboard/admin/*</code>.</td>
+    </tr>
+    <tr>
+      <td><b>Test</b> <code>tests/coach/v2-session-save-roundtrip.test.ts</code></td>
+      <td><span class="tag t-keep">no rompe</span></td>
+      <td>Es test de V2; se conserva. No hay tests apuntando a rutas <code>(app)</code> V1.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>5 · V1-only (borrable) vs compartido (conservar) — el riesgo Nº1</h2>
+
+<div class="callout c-danger">
+  <b>Peligro Nº1: borrar código compartido.</b>
+  "Borrar V1" ≠ "borrar <code>lib/dashboard/coach</code> + <code>components/dashboard</code>". El <b>backend de coach</b> (<code>lib/dashboard/coach/*</code>) y varios <b>átomos de <code>components/dashboard/*</code></b> los consume V2 directamente o vía <code>app/api/coach/*</code>. Borrar por nombre de carpeta mata V2.
+</div>
+
+<h3>5a · <code>lib/dashboard/coach/*</code> — backend, mayormente COMPARTIDO</h3>
+<p>V2 importa <b>directamente</b> 15+ módulos de <code>lib/dashboard/coach</code> desde sus páginas, y <code>app/api/coach/*</code> (que V2 llama) importa ~29 módulos coach + <code>lib/dashboard/v2/editor-serialize</code>. <b>Regla: <code>lib/dashboard/coach</code> y <code>lib/dashboard/v2</code> se CONSERVAN íntegros.</b></p>
+
+<div class="grid2">
+  <div class="card">
+    <p><span class="tag t-keep">conservar</span> <b>Compartido — lo usa V2 o api/coach</b></p>
+    <p class="small pathlist">
+      assign-block · assign-sequence · athlete-plan ·<br>
+      athlete-profile-shell · athlete-session-adapter ·<br>
+      atr-transition-dispatch · blocks · comp-athletes ·<br>
+      day-sessions · deep-dive-body · deep-dive-performance ·<br>
+      deep-dive-types · inbox · macro-progress ·<br>
+      methodology-groups · methodology/defaults ·<br>
+      monthly-block-proposal · phases · program-months ·<br>
+      program-weeks · publish-preview · resumen ·<br>
+      sequences · subscription-status · templates ·<br>
+      text-ai-suggest · week-adjustments · weekly-evaluation ·<br>
+      ai/llm · ai/suggest-week · ai/suggest-week-from-blocks ·<br>
+      ai/suggest-workout
+    </p>
+  </div>
+  <div class="card">
+    <p><span class="tag t-care">revisar 1×1, NO borrar a ciegas</span> <b>Sin refs desde V2/api (candidatos V1-only)</b></p>
+    <p class="small">Aparecen usados solo por <code>(app)</code> / <code>components/dashboard</code>:</p>
+    <p class="small pathlist">
+      activity-today · athlete-status · athlete-daily-readiness ·<br>
+      athlete-training-level · atr-transition-detector ·<br>
+      block-exercise-format · hoy-data · instantiate-program ·<br>
+      intake-month-proposal · modality-types ·<br>
+      pablo-ia-context · program-week-slots ·<br>
+      programming-status · race-labels · resolve-phase ·<br>
+      team-pulse · weekly-verdict-rules ·<br>
+      methodology/rule-vm · methodology/use-rule-parse ·<br>
+      ai/template-to-blocks
+    </p>
+    <p class="small"><b>Ojo:</b> "sin refs desde V2" ≠ "muerto". <code>resolve-phase</code> (sistema de fases agnóstico) y <code>phase-roles</code> son lógica de dominio que V2 <i>debería</i> usar. Antes de borrar cada uno: ¿lo necesita un flujo V2 aún no portado (p.ej. intake)? Si sí → <b>portar el import a V2, no borrar</b>.</p>
+  </div>
+</div>
+
+<h3>5b · <code>components/dashboard/*</code> — UI V1, con átomos compartidos incrustados</h3>
+<p>~143 archivos. <b>NO es todo borrable.</b> V2 importa dos cosas concretas de aquí:</p>
+<table>
+  <thead><tr><th>Módulo</th><th>Estado</th><th>Detalle</th></tr></thead>
+  <tbody>
+    <tr><td><code>components/dashboard/MIcon</code></td><td><span class="tag t-keep">conservar (átomo compartido)</span></td><td>~147 usos en todo el repo, incl. <code>(v2)/v2/ajustes</code>, <code>V2Sidebar</code>, <code>components/v2/atleta-detalle/*</code>. Idealmente <b>mover a una ubicación neutra</b> (p.ej. <code>components/ui/MIcon</code>) en vez de dejarlo bajo <code>dashboard</code>.</td></tr>
+    <tr><td><code>components/dashboard/programming/studio/prescription-model</code></td><td><span class="tag t-keep">conservar (modelo de dominio compartido)</span></td><td>Lo usan editor V2 (<code>components/v2/editor/*</code>, <code>lib/dashboard/v2/*</code>) Y session-drawer V1. Es el modelo de prescripción — dominio puro. <b>Mover a <code>lib/</code></b> al limpiar.</td></tr>
+    <tr><td><code>components/dashboard/admin/*</code> (<code>AdminShell</code>…)</td><td><span class="tag t-keep">conservar (lo usa /admin)</span></td><td><code>(admin)/admin/layout.tsx</code> depende de <code>AdminShell</code>. /admin no es V1-coach, es otra superficie.</td></tr>
+    <tr><td>El resto de <code>components/dashboard/*</code> (layout/AppShell, CoachSidebar, hoy/, athletes/, programar/, session-drawer/, intake/, assign-flow/, metrics/, pablo-ia/, dobles/…)</td><td><span class="tag t-del">V1-only → borrable</span></td><td>Tras extraer MIcon + prescription-model + admin. Verificar con grep que ningún <code>components/v2/*</code> ni <code>(v2)/*</code> los importa antes de borrar cada subcarpeta.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout c-danger">
+  <b>Trampa: <code>api/athlete/zones</code> importa de <code>lib/dashboard/v2</code>.</b>
+  <code>app/api/athlete/zones/route.ts</code> hace <code>import { loadAthleteZoneProfilesForAthlete } from '@/lib/dashboard/v2/zone-profile'</code>. O sea: <b>la API de iOS depende de <code>lib/dashboard/v2</code></b>. Refuerza que <code>lib/dashboard/v2</code> es backend de producción, no "código de rediseño desechable". Conservar entero.
+</div>
+
+<!-- ============================================================ -->
+<h2>6 · Impacto en iOS — ninguno</h2>
+<div class="callout c-safe">
+  <b>Retirar el dashboard V1 web NO afecta a la app iOS del atleta.</b>
+  iOS consume <code>app/api/athlete/*</code> (+ <code>api/auth</code>, <code>api/onboarding</code>, <code>api/chat</code>, <code>api/devices</code>, etc.), no las páginas <code>(app)</code>/<code>(v2)</code>. Lo único a respetar:
+  <ul style="margin-top:8px">
+    <li>NO tocar los redirects <code>/privacy</code>→<code>/es/privacy</code> y <code>/terms</code>→<code>/es/terms</code> de <code>next.config.ts</code> (iOS hardcodea las URLs bare para la App Store).</li>
+    <li>NO mover/borrar <code>lib/dashboard/v2/zone-profile.ts</code> (lo usa <code>api/athlete/zones</code>) ni nada de <code>lib/dashboard/v2</code> o <code>lib/dashboard/coach</code> que la API athlete pueda tocar.</li>
+    <li>Las páginas legales viven en <code>(public)</code> — route group aparte, intacto.</li>
+  </ul>
+  <span class="small">Otro agente está editando <code>web/lib/athlete/assignment-detail.ts</code> y <code>web/app/api/athlete/plan/week/route.ts</code> — ninguno de esos archivos forma parte de este plan; no se tocan.</span>
+</div>
+
+<!-- ============================================================ -->
+<h2>Nota de seguridad — LANDING (en vivo en fahybrid.com)</h2>
+<div class="callout c-safe">
+  <b>La landing es segura: no está en el radio de este cambio.</b>
+  Vive en <code>app/[locale]/(marketing)/page.tsx</code> (+ <code>/gracias</code>) con su propio <code>(marketing)/layout.tsx</code>, sirviendo la raíz <code>/</code>. No importa de <code>(app)</code> ni <code>(v2)</code> ni de <code>components/dashboard</code>. Routing confirmado: landing en <code>/</code>, dashboard del coach en <code>/hoy</code>. El único punto de contacto es el redirect de login del coach (<code>auth/verify</code>), que NO pasa por la landing. <b>Mientras no se toque <code>(marketing)</code> ni la raíz, fahybrid.com no se ve afectado.</b>
+</div>
+
+<!-- ============================================================ -->
+<h2>Orden de ejecución recomendado (pasos pequeños y revisables)</h2>
+
+<div class="step">
+  <span class="n">PASO 0 — pre-flight (sin tocar nada)</span>
+  <h4>Confirmar paridad funcional V2 ≥ V1 antes de borrar</h4>
+  <p class="small">Auditar que cada flujo V1 (intake, secciones cuerpo/rendimiento de atleta, autorregulación, simulación de dobles, review) tiene equivalente en V2 o decisión explícita de "se va". Sin esto, borrar V1 = perder features. <b>Este es el gate real, no el routing.</b></p>
+</div>
+
+<div class="step">
+  <span class="n">PASO 1 — extraer compartidos del árbol V1</span>
+  <h4>Mover MIcon y prescription-model fuera de <code>components/dashboard</code></h4>
+  <p class="small"><code>components/dashboard/MIcon</code> → <code>components/ui/MIcon</code>; <code>.../programming/studio/prescription-model</code> → <code>lib/programming/prescription-model</code>. Actualizar los ~147 + N imports. Commit aislado, typecheck verde. (Así "borrar V1" después no arrastra compartidos.)</p>
+</div>
+
+<div class="step">
+  <span class="n">PASO 2 — decidir URLs finales + reescribir nav V2</span>
+  <h4>Quitar el prefijo <code>/v2</code> de la IA del sidebar</h4>
+  <p class="small">En <code>components/v2/nav.ts</code> y el logo href de <code>V2Sidebar.tsx</code>: <code>/v2/hoy→/hoy</code>, etc. Fijar URLs de biblioteca/planes/periodización/mensajes. Commit aislado. (Todavía sin mover archivos — los links apuntarán a las futuras rutas.)</p>
+</div>
+
+<div class="step">
+  <span class="n">PASO 3 — mover V2 a las rutas primarias</span>
+  <h4><code>(v2)/v2/*</code> → rutas sin prefijo, y retirar <code>(app)/*</code></h4>
+  <p class="small">Mover cada pantalla V2 al sitio sin <code>/v2</code>. Borrar las páginas <code>(app)/*</code> equivalentes. Unificar layout: el <code>(v2)/layout.tsx</code> (V2Shell) pasa a ser el layout del dashboard. Borrar <code>(app)/layout.tsx</code> + <code>AppShell</code> V1. <b>Un commit por pantalla</b> (hoy, atletas, programar→biblioteca/planes/periodización, ajustes) para revisar de a poco.</p>
+</div>
+
+<div class="step">
+  <span class="n">PASO 4 — quitar el VersionSwitch y reapuntar redirects</span>
+  <h4>Borrar el toggle y arreglar <code>next.config.ts</code></h4>
+  <p class="small">Quitar <code>VersionSwitch</code> de <code>V2Shell</code> + barrel + borrar archivo. Reapuntar/eliminar los redirects <code>/programacion</code> y <code>/biblioteca</code> a las nuevas URLs (sin tocar <code>/privacy</code>·<code>/terms</code>). Confirmar que <code>auth/verify</code>→<code>/hoy</code> ahora cae en V2.</p>
+</div>
+
+<div class="step">
+  <span class="n">PASO 5 — limpieza de backend V1-only</span>
+  <h4>Borrar <code>components/dashboard/*</code> V1-only + módulos coach huérfanos</h4>
+  <p class="small">Borrar el resto de <code>components/dashboard</code> (todo menos <code>admin/</code> y lo ya extraído). Para cada módulo de la lista "V1-only candidatos" (§5a derecha): re-grep contra todo el repo → si 0 refs vivas, borrar; si lo necesitaba un flujo V2 → portar el import. <b>Commit aislado, typecheck + el test V2 verdes.</b></p>
+</div>
+
+<div class="step">
+  <span class="n">PASO 6 — verificación end-to-end</span>
+  <h4>Login coach → /hoy = V2, navegar las 6 pantallas, /admin, /, iOS API</h4>
+  <p class="small"><code>npm run typecheck</code> + <code>npm run lint</code> + el test de V2. Smoke manual: login → aterriza en V2; sidebar navega; <code>/admin</code> sigue vivo; landing <code>/</code> intacta; <code>GET /api/athlete/zones</code> responde (prueba que no rompimos <code>lib/dashboard/v2</code>).</p>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Decisiones que necesito de Alex (CEO-level)</h2>
+
+<div class="q">
+  <b>D1 · Transición: ¿corte duro o convivencia temporal?</b><br>
+  <span class="small">Recomendado: <b>corte duro</b> (Opción A). V2 ya tiene paridad razonable y mantener dos versiones genera el bug "los compañeros aterrizan en V1". Alternativa: dejar V1 vivo en <code>/v1/*</code> unas semanas como red de seguridad y reapuntar login a V2. ¿Corte duro o red de seguridad temporal?</span>
+</div>
+
+<div class="q">
+  <b>D2 · ¿El <code>VersionSwitch</code> se va ya, o se mantiene durante la transición?</b><br>
+  <span class="small">Si corte duro → se borra en el Paso 4. Si convivencia → se mantiene apuntando a <code>/v1/*</code>. (Depende de D1.)</span>
+</div>
+
+<div class="q">
+  <b>D3 · URLs finales de la IA reorganizada.</b><br>
+  <span class="small">V1 tenía todo bajo <code>/programar</code>; V2 lo parte en Biblioteca + Planes + Periodización + Mensajes. Propongo URLs limpias: <code>/biblioteca</code>, <code>/planes</code>, <code>/periodizacion</code>, <code>/mensajes</code>. ¿OK, o prefieres mantener un paraguas <code>/programar/*</code>?</span>
+</div>
+
+<div class="q">
+  <b>D4 · Flujos V1 sin gemela V2 clara (review, autorregulación, dobles-simulacion, sub-secciones de atleta).</b><br>
+  <span class="small">Antes de borrar V1 — ¿estos flujos se portan a V2, o se descartan? (esto es producto, no técnico → tu decisión). El routing es fácil; perder una feature por borrar sin paridad es el riesgo real.</span>
+</div>
+
+<div class="small" style="margin-top:40px;color:var(--muted)">
+  Documento de análisis · no se modificó ningún código ni ruta · generado leyendo el árbol en <code>feat/landing</code>.
+</div>
+
+</div>
+</body>
+</html>
