@@ -12,8 +12,7 @@
 // Single-item patterns (steady/intervals/sets_table) edit ONE item's Prescription;
 // the components pattern edits the block's ITEM LIST (a metcon is multiple items).
 // Below every block: the "Ajuste avanzado" hatch (the full PrescriptionFields,
-// reused) for the rare override. The phase/method tag is the coach's optional tag,
-// inheriting from the microciclo (agnostic — never a system concept).
+// reused) for the rare override.
 
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
@@ -37,17 +36,14 @@ import { TestForm } from './archetype-forms/TestForm';
 
 export function ArchetypeBlockForm({
   block,
-  inheritedPhaseLabel,
   athleteName,
   onChange,
   onChangeType,
 }: {
   block: EditorBlock;
-  /** The microciclo's phase label this block inherits (agnostic; optional). */
-  inheritedPhaseLabel?: string | null;
   athleteName?: string;
   onChange: (next: EditorBlock) => void;
-  /** Reopen the archetype picker to change the block's type. */
+  /** Reopen the type chooser to change the block's type. */
   onChangeType?: () => void;
 }) {
   const pattern = patternForBlock(block.archetype_id, block.format);
@@ -85,20 +81,6 @@ export function ArchetypeBlockForm({
         <FormHeader archetype={archetype} onChangeType={onChangeType} />
       ) : null}
 
-      {/* Deferred-archetype flag (HYROX-sim template / Test specifics) */}
-      {archetype?.deferred ? (
-        <div className="flex items-start gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-3 py-2.5">
-          <MIcon
-            name="construction"
-            size={16}
-            className="mt-px shrink-0 text-[color:var(--v2-warn)]"
-          />
-          <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
-            {archetype.deferred.note}
-          </p>
-        </div>
-      ) : null}
-
       {/* Exercise picker (single-item patterns, except Test — its type names it).
           Picking sets the real exercise_id (A3 fix) + inherits modality. */}
       {!isMultiItem && !isTest && firstItem ? (
@@ -126,14 +108,7 @@ export function ArchetypeBlockForm({
         <SimulacionHyroxForm block={block} onChange={onChange} />
       ) : pattern === 'test' && firstItem ? (
         <TestForm value={firstItem.prescription} onChange={setFirstPrescription} />
-      ) : (
-        <p className="text-sm text-[color:var(--v2-muted)]">
-          Elige un tipo de bloque para configurar la prescripción.
-        </p>
-      )}
-
-      {/* Phase / method tag — coach's optional tag, inherits from the microciclo */}
-      <PhaseInheritLine label={inheritedPhaseLabel} />
+      ) : null}
 
       {/* Athlete preview (the resolved line) — single-item patterns (not Test) */}
       {!isMultiItem && !isTest && firstItem ? (
@@ -173,7 +148,6 @@ function FormHeader({
       </span>
       <div className="min-w-0">
         <p className="text-sm font-bold text-[color:var(--v2-fg)]">{archetype.name}</p>
-        <p className="text-[11px] text-[color:var(--v2-muted)]">{archetype.purpose}</p>
       </div>
       {onChangeType ? (
         <button
@@ -185,24 +159,6 @@ function FormHeader({
           Cambiar tipo
         </button>
       ) : null}
-    </div>
-  );
-}
-
-// Phase/method tag — agnostic, optional, inherits from the microciclo. We show the
-// inherited phase as context (read-only this chunk); a per-block override needs a
-// schema field (methodology_phases) and is a flagged follow-up — we don't render a
-// control that would be silently dropped on save.
-function PhaseInheritLine({ label }: { label?: string | null }) {
-  return (
-    <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
-      <span className="v2-micro">Fase del método</span>
-      <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--v2-muted)]">
-        {label || 'Heredada del microciclo'}
-      </span>
-      <span className="ml-auto text-[10.5px] text-[color:var(--v2-faint)]">
-        opcional · tu metodología
-      </span>
     </div>
   );
 }

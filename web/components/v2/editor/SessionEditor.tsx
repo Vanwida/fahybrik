@@ -11,7 +11,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type {
   EditorBlock,
-  LibraryBlockRow,
   SessionEditorModel,
   StructureGroup,
 } from '@/lib/dashboard/v2/editor-types';
@@ -41,10 +40,8 @@ const SAVE_ICON: Record<SaveState, string> = {
 
 export function SessionEditor({
   model,
-  libraryBlocks,
 }: {
   model: SessionEditorModel;
-  libraryBlocks: LibraryBlockRow[];
 }) {
   const [name, setName] = useState(model.name);
   const [templateId, setTemplateId] = useState<string | null>(model.template_id);
@@ -222,7 +219,6 @@ export function SessionEditor({
         <AddBlockModal
           destinationLabel={groupLabel(addToGroup)}
           destinationGroup={addToGroup}
-          libraryBlocks={libraryBlocks}
           onClose={() => setAddToGroup(null)}
           onAdd={addBlock}
         />

@@ -46,27 +46,27 @@ export function BlockItemTable({
   block,
   onEditItem,
   onAddItem,
+  onMoveItem,
 }: {
   block: EditorBlock;
   onEditItem: (uid: string) => void;
   onAddItem: () => void;
+  onMoveItem: (uid: string, dir: -1 | 1) => void;
 }) {
   const kind = tableKindFor(block);
+  const count = block.items.length;
 
   return (
     <div className="space-y-1.5">
       {block.items.length === 0 ? (
-        <p className="px-1 py-1.5 text-xs text-[color:var(--v2-muted)]">
-          {block.source_block_id
-            ? 'Bloque de biblioteca — se hidrata al guardar.'
-            : 'Sin ítems todavía.'}
-        </p>
+        <p className="px-1 py-1.5 text-xs text-[color:var(--v2-muted)]">Sin ejercicios todavía.</p>
       ) : kind === 'metcon' ? (
-        <MetconTable block={block} onEditItem={onEditItem} />
+        <MetconTable block={block} onEditItem={onEditItem} onMoveItem={onMoveItem} />
       ) : (
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="v2-micro">
+              <th className="pb-1" scope="col" aria-label="Orden" />
               {headersFor(kind).map((h, i) => (
                 <th
                   key={h}
@@ -79,8 +79,16 @@ export function BlockItemTable({
             </tr>
           </thead>
           <tbody>
-            {block.items.map((it) => (
-              <ItemRow key={it.uid} item={it} kind={kind} onEdit={() => onEditItem(it.uid)} />
+            {block.items.map((it, i) => (
+              <ItemRow
+                key={it.uid}
+                item={it}
+                kind={kind}
+                index={i}
+                count={count}
+                onEdit={() => onEditItem(it.uid)}
+                onMove={(dir) => onMoveItem(it.uid, dir)}
+              />
             ))}
           </tbody>
         </table>
@@ -111,14 +119,62 @@ function headersFor(kind: TableKind): string[] {
   }
 }
 
+// A compact ↑/↓ reorder control (the ONE reorder pattern used across the editor).
+function ReorderControl({
+  index,
+  count,
+  label,
+  onMove,
+}: {
+  index: number;
+  count: number;
+  label: string;
+  onMove: (dir: -1 | 1) => void;
+}) {
+  return (
+    <span className="flex flex-col">
+      <button
+        type="button"
+        aria-label={`Subir ${label}`}
+        disabled={index === 0}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMove(-1);
+        }}
+        className="v2-focus -my-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
+      >
+        <MIcon name="keyboard_arrow_up" size={14} />
+      </button>
+      <button
+        type="button"
+        aria-label={`Bajar ${label}`}
+        disabled={index === count - 1}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMove(1);
+        }}
+        className="v2-focus -my-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
+      >
+        <MIcon name="keyboard_arrow_down" size={14} />
+      </button>
+    </span>
+  );
+}
+
 function ItemRow({
   item,
   kind,
+  index,
+  count,
   onEdit,
+  onMove,
 }: {
   item: EditorItem;
   kind: TableKind;
+  index: number;
+  count: number;
   onEdit: () => void;
+  onMove: (dir: -1 | 1) => void;
 }) {
   const p = item.prescription;
   const valid = itemHasExercise(item);
@@ -186,6 +242,9 @@ function ItemRow({
           : 'v2-focus cursor-pointer border-t border-[color:var(--v2-border)] bg-[color:var(--v2-danger-soft)] transition-colors'
       }
     >
+      <td className="w-5 py-1 align-middle">
+        <ReorderControl index={index} count={count} label={name} onMove={onMove} />
+      </td>
       <td
         className={
           valid
@@ -205,9 +264,11 @@ function ItemRow({
 function MetconTable({
   block,
   onEditItem,
+  onMoveItem,
 }: {
   block: EditorBlock;
   onEditItem: (uid: string) => void;
+  onMoveItem: (uid: string, dir: -1 | 1) => void;
 }) {
   const head = block.items[0]?.prescription;
   const formatLabel = head ? schemeLabel(head.scheme) : 'Metcon';
@@ -216,6 +277,7 @@ function MetconTable({
     : head?.rounds
       ? ` ${head.rounds} rondas`
       : '';
+  const count = block.items.length;
 
   return (
     <div className="space-y-2">
@@ -226,18 +288,28 @@ function MetconTable({
         </span>
       </div>
       <ul className="space-y-0.5">
-        {block.items.map((it) => {
+        {block.items.map((it, i) => {
           const valid = itemHasExercise(it);
+          const label = valid ? it.exercise_name || 'Componente' : 'Componente sin ejercicio';
           return (
-            <li key={it.uid}>
+            <li
+              key={it.uid}
+              className={
+                valid
+                  ? 'flex items-center gap-1.5 rounded-[var(--v2-r-s)] px-1.5 py-1 transition-colors hover:bg-[color:var(--v2-surface-2)]'
+                  : 'flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger-soft)] px-1.5 py-1'
+              }
+            >
+              <ReorderControl
+                index={i}
+                count={count}
+                label={label}
+                onMove={(dir) => onMoveItem(it.uid, dir)}
+              />
               <button
                 type="button"
                 onClick={() => onEditItem(it.uid)}
-                className={
-                  valid
-                    ? 'v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] px-1.5 py-1 text-left transition-colors hover:bg-[color:var(--v2-surface-2)]'
-                    : 'v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger-soft)] px-1.5 py-1 text-left transition-colors'
-                }
+                className="v2-focus flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
               >
                 <span
                   className={
@@ -247,7 +319,7 @@ function MetconTable({
                   }
                 >
                   {valid ? null : <MIcon name="error" size={13} />}
-                  {valid ? it.exercise_name || 'Componente' : 'Componente sin ejercicio'}
+                  {label}
                 </span>
                 <span className="v2-num shrink-0 text-xs text-[color:var(--v2-muted)]">
                   {prescriptionToText(it.prescription) || '—'}

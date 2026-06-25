@@ -1,31 +1,32 @@
 'use client';
 
 // DayEditor — SCREEN 8 client orchestrator. Hierarchy día › sesión (AM/PM) ›
-// bloque › ítems. Main day column (SessionPartCards) + a toggleable LibraryRail
-// (236px). Day header: display "Lunes 12 · ene" + pills (N sesiones · vol ~Xmin)
-// + "＋ añadir sesión" + "Guardar día". The block-level add-block picker opens the
-// SCREEN 9 AddBlockModal; editing an item opens a drawer with the full BlockEditor
-// (the 3-axis adaptive fields). All state is local + structured Prescription;
-// persistence is a follow-up (TODO(endpoint)).
+// bloque › ítems. A single day column of SessionPartCards. Day header: display
+// "Lunes 12 · ene" + pills (N sesiones · vol ~Xmin) + "＋ añadir sesión" +
+// "Guardar día". "＋ Añadir bloque" opens the AddBlockModal type chooser; the
+// block's exercises are visible inline; "＋ Añadir ejercicio" opens the
+// ExercisePicker directly; clicking a line opens a drawer with the dosis form.
+// Blocks and exercises reorder with ↑/↓. All state is local + structured
+// Prescription; the save persists the structured day.
 
 import { useState } from 'react';
 import Link from 'next/link';
 import type {
   DayEditorModel,
   EditorBlock,
+  EditorItem,
   EditorSession,
-  LibraryBlockRow,
-  LibrarySessionRow,
 } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionPartCard } from './SessionPartCard';
-import { LibraryRail } from './LibraryRail';
 import { AddBlockModal } from './AddBlockModal';
 import { BlockEditor } from './BlockEditor';
+import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
+import { defaultCategoryForModality, withPickedExercise } from '@/lib/dashboard/v2/pick-exercise';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
 const NEXT_SLOT: Record<number, EditorSession['slot']> = { 0: 'am', 1: 'pm' };
@@ -45,22 +46,17 @@ const SAVE_ICON: Record<SaveState, string> = {
   error: 'error',
 };
 
-export function DayEditor({
-  model,
-  libraryBlocks,
-  librarySessions,
-}: {
-  model: DayEditorModel;
-  libraryBlocks: LibraryBlockRow[];
-  librarySessions: LibrarySessionRow[];
-}) {
+export function DayEditor({ model }: { model: DayEditorModel }) {
   const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
-  const [railOpen, setRailOpen] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('idle');
 
-  // Add-block modal target (which session) + item-edit drawer target.
+  // Add-block modal target (which session) + item-edit drawer target + the
+  // "añadir ejercicio" picker target (which block gets the picked exercise).
   const [addTo, setAddTo] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
+  const [pickingFor, setPickingFor] = useState<{ sessionUid: string; blockUid: string } | null>(
+    null,
+  );
 
   const totalMin = sessions.reduce(
     (acc, s) => acc + s.blocks.reduce((a, b) => a + (blockMinutes(b) ?? 0), 0),
@@ -106,37 +102,73 @@ export function DayEditor({
     );
   };
 
-  const addItemToBlock = (sessionUid: string, blockUid: string) => {
+  // Reorder a block within its session (↑/↓). Pure index swap, no fake drag.
+  const moveBlock = (sessionUid: string, blockUid: string, dir: -1 | 1) => {
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.uid !== sessionUid) return s;
+        const i = s.blocks.findIndex((b) => b.uid === blockUid);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= s.blocks.length) return s;
+        const blocks = s.blocks.slice();
+        [blocks[i], blocks[j]] = [blocks[j]!, blocks[i]!];
+        return { ...s, blocks };
+      }),
+    );
+  };
+
+  // Reorder an exercise within its block (↑/↓).
+  const moveItem = (sessionUid: string, blockUid: string, itemUid: string, dir: -1 | 1) => {
     setSessions((prev) =>
       prev.map((s) =>
         s.uid !== sessionUid
           ? s
           : {
               ...s,
-              blocks: s.blocks.map((b) =>
-                b.uid !== blockUid
-                  ? b
-                  : {
-                      ...b,
-                      items: [
-                        ...b.items,
-                        {
-                          uid: `item-${Date.now()}`,
-                          exercise_id: null,
-                          exercise_name: '',
-                          prescription: {
-                            scheme: 'sets',
-                            modality: 'strength',
-                            sets: [{ measure: { kind: 'reps', value: 8 } }],
-                          },
-                        },
-                      ],
-                    },
-              ),
+              blocks: s.blocks.map((b) => {
+                if (b.uid !== blockUid) return b;
+                const i = b.items.findIndex((it) => it.uid === itemUid);
+                const j = i + dir;
+                if (i < 0 || j < 0 || j >= b.items.length) return b;
+                const items = b.items.slice();
+                [items[i], items[j]] = [items[j]!, items[i]!];
+                return { ...b, items };
+              }),
             },
       ),
     );
-    setEditing({ sessionUid, blockUid });
+  };
+
+  // "＋ Añadir ejercicio" → pick from the catalog first, then create the line with
+  // the exercise already linked (no orphan A3 line). The new item inherits the
+  // block's seed prescription (its dosis shape) so the dosis form opens correct.
+  const addPickedItemToBlock = (sessionUid: string, blockUid: string, ex: PickedExercise) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.uid !== sessionUid
+          ? s
+          : {
+              ...s,
+              blocks: s.blocks.map((b) => {
+                if (b.uid !== blockUid) return b;
+                const seed = b.items[0]?.prescription ?? {
+                  scheme: 'sets',
+                  modality: 'strength',
+                  sets: [{ measure: { kind: 'reps', value: 8 } }],
+                };
+                const fresh: EditorItem = {
+                  uid: `item-${Date.now()}`,
+                  exercise_id: null,
+                  exercise_name: '',
+                  prescription: seed,
+                };
+                const patch = withPickedExercise(fresh, ex);
+                return { ...b, items: [...b.items, { ...fresh, ...patch }] };
+              }),
+            },
+      ),
+    );
+    setPickingFor(null);
   };
 
   const handleSave = async () => {
@@ -187,6 +219,11 @@ export function DayEditor({
   const editingSession = editing ? sessions.find((s) => s.uid === editing.sessionUid) : null;
   const editingBlock = editingSession?.blocks.find((b) => b.uid === editing?.blockUid) ?? null;
   const addToSession = addTo ? sessions.find((s) => s.uid === addTo.sessionUid) : null;
+  const pickingForBlock = pickingFor
+    ? sessions
+        .find((s) => s.uid === pickingFor.sessionUid)
+        ?.blocks.find((b) => b.uid === pickingFor.blockUid) ?? null
+    : null;
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
@@ -223,15 +260,6 @@ export function DayEditor({
           </button>
           <button
             type="button"
-            onClick={() => setRailOpen((v) => !v)}
-            aria-pressed={railOpen}
-            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-          >
-            <MIcon name="menu_book" size={16} />
-            Biblioteca
-          </button>
-          <button
-            type="button"
             onClick={handleSave}
             disabled={saveState === 'saving' || !gate.ok}
             aria-live="polite"
@@ -256,75 +284,73 @@ export function DayEditor({
         </div>
       ) : null}
 
-      {/* Day body: sessions column + library rail */}
-      <div
-        className={
-          railOpen
-            ? 'grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_236px]'
-            : 'grid grid-cols-1 items-start gap-5'
-        }
-      >
-        <div className="space-y-4">
-          {sessions.length === 0 ? (
-            <EmptyState
-              icon="event_available"
-              title="Día de descanso"
-              description="No hay sesiones planificadas. Añade una sesión AM o PM para empezar."
-              action={
-                <button
-                  type="button"
-                  onClick={addSession}
-                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-                >
-                  <MIcon name="add" size={16} />
-                  Añadir sesión
-                </button>
+      {/* Day body: one sessions column */}
+      <div className="space-y-4">
+        {sessions.length === 0 ? (
+          <EmptyState
+            icon="event_available"
+            title="Día de descanso"
+            description="No hay sesiones planificadas. Añade una sesión AM o PM para empezar."
+            action={
+              <button
+                type="button"
+                onClick={addSession}
+                className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+              >
+                <MIcon name="add" size={16} />
+                Añadir sesión
+              </button>
+            }
+          />
+        ) : (
+          sessions.map((session) => (
+            <SessionPartCard
+              key={session.uid}
+              session={session}
+              onAddBlock={() => setAddTo({ sessionUid: session.uid })}
+              onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
+              onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}
+              onRemoveBlock={(blockUid) => removeBlock(session.uid, blockUid)}
+              onMoveBlock={(blockUid, dir) => moveBlock(session.uid, blockUid, dir)}
+              onMoveItem={(blockUid, itemUid, dir) =>
+                moveItem(session.uid, blockUid, itemUid, dir)
               }
             />
-          ) : (
-            sessions.map((session) => (
-              <SessionPartCard
-                key={session.uid}
-                session={session}
-                onAddBlock={() => setAddTo({ sessionUid: session.uid })}
-                onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
-                onAddItem={(blockUid) => addItemToBlock(session.uid, blockUid)}
-                onRemoveBlock={(blockUid) => removeBlock(session.uid, blockUid)}
-              />
-            ))
-          )}
-        </div>
-
-        {railOpen ? (
-          <LibraryRail
-            sessions={librarySessions}
-            blocks={libraryBlocks}
-            onAddBlock={(block) => {
-              const target = sessions[0];
-              if (target) addBlockToSession(target.uid, block);
-            }}
-            onClose={() => setRailOpen(false)}
-          />
-        ) : null}
+          ))
+        )}
       </div>
 
-      {/* SCREEN 9 — Añadir bloque modal */}
+      {/* Añadir bloque — the type chooser. Picking a type creates the block. */}
       {addTo && addToSession ? (
         <AddBlockModal
           destinationLabel={`Sesión ${SLOT_LABEL[addToSession.slot]} · ${model.day_label}`}
-          libraryBlocks={libraryBlocks}
           onClose={() => setAddTo(null)}
           onAdd={(block) => addBlockToSession(addTo.sessionUid, block)}
         />
       ) : null}
 
-      {/* Item-edit drawer — full BlockEditor (3-axis adaptive fields) */}
+      {/* Añadir ejercicio — the catalog picker, opened inline from a block. On
+          pick the line is created with the exercise already linked (no A3 orphan). */}
+      {pickingFor && pickingForBlock ? (
+        <ExercisePicker
+          destinationLabel={pickingForBlock.title || 'Ejercicio'}
+          defaultCategory={defaultCategoryForModality(
+            pickingForBlock.items[0]?.prescription.modality,
+          )}
+          onPick={(ex) => addPickedItemToBlock(pickingFor.sessionUid, pickingFor.blockUid, ex)}
+          onClose={() => setPickingFor(null)}
+        />
+      ) : null}
+
+      {/* Item-edit drawer — the dosis form for the block's lines */}
       {editing && editingBlock && editingSession ? (
         <BlockEditorDrawer
           block={editingBlock}
           onClose={() => setEditing(null)}
           onChange={(next) => updateBlock(editingSession.uid, next)}
-          onAddItem={() => addItemToBlock(editingSession.uid, editingBlock.uid)}
+          onAddItem={() =>
+            setPickingFor({ sessionUid: editingSession.uid, blockUid: editingBlock.uid })
+          }
         />
       ) : null}
     </div>

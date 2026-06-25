@@ -1,20 +1,17 @@
 'use client';
 
-// ArchetypePicker — the archetype selector (UX pase §2). Opened as an OVERLAY/SHEET
-// from "Añadir bloque": the coach sees TYPE CARDS (icon + name + one-line purpose),
-// not a board of axes. Ordered by real-plan frequency; the corner badge shows the
-// honest frequency ("104×", "clave", "raro"). Picking one creates a block
-// PRE-SEEDED with that archetype's modality/measure/target/scheme defaults — a
-// ready tailored form, never empty toggles.
+// ArchetypePicker — the block-type chooser. Opened as an OVERLAY/SHEET from
+// "Añadir bloque": the coach sees clean TYPE CARDS (icon + name), not a board of
+// axes and not a wall of descriptions. Picking one creates a block PRE-SEEDED with
+// that type's modality/measure/target/scheme defaults — a ready form, never empty
+// toggles.
 //
-// Closes on Escape / scrim click; focus-trapped to the dialog. The 9 archetypes
-// are the sport's session vocabulary (agnostic to methodology). Deferred types
-// (HYROX-sim template / Test specifics) are NOT dead tiles — they route to their
-// base form and carry a flag the orchestrator surfaces.
+// Closes on Escape / scrim click; focus-trapped to the dialog. The types are the
+// sport's session vocabulary (agnostic to methodology — the block type is a sport
+// fact, never a phase/method concept).
 
 import { useEffect, useRef } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
 import { ARCHETYPES, type Archetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
 
 export function ArchetypePicker({
@@ -77,25 +74,15 @@ export function ArchetypePicker({
   );
 }
 
-/** The 9 archetype cards + the agnostic footnote — reused by the standalone
- *  picker AND the AddBlockModal's "create from scratch" tab. */
+/** The block-type cards (icon + name, no descriptions) — reused by the standalone
+ *  picker AND the AddBlockModal type chooser. */
 export function ArchetypeGrid({ onPick }: { onPick: (id: ArchetypeId) => void }) {
   return (
-    <>
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {ARCHETYPES.map((a) => (
-          <ArchetypeCard key={a.id} archetype={a} onPick={() => onPick(a.id)} />
-        ))}
-      </div>
-      <p className="mt-3.5 flex items-start gap-1.5 px-1 text-[11.5px] leading-snug text-[color:var(--v2-faint)]">
-        <MIcon name="info" size={13} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
-        <span>
-          Los tipos son <b className="font-semibold text-[color:var(--v2-muted)]">vocabulario del deporte</b>,
-          iguales para todo coach. La fase / grupo de tu método se etiqueta aparte — el tipo nunca
-          depende de tu metodología.
-        </span>
-      </p>
-    </>
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+      {ARCHETYPES.map((a) => (
+        <ArchetypeCard key={a.id} archetype={a} onPick={() => onPick(a.id)} />
+      ))}
+    </div>
   );
 }
 
@@ -106,19 +93,16 @@ function ArchetypeCard({
   archetype: Archetype;
   onPick: () => void;
 }) {
-  const { name, purpose, icon, modalitySlug, frequency, deferred } = archetype;
+  const { name, icon, modalitySlug } = archetype;
   return (
     <button
       type="button"
       onClick={onPick}
-      className="v2-focus group relative flex flex-col rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 text-left transition-colors hover:border-[color:var(--v2-border-strong)]"
+      className="v2-focus group flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-left transition-colors hover:border-[color:var(--v2-border-strong)]"
     >
-      <span className="v2-num absolute right-3 top-3 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-1.5 py-0.5 text-[9.5px] font-bold text-[color:var(--v2-faint)]">
-        {frequency}
-      </span>
       <span
         aria-hidden
-        className="mb-2.5 inline-flex h-9 w-9 items-center justify-center rounded-[var(--v2-r-s)]"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
         style={{
           background: `var(--v2-mod-${modalitySlug}-soft)`,
           color: `var(--v2-mod-${modalitySlug})`,
@@ -126,19 +110,7 @@ function ArchetypeCard({
       >
         <MIcon name={icon} size={20} />
       </span>
-      <span className="text-[13px] font-bold leading-tight text-[color:var(--v2-fg)]">{name}</span>
-      <span className="mt-1 text-[11px] leading-snug text-[color:var(--v2-muted)]">{purpose}</span>
-      {deferred ? (
-        <span
-          className={cn(
-            'mt-2 inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-warn-soft)] px-1.5 py-0.5',
-            'text-[9.5px] font-bold uppercase tracking-wide text-[color:var(--v2-warn)]',
-          )}
-        >
-          <MIcon name="schedule" size={11} />
-          base · plantilla próx.
-        </span>
-      ) : null}
+      <span className="text-sm font-bold leading-tight text-[color:var(--v2-fg)]">{name}</span>
     </button>
   );
 }

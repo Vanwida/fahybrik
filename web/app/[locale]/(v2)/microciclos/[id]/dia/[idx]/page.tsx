@@ -1,15 +1,12 @@
 // v2 · SCREEN 8 · EDITOR DE DÍA (AM/PM) — día › sesión › bloque › ítems.
 // Server component: loads the real day from the microcycle (loadDayEditorModel
-// over loadMonthTemplateWithWeeks) + the block/session library (loadLibraryRail),
-// then hands them to the client <DayEditor>. `[idx]` is a flat 0-based day index
-// across the month (week = floor(idx/7), day_of_week = idx%7 + 1).
+// over loadMonthTemplateWithWeeks) and hands it to the client <DayEditor>. `[idx]`
+// is a flat 0-based day index across the month (week = floor(idx/7),
+// day_of_week = idx%7 + 1).
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import {
-  loadDayEditorModel,
-  loadLibraryRail,
-} from '@/lib/dashboard/v2/editor-data';
+import { loadDayEditorModel } from '@/lib/dashboard/v2/editor-data';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { EmptyState } from '@/components/v2/EmptyState';
 
@@ -32,29 +29,17 @@ export default async function V2DayEditorPage({
     return <NotFound description="La ruta del día no es válida." />;
   }
 
-  const [model, library] = await Promise.all([
-    loadDayEditorModel({
-      coach_id: session.coach_id,
-      month_id: monthId,
-      day_index: dayIndex,
-    }).catch(() => null),
-    loadLibraryRail({ coach_id: session.coach_id }).catch(() => ({
-      sessions: [],
-      blocks: [],
-    })),
-  ]);
+  const model = await loadDayEditorModel({
+    coach_id: session.coach_id,
+    month_id: monthId,
+    day_index: dayIndex,
+  }).catch(() => null);
 
   if (!model) {
     return <NotFound description="Este microciclo no existe o no pertenece a tu biblioteca." />;
   }
 
-  return (
-    <DayEditor
-      model={model}
-      libraryBlocks={library.blocks}
-      librarySessions={library.sessions}
-    />
-  );
+  return <DayEditor model={model} />;
 }
 
 function NotFound({ description }: { description: string }) {

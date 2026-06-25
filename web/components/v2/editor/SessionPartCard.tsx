@@ -1,10 +1,10 @@
 'use client';
 
 // SessionPartCard — SCREEN 8 session card (AM / PM). Header chip ("AM · 08:00")
-// + name + "N bloques · ~min". Each block renders with its modality left-border,
-// a drag handle, a type tag, "min · ⋮", and the TYPE-SPECIFIC item table
+// + "N bloques · ~min". Each block renders with its modality left-border, ↑/↓
+// reorder, a type tag, "min", remove, and the TYPE-SPECIFIC item table
 // (BlockItemTable). Each block has a dashed "＋ añadir ejercicio/movimiento/tramo";
-// the block-level add-block picker (dashed) opens the SCREEN 9 modal.
+// the block-level "＋ Añadir bloque" opens the type chooser.
 
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
@@ -24,12 +24,16 @@ export function SessionPartCard({
   onEditItem,
   onAddItem,
   onRemoveBlock,
+  onMoveBlock,
+  onMoveItem,
 }: {
   session: EditorSession;
   onAddBlock: () => void;
   onEditItem: (blockUid: string, itemUid: string) => void;
   onAddItem: (blockUid: string) => void;
   onRemoveBlock: (blockUid: string) => void;
+  onMoveBlock: (blockUid: string, dir: -1 | 1) => void;
+  onMoveItem: (blockUid: string, itemUid: string, dir: -1 | 1) => void;
 }) {
   const totalMin = session.blocks.reduce((acc, b) => acc + (blockMinutes(b) ?? 0), 0);
 
@@ -48,13 +52,17 @@ export function SessionPartCard({
 
       {/* Blocks */}
       <div className="space-y-3 p-4">
-        {session.blocks.map((block) => (
+        {session.blocks.map((block, i) => (
           <BlockCard
             key={block.uid}
             block={block}
+            index={i}
+            count={session.blocks.length}
             onEditItem={(itemUid) => onEditItem(block.uid, itemUid)}
             onAddItem={() => onAddItem(block.uid)}
             onRemove={() => onRemoveBlock(block.uid)}
+            onMove={(dir) => onMoveBlock(block.uid, dir)}
+            onMoveItem={(itemUid, dir) => onMoveItem(block.uid, itemUid, dir)}
           />
         ))}
 
@@ -74,14 +82,22 @@ export function SessionPartCard({
 
 function BlockCard({
   block,
+  index,
+  count,
   onEditItem,
   onAddItem,
   onRemove,
+  onMove,
+  onMoveItem,
 }: {
   block: EditorBlock;
+  index: number;
+  count: number;
   onEditItem: (itemUid: string) => void;
   onAddItem: () => void;
   onRemove: () => void;
+  onMove: (dir: -1 | 1) => void;
+  onMoveItem: (itemUid: string, dir: -1 | 1) => void;
 }) {
   const slug = blockModalitySlug(block);
   const min = blockMinutes(block);
@@ -99,17 +115,29 @@ function BlockCard({
       />
       {/* Block header band */}
       <div className="flex items-center gap-2 border-b border-[color:var(--v2-border)] px-2 py-2">
-        <span className="shrink-0 cursor-grab text-[color:var(--v2-faint)]" aria-hidden>
-          <MIcon name="drag_indicator" size={16} />
-        </span>
+        <div className="flex shrink-0 flex-col">
+          <button
+            type="button"
+            aria-label={`Subir bloque ${block.title}`}
+            disabled={index === 0}
+            onClick={() => onMove(-1)}
+            className="v2-focus -my-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
+          >
+            <MIcon name="keyboard_arrow_up" size={16} />
+          </button>
+          <button
+            type="button"
+            aria-label={`Bajar bloque ${block.title}`}
+            disabled={index === count - 1}
+            onClick={() => onMove(1)}
+            className="v2-focus -my-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
+          >
+            <MIcon name="keyboard_arrow_down" size={16} />
+          </button>
+        </div>
         <p className="min-w-0 flex-1 truncate text-sm font-bold text-[color:var(--v2-fg)]">
           {block.title}
         </p>
-        {block.format ? (
-          <span className="shrink-0 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-            {block.format}
-          </span>
-        ) : null}
         {min ? (
           <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-muted)]">{min}min</span>
         ) : null}
@@ -124,7 +152,12 @@ function BlockCard({
       </div>
 
       <div className="px-2 py-2">
-        <BlockItemTable block={block} onEditItem={onEditItem} onAddItem={onAddItem} />
+        <BlockItemTable
+          block={block}
+          onEditItem={onEditItem}
+          onAddItem={onAddItem}
+          onMoveItem={onMoveItem}
+        />
       </div>
     </article>
   );

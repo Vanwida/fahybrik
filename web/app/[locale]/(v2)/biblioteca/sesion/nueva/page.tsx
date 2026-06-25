@@ -1,10 +1,8 @@
 // v2 · SCREEN 5 · NUEVA SESIÓN — the from-scratch variant of the session editor.
-// Same client editor, seeded with an empty (unsaved) model. The block library is
-// still loaded real so the coach can build from existing blocks immediately.
+// Same client editor, seeded with an empty (unsaved) model.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { loadLibraryRail } from '@/lib/dashboard/v2/editor-data';
 import type { SessionEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { SessionEditor } from '@/components/v2/editor/SessionEditor';
 
@@ -30,10 +28,5 @@ export default async function V2NuevaSesionPage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  const library = await loadLibraryRail({ coach_id: session.coach_id }).catch(() => ({
-    sessions: [],
-    blocks: [],
-  }));
-
-  return <SessionEditor model={EMPTY_SESSION} libraryBlocks={library.blocks} />;
+  return <SessionEditor model={EMPTY_SESSION} />;
 }
