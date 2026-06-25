@@ -7,7 +7,7 @@
  * re-querying the Neon test branch.
  */
 import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
-import { instantiateMonthFromTemplate, InstantiateProgramError } from '@/lib/coach/instantiate-program';
+import { instantiateMonthFromTemplate, InstantiateProgramError } from '@/lib/dashboard/coach/instantiate-program';
 import {
   closeTestSql,
   describeWithDb,

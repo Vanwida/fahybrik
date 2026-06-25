@@ -16,6 +16,7 @@ import type {
   SequenceEndPolicy,
 } from '@fahybrid/shared/schema/program-sequences';
 import { getCoachSequenceCell } from './sequences';
+import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import {
   instantiateMonthFromTemplate,
   InstantiateProgramError,
@@ -271,12 +272,13 @@ export async function assignSequenceToAthlete(
 
   const start = startDate ?? isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
 
-  // Materialize the first microciclo via the EXISTING pipeline. We pass the
-  // top-level pooled client (NOT a transaction): instantiateMonthFromTemplate owns
-  // and opens its OWN transaction internally via `client.begin` (postgres.js tx
-  // objects expose `.savepoint`, not `.begin`, so it must be given a top-level
-  // client — wrapping it in our own sql.begin would break it). Its materialization
-  // is therefore atomic on its own.
+  // Materialize the first microciclo via the EXISTING pipeline + stagger its weeks
+  // (materializeItem: materialize → markFutureWeeksDraft → faithful error mapping;
+  // the SAME helper the advance paths use). We pass the top-level pooled client
+  // (NOT a transaction): instantiateMonthFromTemplate owns and opens its OWN
+  // transaction internally via `client.begin` (postgres.js tx objects expose
+  // `.savepoint`, not `.begin`, so it must be given a top-level client). Its
+  // materialization is therefore atomic on its own.
   //
   // We then write the enrollment cursor in a SEPARATE statement. Order is
   // materialize → progress (not the reverse) so the cursor only exists once real
@@ -285,23 +287,13 @@ export async function assignSequenceToAthlete(
   // (committed) materialization and the progress insert is the only window that
   // could leave workouts without a cursor — consistent with the existing
   // assign-month semantics (no cross-call dedup) and recoverable by re-assigning.
-  let materialization: InstantiateMonthResult;
-  try {
-    materialization = await instantiateMonthFromTemplate({
-      coach_id: coachId,
-      athlete_id: athleteId,
-      month_template_id: firstItem.month_template_id,
-      start_date: start,
-      client,
-    });
-  } catch (err) {
-    if (err instanceof InstantiateProgramError) {
-      // Surface the materializer's own codes (not_found/empty_month/no_block/…) so
-      // the API maps them faithfully — no swallowing into a generic 500.
-      throw new AssignSequenceError(err.code, err.message, err.status);
-    }
-    throw err;
-  }
+  const materialization = await materializeItem({
+    coachId,
+    athleteId,
+    monthTemplateId: firstItem.month_template_id,
+    startDate: start,
+    client,
+  });
 
   // Upsert the enrollment cursor. If a different active sequence existed, move the
   // athlete onto this one at position 1 (the partial-unique on status='active'
@@ -772,16 +764,23 @@ async function loadSequenceById(
   return getCoachSequenceCell(coachId, Number(row.level_id), row.days_per_week, client);
 }
 
-/** Materialize one microciclo via the chunk-1 pipeline; map its errors faithfully. */
+/**
+ * Materialize one microciclo via the chunk-1 pipeline, then apply STAGGERED
+ * WEEKLY DELIVERY (first week published, rest draft). Maps errors faithfully.
+ * Used by every advance path (mid-sequence, loop, level-up) so advancing to a
+ * multi-week microciclo surfaces only its first week — the Saturday cron unlocks
+ * the rest. The initial assign (assignSequenceToAthlete) staggers identically.
+ */
 async function materializeItem(params: {
   coachId: number | bigint;
   athleteId: number;
-  monthTemplateId: number;
+  monthTemplateId: number | bigint;
   startDate: string;
   client: Sql;
 }): Promise<InstantiateMonthResult> {
+  let result: InstantiateMonthResult;
   try {
-    return await instantiateMonthFromTemplate({
+    result = await instantiateMonthFromTemplate({
       coach_id: params.coachId,
       athlete_id: params.athleteId,
       month_template_id: params.monthTemplateId,
@@ -794,6 +793,16 @@ async function materializeItem(params: {
     }
     throw err;
   }
+
+  await markFutureWeeksDraft({
+    coach_id: params.coachId,
+    athlete_id: params.athleteId,
+    start_date: result.start_date,
+    week_count: result.microcycle_ids.length,
+    client: params.client,
+  });
+
+  return result;
 }
 
 async function markEnrollmentCompleted(progressId: number, client: Sql): Promise<void> {

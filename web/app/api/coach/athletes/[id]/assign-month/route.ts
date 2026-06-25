@@ -5,6 +5,7 @@ import {
   AssignMonthError,
   assignMonthToAthlete,
 } from '@/lib/dashboard/programming/assign-month';
+import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { assignMonthInputSchema } from '@fahybrid/shared/schema/assign-month';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
 
@@ -42,6 +43,17 @@ export async function POST(
       athlete_id: Number(parsedId.data.id),
       month_template_id: parsed.data.month_template_id,
       start_date: parsed.data.start_date,
+    });
+
+    // STAGGERED DELIVERY: leave the first week published (delivered now) and mark
+    // every subsequent week as draft, so the athlete sees only the current week.
+    // The Saturday cron (publish-weekly-plans) unlocks the next week each weekend.
+    // Without this, a multi-week microciclo would surface all weeks at once.
+    await markFutureWeeksDraft({
+      coach_id: session.coach_id,
+      athlete_id: Number(parsedId.data.id),
+      start_date: result.start_date,
+      week_count: result.microcycle_ids.length,
     });
 
     // Notifica al atleta que su coach publicó el plan — solo si se materializó

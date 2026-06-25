@@ -1088,7 +1088,16 @@ export async function commitIntake(params: {
   let month_assignment_count = 0;
   let first_block_draft: FirstBlockDraftResult | null = null;
   if (commit.month_template_id && commit.month_start_date) {
-    const { instantiateMonthFromTemplate } = await import('./instantiate-program');
+    // Use the SHARED materializer (lib/dashboard/coach/instantiate-program). It
+    // materializes a session's inline `blocks[]` into a real template + segments
+    // (carrying prescription_json), not just `template_id` references — so an
+    // intake-committed month whose sessions are inline-block-authored creates the
+    // workout_assignments instead of silently dropping them. Single source of
+    // truth: every assign path (assign-month, assign-sequence, /hoy approve) uses
+    // this same materializer.
+    const { instantiateMonthFromTemplate } = await import(
+      '@/lib/dashboard/coach/instantiate-program'
+    );
     const assignResult = await instantiateMonthFromTemplate({
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,

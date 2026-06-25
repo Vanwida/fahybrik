@@ -19,7 +19,11 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
+
+/** A materialized week spans 7 days; the materializer Monday-aligns each week. */
+const DAYS_PER_WEEK = 7;
 
 export class PublishWeekError extends Error {
   constructor(
@@ -214,4 +218,61 @@ export async function markWeekDraft(params: {
   `;
 
   return { athlete_id: String(athleteId), week_start: weekStart, status: 'draft' };
+}
+
+export interface MarkFutureWeeksDraftResult {
+  athlete_id: string;
+  /** Week left published (delivered now) — the assignment's first week. */
+  current_week_start: string;
+  /** Future weeks marked draft (hidden until the Saturday cron unlocks each). */
+  draft_week_starts: string[];
+}
+
+/**
+ * STAGGERED WEEKLY DELIVERY — given a just-materialized assignment that spans
+ * `weekCount` weeks starting at `startDate`, leave the FIRST week published
+ * (delivered to the athlete now) and mark every SUBSEQUENT week as `draft`.
+ *
+ * The athlete plan endpoint (app/api/athlete/plan/week) hides any week with a
+ * `draft` weekly_plans row, so the athlete sees only the current week. The
+ * Saturday cron (lib/cron/publish-weekly-plans) flips exactly ONE draft → the
+ * upcoming Monday's, unlocking the next week each weekend. Without this, an
+ * assignment with no weekly_plans rows reads as all-published and the athlete
+ * sees every future week at once.
+ *
+ * Anchored to the Monday of `startDate` (the materializer Monday-aligns each
+ * week), so the draft week_starts match EXACTLY the materialized microcycles.
+ * A single week (weekCount <= 1) marks nothing — there's no future week to hide.
+ * Idempotent: re-running re-stamps the same draft rows (markWeekDraft upserts).
+ */
+export async function markFutureWeeksDraft(params: {
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  /** First week's start (any day; normalized to its Monday). */
+  start_date: string;
+  /** Number of weeks the assignment spans (= materialized microcycle count). */
+  week_count: number;
+  client?: Sql;
+}): Promise<MarkFutureWeeksDraftResult> {
+  const client = params.client ?? defaultSql;
+  const startMonday = mondayOfWeek(parseIsoDate(params.start_date));
+  const currentWeekStart = isoDateString(startMonday);
+
+  const draftWeekStarts: string[] = [];
+  for (let i = 1; i < params.week_count; i += 1) {
+    const weekStart = isoDateString(addDays(startMonday, i * DAYS_PER_WEEK));
+    await markWeekDraft({
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      week_start: weekStart,
+      client,
+    });
+    draftWeekStarts.push(weekStart);
+  }
+
+  return {
+    athlete_id: String(Number(params.athlete_id)),
+    current_week_start: currentWeekStart,
+    draft_week_starts: draftWeekStarts,
+  };
 }
