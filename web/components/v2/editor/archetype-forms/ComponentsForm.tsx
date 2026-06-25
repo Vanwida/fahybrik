@@ -22,13 +22,14 @@ import { setMeasure } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { ExercisePickerField } from '../ExercisePickerField';
+import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import {
   ClockCell,
   DistanceCell,
   Field,
   InlineToggle,
   NumberCell,
-  TextCell,
 } from './form-controls';
 
 // The conditioning formats this form offers (block-level scheme).
@@ -305,14 +306,15 @@ function ComponentRow({
         <span className="v2-num w-5 shrink-0 text-center text-xs font-bold text-[color:var(--v2-faint)]">
           {index + 1}
         </span>
-        <TextCell
-          value={item.exercise_name}
-          ariaLabel={`Movimiento ${index + 1}`}
-          placeholder="p. ej. Wall balls"
-          maxLength={200}
-          className="flex-1"
-          onChange={(name) => onChange({ exercise_name: name })}
-        />
+        <div className="min-w-0 flex-1">
+          <ExercisePickerField
+            item={item}
+            destinationLabel={`Componente ${index + 1}`}
+            defaultCategory={defaultCategoryForModality(item.prescription.modality)}
+            onChange={onChange}
+            compact
+          />
+        </div>
         <button
           type="button"
           onClick={onRemove}

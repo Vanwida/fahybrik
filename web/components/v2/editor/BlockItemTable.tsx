@@ -18,6 +18,7 @@ import {
   setMeasure,
   setTarget,
 } from '@fahybrid/shared/domain/prescription';
+import { itemHasExercise } from '@/lib/dashboard/v2/item-validity';
 import { MIcon } from '@/components/ui/MIcon';
 
 type TableKind = 'calentamiento' | 'fuerza' | 'metcon' | 'carrera';
@@ -120,7 +121,8 @@ function ItemRow({
   onEdit: () => void;
 }) {
   const p = item.prescription;
-  const name = item.exercise_name || 'Ejercicio';
+  const valid = itemHasExercise(item);
+  const name = valid ? item.exercise_name || 'Ejercicio' : 'Línea sin ejercicio';
 
   let cells: React.ReactNode;
   if (kind === 'calentamiento' || kind === 'carrera') {
@@ -178,9 +180,22 @@ function ItemRow({
           onEdit();
         }
       }}
-      className="v2-focus cursor-pointer border-t border-[color:var(--v2-border)] transition-colors hover:bg-[color:var(--v2-surface-2)]"
+      className={
+        valid
+          ? 'v2-focus cursor-pointer border-t border-[color:var(--v2-border)] transition-colors hover:bg-[color:var(--v2-surface-2)]'
+          : 'v2-focus cursor-pointer border-t border-[color:var(--v2-border)] bg-[color:var(--v2-danger-soft)] transition-colors'
+      }
     >
-      <td className="py-1 pl-1 pr-2 text-sm font-medium text-[color:var(--v2-fg)]">{name}</td>
+      <td
+        className={
+          valid
+            ? 'py-1 pl-1 pr-2 text-sm font-medium text-[color:var(--v2-fg)]'
+            : 'py-1 pl-1 pr-2 text-sm font-medium text-[color:var(--v2-danger)]'
+        }
+      >
+        {valid ? null : <MIcon name="error" size={13} className="mr-1 inline-block align-[-2px]" />}
+        {name}
+      </td>
       {cells}
     </tr>
   );
@@ -211,22 +226,36 @@ function MetconTable({
         </span>
       </div>
       <ul className="space-y-0.5">
-        {block.items.map((it) => (
-          <li key={it.uid}>
-            <button
-              type="button"
-              onClick={() => onEditItem(it.uid)}
-              className="v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] px-1.5 py-1 text-left transition-colors hover:bg-[color:var(--v2-surface-2)]"
-            >
-              <span className="truncate text-sm font-medium text-[color:var(--v2-fg)]">
-                {it.exercise_name || 'Componente'}
-              </span>
-              <span className="v2-num shrink-0 text-xs text-[color:var(--v2-muted)]">
-                {prescriptionToText(it.prescription) || '—'}
-              </span>
-            </button>
-          </li>
-        ))}
+        {block.items.map((it) => {
+          const valid = itemHasExercise(it);
+          return (
+            <li key={it.uid}>
+              <button
+                type="button"
+                onClick={() => onEditItem(it.uid)}
+                className={
+                  valid
+                    ? 'v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] px-1.5 py-1 text-left transition-colors hover:bg-[color:var(--v2-surface-2)]'
+                    : 'v2-focus flex w-full items-center justify-between gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger-soft)] px-1.5 py-1 text-left transition-colors'
+                }
+              >
+                <span
+                  className={
+                    valid
+                      ? 'truncate text-sm font-medium text-[color:var(--v2-fg)]'
+                      : 'flex items-center gap-1 truncate text-sm font-medium text-[color:var(--v2-danger)]'
+                  }
+                >
+                  {valid ? null : <MIcon name="error" size={13} />}
+                  {valid ? it.exercise_name || 'Componente' : 'Componente sin ejercicio'}
+                </span>
+                <span className="v2-num shrink-0 text-xs text-[color:var(--v2-muted)]">
+                  {prescriptionToText(it.prescription) || '—'}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

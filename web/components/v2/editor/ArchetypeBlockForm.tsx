@@ -24,7 +24,8 @@ import {
   type Archetype,
 } from '@/lib/dashboard/v2/archetypes';
 import { MIcon } from '@/components/ui/MIcon';
-import { TextCell } from './fields';
+import { ExercisePickerField } from './ExercisePickerField';
+import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { AdvancedHatch } from './AdvancedHatch';
 import { AthletePreviewLine } from './AthletePreviewLine';
 import { SteadyForm } from './archetype-forms/SteadyForm';
@@ -98,18 +99,18 @@ export function ArchetypeBlockForm({
         </div>
       ) : null}
 
-      {/* Exercise name (single-item patterns, except Test — its type names it) */}
+      {/* Exercise picker (single-item patterns, except Test — its type names it).
+          Picking sets the real exercise_id (A3 fix) + inherits modality. */}
       {!isMultiItem && !isTest && firstItem ? (
-        <label className="block space-y-1.5">
+        <div className="space-y-1.5">
           <span className="v2-micro">Ejercicio</span>
-          <TextCell
-            value={firstItem.exercise_name}
-            ariaLabel="Nombre del ejercicio"
-            maxLength={200}
-            placeholder="p. ej. Sentadilla trasera"
-            onChange={(name) => setFirstItem({ exercise_name: name })}
+          <ExercisePickerField
+            item={firstItem}
+            destinationLabel={archetype?.name ?? block.title ?? 'Ejercicio'}
+            defaultCategory={defaultCategoryForModality(firstItem.prescription.modality)}
+            onChange={(patch) => setFirstItem(patch)}
           />
-        </label>
+        </div>
       ) : null}
 
       {/* The tailored form, routed by pattern */}

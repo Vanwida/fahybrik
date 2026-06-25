@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils';
 import { PrescriptionFields } from './PrescriptionFields';
 import { ArchetypeBlockForm } from './ArchetypeBlockForm';
 import { AthletePreviewLine } from './AthletePreviewLine';
+import { ExercisePickerField } from './ExercisePickerField';
+import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { TextCell, v2SelectCell } from './fields';
 
 const DAYS_OPTIONS: { value: number; label: string }[] = [
@@ -232,16 +234,15 @@ export function BlockEditor({
 
           {activeItem ? (
             <div className="space-y-4">
-              <label className="block space-y-1.5">
+              <div className="space-y-1.5">
                 <span className="v2-micro">Ejercicio</span>
-                <TextCell
-                  value={activeItem.exercise_name}
-                  ariaLabel="Nombre del ejercicio"
-                  maxLength={200}
-                  placeholder="p. ej. Sentadilla trasera"
-                  onChange={(name) => updateItem(activeItem.uid, { exercise_name: name })}
+                <ExercisePickerField
+                  item={activeItem}
+                  destinationLabel={block.title || 'Ejercicio'}
+                  defaultCategory={defaultCategoryForModality(activeItem.prescription.modality)}
+                  onChange={(patch) => updateItem(activeItem.uid, patch)}
                 />
-              </label>
+              </div>
 
               <PrescriptionFields
                 value={activeItem.prescription}

@@ -52,7 +52,7 @@ export class ExerciseUpdateError extends Error {
   }
 }
 
-const SELECT_COLUMNS = [
+export const EXERCISE_SELECT_COLUMNS = [
   'id::text as id',
   'slug',
   'name',
@@ -68,12 +68,12 @@ const SELECT_COLUMNS = [
 ] as const;
 
 // Modality is INTRINSIC and DERIVED from category(+name) — migration 0053. When a
-// coach edits category or name, modality must be recomputed with the SAME
-// deterministic rule the migration used, so it never drifts out of sync. Kept as
-// one SQL expression here (single source of truth alongside the migration). It
-// references the row's POST-update values via the same columns, so it must be
-// applied AFTER the user-supplied SET fragments.
-function modalityExpr(): ReturnType<typeof sql> {
+// coach edits category or name (or CREATES an exercise), modality must be computed
+// with the SAME deterministic rule the migration used, so it never drifts out of
+// sync. Kept as one SQL expression here (single source of truth alongside the
+// migration + the create handler). It references the row's category/name columns,
+// so on UPDATE it must be applied AFTER the user-supplied SET fragments.
+export function modalityExpr(): ReturnType<typeof sql> {
   return sql`
     case
       when category = 'strength'   then 'strength'
@@ -138,14 +138,14 @@ export async function updateExercise(
       update exercises
       set ${setClause}, updated_at = now()
       where id = ${id}
-      returning ${tx.unsafe(SELECT_COLUMNS.join(', '))}
+      returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
     `;
     if (updated.length === 0 || !recomputesModality) return updated;
     return tx<CatalogExercise[]>`
       update exercises
       set modality = ${modalityExpr()}
       where id = ${id}
-      returning ${tx.unsafe(SELECT_COLUMNS.join(', '))}
+      returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
     `;
   });
 

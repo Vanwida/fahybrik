@@ -25,6 +25,7 @@ import { LibraryRail } from './LibraryRail';
 import { AddBlockModal } from './AddBlockModal';
 import { BlockEditor } from './BlockEditor';
 import { blockMinutes } from './block-helpers';
+import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
 const NEXT_SLOT: Record<number, EditorSession['slot']> = { 0: 'am', 1: 'pm' };
@@ -65,6 +66,9 @@ export function DayEditor({
     (acc, s) => acc + s.blocks.reduce((a, b) => a + (blockMinutes(b) ?? 0), 0),
     0,
   );
+
+  // Honest save gate — a line with no real exercise can NOT be saved (kills A3).
+  const gate = saveGateFor(sessions.flatMap((s) => s.blocks));
 
   const updateSession = (uid: string, next: EditorSession) =>
     setSessions((prev) => prev.map((s) => (s.uid === uid ? next : s)));
@@ -136,6 +140,11 @@ export function DayEditor({
   };
 
   const handleSave = async () => {
+    // Never attempt a save that would persist incomplete lines (A3).
+    if (!gate.ok) {
+      setSaveState('error');
+      return;
+    }
     setSaveState('saving');
     try {
       // Serialize-on-the-server: send the edited day; the route loads the full
@@ -224,8 +233,9 @@ export function DayEditor({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saveState === 'saving'}
+            disabled={saveState === 'saving' || !gate.ok}
             aria-live="polite"
+            title={gate.ok ? undefined : gate.reason ?? undefined}
             className={
               saveState === 'error'
                 ? 'v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
@@ -237,6 +247,14 @@ export function DayEditor({
           </button>
         </div>
       </div>
+
+      {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
+      {!gate.ok ? (
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
+          <MIcon name="error" size={16} className="shrink-0" />
+          <span>{gate.reason}</span>
+        </div>
+      ) : null}
 
       {/* Day body: sessions column + library rail */}
       <div

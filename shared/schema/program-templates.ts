@@ -257,7 +257,9 @@ export type ProgramWeekTemplate = z.infer<typeof programWeekTemplateSchema>;
 // — it is positional (derived from array order), so it round-trips losslessly.
 export const editorItemInputSchema = z.object({
   uid: z.string().min(1).max(64),
-  // null = an incomplete authoring line; the server drops these (never persisted).
+  // null = an incomplete authoring line. The client Save gate blocks save while
+  // any line is null; if one reaches the server (stale client / direct call) the
+  // serializer THROWS InvalidAuthoringLineError → 400 (never silently dropped — A3).
   exercise_id: idSchema.nullable(),
   exercise_name: z.string().max(200).default(''),
   prescription: prescriptionSchema,

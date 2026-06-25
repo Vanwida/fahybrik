@@ -22,6 +22,7 @@ import { SessionStructureRail } from './SessionStructureRail';
 import { BlockEditor } from './BlockEditor';
 import { AddBlockModal } from './AddBlockModal';
 import { serializeSessionSegments } from '@/lib/dashboard/v2/editor-serialize';
+import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 
 // Honest save state — no fake timer. The button reflects the real request status.
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -56,6 +57,9 @@ export function SessionEditor({
 
   const selected = blocks.find((b) => b.uid === selectedUid) ?? null;
 
+  // Honest save gate — block save when any line lacks a real exercise (A3).
+  const gate = saveGateFor(blocks);
+
   const updateBlock = (next: EditorBlock) =>
     setBlocks((prev) => prev.map((b) => (b.uid === next.uid ? next : b)));
 
@@ -80,11 +84,17 @@ export function SessionEditor({
   };
 
   const handleSave = async () => {
+    // Never attempt a save that would persist incomplete lines (A3).
+    if (!gate.ok) {
+      setSaveState('error');
+      return;
+    }
     setSaveState('saving');
     try {
       // EditorBlock[] → template_segments[] grouped by block_position. The
       // structured Prescription is kept as prescription_json; params_json is the
-      // re-derived scalar summary. Items with no exercise are dropped server-side.
+      // re-derived scalar summary. The gate above guarantees every line has a real
+      // exercise; serializeSessionSegments throws if not (defense-in-depth).
       const segments = serializeSessionSegments(blocks);
 
       const payload = {
@@ -157,8 +167,9 @@ export function SessionEditor({
         <button
           type="button"
           onClick={handleSave}
-          disabled={saveState === 'saving'}
+          disabled={saveState === 'saving' || !gate.ok}
           aria-live="polite"
+          title={gate.ok ? undefined : gate.reason ?? undefined}
           className={
             saveState === 'error'
               ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
@@ -169,6 +180,14 @@ export function SessionEditor({
           {SAVE_LABEL[saveState]}
         </button>
       </div>
+
+      {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
+      {!gate.ok ? (
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
+          <MIcon name="error" size={16} className="shrink-0" />
+          <span>{gate.reason}</span>
+        </div>
+      ) : null}
 
       {/* Split: rail + block editor */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[330px_1fr]">

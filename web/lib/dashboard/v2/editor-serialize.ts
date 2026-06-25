@@ -16,9 +16,14 @@
 // would WIPE those on every save. So every serializer takes the ORIGINAL loaded
 // shape and PRESERVES the fields the editor cannot edit, matching by `uid`.
 //
-// Items with no exercise selected (exercise_id == null) are INCOMPLETE authoring
-// lines — they are dropped, never persisted (idSchema is non-nullable, and a line
-// with no exercise is not valid data).
+// A3 FIX — incomplete lines are NEVER silently dropped. A line with no
+// exercise (exercise_id == null) is invalid data (the DB exercise_id is non-null),
+// but dropping it on save is exactly what produced the "Guardado" that lied. The
+// client Save GATE (lib/dashboard/v2/item-validity) blocks the coach BEFORE this
+// runs, so a valid client never reaches here with a null-id line. As a
+// defense-in-depth, the serializers THROW `InvalidAuthoringLineError` if one
+// slips through (a stale client, a direct API call), and the routes turn it into
+// an explicit 400 — surfacing the bad line instead of fabricating a fake success.
 
 import { prescriptionToParams } from '@fahybrid/shared/domain/prescription';
 import type {
@@ -30,6 +35,19 @@ import type {
   WeekDayPartItem,
   WeekSession,
 } from '@fahybrid/shared/schema/program-templates';
+import { itemHasExercise } from '@/lib/dashboard/v2/item-validity';
+
+/** Thrown when a save would persist a line that has no real exercise selected. */
+export class InvalidAuthoringLineError extends Error {
+  constructor(public count: number) {
+    super(
+      count === 1
+        ? '1 línea sin ejercicio. Elígelo del catálogo o bórrala para guardar.'
+        : `${count} líneas sin ejercicio. Elígelas del catálogo o bórralas para guardar.`,
+    );
+    this.name = 'InvalidAuthoringLineError';
+  }
+}
 
 // ── Item ─────────────────────────────────────────────────────────────────────
 // EditorItem → WeekDayPartItem. Keeps prescription_json as the structured source
@@ -39,13 +57,12 @@ import type {
 function serializeItem(
   item: EditorItemInput,
   original: WeekDayPartItem | undefined,
-): WeekDayPartItem | null {
-  if (item.exercise_id == null) return null; // incomplete line — drop, don't persist
-
+): WeekDayPartItem {
+  // Caller has already filtered/validated; this is the last guard.
   const next: WeekDayPartItem = {
     ...(original ?? ({} as WeekDayPartItem)),
     uid: item.uid,
-    exercise_id: item.exercise_id,
+    exercise_id: item.exercise_id as number,
     exercise_name: item.exercise_name,
     prescription_json: item.prescription,
     params_json: prescriptionToParams(item.prescription),
@@ -72,9 +89,14 @@ function serializePart(
     (original?.items ?? []).map((it) => [it.uid, it]),
   );
 
-  const items = block.items
-    .map((it) => serializeItem(it, originalItemsByUid.get(it.uid)))
-    .filter((it): it is WeekDayPartItem => it !== null);
+  // Surface invalid lines instead of dropping them (A3). The client gate prevents
+  // reaching here with one; if it does, throw so the route returns a clear error.
+  const invalid = block.items.filter((it) => !itemHasExercise(it)).length;
+  if (invalid > 0) throw new InvalidAuthoringLineError(invalid);
+
+  const items = block.items.map((it) =>
+    serializeItem(it, originalItemsByUid.get(it.uid)),
+  );
 
   return {
     // Preserve coach_note / config_json / block_modifiers / athlete_note etc.
@@ -162,8 +184,9 @@ export function mergeDayIntoDays(
 // template_segments[] grouped by block_position (NOT slots_json). This is the
 // inverse of getTemplateDetail's load: each EditorBlock becomes one block_position
 // and each of its items becomes one segment row. Same field rules as the day
-// editor: drop items with no exercise; keep prescription_json as the source of
-// truth and re-derive params_json.
+// editor: lines with no exercise are NOT dropped — the client gate blocks save,
+// and this throws InvalidAuthoringLineError as defense-in-depth. prescription_json
+// stays the source of truth; params_json is re-derived.
 export interface SessionSegmentInput {
   exercise_id: number;
   exercise_name: string;
@@ -192,10 +215,16 @@ export interface SessionBlockSerInput {
 export function serializeSessionSegments(
   blocks: SessionBlockSerInput[],
 ): SessionSegmentInput[] {
+  // Surface invalid lines instead of dropping them (A3).
+  const invalid = blocks.reduce(
+    (n, b) => n + b.items.filter((it) => !itemHasExercise(it)).length,
+    0,
+  );
+  if (invalid > 0) throw new InvalidAuthoringLineError(invalid);
+
   const segments: SessionSegmentInput[] = [];
   blocks.forEach((block, blockPosition) => {
     for (const item of block.items) {
-      if (item.exercise_id == null) continue; // incomplete line — drop
       segments.push({
         exercise_id: Number(item.exercise_id),
         exercise_name: item.exercise_name,

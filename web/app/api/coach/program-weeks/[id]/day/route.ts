@@ -14,6 +14,7 @@ import {
   upsertWeekTemplate,
 } from '@/lib/dashboard/coach/program-weeks';
 import {
+  InvalidAuthoringLineError,
   mergeDayIntoDays,
   serializeDay,
 } from '@/lib/dashboard/v2/editor-serialize';
@@ -80,6 +81,9 @@ export async function PUT(
     });
     return jsonOk({ id: outId, day_of_week });
   } catch (err) {
+    if (err instanceof InvalidAuthoringLineError) {
+      return jsonError('invalid_line', err.message, 400);
+    }
     if (err instanceof ProgramWeekError) {
       return jsonError(err.code, err.message, err.status);
     }

@@ -1,15 +1,20 @@
-// Round-trip integrity for the v2 session-save WRITE path.
+// Round-trip integrity for the v2 session-save WRITE path + the A3 honest gate.
 //
-// Proves the write side (sessionEditorModelToSegments in lib/dashboard/v2/
-// editor-save.ts) is byte-equivalent with the read side the editor loads back
-// (getTemplateDetail → loadSessionEditorModel), which prefers `prescription_json`
-// parsed via the SHARED `prescriptionSchema`. So: a session a coach authors,
-// saves, and re-opens shows the SAME modality + per-set measures/targets.
+// Proves the write side (serializeSessionSegments in lib/dashboard/v2/
+// editor-serialize.ts — the path SessionEditor actually uses) is byte-equivalent
+// with the read side the editor loads back (getTemplateDetail → the SHARED
+// `prescriptionSchema`). So: a session a coach authors, saves, and re-opens shows
+// the SAME modality + per-set measures/targets.
+//
+// It ALSO locks in the A3 fix: a line with no real exercise is NEVER silently
+// dropped. The serializer THROWS InvalidAuthoringLineError (the client gate blocks
+// it earlier; this is the server defense-in-depth). The coach is never handed a
+// fake "Guardado" that persisted zero exercises.
 //
 // We simulate the full round-trip without a DB:
-//   editor model → sessionEditorModelToSegments  (WRITE — what we PUT)
-//                → JSON.stringify/parse           (DB jsonb storage)
-//                → safeParsePrescription          (READ — what the loader returns)
+//   editor blocks → serializeSessionSegments  (WRITE — what we PUT)
+//                 → JSON.stringify/parse        (DB jsonb storage)
+//                 → safeParsePrescription       (READ — what the loader returns)
 // and assert the recovered prescription_json deep-equals the authored one, for
 // the two canonical hard cases: a BikeErg steady/distance line and a strength
 // pyramid (10/10/8/8/6 with per-set %RM).
@@ -20,8 +25,11 @@ import {
   safeParsePrescription,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
-import { sessionEditorModelToSegments } from '@/lib/dashboard/v2/editor-save';
-import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import {
+  InvalidAuthoringLineError,
+  serializeSessionSegments,
+  type SessionBlockSerInput,
+} from '@/lib/dashboard/v2/editor-serialize';
 
 // ── Canonical authored prescriptions ─────────────────────────────────────────
 
@@ -50,41 +58,17 @@ const strengthPyramid: Prescription = {
 const BIKE_EX_ID = 501;
 const SQUAT_EX_ID = 77;
 
-const blocks: EditorBlock[] = [
+// Two valid blocks, every line carrying a real exercise_id (post-picker).
+const validBlocks: SessionBlockSerInput[] = [
   {
-    uid: 'b-cardio',
     title: 'Bici Z3 · constante',
     format: 'tempo',
-    group: 'principal',
-    items: [
-      {
-        uid: 'i-bike',
-        exercise_id: BIKE_EX_ID,
-        exercise_name: 'BikeErg',
-        prescription: bikeErg,
-      },
-    ],
+    items: [{ exercise_id: BIKE_EX_ID, exercise_name: 'BikeErg', prescription: bikeErg }],
   },
   {
-    uid: 'b-strength',
     title: 'Sentadilla · pirámide',
     format: 'strength_block',
-    group: 'principal',
-    items: [
-      {
-        uid: 'i-squat',
-        exercise_id: SQUAT_EX_ID,
-        exercise_name: 'Back Squat',
-        prescription: strengthPyramid,
-      },
-      // A custom-typed line with no catalog exercise — must be dropped (FK).
-      {
-        uid: 'i-custom',
-        exercise_id: null,
-        exercise_name: 'Movilidad cadera (libre)',
-        prescription: { scheme: 'sets', modality: 'mobility', sets: [{ measure: { kind: 'duration', seconds: 60 } }] },
-      },
-    ],
+    items: [{ exercise_id: SQUAT_EX_ID, exercise_name: 'Back Squat', prescription: strengthPyramid }],
   },
 ];
 
@@ -99,56 +83,48 @@ function roundTripPrescription(p: Prescription): Prescription {
 
 describe('v2 session save → reload round-trip', () => {
   test('flattens blocks → ordered segments with correct positions', () => {
-    const { segments, dropped_items } = sessionEditorModelToSegments(blocks);
+    const segments = serializeSessionSegments(validBlocks);
 
-    // Two persistable items (bike + squat); the custom line is dropped.
     expect(segments).toHaveLength(2);
-    expect(dropped_items).toBe(1);
 
     // Block 0 (cardio), item 0.
     expect(segments[0]).toMatchObject({
       exercise_id: BIKE_EX_ID,
       block_position: 0,
-      position: 0,
       block_title: 'Bici Z3 · constante',
       block_format: 'tempo',
     });
 
-    // Block 1 (strength), item 0 — position resets to 0 within the block.
+    // Block 1 (strength), item 0 — block_position increments.
     expect(segments[1]).toMatchObject({
       exercise_id: SQUAT_EX_ID,
       block_position: 1,
-      position: 0,
       block_title: 'Sentadilla · pirámide',
       block_format: 'strength_block',
     });
   });
 
   test('BikeErg prescription_json round-trips byte-equivalent (modality + steady/distance/pace)', () => {
-    const { segments } = sessionEditorModelToSegments(blocks);
+    const segments = serializeSessionSegments(validBlocks);
     const bikeSeg = segments.find((s) => s.exercise_id === BIKE_EX_ID)!;
 
-    // What we PUT into prescription_json is the authored prescription verbatim.
     expect(bikeSeg.prescription_json).toEqual(bikeErg);
 
-    // What the editor reads back (loader path) deep-equals the authored one:
-    // same modality (bike), same scheme (steady), same target (pace /500m).
-    const recovered = roundTripPrescription(bikeSeg.prescription_json);
+    const recovered = roundTripPrescription(bikeSeg.prescription_json as Prescription);
     expect(recovered).toEqual(bikeErg);
     expect(recovered.modality).toBe('bike');
     expect(recovered.target).toEqual({ kind: 'pace', unit: 'per_500m', value_s: 120 });
   });
 
   test('strength pyramid prescription_json round-trips byte-equivalent (per-set reps + %RM)', () => {
-    const { segments } = sessionEditorModelToSegments(blocks);
+    const segments = serializeSessionSegments(validBlocks);
     const squatSeg = segments.find((s) => s.exercise_id === SQUAT_EX_ID)!;
 
     expect(squatSeg.prescription_json).toEqual(strengthPyramid);
 
-    const recovered = roundTripPrescription(squatSeg.prescription_json);
+    const recovered = roundTripPrescription(squatSeg.prescription_json as Prescription);
     expect(recovered).toEqual(strengthPyramid);
 
-    // Per-set measures + targets survive exactly (no collapse to a scalar).
     const reps = recovered.sets!.map((s) => (s.measure?.kind === 'reps' ? s.measure.value : null));
     expect(reps).toEqual([10, 10, 8, 8, 6]);
     const loads = recovered.sets!.map((s) => (s.target?.kind === 'percent_rm' ? s.target.value : null));
@@ -156,13 +132,31 @@ describe('v2 session save → reload round-trip', () => {
   });
 
   test('params_json is the shared lossy summary, derived from the prescription', () => {
-    const { segments } = sessionEditorModelToSegments(blocks);
+    const segments = serializeSessionSegments(validBlocks);
     const squatSeg = segments.find((s) => s.exercise_id === SQUAT_EX_ID)!;
 
-    // params_json must equal the shared helper's output (single source of truth).
     expect(squatSeg.params_json).toEqual(prescriptionToParams(strengthPyramid));
-    // Sanity: the summary carries the set count + the per-set rep scheme hint.
     expect(squatSeg.params_json.sets).toBe(5);
     expect(squatSeg.params_json.reps_scheme).toBe('10/10/8/8/6');
+  });
+
+  // ── A3: the silent data loss is dead ────────────────────────────────────────
+  test('THROWS on a line with no exercise — never silently drops it (kills A3)', () => {
+    const withInvalid: SessionBlockSerInput[] = [
+      {
+        title: 'Fuerza',
+        format: 'strength_block',
+        items: [
+          { exercise_id: SQUAT_EX_ID, exercise_name: 'Back Squat', prescription: strengthPyramid },
+          // The coach opened "añadir" and never picked — must NOT vanish.
+          {
+            exercise_id: null,
+            exercise_name: '',
+            prescription: { scheme: 'sets', modality: 'mobility', sets: [{ measure: { kind: 'duration', seconds: 60 } }] },
+          },
+        ],
+      },
+    ];
+    expect(() => serializeSessionSegments(withInvalid)).toThrow(InvalidAuthoringLineError);
   });
 });
