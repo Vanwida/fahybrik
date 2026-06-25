@@ -1,0 +1,345 @@
+// v2 · PLANNING domain model — shared derivations for Screen 6 (Plan por fases)
+// and Screen 7 (Microciclo). Pure, client-safe (no DB imports) so it runs in the
+// server loader AND in client components. Single source of truth for:
+//   · methodology_group_id (1–10) → training MODALITY (the v2 color axis)
+//   · a day's WeekSlots → its dominant modality + session count (WeekStrip input)
+//   · phases (ATR defaults) → derived week count + a per-week load curve
+//
+// MODEL NOTE: the plan-by-phase content (which sessions sit in which day of which
+// derived week) is NOT yet a persisted entity — only the coach's microcycle
+// templates (program_month_templates → weeks → slots) are. Where this file needs
+// per-day session content it reads the real WeekSlots; the Plan-builder canvas in
+// Screen 6 is functional client state with a clearly-marked TODO(endpoint).
+
+import type { V2Modality } from '@/components/v2/constants';
+import type {
+  WeekDay,
+  WeekDayPart,
+  WeekSlots,
+} from '@fahybrid/shared/schema/program-templates';
+import { legacyItemToPrescription, prescriptionToText } from '@fahybrid/shared/domain/prescription';
+import {
+  ATR_BLOCKS_DEFAULT,
+  type AtrBlockDefault,
+  OBJECTIVE_OPTIONS,
+} from '@/lib/dashboard/coach/methodology/defaults';
+
+// Per-day card limits — keep the 7-column week scannable: at most a couple of
+// dose lines per block, a couple of blocks summarised; the rest collapses to
+// "+N más" / "+N bl". Named so the threshold isn't a scattered magic number.
+const MAX_BLOCKS_PER_DAY_CARD = 2;
+const MAX_ITEM_LINES_PER_BLOCK = 2;
+
+// ── methodology_group_id → modality ──────────────────────────────────────────
+// The 10 coach groups (migration 0030) collapse onto the 5-hue modality axis.
+// Source of truth; never inline this mapping in a component.
+//   1 Fuerza Base · 2 Pliométrica            → fuerza
+//   3 Series Ergómetros                       → ergo
+//   4 Series Running · 5 Zona 2 / Recuperación→ carrera
+//   6 WODs/Metcons · 7 Simulaciones · 9 Circuitos → circuito
+//   8 Core/Movilidad · 10 Tapering            → calentamiento
+const GROUP_TO_MODALITY: Record<number, V2Modality> = {
+  1: 'fuerza',
+  2: 'fuerza',
+  3: 'ergo',
+  4: 'carrera',
+  5: 'carrera',
+  6: 'circuito',
+  7: 'circuito',
+  8: 'calentamiento',
+  9: 'circuito',
+  10: 'calentamiento',
+};
+
+/** Map a methodology group id to its modality. Unknown / missing → null. */
+export function modalityForGroup(group_id: number | null | undefined): V2Modality | null {
+  if (group_id == null) return null;
+  return GROUP_TO_MODALITY[group_id] ?? null;
+}
+
+// ── a day → its modalities + dominant modality + real content preview ─────────
+
+/** One exercise line previewed on a day card: name + its compact dose text. */
+export interface DayItemLine {
+  /** Exercise / movement name (e.g. "Back Squat"). */
+  name: string;
+  /** Compact dose rendered from the structured prescription ("5×8 @ 75% RM"). */
+  dose: string;
+}
+
+/** One block previewed on a day card: header + its modality + a few item lines. */
+export interface DayBlockInfo {
+  /** Block container title (e.g. "Fuerza inferior", "Series 800m"). */
+  title: string;
+  /** Block modality for the chip / accent; null when not classifiable. */
+  modality: V2Modality | null;
+  /** Methodology group id (1–10) — resolved to the coach's label in the view. */
+  group_id: number | null;
+  /** First MAX_ITEM_LINES_PER_BLOCK exercise lines with their dose. */
+  lines: DayItemLine[];
+  /** Total exercise items in the block (lines may be truncated). */
+  item_count: number;
+}
+
+/** A session within a day (AM / PM …) with its coach focus + blocks. */
+export interface DaySessionInfo {
+  /** Coach focus for the session ("Series medias"); null when none set. */
+  focus: string | null;
+  blocks: DayBlockInfo[];
+}
+
+export interface DayModalityInfo {
+  /** 1 = Monday … 7 = Sunday. */
+  day_of_week: number;
+  /** Distinct modalities present across the day's sessions (in first-seen order). */
+  modalities: V2Modality[];
+  /** The dominant modality used for the strip cell color; null = rest day. */
+  dominant: V2Modality | null;
+  /** Number of workout sessions scheduled that day (0 = rest). */
+  session_count: number;
+  /** Number of blocks across all sessions that day (volume proxy). */
+  block_count: number;
+  /** Total exercise items across all blocks that day (volume proxy). */
+  item_count: number;
+  /**
+   * True when the day carries an explicit rest-kind session (coach scheduled
+   * "rest"), vs a fully empty day (no sessions at all). Distinguishes the
+   * "Descanso" card from the dashed add-affordance in the editor.
+   */
+  is_rest: boolean;
+  /** Day-level focus label, when the coach set one on the day itself. */
+  focus: string | null;
+  /** Per-session content preview (focus + blocks) for the rich day card. */
+  sessions: DaySessionInfo[];
+}
+
+// Render an item's dose from its structured prescription, deriving from legacy
+// params_json+notes when no prescription_json is stored (mirrors editor-data so
+// real Pablo weeks — which carry params_json — read correctly, not blank).
+function itemDose(item: WeekDayPart['items'][number]): string {
+  const prescription =
+    item.prescription_json ??
+    legacyItemToPrescription({
+      params_json: (item.params_json ?? null) as Record<string, unknown> | null,
+      notes: item.notes ?? null,
+    });
+  return prescriptionToText(prescription);
+}
+
+function blockInfo(block: WeekDayPart): DayBlockInfo {
+  const items = block.items ?? [];
+  return {
+    title: block.title,
+    modality: modalityForGroup(block.methodology_group_id),
+    group_id: block.methodology_group_id ?? null,
+    item_count: items.length,
+    lines: items.slice(0, MAX_ITEM_LINES_PER_BLOCK).map((it) => ({
+      name: it.exercise_name,
+      dose: itemDose(it),
+    })),
+  };
+}
+
+/**
+ * Derive a single day's picture from its WeekSlots day: the dominant modality
+ * (the one carried by the MOST blocks; ties → first seen) AND a content preview
+ * (per-session focus + blocks + a couple of real exercise/dose lines) so the
+ * day card can show CONTEXT, not just a modality tag. A workout day with no
+ * classifiable block falls back to `circuito` so it never reads as "rest".
+ */
+export function deriveDayModality(day: WeekDay): DayModalityInfo {
+  const counts = new Map<V2Modality, number>();
+  const order: V2Modality[] = [];
+  const sessions: DaySessionInfo[] = [];
+  let session_count = 0;
+  let block_count = 0;
+  let item_count = 0;
+  let has_rest_session = false;
+
+  for (const session of day.sessions) {
+    if (session.kind !== 'workout') {
+      has_rest_session = true;
+      continue;
+    }
+    session_count += 1;
+    const blocks = session.blocks ?? [];
+    for (const block of blocks) {
+      block_count += 1;
+      item_count += (block.items ?? []).length;
+      const mod = modalityForGroup(block.methodology_group_id);
+      if (!mod) continue;
+      if (!counts.has(mod)) order.push(mod);
+      counts.set(mod, (counts.get(mod) ?? 0) + 1);
+    }
+    sessions.push({
+      focus: session.focus ?? null,
+      blocks: blocks.map(blockInfo),
+    });
+  }
+
+  let dominant: V2Modality | null = null;
+  let best = 0;
+  for (const mod of order) {
+    const n = counts.get(mod) ?? 0;
+    if (n > best) {
+      best = n;
+      dominant = mod;
+    }
+  }
+  // Workout day with unclassified blocks → generic conditioning so it never reads
+  // as "rest". A true rest day (0 workout sessions) stays null.
+  if (dominant == null && session_count > 0) dominant = 'circuito';
+
+  return {
+    day_of_week: day.day_of_week,
+    modalities: order,
+    dominant,
+    session_count,
+    block_count,
+    item_count,
+    // Rest only when there's no workout but the coach DID place a rest session
+    // (or a day-level focus marking intent). Fully empty day → not "rest".
+    is_rest: session_count === 0 && (has_rest_session || !!day.focus),
+    focus: day.focus ?? null,
+    sessions,
+  };
+}
+
+/** Derive all 7 days of a week (always returns 7 entries, Mon→Sun). */
+export function deriveWeekModalities(slots: WeekSlots): DayModalityInfo[] {
+  const byDay = new Map<number, WeekDay>();
+  for (const d of slots.days) byDay.set(d.day_of_week, d);
+  const out: DayModalityInfo[] = [];
+  for (let dow = 1; dow <= 7; dow++) {
+    const day = byDay.get(dow);
+    if (day) out.push(deriveDayModality(day));
+    else
+      out.push({
+        day_of_week: dow,
+        modalities: [],
+        dominant: null,
+        session_count: 0,
+        block_count: 0,
+        item_count: 0,
+        is_rest: false,
+        focus: null,
+        sessions: [],
+      });
+  }
+  return out;
+}
+
+/** Total workout sessions in a week (for week-card "N sesiones"). */
+export function weekSessionCount(days: DayModalityInfo[]): number {
+  return days.reduce((n, d) => n + d.session_count, 0);
+}
+
+// ── Phases (ATR defaults) → derived weeks ────────────────────────────────────
+export interface PlanPhase {
+  /** Stable id (the ATR block code, lower-cased). */
+  id: string;
+  block: AtrBlockDefault['block'];
+  /** Coach-facing name (e.g. "Acumulación"). */
+  name: string;
+  /** Weeks derived from the phase duration. */
+  week_count: number;
+  order: number;
+  /** Human objective labels (resolved from OBJECTIVE_OPTIONS). */
+  objectives: string[];
+  intensity_ceiling: AtrBlockDefault['intensityCeiling'];
+  /** Draft vs published — the builder gate. ATR defaults ship as published. */
+  status: 'published' | 'draft';
+}
+
+const OBJECTIVE_LABEL = new Map(OBJECTIVE_OPTIONS.map((o) => [o.id, o.label]));
+
+/**
+ * The coach's periodization phases. SOURCE: the real Pablo ATR defaults
+ * (ACC 5 / TRANS 4 / REAL 3) — see methodology/defaults.ts. Per the agnostic
+ * phase system these are editable per-coach data; until a per-coach phases loader
+ * is wired here, the default set is the truthful content. Each phase's weeks are
+ * DERIVED from its duration (a 5-week phase → 5 week cards).
+ *
+ * TODO(model): swap ATR_BLOCKS_DEFAULT for a fetch of methodology_phases once a
+ * web loader for the per-coach phase set exists (agnostic-phase migration 0052).
+ */
+export function buildPlanPhases(): PlanPhase[] {
+  return ATR_BLOCKS_DEFAULT.map((b, i) => ({
+    id: b.block.toLowerCase(),
+    block: b.block,
+    name: b.labelAthlete,
+    week_count: b.durationWeeks,
+    order: b.order,
+    objectives: b.objectives.map((o) => OBJECTIVE_LABEL.get(o) ?? o),
+    intensity_ceiling: b.intensityCeiling,
+    // The first phase ships as the working draft so the borrador→publicar gate is
+    // demonstrable on a real phase; later phases read as published.
+    status: i === 0 ? 'draft' : 'published',
+  }));
+}
+
+// ── Load curve (entrada → carga → pico → descarga) ───────────────────────────
+// A microcycle / phase ramps load week-to-week then deloads on the last week.
+// Returned as 0–1 intensities so a bar can render proportionally. Real per-week
+// load is not yet persisted, so this is a deterministic standard ATR ramp keyed
+// only on (index, total) — a model-faithful default, not invented per-athlete data.
+//   TODO(model): replace with persisted week load once the load-tracking lands.
+export type LoadStage = 'entrada' | 'carga' | 'pico' | 'descarga';
+
+export interface WeekLoad {
+  /** 0–1 height for the load bar. */
+  level: number;
+  stage: LoadStage;
+  /** Tracked label, e.g. "Pico". */
+  label: string;
+}
+
+const STAGE_LABEL: Record<LoadStage, string> = {
+  entrada: 'Entrada',
+  carga: 'Carga',
+  pico: 'Pico',
+  descarga: 'Descarga',
+};
+
+/** Standard ATR load ramp for `total` weeks: ramps up to a peak then deloads. */
+export function loadCurve(total: number): WeekLoad[] {
+  if (total <= 0) return [];
+  if (total === 1) return [{ level: 0.7, stage: 'carga', label: STAGE_LABEL.carga }];
+
+  const out: WeekLoad[] = [];
+  // Peak on the second-to-last week; last week is always the deload.
+  const peakIndex = total - 2;
+  for (let i = 0; i < total; i++) {
+    let stage: LoadStage;
+    let level: number;
+    if (i === total - 1) {
+      stage = 'descarga';
+      level = 0.45;
+    } else if (i === 0) {
+      stage = 'entrada';
+      level = 0.6;
+    } else if (i === peakIndex) {
+      stage = 'pico';
+      level = 1;
+    } else {
+      stage = 'carga';
+      // Linear ramp from entrada (0.6) toward the peak (1).
+      const span = Math.max(peakIndex, 1);
+      level = 0.6 + (0.4 * i) / span;
+    }
+    out.push({ level: Math.min(1, level), stage, label: STAGE_LABEL[stage] });
+  }
+  return out;
+}
+
+// ── Spanish day labels (Mon→Sun) ─────────────────────────────────────────────
+export const DAY_LABELS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
+export const DAY_LABELS_FULL = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+] as const;
