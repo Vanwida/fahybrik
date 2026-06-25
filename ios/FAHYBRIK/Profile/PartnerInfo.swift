@@ -14,20 +14,76 @@ import SwiftUI
 // `ProfileView.partnerSection`. Optional so the backend can ship without it
 // and the client falls back to showing the card only when a partner exists.
 struct PartnerInfo: Codable, Equatable {
-    let userId: String
+    /// Present for a billing/social pair (`users.partner_id`); absent for a
+    /// coach-created `doubles_pair` (which is keyed on athletes, not users).
+    /// Optional so BOTH envelope sources decode through one model.
+    let userId: String?
     let athleteId: String?
     let fullName: String
     let email: String?
     let modality: String?
     let onboardedAt: String?
+
+    // MARK: - Training snapshot (the Hoy "Tu pareja" panel)
+    //
+    // Populated for a `doubles_pair` source: the partner's TODAY session
+    // (done / pending), THIS week's shared-session progress, and the most
+    // recent finished sessions. For a `billing_partner` source `today` is
+    // null, `week` is 0/0 and `recent` is empty (no training relationship).
+    // `var … = nil` (not `let`) so the synthesized Decodable still decodes them
+    // while the memberwise init keeps a default for non-snapshot call sites.
+    var today: PartnerTodayWorkout? = nil
+    var week: PartnerWeekProgress? = nil
+    var recent: [PartnerRecentSession]? = nil
+}
+
+/// The partner's session scheduled for today, or null when none / private.
+/// `status` mirrors the backend `assignment_status`: scheduled | completed |
+/// missed | skipped.
+struct PartnerTodayWorkout: Codable, Equatable {
+    let assignmentId: Int?
+    let workoutName: String?
+    let status: String
+
+    var isDone: Bool { status.lowercased() == "completed" }
+}
+
+/// This week's shared-session progress (Mon–Sun, box tz).
+struct PartnerWeekProgress: Codable, Equatable {
+    let completed: Int
+    let total: Int
+
+    /// 0…1 fill for the progress bar; 0 when the week has no sessions.
+    var fraction: Double {
+        total > 0 ? min(1, max(0, Double(completed) / Double(total))) : 0
+    }
+}
+
+/// One of the partner's most recent finished sessions (newest first).
+struct PartnerRecentSession: Codable, Equatable, Identifiable {
+    let assignmentId: Int?
+    let date: String            // "YYYY-MM-DD"
+    let workoutName: String?
+    let status: String          // completed | missed | skipped
+    let durationSeconds: Int?
+    let perceivedExertion: Double?
+
+    var id: Int { assignmentId ?? date.hashValue }
 }
 
 struct PartnerEnvelope: Codable, Equatable {
+    /// "doubles_pair" (training pair → snapshot) | "billing_partner" (profile
+    /// only) | nil (no partner). The Hoy panel only shows for "doubles_pair".
+    let source: String?
     let partner: PartnerInfo?
     /// Optional envelope-level hint. Backend (W4) does NOT currently expose
     /// self-modality on this endpoint — kept as a forward-compat field so a
     /// future backend version can populate it without an iOS change.
     let athleteModality: String?
+
+    /// True when the envelope carries a coach-created training pair — the only
+    /// case the Hoy "Tu pareja" panel renders for.
+    var isDoublesPair: Bool { source == "doubles_pair" && partner != nil }
 }
 
 extension PartnerInfo {

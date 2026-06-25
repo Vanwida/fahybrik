@@ -55,7 +55,7 @@ enum PartnerService {
             if let env = try? decoder.decode(PartnerEnvelope.self, from: data) {
                 return env
             }
-            return PartnerEnvelope(partner: nil, athleteModality: nil)
+            return PartnerEnvelope(source: nil, partner: nil, athleteModality: nil)
         }
     }
 

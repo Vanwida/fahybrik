@@ -60,6 +60,9 @@ struct InicioView: View {
     // The athlete's coach thread — carries the latest coach message preview +
     // voice-note duration surfaced on the coach-note row.
     @State private var coachThread: ChatThreadDTO? = nil
+    // Dobles partner training snapshot (GET /api/athlete/partner). Set only when
+    // the athlete is in a coach-created doubles_pair; nil otherwise (no panel).
+    @State private var partner: PartnerInfo? = nil
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
@@ -89,10 +92,14 @@ struct InicioView: View {
                     )
                     .staggerReveal(revealed, index: 4)
                 }
+                if let partner {
+                    PartnerTodayPanel(partner: partner)
+                        .staggerReveal(revealed, index: 5)
+                }
                 tilesRow
-                    .staggerReveal(revealed, index: 5)
-                coachNoteRow
                     .staggerReveal(revealed, index: 6)
+                coachNoteRow
+                    .staggerReveal(revealed, index: 7)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.s)
@@ -144,6 +151,7 @@ struct InicioView: View {
             await loadReadiness()
             await loadPlan()
             await loadUnread()
+            await loadPartner()
         }
     }
 
@@ -199,6 +207,20 @@ struct InicioView: View {
         let thread = (try? await ChatService.fetchThread(bearer: token)) ?? nil
         coachThread = thread
         unreadCount = max(0, thread?.unreadForAthlete ?? 0)
+    }
+
+    /// Loads the Dobles partner training snapshot. The "Tu pareja" panel renders
+    /// ONLY for a coach-created doubles_pair — a billing-only pair (no training
+    /// data), an unpaired athlete (404), or any error leaves `partner` nil so the
+    /// panel quietly stays hidden. Never blocks the rest of the screen.
+    private func loadPartner() async {
+        guard let token = effectiveBearer else { partner = nil; return }
+        if let envelope = try? await PartnerService.fetchEnvelope(bearer: token),
+           envelope.isDoublesPair {
+            partner = envelope.partner
+        } else {
+            partner = nil
+        }
     }
 
     /// Completed vs scheduled sessions across THIS week (all days). "Done" unions
