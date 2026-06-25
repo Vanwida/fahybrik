@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
   METHODOLOGY_AREAS,

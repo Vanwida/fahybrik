@@ -4,7 +4,7 @@
 // formats come straight from a stored athlete_zone_profiles snapshot — this module
 // never computes a band (the resolver does that, once, on write).
 
-import { formatClock } from '@/components/dashboard/programming/studio/prescription-model';
+import { formatClock } from '@/lib/programming/prescription-model';
 import type {
   AthleteZoneProfile,
   ResolvedZoneSnapshot,

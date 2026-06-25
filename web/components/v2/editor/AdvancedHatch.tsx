@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { PrescriptionFields } from './PrescriptionFields';
 
 export function AdvancedHatch({

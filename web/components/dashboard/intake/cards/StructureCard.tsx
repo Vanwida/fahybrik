@@ -12,7 +12,7 @@
 // hence the canonical fallback (flagged in the report).
 
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
 import type { IntakeProfile } from '@/lib/coach/intake';
 import type { IntakeBlockSpec } from '@/lib/coach/intake-schema';

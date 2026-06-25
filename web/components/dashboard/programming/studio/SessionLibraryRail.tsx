@@ -14,7 +14,7 @@ import { groupColorFor } from '@/lib/dashboard/programming/group-colors';
 import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import type { TemplateRow } from '@/components/dashboard/programar/library-items';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export type RailSession =

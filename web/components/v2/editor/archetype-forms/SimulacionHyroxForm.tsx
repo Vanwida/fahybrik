@@ -30,7 +30,7 @@ import {
   type HyroxLeg,
   type HyroxVariant,
 } from '@/lib/dashboard/v2/hyrox-template';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
   ClockCell,

@@ -8,7 +8,7 @@
 import { groupColorFor } from '@/lib/dashboard/programming/group-colors';
 import { atrBadgeClass } from '@/lib/dashboard/constants/atr-phases';
 import { formatRelative } from '@/lib/dashboard/relative-time';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
   formatFacetLabel,

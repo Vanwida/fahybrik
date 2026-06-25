@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { StatusChip } from '@/components/dashboard/ui';
 import type { IntakeProfile } from '@/lib/coach/intake';
 import { DecisionCard } from '../ui/DecisionCard';

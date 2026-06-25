@@ -12,7 +12,7 @@
 // progression_pct + progression_applies_to are an all-or-nothing pair (the shared
 // Zod schema enforces it): both set or both null. We keep them coherent here.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type {
   SequenceEndPolicy,

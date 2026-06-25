@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { PROGRAM_LEVEL_LABELS, type ProgramLevel } from '@/lib/dashboard/constants/program-levels';
 import { atrBadgeClass, atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
 import { formatRelative } from '@/lib/dashboard/relative-time';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export interface MicrocycleRow {
   id: string;

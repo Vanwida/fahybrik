@@ -9,7 +9,7 @@
 
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2SequenceMicrociclo } from '@/lib/dashboard/v2/secuencias';
 

@@ -1,4 +1,4 @@
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { FieldState } from '@/lib/dashboard/coach/methodology/rule-vm';
 

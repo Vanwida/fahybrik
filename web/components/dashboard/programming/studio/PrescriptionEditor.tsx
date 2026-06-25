@@ -24,7 +24,7 @@ import type {
   Target,
 } from '@fahybrid/shared/domain/prescription';
 import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   MeasureControl,
   ModalitySelect,
@@ -39,7 +39,7 @@ import {
   defaultTargetForModality,
   isStrengthModality,
   measureToSchemeFields,
-} from './prescription-model';
+} from '@/lib/programming/prescription-model';
 
 // ── Scheme vocab (coach-facing labels) ───────────────────────────────────────
 const SCHEME_OPTIONS: { value: PrescriptionScheme; label: string }[] = [

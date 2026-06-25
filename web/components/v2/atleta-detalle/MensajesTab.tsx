@@ -9,7 +9,7 @@
 
 import { useCallback, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { ChatThread, type ChatThreadMessage } from '@/components/v2/chat/ChatThread';
 import { ChatComposer } from '@/components/v2/chat/ChatComposer';

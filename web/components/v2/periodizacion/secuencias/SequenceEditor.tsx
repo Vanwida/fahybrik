@@ -12,7 +12,7 @@
 // Real persistence; on success the parent refetches the matrix so previews update.
 
 import { useCallback, useMemo, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import type {

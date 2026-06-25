@@ -15,7 +15,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { ReorderRow, RowIconButton } from './ReorderRow';

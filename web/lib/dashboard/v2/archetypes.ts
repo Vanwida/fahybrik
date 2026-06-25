@@ -27,7 +27,7 @@ import {
 import {
   defaultMeasureForModality,
   defaultTargetForModality,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 import { createHyroxSimBlock } from '@/lib/dashboard/v2/hyrox-template';
 import { createTestBlock, TEST_BLOCK_FORMAT } from '@/lib/dashboard/v2/test-template';
 

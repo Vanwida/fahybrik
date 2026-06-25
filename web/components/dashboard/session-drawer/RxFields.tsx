@@ -15,7 +15,7 @@ import type {
   Target,
 } from '@fahybrid/shared/domain/prescription';
 import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   ClockCell,
   MeasureControl,
@@ -25,7 +25,7 @@ import {
 import {
   blockMeasureOf,
   measureToSchemeFields,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 import { MEASURE_FIELD_LABEL, targetFieldLabel } from './prescription-presets';
 import type { SetsView } from './rx-editor-model';
 

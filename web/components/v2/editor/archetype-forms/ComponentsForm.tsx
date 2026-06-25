@@ -20,7 +20,7 @@ import type {
 } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
   ClockCell,

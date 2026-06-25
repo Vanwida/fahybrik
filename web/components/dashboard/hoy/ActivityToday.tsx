@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { DetailSidePanel } from '@/components/dashboard/ui';
 import { AthleteGlyph } from '@/components/dashboard/atoms/AthleteGlyph';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   ADHERENCE_BAND_TIER,
   ADHERENCE_BAND_LABEL,

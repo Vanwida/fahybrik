@@ -18,7 +18,7 @@ import {
 import { cloneWeekSlotsWithNewUids } from '@/lib/dashboard/programming/day-composition';
 import { PROGRAM_LEVEL_LABELS, type ProgramLevel } from '@/lib/dashboard/constants/program-levels';
 import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export interface MicrocycleEditorWeek {

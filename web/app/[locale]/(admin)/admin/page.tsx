@@ -2,7 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { getAdminSession } from '@/lib/auth/admin-session';
 import { listCoachRequests } from '@/lib/dashboard/admin/coaches';
 import { buildBusinessMetrics } from '@/lib/dashboard/coach/business-metrics';
-import { CoachRequests } from '@/components/dashboard/admin/CoachRequests';
+import { CoachRequests } from '@/components/admin/CoachRequests';
 import { BusinessMetrics } from '@/components/dashboard/metrics/BusinessMetrics';
 
 export const dynamic = 'force-dynamic';

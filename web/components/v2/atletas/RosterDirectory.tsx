@@ -8,7 +8,7 @@
 // count and filter reads a real derived field (lib/dashboard/v2/atletas-*).
 
 import { useMemo, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { FilterDropdown, type DropdownOption } from '@/components/v2/atletas/FilterDropdown';

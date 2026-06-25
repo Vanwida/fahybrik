@@ -15,7 +15,7 @@ import type {
   Target,
 } from '@fahybrid/shared/domain/prescription';
 import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { axesOf } from '@/lib/dashboard/v2/editor-axes';
 import {
   ClockCell,

@@ -5,7 +5,7 @@
 //   • filtered    → a lens/filter returned nothing (offer to clear)
 // Presentational: copy + optional action are props so /hoy supplies context.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export type EmptyStateVariant = 'inbox-zero' | 'first-run' | 'filtered';

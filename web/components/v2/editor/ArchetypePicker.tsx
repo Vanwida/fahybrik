@@ -13,7 +13,7 @@
 // base form and carry a flag the orchestrator surfaces.
 
 import { useEffect, useRef } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { ARCHETYPES, type Archetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
 

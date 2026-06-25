@@ -18,7 +18,7 @@ import {
   SESSION_STATUS_COLOR,
   SESSION_STATUS_LABEL,
 } from '@/lib/dashboard/constants/session-status';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 type Verdict = 'ok' | 'needs_adjustment';

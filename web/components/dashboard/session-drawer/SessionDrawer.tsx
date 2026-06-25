@@ -16,7 +16,7 @@ import type { WeekDayPart, WeekSession } from '@fahybrid/shared/schema/program-t
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { blockOrigin } from '@/lib/dashboard/programming/block-origin';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AddBlockMenu } from '@/components/dashboard/programming/studio/AddBlockMenu';
 import { DrawerBlockCard } from './DrawerBlockCard';
 import { saveBlockToLibrary } from './save-block-template';

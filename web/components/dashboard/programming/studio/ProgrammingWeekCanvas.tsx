@@ -16,7 +16,7 @@ import { dayLabel, type DayOfWeek } from '@/lib/dashboard/constants/calendar';
 import type { SessionIndex, StudioSelection } from '@/lib/dashboard/programming/studio-types';
 import { dropIdSession, sortIdPart } from '@/lib/dashboard/programming/studio-types';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AddBlockMenu } from '@/components/dashboard/programming/studio/AddBlockMenu';
 import { AtrLegend } from '@/components/dashboard/programming/studio/AtrLegend';
 import { DayPartCard } from '@/components/dashboard/programming/studio/DayPartCard';

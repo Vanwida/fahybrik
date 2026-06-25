@@ -6,7 +6,7 @@
 // plus a draft pill when applicable. The whole card links to the session editor.
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';

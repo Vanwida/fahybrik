@@ -5,7 +5,7 @@
 // accent. Footer note explains week derivation; a dashed "+ definir fase" stub
 // (no phase-create endpoint wired yet → TODO).
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import type { PlanPhase } from '@/lib/dashboard/v2/planes-model';
 import { cn } from '@/lib/utils';

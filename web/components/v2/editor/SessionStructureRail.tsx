@@ -8,7 +8,7 @@
 
 import type { EditorBlock, StructureGroup } from '@/lib/dashboard/v2/editor-types';
 import { STRUCTURE_GROUP_LABEL, STRUCTURE_GROUP_ORDER } from '@/lib/dashboard/v2/editor-types';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { blockModalitySlug, blockSummaryLine } from './block-helpers';
 

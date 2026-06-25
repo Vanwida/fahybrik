@@ -7,7 +7,7 @@
 // Pure presentational: alignment, fill and timestamp position are all derived
 // from `role` + `variant`. Themed via v2 tokens; AA in both light and dark.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export type ChatBubbleRole = 'athlete' | 'coach';

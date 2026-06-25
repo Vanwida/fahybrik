@@ -1,6 +1,6 @@
 import type { AthleteTargetRaceSummary } from '@/lib/dashboard/athletes/list';
 import { formatDaysUntilShort } from '@/lib/dashboard/coach/race-labels';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface RaceCountdownBadgeProps {

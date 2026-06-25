@@ -3,7 +3,7 @@
 // presentational; server-renderable (no client hooks). Keeps the Ajustes page
 // dense + scannable and avoids repeating the label/value markup per field.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export function SettingRow({
   label,

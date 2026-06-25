@@ -21,7 +21,7 @@
 // the last active step (so a fully-built section still reads as "step 5/5, here").
 
 import { useEffect, useRef } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import type { PipelineProgress, PipelineStepKey } from '@/lib/dashboard/v2/orientacion-types';
 import { PIPELINE_STEP_META, PIPELINE_TOTAL, pipelineIndex } from './pipeline';
 import { usePersistentState, useHydrated } from './persistent-store';

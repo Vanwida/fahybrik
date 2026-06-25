@@ -7,7 +7,7 @@
 // the block-level add-block picker (dashed) opens the SCREEN 9 modal.
 
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { BlockItemTable } from './BlockItemTable';
 import { blockMinutes, blockModalitySlug } from './block-helpers';

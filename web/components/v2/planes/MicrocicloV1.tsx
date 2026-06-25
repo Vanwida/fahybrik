@@ -7,7 +7,7 @@
 // the entrada→carga→pico→descarga ramp. Day chip → /v2/microciclos/[id]/dia/[idx].
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { LoadBar } from '@/components/v2/planes/parts';

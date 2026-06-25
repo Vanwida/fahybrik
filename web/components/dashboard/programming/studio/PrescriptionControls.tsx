@@ -17,7 +17,7 @@ import type {
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   MEASURE_OPTIONS,
   MODALITY_OPTIONS,
@@ -31,7 +31,7 @@ import {
   parseClock,
   targetKindsForModality,
   targetScalar,
-} from './prescription-model';
+} from '@/lib/programming/prescription-model';
 
 // ── Shared small inputs (single source of truth across the editor) ───────────
 // Numeric prescription cells read like an instrument: mono + tabular so the

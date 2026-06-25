@@ -7,7 +7,7 @@
 // stat cluster wraps under the identity on narrow viewports.
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { StatusDot } from '@/components/v2/StatusDot';

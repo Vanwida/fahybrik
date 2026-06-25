@@ -5,7 +5,7 @@
 // disabled until canAssign; "Asignando…" while pending). Replaces the old
 // single-line status footer. Submit error renders role=alert above the bar.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { StatusChip } from '@/components/dashboard/ui';
 import { cn } from '@/lib/utils';
 

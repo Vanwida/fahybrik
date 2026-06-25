@@ -10,7 +10,7 @@ import {
 } from '@fahybrid/shared/domain/atr/dates';
 import type { MethodologyPhase } from '@fahybrid/shared/schema/methodology-phases';
 import { resolvePhase } from '@/lib/dashboard/coach/resolve-phase';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { AssignFlowPreview } from '@/components/dashboard/assign-flow/AssignFlowPreview';
 import {
   AthleteField,

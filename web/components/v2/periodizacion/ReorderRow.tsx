@@ -7,7 +7,7 @@
 // approved pass, decision 4). Lists are short (3–6 rows) so both fit cleanly.
 
 import { useCallback } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export function ReorderRow({

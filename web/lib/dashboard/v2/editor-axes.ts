@@ -31,7 +31,7 @@ import {
   emptyTargetOfKind,
   isStrengthModality,
   measureToSchemeFields,
-} from '@/components/dashboard/programming/studio/prescription-model';
+} from '@/lib/programming/prescription-model';
 import type { V2Modality } from '@/components/v2/constants';
 
 // ── AXIS 1 · MODALIDAD (4 coach tabs ↔ 9 domain modalities) ──────────────────

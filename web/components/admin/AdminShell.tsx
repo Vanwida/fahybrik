@@ -1,5 +1,5 @@
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 interface AdminShellProps {
   email: string;

@@ -10,7 +10,7 @@
 // + the form inline, so the coach can record the first test from here.
 
 import { useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { ZoneCalculator } from './ZoneCalculator';
 import { RegistrarResultadoForm } from './RegistrarResultadoForm';
 import { Panel } from './parts';

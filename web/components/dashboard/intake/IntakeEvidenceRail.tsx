@@ -8,7 +8,7 @@
 // use of that pattern — for value pairs, not controls).
 
 import type { IntakeProfile } from '@/lib/coach/intake';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { RailCard } from './ui/RailCard';
 import { Empty, Instrument, Ledger, MetaChip } from './ui/RailPrimitives';
 import {

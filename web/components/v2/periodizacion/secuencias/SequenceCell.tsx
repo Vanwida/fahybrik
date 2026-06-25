@@ -10,7 +10,7 @@
 // from data we already have (microciclo week_count + the item's phase), never
 // invented.
 
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { roleV2Color } from '../role-style';
 import type { PhaseRole } from '../role-style';

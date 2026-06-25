@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LevelBadge } from '@/components/v2/LevelBadge';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2SiguienteMicrocicloCard } from '@/lib/dashboard/v2/hoy-lanes';
 

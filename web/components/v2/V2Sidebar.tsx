@@ -6,7 +6,7 @@
 // unread badge. Ajustes pins to the bottom.
 
 import { Link, usePathname } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import {
   V2_NAV_GROUP_LABELS,
   V2_NAV_GROUP_ORDER,

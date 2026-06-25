@@ -2,7 +2,7 @@
 
 import { Link, usePathname } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { NAV_ITEMS, isNavActive } from '@/lib/dashboard/nav';
 import { cn } from '@/lib/utils';
 

@@ -6,7 +6,7 @@
 // weeks defined. Matches the BloqueCard surface (rounded, bordered, hover).
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
 import type { V2MicrocicloItem } from '@/lib/dashboard/v2/biblioteca-data';

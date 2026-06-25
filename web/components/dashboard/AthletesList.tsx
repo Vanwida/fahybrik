@@ -20,7 +20,7 @@ import { ATHLETE_STATE_SORT_RANK } from '@/lib/dashboard/coach/athlete-status';
 import { AddAthleteModal } from '@/components/dashboard/athletes/AddAthleteModal';
 import { SearchInput } from '@/components/dashboard/ui/SearchInput';
 import { FilterChip } from '@/components/dashboard/ui/FilterChip';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export type AthleteFilter =
   | 'all'

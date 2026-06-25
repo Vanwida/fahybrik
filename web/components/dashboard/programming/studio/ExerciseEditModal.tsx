@@ -5,7 +5,7 @@ import { parseYouTubeVideoId } from '@fahybrid/shared/youtube';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/dashboard/exercises/filter-chips';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface ExerciseEditModalProps {

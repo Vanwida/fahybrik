@@ -13,7 +13,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { LevelDaysGrid, type MatrixLevelRow } from '@/components/v2/LevelDaysGrid';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { ContextHint, TeachingEmptyState } from '@/components/v2/orientacion';
 import type { V2SecuenciasData, V2Sequence } from '@/lib/dashboard/v2/secuencias';
 import type { V2PhaseItem, V2LevelItem } from '@/lib/dashboard/v2/periodizacion';

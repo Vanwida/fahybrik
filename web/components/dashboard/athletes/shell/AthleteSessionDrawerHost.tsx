@@ -20,7 +20,7 @@ import { SESSION_STATUS_LABEL } from '@/lib/dashboard/constants/session-status';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { useDebouncedAutosave } from '@/lib/dashboard/hooks/use-autosave';
 import { SessionDrawer } from '@/components/dashboard/session-drawer';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 const AUTOSAVE_DELAY_MS = 900;
 const SAVED_FLASH_MS = 2000;

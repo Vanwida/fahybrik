@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { DetailSidePanel, ErrorState, SkeletonRow, useToast } from '@/components/dashboard/ui';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { COACH_MESSAGE_BODY_MAX, sendCoachMessageSchema } from '@/lib/dashboard/chat/schema';
 import type { CoachChatMessage } from '@/lib/dashboard/chat/service';
 import { cn } from '@/lib/utils';

@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/dashboard/exercises/filter-chips';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { dragIdExercise } from '@/lib/dashboard/programming/studio-types';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 interface DraggableExerciseCardProps {

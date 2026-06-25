@@ -74,7 +74,7 @@ import {
   type TemplateDetailWire,
 } from '@/lib/dashboard/programming/template-session';
 import type { TemplateRow } from '@/components/dashboard/programar/library-items';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 
 export interface StudioToolbarRenderState {
   name: string;

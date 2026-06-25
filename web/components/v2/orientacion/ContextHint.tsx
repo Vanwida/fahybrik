@@ -11,7 +11,7 @@
 // "leer más", no nested accordions.
 
 import { useState, type ReactNode } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 
 export function ContextHint({

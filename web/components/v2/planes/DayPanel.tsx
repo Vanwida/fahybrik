@@ -8,7 +8,7 @@
 // pinned borrador → publicar gate (notice + Vista previa / Publicar fase).
 
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';

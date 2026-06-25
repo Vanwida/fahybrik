@@ -16,7 +16,7 @@ import {
 } from '@fahybrid/shared/domain/prescription';
 import { itemSummaryLine } from '@/lib/dashboard/programming/part-summary';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { PrescriptionEditorV2 } from './PrescriptionEditorV2';
 
 export function DrawerExerciseRow({

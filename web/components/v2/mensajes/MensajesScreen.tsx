@@ -11,7 +11,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { MIcon } from '@/components/dashboard/MIcon';
+import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { ConversationList, type ConvFilter } from './ConversationList';
 import { ThreadPanel } from './ThreadPanel';
