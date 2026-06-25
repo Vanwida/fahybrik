@@ -12,11 +12,10 @@ import { listBlocks } from '@/lib/dashboard/coach/blocks';
 import { legacyItemToPrescription } from '@fahybrid/shared/domain/prescription';
 import { normalizeWeekDay } from '@fahybrid/shared/schema/program-templates';
 import type {
-  WeekDayPart,
-  WeekDayPartItem,
   WeekSession as DomainWeekSession,
 } from '@fahybrid/shared/schema/program-templates';
 import { modalityColorSlug } from './editor-axes';
+import { inferGroup, weekDayPartToEditorBlock } from './part-to-editor-block';
 import type {
   DayEditorModel,
   EditorBlock,
@@ -25,25 +24,12 @@ import type {
   LibraryBlockRow,
   LibrarySessionRow,
   SessionEditorModel,
-  StructureGroup,
 } from './editor-types';
 
 // Days of the week per the [idx] route convention (idx is a flat 0-based index
 // across the month → week = floor/7, day_of_week = idx%7 + 1).
 const WEEKDAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const DAYS_PER_WEEK = 7;
-
-// ── Block → structure group heuristic (rail headings) ────────────────────────
-// A session has no explicit calentamiento/principal/vuelta column; we infer the
-// rail group from the block's format/title so the editor groups blocks like the
-// sketch. The first warmup-ish block falls to calentamiento, cooldown/mobility
-// to vuelta, everything else to principal — a coach can still see all blocks.
-function inferGroup(title: string, format: string | null): StructureGroup {
-  const t = `${title} ${format ?? ''}`.toLowerCase();
-  if (/calent|warm|movilidad|mobility|activación/.test(t)) return 'calentamiento';
-  if (/vuelta|cooldown|cool|estiramiento|stretch/.test(t)) return 'vuelta';
-  return 'principal';
-}
 
 // ── SCREEN 5 · load a session template into the editor model ─────────────────
 export async function loadSessionEditorModel(params: {
@@ -133,35 +119,9 @@ function mapSession(s: DomainWeekSession, index: number): EditorSession {
     uid: `session-${index}`,
     slot,
     time_hint: slot === 'am' ? '08:00' : slot === 'pm' ? '18:00' : undefined,
-    blocks: (s.blocks ?? []).map((b, bi) => mapPart(b, bi)),
-  };
-}
-
-function mapPart(part: WeekDayPart, index: number): EditorBlock {
-  return {
-    uid: part.uid || `block-${index}`,
-    title: part.title,
-    format: part.format,
-    methodology_group_id: part.methodology_group_id ?? null,
-    group: inferGroup(part.title, part.format),
-    source_block_id: part.source_block_id ?? null,
-    items: (part.items ?? []).map((it) => mapItem(it)),
-  };
-}
-
-function mapItem(it: WeekDayPartItem): EditorItem {
-  return {
-    uid: it.uid,
-    exercise_id: Number(it.exercise_id),
-    exercise_name: it.exercise_name,
-    notes: it.notes,
-    // Prefer the structured prescription; else derive from legacy params_json.
-    prescription:
-      it.prescription_json ??
-      legacyItemToPrescription({
-        params_json: (it.params_json ?? null) as Record<string, unknown> | null,
-        notes: it.notes ?? null,
-      }),
+    // WeekDayPart → EditorBlock via the shared client-safe mapper (one source of
+    // truth, also used by the Pablo IA compose action).
+    blocks: (s.blocks ?? []).map((b, bi) => weekDayPartToEditorBlock(b, bi)),
   };
 }
 

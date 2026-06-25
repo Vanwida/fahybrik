@@ -24,6 +24,7 @@ import { SessionPartCard } from './SessionPartCard';
 import { LibraryRail } from './LibraryRail';
 import { AddBlockModal } from './AddBlockModal';
 import { BlockEditor } from './BlockEditor';
+import { IAComposeModal } from './IAComposeModal';
 import { blockMinutes } from './block-helpers';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
@@ -60,6 +61,8 @@ export function DayEditor({
   // Add-block modal target (which session) + item-edit drawer target.
   const [addTo, setAddTo] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
+  // Pablo IA compose target (which session the proposed blocks insert into).
+  const [composeFor, setComposeFor] = useState<{ sessionUid: string } | null>(null);
 
   const totalMin = sessions.reduce(
     (acc, s) => acc + s.blocks.reduce((a, b) => a + (blockMinutes(b) ?? 0), 0),
@@ -82,6 +85,25 @@ export function DayEditor({
       prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, block] } : s)),
     );
     setAddTo(null);
+  };
+
+  const addBlocksToSession = (sessionUid: string, blocks: EditorBlock[]) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, ...blocks] } : s)),
+    );
+  };
+
+  // Open Pablo IA compose for the first session (creating one if the day is empty),
+  // so the proposed blocks have a place to land.
+  const openCompose = () => {
+    const target = sessions[0];
+    if (target) {
+      setComposeFor({ sessionUid: target.uid });
+      return;
+    }
+    const uid = `session-0-${Date.now()}`;
+    setSessions([{ uid, slot: 'am', blocks: [] }]);
+    setComposeFor({ sessionUid: uid });
   };
 
   const removeBlock = (sessionUid: string, blockUid: string) => {
@@ -178,6 +200,7 @@ export function DayEditor({
   const editingSession = editing ? sessions.find((s) => s.uid === editing.sessionUid) : null;
   const editingBlock = editingSession?.blocks.find((b) => b.uid === editing?.blockUid) ?? null;
   const addToSession = addTo ? sessions.find((s) => s.uid === addTo.sessionUid) : null;
+  const composeSession = composeFor ? sessions.find((s) => s.uid === composeFor.sessionUid) : null;
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
@@ -204,6 +227,14 @@ export function DayEditor({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={openCompose}
+            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+          >
+            <MIcon name="auto_awesome" size={16} />
+            Componer con IA
+          </button>
           <button
             type="button"
             onClick={addSession}
@@ -307,6 +338,15 @@ export function DayEditor({
           onClose={() => setEditing(null)}
           onChange={(next) => updateBlock(editingSession.uid, next)}
           onAddItem={() => addItemToBlock(editingSession.uid, editingBlock.uid)}
+        />
+      ) : null}
+
+      {/* Pablo IA · Componer — proposes blocks; inserts into the target session */}
+      {composeFor && composeSession ? (
+        <IAComposeModal
+          destinationLabel={`Sesión ${SLOT_LABEL[composeSession.slot]} · ${model.day_label}`}
+          onInsert={(blocks) => addBlocksToSession(composeFor.sessionUid, blocks)}
+          onClose={() => setComposeFor(null)}
         />
       ) : null}
     </div>

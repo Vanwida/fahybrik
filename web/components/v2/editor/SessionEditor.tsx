@@ -21,6 +21,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionStructureRail } from './SessionStructureRail';
 import { BlockEditor } from './BlockEditor';
 import { AddBlockModal } from './AddBlockModal';
+import { IAComposeModal } from './IAComposeModal';
 import { serializeSessionSegments } from '@/lib/dashboard/v2/editor-serialize';
 
 // Honest save state — no fake timer. The button reflects the real request status.
@@ -52,6 +53,7 @@ export function SessionEditor({
     model.blocks[0]?.uid ?? null,
   );
   const [addToGroup, setAddToGroup] = useState<StructureGroup | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
 
   const selected = blocks.find((b) => b.uid === selectedUid) ?? null;
@@ -64,6 +66,12 @@ export function SessionEditor({
     setBlocks((prev) => [...prev, placed]);
     setSelectedUid(placed.uid);
     setAddToGroup(null);
+  };
+
+  const addBlocks = (incoming: EditorBlock[]) => {
+    if (incoming.length === 0) return;
+    setBlocks((prev) => [...prev, ...incoming]);
+    setSelectedUid(incoming[0]!.uid);
   };
 
   const duplicateBlock = (uid: string) => {
@@ -154,20 +162,30 @@ export function SessionEditor({
             ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saveState === 'saving'}
-          aria-live="polite"
-          className={
-            saveState === 'error'
-              ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
-              : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
-          }
-        >
-          <MIcon name={SAVE_ICON[saveState]} size={17} />
-          {SAVE_LABEL[saveState]}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setComposeOpen(true)}
+            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+          >
+            <MIcon name="auto_awesome" size={16} />
+            Componer con IA
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveState === 'saving'}
+            aria-live="polite"
+            className={
+              saveState === 'error'
+                ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
+                : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
+            }
+          >
+            <MIcon name={SAVE_ICON[saveState]} size={17} />
+            {SAVE_LABEL[saveState]}
+          </button>
+        </div>
       </div>
 
       {/* Split: rail + block editor */}
@@ -206,6 +224,15 @@ export function SessionEditor({
           libraryBlocks={libraryBlocks}
           onClose={() => setAddToGroup(null)}
           onAdd={addBlock}
+        />
+      ) : null}
+
+      {/* Pablo IA · Componer — proposes blocks; appends them to the session */}
+      {composeOpen ? (
+        <IAComposeModal
+          destinationLabel={name.trim() || 'Nueva sesión'}
+          onInsert={addBlocks}
+          onClose={() => setComposeOpen(false)}
         />
       ) : null}
     </div>
