@@ -17,6 +17,7 @@ struct MyZonesView: View {
     @State private var modalities: [ZoneModalityProfile] = []
     @State private var loading = true
     @State private var failed = false
+    @State private var showRegister = false
 
     var body: some View {
         ZStack {
@@ -25,6 +26,20 @@ struct MyZonesView: View {
         }
         .navigationTitle("Mis zonas")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showRegister = true
+                } label: {
+                    Label("Registrar test", systemImage: "plus")
+                }
+                .foregroundStyle(Theme.Color.accentText)
+                .accessibilityLabel("Registrar un test")
+            }
+        }
+        .sheet(isPresented: $showRegister) {
+            RegisterTestView(bearer: bearer) { await load() }
+        }
         .task { await load() }
     }
 
@@ -142,11 +157,19 @@ struct MyZonesView: View {
             Text("Aún no tienes zonas")
                 .scaledFont(16, weight: .bold, relativeTo: .headline)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("Cuando completes un test de ritmo, tu coach calculará tus bandas y aparecerán aquí.")
+            Text("Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.")
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            Button {
+                showRegister = true
+            } label: {
+                Text("Registrar test")
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.accentText)
+            }
+            .padding(.top, 4)
         }
         .padding(.horizontal, Theme.Spacing.xxl)
     }
@@ -175,6 +198,127 @@ struct MyZonesView: View {
             failed = true
         }
         loading = false
+    }
+}
+
+// "Registrar test" — the athlete self-enters a test result, which the backend
+// resolves into zone bands through the SAME path the coach uses (source =
+// athlete_test). On success the parent re-fetches so "Mis zonas" reflects it.
+// The pace unit is intrinsic to the modality (run → /km, ergo → /500m), so the
+// athlete only picks the modality and types the umbral pace — never a unit.
+struct RegisterTestView: View {
+    let bearer: String?
+    /// Called after a successful save so the host can re-fetch the zones.
+    let onSaved: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var modality: String = "run"
+    @State private var thresholdSeconds: Int? = nil
+    @State private var saving = false
+    @State private var errorText: String? = nil
+
+    // run → /km; row/ski/bike → /500m. Mirrors paceUnitForModality on the backend.
+    private static let modalities: [(key: String, label: String)] = [
+        ("run", "Carrera"), ("row", "Remo"), ("ski", "Ski-Erg"), ("bike", "Bike-Erg"),
+    ]
+    private var paceUnitLabel: String { modality == "run" ? "/km" : "/500m" }
+    private var canSave: Bool { (thresholdSeconds ?? 0) > 0 && !saving }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    // Modality
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        Text("Modalidad")
+                            .font(Theme.Typography.dataLabel)
+                            .uppercaseTracked()
+                            .foregroundStyle(Theme.Color.muted)
+                        HStack(spacing: 6) {
+                            ForEach(Self.modalities, id: \.key) { m in
+                                Button {
+                                    modality = m.key
+                                    Haptics.light()
+                                } label: {
+                                    Text(m.label)
+                                        .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                                        .foregroundStyle(modality == m.key ? Theme.Color.accentOn : Theme.Color.foreground)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 9)
+                                        .background(modality == m.key ? Theme.Color.accent : Theme.Color.surfaceElevated)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(m.label)
+                                .accessibilityAddTraits(modality == m.key ? .isSelected : [])
+                            }
+                        }
+                    }
+
+                    // Threshold pace
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        Text("Resultado del test")
+                            .font(Theme.Typography.dataLabel)
+                            .uppercaseTracked()
+                            .foregroundStyle(Theme.Color.muted)
+                        VStack(spacing: 0) {
+                            TimeMinSecRow(label: "Ritmo umbral (\(paceUnitLabel))", seconds: $thresholdSeconds)
+                        }
+                        .brandSurface()
+                        Text("Tu ritmo medio sostenible en el test (umbral). Con él calculamos tus 6 bandas.")
+                            .scaledFont(12, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.faint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if let errorText {
+                        Text(errorText)
+                            .scaledFont(12, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.danger)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.xxl)
+            }
+            .background(Theme.Color.background.ignoresSafeArea())
+            .navigationTitle("Registrar test")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancelar") { dismiss() }
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                ExpertPrimaryButton(
+                    title: saving ? "GUARDANDO…" : "GUARDAR TEST",
+                    height: 46,
+                    enabled: canSave,
+                    action: save
+                )
+                .padding(.horizontal, Theme.Spacing.m)
+                .padding(.bottom, Theme.Spacing.m)
+            }
+        }
+    }
+
+    private func save() {
+        guard let bearer, let seconds = thresholdSeconds, seconds > 0, !saving else { return }
+        saving = true
+        errorText = nil
+        Task {
+            do {
+                try await ZonesService.submitTest(modality: modality, thresholdS: seconds, bearer: bearer)
+                await onSaved()
+                dismiss()
+            } catch {
+                errorText = "No pudimos guardar el test. Revisa tu conexión e inténtalo de nuevo."
+                saving = false
+            }
+        }
     }
 }
 

@@ -136,11 +136,13 @@ export type MethodologyZone = z.infer<typeof methodologyZoneSchema>;
 // in + the 6 absolute zone bands snapshot out. Highest version = current.
 const ZONE_PROFILE_MODALITY = z.enum(['row', 'ski', 'run', 'bike']);
 
-// Provenance of a stored zone profile (migration 0066). A profile is either
-// AUTO-derived from the athlete's onboarding benchmarks ('onboarding_auto',
-// pending coach review) or recorded from a coach-entered test ('coach_test',
-// already validated). A coach test always wins over the auto profile.
-export const ZONE_PROFILE_SOURCES = ['coach_test', 'onboarding_auto'] as const;
+// Provenance of a stored zone profile. A profile is either AUTO-derived from the
+// athlete's onboarding benchmarks ('onboarding_auto', pending coach review),
+// recorded from a coach-entered test ('coach_test', validated), or self-entered
+// by the athlete from the app ('athlete_test', migration 0070). All three feed
+// the SAME resolve+store path; the latest version per modality is current, and a
+// coach can always override by recording their own test (a newer version).
+export const ZONE_PROFILE_SOURCES = ['coach_test', 'onboarding_auto', 'athlete_test'] as const;
 export const zoneProfileSource = z.enum(ZONE_PROFILE_SOURCES);
 export type ZoneProfileSource = z.infer<typeof zoneProfileSource>;
 

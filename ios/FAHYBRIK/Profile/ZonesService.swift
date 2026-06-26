@@ -71,6 +71,34 @@ enum ZonesService {
         )
         return resp.modalities
     }
+
+    /// Self-enter a test result → POST /api/athlete/test-result. The backend
+    /// resolves the 6 zone bands through the SAME path the coach test uses
+    /// (resolveZonesForAthlete + insertZoneProfileVersion, source='athlete_test')
+    /// and stores a new versioned profile, so a re-fetch reflects it immediately.
+    /// `thresholdS` = the umbral pace in seconds per the modality's unit
+    /// (run → /km, row/ski/bike → /500m).
+    static func submitTest(
+        modality: String,
+        thresholdS: Int,
+        bearer: String
+    ) async throws {
+        // Explicit snake_case keys to match the backend zod schema (the encoder's
+        // convertToSnakeCase is then a no-op and field names can't desync).
+        struct Body: Encodable {
+            let modality: String
+            let threshold_s: Int
+        }
+        struct Resp: Decodable {
+            struct Profile: Decodable { let version: Int }
+            let profile: Profile
+        }
+        let _: Resp = try await APIClient.shared.post(
+            path: "api/athlete/test-result",
+            body: Body(modality: modality, threshold_s: thresholdS),
+            bearer: bearer
+        )
+    }
 }
 
 // Local, defensive date parsing for the zone profile `recorded_at`. Accepts an

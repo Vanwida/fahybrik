@@ -40,7 +40,7 @@ const CANONICAL_ANCHOR_SLUG: Record<'run' | 'row' | 'ski', string> = {
 export interface OnboardingZonesResult {
   athlete_id: number;
   inserted: Array<{ modality: 'run' | 'row' | 'ski'; threshold_s: number }>;
-  skipped: Array<{ modality: 'run' | 'row' | 'ski'; reason: 'coach_test_wins' | 'unchanged' }>;
+  skipped: Array<{ modality: 'run' | 'row' | 'ski'; reason: 'real_test_wins' | 'unchanged' }>;
 }
 
 interface BenchmarkRow {
@@ -106,9 +106,10 @@ export async function deriveAndStoreOnboardingZones(params: {
       limit 1
     `;
 
-    // A coach test is the validated source of record — never overwrite it.
-    if (current && current.source === 'coach_test') {
-      result.skipped.push({ modality: d.modality, reason: 'coach_test_wins' });
+    // A real recorded test (coach- OR athlete-entered) is the validated source of
+    // record — an onboarding auto-derive must never clobber it with a newer version.
+    if (current && (current.source === 'coach_test' || current.source === 'athlete_test')) {
+      result.skipped.push({ modality: d.modality, reason: 'real_test_wins' });
       continue;
     }
     // Idempotent: an existing auto profile with the same threshold is unchanged.
