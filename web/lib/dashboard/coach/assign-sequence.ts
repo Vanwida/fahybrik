@@ -19,6 +19,7 @@ import {
   SEQUENCE_DAYS_MIN,
   SEQUENCE_DAYS_MAX,
 } from '@fahybrid/shared/schema/program-sequences';
+import type { ProgressionSpec } from '@fahybrid/shared/domain/prescription';
 import { getCoachSequenceCell } from './sequences';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import {
@@ -310,6 +311,7 @@ export async function assignSequenceToAthlete(
       coach_id = excluded.coach_id,
       sequence_id = excluded.sequence_id,
       current_position = 1,
+      loops_completed = 0,
       updated_at = now()
     returning id::text
   `;
@@ -337,11 +339,11 @@ export async function assignSequenceToAthlete(
 // condition means the microciclo is done; we don't advance while sessions remain.
 //
 // END-POLICY at the last item (program_sequences.end_policy):
-//   · repeat   → re-materialize item[1] (a fresh loop), cursor back to 1.
-//                NOTE: the per-loop progression increment (progression_pct) is NOT
-//                applied yet — the loop repeats VERBATIM. Progressive overload is
-//                the immediate next piece (see deferral note in the build report);
-//                we do NOT fake a scaled prescription.
+//   · repeat   → re-materialize item[1] (a fresh loop), cursor back to 1, and bump
+//                loops_completed. The coach's per-loop progression (progression_pct
+//                scoped by progression_applies_to) is applied to the re-materialized
+//                doses — cumulative (factor ^ loops_completed), template never mutated.
+//                No lever set / pct 0 ⇒ the loop repeats verbatim.
 //   · level_up → next level by athlete_levels.sort_order (strictly greater,
 //                nearest). Re-resolve the sequence for (next level, SAME days). If
 //                a sequence exists there: mark the current enrollment completed,
@@ -360,7 +362,7 @@ export async function assignSequenceToAthlete(
 export type AdvanceOutcome =
   | 'not_yet_finished' // current microciclo still has outstanding sessions / future dates
   | 'advanced' // moved to the next item in the same sequence
-  | 'looped' // last item + repeat → restarted at item 1 (verbatim, no +% yet)
+  | 'looped' // last item + repeat → restarted at item 1 (coach's per-loop progression applied)
   | 'leveled_up' // last item + level_up → promoted to the next level's sequence
   | 'stopped' // last item + stop (or level_up fallback) → enrollment completed
   | 'no_active_enrollment'; // athlete has no active sequence to advance
@@ -382,6 +384,7 @@ type ActiveEnrollmentRow = {
   id: string;
   sequence_id: string;
   current_position: number;
+  loops_completed: number;
 };
 
 /**
@@ -462,6 +465,23 @@ async function nextMicrocicloStartDate(
   return afterWindow > nextMonday ? afterWindow : nextMonday;
 }
 
+/**
+ * The per-loop progression spec for materializing a microciclo at `loops`
+ * completed loops, or `undefined` when there's nothing to scale (no lever set, or
+ * loop 0 → verbatim). Single source of scope+amount = the coach's sequence fields;
+ * the actual dose scaling lives in the agnostic domain helper (applyProgression).
+ */
+function buildProgressionSpec(
+  sequence: ProgramSequence,
+  loops: number,
+): ProgressionSpec | undefined {
+  if (loops <= 0) return undefined;
+  const pct = sequence.progression_pct;
+  const appliesTo = sequence.progression_applies_to;
+  if (pct == null || pct <= 0 || appliesTo == null) return undefined;
+  return { appliesTo, pct, loops };
+}
+
 /** Item at a given 1-indexed position (by value, not array index — robust to gaps). */
 function itemAtPosition(
   sequence: ProgramSequence,
@@ -477,7 +497,7 @@ export async function advanceSequenceForAthlete(
 ): Promise<AdvanceSequenceResult> {
   // 1) The athlete's active enrollment cursor.
   const enrollments = await client<ActiveEnrollmentRow[]>`
-    select id::text, sequence_id::text, current_position
+    select id::text, sequence_id::text, current_position, loops_completed
     from athlete_sequence_progress
     where athlete_id = ${athleteId}
       and coach_id = ${String(coachId)}
@@ -498,6 +518,10 @@ export async function advanceSequenceForAthlete(
 
   const progressId = Number(enrollment.id);
   const currentPosition = enrollment.current_position;
+  // Loops completed so far drives the cumulative progression factor. Mid-sequence
+  // items of a repeated loop scale by the loop the athlete is CURRENTLY in (so the
+  // WHOLE loop progresses coherently, not just item[1]); loop 0 ⇒ verbatim.
+  const loopsCompleted = enrollment.loops_completed ?? 0;
 
   // 2) Load the enrolled sequence cell directly (the cursor's sequence_id is the
   //    source of truth — NOT a re-resolve, which could drift if the athlete's
@@ -527,6 +551,7 @@ export async function advanceSequenceForAthlete(
       coachId,
       sequence,
       progressId,
+      loopsCompleted,
       currentMonthTemplateId: null,
       client,
     });
@@ -565,6 +590,7 @@ export async function advanceSequenceForAthlete(
         athleteId,
         monthTemplateId: Number(nextItem.month_template_id),
         startDate: start,
+        progression: buildProgressionSpec(sequence, loopsCompleted),
         client,
       });
       await client`
@@ -589,6 +615,7 @@ export async function advanceSequenceForAthlete(
     coachId,
     sequence,
     progressId,
+    loopsCompleted,
     currentMonthTemplateId: Number(currentItem.month_template_id),
     client,
   });
@@ -602,12 +629,21 @@ async function resolveEndPolicy(params: {
   coachId: number | bigint;
   sequence: ProgramSequence;
   progressId: number;
+  /** Loops completed BEFORE this resolution (the repeat branch increments it). */
+  loopsCompleted: number;
   /** The current item's microciclo (for start-date continuation); null if cursor drifted. */
   currentMonthTemplateId: number | null;
   client: Sql;
 }): Promise<AdvanceSequenceResult> {
-  const { athleteId, coachId, sequence, progressId, currentMonthTemplateId, client } =
-    params;
+  const {
+    athleteId,
+    coachId,
+    sequence,
+    progressId,
+    loopsCompleted,
+    currentMonthTemplateId,
+    client,
+  } = params;
   const policy: SequenceEndPolicy = sequence.end_policy;
 
   const startDate = currentMonthTemplateId
@@ -616,18 +652,23 @@ async function resolveEndPolicy(params: {
 
   if (policy === 'repeat') {
     const firstItem = itemAtPosition(sequence, 1) ?? sequence.items[0]!;
-    // The loop repeats VERBATIM — the +% progression increment is deferred (see
-    // the build report). We materialize item[1] again and reset the cursor to 1.
+    // A fresh loop begins → bump the loop counter and apply the coach's per-loop
+    // progression to the re-materialized doses (scoped strictly by the coach's
+    // progression_applies_to). The library microciclo template is NOT mutated — the
+    // cumulative factor lives entirely in the materialized cycle. When no lever is
+    // set (or pct 0) buildProgressionSpec is undefined ⇒ the loop repeats verbatim.
+    const nextLoop = loopsCompleted + 1;
     const materialization = await materializeItem({
       coachId,
       athleteId,
       monthTemplateId: Number(firstItem.month_template_id),
       startDate,
+      progression: buildProgressionSpec(sequence, nextLoop),
       client,
     });
     await client`
       update athlete_sequence_progress
-      set current_position = 1, updated_at = now()
+      set current_position = 1, loops_completed = ${nextLoop}, updated_at = now()
       where id = ${progressId}
     `;
     return {
@@ -778,6 +819,8 @@ async function materializeItem(params: {
   athleteId: number;
   monthTemplateId: number | bigint;
   startDate: string;
+  /** Per-loop progressive-overload (repeated loops); undefined ⇒ verbatim. */
+  progression?: ProgressionSpec;
   client: Sql;
 }): Promise<InstantiateMonthResult> {
   let result: InstantiateMonthResult;
@@ -787,6 +830,7 @@ async function materializeItem(params: {
       athlete_id: params.athleteId,
       month_template_id: params.monthTemplateId,
       start_date: params.startDate,
+      progression: params.progression,
       client: params.client,
     });
   } catch (err) {

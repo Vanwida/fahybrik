@@ -6,3 +6,4 @@ export * from './types';
 export * from './to-text';
 export * from './to-params';
 export * from './parse';
+export * from './progression';

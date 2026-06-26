@@ -14,7 +14,11 @@ import type {
   WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
-import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
+import {
+  applyProgression,
+  safeParsePrescription,
+  type ProgressionSpec,
+} from '@fahybrid/shared/domain/prescription';
 import {
   parseAvailability,
   parsePreferredWeek,
@@ -27,12 +31,22 @@ import {
  * Validate + wrap an item's structured prescription for the `prescription_json`
  * JSONB column. Returns `null` (column stays NULL → params_json fallback) when
  * absent or invalid; never persists a malformed shape.
+ *
+ * When `progression` is supplied (a repeated sequence loop), the parsed dose is
+ * scaled by the coach's per-loop lever BEFORE persisting — scoped strictly to the
+ * configured dimension (loads | volume | pace). A factor-1 spec (loops 0 / pct 0)
+ * is a no-op, so the verbatim path stays byte-identical.
  */
-function toSegmentPrescriptionJson(client: Sql, prescription: unknown) {
+function toSegmentPrescriptionJson(
+  client: Sql,
+  prescription: unknown,
+  progression?: ProgressionSpec,
+) {
   if (prescription == null) return null;
   const parsed = safeParsePrescription(prescription);
   if (!parsed.success) return null;
-  return client.json(JSON.parse(JSON.stringify(parsed.data)) as Parameters<typeof client.json>[0]);
+  const dose = progression ? applyProgression(parsed.data, progression) : parsed.data;
+  return client.json(JSON.parse(JSON.stringify(dose)) as Parameters<typeof client.json>[0]);
 }
 
 /** template.format is NOT NULL; used when an inline session has no usable block format. */
@@ -86,6 +100,8 @@ export async function instantiateMonthFromTemplate(params: {
   athlete_id: number | bigint;
   month_template_id: number | bigint;
   start_date: string;
+  /** Per-loop progressive-overload to scale doses by (repeated sequence loops). */
+  progression?: ProgressionSpec;
   client?: Sql;
 }): Promise<InstantiateMonthResult> {
   const client = params.client ?? defaultSql;
@@ -148,6 +164,7 @@ export async function instantiateMonthFromTemplate(params: {
         week_template_id: Number(weekMeta.week_template_id),
         week_start: weekStart,
         week_number: wi + 1,
+        progression: params.progression,
       });
       microcycleIds.push(weekRes.microcycle_id);
       assignmentCount += weekRes.assignment_count;
@@ -204,6 +221,8 @@ export async function instantiateWeekIntoMicrocycle(params: {
   week_start: Date;
   /** week_number del microciclo (1-based dentro del plan). */
   week_number: number;
+  /** Per-loop progressive-overload to scale doses by (repeated sequence loops). */
+  progression?: ProgressionSpec;
 }): Promise<{ microcycle_id: string; assignment_count: number }> {
   const weekStart = params.week_start;
   const weekEnd = addDays(weekStart, 6);
@@ -266,6 +285,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
         session,
         target_block: targetBlock,
         template_name_base: weekTpl.name,
+        progression: params.progression,
       });
     }
   }
@@ -444,6 +464,7 @@ async function insertSlotAssignment(params: {
   session: WeekSession;
   target_block: (typeof TARGET_BLOCKS)[number];
   template_name_base: string;
+  progression?: ProgressionSpec;
 }): Promise<number> {
   if (params.session.kind !== 'workout') return 0;
 
@@ -470,6 +491,7 @@ async function insertSlotAssignment(params: {
       target_block: params.target_block,
       session: params.session,
       name_base: params.template_name_base,
+      progression: params.progression,
     });
     // Sesión sin template_id y sin bloques con ejercicios → nada que asignar.
     if (templateId == null) return 0;
@@ -561,6 +583,7 @@ async function materializeInlineSessionTemplate(params: {
   target_block: (typeof TARGET_BLOCKS)[number];
   session: WeekSession;
   name_base: string;
+  progression?: ProgressionSpec;
 }): Promise<number | null> {
   const rawBlocks: WeekDayPart[] = params.session.blocks ?? [];
   // Hidrata los parts insertados desde la Biblioteca de Bloques (0037/0038):
@@ -629,7 +652,11 @@ async function materializeInlineSessionTemplate(params: {
       // materialized segment so the dosage survives materialization. We validate
       // defensively (a malformed shape is dropped, not persisted). params_json
       // remains as the scalar fallback alongside it.
-      const prescriptionJson = toSegmentPrescriptionJson(params.client, item.prescription_json);
+      const prescriptionJson = toSegmentPrescriptionJson(
+        params.client,
+        item.prescription_json,
+        params.progression,
+      );
       await params.client`
         insert into template_segments (
           template_id, position, block_position, block_title, block_format,
