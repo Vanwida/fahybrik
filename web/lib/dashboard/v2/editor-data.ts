@@ -102,14 +102,14 @@ export async function loadSessionEditorModel(params: {
 // ── Library BLOCK · load a block into the editor model ───────────────────────
 // A library block is structurally a mini-session: its block_exercises rows,
 // grouped by block_position, become EditorBlock[] (one EditorBlock per group).
-// Returns null when the block doesn't exist / isn't a global block (getBlockById
-// already enforces coach_id null). Prefers the structured prescription_json,
+// Returns null when the block doesn't exist / isn't owned by this coach
+// (getBlockById enforces coach ownership). Prefers the structured prescription_json,
 // degrading to the legacy params_json only when absent/invalid.
 export async function loadBlockEditorModel(params: {
   coach_id: number | bigint;
   block_id: number;
 }): Promise<BlockEditorModel | null> {
-  const block = await getBlockById(params.block_id);
+  const block = await getBlockById(params.coach_id, params.block_id);
   if (!block) return null;
 
   const rows = await getBlockExerciseRowsForEdit(params.block_id);
@@ -272,7 +272,7 @@ export async function loadLibraryRail(params: {
 }): Promise<{ sessions: LibrarySessionRow[]; blocks: LibraryBlockRow[] }> {
   const [sessions, blocks] = await Promise.all([
     listTemplatesForCoach(params.coach_id).catch(() => []),
-    listBlocks(null).catch(() => []),
+    listBlocks(params.coach_id, null).catch(() => []),
   ]);
 
   return {

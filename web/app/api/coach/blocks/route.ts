@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     groupId = n;
   }
 
-  const blocks = await listBlocks(groupId);
+  const blocks = await listBlocks(session.coach_id, groupId);
   return jsonOk({ blocks });
 }
 
@@ -47,6 +47,6 @@ export async function POST(req: Request) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
   }
 
-  const id = await createBlock(parsed.data);
+  const id = await createBlock(session.coach_id, parsed.data);
   return jsonOk({ id }, 201);
 }

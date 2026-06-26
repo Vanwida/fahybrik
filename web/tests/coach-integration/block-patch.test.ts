@@ -44,6 +44,7 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     });
 
     const updated = await updateBlock(
+      fx.coachId,
       blockId,
       {
         title: 'Editado',
@@ -59,7 +60,7 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     expect(updated!.methodology_group_id).toBe(3);
 
     // Persisted.
-    const reread = await getBlockById(blockId, sql);
+    const reread = await getBlockById(fx.coachId, blockId, sql);
     expect(reread!.title).toBe('Editado');
     expect(reread!.methodology_group_id).toBe(3);
   });
@@ -73,14 +74,14 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
       exercises: [],
     });
 
-    const updated = await updateBlock(blockId, { title: 'Nuevo título' }, sql);
+    const updated = await updateBlock(fx.coachId, blockId, { title: 'Nuevo título' }, sql);
     expect(updated!.title).toBe('Nuevo título');
     expect(updated!.description).toBe('Esta descripción no debe cambiar');
   });
 
   test('unknown block id returns null', async () => {
-    await fixture();
-    const result = await updateBlock(999_999_999, { title: 'X' }, sql);
+    const fx = await fixture();
+    const result = await updateBlock(fx.coachId, 999_999_999, { title: 'X' }, sql);
     expect(result).toBeNull();
   });
 
@@ -95,7 +96,7 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
       exercises: [{ exercise_id: ex, position: 0, params_json: { sets: 5, reps: 10 } }],
     });
 
-    await updateBlock(blockId, { title: 'Renombrado' }, sql);
+    await updateBlock(fx.coachId, blockId, { title: 'Renombrado' }, sql);
 
     const rows = await sql<Array<{ n: number }>>`
       select count(*)::int as n from block_exercises where block_id = ${blockId}

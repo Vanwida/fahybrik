@@ -11,33 +11,38 @@ import {
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 
-// Blocks library (Biblioteca de Bloques) — Pablo's reusable training blocks
+// Blocks library (Biblioteca de Bloques) — a coach's reusable training blocks
 // (migration 0037). One block = one concrete prescription stored verbatim,
 // classified into a methodology_group. Feeds the coach catalog + the IA
-// day/week composer. coach_id is NULL = Pablo's global library (single-coach).
+// day/week composer. The library is PER-COACH content (like microciclos): each
+// block belongs to its owning coach (`coach_id`); a brand-new coach starts with
+// an empty library and builds their own.
 
 /**
- * List blocks, optionally filtered to a single methodology group.
+ * List a coach's blocks, optionally filtered to a single methodology group.
+ * @param coachId  owning coach (the current session coach).
  * @param groupId  methodology_group_id (1..10), or null for all groups.
  */
 export async function listBlocks(
+  coachId: number | bigint,
   groupId: number | null,
   client: Sql = defaultSql,
 ): Promise<Block[]> {
+  const cid = Number(coachId);
   const rows =
     groupId === null
       ? await client<BlockRow[]>`
           select id, slug, title, description, methodology_group_id,
                  format, source_ref, needs_review
           from blocks
-          where coach_id is null
+          where coach_id = ${cid}
           order by methodology_group_id asc, id asc
         `
       : await client<BlockRow[]>`
           select id, slug, title, description, methodology_group_id,
                  format, source_ref, needs_review
           from blocks
-          where coach_id is null
+          where coach_id = ${cid}
             and methodology_group_id = ${groupId}
           order by id asc
         `;
@@ -125,8 +130,9 @@ export async function getBlockExerciseItems(
   return rows.map(blockExerciseToItem);
 }
 
-/** Bloque individual por id (biblioteca global de Pablo, coach_id null). */
+/** Bloque individual por id, propiedad del coach indicado (su biblioteca). */
 export async function getBlockById(
+  coachId: number | bigint,
   blockId: number,
   client: Sql = defaultSql,
 ): Promise<Block | null> {
@@ -135,7 +141,7 @@ export async function getBlockById(
            format, source_ref, needs_review
     from blocks
     where id = ${blockId}
-      and coach_id is null
+      and coach_id = ${Number(coachId)}
     limit 1
   `;
   const r = rows[0];
@@ -192,16 +198,17 @@ export async function getBlockLibraryExercises(
 }
 
 /**
- * Actualiza los campos editables por el coach de un bloque de la biblioteca
- * maestra (title / description / methodology_group_id / nivel / días). NO toca
- * los `block_exercises` estructurados. Mutar afecta a TODA materialización futura
- * del bloque. Devuelve el bloque actualizado o null si no existe (coach_id null).
+ * Actualiza los campos editables por el coach de un bloque de SU biblioteca
+ * (title / description / methodology_group_id / nivel / días). NO toca los
+ * `block_exercises` estructurados. Mutar afecta a TODA materialización futura
+ * del bloque. Devuelve el bloque actualizado o null si no existe / no es del coach.
  *
  * `patch` ya viene validado por `blockUpdateSchema` (Zod) en la ruta. Construye
  * la lista de SET dinámicamente con tagged templates: cada fragmento es
  * parametrizado, nunca interpolación de strings.
  */
 export async function updateBlock(
+  coachId: number | bigint,
   blockId: number,
   patch: BlockUpdate,
   client: Sql = defaultSql,
@@ -217,7 +224,7 @@ export async function updateBlock(
     assignments.push(client`max_level_id = ${patch.max_level_id}`);
   if (patch.days_per_week !== undefined)
     assignments.push(client`days_per_week = ${patch.days_per_week}`);
-  if (assignments.length === 0) return getBlockById(blockId, client);
+  if (assignments.length === 0) return getBlockById(coachId, blockId, client);
 
   // Une los fragmentos parametrizados con comas, todos como tagged templates.
   const setClause = assignments.reduce((acc, frag, i) =>
@@ -228,7 +235,7 @@ export async function updateBlock(
     update blocks
     set ${setClause}
     where id = ${blockId}
-      and coach_id is null
+      and coach_id = ${Number(coachId)}
     returning id, slug, title, description, methodology_group_id,
               format, source_ref, needs_review
   `;
@@ -242,7 +249,7 @@ export async function updateBlock(
 // of `block_exercises` grouped by `block_position`. Mirrors the create-template +
 // insert-segments transaction in templates.ts. prescription_json is the structured
 // source of truth; params_json is the re-derived scalar summary (kept in sync the
-// same way template_segments do). Library blocks are GLOBAL (coach_id null).
+// same way template_segments do). Library blocks belong to the creating coach.
 
 /**
  * Build a unique, slugSchema-valid slug from a title:
@@ -299,8 +306,9 @@ async function insertBlockExercises(
   }
 }
 
-/** Create a library block (global, coach_id null) + its structured exercises. */
+/** Create a library block owned by the given coach + its structured exercises. */
 export async function createBlock(
+  coachId: number | bigint,
   input: BlockWrite,
   client: Sql = defaultSql,
 ): Promise<number> {
@@ -318,7 +326,7 @@ export async function createBlock(
         ${input.methodology_group_id},
         ${input.format ?? null},
         ${false},
-        ${null}
+        ${Number(coachId)}
       )
       returning id::text as id
     `;
@@ -358,9 +366,10 @@ export async function getBlockExerciseRowsForEdit(
 }
 
 /** Replace a library block's editable fields AND its structured exercises in one
- *  transaction. Returns the updated block, or null if it doesn't exist / isn't a
- *  global block (coach_id null). */
+ *  transaction. Returns the updated block, or null if it doesn't exist / isn't
+ *  owned by the given coach. */
 export async function updateBlockFull(
+  coachId: number | bigint,
   blockId: number,
   input: BlockWrite,
   client: Sql = defaultSql,
@@ -375,7 +384,7 @@ export async function updateBlockFull(
         format               = ${input.format ?? null},
         needs_review         = ${false}
       where id = ${blockId}
-        and coach_id is null
+        and coach_id = ${Number(coachId)}
       returning id, slug, title, description, methodology_group_id,
                 format, source_ref, needs_review
     `;

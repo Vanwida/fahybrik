@@ -209,7 +209,7 @@ export async function loadBibliotecaData(params: {
 
   const [templates, blocks, groups, months, usage] = await Promise.all([
     listTemplatesForCoach(coachId, client),
-    listBlocks(null, client),
+    listBlocks(coachId, null, client),
     listMethodologyGroups(client),
     listMonthTemplates({ coach_id: coachId, client }),
     loadTemplateUsage(coachId, client).catch(() => new Map<string, number>()),

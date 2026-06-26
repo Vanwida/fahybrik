@@ -33,7 +33,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     return jsonError('bad_request', 'id inválido', 400);
   }
 
-  const block = await getBlockById(block_id);
+  const block = await getBlockById(session.coach_id, block_id);
   if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
 
   const items = await getBlockExerciseItems(block_id);
@@ -67,7 +67,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
   }
 
-  const updated = await updateBlock(block_id, parsed.data);
+  const updated = await updateBlock(session.coach_id, block_id, parsed.data);
   if (!updated) return jsonError('not_found', 'Bloque no encontrado', 404);
 
   return jsonOk({ block: updated });
@@ -99,7 +99,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
   }
 
-  const block = await updateBlockFull(block_id, parsed.data);
+  const block = await updateBlockFull(session.coach_id, block_id, parsed.data);
   if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
 
   return jsonOk({ block });

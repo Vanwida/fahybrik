@@ -68,7 +68,7 @@ describeWithDb('GET /api/coach/blocks/[id] hydration (real DB)', () => {
       ],
     });
 
-    const block = await getBlockById(blockId, sql);
+    const block = await getBlockById(fx.coachId, blockId, sql);
     expect(block).not.toBeNull();
     expect(block!.id).toBe(blockId);
     expect(block!.title).toBe('Front squat + Hip thrust');
@@ -93,15 +93,15 @@ describeWithDb('GET /api/coach/blocks/[id] hydration (real DB)', () => {
       exercises: [],
     });
 
-    const block = await getBlockById(blockId, sql);
+    const block = await getBlockById(fx.coachId, blockId, sql);
     expect(block).not.toBeNull();
     const items = await getBlockExerciseItems(blockId, sql);
     expect(items).toHaveLength(0);
   });
 
   test('unknown block id returns null', async () => {
-    await fixture(); // ensure DB connection is exercised
-    const block = await getBlockById(999_999_999, sql);
+    const fx = await fixture(); // ensure DB connection is exercised
+    const block = await getBlockById(fx.coachId, 999_999_999, sql);
     expect(block).toBeNull();
   });
 });

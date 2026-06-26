@@ -134,7 +134,10 @@ export interface ComposableBlock {
   default_modifiers: BlockUseModifiers | null;
 }
 
-async function loadComposableBlocks(client: Sql): Promise<ComposableBlock[]> {
+async function loadComposableBlocks(
+  coachId: number | bigint,
+  client: Sql,
+): Promise<ComposableBlock[]> {
   const rows = await client<
     Array<{
       id: number;
@@ -150,7 +153,7 @@ async function loadComposableBlocks(client: Sql): Promise<ComposableBlock[]> {
     select id, slug, title, description, methodology_group_id,
            format, source_ref, default_modifiers
     from blocks
-    where coach_id is null
+    where coach_id = ${Number(coachId)}
     order by methodology_group_id asc, id asc
   `;
   return rows.map((r) => ({
@@ -218,7 +221,7 @@ export async function suggestWeekFromBlocks(params: {
   const client = params.client ?? defaultSql;
   const req = parsed.data;
 
-  const allBlocks = await loadComposableBlocks(client);
+  const allBlocks = await loadComposableBlocks(params.coach_id, client);
   if (allBlocks.length === 0) {
     throw new SuggestWeekFromBlocksError(
       'no_blocks',

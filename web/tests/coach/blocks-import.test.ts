@@ -95,16 +95,32 @@ describe('deriveTitle / slugify helpers', () => {
 });
 
 // Real-DB layer: the seeded blocks (97) are queryable and correctly grouped.
+// The library is PER-COACH: blocks belong to their owning coach. We resolve the
+// coach who owns the bulk of the seeded library and assert against THEIR list.
 // Skipped (loud) when TEST_DATABASE_URL is unset — never a false green.
 describeWithDb('listBlocks (real DB — seeded library)', () => {
   const sql = getTestSql();
+
+  /** The coach that owns the seeded library (most blocks). */
+  async function libraryOwnerId(): Promise<number> {
+    const rows = await sql<Array<{ coach_id: string }>>`
+      select coach_id::text as coach_id
+      from blocks
+      where coach_id is not null
+      group by coach_id
+      order by count(*) desc
+      limit 1
+    `;
+    return Number(rows[0]!.coach_id);
+  }
 
   afterAll(async () => {
     await closeTestSql();
   });
 
-  test('returns the full global library across all 10 groups', async () => {
-    const all = await listBlocks(null, sql);
+  test("returns the owning coach's full library across all 10 groups", async () => {
+    const coachId = await libraryOwnerId();
+    const all = await listBlocks(coachId, null, sql);
     expect(all.length).toBeGreaterThanOrEqual(97);
     const groups = new Set(all.map((b) => b.methodology_group_id));
     expect([...groups].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -116,7 +132,8 @@ describeWithDb('listBlocks (real DB — seeded library)', () => {
   });
 
   test('filters to a single methodology group', async () => {
-    const g1 = await listBlocks(1, sql);
+    const coachId = await libraryOwnerId();
+    const g1 = await listBlocks(coachId, 1, sql);
     expect(g1.length).toBeGreaterThan(0);
     expect(g1.every((b) => b.methodology_group_id === 1)).toBe(true);
   });

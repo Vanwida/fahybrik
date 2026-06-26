@@ -24,7 +24,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     return jsonError('bad_request', 'id inválido', 400);
   }
 
-  const block = await getBlockById(block_id);
+  const block = await getBlockById(session.coach_id, block_id);
   if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
 
   const exercises = await getBlockLibraryExercises(block_id);

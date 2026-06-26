@@ -302,8 +302,8 @@ export async function makeLibraryBlock(params: {
 }): Promise<number> {
   const sql = params.fx.sql;
   const rows = await sql<Array<{ id: string }>>`
-    insert into blocks (slug, title, description, methodology_group_id, needs_review)
-    values (${uniq('blk')}, ${params.title}, ${params.description}, 1, ${params.needsReview ?? false})
+    insert into blocks (slug, title, description, methodology_group_id, needs_review, coach_id)
+    values (${uniq('blk')}, ${params.title}, ${params.description}, 1, ${params.needsReview ?? false}, ${params.fx.coachId})
     returning id::text
   `;
   const blockId = Number(rows[0]!.id);
