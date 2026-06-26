@@ -191,6 +191,7 @@ final class WorkoutSession {
         let lap = LapRecord(
             id: UUID(),
             segmentId: seg.id,
+            templateSegmentId: seg.templateSegmentId,
             position: seg.order,
             modality: seg.kind.modality,
             startedAt: now.addingTimeInterval(-lapElapsedSeconds),

@@ -77,6 +77,11 @@ export interface AssignmentDetailBlock {
 
 export interface AssignmentDetailItem {
   uid: string;
+  // The prescribed template_segments.id this line maps to. iOS echoes it back on
+  // POST /api/sync/workout-execution so the coach's prescrito-vs-hecho view can
+  // attribute each measured segment to its prescription (the `uid` already
+  // encodes it as `segment-{id}`; this is the parsed integer form for the wire).
+  template_segment_id: number;
   exercise_id: string;
   exercise_name: string;
   exercise_slug: string;
@@ -505,6 +510,7 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup): AssignmentDetailIte
 
   return {
     uid: `segment-${seg.id}`,
+    template_segment_id: Number(seg.id),
     exercise_id: seg.exercise_id,
     exercise_name: seg.exercise_name,
     exercise_slug: seg.exercise_slug,

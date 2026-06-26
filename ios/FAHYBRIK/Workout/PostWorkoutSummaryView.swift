@@ -97,7 +97,7 @@ struct PostWorkoutSummaryView: View {
                         $0["z\($1.key)"] = Int($1.value.rounded())
                     }
                 return SegmentExecutionDTO(
-                    template_segment_id: nil,
+                    template_segment_id: lap.templateSegmentId,
                     position: lap.position,
                     modality: lap.modality,
                     started_at: iso.string(from: lap.startedAt),

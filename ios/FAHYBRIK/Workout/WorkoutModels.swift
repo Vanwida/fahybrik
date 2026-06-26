@@ -64,6 +64,10 @@ struct WorkoutSegment: Codable, Identifiable {
     let order: Int
     let title: String
     let kind: SegmentKind
+    /// Backend template_segments.id this segment was prescribed from. Carried so
+    /// the execution upload can attribute measured work to the prescribed item
+    /// (coach prescrito-vs-hecho). Nil for the freeform fallback segment.
+    let templateSegmentId: Int?
     let targetReps: Int?
     let targetDistanceMeters: Double?
     let targetDurationSeconds: Int?
@@ -79,6 +83,7 @@ struct WorkoutSegment: Codable, Identifiable {
         order: Int,
         title: String,
         kind: SegmentKind,
+        templateSegmentId: Int? = nil,
         targetReps: Int? = nil,
         targetDistanceMeters: Double? = nil,
         targetDurationSeconds: Int? = nil,
@@ -92,6 +97,7 @@ struct WorkoutSegment: Codable, Identifiable {
         self.order = order
         self.title = title
         self.kind = kind
+        self.templateSegmentId = templateSegmentId
         self.targetReps = targetReps
         self.targetDistanceMeters = targetDistanceMeters
         self.targetDurationSeconds = targetDurationSeconds
@@ -125,6 +131,10 @@ struct WorkoutPlan: Codable, Identifiable {
 struct LapRecord: Codable, Identifiable {
     let id: UUID
     let segmentId: UUID
+    /// Backend template_segments.id of the prescribed segment this lap measured —
+    /// threaded onto the wire so the coach can map actuals → prescription. Nil
+    /// for the freeform fallback segment (backend then matches on `position`).
+    let templateSegmentId: Int?
     /// 1-based coach order — drives `position` on the wire.
     let position: Int
     /// Wire modality from `SegmentKind.modality` (run | erg | strength | reps | sled).
@@ -156,10 +166,10 @@ struct LapRecord: Codable, Identifiable {
 // prescribed segment (erg splits, run pace, strength load) for analytics + IA
 // adaptation.
 struct SegmentExecutionDTO: Codable {
-    /// Backend segment/item id when known. WorkoutSegment carries no integer
-    /// backend id today (assignment items are string uids, not Ints), so this is
-    /// null until the detail mapping threads an integer id through — the backend
-    /// then falls back to matching on `position`.
+    /// Backend template_segments.id of the prescribed segment, threaded from the
+    /// assignment detail (`template_segment_id`) through the WorkoutSegment/LapRecord
+    /// so the coach can map actuals → prescription. Null only for the freeform
+    /// fallback segment — the backend then falls back to matching on `position`.
     let template_segment_id: Int?
     let position: Int
     let modality: String
@@ -289,6 +299,7 @@ extension WorkoutPlan {
             order: order,
             title: item.exerciseName,
             kind: segmentKind(category: item.exerciseCategory, slug: item.exerciseSlug),
+            templateSegmentId: item.templateSegmentId,
             targetReps: p.reps,
             targetDistanceMeters: distanceMeters,
             targetDurationSeconds: p.durationSeconds,

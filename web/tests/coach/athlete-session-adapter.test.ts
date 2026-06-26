@@ -73,6 +73,7 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
           items: [
             {
               uid: 'segment-1',
+              template_segment_id: 1,
               exercise_id: '7',
               exercise_name: 'Back Squat',
               exercise_slug: 'back-squat',

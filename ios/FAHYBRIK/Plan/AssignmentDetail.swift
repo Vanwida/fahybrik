@@ -72,6 +72,10 @@ struct WorkoutBlock: Codable, Equatable, Identifiable {
 struct WorkoutItem: Codable, Equatable, Identifiable {
     var id: String { uid }
     let uid: String
+    // The prescribed template_segments.id this line maps to. Echoed back on the
+    // execution upload so the coach's prescrito-vs-hecho view attributes each
+    // measured segment to its prescription. (Wire `template_segment_id`.)
+    let templateSegmentId: Int?
     let exerciseId: String
     let exerciseName: String
     let exerciseSlug: String
@@ -104,6 +108,7 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     // `prescription`. Every other key matches its converted camelCase form.
     enum CodingKeys: String, CodingKey {
         case uid
+        case templateSegmentId
         case exerciseId
         case exerciseName
         case exerciseSlug
