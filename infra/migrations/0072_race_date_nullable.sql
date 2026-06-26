@@ -1,0 +1,20 @@
+-- 0072_race_date_nullable.sql
+--
+-- Make races.race_date NULLABLE.
+--
+-- The official single-URL HYROX importer (web/lib/hyrox/import.ts) reads the
+-- results.hyrox.com detail page, which carries the meeting NAME ("2026 Amsterdam")
+-- but no machine-readable ISO date on the splits row. Until now the importer
+-- stored today's date as a placeholder — which floated those rows ABOVE the real
+-- chronological history and was dishonest data. Storing NULL is the honest
+-- "date unknown" signal; readers sink null dates to the bottom (ORDER BY ...
+-- NULLS LAST) and iOS already renders them as "Fecha por confirmar".
+--
+-- The other sources keep real dates: the hyresult.com full-history importer
+-- (0071) stores the true date_start, and manual/coach-created races require a
+-- date at the API layer.
+--
+-- Additive + idempotent: DROP NOT NULL is a no-op if the constraint is already
+-- gone, and it does not touch existing rows or the (athlete_id, race_date) index
+-- (a btree index already permits NULLs).
+alter table races alter column race_date drop not null;

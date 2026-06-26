@@ -19,6 +19,7 @@ export * from './coach-mass-adjustments';
 export * from './coach-intake';
 export * from './race-plan';
 export * from './races';
+export * from './hyresult';
 export * from './program-templates';
 export * from './program-sequences';
 export * from './assign-month';

@@ -18,8 +18,11 @@ export type RaceEventType = z.infer<typeof raceEventType>;
 export const raceFormat = z.enum(['singles', 'doubles', 'relay']);
 export type RaceFormat = z.infer<typeof raceFormat>;
 
-// race_division pg enum — HYROX singles divisions.
-export const raceDivision = z.enum(['open', 'pro']);
+// race_division pg enum — HYROX competitive bracket / weight level. 'open' and
+// 'pro' are the singles+doubles weight divisions; 'elite' is the apex bracket
+// (HYROX ELITE / DOUBLES ELITE / PRO DOUBLES ELITE / ELITE RELAY) surfaced by
+// the hyresult.com full-history import (migration 0071).
+export const raceDivision = z.enum(['open', 'pro', 'elite']);
 export type RaceDivision = z.infer<typeof raceDivision>;
 
 // race_gender pg enum — gender category of the heat.
@@ -48,7 +51,10 @@ export const raceSchema = z.object({
   gender_category: raceGender,
   priority: racePriority,
   age_group: z.string().max(80).nullable(),
-  race_date: isoDate,
+  // Nullable since migration 0072: the official single-URL HYROX import has no
+  // machine-readable date, so it stores NULL ("date unknown") rather than a
+  // fabricated placeholder. hyresult + manual/coach races always carry a real date.
+  race_date: isoDate.nullable(),
   location: z.string().max(200).nullable(),
   goal_time_seconds: z.number().int().positive().nullable(),
   result_time_seconds: z.number().int().positive().nullable(),
@@ -126,7 +132,10 @@ export type RaceCreateInput = z.infer<typeof raceCreateInput>;
 // =============================================================================
 
 // races.source — provenance of the row.
-export const raceSource = z.enum(['manual', 'hyrox_import']);
+//   manual          — entered by hand by the athlete/coach.
+//   hyrox_import     — single official result pasted from results.hyrox.com (0054).
+//   hyresult_import  — full history imported by name from hyresult.com (0071).
+export const raceSource = z.enum(['manual', 'hyrox_import', 'hyresult_import']);
 export type RaceSource = z.infer<typeof raceSource>;
 
 // Allowed HYROX results host (SSRF allowlist — the endpoint rejects any other).
@@ -159,7 +168,10 @@ export const hyroxImportedResultSchema = z.object({
   age_group: z.string().max(80).nullable(),
   nationality: z.string().max(8).nullable(),
   bib: z.string().max(40).nullable(),
-  race_date: isoDate,
+  // null when unknown: the official results.hyrox.com detail page exposes the
+  // meeting name but no ISO date, so the single-URL import stores NULL (0072)
+  // instead of fabricating today's date.
+  race_date: isoDate.nullable(),
   location: z.string().max(200).nullable(),
   // 8 run laps in order (seconds). May be empty if the page lacked the table.
   run_splits: z.array(splitSeconds).max(8),
@@ -189,3 +201,70 @@ export const hyroxImportInput = z.object({
   result_url: z.string().url().max(500),
 });
 export type HyroxImportInput = z.infer<typeof hyroxImportInput>;
+
+// =============================================================================
+// ATHLETE RACE HISTORY projection — GET /api/athlete/race-context → `history[]`
+// (the iOS Carreras hub's race list). One row per imported/completed race the
+// athlete has — singles AND doubles/relay (migration 0071).
+//
+// Distinct from hyroxImportedResultSchema (the single official-import display):
+// this is the READ projection for the WHOLE history, so it carries the team
+// dimension the single-race shape lacks — format/division/gender_category,
+// is_team_result, and the teammates joined from `race_partners`.
+//
+//   is_team_result === (format !== 'singles'). For a team race the run/station
+//   splits, the ranks and the age_group are the TEAM's — NOT the athlete's
+//   individual performance — so the flag tells the client to label them as such.
+//   partners = teammates ordered by position ([] for singles).
+//
+// race_id is the numeric `races.id`. race_date is the REAL stored date (the
+// hyresult importer stores the true date_start; never a placeholder). percentile
+// is derived (overall_rank / field_size), never stored.
+// =============================================================================
+
+// One teammate of a doubles/relay race (a `race_partners` row, ordered by
+// position). slug/nation are null when the source didn't expose them.
+export const racePartnerSchema = z.object({
+  name: z.string(),
+  slug: z.string().nullable(),
+  nation: z.string().nullable(),
+  position: z.number().int().nonnegative(),
+});
+export type RacePartner = z.infer<typeof racePartnerSchema>;
+
+export const raceHistoryItemSchema = z.object({
+  race_id: z.number().int().nonnegative(),
+  name: z.string().min(1).max(200),
+  // REAL stored race date (YYYY-MM-DD); never a fabricated placeholder. NULL only
+  // for an official single-URL import whose detail page carried no ISO date (0072);
+  // hyresult + manual rows always have a real date. Readers sort NULLs last.
+  race_date: isoDate.nullable(),
+  location: z.string().max(200).nullable(),
+  event_type: raceEventType,
+  format: raceFormat,
+  // 'elite' is the apex bracket surfaced by the hyresult import (0071).
+  division: raceDivision,
+  gender_category: raceGender,
+  // For doubles/relay this is the TEAM bracket, not the athlete's true age.
+  age_group: z.string().max(80).nullable(),
+  result_time_seconds: z.number().int().positive().nullable(),
+  run_total_seconds: z.number().int().min(0).max(14400).nullable(),
+  roxzone_seconds: splitSeconds.nullable(),
+  best_run_lap_seconds: z.number().int().min(0).max(3600).nullable(),
+  overall_rank: z.number().int().positive().nullable(),
+  age_group_rank: z.number().int().positive().nullable(),
+  field_size: z.number().int().positive().nullable(),
+  // overall_rank / field_size as a 0..1 fraction (lower = better). Derived, not
+  // stored; null when either rank or field is missing.
+  percentile: z.number().min(0).max(1).nullable(),
+  // Up to 8 run laps (seconds), run 1..8 in order.
+  run_splits: z.array(splitSeconds).max(8),
+  // Up to 8 stations, each with the canonical 16-element index + optional rank.
+  station_splits: z.array(hyroxStationSplitSchema).max(8),
+  // true ⇔ format !== 'singles': splits / ranks / age_group are TEAM-level.
+  is_team_result: z.boolean(),
+  partners: z.array(racePartnerSchema),
+  source: raceSource,
+  source_season: z.string().max(40).nullable(),
+});
+export type RaceHistoryItem = z.infer<typeof raceHistoryItemSchema>;
