@@ -22,7 +22,7 @@ import 'server-only';
 
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import type { CoachThreadSummary } from '@/lib/dashboard/chat/service';
-import type { CoachInbox } from '@/lib/dashboard/coach/inbox';
+import type { CoachInbox, InboxDiffRow } from '@/lib/dashboard/coach/inbox';
 import { readinessBucket } from '@/lib/dashboard/constants/readiness';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { formatRelative } from '@/lib/dashboard/relative-time';
@@ -112,6 +112,35 @@ export interface V2HoyData {
    * the sequence to the next microciclo (or repeat / level up / close per policy).
    */
   siguiente_microciclo_cards: V2SiguienteMicrocicloCard[];
+  /**
+   * Pending weekly-adjustment proposals from Pablo IA (the cron-generated
+   * `week_adjustment_proposals`). Already computed by the inbox loader as
+   * `InboxWeekAdjustmentItem` — here we just lift them to their own decision strip.
+   */
+  week_adjustment_cards: V2WeekAdjustmentCard[];
+}
+
+/**
+ * A pending weekly-adjustment proposal surfaced as a decision card. Mirrors the
+ * inbox's `InboxWeekAdjustmentItem` (no new data path) — accept/reject wire to the
+ * existing /week-adjustment/[proposalId]/approve|reject endpoints.
+ */
+export interface V2WeekAdjustmentCard {
+  /** Stable React key: `week_adjustment:${proposal_id}`. */
+  id: string;
+  athlete_id: number;
+  athlete_name: string;
+  proposal_id: number;
+  /** ISO week-start (YYYY-MM-DD) of the week being adjusted. */
+  week_start: string;
+  /** Recommendation title, e.g. "Ajuste de volumen" / "Cambio de sesión". */
+  title: string;
+  /** Coach-facing summary (coach_summary, falling back to the AI rationale). */
+  summary: string;
+  /** Up to 3 day-level changes (día · antes → después). */
+  diff_rows: InboxDiffRow[];
+  /** Changes beyond the shown rows (drives the "+N más" hint). */
+  extra_change_count: number;
 }
 
 /**
@@ -655,11 +684,26 @@ export function buildHoyLanes(params: {
     siguiente_microciclo_cards = [],
   } = params;
 
-  // Inactivity days by athlete (reinforces "falló sesiones" reasons).
+  // Inactivity days by athlete (reinforces "falló sesiones" reasons) and the
+  // pending week-adjustment proposals — both lifted from the already-computed
+  // inbox items (no new query, no parallel data path).
   const inactivityByAthlete = new Map<string, number>();
+  const week_adjustment_cards: V2WeekAdjustmentCard[] = [];
   for (const item of inbox?.items ?? []) {
     if (item.type === 'alert_inactivity') {
       inactivityByAthlete.set(item.athlete_id, item.days_inactive);
+    } else if (item.type === 'week_adjustment') {
+      week_adjustment_cards.push({
+        id: item.id,
+        athlete_id: Number(item.athlete_id),
+        athlete_name: item.athlete_name,
+        proposal_id: Number(item.proposal_id),
+        week_start: item.week_start,
+        title: item.title,
+        summary: item.summary,
+        diff_rows: item.diff_rows,
+        extra_change_count: item.extra_change_count,
+      });
     }
   }
 
@@ -792,6 +836,7 @@ export function buildHoyLanes(params: {
     nivel_sugerido_cards,
     asignacion_sugerida_cards,
     siguiente_microciclo_cards,
+    week_adjustment_cards,
   };
 }
 

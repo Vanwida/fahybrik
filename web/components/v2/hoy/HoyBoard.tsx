@@ -14,6 +14,7 @@ import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
 import { AsignacionSugeridaStrip } from '@/components/v2/hoy/AsignacionSugeridaCard';
 import { SiguienteMicrocicloStrip } from '@/components/v2/hoy/SiguienteMicrocicloCard';
+import { AjusteSemanalStrip } from '@/components/v2/hoy/AjusteSemanalCard';
 import {
   IntroStrip,
   InfoDot,
@@ -79,7 +80,8 @@ export function HoyBoard({
     totalCards === 0 &&
     data.nivel_sugerido_cards.length === 0 &&
     data.asignacion_sugerida_cards.length === 0 &&
-    data.siguiente_microciclo_cards.length === 0;
+    data.siguiente_microciclo_cards.length === 0 &&
+    data.week_adjustment_cards.length === 0;
 
   // Filter cards per lane by the search query (empty query → all cards).
   const filteredLanes = useMemo(
@@ -163,6 +165,10 @@ export function HoyBoard({
       {/* ── Siguiente microciclo strip (athletes whose current microciclo is
           ending — one-click walk to the next step / repeat / level up) ── */}
       <SiguienteMicrocicloStrip cards={data.siguiente_microciclo_cards} />
+
+      {/* ── Ajuste de semana strip (pending Pablo IA week-adjustment proposals —
+          accept applies the slot changes, ignore rejects them) ── */}
+      <AjusteSemanalStrip cards={data.week_adjustment_cards} />
 
       {boardEmpty && !q ? (
         /* Empty board is a GOOD signal, not an error — teach the reframe. */
