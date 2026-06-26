@@ -362,37 +362,24 @@ function estimateDurationMinutes(paramsList: Array<Record<string, unknown> | nul
   return Math.max(1, Math.round(totalSeconds / 60));
 }
 
-// Resolve the periodization label for the week's microcycle:
-//   microcycle -> atr_block.type -> ATR full-word label.
-// Returns null when there's no microcycle (free-planned week).
+// Resolve the week's microciclo label = the COACH'S microciclo name (agnostic,
+// no hardcoded periodization vocabulary). The materializer records every assigned
+// plan in `athlete_month_assignments`, whose `microcycle_ids[]` holds the
+// microcycles it created and whose `month_template_id` points at the coach's
+// `program_month_templates` row — the same microciclo the coach named in su
+// biblioteca. We read that template's name. Null when the microcycle wasn't
+// materialized from a month template (e.g. a block-only / free-planned week): the
+// athlete simply sees no label, never an invented one.
 async function resolveMicrocicloName(microcycleId: string | null): Promise<string | null> {
   if (!microcycleId) return null;
-  const rows = await sql<Array<{ block_type: string | null }>>`
-    select b.type::text as block_type
-    from microcycles mc
-    join atr_blocks b on b.id = mc.block_id
-    where mc.id = ${microcycleId}::bigint
+  const rows = await sql<Array<{ name: string | null }>>`
+    select pmt.name
+    from athlete_month_assignments ama
+    join program_month_templates pmt on pmt.id = ama.month_template_id
+    where ${microcycleId}::bigint = any(ama.microcycle_ids)
     limit 1
   `;
-  const row = rows[0];
-  if (!row) return null;
-  return atrTypeLabel(row.block_type);
-}
-
-// Fallback label for the legacy ATR block enum (ACC / TRANS / REAL). Mirrors the
-// iOS `atrPhaseLabel` mapping (Shared/ATRPhase.swift) so the athlete reads the
-// same pedagogical word on both surfaces. Unknown codes are returned as-is.
-function atrTypeLabel(type: string | null): string | null {
-  switch (type?.trim().toUpperCase()) {
-    case 'ACC':
-      return 'Acumulación';
-    case 'TRANS':
-      return 'Intensificación';
-    case 'REAL':
-      return 'Tapering';
-    default:
-      return type ?? null;
-  }
+  return rows[0]?.name ?? null;
 }
 
 function slotFromNotes(notes: string | null, dayPos: string | null): 'am' | 'pm' {
