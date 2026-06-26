@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { type AthleteContextPack } from './pablo-ia-context';
 import { evaluateAthleteWeek } from './weekly-evaluation';
 import { notifyCoach } from '@/lib/notifications/dispatch';

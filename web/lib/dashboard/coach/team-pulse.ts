@@ -13,7 +13,7 @@ import {
   isoDateString,
   mondayOfWeek,
   startOfDayInBox,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 import { readinessBucket } from '@/lib/dashboard/constants/readiness';
 import { DAY_LABELS, WEEKDAY_COUNT } from '@/lib/dashboard/constants/calendar';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';

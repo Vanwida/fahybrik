@@ -32,7 +32,7 @@ import {
   resolveSequenceForAthlete,
   type ResolveFailureReason,
 } from '@/lib/dashboard/coach/assign-sequence';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
+import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 
 // ── Thresholds (single source: signal-config) ────────────────────────────────
 /** Compliance below this % counts as "falló sesiones". */

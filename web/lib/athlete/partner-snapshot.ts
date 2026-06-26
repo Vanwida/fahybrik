@@ -7,7 +7,7 @@ import {
   isoDateString,
   mondayOfWeek,
   startOfDayInBox,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 import { getActiveDoublesPairForAthlete } from '@/lib/dashboard/coach/doubles-pairs';
 
 // =============================================================================

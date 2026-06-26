@@ -1,6 +1,6 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
+import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import type {
   NextRace,
   RaceEventType,

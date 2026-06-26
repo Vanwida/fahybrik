@@ -6,7 +6,7 @@ import {
   mondayOfWeekInBox,
   startOfDayInBox,
   startOfDayUtc,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 
 // M17 — timezone bug. Day/week resolution for the coach's "today" must be
 // interpreted in the box timezone (Europe/Madrid), not UTC. Timestamps stay UTC;

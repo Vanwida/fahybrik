@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 import { getCurrentBlock } from '../atr/service';
-import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../atr/dates';
+import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
 import type { AtrBlockType } from './types';
 
 export type MacroWeekStatus = 'completed' | 'current' | 'upcoming' | 'missed';
@@ -376,34 +376,148 @@ export async function loadMicrocycleDetail(params: {
   };
 }
 
-/** Athlete-facing subset — current week only + macro summary. */
+// =============================================================================
+// ATHLETE-FACING macro views — AGNOSTIC (no ATR block, no ACC/TRANS/REAL).
+//
+// What the athlete sees is the COACH'S microciclo NAME + "semana N de M",
+// derived from `athlete_month_assignments` (the materialization receipt: name via
+// program_month_templates, dated window, microcycle_ids[] = its weeks) +
+// `workout_assignments`. These NEVER read atr_blocks/atr_macrocycles (those stay
+// coach-internal until the periodization-subsystem rewrite). The `block` field is
+// kept in the response SHAPE for iOS Codable parity, but is ALWAYS null — the
+// athlete never receives periodization jargon. (The coach `buildMacroProgress`
+// above is untouched and still ATR-aware for coach analytics.)
+// =============================================================================
+
+/** Athlete-facing subset — current week only + microciclo label. */
 export async function buildAthleteMacroSummary(params: {
   athlete_id: number | bigint;
   on_date?: Date;
   client: Sql;
 }): Promise<{
-  block: AtrBlockType | null;
+  block: string | null;
   week_label: string | null;
   a_event_days: number | null;
   current_week_start: string;
   current_week_end: string;
 }> {
+  const client = params.client;
   const today = startOfDayInBox(params.on_date ?? new Date());
   const weekStart = mondayOfWeek(today);
-  const progress = await buildMacroProgress(params);
-  const block = progress.block;
-  const current = progress.weeks.find((w) => w.status === 'current');
+  const todayIso = isoDateString(today);
+
+  const week_label = await currentMicrocicloLabel(params.athlete_id, today, todayIso, client);
+
+  // Días hasta el evento A (objetivo). Query agnóstica — no toca periodización.
+  const aEventRows = await client<Array<{ days: number }>>`
+    select (e.start_date - ${todayIso}::date)::int as days
+    from athlete_target_events ate
+    join events e on e.id = ate.event_id
+    where ate.athlete_id = ${params.athlete_id as number}
+      and ate.priority = 'A'
+      and e.start_date >= ${todayIso}::date
+    order by e.start_date asc limit 1
+  `;
 
   return {
-    block,
-    // Semana relativa al bloque activo (A2 hoy → "ACC · semana 4"), derivada de
-    // atr_blocks/microcycles — no del índice de asignaciones de mes.
-    week_label:
-      block && current && progress.block_week != null
-        ? `${block} · semana ${progress.block_week}`
-        : null,
-    a_event_days: progress.a_event_days,
+    block: null,
+    week_label,
+    a_event_days: aEventRows[0]?.days ?? null,
     current_week_start: isoDateString(weekStart),
     current_week_end: isoDateString(addDays(weekStart, 6)),
   };
+}
+
+/**
+ * The athlete's CURRENT microciclo label: "<coach microciclo name> · semana N de M".
+ * The current microciclo = the materialization receipt (athlete_month_assignments)
+ * whose dated window contains today. N = which Mon–Sun week within that window today
+ * falls in (1-indexed); M = the microciclo's week count (its microcycle_ids[], with a
+ * date-span fallback). null when today is outside any materialized microciclo
+ * (free-planned / between plans) → the athlete keeps the generic "Tu semana" subtitle.
+ */
+async function currentMicrocicloLabel(
+  athlete_id: number | bigint,
+  today: Date,
+  todayIso: string,
+  client: Sql,
+): Promise<string | null> {
+  const rows = await client<
+    Array<{ name: string | null; start_date: string; end_date: string; week_count: number }>
+  >`
+    select
+      m.name                                                 as name,
+      to_char(ama.start_date, 'YYYY-MM-DD')                  as start_date,
+      to_char(ama.end_date,   'YYYY-MM-DD')                  as end_date,
+      coalesce(array_length(ama.microcycle_ids, 1), 0)::int  as week_count
+    from athlete_month_assignments ama
+    join program_month_templates m on m.id = ama.month_template_id
+    where ama.athlete_id = ${athlete_id as number}
+      and ama.start_date <= ${todayIso}::date
+      and ama.end_date   >= ${todayIso}::date
+    order by ama.start_date desc
+    limit 1
+  `;
+  const r = rows[0];
+  if (!r || !r.name) return null;
+
+  const startMonday = mondayOfWeek(parseIsoDate(r.start_date));
+  const spanWeeks = Math.floor(diffDays(mondayOfWeek(parseIsoDate(r.end_date)), startMonday) / 7) + 1;
+  const totalWeeks = r.week_count > 0 ? r.week_count : Math.max(1, spanWeeks);
+  const idx = Math.floor(diffDays(mondayOfWeek(today), startMonday) / 7) + 1;
+  const weekN = Math.min(Math.max(idx, 1), totalWeeks);
+
+  return `${r.name} · semana ${weekN} de ${totalWeeks}`;
+}
+
+export type AthleteMacroProgressPayload = {
+  /** Kept null for iOS Codable parity — the athlete never receives an ATR block. */
+  block: null;
+  total_assigned_weeks: number;
+  weeks: Array<{ week_start: string; status: MacroWeekStatus; compliance_pct: number | null }>;
+};
+
+/**
+ * Athlete-facing macro PROGRESS ribbon — AGNOSTIC. Per-week compliance derived
+ * purely from `workout_assignments` (no atr_blocks read). Same week-status
+ * semantics as the coach `buildMacroProgress` weeks (completed ≥50% / missed /
+ * current / upcoming), but with zero periodization coupling.
+ */
+export async function buildAthleteMacroProgress(params: {
+  athlete_id: number | bigint;
+  on_date?: Date;
+  client: Sql;
+}): Promise<AthleteMacroProgressPayload> {
+  const client = params.client;
+  const today = startOfDayInBox(params.on_date ?? new Date());
+
+  const rows = await client<
+    Array<{ week_start: string; scheduled: number; completed: number }>
+  >`
+    with week_rows as (
+      select
+        date_trunc('week', wa.scheduled_for)::date as week_start,
+        count(*)::int as scheduled,
+        count(*) filter (where wa.status = 'completed')::int as completed
+      from workout_assignments wa
+      where wa.athlete_id = ${params.athlete_id as number}
+      group by 1
+    )
+    select to_char(week_start, 'YYYY-MM-DD') as week_start, scheduled, completed
+    from week_rows
+    order by week_start asc
+  `;
+
+  const weeks = rows.map((w) => {
+    const ws = parseIsoDate(w.week_start);
+    const we = addDays(ws, 6);
+    const compliance_pct =
+      w.scheduled > 0 ? Math.round((w.completed / w.scheduled) * 100) / 100 : null;
+    let status: MacroWeekStatus = 'upcoming';
+    if (we < today) status = w.completed >= w.scheduled * 0.5 ? 'completed' : 'missed';
+    else if (ws <= today && we >= today) status = 'current';
+    return { week_start: w.week_start, status, compliance_pct };
+  });
+
+  return { block: null, total_assigned_weeks: weeks.length, weeks };
 }

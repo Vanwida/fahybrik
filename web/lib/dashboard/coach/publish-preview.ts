@@ -7,7 +7,7 @@ import {
   isoDateString,
   parseIsoDate,
   mondayOfWeek,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 import { getMonthTemplate } from './program-months';
 import { getWeekTemplate } from './program-weeks';
 import { parseWeekSlotsFromDb } from './program-week-slots';

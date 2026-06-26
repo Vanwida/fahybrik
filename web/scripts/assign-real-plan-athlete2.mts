@@ -17,7 +17,7 @@
 const { instantiateWeekIntoMicrocycle } = await import('@/lib/dashboard/coach/instantiate-program');
 const { sql } = await import('@/lib/db');
 const { parseIsoDate, mondayOfWeek, addDays, isoDateString } = await import(
-  '@fahybrid/shared/domain/atr/dates'
+  '@fahybrid/shared/domain/dates'
 );
 
 const COACH_ID = 4;

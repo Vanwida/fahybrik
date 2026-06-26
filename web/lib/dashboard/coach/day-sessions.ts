@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
+import { parseIsoDate } from '@fahybrid/shared/domain/dates';
 
 export class DaySessionError extends Error {
   constructor(

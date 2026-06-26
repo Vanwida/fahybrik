@@ -137,12 +137,31 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     expect(p.total_assigned_weeks).toBe(0);
   });
 
-  test('buildAthleteMacroSummary surfaces block + current week label', async () => {
+  test('buildAthleteMacroSummary is agnostic: microciclo name + "semana N de M", no ATR block', async () => {
     const { fx } = await seedMacroWithWeeks();
+    // The athlete label is now sourced from the materialization receipt
+    // (athlete_month_assignments → program_month_templates.name), NOT atr_blocks.
+    // microcycle_ids left empty → week count (M) falls back to the date span
+    // (MACRO_START..MACRO_END = 3 Mon–Sun weeks); ON_DATE is in week 2 → N=2.
+    await sql`
+      insert into program_month_templates (coach_id, name)
+      values (${fx.coachId}, 'Microciclo Base')
+    `;
+    const pmt = await sql<Array<{ id: string }>>`
+      select id::text from program_month_templates
+      where coach_id = ${fx.coachId} and name = 'Microciclo Base'
+      order by id desc limit 1
+    `;
+    await sql`
+      insert into athlete_month_assignments
+        (athlete_id, month_template_id, start_date, end_date, created_by_coach_id)
+      values (${fx.athleteId}, ${Number(pmt[0]!.id)}, ${MACRO_START}::date, ${MACRO_END}::date, ${fx.coachId})
+    `;
+
     const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
-    expect(s.block).toBe('ACC');
+    expect(s.block).toBeNull(); // no ATR block ever reaches the athlete
     expect(s.current_week_start).toBe('2026-03-09'); // Monday of ON_DATE's week
     expect(s.current_week_end).toBe('2026-03-15');
-    expect(s.week_label).toMatch(/ACC/);
+    expect(s.week_label).toBe('Microciclo Base · semana 2 de 3');
   });
 });

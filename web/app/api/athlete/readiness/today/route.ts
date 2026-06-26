@@ -1,7 +1,7 @@
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getLatestReadiness } from '@/lib/coach/athlete-daily-readiness';
-import { startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
+import { startOfDayInBox } from '@fahybrid/shared/domain/dates';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

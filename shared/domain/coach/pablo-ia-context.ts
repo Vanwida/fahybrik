@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 import { getCurrentBlock } from '../atr/service';
-import { addDays, isoDateString, startOfDayInBox } from '../atr/dates';
+import { addDays, isoDateString, startOfDayInBox } from '../dates';
 import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
 
 export type ProgressionVerdict = 'up' | 'flat' | 'down';

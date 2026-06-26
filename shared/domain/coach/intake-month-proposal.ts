@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres';
-import { mondayOfWeek, mondayOfWeekInBox, isoDateString, parseIsoDate } from '../atr/dates';
+import { mondayOfWeek, mondayOfWeekInBox, isoDateString, parseIsoDate } from '../dates';
 
 export type IntakeMonthProposal = {
   month_template_id: string;

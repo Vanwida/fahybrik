@@ -4,7 +4,7 @@ import {
   findCurrentBlock,
   planMacrocycle,
 } from '@fahybrid/shared/domain/atr/planner';
-import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 
 describe('planMacrocycle', () => {
   test('default specs lay 13 weeks ending on the event date', () => {

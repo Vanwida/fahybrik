@@ -5,7 +5,7 @@ import {
   mondayOfWeek,
   parseIsoDate,
   startOfDayInBox,
-} from '../atr/dates';
+} from '../dates';
 import { buildAthleteContextPack, type AthleteContextPack } from './pablo-ia-context';
 import {
   evaluateWeeklyVerdictFromContext,

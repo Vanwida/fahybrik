@@ -8,7 +8,7 @@
 // REAL (peaking + sharpening). A coach with a different methodology supplies its
 // own ordered specs; nothing here hardcodes ACC/TRANS/REAL beyond the default.
 
-import { addDays, diffDays, isoDateString, parseIsoDate, startOfDayUtc } from './dates';
+import { addDays, diffDays, isoDateString, parseIsoDate, startOfDayUtc } from '../dates';
 
 // Legacy ATR phase codes — the DEFAULT 3-block set. Kept as a named union for the
 // callers/tests that still reason about the classical sequence. A coach's

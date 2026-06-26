@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/dates';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
 import { getAthleteProgrammingStatus, type AthleteProgrammingStatus } from './programming-status';
 import { getNextRace, getTargetRace, toRaceSummary } from '@/lib/races/next-race';

@@ -6,7 +6,7 @@ import {
   addDays,
   isoDateString,
   parseIsoDate,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 import {
   evaluateAthleteWeek as _evaluateAthleteWeek,
   type FiredTrigger,

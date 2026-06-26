@@ -1,7 +1,7 @@
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { buildAthleteMacroSummary } from '@/lib/coach/macro-progress';
-import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { getNextRace, getTargetRace } from '@/lib/races/next-race';
 import { sql } from '@/lib/db';
 

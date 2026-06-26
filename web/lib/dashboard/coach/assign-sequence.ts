@@ -9,7 +9,7 @@ import {
   mondayOfWeekInBox,
   parseIsoDate,
   startOfDayInBox,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 import type {
   ProgramSequence,
   ProgramSequenceItem,

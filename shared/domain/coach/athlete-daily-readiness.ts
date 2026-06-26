@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres';
-import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../atr/dates';
+import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
 
 export type ReadinessBreakdown = {
   sub_score: number | null;

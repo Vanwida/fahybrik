@@ -19,7 +19,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
 
 /** A materialized week spans 7 days; the materializer Monday-aligns each week. */

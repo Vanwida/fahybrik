@@ -1158,7 +1158,7 @@ async function materializeFirstBlockDraft(params: {
   );
   const { markWeekDraft } = await import('./publish-week');
   const { addDays, isoDateString, mondayOfWeek, parseIsoDate } = await import(
-    '@fahybrid/shared/domain/atr/dates'
+    '@fahybrid/shared/domain/dates'
   );
 
   let assign: Awaited<ReturnType<typeof assignBlockToAthlete>>;

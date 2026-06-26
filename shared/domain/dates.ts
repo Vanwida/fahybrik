@@ -1,5 +1,6 @@
-// Date helpers for ATR planning. ATR planning is at *calendar-day* granularity,
-// not minute granularity. Two distinct concerns live here, do not conflate them:
+// Date helpers for calendar-day planning. Planning is at *calendar-day*
+// granularity, not minute granularity. Two distinct concerns live here, do not
+// conflate them:
 //
 //   1. STORAGE / SERIALIZATION (timestamps): persisted as UTC. ISO calendar dates
 //      (`YYYY-MM-DD`) are anchored at UTC midnight so they round-trip losslessly to

@@ -7,7 +7,7 @@ import {
 } from '@/lib/dashboard/programming/assign-month';
 import { markWeekDraft } from '@/lib/coach/publish-week';
 import { assignMonthInputSchema } from '@fahybrid/shared/schema/assign-month';
-import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

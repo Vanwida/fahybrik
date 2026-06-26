@@ -1,6 +1,6 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeek, startOfDayInBox, startOfDayUtc } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, mondayOfWeek, startOfDayInBox, startOfDayUtc } from '@fahybrid/shared/domain/dates';
 import {
   loadProgrammingStatusMap,
   type ProgrammingStatus,

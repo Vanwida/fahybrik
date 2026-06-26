@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/atr/dates';
+import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { blockExerciseToItem, type BlockExerciseRow } from './blocks';
 import { getMonthTemplate } from './program-months';
 import { getWeekTemplate } from './program-weeks';

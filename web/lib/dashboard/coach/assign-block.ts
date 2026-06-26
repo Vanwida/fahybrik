@@ -7,7 +7,7 @@ import {
   isoDateString,
   mondayOfWeek,
   parseIsoDate,
-} from '@fahybrid/shared/domain/atr/dates';
+} from '@fahybrid/shared/domain/dates';
 import type { AtrBlockType } from '@fahybrid/shared/domain/atr/planner';
 import { instantiateWeekIntoMicrocycle } from './instantiate-program';
 

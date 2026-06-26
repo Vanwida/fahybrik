@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 import { isPgMissingRelation } from '../db/pg-errors';
-import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../atr/dates';
+import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
 
 export type ProgrammingStatus =
   | 'ok'

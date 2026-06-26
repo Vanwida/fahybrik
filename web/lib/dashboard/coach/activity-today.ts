@@ -22,7 +22,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
+import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import type { AdherenceBand } from '@fahybrid/shared/domain/adherence';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 

@@ -16,7 +16,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/atr/dates';
+import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { loadAttentionQueue, type AttentionCard } from '@/lib/coach/attention/queue';
 import {
   loadCoachInbox,

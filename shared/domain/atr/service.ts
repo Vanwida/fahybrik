@@ -16,7 +16,7 @@ import {
   type BlockSpec,
   type PlannedMacrocycle,
 } from './planner';
-import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from './dates';
+import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
 import { recommendTransition as evaluateTransition, type TransitionRecommendation } from './transitions';
 export { evaluateTransition };
 

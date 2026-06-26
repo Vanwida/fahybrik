@@ -5,6 +5,7 @@ import { sql as defaultSql } from '@/lib/db';
 import {
   buildMacroProgress as _buildMacroProgress,
   buildAthleteMacroSummary as _buildAthleteMacroSummary,
+  buildAthleteMacroProgress as _buildAthleteMacroProgress,
   loadMicrocycleDetail as _loadMicrocycleDetail,
   type MacroWeekStatus,
   type MacroProgressWeek,
@@ -13,6 +14,7 @@ import {
   type MacroProgressPayload,
   type MicrocycleWeekDetail,
   type MicrocycleDetailPayload,
+  type AthleteMacroProgressPayload,
 } from '@fahybrid/shared/domain/coach/macro-progress';
 
 export type {
@@ -23,6 +25,7 @@ export type {
   MacroProgressPayload,
   MicrocycleWeekDetail,
   MicrocycleDetailPayload,
+  AthleteMacroProgressPayload,
 };
 
 export function buildMacroProgress(params: {
@@ -47,4 +50,12 @@ export function buildAthleteMacroSummary(params: {
   client?: Sql;
 }): ReturnType<typeof _buildAthleteMacroSummary> {
   return _buildAthleteMacroSummary({ ...params, client: params.client ?? defaultSql });
+}
+
+export function buildAthleteMacroProgress(params: {
+  athlete_id: number | bigint;
+  on_date?: Date;
+  client?: Sql;
+}): ReturnType<typeof _buildAthleteMacroProgress> {
+  return _buildAthleteMacroProgress({ ...params, client: params.client ?? defaultSql });
 }
