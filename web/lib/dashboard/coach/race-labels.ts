@@ -28,6 +28,7 @@ export const RACE_FORMAT_LABEL: Record<RaceFormat, string> = {
 export const RACE_DIVISION_LABEL: Record<RaceDivision, string> = {
   open: 'Open',
   pro: 'Pro',
+  elite: 'Elite',
 };
 
 export const RACE_GENDER_LABEL: Record<RaceGender, string> = {

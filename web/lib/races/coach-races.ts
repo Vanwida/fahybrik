@@ -27,7 +27,7 @@ export interface RaceListItem {
   gender_category: RaceGender;
   priority: RacePriority;
   age_group: string | null;
-  race_date: string;
+  race_date: string | null; // null for an official single-URL import with no machine date (0072)
   location: string | null;
   goal_time_seconds: number | null;
   result_time_seconds: number | null;
@@ -69,7 +69,7 @@ interface DbRaceRow {
   gender_category: RaceGender;
   priority: RacePriority;
   age_group: string | null;
-  race_date: string;
+  race_date: string | null; // null for an official single-URL import with no machine date (0072)
   location: string | null;
   goal_time_seconds: number | null;
   result_time_seconds: number | null;
@@ -122,7 +122,7 @@ export async function getAthleteRacesForCoach(params: {
       to_char(r.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
     from races r
     where r.athlete_id = ${params.athlete_id}
-    order by r.race_date desc, r.id desc
+    order by r.race_date desc nulls last, r.id desc
   `;
 
   const [target_race, next_race] = await Promise.all([

@@ -2,12 +2,19 @@ import 'server-only';
 
 // Carreras hub overview — the data layer behind GET /api/athlete/race-context.
 //
-// Reads the athlete's IMPORTED HYROX results (rows on `races` with
-// source = 'hyrox_import', written by lib/hyrox/import.ts — see its stored shape:
-// run_splits_json, station_splits_json, roxzone_seconds, run_total_seconds,
-// overall_rank, age_group_rank, field_size, result_time_seconds, race_date) and
-// projects the iOS `CarrerasOverview` Codable contract (snake_case, pre-formatted
-// display strings). See ios/FAHYBRIK/Carreras/CarrerasService.swift.
+// `history` lists the athlete's WHOLE race history — every imported/completed
+// race, singles AND doubles/relay (source 'hyrox_import' | 'hyresult_import', or
+// a manually-logged result), projected to the structured `raceHistoryItemSchema`
+// contract (real race_date, format/division/gender_category, is_team_result and
+// the teammates joined from `race_partners`). See shared/schema/races.ts and
+// ios/FAHYBRIK/Carreras/CarrerasService.swift.
+//
+// The hero summary + per-station benchmarks + running splits stay sourced from
+// the athlete's OFFICIAL single-athlete imports (results.hyrox.com,
+// source = 'hyrox_import', written by lib/hyrox/import.ts) — those carry the
+// per-station ranks + gender field_size the singles deep-dive reads. Team splits
+// are the TEAM's, not the athlete's individual performance, so they never drive
+// that deep-dive. Those sections keep the pre-formatted display-string shape.
 //
 // HONEST DATA — nothing is faked:
 //   • Empty when the athlete has no imported race yet (last_race null, [] arrays).
@@ -28,7 +35,11 @@ import { sql as defaultSql } from '@/lib/db';
 import {
   HYROX_STATION_LABELS,
   hyroxStationSplitSchema,
+  raceHistoryItemSchema,
+  racePartnerSchema,
   type HyroxStationSplit,
+  type RaceHistoryItem,
+  type RacePartner,
 } from '@fahybrid/shared/schema';
 import { z } from 'zod';
 
@@ -78,7 +89,7 @@ export interface CarrerasOverviewDTO {
   station_benchmarks: StationBenchmarkDTO[];
   running_splits: RunningSplitDTO[];
   pace_drop_note: string | null;
-  history: RaceResultSummaryDTO[];
+  history: RaceHistoryItem[];
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -102,6 +113,13 @@ const STATION_NEUTRAL_SEVERITY: Severity = 'slightly_worse';
 
 // Minimum bar height so a near-best km/station still renders a visible bar.
 const MIN_BAR_HEIGHT = 0.15;
+
+// Hero (`last_race`) date fallback. iOS RaceResultSummary.date is a NON-optional
+// String, so the hero must never send null. An official single-URL import has no
+// machine date (race_date null, 0072) — the history query sorts those last, so
+// the hero is a real-dated import whenever one exists and this fallback only
+// shows when every official import is undated. Mirrors the iOS history wording.
+const HERO_DATE_UNKNOWN = 'Fecha por confirmar';
 
 // Final-drift callout threshold (s/km): surface pace_drop_note when the second
 // half of the runs is at least this much slower than the first half.
@@ -133,6 +151,7 @@ function signedDeltaStr(deltaSeconds: number): string {
 function divisionLabel(division: string | null): string | null {
   if (division === 'pro') return 'Pro';
   if (division === 'open') return 'Open';
+  if (division === 'elite') return 'Elite';
   return division;
 }
 
@@ -183,15 +202,27 @@ function stationFraction(rank: number | null, field: number | null): number {
 interface RaceRow {
   id: string;
   name: string;
-  race_date: string;
-  division: string | null;
+  // null for an official single-URL import with no machine date (0072); to_char
+  // of a NULL date yields NULL, sorted last by the history query.
+  race_date: string | null;
+  event_type: string;
+  format: string;
+  division: string;
+  gender_category: string;
+  age_group: string | null;
+  location: string | null;
   result_time_seconds: number | null;
   run_total_seconds: number | null;
   roxzone_seconds: number | null;
+  best_run_lap_seconds: number | null;
   overall_rank: number | null;
+  age_group_rank: number | null;
   field_size: number | null;
+  source: string;
+  source_season: string | null;
   run_splits_json: unknown;
   station_splits_json: unknown;
+  partners_json: unknown;
 }
 
 /** Parse the stored station_splits_json into the validated split list. */
@@ -229,7 +260,7 @@ function toSummary(row: RaceRow, previousSeconds: number | null): RaceResultSumm
   return {
     id: row.id,
     event_name: row.name,
-    date: row.race_date,
+    date: row.race_date ?? HERO_DATE_UNKNOWN,
     division: divisionLabel(row.division),
     total_time: timeStr(finish),
     run_time: timeStr(row.run_total_seconds),
@@ -239,6 +270,59 @@ function toSummary(row: RaceRow, previousSeconds: number | null): RaceResultSumm
     delta_vs_previous: delta,
     total_seconds: finish ?? null,
   };
+}
+
+// ── Stored-row → history item (structured contract) ──────────────────────────
+
+/** Parse the joined race_partners array into the validated teammate list. */
+function parsePartners(raw: unknown): RacePartner[] {
+  const parsed = z.array(racePartnerSchema).safeParse(raw ?? []);
+  return parsed.success ? parsed.data : [];
+}
+
+/**
+ * Project one stored race row → the structured `raceHistoryItemSchema` contract
+ * (singles AND doubles/relay). `percentile` is derived (overall_rank / field_size,
+ * clamped 0..1) exactly as the importer computes it; `is_team_result` is
+ * format !== 'singles'. Validated against the shared schema so the response IS
+ * the contract, not whatever we happened to build.
+ */
+function toHistoryItem(row: RaceRow): RaceHistoryItem | null {
+  const percentile =
+    row.overall_rank != null && row.field_size != null && row.field_size > 0
+      ? Math.min(1, Math.max(0, row.overall_rank / row.field_size))
+      : null;
+
+  // safeParse (not .parse): a single malformed stored row (e.g. a 0-second
+  // finish, or a location >200 chars) must degrade to OMISSION, never throw and
+  // 500 the whole /race-context response. Invalid rows are filtered out by the
+  // caller; valid rows are untouched.
+  const parsed = raceHistoryItemSchema.safeParse({
+    race_id: Number(row.id),
+    name: row.name,
+    race_date: row.race_date,
+    location: row.location,
+    event_type: row.event_type,
+    format: row.format,
+    division: row.division,
+    gender_category: row.gender_category,
+    age_group: row.age_group,
+    result_time_seconds: row.result_time_seconds,
+    run_total_seconds: row.run_total_seconds,
+    roxzone_seconds: row.roxzone_seconds,
+    best_run_lap_seconds: row.best_run_lap_seconds,
+    overall_rank: row.overall_rank,
+    age_group_rank: row.age_group_rank,
+    field_size: row.field_size,
+    percentile,
+    run_splits: parseRunSplits(row.run_splits_json),
+    station_splits: parseStationSplits(row.station_splits_json),
+    is_team_result: row.format !== 'singles',
+    partners: parsePartners(row.partners_json),
+    source: row.source,
+    source_season: row.source_season,
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 // ── Builder ───────────────────────────────────────────────────────────────--
@@ -253,48 +337,85 @@ export async function buildCarrerasOverview(
 ): Promise<CarrerasOverviewDTO> {
   const athleteId = Number(args.athlete_id);
 
-  // All imported races, most recent first. Ordered by race_date then imported_at
-  // (the importer stamps race_date = current_date as a placeholder, so imported_at
-  // disambiguates same-day imports deterministically).
+  // The athlete's WHOLE race history, most recent first — singles AND
+  // doubles/relay. Includes every imported race plus any manually-logged result
+  // (a manual row with no result is an upcoming/target race, not history).
+  // Teammates are LEFT JOINed from race_partners and aggregated to an array
+  // ordered by position ([] for singles). Ordered by race_date DESC NULLS LAST so
+  // an official single-URL import with no machine date (race_date null, 0072) sinks
+  // to the bottom instead of floating above real-dated history; imported_at then
+  // disambiguates ties deterministically. `group by r.id` (the PK) lets us project
+  // every r.* column alongside the aggregate.
   const rows = await client<RaceRow[]>`
     select
-      id::text as id,
-      name,
-      to_char(race_date, 'YYYY-MM-DD') as race_date,
-      division::text as division,
-      result_time_seconds,
-      run_total_seconds,
-      roxzone_seconds,
-      overall_rank,
-      field_size,
-      run_splits_json,
-      station_splits_json
-    from races
-    where athlete_id = ${athleteId}
-      and source = 'hyrox_import'
-    order by race_date desc, imported_at desc nulls last, id desc
+      r.id::text                          as id,
+      r.name,
+      to_char(r.race_date, 'YYYY-MM-DD')  as race_date,
+      r.event_type::text                  as event_type,
+      r.format::text                      as format,
+      r.division::text                    as division,
+      r.gender_category::text             as gender_category,
+      r.age_group,
+      r.location,
+      r.result_time_seconds,
+      r.run_total_seconds,
+      r.roxzone_seconds,
+      r.best_run_lap_seconds,
+      r.overall_rank,
+      r.age_group_rank,
+      r.field_size,
+      r.source,
+      r.source_season,
+      r.run_splits_json,
+      r.station_splits_json,
+      coalesce(
+        json_agg(
+          json_build_object(
+            'name', rp.name,
+            'slug', rp.slug,
+            'nation', rp.nation,
+            'position', rp.position
+          ) order by rp.position
+        ) filter (where rp.race_id is not null),
+        '[]'::json
+      )                                   as partners_json
+    from races r
+    left join race_partners rp on rp.race_id = r.id
+    where r.athlete_id = ${athleteId}
+      and (
+        r.source in ('hyrox_import', 'hyresult_import')
+        or (r.source = 'manual' and r.result_time_seconds is not null)
+      )
+    group by r.id
+    order by r.race_date desc nulls last, r.imported_at desc nulls last, r.id desc
   `;
 
-  if (rows.length === 0) {
+  // The full structured history (the iOS Carreras hub's race list). A row that
+  // fails the contract is omitted (toHistoryItem → null), never fatal.
+  const history: RaceHistoryItem[] = rows
+    .map(toHistoryItem)
+    .filter((item): item is RaceHistoryItem => item !== null);
+
+  // Hero summary + per-station benchmarks + running splits stay sourced from the
+  // athlete's OFFICIAL single-athlete imports (results.hyrox.com), which carry
+  // the per-station ranks + gender field_size the singles deep-dive reads. Team
+  // results never drive it (their splits are the team's, not the athlete's).
+  const importRows = rows.filter((r) => r.source === 'hyrox_import');
+
+  if (importRows.length === 0) {
     return {
       last_race: null,
       ia_report: null,
       station_benchmarks: [],
       running_splits: [],
       pace_drop_note: null,
-      history: [],
+      history,
     };
   }
 
-  // Chronological-prior finish per race for delta_vs_previous: rows are
-  // most-recent-first, so a row's "previous" race is the NEXT element.
-  const history: RaceResultSummaryDTO[] = rows.map((row, i) => {
-    const prev = rows[i + 1]?.result_time_seconds ?? null;
-    return toSummary(row, prev);
-  });
-
-  const latest = rows[0];
-  const last_race = history[0] ?? null;
+  const latest = importRows[0];
+  // delta_vs_previous compares to the athlete's immediately-prior official import.
+  const last_race = toSummary(latest, importRows[1]?.result_time_seconds ?? null);
 
   // ── station_benchmarks: the latest race's 8 stations, in canonical order ────
   const latestStationSplits = parseStationSplits(latest.station_splits_json);

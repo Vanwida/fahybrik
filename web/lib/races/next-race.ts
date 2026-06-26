@@ -127,6 +127,7 @@ const FORMAT_LABEL: Record<RaceFormat, string> = {
 const DIVISION_LABEL: Record<RaceDivision, string> = {
   open: 'Open',
   pro: 'Pro',
+  elite: 'Elite',
 };
 const GENDER_LABEL: Record<RaceGender, string> = {
   men: 'Men',

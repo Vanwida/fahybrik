@@ -1,8 +1,11 @@
 // Per-station deep-dive — the data layer behind GET /api/athlete/stations/[station].
 //
 // Builds the `StationDetail` bundle for ONE of the 8 HYROX work stations from the
-// athlete's IMPORTED HYROX results (`races` rows where source='hyrox_import'),
-// keyed by the canonical 16-element `station_index` (2,4,…,16 — see
+// athlete's IMPORTED HYROX results (`races` rows where source is an imported
+// source — 'hyrox_import' | 'hyresult_import' — AND format='singles'; doubles/
+// relay station splits are TEAM-level, not this athlete's, so they never feed the
+// individual per-station deep-dive), keyed by the canonical 16-element
+// `station_index` (2,4,…,16 — see
 // STATION_INDEX_STATION in shared/schema/race-plan). Output shape mirrors the iOS
 // `StationDetail` Codable contract (snake_case; pre-formatted display strings).
 //
@@ -284,7 +287,9 @@ function monthLabel(isoDate: string): string {
 // ── DB row shapes ─────────────────────────────────────────────────────────────
 
 interface RaceRow {
-  race_date: string;
+  // null for an official single-URL import with no machine date (0072); such a
+  // race can't be placed on the per-station time-trend, so it's skipped below.
+  race_date: string | null;
   field_size: number | null;
   station_splits_json: Array<{ index: number; seconds: number | null; rank: number | null }> | null;
 }
@@ -329,7 +334,8 @@ export async function buildStationDetail(
       station_splits_json
     from races
     where athlete_id = ${athleteId}
-      and source = 'hyrox_import'
+      and source in ('hyrox_import', 'hyresult_import')
+      and format = 'singles'
       and station_splits_json is not null
     order by race_date asc, id asc
   `;
@@ -339,6 +345,9 @@ export async function buildStationDetail(
   // this station, so it contributes nothing rather than a fake zero).
   const observations: Observation[] = [];
   for (const r of raceRows) {
+    // An undated official import (race_date null, 0072) has no position on the
+    // chronological trend and must not become the "latest" observation — skip it.
+    if (r.race_date == null) continue;
     const splits = Array.isArray(r.station_splits_json) ? r.station_splits_json : [];
     const split = splits.find((s) => s && s.index === station.index);
     const seconds = num(split?.seconds);

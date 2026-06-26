@@ -7,8 +7,11 @@ import 'server-only';
 // contract. Two connected athletes (Dobles modality) SEE each other's training
 // and SHARE analytics. This screen compares each partner's OWN INDIVIDUAL
 // single-race results: the per-athlete imported HYROX rows we already store
-// (`races` with source = 'hyrox_import' — run/station splits + ranks). It reuses
-// the exact stored-row read + parse contract documented in race-context.ts.
+// (`races` with source in ('hyrox_import','hyresult_import') AND format='singles'
+// — run/station splits + ranks). It reuses the exact stored-row read + parse
+// contract documented in race-context.ts. SINGLES only on purpose: doubles/relay
+// splits are TEAM-level (the team's combined time, not this athlete's), so they
+// would misread as this athlete's individual performance in the head-to-head.
 //
 // DESIGN DECISION (owner): there is NO separate "joint doubles result" entry.
 // `doubles_mark` and `doubles_delta` are therefore ALWAYS null — we never
@@ -151,7 +154,8 @@ async function loadAthleteBest(client: Sql, athleteId: bigint): Promise<AthleteB
       station_splits_json
     from races
     where athlete_id = ${athleteId as unknown as number}
-      and source = 'hyrox_import'
+      and source in ('hyrox_import', 'hyresult_import')
+      and format = 'singles'
       and result_time_seconds is not null
     order by result_time_seconds asc, race_date desc, id desc
     limit 1

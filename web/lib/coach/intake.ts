@@ -138,7 +138,8 @@ export interface IntakeProfile {
   }>;
   race_history: Array<{
     name: string;
-    iso_date: string;
+    // null for an official single-URL import with no machine date (0072).
+    iso_date: string | null;
     division: string | null;
     finish_time: string | null;
     /** A/B/C role in the periodization (0046 races.priority). */
@@ -518,7 +519,7 @@ export async function loadIntakeProfile(params: {
   const raceRows = await client<
     Array<{
       name: string;
-      iso_date: string;
+      iso_date: string | null;
       division: string | null;
       priority: string | null;
       goal_time_seconds: number | null;
