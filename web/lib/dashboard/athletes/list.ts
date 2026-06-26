@@ -53,6 +53,9 @@ export interface AthleteRow {
   target_race: AthleteTargetRaceSummary | null;
   /** Athlete finished onboarding but the coach hasn't reviewed intake yet. */
   intake_pending: boolean;
+  /** ISO timestamp of the athlete's most recent logged session (workout_executions),
+   *  null when they've never logged one. Drives the roster "Último registro" cell. */
+  last_activity_at: string | null;
 }
 
 export async function fetchAthletesForCoach(params: {
@@ -91,6 +94,7 @@ export async function fetchAthletesForCoach(params: {
       target_race_days_until: number | null;
       onboarded_at: Date | null;
       intake_completed_at: Date | null;
+      last_activity_at: Date | null;
     }>
   >`
     select
@@ -112,7 +116,8 @@ export async function fetchAthletesForCoach(params: {
       tr.name as target_race_name,
       tr.priority::text as target_race_priority,
       tr.race_date_iso as target_race_date,
-      tr.days_until as target_race_days_until
+      tr.days_until as target_race_days_until,
+      la.last_activity_at
     from athletes a
     left join athlete_levels al on al.id = a.level_id
     left join lateral (
@@ -174,6 +179,14 @@ export async function fetchAthletesForCoach(params: {
       order by r.race_date asc, r.id asc
       limit 1
     ) tr on true
+    left join lateral (
+      -- The athlete's most recent LOGGED session: max session timestamp across
+      -- workout_executions (ended_at wins, falling back to started/created when a
+      -- session was logged but not closed). Null when they've never logged one.
+      select max(coalesce(we.ended_at, we.started_at, we.created_at)) as last_activity_at
+      from workout_executions we
+      where we.athlete_id = a.id
+    ) la on true
     where a.coach_id = ${params.coach_id}
       and (${modalityFilter}::text is null or sub.plan_type = ${modalityFilter})
     order by a.full_name asc
@@ -237,6 +250,7 @@ export async function fetchAthletesForCoach(params: {
         onboarded_at: r.onboarded_at,
         intake_completed_at: r.intake_completed_at,
       }),
+      last_activity_at: r.last_activity_at ? r.last_activity_at.toISOString() : null,
       target_race:
         r.target_race_name != null &&
         r.target_race_priority != null &&

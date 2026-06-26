@@ -21,6 +21,8 @@ export interface RosterRow {
   adherence_pct: number | null;
   /** Numeric level rank for sorting (athlete_levels.sort_order). 0 = no level. */
   level_rank: number;
+  /** ISO timestamp of the most recent logged session, null when none. */
+  last_activity_at: string | null;
 }
 
 /** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
@@ -44,5 +46,6 @@ export function toRosterRow(a: AthleteRow): RosterRow {
     // signal exists. // TODO(model): real 30-day adherence aggregate.
     adherence_pct: a.compliance_pct,
     level_rank: a.level_sort,
+    last_activity_at: a.last_activity_at,
   };
 }

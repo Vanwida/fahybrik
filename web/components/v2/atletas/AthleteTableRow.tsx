@@ -2,9 +2,9 @@
 
 // AthleteTableRow — one roster row as a full-width link to the athlete detail.
 // Columns mirror the directory header: Atleta · Nivel · Estado · Fase · Adherencia
-// · Últ. registro · Próx. test · ›. Rows carry a soft status tint (atención=red,
-// nuevo=blue) + a matching status-colored left accent so the eye triages down the
-// list. Pure presentational; the table owns data + ordering.
+// · Últ. registro · ›. Rows carry a soft status tint (atención=red, nuevo=blue) +
+// a matching status-colored left accent so the eye triages down the list. Pure
+// presentational; the table owns data + ordering.
 
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
@@ -14,6 +14,7 @@ import { AdherenceBar } from '@/components/v2/AdherenceBar';
 import { RosterStatusDot } from '@/components/v2/atletas/RosterStatusDot';
 import { ROSTER_STATUS_META } from '@/lib/dashboard/v2/atletas-status';
 import type { RosterRow } from '@/lib/dashboard/v2/atletas-row';
+import { formatRelative } from '@/lib/dashboard/relative-time';
 import { cn } from '@/lib/utils';
 import { GRID_COLS } from '@/components/v2/atletas/grid';
 
@@ -68,16 +69,16 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
         <AdherenceBar pct={row.adherence_pct} />
       </div>
 
-      {/* Últ. registro — no last-activity field on the roster row yet. */}
-      {/* TODO(model): surface athlete.last_activity_at on the roster loader. */}
+      {/* Últ. registro — most recent logged session ("hace 2 d"), honest empty
+          state when the athlete has never logged one. */}
       <div className="hidden xl:block">
-        <span className="v2-num text-xs text-[color:var(--v2-faint)]">—</span>
-      </div>
-
-      {/* Próx. test — no scheduled-test field exists (target_race is a comp, not */}
-      {/* a re-test). TODO(model): surface athlete.next_test_at on the loader. */}
-      <div className="hidden xl:block">
-        <span className="v2-num text-xs text-[color:var(--v2-faint)]">—</span>
+        {row.last_activity_at ? (
+          <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+            {formatRelative(row.last_activity_at)}
+          </span>
+        ) : (
+          <span className="text-xs text-[color:var(--v2-faint)]">sin registros</span>
+        )}
       </div>
 
       {/* Chevron */}

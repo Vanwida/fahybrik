@@ -42,7 +42,6 @@ export function RosterTable({
         <HeaderCell className="hidden md:block">Fase actual</HeaderCell>
         <HeaderCell className="hidden lg:block">Adherencia</HeaderCell>
         <HeaderCell className="hidden xl:block">Últ. registro</HeaderCell>
-        <HeaderCell className="hidden xl:block">Próx. test</HeaderCell>
         <HeaderCell className="justify-self-end sr-only">Ver</HeaderCell>
       </div>
 
