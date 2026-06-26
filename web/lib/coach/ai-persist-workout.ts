@@ -97,7 +97,7 @@ export async function persistWorkoutFromAiSuggestion(params: {
       ${params.coach_id},
       ${params.suggestion.name.slice(0, 200)},
       ${params.suggestion.format}::template_format,
-      ${params.suggestion.target_block ?? 'ACC'}::target_block,
+      ${params.suggestion.target_block ?? 'any'}::target_block,
       ${is_draft},
       ${params.suggestion.warmup ?? null},
       ${params.suggestion.coach_notes ?? null},

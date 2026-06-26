@@ -187,7 +187,7 @@ function buildSystemPrompt(): string {
     '- Conservador. Si dudas, recomienda "soften", no "swap".',
     '- Solo usa to_template_id de la lista de alternatives proporcionada.',
     '- Máximo 14 slot_changes. Justifica cada cambio en rationale.',
-    '- Mantén lenguaje técnico ATR (Acumulación, Transformación, Realización).',
+    '- Usa la terminología de fases del propio coach; no impongas un vocabulario de periodización concreto.',
     '- NO inventes nombres de templates ni IDs.',
   ].join('\n');
 }

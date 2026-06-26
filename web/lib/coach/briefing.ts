@@ -8,7 +8,7 @@ interface BuildParams {
   cohort: CohortRow[];
   now?: Date;
   active_athlete_count?: number;
-  next_a_event?: { name: string; iso_date: string; athlete_count: number; phase: string } | null;
+  next_a_event?: { name: string; iso_date: string; athlete_count: number; phase?: string | null } | null;
   pending_video_reviews?: number;
   unread_messages?: number;
   scheduled_tests?: Array<{ athlete_name: string; label: string }>;
@@ -92,7 +92,7 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
       id: 'transitions',
       icon: 'flask-conical',
       primary: `${transitionReady} atletas listos para transición de bloque`,
-      secondary: 'ACC→TRANS / TRANS→REAL',
+      secondary: 'revisar progresión de bloque',
       emphasis: 'warning',
       filter_param: 'transition',
     });
@@ -131,7 +131,9 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
       id: 'event',
       icon: 'flag',
       primary: `${params.next_a_event.name} en ${daysUntil(now, params.next_a_event.iso_date)}d`,
-      secondary: `${params.next_a_event.athlete_count} atletas A-event · fase ${params.next_a_event.phase}`,
+      secondary: `${params.next_a_event.athlete_count} atletas A-event${
+        params.next_a_event.phase ? ` · fase ${params.next_a_event.phase}` : ''
+      }`,
       emphasis: 'normal',
       filter_param: 'event',
     });
@@ -142,7 +144,7 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
         id: 'event',
         icon: 'flag',
         primary: `${upcoming.name} en ${upcoming.days}d`,
-        secondary: `${upcoming.athlete_count} atletas A-event · fase ${upcoming.phase}`,
+        secondary: `${upcoming.athlete_count} atletas A-event`,
         emphasis: 'normal',
         filter_param: 'event',
       });
@@ -212,7 +214,7 @@ function aggregatePolarization(
 
 function inferUpcomingEvent(
   cohort: CohortRow[],
-): { name: string; days: number; athlete_count: number; phase: string } | null {
+): { name: string; days: number; athlete_count: number } | null {
   const upcoming = cohort
     .filter((r) => r.days_to_a_event != null)
     .sort((a, b) => (a.days_to_a_event ?? 0) - (b.days_to_a_event ?? 0));
@@ -222,12 +224,10 @@ function inferUpcomingEvent(
   const cohortAtSameEvent = cohort.filter(
     (r) => r.days_to_a_event != null && Math.abs((r.days_to_a_event ?? 0) - days) <= 7,
   ).length;
-  const phase = days <= 21 ? 'REAL próxima' : days <= 49 ? 'TRANS' : 'ACC';
   return {
     name: 'HYROX BCN',
     days,
     athlete_count: cohortAtSameEvent,
-    phase,
   };
 }
 

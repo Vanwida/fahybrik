@@ -26,7 +26,11 @@ type StatusFilter = 'todos' | RosterStatus;
 // LevelFilter uses string so any coach-defined level name works (N1–N5 default,
 // but coaches can customise). 'todos' = no filter applied.
 type LevelFilter = 'todos' | string;
-type PhaseFilter = 'todas' | 'ACC' | 'TRANS' | 'REAL' | 'sin';
+// AGNOSTIC: phase = the coach's microciclo name (athlete_month_assignments →
+// program_month_templates.name). Options are derived from the real names present
+// in the roster, never a hardcoded ATR (ACC/TRANS/REAL) set. 'todas' = no filter,
+// 'sin' = athletes with no active microciclo.
+type PhaseFilter = 'todas' | 'sin' | string;
 type TestFilter = 'todos' | 'pendiente';
 type SortKey = 'adherencia' | 'nombre' | 'nivel' | 'estado';
 
@@ -47,14 +51,6 @@ const LEVEL_OPTIONS: ReadonlyArray<DropdownOption<LevelFilter>> = [
   { value: 'N3', label: 'N3' },
   { value: 'N4', label: 'N4' },
   { value: 'N5', label: 'N5' },
-];
-
-const PHASE_OPTIONS: ReadonlyArray<DropdownOption<PhaseFilter>> = [
-  { value: 'todas', label: 'Todas' },
-  { value: 'ACC', label: 'Acumulación' },
-  { value: 'TRANS', label: 'Intensificación' },
-  { value: 'REAL', label: 'Tapering' },
-  { value: 'sin', label: 'Sin fase' },
 ];
 
 const TEST_OPTIONS: ReadonlyArray<DropdownOption<TestFilter>> = [
@@ -107,6 +103,19 @@ export function RosterDirectory({
     () => athletes.map((a) => ({ ...toRosterRow(a), intake_pending: a.intake_pending })),
     [athletes],
   );
+
+  // Fase options derived from the real microciclo names present in the roster
+  // (AGNOSTIC — whatever the coach named them), plus "Todas" / "Sin fase".
+  const phaseOptions = useMemo<ReadonlyArray<DropdownOption<PhaseFilter>>>(() => {
+    const names = Array.from(
+      new Set(rows.map((r) => r.phase_code).filter((c): c is string => c != null)),
+    ).sort((a, b) => a.localeCompare(b, 'es'));
+    return [
+      { value: 'todas', label: 'Todas' },
+      ...names.map((n) => ({ value: n, label: n })),
+      { value: 'sin', label: 'Sin fase' },
+    ];
+  }, [rows]);
 
   // Real count chips — activos / nuevos / requieren atención (all derived).
   const counts = useMemo(() => {
@@ -224,7 +233,7 @@ export function RosterDirectory({
         />
         <FilterDropdown
           label="Fase"
-          options={PHASE_OPTIONS}
+          options={phaseOptions}
           value={phase}
           defaultValue="todas"
           onChange={setPhase}
