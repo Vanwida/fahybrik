@@ -52,6 +52,13 @@ struct ExerciseDetailView: View {
         if let h = line.headline { parts.append(h) }
         if let pace = line.pace { parts.append(pace) }
         if let z = line.zone { parts.append(z.label) }
+        // Backend-resolved absolute pace band for a zone target (the athlete's
+        // own zones → "4:00–4:14/km"). Only present when the line targets a zone
+        // and the athlete has tested that modality; never fabricated.
+        if let ri = item.resolvedIntensity {
+            parts.append(ri.rangeLabel)
+            if ri.needsReview { parts.append("sin confirmar") }
+        }
         if let det = line.detail { parts.append(det) }
         if let header = PrescriptionRenderer.wodHeader(p) { parts.insert(header, at: 0) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")

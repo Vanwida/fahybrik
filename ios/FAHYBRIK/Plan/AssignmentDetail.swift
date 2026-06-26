@@ -91,6 +91,12 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     // below). Null/absent for legacy segments that only carry scalar params, so
     // renderers PREFER this when present and fall back to `paramsJson` otherwise.
     let prescription: Prescription?
+    // ABSOLUTE pace band the BACKEND resolved from the athlete's stored zone
+    // profile for this line's zone target (read, never recomputed here). Non-nil
+    // ONLY when the target is a zone AND the athlete has tested that modality;
+    // nil otherwise — then renderers show the zone badge alone with NO fabricated
+    // pace. The wire field `resolved_intensity` converts to `resolvedIntensity`.
+    let resolvedIntensity: ResolvedIntensity?
     let notes: String?
 
     // Explicit keys are required because the wire field `prescription_json`
@@ -107,8 +113,29 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
         case exerciseDescription
         case paramsJson
         case prescription = "prescriptionJson"
+        case resolvedIntensity
         case notes
     }
+}
+
+// The athlete's zone target resolved to an absolute pace band (mirrors the
+// backend `ResolvedIntensity` in lib/athlete/assignment-detail.ts). `rangeLabel`
+// is READY to render with its unit ("4:00–4:14/km", "> 2:17/500m"); `zoneLabel`
+// is the coach zone code (Z4, or a span like "Z3–Z4"). `needsReview` flags an
+// UNCONFIRMED auto-profile (derived from onboarding benchmarks, pending the
+// coach's review) — the band still resolves; the UI marks it "sin confirmar".
+// Snake_case wire keys (`zone_label`, `range_label`, `fast_s`, `slow_s`,
+// `pace_unit`, `needs_review`) convert to these via the shared decoder.
+struct ResolvedIntensity: Codable, Equatable {
+    let zoneLabel: String
+    let rangeLabel: String
+    let fastS: Double
+    let slowS: Double?
+    let paceUnit: String      // "per_km" | "per_500m"
+    let needsReview: Bool
+
+    /// The band prefixed for a pace slot, e.g. "@ 4:00–4:14/km".
+    var paceChip: String { "@ \(rangeLabel)" }
 }
 
 struct WorkoutItemParams: Codable, Equatable {

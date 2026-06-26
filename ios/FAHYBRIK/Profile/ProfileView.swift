@@ -72,6 +72,9 @@ struct ProfileView: View {
                             aEventCard(days: days)
                         }
 
+                        SectionHeader(title: "Rendimiento")
+                        zonesCard
+
                         SectionHeader(title: "Dispositivos")
                         devicesCard
 
@@ -426,6 +429,25 @@ struct ProfileView: View {
                     MonoText(text: blockLabel.uppercased(), size: 10, color: Theme.Color.muted)
                 }
             }
+        }
+    }
+
+    // MARK: - Zones ("Mis zonas")
+
+    /// Entry point to the athlete's resolved pace bands per modality. Read-only;
+    /// the destination handles its own loading / empty / error states.
+    private var zonesCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                MyZonesView(bearer: bearer)
+            } label: {
+                profileRowContent(
+                    icon: "speedometer",
+                    title: "Mis zonas de ritmo",
+                    subtitle: "Tus bandas por modalidad · carrera /km, remo y ski /500m"
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 

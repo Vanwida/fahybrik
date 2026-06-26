@@ -625,6 +625,14 @@ struct PreWorkoutBriefView: View {
     private func modalityCard(_ item: WorkoutItem, modality: PrescriptionModality) -> some View {
         let line = item.prescription.map { PrescriptionRenderer.summaryLine($0) }
             ?? lineFromParams(item)   // legacy fallback to scalar params
+        // The athlete's ABSOLUTE pace band: prefer an explicit prescribed pace,
+        // else the backend-resolved band for a zone target (e.g. "@ 4:00–4:14/km"
+        // beside the Z4 badge). Both are honest — nil when neither exists.
+        let pace = line.pace ?? item.resolvedIntensity?.paceChip
+        let needsReview = item.resolvedIntensity?.needsReview == true
+        let detail = [line.detail, needsReview ? "sin confirmar" : nil]
+            .compactMap { $0 }
+            .joined(separator: " · ")
         CardSurface(padding: 14, leftAccent: true) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -636,21 +644,23 @@ struct PreWorkoutBriefView: View {
                     Spacer(minLength: 8)
                     if let z = line.zone { ZBadge(zone: z) }
                 }
-                if let headline = line.headline {
+                if line.headline != nil || pace != nil {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(headline)
-                            .font(.system(size: 24, weight: .heavy, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
+                        if let headline = line.headline {
+                            Text(headline)
+                                .font(.system(size: 24, weight: .heavy, design: .monospaced).monospacedDigit())
+                                .foregroundStyle(Theme.Color.foreground)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
                         Spacer(minLength: 8)
-                        if let pace = line.pace {
+                        if let pace {
                             MonoText(text: pace, size: 13, weight: .medium, color: Theme.Color.accentText)
                         }
                     }
                 }
-                if let det = line.detail {
-                    MonoText(text: det, size: 12, weight: .medium, color: Theme.Color.muted)
+                if !detail.isEmpty {
+                    MonoText(text: detail, size: 12, weight: .medium, color: Theme.Color.muted)
                 }
                 techniqueButton(item)
             }

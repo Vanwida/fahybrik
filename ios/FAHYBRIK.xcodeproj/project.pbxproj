@@ -61,6 +61,8 @@
 		2AD3387B52E11CED13C90EE0 /* FacilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4792F4658F35CB9D30DCE9C4 /* FacilityStep.swift */; };
 		318E0D1B4D465F961F5288FC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = EA0D911B68F6A0E86F388AD3 /* Localizable.strings */; };
 		32E39D602596E9A178401301 /* MeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CA469657CC4F5CB348FCD9 /* MeService.swift */; };
+		A1B2C3D4E5F60000000A0002 /* ZonesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60000000A0001 /* ZonesService.swift */; };
+		A1B2C3D4E5F60000000B0002 /* MyZonesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60000000B0001 /* MyZonesView.swift */; };
 		38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */; };
 		3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7977DBCE8367B9C75CC6D124 /* PlanView.swift */; };
 		3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABF59F238D4FB4A53CCDD05 /* Theme.swift */; };
@@ -273,6 +275,8 @@
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
 		B6638A2E174C3189F64CFDB4 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B9CA469657CC4F5CB348FCD9 /* MeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60000000A0001 /* ZonesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60000000B0001 /* MyZonesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyZonesView.swift; sourceTree = "<group>"; };
 		BC4097FB089CB79FC0A55D1B /* PartnerRedeemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerRedeemView.swift; sourceTree = "<group>"; };
 		BDF647B80717E54E6BC417DB /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		BF0CEE1B45BEE1B2A85CF407 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -462,12 +466,14 @@
 				7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */,
 				3A07618BFBE2D893F8EC219B /* DeleteAccountConfirmView.swift */,
 				B9CA469657CC4F5CB348FCD9 /* MeService.swift */,
+				A1B2C3D4E5F60000000B0001 /* MyZonesView.swift */,
 				6391B1CBBCA4894E03594A87 /* PartnerInfo.swift */,
 				D02E9C3585FE2242F1D24D76 /* PartnerInviteSheet.swift */,
 				BC4097FB089CB79FC0A55D1B /* PartnerRedeemView.swift */,
 				59549DD32CB054A2BCC770F6 /* PartnerService.swift */,
 				F620B06763EDA7D5B9BEF3C6 /* ProfileView.swift */,
 				F8A1308F2D64ED7272E7D7AD /* SubscriptionService.swift */,
+				A1B2C3D4E5F60000000A0001 /* ZonesService.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -982,6 +988,8 @@
 				EC9F8438A8D24DC1EF82DE70 /* LapButton.swift in Sources */,
 				04D0CE56C7766A26BAD5DC91 /* ManualEntryControl.swift in Sources */,
 				32E39D602596E9A178401301 /* MeService.swift in Sources */,
+				A1B2C3D4E5F60000000A0002 /* ZonesService.swift in Sources */,
+				A1B2C3D4E5F60000000B0002 /* MyZonesView.swift in Sources */,
 				E13516289BE04F618147CA7C /* NutritionModels.swift in Sources */,
 				8E3D2CF3B6841E05350960D2 /* NutritionSearchSheet.swift in Sources */,
 				E1BE8E7C614FE987DEB806A0 /* NutritionService.swift in Sources */,
