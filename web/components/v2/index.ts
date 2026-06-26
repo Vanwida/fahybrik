@@ -20,7 +20,7 @@ export {
 export { ThemeToggle } from './theme/ThemeToggle';
 export {
   V2ThemeProvider,
-  V2ThemeScript,
   useV2Theme,
   type V2Theme,
 } from './theme/V2ThemeProvider';
+export { V2ThemeScript } from './theme/V2ThemeScript';

@@ -92,12 +92,5 @@ export function useV2Theme(): V2ThemeContextValue {
   return ctx;
 }
 
-/**
- * Inline pre-paint script — sets `data-theme` on the `.v2-root` element BEFORE
- * React hydrates so there is no light/dark flash. Rendered once in the v2 layout.
- * Kept tiny + dependency-free; mirrors the fallback order in getClientTheme.
- */
-export function V2ThemeScript() {
-  const js = `(function(){try{var k='${V2_THEME_STORAGE_KEY}';var s=localStorage.getItem(k);var t=(s==='dark'||s==='light')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'${V2_THEME_DEFAULT}');var el=document.querySelector('.v2-root');if(el)el.setAttribute('data-theme',t);}catch(e){}})();`;
-  return <script dangerouslySetInnerHTML={{ __html: js }} />;
-}
+// V2ThemeScript moved to ./V2ThemeScript.tsx (must be a server component so the
+// inline pre-paint <script> actually executes; a 'use client' module can't run it).

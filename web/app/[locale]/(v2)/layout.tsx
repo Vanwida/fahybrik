@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { V2Shell } from '@/components/v2/V2Shell';
-import { V2ThemeScript } from '@/components/v2/theme/V2ThemeProvider';
+import { V2ThemeScript } from '@/components/v2/theme/V2ThemeScript';
 import './v2-theme.css';
 
 // v2 route-group layout — the FOUNDATION of the redesign. Lives ALONGSIDE the
