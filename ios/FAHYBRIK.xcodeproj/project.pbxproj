@@ -139,6 +139,8 @@
 		E1BE8E7C614FE987DEB806A0 /* NutritionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A643EE9451F449FBBBE29AB1 /* NutritionService.swift */; };
 		E23D573788732D8862FD4B33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE78C660D60754A5A84523CC /* Assets.xcassets */; };
 		E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */; };
+		DEA0000000000000DEA00001 /* DemoAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0000000000000DEA00003 /* DemoAuthService.swift */; };
+		DEA0000000000000DEA00002 /* DemoSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0000000000000DEA00004 /* DemoSignInView.swift */; };
 		E6CD184300064475A9BCEBBE /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA912BF52924EC0C847BF1E0 /* HealthKit.framework */; };
 		E72A77093E8EB0CF64794C1B /* InputRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D4ECE1AF7437FFE445A76A /* InputRows.swift */; };
 		E7E678855ED52A8B6CD23D2B /* InjuriesLimitationsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC45DF296B84EA2CDD54FB18 /* InjuriesLimitationsStep.swift */; };
@@ -294,6 +296,8 @@
 		D0C391DA1143E358902A37C7 /* EventsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsModels.swift; sourceTree = "<group>"; };
 		D4E68E01FF6A98B96974A052 /* RequestQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestQueue.swift; sourceTree = "<group>"; };
 		D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInView.swift; sourceTree = "<group>"; };
+		DEA0000000000000DEA00003 /* DemoAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAuthService.swift; sourceTree = "<group>"; };
+		DEA0000000000000DEA00004 /* DemoSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoSignInView.swift; sourceTree = "<group>"; };
 		D86DF203777D3C5363727298 /* StepShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepShell.swift; sourceTree = "<group>"; };
 		D8F879CB1CB83714926BFB4E /* FAHYBRIK.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FAHYBRIK.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D97A61118C7BFE1C854713F5 /* HealthKitDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitDTO.swift; sourceTree = "<group>"; };
@@ -632,6 +636,8 @@
 			children = (
 				7831A459ACF982E946D9C459 /* AppleAuthService.swift */,
 				D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */,
+				DEA0000000000000DEA00003 /* DemoAuthService.swift */,
+				DEA0000000000000DEA00004 /* DemoSignInView.swift */,
 				CD67F9F44169FDFF3D52F2B8 /* InviteGateView.swift */,
 				39EF7B3C71957791C43C44FF /* InviteLandingView.swift */,
 				C0508E384288152EE74E19F1 /* InviteService.swift */,
@@ -945,6 +951,8 @@
 				E16711BB7C8F02FC5317AC95 /* AppRoot.swift in Sources */,
 				AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */,
 				E673FD9D7116C5E3BCE9D534 /* AppleSignInView.swift in Sources */,
+				DEA0000000000000DEA00001 /* DemoAuthService.swift in Sources */,
+				DEA0000000000000DEA00002 /* DemoSignInView.swift in Sources */,
 				16052B47077FFD16589117BD /* AssignmentDetail.swift in Sources */,
 				AA01PRESCRIPTIONBF01001A /* Prescription.swift in Sources */,
 				AA02RENDERERBF02002B /* PrescriptionRenderer.swift in Sources */,

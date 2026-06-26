@@ -53,6 +53,21 @@ final class AuthState {
         persist()
     }
 
+    /// Seat a DEMO athlete session. Reuses the exact same session state +
+    /// persistence as a real Apple sign-in (`acceptAppleResponse`): the bearer
+    /// is a normal athlete JWT, so every downstream screen behaves identically.
+    /// The seeded demo athlete is already onboarded → land straight in the app.
+    /// `accessGated = nil` re-derives the invite-only gate from the subscription
+    /// endpoint just like a real session (the demo athlete carries an active
+    /// comp subscription, so it resolves ungated).
+    func acceptDemoSession(bearer: String, athleteId: String) {
+        self.bearer = bearer
+        self.athleteId = athleteId
+        stage = .authenticated
+        accessGated = nil
+        persist()
+    }
+
     func finishOnboarding() {
         stage = .authenticated
         persist()

@@ -3,10 +3,15 @@ import AuthenticationServices
 
 struct AppleSignInView: View {
     let onAuthenticated: (AppleAuthResponse) -> Void
+    /// ADDITIVE demo entry. Called when a demo athlete session is minted; the
+    /// host seats it via `AuthState.acceptDemoSession`. Never touches the real
+    /// Sign in with Apple path above it.
+    var onDemoSession: ((_ bearer: String, _ athleteId: String) -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var error: String?
     @State private var inProgress: Bool = false
+    @State private var showDemo: Bool = false
 
     var body: some View {
         ZStack {
@@ -82,12 +87,48 @@ struct AppleSignInView: View {
                     ProgressView().tint(Theme.Color.accentText)
                 }
 
+                // ADDITIVE, gated demo entry. Secondary + visually subordinate
+                // to Sign in with Apple — never the primary path. Hidden unless
+                // the demo build flag is on; the backend additionally 404s the
+                // mint endpoint off-demo, so the picker degrades to an honest
+                // "demo no disponible" even if the button is ever shown.
+                if DemoEntry.isEnabled, onDemoSession != nil {
+                    Button("Entrar como atleta demo") { showDemo = true }
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                        .padding(.top, Theme.Spacing.xs)
+                }
+
                 LegalAcknowledgementText()
                     .padding(.horizontal, Theme.Spacing.xl)
 
                 Spacer().frame(height: Theme.Spacing.xl)
             }
         }
+        .sheet(isPresented: $showDemo) {
+            DemoSignInView { bearer, athleteId in
+                showDemo = false
+                onDemoSession?(bearer, athleteId)
+            }
+        }
+    }
+}
+
+// Gates the additive demo-entry button. Reads the optional Info.plist key
+// `FahybrikDemoEntry` ("1" → on, "0" → off); absent → on in DEBUG, off in
+// Release. This is a UX gate only — the real security gate is server-side
+// (the mint endpoint 404s unless DEMO_ACCESS=1), so a stray button can never
+// grant access on its own.
+enum DemoEntry {
+    static var isEnabled: Bool {
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "FahybrikDemoEntry") as? String {
+            return raw == "1"
+        }
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
     }
 }
 

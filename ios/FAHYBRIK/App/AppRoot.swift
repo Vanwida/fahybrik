@@ -58,13 +58,22 @@ struct AppRoot: View {
             } else {
                 switch auth.stage {
                 case .unauthenticated:
-                    AppleSignInView { resp in
-                        auth.acceptAppleResponse(resp)
-                        // Returning athlete who skips onboarding — wire push now.
-                        if auth.stage == .authenticated {
+                    AppleSignInView(
+                        onAuthenticated: { resp in
+                            auth.acceptAppleResponse(resp)
+                            // Returning athlete who skips onboarding — wire push now.
+                            if auth.stage == .authenticated {
+                                startPush()
+                            }
+                        },
+                        onDemoSession: { bearer, athleteId in
+                            // Demo athlete lands authenticated (seeded onboarded).
+                            // Reuses the real session path; access gate + push
+                            // wire up exactly as a normal sign-in.
+                            auth.acceptDemoSession(bearer: bearer, athleteId: athleteId)
                             startPush()
                         }
-                    }
+                    )
                 case .onboarding, .authenticated:
                     authenticatedFlow
                 }
