@@ -198,6 +198,11 @@ struct WorkoutExecutionPayload: Codable {
     let perceived_exertion: Int?
     let total_duration_seconds: Int?
     let notes: String?
+    /// Metcon/HYROX final score. `score_time_s` for For Time / RFT / HYROX-sim;
+    /// `score_rounds` (+ `score_reps`) for AMRAP. All nil for non-scored formats.
+    let score_time_s: Int?
+    let score_rounds: Int?
+    let score_reps: Int?
     let started_at: String?
     let ended_at: String?
     /// Per-segment measured execution. Omitted (nil) for sessions with a single

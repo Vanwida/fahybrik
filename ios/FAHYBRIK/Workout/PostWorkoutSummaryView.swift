@@ -15,7 +15,20 @@ struct PostWorkoutSummaryView: View {
 
     @State private var rpe: Int = 7
     @State private var notes: String = ""
+    // Metcon/HYROX final score — only surfaced for scored formats (see `showScore`).
+    @State private var scoreTimeSeconds: Int? = nil
+    @State private var scoreRounds: Int? = nil
+    @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
+
+    // For Time / RFT / HYROX-sim are scored by final time; AMRAP by rounds (+reps).
+    // Every other format (EMOM, intervals, strength, circuit) has no single score,
+    // so we don't show the field — honest, no empty prompt.
+    private var isTimeScored: Bool {
+        session.plan.format == .forTime || session.plan.format == .hyroxSim
+    }
+    private var isRoundsScored: Bool { session.plan.format == .amrap }
+    private var showScore: Bool { isTimeScored || isRoundsScored }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +43,9 @@ struct PostWorkoutSummaryView: View {
                     }
                     if session.plan.segments.count > 1 {
                         segmentsTable
+                    }
+                    if showScore {
+                        scoreCard
                     }
                     rpeCard
                     notesCard
@@ -79,6 +95,10 @@ struct PostWorkoutSummaryView: View {
             perceived_exertion: rpe,
             total_duration_seconds: Int(session.elapsedSeconds.rounded()),
             notes: notes.isEmpty ? nil : notes,
+            // Only send the score dimensions relevant to this format.
+            score_time_s: isTimeScored ? scoreTimeSeconds : nil,
+            score_rounds: isRoundsScored ? scoreRounds : nil,
+            score_reps: isRoundsScored ? scoreReps : nil,
             started_at: iso.string(from: startedAt),
             ended_at: iso.string(from: endedAt),
             segments: segments.isEmpty ? nil : segments
@@ -239,6 +259,28 @@ struct PostWorkoutSummaryView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
+                }
+            }
+        }
+    }
+
+    // MARK: - Metcon/HYROX score
+    //
+    // Time formats capture the final clock (mm:ss, minutes can exceed 60 for a
+    // long HYROX sim); AMRAP captures completed rounds + the partial reps of the
+    // unfinished round. The `padding: 0` card mirrors the per-segment table style.
+    private var scoreCard: some View {
+        CardSurface(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                LabelText(text: "Resultado", size: 9)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+                if isTimeScored {
+                    TimeMinSecRow(label: "Tiempo final", seconds: $scoreTimeSeconds)
+                } else if isRoundsScored {
+                    IntRow(label: "Rondas", unit: "", value: $scoreRounds)
+                    IntRow(label: "Reps extra", unit: "", value: $scoreReps)
                 }
             }
         }

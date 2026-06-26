@@ -6,7 +6,10 @@ import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { loadSegmentActuals } from '@/lib/dashboard/coach/session-actuals';
-import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
+import {
+  formatExecutionScore,
+  type CoachSessionDetail,
+} from '@/lib/dashboard/coach/athlete-session-adapter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,9 +67,16 @@ export async function GET(
   // Execution reality (duration + athlete notes; RPE/ended_at already in detail).
   // `id` lets us pull the per-segment actuals the athlete logged for this run.
   const executionRows = await sql<
-    Array<{ id: number; total_duration_seconds: number | null; notes: string | null }>
+    Array<{
+      id: number;
+      total_duration_seconds: number | null;
+      notes: string | null;
+      score_time_s: number | null;
+      score_rounds: number | null;
+      score_reps: number | null;
+    }>
   >`
-    select id, total_duration_seconds, notes
+    select id, total_duration_seconds, notes, score_time_s, score_rounds, score_reps
     from workout_executions
     where assignment_id = ${Number(parsedSession.data.session_id)}
     limit 1
@@ -99,6 +109,13 @@ export async function GET(
           rpe: detail.assignment.perceived_exertion,
           athlete_notes: executionRow?.notes ?? null,
           ended_at: detail.assignment.completed_at,
+          score_label: executionRow
+            ? formatExecutionScore({
+                score_time_s: executionRow.score_time_s,
+                score_rounds: executionRow.score_rounds,
+                score_reps: executionRow.score_reps,
+              })
+            : null,
         }
       : null,
     segment_actuals: segmentActuals,

@@ -16,6 +16,11 @@ const workoutExecutionSchema = z.object({
   perceived_exertion: z.number().int().min(1).max(10).optional(),
   total_duration_seconds: z.number().int().min(0).optional(),
   notes: z.string().max(4000).optional(),
+  // Metcon/HYROX final score. score_time_s for For Time / RFT / HYROX-sim;
+  // score_rounds (+ score_reps) for AMRAP. Null/omitted for non-scored formats.
+  score_time_s: z.number().int().min(0).optional(),
+  score_rounds: z.number().int().min(0).optional(),
+  score_reps: z.number().int().min(0).optional(),
   started_at: z.string().datetime().optional(),
   ended_at: z.string().datetime().optional(),
   // Optional per-segment detail from iOS on workout finish. Upserted by
@@ -60,7 +65,8 @@ export async function POST(request: Request) {
   const execRows = await sql<Array<{ id: string }>>`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at,
-      total_duration_seconds, perceived_exertion, notes, source
+      total_duration_seconds, perceived_exertion, notes,
+      score_time_s, score_rounds, score_reps, source
     )
     values (
       ${assignmentId},
@@ -70,12 +76,18 @@ export async function POST(request: Request) {
       ${parsed.data.total_duration_seconds ?? null},
       ${parsed.data.perceived_exertion ?? null},
       ${parsed.data.notes ?? null},
+      ${parsed.data.score_time_s ?? null},
+      ${parsed.data.score_rounds ?? null},
+      ${parsed.data.score_reps ?? null},
       'healthkit'
     )
     on conflict (assignment_id) do update set
       perceived_exertion = coalesce(excluded.perceived_exertion, workout_executions.perceived_exertion),
       total_duration_seconds = coalesce(excluded.total_duration_seconds, workout_executions.total_duration_seconds),
       notes = coalesce(excluded.notes, workout_executions.notes),
+      score_time_s = coalesce(excluded.score_time_s, workout_executions.score_time_s),
+      score_rounds = coalesce(excluded.score_rounds, workout_executions.score_rounds),
+      score_reps = coalesce(excluded.score_reps, workout_executions.score_reps),
       ended_at = coalesce(excluded.ended_at, workout_executions.ended_at),
       updated_at = now()
     returning id::text

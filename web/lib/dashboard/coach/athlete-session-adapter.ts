@@ -46,12 +46,39 @@ export interface CoachSessionDetail {
     rpe: number | null;
     athlete_notes: string | null;
     ended_at: string | null;
+    /** Metcon/HYROX headline result, pre-formatted ("42:15", "5 rondas + 8 reps").
+     *  Null for non-scored formats or when the athlete didn't record a score. */
+    score_label: string | null;
   } | null;
   /** Per-exercise actuals the athlete logged (segment_executions), mapped to the
    *  prescribed item via `item_uid`. Empty when the session has no granular log
    *  (old session / athlete logged only the aggregate) — the UI then shows the
    *  prescription with no "hecho" line, never a fabricated number. */
   segment_actuals: SegmentActual[];
+}
+
+/**
+ * Format the athlete's recorded metcon/HYROX score into the coach-facing label.
+ * Time wins (For Time / RFT / HYROX-sim) → "mm:ss"; else AMRAP rounds (+ partial
+ * reps). Returns null when no score was recorded (non-scored format). Single
+ * source of truth for the score string so the API and any UI render it identically.
+ */
+export function formatExecutionScore(s: {
+  score_time_s: number | null;
+  score_rounds: number | null;
+  score_reps: number | null;
+}): string | null {
+  if (s.score_time_s != null) {
+    const m = Math.floor(s.score_time_s / 60);
+    const sec = s.score_time_s % 60;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  }
+  if (s.score_rounds != null) {
+    return s.score_reps != null && s.score_reps > 0
+      ? `${s.score_rounds} rondas + ${s.score_reps} reps`
+      : `${s.score_rounds} rondas`;
+  }
+  return null;
 }
 
 /** Fallback format for blocks whose stored format isn't in the shared enum. */

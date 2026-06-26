@@ -197,6 +197,11 @@ export function SessionDetailDrawer({
                     · RPE {detail.execution.rpe}
                   </span>
                 ) : null}
+                {detail.execution?.score_label ? (
+                  <span className="v2-num text-xs font-medium text-[color:var(--v2-fg)]">
+                    · {detail.execution.score_label}
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>
