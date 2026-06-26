@@ -2,6 +2,9 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { sql } from '../db';
 import { userRoles, type Role } from './roles';
 import { findOrCreateCoachByClerkUser } from './users';
+import { DEMO_COACH_EMAILS, isDemoAccessEnabled } from './demo-access';
+import { readDemoCoachCookieToken } from './demo-cookie';
+import { audiences, verifySession } from './session';
 
 // Coach dashboard session — Clerk is authentication, the DB is authorization.
 //
@@ -83,7 +86,67 @@ async function coachSessionByClerkUserId(
   };
 }
 
+/** Resolve the coach session for a DB user id, or null if no coach row. */
+async function coachSessionByUserId(
+  userId: bigint,
+  jti: string,
+): Promise<CoachSession | null> {
+  const rows = await sql<
+    { user_id: string; coach_id: string; email: string; full_name: string }[]
+  >`
+    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name
+    from users u
+    join coaches c on c.user_id = u.id
+    where u.id = ${userId} and u.deleted_at is null
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const id = BigInt(row.user_id);
+  const roles = await userRoles(id);
+  return {
+    user_id: id,
+    coach_id: BigInt(row.coach_id),
+    email: row.email,
+    full_name: row.full_name,
+    jti,
+    roles,
+  };
+}
+
+/**
+ * DEMO-ONLY coach session. Returns a coach session from the gated demo cookie,
+ * or null. Hard guarantees (see lib/auth/demo-access.ts):
+ *   - caller must have already checked isDemoAccessEnabled();
+ *   - the cookie is a real, DB-backed, revocable coach JWT (verifySession);
+ *   - the resolved coach's email MUST be a known demo coach email, so a real
+ *     or forged coach JWT can never be promoted through this path.
+ */
+async function resolveDemoCoachSession(): Promise<CoachSession | null> {
+  const token = await readDemoCoachCookieToken();
+  if (!token) return null;
+
+  const verified = await verifySession(token, audiences.coach);
+  if (!verified) return null;
+
+  const session = await coachSessionByUserId(verified.user_id, verified.jti);
+  if (!session) return null;
+
+  // Final gate: only the seeded demo coaches may ride the demo cookie.
+  if (!DEMO_COACH_EMAILS.has(session.email.toLowerCase())) return null;
+
+  return session;
+}
+
 export async function getCoachSession(): Promise<CoachSession | null> {
+  // Gated demo path, BEFORE Clerk. Invisible unless DEMO_ACCESS=1; falls
+  // through to the real Clerk path when there is no valid demo cookie, so the
+  // production auth flow is completely untouched.
+  if (isDemoAccessEnabled()) {
+    const demo = await resolveDemoCoachSession();
+    if (demo) return demo;
+  }
+
   const { userId, sessionId } = await auth();
   if (!userId) {
     if (process.env.NODE_ENV === 'development') {

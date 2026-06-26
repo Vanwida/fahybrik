@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import createMiddleware from 'next-intl/middleware';
 import { routing } from './i18n/routing';
+import { DEMO_COACH_COOKIE, isDemoAccessEnabled } from './lib/auth/demo-access';
 
 // Composición Clerk + next-intl (Fase 2 — gates activos).
 //
@@ -59,13 +60,24 @@ export default clerkMiddleware(async (auth, req) => {
   // dev (pareja de este bypass). QUITAR cuando el login de Clerk funcione local.
   const devAuthBypass = process.env.NODE_ENV === 'development';
 
+  // ⚠️ GATED DEMO BYPASS (DEMO_ACCESS=1 only). When the demo flag is on AND the
+  // request carries the demo coach cookie, skip the Clerk gate so the demo
+  // coach (no Clerk session) can reach the protected dashboard. The cookie is
+  // STILL validated downstream by getCoachSession (verifySession + demo-email
+  // allowlist); an invalid cookie just makes the (v2) layout redirect to
+  // /sign-in. Production never sets DEMO_ACCESS, so this is dead there. Never
+  // weakens the real Clerk path (only adds a second, flag-gated way in).
+  const demoBypass =
+    isDemoAccessEnabled() && req.cookies.get(DEMO_COACH_COOKIE) !== undefined;
+  const skipAuthGate = devAuthBypass || demoBypass;
+
   // API: Clerk corre en TODAS las APIs (para que `auth()` tenga contexto allí
   // donde se llama getCoachSession/getAdminSession — p.ej. /api/exercises,
   // /api/templates, /api/notifications…), pero SOLO protege coach/admin. El
   // resto (athlete con Bearer propio, webhooks server-to-server, auth legacy)
   // recibe contexto pero NO se protege → su lógica propia decide. Nunca i18n.
   if (pathname.startsWith('/api/')) {
-    if (!devAuthBypass && isProtectedRoute(req)) {
+    if (!skipAuthGate && isProtectedRoute(req)) {
       await auth.protect();
     }
     return; // Sin i18n para APIs.
@@ -77,7 +89,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // Páginas protegidas: exige login; sin sesión → redirect a /sign-in.
-  if (!devAuthBypass && isProtectedRoute(req)) {
+  if (!skipAuthGate && isProtectedRoute(req)) {
     await auth.protect({ unauthenticatedUrl: new URL('/sign-in', req.url).toString() });
   }
 
