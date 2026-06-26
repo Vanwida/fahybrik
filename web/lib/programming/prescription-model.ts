@@ -61,10 +61,11 @@ export const TARGET_LABEL: Record<TargetKind, string> = {
   hr_zone: 'Zona FC',
   hr_bpm: 'FC (ppm)',
   calories: 'Calorías',
+  watts: 'Vatios',
 };
 
 const STRENGTH_TARGETS: TargetKind[] = ['percent_rm', 'kg', 'rpe', 'rir', 'bodyweight'];
-const CARDIO_TARGETS: TargetKind[] = ['pace', 'hr_zone', 'hr_bpm', 'calories', 'rpe'];
+const CARDIO_TARGETS: TargetKind[] = ['pace', 'watts', 'hr_zone', 'hr_bpm', 'calories', 'rpe'];
 const BODY_TARGETS: TargetKind[] = ['rpe', 'bodyweight', 'hr_zone']; // core / mobility
 
 /** The target kinds that make sense for a given modality (drives the kind select). */
@@ -165,6 +166,8 @@ export function emptyTargetOfKind(
       return { kind: 'rir', value: carry ?? 2 };
     case 'calories':
       return { kind: 'calories', value: carry ?? 15 };
+    case 'watts':
+      return { kind: 'watts', value: carry ?? 200 };
   }
 }
 

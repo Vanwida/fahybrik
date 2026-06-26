@@ -70,6 +70,11 @@ function targetToParams(target: Target, out: ScalarParams): void {
       if (v !== undefined) out.target_calories = v;
       break;
     }
+    case 'watts': {
+      const v = target.value ?? target.min ?? target.max;
+      if (v !== undefined) out.watts = v;
+      break;
+    }
     case 'pace': {
       // Normalize every pace to seconds-per-km so analytics has one scalar, AND
       // keep the native unit's scalar so iOS can render the original unit.

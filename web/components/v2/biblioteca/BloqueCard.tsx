@@ -2,9 +2,11 @@
 
 // BloqueCard — one reusable library block. Modality-colored left border, the
 // block title, its methodology-group label, a clamped verbatim preview, and a
-// "sin desglosar" flag for blocks pending Pablo's structured review. Blocks are
-// not yet individually editable in v2, so the card is a non-link surface.
+// "sin desglosar" flag for blocks pending Pablo's structured review. The whole
+// card links to the block editor (/biblioteca/bloque/[id]) — blocks are now
+// individually editable with typed per-modality prescription.
 
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
@@ -14,9 +16,11 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
   const meta = MODALITY_META[bloque.modality];
 
   return (
-    <div
+    <Link
+      href={`/biblioteca/bloque/${bloque.id}`}
+      aria-label={`Editar bloque ${bloque.title}`}
       className={cn(
-        'v2-stagger flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
+        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
         'shadow-[var(--v2-shadow-card)] transition-colors hover:border-[color:var(--v2-border-strong)]',
       )}
       style={{
@@ -56,6 +60,6 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[color:var(--v2-muted)]">
         {bloque.description}
       </p>
-    </div>
+    </Link>
   );
 }

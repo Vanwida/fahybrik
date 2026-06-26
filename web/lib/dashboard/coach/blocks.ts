@@ -1,8 +1,15 @@
+import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import type { Block, BlockUpdate } from '@fahybrid/shared/schema/blocks';
+import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
-import { safeParsePrescription, type Prescription } from '@fahybrid/shared/domain/prescription';
+import {
+  prescriptionToParams,
+  safeParsePrescription,
+  type Prescription,
+} from '@fahybrid/shared/domain/prescription';
+
+type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 
 // Blocks library (Biblioteca de Bloques) — Pablo's reusable training blocks
 // (migration 0037). One block = one concrete prescription stored verbatim,
@@ -228,4 +235,175 @@ export async function updateBlock(
   const r = rows[0];
   if (!r) return null;
   return mapBlockRow(r);
+}
+
+// ── Full create / replace of a library block + its structured exercises ───────
+// A library block is structurally a mini-session: the `blocks` row + a flat list
+// of `block_exercises` grouped by `block_position`. Mirrors the create-template +
+// insert-segments transaction in templates.ts. prescription_json is the structured
+// source of truth; params_json is the re-derived scalar summary (kept in sync the
+// same way template_segments do). Library blocks are GLOBAL (coach_id null).
+
+/**
+ * Build a unique, slugSchema-valid slug from a title:
+ * lowercase → non-alphanumerics to '-' → collapse/trim '-' → append a base-36
+ * timestamp for uniqueness. Falls back to "bloque" when the title has no
+ * alphanumerics, so the result always starts with [a-z0-9] (slugSchema rule).
+ */
+export function slugifyTitle(title: string): string {
+  const base = title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // strip combining accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100);
+  const stem = base.length > 0 ? base : 'bloque';
+  return `${stem}-${Date.now().toString(36)}`;
+}
+
+// Insert the flat block_exercises rows for a block. `position` (global order) is
+// the array index; block_position / format / title / prescription come per row.
+async function insertBlockExercises(
+  client: AnySql,
+  blockId: number,
+  exercises: BlockWrite['exercises'],
+): Promise<void> {
+  for (let i = 0; i < exercises.length; i++) {
+    const ex = exercises[i]!;
+    const paramsJson = JSON.parse(
+      JSON.stringify(prescriptionToParams(ex.prescription_json as Prescription), (_, v) =>
+        typeof v === 'bigint' ? Number(v) : v,
+      ),
+    );
+    const prescriptionJson = client.json(
+      JSON.parse(JSON.stringify(ex.prescription_json)) as Parameters<typeof client.json>[0],
+    );
+    await client`
+      insert into block_exercises (
+        block_id, position, block_position, exercise_id,
+        params_json, prescription_json, block_format, block_title, notes
+      )
+      values (
+        ${blockId},
+        ${i},
+        ${ex.block_position},
+        ${ex.exercise_id},
+        ${client.json(paramsJson)},
+        ${prescriptionJson},
+        ${ex.block_format ?? null},
+        ${ex.block_title ?? null},
+        ${ex.notes ?? null}
+      )
+    `;
+  }
+}
+
+/** Create a library block (global, coach_id null) + its structured exercises. */
+export async function createBlock(
+  input: BlockWrite,
+  client: Sql = defaultSql,
+): Promise<number> {
+  let blockId = 0;
+  await client.begin(async (tx) => {
+    const rows = await tx<Array<{ id: string }>>`
+      insert into blocks (
+        slug, title, description, methodology_group_id, format,
+        min_level_id, max_level_id, days_per_week, needs_review, coach_id
+      )
+      values (
+        ${slugifyTitle(input.title)},
+        ${input.title},
+        ${input.description ?? input.title},
+        ${input.methodology_group_id},
+        ${input.format ?? null},
+        ${input.min_level_id ?? null},
+        ${input.max_level_id ?? null},
+        ${input.days_per_week ?? null},
+        ${false},
+        ${null}
+      )
+      returning id::text as id
+    `;
+    blockId = Number(rows[0]!.id);
+    await insertBlockExercises(tx, blockId, input.exercises);
+  });
+  return blockId;
+}
+
+/** Row shape for the block EDITOR load — keeps block_position/format/title that
+ *  `getBlockExerciseItems` (WeekDayPartItem mapping) drops. Ordered by position. */
+export type BlockExerciseEditRow = {
+  block_position: number;
+  position: number;
+  block_format: string | null;
+  block_title: string | null;
+  exercise_id: string;
+  exercise_name: string;
+  params_json: Record<string, unknown> | null;
+  prescription_json: unknown;
+  notes: string | null;
+};
+
+export async function getBlockExerciseRowsForEdit(
+  blockId: number,
+  client: Sql = defaultSql,
+): Promise<BlockExerciseEditRow[]> {
+  return client<BlockExerciseEditRow[]>`
+    select be.block_position, be.position, be.block_format, be.block_title,
+           be.exercise_id::text as exercise_id, e.name as exercise_name,
+           be.params_json, be.prescription_json, be.notes
+    from block_exercises be
+    join exercises e on e.id = be.exercise_id
+    where be.block_id = ${blockId}
+    order by be.position
+  `;
+}
+
+/** Replace a library block's editable fields AND its structured exercises in one
+ *  transaction. Returns the updated block, or null if it doesn't exist / isn't a
+ *  global block (coach_id null). */
+export async function updateBlockFull(
+  blockId: number,
+  input: BlockWrite,
+  client: Sql = defaultSql,
+): Promise<Block | null> {
+  let updated: BlockRow | null = null;
+  await client.begin(async (tx) => {
+    const rows = await tx<BlockRow[]>`
+      update blocks set
+        title                = ${input.title},
+        description          = ${input.description ?? input.title},
+        methodology_group_id = ${input.methodology_group_id},
+        format               = ${input.format ?? null},
+        min_level_id         = ${input.min_level_id ?? null},
+        max_level_id         = ${input.max_level_id ?? null},
+        days_per_week        = ${input.days_per_week ?? null},
+        needs_review         = ${false}
+      where id = ${blockId}
+        and coach_id is null
+      returning id, slug, title, description, methodology_group_id,
+                format, source_ref, needs_review
+    `;
+    const r = rows[0];
+    if (!r) return; // not found → leave updated null; tx commits no-op
+    updated = r;
+    await tx`delete from block_exercises where block_id = ${blockId}`;
+    await insertBlockExercises(tx, blockId, input.exercises);
+  });
+  return updated ? mapBlockRow(updated) : null;
+}
+
+/** Coach's athlete levels (for the block editor's optional level selector). */
+export async function listCoachLevels(
+  coachId: number | bigint,
+  client: Sql = defaultSql,
+): Promise<Array<{ id: number; name: string; label: string }>> {
+  const rows = await client<Array<{ id: string; name: string; label: string }>>`
+    select id::text as id, name, label
+    from athlete_levels
+    where coach_id = ${Number(coachId)}
+    order by sort_order, id
+  `;
+  return rows.map((r) => ({ id: Number(r.id), name: r.name, label: r.label }));
 }

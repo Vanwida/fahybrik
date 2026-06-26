@@ -51,6 +51,8 @@ type BloqueView = 'lista' | 'matriz';
 
 /** Route to create a brand-new sesión (owned by the editing-cluster agent). */
 const NUEVA_SESION_HREF = '/biblioteca/sesion/nueva';
+/** Route to create a brand-new library bloque. */
+const NUEVO_BLOQUE_HREF = '/biblioteca/bloque/nuevo';
 
 // ── Inline orientation (shared primitives) ──────────────────────────────────
 const SECTION_KEY = 'biblioteca';
@@ -251,8 +253,8 @@ export function BibliotecaView({
               )}
             />
           </label>
-          {/* Per-tab primary action: microciclos opens the create modal; the rest
-              keep the "Nueva sesión" entry point. */}
+          {/* Per-tab primary action: microciclos opens the create modal; bloques
+              and sesiones link to their from-scratch editors. */}
           {tab === 'microciclos' ? (
             <button
               type="button"
@@ -262,6 +264,14 @@ export function BibliotecaView({
               <MIcon name="add" size={18} />
               Nuevo microciclo
             </button>
+          ) : tab === 'bloques' ? (
+            <Link
+              href={NUEVO_BLOQUE_HREF}
+              className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="add" size={18} />
+              Nuevo bloque
+            </Link>
           ) : (
             <Link
               href={NUEVA_SESION_HREF}
@@ -468,6 +478,15 @@ function BloquesGrid({
         whatToDo={<>Un bloque agrupa varias sesiones reutilizables — lo que pones en cada día.</>}
         why={<><b>Por qué importa:</b> los bloques son las piezas con las que armas los días de tus microciclos.</>}
         highlightStep="bloques"
+        action={
+          <Link
+            href={NUEVO_BLOQUE_HREF}
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+          >
+            <MIcon name="add" size={16} />
+            Crear mi primer bloque
+          </Link>
+        }
       />
     );
   }
@@ -476,6 +495,14 @@ function BloquesGrid({
       {items.map((b, i) => (
         <BloqueCard key={b.id} bloque={b} index={i} />
       ))}
+      {/* Dashed "+ nuevo bloque" tile closes the grid. */}
+      <Link
+        href={NUEVO_BLOQUE_HREF}
+        className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+      >
+        <MIcon name="add" size={22} />
+        <span className="text-xs font-semibold">nuevo bloque</span>
+      </Link>
     </div>
   );
 }

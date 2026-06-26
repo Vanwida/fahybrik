@@ -1,7 +1,12 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { getBlockById, getBlockExerciseItems, updateBlock } from '@/lib/dashboard/coach/blocks';
-import { blockUpdateSchema } from '@fahybrid/shared/schema/blocks';
+import {
+  getBlockById,
+  getBlockExerciseItems,
+  updateBlock,
+  updateBlockFull,
+} from '@/lib/dashboard/coach/blocks';
+import { blockUpdateSchema, blockWriteSchema } from '@fahybrid/shared/schema/blocks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,4 +71,36 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (!updated) return jsonError('not_found', 'Bloque no encontrado', 404);
 
   return jsonOk({ block: updated });
+}
+
+// PUT /api/coach/blocks/[id] — FULL replace of a library block: its editable
+// fields AND its structured block_exercises (the typed per-modality prescription).
+// Body = blockWriteSchema. Unlike PATCH (metadata only), this is the block editor's
+// save path. snake_case, server-side Zod validation. Returns { block }.
+export async function PUT(req: Request, ctx: Ctx) {
+  const session = await getCoachSession();
+  if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+
+  const { id } = await ctx.params;
+  const block_id = Number(id);
+  if (!Number.isFinite(block_id) || block_id <= 0) {
+    return jsonError('bad_request', 'id inválido', 400);
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonError('bad_request', 'JSON inválido', 400);
+  }
+
+  const parsed = blockWriteSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
+  }
+
+  const block = await updateBlockFull(block_id, parsed.data);
+  if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
+
+  return jsonOk({ block });
 }

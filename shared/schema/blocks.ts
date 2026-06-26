@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { slugSchema } from './_primitives';
+import { prescriptionObjectSchemaRaw } from '../domain/prescription';
 
 // Blocks library (Biblioteca de Bloques) — Pablo's methodology as reusable
 // training blocks. One row = one concrete prescription, stored VERBATIM in
@@ -60,3 +61,30 @@ export const blockUpdateSchema = z
     message: 'Al menos un campo a actualizar',
   });
 export type BlockUpdate = z.infer<typeof blockUpdateSchema>;
+
+// Full create/replace write of a library block + its structured block_exercises.
+// Mirrors template create (templates.ts): the block row + a flat list of exercise
+// rows grouped by block_position. prescription_json is the structured source of
+// truth (params_json is re-derived server-side). Used by POST/PUT
+// /api/coach/blocks. snake_case throughout.
+export const blockExerciseWriteSchema = z.object({
+  exercise_id: z.number().int().positive(),
+  block_position: z.number().int().min(0),
+  block_format: z.string().max(40).nullable().optional(),
+  block_title: z.string().trim().max(160).nullable().optional(),
+  prescription_json: prescriptionObjectSchemaRaw,
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
+export type BlockExerciseWrite = z.infer<typeof blockExerciseWriteSchema>;
+
+export const blockWriteSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().min(1).max(4000).optional(),
+  methodology_group_id: z.number().int().min(1).max(10),
+  format: z.string().max(40).nullable().optional(),
+  min_level_id: z.number().int().positive().nullable().optional(),
+  max_level_id: z.number().int().positive().nullable().optional(),
+  days_per_week: z.number().int().min(3).max(6).nullable().optional(),
+  exercises: z.array(blockExerciseWriteSchema).min(1).max(60),
+});
+export type BlockWrite = z.infer<typeof blockWriteSchema>;

@@ -14,7 +14,7 @@
 
 import type { Measure, Modality, Prescription, Target } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
-import { defaultTargetForModality } from '@/lib/programming/prescription-model';
+import { defaultTargetForModality, isErgModality } from '@/lib/programming/prescription-model';
 import {
   ClockCell,
   DistanceCell,
@@ -27,7 +27,8 @@ import {
 } from './form-controls';
 
 type WorkMode = 'distance' | 'duration';
-type ObjectiveKind = 'pace' | 'rpe';
+// Vatios is offered ONLY on erg surfaces (row/ski/bike); a track run has no power.
+type ObjectiveKind = 'pace' | 'watts' | 'rpe';
 
 // Surface / ergo choice — drives the modality (run ↔ row/ski/bike). The pace unit
 // follows: run → /km, ergo → /500m (defaultTargetForModality).
@@ -69,7 +70,20 @@ export function IntervalsForm({
   const modality: Modality = value.modality ?? 'run';
   const workMode = readWorkMode(value);
   const workMeasure = readWorkMeasure(value);
-  const objKind: ObjectiveKind = value.target?.kind === 'rpe' ? 'rpe' : 'pace';
+  const objKind: ObjectiveKind =
+    value.target?.kind === 'watts' ? 'watts' : value.target?.kind === 'rpe' ? 'rpe' : 'pace';
+
+  // Erg surfaces offer power (Vatios); a track run does not. Order = default-first.
+  const objectiveOptions: { value: ObjectiveKind; label: string }[] = isErgModality(modality)
+    ? [
+        { value: 'pace', label: 'Ritmo' },
+        { value: 'watts', label: 'Vatios' },
+        { value: 'rpe', label: 'RPE' },
+      ]
+    : [
+        { value: 'pace', label: 'Ritmo' },
+        { value: 'rpe', label: 'RPE' },
+      ];
 
   const patch = (p: Partial<Prescription>) => onChange({ ...value, scheme: 'interval', ...p });
 
@@ -117,7 +131,9 @@ export function IntervalsForm({
     const target: Target =
       kind === 'rpe'
         ? { kind: 'rpe', value: 8 }
-        : { kind: 'pace', unit: modality === 'run' ? 'per_km' : 'per_500m', value_s: 205 };
+        : kind === 'watts'
+          ? { kind: 'watts', value: 200 }
+          : { kind: 'pace', unit: modality === 'run' ? 'per_km' : 'per_500m', value_s: 205 };
     onChange({ ...value, scheme: 'interval', target });
   };
 
@@ -177,10 +193,7 @@ export function IntervalsForm({
             <InlineToggle
               ariaLabel="Tipo de objetivo"
               value={objKind}
-              options={[
-                { value: 'pace', label: 'Ritmo' },
-                { value: 'rpe', label: 'RPE' },
-              ]}
+              options={objectiveOptions}
               onChange={setObjectiveKind}
             />
             {objKind === 'pace' ? (
@@ -188,6 +201,13 @@ export function IntervalsForm({
                 target={value.target}
                 modality={modality}
                 ariaPrefix="Trabajo"
+                onChange={(t) => onChange({ ...value, scheme: 'interval', target: t })}
+              />
+            ) : objKind === 'watts' ? (
+              <ScalarTargetCell
+                kind="watts"
+                target={value.target}
+                ariaLabel="Vatios objetivo"
                 onChange={(t) => onChange({ ...value, scheme: 'interval', target: t })}
               />
             ) : (

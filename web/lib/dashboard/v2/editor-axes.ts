@@ -145,6 +145,7 @@ export const OBJETIVO_LABEL: Record<TargetKind, string> = {
   bodyweight: 'Peso corp.',
   hr_bpm: 'FC',
   calories: 'Cal',
+  watts: 'Vatios',
 };
 
 /** Objective kinds per coach tab — order = default-first (sketch ① ② ③ axes). */

@@ -82,6 +82,8 @@ export function formatTarget(t: Target): string {
       return `${rangeNum(t.min, t.max, t.value)} ppm`;
     case 'calories':
       return `${rangeNum(t.min, t.max, t.value)} cal`;
+    case 'watts':
+      return `${rangeNum(t.min, t.max, t.value)} W`;
     case 'pace': {
       const unit = PACE_UNIT_LABEL[t.unit] ?? '';
       if (t.value_s !== undefined) return `${paceClock(t.value_s)}${unit}`;
@@ -146,6 +148,8 @@ function targetSequence(targets: (Target | undefined)[]): string {
         return `RIR ${seq}`;
       case 'hr_zone':
         return `Z${seq}`;
+      case 'watts':
+        return `${seq} W`;
       default:
         break;
     }

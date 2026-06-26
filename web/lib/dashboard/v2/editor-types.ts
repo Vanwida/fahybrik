@@ -82,6 +82,21 @@ export interface SessionEditorModel {
   used_in_plans: number;
 }
 
+// ── Library BLOCK editor view model ───────────────────────────────────────────
+// A library block is a mini-session: metadata + EditorBlock[] (one per
+// block_position). Reuses the same EditorBlock/EditorItem the session editor edits.
+export interface BlockEditorModel {
+  block_id: number | null; // null = nuevo (unsaved)
+  title: string;
+  description: string;
+  methodology_group_id: number;
+  format: string | null;
+  min_level_id: number | null;
+  max_level_id: number | null;
+  days_per_week: number | null;
+  blocks: EditorBlock[];
+}
+
 // ── SCREEN 8 · day editor view model ─────────────────────────────────────────
 export interface DayEditorModel {
   month_id: string;

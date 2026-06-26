@@ -44,6 +44,7 @@ const HR_BPM_MAX = 250; // physiological ceiling
 const PERCENT_MAX = 200; // %1RM can exceed 100 for supramaximal/eccentric work
 const PACE_MAX_S = 36000; // 10h per unit — a sanity ceiling, not a real pace
 const CAL_MAX = 100000; // sanity ceiling for a single line's calories
+const WATTS_MAX = 2000; // erg power ceiling (a single line never exceeds this)
 
 // ── Modality ────────────────────────────────────────────────────────────────
 // What discipline the line trains. Drives sensible defaults (an erg line targets
@@ -102,7 +103,8 @@ export type Target =
     } // seconds per unit
   | { kind: 'hr_zone'; value?: number; min?: number; max?: number } // 1-5
   | { kind: 'hr_bpm'; min?: number; max?: number; value?: number }
-  | { kind: 'calories'; value?: number; min?: number; max?: number }; // target cal as GOAL
+  | { kind: 'calories'; value?: number; min?: number; max?: number } // target cal as GOAL
+  | { kind: 'watts'; value?: number; min?: number; max?: number }; // erg power (W)
 
 export type TargetKind = Target['kind'];
 
@@ -124,6 +126,7 @@ const SCALAR_BOUNDS: Record<string, { min: number; max: number }> = {
   hr_zone: { min: HR_ZONE_MIN, max: HR_ZONE_MAX },
   hr_bpm: { min: HR_BPM_MIN, max: HR_BPM_MAX },
   calories: { min: 0, max: CAL_MAX },
+  watts: { min: 0, max: WATTS_MAX },
 };
 
 function scalarTargetObject(kind: string) {
@@ -160,6 +163,7 @@ const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('hr_zone'),
   scalarTargetObject('hr_bpm'),
   scalarTargetObject('calories'),
+  scalarTargetObject('watts'),
 ]);
 
 export const targetSchema: z.ZodType<Target> = targetUnion.superRefine((raw, ctx) => {

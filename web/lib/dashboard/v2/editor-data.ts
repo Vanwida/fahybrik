@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { sql } from '@/lib/db';
+
 // editor-data — server loaders for the v2 editing cluster. Each REUSES an
 // existing real loader (getTemplateDetail, loadMonthTemplateWithWeeks,
 // listTemplatesForCoach, listBlocks) and maps it into the client-safe view
@@ -8,8 +10,16 @@ import 'server-only';
 
 import { getTemplateDetail, listTemplatesForCoach } from '@/lib/dashboard/coach/templates';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
-import { listBlocks } from '@/lib/dashboard/coach/blocks';
-import { legacyItemToPrescription } from '@fahybrid/shared/domain/prescription';
+import {
+  getBlockById,
+  getBlockExerciseRowsForEdit,
+  listBlocks,
+} from '@/lib/dashboard/coach/blocks';
+import {
+  legacyItemToPrescription,
+  safeParsePrescription,
+  type Prescription,
+} from '@fahybrid/shared/domain/prescription';
 import { normalizeWeekDay } from '@fahybrid/shared/schema/program-templates';
 import type {
   WeekDayPart,
@@ -20,6 +30,7 @@ import { modalityColorSlug } from './editor-axes';
 import { deriveWeekModalities } from './planes-model';
 import type { WeekSlots } from '@fahybrid/shared/schema/program-templates';
 import type {
+  BlockEditorModel,
   DayEditorModel,
   EditorBlock,
   EditorItem,
@@ -85,6 +96,84 @@ export async function loadSessionEditorModel(params: {
     is_draft: detail.is_draft,
     blocks,
     used_in_plans: 0, // TODO(endpoint): plan-usage count not exposed by getTemplateDetail
+  };
+}
+
+// ── Library BLOCK · load a block into the editor model ───────────────────────
+// A library block is structurally a mini-session: its block_exercises rows,
+// grouped by block_position, become EditorBlock[] (one EditorBlock per group).
+// Returns null when the block doesn't exist / isn't a global block (getBlockById
+// already enforces coach_id null). Prefers the structured prescription_json,
+// degrading to the legacy params_json only when absent/invalid.
+export async function loadBlockEditorModel(params: {
+  coach_id: number | bigint;
+  block_id: number;
+}): Promise<BlockEditorModel | null> {
+  const block = await getBlockById(params.block_id);
+  if (!block) return null;
+
+  // Level/days tags (migration 0057) aren't on the shared Block shape; read them
+  // so the editor round-trips them on reopen. Scoped to global blocks (coach_id
+  // null), matching getBlockById's gate.
+  const tagRows = await sql<
+    Array<{ min_level_id: number | null; max_level_id: number | null; days_per_week: number | null }>
+  >`
+    select min_level_id::int as min_level_id,
+           max_level_id::int as max_level_id,
+           days_per_week::int as days_per_week
+    from blocks
+    where id = ${params.block_id} and coach_id is null
+    limit 1
+  `;
+  const tags = tagRows[0] ?? { min_level_id: null, max_level_id: null, days_per_week: null };
+
+  const rows = await getBlockExerciseRowsForEdit(params.block_id);
+
+  // Group rows by block_position, preserving first-seen order.
+  const groupsMap = new Map<number, typeof rows>();
+  for (const row of rows) {
+    const list = groupsMap.get(row.block_position);
+    if (list) list.push(row);
+    else groupsMap.set(row.block_position, [row]);
+  }
+
+  const blocks: EditorBlock[] = Array.from(groupsMap.entries()).map(([blockPosition, groupRows], i) => {
+    const title = groupRows[0]?.block_title ?? `Bloque ${i + 1}`;
+    const format = groupRows[0]?.block_format ?? block.format;
+    return {
+      uid: `be-block-${blockPosition}`,
+      title,
+      format,
+      group: inferGroup(title, format),
+      items: groupRows.map<EditorItem>((it) => {
+        const parsed = safeParsePrescription(it.prescription_json);
+        const prescription: Prescription = parsed.success
+          ? (parsed.data as Prescription)
+          : legacyItemToPrescription({
+              params_json: (it.params_json ?? null) as Record<string, unknown> | null,
+              notes: it.notes ?? null,
+            });
+        return {
+          uid: `be-item-${it.position}`,
+          exercise_id: Number(it.exercise_id),
+          exercise_name: it.exercise_name,
+          notes: it.notes ?? undefined,
+          prescription,
+        };
+      }),
+    };
+  });
+
+  return {
+    block_id: block.id,
+    title: block.title,
+    description: block.description,
+    methodology_group_id: block.methodology_group_id,
+    format: block.format,
+    min_level_id: tags.min_level_id,
+    max_level_id: tags.max_level_id,
+    days_per_week: tags.days_per_week,
+    blocks,
   };
 }
 

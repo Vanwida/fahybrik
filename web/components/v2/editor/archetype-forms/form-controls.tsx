@@ -151,6 +151,7 @@ const SCALAR_SUFFIX: Partial<Record<Target['kind'], string>> = {
   calories: 'cal',
   rpe: 'RPE',
   rir: 'RIR',
+  watts: 'W',
 };
 
 const SCALAR_BOUNDS: Partial<Record<Target['kind'], { min: number; max: number }>> = {
@@ -161,6 +162,7 @@ const SCALAR_BOUNDS: Partial<Record<Target['kind'], { min: number; max: number }
   hr_bpm: { min: 20, max: 250 },
   kg: { min: 0, max: 100000 },
   calories: { min: 0, max: 100000 },
+  watts: { min: 0, max: 2000 },
 };
 
 export function ScalarTargetCell({

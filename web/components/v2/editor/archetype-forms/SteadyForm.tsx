@@ -13,6 +13,7 @@
 
 import type { Measure, Prescription, Target } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
+import { isErgModality } from '@/lib/programming/prescription-model';
 import {
   ClockCell,
   DistanceCell,
@@ -23,11 +24,18 @@ import {
 } from './form-controls';
 
 type Mode = 'duration' | 'distance';
-type ObjectiveKind = 'hr_zone' | 'pace' | 'rpe';
+// Vatios is offered ONLY on erg surfaces (row/ski/bike); a run/mobility block has no power.
+type ObjectiveKind = 'hr_zone' | 'pace' | 'watts' | 'rpe';
 
-const OBJECTIVE_OPTIONS: { value: ObjectiveKind; label: string }[] = [
+const OBJECTIVE_OPTIONS_BASE: { value: ObjectiveKind; label: string }[] = [
   { value: 'hr_zone', label: 'Zona' },
   { value: 'pace', label: 'Ritmo' },
+  { value: 'rpe', label: 'RPE' },
+];
+const OBJECTIVE_OPTIONS_ERG: { value: ObjectiveKind; label: string }[] = [
+  { value: 'hr_zone', label: 'Zona' },
+  { value: 'pace', label: 'Ritmo' },
+  { value: 'watts', label: 'Vatios' },
   { value: 'rpe', label: 'RPE' },
 ];
 
@@ -62,9 +70,14 @@ export function SteadyForm({
   const mode = readMode(value);
   const measure = readMeasure(value);
   const objKind: ObjectiveKind =
-    value.target?.kind === 'pace' || value.target?.kind === 'rpe'
+    value.target?.kind === 'pace' ||
+    value.target?.kind === 'rpe' ||
+    value.target?.kind === 'watts'
       ? value.target.kind
       : 'hr_zone';
+  const objectiveOptions = isErgModality(value.modality)
+    ? OBJECTIVE_OPTIONS_ERG
+    : OBJECTIVE_OPTIONS_BASE;
 
   const setMode = (next: Mode) => {
     if (next === mode) return;
@@ -93,7 +106,9 @@ export function SteadyForm({
         ? { kind: 'pace', unit: value.modality === 'run' ? 'per_km' : 'per_500m', value_s: 270 }
         : kind === 'rpe'
           ? { kind: 'rpe', value: 5 }
-          : { kind: 'hr_zone', value: 2 };
+          : kind === 'watts'
+            ? { kind: 'watts', value: 200 }
+            : { kind: 'hr_zone', value: 2 };
     onChange({ ...value, target });
   };
 
@@ -136,7 +151,7 @@ export function SteadyForm({
           <InlineToggle
             ariaLabel="Tipo de objetivo"
             value={objKind}
-            options={OBJECTIVE_OPTIONS}
+            options={objectiveOptions}
             onChange={setObjectiveKind}
           />
           {objKind === 'pace' ? (
@@ -150,7 +165,13 @@ export function SteadyForm({
             <ScalarTargetCell
               kind={objKind}
               target={value.target}
-              ariaLabel={objKind === 'hr_zone' ? 'Zona objetivo' : 'RPE objetivo'}
+              ariaLabel={
+                objKind === 'hr_zone'
+                  ? 'Zona objetivo'
+                  : objKind === 'watts'
+                    ? 'Vatios objetivo'
+                    : 'RPE objetivo'
+              }
               onChange={setTargetValue}
             />
           )}

@@ -249,6 +249,46 @@ export interface SessionBlockSerInput {
   }>;
 }
 
+// ── Library BLOCK serializer (block_exercises) ────────────────────────────────
+// A library block is structurally a mini-session: each EditorBlock → one
+// block_position; each of its items → one block_exercises row. Inverse of
+// loadBlockEditorModel. Reuses SessionBlockSerInput + the A3 invalid-line guard.
+// The global `position` is assigned by the DB layer (createBlock) as the array
+// index, so it is not part of this shape.
+export interface BlockExerciseWriteInput {
+  exercise_id: number;
+  block_position: number;
+  block_format: string | null;
+  block_title: string | null;
+  prescription_json: EditorItemInput['prescription'];
+  notes: string | null;
+}
+
+export function serializeBlockExercises(
+  blocks: SessionBlockSerInput[],
+): BlockExerciseWriteInput[] {
+  const invalid = blocks.reduce(
+    (n, b) => n + b.items.filter((it) => !itemHasExercise(it)).length,
+    0,
+  );
+  if (invalid > 0) throw new InvalidAuthoringLineError(invalid);
+
+  const out: BlockExerciseWriteInput[] = [];
+  blocks.forEach((block, blockPosition) => {
+    for (const item of block.items) {
+      out.push({
+        exercise_id: Number(item.exercise_id),
+        block_position: blockPosition,
+        block_format: block.format ?? null,
+        block_title: block.title || null,
+        prescription_json: item.prescription,
+        notes: item.notes != null && item.notes !== '' ? item.notes : null,
+      });
+    }
+  });
+  return out;
+}
+
 export function serializeSessionSegments(
   blocks: SessionBlockSerInput[],
 ): SessionSegmentInput[] {
