@@ -6,11 +6,7 @@
 // server-shaped data passed in via props; the header counts reflect the FILTERED
 // view so the coach always sees how many items match.
 //
-// The "bloques" tab additionally supports a Level × Days matrix view, toggled
-// via a Lista/Matriz SegmentedControl. Matrix data is fetched client-side on
-// first toggle so the page load stays fast.
-
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useRouter, usePathname } from '@/i18n/navigation';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
@@ -31,9 +27,6 @@ import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
 import { BloqueCard } from '@/components/v2/biblioteca/BloqueCard';
 import { MicrocicloCard } from '@/components/v2/biblioteca/MicrocicloCard';
 import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
-import { LevelMatrix } from '@/components/v2/biblioteca/LevelMatrix';
-import type { LevelRow } from '@/components/v2/biblioteca/LevelMatrix';
-import type { MatrixCellData } from '@/components/v2/biblioteca/MatrixCell';
 import {
   LIB_MODALITY_FILTERS,
   LIB_OBJECTIVES,
@@ -45,9 +38,6 @@ import { cn } from '@/lib/utils';
 
 // Periodization phases (Fases) live in the Periodización section now, not here.
 export type BibliotecaTab = 'sesiones' | 'bloques' | 'microciclos';
-
-/** Whether the bloques sub-tab shows a card grid or the level × days matrix. */
-type BloqueView = 'lista' | 'matriz';
 
 /** Route to create a brand-new sesión (owned by the editing-cluster agent). */
 const NUEVA_SESION_HREF = '/biblioteca/sesion/nueva';
@@ -103,11 +93,6 @@ const TAB_OPTIONS = (
   { value: 'microciclos', label: `Microciclos · ${counts.microciclos}` },
 ];
 
-const BLOQUE_VIEW_OPTIONS: ReadonlyArray<{ value: BloqueView; label: string }> = [
-  { value: 'lista', label: 'Lista' },
-  { value: 'matriz', label: 'Matriz' },
-];
-
 type ModalityRailId = 'todas' | V2LibModalityFilter;
 
 function matchesText(haystack: string, q: string): boolean {
@@ -136,51 +121,13 @@ export function BibliotecaView({
   const [nuevoMicroOpen, setNuevoMicroOpen] = useState(false);
   const q = query.trim().toLowerCase();
 
-  // Matrix view (bloques tab only)
-  const [bloqueView, setBloqueView] = useState<BloqueView>('lista');
-  const [matrixLevels, setMatrixLevels] = useState<LevelRow[]>([]);
-  const [matrixCells, setMatrixCells] = useState<Record<string, MatrixCellData | null>>({});
-  const [matrixLoading, setMatrixLoading] = useState(false);
-  const [matrixError, setMatrixError] = useState<string | null>(null);
-
-  // Fetch matrix data once when the coach switches to matrix view.
-  useEffect(() => {
-    if (tab !== 'bloques' || bloqueView !== 'matriz') return;
-    if (matrixLevels.length > 0) return; // already loaded
-
-    setMatrixLoading(true);
-    setMatrixError(null);
-    fetch('/api/coach/blocks/matrix')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Error ${res.status}`);
-        const json = (await res.json()) as {
-          levels: LevelRow[];
-          cells: Record<string, MatrixCellData | null>;
-        };
-        setMatrixLevels(json.levels);
-        setMatrixCells(json.cells);
-      })
-      .catch((err: unknown) => {
-        setMatrixError(err instanceof Error ? err.message : 'Error cargando la matriz');
-      })
-      .finally(() => setMatrixLoading(false));
-  }, [tab, bloqueView, matrixLevels.length]);
-
-  const handleMatrixCellClick = useCallback(
-    (levelId: number, days: number, existingBlockId?: number) => {
-      if (existingBlockId != null) {
-        router.push(`/biblioteca/bloque/${existingBlockId}`);
-      } else {
-        router.push(`/biblioteca/bloque/nuevo?level=${levelId}&days=${days}`);
-      }
-    },
-    [router],
-  );
-
   // Tab change → update state + reflect in the URL (shallow, no scroll jump).
+  // Modality is a BLOQUES-only axis; leaving that tab clears it so a stale
+  // selection never silently filters Sesiones.
   const onTab = useCallback(
     (next: BibliotecaTab) => {
       setTab(next);
+      if (next !== 'bloques') setModality('todas');
       router.replace(`${pathname}?tab=${next}`, { scroll: false });
     },
     [router, pathname],
@@ -340,35 +287,15 @@ export function BibliotecaView({
             onObjective={setObjective}
             modalityOptions={LIB_MODALITY_FILTERS}
             objectiveOptions={LIB_OBJECTIVES}
+            showModality={tab === 'bloques'}
           />
         ) : null}
 
         <div className="min-w-0">
-          {/* Lista/Matriz toggle — only shown for the bloques tab */}
-          {tab === 'bloques' ? (
-            <div className="mb-4">
-              <SegmentedControl<BloqueView>
-                options={BLOQUE_VIEW_OPTIONS}
-                value={bloqueView}
-                onChange={setBloqueView}
-                size="sm"
-                ariaLabel="Vista de bloques"
-              />
-            </div>
-          ) : null}
-
           {tab === 'sesiones' ? (
             <SesionesGrid items={sesiones} hasAny={data.sesiones.length > 0} />
-          ) : tab === 'bloques' && bloqueView === 'lista' ? (
+          ) : tab === 'bloques' ? (
             <BloquesGrid items={bloques} hasAny={data.bloques.length > 0} />
-          ) : tab === 'bloques' && bloqueView === 'matriz' ? (
-            <MatrixPane
-              levels={matrixLevels}
-              cells={matrixCells}
-              loading={matrixLoading}
-              error={matrixError}
-              onCellClick={handleMatrixCellClick}
-            />
           ) : (
             <MicrociclosGrid
               items={microciclos}
@@ -553,37 +480,4 @@ function MicrociclosGrid({
       ))}
     </div>
   );
-}
-
-// ── MatrixPane ───────────────────────────────────────────────────────────────
-// Wraps LevelMatrix with loading/error states.
-
-function MatrixPane({
-  levels,
-  cells,
-  loading,
-  error,
-  onCellClick,
-}: {
-  levels: LevelRow[];
-  cells: Record<string, MatrixCellData | null>;
-  loading: boolean;
-  error: string | null;
-  onCellClick: (levelId: number, days: number, existingBlockId?: number) => void;
-}) {
-  if (loading) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <span className="text-sm text-[color:var(--v2-muted)]">Cargando matriz…</span>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <span className="text-sm text-[color:var(--v2-danger)]">{error}</span>
-      </div>
-    );
-  }
-  return <LevelMatrix levels={levels} cells={cells} onCellClick={onCellClick} />;
 }

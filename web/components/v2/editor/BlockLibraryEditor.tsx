@@ -41,15 +41,10 @@ const SAVE_ICON: Record<SaveState, string> = {
 
 // Default block format when none is set (a from-scratch strength block).
 const DEFAULT_BLOCK_FORMAT = 'strength_block';
-const DAYS_OPTIONS = [3, 4, 5, 6] as const;
 
 interface GroupOption {
   id: number;
   name: string;
-}
-interface LevelOption {
-  id: number;
-  label: string;
 }
 
 function groupLabel(group: StructureGroup): string {
@@ -87,18 +82,13 @@ function dominantModality(blocks: EditorBlock[]): Modality | null {
 export function BlockLibraryEditor({
   model,
   groups,
-  levels,
 }: {
   model: BlockEditorModel;
   groups: GroupOption[];
-  levels: LevelOption[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(model.title);
   const [methodologyGroupId, setMethodologyGroupId] = useState<number>(model.methodology_group_id);
-  const [minLevelId, setMinLevelId] = useState<number | null>(model.min_level_id);
-  const [maxLevelId, setMaxLevelId] = useState<number | null>(model.max_level_id);
-  const [daysPerWeek, setDaysPerWeek] = useState<number | null>(model.days_per_week);
   const [blocks, setBlocks] = useState<EditorBlock[]>(model.blocks);
   const [selectedUid, setSelectedUid] = useState<string | null>(model.blocks[0]?.uid ?? null);
   const [addToGroup, setAddToGroup] = useState<StructureGroup | null>(null);
@@ -160,9 +150,6 @@ export function BlockLibraryEditor({
         description,
         methodology_group_id: methodologyGroupId,
         format,
-        min_level_id: minLevelId,
-        max_level_id: maxLevelId,
-        days_per_week: daysPerWeek,
         exercises,
       };
 
@@ -221,7 +208,7 @@ export function BlockLibraryEditor({
             className="v2-display v2-focus block w-auto min-w-[6rem] max-w-full [field-sizing:content] rounded-[var(--v2-r-s)] bg-transparent text-3xl text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] sm:text-4xl"
           />
 
-          {/* Metadata row: methodology group + level range + days + modality pill */}
+          {/* Metadata row: methodology group + modality pill */}
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]">
               <span className="font-semibold">Grupo</span>
@@ -234,60 +221,6 @@ export function BlockLibraryEditor({
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {levels.length > 0 ? (
-              <>
-                <label className="inline-flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]">
-                  <span className="font-semibold">Nivel mín.</span>
-                  <select
-                    aria-label="Nivel mínimo"
-                    value={minLevelId ?? ''}
-                    onChange={(e) => setMinLevelId(e.target.value === '' ? null : Number(e.target.value))}
-                    className={v2SelectCell}
-                  >
-                    <option value="">—</option>
-                    {levels.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]">
-                  <span className="font-semibold">Nivel máx.</span>
-                  <select
-                    aria-label="Nivel máximo"
-                    value={maxLevelId ?? ''}
-                    onChange={(e) => setMaxLevelId(e.target.value === '' ? null : Number(e.target.value))}
-                    className={v2SelectCell}
-                  >
-                    <option value="">—</option>
-                    {levels.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            ) : null}
-
-            <label className="inline-flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]">
-              <span className="font-semibold">Días</span>
-              <select
-                aria-label="Días por semana"
-                value={daysPerWeek ?? ''}
-                onChange={(e) => setDaysPerWeek(e.target.value === '' ? null : Number(e.target.value))}
-                className={v2SelectCell}
-              >
-                <option value="">—</option>
-                {DAYS_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d} días
                   </option>
                 ))}
               </select>

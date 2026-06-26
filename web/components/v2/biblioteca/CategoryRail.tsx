@@ -31,6 +31,7 @@ export function CategoryRail({
   onObjective,
   modalityOptions,
   objectiveOptions,
+  showModality = true,
 }: {
   modality: ModalityRailId;
   onModality: (next: ModalityRailId) => void;
@@ -38,10 +39,13 @@ export function CategoryRail({
   onObjective: (next: V2LibObjective | null) => void;
   modalityOptions: ReadonlyArray<{ id: ModalityRailId; label: string }>;
   objectiveOptions: ReadonlyArray<{ id: V2LibObjective; label: string }>;
+  /** Modality is an attribute of BLOQUES only — hidden on the other tabs. */
+  showModality?: boolean;
 }) {
   return (
     <nav aria-label="Filtrar biblioteca" className="flex flex-col gap-5 lg:sticky lg:top-2">
-      {/* POR MODALIDAD */}
+      {/* POR MODALIDAD — bloques only */}
+      {showModality ? (
       <div className="flex flex-col gap-1.5">
         <p className="v2-micro px-1">Por modalidad</p>
         <ul className="flex flex-col gap-0.5">
@@ -76,6 +80,7 @@ export function CategoryRail({
           })}
         </ul>
       </div>
+      ) : null}
 
       {/* POR OBJETIVO */}
       <div className="flex flex-col gap-1.5">

@@ -50,10 +50,6 @@ export interface EditorBlock {
   group: StructureGroup;
   /** Library origin, when inserted from the Biblioteca de Bloques. */
   source_block_id?: number | null;
-  /** Level range + days/week tags (migration 0057). null = "any". */
-  min_level_id?: number | null;
-  max_level_id?: number | null;
-  days_per_week?: number | null;
   items: EditorItem[];
 }
 
@@ -91,9 +87,6 @@ export interface BlockEditorModel {
   description: string;
   methodology_group_id: number;
   format: string | null;
-  min_level_id: number | null;
-  max_level_id: number | null;
-  days_per_week: number | null;
   blocks: EditorBlock[];
 }
 

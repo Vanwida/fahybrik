@@ -309,7 +309,7 @@ export async function createBlock(
     const rows = await tx<Array<{ id: string }>>`
       insert into blocks (
         slug, title, description, methodology_group_id, format,
-        min_level_id, max_level_id, days_per_week, needs_review, coach_id
+        needs_review, coach_id
       )
       values (
         ${slugifyTitle(input.title)},
@@ -317,9 +317,6 @@ export async function createBlock(
         ${input.description ?? input.title},
         ${input.methodology_group_id},
         ${input.format ?? null},
-        ${input.min_level_id ?? null},
-        ${input.max_level_id ?? null},
-        ${input.days_per_week ?? null},
         ${false},
         ${null}
       )
@@ -376,9 +373,6 @@ export async function updateBlockFull(
         description          = ${input.description ?? input.title},
         methodology_group_id = ${input.methodology_group_id},
         format               = ${input.format ?? null},
-        min_level_id         = ${input.min_level_id ?? null},
-        max_level_id         = ${input.max_level_id ?? null},
-        days_per_week        = ${input.days_per_week ?? null},
         needs_review         = ${false}
       where id = ${blockId}
         and coach_id is null

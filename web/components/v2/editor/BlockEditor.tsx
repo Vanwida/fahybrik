@@ -7,7 +7,7 @@
 // one item at a time via a compact item tab strip, exactly the domain model
 // (each item is its OWN modality/measure/target — never nested).
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
@@ -18,20 +18,7 @@ import { ArchetypeBlockForm } from './ArchetypeBlockForm';
 import { AthletePreviewLine } from './AthletePreviewLine';
 import { ExercisePickerField } from './ExercisePickerField';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
-import { TextCell, v2SelectCell } from './fields';
-
-const DAYS_OPTIONS: { value: number; label: string }[] = [
-  { value: 3, label: '3 días' },
-  { value: 4, label: '4 días' },
-  { value: 5, label: '5 días' },
-  { value: 6, label: '6 días' },
-];
-
-interface LevelOption {
-  id: string;
-  name: string;
-  label: string;
-}
+import { TextCell } from './fields';
 
 const EMPTY_PRESCRIPTION: Prescription = { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 8 } }] };
 
@@ -61,18 +48,6 @@ export function BlockEditor({
   // with items fall back to the per-item axes editor.
   const hasArchetypeForm =
     block.items.length > 0 && patternForBlock(block.archetype_id, block.format) !== null;
-
-  const [levels, setLevels] = useState<LevelOption[]>([]);
-  useEffect(() => {
-    fetch('/api/coach/levels', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { levels: LevelOption[] } | null) => {
-        if (data?.levels) setLevels(data.levels);
-      })
-      .catch(() => {
-        // Degraded gracefully — pickers render without options
-      });
-  }, []);
 
   const updateItem = (uid: string, patch: Partial<EditorItem>) => {
     onChange({
@@ -120,75 +95,6 @@ export function BlockEditor({
             </button>
           ) : null}
         </div>
-      </div>
-
-      {/* Level range + days/week — optional block-level tags (migration 0057). */}
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="min-w-[120px] flex-1 space-y-1.5">
-          <span className="v2-micro">Level mínimo</span>
-          <select
-            aria-label="Level mínimo"
-            value={block.min_level_id ?? ''}
-            onChange={(e) =>
-              onChange({
-                ...block,
-                min_level_id: e.target.value === '' ? null : Number(e.target.value),
-              })
-            }
-            className={cn(v2SelectCell, 'w-full')}
-          >
-            <option value="">Cualquier nivel</option>
-            {levels.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="min-w-[120px] flex-1 space-y-1.5">
-          <span className="v2-micro">Level máximo</span>
-          <select
-            aria-label="Level máximo"
-            value={block.max_level_id ?? ''}
-            onChange={(e) =>
-              onChange({
-                ...block,
-                max_level_id: e.target.value === '' ? null : Number(e.target.value),
-              })
-            }
-            className={cn(v2SelectCell, 'w-full')}
-          >
-            <option value="">Mismo que mínimo</option>
-            {levels.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="min-w-[100px] flex-1 space-y-1.5">
-          <span className="v2-micro">Días / semana</span>
-          <select
-            aria-label="Días por semana"
-            value={block.days_per_week ?? ''}
-            onChange={(e) =>
-              onChange({
-                ...block,
-                days_per_week: e.target.value === '' ? null : Number(e.target.value),
-              })
-            }
-            className={cn(v2SelectCell, 'w-full')}
-          >
-            <option value="">Cualquiera</option>
-            {DAYS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       {/* DEFAULT — the archetype-first tailored form (the simple input). It owns

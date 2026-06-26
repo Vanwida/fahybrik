@@ -112,21 +112,6 @@ export async function loadBlockEditorModel(params: {
   const block = await getBlockById(params.block_id);
   if (!block) return null;
 
-  // Level/days tags (migration 0057) aren't on the shared Block shape; read them
-  // so the editor round-trips them on reopen. Scoped to global blocks (coach_id
-  // null), matching getBlockById's gate.
-  const tagRows = await sql<
-    Array<{ min_level_id: number | null; max_level_id: number | null; days_per_week: number | null }>
-  >`
-    select min_level_id::int as min_level_id,
-           max_level_id::int as max_level_id,
-           days_per_week::int as days_per_week
-    from blocks
-    where id = ${params.block_id} and coach_id is null
-    limit 1
-  `;
-  const tags = tagRows[0] ?? { min_level_id: null, max_level_id: null, days_per_week: null };
-
   const rows = await getBlockExerciseRowsForEdit(params.block_id);
 
   // Group rows by block_position, preserving first-seen order.
@@ -170,9 +155,6 @@ export async function loadBlockEditorModel(params: {
     description: block.description,
     methodology_group_id: block.methodology_group_id,
     format: block.format,
-    min_level_id: tags.min_level_id,
-    max_level_id: tags.max_level_id,
-    days_per_week: tags.days_per_week,
     blocks,
   };
 }
