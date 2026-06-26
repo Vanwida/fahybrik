@@ -84,16 +84,7 @@ export async function makeCoachAndAthlete(sql: Sql): Promise<Fixture> {
       await sql`delete from daily_checkins where athlete_id = ${athleteId}`;
       await sql`delete from workout_assignments where athlete_id = ${athleteId}`;
       await sql`delete from athlete_month_assignments where athlete_id = ${athleteId}`;
-      await sql`
-        delete from microcycles mc using atr_blocks b
-        where mc.block_id = b.id
-          and b.macrocycle_id in (select id from atr_macrocycles where athlete_id = ${athleteId})
-      `;
-      await sql`
-        delete from atr_blocks
-        where macrocycle_id in (select id from atr_macrocycles where athlete_id = ${athleteId})
-      `;
-      await sql`delete from atr_macrocycles where athlete_id = ${athleteId}`;
+      await sql`delete from microcycles where athlete_id = ${athleteId}`;
       await sql`delete from athlete_target_events where athlete_id = ${athleteId}`;
       await sql`delete from athletes where id = ${athleteId}`;
       // 2) Coach-scoped program/workout templates (now unreferenced).
@@ -127,30 +118,25 @@ export async function makeCoachAndAthlete(sql: Sql): Promise<Fixture> {
 }
 
 /**
- * Insert a macrocycle with a single ACC block spanning [start, start+weeks*7-1].
- * Returns macro + block ids. The block range is what `instantiateMonthFromTemplate`
- * needs to resolve/create microcycles.
+ * Insert a microciclo (a week row) directly under an athlete — AGNOSTIC: microcycles
+ * now hang off `athlete_id` (no ATR block/macrocycle). Returns its id. Most tests no
+ * longer need this (the materializer self-creates microcycles by athlete_id + date),
+ * but it stays for tests that seed a bare microciclo to read back.
  */
-export async function makeMacrocycleWithBlock(params: {
+export async function makeMicrocycle(params: {
   sql: Sql;
   athleteId: number;
   startIso: string;
   endIso: string;
-  status?: 'planned' | 'active';
-}): Promise<{ macroId: number; blockId: number }> {
+  weekNumber?: number;
+}): Promise<{ microcycleId: number }> {
   const { sql, athleteId, startIso, endIso } = params;
-  const macro = await sql<Array<{ id: string }>>`
-    insert into atr_macrocycles (athlete_id, name, start_date, end_date, status)
-    values (${athleteId}, 'Test macro', ${startIso}::date, ${endIso}::date, ${params.status ?? 'planned'})
+  const mc = await sql<Array<{ id: string }>>`
+    insert into microcycles (athlete_id, week_number, start_date, end_date)
+    values (${athleteId}, ${params.weekNumber ?? 1}, ${startIso}::date, ${endIso}::date)
     returning id::text
   `;
-  const macroId = Number(macro[0]!.id);
-  const block = await sql<Array<{ id: string }>>`
-    insert into atr_blocks (macrocycle_id, type, position, start_date, end_date, status)
-    values (${macroId}, 'ACC', 1, ${startIso}::date, ${endIso}::date, 'planned')
-    returning id::text
-  `;
-  return { macroId, blockId: Number(block[0]!.id) };
+  return { microcycleId: Number(mc[0]!.id) };
 }
 
 /**

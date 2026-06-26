@@ -4,7 +4,6 @@
 // Step 5 (welcome draft) of the intake wizard. Pablo can override every output;
 // the goal is a sensible starting point that handles the bulk of cases.
 
-import { DEFAULT_BLOCK_SPECS, type BlockSpec } from '@fahybrid/shared/domain/atr/planner';
 import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
@@ -34,47 +33,32 @@ export interface SuggestionBenchmark {
   unit: string;
 }
 
-// Block specs given days available before A-event. ATR ratio is roughly
-// ACC 40 / TRANS 35 / REAL 25 of available weeks. Below 6 weeks total we
-// compress ACC to a single week; below 4 weeks we drop ACC entirely.
-export function proposeBlockSpecs(total_days: number): IntakeBlockSpec[] {
-  if (total_days <= 0) {
-    return DEFAULT_BLOCK_SPECS.map(toIntakeBlockSpec);
-  }
-  const totalWeeks = Math.max(2, Math.round(total_days / 7));
-
-  if (totalWeeks <= 3) {
-    return [
-      { type: 'TRANS', weeks: Math.max(1, totalWeeks - 1) },
-      { type: 'REAL', weeks: 1 },
-    ];
-  }
-  if (totalWeeks <= 6) {
-    const acc = 1;
-    const real = totalWeeks <= 4 ? 1 : 2;
-    const trans = Math.max(1, totalWeeks - acc - real);
-    return [
-      { type: 'ACC', weeks: acc },
-      { type: 'TRANS', weeks: trans },
-      { type: 'REAL', weeks: real },
-    ];
-  }
-
-  const real = Math.max(2, Math.round(totalWeeks * 0.22));
-  const acc = Math.max(2, Math.round(totalWeeks * 0.42));
-  const trans = Math.max(2, totalWeeks - acc - real);
-  return [
-    { type: 'ACC', weeks: acc },
-    { type: 'TRANS', weeks: trans },
-    { type: 'REAL', weeks: real },
-  ];
+// AGNOSTIC starting shape: propose a sequence of named microciclos sized by the
+// weeks available before the A-event (roughly 42 / 36 / 22 of the weeks across 3
+// microciclos; compressed for short windows). The names are neutral placeholders
+// ("Microciclo N") — the coach renames, resizes and reorders every one; the ORDER
+// of microciclos IS the periodization. Advisory only, never a constraint.
+function microciclo(n: number, weeks: number): IntakeBlockSpec {
+  return { type: `Microciclo ${n}`, weeks };
 }
 
-function toIntakeBlockSpec(b: BlockSpec): IntakeBlockSpec {
-  // Intake opera sobre el set ATR legacy (el schema valida el enum). El planner
-  // generalizó `type` a string (fases de coach arbitrarias); aquí siempre llega
-  // un código ATR (DEFAULT_BLOCK_SPECS / proposeBlockSpecs) → narrow seguro.
-  return { type: b.type as IntakeBlockSpec['type'], weeks: b.weeks };
+export function proposeBlockSpecs(total_days: number): IntakeBlockSpec[] {
+  const totalWeeks = total_days <= 0 ? 12 : Math.max(2, Math.round(total_days / 7));
+
+  if (totalWeeks <= 3) {
+    return [microciclo(1, Math.max(1, totalWeeks - 1)), microciclo(2, 1)];
+  }
+  if (totalWeeks <= 6) {
+    const first = 1;
+    const last = totalWeeks <= 4 ? 1 : 2;
+    const mid = Math.max(1, totalWeeks - first - last);
+    return [microciclo(1, first), microciclo(2, mid), microciclo(3, last)];
+  }
+
+  const last = Math.max(2, Math.round(totalWeeks * 0.22));
+  const first = Math.max(2, Math.round(totalWeeks * 0.42));
+  const mid = Math.max(2, totalWeeks - first - last);
+  return [microciclo(1, first), microciclo(2, mid), microciclo(3, last)];
 }
 
 // =============================================================================
@@ -90,9 +74,9 @@ export interface BlockEmphasis {
 
 /**
  * Translate the Step-2 goal + self-declared run/strength relationship into a
- * macro EMPHASIS. This does NOT change block types/weeks (ATR structure is
+ * macro EMPHASIS. This does NOT change microciclo names/weeks (the shape is
  * owned by `proposeBlockSpecs` + days-to-event); it tells the coach/IA which
- * axis to weight inside those blocks. Pablo can ignore it — it's a starting
+ * axis to weight inside those microciclos. Pablo can ignore it — it's a starting
  * bias, not a constraint.
  */
 export function proposeBlockEmphasis(goal: IntakeGoalContext): BlockEmphasis {
@@ -360,8 +344,8 @@ export function composeWelcomeDraft(params: {
     ? `El plan apunta a ${params.target_event.name}.`
     : 'Vamos a definir tu evento objetivo en los próximos días.';
   const weekPhrase = params.is_compressive
-    ? 'Esta semana es testing + ACC compresivo.'
-    : 'Esta semana es testing + arranque de bloque.';
+    ? 'Esta semana es testing + arranque comprimido.'
+    : 'Esta semana es testing + arranque del primer microciclo.';
   return [
     `Hola ${first}, bienvenido. He revisado tu perfil — tienes`,
     `buena base. ${eventPhrase}`,

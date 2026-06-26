@@ -8,7 +8,7 @@
 // app defines it in its own wrapper.
 
 import { z } from 'zod';
-import { ATR_BLOCK_TYPES, type AlertReason, type AtrBlockType } from './types';
+import { type AlertReason } from './types';
 
 // Modality categories Pablo cares about — mapped from exercise.category +
 // segment heuristics. See deep-dive helpers.
@@ -36,7 +36,8 @@ export interface AEvent {
 }
 
 export interface MacrocycleBlockSegment {
-  type: AtrBlockType;
+  /** Microciclo NAME (coach data) — NOT an ATR phase. */
+  type: string;
   weeks: number;
   position: number;
   is_current: boolean;
@@ -44,7 +45,8 @@ export interface MacrocycleBlockSegment {
 
 export interface MacrocycleRibbon {
   blocks: MacrocycleBlockSegment[];
-  current_block: AtrBlockType | null;
+  /** Current microciclo NAME (coach data), null when none active. */
+  current_block: string | null;
   current_week: number | null;
   current_day_of_week: number | null;   // 1..7
   total_weeks: number;
@@ -189,7 +191,6 @@ export interface DeepDiveBanner {
 
 export type TransitionSuggestPayload = {
   recommendation: 'advance' | 'hold' | 'regress';
-  next_block_type: string | null;
   confidence: string;
   reasons: string[];
 };
@@ -247,7 +248,3 @@ export const DEEP_DIVE_TABS: ReadonlyArray<{ key: DeepDiveTabKey; label: string;
   { key: 'notas', label: 'Notas', href: 'notas' },
   { key: 'ajustes', label: 'Ajustes', href: 'ajustes' },
 ];
-
-// Re-export so consumers don't have to import from two places.
-export { ATR_BLOCK_TYPES };
-export type { AtrBlockType };

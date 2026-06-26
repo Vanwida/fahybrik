@@ -79,9 +79,7 @@ async function resolveMicrocycleForDate(params: {
   const rows = await params.client<Array<{ id: string }>>`
     select mc.id::text
     from microcycles mc
-    join atr_blocks b on b.id = mc.block_id
-    join atr_macrocycles mac on mac.id = b.macrocycle_id
-    where mac.athlete_id = ${params.athlete_id}
+    where mc.athlete_id = ${params.athlete_id}
       and mc.start_date <= ${params.iso_date}::date
       and mc.end_date >= ${params.iso_date}::date
     order by mc.start_date asc

@@ -6,7 +6,6 @@
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { rosterStatus, type RosterStatus } from '@/lib/dashboard/v2/atletas-status';
-import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
 
 export interface RosterRow {
   athlete_id: string;
@@ -14,20 +13,20 @@ export interface RosterRow {
   /** Real level name from athlete_levels.name (e.g. 'N1', 'N4'). Null = not assigned. */
   level: string | null;
   status: RosterStatus;
-  /** "Acumulación · sem 2" | "Sin fase" — derived from block_type/week. */
+  /** "Acumulación · sem 2" | "Sin microciclo" — the coach's microciclo name + week. */
   phase_label: string;
-  /** Compact ATR code for the phase badge, null when no active block. */
-  phase_code: 'ACC' | 'TRANS' | 'REAL' | null;
+  /** Raw microciclo name (presence + filter key), null when no active microciclo. */
+  phase_code: string | null;
   /** Current-week compliance % (loader field), null when no scheduled work. */
   adherence_pct: number | null;
   /** Numeric level rank for sorting (athlete_levels.sort_order). 0 = no level. */
   level_rank: number;
 }
 
-/** Build the phase label from block_type + week, e.g. "Intensificación · sem 3". */
+/** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
 function phaseLabel(a: AthleteRow): string {
-  if (a.block_type == null) return 'Sin fase';
-  const base = atrPhaseLabel(a.block_type);
+  if (a.block_type == null) return 'Sin microciclo';
+  const base = a.block_type;
   return a.block_week != null ? `${base} · sem ${a.block_week}` : base;
 }
 

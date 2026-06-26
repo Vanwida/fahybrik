@@ -60,9 +60,6 @@ export const templateFormat = z.enum([
 ]);
 export type TemplateFormat = z.infer<typeof templateFormat>;
 
-export const atrBlockType = z.enum(['ACC', 'TRANS', 'REAL']);
-export type AtrBlockType = z.infer<typeof atrBlockType>;
-
 export const targetBlock = z.enum(['ACC', 'TRANS', 'REAL', 'any']);
 export type TargetBlock = z.infer<typeof targetBlock>;
 

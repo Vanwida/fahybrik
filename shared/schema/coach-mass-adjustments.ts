@@ -6,7 +6,7 @@
 // Spec: /docs/ux/10-coach-mass-adjustments.md (signed off 2026-05-07).
 
 import { z } from 'zod';
-import { atrBlockType, idSchema, isoDateTime } from './_primitives';
+import { idSchema, isoDateTime } from './_primitives';
 
 export const massAdjustmentType = z.enum([
   'strength_load_pct',
@@ -29,7 +29,7 @@ export const scopeSelection = z.object({
 });
 export const scopeFilter = z.object({
   kind: z.literal('filter'),
-  block: atrBlockType.optional(),
+  block: z.string().optional(),
   week: z.number().int().min(1).max(20).optional(),
   level: z.enum(['todos', 'elite', 'amateur']).optional(),
 });
@@ -118,7 +118,7 @@ export type MassAdjustmentRequest = z.infer<typeof massAdjustmentRequest>;
 export const previewAthleteRow = z.object({
   athlete_id: z.string(),
   full_name: z.string(),
-  block_type: atrBlockType.nullable(),
+  block_type: z.string().nullable(),
   block_week: z.number().int().nullable(),
   exercises_modified: z.number().int().nonnegative(),
   warnings: z.array(exclusionReason),

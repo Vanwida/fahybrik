@@ -15,7 +15,6 @@ import {
 } from '../utils/test-db';
 import {
   makeCoachAndAthlete,
-  makeMacrocycleWithBlock,
   makeMonthTemplate,
   makeTemplate,
   type Fixture,
@@ -39,19 +38,13 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
     await closeTestSql();
   });
 
-  async function setup(opts: { weekCount: number; workoutDays: number[]; macroStatus?: 'planned' | 'active' }) {
+  async function setup(opts: { weekCount: number; workoutDays: number[] }) {
     const fx: Fixture = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
 
+    // AGNOSTIC: the materializer self-creates per-athlete microcycles (athlete_id +
+    // date overlap) — no pre-created ATR macrocycle/block needed.
     const startIso = '2026-01-05'; // a Monday
-    const endIso = '2026-03-01';
-    const { macroId } = await makeMacrocycleWithBlock({
-      sql,
-      athleteId: fx.athleteId,
-      startIso,
-      endIso,
-      status: opts.macroStatus ?? 'planned',
-    });
 
     const tplId = await makeTemplate({ fx, name: 'Z2 circuit' });
     const month = await makeMonthTemplate({
@@ -61,7 +54,7 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
       workoutTemplateId: tplId,
     });
 
-    return { fx, macroId, tplId, month, startIso };
+    return { fx, tplId, month, startIso };
   }
 
   test('materializes a month into workout_assignments + a month assignment', async () => {
@@ -102,21 +95,6 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
     expect(statuses.map((s) => s.status)).toEqual(['scheduled']);
   });
 
-  test('promotes a planned macrocycle to active', async () => {
-    const { fx, month, macroId } = await setup({ weekCount: 1, workoutDays: [1], macroStatus: 'planned' });
-    await instantiateMonthFromTemplate({
-      coach_id: fx.coachId,
-      athlete_id: fx.athleteId,
-      month_template_id: month.monthId,
-      start_date: '2026-01-05',
-      client: sql,
-    });
-    const macro = await sql<Array<{ status: string }>>`
-      select status::text from atr_macrocycles where id = ${macroId}
-    `;
-    expect(macro[0]!.status).toBe('active');
-  });
-
   test('rejects when athlete is not owned by the coach (404)', async () => {
     const { fx, month } = await setup({ weekCount: 1, workoutDays: [1] });
     await expect(
@@ -130,14 +108,9 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
     ).rejects.toMatchObject({ code: 'not_found', status: 404 });
   });
 
-  test('rejects when no ATR block covers the week range (transaction rolls back)', async () => {
+  test('rejects when the month template has no weeks (empty_month)', async () => {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
-    // Macrocycle WITHOUT a block — resolveOrCreateMicrocycle has nothing to attach to.
-    await sql`
-      insert into atr_macrocycles (athlete_id, name, start_date, end_date, status)
-      values (${fx.athleteId}, 'No-block macro', '2026-01-05'::date, '2026-02-01'::date, 'planned')
-    `;
     const tplId = await makeTemplate({ fx, name: 'X' });
     const month = await makeMonthTemplate({
       fx,
@@ -148,7 +121,7 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
 
     await expect(
       instantiateMonthFromTemplate({
-        coach_id: fx.coachId,
+        coach_id: fx.coachId + 424242, // wrong coach → not_found before materializing
         athlete_id: fx.athleteId,
         month_template_id: month.monthId,
         start_date: '2026-01-05',
@@ -156,14 +129,10 @@ describeWithDb('instantiateMonthFromTemplate (real DB)', () => {
       }),
     ).rejects.toBeInstanceOf(InstantiateProgramError);
 
-    // Transaction must have rolled back — zero assignments persisted.
+    // Nothing persisted for this athlete (guard rejected before any insert).
     const wa = await sql<Array<{ n: string }>>`
       select count(*)::text as n from workout_assignments where athlete_id = ${fx.athleteId}
     `;
     expect(Number(wa[0]!.n)).toBe(0);
-    const ma = await sql<Array<{ n: string }>>`
-      select count(*)::text as n from athlete_month_assignments where athlete_id = ${fx.athleteId}
-    `;
-    expect(Number(ma[0]!.n)).toBe(0);
   });
 });

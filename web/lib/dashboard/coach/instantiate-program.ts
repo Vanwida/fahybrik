@@ -133,25 +133,11 @@ export async function instantiateMonthFromTemplate(params: {
   const weekCount = month.weeks.length;
   const endIso = isoDateString(addDays(startMonday, weekCount * 7 - 1));
 
-  const macro = await ensureMacrocycleForMonthAssign({
-    client,
-    athlete_id: Number(params.athlete_id),
-    startMonday,
-    weekCount,
-  });
-
   let assignmentCount = 0;
   const microcycleIds: string[] = [];
   let monthAssignmentId = '0';
 
   await client.begin(async (tx) => {
-    if (macro.status === 'planned') {
-      await tx`
-        update atr_macrocycles set status = 'active', updated_at = now()
-        where id = ${Number(macro.id)}
-      `;
-    }
-
     for (let wi = 0; wi < month.weeks.length; wi++) {
       const weekMeta = month.weeks[wi]!;
       const weekStart = addDays(startMonday, wi * 7);
@@ -160,7 +146,6 @@ export async function instantiateMonthFromTemplate(params: {
         client: tx as unknown as Sql,
         coach_id: params.coach_id,
         athlete_id: params.athlete_id,
-        macrocycle_id: macro.id,
         week_template_id: Number(weekMeta.week_template_id),
         week_start: weekStart,
         week_number: wi + 1,
@@ -205,17 +190,17 @@ export async function instantiateMonthFromTemplate(params: {
 
 /**
  * Materializa UNA semana (un program_week_template) dentro de un microciclo del
- * atleta: resuelve/crea el microciclo bajo el bloque ATR que cubre la semana y
- * crea las `workout_assignments` (+ templates inline materializados) de esa
- * semana. ÚNICA fuente de verdad de la lógica por-semana — la usan tanto el
- * flujo por-mes (`instantiateMonthFromTemplate`) como el por-microciclo
- * (`instantiateWeekForAthlete`). Debe ejecutarse dentro de una transacción.
+ * atleta: resuelve/crea el microciclo (agnóstico — por `athlete_id` + solape de
+ * fechas, SIN bloque/periodización) que cubre la semana y crea las
+ * `workout_assignments` (+ templates inline materializados) de esa semana. ÚNICA
+ * fuente de verdad de la lógica por-semana — la usan tanto el flujo por-mes
+ * (`instantiateMonthFromTemplate`) como el por-microciclo. Debe ejecutarse dentro
+ * de una transacción.
  */
 export async function instantiateWeekIntoMicrocycle(params: {
   client: Sql;
   coach_id: number | bigint;
   athlete_id: number | bigint;
-  macrocycle_id: string;
   week_template_id: number | bigint;
   /** Lunes de la semana destino. */
   week_start: Date;
@@ -232,7 +217,6 @@ export async function instantiateWeekIntoMicrocycle(params: {
   const microId = await resolveOrCreateMicrocycle({
     client: params.client,
     athlete_id: params.athlete_id,
-    macrocycle_id: params.macrocycle_id,
     week_start: weekStartIso,
     week_end: weekEndIso,
     week_number: params.week_number,
@@ -316,81 +300,18 @@ async function loadAthleteSchedulePrefs(
   };
 }
 
-/** Crea macrociclo mínimo en primer assign si intake aún no lo materializó. */
-async function ensureMacrocycleForMonthAssign(params: {
-  client: Sql;
-  athlete_id: number;
-  startMonday: Date;
-  weekCount: number;
-}): Promise<{ id: string; status: string }> {
-  const startIso = isoDateString(params.startMonday);
-  const endIso = isoDateString(addDays(params.startMonday, params.weekCount * 7 - 1));
-
-  const existing = await params.client<Array<{ id: string; status: string }>>`
-    select id::text, status::text
-    from atr_macrocycles
-    where athlete_id = ${params.athlete_id}
-      and status in ('planned', 'active')
-    order by start_date desc
-    limit 1
-  `;
-  if (existing[0]) {
-    // Reusing the athlete's active macro for a SUBSEQUENT microciclo (the sequence
-    // walk's next item, or a second assign-month). The macro + its blocks were sized
-    // for the PRIOR window, so a forward window can fall past the last block — which
-    // makes resolveOrCreateMicrocycle throw `no_block`. Extend the macro and its
-    // latest block forward to cover the new window. Idempotent: greatest() never
-    // shrinks an already-covering range, so the in-range case is a no-op.
-    await params.client`
-      update atr_macrocycles
-      set end_date = greatest(end_date, ${endIso}::date), updated_at = now()
-      where id = ${Number(existing[0].id)}
-    `;
-    await params.client`
-      update atr_blocks
-      set end_date = greatest(end_date, ${endIso}::date)
-      where id = (
-        select id from atr_blocks
-        where macrocycle_id = ${Number(existing[0].id)}
-        order by position desc, end_date desc
-        limit 1
-      )
-    `;
-    return existing[0];
-  }
-
-  const ins = await params.client<Array<{ id: string; status: string }>>`
-    insert into atr_macrocycles (athlete_id, target_event_id, start_date, end_date, status)
-    values (
-      ${params.athlete_id},
-      null,
-      ${startIso}::date,
-      ${endIso}::date,
-      'active'
-    )
-    returning id::text, status::text
-  `;
-  const macroId = ins[0]!.id;
-
-  await params.client`
-    insert into atr_blocks (macrocycle_id, type, position, start_date, end_date, status)
-    values (
-      ${Number(macroId)},
-      'ACC',
-      0,
-      ${startIso}::date,
-      ${endIso}::date,
-      'active'
-    )
-  `;
-
-  return { id: macroId, status: 'active' };
-}
-
+/**
+ * Resuelve/crea el microciclo (semana) del atleta — AGNÓSTICO: el microciclo cuelga
+ * directamente del `athlete_id` (sin bloque/macrociclo/periodización). Reusa el que
+ * solapa con la ventana de la semana; si no existe, lo crea. `week_number` es un
+ * contador monótono por atleta (la etiqueta "semana N de M" la deriva el receipt
+ * `athlete_month_assignments`, no este número), así que un nuevo plan que reinicia en
+ * 1 continúa pasado el máximo del atleta para evitar colisiones con el unique
+ * `(athlete_id, week_number)`.
+ */
 async function resolveOrCreateMicrocycle(params: {
   client: Sql;
   athlete_id: number | bigint;
-  macrocycle_id: string;
   week_start: string;
   week_end: string;
   week_number: number;
@@ -399,8 +320,7 @@ async function resolveOrCreateMicrocycle(params: {
   const existing = await db<Array<{ id: string }>>`
     select mc.id::text
     from microcycles mc
-    join atr_blocks b on b.id = mc.block_id
-    where b.macrocycle_id = ${Number(params.macrocycle_id)}
+    where mc.athlete_id = ${params.athlete_id as number}
       and mc.start_date <= ${params.week_end}::date
       and mc.end_date >= ${params.week_start}::date
     order by mc.start_date asc
@@ -408,43 +328,18 @@ async function resolveOrCreateMicrocycle(params: {
   `;
   if (existing[0]) return existing[0].id;
 
-  const blockRows = await db<Array<{ id: string }>>`
-    select b.id::text
-    from atr_blocks b
-    where b.macrocycle_id = ${Number(params.macrocycle_id)}
-      and b.start_date <= ${params.week_end}::date
-      and b.end_date >= ${params.week_start}::date
-    order by b.position asc
-    limit 1
-  `;
-  const blockId = blockRows[0]?.id;
-  if (!blockId) {
-    throw new InstantiateProgramError(
-      'no_block',
-      'No ATR block covers the assignment week range',
-      400,
-    );
-  }
-
-  // week_number is unique within a block (microcycles_week_unique). The caller
-  // numbers weeks 1..N PER microciclo; when a block already holds microcycles from
-  // a PRIOR microciclo (the sequence walk's earlier item, or a second assign-month
-  // sharing the reused/extended block) that restart-at-1 collides. Use the passed
-  // number when it's free, else continue past the block's current max — keeping the
-  // intuitive 1..N for a fresh block (no change to the common case) while making
-  // sequential microciclos in one block monotonic and collision-free.
   const taken = await db<Array<{ max_week: number | null }>>`
     select max(week_number)::int as max_week
     from microcycles
-    where block_id = ${Number(blockId)}
+    where athlete_id = ${params.athlete_id as number}
   `;
   const maxWeek = taken[0]?.max_week ?? 0;
   const weekNumber = params.week_number > maxWeek ? params.week_number : maxWeek + 1;
 
   const ins = await db<Array<{ id: string }>>`
-    insert into microcycles (block_id, week_number, start_date, end_date)
+    insert into microcycles (athlete_id, week_number, start_date, end_date)
     values (
-      ${Number(blockId)},
+      ${params.athlete_id as number},
       ${weekNumber},
       ${params.week_start}::date,
       ${params.week_end}::date

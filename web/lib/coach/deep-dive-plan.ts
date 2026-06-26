@@ -1,5 +1,6 @@
 // Plan sub-tab payload — month / week / day calendar with AM+PM session
-// badges, REAL block taper preview and bulk-action selection. Mirrors the
+// badges and bulk-action selection. Microciclos are agnostic (coach data);
+// there is no fixed-phase taper. Mirrors the
 // Resumen tab pattern: server-side build, plug into client component.
 //
 // Real data is preferred. When the athlete has no scheduled assignments in
@@ -9,10 +10,9 @@
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { getCurrentBlock } from '@/lib/atr/service';
+import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { isDemoAthleteId } from './deep-dive-demo';
 import { getMarcPlan, getDemoPlanFallback } from './deep-dive-plan-demo';
-import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 import { AthleteDeepDiveError } from './athlete-deep-dive';
 
 export const PLAN_VIEW_MODES = ['month', 'week', 'day'] as const;
@@ -35,7 +35,7 @@ export interface PlanSession {
   intensity_label: string | null;        // "Z2 long", "Threshold", "Hyrox sim"
   rpe: number | null;
   is_pr: boolean;
-  taper_factor: number;                  // 0.50 / 0.70 / 1.00 (REAL block) — 1.0 elsewhere
+  taper_factor: number;                  // 1.00 (no agnostic taper basis)
 }
 
 export interface PlanWeek {
@@ -43,11 +43,11 @@ export interface PlanWeek {
   iso_week_label: string;                // "W19" or "—"
   iso_start_date: string;                // monday
   iso_end_date: string;                  // sunday
-  block_type: AtrBlockType | null;
-  block_position_in_block: number | null; // 1-based week within current block
-  is_taper: boolean;                     // REAL block taper week
-  taper_factor: number;                  // 1.00 default · 0.70 · 0.50
-  taper_label: string | null;            // "REAL w1 · 100%" / "REAL w2 · 70%"
+  block_type: string | null;             // current microciclo name (agnostic)
+  block_position_in_block: number | null; // 1-based week within current microciclo
+  is_taper: boolean;                     // reserved (no fixed phase taper)
+  taper_factor: number;                  // 1.00 (no agnostic taper basis)
+  taper_label: string | null;
   has_a_event: boolean;                  // true if a-event lands in this week
   a_event_label: string | null;
   days: PlanDay[];
@@ -73,8 +73,8 @@ export interface PlanPayload {
   range_iso_start: string;
   range_iso_end: string;
   total_sessions: number;
-  current_block: AtrBlockType | null;
-  current_block_label: string | null;    // "REAL · w1 / 2"
+  current_block: string | null;          // current microciclo name (agnostic)
+  current_block_label: string | null;    // "Pico · sem 1 / 2"
   current_macrocycle_total_weeks: number;
   weeks: PlanWeek[];
   a_event: { name: string; iso_date: string; days_until: number } | null;
@@ -130,7 +130,7 @@ export async function buildAthletePlan(params: BuildPlanParams): Promise<PlanPay
     throw new AthleteDeepDiveError('not_found', `athlete ${params.athlete_id} not found`);
   }
 
-  const block = await getCurrentBlock({ athlete_id: numericId, on_date: now, client });
+  const micro = await getCurrentMicrociclo({ athlete_id: numericId, on_date: now, client });
   const range = computeRange(view, anchor);
 
   // Pull all assignments + executions inside [range_start, range_end]. Slot
@@ -201,7 +201,7 @@ export async function buildAthletePlan(params: BuildPlanParams): Promise<PlanPay
     taper_factor: 1,
   }));
 
-  const weeks = buildWeeks(range, sessions, block, a_evt, now);
+  const weeks = buildWeeks(range, sessions, micro, a_evt, now);
   const totalSessions = sessions.length;
 
   return {
@@ -214,11 +214,11 @@ export async function buildAthletePlan(params: BuildPlanParams): Promise<PlanPay
     range_iso_start: range.start_iso,
     range_iso_end: range.end_iso,
     total_sessions: totalSessions,
-    current_block: block?.block_type ?? null,
-    current_block_label: block
-      ? `${block.block_type} · w${block.week_number} / ${blockLength(block.block_type)}`
+    current_block: micro?.name ?? null,
+    current_block_label: micro
+      ? `${micro.name} · sem ${micro.week_index} / ${micro.week_count}`
       : null,
-    current_macrocycle_total_weeks: 12,
+    current_macrocycle_total_weeks: micro?.week_count ?? 0,
     weeks,
     a_event: a_evt,
   };
@@ -266,7 +266,7 @@ function viewLabel(view: PlanViewMode, anchor: Date): string {
 function buildWeeks(
   range: DateRange,
   sessions: ReadonlyArray<PlanSession>,
-  block: Awaited<ReturnType<typeof getCurrentBlock>>,
+  micro: Awaited<ReturnType<typeof getCurrentMicrociclo>>,
   a_event: { name: string; iso_date: string; days_until: number } | null,
   now: Date,
 ): PlanWeek[] {
@@ -284,8 +284,7 @@ function buildWeeks(
   }
 
   let cursor = start;
-  let weekIndex = block?.week_number ?? 0;
-  let realPositionCursor = block?.block_type === 'REAL' ? block.block_position : 0;
+  let weekIndex = micro?.week_index ?? 0;
 
   while (cursor.getTime() <= end.getTime()) {
     const monday = cursor;
@@ -307,26 +306,8 @@ function buildWeeks(
       });
     }
 
-    // Taper logic: only the REAL block tapers. Linear: w1=100%, w2=70%, w3=50%.
-    const isReal = block?.block_type === 'REAL';
-    let taperFactor = 1;
-    let taperLabel: string | null = null;
-    let blockPosInBlock: number | null = null;
-    if (isReal && weekIndex >= (block?.week_number ?? Infinity)) {
-      const realWeek = realPositionCursor || 1;
-      blockPosInBlock = realWeek;
-      taperFactor = realWeek === 1 ? 1 : realWeek === 2 ? 0.7 : 0.5;
-      taperLabel = `REAL w${realWeek} · ${Math.round(taperFactor * 100)}%`;
-      realPositionCursor = realWeek + 1;
-    }
-
-    // Apply taper factor to all sessions in this week.
-    for (const d of days) {
-      for (const s of d.sessions) {
-        s.taper_factor = taperFactor;
-      }
-    }
-
+    // Agnostic model: the coach's ordered microciclos carry no fixed-phase
+    // taper. Sessions keep their authored volume (taper_factor 1).
     const has_a_event = a_event != null
       && a_event.iso_date >= isoDate(monday)
       && a_event.iso_date <= isoDate(sunday);
@@ -336,11 +317,11 @@ function buildWeeks(
       iso_week_label: weekLabel(monday),
       iso_start_date: isoDate(monday),
       iso_end_date: isoDate(sunday),
-      block_type: block?.block_type ?? null,
-      block_position_in_block: blockPosInBlock,
-      is_taper: isReal && taperFactor < 1,
-      taper_factor: taperFactor,
-      taper_label: taperLabel,
+      block_type: micro?.name ?? null,
+      block_position_in_block: null,
+      is_taper: false,
+      taper_factor: 1,
+      taper_label: null,
       has_a_event,
       a_event_label: has_a_event ? a_event!.name : null,
       days,
@@ -458,13 +439,6 @@ function mapStatus(s: string): PlanStatus {
     case 'skipped': return 'rest';
     default: return 'scheduled';
   }
-}
-
-function blockLength(t: AtrBlockType | null): number {
-  if (t === 'ACC') return 6;
-  if (t === 'TRANS') return 4;
-  if (t === 'REAL') return 2;
-  return 0;
 }
 
 function isoDate(d: Date): string {

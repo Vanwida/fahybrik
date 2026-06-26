@@ -13,7 +13,6 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { fetchAthletesForCoach, type AthleteRow } from '@/lib/dashboard/athletes/list';
-import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import type { V2Status } from '@/components/v2/StatusDot';
 import type { MensajesContext, MensajesData, MensajesThread } from './mensajes-types';
@@ -29,11 +28,11 @@ function statusFromRow(a: AthleteRow): V2Status {
   return 'activa';
 }
 
-/** Build the "Acumulación · sem 2/5"-style phase label, or null when the athlete
- *  has no active block. Phase nomenclature comes from the canonical ATR map. */
+/** Build the "Acumulación · sem 2"-style label from the coach's microciclo name,
+ *  or null when the athlete has no active microciclo. */
 function phaseLabelFromRow(a: AthleteRow): string | null {
   if (!a.block_type) return null;
-  const phase = atrPhaseLabel(a.block_type);
+  const phase = a.block_type;
   return a.block_week != null ? `${phase} · sem ${a.block_week}` : phase;
 }
 

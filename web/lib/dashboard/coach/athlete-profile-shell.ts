@@ -2,7 +2,6 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
 
 export type ReadinessLabel = 'READY' | 'CAUTION' | 'LOW';
@@ -12,12 +11,14 @@ export type AthleteModality = 'individual' | 'dobles' | 'pro_elite';
 export type AthleteProfileShell = {
   athlete_id: string;
   full_name: string;
-  block_type: AtrBlockType | null;
+  /** Current microciclo NAME (coach data), null when none active. */
+  block_type: string | null;
   block_week: number | null;
   readiness_score: number | null;
   readiness_label: ReadinessLabel | null;
   a_event: { name: string; iso_date: string; days_until: number } | null;
-  macro_block: AtrBlockType | null;
+  /** Current microciclo NAME (coach data), null when none active. */
+  macro_block: string | null;
   /** Athlete finished onboarding but the coach hasn't reviewed intake yet. */
   intake_pending: boolean;
   /** Modalidad de plan (suscripción más reciente) — null si aún no hay suscripción. */
@@ -65,8 +66,8 @@ export async function fetchAthleteProfileShell(params: {
       a.full_name,
       al.name as level_name,
       coalesce(al.sort_order, 0)::int as level_sort,
-      ab.type::text as block_type,
-      mc.week_number as block_week,
+      ab.block_type as block_type,
+      ab.block_week as block_week,
       rds.score as readiness_score,
       a.onboarded_at,
       a.intake_completed_at,
@@ -88,23 +89,21 @@ export async function fetchAthleteProfileShell(params: {
     left join athletes pa
       on pa.user_id = u.partner_id and pa.coach_id = a.coach_id
     left join lateral (
-      select b.type, mc.week_number
-      from atr_macrocycles mac
-      join atr_blocks b on b.macrocycle_id = mac.id
-      join microcycles mc on mc.block_id = b.id
-      where mac.athlete_id = a.id and mac.status = 'active'
-      order by mc.week_number desc
+      -- Current microciclo (AGNOSTIC): the assignment receipt whose dated window
+      -- contains today → its template NAME + the 1-based week within that window.
+      select
+        m.name as block_type,
+        greatest(
+          1,
+          (floor((current_date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+        ) as block_week
+      from athlete_month_assignments ama
+      join program_month_templates m on m.id = ama.month_template_id
+      where ama.athlete_id = a.id
+        and current_date between ama.start_date and ama.end_date
+      order by ama.start_date desc
       limit 1
     ) ab on true
-    left join lateral (
-      select mc.week_number
-      from atr_macrocycles mac
-      join atr_blocks b on b.macrocycle_id = mac.id
-      join microcycles mc on mc.block_id = b.id
-      where mac.athlete_id = a.id and mac.status = 'active'
-      order by mc.week_number desc
-      limit 1
-    ) mc on true
     left join lateral (
       select score from athlete_daily_readiness_snapshots
       where athlete_id = a.id
@@ -127,7 +126,7 @@ export async function fetchAthleteProfileShell(params: {
     order by e.start_date asc limit 1
   `;
 
-  const blockType = (row.block_type as AtrBlockType | null) ?? null;
+  const blockType = row.block_type ?? null;
 
   return {
     athlete_id: row.id,

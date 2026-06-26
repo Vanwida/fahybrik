@@ -3,11 +3,10 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayUtc } from '@fahybrid/shared/domain/dates';
-import { getCurrentBlock } from '@/lib/atr/service';
+import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
-import { atrPhaseLabel } from '@/lib/dashboard/constants/atr-phases';
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
 
@@ -44,11 +43,9 @@ export interface AthletePlanPayload {
   view_mode: PlanViewMode;
   range_start: string;
   range_end: string;
+  /** Current microciclo NAME (coach data, agnostic), null when none active. */
   current_block: string | null;
-  /**
-   * Display label for the athlete's current block (legacy ATR full word, via
-   * atrPhaseLabel). null when there's no active block.
-   */
+  /** Same microciclo NAME — display label. null when none active. */
   current_block_label: string | null;
   weeks: PlanWeekRow[];
   macro: MacroProgressPayload;
@@ -231,12 +228,12 @@ export async function buildAthletePlan(params: {
     cursor = addDays(cursor, 7);
   }
 
-  const block = await getCurrentBlock({ athlete_id: params.athlete_id, client });
+  const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, client });
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
 
-  // Current block label = the legacy ATR full word (Acumulación / Intensificación
-  // / Tapering) for the block type. null when there's no active block.
-  const current_block_label: string | null = block ? atrPhaseLabel(block.block_type) : null;
+  // Current microciclo label = the coach's microciclo NAME (agnostic), null when
+  // there's no active microciclo.
+  const current_block_label: string | null = micro?.name ?? null;
 
   return {
     athlete_id: header[0].id,
@@ -244,7 +241,7 @@ export async function buildAthletePlan(params: {
     view_mode: view,
     range_start: startIso,
     range_end: endIso,
-    current_block: block?.block_type ?? null,
+    current_block: micro?.name ?? null,
     current_block_label,
     weeks,
     macro,

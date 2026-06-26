@@ -43,7 +43,6 @@ export function suggestFreeText(input: TextSuggestInput): string[] {
   const exercises = Array.isArray(input.context.exercises)
     ? (input.context.exercises as string[])
     : [];
-  const block = typeof input.context.atr_block === 'string' ? input.context.atr_block : '';
   const zone =
     typeof input.context.hr_zone === 'number' ? `Z${input.context.hr_zone}` : null;
   const duration =
@@ -52,8 +51,8 @@ export function suggestFreeText(input: TextSuggestInput): string[] {
   if (input.surface === 'workout_name') {
     const base = exercises[0] ?? 'Sesión';
     const hints = [
-      [zone, duration, block].filter(Boolean).join(' · ') || `${base} — principal`,
-      `${block || 'Entreno'} ${duration ?? ''}`.trim(),
+      [zone, duration].filter(Boolean).join(' · ') || `${base} — principal`,
+      `Entreno ${duration ?? ''}`.trim(),
       exercises.length > 1 ? `${exercises[0]} + ${exercises.length - 1} más` : `${base} Fabrik`,
     ];
     return [...new Set(hints.map((s) => s.trim()).filter(Boolean))].slice(0, 3);
@@ -69,7 +68,7 @@ export function suggestFreeText(input: TextSuggestInput): string[] {
 
   if (input.surface === 'week_focus') {
     return [
-      `${block || 'Bloque'} — densidad media, una sesión clave`,
+      'Densidad media, una sesión clave',
       'Semana de acumulación controlada',
       'Recuperación activa entre estímulos duros',
     ];
@@ -89,11 +88,10 @@ export function suggestFreeText(input: TextSuggestInput): string[] {
 
   if (input.surface === 'template_name') {
     const level = typeof input.context.level === 'string' ? input.context.level : 'Pro';
-    const phase = block || 'ATR';
     return [
-      `${phase} · ${level} · Semana base`,
-      `${phase} w1 · ${level} · densidad media`,
-      `${level} HYROX · ${phase}`,
+      `${level} · Semana base`,
+      `${level} · densidad media`,
+      `${level} HYROX`,
     ];
   }
 

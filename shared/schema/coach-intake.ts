@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { atrBlockType, idSchema, isoDate } from './_primitives';
+import { idSchema, isoDate } from './_primitives';
 
 // Intake commit payload — Pablo's signed-off decisions for a new athlete.
 //
@@ -10,7 +10,8 @@ import { atrBlockType, idSchema, isoDate } from './_primitives';
 // athlete to be active in the cohort).
 
 export const intakeBlockSpecSchema = z.object({
-  type: atrBlockType,
+  // Microciclo NAME (coach data / agnostic) — e.g. "Microciclo 1". Not an ATR phase.
+  type: z.string().min(1).max(60),
   weeks: z.number().int().min(1).max(20),
 });
 export type IntakeBlockSpec = z.infer<typeof intakeBlockSpecSchema>;

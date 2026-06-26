@@ -2,9 +2,9 @@
 //
 // Three entry points (SPEC §8):
 //   - rollupAthleteFacts: one SignalFacts per athlete of a coach. Coach-level
-//     loaders run ONCE (indexed into Maps); biometrics/microcycle/billing come
-//     from ONE batched CTE; per-athlete ATR/readiness/transition services run
-//     per athlete (acceptable in the 300s cron budget) inside a try/catch so one
+//     loaders run ONCE (indexed into Maps); biometrics/microciclo/billing come
+//     from ONE batched CTE; per-athlete readiness/progress services run per
+//     athlete (acceptable in the 300s cron budget) inside a try/catch so one
 //     bad athlete never aborts the rollup.
 //   - recomputeCoach: the SWEEP — evaluate every athlete, upsert firing signals,
 //     auto-clear the rest, per-athlete transaction + try/catch.
@@ -19,10 +19,7 @@ import { captureRouteError } from '@/lib/observability/capture';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { evaluateAll } from '@/lib/coach/attention/evaluators';
 import { attentionTag } from './queue';
-import {
-  getCurrentBlock,
-  recommendAthleteTransition,
-} from '@/lib/atr/service';
+import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getAthleteProgrammingStatus } from '@/lib/dashboard/coach/programming-status';
 import { getLatestReadiness } from '@/lib/dashboard/coach/athlete-daily-readiness';
 import { listPendingIntake } from '@/lib/coach/intake';
@@ -34,7 +31,6 @@ import {
   type SignalFacts,
   type SignalResult,
 } from '@fahybrid/shared/domain/coach/signals';
-import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 import { loadBatch, type BatchRow } from './recompute-batch';
 
 interface CoachLevelMaps {
@@ -90,11 +86,10 @@ async function assembleFacts(
 ): Promise<SignalFacts> {
   const athleteIdNum = Number(row.athlete_id);
 
-  const [block, programming, readiness, transition] = await Promise.all([
-    getCurrentBlock({ athlete_id: athleteIdNum, on_date: now, client }),
+  const [programming, readiness, progress] = await Promise.all([
     getAthleteProgrammingStatus({ athlete_id: athleteIdNum, on_date: now, client }),
     getLatestReadiness({ athlete_id: athleteIdNum, on_date: now, client }),
-    recommendAthleteTransition({ athlete_id: athleteIdNum, on_date: now, client }),
+    assessAthleteProgressReadiness({ athlete_id: athleteIdNum, on_date: now, client }),
   ]);
 
   const hrv_delta_ms =
@@ -132,9 +127,9 @@ async function assembleFacts(
     programming_label: programming.label ?? null,
     programming_detail: programming.detail ?? null,
     current_microcycle_end_iso: row.current_microcycle_end_iso,
-    current_block_type: (block?.block_type ?? null) as AtrBlockType | null,
-    transition_recommendation: mapTransition(transition?.recommendation ?? null),
-    transition_detail: transition?.reasons.length ? transition.reasons.join(' · ') : null,
+    current_block_type: row.current_microciclo_name,
+    transition_recommendation: mapTransition(progress?.recommendation ?? null),
+    transition_detail: progress?.reasons.length ? progress.reasons.join(' · ') : null,
     days_to_a_event,
     a_event_name: row.a_event_name,
 
@@ -154,8 +149,8 @@ async function assembleFacts(
 }
 
 /**
- * The ATR transition engine only emits 'advance' | 'hold' | 'regress'. The facts
- * contract allows 'advance' | 'hold' | 'extend' | null. We pass 'advance'/'hold'
+ * The progress-readiness engine only emits 'advance' | 'hold' | 'regress'. The
+ * facts contract allows 'advance' | 'hold' | 'extend' | null. We pass 'advance'/'hold'
  * through (the evaluator only acts on 'advance') and map 'regress' → 'hold' since
  * the attention engine treats both non-advance verdicts as "do not surface".
  */

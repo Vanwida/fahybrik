@@ -97,8 +97,8 @@ export function HistoricoTab({
           )}
         </Panel>
 
-        <Panel title="Carga acumulada por bloque">
-          <ChartPlaceholder label="Carga acumulada · bloques ATR" height={180} />
+        <Panel title="Carga acumulada por microciclo">
+          <ChartPlaceholder label="Carga acumulada · microciclos" height={180} />
         </Panel>
       </div>
 

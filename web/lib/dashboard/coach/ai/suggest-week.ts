@@ -3,8 +3,6 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { atrBlockType } from '@fahybrid/shared/schema/_primitives';
-import type { AtrBlockType } from '@fahybrid/shared/schema/_primitives';
 import {
   weekDaySchema,
   type WeekDay,
@@ -38,7 +36,6 @@ export const suggestWeekRequestSchema = z
     name: z.string().min(2).max(200).optional(),
     focus: z.string().min(2).max(400),
     level: programLevel.optional(),
-    atr_block: atrBlockType.optional(),
     /** Modo: rápido = slots con templates del catálogo. Slow = LLM ordena. */
     mode: z.enum(['fast', 'slow']).default('fast'),
     /** Para v1: 7 días siempre; el coach decide qué hacer con cada uno. */
@@ -104,19 +101,7 @@ export async function suggestWeekPlan(params: {
   const req = parsed.data;
 
   const templates = await loadCoachTemplates(params.coach_id, client);
-  const allUsable = templates.filter((t) => t.segment_count > 0);
-
-  // Hard filter por bloque ATR — meter templates de otros bloques en una semana
-  // ACC/TRANS/REAL es incorrecto periodológicamente. Si tras filtrar quedan 0,
-  // caemos al catálogo completo con una nota visible (mejor algo que nada).
-  const blockMatches = req.atr_block
-    ? allUsable.filter((t) => t.target_block === req.atr_block || t.target_block === 'any')
-    : allUsable;
-  const blockFilterFellThrough = req.atr_block != null && blockMatches.length === 0;
-  const usable = blockFilterFellThrough ? allUsable : blockMatches;
-  const blockNote = blockFilterFellThrough
-    ? `Sin templates para bloque ${req.atr_block} — usando catálogo completo.`
-    : undefined;
+  const usable = templates.filter((t) => t.segment_count > 0);
 
   // Distribución por defecto: 6 días entrenamiento + 1 descanso (domingo).
   const trainingDays = computeTrainingDayDistribution(req.days_per_week);
@@ -127,27 +112,21 @@ export async function suggestWeekPlan(params: {
       training_days: trainingDays,
       templates: usable,
       focus: req.focus,
-      atr_block: req.atr_block,
       level: req.level,
       client,
     });
     return {
       mode: req.mode,
       source: req.mode === 'slow' && !isPabloIaLlmConfigured() ? 'library_fallback' : 'library',
-      name: req.name ?? defaultWeekName(req.focus, req.atr_block),
+      name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: filled.days,
       matched_templates: filled.matched,
       rest_days: filled.rest_days,
       notes:
-        [
-          blockNote,
-          req.mode === 'slow' && !isPabloIaLlmConfigured()
-            ? 'LLM no configurado: semana compuesta desde plantillas del catálogo.'
-            : undefined,
-        ]
-          .filter(Boolean)
-          .join(' ') || undefined,
+        req.mode === 'slow' && !isPabloIaLlmConfigured()
+          ? 'LLM no configurado: semana compuesta desde plantillas del catálogo.'
+          : undefined,
     };
   }
 
@@ -163,7 +142,6 @@ export async function suggestWeekPlan(params: {
     const planned = await llmOrderWeek({
       focus: req.focus,
       level: req.level ?? 'pro',
-      atr_block: req.atr_block,
       templates: usable,
       training_days: trainingDays,
       client,
@@ -174,7 +152,7 @@ export async function suggestWeekPlan(params: {
     return {
       mode: 'slow',
       source: 'llm',
-      name: req.name ?? defaultWeekName(req.focus, req.atr_block),
+      name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: planned.days,
       matched_templates: planned.matched,
@@ -185,19 +163,17 @@ export async function suggestWeekPlan(params: {
       training_days: trainingDays,
       templates: usable,
       focus: req.focus,
-      atr_block: req.atr_block,
       level: req.level,
       client,
     });
-    const llmFailNote =
+    const notes =
       err instanceof PabloIaLlmError
         ? `Pablo IA LLM falló (${err.code}); semana compuesta desde el catálogo.`
         : 'Pablo IA LLM falló; semana compuesta desde el catálogo.';
-    const notes = [blockNote, llmFailNote].filter(Boolean).join(' ');
     return {
       mode: 'slow',
       source: 'library_fallback',
-      name: req.name ?? defaultWeekName(req.focus, req.atr_block),
+      name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: fallback.days,
       matched_templates: fallback.matched,
@@ -268,7 +244,6 @@ interface BuildArgs {
   training_days: number[];
   templates: TemplateRow[];
   focus: string;
-  atr_block?: AtrBlockType | undefined;
   level?: z.infer<typeof programLevel> | undefined;
   client: Sql;
 }
@@ -344,7 +319,6 @@ async function buildWeekFromLibrary(args: BuildArgs): Promise<BuildResult> {
           ...(dayBlocks.length > 0 ? { blocks: dayBlocks } : {}),
         },
       ],
-      focus: focusHintForDay(dow, args),
     });
     days.push({ ...day, preview_label: tpl.name });
   }
@@ -369,9 +343,6 @@ function rankTemplatesForWeek(args: BuildArgs): TemplateRow[] {
       for (const tok of focusTokens) {
         if (nameLc.includes(tok)) score += 3;
       }
-      if (args.atr_block && (t.target_block === args.atr_block || t.target_block === 'any')) {
-        score += 2;
-      }
       if (targetLevel != null && t.target_level === targetLevel) score += 1;
       return { t, score };
     })
@@ -379,22 +350,9 @@ function rankTemplatesForWeek(args: BuildArgs): TemplateRow[] {
     .map(({ t }) => t);
 }
 
-function focusHintForDay(dow: number, args: BuildArgs): string | undefined {
-  // Heurística simple v1 — Pablo edita después.
-  if (!args.atr_block) return undefined;
-  if (args.atr_block === 'ACC') {
-    return dow % 2 === 0 ? 'Volumen / Z2' : 'Fuerza';
-  }
-  if (args.atr_block === 'TRANS') {
-    return dow === 3 ? 'Specific HYROX' : 'Threshold';
-  }
-  return dow === 6 ? 'Taper / sim corto' : 'Estaciones';
-}
-
-function defaultWeekName(focus: string, atr?: AtrBlockType): string {
-  const block = atr ?? 'Semana';
+function defaultWeekName(focus: string): string {
   const head = focus.split(/[.,;]/)[0]!.trim().slice(0, 60);
-  return `${block} · ${head || 'Pablo IA'}`;
+  return `Semana · ${head || 'Pablo IA'}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -440,7 +398,6 @@ const llmWeekSchema = z.object({
 interface LlmOrderArgs {
   focus: string;
   level: 'beginner' | 'intermediate' | 'pro' | 'elite';
-  atr_block?: AtrBlockType | undefined;
   templates: TemplateRow[];
   training_days: number[];
   client: Sql;
@@ -549,11 +506,9 @@ async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
     '  • [warmup] + [principal]  (si principal ya es denso)',
     '  • [principal]  (si la sesión es muy específica y carga total alta — p.ej. simulacro)',
     '- NUNCA inventes templates: copia EXACTO los nombres del catálogo (case-sensitive si puedes, case-insensitive aceptable).',
-    '- Respeta el bloque ATR si se indica (ACC=volumen aeróbico+fuerza máxima, TRANS=específico HYROX+threshold, REAL=race-pace y taper).',
-    '- NUNCA combines un `cardio_running` con un `strength_block` en el MISMO día si el atleta está en deload o si el bloque ATR es REAL avanzado (compromete recovery del taper).',
+    '- NUNCA combines un `cardio_running` con un `strength_block` en el MISMO día si el atleta está en deload (compromete la recuperación).',
     '- NUNCA pongas ejercicios cardio (running/rowing/ski erg/bike) dentro de un template con format=strength_block. Cardio vive en templates intervals, for_time, circuit, amrap, emom o hyrox_sim.',
     '- Sesión dura + recuperación / Z2 al día siguiente.',
-    '- Lenguaje técnico ATR.',
   ];
 
   if (boxBlock) {
@@ -576,7 +531,6 @@ async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
   const user = [
     `Foco semana: ${args.focus}`,
     `Nivel: ${args.level}`,
-    `Bloque ATR: ${args.atr_block ?? 'no especificado'}`,
     `Días entreno preferidos: ${args.training_days.join(', ')}`,
     '',
     'Catálogo de templates (copia los nombres EXACTOS en `template_names[]`, en orden de ejecución dentro del día):',

@@ -7,7 +7,8 @@ import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types
 
 interface PersonaSeed {
   full_name: string;
-  block_type: 'ACC' | 'TRANS' | 'REAL';
+  /** Coach's microciclo name (DATA, not a fixed phase enum). */
+  block_type: string;
   block_week: number;
   compliance_pct: number;
   hrv_delta_ms: number;
@@ -45,7 +46,7 @@ interface PersonaSeed {
 const PERSONAS: ReadonlyArray<PersonaSeed> = [
   {
     full_name: 'Marc Vidal',
-    block_type: 'REAL',
+    block_type: 'Realización',
     block_week: 2,
     compliance_pct: 71,
     hrv_delta_ms: -12,
@@ -81,7 +82,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Sara Puig',
-    block_type: 'TRANS',
+    block_type: 'Transformación',
     block_week: 3,
     compliance_pct: 88,
     hrv_delta_ms: 0,
@@ -117,7 +118,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Jordi Llopis',
-    block_type: 'ACC',
+    block_type: 'Acumulación',
     block_week: 6,
     compliance_pct: 84,
     hrv_delta_ms: 3,
@@ -145,7 +146,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
       {
         kind: 'transition_ready',
         severity: 'warning',
-        label: 'Block A→T',
+        label: 'Listo para avanzar',
         detail: '2 perdidas',
       },
       {
@@ -159,7 +160,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Andreu Roig',
-    block_type: 'ACC',
+    block_type: 'Acumulación',
     block_week: 1,
     compliance_pct: 100,
     hrv_delta_ms: 2,
@@ -188,7 +189,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Núria Bofill',
-    block_type: 'REAL',
+    block_type: 'Realización',
     block_week: 1,
     compliance_pct: 95,
     hrv_delta_ms: 5,
@@ -217,7 +218,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Pol Aguirre',
-    block_type: 'TRANS',
+    block_type: 'Transformación',
     block_week: 2,
     compliance_pct: 92,
     hrv_delta_ms: -2,
@@ -246,7 +247,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Laia Ferré',
-    block_type: 'ACC',
+    block_type: 'Acumulación',
     block_week: 4,
     compliance_pct: 78,
     hrv_delta_ms: -4,
@@ -282,7 +283,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Ignasi Brú',
-    block_type: 'REAL',
+    block_type: 'Realización',
     block_week: 3,
     compliance_pct: 96,
     hrv_delta_ms: 1,
@@ -311,7 +312,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Marta Cisneros',
-    block_type: 'TRANS',
+    block_type: 'Transformación',
     block_week: 4,
     compliance_pct: 100,
     hrv_delta_ms: 4,
@@ -339,7 +340,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
       {
         kind: 'transition_ready',
         severity: 'warning',
-        label: 'Listo TRANS→REAL',
+        label: 'Listo para avanzar',
         detail: 'benchmarks +6%',
       },
     ],
@@ -347,7 +348,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Bernat Oliva',
-    block_type: 'ACC',
+    block_type: 'Acumulación',
     block_week: 2,
     compliance_pct: 67,
     hrv_delta_ms: -3,
@@ -383,7 +384,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Helena Sastre',
-    block_type: 'REAL',
+    block_type: 'Realización',
     block_week: 2,
     compliance_pct: 90,
     hrv_delta_ms: 0,
@@ -412,7 +413,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Aleix Tort',
-    block_type: 'TRANS',
+    block_type: 'Transformación',
     block_week: 1,
     compliance_pct: 82,
     hrv_delta_ms: -1,
@@ -448,7 +449,7 @@ const PERSONAS: ReadonlyArray<PersonaSeed> = [
   },
   {
     full_name: 'Júlia Camps',
-    block_type: 'ACC',
+    block_type: 'Acumulación',
     block_week: 5,
     compliance_pct: 88,
     hrv_delta_ms: 2,

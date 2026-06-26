@@ -79,10 +79,10 @@ const MODALITY_LABEL: Record<string, string> = {
 };
 
 /**
- * Header block label. The block NAME comes from `buildAthletePlan`
- * (→ `plan.current_block_label`, the legacy ATR full-word label via atrPhaseLabel).
- * We append the block-relative week from the shell. Falls back to the shell's raw
- * block type only when there's no resolved label and no plan.
+ * Header microciclo label. The name comes from `buildAthletePlan`
+ * (→ `plan.current_block_label`, the coach's microciclo name). We append the
+ * relative week from the shell. Falls back to the shell's raw microciclo name
+ * only when there's no resolved label and no plan.
  */
 function phaseLabel(
   shell: AthleteProfileShell | null,

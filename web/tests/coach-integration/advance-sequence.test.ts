@@ -21,7 +21,6 @@ import { instantiateMonthFromTemplate } from '@/lib/dashboard/coach/instantiate-
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeCoachAndAthlete,
-  makeMacrocycleWithBlock,
   makeMonthTemplate,
   makeTemplate,
   type Fixture,
@@ -101,13 +100,6 @@ describeWithDb('advanceSequenceForAthlete (real DB)', () => {
    */
   async function materializeFinished(fx: Fixture, monthTemplateId: number): Promise<void> {
     // A macrocycle/block covering the past window the materializer will use.
-    await makeMacrocycleWithBlock({
-      sql,
-      athleteId: fx.athleteId,
-      startIso: '2026-01-05',
-      endIso: '2026-06-01',
-      status: 'active',
-    });
     await instantiateMonthFromTemplate({
       coach_id: fx.coachId,
       athlete_id: fx.athleteId,

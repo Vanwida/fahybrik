@@ -1,4 +1,4 @@
-// Demo Plan payload — Marc Vidal, REAL block w1 (canonical example from
+// Demo Plan payload — Marc Vidal, final microciclo w1 (canonical example from
 // /docs/ux/13-deep-dive-sub-tabs.md). The shape here mirrors what the real
 // builder produces. Used when (a) the URL points at a `demo-N` athlete or
 // (b) Pablo opened a real athlete with no assignments yet.
@@ -11,9 +11,12 @@ import type {
   PlanViewMode,
   PlanWeek,
 } from './deep-dive-plan';
-import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 
 const DEMO_GENERATED_AT = '2026-05-08T08:00:00.000Z';
+
+// Demo microciclo names — plausible coach DATA (agnostic strings, NOT a fixed
+// phase enum). The third (final) microciclo demos a taper preview.
+const DEMO_MICROCICLOS = { base: 'Base', build: 'Construcción', peak: 'Pico' } as const;
 
 export function getMarcPlan(
   athlete_id: string,
@@ -48,9 +51,9 @@ function buildPlan(
 ): PlanPayload {
   const range = computeRange(view, anchor);
 
-  // The demo macrocycle is anchored at HYROX BCN 2026-06-18: REAL block
-  // w1=2026-05-04 to 2026-05-10, w2 next. We seed all weeks visible in the
-  // viewport with deterministic patterns; REAL weeks taper.
+  // The demo plan is anchored at HYROX BCN 2026-06-18: the final microciclo
+  // (Pico) w1=2026-05-04 to 2026-05-10, w2 next. We seed all weeks visible in
+  // the viewport with deterministic patterns; the final microciclo tapers.
   const weeks: PlanWeek[] = [];
   let cursor = parseIso(range.start_iso);
   const end = parseIso(range.end_iso);
@@ -72,8 +75,8 @@ function buildPlan(
     range_iso_start: range.start_iso,
     range_iso_end: range.end_iso,
     total_sessions: total,
-    current_block: 'REAL',
-    current_block_label: 'REAL · w1 / 2',
+    current_block: DEMO_MICROCICLOS.peak,
+    current_block_label: `${DEMO_MICROCICLOS.peak} · sem 1 / 2`,
     current_macrocycle_total_weeks: 12,
     weeks,
     a_event: { name: 'HYROX BCN', iso_date: '2026-06-18', days_until: 41 },
@@ -124,33 +127,35 @@ function buildWeek(monday: Date): PlanWeek {
   };
 }
 
-interface BlockInfo { type: AtrBlockType | null; position_in_block: number | null }
+interface BlockInfo { type: string | null; position_in_block: number | null }
 function blockForWeek(monday: Date): BlockInfo {
-  // Macrocycle: ACC w1-w6 (2026-03-23 → 2026-05-03), TRANS w7-w10, REAL w11-w12.
-  // Mapping the REAL weeks is what the spec emphasises (taper preview).
+  // Demo microciclos: Base w1-w6 (2026-03-23 → 2026-05-03), Construcción w7-w10,
+  // Pico w11-w12. The final (Pico) microciclo demos the taper preview.
   const iso = isoDate(monday);
   if (iso < '2026-03-23') return { type: null, position_in_block: null };
   if (iso >= '2026-03-23' && iso < '2026-05-04') {
     const w = Math.floor(daysBetween(parseIso('2026-03-23'), monday) / 7) + 1;
-    return { type: 'ACC', position_in_block: w };
+    return { type: DEMO_MICROCICLOS.base, position_in_block: w };
   }
   if (iso >= '2026-05-04' && iso < '2026-06-01') {
     const w = Math.floor(daysBetween(parseIso('2026-05-04'), monday) / 7) + 1;
-    return { type: 'TRANS', position_in_block: w };
+    return { type: DEMO_MICROCICLOS.build, position_in_block: w };
   }
   if (iso >= '2026-06-01' && iso < '2026-06-22') {
     const w = Math.floor(daysBetween(parseIso('2026-06-01'), monday) / 7) + 1;
-    return { type: 'REAL', position_in_block: w };
+    return { type: DEMO_MICROCICLOS.peak, position_in_block: w };
   }
   return { type: null, position_in_block: null };
 }
 
 function taperForWeek(monday: Date): { factor: number; label: string | null } {
   const block = blockForWeek(monday);
-  if (block.type !== 'REAL' || block.position_in_block == null) return { factor: 1, label: null };
+  if (block.type !== DEMO_MICROCICLOS.peak || block.position_in_block == null) {
+    return { factor: 1, label: null };
+  }
   const w = block.position_in_block;
   const factor = w === 1 ? 1 : w === 2 ? 0.7 : 0.5;
-  return { factor, label: `REAL w${w} · ${Math.round(factor * 100)}%` };
+  return { factor, label: `${DEMO_MICROCICLOS.peak} sem ${w} · ${Math.round(factor * 100)}%` };
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +165,7 @@ function taperForWeek(monday: Date): { factor: number; label: string | null } {
 function sessionsForDay(
   iso_date: string,
   dayOfWeek: number,
-  block: AtrBlockType | null,
+  block: string | null,
   taperFactor: number,
 ): PlanSession[] {
   // Sunday is rest/active recovery only.

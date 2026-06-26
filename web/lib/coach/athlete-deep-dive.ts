@@ -1,6 +1,6 @@
 // Athlete deep-dive payload builder. Composes data from:
 //   - athletes / athlete_target_events / events
-//   - atr engine (current macrocycle + block)
+//   - current microciclo (athlete_month_assignments) + progress readiness
 //   - training_load (CTL/ATL/TSB series + load summary)
 //   - workout_executions / workout_assignments / segment_executions
 //   - biometric_streams (HRV, sleep, RHR, recovery)
@@ -13,7 +13,8 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { getCurrentBlock, recommendAthleteTransition } from '@/lib/atr/service';
+import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getDailyTssSeries, summarizeLoad, computeAcr } from '@/lib/training-load';
 import {
   getDemoDeepDive,
@@ -45,7 +46,7 @@ import type {
   TrendsBlock,
   ZoneTimePct,
 } from './deep-dive-types';
-import type { AlertReason, AtrBlockType } from '@fahybrid/shared/domain/coach/types';
+import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
@@ -100,13 +101,13 @@ export async function buildAthleteDeepDive(
   `;
   const hasRealActivity = (exec[0]?.n ?? 0) > 0;
 
-  const block = await getCurrentBlock({ athlete_id: numericId, on_date: now, client });
+  const micro = await getCurrentMicrociclo({ athlete_id: numericId, on_date: now, client });
 
   if (!hasRealActivity) {
     const fallback = getDemoFallback(
       params.athlete_id,
       header.full_name,
-      (block?.block_type as AtrBlockType | undefined) ?? null,
+      micro?.name ?? null,
     );
     fallback.banner = {
       kind: 'new_athlete',
@@ -128,10 +129,11 @@ export async function buildAthleteDeepDive(
   const { acr } = computeAcr(tssSeries);
 
   const aEvent = await loadAEvent(client, numericId, now);
-  const macrocycle = buildMacrocycleRibbon(block);
+  const microciclos = await loadMicrociclos(client, numericId);
+  const macrocycle = buildMacrocycleRibbon(microciclos, micro);
   const compliance = await loadCompliance(client, numericId, now);
   const readiness = await loadReadiness(client, numericId, now);
-  const transitionRec = await recommendAthleteTransition({
+  const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
     on_date: now,
     client,
@@ -177,12 +179,11 @@ export async function buildAthleteDeepDive(
     notes,
     alerts,
     banner,
-    transition_suggest: transitionRec
+    transition_suggest: progressReadiness
       ? {
-          recommendation: transitionRec.recommendation,
-          next_block_type: transitionRec.next_block_type,
-          confidence: transitionRec.confidence,
-          reasons: transitionRec.reasons,
+          recommendation: progressReadiness.recommendation,
+          confidence: progressReadiness.confidence,
+          reasons: progressReadiness.reasons,
         }
       : null,
   };
@@ -274,28 +275,55 @@ async function loadAEvent(client: Sql, athlete_id: number, now: Date): Promise<A
 }
 
 // ---------------------------------------------------------------------------
-// Macrocycle ribbon — one segment per ATR block.
+// Microciclo ribbon — one segment per assigned microciclo (agnostic).
+// Each `athlete_month_assignments` row IS a microciclo: label = the coach's
+// template name, span = its week count. The ORDER of the microciclos is the
+// periodization (no ACC/TRANS/REAL, no fixed phases).
 // ---------------------------------------------------------------------------
 
+interface MicrocicloRow {
+  id: string;
+  name: string;
+  week_count: number;
+  start_iso: string;
+  end_iso: string;
+}
+
+async function loadMicrociclos(client: Sql, athlete_id: number): Promise<MicrocicloRow[]> {
+  return await client<Array<MicrocicloRow>>`
+    select
+      ama.id::text                                          as id,
+      m.name                                                as name,
+      coalesce(array_length(ama.microcycle_ids, 1), 0)::int as week_count,
+      to_char(ama.start_date, 'YYYY-MM-DD')                 as start_iso,
+      to_char(ama.end_date,   'YYYY-MM-DD')                 as end_iso
+    from athlete_month_assignments ama
+    join program_month_templates m on m.id = ama.month_template_id
+    where ama.athlete_id = ${athlete_id}
+    order by ama.start_date asc
+  `;
+}
+
 function buildMacrocycleRibbon(
-  block: Awaited<ReturnType<typeof getCurrentBlock>>,
+  microciclos: ReadonlyArray<MicrocicloRow>,
+  current: Awaited<ReturnType<typeof getCurrentMicrociclo>>,
 ): MacrocycleRibbon | null {
-  if (!block) return null;
-  // We only have the current block's metadata from the planner. Until we
-  // expose a "list all blocks for current macro" helper we hard-code the
-  // standard 6/4/2 block lengths so the ribbon visualisation is faithful.
-  const blocks = [
-    { type: 'ACC' as AtrBlockType,   weeks: 6, position: 1, is_current: block.block_type === 'ACC'   && block.block_position === 1 },
-    { type: 'TRANS' as AtrBlockType, weeks: 4, position: 2, is_current: block.block_type === 'TRANS' && block.block_position === 2 },
-    { type: 'REAL' as AtrBlockType,  weeks: 2, position: 3, is_current: block.block_type === 'REAL'  && block.block_position === 3 },
-  ];
+  if (microciclos.length === 0) return null;
+  const currentId = current ? String(current.assignment_id) : null;
+  const blocks = microciclos.map((m, i) => ({
+    type: m.name,
+    weeks: m.week_count,
+    position: i + 1,
+    is_current: currentId != null && m.id === currentId,
+  }));
+  const total_weeks = microciclos.reduce((s, m) => s + m.week_count, 0);
   return {
     blocks,
-    current_block: block.block_type,
-    current_week: block.week_number,
+    current_block: current?.name ?? null,
+    current_week: current?.week_index ?? null,
     current_day_of_week: ((new Date()).getUTCDay() + 6) % 7 + 1,
-    total_weeks: 12,
-    weeks_to_event: block.weeks_to_event,
+    total_weeks,
+    weeks_to_event: current?.weeks_to_event ?? null,
   };
 }
 

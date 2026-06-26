@@ -4,13 +4,14 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { getCurrentBlock, recommendAthleteTransition } from '@/lib/atr/service';
+import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getDailyTssSeries, summarizeLoad } from '@/lib/training-load';
 import { buildDemoCohort } from './demo-data';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
 import { SIGNAL_THRESHOLDS } from './signal-config';
-import type { AlertReason, AtrBlockType, CohortRow } from '@fahybrid/shared/domain/coach/types';
+import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
 
 const DEMO_THRESHOLD = 3;
 
@@ -209,7 +210,7 @@ async function rollupAthlete(
 ): Promise<CohortRow> {
   const athlete_id_num = Number(a.athlete_id);
 
-  const block = await getCurrentBlock({
+  const micro = await getCurrentMicrociclo({
     athlete_id: athlete_id_num,
     on_date: now,
     client,
@@ -269,19 +270,19 @@ async function rollupAthlete(
       days_to_a_event != null && days_to_a_event <= SIGNAL_THRESHOLDS.a_event_near_days,
   };
 
-  const [programming, readiness, transition] = await Promise.all([
+  const [programming, readiness, progress] = await Promise.all([
     getAthleteProgrammingStatus({ athlete_id: athlete_id_num, on_date: now, client }),
     getLatestReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
-    recommendAthleteTransition({ athlete_id: athlete_id_num, on_date: now, client }),
+    assessAthleteProgressReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
   ]);
 
-  if (transition?.recommendation === 'advance') {
+  if (progress?.recommendation === 'advance') {
     flags.transition_ready = true;
     alerts.unshift({
       kind: 'transition_ready',
       severity: 'warning',
-      label: 'Listo para TRANS',
-      detail: transition.reasons.join(' · ') || 'Revisar deep-dive',
+      label: 'Listo para progresar',
+      detail: progress.reasons.join(' · ') || 'Revisar deep-dive',
     });
   }
 
@@ -298,8 +299,8 @@ async function rollupAthlete(
     athlete_id: a.athlete_id,
     full_name: a.full_name,
     is_demo: false,
-    block_type: (block?.block_type ?? null) as AtrBlockType | null,
-    block_week: block?.week_number ?? null,
+    block_type: micro?.name ?? null,
+    block_week: micro?.week_index ?? null,
     compliance_pct,
     hrv_delta_ms,
     hrv_trend,

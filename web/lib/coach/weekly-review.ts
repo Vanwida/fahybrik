@@ -40,6 +40,9 @@ const TARGET_POLARIZATION = { low: 80, mid: 0, high: 20 };
 const POLARIZATION_DRIFT_THRESHOLD = 6;
 const ATTENTION_HRV_DROP_MS = 8;
 const MASS_ADJUSTMENT_MIN_AFFECTED = 3;
+// Weeks into the current microciclo before a transition recommendation is
+// surfaced. Agnostic (no fixed phase length): a single floor across the cohort.
+const TRANSITION_WEEK_THRESHOLD = 3;
 
 // =============================================================================
 // Public API
@@ -427,12 +430,10 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
   for (const row of cohort) {
     if (row.block_type == null || row.block_week == null) continue;
 
-    // Heuristic: at week >= 6 in ACC, week >= 4 in TRANS, week >= 3 in REAL,
-    // surface a transition recommendation. Real ATR engine has more nuanced
-    // logic in /lib/atr/transitions.ts — this view aggregates for the cohort
-    // pulse; the deep-dive page calls evaluateTransition for canonical truth.
-    const weeksThreshold = row.block_type === 'ACC' ? 6 : row.block_type === 'TRANS' ? 4 : 3;
-    if (row.block_week < weeksThreshold) continue;
+    // Heuristic: once an athlete is deep enough into their current microciclo,
+    // surface a readiness signal for the cohort pulse. The deep-dive page calls
+    // the canonical progress-readiness reader for the per-athlete truth.
+    if (row.block_week < TRANSITION_WEEK_THRESHOLD) continue;
 
     const compliance = row.compliance_pct ?? 0;
     const tsb = row.tsb ?? 0;
@@ -456,18 +457,14 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
     }
     if (row.tsb != null) signals.push(`TSB ${row.tsb >= 0 ? '+' : ''}${row.tsb.toFixed(0)}`);
 
-    const next: 'TRANS' | 'REAL' | null = row.block_type === 'ACC'
-      ? 'TRANS'
-      : row.block_type === 'TRANS'
-        ? 'REAL'
-        : null;
-
     out.push({
       athlete_id: row.athlete_id,
       full_name: row.full_name,
       current_block: row.block_type,
       current_week: row.block_week,
-      next_block: next,
+      // Agnostic model: no fixed "next phase" — the coach's next microciclo is
+      // an authoring decision, not derivable from the current one.
+      next_block: null,
       signals,
       recommendation,
       confidence,
@@ -486,21 +483,20 @@ export function computeTransitions(cohort: CohortRow[]): WeeklyTransitionItem[] 
 export function computeMassAdjustments(cohort: CohortRow[]): MassAdjustmentOpportunity[] {
   const opportunities: MassAdjustmentOpportunity[] = [];
 
-  // Pattern 1: TRANS w2-3 fresh group → load increase
+  // Pattern 1: fresh group early in their microciclo (w2-3) → load increase
   const transFresh = cohort.filter(
     (r) =>
-      r.block_type === 'TRANS' &&
       r.block_week != null && r.block_week >= 2 && r.block_week <= 3 &&
       (r.compliance_pct ?? 0) >= 90 &&
       (r.tsb ?? 0) >= 5,
   );
   if (transFresh.length >= MASS_ADJUSTMENT_MIN_AFFECTED) {
     opportunities.push({
-      id: 'mass-trans-load-increase',
+      id: 'mass-load-increase',
       kind: 'load_increase',
       affected_count: transFresh.length,
       affected_athlete_ids: transFresh.map((r) => r.athlete_id),
-      rationale: `${transFresh.length} atletas en TRANS w2-3 con compliance ≥90% y TSB ≥+5`,
+      rationale: `${transFresh.length} atletas en w2-3 del microciclo con compliance ≥90% y TSB ≥+5`,
       suggestion: 'Aumentar carga +5% próxima semana',
       cta_label: `aplicar +5% load · ${transFresh.length} atletas`,
     });

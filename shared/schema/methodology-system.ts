@@ -5,7 +5,7 @@
 // @fahybrid/shared/domain/methodology — imported here, NOT re-declared.
 
 import { z } from 'zod';
-import { atrBlockType, idSchema, isoDateTime } from './_primitives';
+import { idSchema, isoDateTime } from './_primitives';
 import {
   conditionGroupSchema,
   ruleActionSchema,
@@ -88,7 +88,7 @@ export type ProgressionShape = z.infer<typeof progressionShape>;
 export const methodologyBlockSchema = z.object({
   id: idSchema,
   coach_id: idSchema,
-  block_type: atrBlockType,
+  block_type: z.string(),
   label_athlete: z.string().min(1).max(60),
   duration_weeks: z.number().int().min(1).max(8),
   objective_json: z.array(methodologyBlockObjective).min(1),

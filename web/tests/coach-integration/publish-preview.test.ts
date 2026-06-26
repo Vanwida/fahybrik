@@ -17,7 +17,6 @@ import { notifyAthlete } from '@/lib/notifications/dispatch';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeCoachAndAthlete,
-  makeMacrocycleWithBlock,
   makeExercise,
   makeLibraryBlock,
   makeInlineMonthTemplate,
@@ -42,13 +41,6 @@ describeWithDb('buildPublishPreview — mirrors materialization (real DB)', () =
   async function baseFixture(): Promise<Fixture> {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
-    await makeMacrocycleWithBlock({
-      sql,
-      athleteId: fx.athleteId,
-      startIso: START,
-      endIso: '2026-03-01',
-      status: 'planned',
-    });
     return fx;
   }
 

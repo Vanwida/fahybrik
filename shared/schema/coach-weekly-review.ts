@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { atrBlockType, isoDate, isoDateTime } from './_primitives';
+import { isoDate, isoDateTime } from './_primitives';
 
 // Status of a weekly review record.
 //   draft     — open, Pablo hasn't approved yet
@@ -48,7 +48,7 @@ export type WeeklyReviewSnapshot = z.infer<typeof weeklyReviewSnapshotSchema>;
 export const weeklyAttentionItemSchema = z.object({
   athlete_id: z.string(),
   full_name: z.string(),
-  block_type: atrBlockType.nullable(),
+  block_type: z.string().nullable(),
   block_week: z.number().int().nullable(),
   severity: z.enum(['critical', 'warning']),
   // bullet-point analysis lines, ordered by severity
@@ -64,9 +64,9 @@ export type WeeklyAttentionItem = z.infer<typeof weeklyAttentionItemSchema>;
 export const weeklyTransitionItemSchema = z.object({
   athlete_id: z.string(),
   full_name: z.string(),
-  current_block: atrBlockType,
+  current_block: z.string(),
   current_week: z.number().int(),
-  next_block: atrBlockType.nullable(),
+  next_block: z.string().nullable(),
   signals: z.array(z.string()).min(1).max(6),
   recommendation: z.enum(['advance', 'hold', 'regress']),
   confidence: z.enum(['high', 'medium', 'low']),
@@ -126,14 +126,14 @@ export const weeklyReviewDecisionSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('transition_advanced'),
     athlete_id: z.string(),
-    from_block: atrBlockType,
-    to_block: atrBlockType,
+    from_block: z.string(),
+    to_block: z.string(),
     decided_at: isoDateTime,
   }),
   z.object({
     kind: z.literal('transition_held'),
     athlete_id: z.string(),
-    block: atrBlockType,
+    block: z.string(),
     extended_weeks: z.number().int().min(1).max(4),
     decided_at: isoDateTime,
   }),

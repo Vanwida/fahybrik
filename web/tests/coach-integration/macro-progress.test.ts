@@ -17,7 +17,7 @@ import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeAssignment,
   makeCoachAndAthlete,
-  makeMacrocycleWithBlock,
+  makeMicrocycle,
   makeTemplate,
   type Fixture,
 } from '../utils/db-fixtures';
@@ -49,20 +49,14 @@ describeWithDb('buildMacroProgress (real DB)', () => {
   async function seedMacroWithWeeks(): Promise<{ fx: Fixture; microId: number }> {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
-    const { blockId } = await makeMacrocycleWithBlock({
+    // AGNOSTIC: a per-athlete microcycle covering ON_DATE (no ATR block).
+    const { microcycleId: microId } = await makeMicrocycle({
       sql,
       athleteId: fx.athleteId,
-      startIso: MACRO_START,
-      endIso: MACRO_END,
-      status: 'active',
+      startIso: '2026-03-09',
+      endIso: '2026-03-15',
+      weekNumber: 2,
     });
-    // A microcycle covering ON_DATE so getCurrentBlock resolves.
-    const micro = await sql<Array<{ id: string }>>`
-      insert into microcycles (block_id, week_number, start_date, end_date)
-      values (${blockId}, 2, '2026-03-09'::date, '2026-03-15'::date)
-      returning id::text
-    `;
-    const microId = Number(micro[0]!.id);
 
     const tplId = await makeTemplate({ fx, name: 'session' });
 
@@ -87,7 +81,11 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     const p = await buildMacroProgress({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
 
     expect(p.athlete_id).toBe(String(fx.athleteId));
-    expect(p.block).toBe('ACC');
+    // `block` now derives from the materialization receipt (athlete_month_assignments
+    // → template name), AGNOSTIC — none seeded here, so null. The weekly rollup below
+    // (the subject of this test) comes purely from workout_assignments. The named
+    // microciclo label is covered by the buildAthleteMacroSummary test.
+    expect(p.block).toBeNull();
     expect(p.total_assigned_weeks).toBe(3);
     expect(p.weeks).toHaveLength(3);
 
@@ -108,13 +106,6 @@ describeWithDb('buildMacroProgress (real DB)', () => {
   test('past week below 50% completion is marked missed', async () => {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
-    await makeMacrocycleWithBlock({
-      sql,
-      athleteId: fx.athleteId,
-      startIso: MACRO_START,
-      endIso: MACRO_END,
-      status: 'active',
-    });
     const tplId = await makeTemplate({ fx, name: 's' });
     // Past week with 0/2 completed → missed (completed < scheduled*0.5).
     for (const d of WK1) {
@@ -140,7 +131,7 @@ describeWithDb('buildMacroProgress (real DB)', () => {
   test('buildAthleteMacroSummary is agnostic: microciclo name + "semana N de M", no ATR block', async () => {
     const { fx } = await seedMacroWithWeeks();
     // The athlete label is now sourced from the materialization receipt
-    // (athlete_month_assignments → program_month_templates.name), NOT atr_blocks.
+    // (athlete_month_assignments → program_month_templates.name), NOT periodization tables.
     // microcycle_ids left empty → week count (M) falls back to the date span
     // (MACRO_START..MACRO_END = 3 Mon–Sun weeks); ON_DATE is in week 2 → N=2.
     await sql`

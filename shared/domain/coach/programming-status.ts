@@ -27,21 +27,16 @@ export async function getAthleteProgrammingStatus(params: {
   const weekEnd = isoDateString(addDays(mondayOfWeek(today), 6));
 
   try {
-    // An athlete "has a plan" via EITHER path:
-    //  - legacy month-based: a row in `athlete_month_assignments`, or
-    //  - block-based (ATR): an active/planned `atr_macrocycles` whose `atr_blocks`
-    //    → `microcycles` already have materialized `workout_assignments`.
-    // We only fall back to `no_month` ("Sin plan / Asignar primer mes") when NEITHER
-    // path has any assignments — otherwise we'd flag fully-programmed athletes as
-    // having no plan (block-assigned athletes have an empty month table by design).
+    // An athlete "has a plan" when there's a microciclo assignment on record: a row
+    // in `athlete_month_assignments` (the materialization receipt). This is the only
+    // assignment path — the ORDER of microciclos IS the plan.
     const monthCount = await client<Array<{ n: number }>>`
       select count(*)::int as n from athlete_month_assignments
       where athlete_id = ${params.athlete_id as number}
     `;
     const hasMonthPlan = (monthCount[0]?.n ?? 0) > 0;
-    const hasBlockPlan = !hasMonthPlan && (await athleteHasBlockPlan(client, params.athlete_id));
 
-    if (!hasMonthPlan && !hasBlockPlan) {
+    if (!hasMonthPlan) {
       return {
         athlete_id: String(params.athlete_id),
         status: 'no_month',
@@ -118,10 +113,7 @@ export async function getAthleteProgrammingStatus(params: {
     if (
       isPgMissingRelation(err, 'athlete_month_assignments') ||
       isPgMissingRelation(err, 'monthly_block_proposals') ||
-      isPgMissingRelation(err, 'week_adjustment_proposals') ||
-      isPgMissingRelation(err, 'atr_macrocycles') ||
-      isPgMissingRelation(err, 'atr_blocks') ||
-      isPgMissingRelation(err, 'microcycles')
+      isPgMissingRelation(err, 'week_adjustment_proposals')
     ) {
       return {
         athlete_id: String(params.athlete_id),
@@ -132,30 +124,6 @@ export async function getAthleteProgrammingStatus(params: {
     }
     throw err;
   }
-}
-
-/**
- * True when the athlete has a block-based (ATR) plan with materialized sessions:
- * an active/planned `atr_macrocycles` whose blocks' microcycles already hold
- * `workout_assignments`. This mirrors the source of truth used by
- * `buildAthleteBlocksView` / `assignBlockToAthlete` (atr_macrocycles → atr_blocks
- * → microcycles → workout_assignments), so the "has plan?" check stays consistent
- * with what the Plan tab actually renders.
- */
-async function athleteHasBlockPlan(
-  client: Sql,
-  athlete_id: number | bigint,
-): Promise<boolean> {
-  const rows = await client<Array<{ n: number }>>`
-    select count(wa.id)::int as n
-    from atr_macrocycles m
-    join atr_blocks b on b.macrocycle_id = m.id
-    join microcycles mc on mc.block_id = b.id
-    join workout_assignments wa on wa.microcycle_id = mc.id
-    where m.athlete_id = ${athlete_id as number}
-      and m.status in ('planned', 'active')
-  `;
-  return (rows[0]?.n ?? 0) > 0;
 }
 
 export async function loadProgrammingStatusMap(params: {

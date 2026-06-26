@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres';
-import { mondayOfWeek, mondayOfWeekInBox, isoDateString, parseIsoDate } from '../dates';
+import { addDays, mondayOfWeek, mondayOfWeekInBox, isoDateString, parseIsoDate } from '../dates';
 
 export type IntakeMonthProposal = {
   month_template_id: string;
@@ -33,17 +33,17 @@ export async function proposeFirstMonthForIntake(params: {
   const tpl = rows[0];
   if (!tpl) return null;
 
-  const macroRows = await client<Array<{ start_date: string }>>`
-    select to_char(start_date, 'YYYY-MM-DD') as start_date
-    from atr_macrocycles
+  // Suggested start (AGNOSTIC): the day after the athlete's last assigned
+  // microciclo ends, or this week's Monday when they have no plan yet (the common
+  // first-intake case).
+  const lastRows = await client<Array<{ end_date: string | null }>>`
+    select to_char(max(end_date), 'YYYY-MM-DD') as end_date
+    from athlete_month_assignments
     where athlete_id = ${params.athlete_id as number}
-      and status in ('planned', 'active')
-    order by start_date desc limit 1
   `;
-
-  const start =
-    macroRows[0]?.start_date ??
-    isoDateString(mondayOfWeekInBox(new Date()));
+  const start = lastRows[0]?.end_date
+    ? isoDateString(addDays(parseIsoDate(lastRows[0].end_date), 1))
+    : isoDateString(mondayOfWeekInBox(new Date()));
 
   return {
     month_template_id: tpl.id,

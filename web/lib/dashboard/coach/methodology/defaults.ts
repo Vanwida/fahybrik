@@ -193,25 +193,10 @@ export const AREA_COMPLETION: Record<number, AreaCompletion> = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// ÁREA 2 — Periodización ATR (spec §4 · Área 2)
+// ÁREA 2 — Objetivos e intensidad de microciclo (spec §4 · Área 2)
 // ════════════════════════════════════════════════════════════════════════════
-export type AtrBlock = 'ACC' | 'TRANS' | 'REAL';
 
-export interface AtrBlockDefault {
-  block: AtrBlock;
-  /** Athlete-facing label (block_label_athlete). */
-  labelAthlete: string;
-  /** block_duration_weeks. */
-  durationWeeks: number;
-  /** block_sequence_order. */
-  order: number;
-  /** block_objective[] — keys map to OBJECTIVE_OPTIONS. */
-  objectives: string[];
-  /** block_intensity_ceiling. */
-  intensityCeiling: 'Z2' | 'Z3' | 'Z4' | 'Z5';
-}
-
-// Objective vocabulary (block_objective multiselect, spec §4 Área 2).
+// Objective vocabulary (microciclo objective multiselect, spec §4 Área 2).
 export const OBJECTIVE_OPTIONS: readonly { id: string; label: string }[] = [
   { id: 'volumen_aerobico', label: 'Volumen aeróbico' },
   { id: 'densidad_muscular', label: 'Densidad muscular' },
@@ -224,37 +209,6 @@ export const OBJECTIVE_OPTIONS: readonly { id: string; label: string }[] = [
 ] as const;
 
 export const INTENSITY_CEILING_OPTIONS = ['Z2', 'Z3', 'Z4', 'Z5'] as const;
-
-// Defaults: ACC=5 / TRANS=4 / REAL=3 (ground-truth assignment_microciclo).
-export const ATR_BLOCKS_DEFAULT: readonly AtrBlockDefault[] = [
-  {
-    block: 'ACC',
-    labelAthlete: 'Acumulación',
-    durationWeeks: 5,
-    order: 1,
-    objectives: ['volumen_aerobico', 'densidad_muscular'],
-    intensityCeiling: 'Z2',
-  },
-  {
-    block: 'TRANS',
-    labelAthlete: 'Intensificación',
-    durationWeeks: 4,
-    order: 2,
-    objectives: ['umbral_anaerobico', 'lactate_clearance', 'pace_consistency'],
-    intensityCeiling: 'Z4',
-  },
-  {
-    block: 'REAL',
-    labelAthlete: 'Tapering / Realización',
-    durationWeeks: 3,
-    order: 3,
-    objectives: ['especificidad_carrera', 'peaking_freshness', 'mantenimiento_fuerza'],
-    intensityCeiling: 'Z5',
-  },
-] as const;
-
-// Macrocycle math: ACC(5)+TRANS(4)+REAL(3) = 12 weeks to race.
-export const MACROCYCLE_TOTAL_WEEKS = ATR_BLOCKS_DEFAULT.reduce((n, b) => n + b.durationWeeks, 0);
 
 // ════════════════════════════════════════════════════════════════════════════
 // ÁREA 7 — Autorregulación intra-sesión (spec §4 · Área 7)

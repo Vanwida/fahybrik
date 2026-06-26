@@ -2,7 +2,9 @@
 // recompute.ts to keep both modules under the 500-line cap. Modelled on
 // cohort.ts::loadRealCohort's big CTE, EXTENDED with:
 //   - hrv_baseline_days  (distinct HRV days in the 60d window — guards false crashes)
-//   - current_microcycle_end_iso (CURRENT microcycle end, not macrocycle end)
+//   - current_microciclo_name + current_microcycle_end_iso (the athlete's active
+//     microciclo = the athlete_month_assignments receipt, its name + window end —
+//     agnostic, no ATR block/macrocycle)
 //   - billing_* (replicates inbox.ts listInboxAlerts billing block in-CTE)
 
 import 'server-only';
@@ -21,6 +23,7 @@ export interface BatchRow {
   unread_message_age_min: number | null;
   a_event_iso: string | null;
   a_event_name: string | null;
+  current_microciclo_name: string | null;
   current_microcycle_end_iso: string | null;
   billing_status: string | null;
   billing_cancel_at_period_end: boolean | null;
@@ -104,15 +107,18 @@ export async function loadBatch(
       group by ct.athlete_id
     ),
     current_micro as (
-      select distinct on (m.athlete_id)
-        m.athlete_id,
-        to_char(mc.end_date, 'YYYY-MM-DD') as iso
-      from atr_macrocycles m
-      join atr_blocks b on b.macrocycle_id = m.id
-      join microcycles mc on mc.block_id = b.id
-      where m.status in ('planned', 'active')
-        and ${todayIso}::date between mc.start_date and mc.end_date
-      order by m.athlete_id, m.start_date desc, b.position asc
+      -- The athlete's active microciclo = the athlete_month_assignments receipt
+      -- whose window contains today (most recent wins). Its label = the month
+      -- template name; its end = the assignment window end. Agnostic: no ATR
+      -- block, no macrocycle.
+      select distinct on (ama.athlete_id)
+        ama.athlete_id,
+        m.name                             as name,
+        to_char(ama.end_date, 'YYYY-MM-DD') as iso
+      from athlete_month_assignments ama
+      join program_month_templates m on m.id = ama.month_template_id
+      where ${todayIso}::date between ama.start_date and ama.end_date
+      order by ama.athlete_id, ama.start_date desc
     ),
     billing as (
       select distinct on (a.id)
@@ -142,6 +148,7 @@ export async function loadBatch(
       um.age_min                          as unread_message_age_min,
       ae.iso                              as a_event_iso,
       ae.name                             as a_event_name,
+      cm.name                             as current_microciclo_name,
       cm.iso                              as current_microcycle_end_iso,
       bl.status                           as billing_status,
       bl.cancel_at_period_end             as billing_cancel_at_period_end,

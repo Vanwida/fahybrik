@@ -13,7 +13,6 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { computeMacrocycle, AtrError } from '@/lib/atr/service';
 import {
   composeWelcomeDraft,
   detectBenchmarkOutliers,
@@ -60,7 +59,6 @@ import {
   type IntakeCommit,
   type IntakeNotesSnapshot,
 } from './intake-schema';
-import type { AtrBlockType } from '@fahybrid/shared/domain/atr/planner';
 
 // Number of days per microcycle (week). Local mirror of the assign-draft route
 // constant so first-block weeks are stepped identically.
@@ -244,17 +242,20 @@ type BenchmarkGroup =
 
 export interface CommitResult {
   athlete_id: string;
-  macrocycle_id: string;
+  /** Id of the first microciclo (month assignment) materialized at intake, or null. */
+  macrocycle_id: string | null;
   scheduled_assignments: number;
   month_assignment_count?: number;
   welcome_sent: boolean;
   /**
-   * First ATR block (Acumulación) materialized IN DRAFT on commit (default
-   * path). `null` when a month template was assigned instead, or when the coach
-   * has no ACC week templates yet (degraded: macrocycle persists, no draft).
+   * First microciclo materialized IN DRAFT on commit (default path), from the
+   * coach's first month template. `null` when a month template was explicitly
+   * assigned instead, or when the coach has no month templates yet (degraded: no
+   * draft — the coach programs the first microciclo manually).
    */
   first_block_draft?: {
-    block_type: AtrBlockType;
+    /** Microciclo NAME (coach data). */
+    block_type: string;
     start_date: string;
     week_count: number;
     week_starts: string[];
@@ -1022,25 +1023,11 @@ export async function commitIntake(params: {
     throw new IntakeError('already_committed', 'intake already completed', 409);
   }
 
-  // Persist macrocycle. computeMacrocycle owns its own transaction; we keep
-  // the rest sequential so a failure rolls back via subsequent guard clauses
-  // (the macrocycle persists either way — Pablo can re-run intake to fix
-  // notes/welcome only after the row exists).
-  let macroResult: Awaited<ReturnType<typeof computeMacrocycle>>;
-  try {
-    macroResult = await computeMacrocycle({
-      athlete_id: params.athlete_id,
-      target_event_id: commit.target_event_id,
-      block_specs: commit.block_specs,
-      client,
-    });
-  } catch (err) {
-    if (err instanceof AtrError) {
-      throw new IntakeError(err.code, err.message, err.code === 'event_not_found' ? 404 : 400);
-    }
-    throw err;
-  }
-
+  // AGNOSTIC: intake no longer auto-plans an ATR macrocycle. The coach's intended
+  // periodization shape (block_specs) is recorded as snapshot DATA only; the actual
+  // training weeks are materialized as microciclos (athlete_month_assignments) either
+  // from an explicitly-chosen month template (below) or as a first-microciclo draft
+  // from the coach's first month template — the ORDER of microciclos IS the plan.
   const snapshot: IntakeNotesSnapshot = {
     level: commit.level,
     block_specs: commit.block_specs,
@@ -1087,6 +1074,7 @@ export async function commitIntake(params: {
   // Optional: assign first month from template when Pablo confirms in intake.
   let month_assignment_count = 0;
   let first_block_draft: FirstBlockDraftResult | null = null;
+  let first_assignment_id: string | null = null;
   if (commit.month_template_id && commit.month_start_date) {
     // Use the SHARED materializer (lib/dashboard/coach/instantiate-program). It
     // materializes a session's inline `blocks[]` into a real template + segments
@@ -1106,87 +1094,106 @@ export async function commitIntake(params: {
       client,
     });
     month_assignment_count = assignResult.assignment_count;
+    first_assignment_id = assignResult.month_assignment_id;
   } else {
     // Default path (the form never sends month_template_id): materialize the
-    // FIRST ATR block (Acumulación) IN DRAFT, reusing the same create-in-draft
-    // logic as /assign-draft — `assignBlockToAthlete` materializes the block's
-    // weeks from the coach's ACC week templates (the library default), then we
-    // mark each week as draft so Pablo lands on a reviewable draft, NOT an empty
-    // calendar. Soft-fails: if the coach has no ACC week templates yet, the
-    // macrocycle still persists and Pablo can program the block manually — the
-    // intake must not 500 over a template gap (the costly part, the macrocycle,
-    // already committed above).
-    first_block_draft = await materializeFirstBlockDraft({
+    // coach's FIRST month template as a first microciclo IN DRAFT, so Pablo lands
+    // on a reviewable draft, NOT an empty calendar. AGNOSTIC — reuses the shared
+    // materializer; no ATR fabrication. Soft-fails: if the coach has no month
+    // templates yet, no draft is created and Pablo programs the first microciclo
+    // manually — intake must not 500 over a template gap.
+    first_block_draft = await materializeFirstMicrocicloDraft({
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,
       client,
     });
+    first_assignment_id = first_block_draft?.assignment_id ?? null;
   }
 
   return {
     athlete_id: String(params.athlete_id),
-    macrocycle_id: String(macroResult.macrocycle_id),
+    macrocycle_id: first_assignment_id,
     scheduled_assignments:
       month_assignment_count || first_block_draft?.assignment_count || programmedCount,
     month_assignment_count,
     welcome_sent,
-    first_block_draft,
+    first_block_draft: first_block_draft
+      ? {
+          block_type: first_block_draft.block_type,
+          start_date: first_block_draft.start_date,
+          week_count: first_block_draft.week_count,
+          week_starts: first_block_draft.week_starts,
+          assignment_count: first_block_draft.assignment_count,
+        }
+      : null,
   };
 }
 
 // =============================================================================
-// First-block draft (default intake path) — reuses the Phase-3 create-in-draft
-// path: assignBlockToAthlete materializes the ACC block's weeks, then each week
-// is marked draft via markWeekDraft (same gate as the /assign-draft route).
+// First-microciclo draft (default intake path) — AGNOSTIC: materializes the
+// coach's FIRST month template (a microciclo) via the shared materializer, then
+// marks each week draft via markWeekDraft (same gate as the /assign-draft route)
+// so Pablo lands on a reviewable draft, not an empty calendar.
 // =============================================================================
 
 type FirstBlockDraftResult = {
-  block_type: AtrBlockType;
+  /** Microciclo NAME (coach data). */
+  block_type: string;
+  /** athlete_month_assignments.id of the materialized first microciclo. */
+  assignment_id: string;
   start_date: string;
   week_count: number;
   week_starts: string[];
   assignment_count: number;
 };
 
-async function materializeFirstBlockDraft(params: {
+async function materializeFirstMicrocicloDraft(params: {
   coach_id: bigint | number;
   athlete_id: bigint | number;
   client: Sql;
 }): Promise<FirstBlockDraftResult | null> {
-  const { assignBlockToAthlete, AssignBlockError } = await import(
-    '@/lib/dashboard/coach/assign-block'
+  const { instantiateMonthFromTemplate, InstantiateProgramError } = await import(
+    '@/lib/dashboard/coach/instantiate-program'
   );
   const { markWeekDraft } = await import('./publish-week');
-  const { addDays, isoDateString, mondayOfWeek, parseIsoDate } = await import(
+  const { addDays, isoDateString, mondayOfWeek } = await import(
     '@fahybrid/shared/domain/dates'
   );
 
-  let assign: Awaited<ReturnType<typeof assignBlockToAthlete>>;
+  // The coach's first month template (a microciclo). No month templates yet →
+  // no draft (degrade gracefully; Pablo programs the first microciclo manually).
+  const tplRows = await params.client<Array<{ id: string; name: string }>>`
+    select id::text, name
+    from program_month_templates
+    where coach_id = ${Number(params.coach_id)}
+    order by id asc
+    limit 1
+  `;
+  const tpl = tplRows[0];
+  if (!tpl) return null;
+
+  // Anchor to this week's Monday so the materializer's Monday-aligned microcycles
+  // line up with the draft week_start dates we mark below.
+  const startMonday = mondayOfWeek(new Date());
+  const startIso = isoDateString(startMonday);
+
+  let assign: Awaited<ReturnType<typeof instantiateMonthFromTemplate>>;
   try {
-    // First ACC block: assignBlockToAthlete resolves the macrocycle's ACC block
-    // (just created by computeMacrocycle) and materializes its weeks from the
-    // coach's ACC week templates.
-    assign = await assignBlockToAthlete({
+    assign = await instantiateMonthFromTemplate({
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,
-      atr_block: 'ACC',
+      month_template_id: Number(tpl.id),
+      start_date: startIso,
       client: params.client,
     });
   } catch (err) {
-    // No ACC week templates / no block to materialize → degrade gracefully:
-    // keep the macrocycle, skip the draft. Pablo can program the block manually.
-    if (err instanceof AssignBlockError) {
+    // Empty / unusable month template → degrade gracefully, no draft.
+    if (err instanceof InstantiateProgramError) {
       return null;
     }
     throw err;
   }
 
-  // Mark each materialized week as draft (gate lives at the confirmation level,
-  // identical to /assign-draft) so the block stays hidden from the athlete until
-  // Pablo publishes from "Revisar & publicar". Anchor to Monday so the week_start
-  // dates mirror EXACTLY the microcycles the materializer created (it aligns each
-  // week to Monday); a draft on the wrong week_start would not hide the real week.
-  const startMonday = mondayOfWeek(parseIsoDate(assign.start_date));
   const weekCount = assign.microcycle_ids.length;
   const weekStarts: string[] = [];
   for (let i = 0; i < weekCount; i += 1) {
@@ -1201,7 +1208,8 @@ async function materializeFirstBlockDraft(params: {
   }
 
   return {
-    block_type: assign.block_type,
+    block_type: tpl.name,
+    assignment_id: assign.month_assignment_id,
     start_date: assign.start_date,
     week_count: weekCount,
     week_starts: weekStarts,

@@ -18,8 +18,6 @@
 // free text: each one drives the card UI, the indexed queue read, and the
 // resurface logic.
 
-import type { AtrBlockType } from './types';
-
 // ── Severity ──────────────────────────────────────────────────────────────────
 //
 // Two LIVE tiers (Crítico → Vigilar) per SPEC §10; `info` is the neutral floor
@@ -133,8 +131,9 @@ export interface SignalFacts {
   programming_detail: string | null;
   /** End date (YYYY-MM-DD) of the athlete's CURRENT microcycle, or null. */
   current_microcycle_end_iso: string | null;
-  current_block_type: AtrBlockType | null;
-  /** ATR transition engine says 'advance' → ready to move to the next block. */
+  /** Current microciclo NAME (coach data), null when none active. */
+  current_block_type: string | null;
+  /** Readiness engine says 'advance' → ready to move to the next microciclo. */
   transition_recommendation: 'advance' | 'hold' | 'extend' | null;
   transition_detail: string | null;
   /** Days until the soonest A-priority target event, or null. */

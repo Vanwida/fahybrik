@@ -1,7 +1,6 @@
 import type { Sql } from 'postgres';
-import { getCurrentBlock } from '../atr/service';
+import { getCurrentMicrociclo } from './current-microciclo';
 import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
-import type { AtrBlockType } from './types';
 
 export type MacroWeekStatus = 'completed' | 'current' | 'upcoming' | 'missed';
 
@@ -25,14 +24,16 @@ export type MacroPhaseAssignment = {
 };
 
 /**
- * Tramo real de un bloque ATR derivado de atr_blocks → microcycles.
- * `week_count` = nº de microciclos del bloque (ACC 5 / TRANS 4 / REAL 3, etc.);
- * NUNCA asumir 4. `first_week` = week_number macro-relativo del primer microciclo
- * del bloque, usado para convertir week_number macro (1..N) a semana relativa al
- * bloque: `block_week = current.week_number - first_week + 1`.
+ * Tramo real de un microciclo asignado (AGNÓSTICO) derivado de
+ * `athlete_month_assignments`. `block_type` = NOMBRE del microciclo del coach (no
+ * una fase ACC/TRANS/REAL). `week_count` = nº de semanas del microciclo
+ * (array_length(microcycle_ids); span por fechas como fallback). `first_week` =
+ * índice de semana acumulado (1-based) del primer microciclo del tramo, para
+ * mapear la posición dentro del plan completo.
  */
 export type MacroBlockSpan = {
-  block_type: AtrBlockType;
+  /** Microciclo NAME (coach data) — NOT an ATR phase. */
+  block_type: string;
   position: number;
   first_week: number;
   week_count: number;
@@ -40,18 +41,19 @@ export type MacroBlockSpan = {
 
 export type MacroProgressPayload = {
   athlete_id: string;
+  /** Current microciclo (assignment) id, null when none active. */
   macrocycle_id: string | null;
-  block: AtrBlockType | null;
+  /** Current microciclo NAME (coach data), null when none active. */
+  block: string | null;
   current_microcycle_index: number;
   /**
-   * Semana ACTUAL relativa al bloque activo (1-indexed): para A2 hoy → ACC
-   * semana 4. Derivada de atr_blocks/microcycles (week_number − first_week + 1),
-   * NO del índice de asignaciones. null si no hay bloque activo.
+   * Semana ACTUAL dentro del microciclo activo (1-indexed). Derivada del receipt
+   * `athlete_month_assignments`. null si no hay microciclo activo.
    */
   block_week: number | null;
   /**
-   * Tramos reales de los bloques ATR del macrociclo (week_count por bloque).
-   * Fuente única para el relleno del ribbon — no hardcodear 4 semanas/fase.
+   * Tramos reales de los microciclos asignados (week_count por microciclo).
+   * Fuente única para el relleno del ribbon — derivado del receipt, no hardcodeado.
    */
   block_spans: MacroBlockSpan[];
   weeks: MacroProgressWeek[];
@@ -70,48 +72,35 @@ export async function buildMacroProgress(params: {
   const today = startOfDayInBox(params.on_date ?? new Date());
   const todayIso = isoDateString(today);
 
-  const block = await getCurrentBlock({
+  const current = await getCurrentMicrociclo({
     athlete_id: params.athlete_id,
     on_date: today,
     client,
   });
 
-  // Tramos reales de cada bloque ATR del macrociclo activo: first_week
-  // (week_number macro del primer microciclo) + week_count (nº de microciclos).
-  // Fuente única de las semanas/fase — DRY con getCurrentBlock, misma data.
-  const blockSpanRows = block
-    ? await client<
-        Array<{
-          block_type: AtrBlockType;
-          position: number;
-          first_week: number;
-          week_count: number;
-        }>
-      >`
-        select
-          b.type                  as block_type,
-          b.position              as position,
-          min(mc.week_number)::int as first_week,
-          count(mc.id)::int        as week_count
-        from atr_blocks b
-        join microcycles mc on mc.block_id = b.id
-        where b.macrocycle_id = ${block.macrocycle_id as unknown as number}
-        group by b.type, b.position
-        order by b.position asc
-      `
-    : [];
+  // Tramos de los microciclos asignados (AGNÓSTICO): nombre + week_count por
+  // microciclo desde el receipt `athlete_month_assignments`. `first_week` = índice
+  // de semana acumulado (1-based) dentro del plan. Fuente única del ribbon — sin
+  // hardcodear semanas/fase.
+  const spanRows = await client<Array<{ name: string; week_count: number }>>`
+    select
+      m.name as name,
+      coalesce(array_length(ama.microcycle_ids, 1), 0)::int as week_count
+    from athlete_month_assignments ama
+    join program_month_templates m on m.id = ama.month_template_id
+    where ama.athlete_id = ${params.athlete_id as number}
+    order by ama.start_date asc
+  `;
+  let cumWeek = 1;
+  const block_spans: MacroBlockSpan[] = spanRows.map((r, i) => {
+    const wc = r.week_count > 0 ? r.week_count : 1;
+    const span = { block_type: r.name, position: i, first_week: cumWeek, week_count: wc };
+    cumWeek += wc;
+    return span;
+  });
 
-  const block_spans: MacroBlockSpan[] = blockSpanRows.map((r) => ({
-    block_type: r.block_type,
-    position: r.position,
-    first_week: r.first_week,
-    week_count: r.week_count,
-  }));
-
-  // Semana relativa al bloque activo: week_number macro − first_week + 1.
-  const activeSpan = block ? block_spans.find((s) => s.block_type === block.block_type) : null;
-  const block_week =
-    block && activeSpan ? block.week_number - activeSpan.first_week + 1 : null;
+  // Semana actual dentro del microciclo activo (1-indexed) desde el receipt.
+  const block_week = current ? current.week_index : null;
 
   const aEventRows = await client<Array<{ days: number }>>`
     select (e.start_date - ${todayIso}::date)::int as days
@@ -217,8 +206,8 @@ export async function buildMacroProgress(params: {
 
   return {
     athlete_id: String(params.athlete_id),
-    macrocycle_id: block ? String(block.macrocycle_id) : null,
-    block: block?.block_type ?? null,
+    macrocycle_id: current ? String(current.assignment_id) : null,
+    block: current?.name ?? null,
     current_microcycle_index: monthAssignCount[0]?.n ?? 0,
     block_week,
     block_spans,
@@ -382,8 +371,8 @@ export async function loadMicrocycleDetail(params: {
 // What the athlete sees is the COACH'S microciclo NAME + "semana N de M",
 // derived from `athlete_month_assignments` (the materialization receipt: name via
 // program_month_templates, dated window, microcycle_ids[] = its weeks) +
-// `workout_assignments`. These NEVER read atr_blocks/atr_macrocycles (those stay
-// coach-internal until the periodization-subsystem rewrite). The `block` field is
+// `workout_assignments`. These read only the materialization receipt + workout_assignments (no periodization
+// tables exist anymore). The `block` field is
 // kept in the response SHAPE for iOS Codable parity, but is ALWAYS null — the
 // athlete never receives periodization jargon. (The coach `buildMacroProgress`
 // above is untouched and still ATR-aware for coach analytics.)
@@ -479,7 +468,7 @@ export type AthleteMacroProgressPayload = {
 
 /**
  * Athlete-facing macro PROGRESS ribbon — AGNOSTIC. Per-week compliance derived
- * purely from `workout_assignments` (no atr_blocks read). Same week-status
+ * purely from `workout_assignments` (no periodization coupling). Same week-status
  * semantics as the coach `buildMacroProgress` weeks (completed ≥50% / missed /
  * current / upcoming), but with zero periodization coupling.
  */

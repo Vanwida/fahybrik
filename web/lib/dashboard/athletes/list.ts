@@ -33,10 +33,11 @@ export interface AthleteRow {
   level_name: string | null;
   /** sort_order from athlete_levels — used to rank levels; 0 when unset. */
   level_sort: number;
-  block_type: 'ACC' | 'TRANS' | 'REAL' | null;
-  /** Week-in-block (relative to the current block), matching the athlete Hub. */
+  /** Current microciclo NAME (coach data), null when none active. */
+  block_type: string | null;
+  /** Week within the current microciclo (1-based), matching the athlete Hub. */
   block_week: number | null;
-  /** Total microcycles in the current block (the "de N" denominator). */
+  /** Total weeks in the current microciclo (the "de N" denominator). */
   block_total: number | null;
   readiness_score: number | null;
   compliance_pct: number | null;
@@ -100,13 +101,9 @@ export async function fetchAthletesForCoach(params: {
       coalesce(al.sort_order, 0)::int as level_sort,
       a.onboarded_at,
       a.intake_completed_at,
-      ab.type::text as block_type,
-      -- Semana RELATIVA AL BLOQUE (week-in-block), idéntica al Hub
-      -- (AthleteShell.buildPhaseLine → macro-progress): week_number macro del
-      -- microciclo actual − first_week del bloque + 1. NO la week_number macro
-      -- (que daría "sem 6" cuando el Hub muestra "Semana 1 de 4").
-      (ab.week_number - ab.block_first_week + 1) as block_week,
-      ab.block_week_count as block_total,
+      ab.block_type as block_type,
+      ab.block_week as block_week,
+      ab.block_total as block_total,
       rds.score as readiness_score,
       coalesce(wa.scheduled, 0)::int as scheduled,
       coalesce(wa.completed, 0)::int as completed,
@@ -119,30 +116,22 @@ export async function fetchAthletesForCoach(params: {
     from athletes a
     left join athlete_levels al on al.id = a.level_id
     left join lateral (
-      -- The microcycle that CONTAINS today (its latest one already started),
-      -- not the macrocycle's final week — otherwise every athlete with a fully
-      -- materialized plan reads as REAL/Tapering regardless of the current date.
-      -- block_first_week / block_week_count come from the SAME block (min/count
-      -- of its microcycles) so the roster derives week-in-block exactly like the
-      -- Hub (shared macro-progress: block_week = week_number − first_week + 1).
+      -- Current microciclo (AGNOSTIC): the assignment receipt whose dated window
+      -- contains today → its template NAME, the 1-based week within that window,
+      -- and its total weeks. Derives "Semana N de M" exactly like the Hub
+      -- (shared current-microciclo), with zero periodization coupling.
       select
-        b.type,
-        mc.week_number,
-        bspan.first_week as block_first_week,
-        bspan.week_count as block_week_count
-      from atr_macrocycles mac
-      join atr_blocks b on b.macrocycle_id = mac.id
-      join microcycles mc on mc.block_id = b.id
-      join lateral (
-        select
-          min(mc2.week_number)::int as first_week,
-          count(mc2.id)::int        as week_count
-        from microcycles mc2
-        where mc2.block_id = b.id
-      ) bspan on true
-      where mac.athlete_id = a.id and mac.status = 'active'
-        and mc.start_date <= ${raceTodayIso}::date
-      order by mc.start_date desc
+        m.name as block_type,
+        greatest(
+          1,
+          (floor((${raceTodayIso}::date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+        ) as block_week,
+        coalesce(array_length(ama.microcycle_ids, 1), 0)::int as block_total
+      from athlete_month_assignments ama
+      join program_month_templates m on m.id = ama.month_template_id
+      where ama.athlete_id = a.id
+        and ${raceTodayIso}::date between ama.start_date and ama.end_date
+      order by ama.start_date desc
       limit 1
     ) ab on true
     left join lateral (
@@ -232,7 +221,7 @@ export async function fetchAthletesForCoach(params: {
       primary_discipline: r.primary_discipline,
       level_name: r.level_name,
       level_sort: r.level_sort,
-      block_type: r.block_type as AthleteRow['block_type'],
+      block_type: r.block_type ?? null,
       block_week: r.block_week,
       block_total: r.block_total,
       readiness_score: r.readiness_score,

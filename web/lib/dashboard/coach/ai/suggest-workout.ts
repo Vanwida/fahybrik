@@ -3,11 +3,8 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { templateFormat, atrBlockType } from '@fahybrid/shared/schema/_primitives';
-import type {
-  TemplateFormat,
-  AtrBlockType,
-} from '@fahybrid/shared/schema/_primitives';
+import { templateFormat } from '@fahybrid/shared/schema/_primitives';
+import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   weekDayPartSchema,
   type WeekDayPart,
@@ -30,7 +27,6 @@ export const suggestWorkoutRequestSchema = z
   .object({
     focus: z.string().min(2).max(400),
     level: programLevel.optional(),
-    atr_block: atrBlockType.optional(),
     /** Modo: rápido = solo plantillas catálogo, lento = LLM compone bloques nuevos. */
     mode: z.enum(['fast', 'slow']).default('fast'),
     athlete_id: z.union([z.string(), z.number()]).optional(),
@@ -81,7 +77,6 @@ export async function suggestWorkout(params: {
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
       level: req.level,
-      atr_block: req.atr_block,
       focus: req.focus,
       client,
     });
@@ -110,7 +105,6 @@ export async function suggestWorkout(params: {
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
       level: req.level,
-      atr_block: req.atr_block,
       focus: req.focus,
       client,
     });
@@ -138,7 +132,6 @@ export async function suggestWorkout(params: {
     const blocks = await llmSuggestBlocks({
       focus: req.focus,
       level: req.level ?? 'pro',
-      atr_block: req.atr_block,
       exercises,
       coach_id: params.coach_id,
       athlete_id: req.athlete_id != null ? Number(req.athlete_id) : null,
@@ -149,7 +142,6 @@ export async function suggestWorkout(params: {
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
       level: req.level,
-      atr_block: req.atr_block,
       focus: req.focus,
       client,
     });
@@ -182,7 +174,6 @@ export async function suggestWorkout(params: {
 interface PickArgs {
   coach_id: number | bigint;
   level?: z.infer<typeof programLevel> | undefined;
-  atr_block?: AtrBlockType | undefined;
   focus: string;
   client: Sql;
 }
@@ -245,9 +236,6 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
       const nameLc = t.name.toLowerCase();
       for (const tok of focusTokens) {
         if (tok.length >= 3 && nameLc.includes(tok)) score += 3;
-      }
-      if (args.atr_block && (t.target_block === args.atr_block || t.target_block === 'any')) {
-        score += 2;
       }
       if (targetLevel != null && t.target_level === targetLevel) score += 1;
       return { tpl: t, score };
@@ -328,7 +316,6 @@ const llmWorkoutSchema = z.object({
 interface LlmArgs {
   focus: string;
   level: 'beginner' | 'intermediate' | 'pro' | 'elite';
-  atr_block?: AtrBlockType | undefined;
   exercises: CatalogRow[];
   coach_id: number | bigint;
   athlete_id?: number | bigint | null;
@@ -347,7 +334,6 @@ async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
     '- format ∈ amrap|for_time|emom|intervals|strength_block|hyrox_sim|tempo|circuit',
     '- Cada bloque = parte de clase. 2-4 bloques típicos (calentamiento + principal + finisher/cooldown).',
     '- Usa EXACTAMENTE el nombre del catálogo proporcionado cuando exista — no inventes ejercicios.',
-    '- Lenguaje técnico ATR (ACC/TRANS/REAL) en coach_note si procede.',
     '- Conservador en volumen. Élite ≠ kamikaze.',
     'Presets sugeridos por format:',
     PRESET_FORMAT_TITLES,
@@ -357,7 +343,6 @@ async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
   const user = [
     `Foco del día: ${args.focus}`,
     `Nivel: ${args.level}`,
-    `Bloque ATR: ${args.atr_block ?? 'no especificado'}`,
     '',
     'Catálogo de ejercicios disponibles:',
     exerciseList,

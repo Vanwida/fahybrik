@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { atrBlockType, idSchema, isoDateTime, templateFormat } from './_primitives';
+import { idSchema, isoDateTime, templateFormat } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
 
 export const weekSlotKindSchema = z.enum(['rest', 'workout']);
@@ -343,15 +343,3 @@ export const programMonthUpsertSchema = z.object({
   week_template_ids: z.array(idSchema).min(1).max(6),
 });
 export type ProgramMonthUpsert = z.infer<typeof programMonthUpsertSchema>;
-
-export const programMacrocycleBlockInputSchema = z.object({
-  type: atrBlockType,
-  month_template_ids: z.array(idSchema).min(1).max(8),
-});
-
-export const programMacrocycleUpsertSchema = z.object({
-  name: z.string().min(1).max(200),
-  is_default: z.boolean().optional(),
-  blocks: z.array(programMacrocycleBlockInputSchema).min(1).max(6),
-});
-export type ProgramMacrocycleUpsert = z.infer<typeof programMacrocycleUpsertSchema>;

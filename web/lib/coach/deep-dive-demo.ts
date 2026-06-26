@@ -14,9 +14,12 @@ import type {
   SparkPoint,
   CompliancePoint,
 } from './deep-dive-types';
-import type { AtrBlockType } from '@fahybrid/shared/domain/coach/types';
 
 const DEMO_GENERATED_AT = '2026-05-08T08:00:00.000Z';
+
+// Demo microciclo names — plausible coach DATA (agnostic strings, NOT a fixed
+// ACC/TRANS/REAL phase enum). Any string is valid here.
+const DEMO_MICROCICLOS = ['Base', 'Construcción', 'Pico'] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers — shape data so we don't repeat 30 numbers by hand.
@@ -224,7 +227,7 @@ const MARC_RECENT: RecentDay[] = [
 
 const MARC_NOTES: AthleteDeepDive['notes'] = [
   { id: 'demo-note-1', body: 'Sled push limita — trabajar tronco antero',  created_at_iso: '2026-05-03T09:14:00.000Z', date_label: '03/05/26' },
-  { id: 'demo-note-2', body: 'Buena adaptación TRANS, tirar bien al REAL', created_at_iso: '2026-04-28T08:50:00.000Z', date_label: '28/04/26' },
+  { id: 'demo-note-2', body: 'Buena adaptación en Construcción, tirar bien al Pico', created_at_iso: '2026-04-28T08:50:00.000Z', date_label: '28/04/26' },
   { id: 'demo-note-3', body: 'Quejándose hombro derecho, vigilar OHP',     created_at_iso: '2026-04-20T17:32:00.000Z', date_label: '20/04/26' },
 ];
 
@@ -248,11 +251,11 @@ const MARC: AthleteDeepDive = {
   },
   macrocycle: {
     blocks: [
-      { type: 'ACC',   weeks: 6, position: 1, is_current: false },
-      { type: 'TRANS', weeks: 4, position: 2, is_current: false },
-      { type: 'REAL',  weeks: 2, position: 3, is_current: true },
+      { type: DEMO_MICROCICLOS[0], weeks: 6, position: 1, is_current: false },
+      { type: DEMO_MICROCICLOS[1], weeks: 4, position: 2, is_current: false },
+      { type: DEMO_MICROCICLOS[2], weeks: 2, position: 3, is_current: true },
     ],
-    current_block: 'REAL',
+    current_block: DEMO_MICROCICLOS[2],
     current_week: 1,
     current_day_of_week: 4,
     total_weeks: 12,
@@ -317,11 +320,11 @@ const SARA: AthleteDeepDive = {
   a_event: { name: 'HYROX BCN', iso_date: '2026-07-04', days_until: 56 },
   macrocycle: {
     blocks: [
-      { type: 'ACC',   weeks: 6, position: 1, is_current: false },
-      { type: 'TRANS', weeks: 4, position: 2, is_current: true },
-      { type: 'REAL',  weeks: 2, position: 3, is_current: false },
+      { type: DEMO_MICROCICLOS[0], weeks: 6, position: 1, is_current: false },
+      { type: DEMO_MICROCICLOS[1], weeks: 4, position: 2, is_current: true },
+      { type: DEMO_MICROCICLOS[2], weeks: 2, position: 3, is_current: false },
     ],
-    current_block: 'TRANS',
+    current_block: DEMO_MICROCICLOS[1],
     current_week: 3,
     current_day_of_week: 4,
     total_weeks: 12,
@@ -376,7 +379,7 @@ export function isDemoAthleteId(athleteId: string): boolean {
 
 // Used as fallback when a real athlete has no real data — Pablo still wants
 // the screen to look alive while he's onboarding.
-export function getDemoFallback(athleteId: string, fullName: string, currentBlock: AtrBlockType | null): AthleteDeepDive {
+export function getDemoFallback(athleteId: string, fullName: string, currentMicrociclo: string | null): AthleteDeepDive {
   return {
     ...MARC,
     is_demo: true,
@@ -386,8 +389,8 @@ export function getDemoFallback(athleteId: string, fullName: string, currentBloc
       full_name: fullName,
       is_demo: true,
     },
-    macrocycle: currentBlock
-      ? { ...(MARC.macrocycle as NonNullable<AthleteDeepDive['macrocycle']>), current_block: currentBlock }
+    macrocycle: currentMicrociclo
+      ? { ...(MARC.macrocycle as NonNullable<AthleteDeepDive['macrocycle']>), current_block: currentMicrociclo }
       : MARC.macrocycle,
     notes: [],
   };

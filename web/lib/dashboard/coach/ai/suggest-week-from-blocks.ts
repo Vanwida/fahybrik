@@ -3,8 +3,6 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { atrBlockType } from '@fahybrid/shared/schema/_primitives';
-import type { AtrBlockType } from '@fahybrid/shared/schema/_primitives';
 import {
   weekDaySchema,
   blockUseModifiersSchema,
@@ -62,21 +60,6 @@ const GROUP_KIND: Record<number, GroupKind> = {
   10: 'recovery', // Tapering / Activación
 };
 
-/**
- * Prioridad de grupos por fase ATR. Bloques de grupos al frente de la lista se
- * eligen primero. No es exclusión dura — si no hay bloques de un grupo, se
- * baja al siguiente (mejor algo coherente que un día vacío).
- *
- *   ACC   acumulación: volumen aeróbico + fuerza máxima + ergómetros
- *   TRANS transformación: específico HYROX + threshold + metcons
- *   REAL  realización: race-pace, simulaciones y tapering
- */
-const PHASE_GROUP_PRIORITY: Record<AtrBlockType, number[]> = {
-  ACC: [1, 5, 3, 2, 4, 8, 9, 6, 7, 10],
-  TRANS: [4, 3, 6, 9, 7, 1, 2, 5, 8, 10],
-  REAL: [7, 10, 6, 4, 3, 9, 5, 1, 2, 8],
-};
-
 // ---------------------------------------------------------------------------
 // Request / response
 // ---------------------------------------------------------------------------
@@ -88,7 +71,6 @@ export const suggestWeekFromBlocksRequestSchema = z
     name: z.string().min(2).max(200).optional(),
     focus: z.string().min(2).max(400),
     level: programLevel.optional(),
-    atr_block: atrBlockType.optional(),
     /** rápido = heurístico determinista. slow = LLM compone (si configurado). */
     mode: z.enum(['fast', 'slow']).default('fast'),
     days_per_week: z.number().int().min(3).max(7).default(7),
@@ -252,14 +234,13 @@ export async function suggestWeekFromBlocks(params: {
     const built = composeWeekHeuristic({
       blocks: allBlocks,
       training_days: trainingDays,
-      atr_block: req.atr_block,
       level: req.level,
     });
     const source = req.mode === 'slow' && !isPabloIaLlmConfigured() ? 'library_fallback' : 'library';
     return {
       mode: req.mode,
       source,
-      name: req.name ?? defaultWeekName(req.focus, req.atr_block),
+      name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: built.days,
       matched_blocks: built.matched,
@@ -278,13 +259,12 @@ export async function suggestWeekFromBlocks(params: {
       training_days: trainingDays,
       focus: req.focus,
       level: req.level ?? 'pro',
-      atr_block: req.atr_block,
       coach_id: params.coach_id,
     });
     return {
       mode: 'slow',
       source: 'llm',
-      name: req.name ?? defaultWeekName(req.focus, req.atr_block),
+      name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: built.days,
       matched_blocks: built.matched,
@@ -295,7 +275,6 @@ export async function suggestWeekFromBlocks(params: {
     const fallback = composeWeekHeuristic({
       blocks: allBlocks,
       training_days: trainingDays,
-      atr_block: req.atr_block,
       level: req.level,
     });
     const failNote =
@@ -305,7 +284,7 @@ export async function suggestWeekFromBlocks(params: {
     return {
       mode: 'slow',
       source: 'library_fallback',
-      name: req.name ?? defaultWeekName(req.focus, req.atr_block),
+      name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: fallback.days,
       matched_blocks: fallback.matched,
@@ -373,10 +352,9 @@ function computeTrainingDayDistribution(days_per_week: number): number[] {
   }
 }
 
-function defaultWeekName(focus: string, atr?: AtrBlockType): string {
-  const block = atr ?? 'Semana';
+function defaultWeekName(focus: string): string {
   const head = focus.split(/[.,;]/)[0]!.trim().slice(0, 60);
-  return `${block} · ${head || 'Pablo IA'}`;
+  return `Semana · ${head || 'Pablo IA'}`;
 }
 
 interface ComposeResult {
@@ -393,21 +371,19 @@ interface ComposeResult {
 interface HeuristicArgs {
   blocks: ComposableBlock[];
   training_days: number[];
-  atr_block?: AtrBlockType | undefined;
   level?: z.infer<typeof programLevel> | undefined;
 }
 
 /**
- * Compose determinista sin LLM. Reparte 1 bloque por día de entreno alternando
- * grupos según la prioridad de la fase ATR, evitando repetir el mismo bloque y
- * alternando carga (strength/cardio/metcon) con recovery cuando es posible.
+ * Compose determinista sin LLM. Reparte 1 bloque por día de entreno recorriendo
+ * los grupos metodológicos, evitando repetir el mismo bloque y alternando carga
+ * (strength/cardio/metcon) con recovery cuando es posible.
  *
  * Es la red de seguridad CLAVE: en prod el LLM puede no estar configurado, y la
  * composición debe seguir funcionando 100% determinista desde la biblioteca.
  */
 export function composeWeekHeuristic(args: HeuristicArgs): ComposeResult {
   const trainingSet = new Set(args.training_days);
-  const phase = args.atr_block;
 
   // Agrupa bloques por methodology_group. El orden dentro del grupo es por id.
   const byGroup = new Map<number, ComposableBlock[]>();
@@ -417,10 +393,8 @@ export function composeWeekHeuristic(args: HeuristicArgs): ComposeResult {
     else byGroup.set(b.methodology_group_id, [b]);
   }
 
-  // Orden de grupos a recorrer según el bloque ATR (o fallback: por id).
-  const groupOrder = phase
-    ? PHASE_GROUP_PRIORITY[phase].filter((g) => byGroup.has(g))
-    : [...byGroup.keys()].sort((a, b) => a - b);
+  // Orden de grupos a recorrer: por id de grupo metodológico.
+  const groupOrder = [...byGroup.keys()].sort((a, b) => a - b);
 
   // Cursor por grupo para ir consumiendo bloques distintos sin repetir.
   const cursorByGroup = new Map<number, number>();
@@ -504,7 +478,7 @@ export function composeWeekHeuristic(args: HeuristicArgs): ComposeResult {
 
   const notes =
     missingGroups.size > 0
-      ? `Sin bloques para algún grupo de la fase ${phase ?? ''}.`.trim()
+      ? 'Sin bloques para algún grupo metodológico.'
       : undefined;
 
   return { days, matched, rest_days, notes };
@@ -563,7 +537,6 @@ interface LlmComposeArgs {
   training_days: number[];
   focus: string;
   level: z.infer<typeof programLevel>;
-  atr_block?: AtrBlockType | undefined;
   coach_id: number | bigint;
 }
 
@@ -589,11 +562,9 @@ export async function composeWeekLlm(args: LlmComposeArgs): Promise<ComposeResul
     'Reglas:',
     '- 7 días (1=lunes…7=domingo). Marca descanso como kind:"rest" (sin blocks).',
     '- Cada día con kind:"workout" lleva 1-3 bloques (máx 4). Usa SOLO block_id del catálogo.',
-    '- Respeta la fase ATR: ACC=volumen aeróbico + fuerza máxima + ergómetros; TRANS=específico HYROX + threshold + metcons; REAL=race-pace, simulaciones y tapering.',
     '- Varía los grupos: no apiles fuerza-fuerza-fuerza ni repitas el mismo bloque la misma semana.',
     '- Sesión dura → recuperación / Z2 al día siguiente.',
     '- Ajusta modifiers (intensidad/duración/rondas) al nivel del atleta. No es obligatorio.',
-    '- Lenguaje técnico ATR.',
   ].join('\n');
 
   const catalog = args.blocks
@@ -606,7 +577,6 @@ export async function composeWeekLlm(args: LlmComposeArgs): Promise<ComposeResul
   const user = [
     `Foco semana: ${args.focus}`,
     `Nivel: ${args.level}`,
-    `Bloque ATR: ${args.atr_block ?? 'no especificado'}`,
     `Días entreno preferidos: ${args.training_days.join(', ')}`,
     '',
     'Catálogo de bloques (usa SOLO estos block_id):',

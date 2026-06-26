@@ -59,7 +59,8 @@ export interface ResolvedScope {
   athlete_rows: Array<{
     athlete_id: number;
     full_name: string;
-    block_type: 'ACC' | 'TRANS' | 'REAL' | null;
+    /** Current microciclo NAME (coach data), null when none active. */
+    block_type: string | null;
     block_week: number | null;
   }>;
 }
@@ -94,28 +95,25 @@ export async function resolveScope(params: {
   >`
     select a.id::int as athlete_id,
            a.full_name,
-           ab.block_type::text as block_type,
-           mc.week_number as block_week
+           ab.block_type as block_type,
+           ab.block_week as block_week
     from athletes a
     left join lateral (
-      select b.block_type, b.id
-      from atr_blocks b
-      join atr_macrocycles m on m.id = b.macrocycle_id
-      where m.athlete_id = a.id
-        and b.start_date <= current_date
-        and b.end_date >= current_date
-      order by b.start_date desc
+      -- Current microciclo (AGNOSTIC): receipt window containing today → its
+      -- template NAME + 1-based week within that window.
+      select
+        m.name as block_type,
+        greatest(
+          1,
+          (floor((current_date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+        ) as block_week
+      from athlete_month_assignments ama
+      join program_month_templates m on m.id = ama.month_template_id
+      where ama.athlete_id = a.id
+        and current_date between ama.start_date and ama.end_date
+      order by ama.start_date desc
       limit 1
     ) ab on true
-    left join lateral (
-      select mc2.week_number
-      from microcycles mc2
-      where mc2.block_id = ab.id
-        and mc2.start_date <= current_date
-        and mc2.end_date >= current_date
-      order by mc2.start_date desc
-      limit 1
-    ) mc on true
     where a.coach_id = ${coach_id}
       and a.id = any(${ids}::bigint[])
     order by a.full_name asc
@@ -126,7 +124,7 @@ export async function resolveScope(params: {
     athlete_rows: rows.map((r) => ({
       athlete_id: Number(r.athlete_id),
       full_name: r.full_name,
-      block_type: (r.block_type as 'ACC' | 'TRANS' | 'REAL' | null) ?? null,
+      block_type: r.block_type ?? null,
       block_week: r.block_week == null ? null : Number(r.block_week),
     })),
   };
@@ -154,27 +152,23 @@ async function scopeToIds(
         select a.id::int as id
         from athletes a
         left join lateral (
-          select b.block_type::text as block_type, b.id
-          from atr_blocks b
-          join atr_macrocycles m on m.id = b.macrocycle_id
-          where m.athlete_id = a.id
-            and b.start_date <= current_date
-            and b.end_date >= current_date
-          order by b.start_date desc
+          -- Current microciclo (AGNOSTIC): receipt window containing today.
+          select
+            m.name as block_type,
+            greatest(
+              1,
+              (floor((current_date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+            ) as week_number
+          from athlete_month_assignments ama
+          join program_month_templates m on m.id = ama.month_template_id
+          where ama.athlete_id = a.id
+            and current_date between ama.start_date and ama.end_date
+          order by ama.start_date desc
           limit 1
         ) ab on true
-        left join lateral (
-          select mc.week_number
-          from microcycles mc
-          where mc.block_id = ab.id
-            and mc.start_date <= current_date
-            and mc.end_date >= current_date
-          order by mc.start_date desc
-          limit 1
-        ) mw on true
         where a.coach_id = ${coach_id}
           and (${block}::text is null or ab.block_type = ${block}::text)
-          and (${week}::int is null or mw.week_number = ${week}::int)
+          and (${week}::int is null or ab.week_number = ${week}::int)
       `;
       return rows.map((r) => Number(r.id));
     }

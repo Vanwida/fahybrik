@@ -68,7 +68,7 @@ describe('composeWeekHeuristic (pure, no LLM)', () => {
   const trainingDays = [1, 2, 3, 4, 5, 6]; // 7 días → 6 entreno + domingo rest
 
   test('compone una semana: días de entreno con bloques reales + domingo rest', () => {
-    const res = composeWeekHeuristic({ blocks, training_days: trainingDays, atr_block: 'ACC' });
+    const res = composeWeekHeuristic({ blocks, training_days: trainingDays });
 
     expect(res.days).toHaveLength(7);
     expect(res.rest_days).toEqual([7]);
@@ -93,18 +93,8 @@ describe('composeWeekHeuristic (pure, no LLM)', () => {
     }
   });
 
-  test('respeta la fase ATR: el primer día prioriza el grupo top de la fase', () => {
-    // ACC prioriza grupo 1 (Fuerza Base) primero
-    const acc = composeWeekHeuristic({ blocks, training_days: [1, 2, 3], atr_block: 'ACC' });
-    expect(acc.matched[0]!.methodology_group_id).toBe(1);
-
-    // REAL prioriza grupo 7 (Simulaciones) primero
-    const real = composeWeekHeuristic({ blocks, training_days: [1, 2, 3], atr_block: 'REAL' });
-    expect(real.matched[0]!.methodology_group_id).toBe(7);
-  });
-
   test('varía grupos y no repite el mismo bloque dentro de la semana', () => {
-    const res = composeWeekHeuristic({ blocks, training_days: trainingDays, atr_block: 'ACC' });
+    const res = composeWeekHeuristic({ blocks, training_days: trainingDays });
     const usedBlockIds = res.matched.map((m) => m.block_id);
     // sin repetidos (la biblioteca tiene suficientes bloques distintos)
     expect(new Set(usedBlockIds).size).toBe(usedBlockIds.length);
@@ -114,8 +104,8 @@ describe('composeWeekHeuristic (pure, no LLM)', () => {
   });
 
   test('es determinista: misma entrada → misma salida (block_ids idénticos)', () => {
-    const a = composeWeekHeuristic({ blocks, training_days: trainingDays, atr_block: 'TRANS' });
-    const b = composeWeekHeuristic({ blocks, training_days: trainingDays, atr_block: 'TRANS' });
+    const a = composeWeekHeuristic({ blocks, training_days: trainingDays });
+    const b = composeWeekHeuristic({ blocks, training_days: trainingDays });
     expect(a.matched.map((m) => m.block_id)).toEqual(b.matched.map((m) => m.block_id));
   });
 
@@ -123,7 +113,6 @@ describe('composeWeekHeuristic (pure, no LLM)', () => {
     const res = composeWeekHeuristic({
       blocks,
       training_days: [1],
-      atr_block: 'ACC',
       level: 'elite',
     });
     expect(res.matched[0]!.modifiers?.level).toBe('elite');
@@ -146,7 +135,7 @@ describe('composeWeekHeuristic (pure, no LLM)', () => {
         : b,
     );
     // No debe lanzar (antes weekDaySchema.parse rechazaba block_modifiers con null).
-    const res = composeWeekHeuristic({ blocks: dirty, training_days: [1], atr_block: 'ACC' });
+    const res = composeWeekHeuristic({ blocks: dirty, training_days: [1] });
     const part = res.days.find((d) => d.day_of_week === 1)!.sessions[0]!.blocks![0]!;
     expect(part.source_block_id).toBe(1);
     // todos null → sin block_modifiers (no un objeto vacío)
@@ -167,7 +156,7 @@ describe('composeWeekHeuristic (pure, no LLM)', () => {
           }
         : b,
     );
-    const res = composeWeekHeuristic({ blocks: dirty, training_days: [1], atr_block: 'ACC' });
+    const res = composeWeekHeuristic({ blocks: dirty, training_days: [1] });
     const part = res.days.find((d) => d.day_of_week === 1)!.sessions[0]!.blocks![0]!;
     expect(part.block_modifiers).toEqual({ intensity_pct: 85 });
   });
@@ -257,7 +246,7 @@ describeWithDb('suggestWeekFromBlocks heuristic fallback (real DB, no LLM)', () 
   test('compone semana ACC desde bloques reales sin LLM', async () => {
     const res = await suggestWeekFromBlocks({
       coach_id: 1,
-      body: { focus: 'acumulación volumen + ergómetros', atr_block: 'ACC', mode: 'fast' },
+      body: { focus: 'acumulación volumen + ergómetros', mode: 'fast' },
       client: sql,
     });
 

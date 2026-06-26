@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-export const ATR_BLOCK_TYPES = ['ACC', 'TRANS', 'REAL'] as const;
-export type AtrBlockType = (typeof ATR_BLOCK_TYPES)[number];
-
 export const ALERT_KINDS = [
   'hrv_crash',
   'no_sync',
@@ -30,7 +27,8 @@ export interface CohortRow {
   athlete_id: string;
   full_name: string;
   is_demo: boolean;
-  block_type: AtrBlockType | null;
+  /** Current microciclo NAME (coach data), null when none active. */
+  block_type: string | null;
   block_week: number | null;
   compliance_pct: number | null;
   hrv_delta_ms: number | null;
@@ -148,7 +146,8 @@ export type ColumnPrefs = z.infer<typeof ColumnPrefsSchema>;
 
 export const FilterStateSchema = z.object({
   in_gym: z.boolean().optional(),
-  block: z.enum(ATR_BLOCK_TYPES).optional(),
+  /** Filter by current microciclo NAME (coach data, agnostic). */
+  block: z.string().optional(),
   alert: z.boolean().optional(),
   twice_daily: z.boolean().optional(),
   a_event_30d: z.boolean().optional(),

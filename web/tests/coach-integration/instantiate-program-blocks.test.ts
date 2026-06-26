@@ -17,7 +17,6 @@ import { instantiateMonthFromTemplate } from '@/lib/dashboard/coach/instantiate-
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeCoachAndAthlete,
-  makeMacrocycleWithBlock,
   makeExercise,
   makeLibraryBlock,
   makeInlineMonthTemplate,
@@ -41,13 +40,6 @@ describeWithDb('instantiateMonthFromTemplate — library blocks (real DB)', () =
   async function baseFixture() {
     const fx: Fixture = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
-    await makeMacrocycleWithBlock({
-      sql,
-      athleteId: fx.athleteId,
-      startIso: '2026-01-05', // Monday
-      endIso: '2026-03-01',
-      status: 'planned',
-    });
     return fx;
   }
 

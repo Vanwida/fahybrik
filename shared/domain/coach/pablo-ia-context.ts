@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres';
-import { getCurrentBlock } from '../atr/service';
+import { getCurrentMicrociclo } from './current-microciclo';
 import { addDays, isoDateString, startOfDayInBox } from '../dates';
 import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
 
@@ -52,7 +52,7 @@ export async function buildAthleteContextPack(params: {
   const weekAgoIso = isoDateString(addDays(today, -7));
   const monthAgoIso = isoDateString(addDays(today, -28));
 
-  const block = await getCurrentBlock({
+  const micro = await getCurrentMicrociclo({
     athlete_id: params.athlete_id,
     on_date: today,
     client,
@@ -204,8 +204,8 @@ export async function buildAthleteContextPack(params: {
   return {
     identity: {
       level: levelRows[0]?.level ?? null,
-      block_type: block?.block_type ?? null,
-      week_in_block: block?.week_number ?? null,
+      block_type: micro?.name ?? null,
+      week_in_block: micro?.week_index ?? null,
       days_to_a_event: aEventRows[0]?.days ?? null,
     },
     compliance: {
