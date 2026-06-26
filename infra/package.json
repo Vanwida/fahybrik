@@ -15,6 +15,7 @@
     "seed:programs": "tsx scripts/seed_program_templates.ts",
     "seed:programs-levels": "tsx scripts/seed_program_levels.ts",
     "seed:methodology": "tsx scripts/seed_methodology.ts",
+    "seed:demo-coaches": "cd ../web && NODE_OPTIONS=--conditions=react-server ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json ../infra/scripts/seed_demo_coaches.ts",
     "seed:all": "pnpm seed:exercises && pnpm seed:templates && pnpm seed:day-paired && pnpm seed:events && pnpm seed:programs && pnpm seed:programs-levels",
     "import:blocks": "tsx scripts/import_blocks_xlsx.ts",
     "import:plan": "tsx scripts/import_plan_html.ts",
