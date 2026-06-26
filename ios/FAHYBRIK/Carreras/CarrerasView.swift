@@ -25,8 +25,13 @@ struct CarrerasView: View {
     @State private var loadingPerf = true
     @State private var perfFailed = false
 
-    // HYROX import sheet (paste an official results link → POST → refresh).
+    // HYROX import sheet (search by name → import-all → refresh).
     @State private var showImport = false
+
+    // Rich, doubles-aware history from the full-history import. Seeded from the
+    // local cache on load and refreshed when an import returns; preferred over
+    // the leaner race-context history whenever present.
+    @State private var importedRaces: [ImportedRace] = []
 
     @State private var appear = false
 
@@ -49,8 +54,14 @@ struct CarrerasView: View {
         }
         .task(id: effectiveBearer) { await load() }
         .sheet(isPresented: $showImport) {
-            ImportRaceSheet(bearer: effectiveBearer) {
-                // On a successful import, refresh the hub so the new race surfaces.
+            ImportRaceSheet(bearer: effectiveBearer) { result in
+                // Full-history import returns the rich, doubles-aware races — seed
+                // the history immediately + persist. The legacy single-link path
+                // passes nil, so we just re-fetch the race-context overview.
+                if let result {
+                    importedRaces = result.races
+                    CarrerasHistoryStore.save(result.races)
+                }
                 Task { await load() }
             }
         }
@@ -127,16 +138,29 @@ struct CarrerasView: View {
                 .tint(Theme.Color.accentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Theme.Spacing.xl)
-        } else if let overview, overview.last_race != nil {
-            CarrerasRaceContent(overview: overview, bearer: effectiveBearer)
+        } else if (overview?.last_race != nil) || !importedRaces.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                // Race-context analytics (last race, IA report, benchmarks, pace,
+                // evolution) — present whenever the athlete has a singles result.
+                if let overview, overview.last_race != nil {
+                    CarrerasRaceContent(overview: overview, bearer: effectiveBearer)
+                }
+                // History list: the rich, doubles-aware import when we have it;
+                // otherwise the leaner race-context history (legacy single-link).
+                if !importedRaces.isEmpty {
+                    ImportedRaceHistorySection(races: importedRaces)
+                } else if let overview, !overview.history.isEmpty {
+                    LegacyHistorySection(history: overview.history)
+                }
+            }
         } else {
             VStack(spacing: Theme.Spacing.l) {
                 RedesignEmptyState(
                     symbol: "flag.checkered",
                     title: "Aún no hay carreras",
-                    message: "Importa el enlace de tu resultado oficial de HYROX y verás aquí tus splits, el informe de puntos débiles y tu evolución."
+                    message: "Busca tu nombre e importa tu historial de HYROX —individuales y dobles— y verás aquí tus splits, el informe de puntos débiles y tu evolución."
                 )
-                ExpertPrimaryButton(title: "IMPORTAR CARRERA") {
+                ExpertPrimaryButton(title: "IMPORTAR CARRERAS") {
                     showImport = true
                 }
             }
@@ -177,6 +201,9 @@ struct CarrerasView: View {
     // MARK: - Loading
 
     private func load() async {
+        // Seed the doubles-aware history from the local cache so it paints
+        // instantly; a fresh import (which sets importedRaces first) is kept.
+        if importedRaces.isEmpty { importedRaces = CarrerasHistoryStore.load() }
         loadingRace = true
         loadingPerf = true
         perfFailed = false
@@ -229,9 +256,6 @@ private struct CarrerasRaceContent: View {
             }
             if let evolution = evolutionPoints, evolution.count >= 2 {
                 evolutionChart(evolution)
-            }
-            if !overview.history.isEmpty {
-                history
             }
         }
     }
@@ -318,43 +342,6 @@ private struct CarrerasRaceContent: View {
         }
     }
 
-    // Historial — prior races, most recent first.
-    private var history: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "HISTORIAL")
-            VStack(spacing: 8) {
-                ForEach(overview.history) { r in
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(r.event_name)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Theme.Color.foreground)
-                            Text(historyMeta(r))
-                                .font(.system(size: 11))
-                                .foregroundStyle(Theme.Color.faint)
-                        }
-                        Spacer(minLength: 8)
-                        MonoText(text: r.total_time ?? "—", size: 13, weight: .bold)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(Theme.Color.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                            .stroke(Theme.Color.hairline, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(r.event_name), \(historyMeta(r)), \(r.total_time ?? "sin tiempo")")
-                }
-            }
-        }
-    }
-
-    private func historyMeta(_ r: RaceResultSummary) -> String {
-        [r.date, r.division].compactMap { $0 }.joined(separator: " · ")
-    }
-
     // MARK: - Evolution derivation
     //
     // The chart wants the last few races oldest→newest with bar heights relative
@@ -388,6 +375,53 @@ private struct CarrerasRaceContent: View {
                 isLatest: idx == window.count - 1
             )
         }
+    }
+}
+
+// MARK: - Legacy history (race-context projection)
+//
+// The leaner history list from `GET /race-context` — used only when the athlete
+// has NO full-history import yet (e.g. they imported a single race via the link
+// path). Once they import their full history, ImportedRaceHistorySection (rich,
+// doubles-aware) supersedes this.
+
+private struct LegacyHistorySection: View {
+    let history: [RaceResultSummary]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            SectionLabel(text: "HISTORIAL")
+            VStack(spacing: 8) {
+                ForEach(history) { r in
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.event_name)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Theme.Color.foreground)
+                            Text(meta(r))
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.Color.faint)
+                        }
+                        Spacer(minLength: 8)
+                        MonoText(text: r.total_time ?? "—", size: 13, weight: .bold)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Theme.Color.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                            .stroke(Theme.Color.hairline, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(r.event_name), \(meta(r)), \(r.total_time ?? "sin tiempo")")
+                }
+            }
+        }
+    }
+
+    private func meta(_ r: RaceResultSummary) -> String {
+        [r.date, r.division].compactMap { $0 }.joined(separator: " · ")
     }
 }
 
