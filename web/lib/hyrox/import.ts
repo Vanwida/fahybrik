@@ -17,6 +17,7 @@ import {
   parseHyroxUrl,
   type HyroxResultRef,
 } from './parse';
+import { upsertRaceRow, type RaceUpsertRow } from './upsert';
 
 // =============================================================================
 // HYROX result import service.
@@ -110,10 +111,6 @@ async function resolveFieldSize(
   }
 }
 
-interface UpsertedRow {
-  id: string;
-}
-
 /**
  * Import a HYROX result for an athlete from a pasted detail URL. Returns the
  * stored projection. Throws HyroxParseError (caught by the route → 4xx).
@@ -152,93 +149,58 @@ export async function importHyroxResult(params: {
       ? Math.min(1, Math.max(0, detail.overall_rank / field_size))
       : null;
 
-  // race_date: the page exposes the meeting name ("2026 Amsterdam") but not a
-  // machine date on the detail row. We store today's date as the import date
-  // ONLY as a placeholder when no date is known; the athlete/coach can correct
-  // it. (HYROX detail pages carry no ISO race date in the splits table.)
-  // To avoid inventing a wrong date, default to the current date in the row but
-  // keep the meeting in `name` so it's identifiable.
+  // race_date: the detail page exposes the meeting name ("2026 Amsterdam") but
+  // no machine-readable ISO date on the splits row. We store NULL — the honest
+  // "date unknown" signal (migration 0072) — rather than fabricating today's date,
+  // which floated these rows ABOVE the real chronological history. The meeting
+  // stays in `name` so the row is identifiable, and the athlete/coach can set the
+  // real date later. (Unlike the hyresult importer, the official page carries no
+  // ISO race date here.)
   const raceName = detail.meeting
     ? `HYROX ${detail.meeting}`
     : detail.event_label ?? 'HYROX';
 
-  const runSplits = detail.run_splits;
-  const stationSplits = detail.station_splits;
+  // Build the normalized row and write it through the SHARED upsert (deduped on
+  // (athlete_id, source_idp); ON CONFLICT refreshes in place).
+  const row: RaceUpsertRow = {
+    athlete_id: athleteId,
+    name: raceName,
+    event_type: 'hyrox',
+    format: 'singles',
+    division: detail.division,
+    gender_category: gender,
+    priority: 'tune_up',
+    age_group: detail.age_group,
+    race_date: null,
+    location: detail.meeting,
+    result_time_seconds: detail.finish_time_seconds,
+    status: 'completed',
+    run_splits: detail.run_splits,
+    station_splits: detail.station_splits,
+    roxzone_seconds: detail.roxzone_seconds,
+    run_total_seconds: detail.run_total_seconds,
+    best_run_lap_seconds: detail.best_run_lap_seconds,
+    overall_rank: detail.overall_rank,
+    age_group_rank: detail.age_group_rank,
+    field_size,
+    nationality: detail.nationality,
+    bib: detail.bib,
+    source: 'hyrox_import',
+    source_idp: ref.idp,
+    source_event: ref.event,
+    source_season: ref.season,
+    source_url: canonicalUrl,
+  };
 
-  // Upsert on (athlete_id, source_idp). ON CONFLICT refreshes the imported
-  // fields in place so a re-paste updates rather than duplicates.
-  const rows = await client<UpsertedRow[]>`
-    insert into races (
-      athlete_id, name, event_type, format, division, gender_category,
-      priority, age_group, race_date, location, result_time_seconds, status,
-      run_splits_json, station_splits_json, roxzone_seconds, run_total_seconds,
-      best_run_lap_seconds, overall_rank, age_group_rank, field_size,
-      nationality, bib, source, source_idp, source_event, source_season,
-      source_url, imported_at
-    ) values (
-      ${athleteId},
-      ${raceName},
-      'hyrox',
-      'singles',
-      ${detail.division}::race_division,
-      ${gender}::race_gender,
-      'tune_up',
-      ${detail.age_group},
-      current_date,
-      ${detail.meeting},
-      ${detail.finish_time_seconds},
-      'completed'::race_status,
-      ${client.json(runSplits)},
-      ${client.json(stationSplits)},
-      ${detail.roxzone_seconds},
-      ${detail.run_total_seconds},
-      ${detail.best_run_lap_seconds},
-      ${detail.overall_rank},
-      ${detail.age_group_rank},
-      ${field_size},
-      ${detail.nationality},
-      ${detail.bib},
-      'hyrox_import',
-      ${ref.idp},
-      ${ref.event},
-      ${ref.season},
-      ${canonicalUrl},
-      now()
-    )
-    on conflict (athlete_id, source_idp) where source_idp is not null
-    do update set
-      name = excluded.name,
-      division = excluded.division,
-      gender_category = excluded.gender_category,
-      age_group = excluded.age_group,
-      location = excluded.location,
-      result_time_seconds = excluded.result_time_seconds,
-      status = excluded.status,
-      run_splits_json = excluded.run_splits_json,
-      station_splits_json = excluded.station_splits_json,
-      roxzone_seconds = excluded.roxzone_seconds,
-      run_total_seconds = excluded.run_total_seconds,
-      best_run_lap_seconds = excluded.best_run_lap_seconds,
-      overall_rank = excluded.overall_rank,
-      age_group_rank = excluded.age_group_rank,
-      field_size = excluded.field_size,
-      nationality = excluded.nationality,
-      bib = excluded.bib,
-      source_event = excluded.source_event,
-      source_season = excluded.source_season,
-      source_url = excluded.source_url,
-      imported_at = excluded.imported_at,
-      updated_at = now()
-    returning id::text as id
-  `;
-
-  const raceId = rows[0]?.id;
-  if (!raceId) {
+  let raceId: bigint;
+  try {
+    raceId = (await upsertRaceRow(client, row)).id;
+  } catch {
     throw new HyroxParseError('store_failed', 'No se pudo guardar el resultado.');
   }
 
   const result: HyroxImportedResult = {
-    race_id: BigInt(raceId),
+    race_id: raceId,
     athlete_id: BigInt(athleteId),
     name: raceName,
     result_time_seconds: detail.finish_time_seconds,
@@ -247,10 +209,10 @@ export async function importHyroxResult(params: {
     age_group: detail.age_group,
     nationality: detail.nationality,
     bib: detail.bib,
-    race_date: new Date().toISOString().slice(0, 10),
+    race_date: null,
     location: detail.meeting,
-    run_splits: runSplits,
-    station_splits: stationSplits,
+    run_splits: row.run_splits,
+    station_splits: row.station_splits,
     roxzone_seconds: detail.roxzone_seconds,
     run_total_seconds: detail.run_total_seconds,
     best_run_lap_seconds: detail.best_run_lap_seconds,
