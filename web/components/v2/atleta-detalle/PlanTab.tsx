@@ -8,8 +8,10 @@
 // (weeks/sessions) + AthleteResumen (compliance, readiness). Empty plan → a calm
 // EmptyState with a link to assign.
 
+import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { SessionDetailDrawer } from './SessionDetailDrawer';
 import { MODALITY_META } from '@/components/v2/constants';
 import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
@@ -84,11 +86,22 @@ function MiniWeekCard({
   );
 }
 
-function RecentRow({ s }: { s: PlanSession }) {
+function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: string) => void }) {
   const modality = sessionModality({ format: s.format, title: s.title });
   const ok = s.status === 'completed';
   return (
-    <tr className="border-b border-[color:var(--v2-border)] last:border-0">
+    <tr
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(s.assignment_id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(s.assignment_id);
+        }
+      }}
+      className="v2-focus cursor-pointer border-b border-[color:var(--v2-border)] transition-colors last:border-0 hover:bg-[color:var(--v2-surface-2)]"
+    >
       <td className="py-2 pr-2">
         <span className="flex items-center gap-2">
           <span
@@ -132,6 +145,9 @@ export function PlanTab({
   resumen: AthleteResumen | null;
   athlete_id: string;
 }) {
+  // The session whose prescrito→hecho detail is open in the drawer (assignment id).
+  const [openSession, setOpenSession] = useState<string | null>(null);
+
   if (!plan || plan.total_sessions === 0) {
     return (
       <EmptyState
@@ -179,6 +195,7 @@ export function PlanTab({
   const plannedThisWeek = weekDays.filter((d) => d.state !== 'rest').length;
 
   return (
+    <>
     <div className="flex flex-col gap-5">
       {/* Header band */}
       <div className="flex flex-col gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)] sm:flex-row sm:items-center sm:justify-between">
@@ -224,7 +241,7 @@ export function PlanTab({
         <div className="flex flex-col gap-5">
           <Panel title="Sesión de hoy" bodyClassName="flex flex-col gap-3">
             {todaySession ? (
-              <TodaySessionCard session={todaySession} />
+              <TodaySessionCard session={todaySession} onOpen={setOpenSession} />
             ) : (
               <p className="py-4 text-center text-xs text-[color:var(--v2-muted)]">
                 Sin sesión programada hoy · día de descanso
@@ -281,7 +298,7 @@ export function PlanTab({
                 </thead>
                 <tbody className="[&>tr>td:first-child]:pl-3.5 [&>tr>td:last-child]:pr-3.5">
                   {recent.map((s) => (
-                    <RecentRow key={s.assignment_id} s={s} />
+                    <RecentRow key={s.assignment_id} s={s} onOpen={setOpenSession} />
                   ))}
                 </tbody>
               </table>
@@ -312,10 +329,24 @@ export function PlanTab({
         </div>
       </div>
     </div>
+    {openSession ? (
+      <SessionDetailDrawer
+        athleteId={athlete_id}
+        assignmentId={openSession}
+        onClose={() => setOpenSession(null)}
+      />
+    ) : null}
+    </>
   );
 }
 
-function TodaySessionCard({ session }: { session: PlanSession }) {
+function TodaySessionCard({
+  session,
+  onOpen,
+}: {
+  session: PlanSession;
+  onOpen: (assignmentId: string) => void;
+}) {
   const modality = sessionModality({ format: session.format, title: session.title });
   const meta = MODALITY_META[modality];
   return (
@@ -347,10 +378,11 @@ function TodaySessionCard({ session }: { session: PlanSession }) {
       <div className="flex flex-wrap gap-2 pt-1">
         <button
           type="button"
+          onClick={() => onOpen(session.assignment_id)}
           className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
         >
           <MIcon name="visibility" size={15} />
-          Ver / editar
+          Ver detalle
         </button>
         <button
           type="button"

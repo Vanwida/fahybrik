@@ -27,6 +27,7 @@ import type {
   AssignmentDetailWorkout,
 } from '@/lib/athlete/assignment-detail';
 import type { PlanSessionStatus } from '@/lib/dashboard/coach/athlete-plan';
+import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 
 /** Payload of the coach session-detail endpoint (drawer host fetches this). */
 export interface CoachSessionDetail {
@@ -46,6 +47,11 @@ export interface CoachSessionDetail {
     athlete_notes: string | null;
     ended_at: string | null;
   } | null;
+  /** Per-exercise actuals the athlete logged (segment_executions), mapped to the
+   *  prescribed item via `item_uid`. Empty when the session has no granular log
+   *  (old session / athlete logged only the aggregate) — the UI then shows the
+   *  prescription with no "hecho" line, never a fabricated number. */
+  segment_actuals: SegmentActual[];
 }
 
 /** Fallback format for blocks whose stored format isn't in the shared enum. */

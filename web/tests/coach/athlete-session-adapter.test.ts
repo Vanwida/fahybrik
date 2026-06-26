@@ -89,6 +89,7 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
       ],
     },
     execution: null,
+    segment_actuals: [],
     ...overrides,
   };
 }

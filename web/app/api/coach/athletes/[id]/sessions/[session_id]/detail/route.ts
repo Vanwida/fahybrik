@@ -5,6 +5,7 @@ import { sql } from '@/lib/db';
 import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
+import { loadSegmentActuals } from '@/lib/dashboard/coach/session-actuals';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 
 export const runtime = 'nodejs';
@@ -61,15 +62,22 @@ export async function GET(
   const decoded = decodeCoachAssignmentNotes(notesRows[0]?.notes);
 
   // Execution reality (duration + athlete notes; RPE/ended_at already in detail).
+  // `id` lets us pull the per-segment actuals the athlete logged for this run.
   const executionRows = await sql<
-    Array<{ total_duration_seconds: number | null; notes: string | null }>
+    Array<{ id: number; total_duration_seconds: number | null; notes: string | null }>
   >`
-    select total_duration_seconds, notes
+    select id, total_duration_seconds, notes
     from workout_executions
     where assignment_id = ${Number(parsedSession.data.session_id)}
     limit 1
   `;
   const executionRow = executionRows[0] ?? null;
+
+  // Per-exercise actuals (segment_executions). Empty when there's no execution
+  // yet or the athlete logged only the aggregate — no fabrication downstream.
+  const segmentActuals = executionRow
+    ? await loadSegmentActuals(sql, executionRow.id)
+    : [];
   const hasExecution =
     executionRow != null ||
     detail.assignment.perceived_exertion != null ||
@@ -93,6 +101,7 @@ export async function GET(
           ended_at: detail.assignment.completed_at,
         }
       : null,
+    segment_actuals: segmentActuals,
   };
 
   return jsonOk({ session: payload });
