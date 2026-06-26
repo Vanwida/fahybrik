@@ -24,8 +24,7 @@ export type NotificationType =
   // Coach inbox triggers (phase 1c):
   | 'week_adjustment_pending'
   | 'monthly_block_pending'
-  | 'intake_pending'
-  | 'atr_transition_suggested';
+  | 'intake_pending';
 
 export type DispatchInput = {
   sql: Sql;
