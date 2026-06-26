@@ -1,7 +1,14 @@
 /**
  * seed_demo_coaches.ts — TWO self-contained demo COACH accounts, each with ONE
- * fully-wired athlete, seeded into the DEMO DB by REUSING the real app services
+ * EMPTY athlete, seeded into the DEMO DB by REUSING the real app services
  * end-to-end (no fabricated rows that skip the pipeline). Idempotent.
+ *
+ * The athlete is an intentional BLANK SLATE: created + linked to its coach, and
+ * nothing else. No classification (level/days), no zone profiles, no sequence
+ * assignment, no materialized plan. The whole point of the demo is that the
+ * colleague does ALL of that themselves — classify, assign, build workouts —
+ * starting from the coach's library (microciclo + sequence) that this seed DOES
+ * build. So: coach gets content (the material to assign FROM); athlete is empty.
  *
  * WHAT IT BUILDS, per coach (×2), through the REAL services:
  *   1. Coach account               → D.findOrCreateCoachByEmail()  (email-keyed,
@@ -16,15 +23,10 @@
  *      content is what the materializer turns into real workouts.
  *   4. A sequence (the assignment) → D.saveCoachSequence() for (level, days) → the
  *      microciclo. The ORDER of items is the periodization (AGNOSTIC, no ATR).
- *   5. ONE athlete                 → D.createCompAthlete() (comp = full access, no
- *      billing). Classified (level_id + training_days_per_week), discipline/sex.
- *   6. Zone profiles               → D.insertZoneProfileVersion() for run/row/ski/
- *      bike, so plan doses resolve.
- *   7. The plan                    → D.assignSequenceToAthlete(start=this Monday)
- *      → instantiateMonthFromTemplate() materializes REAL workout_assignments for
- *      the current week (+ staggered future weeks as draft). The coach sees a
- *      roster with a real athlete; the athlete sees a real plan in the app.
- *   8. App login handles           → D.createAthleteInvitation() (deeplink/token to
+ *   5. ONE EMPTY athlete           → D.createCompAthlete() (comp = full access, no
+ *      billing). NOT classified, NO zones, NO sequence, NO plan — a blank slate
+ *      the colleague fills in. The coach roster shows it as unclassified/empty.
+ *   6. App login handles           → D.createAthleteInvitation() (deeplink/token to
  *      bind a real Apple ID onto this athlete) + a long-lived athlete bearer
  *      session (issueSession) as a no-Apple-ID fallback.
  *
@@ -43,7 +45,6 @@
  */
 import './_load_web_env.ts';
 
-import type { ResolvedZone, ZonePaceUnit } from '@fahybrid/shared/domain/methodology';
 import type { Sql } from '@/lib/db';
 
 // The real web services live behind `server-only` + `@/` aliases and form import
@@ -58,8 +59,6 @@ type Deps = {
   createMonthTemplateWithEmptyWeeks: typeof import('@/lib/dashboard/coach/program-months')['createMonthTemplateWithEmptyWeeks'];
   upsertWeekTemplate: typeof import('@/lib/dashboard/coach/program-weeks')['upsertWeekTemplate'];
   saveCoachSequence: typeof import('@/lib/dashboard/coach/sequences')['saveCoachSequence'];
-  assignSequenceToAthlete: typeof import('@/lib/dashboard/coach/assign-sequence')['assignSequenceToAthlete'];
-  insertZoneProfileVersion: typeof import('@/lib/dashboard/v2/zone-derivation')['insertZoneProfileVersion'];
   createAthleteInvitation: typeof import('@/lib/athlete/invitations')['createAthleteInvitation'];
   issueSession: typeof import('@/lib/auth/session')['issueSession'];
   audiences: typeof import('@/lib/auth/session')['audiences'];
@@ -68,15 +67,13 @@ type Deps = {
 let D: Deps;
 
 async function loadDeps(): Promise<Deps> {
-  const [db, users, comp, months, weeks, seqs, assign, zones, invites, session] = await Promise.all([
+  const [db, users, comp, months, weeks, seqs, invites, session] = await Promise.all([
     import('@/lib/db'),
     import('@/lib/auth/users'),
     import('@/lib/dashboard/coach/comp-athletes'),
     import('@/lib/dashboard/coach/program-months'),
     import('@/lib/dashboard/coach/program-weeks'),
     import('@/lib/dashboard/coach/sequences'),
-    import('@/lib/dashboard/coach/assign-sequence'),
-    import('@/lib/dashboard/v2/zone-derivation'),
     import('@/lib/athlete/invitations'),
     import('@/lib/auth/session'),
   ]);
@@ -87,8 +84,6 @@ async function loadDeps(): Promise<Deps> {
     createMonthTemplateWithEmptyWeeks: months.createMonthTemplateWithEmptyWeeks,
     upsertWeekTemplate: weeks.upsertWeekTemplate,
     saveCoachSequence: seqs.saveCoachSequence,
-    assignSequenceToAthlete: assign.assignSequenceToAthlete,
-    insertZoneProfileVersion: zones.insertZoneProfileVersion,
     createAthleteInvitation: invites.createAthleteInvitation,
     issueSession: session.issueSession,
     audiences: session.audiences,
@@ -358,56 +353,6 @@ function buildWeekSlots(ex: ExMap, weekIdx: number) {
   return { days };
 }
 
-// ── zones: 6 absolute bands from a threshold (mirrors the stored snapshot) ────
-const ROLE_BY_SORT = [
-  'recovery',
-  'aerobic_base',
-  'aerobic_threshold',
-  'threshold',
-  'vo2max',
-  'sprint',
-] as const;
-const ZONE_LABELS = ['Recuperación', 'Base aeróbica', 'Umbral aeróbico', 'Umbral', 'VO2max', 'Sprint'];
-const ZONE_COLORS = ['#9CA3AF', '#34D399', '#22D3EE', '#FBBF24', '#FB923C', '#EF4444'];
-// Offset bands [fast_edge, slow_edge] in seconds relative to threshold, Z1..Z6.
-// slow_s null for Z1 (open-ended easy). value clamped to >= 0.
-const ZONE_OFFSETS: Array<[number, number | null]> = [
-  [40, null], // Z1 recovery (slowest)
-  [20, 40], // Z2
-  [5, 20], // Z3
-  [-5, 5], // Z4 threshold
-  [-15, -5], // Z5
-  [-30, -15], // Z6 sprint (fastest)
-];
-
-function buildZones(thresholdS: number): ResolvedZone[] {
-  return ZONE_OFFSETS.map(([fastOff, slowOff], i) => {
-    const fast_s = Math.max(0, thresholdS + fastOff);
-    const slow_s = slowOff === null ? null : Math.max(0, thresholdS + slowOff);
-    return {
-      code: `Z${i + 1}`,
-      label: ZONE_LABELS[i]!,
-      color: ZONE_COLORS[i]!,
-      role: ROLE_BY_SORT[i]!,
-      sort_order: i + 1,
-      fast_s,
-      slow_s,
-    } as ResolvedZone;
-  });
-}
-
-interface ZoneSpec {
-  modality: 'row' | 'ski' | 'run' | 'bike';
-  threshold_s: number;
-  pace_unit: ZonePaceUnit;
-}
-const ZONE_SPECS: ZoneSpec[] = [
-  { modality: 'run', threshold_s: 270, pace_unit: 'per_km' },
-  { modality: 'row', threshold_s: 110, pace_unit: 'per_500m' },
-  { modality: 'ski', threshold_s: 118, pace_unit: 'per_500m' },
-  { modality: 'bike', threshold_s: 95, pace_unit: 'per_500m' },
-];
-
 // ── per-coach reset (only our own demo content; never a protected coach) ──────
 async function wipeCoachDemoContent(coachId: number, athleteEmail: string) {
   // Athlete (cascades workout_assignments, subscriptions, zone profiles,
@@ -440,7 +385,7 @@ interface SeedResult {
   athlete_email: string;
   athlete_id: number;
   level_name: string;
-  training_days: number;
+  training_days: number | null;
   zone_modalities: string[];
   month_template_id: number;
   sequence_id: number;
@@ -518,7 +463,12 @@ async function seedCoach(spec: CoachSpec, ex: ExMap, weekStartIso: string): Prom
     items: [{ month_template_id: monthTemplateId }],
   });
 
-  // 5. Athlete (real comp service).
+  // 5. Athlete (real comp service) — created EMPTY (a blank slate).
+  //    NO classify (level_id/days stay null), NO zone profiles, NO sequence
+  //    assignment, NO plan materialization. The whole point of the demo is that
+  //    the colleague does ALL of that themselves: classify the athlete, assign
+  //    a microciclo/sequence, and materialize workouts. We only create the
+  //    athlete row + link it to the coach (createCompAthlete does both).
   const created = await D.createCompAthlete({
     coach_id: coachId,
     input: {
@@ -529,47 +479,7 @@ async function seedCoach(spec: CoachSpec, ex: ExMap, weekStartIso: string): Prom
   });
   const athleteId = Number(created.id);
 
-  // Classify + flesh out (what the coach roster/classify endpoints set).
-  await D.sql`
-    update athletes set
-      level_id = ${levelId},
-      level_source = 'coach',
-      level_confidence = 'high',
-      training_days_per_week = ${spec.athlete.training_days_per_week},
-      primary_discipline = ${spec.athlete.discipline}::discipline,
-      sex = ${spec.athlete.sex}::athlete_sex,
-      onboarded_at = coalesce(onboarded_at, now() - interval '30 days'),
-      intake_completed_at = coalesce(intake_completed_at, now() - interval '28 days'),
-      updated_at = now()
-    where id = ${athleteId}
-  `;
-
-  // 6. Zone profiles (real service) — run/row/ski/bike so doses resolve.
-  const zoneModalities: string[] = [];
-  for (const z of ZONE_SPECS) {
-    await D.insertZoneProfileVersion({
-      athlete_id: athleteId,
-      modality: z.modality,
-      threshold_s: z.threshold_s,
-      pace_unit: z.pace_unit,
-      source_test_slug: null,
-      source_benchmark_id: null,
-      zones: buildZones(z.threshold_s),
-      source: 'coach_test',
-      needs_review: false,
-    });
-    zoneModalities.push(z.modality);
-  }
-
-  // 7. Assign + materialize the plan into the CURRENT week (real pipeline).
-  const assigned = await D.assignSequenceToAthlete(
-    athleteId,
-    coachId,
-    weekStartIso,
-  );
-  const assignmentCount = assigned.materialization?.assignment_count ?? 0;
-
-  // 8a. App invite (real service) — bind a real Apple ID onto this athlete.
+  // 6a. App invite (real service) — bind a real Apple ID onto this athlete.
   const invite = await D.createAthleteInvitation({
     athlete_id: BigInt(athleteId),
     coach_id: BigInt(coachId),
@@ -579,7 +489,7 @@ async function seedCoach(spec: CoachSpec, ex: ExMap, weekStartIso: string): Prom
   }
   const inviteUrl = `${appUrl()}/invite/${encodeURIComponent(invite.result.token)}`;
 
-  // 8b. Long-lived athlete bearer (real token minter) — no-Apple-ID fallback.
+  // 6b. Long-lived athlete bearer (real token minter) — no-Apple-ID fallback.
   const athleteUserIdVal = await athleteUserId(athleteId);
   const bearer = await D.issueSession({
     user_id: BigInt(athleteUserIdVal),
@@ -596,13 +506,14 @@ async function seedCoach(spec: CoachSpec, ex: ExMap, weekStartIso: string): Prom
     clerk_linked: clerkLinked,
     athlete_email: spec.athlete.email.toLowerCase(),
     athlete_id: athleteId,
-    level_name: spec.athlete.level_name,
-    training_days: spec.athlete.training_days_per_week,
-    zone_modalities: zoneModalities,
+    // Athlete is an intentional blank slate — unclassified, no zones, no plan.
+    level_name: '(unclassified)',
+    training_days: null,
+    zone_modalities: [],
     month_template_id: monthTemplateId,
     sequence_id: Number(sequence.id),
     week_start: weekStartIso,
-    assignment_count: assignmentCount,
+    assignment_count: 0,
     invite_url: inviteUrl,
     invite_expires_at: invite.result.expires_at.toISOString(),
     athlete_bearer_token: bearer.token,
