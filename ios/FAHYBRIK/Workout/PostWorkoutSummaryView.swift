@@ -11,6 +11,9 @@ struct PostWorkoutSummaryView: View {
     /// workouts (e.g. demo plan with no plan-week context) — in that case we
     /// skip the sync and just close locally.
     let assignmentId: String?
+    /// Solo (default) → /api/sync/workout-execution. Dobles "train together" →
+    /// the joint endpoint (links partner + shares result). Same payload.
+    var logTarget: WorkoutLogTarget = .solo
     let onSave: () -> Void
 
     @State private var rpe: Int = 7
@@ -76,8 +79,19 @@ struct PostWorkoutSummaryView: View {
         let bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
         let payload = buildPayload()
         if let payload {
+            let target = logTarget
             Task {
-                await WorkoutExecutionAPI.submit(payload, bearer: bearer)
+                switch target {
+                case .solo:
+                    await WorkoutExecutionAPI.submit(payload, bearer: bearer)
+                case .doublesJoint:
+                    // sessionId == this athlete's own assignment id == payload.assignment_id.
+                    await DoblesExecutionAPI.submit(
+                        sessionId: payload.assignment_id,
+                        payload,
+                        bearer: bearer
+                    )
+                }
             }
         }
         onSave()

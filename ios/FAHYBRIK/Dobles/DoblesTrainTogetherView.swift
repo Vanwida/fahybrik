@@ -28,6 +28,12 @@ struct DoblesTrainTogetherView: View {
     @State private var partner: PartnerInfo? = nil
     @State private var loading = true
     @State private var appear = false
+    // Logging launchers — both run the SAME workout flow (brief → active →
+    // summary) via WorkoutContainer for THIS athlete's assignment (sessionId).
+    // "Hacerla juntos" logs against the joint endpoint (links partner + shares);
+    // "Por mi cuenta" against the standard solo path. No parallel logging UI.
+    @State private var showJointWorkout = false
+    @State private var showSoloWorkout = false
 
     private var effectiveBearer: String? {
         bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
@@ -67,6 +73,30 @@ struct DoblesTrainTogetherView: View {
         .instrumentCanvas()
         .navigationTitle("Entrenar a la vez")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(isPresented: $showJointWorkout) {
+            if let sessionId {
+                WorkoutContainer(
+                    assignmentId: sessionId,
+                    fallbackTitle: session?.title,
+                    bearer: effectiveBearer,
+                    logTarget: .doublesJoint,
+                    onClose: { showJointWorkout = false },
+                    onCompleted: { _ in showJointWorkout = false }
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showSoloWorkout) {
+            if let sessionId {
+                WorkoutContainer(
+                    assignmentId: sessionId,
+                    fallbackTitle: session?.title,
+                    bearer: effectiveBearer,
+                    logTarget: .solo,
+                    onClose: { showSoloWorkout = false },
+                    onCompleted: { _ in showSoloWorkout = false }
+                )
+            }
+        }
         .task(id: effectiveBearer) {
             loading = true
             if let bearer = effectiveBearer {
@@ -156,16 +186,19 @@ struct DoblesTrainTogetherView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         .staggerReveal(appear, index: 3)
 
-        // Together / on-my-own actions. Primary = brand orange.
+        // Together / on-my-own actions. Primary = brand orange. Both launch the
+        // real workout flow for THIS athlete's assignment; only the final submit
+        // differs (joint endpoint vs solo). Disabled without a resolvable session.
         VStack(spacing: Theme.Spacing.s) {
-            ExpertPrimaryButton(title: "▶ Hacerla juntos", height: 50) {
-                // BACKEND GAP: starting a joint session (logging both athletes
-                // against the shared session) is not wired — no start endpoint.
+            ExpertPrimaryButton(title: "▶ Hacerla juntos", height: 50, enabled: sessionId != nil) {
+                guard sessionId != nil else { return }
+                Haptics.medium()
+                showJointWorkout = true
             }
             Button {
+                guard sessionId != nil else { return }
                 Haptics.light()
-                // BACKEND GAP: "do it on my own" routes into the standard solo
-                // workout flow for this session — not wired here yet.
+                showSoloWorkout = true
             } label: {
                 Text("Por mi cuenta")
                     .font(.system(size: 14, weight: .semibold))

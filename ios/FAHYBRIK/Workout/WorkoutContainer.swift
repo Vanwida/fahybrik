@@ -15,6 +15,10 @@ struct WorkoutContainer: View {
     /// items + params) so EMPEZAR runs the actual prescribed workout, not an
     /// empty title-only shell.
     let bearer: String?
+    /// Where the finished execution is submitted. Defaults to `.solo`; the Dobles
+    /// "train together" flow passes `.doublesJoint` so the summary logs against
+    /// the joint endpoint (links partner + shares result). Same workout flow.
+    var logTarget: WorkoutLogTarget = .solo
 
     enum Phase: Equatable {
         case brief
@@ -101,6 +105,7 @@ struct WorkoutContainer: View {
                     PostWorkoutSummaryView(
                         session: session,
                         assignmentId: assignmentId,
+                        logTarget: logTarget,
                         onSave: {
                             // Record optimistic completion BEFORE closing so the
                             // caller's refetch (driven by onCompleted) already sees

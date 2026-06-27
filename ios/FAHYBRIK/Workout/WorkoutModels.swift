@@ -227,6 +227,37 @@ enum WorkoutExecutionAPI {
     }
 }
 
+// Where a finished execution is submitted. `.solo` → the standard
+// /api/sync/workout-execution path. `.doublesJoint` → the joint Dobles endpoint,
+// which records the SAME execution and additionally links the partner + shares
+// the result. Same payload shape either way — one logging model, no fork.
+enum WorkoutLogTarget: Equatable {
+    case solo
+    case doublesJoint
+}
+
+// Joint Dobles execution sync. Mirrors WorkoutExecutionAPI (offline-first via
+// RequestQueue) but POSTs to the per-assignment joint endpoint so the backend
+// links the partner and shares the result. Reuses WorkoutExecutionPayload —
+// `sessionId` is the athlete's own assignment id (== payload.assignment_id).
+enum DoblesExecutionAPI {
+    static func path(sessionId: String) -> String {
+        let encoded = sessionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sessionId
+        return "/api/athlete/dobles/session/\(encoded)/log"
+    }
+
+    static func submit(sessionId: String, _ payload: WorkoutExecutionPayload, bearer: String?) async {
+        let p = path(sessionId: sessionId)
+        do {
+            try await APIClient.shared.postRaw(path: p, body: payload, bearer: bearer)
+        } catch {
+            if let body = try? JSONEncoder().encode(payload) {
+                await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
+            }
+        }
+    }
+}
+
 // Minimal real plan used to run the timer/lap engine when we only know the
 // assignment title. The per-assignment workout BODY (segments, zone targets,
 // equipment) is not yet exposed in a shape the live execution engine consumes
