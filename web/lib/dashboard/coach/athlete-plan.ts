@@ -4,6 +4,10 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayUtc } from '@fahybrid/shared/domain/dates';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import {
+  loadMicrocicloPublishState,
+  type MicrocicloPublishState,
+} from '@/lib/coach/publish-microciclo';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
@@ -50,6 +54,10 @@ export interface AthletePlanPayload {
   weeks: PlanWeekRow[];
   macro: MacroProgressPayload;
   total_sessions: number;
+  /** Publish state of the current-or-next assigned microciclo (draft/partial/
+   *  published) + the assignment id the Publicar action targets. null when the
+   *  athlete has no upcoming microciclo. */
+  microciclo: MicrocicloPublishState | null;
 }
 
 export class AthletePlanError extends Error {
@@ -230,6 +238,7 @@ export async function buildAthletePlan(params: {
 
   const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, client });
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
+  const microciclo = await loadMicrocicloPublishState({ athlete_id: params.athlete_id, client });
 
   // Current microciclo label = the coach's microciclo NAME (agnostic), null when
   // there's no active microciclo.
@@ -246,5 +255,6 @@ export async function buildAthletePlan(params: {
     weeks,
     macro,
     total_sessions: rows.length,
+    microciclo,
   };
 }

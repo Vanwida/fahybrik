@@ -9,7 +9,7 @@
 // EmptyState with a link to assign.
 
 import { useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { SessionDetailDrawer } from './SessionDetailDrawer';
 import { MODALITY_META } from '@/components/v2/constants';
@@ -207,17 +207,46 @@ export function PlanTab({
             {blockName}
             {blockWeek != null ? ` · sem ${blockWeek}` : ''}
           </Pill>
-          <Pill tone="ok" variant="soft">
-            publicado
-          </Pill>
+          {/* Honest publish badge — derived from the microciclo's real weekly_plans
+              state, never hardcoded. */}
+          {!plan.microciclo || plan.microciclo.session_count === 0 ? (
+            <Pill tone="neutral" variant="soft">
+              sin publicar
+            </Pill>
+          ) : plan.microciclo.publish_state === 'published' ? (
+            <Pill tone="ok" variant="soft">
+              publicado
+            </Pill>
+          ) : plan.microciclo.publish_state === 'partial' ? (
+            <Pill tone="warn" variant="soft">
+              {`parcial · ${plan.microciclo.draft_week_count} sem en borrador`}
+            </Pill>
+          ) : (
+            <Pill tone="warn" variant="soft">
+              borrador
+            </Pill>
+          )}
         </div>
-        <Link
-          href={`/atletas/${athlete_id}?tab=plan`}
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          Abrir en editor de día
-          <MIcon name="arrow_forward" size={15} />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Publicar microciclo — flips every draft week of the assigned microciclo
+              to published so the athlete sees it. Shown only when there's a real
+              draft to publish (a materialized microciclo with hidden weeks). */}
+          {plan.microciclo &&
+          plan.microciclo.session_count > 0 &&
+          plan.microciclo.publish_state !== 'published' ? (
+            <PublishMicrocicloButton
+              athleteId={athlete_id}
+              assignmentId={plan.microciclo.assignment_id}
+            />
+          ) : null}
+          <Link
+            href={`/atletas/${athlete_id}?tab=plan`}
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+          >
+            Abrir en editor de día
+            <MIcon name="arrow_forward" size={15} />
+          </Link>
+        </div>
       </div>
 
       {/* Microcycle progress strip */}
@@ -408,6 +437,65 @@ function SnapshotTile({
   return (
     <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 shadow-[var(--v2-shadow-card)]">
       <StatTile label={label} value={value} tone={tone} className="gap-0.5" />
+    </div>
+  );
+}
+
+/** Publishes the athlete's assigned microciclo (every draft week → published) via
+ *  the coach publish endpoint, then refreshes so the badge + plan reflect it.
+ *  Optimistic disabled state; honest inline error. */
+function PublishMicrocicloButton({
+  athleteId,
+  assignmentId,
+}: {
+  athleteId: string;
+  assignmentId: string;
+}) {
+  const router = useRouter();
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function publish() {
+    if (publishing) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/coach/athletes/${athleteId}/microciclo/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ month_assignment_id: assignmentId }),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { error?: { message?: string } }
+        | null;
+      if (!res.ok) {
+        setError(body?.error?.message ?? 'No se pudo publicar el microciclo.');
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError('No se pudo publicar el microciclo.');
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1 sm:items-end">
+      <button
+        type="button"
+        onClick={publish}
+        disabled={publishing}
+        title="Publica el microciclo para que el atleta lo vea"
+        className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
+      >
+        <MIcon name={publishing ? 'progress_activity' : 'send'} size={15} className={publishing ? 'animate-spin' : undefined} />
+        {publishing ? 'Publicando…' : 'Publicar microciclo'}
+      </button>
+      {error ? (
+        <span className="text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</span>
+      ) : null}
     </div>
   );
 }

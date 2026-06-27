@@ -71,3 +71,12 @@ export const publishWeekInputSchema = z
     'Indica week_start (una semana) o week_starts (un bloque), no ambos.',
   );
 export type PublishWeekInput = z.infer<typeof publishWeekInputSchema>;
+
+// Publish a whole ASSIGNED microciclo to the athlete in one action. The id is the
+// `athlete_month_assignments` row (the materialized microciclo, resolved on the
+// athlete plan surface); publishing flips EVERY weekly_plans week of that
+// assignment to 'published'. Idempotent — re-publishing re-stamps the rows.
+export const publishMicrocicloInputSchema = z.object({
+  month_assignment_id: idSchema,
+});
+export type PublishMicrocicloInput = z.infer<typeof publishMicrocicloInputSchema>;

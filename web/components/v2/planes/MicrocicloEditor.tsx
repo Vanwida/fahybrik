@@ -101,6 +101,7 @@ export function MicrocicloEditor({
         {effectiveView === 'foco' ? (
           <MicrocicloV2
             microcycle_id={microcycle_id}
+            name={name}
             weeks={weeks}
             groupNames={groupNames}
             dayModel={dayModel}

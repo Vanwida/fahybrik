@@ -34,6 +34,7 @@ import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
+import { AsignarAtletaModal } from '@/components/v2/planes/AsignarAtletaModal';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { cn } from '@/lib/utils';
 
@@ -449,11 +450,14 @@ function ActiveDayColumn({
 
 export function MicrocicloV2({
   microcycle_id,
+  name,
   weeks,
   groupNames,
   dayModel,
 }: {
   microcycle_id: string;
+  /** Microciclo template name (for the "Asignar a atleta" modal). */
+  name?: string;
   weeks: MicroWeek[];
   /** methodology_group_id → coach label (agnostic) for the per-block group tag. */
   groupNames: Record<number, string>;
@@ -523,6 +527,7 @@ export function MicrocicloV2({
   // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
   const [duplicating, setDuplicating] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const duplicateWeek = async () => {
     if (!focus || duplicating) return;
     setDuplicating(true);
@@ -590,12 +595,18 @@ export function MicrocicloV2({
           <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={15} />
           {addingWeek ? 'Añadiendo…' : 'Añadir semana'}
         </button>
+        {/* This is a LIBRARY template (no athlete in scope) — "publishing" a
+            microciclo happens per-athlete. Assigning it to an athlete (in draft)
+            is the real delivery step; the coach then publishes from the athlete's
+            plan. So this opens the assign flow, never a (non-existent) template
+            publish. */}
         <button
           type="button"
-          // TODO(endpoint): wire to the microcycle publish mutation.
+          onClick={() => setAssignOpen(true)}
+          title="Asigna este microciclo a un atleta (en borrador)"
           className="v2-focus ml-auto inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
         >
-          Publicar <MIcon name="arrow_forward" size={15} />
+          <MIcon name="assignment_ind" size={15} /> Asignar a atleta
         </button>
       </div>
 
@@ -836,6 +847,15 @@ export function MicrocicloV2({
           sourceWeek={focus}
           weeks={weeks}
           onClose={() => setCopyOpen(false)}
+        />
+      ) : null}
+
+      {/* Asignar a atleta — closes the library→athlete loop (assign in draft). */}
+      {assignOpen ? (
+        <AsignarAtletaModal
+          monthTemplateId={microcycle_id}
+          monthName={name}
+          onClose={() => setAssignOpen(false)}
         />
       ) : null}
     </div>
