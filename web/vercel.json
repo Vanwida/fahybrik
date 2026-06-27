@@ -22,6 +22,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/auto-import-results",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/sync-race-calendar",
       "schedule": "0 5 * * 1"
     }
