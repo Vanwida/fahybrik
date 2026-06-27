@@ -352,8 +352,6 @@ export function PlanTab({
 
           <div className="flex flex-wrap gap-2">
             <PlanAction icon="forum" label="Mensaje" href="/mensajes" />
-            <PlanAction icon="event_repeat" label="Reprogramar" />
-            <PlanAction icon="tune" label="Ajustar fase" />
           </div>
         </div>
       </div>
@@ -412,13 +410,6 @@ function TodaySessionCard({
         >
           <MIcon name="visibility" size={15} />
           Ver detalle
-        </button>
-        <button
-          type="button"
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          <MIcon name="event_repeat" size={15} />
-          Reprogramar
         </button>
       </div>
     </div>
@@ -500,21 +491,16 @@ function PublishMicrocicloButton({
   );
 }
 
-function PlanAction({ icon, label, href }: { icon: string; label: string; href?: string }) {
-  const cls =
-    'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]';
-  if (href) {
-    return (
-      <Link href={href} className={cls}>
-        <MIcon name={icon} size={15} />
-        {label}
-      </Link>
-    );
-  }
+// A plan action is always a real navigation (it links somewhere) — there are no
+// placeholder/no-op actions here.
+function PlanAction({ icon, label, href }: { icon: string; label: string; href: string }) {
   return (
-    <button type="button" className={cls}>
+    <Link
+      href={href}
+      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+    >
       <MIcon name={icon} size={15} />
       {label}
-    </button>
+    </Link>
   );
 }

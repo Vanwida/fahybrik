@@ -16,7 +16,7 @@
 
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
-import type { DayModalityInfo, WeekLoad } from '@/lib/dashboard/v2/planes-model';
+import type { DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MicrocicloV2 } from '@/components/v2/planes/MicrocicloV2';
 import { MicrocicloV1 } from '@/components/v2/planes/MicrocicloV1';
@@ -31,7 +31,6 @@ export interface MicroWeek {
   session_count: number;
   /** Always 7 entries, Mon→Sun. */
   days: DayModalityInfo[];
-  load: WeekLoad | null;
 }
 
 type ViewMode = 'foco' | 'general';

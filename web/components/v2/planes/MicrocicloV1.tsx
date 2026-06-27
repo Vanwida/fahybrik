@@ -2,9 +2,8 @@
 
 // Screen 7 · V1 "Vista general · 4 semanas". The classic week×day grid: a header
 // row (semana↓ / día→), then one row per week — a left meta cell (week label +
-// descriptor + load bar + "⎘ duplicar") and 7 day cells (mini session chips with
-// modality left-border, or "+"/"descanso"). The load bars across the rows trace
-// the entrada→carga→pico→descarga ramp. Day chip → /microciclos/[id]?dia=[idx]
+// descriptor + "⎘ duplicar") and 7 day cells (mini session chips with modality
+// left-border, or "+"/"descanso"). Day chip → /microciclos/[id]?dia=[idx]
 // (the DÍA zoom level of the same canvas — in-place, no navigation).
 
 import { useState } from 'react';
@@ -12,7 +11,6 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { LoadBar } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
   dayCanvasHref,
@@ -126,13 +124,8 @@ export function MicrocicloV1({
             No se pudo duplicar la semana. Inténtalo de nuevo.
           </span>
         ) : null}
-        <button
-          type="button"
-          // TODO(endpoint): wire to publish.
-          className="v2-focus ml-auto inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-        >
-          Publicar <MIcon name="arrow_forward" size={15} />
-        </button>
+        {/* No publish here: this is the LIBRARY template editor (no athlete in
+            scope). Publishing is athlete-scoped and lives in the athlete PlanTab. */}
       </div>
 
       {/* Grid */}
@@ -177,14 +170,9 @@ export function MicrocicloV1({
                 <span className="truncate text-[10px] text-[color:var(--v2-muted)]" title={w.label}>
                   {w.label}
                 </span>
-                {w.load ? (
-                  <>
-                    <LoadBar load={w.load} className="mt-auto" />
-                    <span className="text-[9px] font-semibold text-[color:var(--v2-faint)]">
-                      {w.load.label}
-                    </span>
-                  </>
-                ) : null}
+                <span className="v2-num mt-auto text-[10px] font-semibold text-[color:var(--v2-faint)]">
+                  {w.session_count} {w.session_count === 1 ? 'sesión' : 'sesiones'}
+                </span>
               </div>
 
               {/* Day cells */}

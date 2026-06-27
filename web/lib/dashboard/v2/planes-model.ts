@@ -229,59 +229,12 @@ export function weekSessionCount(days: DayModalityInfo[]): number {
   return days.reduce((n, d) => n + d.session_count, 0);
 }
 
-// ── Load curve (entrada → carga → pico → descarga) ───────────────────────────
-// A microcycle / phase ramps load week-to-week then deloads on the last week.
-// Returned as 0–1 intensities so a bar can render proportionally. Real per-week
-// load is not yet persisted, so this is a deterministic standard ATR ramp keyed
-// only on (index, total) — a model-faithful default, not invented per-athlete data.
-//   TODO(model): replace with persisted week load once the load-tracking lands.
-export type LoadStage = 'entrada' | 'carga' | 'pico' | 'descarga';
-
-export interface WeekLoad {
-  /** 0–1 height for the load bar. */
-  level: number;
-  stage: LoadStage;
-  /** Tracked label, e.g. "Pico". */
-  label: string;
-}
-
-const STAGE_LABEL: Record<LoadStage, string> = {
-  entrada: 'Entrada',
-  carga: 'Carga',
-  pico: 'Pico',
-  descarga: 'Descarga',
-};
-
-/** Standard ATR load ramp for `total` weeks: ramps up to a peak then deloads. */
-export function loadCurve(total: number): WeekLoad[] {
-  if (total <= 0) return [];
-  if (total === 1) return [{ level: 0.7, stage: 'carga', label: STAGE_LABEL.carga }];
-
-  const out: WeekLoad[] = [];
-  // Peak on the second-to-last week; last week is always the deload.
-  const peakIndex = total - 2;
-  for (let i = 0; i < total; i++) {
-    let stage: LoadStage;
-    let level: number;
-    if (i === total - 1) {
-      stage = 'descarga';
-      level = 0.45;
-    } else if (i === 0) {
-      stage = 'entrada';
-      level = 0.6;
-    } else if (i === peakIndex) {
-      stage = 'pico';
-      level = 1;
-    } else {
-      stage = 'carga';
-      // Linear ramp from entrada (0.6) toward the peak (1).
-      const span = Math.max(peakIndex, 1);
-      level = 0.6 + (0.4 * i) / span;
-    }
-    out.push({ level: Math.min(1, level), stage, label: STAGE_LABEL[stage] });
-  }
-  return out;
-}
+// NOTE: there is deliberately NO per-week "load curve" here. Real per-week load
+// is not yet persisted, and a synthetic ATR-shaped ramp (entrada→carga→pico→
+// descarga) would (a) paint invented numbers as if they were real and (b) bake a
+// single methodology's shape into an agnostic system. The week cards show the
+// HONEST signal instead — real session count + the modalities the week covers.
+//   TODO(model): add a real per-week load signal once load-tracking lands.
 
 // ── Microciclo canvas href ───────────────────────────────────────────────────
 // The microciclo is ONE canvas at `/microciclos/[id]`; the day editor is a zoom

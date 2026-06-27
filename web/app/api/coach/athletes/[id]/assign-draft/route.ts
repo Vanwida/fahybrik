@@ -5,7 +5,7 @@ import {
   AssignMonthError,
   assignMonthToAthlete,
 } from '@/lib/dashboard/programming/assign-month';
-import { markWeekDraft } from '@/lib/coach/publish-week';
+import { DELIVERY_MODE, markWeekDraft } from '@/lib/coach/publish-week';
 import { assignMonthInputSchema } from '@fahybrid/shared/schema/assign-month';
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 
@@ -18,12 +18,14 @@ const DAYS_PER_WEEK = 7;
 // "Crear en borrador" — el gate del flujo "Programar bloque" (PHASE 3).
 //
 // Materializa el bloque (reusa el materializador compartido vía
-// `assignMonthToAthlete`) y marca CADA semana creada como BORRADOR
-// (`markWeekDraft`), de modo que el atleta NO ve el bloque hasta que el coach lo
-// publique desde "Revisar & publicar". El marcado de borrador vive AQUÍ (nivel
-// de confirmación), NO dentro del materializador compartido: así el path de
-// "aprobar propuesta de bloque mensual" de /hoy (que sí publica en vivo) queda
-// intacto.
+// `assignMonthToAthlete`) y marca CADA semana creada como BORRADOR PRIVADO
+// (`markWeekDraft` con `delivery_mode='manual'`), de modo que el atleta NO ve el
+// bloque hasta que el coach lo publique a mano desde "Revisar & publicar". El
+// modo `manual` es clave: el cron de publicación semanal NUNCA auto-publica un
+// borrador privado (a diferencia de las semanas `scheduled` de /assign-month). El
+// marcado de borrador vive AQUÍ (nivel de confirmación), NO dentro del
+// materializador compartido: así el path de "aprobar propuesta de bloque mensual"
+// de /hoy (que sí publica en vivo) queda intacto.
 //
 // A diferencia de /assign-month, este endpoint NO envía push: un borrador no es
 // athlete-facing. La notificación se dispara al PUBLICAR (publishWeek), no al
@@ -80,6 +82,7 @@ export async function POST(
         coach_id: session.coach_id,
         athlete_id: athleteId,
         week_start: weekStart,
+        delivery_mode: DELIVERY_MODE.manual,
       });
       weekStarts.push(weekStart);
     }

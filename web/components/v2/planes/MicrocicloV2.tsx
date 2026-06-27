@@ -1,8 +1,8 @@
 'use client';
 
 // Screen 7 · V2 "Editor · semana en foco" + the DÍA master-detail. A week-step
-// header (one card per week: dot + "Sk · etiqueta" + N ses + load bar; selected =
-// accent ring) over the focused week laid out as a full-height weekly calendar.
+// header (one card per week: dot + "Sk · etiqueta" + N ses; selected = accent
+// ring) over the focused week laid out as a full-height weekly calendar.
 //
 // FULL WEEK (no `?dia`): 7 equal day COLUMNS across the full width, each stretched
 // to fill the viewport, showing its REAL content stacked top→bottom — the day's
@@ -22,7 +22,6 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { LoadBar } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
   DAY_LABELS_SHORT,
@@ -649,7 +648,6 @@ export function MicrocicloV2({
               <span className="v2-num text-[10px] text-[color:var(--v2-faint)]">
                 {w.session_count} ses
               </span>
-              {w.load ? <LoadBar load={w.load} /> : null}
             </button>
           );
         })}

@@ -25,6 +25,23 @@ import { notifyAthlete } from '@/lib/notifications/dispatch';
 /** A materialized week spans 7 days; the materializer Monday-aligns each week. */
 const DAYS_PER_WEEK = 7;
 
+/**
+ * How a DRAFT weekly_plan reaches the athlete (weekly_plans.delivery_mode) — the
+ * SINGLE source of truth for the publish-cron discriminator. Written by the draft
+ * writers below; read by lib/cron/publish-weekly-plans (which releases ONLY
+ * `scheduled` drafts).
+ *   · scheduled — staggered delivery (/assign-month): the Saturday cron releases
+ *                 one draft week each weekend. The DEFAULT for every row.
+ *   · manual    — a PRIVATE coach draft (/assign-draft, intake first-microciclo):
+ *                 hidden until the coach publishes by hand; the cron NEVER touches
+ *                 it. This is the real publish gate.
+ */
+export const DELIVERY_MODE = {
+  scheduled: 'scheduled',
+  manual: 'manual',
+} as const;
+export type DeliveryMode = (typeof DELIVERY_MODE)[keyof typeof DELIVERY_MODE];
+
 export class PublishWeekError extends Error {
   constructor(
     public readonly code: string,
@@ -193,31 +210,38 @@ export async function publishBlock(params: {
 
 /**
  * Mark a single athlete-week as draft (upsert weekly_plans(status='draft')).
- * Used by the future create-in-draft flow so a week is built privately and
- * stays hidden from the athlete plan endpoint until publishWeek() runs. Does
- * NOT notify — a draft is not athlete-facing.
+ * Used by the create-in-draft flows so a week is built privately and stays hidden
+ * from the athlete plan endpoint until it is published. Does NOT notify — a draft
+ * is not athlete-facing.
+ *
+ * `delivery_mode` decides WHO releases the draft (default `scheduled`):
+ *   · scheduled — the Saturday cron releases it week-by-week (assign-month).
+ *   · manual    — a PRIVATE coach draft the cron NEVER auto-publishes; the coach
+ *                 publishes it by hand (assign-draft / intake first-microciclo).
  */
 export async function markWeekDraft(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   week_start: string;
+  delivery_mode?: DeliveryMode;
   client?: Sql;
-}): Promise<{ athlete_id: string; week_start: string; status: 'draft' }> {
+}): Promise<{ athlete_id: string; week_start: string; status: 'draft'; delivery_mode: DeliveryMode }> {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
   const athleteId = Number(params.athlete_id);
   const weekStart = params.week_start;
+  const deliveryMode = params.delivery_mode ?? DELIVERY_MODE.scheduled;
 
   await assertCoachOwnsAthlete(client, coachId, athleteId);
 
   await client`
-    insert into weekly_plans (athlete_id, week_start, status, updated_at)
-    values (${athleteId}, ${weekStart}::date, 'draft', now())
+    insert into weekly_plans (athlete_id, week_start, status, delivery_mode, updated_at)
+    values (${athleteId}, ${weekStart}::date, 'draft', ${deliveryMode}, now())
     on conflict (athlete_id, week_start)
-    do update set status = 'draft', updated_at = now()
+    do update set status = 'draft', delivery_mode = ${deliveryMode}, updated_at = now()
   `;
 
-  return { athlete_id: String(athleteId), week_start: weekStart, status: 'draft' };
+  return { athlete_id: String(athleteId), week_start: weekStart, status: 'draft', delivery_mode: deliveryMode };
 }
 
 export interface MarkFutureWeeksDraftResult {
@@ -261,6 +285,8 @@ export async function markFutureWeeksDraft(params: {
   const draftWeekStarts: string[] = [];
   for (let i = 1; i < params.week_count; i += 1) {
     const weekStart = isoDateString(addDays(startMonday, i * DAYS_PER_WEEK));
+    // Staggered weeks are `scheduled` (markWeekDraft's default) so the Saturday
+    // cron releases them one weekend at a time — NOT a private manual draft.
     await markWeekDraft({
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,

@@ -16,7 +16,6 @@ import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
 import {
   deriveWeekModalities,
-  loadCurve,
   weekSessionCount,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
@@ -65,7 +64,6 @@ export default async function V2MicrocicloPage({
   );
 
   const sorted = full.weeks.slice().sort((a, b) => a.week_index - b.week_index);
-  const loads = loadCurve(sorted.length);
 
   const weeks: MicroWeek[] = sorted.map((w, i) => {
     const days: DayModalityInfo[] = deriveWeekModalities(w.slots_json);
@@ -77,7 +75,6 @@ export default async function V2MicrocicloPage({
       label: w.focus ?? `Semana ${i + 1}`,
       session_count: weekSessionCount(days),
       days,
-      load: loads[i] ?? null,
     };
   });
 

@@ -97,10 +97,17 @@ async function loadAssignmentWeeks(
 }
 
 /**
- * Resolve the athlete's current-or-next microciclo and compute its publish state.
- * Target = the assignment whose window hasn't ended yet, soonest start — covers
- * both an ACTIVE microciclo and a just-assigned FUTURE draft. Returns null when
- * the athlete has no upcoming microciclo.
+ * Resolve the microciclo the coach can ACT on and compute its publish state.
+ *
+ * Target = the SOONEST current-or-future assignment that still has a hidden
+ * (draft) week — so the coach can publish the NEXT draft block even when the
+ * active block behind it is already fully published. (Picking only the active
+ * assignment hid the Publicar button the moment the active block went live,
+ * leaving the next draft block unpublishable by hand.)
+ *
+ * Falls back to the soonest current-or-future assignment when none has a draft
+ * week, so the badge still reflects a fully-published plan. Returns null when the
+ * athlete has no upcoming microciclo.
  */
 export async function loadMicrocicloPublishState(params: {
   athlete_id: number | bigint;
@@ -110,13 +117,37 @@ export async function loadMicrocicloPublishState(params: {
   const athleteId = Number(params.athlete_id);
   const todayIso = isoDateString(startOfDayInBox(new Date()));
 
-  const target = await client<Array<{ assignment_id: string }>>`
+  // Prefer the soonest current-or-future microciclo that has at least one draft
+  // (hidden) week — that's the actionable one for the Publicar button.
+  const withDraft = await client<Array<{ assignment_id: string }>>`
     select ama.id::text as assignment_id
     from athlete_month_assignments ama
     where ama.athlete_id = ${athleteId} and ama.end_date >= ${todayIso}::date
+      and exists (
+        select 1
+        from microcycles mc
+        join weekly_plans wp
+          on wp.athlete_id = ama.athlete_id
+         and wp.week_start = mc.start_date
+         and wp.status = 'draft'
+        where mc.id = any(ama.microcycle_ids) and mc.athlete_id = ama.athlete_id
+      )
     order by ama.start_date asc
     limit 1
   `;
+
+  // Fall back to the soonest current-or-future assignment (all-published / no
+  // draft rows) so a fully-published plan still surfaces its 'published' badge.
+  const target =
+    withDraft.length > 0
+      ? withDraft
+      : await client<Array<{ assignment_id: string }>>`
+          select ama.id::text as assignment_id
+          from athlete_month_assignments ama
+          where ama.athlete_id = ${athleteId} and ama.end_date >= ${todayIso}::date
+          order by ama.start_date asc
+          limit 1
+        `;
   if (!target[0]) return null;
 
   const assignmentId = Number(target[0].assignment_id);

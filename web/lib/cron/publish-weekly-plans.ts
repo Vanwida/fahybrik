@@ -12,11 +12,17 @@
 // The publish UPDATE returns the affected athlete_ids so we can fan out
 // notifications without a second query. Notification failures are
 // best-effort and never roll back the publish.
+//
+// PUBLISH GATE: the cron releases ONLY `delivery_mode='scheduled'` drafts (the
+// staggered weeks from /assign-month). It NEVER auto-publishes a `manual` draft
+// (a PRIVATE coach draft from /assign-draft or the intake first-microciclo) —
+// those stay hidden until the coach publishes them by hand.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/dates';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
+import { DELIVERY_MODE } from '@/lib/coach/publish-week';
 
 export interface PublishWeeklyPlansResult {
   week_start: string;
@@ -43,6 +49,7 @@ export async function runPublishWeeklyPlans(params: {
     update weekly_plans
        set status = 'published', updated_at = now()
      where status = 'draft'
+       and delivery_mode = ${DELIVERY_MODE.scheduled}
        and week_start = ${weekStart}::date
     returning athlete_id::text as athlete_id
   `;

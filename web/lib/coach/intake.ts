@@ -1133,8 +1133,9 @@ export async function commitIntake(params: {
 // =============================================================================
 // First-microciclo draft (default intake path) — AGNOSTIC: materializes the
 // coach's FIRST month template (a microciclo) via the shared materializer, then
-// marks each week draft via markWeekDraft (same gate as the /assign-draft route)
-// so Pablo lands on a reviewable draft, not an empty calendar.
+// marks each week as a PRIVATE manual draft via markWeekDraft (same gate as the
+// /assign-draft route: delivery_mode='manual', so the publish cron NEVER
+// auto-releases it) so Pablo lands on a reviewable draft, not an empty calendar.
 // =============================================================================
 
 type FirstBlockDraftResult = {
@@ -1156,7 +1157,7 @@ async function materializeFirstMicrocicloDraft(params: {
   const { instantiateMonthFromTemplate, InstantiateProgramError } = await import(
     '@/lib/dashboard/coach/instantiate-program'
   );
-  const { markWeekDraft } = await import('./publish-week');
+  const { markWeekDraft, DELIVERY_MODE } = await import('./publish-week');
   const { addDays, isoDateString, mondayOfWeek } = await import(
     '@fahybrid/shared/domain/dates'
   );
@@ -1203,6 +1204,7 @@ async function materializeFirstMicrocicloDraft(params: {
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,
       week_start: weekStart,
+      delivery_mode: DELIVERY_MODE.manual,
       client: params.client,
     });
     weekStarts.push(weekStart);
