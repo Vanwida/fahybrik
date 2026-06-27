@@ -68,8 +68,10 @@ export async function GET(req: Request): Promise<NextResponse> {
         if (opts.region && e.region !== opts.region) return false;
         if (opts.scope === 'upcoming' && e.is_past) return false;
         if (opts.scope === 'past' && !e.is_past) return false;
-        if (opts.from_date && e.start_date < opts.from_date) return false;
-        if (opts.to_date && e.start_date > opts.to_date) return false;
+        if (opts.from_date && e.start_date != null && e.start_date < opts.from_date)
+          return false;
+        if (opts.to_date && e.start_date != null && e.start_date > opts.to_date)
+          return false;
         return true;
       });
     }

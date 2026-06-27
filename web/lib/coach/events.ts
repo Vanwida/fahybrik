@@ -20,6 +20,7 @@ import {
   eventUpdateInput,
   type EventCreateInput,
   type EventRegion,
+  type EventSeries,
   type EventUpdateInput,
 } from '@fahybrid/shared/schema/events';
 
@@ -42,12 +43,20 @@ export interface EventListItem {
   location: string | null;
   country: string | null;
   region: EventRegion | null;
-  start_date: string;
+  // Nullable since migration 0080 — undated "por confirmar" venues.
+  start_date: string | null;
   end_date: string | null;
   division: string | null;
   division_options: string[];
   source_url: string | null;
   is_visible_to_athletes: boolean;
+  // Catalog metadata + owner/admin curation state.
+  series: EventSeries | null;
+  is_tentative: boolean;
+  source: string | null;
+  source_ref: string | null;
+  is_verified: boolean;
+  verified_at: string | null;
   is_past: boolean;
   target_count: number;
 }
@@ -60,12 +69,18 @@ interface RawEventRow {
   location: string | null;
   country: string | null;
   region: EventRegion | null;
-  start_date: string;
+  start_date: string | null;
   end_date: string | null;
   division: string | null;
   division_options: string[] | null;
   source_url: string | null;
   is_visible_to_athletes: boolean;
+  series: EventSeries | null;
+  is_tentative: boolean;
+  source: string | null;
+  source_ref: string | null;
+  verified_by_user_id: string | null;
+  verified_at: string | null;
   target_count: string;
 }
 
@@ -82,9 +97,9 @@ export interface ListEventsOpts {
 }
 
 function toListItem(row: RawEventRow, today: string): EventListItem {
-  const isPast = row.end_date != null
-    ? row.end_date < today
-    : row.start_date < today;
+  // An undated ("por confirmar") row is never past — it has no date to be past.
+  const ref = row.end_date ?? row.start_date;
+  const isPast = ref != null ? ref < today : false;
   return {
     event_id: row.id,
     slug: row.slug,
@@ -99,6 +114,12 @@ function toListItem(row: RawEventRow, today: string): EventListItem {
     division_options: row.division_options ?? [],
     source_url: row.source_url,
     is_visible_to_athletes: row.is_visible_to_athletes,
+    series: row.series,
+    is_tentative: row.is_tentative,
+    source: row.source,
+    source_ref: row.source_ref,
+    is_verified: row.verified_by_user_id != null,
+    verified_at: row.verified_at,
     is_past: isPast,
     target_count: Number.parseInt(row.target_count, 10) || 0,
   };
@@ -141,6 +162,12 @@ export async function listEvents(
       e.division_options                                      as division_options,
       e.source_url                                            as source_url,
       e.is_visible_to_athletes                                as is_visible_to_athletes,
+      e.series                                                as series,
+      e.is_tentative                                          as is_tentative,
+      e.source                                                as source,
+      e.source_ref                                            as source_ref,
+      e.verified_by_user_id::text                             as verified_by_user_id,
+      to_char(e.verified_at, 'YYYY-MM-DD')                    as verified_at,
       coalesce(t.cnt, 0)::text                                as target_count
     from events e
     left join (
@@ -151,7 +178,7 @@ export async function listEvents(
       group by event_id
     ) t on t.event_id = e.id
     where (${onlyVisibleClause}::boolean = false or e.is_visible_to_athletes = true)
-    order by e.start_date asc, e.name asc
+    order by e.start_date asc nulls last, e.name asc
     limit 1000
   `;
 
@@ -162,8 +189,11 @@ export async function listEvents(
       if (opts.region && e.region !== opts.region) return false;
       if (scope === 'upcoming' && e.is_past) return false;
       if (scope === 'past' && !e.is_past) return false;
-      if (opts.from_date && e.start_date < opts.from_date) return false;
-      if (opts.to_date && e.start_date > opts.to_date) return false;
+      // Undated rows are exempt from date-range filtering (nothing to compare).
+      if (opts.from_date && e.start_date != null && e.start_date < opts.from_date)
+        return false;
+      if (opts.to_date && e.start_date != null && e.start_date > opts.to_date)
+        return false;
       return true;
     });
 }
@@ -187,6 +217,12 @@ export async function getEvent(
       e.division_options                                      as division_options,
       e.source_url                                            as source_url,
       e.is_visible_to_athletes                                as is_visible_to_athletes,
+      e.series                                                as series,
+      e.is_tentative                                          as is_tentative,
+      e.source                                                as source,
+      e.source_ref                                            as source_ref,
+      e.verified_by_user_id::text                             as verified_by_user_id,
+      to_char(e.verified_at, 'YYYY-MM-DD')                    as verified_at,
       (select count(distinct athlete_id) from races where event_id = e.id)::text
                                                               as target_count
     from events e
@@ -203,7 +239,11 @@ export async function getEvent(
 // =============================================================================
 
 export async function createEvent(args: {
-  coach_id: bigint;
+  // Pablo's manual events carry his coach_id; admin-curated catalog rows have no
+  // coach (null) — the curator is recorded via verified_by_user_id instead.
+  coach_id?: bigint | null;
+  // When set, the row is marked owner/admin-verified at creation (scraper-safe).
+  verified_by_user_id?: bigint | null;
   input: unknown;
   client?: Sql;
 }): Promise<EventListItem> {
@@ -230,6 +270,14 @@ export async function createEvent(args: {
     );
   }
 
+  const createdByCoachId =
+    args.coach_id != null ? (args.coach_id as unknown as number) : null;
+  const verifiedByUserId =
+    args.verified_by_user_id != null
+      ? (args.verified_by_user_id as unknown as number)
+      : null;
+  const verifiedAt = verifiedByUserId != null ? new Date() : null;
+
   const inserted = await client<{ id: string }[]>`
     insert into events (
       slug,
@@ -244,7 +292,13 @@ export async function createEvent(args: {
       division_options,
       source_url,
       is_visible_to_athletes,
-      created_by_coach_id
+      series,
+      is_tentative,
+      source,
+      source_ref,
+      created_by_coach_id,
+      verified_by_user_id,
+      verified_at
     ) values (
       ${input.slug},
       ${input.name},
@@ -252,13 +306,19 @@ export async function createEvent(args: {
       ${input.location ?? null},
       ${input.country ?? null},
       ${input.region ?? null},
-      ${input.start_date},
+      ${input.start_date ?? null},
       ${input.end_date ?? null},
       ${input.division ?? null},
       ${input.division_options ?? []},
       ${input.source_url ?? null},
       ${input.is_visible_to_athletes ?? false},
-      ${args.coach_id as unknown as number}
+      ${input.series ?? null},
+      ${input.is_tentative ?? false},
+      ${input.source ?? null},
+      ${input.source_ref ?? null},
+      ${createdByCoachId},
+      ${verifiedByUserId},
+      ${verifiedAt}
     )
     returning id::text as id
   `;
@@ -275,6 +335,9 @@ export async function createEvent(args: {
 
 export async function updateEvent(args: {
   event_id: bigint;
+  // Owner/admin verification toggle: undefined = leave unchanged, a bigint =
+  // mark verified by that user (sets verified_at = now()), null = clear it.
+  verified_by_user_id?: bigint | null;
   input: unknown;
   client?: Sql;
 }): Promise<EventListItem> {
@@ -304,7 +367,9 @@ export async function updateEvent(args: {
     location: input.location === undefined ? existing.location : input.location,
     country: input.country === undefined ? existing.country : input.country,
     region: input.region === undefined ? existing.region : input.region,
-    start_date: input.start_date ?? existing.start_date,
+    // undefined = keep; null = clear (e.g. confirmed→por confirmar).
+    start_date:
+      input.start_date === undefined ? existing.start_date : input.start_date,
     end_date: input.end_date === undefined ? existing.end_date : input.end_date,
     division: input.division === undefined ? existing.division : input.division,
     division_options: input.division_options ?? existing.division_options,
@@ -312,6 +377,11 @@ export async function updateEvent(args: {
       input.source_url === undefined ? existing.source_url : input.source_url,
     is_visible_to_athletes:
       input.is_visible_to_athletes ?? existing.is_visible_to_athletes,
+    series: input.series === undefined ? existing.series : input.series,
+    is_tentative: input.is_tentative ?? existing.is_tentative,
+    source: input.source === undefined ? existing.source : input.source,
+    source_ref:
+      input.source_ref === undefined ? existing.source_ref : input.source_ref,
   };
 
   // Slug uniqueness check when slug changed
@@ -346,9 +416,29 @@ export async function updateEvent(args: {
       division_options       = ${next.division_options},
       source_url             = ${next.source_url},
       is_visible_to_athletes = ${next.is_visible_to_athletes},
+      series                 = ${next.series},
+      is_tentative           = ${next.is_tentative},
+      source                 = ${next.source},
+      source_ref             = ${next.source_ref},
       updated_at             = now()
     where id = ${args.event_id as unknown as number}
   `;
+
+  // Verification is set ONLY when explicitly requested — a plain field edit must
+  // not silently (un)verify a row. verified_at tracks WHEN it was vouched for.
+  if (args.verified_by_user_id !== undefined) {
+    const verifiedByUserId =
+      args.verified_by_user_id != null
+        ? (args.verified_by_user_id as unknown as number)
+        : null;
+    await client`
+      update events set
+        verified_by_user_id = ${verifiedByUserId},
+        verified_at         = ${verifiedByUserId != null ? new Date() : null},
+        updated_at          = now()
+      where id = ${args.event_id as unknown as number}
+    `;
+  }
 
   const refreshed = await getEvent(args.event_id, client);
   if (!refreshed) {

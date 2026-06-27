@@ -171,6 +171,13 @@ export function buildDemoEvents(opts: DemoEventsOptions = {}): EventListItem[] {
       division_options: seed.division_options,
       source_url: seed.source_url,
       is_visible_to_athletes: seed.is_visible_to_athletes,
+      // Catalog metadata — demo seeds are HYROX, confirmed, and unverified.
+      series: seed.type === 'hyrox' ? 'hyrox' : 'other',
+      is_tentative: false,
+      source: null,
+      source_ref: null,
+      is_verified: false,
+      verified_at: null,
       is_past: isPast,
       target_count: seed.target_count,
     };

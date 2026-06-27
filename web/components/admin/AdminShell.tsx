@@ -1,5 +1,6 @@
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { AdminNav } from '@/components/admin/AdminNav';
 
 interface AdminShellProps {
   email: string;
@@ -40,6 +41,10 @@ export function AdminShell({ email, children }: AdminShellProps) {
           </Link>
         </div>
       </header>
+
+      <div className="sticky top-14 z-10 border-b border-[color:var(--border-subtle)] bg-[color:var(--bg)]">
+        <AdminNav />
+      </div>
 
       <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6">{children}</main>
     </div>
