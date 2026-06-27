@@ -48,7 +48,8 @@ interface RawCalendarRow {
   location: string | null;
   country: string | null;
   region: string | null;
-  start_date: string;
+  // Nullable since migration 0080 (honest-null dates for undated/tentative venues).
+  start_date: string | null;
   end_date: string | null;
   is_tentative: boolean;
   division_options: string[] | null;
@@ -99,7 +100,7 @@ export async function listRaceCalendar(
     from events e
     where coalesce(e.end_date, e.start_date) >= ${today}::date
       and (${includeHidden}::boolean = true or e.is_visible_to_athletes = true)
-    order by e.start_date asc, e.name asc
+    order by e.start_date asc nulls last, e.name asc
     limit 1000
   `;
 
@@ -114,8 +115,10 @@ export async function listRaceCalendar(
     .filter((e) => {
       if (series && (e.series ?? '').toLowerCase() !== series) return false;
       if (country && (e.country ?? '').toUpperCase() !== country) return false;
-      if (from && e.start_date < from) return false;
-      if (to && e.start_date > to) return false;
+      // An undated event (start_date null) can't satisfy a date-window facet —
+      // NULL fails a range predicate (same semantics as lib/coach/events.ts).
+      if (from && (e.start_date == null || e.start_date < from)) return false;
+      if (to && (e.start_date == null || e.start_date > to)) return false;
       if (q) {
         const hay = `${e.name} ${e.location ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;

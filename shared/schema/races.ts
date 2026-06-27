@@ -126,7 +126,10 @@ export const raceCalendarEventSchema = z.object({
   location: z.string().nullable(),
   country: z.string().nullable(),
   region: z.string().nullable(),
-  start_date: isoDate,
+  // Nullable since migration 0080: a venue announced without a confirmed date
+  // ("DATE COMING SOON") is stored honestly as start_date = null + is_tentative
+  // = true — never a fabricated placeholder. Readers sort/filter NULLs last.
+  start_date: isoDate.nullable(),
   end_date: isoDate.nullable(),
   is_tentative: z.boolean(),
   division_options: z.array(z.string()),

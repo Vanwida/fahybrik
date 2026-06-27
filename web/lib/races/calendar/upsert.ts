@@ -14,7 +14,7 @@ type Client = Sql | TransactionClient;
 
 /**
  * Upsert one source's events into `events`. Returns the number of rows actually
- * written (inserts + updates) — rows locked by `verified_by_coach_id` are
+ * written (inserts + updates) — rows locked by `verified_by_user_id` are
  * skipped and NOT counted.
  *
  * On INSERT we set is_visible_to_athletes = false (Pablo curates which scraped

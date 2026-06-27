@@ -139,7 +139,8 @@ export function SetTargetRaceModal({
   }, [events]);
 
   // Client-side filter (series + text) + soonest-first sort. ISO dates sort
-  // lexicographically so a plain string compare is correct.
+  // lexicographically so a plain string compare is correct; undated events
+  // (start_date null, e.g. tentative venues) sort last.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (events ?? [])
@@ -151,7 +152,11 @@ export function SetTargetRaceModal({
           (ev.location?.toLowerCase().includes(q) ?? false)
         );
       })
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      .sort((a, b) => {
+        if (a.start_date == null) return b.start_date == null ? 0 : 1;
+        if (b.start_date == null) return -1;
+        return a.start_date.localeCompare(b.start_date);
+      });
   }, [events, query, series]);
 
   const goalTrimmed = goalRaw.trim();

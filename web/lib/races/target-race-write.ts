@@ -64,7 +64,10 @@ interface EventRow {
   name: string;
   series: string | null;
   type: EventType;
-  start_date: string;
+  // Nullable since migration 0080: an undated catalog event targets to a null
+  // race_date (races.race_date is nullable). `${event.start_date}::date` casts
+  // null to null cleanly — no countdown is produced until a date is confirmed.
+  start_date: string | null;
   location: string | null;
   is_visible_to_athletes: boolean;
 }
