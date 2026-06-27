@@ -418,7 +418,8 @@ struct TrainingLink: Codable, Identifiable, Hashable {
 
 /// Per-station deep-dive bundle.
 ///
-/// BACKEND GAP: backs `GET /api/athlete/stations/{station}`.
+/// Backs `GET /api/athlete/stations/{station}` (LIVE) — built from the athlete's
+/// imported HYROX splits; honest-empty when no race recorded this station.
 struct StationDetail: Codable, Identifiable, Hashable {
     /// Station name (matches the catalogue label).
     let id: String
