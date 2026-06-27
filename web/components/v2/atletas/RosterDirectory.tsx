@@ -8,6 +8,7 @@
 // count and filter reads a real derived field (lib/dashboard/v2/atletas-*).
 
 import { useMemo, useState } from 'react';
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
@@ -214,6 +215,31 @@ export function RosterDirectory({
           <AthleteAvatar name={coach_name} size="md" />
         </div>
       </div>
+
+      {/* ── Altas sin revisar banner (links to the intake queue) ─────────── */}
+      {counts.nuevos > 0 ? (
+        <Link
+          href="/altas"
+          className="v2-focus group flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/30 bg-[color:var(--v2-accent-soft)] px-3.5 py-2.5 transition-colors hover:border-[color:var(--v2-accent)]"
+        >
+          <MIcon name="how_to_reg" size={18} className="text-[color:var(--v2-accent)]" />
+          <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+            <span className="v2-num">{counts.nuevos}</span>{' '}
+            {counts.nuevos === 1 ? 'alta sin revisar' : 'altas sin revisar'}
+          </span>
+          <span className="text-xs text-[color:var(--v2-muted)]">
+            · revisa el intake y asigna su primer plan
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-[color:var(--v2-accent)]">
+            Revisar
+            <MIcon
+              name="arrow_forward"
+              size={15}
+              className="transition-transform group-hover:translate-x-0.5"
+            />
+          </span>
+        </Link>
+      ) : null}
 
       {/* ── Filter row ───────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">

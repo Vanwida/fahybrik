@@ -7,6 +7,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
+import { listPendingIntake } from '@/lib/coach/intake';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { loadCoachInbox, type CoachInbox } from '@/lib/dashboard/coach/inbox';
 import {
@@ -45,6 +46,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     nivel_sugerido_cards,
     asignacion_sugerida_cards,
     siguiente_microciclo_cards,
+    pending_intakes,
   ] = await Promise.all([
     fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
     listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
@@ -52,6 +54,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     fetchNivelSugeridoCards(session.coach_id).catch(() => []),
     fetchAsignacionSugeridaCards(session.coach_id).catch(() => []),
     fetchSiguienteMicrocicloCards(session.coach_id).catch(() => []),
+    listPendingIntake({ coach_id: session.coach_id }).catch(() => []),
   ]);
 
   const data = buildHoyLanes({
@@ -69,6 +72,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
       today={todayLabel()}
       coach_name={session.full_name}
       coachKey={String(session.coach_id)}
+      pending_intakes={pending_intakes}
     />
   );
 }

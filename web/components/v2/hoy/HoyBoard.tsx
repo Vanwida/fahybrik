@@ -12,6 +12,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
+import { AltasPendientesStrip } from '@/components/v2/hoy/AltasPendientesStrip';
 import { AsignacionSugeridaStrip } from '@/components/v2/hoy/AsignacionSugeridaCard';
 import { SiguienteMicrocicloStrip } from '@/components/v2/hoy/SiguienteMicrocicloCard';
 import { AjusteSemanalStrip } from '@/components/v2/hoy/AjusteSemanalCard';
@@ -24,6 +25,7 @@ import {
 } from '@/components/v2/orientacion';
 import { Link } from '@/i18n/navigation';
 import type { V2HoyData, V2LaneCard } from '@/lib/dashboard/v2/hoy-lanes';
+import type { PendingIntakeAthlete } from '@/lib/coach/intake';
 import { cn } from '@/lib/utils';
 
 function matches(card: V2LaneCard, q: string): boolean {
@@ -62,11 +64,13 @@ export function HoyBoard({
   today,
   coach_name,
   coachKey,
+  pending_intakes,
 }: {
   data: V2HoyData;
   today: string;
   coach_name: string;
   coachKey: string;
+  pending_intakes: PendingIntakeAthlete[];
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -78,6 +82,7 @@ export function HoyBoard({
   const totalCards = data.lanes.reduce((n, l) => n + l.cards.length, 0);
   const boardEmpty =
     totalCards === 0 &&
+    pending_intakes.length === 0 &&
     data.nivel_sugerido_cards.length === 0 &&
     data.asignacion_sugerida_cards.length === 0 &&
     data.siguiente_microciclo_cards.length === 0 &&
@@ -154,6 +159,9 @@ export function HoyBoard({
           />
         </div>
       ) : null}
+
+      {/* ── Altas sin revisar (onboarded athletes whose intake is unreviewed) ── */}
+      <AltasPendientesStrip pending={pending_intakes} />
 
       {/* ── Nivel sugerido strip (new athletes awaiting level confirmation) ── */}
       <NivelSugeridoStrip cards={data.nivel_sugerido_cards} />
