@@ -28,12 +28,21 @@ struct ChatView: View {
     @State private var myUserId: String? = UserDefaults.standard.string(forKey: Self.myUserIdKey)
     private static let myUserIdKey = "fahybrik.chat.myUserId"
 
-    // Poll cadence while the conversation is on screen. Single source of truth
-    // for the polling interval (no SSE on iOS yet; see note below). 3s halves
-    // perceived reply latency vs the prior 6s without tripling backend load.
-    // Long-term fix: consume the backend SSE stream (/api/chat/stream) instead
-    // of polling — currently exposed server-side but ignored by iOS.
+    // Real-time delivery is driven by the backend SSE stream (/api/chat/stream);
+    // see `liveLoop()`. This interval is the FALLBACK cadence: it paces the REST
+    // catch-up poll + reconnect attempt whenever the stream drops or can't be
+    // established, so a server that doesn't speak SSE degrades cleanly to a 3s
+    // poll. Single source of truth for that cadence.
     private static let pollInterval: Duration = .seconds(3)
+
+    // Bumped to force the live connection (.task below) to tear down and
+    // reconnect. Used when the athlete sends their FIRST message: the stream may
+    // have connected before the thread existed (0 subscriptions), so we
+    // re-subscribe once the thread is created server-side.
+    @State private var streamEpoch: Int = 0
+    // How many threads the SSE `ready` event reported we're subscribed to. 0
+    // until a thread exists (brand-new athlete who hasn't messaged yet).
+    @State private var subscribedThreadCount: Int = 0
 
     var body: some View {
         ZStack {
@@ -71,9 +80,12 @@ struct ChatView: View {
                 inputRow
             }
         }
-        .task {
+        // Keyed on streamEpoch so a first-message reconnect (see `deliver`) tears
+        // the live connection down and re-establishes it against the now-existing
+        // thread. Cancelled automatically when the view is dismissed.
+        .task(id: streamEpoch) {
             await loadInitial()
-            await pollLoop()
+            await liveLoop()
         }
     }
 
@@ -84,24 +96,58 @@ struct ChatView: View {
         guard let bearer else { isLoading = false; return }
         do {
             let dtos = try await ChatService.fetchMessages(bearer: bearer)
-            messages = dtos.map { mapDTO($0) }
+            // Reconcile (not replace) so any still-optimistic / offline-queued
+            // messages survive a reconnect-triggered reload.
+            reconcile(with: dtos)
             loadFailed = false
             await markReadIfNeeded(dtos: dtos)
         } catch {
-            loadFailed = true
+            // Only surface the failure banner on a cold start (nothing to show).
+            if messages.isEmpty { loadFailed = true }
         }
         isLoading = false
     }
 
-    /// Poll for new messages while the view is alive. Cancelled automatically
-    /// when the `.task` is torn down (view dismissed).
-    private func pollLoop() async {
-        guard bearer != nil else { return }
+    /// Real-time loop: prefer the SSE stream; fall back to REST polling when it
+    /// drops or can't connect, then retry the stream. While the stream is
+    /// healthy we stay parked inside `streamMessages` (no polling at all). When
+    /// it ends/errors we do one catch-up `refresh()`, wait one fallback
+    /// interval, and reconnect — so a server with no SSE naturally degrades to a
+    /// steady 3s poll. Cancelled automatically when the `.task` is torn down.
+    private func liveLoop() async {
+        guard let bearer else { return }
         while !Task.isCancelled {
-            try? await Task.sleep(for: Self.pollInterval)
+            do {
+                try await ChatService.streamMessages(
+                    bearer: bearer,
+                    onReady: { count in await onStreamReady(threadCount: count) },
+                    onMessage: { dto in await ingestFromStream(dto) }
+                )
+            } catch {
+                // Connection/transport error → treat as a drop, fall through to
+                // the polling fallback + reconnect.
+            }
             if Task.isCancelled { return }
             await refresh()
+            try? await Task.sleep(for: Self.pollInterval)
         }
+    }
+
+    /// Stream connected. Record the subscription count and do a one-time REST
+    /// catch-up to close any gap between the initial snapshot and the stream
+    /// opening (a message could have landed in between).
+    @MainActor
+    private func onStreamReady(threadCount: Int) async {
+        subscribedThreadCount = threadCount
+        await refresh()
+    }
+
+    /// Apply one streamed message, then mark it read if it's from the coach and
+    /// we're on screen.
+    @MainActor
+    private func ingestFromStream(_ dto: ChatMessageDTO) async {
+        ingest(dto)
+        await markReadForIncoming(dto)
     }
 
     @MainActor
@@ -117,20 +163,58 @@ struct ChatView: View {
         }
     }
 
-    /// Merge server truth with any optimistic (still-sending) local messages.
-    /// Server messages win; local pending ones not yet confirmed are appended.
+    /// Merge server truth with any optimistic (still-sending / offline-queued)
+    /// local messages. Server messages win; any un-`sent` local whose body the
+    /// server hasn't echoed back yet is kept appended. This is also the dedup
+    /// safety net behind the incremental SSE `ingest` — a full rebuild from
+    /// server truth can never double a message.
     @MainActor
     private func reconcile(with dtos: [ChatMessageDTO]) {
         let serverMessages = dtos.map { mapDTO($0) }
         let serverBodies = Set(dtos.compactMap { $0.body })
-        // Keep optimistic messages that the server hasn't echoed back yet.
         let pending = messages.filter { msg in
-            if case .pending = msg.status, case let .text(body) = msg.kind {
-                return !serverBodies.contains(body)
-            }
-            return false
+            guard msg.status != .sent, case let .text(body) = msg.kind else { return false }
+            return !serverBodies.contains(body)
         }
         messages = serverMessages + pending
+    }
+
+    /// Apply a single message (from the SSE stream or a send confirmation),
+    /// deduped by id. Order of resolution:
+    ///   1. We already have this id → update in place (read receipts /
+    ///      now-known attribution). Never doubles.
+    ///   2. It's the server echo of one of our own optimistic sends (an un-sent
+    ///      local row with the same body) → replace that row, attribute it to
+    ///      us, and learn our user id. Kills the "optimistic + echo" double even
+    ///      when the echo beats the POST response.
+    ///   3. Otherwise it's genuinely new → append.
+    @MainActor
+    private func ingest(_ dto: ChatMessageDTO) {
+        if let idx = messages.firstIndex(where: { $0.id == dto.id }) {
+            messages[idx] = mapDTO(dto)
+            return
+        }
+        if let body = dto.body,
+           let localIdx = messages.firstIndex(where: { msg in
+               if case let .text(b) = msg.kind, msg.status != .sent { return b == body }
+               return false
+           }) {
+            if myUserId == nil {
+                myUserId = dto.senderUserId
+                UserDefaults.standard.set(dto.senderUserId, forKey: Self.myUserIdKey)
+            }
+            messages[localIdx] = mapDTO(dto, forcedSender: .me)
+            return
+        }
+        messages.append(mapDTO(dto))
+    }
+
+    /// Mark a freshly-arrived coach message read (view is on screen). No-op for
+    /// our own messages.
+    @MainActor
+    private func markReadForIncoming(_ dto: ChatMessageDTO) async {
+        guard let bearer, !isMine(dto.senderUserId) else { return }
+        await ChatService.markRead(bearer: bearer, upToMessageId: dto.id)
     }
 
     @MainActor
@@ -175,10 +259,15 @@ struct ChatView: View {
                 myUserId = saved.senderUserId
                 UserDefaults.standard.set(saved.senderUserId, forKey: Self.myUserIdKey)
             }
-            // Replace the optimistic row with the persisted one.
-            if let idx = messages.firstIndex(where: { $0.id == localId }) {
-                messages[idx] = mapDTO(saved)
-            }
+            // Drop the optimistic row, then ingest the persisted message. ingest
+            // is id-deduped, so if the SSE stream already echoed it, this just
+            // updates in place — never a double.
+            messages.removeAll { $0.id == localId }
+            ingest(saved)
+            // First message for a brand-new athlete: the stream connected before
+            // the thread existed (0 subscriptions), so reconnect to subscribe to
+            // the freshly-created thread and receive the coach's replies live.
+            if subscribedThreadCount == 0 { streamEpoch += 1 }
         } catch {
             await enqueueOffline(body: body, localId: localId)
         }
@@ -206,8 +295,11 @@ struct ChatView: View {
         return false
     }
 
-    private func mapDTO(_ dto: ChatMessageDTO) -> ChatMessage {
-        let sender: ChatMessage.Sender = isMine(dto.senderUserId) ? .me : .coach
+    /// `forcedSender` overrides attribution when the caller already knows the
+    /// message is ours (e.g. an SSE echo matched to a still-pending local send
+    /// before `myUserId` is learned), sidestepping the cold-start race.
+    private func mapDTO(_ dto: ChatMessageDTO, forcedSender: ChatMessage.Sender? = nil) -> ChatMessage {
+        let sender: ChatMessage.Sender = forcedSender ?? (isMine(dto.senderUserId) ? .me : .coach)
         let kind: ChatMessage.Kind
         if dto.attachmentKind == "voice" {
             kind = .voice(durationLabel: ChatView.voiceDurationLabel(from: dto))
@@ -356,7 +448,7 @@ private struct ChatMessage: Identifiable {
         case text(String)
         case voice(durationLabel: String)
     }
-    enum Status { case sent, pending, sending }
+    enum Status: Equatable { case sent, pending, sending }
 
     let id: String
     let sender: Sender

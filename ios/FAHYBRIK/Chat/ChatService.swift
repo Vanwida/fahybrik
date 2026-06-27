@@ -80,6 +80,12 @@ enum ChatService {
     private static let messagesPath = "/api/chat/threads/me/messages"
     private static let readPath = "/api/chat/threads/me/read"
     private static let threadsPath = "/api/chat/threads"
+    // Server-Sent Events feed of new messages for the calling principal. The
+    // athlete subscribes to their single thread; the server emits one
+    // `event: message` per new message (same MessageDTO shape as the REST list)
+    // plus a `:` heartbeat every 30s. Consumed by ChatView for real-time
+    // delivery, with the 3s REST poll as the automatic fallback.
+    private static let streamPath = "/api/chat/stream"
 
     /// The athlete's single thread (auto-created server-side on first read).
     static func fetchThread(bearer: String) async throws -> ChatThreadDTO? {
@@ -129,5 +135,83 @@ enum ChatService {
         } catch {
             // Read receipts are non-critical — never surface to the user.
         }
+    }
+
+    // MARK: - Real-time stream (SSE)
+
+    /// Open the chat SSE stream and drive two callbacks:
+    ///   * `onReady(threadCount)` once, when the server confirms the
+    ///     subscription (carries how many threads the principal is subscribed
+    ///     to — 0 means the thread doesn't exist yet, e.g. a brand-new athlete).
+    ///   * `onMessage(dto)` for every `event: message` frame.
+    ///
+    /// Returns normally when the stream closes (server ended / cancelled) and
+    /// THROWS on any connection or transport error — the caller treats both as
+    /// "realtime dropped" and falls back to REST polling, then retries. The
+    /// connection is long-lived; the server's 30s heartbeat keeps it under the
+    /// URLSession inter-packet timeout, so we leave the default timeouts alone.
+    static func streamMessages(
+        bearer: String,
+        onReady: (Int) async -> Void,
+        onMessage: (ChatMessageDTO) async -> Void
+    ) async throws {
+        var req = URLRequest(url: APIBase.url.appendingPathComponent(streamPath))
+        req.httpMethod = "GET"
+        req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+
+        let (bytes, response) = try await URLSession.shared.bytes(for: req)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+
+        // Minimal SSE frame parser: accumulate `event:` / `data:` field lines
+        // until a blank line dispatches the frame. `:`-prefixed lines are
+        // comments (heartbeats) and are ignored. Multiple `data:` lines join
+        // with "\n" per the SSE spec.
+        var event = ""
+        var data = ""
+        for try await line in bytes.lines {
+            if line.isEmpty {
+                switch event {
+                case "ready":
+                    await onReady(parseReadyThreadCount(data))
+                case "message":
+                    if let dto = decodeStreamMessage(data) { await onMessage(dto) }
+                default:
+                    break
+                }
+                event = ""
+                data = ""
+                continue
+            }
+            if line.hasPrefix(":") { continue } // heartbeat / comment
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let field = String(line[line.startIndex..<colon])
+            var value = String(line[line.index(after: colon)...])
+            if value.hasPrefix(" ") { value.removeFirst() }
+            switch field {
+            case "event": event = value
+            case "data":  data += data.isEmpty ? value : "\n" + value
+            default:      break
+            }
+        }
+    }
+
+    /// Reuses the shared snake_case + lenient-ISO8601 decode strategy so SSE
+    /// frames decode identically to the REST payloads.
+    private static let streamDecoder = APIClient.makeJSONDecoder()
+
+    private static func decodeStreamMessage(_ json: String) -> ChatMessageDTO? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? streamDecoder.decode(ChatMessageDTO.self, from: data)
+    }
+
+    private static func parseReadyThreadCount(_ json: String) -> Int {
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let ids = obj["thread_ids"] as? [Any] else { return 0 }
+        return ids.count
     }
 }

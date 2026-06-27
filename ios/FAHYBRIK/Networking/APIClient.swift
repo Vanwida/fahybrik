@@ -27,7 +27,19 @@ actor APIClient {
 
     init(session: URLSession = .shared) {
         self.session = session
+        self.decoder = APIClient.makeJSONDecoder()
 
+        let enc = JSONEncoder()
+        enc.keyEncodingStrategy = .convertToSnakeCase
+        enc.dateEncodingStrategy = .iso8601
+        self.encoder = enc
+    }
+
+    /// Shared JSON decoder configuration (snake_case keys + lenient ISO 8601
+    /// dates with OR without fractional seconds). Used by the actor's request
+    /// methods AND by streaming callers (the chat SSE consumer) that decode
+    /// outside the actor — single source of truth for the wire decode strategy.
+    nonisolated static func makeJSONDecoder() -> JSONDecoder {
         let dec = JSONDecoder()
         dec.keyDecodingStrategy = .convertFromSnakeCase
         // The default `.iso8601` strategy rejects fractional seconds, so a wire
@@ -45,12 +57,7 @@ actor APIClient {
                 debugDescription: "Expected ISO 8601 date, got \(raw)"
             )
         }
-        self.decoder = dec
-
-        let enc = JSONEncoder()
-        enc.keyEncodingStrategy = .convertToSnakeCase
-        enc.dateEncodingStrategy = .iso8601
-        self.encoder = enc
+        return dec
     }
 
     func post<TBody: Encodable, TResp: Decodable>(
