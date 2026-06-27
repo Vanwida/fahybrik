@@ -12,7 +12,6 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sinceQuerySchema, sendCoachMessageSchema } from '@/lib/dashboard/chat/schema';
 import {
   getCoachThread,
-  inferSenderRoles,
   loadMessages,
   sendCoachMessage,
 } from '@/lib/dashboard/chat/service';
@@ -40,13 +39,13 @@ export async function GET(req: Request, ctx: Ctx): Promise<Response> {
     return jsonError('bad_request', 'Query inválida', 400, parsed.error.flatten());
   }
 
+  // loadMessages resolves sender_role from the stored column (migration 0082).
   const messages = await loadMessages({
     thread_id: threadId,
     since: parsed.data.since ?? null,
     limit: parsed.data.limit,
   });
-  const withRoles = await inferSenderRoles({ thread_id: threadId, messages });
-  return jsonOk({ thread_id: threadId, messages: withRoles });
+  return jsonOk({ thread_id: threadId, messages });
 }
 
 export async function POST(req: Request, ctx: Ctx): Promise<Response> {

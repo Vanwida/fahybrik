@@ -156,20 +156,30 @@ export async function loadMessages(params: {
   type Row = {
     id: string;
     thread_id: string;
-    coach_id: string;
+    sender_role: 'coach' | 'athlete';
     sender_user_id: string;
     body: string | null;
     created_at: string;
     read_at: string | null;
   };
 
+  // sender_role is the single source of truth — the stored column written at send
+  // time (migration 0082). For any legacy row written before the backfill we fall
+  // back to the sender_user_id ↔ coach.user_id match. This is correct even when
+  // the coach is also their own athlete (the dogfood account), because the stored
+  // role disambiguates what user_id alone cannot.
   if (since) {
     const rows = await client<Row[]>`
-      select m.id::text, m.thread_id::text, t.coach_id::text,
+      select m.id::text, m.thread_id::text,
+             coalesce(
+               m.sender_role,
+               case when m.sender_user_id = c.user_id then 'coach' else 'athlete' end
+             ) as sender_role,
              m.sender_user_id::text, m.body,
              m.created_at::text, m.read_at::text
       from chat_messages m
       join chat_threads t on t.id = m.thread_id
+      join coaches c on c.id = t.coach_id
       where m.thread_id = ${params.thread_id}::bigint
         and m.deleted_at is null
         and m.created_at > ${since}::timestamptz
@@ -181,11 +191,16 @@ export async function loadMessages(params: {
 
   // No cursor: grab the last N then re-sort ASC for rendering.
   const rows = await client<Row[]>`
-    select m.id::text, m.thread_id::text, t.coach_id::text,
+    select m.id::text, m.thread_id::text,
+           coalesce(
+             m.sender_role,
+             case when m.sender_user_id = c.user_id then 'coach' else 'athlete' end
+           ) as sender_role,
            m.sender_user_id::text, m.body,
            m.created_at::text, m.read_at::text
     from chat_messages m
     join chat_threads t on t.id = m.thread_id
+    join coaches c on c.id = t.coach_id
     where m.thread_id = ${params.thread_id}::bigint
       and m.deleted_at is null
     order by m.created_at desc
@@ -197,62 +212,21 @@ export async function loadMessages(params: {
 function toMessageDTO(r: {
   id: string;
   thread_id: string;
-  coach_id: string;
+  sender_role: 'coach' | 'athlete';
   sender_user_id: string;
   body: string | null;
   created_at: string;
   read_at: string | null;
 }): CoachChatMessage {
-  // sender_role is derived from whether sender_user_id matches the coach's
-  // user_id on the thread. The thread row carries coach_id (athlete id row),
-  // not user_id, so we look up by joining elsewhere — see send/load paths.
-  // Here we infer at the caller. For now we mark it 'coach' only if explicit.
   return {
     id: r.id,
     thread_id: r.thread_id,
-    sender_role: 'athlete', // placeholder; set by infer step below
+    sender_role: r.sender_role,
     sender_user_id: r.sender_user_id,
     body: r.body,
     created_at: r.created_at,
     read_at: r.read_at,
   };
-}
-
-/**
- * Given a list of messages and the thread's owners, stamps `sender_role` by
- * comparing sender_user_id with the coach/athlete user_ids on the thread.
- * Kept separate from `loadMessages` so callers can avoid the extra join when
- * sender_role isn't needed (e.g., raw exports).
- */
-export async function inferSenderRoles(params: {
-  thread_id: string;
-  messages: CoachChatMessage[];
-  client?: Sql;
-}): Promise<CoachChatMessage[]> {
-  if (params.messages.length === 0) return params.messages;
-  const client = params.client ?? defaultSql;
-  const owners = await client<
-    { coach_user_id: string; athlete_user_id: string }[]
-  >`
-    select c.user_id::text as coach_user_id,
-           a.user_id::text as athlete_user_id
-    from chat_threads t
-    join coaches c on c.id = t.coach_id
-    join athletes a on a.id = t.athlete_id
-    where t.id = ${params.thread_id}::bigint
-    limit 1
-  `;
-  const o = owners[0];
-  if (!o) return params.messages;
-  return params.messages.map((m) => ({
-    ...m,
-    sender_role:
-      m.sender_user_id === o.coach_user_id
-        ? 'coach'
-        : m.sender_user_id === o.athlete_user_id
-          ? 'athlete'
-          : 'athlete',
-  }));
 }
 
 /**
@@ -281,10 +255,11 @@ export async function sendCoachMessage(params: {
         read_at: string | null;
       }[]
     >`
-      insert into chat_messages (thread_id, sender_user_id, body)
+      insert into chat_messages (thread_id, sender_user_id, sender_role, body)
       values (
         ${params.thread_id}::bigint,
         ${params.coach_user_id},
+        'coach',
         ${trimmed}
       )
       returning id::text, thread_id::text, sender_user_id::text, body,

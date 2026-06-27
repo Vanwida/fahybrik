@@ -18,13 +18,17 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import {
+  V2_THEME_STORAGE_KEY,
+  V2_THEME_DEFAULT,
+  type V2Theme,
+} from './theme-config';
 
-export type V2Theme = 'dark' | 'light';
-
-/** localStorage key for the persisted v2 theme — single source of truth. */
-export const V2_THEME_STORAGE_KEY = 'fahybrid:v2-theme';
-/** Default when nothing is stored and no system preference resolves. */
-export const V2_THEME_DEFAULT: V2Theme = 'dark';
+// Re-export the theme config so existing importers (components/v2/index.ts) keep
+// working. The plain values live in ./theme-config so the server V2ThemeScript
+// can import the real strings (this module is 'use client').
+export { V2_THEME_STORAGE_KEY, V2_THEME_DEFAULT } from './theme-config';
+export type { V2Theme } from './theme-config';
 
 interface V2ThemeContextValue {
   theme: V2Theme;

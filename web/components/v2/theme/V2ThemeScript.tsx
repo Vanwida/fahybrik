@@ -1,9 +1,10 @@
 // Server component — the inline pre-paint theme script MUST be rendered
-// server-side so the <script> actually executes before hydration. When it lived
-// in the 'use client' V2ThemeProvider module, React never ran the script tag on
-// the client (the console error). Kept in its own server file, imported by the
-// v2 layout. Only reads the (plain string) constants from the provider.
-import { V2_THEME_STORAGE_KEY, V2_THEME_DEFAULT } from './V2ThemeProvider';
+// server-side so the <script> actually executes before hydration. Imports the
+// theme constants from ./theme-config (a PLAIN module): importing them from the
+// 'use client' V2ThemeProvider would hand the server a client-reference proxy,
+// whose stringified form is an error-throwing function body — that turned the
+// inline script into invalid JS ("Invalid or unexpected token").
+import { V2_THEME_STORAGE_KEY, V2_THEME_DEFAULT } from './theme-config';
 
 /**
  * Inline pre-paint script — sets `data-theme` on `.v2-root` BEFORE React hydrates

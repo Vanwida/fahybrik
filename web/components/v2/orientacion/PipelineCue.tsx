@@ -40,16 +40,24 @@ function currentKey(activeKeys: readonly PipelineStepKey[], progress: PipelinePr
   return pending ?? activeKeys[activeKeys.length - 1]!;
 }
 
-/** Compact label: "Paso N de 5" or "Pasos N–M de 5" when a section owns a range. */
-function stepBadgeLabel(activeKeys: readonly PipelineStepKey[]): string {
+/** Compact label: "Paso N de 4" or "Pasos N–M de 4" when a section owns a
+ *  contiguous range. */
+function stepBadgeLabel(
+  activeKeys: readonly PipelineStepKey[],
+  current: PipelineStepKey,
+): string {
   const ords = activeKeys.map((k) => PIPELINE_STEP_META[pipelineIndex(k)]!.ord).sort((a, b) => a - b);
   const lo = ords[0]!;
   const hi = ords[ords.length - 1]!;
-  // Contiguous range (e.g. Biblioteca 2–4) reads as "Pasos 2–4 de 5".
+  // Contiguous owned range (e.g. Biblioteca 2–3) reads as "Pasos 2–3 de 4".
   const contiguous = hi - lo === ords.length - 1 && ords.length > 1;
   if (contiguous) return `Pasos ${lo}–${hi} de ${PIPELINE_TOTAL}`;
-  if (ords.length > 1) return `Pasos ${ords.join(', ')} de ${PIPELINE_TOTAL}`;
-  return `Paso ${lo} de ${PIPELINE_TOTAL}`;
+  // Non-contiguous owned steps (Periodización owns 1 & 4) would render as a
+  // malformed "Pasos 1, 4 de 4". Show the coach's CURRENT step instead — a single
+  // honest "estás aquí" ordinal that is never ambiguous. The dots still convey
+  // which steps the section owns.
+  const curOrd = PIPELINE_STEP_META[pipelineIndex(current)]!.ord;
+  return `Paso ${curOrd} de ${PIPELINE_TOTAL}`;
 }
 
 export function PipelineCue({
@@ -124,7 +132,7 @@ export function PipelineCue({
     );
   }
 
-  const badge = stepBadgeLabel(activeKeys);
+  const badge = stepBadgeLabel(activeKeys, cur);
 
   // ── Collapsed: only badge + dots ────────────────────────────────────────────
   if (effectiveMode === 'collapsed') {

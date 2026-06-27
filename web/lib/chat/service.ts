@@ -248,10 +248,11 @@ export async function sendMessage(args: {
     }[]
   >`
     insert into chat_messages (
-      thread_id, sender_user_id, body, attachment_url, attachment_kind, attachment_meta
+      thread_id, sender_user_id, sender_role, body, attachment_url, attachment_kind, attachment_meta
     ) values (
       ${thread_id as unknown as string}::bigint,
       ${sender_user_id as unknown as number},
+      ${sender_role},
       ${input.body ?? null},
       ${input.attachment_url ?? null},
       ${input.attachment_kind ?? null},

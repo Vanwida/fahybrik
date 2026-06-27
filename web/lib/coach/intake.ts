@@ -579,6 +579,23 @@ export async function loadIntakeProfile(params: {
   // Step 2 — macro emphasis from goal + run/strength relationship.
   const block_emphasis = proposeBlockEmphasis(goalContext);
 
+  // Did the athlete actually submit intake answers? Mirrors the evidence the
+  // "Respuestas del atleta" panel renders (objetivos / experiencia / estado
+  // basal / benchmarks). Drives an honest welcome draft.
+  const has_intake_data = Boolean(
+    goalContext.goal_type ||
+      goalContext.run_experience ||
+      goalContext.strength_experience ||
+      a.goal_short ||
+      a.goal_mid ||
+      a.goal_long ||
+      a.training_experience_years != null ||
+      a.sleep_quality != null ||
+      a.stress_level != null ||
+      a.commitment_level != null ||
+      benchmarks.length > 0,
+  );
+
   // Compute auto-suggestions.
   const suggestions = buildSuggestions({
     target_event,
@@ -590,6 +607,7 @@ export async function loadIntakeProfile(params: {
     hours_per_week: parseOnboardingHoursPerWeek(a.intake_notes_json),
     goal: goalContext,
     block_emphasis,
+    has_intake_data,
   });
 
   const warnings = buildWarnings({
@@ -761,6 +779,9 @@ interface BuildSuggestionsParams {
     strength_experience: import('./intake-suggestions').StrengthExperience | null;
   };
   block_emphasis: BlockEmphasis;
+  /** True when the athlete actually submitted intake answers (drives an honest
+   *  welcome draft — no "he revisado tu perfil" when there is nothing to review). */
+  has_intake_data: boolean;
 }
 
 function parseOnboardingTrainingLevel(notes: unknown): AthleteLevel | null {
@@ -824,6 +845,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
       ? { name: params.target_event.name, is_in_past: params.target_event.is_in_past }
       : null,
     is_compressive,
+    has_intake_data: params.has_intake_data,
   });
 
   return {
@@ -1231,10 +1253,11 @@ async function sendWelcomeMessage(params: {
   if (!threadId) return false;
 
   await params.client`
-    insert into chat_messages (thread_id, sender_user_id, body)
+    insert into chat_messages (thread_id, sender_user_id, sender_role, body)
     values (
       ${Number(threadId)},
       ${params.coach_user_id as number},
+      'coach',
       ${params.body}
     )
   `;

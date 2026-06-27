@@ -31,9 +31,7 @@ import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-d
 import { buildAthletePerformance } from '@/lib/dashboard/coach/deep-dive-performance';
 import {
   loadMessages,
-  inferSenderRoles,
   getOrCreateThread,
-  type CoachChatMessage,
 } from '@/lib/dashboard/chat/service';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
@@ -300,15 +298,12 @@ async function loadInitialChat(params: {
     athlete_id: params.athlete_id,
     client: params.client,
   });
+  // loadMessages resolves sender_role from the stored column (migration 0082),
+  // so attribution is correct even when the coach is their own athlete.
   const raw = await loadMessages({ thread_id, limit: 50, client: params.client });
-  const withRoles: CoachChatMessage[] = await inferSenderRoles({
-    thread_id,
-    messages: raw,
-    client: params.client,
-  });
   return {
     thread_id,
-    messages: withRoles.map((m) => ({
+    messages: raw.map((m) => ({
       id: m.id,
       sender_role: m.sender_role,
       body: m.body,

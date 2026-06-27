@@ -338,6 +338,10 @@ export function composeWelcomeDraft(params: {
   full_name: string;
   target_event: { name: string; is_in_past: boolean } | null;
   is_compressive: boolean;
+  /** Whether the athlete actually completed intake (objetivos / experiencia /
+   *  benchmarks / estado basal). When false, the draft MUST NOT claim a review
+   *  that didn't happen — there is nothing to have reviewed. */
+  has_intake_data: boolean;
 }): string {
   const first = params.full_name.split(' ')[0];
   const eventPhrase = params.target_event && !params.target_event.is_in_past
@@ -346,12 +350,13 @@ export function composeWelcomeDraft(params: {
   const weekPhrase = params.is_compressive
     ? 'Esta semana es testing + arranque comprimido.'
     : 'Esta semana es testing + arranque del primer microciclo.';
-  return [
-    `Hola ${first}, bienvenido. He revisado tu perfil — tienes`,
-    `buena base. ${eventPhrase}`,
-    weekPhrase,
-    'Cualquier duda escríbeme. Vamos.',
-  ].join(' ');
+  // Honest opener: only assert a profile review when the athlete actually
+  // submitted intake answers. Otherwise welcome without the false claim and ask
+  // for the missing context.
+  const opener = params.has_intake_data
+    ? `Hola ${first}, bienvenido. He revisado tu perfil — tienes buena base. ${eventPhrase}`
+    : `Hola ${first}, bienvenido a bordo. Cuéntame tus objetivos y tu punto de partida para ajustar el plan. ${eventPhrase}`;
+  return [opener, weekPhrase, 'Cualquier duda escríbeme. Vamos.'].join(' ');
 }
 
 // =============================================================================

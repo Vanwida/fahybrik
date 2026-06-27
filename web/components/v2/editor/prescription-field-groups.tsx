@@ -380,22 +380,55 @@ function TargetCell({
     );
   }
 
-  // Scalar kinds (%RM / kg / RPE / RIR / zona / bpm / cal).
+  // Scalar kinds (%RM / kg / RPE / RIR / zona / bpm / cal). RANGE-capable: the
+  // Target model carries either a point (`value`) or a range (`min`/`max`), and
+  // the athlete preview already renders ranges ("@ 65-80% RM") — so the editable
+  // cell must too. A "desde – hasta" pair: a single point fills `desde` and
+  // leaves `hasta` empty; a range fills both. Reading prefers min/max, falling
+  // back to the point on the lower bound.
   const suffix = SCALAR_SUFFIX[kind];
   const bounds = scalarBounds(kind);
-  const v =
-    target && target.kind !== 'bodyweight' && target.kind !== 'pace'
-      ? target.value ?? null
-      : null;
+  const scalar =
+    target && target.kind !== 'bodyweight' && target.kind !== 'pace' ? target : undefined;
+  const lo = scalar ? scalar.min ?? scalar.value ?? null : null;
+  const hi = scalar ? scalar.max ?? null : null;
+  const build = (nextLo: number | null, nextHi: number | null): Target | undefined => {
+    if (nextLo == null && nextHi == null) return undefined;
+    if (nextLo != null && nextHi != null && nextLo !== nextHi) {
+      return { kind, min: Math.min(nextLo, nextHi), max: Math.max(nextLo, nextHi) } as Target;
+    }
+    return { kind, value: (nextLo ?? nextHi)! } as Target;
+  };
   return (
-    <NumberCell
-      value={v}
-      ariaLabel={`${ariaPrefix} · objetivo`}
-      min={bounds.min}
-      max={bounds.max}
-      suffix={suffix}
-      onChange={(val) => onChange(val == null ? undefined : ({ kind, value: val } as Target))}
-    />
+    <div className="flex min-w-0 items-center gap-1">
+      <NumberCell
+        value={lo}
+        ariaLabel={`${ariaPrefix} · objetivo (desde)`}
+        min={bounds.min}
+        max={bounds.max}
+        className="flex-1"
+        onChange={(val) => onChange(build(val, hi))}
+      />
+      <span
+        className="shrink-0 text-[11px] font-semibold text-[color:var(--v2-faint)]"
+        aria-hidden
+      >
+        –
+      </span>
+      <NumberCell
+        value={hi}
+        ariaLabel={`${ariaPrefix} · objetivo (hasta)`}
+        min={bounds.min}
+        max={bounds.max}
+        className="flex-1"
+        onChange={(val) => onChange(build(lo, val))}
+      />
+      {suffix ? (
+        <span className="shrink-0 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+          {suffix}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

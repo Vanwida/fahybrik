@@ -235,7 +235,8 @@ export function BlockLibraryEditor({
               </span>
             ) : null}
             <Pill tone="neutral" variant="soft">
-              <span className="v2-num">{blocks.length}</span>&nbsp;sub-bloques
+              <span className="v2-num">{blocks.length}</span>&nbsp;
+              {blocks.length === 1 ? 'sub-bloque' : 'sub-bloques'}
             </Pill>
           </div>
         </div>
