@@ -38,6 +38,7 @@ import {
   type PrescriptionSet,
   type Target,
 } from '@fahybrid/shared/domain/prescription';
+import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
 
 // ── Wire shape (snake_case; iOS decodes via convertFromSnakeCase) ────────────
 export interface DoblesExerciseRow {
@@ -62,24 +63,9 @@ export interface DoblesTrainTogetherSession {
   exercises: DoblesExerciseRow[];
 }
 
-// ── Exercise slug → 1RM benchmark slug (single source of truth) ──────────────
-// Maps an exercise-catalog slug to the canonical benchmark slug whose value is
-// the athlete's 1RM for that lift. Only lifts the onboarding flow captures are
-// mapped — anything else resolves to the honest "<pct>% · —" path. Close
-// variants that train the SAME 1RM (overhead-press == strict press == OHP;
-// power-clean / clean-and-jerk == clean) are mapped to that lift's benchmark;
-// variants that are genuinely a DIFFERENT lift (front-squat, RDL, push-press)
-// are intentionally NOT mapped — we don't borrow another lift's 1RM.
-const EXERCISE_TO_1RM_BENCHMARK: Readonly<Record<string, string>> = {
-  'back-squat': 'back_squat_1rm',
-  deadlift: 'deadlift_1rm',
-  'bench-press': 'bench_press_1rm',
-  'overhead-press': 'ohp_1rm',
-  'power-clean': 'clean_1rm',
-  'hang-power-clean': 'clean_1rm',
-  'clean-and-jerk': 'clean_1rm',
-  snatch: 'snatch_1rm',
-};
+// EXERCISE_TO_1RM_BENCHMARK (exercise-catalog slug → 1RM benchmark slug) is the
+// single source of truth in @fahybrid/shared/domain/strength — imported above so
+// the web + iOS contract never diverge on which lift trains which 1RM.
 
 // Short reference-line abbreviations for the per-athlete 1RM chip, e.g.
 // "SQ 1RM 110 · DL 1RM 180". Order is fixed (most-programmed first).
@@ -361,8 +347,31 @@ function formatOneRmLine(benchmarks: Map<string, number>): string | null {
 }
 
 // ── DB / parse helpers ───────────────────────────────────────────────────────
+// Current 1RM per benchmark slug for one athlete. PREFERS the versioned strength
+// system (athlete_strength_maxes — fed by re-tests + coach overrides), then fills
+// any lift not yet tested there from the onboarding kg benchmarks. So a re-test
+// flows straight into %RM→kg resolution while onboarding-only lifts still resolve.
 async function loadOneRms(sql: Sql, athleteId: bigint): Promise<Map<string, number>> {
-  const rows = await sql<BenchmarkRow[]>`
+  const map = new Map<string, number>();
+
+  // 1) Current (highest-version) 1RM per lift from the strength system.
+  const strengthRows = await sql<{ exercise_slug: string; one_rm_kg: number }[]>`
+    select distinct on (sm.exercise_slug)
+      sm.exercise_slug          as exercise_slug,
+      sm.one_rm_kg::float8       as one_rm_kg
+    from athlete_strength_maxes sm
+    where sm.athlete_id = ${athleteId as unknown as number}
+    order by sm.exercise_slug, sm.version desc
+  `;
+  for (const r of strengthRows) {
+    if (Number.isFinite(r.one_rm_kg) && r.one_rm_kg > 0) {
+      map.set(r.exercise_slug, r.one_rm_kg);
+    }
+  }
+
+  // 2) Backfill from athlete_benchmarks for any lift not in the strength system,
+  //    without overwriting a strength-max value.
+  const benchRows = await sql<BenchmarkRow[]>`
     select distinct on (ab.exercise_slug)
       ab.exercise_slug    as exercise_slug,
       ab.value::float      as value,
@@ -371,14 +380,14 @@ async function loadOneRms(sql: Sql, athleteId: bigint): Promise<Map<string, numb
     where ab.athlete_id = ${athleteId as unknown as number}
     order by ab.exercise_slug, ab.recorded_at desc
   `;
-  const map = new Map<string, number>();
-  for (const r of rows) {
+  for (const r of benchRows) {
     // Only kg-denominated 1RMs feed load resolution. A reps/seconds benchmark
     // (pull-ups, 5k) is not a 1RM and must never be read as kg.
-    if (r.unit === 'kg' && Number.isFinite(r.value) && r.value > 0) {
+    if (r.unit === 'kg' && Number.isFinite(r.value) && r.value > 0 && !map.has(r.exercise_slug)) {
       map.set(r.exercise_slug, r.value);
     }
   }
+
   return map;
 }
 
