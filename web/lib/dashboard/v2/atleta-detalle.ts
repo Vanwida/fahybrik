@@ -37,6 +37,8 @@ import {
 } from '@/lib/dashboard/chat/service';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
+import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
+import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { loadCoachLevels } from '@/lib/dashboard/v2/periodizacion';
 import {
   SEQUENCE_DAYS_MIN,
@@ -49,6 +51,7 @@ import {
   type DetalleChatMessage,
   type ClasificacionData,
   type V2AthleteDetalle,
+  type StrengthMaxView,
 } from './atleta-detalle-types';
 
 // Re-export the client-safe surface so existing import sites keep working.
@@ -67,6 +70,7 @@ export type {
   ClasificacionData,
   ClasificacionLevelOption,
   V2AthleteDetalle,
+  StrengthMaxView,
   ReferenceTest,
   DerivedObjective,
   PerfilTabData,
@@ -208,17 +212,44 @@ export async function loadAthleteDetalle(params: {
   const shell = await fetchAthleteProfileShell({ coach_id, athlete_id, client }).catch(() => null);
   if (!shell) return null;
 
-  const [resumen, plan, body, performance, subscription, chat, zone_profiles, classification] =
-    await Promise.all([
-      buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
-      buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
-      buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
-      buildAthletePerformance({ coach_id, athlete_id, client }).catch(() => null),
-      getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
-      loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
-      loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
-      loadClassification({ coach_id, athlete_id, client }).catch(() => null),
-    ]);
+  const [
+    resumen,
+    plan,
+    body,
+    performance,
+    subscription,
+    chat,
+    zone_profiles,
+    classification,
+    strengthCurrent,
+    strengthHistory,
+  ] = await Promise.all([
+    buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
+    buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
+    buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
+    buildAthletePerformance({ coach_id, athlete_id, client }).catch(() => null),
+    getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
+    loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
+    loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
+    loadClassification({ coach_id, athlete_id, client }).catch(() => null),
+    loadStrengthMaxes({ coach_id, athlete_id, client }).catch(() => []),
+    loadStrengthMaxHistory({ athlete_id, client }).catch(() => []),
+  ]);
+
+  // Group each current 1RM with its full version history (oldest→newest) → the
+  // client-safe Perfil view. The label is resolved here (server) so the view stays
+  // pure. No max → empty array (the Fuerza section renders its honest empty state).
+  const strength_maxes: StrengthMaxView[] = strengthCurrent.map((m) => ({
+    exercise_slug: m.exercise_slug,
+    exercise_label: strengthLiftLabel(m.exercise_slug),
+    one_rm_kg: m.one_rm_kg,
+    version: m.version,
+    recorded_at: m.recorded_at,
+    source: m.source,
+    history: strengthHistory
+      .filter((h) => h.exercise_slug === m.exercise_slug)
+      .map((h) => ({ one_rm_kg: h.one_rm_kg, version: h.version, recorded_at: h.recorded_at })),
+  }));
 
   const { status, label } = deriveStatus(shell, resumen);
   const header: DetalleHeader = {
@@ -255,6 +286,7 @@ export async function loadAthleteDetalle(params: {
     subscription,
     chat,
     zone_profiles,
+    strength_maxes,
   };
 }
 

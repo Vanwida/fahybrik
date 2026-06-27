@@ -44,6 +44,8 @@
 		24A82E1C955126EE56D185D3 /* GoalRelationStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91A44018B68A0E96484337C /* GoalRelationStep.swift */; };
 		265692D9C6031D4DD0D30A6D /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8A1308F2D64ED7272E7D7AD /* SubscriptionService.swift */; };
 		27E7D189B0FE904A14EC0D7D /* ZonesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56FCA093BE6E12C2F92078F1 /* ZonesService.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* StrengthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* StrengthService.swift */; };
+		C3D4E5F60718293A4B5C6D7E /* MyStrengthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E8F /* MyStrengthView.swift */; };
 		28ECA2B64F0FE3156D7F32E2 /* ThresholdStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */; };
 		2A2FDB88C73DBF06B1117255 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA912BF52924EC0C847BF1E0 /* HealthKit.framework */; };
 		2AD3387B52E11CED13C90EE0 /* FacilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4792F4658F35CB9D30DCE9C4 /* FacilityStep.swift */; };
@@ -218,6 +220,8 @@
 		558495606B0C684F8A6C044C /* FAHYBRIKWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FAHYBRIKWatch.entitlements; sourceTree = "<group>"; };
 		559E6897CF90CAC7A6A1F6A0 /* RecoveryStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryStep.swift; sourceTree = "<group>"; };
 		56FCA093BE6E12C2F92078F1 /* ZonesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesService.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* StrengthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthService.swift; sourceTree = "<group>"; };
+		D4E5F60718293A4B5C6D7E8F /* MyStrengthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyStrengthView.swift; sourceTree = "<group>"; };
 		59549DD32CB054A2BCC770F6 /* PartnerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerService.swift; sourceTree = "<group>"; };
 		5ABF59F238D4FB4A53CCDD05 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		5D9ABACDF3287674F039ADFE /* GoalsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsStep.swift; sourceTree = "<group>"; };
@@ -475,6 +479,8 @@
 				F620B06763EDA7D5B9BEF3C6 /* ProfileView.swift */,
 				F8A1308F2D64ED7272E7D7AD /* SubscriptionService.swift */,
 				56FCA093BE6E12C2F92078F1 /* ZonesService.swift */,
+				B2C3D4E5F60718293A4B5C6D /* StrengthService.swift */,
+				D4E5F60718293A4B5C6D7E8F /* MyStrengthView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -1069,6 +1075,8 @@
 				161B43BE72F64914405F658B /* YouTubeEmbedView.swift in Sources */,
 				93F19F72C6C6B5896B1C09FD /* ZoneColors.swift in Sources */,
 				27E7D189B0FE904A14EC0D7D /* ZonesService.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* StrengthService.swift in Sources */,
+				C3D4E5F60718293A4B5C6D7E /* MyStrengthView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

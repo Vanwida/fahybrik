@@ -76,6 +76,7 @@ struct ProfileView: View {
 
                         SectionHeader(title: "Rendimiento")
                         zonesCard
+                        strengthCard
 
                         SectionHeader(title: "Dispositivos")
                         devicesCard
@@ -471,6 +472,26 @@ struct ProfileView: View {
                     icon: "speedometer",
                     title: "Mis zonas de ritmo",
                     subtitle: "Tus bandas por modalidad · carrera /km, remo y ski /500m"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Strength ("Mi fuerza")
+
+    /// Entry point to the athlete's strength maxes (1RM per lift). Read-only;
+    /// the destination handles its own loading / empty / error states and the
+    /// register-test sheet.
+    private var strengthCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                MyStrengthView(bearer: bearer)
+            } label: {
+                profileRowContent(
+                    icon: "dumbbell",
+                    title: "Mi fuerza",
+                    subtitle: "Tus 1RM por levantamiento · sentadilla, peso muerto, press…"
                 )
             }
             .buttonStyle(.plain)

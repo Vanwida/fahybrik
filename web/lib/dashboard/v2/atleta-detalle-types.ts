@@ -14,12 +14,28 @@ import type {
 } from '@/lib/dashboard/coach/deep-dive-performance';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import { BENCH_BACK_SQUAT_1RM } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import {
   MODALITY_LABEL as ZONE_MODALITY_LABEL,
   formatZoneRange,
   groupProfilesForCalculator,
   paceUnitLabel,
 } from '@/lib/dashboard/v2/zone-view';
+
+// ── Strength · 1RM (client-safe view of athlete_strength_maxes) ─────────────────
+// The current resolved 1RM per lift + its version history, shaped for the Perfil
+// tab. Mirrors the server AthleteStrengthMax but stays a plain view type so this
+// (client-safe) module needs no server-only / schema import.
+export interface StrengthMaxView {
+  exercise_slug: string;
+  exercise_label: string;
+  one_rm_kg: number;
+  version: number;
+  recorded_at: string;
+  source: string;
+  /** All versions for this lift, oldest→newest, for the progression delta. */
+  history: { one_rm_kg: number; version: number; recorded_at: string }[];
+}
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
 export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'historico', 'biometria', 'mensajes'] as const;
@@ -102,6 +118,9 @@ export interface V2AthleteDetalle {
   /** Current versioned zone profiles per modality (Ritmos/Zonas tab). Empty = no
    *  test yet. READ from athlete_zone_profiles — the calculator never recomputes. */
   zone_profiles: AthleteZoneProfile[];
+  /** Current 1RM per lift + version history (Perfil tab · Fuerza). Empty = no max
+   *  yet. READ from athlete_strength_maxes — never recomputed. */
+  strength_maxes: StrengthMaxView[];
 }
 
 // ── Tests de referencia (Perfil tab, left column) ──────────────────────────────
@@ -127,6 +146,8 @@ export interface PerfilTabData {
   objectives: DerivedObjective[];
   /** Profile version count (resolver versions athlete profiles on re-test). */
   profile_version: number | null;
+  /** Strength maxes (1RM per lift + history) for the Fuerza · 1RM section. */
+  strength_maxes: StrengthMaxView[];
 }
 
 function fmtTime(s: number | null): string | null {
@@ -172,6 +193,7 @@ function deriveObjectives(zone_profiles: AthleteZoneProfile[]): DerivedObjective
 export function buildPerfilTab(
   performance: PerformancePayload | null,
   zone_profiles: AthleteZoneProfile[] = [],
+  strength_maxes: StrengthMaxView[] = [],
 ): PerfilTabData {
   const exById = new Map<string, ExerciseTimeSeries>();
   if (performance) for (const ex of performance.exercises) exById.set(ex.exercise_slug, ex);
@@ -185,12 +207,20 @@ export function buildPerfilTab(
 
   const run5k = latest('5k');
   const row2k = latest('row_2k');
-  const squat = latest('back_squat');
+  // The 1RM reference card reads the REAL back-squat max (kg) from the strength
+  // system — NOT best_seconds (a time) misread as a load. No max → "Pendiente".
+  const squat = strength_maxes.find((m) => m.exercise_slug === BENCH_BACK_SQUAT_1RM) ?? null;
 
   const reference_tests: ReferenceTest[] = [
     { slug: '5k', icon: 'directions_run', label: 'Carrera 5 km', value: run5k.value, date_iso: run5k.date_iso },
     { slug: 'row_2k', icon: 'rowing', label: 'Remo 2000 m', value: row2k.value, date_iso: row2k.date_iso },
-    { slug: '1rm', icon: 'fitness_center', label: 'Fuerza · 1RM', value: squat.value, date_iso: squat.date_iso },
+    {
+      slug: '1rm',
+      icon: 'fitness_center',
+      label: 'Fuerza · 1RM',
+      value: squat ? `${Math.round(squat.one_rm_kg)} kg` : null,
+      date_iso: squat?.recorded_at ?? null,
+    },
   ];
 
   // Real derived objectives from the stored zone profiles (resolver output). When
@@ -203,10 +233,10 @@ export function buildPerfilTab(
   const profile_version =
     zone_profiles.length > 0 ? Math.max(...zone_profiles.map((p) => p.version)) : null;
 
-  return { reference_tests, objectives, profile_version };
+  return { reference_tests, objectives, profile_version, strength_maxes };
 }
 
 /** Selector convenience — builds the Perfil tab from the loaded detalle payload. */
 export function selectPerfilTab(detalle: V2AthleteDetalle): PerfilTabData {
-  return buildPerfilTab(detalle.performance, detalle.zone_profiles);
+  return buildPerfilTab(detalle.performance, detalle.zone_profiles, detalle.strength_maxes ?? []);
 }

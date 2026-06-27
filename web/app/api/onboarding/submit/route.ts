@@ -22,6 +22,8 @@ import {
   BENCHMARK_UNIT_SECONDS,
   hyroxBenchmarkSlug,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
+import { seedOnboardingStrengthMaxes } from '@/lib/strength/strength-max';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -467,6 +469,19 @@ export async function POST(request: Request) {
         )}
       `;
     }
+
+    // Seed the kg 1RMs into the versioned strength system (athlete_strength_maxes)
+    // as version-1 'onboarding' rows, so onboarding maxes flow into %RM→kg plan
+    // resolution + the Perfil 1RM panel. Idempotent (seeds only absent lifts) — a
+    // re-submit never creates a new version or clobbers a later test.
+    const strengthSeed = benchmarks
+      .filter(
+        (b) =>
+          b.unit === BENCHMARK_UNIT_KG &&
+          (STRENGTH_LIFT_SLUGS as readonly string[]).includes(b.exercise_slug),
+      )
+      .map((b) => ({ exercise_slug: b.exercise_slug, one_rm_kg: b.value }));
+    await seedOnboardingStrengthMaxes(tx, athleteId, strengthSeed);
 
     // Step 12 — races. IDEMPOTENT: insert each race only if no race with the
     // same (athlete_id, name, race_date) already exists (re-submit-safe without

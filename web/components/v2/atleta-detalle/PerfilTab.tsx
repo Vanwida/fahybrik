@@ -15,6 +15,7 @@ import { ClasificacionCard } from './ClasificacionCard';
 import type {
   PerfilTabData,
   ClasificacionData,
+  StrengthMaxView,
 } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
 
@@ -90,6 +91,43 @@ function ObjectiveRow({
         </button>
       </td>
     </tr>
+  );
+}
+
+// The progression delta vs the previous version (history is oldest→newest and
+// INCLUDES the current max as its last element). Null when there's no prior
+// version or the value is unchanged — we don't show a "+0 kg" chip.
+function strengthDelta(max: StrengthMaxView): { label: string; positive: boolean } | null {
+  if (max.history.length < 2) return null;
+  const prev = max.history[max.history.length - 2];
+  const diff = Math.round(max.one_rm_kg - prev.one_rm_kg);
+  if (diff === 0) return null;
+  return { label: `${diff > 0 ? '+' : ''}${diff} kg`, positive: diff > 0 };
+}
+
+function StrengthRow({ max }: { max: StrengthMaxView }) {
+  const delta = strengthDelta(max);
+  const rel = relativeDate(max.recorded_at);
+  return (
+    <div className="flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)]">
+        <MIcon name="fitness_center" size={20} />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{max.exercise_label}</span>
+        {rel ? (
+          <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">{rel}</span>
+        ) : null}
+      </div>
+      {delta ? (
+        <Pill tone={delta.positive ? 'ok' : 'warn'} variant="soft" className="px-1.5 py-0">
+          {delta.label}
+        </Pill>
+      ) : null}
+      <span className="v2-num shrink-0 text-sm font-semibold text-[color:var(--v2-fg)]">
+        {Math.round(max.one_rm_kg)} kg
+      </span>
+    </div>
   );
 }
 
@@ -182,6 +220,30 @@ export function PerfilTab({
         </div>
       </Panel>
       </div>
+
+      {/* Fuerza · 1RM — current max per lift + progression delta */}
+      <Panel
+        title="Fuerza · 1RM"
+        action={
+          data.strength_maxes.length > 0 ? (
+            <Pill tone="info" variant="soft">
+              {data.strength_maxes.length} {data.strength_maxes.length === 1 ? 'levantamiento' : 'levantamientos'}
+            </Pill>
+          ) : undefined
+        }
+        bodyClassName="flex flex-col gap-2.5"
+      >
+        {data.strength_maxes.length === 0 ? (
+          <EmptyState
+            icon="fitness_center"
+            title="Sin marcas de fuerza"
+            description="Los 1RM aparecen al registrarlos en el onboarding o con un test de fuerza."
+            className="border-none py-6"
+          />
+        ) : (
+          data.strength_maxes.map((m) => <StrengthRow key={m.exercise_slug} max={m} />)
+        )}
+      </Panel>
     </div>
   );
 }

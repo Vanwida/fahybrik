@@ -38,6 +38,10 @@
       "types": "./domain/running/vdot.ts",
       "default": "./domain/running/vdot.ts"
     },
+    "./domain/strength": {
+      "types": "./domain/strength/index.ts",
+      "default": "./domain/strength/index.ts"
+    },
     "./domain/*": {
       "types": "./domain/*.ts",
       "default": "./domain/*.ts"
