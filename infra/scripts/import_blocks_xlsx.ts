@@ -10,17 +10,30 @@
  *
  * MODEL A: we store Pablo's `Descripción del Entrenamiento` text VERBATIM as
  * `description` (source of truth). `title` is a short derived label, `format`
- * and `atr_block_hint` are coarse hints inferred from the group, `source_ref`
- * is the "S1 – Martes" session hint.
+ * is a coarse hint inferred from the group, `source_ref` is the "S1 – Martes"
+ * session hint.
  *
  * Group mapping: the spreadsheet's "GRUPO N" number maps 1:1 to
  * methodology_groups.id (verified — same order and names). We parse N from the
  * group header row, not the emoji string, so it is robust to copy drift.
  *
- * Idempotent: upsert on `slug`. The slug is derived deterministically from the
- * group id + source_ref + title, so re-running updates in place (no dupes).
+ * PER-COACH (no orphans): the block library is per-coach content (blocks.coach_id).
+ * This importer REQUIRES an explicit target coach (--coach <id> / IMPORT_COACH_ID)
+ * and writes every block with coach_id = that coach. It NEVER defaults to NULL (a
+ * global orphan) or to any coach silently.
  *
- * Run: pnpm --filter @fahybrid/infra import:blocks
+ * Idempotent: each block's stored slug is namespaced per coach
+ * (`<baseSlug>--c<coachId>`, the same convention as clone_block_library.ts). The
+ * base slug is deterministic (group id + # + title), so a re-import upserts in
+ * place — no dupes — and two coaches can each own their own copy without colliding
+ * on the global blocks.slug unique index.
+ *
+ * Host-guarded: refuses to write unless --confirm-host (/ IMPORT_CONFIRM_HOST) is
+ * a substring of the live DATABASE_URL host, so you cannot bulk-insert into the
+ * wrong DB by accident.
+ *
+ * Run: pnpm --filter @fahybrid/infra import:blocks -- \
+ *        --coach=<coachId> --confirm-host=<dbHostSubstring>
  */
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -33,20 +46,21 @@ const REPO_ROOT = resolve(HERE, '..', '..');
 const XLSX_PATH = resolve(REPO_ROOT, 'Grupos_Entrenamiento_HYROX.xlsx');
 const SHEET = 'Grupos de Entrenamiento';
 
-// Per-group coarse hints. Index = methodology_group_id (1..10). These are the
-// single source of inference rules so format/atr stay consistent per group.
-// atr_block_hint left null where the group spans phases.
-const GROUP_HINTS: Record<number, { format: string; atr: 'ACC' | 'TRANS' | 'REAL' | null }> = {
-  1: { format: 'strength_block', atr: 'ACC' }, // Fuerza Base
-  2: { format: 'plyometric', atr: 'TRANS' }, // Fuerza Explosiva / Pliométrica
-  3: { format: 'erg_intervals', atr: 'ACC' }, // Series Ergómetros
-  4: { format: 'run_intervals', atr: 'ACC' }, // Series Running
-  5: { format: 'zone2', atr: 'ACC' }, // Zona 2 / Recuperación
-  6: { format: 'metcon', atr: 'TRANS' }, // WODs / Metcons
-  7: { format: 'race_sim', atr: 'REAL' }, // Simulaciones de Carrera
-  8: { format: 'core_mobility', atr: null }, // Core / Movilidad / Preventivos
-  9: { format: 'functional_circuit', atr: 'TRANS' }, // Circuitos Funcionales
-  10: { format: 'tapering', atr: 'REAL' }, // Tapering / Activación
+// Per-group coarse hint. Index = methodology_group_id (1..10). Single source of
+// the format inference rule so it stays consistent per group. (The legacy
+// atr_block_hint axis was dropped — periodization is coach-agnostic, migration
+// 0064 — so blocks carry no hardcoded phase tag.)
+const GROUP_HINTS: Record<number, { format: string }> = {
+  1: { format: 'strength_block' }, // Fuerza Base
+  2: { format: 'plyometric' }, // Fuerza Explosiva / Pliométrica
+  3: { format: 'erg_intervals' }, // Series Ergómetros
+  4: { format: 'run_intervals' }, // Series Running
+  5: { format: 'zone2' }, // Zona 2 / Recuperación
+  6: { format: 'metcon' }, // WODs / Metcons
+  7: { format: 'race_sim' }, // Simulaciones de Carrera
+  8: { format: 'core_mobility' }, // Core / Movilidad / Preventivos
+  9: { format: 'functional_circuit' }, // Circuitos Funcionales
+  10: { format: 'tapering' }, // Tapering / Activación
 };
 
 type Row = (string | number | null)[];
@@ -111,7 +125,6 @@ export type ParsedBlock = {
   description: string;
   methodology_group_id: number;
   format: string;
-  atr_block_hint: 'ACC' | 'TRANS' | 'REAL' | null;
   source_ref: string | null;
 };
 
@@ -151,7 +164,6 @@ export function parseBlocks(rows: Row[]): ParsedBlock[] {
         description,
         methodology_group_id: currentGroup,
         format: hints.format,
-        atr_block_hint: hints.atr,
         source_ref: sourceRef,
       });
     }
@@ -159,7 +171,67 @@ export function parseBlocks(rows: Row[]): ParsedBlock[] {
   return blocks;
 }
 
+/** Per-coach slug suffix → the idempotency key. Matches clone_block_library.ts. */
+const COACH_SLUG_SUFFIX = '--c';
+
+/** Read a CLI flag in either `--name value` or `--name=value` form. */
+function argValue(name: string): string | undefined {
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    const eq = a.match(new RegExp(`^--${name}=(.*)$`));
+    if (eq) return eq[1];
+    if (a === `--${name}`) return argv[i + 1];
+  }
+  return undefined;
+}
+
+/**
+ * The target coach is MANDATORY — this importer writes into ONE coach's private
+ * library. No silent default (NULL = a global orphan, or guessing a coach) is
+ * allowed: missing/invalid → honest exit.
+ */
+function resolveTargetCoach(): number {
+  const raw = (argValue('coach') ?? process.env.IMPORT_COACH_ID ?? '').trim();
+  const id = Number(raw);
+  if (!raw || !Number.isInteger(id) || id <= 0) {
+    throw new Error(
+      'Missing target coach. Pass --coach <coachId> (or IMPORT_COACH_ID=<coachId>). ' +
+        "This importer must write blocks into ONE coach's library; it will NOT " +
+        'default to coach_id NULL (a global orphan) or pick a coach silently.',
+    );
+  }
+  return id;
+}
+
+/**
+ * Host guard: refuse to write unless the operator names the DB they mean and it
+ * matches the live DATABASE_URL host. Prevents an accidental bulk insert into the
+ * wrong branch. No silent default — the host substring must be given explicitly.
+ */
+function guardHost(): void {
+  const want = (argValue('confirm-host') ?? process.env.IMPORT_CONFIRM_HOST ?? '').trim();
+  const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
+  if (!want) {
+    throw new Error(
+      'Refusing to write: name the DB host you intend to import into via ' +
+        `--confirm-host=<substring> (or IMPORT_CONFIRM_HOST). Live host is ` +
+        `"${host || '(unknown)'}".`,
+    );
+  }
+  if (!host.includes(want)) {
+    throw new Error(
+      `Refusing to write: live DATABASE_URL host "${host || '(unknown)'}" does not ` +
+        `contain --confirm-host="${want}". Point DATABASE_URL at the right branch ` +
+        'or fix the confirmation.',
+    );
+  }
+}
+
 async function main(): Promise<void> {
+  const targetCoach = resolveTargetCoach();
+  guardHost();
+
   const raw = readFileSync(XLSX_PATH); // existence check / loud failure
   if (raw.length === 0) throw new Error(`empty xlsx at ${XLSX_PATH}`);
 
@@ -187,24 +259,34 @@ async function main(): Promise<void> {
       }
     }
 
+    // Verify the target coach exists (clean error instead of an FK violation).
+    const coachRows = await sql<{ id: number }[]>`
+      select id from coaches where id = ${targetCoach} limit 1
+    `;
+    if (coachRows.length === 0) {
+      throw new Error(`target coach_id ${targetCoach} not found in coaches`);
+    }
+
     for (const b of blocks) {
-      // coach_id stays NULL = Pablo's global library (single-coach).
+      // Per-coach namespaced slug = the idempotency key. Deterministic, so a
+      // re-import upserts in place; coach-scoped, so two coaches never collide on
+      // the global blocks.slug unique index (same convention as the clone script).
+      const slug = `${b.slug}${COACH_SLUG_SUFFIX}${targetCoach}`;
       // default_modifiers is a uniform placeholder set the IA/coach fill on use.
       await sql`
         insert into blocks
           (slug, title, description, methodology_group_id, format,
-           atr_block_hint, source_ref, default_modifiers, coach_id)
+           source_ref, default_modifiers, coach_id)
         values
-          (${b.slug}, ${b.title}, ${b.description}, ${b.methodology_group_id},
-           ${b.format}, ${b.atr_block_hint}, ${b.source_ref},
+          (${slug}, ${b.title}, ${b.description}, ${b.methodology_group_id},
+           ${b.format}, ${b.source_ref},
            ${sql.json({ intensity_pct: null, level: null, duration_min: null, rounds: null })},
-           null)
+           ${targetCoach})
         on conflict (slug) do update set
           title                = excluded.title,
           description          = excluded.description,
           methodology_group_id = excluded.methodology_group_id,
           format               = excluded.format,
-          atr_block_hint       = excluded.atr_block_hint,
           source_ref           = excluded.source_ref
       `;
     }
@@ -213,7 +295,7 @@ async function main(): Promise<void> {
     const counts = await sql<{ methodology_group_id: number; n: number }[]>`
       select methodology_group_id, count(*)::int as n
       from blocks
-      where coach_id is null
+      where coach_id = ${targetCoach}
       group by methodology_group_id
       order by methodology_group_id
     `;
@@ -222,13 +304,15 @@ async function main(): Promise<void> {
     `;
     const nameById = new Map(names.map((g) => [Number(g.id), g.name_es]));
 
-    console.log(`[import:blocks] upserted ${blocks.length} blocks from ${XLSX_PATH}`);
+    console.log(
+      `[import:blocks] upserted ${blocks.length} blocks for coach ${targetCoach} from ${XLSX_PATH}`,
+    );
     let total = 0;
     for (const c of counts) {
       total += Number(c.n);
       console.log(`  · grupo ${c.methodology_group_id} (${nameById.get(Number(c.methodology_group_id))}): ${c.n}`);
     }
-    console.log(`[import:blocks] total blocks in DB (global library): ${total}`);
+    console.log(`[import:blocks] total blocks for coach ${targetCoach}: ${total}`);
   } finally {
     await sql.end({ timeout: 5 });
   }
