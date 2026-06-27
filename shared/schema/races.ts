@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, isoDate, isoDateTime } from './_primitives';
+import { eventType, idSchema, isoDate, isoDateTime } from './_primitives';
 // Single source of truth for the HYROX 16-element layout (8 runs + 8 stations).
 import { HYROX_ELEMENT_COUNT } from './hyrox-layout';
 
@@ -100,6 +100,69 @@ export type RaceSummary = z.infer<typeof raceSummarySchema>;
 // =============================================================================
 // Request payloads
 // =============================================================================
+
+// =============================================================================
+// RACE CATALOG (phase 2d) — the athlete-facing "Buscar carrera" calendar.
+//
+// The catalog is the shared `events` table (visible, FUTURE rows). Picking one =
+// creating a target `races` row {event_id, priority='target', status='planned'}
+// that feeds getTargetRace / the countdown. This is the READ projection of one
+// catalog event for the picker + the SET-target request body. All ids cross the
+// wire as strings (app-wide bigint-safe convention).
+// =============================================================================
+
+// One catalog event as shown in the picker (snake_case, iOS Codable contract).
+// `series` is the soft-whitelist competition family ('hyrox'|'deka'|… | null);
+// `type` is the legacy events.type ('hyrox'|'crossfit'|'other'). `is_tentative`
+// flags an unconfirmed date ("Fecha por confirmar"). `division_options` are the
+// venue's offered HYROX divisions (free text) shown as an informational hint —
+// the athlete's actual selection is the orthogonal format/division/gender below.
+export const raceCalendarEventSchema = z.object({
+  event_id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  series: z.string().nullable(),
+  type: eventType,
+  location: z.string().nullable(),
+  country: z.string().nullable(),
+  region: z.string().nullable(),
+  start_date: isoDate,
+  end_date: isoDate.nullable(),
+  is_tentative: z.boolean(),
+  division_options: z.array(z.string()),
+});
+export type RaceCalendarEvent = z.infer<typeof raceCalendarEventSchema>;
+
+// GET /api/races/calendar → the visible future catalog + the athlete's current
+// target event id (so the picker can badge the already-selected event), null if
+// the athlete has no target yet.
+export const raceCalendarResponseSchema = z.object({
+  events: z.array(raceCalendarEventSchema),
+  current_target_event_id: z.string().nullable(),
+});
+export type RaceCalendarResponse = z.infer<typeof raceCalendarResponseSchema>;
+
+// POST /api/athlete/races/target (and POST /api/coach/athletes/[id]/races/target)
+// — set the athlete's TARGET race from a catalog event. name/event_type/race_date/
+// location are DERIVED server-side from the event (never client-supplied); the
+// client only chooses the orthogonal participation attributes + optional goal.
+export const athleteTargetRaceInput = z.object({
+  event_id: z.coerce.number().int().positive(),
+  format: raceFormat,
+  division: raceDivision,
+  gender_category: raceGender,
+  goal_time_seconds: z.number().int().positive().max(36000).nullable().optional(),
+});
+export type AthleteTargetRaceInput = z.infer<typeof athleteTargetRaceInput>;
+
+// Response of the set-target endpoints: the countdown view of the target (null
+// only in the past-date edge a future-only catalog can't actually produce) + the
+// written races.id (string).
+export const setTargetRaceResponseSchema = z.object({
+  target_race: nextRaceSchema.nullable(),
+  race_id: z.string(),
+});
+export type SetTargetRaceResponse = z.infer<typeof setTargetRaceResponseSchema>;
 
 // POST /api/coach/athletes/[id]/races — coach registers a race for an athlete.
 export const raceCreateInput = z.object({

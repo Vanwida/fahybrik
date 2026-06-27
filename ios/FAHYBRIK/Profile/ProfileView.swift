@@ -23,6 +23,8 @@ struct ProfileView: View {
     @State private var targetRace: AthleteNextRace? = nil
 
     @State private var showEditProfile: Bool = false
+    // Presents the target-race picker from the "Carrera objetivo" row.
+    @State private var showBuscarCarrera: Bool = false
 
     // RGPD state.
     @State private var exporting: Bool = false
@@ -138,6 +140,13 @@ struct ProfileView: View {
                 self.identity = updated
             }
         }
+        .sheet(isPresented: $showBuscarCarrera) {
+            BuscarCarreraSheet(bearer: bearer) {
+                // A target was fixed → refresh so the "Carrera objetivo" row
+                // (and the derived division subtitle) update.
+                Task { await loadIdentity() }
+            }
+        }
     }
 
     // MARK: - Identity
@@ -234,12 +243,18 @@ struct ProfileView: View {
                     showsChevron: false
                 )
                 Hairline()
-                SettingValueRow(
-                    label: "Carrera objetivo",
-                    value: goalValue,
-                    valueColor: targetRace == nil ? Theme.Color.muted : Theme.Color.foreground,
-                    showsChevron: false
-                )
+                Button {
+                    Haptics.light()
+                    showBuscarCarrera = true
+                } label: {
+                    SettingValueRow(
+                        label: "Carrera objetivo",
+                        value: targetRace == nil ? "Elegir carrera" : goalValue,
+                        valueColor: targetRace == nil ? Theme.Color.accentText : Theme.Color.foreground,
+                        showsChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
                 Hairline()
                 SettingValueRow(
                     label: "Idioma",

@@ -20,6 +20,8 @@ struct InicioView: View {
 
     @State private var showWorkout: Bool = false
     @State private var showCheckin: Bool = false
+    // Presents the target-race picker from the empty race tile.
+    @State private var showBuscarCarrera: Bool = false
 
     // Which of today's sessions "Empezar" launches (the hero's session).
     @State private var startAssignmentId: String? = nil
@@ -135,6 +137,12 @@ struct InicioView: View {
                     showCheckin = false
                 }
             )
+        }
+        .sheet(isPresented: $showBuscarCarrera) {
+            BuscarCarreraSheet(bearer: effectiveBearer) {
+                // A target was fixed → reload the plan so the countdown appears.
+                Task { await loadPlan() }
+            }
         }
         .onAppear {
             sessionBearer = bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
@@ -598,19 +606,26 @@ struct InicioView: View {
             }
             .accessibilityLabel("Readiness \(score) de 100")
         } else {
-            // Neither race nor readiness — honest placeholder tile.
-            TileButton(onTap: nil) {
+            // No race fixed → invite the athlete to pick their target. Tapping
+            // opens the race picker; on success loadPlan() refreshes the
+            // countdown into this slot.
+            TileButton(onTap: { showBuscarCarrera = true }) {
                 VStack(alignment: .leading, spacing: 4) {
                     LabelText(text: "Próxima carrera", size: 10)
-                    Text("Sin carrera fijada")
+                    Text("Elige tu objetivo")
                         .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu coach la añadirá")
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Busca tu carrera")
+                            .scaledFont(11, relativeTo: .caption)
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Theme.Color.accentText)
                 }
             }
+            .accessibilityLabel("Elige tu carrera objetivo, busca tu carrera")
         }
     }
 

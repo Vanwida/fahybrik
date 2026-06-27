@@ -12,6 +12,7 @@ import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, DashedAction, relativeDate } from './parts';
 import { ClasificacionCard } from './ClasificacionCard';
+import { TargetRaceCard } from './TargetRaceCard';
 import type {
   PerfilTabData,
   ClasificacionData,
@@ -149,6 +150,9 @@ export function PerfilTab({
     <div className="flex flex-col gap-4">
       {/* Clasificación — nivel + días (gates assignment) */}
       <ClasificacionCard athleteId={athleteId} data={classification} />
+
+      {/* Carrera objetivo — the periodization anchor (countdown + category) */}
+      <TargetRaceCard athleteId={athleteId} />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_auto_1fr]">
       {/* LEFT · reference tests */}
