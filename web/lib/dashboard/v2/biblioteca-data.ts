@@ -1,23 +1,21 @@
 import 'server-only';
 
-// v2 · BIBLIOTECA — server data shaper. Loads the three library surfaces (sesiones
-// = templates, bloques = library blocks, microciclos = month templates) in parallel
-// via the EXISTING loaders, then maps each row into the v2 view model:
-// a training MODALITY (the categorical color axis) + an OBJECTIVE bucket (the
-// secondary rail) + a usage count. No new schema — pure read + classify.
+// v2 · BIBLIOTECA — server data shaper. Loads the two library surfaces (sesiones
+// = library blocks, microciclos = month templates) in parallel via the EXISTING
+// loaders, then maps each row into the v2 view model: a training MODALITY (the
+// categorical color axis) + an OBJECTIVE bucket (the secondary rail). No new
+// schema — pure read + classify.
 //
-// Modality + objective are DERIVED from real fields (template.format,
-// block.methodology_group_id / block.format) using the same closed enums the rest
-// of the app uses; there is no persisted "modality" column yet, so the mapping
-// lives here as the single source of truth for this screen.
+// A "sesión" is the reusable training: the live `blocks` table (Pablo's 97 Excel
+// trainings + the typed editor). Modality + objective are DERIVED from real fields
+// (block.methodology_group_id) using the same closed enums the rest of the app
+// uses; there is no persisted "modality" column, so the mapping lives here as the
+// single source of truth for this screen.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
-import { listTemplatesForCoach, type TemplateListRow } from '@/lib/dashboard/coach/templates';
 import { listBlocks } from '@/lib/dashboard/coach/blocks';
 import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
-import { formatLabel } from '@/lib/dashboard/constants/week-day-part-presets';
-import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import type { Block } from '@fahybrid/shared/schema/blocks';
 import type { V2Modality } from '@/components/v2/constants';
 
@@ -36,34 +34,6 @@ import type { V2LibModalityFilter, V2LibObjective } from './biblioteca-axes';
 
 // ── Derivation maps (real enums → view axes) ─────────────────────────────────
 
-/** template.format → modality filter. A sesión can combine work; we pick the
- *  modality the format's PRIMARY stimulus reads as, falling back to "mixta" when
- *  the format spans modalities (HYROX sim, generic AMRAP/EMOM conditioning). */
-const TEMPLATE_FORMAT_MODALITY: Record<TemplateFormat, V2LibModalityFilter> = {
-  strength_block: 'fuerza',
-  tempo: 'carrera', // tempo runs
-  intervals: 'carrera', // run/erg intervals — default run; block-level refines
-  hyrox_sim: 'mixta',
-  amrap: 'circuito',
-  emom: 'circuito',
-  for_time: 'circuito',
-  circuit: 'circuito',
-  test: 'ergo', // default test type is ergo; spans modalities by picked type
-};
-
-/** template.format → objective bucket (best-effort; null = unclassified). */
-const TEMPLATE_FORMAT_OBJECTIVE: Record<TemplateFormat, V2LibObjective | null> = {
-  strength_block: 'fuerza_max',
-  tempo: 'umbral',
-  intervals: 'vo2',
-  hyrox_sim: 'umbral',
-  amrap: 'vo2',
-  emom: 'vo2',
-  for_time: 'vo2',
-  circuit: 'umbral',
-  test: null, // a test is a calibration effort, not an objective bucket
-};
-
 /** block.methodology_group_id (1..10) → modality. Groups are the canonical
  *  classification of Pablo's blocks, so this is the most reliable signal. */
 const GROUP_MODALITY: Record<number, V2LibModalityFilter> = {
@@ -81,8 +51,8 @@ const GROUP_MODALITY: Record<number, V2LibModalityFilter> = {
 // NOTE: group 8 (Core, Movilidad y Preventivos) has no dedicated modality chip;
 // it reads as accessory work. We surface it under "fuerza" so it is never lost
 // from the modality rail, but it carries the neutral calentamiento color on the
-// card border (see blockBorderModality below). This is a presentation choice, not
-// a data change.
+// card border (see cardModality below). This is a presentation choice, not a data
+// change.
 
 /** block.methodology_group_id → objective bucket. */
 const GROUP_OBJECTIVE: Record<number, V2LibObjective | null> = {
@@ -99,9 +69,8 @@ const GROUP_OBJECTIVE: Record<number, V2LibObjective | null> = {
 };
 
 /** The color the CARD border/dot uses — the strict V2Modality (no "mixta").
- *  "mixta" cards fall back to the brand-neutral circuito hue is wrong (orange-ish);
- *  use calentamiento (neutral grey) so "mixed" never masquerades as a single
- *  modality. Group 8 (core/mobility) → calentamiento (neutral) too. */
+ *  "mixta" cards fall back to calentamiento (neutral grey) so "mixed" never
+ *  masquerades as a single modality. Group 8 (core/mobility) → calentamiento too. */
 function cardModality(filter: V2LibModalityFilter, groupId?: number): V2Modality {
   if (groupId === 8) return 'calentamiento';
   switch (filter) {
@@ -120,22 +89,6 @@ function cardModality(filter: V2LibModalityFilter, groupId?: number): V2Modality
 // ── View models ───────────────────────────────────────────────────────────────
 
 export interface V2SesionItem {
-  id: string;
-  name: string;
-  format: string;
-  format_label: string;
-  modality: V2Modality;
-  modality_filter: V2LibModalityFilter;
-  objective: V2LibObjective | null;
-  block_count: number;
-  segment_count: number;
-  est_minutes: number;
-  is_draft: boolean;
-  /** How many program-week plantillas reference this sesión. */
-  used_in_plans: number;
-}
-
-export interface V2BloqueItem {
   id: string;
   title: string;
   description: string;
@@ -161,41 +114,8 @@ export interface V2MicrocicloItem {
 
 export interface V2BibliotecaData {
   sesiones: V2SesionItem[];
-  bloques: V2BloqueItem[];
   microciclos: V2MicrocicloItem[];
-  counts: { sesiones: number; bloques: number; microciclos: number };
-}
-
-// ── Minutes estimation ────────────────────────────────────────────────────────
-// No persisted duration on a template; estimate from block count so the card's
-// "~min" reads honestly as an estimate. ~12 min/block is Pablo's working average
-// (warm-up + main + transitions). Clamped to a sane floor/ceiling.
-const MIN_PER_BLOCK = 12;
-const MIN_FLOOR = 20;
-const MIN_CEIL = 120;
-function estMinutes(blockCount: number): number {
-  const raw = Math.max(blockCount, 1) * MIN_PER_BLOCK;
-  return Math.min(MIN_CEIL, Math.max(MIN_FLOOR, Math.round(raw / 5) * 5));
-}
-
-// ── Usage count (batched) ─────────────────────────────────────────────────────
-// One query maps template_id → number of distinct program_week_templates that
-// reference it via slots_json.days[*].sessions[*].template_id. Avoids N per-row
-// queries (the per-template helper exists but would be 500 round-trips).
-async function loadTemplateUsage(coach_id: number, client: Sql): Promise<Map<string, number>> {
-  const rows = await client<Array<{ template_id: string; cnt: number }>>`
-    select (s->>'template_id') as template_id, count(distinct w.id)::int as cnt
-    from program_week_templates w
-    cross join lateral jsonb_array_elements(coalesce(w.slots_json->'days', '[]'::jsonb)) as d
-    cross join lateral jsonb_array_elements(coalesce(d->'sessions', '[]'::jsonb)) as s
-    where w.coach_id = ${coach_id}
-      and (s ? 'template_id')
-      and (s->>'template_id') is not null
-    group by (s->>'template_id')
-  `;
-  const map = new Map<string, number>();
-  for (const r of rows) map.set(String(r.template_id), Number(r.cnt));
-  return map;
+  counts: { sesiones: number; microciclos: number };
 }
 
 // ── Public loader ─────────────────────────────────────────────────────────────
@@ -207,27 +127,22 @@ export async function loadBibliotecaData(params: {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
 
-  const [templates, blocks, groups, months, usage] = await Promise.all([
-    listTemplatesForCoach(coachId, client),
+  const [blocks, groups, months] = await Promise.all([
     listBlocks(coachId, null, client),
     listMethodologyGroups(client),
     listMonthTemplates({ coach_id: coachId, client }),
-    loadTemplateUsage(coachId, client).catch(() => new Map<string, number>()),
   ]);
 
   const groupLabel = new Map<number, string>(groups.map((g) => [g.id, g.name_es]));
 
-  const sesiones = templates.map((t) => mapSesion(t, usage));
-  const bloques = blocks.map((b) => mapBloque(b, groupLabel));
+  const sesiones = blocks.map((b) => mapSesion(b, groupLabel));
   const microciclos = months.map(mapMicrociclo);
 
   return {
     sesiones,
-    bloques,
     microciclos,
     counts: {
       sesiones: sesiones.length,
-      bloques: bloques.length,
       microciclos: microciclos.length,
     },
   };
@@ -247,26 +162,7 @@ function mapMicrociclo(m: {
   };
 }
 
-function mapSesion(t: TemplateListRow, usage: Map<string, number>): V2SesionItem {
-  const fmt = t.format as TemplateFormat;
-  const modality_filter = TEMPLATE_FORMAT_MODALITY[fmt] ?? 'mixta';
-  return {
-    id: t.id,
-    name: t.name,
-    format: t.format,
-    format_label: safeFormatLabel(fmt),
-    modality: cardModality(modality_filter),
-    modality_filter,
-    objective: TEMPLATE_FORMAT_OBJECTIVE[fmt] ?? null,
-    block_count: t.block_count,
-    segment_count: t.segment_count,
-    est_minutes: estMinutes(t.block_count),
-    is_draft: t.is_draft,
-    used_in_plans: usage.get(t.id) ?? 0,
-  };
-}
-
-function mapBloque(b: Block, groupLabel: Map<number, string>): V2BloqueItem {
+function mapSesion(b: Block, groupLabel: Map<number, string>): V2SesionItem {
   const modality_filter = GROUP_MODALITY[b.methodology_group_id] ?? 'mixta';
   return {
     id: String(b.id),
@@ -280,12 +176,4 @@ function mapBloque(b: Block, groupLabel: Map<number, string>): V2BloqueItem {
     group_label: groupLabel.get(b.methodology_group_id) ?? `Grupo ${b.methodology_group_id}`,
     needs_review: b.needs_review,
   };
-}
-
-function safeFormatLabel(fmt: TemplateFormat): string {
-  try {
-    return formatLabel(fmt);
-  } catch {
-    return String(fmt).replace(/_/g, ' ');
-  }
 }

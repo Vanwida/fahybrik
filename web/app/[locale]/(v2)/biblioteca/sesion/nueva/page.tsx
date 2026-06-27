@@ -1,23 +1,15 @@
-// v2 · SCREEN 5 · NUEVA SESIÓN — the from-scratch variant of the session editor.
-// Same client editor, seeded with an empty (unsaved) model.
+// v2 · BIBLIOTECA · NUEVA SESIÓN — the from-scratch library block editor.
+// Same client editor as the edit route, seeded with an empty (unsaved) model.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import type { SessionEditorModel } from '@/lib/dashboard/v2/editor-types';
-import { SessionEditor } from '@/components/v2/editor/SessionEditor';
+import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
+import type { BlockEditorModel } from '@/lib/dashboard/v2/editor-types';
+import { BlockLibraryEditor } from '@/components/v2/editor/BlockLibraryEditor';
 
 export const dynamic = 'force-dynamic';
 
-const EMPTY_SESSION: SessionEditorModel = {
-  template_id: null,
-  name: 'Nueva sesión',
-  format: 'strength_block',
-  is_draft: true,
-  blocks: [],
-  used_in_plans: 0,
-};
-
-export default async function V2NuevaSesionPage({
+export default async function V2NuevoBloquePage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -28,5 +20,17 @@ export default async function V2NuevaSesionPage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  return <SessionEditor model={EMPTY_SESSION} />;
+  const methodologyGroups = await listMethodologyGroups();
+  const groups = methodologyGroups.map((g) => ({ id: g.id, name: g.name_es }));
+
+  const model: BlockEditorModel = {
+    block_id: null,
+    title: 'Nueva sesión',
+    description: '',
+    methodology_group_id: groups[0]?.id ?? 1,
+    format: null,
+    blocks: [],
+  };
+
+  return <BlockLibraryEditor model={model} groups={groups} />;
 }

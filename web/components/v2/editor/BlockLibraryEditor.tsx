@@ -175,7 +175,7 @@ export function BlockLibraryEditor({
         if (data?.id != null) {
           const newId = Number(data.id);
           setBlockId(newId);
-          router.replace(`/biblioteca/bloque/${newId}`);
+          router.replace(`/biblioteca/sesion/${newId}`);
         }
       }
       setSaveState('saved');
@@ -194,11 +194,11 @@ export function BlockLibraryEditor({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Link
-            href="/biblioteca?tab=bloques"
+            href="/biblioteca?tab=sesiones"
             className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="arrow_back" size={15} />
-            Biblioteca · bloques
+            Biblioteca · sesiones
           </Link>
           <input
             value={title}

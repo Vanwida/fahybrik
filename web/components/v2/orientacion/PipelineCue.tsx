@@ -2,10 +2,10 @@
 
 // v2 · ORIENTACIÓN · PRIMITIVE 2 — PipelineCue.
 //
-// A slim "Paso N de 5" ribbon that answers "¿dónde estoy en el flujo?". The five
-// steps are the coach's build order: Niveles & Fases → Sesiones → Bloques →
-// Microciclos → Secuencias → (opera solo). Progress is REAL (passed from the
-// server loader): a dot is "done" only when that stage has the coach's content.
+// A slim "Paso N de 4" ribbon that answers "¿dónde estoy en el flujo?". The four
+// steps are the coach's build order: Niveles & Fases → Sesiones → Microciclos →
+// Secuencias → (opera solo). Progress is REAL (passed from the server loader): a
+// dot is "done" only when that stage has the coach's content.
 //
 // Three render modes (the approved lifecycle):
 //   · first-run  — full ribbon with the 5 named nodes + the "opera solo" tail.
@@ -16,9 +16,9 @@
 // The coach can collapse it to just the badge; that choice persists per coach +
 // section. It NEVER blocks (not a wizard) — the coach can build out of order.
 //
-// `activeKeys` = which step(s) this section owns (Periodización: 1 & 5; Biblioteca:
-// 2,3,4). The "current" node is the first active step that is not yet done, else
-// the last active step (so a fully-built section still reads as "step 5/5, here").
+// `activeKeys` = which step(s) this section owns (Periodización: 1 & 4; Biblioteca:
+// 2,3). The "current" node is the first active step that is not yet done, else
+// the last active step (so a fully-built section still reads as "step 4/4, here").
 
 import { useEffect, useRef } from 'react';
 import { MIcon } from '@/components/ui/MIcon';

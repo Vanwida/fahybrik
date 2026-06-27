@@ -4,11 +4,10 @@
 // (components/v2/orientacion/*). Keeping the DB query out of this file is what
 // lets the client bundle reference the step keys without dragging server code.
 
-/** The five canonical pipeline steps, in build order. Shared by client + server. */
+/** The four canonical pipeline steps, in build order. Shared by client + server. */
 export const PIPELINE_STEPS = [
   'niveles_fases',
   'sesiones',
-  'bloques',
   'microciclos',
   'secuencias',
 ] as const;
@@ -22,7 +21,6 @@ export type PipelineProgress = Record<PipelineStepKey, boolean>;
 export const EMPTY_PIPELINE_PROGRESS: PipelineProgress = {
   niveles_fases: false,
   sesiones: false,
-  bloques: false,
   microciclos: false,
   secuencias: false,
 };

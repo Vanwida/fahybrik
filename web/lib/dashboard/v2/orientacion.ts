@@ -2,12 +2,11 @@ import 'server-only';
 
 // v2 · ORIENTACIÓN — SERVER loader for the inline-orientation PipelineCue.
 //
-// The coach builds their method along ONE pipeline (5 steps):
+// The coach builds their method along ONE pipeline (4 steps):
 //   1 · Niveles          (athlete_levels)                         → Periodización
-//   2 · Sesiones         (templates)                              → Biblioteca
-//   3 · Bloques          (blocks)                                 → Biblioteca
-//   4 · Microciclos      (program_month_templates)               → Biblioteca
-//   5 · Secuencias       (program_sequences)                     → Periodización
+//   2 · Sesiones         (blocks — the reusable trainings library) → Biblioteca
+//   3 · Microciclos      (program_month_templates)               → Biblioteca
+//   4 · Secuencias       (program_sequences)                     → Periodización
 //
 // A step is "done" when it has ≥1 row of the coach's own content. We surface REAL
 // progress (per the approved UX pass — "nada de estados falsos"): the cue shows a
@@ -33,7 +32,6 @@ export {
 type CountRow = {
   levels: string;
   sesiones: string;
-  bloques: string;
   microciclos: string;
   secuencias: string;
 };
@@ -51,8 +49,7 @@ export async function loadPipelineProgress(
   const rows = await client<CountRow[]>`
     select
       (select count(*) from athlete_levels         where coach_id = ${cid})::text as levels,
-      (select count(*) from templates              where coach_id = ${cid})::text as sesiones,
-      (select count(*) from blocks                 where coach_id = ${cid})::text as bloques,
+      (select count(*) from blocks                 where coach_id = ${cid})::text as sesiones,
       (select count(*) from program_month_templates where coach_id = ${cid})::text as microciclos,
       (select count(*) from program_sequences      where coach_id = ${cid})::text as secuencias
   `;
@@ -61,7 +58,6 @@ export async function loadPipelineProgress(
   return {
     niveles_fases: Number(r.levels) > 0,
     sesiones: Number(r.sesiones) > 0,
-    bloques: Number(r.bloques) > 0,
     microciclos: Number(r.microciclos) > 0,
     secuencias: Number(r.secuencias) > 0,
   };

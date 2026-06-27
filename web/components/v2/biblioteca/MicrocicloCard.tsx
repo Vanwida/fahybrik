@@ -1,9 +1,9 @@
 'use client';
 
 // MicrocicloCard — one microcycle template in the Biblioteca › Microciclos index.
-// Unlike BloqueCard, this is a LINK: the whole card opens the existing editor at
+// Like SesionCard, this is a LINK: the whole card opens the existing editor at
 // /v2/microciclos/[id]. Shows the name, the program level, and the number of
-// weeks defined. Matches the BloqueCard surface (rounded, bordered, hover).
+// weeks defined. Matches the SesionCard surface (rounded, bordered, hover).
 
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';

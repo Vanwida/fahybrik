@@ -1,6 +1,6 @@
 // v2 · ORIENTACIÓN — shared pipeline metadata for the PipelineCue.
 //
-// The five build steps, in order, with the coach-facing name + where each step
+// The four build steps, in order, with the coach-facing name + where each step
 // lives (its "home" section). This is the single source of truth for the ribbon /
 // compact-cue / mini-flow labels across every section, so the order can never
 // drift between screens. AGNOSTIC: names are the product's ("Niveles & Fases"),
@@ -24,13 +24,13 @@ export interface PipelineStepMeta {
 
 export const PIPELINE_STEP_META: readonly PipelineStepMeta[] = [
   { key: 'niveles_fases', ord: 1, name: 'Niveles', where: 'Periodización' },
+  // A sesión = the reusable training (the live blocks library).
   { key: 'sesiones', ord: 2, name: 'Sesiones', where: 'Biblioteca' },
-  { key: 'bloques', ord: 3, name: 'Bloques', where: 'Biblioteca' },
-  { key: 'microciclos', ord: 4, name: 'Microciclos', where: 'Biblioteca' },
-  { key: 'secuencias', ord: 5, name: 'Secuencias', where: 'Periodización' },
+  { key: 'microciclos', ord: 3, name: 'Microciclos', where: 'Biblioteca' },
+  { key: 'secuencias', ord: 4, name: 'Secuencias', where: 'Periodización' },
 ] as const;
 
-export const PIPELINE_TOTAL = PIPELINE_STEPS.length; // 5
+export const PIPELINE_TOTAL = PIPELINE_STEPS.length; // 4
 
 /** Index (0-based) of a step in the canonical order. */
 export function pipelineIndex(key: PipelineStepKey): number {

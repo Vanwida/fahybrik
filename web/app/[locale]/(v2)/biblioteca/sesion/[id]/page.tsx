@@ -1,18 +1,17 @@
-// v2 · SCREEN 5 · EDITOR DE SESIÓN — "Modelar una sesión, sin texto libre".
-// Server component: loads the real session template (getTemplateDetail via
-// loadSessionEditorModel) and hands the structured model to the client
-// <SessionEditor>. A missing/unauthorized template degrades to an EmptyState,
-// never 500s.
+// v2 · BIBLIOTECA · EDITOR DE SESIÓN — "Modelar una sesión, sin texto libre".
+// Server component: loads the real library block (loadBlockEditorModel) and hands
+// the structured model to the client <BlockLibraryEditor>. A missing block 404s.
 
+import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { loadSessionEditorModel } from '@/lib/dashboard/v2/editor-data';
-import { SessionEditor } from '@/components/v2/editor/SessionEditor';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
+import { loadBlockEditorModel } from '@/lib/dashboard/v2/editor-data';
+import { BlockLibraryEditor } from '@/components/v2/editor/BlockLibraryEditor';
 
 export const dynamic = 'force-dynamic';
 
-export default async function V2SessionEditorPage({
+export default async function V2BloqueEditorPage({
   params,
 }: {
   params: Promise<{ locale: string; id: string }>;
@@ -23,29 +22,17 @@ export default async function V2SessionEditorPage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  const templateId = Number(id);
-  if (!Number.isFinite(templateId)) {
-    return (
-      <NotFound description="El identificador de la sesión no es válido." />
-    );
-  }
+  const blockId = Number(id);
+  if (!Number.isInteger(blockId) || blockId <= 0) notFound();
 
-  const model = await loadSessionEditorModel({
+  const model = await loadBlockEditorModel({
     coach_id: session.coach_id,
-    template_id: templateId,
+    block_id: blockId,
   }).catch(() => null);
+  if (!model) notFound();
 
-  if (!model) {
-    return <NotFound description="Esta sesión no existe o no pertenece a tu biblioteca." />;
-  }
+  const methodologyGroups = await listMethodologyGroups();
+  const groups = methodologyGroups.map((g) => ({ id: g.id, name: g.name_es }));
 
-  return <SessionEditor model={model} />;
-}
-
-function NotFound({ description }: { description: string }) {
-  return (
-    <div className="mx-auto w-full max-w-[1480px] py-10">
-      <EmptyState icon="error" title="Sesión no encontrada" description={description} />
-    </div>
-  );
+  return <BlockLibraryEditor model={model} groups={groups} />;
 }
