@@ -7,7 +7,8 @@
 // the entrada→carga→pico→descarga ramp. Day chip → /microciclos/[id]?dia=[idx]
 // (the DÍA zoom level of the same canvas — in-place, no navigation).
 
-import { Link } from '@/i18n/navigation';
+import { useState } from 'react';
+import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
@@ -15,6 +16,7 @@ import { LoadBar } from '@/components/v2/planes/parts';
 import {
   DAY_LABELS_FULL,
   dayCanvasHref,
+  duplicateWeekInMonth,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
 import { MODALITY_META } from '@/components/v2/constants';
@@ -80,6 +82,28 @@ export function MicrocicloV1({
   microcycle_id: string;
   weeks: MicroWeek[];
 }) {
+  const router = useRouter();
+  // Per-row in-flight week id (so only the duplicated row spins) + honest error.
+  const [busyWeekId, setBusyWeekId] = useState<string | null>(null);
+  const [errored, setErrored] = useState(false);
+
+  // Duplica esa semana (clon puro enganchado justo después) reusando la MISMA
+  // ruta/lógica que el editor de semana en foco. router.refresh() re-deriva la
+  // rejilla del servidor con la copia ya insertada.
+  const duplicateWeek = async (weekId: string) => {
+    if (busyWeekId) return;
+    setBusyWeekId(weekId);
+    setErrored(false);
+    try {
+      await duplicateWeekInMonth(microcycle_id, weekId);
+      router.refresh();
+    } catch {
+      setErrored(true);
+    } finally {
+      setBusyWeekId(null);
+    }
+  };
+
   if (weeks.length === 0) {
     return (
       <EmptyState
@@ -97,6 +121,11 @@ export function MicrocicloV1({
         <Pill tone="neutral" variant="soft">
           <span className="v2-num">{weeks.length}</span>&nbsp;semanas
         </Pill>
+        {errored ? (
+          <span className="text-[11px] font-semibold text-[color:var(--v2-danger)]">
+            No se pudo duplicar la semana. Inténtalo de nuevo.
+          </span>
+        ) : null}
         <button
           type="button"
           // TODO(endpoint): wire to publish.
@@ -133,11 +162,16 @@ export function MicrocicloV1({
                   </span>
                   <button
                     type="button"
-                    // TODO(endpoint): wire to week-duplicate.
+                    onClick={() => duplicateWeek(w.id)}
+                    disabled={busyWeekId !== null}
+                    title="Crea una copia idéntica de esta semana justo después"
                     aria-label={`Duplicar semana ${wi + 1}`}
-                    className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+                    className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-60"
                   >
-                    <MIcon name="content_copy" size={14} />
+                    <MIcon
+                      name={busyWeekId === w.id ? 'progress_activity' : 'content_copy'}
+                      size={14}
+                    />
                   </button>
                 </div>
                 <span className="truncate text-[10px] text-[color:var(--v2-muted)]" title={w.label}>

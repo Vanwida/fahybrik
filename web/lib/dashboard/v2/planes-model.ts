@@ -293,6 +293,35 @@ export function dayCanvasHref(microcycleId: string | number, dayIndex: number): 
   return `/microciclos/${microcycleId}?dia=${dayIndex}`;
 }
 
+// ── Duplicar semana (client mutation) ────────────────────────────────────────
+// SINGLE source for the "duplicar semana" call shared by BOTH microciclo views
+// (the focused-week editor and the N-week grid overview). POSTs to the coach
+// endpoint that DEEP-COPIES the source week's slots_json into a NEW week inserted
+// right after it (insert…select → an independent jsonb row, never a shared ref).
+// Reuses the existing server logic (duplicateWeekIntoMonth) — no parallel copier.
+// Returns the new week's id + 0-based position; THROWS on a non-OK response so the
+// caller can surface an honest error instead of pretending it worked.
+export interface DuplicatedWeek {
+  /** New program_week_templates id (string; bigint-safe). */
+  id: string;
+  /** 0-based position of the new week within the microciclo. */
+  week_index: number;
+}
+
+export async function duplicateWeekInMonth(
+  microcycleId: string | number,
+  weekId: string | number,
+): Promise<DuplicatedWeek> {
+  const res = await fetch(
+    `/api/coach/program-months/${microcycleId}/weeks/${weekId}/duplicate`,
+    { method: 'POST', credentials: 'include' },
+  );
+  if (!res.ok) {
+    throw new Error('No se pudo duplicar la semana.');
+  }
+  return (await res.json()) as DuplicatedWeek;
+}
+
 // ── Spanish day labels (Mon→Sun) ─────────────────────────────────────────────
 export const DAY_LABELS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 export const DAY_LABELS_FULL = [

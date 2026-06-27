@@ -27,6 +27,7 @@ import {
   DAY_LABELS_FULL,
   DAY_LABELS_SHORT,
   dayCanvasHref,
+  duplicateWeekInMonth,
   type DayBlockInfo,
   type DayModalityInfo,
 } from '@/lib/dashboard/v2/planes-model';
@@ -526,20 +527,20 @@ export function MicrocicloV2({
   // Duplicar la semana en foco: clon puro (sin progresión) enganchado justo
   // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
   const [duplicating, setDuplicating] = useState(false);
+  const [duplicateError, setDuplicateError] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const duplicateWeek = async () => {
     if (!focus || duplicating) return;
     setDuplicating(true);
+    setDuplicateError(false);
     try {
-      const res = await fetch(
-        `/api/coach/program-months/${microcycle_id}/weeks/${focus.id}/duplicate`,
-        { method: 'POST', credentials: 'include' },
-      );
-      if (!res.ok) return;
+      await duplicateWeekInMonth(microcycle_id, focus.id);
       const next = focusIndex + 1;
       router.refresh();
       setFocusIndex(next);
+    } catch {
+      setDuplicateError(true);
     } finally {
       setDuplicating(false);
     }
@@ -718,6 +719,12 @@ export function MicrocicloV2({
               {duplicating ? 'Duplicando…' : 'Duplicar semana'}
             </button>
           </div>
+
+          {duplicateError ? (
+            <p className="basis-full text-[11px] font-semibold text-[color:var(--v2-danger)]">
+              No se pudo duplicar la semana. Inténtalo de nuevo.
+            </p>
+          ) : null}
         </div>
 
         {/* The week grid. SEMANA (no `?dia`) = 7 equal rich day columns across the
