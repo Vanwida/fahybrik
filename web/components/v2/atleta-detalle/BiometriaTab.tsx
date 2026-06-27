@@ -8,8 +8,133 @@
 
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { Panel, ChartPlaceholder } from './parts';
+import { Panel, Sparkline } from './parts';
 import type { BodyPayload, BodyPoint } from '@/lib/dashboard/coach/deep-dive-body';
+
+// The trend chart window — last 30 days of daily readings.
+const TREND_DAYS = 30;
+
+interface TrendMetric {
+  key: string;
+  label: string;
+  unit: string;
+  /** CSS var token for the line color (light/dark aware). */
+  colorVar: string;
+  values: Array<number | null>;
+  baseline?: Array<number | null>;
+  /** Last real reading, formatted, for the row's right-aligned current value. */
+  current: string | null;
+}
+
+/** Builds the 3 trend metrics from the real BodyPayload series, sliced to 30d.
+ *  VFC + FC reposo come from the 90d daily series; sueño from the 30d nights. No
+ *  "carga" line — there's no real training-load series, so we don't draw one. */
+function buildTrendMetrics(body: BodyPayload): TrendMetric[] {
+  const lastReal = (vals: Array<number | null>, fmt: (n: number) => string): string | null => {
+    for (let i = vals.length - 1; i >= 0; i--) {
+      const v = vals[i];
+      if (v != null) return fmt(v);
+    }
+    return null;
+  };
+
+  const hrv = body.hrv.daily.slice(-TREND_DAYS).map((p) => p.value);
+  const hrvBase = body.hrv.baseline_28d.slice(-TREND_DAYS).map((p) => p.value);
+  const rhr = body.rhr.daily.slice(-TREND_DAYS).map((p) => p.value);
+  const sleep = body.sleep.nights.slice(-TREND_DAYS).map((n) => n.total_hours);
+
+  return [
+    {
+      key: 'hrv',
+      label: 'VFC',
+      unit: 'ms',
+      colorVar: '--v2-info',
+      values: hrv,
+      baseline: hrvBase,
+      current: lastReal(hrv, (n) => `${Math.round(n)}`),
+    },
+    {
+      key: 'rhr',
+      label: 'FC reposo',
+      unit: 'bpm',
+      colorVar: '--v2-fg',
+      values: rhr,
+      current: lastReal(rhr, (n) => `${Math.round(n)}`),
+    },
+    {
+      key: 'sleep',
+      label: 'Sueño',
+      unit: 'h',
+      colorVar: '--v2-accent',
+      values: sleep,
+      current: lastReal(sleep, (n) => n.toFixed(1)),
+    },
+  ];
+}
+
+function hasSeries(values: Array<number | null>): boolean {
+  return values.some((v) => v != null);
+}
+
+/** Per-metric trend row: label + current value + the 30d sparkline (or an honest
+ *  "sin datos" when that signal has no reading in the window). */
+function TrendRow({ metric }: { metric: TrendMetric }) {
+  const present = hasSeries(metric.values);
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="flex w-20 shrink-0 flex-col">
+        <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{metric.label}</span>
+        <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
+          {present && metric.current != null ? (
+            <>
+              <span className="text-[color:var(--v2-muted)]">{metric.current}</span> {metric.unit}
+            </>
+          ) : (
+            'sin datos'
+          )}
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        {present ? (
+          <Sparkline
+            values={metric.values}
+            baseline={metric.baseline}
+            strokeVar={metric.colorVar}
+            height={40}
+          />
+        ) : (
+          <div className="flex h-10 items-center text-[11px] text-[color:var(--v2-faint)]">
+            Sin lecturas en {TREND_DAYS} días
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The 30d trend panel — real sparklines from biometric_streams, honest empty
+ *  state when none of the three signals has data in the window. */
+function TrendPanel({ body }: { body: BodyPayload }) {
+  const metrics = buildTrendMetrics(body);
+  const anyData = metrics.some((m) => hasSeries(m.values));
+
+  return (
+    <Panel title="Tendencia · últimos 30 días" bodyClassName="px-3.5 py-1">
+      {anyData ? (
+        <div className="divide-y divide-[color:var(--v2-border)]">
+          {metrics.map((m) => (
+            <TrendRow key={m.key} metric={m} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 py-6 text-xs text-[color:var(--v2-faint)]">
+          <MIcon name="show_chart" size={16} />
+          Aún no hay tendencia de 30 días — sin lecturas de VFC, FC reposo ni sueño.
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 const SYNC_FMT = new Intl.DateTimeFormat('es-ES', {
   day: 'numeric',
@@ -105,8 +230,8 @@ export function BiometriaTab({ body }: { body: BodyPayload | null }) {
         />
       </div>
 
-      {/* Wide chart */}
-      <ChartPlaceholder label="VFC · sueño · carga — últimos 30 días" height={200} />
+      {/* Real 30d trend — sparklines from the biometric series */}
+      <TrendPanel body={body} />
 
       {/* Table + alarm card */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.4fr_1fr]">

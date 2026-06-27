@@ -130,7 +130,7 @@ function fmtPct(n: number | null): string {
 function buildStats(resumen: AthleteResumen | null, body: BodyPayload | null): DetalleStat[] {
   const vo2 = body?.vo2max.current_value ?? null;
   const rhr = body?.rhr.last_bpm ?? null;
-  const adher = resumen?.compliance_pct_7d ?? null;
+  const adher = resumen?.adherence_pct_30d ?? null;
   const hrv = body?.hrv.last_value_ms ?? null;
 
   const adherTone: DetalleStat['tone'] =

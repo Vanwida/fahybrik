@@ -14,6 +14,12 @@ import type {
 } from '@/lib/dashboard/coach/deep-dive-performance';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import {
+  MODALITY_LABEL as ZONE_MODALITY_LABEL,
+  formatZoneRange,
+  groupProfilesForCalculator,
+  paceUnitLabel,
+} from '@/lib/dashboard/v2/zone-view';
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
 export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'historico', 'biometria', 'mensajes'] as const;
@@ -130,10 +136,43 @@ function fmtTime(s: number | null): string | null {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Derived objectives = the absolute zone bands the resolver already produced from
+ * the athlete's tests (the stored athlete_zone_profiles snapshot). This is the
+ * test → profile → absolute-targets chain: each modality's threshold (test) in →
+ * its 6 resolved bands out. We surface those bands verbatim — never inventing a
+ * target — ordered ergo (row/ski/bike) then run, each zone by sort_order.
+ *
+ * AGNOSTIC: labels come from the stored `code` + the modality, never a hardcoded
+ * Z2/umbral/ATR vocabulary. `adjusted` stays false — this model has no per-band
+ * manual override yet, so we don't fake one.
+ */
+function deriveObjectives(zone_profiles: AthleteZoneProfile[]): DerivedObjective[] {
+  const { ergo, run } = groupProfilesForCalculator(zone_profiles);
+  const ordered = [...ergo, ...run];
+  const out: DerivedObjective[] = [];
+  for (const p of ordered) {
+    const unit = paceUnitLabel(p.pace_unit);
+    const zones = [...p.zones_json].sort((a, b) => a.sort_order - b.sort_order);
+    for (const z of zones) {
+      out.push({
+        zone_label: `${ZONE_MODALITY_LABEL[p.modality]} · ${z.code}`,
+        target: `${formatZoneRange(z)} ${unit}`,
+        adjusted: false,
+      });
+    }
+  }
+  return out;
+}
+
 /** Maps the real performance exercise series + Fabrik protocols into the Perfil
  *  reference-test cards. Values come from the deep-dive PR/test attempts when
- *  present; otherwise null ("pendiente"). Pure — safe in the client bundle. */
-export function buildPerfilTab(performance: PerformancePayload | null): PerfilTabData {
+ *  present; otherwise null ("pendiente"). The derived objectives come from the
+ *  stored zone profiles (the resolver output). Pure — safe in the client bundle. */
+export function buildPerfilTab(
+  performance: PerformancePayload | null,
+  zone_profiles: AthleteZoneProfile[] = [],
+): PerfilTabData {
   const exById = new Map<string, ExerciseTimeSeries>();
   if (performance) for (const ex of performance.exercises) exById.set(ex.exercise_slug, ex);
 
@@ -154,20 +193,20 @@ export function buildPerfilTab(performance: PerformancePayload | null): PerfilTa
     { slug: '1rm', icon: 'fitness_center', label: 'Fuerza · 1RM', value: squat.value, date_iso: squat.date_iso },
   ];
 
-  // TODO(endpoint): replace with the resolver's derived-objective rows. Shape is
-  // final; values null until the resolver is wired so no fake targets ship.
-  const objectives: DerivedObjective[] = [
-    { zone_label: 'Z2 · rodaje', target: null, adjusted: false },
-    { zone_label: 'Z4 · umbral', target: null, adjusted: false },
-    { zone_label: 'Remo · umbral /500m', target: null, adjusted: false },
-    { zone_label: 'Sentadilla · cargas %', target: null, adjusted: false },
-    { zone_label: 'Zonas FC', target: null, adjusted: false },
-  ];
+  // Real derived objectives from the stored zone profiles (resolver output). When
+  // the athlete has no test yet this is [] → the Perfil tab shows its honest empty
+  // state ("aún sin objetivos derivados"). No fake targets ever ship.
+  const objectives = deriveObjectives(zone_profiles);
 
-  return { reference_tests, objectives, profile_version: null };
+  // Profile version = the latest resolved zone-profile version across modalities
+  // (each modality versions on re-test); null when there's no profile yet.
+  const profile_version =
+    zone_profiles.length > 0 ? Math.max(...zone_profiles.map((p) => p.version)) : null;
+
+  return { reference_tests, objectives, profile_version };
 }
 
 /** Selector convenience — builds the Perfil tab from the loaded detalle payload. */
 export function selectPerfilTab(detalle: V2AthleteDetalle): PerfilTabData {
-  return buildPerfilTab(detalle.performance);
+  return buildPerfilTab(detalle.performance, detalle.zone_profiles);
 }

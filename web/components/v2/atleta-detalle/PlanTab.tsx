@@ -188,7 +188,7 @@ export function PlanTab({
     .slice(-5)
     .reverse();
 
-  const adher = resumen?.compliance_pct_7d ?? null;
+  const adher = resumen?.adherence_pct_30d ?? null;
   const adherTone = adher == null ? 'fg' : adher >= 75 ? 'ok' : adher >= 60 ? 'warn' : 'danger';
   const currentWeek = plan.macro.weeks.find((w) => w.status === 'current');
   const completedThisWeek = weekDays.filter((d) => d.state === 'done').length;
@@ -290,7 +290,7 @@ export function PlanTab({
         {/* RIGHT */}
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
-            <SnapshotTile label="Adherencia fase" value={adher != null ? `${adher}%` : '—'} tone={adherTone} />
+            <SnapshotTile label="Adherencia 30d" value={adher != null ? `${adher}%` : '—'} tone={adherTone} />
             <SnapshotTile
               label="Cumplidas"
               value={`${completedThisWeek}/${plannedThisWeek || '—'}`}

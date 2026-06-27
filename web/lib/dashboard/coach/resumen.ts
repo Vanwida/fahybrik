@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/dates';
+import { ADHERENCE_WINDOW_DAYS, adherencePct } from '@fahybrid/shared/domain/adherence';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
 import { getAthleteProgrammingStatus, type AthleteProgrammingStatus } from './programming-status';
 import { getNextRace, getTargetRace, toRaceSummary } from '@/lib/races/next-race';
@@ -19,7 +20,10 @@ export interface AthleteResumen {
   macro: MacroProgressPayload;
   programming: AthleteProgrammingStatus;
   readiness_score: number | null;
-  compliance_pct_7d: number | null;
+  /** Rolling completion adherence over the trailing 30 days (market-standard
+   *  "adherencia"): completed / scheduled across the window, null when nothing
+   *  was due. Single-sourced with the roster via @fahybrid/shared/domain/adherence. */
+  adherence_pct_30d: number | null;
   /** Sesiones programadas de la semana en curso (lun-dom) — denominador del read. */
   week_scheduled: number;
   /** Sesiones completadas de la semana en curso — numerador "{done}/{total}". */
@@ -50,6 +54,9 @@ export async function buildAthleteResumen(params: {
   const todayIso = isoDateString(today);
   const weekStart = isoDateString(mondayOfWeek(today));
   const weekEnd = isoDateString(addDays(mondayOfWeek(today), 6));
+  // Rolling adherence window: the trailing N days up to and including today
+  // (future-scheduled sessions aren't due yet, so they never count as "missed").
+  const adhStart = isoDateString(addDays(today, -(ADHERENCE_WINDOW_DAYS - 1)));
 
   const header = await client<Array<{ id: string; full_name: string }>>`
     select a.id::text, a.full_name
@@ -84,20 +91,43 @@ export async function buildAthleteResumen(params: {
     limit 1
   `;
 
-  const complianceRows = await client<Array<{ scheduled: number; completed: number }>>`
+  // One round-trip covers both windows: the current week (lun-dom) drives the
+  // "{done}/{total} esta semana" progress, the trailing 30 days drives adherencia.
+  const complianceRows = await client<
+    Array<{
+      week_scheduled: number;
+      week_completed: number;
+      adh_scheduled: number;
+      adh_completed: number;
+    }>
+  >`
     select
-      count(*)::int as scheduled,
-      count(*) filter (where status = 'completed')::int as completed
+      count(*) filter (
+        where scheduled_for >= ${weekStart}::date and scheduled_for <= ${weekEnd}::date
+      )::int as week_scheduled,
+      count(*) filter (
+        where scheduled_for >= ${weekStart}::date and scheduled_for <= ${weekEnd}::date
+          and status = 'completed'
+      )::int as week_completed,
+      count(*) filter (
+        where scheduled_for >= ${adhStart}::date and scheduled_for <= ${todayIso}::date
+      )::int as adh_scheduled,
+      count(*) filter (
+        where scheduled_for >= ${adhStart}::date and scheduled_for <= ${todayIso}::date
+          and status = 'completed'
+      )::int as adh_completed
     from workout_assignments
     where athlete_id = ${params.athlete_id}
-      and scheduled_for >= ${weekStart}::date
+      and scheduled_for >= ${adhStart}::date
       and scheduled_for <= ${weekEnd}::date
   `;
 
-  const scheduled = complianceRows[0]?.scheduled ?? 0;
-  const completed = complianceRows[0]?.completed ?? 0;
-  const compliance_pct_7d =
-    scheduled > 0 ? Math.round((completed / scheduled) * 100) : null;
+  const scheduled = complianceRows[0]?.week_scheduled ?? 0;
+  const completed = complianceRows[0]?.week_completed ?? 0;
+  const adherence_pct_30d = adherencePct(
+    complianceRows[0]?.adh_scheduled ?? 0,
+    complianceRows[0]?.adh_completed ?? 0,
+  );
 
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
   const programming = await getAthleteProgrammingStatus({
@@ -127,7 +157,7 @@ export async function buildAthleteResumen(params: {
     macro,
     programming,
     readiness_score: readinessRows[0]?.score ?? null,
-    compliance_pct_7d,
+    adherence_pct_30d,
     week_scheduled: scheduled,
     week_completed: completed,
     load_label,

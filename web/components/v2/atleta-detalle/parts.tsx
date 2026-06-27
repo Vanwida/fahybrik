@@ -83,6 +83,102 @@ export function ChartPlaceholder({
   );
 }
 
+/**
+ * Sparkline — a dependency-free SVG trend line for a single biometric metric.
+ * Inputs are the raw daily values (nulls = no reading that day); the line BREAKS
+ * across gaps rather than interpolating, so a missing day never draws a fake
+ * segment. The y-axis auto-scales to the series' own min/max (a relative trend,
+ * not an absolute zero-based axis), x spans the window evenly. An optional
+ * `baseline` series (e.g. the rolling HRV baseline) is overlaid dashed + faint.
+ *
+ * Responsive: a normalized 0–100 × `height` viewBox stretched to the container
+ * with non-scaling strokes, so the line stays crisp at any width. Color comes
+ * from a CSS var, so it adapts to light/dark automatically.
+ */
+export function Sparkline({
+  values,
+  baseline,
+  height = 44,
+  strokeVar = '--v2-accent',
+  className,
+}: {
+  values: ReadonlyArray<number | null>;
+  baseline?: ReadonlyArray<number | null>;
+  height?: number;
+  /** CSS custom property name used for the line stroke (token, light/dark aware). */
+  strokeVar?: string;
+  className?: string;
+}) {
+  const PAD = 4; // vertical breathing room so peaks/troughs aren't clipped
+  const W = 100; // normalized x-domain (stretched to container width)
+  const n = values.length;
+
+  // Scale across both the series and its baseline so the overlay shares the axis.
+  const finite = (arr: ReadonlyArray<number | null> | undefined) =>
+    (arr ?? []).filter((v): v is number => v != null);
+  const pool = [...finite(values), ...finite(baseline)];
+  if (pool.length === 0 || n < 2) return null;
+
+  let min = Math.min(...pool);
+  let max = Math.max(...pool);
+  if (min === max) {
+    // Flat series — center the line instead of dividing by zero.
+    min -= 1;
+    max += 1;
+  }
+  const x = (i: number) => (n === 1 ? W / 2 : (i / (n - 1)) * W);
+  const y = (v: number) => height - PAD - ((v - min) / (max - min)) * (height - PAD * 2);
+
+  // Build a path that lifts the pen across null gaps (M after each gap, L within).
+  const toPath = (arr: ReadonlyArray<number | null>) => {
+    let d = '';
+    let pen = false;
+    for (let i = 0; i < arr.length; i++) {
+      const v = arr[i];
+      if (v == null) {
+        pen = false;
+        continue;
+      }
+      d += `${pen ? 'L' : 'M'}${x(i).toFixed(2)} ${y(v).toFixed(2)} `;
+      pen = true;
+    }
+    return d.trim();
+  };
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${height}`}
+      width="100%"
+      height={height}
+      preserveAspectRatio="none"
+      className={className}
+      role="img"
+      aria-hidden
+    >
+      {baseline ? (
+        <path
+          d={toPath(baseline)}
+          fill="none"
+          stroke="var(--v2-faint)"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          strokeOpacity={0.7}
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+      <path
+        d={toPath(values)}
+        fill="none"
+        stroke={`var(${strokeVar})`}
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 /** Dashed "add / program" button row — the recurring affordance across tabs. */
 export function DashedAction({
   icon,

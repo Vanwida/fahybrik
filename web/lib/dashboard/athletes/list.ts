@@ -1,6 +1,7 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeek, startOfDayInBox, startOfDayUtc } from '@fahybrid/shared/domain/dates';
+import { addDays, isoDateString, startOfDayInBox, startOfDayUtc } from '@fahybrid/shared/domain/dates';
+import { ADHERENCE_WINDOW_DAYS, adherencePct } from '@fahybrid/shared/domain/adherence';
 import {
   loadProgrammingStatusMap,
   type ProgrammingStatus,
@@ -65,8 +66,10 @@ export async function fetchAthletesForCoach(params: {
 }): Promise<AthleteRow[]> {
   const client = params.client ?? defaultSql;
   const today = startOfDayUtc(new Date());
-  const weekStart = isoDateString(mondayOfWeek(today));
-  const weekEnd = isoDateString(addDays(mondayOfWeek(today), 6));
+  // Rolling adherence window: trailing N days up to today (single-sourced with
+  // the single-athlete resumen via @fahybrid/shared/domain/adherence).
+  const adhStart = isoDateString(addDays(today, -(ADHERENCE_WINDOW_DAYS - 1)));
+  const adhEnd = isoDateString(today);
   // Race countdown resolves "today" in the box timezone (Europe/Madrid), matching
   // getNextRace — never UTC, or the countdown shifts a day late in the evening.
   const raceTodayIso = isoDateString(startOfDayInBox(new Date()));
@@ -146,13 +149,15 @@ export async function fetchAthletesForCoach(params: {
       limit 1
     ) rds on true
     left join lateral (
+      -- Rolling 30-day completion adherence (NOT current week): completed vs
+      -- scheduled across the trailing window, matching the resumen definition.
       select
         count(*)::int as scheduled,
         count(*) filter (where status = 'completed')::int as completed
       from workout_assignments x
       where x.athlete_id = a.id
-        and x.scheduled_for >= ${weekStart}::date
-        and x.scheduled_for <= ${weekEnd}::date
+        and x.scheduled_for >= ${adhStart}::date
+        and x.scheduled_for <= ${adhEnd}::date
     ) wa on true
     left join lateral (
       select plan_type, source
@@ -199,8 +204,7 @@ export async function fetchAthletesForCoach(params: {
     const prog = statusMap.get(r.athlete_id);
     const programming_status = prog?.status ?? 'ok';
     const programming_label = prog?.label ?? null;
-    const compliance_pct =
-      r.scheduled > 0 ? Math.round((r.completed / r.scheduled) * 100) : null;
+    const compliance_pct = adherencePct(r.scheduled, r.completed);
 
     let alert_label: string | null = null;
     let alert_severity: AthleteRow['alert_severity'] = null;

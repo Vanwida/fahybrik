@@ -4,3 +4,4 @@
 // real compute lands in F6.
 
 export * from './bands';
+export * from './completion';

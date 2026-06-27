@@ -17,7 +17,8 @@ export interface RosterRow {
   phase_label: string;
   /** Raw microciclo name (presence + filter key), null when no active microciclo. */
   phase_code: string | null;
-  /** Current-week compliance % (loader field), null when no scheduled work. */
+  /** Rolling 30-day completion adherence % (loader field), null when no scheduled
+   *  work in the window. Same definition as the atleta-detalle header tile. */
   adherence_pct: number | null;
   /** Numeric level rank for sorting (athlete_levels.sort_order). 0 = no level. */
   level_rank: number;
@@ -41,9 +42,9 @@ export function toRosterRow(a: AthleteRow): RosterRow {
     status: rosterStatus(a),
     phase_label: phaseLabel(a),
     phase_code: a.block_type,
-    // NOTE: the loader computes CURRENT-WEEK compliance, not a true 30-day window.
-    // The UI labels this honestly ("adherencia", not "30d") until a rolling-30d
-    // signal exists. // TODO(model): real 30-day adherence aggregate.
+    // Rolling 30-day completion adherence (the loader's window, single-sourced
+    // with the resumen via @fahybrid/shared/domain/adherence) — the market-standard
+    // meaning of "adherencia", consistent with the atleta-detalle header tile.
     adherence_pct: a.compliance_pct,
     level_rank: a.level_sort,
     last_activity_at: a.last_activity_at,
