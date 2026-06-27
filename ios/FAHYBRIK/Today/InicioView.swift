@@ -372,14 +372,25 @@ struct InicioView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "Hola, Ana" — first word of fullName; falls back to a neutral greeting
-    /// while identity loads or if the name is missing.
+    /// "Hola, Ana" — first word of fullName. When the name is missing (still
+    /// loading, or an athlete with no name on file, e.g. the demo account) we
+    /// fall back to a complete, time-aware greeting instead of a bare "Hola".
     private var greetingName: String {
         guard let name = identity?.fullName.split(separator: " ").first.map(String.init),
               !name.isEmpty else {
-            return "Hola"
+            return timeOfDayGreeting
         }
         return "Hola, \(name)"
+    }
+
+    /// "Buenos días" / "Buenas tardes" / "Buenas noches" by local hour — the
+    /// nameless fallback so the hero greeting never renders incomplete.
+    private var timeOfDayGreeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 6..<13:  return "Buenos días"
+        case 13..<21: return "Buenas tardes"
+        default:      return "Buenas noches"
+        }
     }
 
     /// Capitalized ES date, e.g. "Miércoles 14 ene".

@@ -5,7 +5,8 @@ import SwiftUI
 // first if a token here needs to move.
 
 // MARK: - Wordmark
-// Bracketed orange [F] + foreground AHYBRIK. Italic-bold display, tracking -1.
+// Bracketed orange [F] + foreground AHYBRID. Italic-bold display, tracking -1.
+// Consumer brand = FAHYBRID (fahybrid.com); internal infra stays FAHYBRIK.
 struct Wordmark: View {
     var size: CGFloat = 22
     var body: some View {
@@ -14,7 +15,7 @@ struct Wordmark: View {
             // brand orange fails AA, so use the role-split accentText (darkens to
             // #B5430B on light, stays #F06A2A on dark).
             Text("[F]").foregroundStyle(Theme.Color.accentText)
-            Text("AHYBRIK").foregroundStyle(Theme.Color.foreground)
+            Text("AHYBRID").foregroundStyle(Theme.Color.foreground)
         }
         .font(.system(size: size, weight: .heavy, design: .default).italic())
         .tracking(-1)

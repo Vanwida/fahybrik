@@ -94,8 +94,8 @@
 		7F9D03AD50F95167830E8E8F /* NutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED48EFC44FF48D81CC1850A /* NutritionView.swift */; };
 		8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */; };
 		824817A27EA2989622632399 /* CheckinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691375D173DBA6F86C29874E /* CheckinView.swift */; };
-		82C1E44B8850D1B614442474 /* HyroxStations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E3DCD5BA90C4846A93A6D6 /* HyroxStations.swift */; };
 		84206ABA69E5D38C61E12324 /* DemoAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C00E944D0C9C956B96D82E5 /* DemoAuthService.swift */; };
+		87E5649DFF688211A1AAFA2C /* HyroxStations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E711E3786D1AA6AB822C9E1 /* HyroxStations.swift */; };
 		8868F413BE711348230E7A84 /* HealthKitPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 155C7267C644E8768F74865E /* HealthKitPermissions.swift */; };
 		8A60F22CE2726C1554EC974A /* FijarObjetivoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B9F63D884A87D10ED4735A /* FijarObjetivoView.swift */; };
 		8AA5DCFEC04D521AC8646AFE /* HyroxHistoryStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4928195889090E0A57D59E /* HyroxHistoryStep.swift */; };
@@ -152,6 +152,7 @@
 		EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374148A629E21B522808AF09 /* WorkoutStateStore.swift */; };
 		EF04D46203ED3F7813E924CD /* AccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */; };
 		F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996007C0E035EF597F9CD7 /* ProgressDots.swift */; };
+		F2B1FCED68ECF4D589808275 /* SolicitarCarreraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2842D4B17C41EEA3B415E8BA /* SolicitarCarreraView.swift */; };
 		F3C3F5A2A165B2D6C5077755 /* ImportedRaceHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EB05553A86CA68BFC2CE3D /* ImportedRaceHistory.swift */; };
 		F6619CC6398666107F23280E /* StationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B796CAF804634A3E6D8CD4A2 /* StationDetailView.swift */; };
 		F765FE26FE60E9702A42DA3D /* PreWorkoutBriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */; };
@@ -195,13 +196,13 @@
 		258773F221C5DCA05BEBE809 /* DataGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGrid.swift; sourceTree = "<group>"; };
 		25B7DC244BFC59C16102C329 /* ATRPhase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ATRPhase.swift; sourceTree = "<group>"; };
 		26D1DD11BF4485137BD4B1B3 /* HabitsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitsStep.swift; sourceTree = "<group>"; };
+		2842D4B17C41EEA3B415E8BA /* SolicitarCarreraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolicitarCarreraView.swift; sourceTree = "<group>"; };
 		2CDCAAE16C5A93294F72843D /* DoblesTrainTogetherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesTrainTogetherView.swift; sourceTree = "<group>"; };
 		2DC7725660B538E3914048E9 /* DoneStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoneStep.swift; sourceTree = "<group>"; };
 		2E47D3571BC5882CD320FC08 /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = System/Library/Frameworks/ARKit.framework; sourceTree = SDKROOT; };
 		31E936C5A62B14E7E0D1C41E /* WorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutModels.swift; sourceTree = "<group>"; };
 		3420DC95B83652CEEDC3ABE0 /* PrescriptionRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrescriptionRenderer.swift; sourceTree = "<group>"; };
 		358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FAHYBRIKWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		35E3DCD5BA90C4846A93A6D6 /* HyroxStations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStations.swift; sourceTree = "<group>"; };
 		36F5AA95A8BE72BFDB602AFC /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
 		374148A629E21B522808AF09 /* WorkoutStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStateStore.swift; sourceTree = "<group>"; };
 		39EF7B3C71957791C43C44FF /* InviteLandingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteLandingView.swift; sourceTree = "<group>"; };
@@ -224,6 +225,7 @@
 		5ABF59F238D4FB4A53CCDD05 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		5D9ABACDF3287674F039ADFE /* GoalsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsStep.swift; sourceTree = "<group>"; };
 		5E3AD6C948228FDE786C8711 /* CarrerasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarrerasView.swift; sourceTree = "<group>"; };
+		5E711E3786D1AA6AB822C9E1 /* HyroxStations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStations.swift; sourceTree = "<group>"; };
 		5EDD6D784877E8B1D2A5C26D /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		61DF02B3BFBF388AFA8E2CF3 /* DemoSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoSignInView.swift; sourceTree = "<group>"; };
 		61FEDB6AF066E215592457AE /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -442,12 +444,13 @@
 				5E3AD6C948228FDE786C8711 /* CarrerasView.swift */,
 				E3B9F63D884A87D10ED4735A /* FijarObjetivoView.swift */,
 				6A87CD8000008A35419D784E /* HyresultImport.swift */,
-				35E3DCD5BA90C4846A93A6D6 /* HyroxStations.swift */,
+				5E711E3786D1AA6AB822C9E1 /* HyroxStations.swift */,
 				41EB05553A86CA68BFC2CE3D /* ImportedRaceHistory.swift */,
 				9120CB1234A2DD3E8B1AE0DC /* ImportRaceLinkSheet.swift */,
 				AFC5B95739ED845F9D70C431 /* ImportRaceSheet.swift */,
 				CEBA3019D6F13D1753993AB3 /* RaceCalendarService.swift */,
 				72CE47A11717F88A752905ED /* RunningDeepDiveView.swift */,
+				2842D4B17C41EEA3B415E8BA /* SolicitarCarreraView.swift */,
 				B796CAF804634A3E6D8CD4A2 /* StationDetailView.swift */,
 			);
 			path = Carreras;
@@ -895,7 +898,7 @@
 			};
 			buildConfigurationList = 25DC17CD4B44077A0391B5F1 /* Build configuration list for PBXProject "FAHYBRIK" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = es;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
@@ -986,6 +989,7 @@
 				685766FC06F95014DF419D9E /* HealthKitSyncService.swift in Sources */,
 				A477410C61DF6DFC872C0151 /* HyresultImport.swift in Sources */,
 				8AA5DCFEC04D521AC8646AFE /* HyroxHistoryStep.swift in Sources */,
+				87E5649DFF688211A1AAFA2C /* HyroxStations.swift in Sources */,
 				8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */,
 				5677E087C238140250D08673 /* ImportRaceLinkSheet.swift in Sources */,
 				E6164EAF1CE91D9932788D5A /* ImportRaceSheet.swift in Sources */,
@@ -1032,7 +1036,6 @@
 				F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */,
 				0A16A2252EE89E3A39ABB547 /* PushManager.swift in Sources */,
 				67C7D8E74BAF5F6F5443D0A8 /* RaceCalendarService.swift in Sources */,
-				82C1E44B8850D1B614442474 /* HyroxStations.swift in Sources */,
 				FD56B719DEE716A7FC872AB4 /* ReadinessService.swift in Sources */,
 				0A160AE1CDFF9776ADE9C1DF /* RecoveryStep.swift in Sources */,
 				F90FB6069AD601D11219F451 /* RedesignComponents.swift in Sources */,
@@ -1040,6 +1043,7 @@
 				6A9F1E2AAE197B095BD92EC7 /* RunningDeepDiveView.swift in Sources */,
 				D36DC146789CC377AE4BF27B /* SafariView.swift in Sources */,
 				531CE717424FD1028BF11717 /* Scale1to5Picker.swift in Sources */,
+				F2B1FCED68ECF4D589808275 /* SolicitarCarreraView.swift in Sources */,
 				F6619CC6398666107F23280E /* StationDetailView.swift in Sources */,
 				D430880EAF07B966CB8BBF42 /* StatsRecentSection.swift in Sources */,
 				5373313E61AAACD7B5DBA151 /* StatsService.swift in Sources */,
@@ -1129,6 +1133,8 @@
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
+				FAHYBRIK_API_BASE = "https://fahybrik-web.vercel.app";
+				FAHYBRIK_DEMO_ENTRY = 0;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIK/Generated-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1157,9 +1163,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = FAHYBRIK;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRIK lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRIK guarda en Apple Health los entrenos que registras desde el reloj.";
+				INFOPLIST_KEY_CFBundleDisplayName = FAHYBRID;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRID lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRID guarda en Apple Health los entrenos que registras desde el reloj.";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = pro.aistudios.vanwida.fahybrik;
 				INFOPLIST_KEY_WKWatchOnly = NO;
 				MARKETING_VERSION = 0.1.0;
@@ -1184,9 +1190,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = FAHYBRIK;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRIK lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRIK guarda en Apple Health los entrenos que registras desde el reloj.";
+				INFOPLIST_KEY_CFBundleDisplayName = FAHYBRID;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRID lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRID guarda en Apple Health los entrenos que registras desde el reloj.";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = pro.aistudios.vanwida.fahybrik;
 				INFOPLIST_KEY_WKWatchOnly = NO;
 				MARKETING_VERSION = 0.1.0;
@@ -1301,6 +1307,8 @@
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
+				FAHYBRIK_API_BASE = "https://fahybrik-demo.vercel.app";
+				FAHYBRIK_DEMO_ENTRY = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIK/Generated-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;

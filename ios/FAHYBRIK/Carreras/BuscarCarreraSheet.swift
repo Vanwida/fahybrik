@@ -38,7 +38,7 @@ struct BuscarCarreraSheet: View {
 
     // Navigation
     @State private var selected: RaceCalendarEvent? = nil
-    @State private var showLinkEntry = false
+    @State private var showRequestRace = false
 
     @FocusState private var fieldFocused: Bool
 
@@ -77,10 +77,11 @@ struct BuscarCarreraSheet: View {
                     dismiss()
                 }
             }
-            .navigationDestination(isPresented: $showLinkEntry) {
-                LinkImportView(bearer: bearer) {
-                    // The manual path imports a PAST result link — it does NOT
-                    // set a future target. Just dismiss; no target was fixed.
+            .navigationDestination(isPresented: $showRequestRace) {
+                // A future objective can't be a pasted PAST result link. When the
+                // race isn't in the official calendar, the athlete asks their coach
+                // to add it — the coach curates the calendar, then it's fixable.
+                SolicitarCarreraView(bearer: bearer) {
                     dismiss()
                 }
             }
@@ -265,12 +266,12 @@ struct BuscarCarreraSheet: View {
     private var manualFallback: some View {
         Button {
             Haptics.light()
-            showLinkEntry = true
+            showRequestRace = true
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "plus.circle")
+                Image(systemName: "paperplane")
                     .font(.system(size: 13, weight: .semibold))
-                Text("¿No encuentras tu carrera? Añádela a mano")
+                Text("¿No encuentras tu carrera? Pídesela a tu coach")
                     .font(.system(size: 13, weight: .semibold))
                     .multilineTextAlignment(.center)
             }

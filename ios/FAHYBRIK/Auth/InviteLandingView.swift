@@ -39,7 +39,7 @@ struct InviteLandingView: View {
                     Text("Activa tu cuenta")
                         .font(Theme.Typography.headlineM)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu coach te ha invitado a entrenar en FAHYBRIK. Inicia sesión con Apple para activar tu cuenta.")
+                    Text("Tu coach te ha invitado a entrenar en FAHYBRID. Inicia sesión con Apple para activar tu cuenta.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)

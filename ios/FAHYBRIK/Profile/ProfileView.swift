@@ -21,6 +21,9 @@ struct ProfileView: View {
     @State private var aEventDays: Int? = nil
     @State private var blockLabel: String? = nil
     @State private var targetRace: AthleteNextRace? = nil
+    // Flips true once identity + partner + subscription have all resolved. Gates
+    // the modality value so it never flashes a placeholder before the real one.
+    @State private var initialLoadDone: Bool = false
 
     @State private var showEditProfile: Bool = false
     // Presents the target-race picker from the "Carrera objetivo" row.
@@ -111,6 +114,7 @@ struct ProfileView: View {
             await loadIdentity()
             await loadPartner()
             await loadSubscription()
+            initialLoadDone = true
         }
         .sheet(item: $sheet) { kind in
             sheetView(for: kind)
@@ -223,6 +227,7 @@ struct ProfileView: View {
         CardSurface(padding: 0) {
             VStack(spacing: 0) {
                 modalityRow
+                    .redacted(reason: initialLoadDone ? [] : .placeholder)
                 Hairline()
                 NavigationLink {
                     SubscriptionView(bearer: bearer)
@@ -301,8 +306,11 @@ struct ProfileView: View {
         return false
     }
 
-    /// "Dobles · con {nombre}" when paired; "Dobles · invita a tu compañero/a"
-    /// when on Dobles but unpaired; otherwise the plan name (Individual / Elite).
+    /// The athlete's competition MODALITY — Individual / Dobles / Pro. This is
+    /// NOT the subscription tier: "HYROX Athlete" (the marketing plan label) must
+    /// never appear here. "Dobles · con {nombre}" when paired; "Dobles · invita a
+    /// tu compañero/a" when on Dobles but unpaired; "Pro" for the pro_elite plan;
+    /// "Individual" otherwise. (Three modalities per the Documento Maestro.)
     private var modalityValue: String {
         if let partner {
             return "Dobles · con \(partner.firstName)"
@@ -310,7 +318,10 @@ struct ProfileView: View {
         if isDobles {
             return "Dobles · invita a tu compañero/a"
         }
-        return subscription?.displayPlanLabel ?? "Individual"
+        switch subscription?.planType {
+        case "pro_elite": return "Pro"
+        default:          return "Individual"
+        }
     }
 
     /// Goal time + target race, both real (from targetRace). Honest empty when
@@ -323,15 +334,11 @@ struct ProfileView: View {
         return race.name
     }
 
-    /// Preferred language from profile, falling back to the device locale.
-    private var languageValue: String {
-        if let code = identity?.preferredLanguage, let label = languageLabel(code) {
-            return label
-        }
-        let code = Locale.current.language.languageCode?.identifier ?? "es"
-        return Locale.current.localizedString(forLanguageCode: code)?.capitalized
-            ?? (code == "es" ? "Español" : code.uppercased())
-    }
+    /// The app renders in Spanish only (no runtime localization switch yet), so
+    /// this row reflects the language the athlete actually sees — never the stored
+    /// `preferred_language`. Showing "English" while the whole UI was Spanish was
+    /// misleading; "Español" is the honest, real value.
+    private var languageValue: String { "Español" }
 
     // MARK: - Subscription
 
@@ -1089,8 +1096,8 @@ private struct LegalSheet: View {
 }
 
 private enum LegalCopy {
-    static let privacy = "FAHYBRIK procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a hello@fahybrid.com."
-    static let terms = "El uso de FAHYBRIK implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
+    static let privacy = "FAHYBRID procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a hello@fahybrid.com."
+    static let terms = "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
 }
 
 // MARK: - Export Share Sheet plumbing

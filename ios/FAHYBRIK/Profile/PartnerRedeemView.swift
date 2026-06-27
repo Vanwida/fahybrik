@@ -34,7 +34,7 @@ struct PartnerRedeemView: View {
                     Text("Bienvenido/a")
                         .font(Theme.Typography.headlineM)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu compañero/a te ha invitado a entrenar juntos en FAHYBRIK. Continúa con Apple para crear tu cuenta.")
+                    Text("Tu compañero/a te ha invitado a entrenar juntos en FAHYBRID. Continúa con Apple para crear tu cuenta.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)

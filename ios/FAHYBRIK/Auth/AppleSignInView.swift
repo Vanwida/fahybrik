@@ -21,7 +21,7 @@ struct AppleSignInView: View {
 
                 HStack(spacing: 0) {
                     Text("[F]").foregroundStyle(Theme.Color.accentText)
-                    Text("AHYBRIK").foregroundStyle(Theme.Color.foreground)
+                    Text("AHYBRID").foregroundStyle(Theme.Color.foreground)
                 }
                 .font(Theme.Typography.display)
 

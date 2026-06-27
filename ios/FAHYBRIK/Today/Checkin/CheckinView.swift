@@ -17,17 +17,22 @@ struct CheckinView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     headline
+                    // Every row reads the same way: 1 = peor, 5 = mejor. Soreness
+                    // and fatigue are negatively keyed in the model (5 = worst),
+                    // so they bind inverted and are reframed positive (recuperación
+                    // / energía) — the athlete never has to flip the scale's
+                    // meaning between questions.
                     questionRow(
-                        title: "Soreness",
-                        binding: bind(\.soreness),
-                        leftHint: "1 ninguno",
-                        rightHint: "5 mucho"
+                        title: "Recuperación muscular",
+                        binding: invertedBind(\.soreness),
+                        leftHint: "1 dolorido",
+                        rightHint: "5 recuperado"
                     )
                     questionRow(
-                        title: "Mood",
+                        title: "Ánimo",
                         binding: bind(\.mood),
                         leftHint: "1 mal",
-                        rightHint: "5 great"
+                        rightHint: "5 genial"
                     )
                     questionRow(
                         title: "Motivación",
@@ -36,13 +41,13 @@ struct CheckinView: View {
                         rightHint: "5 a tope"
                     )
                     questionRow(
-                        title: "Fatiga",
-                        binding: bind(\.fatigue),
-                        leftHint: "1 fresco",
-                        rightHint: "5 agotado"
+                        title: "Energía",
+                        binding: invertedBind(\.fatigue),
+                        leftHint: "1 agotado",
+                        rightHint: "5 a tope"
                     )
                     questionRow(
-                        title: "Calidad sueño",
+                        title: "Calidad del sueño",
                         binding: bind(\.sleepQuality),
                         leftHint: "1 mal",
                         rightHint: "5 perfecto"
@@ -74,7 +79,7 @@ struct CheckinView: View {
             Text("Buenos días.")
                 .font(Theme.Typography.headlineL)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("Cómo te sientes hoy?")
+            Text("¿Cómo te sientes hoy?")
                 .font(Theme.Typography.body)
                 .foregroundStyle(Theme.Color.muted)
         }
@@ -165,5 +170,16 @@ struct CheckinView: View {
 
     private func bind(_ kp: ReferenceWritableKeyPath<CheckinAnswers, Int?>) -> Binding<Int?> {
         Binding(get: { answers[keyPath: kp] }, set: { answers[keyPath: kp] = $0 })
+    }
+
+    /// Inverted 1–5 binding for the negatively-keyed wellness fields (soreness,
+    /// fatigue). The model + submitted snapshot keep the RAW semantic (5 = worst)
+    /// so the backend contract and `subScore` are untouched; the UI shows them
+    /// reframed positive (5 = best) so EVERY row's "good" end is 5. 1↔5, 2↔4, 3↔3.
+    private func invertedBind(_ kp: ReferenceWritableKeyPath<CheckinAnswers, Int?>) -> Binding<Int?> {
+        Binding(
+            get: { answers[keyPath: kp].map { 6 - $0 } },
+            set: { answers[keyPath: kp] = $0.map { 6 - $0 } }
+        )
     }
 }

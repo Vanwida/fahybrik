@@ -73,7 +73,7 @@ struct RootView: View {
             Image(systemName: "iphone.gen3")
                 .font(.system(size: 28))
                 .foregroundStyle(.white.opacity(0.6))
-            Text("Abre FAHYBRIK en el iPhone")
+            Text("Abre FAHYBRID en el iPhone")
                 .font(.system(size: 13, weight: .semibold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white)

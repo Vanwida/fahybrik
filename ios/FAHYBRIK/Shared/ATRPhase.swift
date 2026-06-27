@@ -10,7 +10,10 @@ import Foundation
 //
 //   ACC   → Acumulación     (volumen + capacidad general)
 //   TRANS → Intensificación (trabajo específico de carrera)
-//   REAL  → Tapering        (afinado + pico el día A-event)
+//   REAL  → Puesta a punto  (afinado + pico el día A-event)
+//
+// "Puesta a punto" is the athlete-facing Spanish label used on the live landing
+// (web/lib/landing/content.ts) — the consumer brand term for the tapering phase.
 //
 // Anything unrecognised is returned capitalized as-is so we never lose data.
 func atrPhaseLabel(_ phase: String, locale: String = "es") -> String {
@@ -22,7 +25,7 @@ func atrPhaseLabel(_ phase: String, locale: String = "es") -> String {
     case "TRANS":
         return isSpanish ? "Intensificación" : "Intensification"
     case "REAL":
-        return isSpanish ? "Tapering" : "Tapering"
+        return isSpanish ? "Puesta a punto" : "Tapering"
     default:
         return phase.prefix(1).uppercased() + phase.dropFirst().lowercased()
     }

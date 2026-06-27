@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: pro.aistudios.vanwida
   deploymentTarget:
     iOS: "18.0"
-  developmentLanguage: en
+  developmentLanguage: es
   createIntermediateGroups: true
   generateEmptyDirectories: true
   groupSortPosition: top
@@ -59,7 +59,23 @@ targets:
     info:
       path: FAHYBRIK/Generated-Info.plist
       properties:
-        CFBundleDisplayName: "FAHYBRIK"
+        # Consumer brand is FAHYBRID (legal + domain fahybrid.com). Internal
+        # bundle id / target / project name stay FAHYBRIK (infra rename pending).
+        CFBundleDisplayName: "FAHYBRID"
+        # ES-only app: force Spanish for all SYSTEM-provided UI (Sign in with
+        # Apple button, permission prompts, notification authorization sheet) so
+        # they never render in the device language. CFBundleLocalizations declares
+        # es as the sole supported localization → Bundle.preferredLocalizations =
+        # ["es"] regardless of device language.
+        CFBundleDevelopmentRegion: "es"
+        CFBundleLocalizations:
+          - es
+        # Runtime environment, expanded by the Info.plist processor from the
+        # active build configuration's settings (see settings.configs below):
+        #   Debug   → demo backend + demo-entry button on  (simulator demos)
+        #   Release → prod backend + demo-entry button off (TestFlight / SiwA)
+        FahybrikApiBase: "$(FAHYBRIK_API_BASE)"
+        FahybrikDemoEntry: "$(FAHYBRIK_DEMO_ENTRY)"
         CFBundleURLTypes:
           - CFBundleURLName: pro.aistudios.vanwida.fahybrik.deeplink
             CFBundleURLSchemes:
@@ -82,14 +98,26 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # Privacy usage descriptions — Spanish first, mirroring the primary
         # App Store locale. Match /docs/app-store/privacy-nutrition.md.
-        NSHealthShareUsageDescription: "FAHYBRIK lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
-        NSHealthUpdateUsageDescription: "FAHYBRIK guarda los entrenos que registras en la app en Apple Health."
-        NSBluetoothAlwaysUsageDescription: "FAHYBRIK se conecta con tu Concept2 para registrar potencia y SPM con precisión durante row y ski erg."
-        NSLocationWhenInUseUsageDescription: "FAHYBRIK usa el GPS durante tus carreras para medir distancia y ritmo. Si no lo activas, puedes introducir la distancia a mano."
-        NSCameraUsageDescription: "FAHYBRIK usa la cámara para escanear códigos de barras de productos, analizar comida con IA (usando LiDAR cuando está disponible) y grabar vídeos de técnica para tu coach."
-        NSMicrophoneUsageDescription: "FAHYBRIK graba notas de voz para que envíes mensajes rápidos a tu coach por el chat."
-        NSPhotoLibraryUsageDescription: "FAHYBRIK adjunta fotos o vídeos de tu galería al chat con tu coach (técnica, lesiones, equipamiento)."
+        NSHealthShareUsageDescription: "FAHYBRID lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
+        NSHealthUpdateUsageDescription: "FAHYBRID guarda los entrenos que registras en la app en Apple Health."
+        NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu Concept2 para registrar potencia y SPM con precisión durante row y ski erg."
+        NSLocationWhenInUseUsageDescription: "FAHYBRID usa el GPS durante tus carreras para medir distancia y ritmo. Si no lo activas, puedes introducir la distancia a mano."
+        NSCameraUsageDescription: "FAHYBRID usa la cámara para escanear códigos de barras de productos, analizar comida con IA (usando LiDAR cuando está disponible) y grabar vídeos de técnica para tu coach."
+        NSMicrophoneUsageDescription: "FAHYBRID graba notas de voz para que envíes mensajes rápidos a tu coach por el chat."
+        NSPhotoLibraryUsageDescription: "FAHYBRID adjunta fotos o vídeos de tu galería al chat con tu coach (técnica, lesiones, equipamiento)."
     settings:
+      # Per-configuration runtime environment. Referenced by the Info.plist keys
+      # FahybrikApiBase / FahybrikDemoEntry above and expanded at build time.
+      # This is what makes a plain `xcodebuild -configuration Debug` reliably
+      # carry the demo backend — the values live in the committed project (and
+      # the regenerated .pbxproj), NOT in the gitignored Generated-Info.plist.
+      configs:
+        Debug:
+          FAHYBRIK_API_BASE: "https://fahybrik-demo.vercel.app"
+          FAHYBRIK_DEMO_ENTRY: "1"
+        Release:
+          FAHYBRIK_API_BASE: "https://fahybrik-web.vercel.app"
+          FAHYBRIK_DEMO_ENTRY: "0"
       base:
         PRODUCT_BUNDLE_IDENTIFIER: pro.aistudios.vanwida.fahybrik
         CODE_SIGN_ENTITLEMENTS: FAHYBRIK/FAHYBRIK.entitlements
@@ -148,11 +176,11 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.1.0"
         TARGETED_DEVICE_FAMILY: "4"
-        INFOPLIST_KEY_CFBundleDisplayName: "FAHYBRIK"
+        INFOPLIST_KEY_CFBundleDisplayName: "FAHYBRID"
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: pro.aistudios.vanwida.fahybrik
         INFOPLIST_KEY_WKWatchOnly: NO
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "FAHYBRIK lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión."
-        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "FAHYBRIK guarda en Apple Health los entrenos que registras desde el reloj."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "FAHYBRID lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "FAHYBRID guarda en Apple Health los entrenos que registras desde el reloj."
         ENABLE_PREVIEWS: YES
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
         # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----

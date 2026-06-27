@@ -72,7 +72,7 @@ struct PM5LiveStreamView: View {
             stateMessage(
                 icon: "lock.shield",
                 title: "Bluetooth bloqueado",
-                detail: "Activa Bluetooth para FAHYBRIK en Ajustes para conectar tu PM5."
+                detail: "Activa Bluetooth para FAHYBRID en Ajustes para conectar tu PM5."
             ) {
                 openSettingsButton
             }
