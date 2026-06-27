@@ -7,6 +7,7 @@
 import type { Sql } from '@/lib/db';
 import type { ChatAttachmentKind, MessageDTO, SendMessageInput } from './schema';
 import { notifyOpposite } from './notify';
+import { publishMessage } from './pubsub';
 
 // Postgres `timestamptz::text` renders `2026-05-29 11:06:13.234292+00` — a space
 // instead of `T` and a `+00` offset. That is NOT valid ISO 8601, so the iOS
@@ -26,6 +27,37 @@ export function toWireIso(pgText: string | null): string | null {
   const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) return pgText; // defensive: leave untouched if unparseable
   return d.toISOString();
+}
+
+// Raw row shape returned by the chat message SELECTs. `created_at` / `read_at` /
+// `edited_at` are Postgres `timestamptz::text`; `created_at` doubles as the
+// opaque paging/poll cursor (full µs precision) before `toWireIso` normalizes it.
+type MessageRow = {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  body: string | null;
+  attachment_url: string | null;
+  attachment_kind: string | null;
+  attachment_meta: unknown;
+  created_at: string;
+  read_at: string | null;
+  edited_at: string | null;
+};
+
+function rowToMessageDto(r: MessageRow): MessageDTO {
+  return {
+    id: r.id,
+    thread_id: r.thread_id,
+    sender_user_id: r.sender_user_id,
+    body: r.body,
+    attachment_url: r.attachment_url,
+    attachment_kind: (r.attachment_kind as ChatAttachmentKind | null) ?? null,
+    attachment_meta: (r.attachment_meta as Record<string, unknown> | null) ?? null,
+    created_at: toWireIso(r.created_at)!,
+    read_at: toWireIso(r.read_at),
+    edited_at: toWireIso(r.edited_at),
+  };
 }
 
 export type ThreadSummary = {
@@ -118,20 +150,8 @@ export async function listMessages(args: {
 }): Promise<{ messages: MessageDTO[]; next_cursor: string | null }> {
   const limit = Math.min(Math.max(args.limit ?? 50, 1), 200);
   const cursor = args.cursor;
-  type Row = {
-    id: string;
-    thread_id: string;
-    sender_user_id: string;
-    body: string | null;
-    attachment_url: string | null;
-    attachment_kind: string | null;
-    attachment_meta: unknown;
-    created_at: string;
-    read_at: string | null;
-    edited_at: string | null;
-  };
   const rows = cursor
-    ? await args.sql<Row[]>`
+    ? await args.sql<MessageRow[]>`
         select id::text, thread_id::text, sender_user_id::text, body,
                attachment_url, attachment_kind, attachment_meta::jsonb as attachment_meta,
                created_at::text, read_at::text, edited_at::text
@@ -142,7 +162,7 @@ export async function listMessages(args: {
         order by created_at desc
         limit ${limit + 1}
       `
-    : await args.sql<Row[]>`
+    : await args.sql<MessageRow[]>`
         select id::text, thread_id::text, sender_user_id::text, body,
                attachment_url, attachment_kind, attachment_meta::jsonb as attachment_meta,
                created_at::text, read_at::text, edited_at::text
@@ -155,19 +175,56 @@ export async function listMessages(args: {
   const hasMore = rows.length > limit;
   const sliced = hasMore ? rows.slice(0, limit) : rows;
   const next_cursor = hasMore ? sliced[sliced.length - 1]!.created_at : null;
-  const messages: MessageDTO[] = sliced.map((r) => ({
-    id: r.id,
-    thread_id: r.thread_id,
-    sender_user_id: r.sender_user_id,
-    body: r.body,
-    attachment_url: r.attachment_url,
-    attachment_kind: (r.attachment_kind as ChatAttachmentKind | null) ?? null,
-    attachment_meta: (r.attachment_meta as Record<string, unknown> | null) ?? null,
-    created_at: toWireIso(r.created_at)!,
-    read_at: toWireIso(r.read_at),
-    edited_at: toWireIso(r.edited_at),
-  }));
+  const messages: MessageDTO[] = sliced.map(rowToMessageDto);
   return { messages, next_cursor };
+}
+
+// Single message by id — used by the SSE stream to refetch the full DTO after a
+// NOTIFY (which carries only ids). Returns null if missing or soft-deleted.
+export async function getMessageById(
+  sql: Sql,
+  message_id: string,
+): Promise<MessageDTO | null> {
+  const rows = await sql<MessageRow[]>`
+    select id::text, thread_id::text, sender_user_id::text, body,
+           attachment_url, attachment_kind, attachment_meta::jsonb as attachment_meta,
+           created_at::text, read_at::text, edited_at::text
+    from chat_messages
+    where id = ${message_id}::bigint
+      and deleted_at is null
+    limit 1
+  `;
+  return rows[0] ? rowToMessageDto(rows[0]) : null;
+}
+
+// Messages across a set of threads created strictly after `after` (a raw
+// Postgres timestamptz text cursor), oldest-first. Powers the SSE in-stream poll
+// fallback used when the LISTEN/NOTIFY transport is unavailable. The returned
+// `cursor` is the raw `created_at` of the last row (µs precision) for the next
+// poll, or null when nothing new arrived (caller keeps its current cursor).
+export async function listNewMessages(args: {
+  sql: Sql;
+  thread_ids: bigint[];
+  after: string;
+  limit?: number;
+}): Promise<{ messages: MessageDTO[]; cursor: string | null }> {
+  const { sql, thread_ids, after } = args;
+  if (thread_ids.length === 0) return { messages: [], cursor: null };
+  const limit = Math.min(Math.max(args.limit ?? 100, 1), 200);
+  const ids = thread_ids.map(String);
+  const rows = await sql<MessageRow[]>`
+    select id::text, thread_id::text, sender_user_id::text, body,
+           attachment_url, attachment_kind, attachment_meta::jsonb as attachment_meta,
+           created_at::text, read_at::text, edited_at::text
+    from chat_messages
+    where thread_id = any(${ids}::bigint[])
+      and deleted_at is null
+      and created_at > ${after}::timestamptz
+    order by created_at asc
+    limit ${limit}
+  `;
+  const cursor = rows.length > 0 ? rows[rows.length - 1]!.created_at : null;
+  return { messages: rows.map(rowToMessageDto), cursor };
 }
 
 export async function sendMessage(args: {
@@ -240,19 +297,10 @@ export async function sendMessage(args: {
 
   const createdAtIso = toWireIso(row.created_at)!;
 
-  // Publish to SSE subscribers.
-  publishMessage(BigInt(row.thread_id), {
-    id: row.id,
-    thread_id: row.thread_id,
-    sender_user_id: row.sender_user_id,
-    body: row.body,
-    attachment_url: row.attachment_url,
-    attachment_kind: (row.attachment_kind as ChatAttachmentKind | null) ?? null,
-    attachment_meta: (row.attachment_meta as Record<string, unknown> | null) ?? null,
-    created_at: createdAtIso,
-    read_at: null,
-    edited_at: null,
-  });
+  // Publish to SSE subscribers across all instances (Postgres NOTIFY). The
+  // notify carries only ids; subscribers refetch the full DTO. Best-effort —
+  // the message is already persisted and the poll fallbacks cover any miss.
+  void publishMessage(BigInt(row.thread_id), row.id).catch(() => undefined);
 
   return {
     id: row.id,
@@ -311,41 +359,5 @@ export async function markRead(args: {
   return { marked: updated.length };
 }
 
-// =============================================================================
-// SSE pub/sub.
-// =============================================================================
-//
-// In-process pub/sub map. Acceptable for a single-server deployment (one
-// Vercel function instance per region; Pablo + ~30 athletes max). When this
-// scales out we'll swap to Postgres LISTEN/NOTIFY or Upstash pub/sub —
-// keeping the Pub/Sub interface lets that migration be local.
-
-type Subscriber = (msg: MessageDTO) => void;
-
-const subscribers = new Map<string, Set<Subscriber>>();
-
-export function subscribeThread(thread_id: bigint, fn: Subscriber): () => void {
-  const key = thread_id.toString();
-  let set = subscribers.get(key);
-  if (!set) {
-    set = new Set();
-    subscribers.set(key, set);
-  }
-  set.add(fn);
-  return () => {
-    set!.delete(fn);
-    if (set!.size === 0) subscribers.delete(key);
-  };
-}
-
-export function publishMessage(thread_id: bigint, msg: MessageDTO): void {
-  const set = subscribers.get(thread_id.toString());
-  if (!set) return;
-  for (const fn of set) {
-    try {
-      fn(msg);
-    } catch {
-      // Subscriber bug — skip.
-    }
-  }
-}
+// SSE pub/sub now lives in `./pubsub` (Postgres LISTEN/NOTIFY, cross-instance).
+// `sendMessage` above publishes via that module; the SSE route subscribes there.
