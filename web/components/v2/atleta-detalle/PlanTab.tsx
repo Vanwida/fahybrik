@@ -358,6 +358,7 @@ export function PlanTab({
     </div>
     {openSession ? (
       <SessionDetailDrawer
+        key={openSession}
         athleteId={athlete_id}
         assignmentId={openSession}
         onClose={() => setOpenSession(null)}

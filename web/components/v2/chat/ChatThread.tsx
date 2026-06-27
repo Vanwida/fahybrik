@@ -104,15 +104,13 @@ export function ChatThread({
     );
   }
 
-  // Group consecutive messages by calendar day for dividers.
-  let lastDay = '';
-
+  // Group consecutive messages by calendar day for dividers — compare each
+  // message's day against the previous message's (no render-time mutation).
   return (
     <div className={cn('flex flex-col gap-2 p-4', className)}>
-      {messages.map((m) => {
-        const k = dayKey(m.created_at);
-        const showDivider = k !== lastDay;
-        lastDay = k;
+      {messages.map((m, i) => {
+        const showDivider =
+          i === 0 || dayKey(m.created_at) !== dayKey(messages[i - 1]!.created_at);
         return (
           <div key={m.id} className="flex flex-col gap-2">
             {showDivider && (

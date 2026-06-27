@@ -122,7 +122,6 @@ export function SessionDetailDrawer({
 
   useEffect(() => {
     let alive = true;
-    setState('loading');
     fetch(`/api/coach/athletes/${athleteId}/sessions/${assignmentId}/detail`, {
       credentials: 'include',
     })

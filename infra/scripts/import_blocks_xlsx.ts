@@ -48,7 +48,7 @@ const SHEET = 'Grupos de Entrenamiento';
 
 // Per-group coarse hint. Index = methodology_group_id (1..10). Single source of
 // the format inference rule so it stays consistent per group. (The legacy
-// atr_block_hint axis was dropped — periodization is coach-agnostic, migration
+// phase-hint axis was dropped — periodization is coach-agnostic, migration
 // 0064 — so blocks carry no hardcoded phase tag.)
 const GROUP_HINTS: Record<number, { format: string }> = {
   1: { format: 'strength_block' }, // Fuerza Base
