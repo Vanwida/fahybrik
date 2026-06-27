@@ -80,7 +80,9 @@ export function parseHyroxHtml(html: string): CatalogEvent[] {
     if (startDate && endDate && endDate < startDate) endDate = null;
 
     const city = cityFromName(name);
-    const country = spainAlpha2({ cityCode, cityName: city });
+    // Country is stamped ONLY from the reliable IATA-style city code, never the
+    // ambiguous city name (see spainAlpha2) — unrecognised → honest-null.
+    const country = spainAlpha2({ cityCode });
 
     const event: CatalogEvent = {
       series: 'hyrox',

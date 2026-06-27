@@ -12,7 +12,7 @@
 //   divisions  .badge                                 "DEKA STRONG - Affiliate", ...
 //   permalink  .card-title a[href^="/events/"]        "/events/deka-vigo-2026-june-27-2026"
 //
-// Honest-null gaps (verified live 2026-06-27 over 174 events):
+// Honest-null gaps (verified live 2026-06-27):
 //   * city / country — ocrbase's listing cards expose NO location text, flag, or
 //     country field (only name + date + division badges), so both stay null. We
 //     do NOT mine the marketing title for a country (that would be a guess).
@@ -20,23 +20,27 @@
 //     label is rendered month-first ("Apr 11, 2026") which the shared DMY
 //     parseEnglishDate cannot read; the datetime attr is already YYYY-MM-DD.
 //
-// Pagination: ocrbase exposes no offset/page param — its "load more" only bumps
-// a cumulative `count`, and CloudFront 403s the request at count≈200 (count=175
-// is the highest verified-OK). We request COUNT (safely under that cap) in one
-// GET; the listing returns the first COUNT events in ocrbase's active-first
-// order, which covers the athlete-relevant near-future DEKA races.
+// Pagination: ocrbase's ONLY working lever is a cumulative `count` (offset / page
+// / from / startdate / after / start were all verified ignored, 2026-06-27), and
+// its CloudFront WAF hard-403s count>=200. The listing is date-ascending, so a
+// single GET returns the EARLIEST `count` upcoming events. DEKA runs far more than
+// that across the year, so the catalog is genuinely capped at the WAF ceiling —
+// but never SILENTLY: a full page trips warnIfTruncated below.
 
 import { load } from 'cheerio';
 import type { CatalogEvent, CatalogSource } from './types';
 import { fetchHtml } from './http';
 import { cleanText, parseEnglishDate, toIsoDate } from './normalize';
+import { captureRouteError } from '@/lib/observability/capture';
 
 const OCRBASE_HOST = 'ocrbase.com';
 const OCRBASE_ORIGIN = 'https://www.ocrbase.com';
 
-// Events requested per fetch. Bounded by ocrbase's CloudFront WAF, which 403s at
-// count≈200 (175 = highest verified-OK); 150 leaves headroom for the weekly cron.
-const DEKA_COUNT = 150;
+// Events requested per fetch = the most one GET can return. ocrbase's CloudFront
+// WAF 403s count>=200, so 199 is the ceiling (verified live 2026-06-27: 198/199
+// → 200 OK, 200/201 → 403). No offset/date param works, so deeper events are
+// unreachable from this source — warnIfTruncated surfaces the cap, never silent.
+const DEKA_COUNT = 199;
 const DEKA_URL = `${OCRBASE_ORIGIN}/events?organizer=DEKA&count=${DEKA_COUNT}`;
 
 /**
@@ -133,12 +137,36 @@ export function parseDekaHtml(html: string): CatalogEvent[] {
   return [...byRef.values()];
 }
 
+/**
+ * ocrbase renders exactly one `<time class="date-range-start">` per event card,
+ * so this counts the cards the source actually returned. A full page (≥ DEKA_COUNT)
+ * means the source has MORE DEKA events than the WAF lets us fetch in one GET — we
+ * surface that (capped, not silently truncated) so the gap is visible, never lost.
+ */
+function warnIfTruncated(html: string): void {
+  const renderedCards = (html.match(/date-range-start/g) ?? []).length;
+  if (renderedCards < DEKA_COUNT) return;
+  captureRouteError(
+    new Error(
+      `DEKA catalog capped at ${DEKA_COUNT} events — source returned a full page; ` +
+        `ocrbase WAF 403s count>=200 and offers no offset/date paging, so events ` +
+        `beyond the earliest ${DEKA_COUNT} are unreachable from this source`,
+    ),
+    {
+      route: 'cron/sync-race-calendar',
+      meta: { source: 'deka', rendered_cards: renderedCards, cap: DEKA_COUNT },
+    },
+  );
+}
+
 export const dekaSource: CatalogSource = {
   series: 'deka',
   label: 'DEKA (ocrbase)',
   allowedHosts: [OCRBASE_HOST],
   async fetchEvents(): Promise<CatalogEvent[]> {
     const html = await fetchHtml(DEKA_URL, { allowedHosts: [OCRBASE_HOST] });
-    return parseDekaHtml(html);
+    const events = parseDekaHtml(html);
+    warnIfTruncated(html);
+    return events;
   },
 };

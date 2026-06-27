@@ -68,7 +68,10 @@ function cityFromName(name: string): string | null {
  *   "22 - 23 Aug 2026"   → 2026-08-22 .. 2026-08-23
  *   "31 Jul - 01 Aug 2027" → 2027-07-31 .. 2027-08-01
  * Missing month/year are borrowed from the right side. Returns nulls (never an
- * invented date) when a component can't be read.
+ * invented date) when a component can't be read. A cross-year range where the
+ * borrow can't be trusted — e.g. "31 Dec - 01 Jan 2027", which would wrongly read
+ * as 2027-12-31 — yields an honest-null start (caller flags is_tentative) instead
+ * of a fabricated/wrong date; the cleanly-read end is kept.
  */
 function parseAthxDates(raw: string | null): {
   start: string | null;
@@ -91,7 +94,15 @@ function parseAthxDates(raw: string | null): {
   if (!/[A-Za-z]/.test(leftFull) && month) leftFull = `${leftFull} ${month}`;
   if (!/\d{4}/.test(leftFull) && year) leftFull = `${leftFull} ${year}`;
 
-  return { start: parseEnglishDate(leftFull), end };
+  const start = parseEnglishDate(leftFull);
+
+  // Cross-year (or reversed) range: borrowing the right side's year placed the
+  // start AFTER the end — e.g. "31 Dec - 01 Jan 2027" reads as 2027-12-31. The
+  // borrowed year is wrong and we will NOT guess one, so the start is honest-null
+  // (caller flags is_tentative); the independently-read end stays.
+  if (start && end && start > end) return { start: null, end };
+
+  return { start, end };
 }
 
 export function parseAthxHtml(html: string): CatalogEvent[] {

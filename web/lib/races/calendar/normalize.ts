@@ -204,33 +204,26 @@ export function countryNameToAlpha2(name: string | null): string | null {
   return COUNTRY_NAME_TO_ALPHA2[name.trim().toLowerCase()] ?? null;
 }
 
-// Spain detection for sources that only tag a continent (HYROX). Both the city
-// codes HYROX prints and the city names embedded in event titles. Pablo's cohort
-// is Barcelona-based, so Spanish venues are the ones we positively country-stamp;
-// everything else stays honest-null until a source exposes its country.
+// Spain detection for sources that only tag a continent (HYROX). HYROX prints an
+// IATA-style 3-letter city CODE on every card (verified live 2026-06-27: all 72
+// cards carry one), and IATA codes are globally unique — so a code in this set is
+// a RELIABLE Spain signal. A city NAME is NOT: the same name recurs across
+// countries (Valencia ES/VE, Granada ES/NI, León ES/MX, …), so we never
+// country-stamp from a name. Pablo's cohort is Barcelona-based, so Spanish venues
+// are the ones we positively stamp; everything else stays honest-null until a
+// source exposes its country outright.
 const SPAIN_CITY_CODES = new Set([
   'BCN', 'MAD', 'VLC', 'SVQ', 'AGP', 'BIO', 'ZAZ', 'TNF', 'TFN', 'TFS',
   'LPA', 'MJV', 'VGO', 'LCG', 'VIT', 'PMI', 'ALC', 'GRX', 'SDR', 'XRY',
 ]);
-const SPAIN_CITY_NAMES = new Set([
-  'madrid', 'barcelona', 'valencia', 'sevilla', 'seville', 'malaga', 'málaga',
-  'bilbao', 'zaragoza', 'tenerife', 'las palmas', 'gran canaria', 'murcia',
-  'vigo', 'a coruña', 'la coruna', 'coruña', 'vitoria', 'mallorca', 'palma',
-  'alicante', 'granada', 'marbella', 'santander', 'jerez', 'gijón', 'gijon',
-  'valladolid', 'pamplona', 'san sebastián', 'san sebastian',
-]);
 
 /**
- * If a HYROX city CODE or a city NAME token is a known Spanish venue, return ES.
- * Otherwise null — we never guess a country for an unrecognised token.
+ * ES when a HYROX city CODE is a known Spanish venue, else null. We stamp ONLY
+ * from the reliable code — never from an ambiguous city name (the same name maps
+ * to several countries) — so an unrecognised code is honest-null, never a guess.
  */
-export function spainAlpha2(opts: {
-  cityCode?: string | null;
-  cityName?: string | null;
-}): string | null {
+export function spainAlpha2(opts: { cityCode?: string | null }): string | null {
   const code = opts.cityCode?.trim().toUpperCase();
   if (code && SPAIN_CITY_CODES.has(code)) return 'ES';
-  const name = opts.cityName?.trim().toLowerCase();
-  if (name && SPAIN_CITY_NAMES.has(name)) return 'ES';
   return null;
 }
