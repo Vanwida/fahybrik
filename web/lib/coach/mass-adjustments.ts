@@ -174,13 +174,15 @@ async function scopeToIds(
     }
     case 'a_event': {
       const event_id = Number(scope.event_id);
+      // Athletes whose TARGET race is linked to this catalog event (unified spine,
+      // via races.event_id). Distinct: an athlete has at most one target race.
       const rows = await client<Array<{ id: number }>>`
-        select a.id::int as id
+        select distinct a.id::int as id
         from athletes a
-        join athlete_target_events ate on ate.athlete_id = a.id
+        join races r on r.athlete_id = a.id
         where a.coach_id = ${coach_id}
-          and ate.event_id = ${event_id}
-          and ate.priority = 'A'
+          and r.event_id = ${event_id}
+          and r.priority = 'target'
       `;
       return rows.map((r) => Number(r.id));
     }

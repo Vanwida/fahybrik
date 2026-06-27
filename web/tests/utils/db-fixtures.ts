@@ -85,7 +85,6 @@ export async function makeCoachAndAthlete(sql: Sql): Promise<Fixture> {
       await sql`delete from workout_assignments where athlete_id = ${athleteId}`;
       await sql`delete from athlete_month_assignments where athlete_id = ${athleteId}`;
       await sql`delete from microcycles where athlete_id = ${athleteId}`;
-      await sql`delete from athlete_target_events where athlete_id = ${athleteId}`;
       await sql`delete from athletes where id = ${athleteId}`;
       // 2) Coach-scoped program/workout templates (now unreferenced).
       for (const m of fx.monthTemplates) {

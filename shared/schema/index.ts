@@ -17,7 +17,7 @@ export * from './audit';
 export * from './coach-weekly-review';
 export * from './coach-mass-adjustments';
 export * from './coach-intake';
-export * from './race-plan';
+export * from './hyrox-layout';
 export * from './races';
 export * from './hyresult';
 export * from './program-templates';

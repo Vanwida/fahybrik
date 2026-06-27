@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   STATION_INDEX_STATION,
   HYROX_STATION_LABELS,
-} from './race-plan';
+} from './hyrox-layout';
 
 // Dobles SIMULATION — the coach-authored joint HYROX Doubles race strategy.
 //

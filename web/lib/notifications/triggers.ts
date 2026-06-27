@@ -190,30 +190,32 @@ export async function checkHrvCrashes(args: { sql: Sql }): Promise<{ flagged: nu
 // Race day countdown
 // =============================================================================
 //
-// Sends a 24h-before-race notif for each A-priority target event. Designed to
-// run from a daily cron at 06:00 UTC. The 2h / 30m sub-day checkpoints are
-// blocked until events.starts_at (timestamptz) lands — currently events only
-// store start_date, which gives day-level granularity.
+// Sends a 24h-before-race notif for each athlete's TARGET race (unified spine,
+// priority='target'). Designed to run from a daily cron at 06:00 UTC. The 2h/30m
+// sub-day checkpoints are blocked until a timestamptz race start lands — races
+// store race_date, which gives day-level granularity.
 
 export async function checkRaceCountdown(args: { sql: Sql }): Promise<{ sent: number }> {
+  // `event_id` in the row + notification payload is the races.id post-unification
+  // (the dedup key is self-consistent: it matches against the same payload key).
   const rows = await args.sql<
     { athlete_id: string; event_id: string; event_name: string; days_to: string }[]
   >`
-    select ate.athlete_id::text as athlete_id,
-           e.id::text as event_id,
-           e.name as event_name,
-           (e.start_date - current_date)::text as days_to
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.priority = 'A'
-      and e.start_date - current_date in (1, 7)
+    select r.athlete_id::text as athlete_id,
+           r.id::text as event_id,
+           r.name as event_name,
+           (r.race_date - current_date)::text as days_to
+    from races r
+    where r.priority = 'target'
+      and r.status in ('planned', 'registered')
+      and r.race_date - current_date in (1, 7)
       and not exists (
         select 1 from notifications n
         join athletes a on a.user_id = n.user_id
-        where a.id = ate.athlete_id
+        where a.id = r.athlete_id
           and n.type = 'event_reminder'
-          and n.payload_json->>'event_id' = e.id::text
-          and n.payload_json->>'checkpoint' = (e.start_date - current_date)::text
+          and n.payload_json->>'event_id' = r.id::text
+          and n.payload_json->>'checkpoint' = (r.race_date - current_date)::text
       )
   `;
   let sent = 0;

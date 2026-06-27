@@ -5,7 +5,6 @@ import {
   isoDate,
   isoDateTime,
   slugSchema,
-  targetPriority,
 } from './_primitives';
 
 // HYROX has 5 official competition formats; CrossFit events use freeform
@@ -49,17 +48,6 @@ export const eventSchema = z.object({
 });
 export type Event = z.infer<typeof eventSchema>;
 
-export const athleteTargetEventSchema = z.object({
-  id: idSchema,
-  athlete_id: idSchema,
-  event_id: idSchema,
-  priority: targetPriority,
-  division: z.string().max(80).nullable(),
-  notes: z.string().max(2000).nullable(),
-  created_at: isoDateTime,
-});
-export type AthleteTargetEvent = z.infer<typeof athleteTargetEventSchema>;
-
 // =============================================================================
 // Request payloads
 // =============================================================================
@@ -89,12 +77,3 @@ export type EventCreateInput = z.infer<typeof eventCreateInput>;
 // PATCH /api/coach/events/[id] — Pablo edits attributes / toggles visibility
 export const eventUpdateInput = eventCreateInput.partial();
 export type EventUpdateInput = z.infer<typeof eventUpdateInput>;
-
-// POST /api/athlete/target-events — athlete marks A/B/C for an event
-export const athleteTargetEventInput = z.object({
-  event_id: idSchema,
-  priority: targetPriority,
-  division: z.string().max(80).nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
-});
-export type AthleteTargetEventInput = z.infer<typeof athleteTargetEventInput>;

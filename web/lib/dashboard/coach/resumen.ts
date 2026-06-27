@@ -68,15 +68,6 @@ export async function buildAthleteResumen(params: {
     throw new ResumenError('not_found', 'Atleta no encontrado', 404);
   }
 
-  const aEventRows = await client<Array<{ name: string; iso: string; days: number }>>`
-    select e.name, to_char(e.start_date, 'YYYY-MM-DD') as iso,
-           (e.start_date - ${todayIso}::date)::int as days
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id} and ate.priority = 'A'
-    order by e.start_date asc limit 1
-  `;
-
   const readinessRows = await client<Array<{ score: number }>>`
     select score from athlete_daily_readiness_snapshots
     where athlete_id = ${params.athlete_id}
@@ -149,8 +140,9 @@ export async function buildAthleteResumen(params: {
   return {
     athlete_id: header[0].id,
     full_name: header[0].full_name,
-    a_event: aEventRows[0]
-      ? { name: aEventRows[0].name, iso_date: aEventRows[0].iso, days_until: aEventRows[0].days }
+    // a_event mirrors the target race (unified spine) — same row toRaceSummary uses.
+    a_event: targetRace
+      ? { name: targetRace.name, iso_date: targetRace.race_date, days_until: targetRace.days_until }
       : null,
     target_race: targetRace ? toRaceSummary(targetRace) : null,
     next_race: nextRace ? toRaceSummary(nextRace) : null,

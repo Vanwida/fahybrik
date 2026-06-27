@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema, isoDate, isoDateTime } from './_primitives';
 // Single source of truth for the HYROX 16-element layout (8 runs + 8 stations).
-import { HYROX_ELEMENT_COUNT } from './race-plan';
+import { HYROX_ELEMENT_COUNT } from './hyrox-layout';
 
 // The RACE/COMPETITION domain. A `race` is a per-athlete competition entry — the
 // ANCHOR of the periodization (the ATR macrocycle peaks at it) and the source of
@@ -120,15 +120,14 @@ export type RaceCreateInput = z.infer<typeof raceCreateInput>;
 // =============================================================================
 // HYROX result IMPORT (migration 0054 — additive columns on `races`)
 //
-// An imported HYROX official result is a FACTUAL per-athlete race record that
-// may have no coach race_plan. It lives on `races` (the per-athlete home), not
-// on `race_results` (which requires a race_plan_id). These schemas validate the
-// import INPUT (the link the athlete pastes) and project the STORED shape.
+// An imported HYROX official result is a FACTUAL per-athlete race record. It
+// lives on `races` — the unified per-athlete spine (one row carries FUTURE→PAST).
+// These schemas validate the import INPUT (the link the athlete pastes) and
+// project the STORED shape.
 //
 // HYROX is fixed: 8×1km runs interleaved with 8 stations. Splits arrive in the
 // canonical FIXED order. `station_splits[].index` is the 16-element station_index
-// (2,4,…,16 — see STATION_INDEX_STATION in race-plan.ts) so an imported result
-// reconciles 1:1 with race_plan station_pacing / station_actuals.
+// (2,4,…,16 — see STATION_INDEX_STATION in hyrox-layout.ts).
 // =============================================================================
 
 // races.source — provenance of the row.

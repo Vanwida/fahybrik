@@ -525,11 +525,10 @@ export async function POST(request: Request) {
     return rows;
   });
 
-  // NOTE on athlete_target_events: not mirrored here. That table requires a real
-  // `event_id` FK into the curated `events` catalog; an onboarding race is a
-  // free-text athlete entry with no catalog match, so mirroring would either
-  // violate the FK or pollute the shared catalog. `races` is the correct,
-  // self-owning destination for intake races.
+  // The athlete's target lives here, on `races` (priority='target') — the unified
+  // spine. An onboarding race is a free-text entry with no curated `events`
+  // catalog match yet, so its optional `event_id` catalog link stays null; the
+  // race is self-owning and the "días a carrera objetivo" metric derives from it.
 
   // Auto-derive the athlete's zone profiles from the benchmarks just stored, so
   // the coach doesn't have to re-register a test by hand for ritmos to resolve.

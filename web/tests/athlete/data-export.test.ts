@@ -33,19 +33,16 @@ function makeFakeSql(scripted: Array<unknown[]>): { sql: Sql; calls: Call[] } {
 //   --- Promise.all (in array-literal order) ---
 //   4. workouts_planned
 //   5. workouts_executed
-//   6. race_plans
-//   7. race_results
-//   8. race_debriefs
-//   9. biometric_streams
-//  10. daily_checkins
-//  11. weekly_plans
-//  12. chat_threads
-//  13. notifications (if userId — else a resolved [] with no sql call)
-//  14. athlete_target_events
-//  15. athlete_readiness_snapshots
-//  16. athlete_benchmarks
+//   6. races (unified spine — replaced the legacy race-plan/result/debrief tables)
+//   7. biometric_streams
+//   8. daily_checkins
+//   9. weekly_plans
+//  10. chat_threads
+//  11. notifications (if userId — else a resolved [] with no sql call)
+//  12. athlete_readiness_snapshots
+//  13. athlete_benchmarks
 //   --- after the Promise.all resolves ---
-//  17. chat_messages (if threads > 0)
+//  14. chat_messages (if threads > 0)
 function buildHappyPath() {
   return [
     [
@@ -85,15 +82,12 @@ function buildHappyPath() {
     [{ id: '9', full_name: 'Partner Test' }],
     [{ id: 'w1' }], // workouts_planned
     [{ id: 'we1' }], // workouts_executed
-    [], // race_plans
-    [], // race_results
-    [], // race_debriefs
+    [{ id: 'race1' }], // races
     [{ id: 'bm1' }], // biometric_streams
     [{ id: 'ck1' }], // daily_checkins
     [{ id: 'wp1' }], // weekly_plans
     [{ id: 'thread-1', coach_id: '1', last_message_at: null, created_at: '2026-01-01T00:00:00Z' }], // chat_threads
     [{ id: 'n1' }], // notifications
-    [], // athlete_target_events
     [{ id: 'rs1' }], // athlete_readiness_snapshots
     [{ id: 'bench1' }], // athlete_benchmarks
     // chat_messages: one from the athlete's own user (7), one from the coach (1).
@@ -117,6 +111,7 @@ describe('exportAthleteData', () => {
     expect(data.partner?.id).toBe('9');
     expect(data.workouts_planned.length).toBe(1);
     expect(data.workouts_executed.length).toBe(1);
+    expect(data.races.length).toBe(1);
     expect(data.biometric_streams.length).toBe(1);
     expect(data.chat_threads.length).toBe(1);
     expect(data.chat_messages.length).toBe(2);
@@ -175,7 +170,7 @@ describe('exportAthleteData', () => {
     // in the bound values. The few queries that don't (head, partner) are
     // identified by their `from` clause.
     const athleteScoped = calls.filter((c) =>
-      /workout_assignments|workout_executions|race_plans|race_results|race_debriefs|biometric_streams|daily_checkins|weekly_plans|chat_threads|athlete_target_events|athlete_daily_readiness_snapshots|athlete_benchmarks/i.test(
+      /workout_assignments|workout_executions|from races|biometric_streams|daily_checkins|weekly_plans|chat_threads|athlete_daily_readiness_snapshots|athlete_benchmarks/i.test(
         c.raw,
       ),
     );

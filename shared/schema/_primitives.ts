@@ -29,9 +29,6 @@ export type EquipmentAccess = z.infer<typeof equipmentAccess>;
 export const eventType = z.enum(['hyrox', 'crossfit', 'other']);
 export type EventType = z.infer<typeof eventType>;
 
-export const targetPriority = z.enum(['A', 'B', 'C']);
-export type TargetPriority = z.infer<typeof targetPriority>;
-
 export const exerciseCategory = z.enum([
   'cardio',
   'strength',

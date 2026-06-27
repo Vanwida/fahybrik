@@ -1,6 +1,7 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import type {
   NextRace,
   RaceEventType,
@@ -32,8 +33,6 @@ import type {
 // upcoming).
 // ─────────────────────────────────────────────────────────────────────────────
 
-type RaceFilter = 'next' | 'target';
-
 interface RaceRow {
   name: string;
   event_type: RaceEventType;
@@ -48,16 +47,16 @@ interface RaceRow {
   days_until: number;
 }
 
-async function fetchRace(
+/** Soonest upcoming race of ANY priority (chronological next). */
+export async function getNextRace(
   athlete_id: number | bigint,
-  filter: RaceFilter,
-  client: Sql,
+  client: Sql = defaultSql,
 ): Promise<NextRace | null> {
   const todayIso = isoDateString(startOfDayInBox(new Date()));
 
-  // One query, parameterized by filter — the only difference is the extra
-  // priority='target' predicate. Ordering by race_date then id makes the pick
-  // deterministic when two races share a date.
+  // Ordering by race_date then id makes the pick deterministic when two races
+  // share a date. (The TARGET variant lives in the shared getTargetRaceRow so
+  // the countdown + the "días a carrera objetivo" metric share one predicate.)
   const rows = await client<RaceRow[]>`
     select
       r.name,
@@ -75,7 +74,6 @@ async function fetchRace(
     where r.athlete_id = ${athlete_id as number}
       and r.race_date >= ${todayIso}::date
       and r.status in ('planned', 'registered')
-      and (${filter} = 'next' or r.priority = 'target')
     order by r.race_date asc, r.id asc
     limit 1
   `;
@@ -98,20 +96,32 @@ async function fetchRace(
   };
 }
 
-/** Soonest upcoming race of ANY priority (chronological next). */
-export function getNextRace(
+/**
+ * Soonest upcoming race with priority='target' (the goal the plan peaks to).
+ * Delegates to the shared getTargetRaceRow — the SINGLE source for the target
+ * race — so this countdown and the coach "días a carrera objetivo" metric never
+ * diverge.
+ */
+export async function getTargetRace(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<NextRace | null> {
-  return fetchRace(athlete_id, 'next', client);
-}
+  const row = await getTargetRaceRow(athlete_id, client);
+  if (!row) return null;
 
-/** Soonest upcoming race with priority='target' (the goal the plan peaks to). */
-export function getTargetRace(
-  athlete_id: number | bigint,
-  client: Sql = defaultSql,
-): Promise<NextRace | null> {
-  return fetchRace(athlete_id, 'target', client);
+  return {
+    name: row.name,
+    event_type: row.event_type,
+    format: row.format,
+    division: row.division,
+    gender_category: row.gender_category,
+    priority: row.priority,
+    age_group: row.age_group,
+    race_date: row.race_date,
+    location: row.location,
+    goal_time_seconds: row.goal_time_seconds,
+    days_until: row.days_until,
+  };
 }
 
 const EVENT_TYPE_LABEL: Record<RaceEventType, string> = {

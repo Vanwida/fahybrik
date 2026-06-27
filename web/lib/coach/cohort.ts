@@ -142,14 +142,16 @@ async function loadRealCohort(
       group by dc.athlete_id
     ),
     a_events as (
-      select distinct on (ate.athlete_id)
-        ate.athlete_id,
-        to_char(e.start_date, 'YYYY-MM-DD') as iso
-      from athlete_target_events ate
-      join events e on e.id = ate.event_id
-      where ate.priority = 'A'
-        and e.start_date >= ${todayIso}::date
-      order by ate.athlete_id, e.start_date asc
+      -- Target race per athlete (unified spine, priority='target'). Same predicate
+      -- as getTargetRaceRow, batch form (DISTINCT ON joined into the cohort query).
+      select distinct on (r.athlete_id)
+        r.athlete_id,
+        to_char(r.race_date, 'YYYY-MM-DD') as iso
+      from races r
+      where r.priority = 'target'
+        and r.race_date >= ${todayIso}::date
+        and r.status in ('planned', 'registered')
+      order by r.athlete_id, r.race_date asc
     ),
     unread_msgs as (
       select ct.athlete_id,

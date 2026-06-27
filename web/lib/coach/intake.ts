@@ -23,6 +23,7 @@ import {
 } from './intake-suggestions';
 import { proposeBlockEmphasis, type BlockEmphasis } from './intake-suggestions';
 import { suggestAthleteTrainingLevel } from './athlete-training-level';
+import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
@@ -297,12 +298,14 @@ export async function listPendingIntake(params: {
       e.name                                          as a_event_name
     from athletes a
     left join lateral (
-      select e.start_date, e.name
-      from athlete_target_events ate
-      join events e on e.id = ate.event_id
-      where ate.athlete_id = a.id
-        and ate.priority = 'A'
-      order by e.start_date asc
+      -- Target race = soonest upcoming race with priority='target' (unified spine).
+      select r.race_date as start_date, r.name
+      from races r
+      where r.athlete_id = a.id
+        and r.priority = 'target'
+        and r.race_date >= current_date
+        and r.status in ('planned', 'registered')
+      order by r.race_date asc
       limit 1
     ) e on true
     where a.coach_id = ${params.coach_id as number}
@@ -469,39 +472,20 @@ export async function loadIntakeProfile(params: {
     group: classifyBenchmark(b.exercise_slug),
   }));
 
-  // Target A-event (first by date, ascending).
-  const eventRows = await client<
-    Array<{
-      event_id: string;
-      name: string;
-      iso_date: string;
-      division: string | null;
-    }>
-  >`
-    select
-      e.id::text                                      as event_id,
-      e.name                                          as name,
-      to_char(e.start_date, 'YYYY-MM-DD')             as iso_date,
-      e.division                                      as division
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id as number}
-      and ate.priority = 'A'
-    order by e.start_date asc
-    limit 1
-  `;
-  const targetRow = eventRows[0] ?? null;
+  // Target race = soonest upcoming race with priority='target' (unified spine).
+  const targetRace = await getTargetRaceRow(params.athlete_id, client);
   let target_event: IntakeProfile['target_event'] = null;
-  if (targetRow) {
-    const target_date = parseIsoDate(targetRow.iso_date);
-    const days_to_event = daysBetween(now, target_date);
+  if (targetRace) {
     target_event = {
-      event_id: targetRow.event_id,
-      name: targetRow.name,
-      iso_date: targetRow.iso_date,
-      division: targetRow.division,
-      days_to_event,
-      is_in_past: days_to_event < 0,
+      // The "target event" is now the target RACE. event_id carries the race id
+      // (always present); the catalog link races.event_id is optional (phase 2).
+      event_id: String(targetRace.race_id),
+      name: targetRace.name,
+      iso_date: targetRace.race_date,
+      division: targetRace.division,
+      days_to_event: targetRace.days_until,
+      // getTargetRaceRow only returns upcoming target races — never in the past.
+      is_in_past: false,
     };
   }
 

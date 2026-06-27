@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
+import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 
 export type ReadinessLabel = 'READY' | 'CAUTION' | 'LOW';
 
@@ -117,14 +118,8 @@ export async function fetchAthleteProfileShell(params: {
   const row = rows[0];
   if (!row) return null;
 
-  const aEventRows = await client<Array<{ name: string; iso: string; days: number }>>`
-    select e.name, to_char(e.start_date, 'YYYY-MM-DD') as iso,
-           (e.start_date - current_date)::int as days
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id} and ate.priority = 'A'
-    order by e.start_date asc limit 1
-  `;
+  // Target race = soonest upcoming race with priority='target' (unified spine).
+  const targetRace = await getTargetRaceRow(params.athlete_id, client);
 
   const blockType = row.block_type ?? null;
 
@@ -135,8 +130,8 @@ export async function fetchAthleteProfileShell(params: {
     block_week: row.block_week,
     readiness_score: row.readiness_score,
     readiness_label: readinessLabel(row.readiness_score),
-    a_event: aEventRows[0]
-      ? { name: aEventRows[0].name, iso_date: aEventRows[0].iso, days_until: aEventRows[0].days }
+    a_event: targetRace
+      ? { name: targetRace.name, iso_date: targetRace.race_date, days_until: targetRace.days_until }
       : null,
     macro_block: blockType,
     intake_pending: isIntakePending({

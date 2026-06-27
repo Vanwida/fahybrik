@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { isDemoAthleteId } from './deep-dive-demo';
 import { getMarcPlan, getDemoPlanFallback } from './deep-dive-plan-demo';
 import { AthleteDeepDiveError } from './athlete-deep-dive';
@@ -172,18 +173,13 @@ export async function buildAthletePlan(params: BuildPlanParams): Promise<PlanPay
     return getDemoPlanFallback(params.athlete_id, header[0].full_name, view, anchor);
   }
 
-  const a_event = await client<Array<{ name: string; iso: string }>>`
-    select e.name, to_char(e.start_date, 'YYYY-MM-DD') as iso
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${numericId} and ate.priority = 'A'
-    order by e.start_date asc limit 1
-  `;
-  const a_evt = a_event[0]
+  // Target race = soonest upcoming race with priority='target' (unified spine).
+  const targetRace = await getTargetRaceRow(numericId, client, now);
+  const a_evt = targetRace
     ? {
-        name: a_event[0].name,
-        iso_date: a_event[0].iso,
-        days_until: daysBetween(now, parseIso(a_event[0].iso)),
+        name: targetRace.name,
+        iso_date: targetRace.race_date,
+        days_until: targetRace.days_until,
       }
     : null;
 

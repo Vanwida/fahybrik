@@ -7,6 +7,7 @@ import {
   parseIsoDate,
   startOfDayInBox,
 } from '../dates';
+import { getTargetRaceRow } from './target-race';
 
 /**
  * AGNOSTIC "current microciclo" reader — the periodization-free replacement for the
@@ -95,16 +96,9 @@ export async function getCurrentMicrociclo(params: {
 
   const weekStart = mondayOfWeek(today);
 
-  const aEventRows = await client<Array<{ days: number }>>`
-    select (e.start_date - ${todayIso}::date)::int as days
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id as number}
-      and ate.priority = 'A'
-      and e.start_date >= ${todayIso}::date
-    order by e.start_date asc limit 1
-  `;
-  const a_event_days = aEventRows[0]?.days ?? null;
+  // Days to the athlete's target race (unified `races` spine, priority='target').
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
+  const a_event_days = targetRace?.days_until ?? null;
   const weeks_to_event = a_event_days == null ? null : Math.max(0, Math.ceil(a_event_days / 7));
 
   return {

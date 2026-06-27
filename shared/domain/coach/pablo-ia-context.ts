@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
 import { getCurrentMicrociclo } from './current-microciclo';
+import { getTargetRaceRow } from './target-race';
 import { addDays, isoDateString, startOfDayInBox } from '../dates';
 import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
 
@@ -63,16 +64,8 @@ export async function buildAthleteContextPack(params: {
     from athletes where id = ${params.athlete_id as number} limit 1
   `;
 
-  const aEventRows = await client<Array<{ days: number }>>`
-    select (e.start_date - ${todayIso}::date)::int as days
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id as number}
-      and ate.priority = 'A'
-      and e.start_date >= ${todayIso}::date
-    order by e.start_date asc
-    limit 1
-  `;
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
 
   const complianceRows = await client<
     Array<{ scheduled_7d: number; completed_7d: number; scheduled_28d: number; completed_28d: number; missed_7d: number }>
@@ -206,7 +199,7 @@ export async function buildAthleteContextPack(params: {
       level: levelRows[0]?.level ?? null,
       block_type: micro?.name ?? null,
       week_in_block: micro?.week_index ?? null,
-      days_to_a_event: aEventRows[0]?.days ?? null,
+      days_to_a_event: targetRace?.days_until ?? null,
     },
     compliance: {
       pct_7d: pct7,

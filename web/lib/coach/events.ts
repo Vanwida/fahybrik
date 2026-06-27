@@ -6,24 +6,22 @@
 //   getEvent({ event_id })          single event (no perm filter)
 //   createEvent({ coach_id, input }) Pablo adds a manual event
 //   updateEvent({ coach_id, event_id, input }) edit / toggle visibility
-//   listAthleteTargets({ athlete_id })
-//   upsertAthleteTarget({ athlete_id, input })
-//   deleteAthleteTarget({ athlete_id, event_id })
+//
+// The athlete's TARGET is no longer a separate event-pin row: it lives on the
+// unified `races` spine (priority='target'). target_count below counts athletes
+// whose race links to a catalog event via races.event_id.
 //
 // All IDs cross the wire as strings to stay bigint-safe. The DB stores
 // bigint; we stringify with ::text on read and Number() coerce on write.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
 import {
-  athleteTargetEventInput,
   eventCreateInput,
   eventUpdateInput,
-  type AthleteTargetEventInput,
   type EventCreateInput,
   type EventRegion,
   type EventUpdateInput,
 } from '@fahybrid/shared/schema/events';
-import type { TargetPriority } from '@fahybrid/shared/schema/_primitives';
 
 export class EventsError extends Error {
   constructor(
@@ -52,21 +50,6 @@ export interface EventListItem {
   is_visible_to_athletes: boolean;
   is_past: boolean;
   target_count: number;
-}
-
-export interface AthleteTargetItem {
-  target_id: string;
-  event_id: string;
-  priority: TargetPriority;
-  division: string | null;
-  notes: string | null;
-  // Hydrated event snapshot — saves the iOS picker a second roundtrip.
-  event_name: string;
-  event_slug: string;
-  event_start_date: string;
-  event_location: string | null;
-  event_country: string | null;
-  event_type: 'hyrox' | 'crossfit' | 'other';
 }
 
 interface RawEventRow {
@@ -161,8 +144,10 @@ export async function listEvents(
       coalesce(t.cnt, 0)::text                                as target_count
     from events e
     left join (
-      select event_id, count(*)::int as cnt
-      from athlete_target_events
+      -- Athletes whose race links to this catalog event (unified spine).
+      select event_id, count(distinct athlete_id)::int as cnt
+      from races
+      where event_id is not null
       group by event_id
     ) t on t.event_id = e.id
     where (${onlyVisibleClause}::boolean = false or e.is_visible_to_athletes = true)
@@ -202,7 +187,7 @@ export async function getEvent(
       e.division_options                                      as division_options,
       e.source_url                                            as source_url,
       e.is_visible_to_athletes                                as is_visible_to_athletes,
-      (select count(*) from athlete_target_events where event_id = e.id)::text
+      (select count(distinct athlete_id) from races where event_id = e.id)::text
                                                               as target_count
     from events e
     where e.id = ${event_id as unknown as number}
@@ -372,132 +357,7 @@ export async function updateEvent(args: {
   return refreshed;
 }
 
-// =============================================================================
-// Athlete target-event mutations
-// =============================================================================
-
-export async function listAthleteTargets(args: {
-  athlete_id: bigint;
-  client?: Sql;
-}): Promise<AthleteTargetItem[]> {
-  const client = args.client ?? defaultSql;
-  const rows = await client<
-    {
-      target_id: string;
-      event_id: string;
-      priority: TargetPriority;
-      division: string | null;
-      notes: string | null;
-      event_name: string;
-      event_slug: string;
-      event_start_date: string;
-      event_location: string | null;
-      event_country: string | null;
-      event_type: 'hyrox' | 'crossfit' | 'other';
-    }[]
-  >`
-    select
-      t.id::text                              as target_id,
-      t.event_id::text                        as event_id,
-      t.priority                              as priority,
-      t.division                              as division,
-      t.notes                                 as notes,
-      e.name                                  as event_name,
-      e.slug                                  as event_slug,
-      to_char(e.start_date, 'YYYY-MM-DD')     as event_start_date,
-      e.location                              as event_location,
-      e.country                               as event_country,
-      e.type                                  as event_type
-    from athlete_target_events t
-    join events e on e.id = t.event_id
-    where t.athlete_id = ${args.athlete_id as unknown as number}
-    order by
-      case t.priority when 'A' then 0 when 'B' then 1 else 2 end,
-      e.start_date asc
-  `;
-  return rows;
-}
-
-export async function upsertAthleteTarget(args: {
-  athlete_id: bigint;
-  input: unknown;
-  client?: Sql;
-}): Promise<AthleteTargetItem> {
-  const parsed = athleteTargetEventInput.safeParse(args.input);
-  if (!parsed.success) {
-    throw new EventsError(
-      'invalid_input',
-      parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
-      400,
-    );
-  }
-  const input: AthleteTargetEventInput = parsed.data;
-  const client = args.client ?? defaultSql;
-
-  // Validate that the event exists AND is visible to athletes (athletes
-  // can't pin invisible events — Pablo curates the picker).
-  const eventRow = await client<{ id: string; visible: boolean }[]>`
-    select id::text as id, is_visible_to_athletes as visible
-    from events
-    where id = ${input.event_id as unknown as number}
-    limit 1
-  `;
-  if (eventRow.length === 0) {
-    throw new EventsError('event_not_found', 'Evento no encontrado.', 404);
-  }
-  if (!eventRow[0]!.visible) {
-    throw new EventsError(
-      'event_not_visible',
-      'Este evento aún no está disponible para atletas.',
-      403,
-    );
-  }
-
-  // Athletes get at most one A-priority race at a time. If they're
-  // promoting an event to A, demote any other A-target to B silently.
-  if (input.priority === 'A') {
-    await client`
-      update athlete_target_events
-      set priority = 'B'
-      where athlete_id = ${args.athlete_id as unknown as number}
-        and event_id != ${input.event_id as unknown as number}
-        and priority = 'A'
-    `;
-  }
-
-  await client`
-    insert into athlete_target_events (athlete_id, event_id, priority, division, notes)
-    values (
-      ${args.athlete_id as unknown as number},
-      ${input.event_id as unknown as number},
-      ${input.priority},
-      ${input.division ?? null},
-      ${input.notes ?? null}
-    )
-    on conflict (athlete_id, event_id) do update
-    set
-      priority = excluded.priority,
-      division = excluded.division,
-      notes    = excluded.notes
-  `;
-
-  const list = await listAthleteTargets({ athlete_id: args.athlete_id, client });
-  const found = list.find((t) => t.event_id === String(input.event_id));
-  if (!found) {
-    throw new EventsError('upsert_failed', 'No se pudo guardar el target.', 500);
-  }
-  return found;
-}
-
-export async function deleteAthleteTarget(args: {
-  athlete_id: bigint;
-  event_id: bigint;
-  client?: Sql;
-}): Promise<void> {
-  const client = args.client ?? defaultSql;
-  await client`
-    delete from athlete_target_events
-    where athlete_id = ${args.athlete_id as unknown as number}
-      and event_id   = ${args.event_id as unknown as number}
-  `;
-}
+// Athlete target mutations (the legacy event-pin table) were removed in the
+// unified race system: the athlete's target is a `races` row (priority='target'),
+// set via the race-creation flow — not a separate event pin. The iOS target
+// picker is rebuilt on `races` in phase 2.

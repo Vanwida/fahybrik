@@ -39,16 +39,15 @@ export interface AthleteDataExport {
   partner: ExportedPartner | null;
   workouts_planned: Array<Record<string, unknown>>;
   workouts_executed: Array<Record<string, unknown>>;
-  race_plans: Array<Record<string, unknown>>;
-  race_results: Array<Record<string, unknown>>;
-  race_debriefs: Array<Record<string, unknown>>;
+  // The athlete's competition entries (objectives + imported results) — the
+  // unified spine that replaced the legacy race-plan/result/debrief tables.
+  races: Array<Record<string, unknown>>;
   biometric_streams: Array<Record<string, unknown>>;
   daily_checkins: Array<Record<string, unknown>>;
   weekly_plans: Array<Record<string, unknown>>;
   chat_threads: Array<Record<string, unknown>>;
   chat_messages: Array<Record<string, unknown>>;
   notifications: Array<Record<string, unknown>>;
-  athlete_target_events: Array<Record<string, unknown>>;
   athlete_readiness_snapshots: Array<Record<string, unknown>>;
   athlete_benchmarks: Array<Record<string, unknown>>;
 }
@@ -242,15 +241,12 @@ export async function exportAthleteData(
   const [
     workoutsPlanned,
     workoutsExecuted,
-    racePlans,
-    raceResults,
-    raceDebriefs,
+    races,
     biometricStreams,
     dailyCheckins,
     weeklyPlans,
     chatThreads,
     notifications,
-    athleteTargetEvents,
     athleteReadiness,
     athleteBenchmarks,
   ] = await Promise.all([
@@ -285,10 +281,9 @@ export async function exportAthleteData(
       where athlete_id = ${athleteIdNum}
       order by started_at desc nulls last, id desc
     `,
-    // 5) Race plans / results / debriefs.
-    sql`select * from race_plans where athlete_id = ${athleteIdNum} order by id desc`,
-    sql`select * from race_results where athlete_id = ${athleteIdNum} order by id desc`,
-    sql`select * from race_debriefs where athlete_id = ${athleteIdNum} order by id desc`,
+    // 5) Races — the athlete's competition entries (objectives + imported results),
+    // the unified spine that replaced the legacy race-plan/result/debrief tables.
+    sql`select * from races where athlete_id = ${athleteIdNum} order by race_date desc nulls last, id desc`,
     // 6) Biometric streams — full export. Coach-only summaries are derived,
     // the raw is what RGPD requires.
     sql`
@@ -348,8 +343,7 @@ export async function exportAthleteData(
           order by created_at desc
         `
       : Promise.resolve([] as Array<Record<string, unknown>>),
-    // 9) Target events + readiness snapshots + benchmarks.
-    sql`select * from athlete_target_events where athlete_id = ${athleteIdNum} order by id desc`,
+    // 9) Readiness snapshots + benchmarks.
     sql`
       select
         id::text                            as id,
@@ -461,16 +455,13 @@ export async function exportAthleteData(
     partner: partner ?? null,
     workouts_planned: workoutsPlanned as Array<Record<string, unknown>>,
     workouts_executed: workoutsExecuted as Array<Record<string, unknown>>,
-    race_plans: racePlans as Array<Record<string, unknown>>,
-    race_results: raceResults as Array<Record<string, unknown>>,
-    race_debriefs: raceDebriefs as Array<Record<string, unknown>>,
+    races: races as Array<Record<string, unknown>>,
     biometric_streams: biometricStreams as Array<Record<string, unknown>>,
     daily_checkins: dailyCheckins as Array<Record<string, unknown>>,
     weekly_plans: weeklyPlans as Array<Record<string, unknown>>,
     chat_threads: chatThreads as Array<Record<string, unknown>>,
     chat_messages: chatMessages as Array<Record<string, unknown>>,
     notifications: notifications as Array<Record<string, unknown>>,
-    athlete_target_events: athleteTargetEvents as Array<Record<string, unknown>>,
     athlete_readiness_snapshots: athleteReadiness as Array<Record<string, unknown>>,
     athlete_benchmarks: athleteBenchmarks as Array<Record<string, unknown>>,
   };

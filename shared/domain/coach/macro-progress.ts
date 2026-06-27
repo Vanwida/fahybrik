@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
 import { getCurrentMicrociclo } from './current-microciclo';
+import { getTargetRaceRow } from './target-race';
 import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
 
 export type MacroWeekStatus = 'completed' | 'current' | 'upcoming' | 'missed';
@@ -70,7 +71,6 @@ export async function buildMacroProgress(params: {
 }): Promise<MacroProgressPayload> {
   const client = params.client;
   const today = startOfDayInBox(params.on_date ?? new Date());
-  const todayIso = isoDateString(today);
 
   const current = await getCurrentMicrociclo({
     athlete_id: params.athlete_id,
@@ -102,15 +102,8 @@ export async function buildMacroProgress(params: {
   // Semana actual dentro del microciclo activo (1-indexed) desde el receipt.
   const block_week = current ? current.week_index : null;
 
-  const aEventRows = await client<Array<{ days: number }>>`
-    select (e.start_date - ${todayIso}::date)::int as days
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id as number}
-      and ate.priority = 'A'
-      and e.start_date >= ${todayIso}::date
-    order by e.start_date asc limit 1
-  `;
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
 
   const assignmentWeeks = await client<
     Array<{
@@ -213,7 +206,7 @@ export async function buildMacroProgress(params: {
     block_spans,
     weeks,
     total_assigned_weeks: weeks.length,
-    a_event_days: aEventRows[0]?.days ?? null,
+    a_event_days: targetRace?.days_until ?? null,
     phase_assignments,
   };
 }
@@ -397,21 +390,13 @@ export async function buildAthleteMacroSummary(params: {
 
   const week_label = await currentMicrocicloLabel(params.athlete_id, today, todayIso, client);
 
-  // Días hasta el evento A (objetivo). Query agnóstica — no toca periodización.
-  const aEventRows = await client<Array<{ days: number }>>`
-    select (e.start_date - ${todayIso}::date)::int as days
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${params.athlete_id as number}
-      and ate.priority = 'A'
-      and e.start_date >= ${todayIso}::date
-    order by e.start_date asc limit 1
-  `;
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
 
   return {
     block: null,
     week_label,
-    a_event_days: aEventRows[0]?.days ?? null,
+    a_event_days: targetRace?.days_until ?? null,
     current_week_start: isoDateString(weekStart),
     current_week_end: isoDateString(addDays(weekStart, 6)),
   };

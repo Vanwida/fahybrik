@@ -1,5 +1,5 @@
 // Athlete deep-dive payload builder. Composes data from:
-//   - athletes / athlete_target_events / events
+//   - athletes / target race (races, priority='target') / events
 //   - current microciclo (athlete_month_assignments) + progress readiness
 //   - training_load (CTL/ATL/TSB series + load summary)
 //   - workout_executions / workout_assignments / segment_executions
@@ -14,6 +14,7 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getDailyTssSeries, summarizeLoad, computeAcr } from '@/lib/training-load';
 import {
@@ -258,20 +259,10 @@ async function loadHeader(
 // ---------------------------------------------------------------------------
 
 async function loadAEvent(client: Sql, athlete_id: number, now: Date): Promise<AEvent | null> {
-  const rows = await client<
-    Array<{ name: string; iso: string }>
-  >`
-    select e.name, to_char(e.start_date, 'YYYY-MM-DD') as iso
-    from athlete_target_events ate
-    join events e on e.id = ate.event_id
-    where ate.athlete_id = ${athlete_id} and ate.priority = 'A'
-    order by e.start_date asc
-    limit 1
-  `;
-  const row = rows[0];
+  // Target race = soonest upcoming race with priority='target' (unified spine).
+  const row = await getTargetRaceRow(athlete_id, client, now);
   if (!row) return null;
-  const days = daysBetween(now, parseIso(row.iso));
-  return { name: row.name, iso_date: row.iso, days_until: days };
+  return { name: row.name, iso_date: row.race_date, days_until: row.days_until };
 }
 
 // ---------------------------------------------------------------------------
