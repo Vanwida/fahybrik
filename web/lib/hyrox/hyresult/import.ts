@@ -8,8 +8,7 @@ import {
   type HyresultImportAllResult,
   type HyresultImportedRace,
 } from '@fahybrid/shared/schema';
-import { upsertRaceRow } from '../upsert';
-import { adoptPendingRaceForImport } from '../reconcile';
+import { reconcileAndUpsertRace } from '../reconcile';
 import { fetchAthleteRaces } from './parse';
 import { mapToRaceRow, type MappedPartner } from './map';
 
@@ -92,21 +91,20 @@ export async function importAllRaces(params: {
         const projected = await tx.savepoint(async (sp) => {
           const { row, partners } = mapToRaceRow(race, athleteId, slug);
 
-          // RECONCILE / ADOPT (the unified FUTURE→PAST seam): before writing this
-          // completed result, stamp its source_idp onto a matching PENDING future
-          // objective the athlete/coach created (same event_type+format, date
-          // within ±window, or a catalog event_id link). The upsert below keys ON
-          // CONFLICT (athlete_id, source_idp), so it then fills THAT row in place
-          // — the planned target becomes the completed result, no duplicate row.
-          // No-op when nothing matches (a tune-up with no objective just inserts
-          // as a fresh `tune_up` row). Conservative by construction: a past result
-          // can't match a still-future objective (date > window, event_id null),
-          // so this is a no-op on first import and only "bites" once a target's
-          // date has passed — which is exactly when it should adopt. Running it in
-          // EVERY import (manual confirm + cron) — not just the cron — also closes
-          // the duplicate/unique-violation race when an athlete manually re-imports
-          // after a target passes but before the next cron pass.
-          await adoptPendingRaceForImport({
+          // RECONCILE / ADOPT then upsert (the unified FUTURE→PAST seam, shared
+          // with the official importer): before writing this completed result,
+          // stamp/merge its source_idp onto a matching PENDING objective the
+          // athlete/coach created (same event_type, date within ±window OR inside
+          // the target's catalog event span). The upsert keys ON CONFLICT
+          // (athlete_id, source_idp), so it fills THAT row in place — the planned
+          // target becomes the completed result, no duplicate. No-op when nothing
+          // matches (a tune-up with no objective inserts as a fresh `tune_up`
+          // row). Conservative: a past result can't match a still-future
+          // objective, so it only "bites" once a target's date has passed — which
+          // is exactly when it should adopt. Running it in EVERY import (manual
+          // confirm + cron) also closes the duplicate/unique-violation race when an
+          // athlete re-imports after a target passes but before the next cron pass.
+          const { id, inserted } = await reconcileAndUpsertRace(sp, {
             athlete_id: athleteId,
             imported: {
               event_id: null, // hyresult imports carry no catalog link
@@ -117,10 +115,8 @@ export async function importAllRaces(params: {
               gender_category: row.gender_category,
               source_idp: row.source_idp,
             },
-            client: sp,
+            row,
           });
-
-          const { id, inserted } = await upsertRaceRow(sp, row);
           await replacePartners(sp, id, partners);
           const projection: HyresultImportedRace = hyresultImportedRaceSchema.parse({
             // Number, not bigint — the response race_id is a JS number (matches

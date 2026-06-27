@@ -59,9 +59,52 @@ describe('matchPendingRace', () => {
     expect(matchPendingRace(imported, [onEdge])?.id).toBe(9);
   });
 
-  it('never matches across format (doubles result vs singles objective)', () => {
+  it('adopts ACROSS format — format is a ranking tie-break, not a filter', () => {
+    // A doubles result MUST be able to adopt a singles objective for the same
+    // event/date: format is a category within an event, not its identity. (The
+    // picker defaults a target to singles; this is the common real case.)
     const imported = { ...baseImported, format: 'doubles', race_date: '2026-09-12' };
     const cands = [pending({ id: 3, format: 'singles', race_date: '2026-09-12' })];
+    expect(matchPendingRace(imported, cands)?.id).toBe(3);
+  });
+
+  it('prefers the SAME format on a tie (format ranks ahead of bracket/date)', () => {
+    const imported = { ...baseImported, format: 'doubles', race_date: '2026-09-12' };
+    const cands = [
+      pending({ id: 20, format: 'singles', race_date: '2026-09-12' }), // exact date, wrong format
+      pending({ id: 21, format: 'doubles', race_date: '2026-09-13' }), // +1 day, right format
+    ];
+    expect(matchPendingRace(imported, cands)?.id).toBe(21);
+  });
+
+  it('widens the date window to the target catalog event span (multi-day festival)', () => {
+    // Target dated to the festival's first day (Thu), event runs Thu–Sun; the
+    // athlete's heat (and imported result) lands on the Sat — 4 days out, beyond
+    // ±3 from race_date, but INSIDE the event span → still adopts.
+    const imported = { ...baseImported, race_date: '2026-09-12' }; // Sat
+    const cands = [
+      pending({
+        id: 30,
+        race_date: '2026-09-10', // Thu (4d from imported → outside ±3)
+        event_id: 500,
+        event_start_date: '2026-09-10',
+        event_end_date: '2026-09-13',
+      }),
+    ];
+    expect(matchPendingRace(imported, cands)?.id).toBe(30);
+  });
+
+  it('does not match when outside both ±window AND the catalog event span', () => {
+    const imported = { ...baseImported, race_date: '2026-09-20' };
+    const cands = [
+      pending({
+        id: 31,
+        race_date: '2026-09-10',
+        event_id: 501,
+        event_start_date: '2026-09-10',
+        event_end_date: '2026-09-13', // span ends 13th; imported 20th is >window past
+      }),
+    ];
     expect(matchPendingRace(imported, cands)).toBeNull();
   });
 

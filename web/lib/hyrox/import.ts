@@ -17,7 +17,9 @@ import {
   parseHyroxUrl,
   type HyroxResultRef,
 } from './parse';
-import { upsertRaceRow, type RaceUpsertRow } from './upsert';
+import type { RaceUpsertRow } from './upsert';
+import { reconcileAndUpsertRace } from './reconcile';
+import { resolveCatalogEventByLabel } from './catalog-link';
 
 // =============================================================================
 // HYROX result import service.
@@ -32,7 +34,13 @@ import { upsertRaceRow, type RaceUpsertRow } from './upsert';
 //    present regardless of pagination. Best-effort: a failure degrades to a null
 //    field_size, never blocks the import.
 // 4. Compute percentile = overall_rank / field_size.
-// 5. Upsert into `races`, deduped on (athlete_id, source_idp).
+// 5. Bridge the meeting to the shared `events` catalog (best-effort) to recover
+//    the REAL race date + an event_id link — the detail page carries no machine
+//    date (see below).
+// 6. ADOPT a matching pending objective, then upsert into `races` (deduped on
+//    (athlete_id, source_idp)) — the SHARED reconcile-then-upsert seam, identical
+//    to the hyresult importer, so a pasted official result fills the coach's
+//    pending target in place instead of inserting a duplicate.
 // =============================================================================
 
 // Detail/leaderboard fetches: short timeout, no redirects to off-host targets.
@@ -149,18 +157,24 @@ export async function importHyroxResult(params: {
       ? Math.min(1, Math.max(0, detail.overall_rank / field_size))
       : null;
 
-  // race_date: the detail page exposes the meeting name ("2026 Amsterdam") but
-  // no machine-readable ISO date on the splits row. We store NULL — the honest
-  // "date unknown" signal (migration 0072) — rather than fabricating today's date,
-  // which floated these rows ABOVE the real chronological history. The meeting
-  // stays in `name` so the row is identifiable, and the athlete/coach can set the
-  // real date later. (Unlike the hyresult importer, the official page carries no
-  // ISO race date here.)
   const raceName = detail.meeting
     ? `HYROX ${detail.meeting}`
     : detail.event_label ?? 'HYROX';
 
-  // Build the normalized row and write it through the SHARED upsert (deduped on
+  // race_date: the detail page exposes the meeting name ("2026 Amsterdam") but no
+  // machine-readable ISO date. We DON'T fabricate one (migration 0072 killed the
+  // today's-date placeholder). Instead we bridge the meeting to the curated
+  // `events` catalog: a confident hit yields the REAL start_date AND an event_id
+  // the adopt step can match on. A miss leaves race_date null — the honest "date
+  // unknown" signal — and the row still imports.
+  const catalog = await resolveCatalogEventByLabel(client, {
+    series: 'hyrox',
+    label: detail.meeting,
+  });
+  const raceDate = catalog?.race_date ?? null;
+
+  // Build the normalized row and write it through the SHARED reconcile-then-upsert
+  // (adopt a matching pending target, then upsert deduped on
   // (athlete_id, source_idp); ON CONFLICT refreshes in place).
   const row: RaceUpsertRow = {
     athlete_id: athleteId,
@@ -171,7 +185,7 @@ export async function importHyroxResult(params: {
     gender_category: gender,
     priority: 'tune_up',
     age_group: detail.age_group,
-    race_date: null,
+    race_date: raceDate,
     location: detail.meeting,
     result_time_seconds: detail.finish_time_seconds,
     status: 'completed',
@@ -192,9 +206,28 @@ export async function importHyroxResult(params: {
     source_url: canonicalUrl,
   };
 
+  // Adopt-then-upsert in ONE transaction so the adopt's source_idp stamp is
+  // visible to the upsert's ON CONFLICT (athlete_id, source_idp) — they MUST be
+  // atomic, otherwise the upsert can't see the just-stamped target row.
   let raceId: bigint;
   try {
-    raceId = (await upsertRaceRow(client, row)).id;
+    raceId = (
+      await client.begin((tx) =>
+        reconcileAndUpsertRace(tx, {
+          athlete_id: athleteId,
+          imported: {
+            event_id: catalog?.event_id ?? null,
+            race_date: raceDate,
+            event_type: 'hyrox',
+            format: 'singles',
+            division: detail.division,
+            gender_category: gender,
+            source_idp: ref.idp,
+          },
+          row,
+        }),
+      )
+    ).id;
   } catch {
     throw new HyroxParseError('store_failed', 'No se pudo guardar el resultado.');
   }
@@ -209,7 +242,7 @@ export async function importHyroxResult(params: {
     age_group: detail.age_group,
     nationality: detail.nationality,
     bib: detail.bib,
-    race_date: null,
+    race_date: raceDate,
     location: detail.meeting,
     run_splits: row.run_splits,
     station_splits: row.station_splits,
