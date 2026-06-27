@@ -19,6 +19,11 @@ struct AthleteIdentity: Decodable {
     let primaryDiscipline: String?
     let trainingDaysPerWeek: Int?
     let onboardedAt: String?
+    // Profile-edit fields — optional so existing /me responses decode cleanly
+    // before the backend includes these keys.
+    let goalType: String?
+    let goalOtherText: String?
+    let preferredLanguage: String?
 
     var initials: String {
         let parts = fullName
@@ -50,6 +55,35 @@ struct MeResponse: Decodable {
 enum MeService {
     static func fetch(bearer: String) async throws -> AthleteIdentity {
         let resp: MeResponse = try await APIClient.shared.get(path: "api/auth/me", bearer: bearer)
+        return resp.athlete
+    }
+}
+
+// MARK: - Profile update
+
+// Request body for PATCH api/athlete/profile. Keys are camelCase here; the
+// APIClient encoder converts them to snake_case automatically. Nil fields are
+// omitted from the JSON body (Swift's default JSONEncoder behaviour), which is
+// the intended wire contract — omit to leave/clear.
+struct ProfileUpdate: Encodable {
+    var fullName: String
+    var dob: String?
+    var sex: String?
+    var heightCm: Double?
+    var weightKg: Double?
+    var trainingExperienceYears: Double?
+    var goalType: String?
+    var goalOtherText: String?
+    var preferredLanguage: String?
+}
+
+enum ProfileService {
+    static func update(bearer: String, body: ProfileUpdate) async throws -> AthleteIdentity {
+        let resp: MeResponse = try await APIClient.shared.patch(
+            path: "api/athlete/profile",
+            body: body,
+            bearer: bearer
+        )
         return resp.athlete
     }
 }

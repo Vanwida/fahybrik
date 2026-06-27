@@ -22,6 +22,8 @@ struct ProfileView: View {
     @State private var blockLabel: String? = nil
     @State private var targetRace: AthleteNextRace? = nil
 
+    @State private var showEditProfile: Bool = false
+
     // RGPD state.
     @State private var exporting: Bool = false
     @State private var exportShareItem: ExportShareItem? = nil
@@ -130,6 +132,11 @@ struct ProfileView: View {
         .sheet(item: $exportShareItem) { item in
             ShareSheet(items: [item.fileURL])
         }
+        .sheet(isPresented: $showEditProfile) {
+            EditProfileView(bearer: bearer, identity: identity) { updated in
+                self.identity = updated
+            }
+        }
     }
 
     // MARK: - Identity
@@ -159,6 +166,16 @@ struct ProfileView: View {
                 }
             }
             Spacer(minLength: 0)
+            Button {
+                Haptics.light()
+                showEditProfile = true
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Editar perfil")
         }
         .padding(.vertical, Theme.Spacing.xs)
         .accessibilityElement(children: .combine)
@@ -211,6 +228,13 @@ struct ProfileView: View {
                 Hairline()
                 SettingValueRow(
                     label: "Objetivo",
+                    value: goalTypeLabel(identity?.goalType),
+                    valueColor: identity?.goalType == nil ? Theme.Color.muted : Theme.Color.foreground,
+                    showsChevron: false
+                )
+                Hairline()
+                SettingValueRow(
+                    label: "Carrera objetivo",
                     value: goalValue,
                     valueColor: targetRace == nil ? Theme.Color.muted : Theme.Color.foreground,
                     showsChevron: false
@@ -283,9 +307,11 @@ struct ProfileView: View {
         return race.name
     }
 
-    /// The device's current language, shown honestly (we don't persist an app
-    /// language preference yet — see BACKEND GAP).
+    /// Preferred language from profile, falling back to the device locale.
     private var languageValue: String {
+        if let code = identity?.preferredLanguage, let label = languageLabel(code) {
+            return label
+        }
         let code = Locale.current.language.languageCode?.identifier ?? "es"
         return Locale.current.localizedString(forLanguageCode: code)?.capitalized
             ?? (code == "es" ? "Español" : code.uppercased())
@@ -1040,6 +1066,42 @@ struct ExportShareItem: Identifiable {
     let fileURL: URL
 }
 
+// MARK: - Goal-type + language label helpers (file-scope, shared by ProfileView and EditProfileView)
+
+// Single source of truth for the goal_type → Spanish label mapping.
+// Used for display in SettingValueRow and as the data source for the
+// picker in EditProfileView — no copy-paste between the two.
+private enum GoalTypeOption: String, CaseIterable {
+    case firstHyrox       = "first_hyrox"
+    case improveHyroxMark = "improve_hyrox_mark"
+    case improveRunning   = "improve_running"
+    case completeFun      = "complete_fun"
+    case other            = "other"
+
+    var label: String {
+        switch self {
+        case .firstHyrox:       return "Mi primer HYROX"
+        case .improveHyroxMark: return "Mejorar mi marca de HYROX"
+        case .improveRunning:   return "Mejorar mi carrera"
+        case .completeFun:      return "Completar y disfrutar"
+        case .other:            return "Otro"
+        }
+    }
+}
+
+private func goalTypeLabel(_ type: String?) -> String {
+    guard let type else { return "Sin definir" }
+    return GoalTypeOption(rawValue: type)?.label ?? "Sin definir"
+}
+
+private func languageLabel(_ code: String?) -> String? {
+    switch code {
+    case "es": return "Español"
+    case "en": return "English"
+    default:   return nil
+    }
+}
+
 // UIActivityViewController bridge for SwiftUI. Used by both the data-export
 // flow (Files / AirDrop / Mail) and any future RGPD attachments.
 struct ShareSheet: UIViewControllerRepresentable {
@@ -1082,4 +1144,468 @@ struct ToastBanner: View {
             y: Theme.Shadow.cardTight.y
         )
     }
+}
+
+// MARK: - Edit Profile sheet
+//
+// Full-screen edit form for the athlete's writable profile fields.
+// Presented as a sheet from ProfileView's identity card pencil button.
+// On successful save the onSaved closure updates the parent's @State identity
+// so the card and settings rows reflect changes without a full reload.
+struct EditProfileView: View {
+    let bearer: String?
+    let identity: AthleteIdentity?
+    let onSaved: (AthleteIdentity) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    // IDENTIDAD
+    @State private var fullName: String
+    @State private var dobDate: Date
+    @State private var hasDob: Bool
+    @State private var sex: String?
+
+    // CUERPO
+    @State private var heightCmText: String
+    @State private var weightKgText: String
+    @State private var experienceText: String
+
+    // OBJETIVO
+    @State private var goalType: String?
+    @State private var goalOtherText: String
+
+    // IDIOMA
+    @State private var preferredLanguage: String?
+
+    // Async save state
+    @State private var saving: Bool = false
+    @State private var saveError: String? = nil
+
+    private static let dobFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    init(bearer: String?, identity: AthleteIdentity?, onSaved: @escaping (AthleteIdentity) -> Void) {
+        self.bearer = bearer
+        self.identity = identity
+        self.onSaved = onSaved
+
+        _fullName = State(initialValue: identity?.fullName ?? "")
+
+        if let dobStr = identity?.dob, let date = Self.dobFormatter.date(from: dobStr) {
+            _dobDate = State(initialValue: date)
+            _hasDob = State(initialValue: true)
+        } else {
+            // Default picker position: 25 years ago
+            let fallback = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
+            _dobDate = State(initialValue: fallback)
+            _hasDob = State(initialValue: false)
+        }
+
+        _sex = State(initialValue: identity?.sex)
+
+        _heightCmText = State(initialValue: identity?.heightCm.map { v in
+            v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
+        } ?? "")
+        _weightKgText = State(initialValue: identity?.weightKg.map { v in
+            v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
+        } ?? "")
+        _experienceText = State(initialValue: identity?.trainingExperienceYears.map { v in
+            v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
+        } ?? "")
+
+        _goalType = State(initialValue: identity?.goalType)
+        _goalOtherText = State(initialValue: identity?.goalOtherText ?? "")
+        _preferredLanguage = State(initialValue: identity?.preferredLanguage)
+    }
+
+    // MARK: - Body
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.Color.background.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+
+                        // ── IDENTIDAD ──────────────────────────────────────
+                        editSectionHeader("IDENTIDAD")
+                        CardSurface(padding: 0) {
+                            VStack(spacing: 0) {
+                                editTextRow(label: "Nombre", placeholder: "Tu nombre completo", text: $fullName)
+                                    .accessibilityLabel("Nombre")
+                                Hairline()
+                                dobRow
+                                Hairline()
+                                sexRow
+                            }
+                        }
+
+                        // ── CUERPO ─────────────────────────────────────────
+                        editSectionHeader("CUERPO")
+                        CardSurface(padding: 0) {
+                            VStack(spacing: 0) {
+                                editDecimalRow(label: "Altura (cm)", placeholder: "80–260", text: $heightCmText)
+                                    .accessibilityLabel("Altura en centímetros")
+                                Hairline()
+                                editDecimalRow(label: "Peso (kg)", placeholder: "25–250", text: $weightKgText)
+                                    .accessibilityLabel("Peso en kilogramos")
+                                Hairline()
+                                editDecimalRow(label: "Años entrenando", placeholder: "0–80", text: $experienceText)
+                                    .accessibilityLabel("Años de experiencia entrenando")
+                            }
+                        }
+                        if hasBodyRangeWarning {
+                            bodyRangeHint
+                        }
+
+                        // ── OBJETIVO ───────────────────────────────────────
+                        editSectionHeader("OBJETIVO")
+                        CardSurface(padding: 0) {
+                            VStack(spacing: 0) {
+                                goalTypeRow
+                                if goalType == "other" {
+                                    Hairline()
+                                    editTextRow(
+                                        label: "Descripción",
+                                        placeholder: "Máx. 500 caracteres",
+                                        text: $goalOtherText
+                                    )
+                                    .accessibilityLabel("Descripción del objetivo")
+                                }
+                            }
+                        }
+
+                        // ── IDIOMA ─────────────────────────────────────────
+                        editSectionHeader("IDIOMA")
+                        CardSurface(padding: 0) {
+                            languageRow
+                        }
+                        Text("La app se está traduciendo; algunos textos seguirán en español por ahora. Se aplicará al reiniciar.")
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                            .padding(.horizontal, 4)
+
+                        // ── Error feedback ─────────────────────────────────
+                        if let err = saveError {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Theme.Color.danger)
+                                Text(err)
+                                    .scaledFont(12, relativeTo: .caption)
+                                    .foregroundStyle(Theme.Color.danger)
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.top, Theme.Spacing.l)
+                    .padding(.bottom, Theme.Spacing.xxl)
+                }
+            }
+            .navigationTitle("Editar perfil")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Group {
+                        if saving {
+                            ProgressView().tint(Theme.Color.accentText)
+                        } else {
+                            Button("Guardar") {
+                                Haptics.light()
+                                Task { await save() }
+                            }
+                            .foregroundStyle(Theme.Color.accentText)
+                            .fontWeight(.semibold)
+                            .disabled(fullName.trimmingCharacters(in: .whitespaces).isEmpty || bearer == nil)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Section header (local style)
+
+    private func editSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
+            .tracking(1.6)
+            .foregroundStyle(Theme.Color.muted)
+            .padding(.horizontal, 4)
+            .padding(.top, 4)
+    }
+
+    // MARK: - Generic row helpers
+
+    private func editTextRow(label: String, placeholder: String, text: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(minWidth: 110, alignment: .leading)
+            TextField(placeholder, text: text)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    private func editDecimalRow(label: String, placeholder: String, text: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(minWidth: 110, alignment: .leading)
+            TextField(placeholder, text: text)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.decimalPad)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - DOB row
+
+    private var dobRow: some View {
+        HStack(spacing: 12) {
+            Text("Nacimiento")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(minWidth: 110, alignment: .leading)
+            Spacer()
+            if hasDob {
+                DatePicker(
+                    "",
+                    selection: $dobDate,
+                    in: minDob...maxDob,
+                    displayedComponents: .date
+                )
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(Theme.Color.accentText)
+                .accessibilityLabel("Fecha de nacimiento")
+                Button {
+                    hasDob = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 6)
+                .accessibilityLabel("Quitar fecha de nacimiento")
+            } else {
+                Button {
+                    hasDob = true
+                } label: {
+                    Text("Añadir")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.accentText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Añadir fecha de nacimiento")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    private var minDob: Date {
+        Calendar.current.date(byAdding: .year, value: -80, to: Date()) ?? Date()
+    }
+    private var maxDob: Date {
+        Calendar.current.date(byAdding: .year, value: -10, to: Date()) ?? Date()
+    }
+
+    // MARK: - Sex row
+
+    private var sexRow: some View {
+        HStack(spacing: 12) {
+            Text("Sexo")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(minWidth: 110, alignment: .leading)
+            Spacer()
+            Menu {
+                Button("Sin especificar") { sex = nil }
+                Button("Hombre")          { sex = "male" }
+                Button("Mujer")           { sex = "female" }
+                Button("Otro")            { sex = "other" }
+            } label: {
+                editMenuLabel(sexLabel)
+            }
+            .accessibilityLabel("Sexo: \(sexLabel)")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    private var sexLabel: String {
+        switch sex {
+        case "male":   return "Hombre"
+        case "female": return "Mujer"
+        case "other":  return "Otro"
+        default:       return "Sin especificar"
+        }
+    }
+
+    // MARK: - Body range hint
+
+    private var hasBodyRangeWarning: Bool {
+        let h = parseDecimal(heightCmText)
+        let w = parseDecimal(weightKgText)
+        let e = parseDecimal(experienceText)
+        let hBad = h.map { $0 < 80 || $0 > 260 } ?? false
+        let wBad = w.map { $0 < 25 || $0 > 250 } ?? false
+        let eBad = e.map { $0 < 0 || $0 > 80 }  ?? false
+        return hBad || wBad || eBad
+    }
+
+    private var bodyRangeHint: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+            Text("Comprueba los rangos: 80–260 cm · 25–250 kg · 0–80 años")
+                .scaledFont(11, relativeTo: .caption2)
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Goal type row
+
+    private var goalTypeRow: some View {
+        HStack(spacing: 12) {
+            Text("Objetivo")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(minWidth: 110, alignment: .leading)
+            Spacer()
+            Menu {
+                Button("Sin definir") { goalType = nil }
+                ForEach(GoalTypeOption.allCases, id: \.rawValue) { option in
+                    Button(option.label) { goalType = option.rawValue }
+                }
+            } label: {
+                editMenuLabel(goalTypeLabel(goalType), muted: goalType == nil)
+            }
+            .accessibilityLabel("Objetivo: \(goalTypeLabel(goalType))")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Language row
+
+    private var languageRow: some View {
+        HStack(spacing: 12) {
+            Text("Idioma")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(minWidth: 110, alignment: .leading)
+            Spacer()
+            Menu {
+                Button("Sin definir") { preferredLanguage = nil }
+                Button("Español")     { preferredLanguage = "es" }
+                Button("English")     { preferredLanguage = "en" }
+            } label: {
+                let lbl = preferredLanguage.flatMap { languageLabel($0) } ?? "Sin definir"
+                editMenuLabel(lbl, muted: preferredLanguage == nil)
+            }
+            .accessibilityLabel("Idioma: \(preferredLanguage.flatMap { languageLabel($0) } ?? "Sin definir")")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Menu label component (shared by goal/sex/language menus)
+
+    private func editMenuLabel(_ text: String, muted: Bool = false) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(muted ? Theme.Color.muted : Theme.Color.foreground)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+        }
+    }
+
+    // MARK: - Save
+
+    @MainActor
+    private func save() async {
+        guard let bearer, !saving else { return }
+        let trimmedName = fullName.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else {
+            saveError = "El nombre no puede estar vacío."
+            return
+        }
+
+        saving = true
+        saveError = nil
+        defer { saving = false }
+
+        let h = parseDecimal(heightCmText)
+        let w = parseDecimal(weightKgText)
+        let e = parseDecimal(experienceText)
+
+        let otherText: String? = goalType == "other"
+            ? goalOtherText.trimmingCharacters(in: .whitespaces).nilIfEmpty
+            : nil
+
+        let body = ProfileUpdate(
+            fullName: trimmedName,
+            dob: hasDob ? Self.dobFormatter.string(from: dobDate) : nil,
+            sex: sex,
+            heightCm: h,
+            weightKg: w,
+            trainingExperienceYears: e,
+            goalType: goalType,
+            goalOtherText: otherText.map { String($0.prefix(500)) },
+            preferredLanguage: preferredLanguage
+        )
+
+        do {
+            let updated = try await ProfileService.update(bearer: bearer, body: body)
+            // Persist iOS per-app language override; takes effect on next launch.
+            if let lang = preferredLanguage {
+                UserDefaults.standard.set([lang], forKey: "AppleLanguages")
+            }
+            onSaved(updated)
+            dismiss()
+        } catch APIError.http(401, _) {
+            saveError = "Sesión caducada. Vuelve a iniciar sesión."
+        } catch APIError.http(422, _) {
+            saveError = "Revisa los datos: algún valor está fuera de rango."
+        } catch {
+            saveError = "No pudimos guardar. Revisa tu conexión."
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func parseDecimal(_ raw: String) -> Double? {
+        let normalised = raw.replacingOccurrences(of: ",", with: ".")
+        return normalised.isEmpty ? nil : Double(normalised)
+    }
+}
+
+// Convenience on String — avoids polluting the global namespace.
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
