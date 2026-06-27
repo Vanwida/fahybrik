@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { MIcon } from '@/components/ui/MIcon';
+import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
 import type { V2WeekAdjustmentCard } from '@/lib/dashboard/v2/hoy-lanes';
 
@@ -89,6 +90,23 @@ export function AjusteSemanalCard({
       {/* Recommendation title + summary */}
       <p className="mt-1.5 text-xs font-semibold text-[color:var(--v2-fg)]">{card.title}</p>
       <p className="mt-0.5 text-xs leading-snug text-[color:var(--v2-muted)]">{card.summary}</p>
+
+      {/* "Por qué" — the signals that fired the IA verdict (real numbers from the
+          persisted context_pack) so the coach doesn't approve blind. */}
+      {card.triggers.length > 0 ? (
+        <div className="mt-2">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+            Por qué
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {card.triggers.map((t) => (
+              <Pill key={t.code} tone={t.tone === 'danger' ? 'danger' : 'warn'} variant="soft">
+                {t.label} <span className="v2-num font-bold">{t.value}</span>
+              </Pill>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Diff mini-table: día · antes → después */}
       {card.diff_rows.length > 0 ? (

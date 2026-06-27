@@ -23,6 +23,10 @@ import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
+import {
+  firedTriggersFromContext,
+  type FiredTrigger,
+} from '@fahybrid/shared/domain/coach/weekly-evaluation';
 
 // ── Thresholds (signal-config.ts — single source of truth, spec §10) ─────────
 /** Intake older than this many hours escalates to the Crítico group. */
@@ -67,6 +71,13 @@ export interface InboxWeekAdjustmentItem extends InboxItemBase {
   summary: string;
   diff_rows: InboxDiffRow[];
   extra_change_count: number;
+  /**
+   * Señales que dispararon la propuesta de la IA (cumplimiento, readiness, HRV,
+   * sesiones perdidas), re-derivadas SOLO del context_pack persistido con las
+   * mismas reglas del veredicto. Vacío si no hay context_pack o ninguna disparó.
+   * Da explicabilidad al coach para que no apruebe a ciegas.
+   */
+  triggers: FiredTrigger[];
 }
 
 export interface InboxMonthlyBlockItem extends InboxItemBase {
@@ -190,6 +201,16 @@ export async function loadCoachInbox(params: {
           ? (templateNames.get(String(c.to_template_id)) ?? `Sesión #${c.to_template_id}`)
           : 'Descanso',
     }));
+    // "Por qué": re-derivamos los triggers del context_pack persistido (read-only,
+    // mismas reglas del veredicto). Defensivo: un pack corrupto no tumba el inbox.
+    let triggers: FiredTrigger[] = [];
+    if (p.context_pack) {
+      try {
+        triggers = firedTriggersFromContext(p.context_pack);
+      } catch {
+        triggers = [];
+      }
+    }
     return {
       id: `week_adjustment:${p.id}`,
       type: 'week_adjustment',
@@ -203,6 +224,7 @@ export async function loadCoachInbox(params: {
         p.coach_summary ?? p.proposal.rationale ?? 'Propuesta de Pablo IA pendiente de revisión.',
       diff_rows,
       extra_change_count: Math.max(0, changes.length - MAX_DIFF_ROWS),
+      triggers,
     };
   });
 

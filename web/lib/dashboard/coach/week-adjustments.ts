@@ -9,6 +9,7 @@ import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
+import type { AthleteContextPack } from '@fahybrid/shared/domain/coach/pablo-ia-context';
 
 export type PendingAdjustment = {
   id: string;
@@ -18,6 +19,12 @@ export type PendingAdjustment = {
   verdict: string;
   coach_summary: string | null;
   proposal: WeekAdjustmentProposalJson;
+  /**
+   * El context_pack que disparó la propuesta (señales del atleta esa semana).
+   * Persistido en `context_pack_json`; null si la fila es antigua o el jsonb está
+   * corrupto. Fuente del "por qué" (triggers) en la card de ajuste.
+   */
+  context_pack: AthleteContextPack | null;
 };
 
 export class WeekAdjustmentError extends Error {
@@ -45,6 +52,7 @@ export async function listPendingWeekAdjustments(params: {
       week_start: string;
       verdict: string;
       proposal_json: unknown;
+      context_pack_json: unknown;
     }>
   >`
     select
@@ -53,7 +61,8 @@ export async function listPendingWeekAdjustments(params: {
       a.full_name as athlete_name,
       to_char(p.week_start, 'YYYY-MM-DD') as week_start,
       p.verdict,
-      p.proposal_json
+      p.proposal_json,
+      p.context_pack_json
     from week_adjustment_proposals p
     join athletes a on a.id = p.athlete_id
     where a.coach_id = ${params.coach_id}
@@ -77,6 +86,14 @@ export async function listPendingWeekAdjustments(params: {
         console.warn('[week-adjustments] proposal_json inválido, fila omitida:', r.id, e);
         return [];
       }
+      // context_pack es best-effort: si falta o está corrupto, el "por qué" de
+      // la card simplemente no aparece (la propuesta sigue siendo válida).
+      let context_pack: AthleteContextPack | null = null;
+      try {
+        context_pack = (coerceJson(r.context_pack_json) as AthleteContextPack) ?? null;
+      } catch {
+        context_pack = null;
+      }
       return [
         {
           id: r.id,
@@ -86,6 +103,7 @@ export async function listPendingWeekAdjustments(params: {
           verdict: r.verdict,
           coach_summary: proposal.coach_summary ?? null,
           proposal,
+          context_pack,
         },
       ];
     });

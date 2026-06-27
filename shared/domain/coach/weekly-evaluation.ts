@@ -183,6 +183,19 @@ function normalizeFeedStatus(raw: string): WeekFeedSession['status'] {
 }
 
 /**
+ * Re-deriva los triggers disparados a partir SOLO del `context_pack` persistido
+ * en la propuesta — sin tocar la DB ni recalcular nada nuevo. Usa las MISMAS
+ * reglas puras del veredicto (`evaluateWeeklyVerdictFromContext`) y el mismo
+ * formateo (`buildFiredTriggers`), de modo que el "por qué" de la card y la
+ * evaluación en vivo nunca puedan divergir. Read-only; pensado para explicar al
+ * coach por qué la IA propuso un ajuste (cumplimiento, readiness, HRV, perdidas).
+ */
+export function firedTriggersFromContext(pack: AthleteContextPack): FiredTrigger[] {
+  const { triggers } = evaluateWeeklyVerdictFromContext(pack);
+  return buildFiredTriggers(triggers, pack);
+}
+
+/**
  * Traduce los códigos de trigger disparados a {label, value, tone} con el
  * número REAL del context_pack. NO recalcula reglas — sólo da formato a lo que
  * `evaluateWeeklyVerdictFromContext` ya decidió. El conteo de cumplimiento
@@ -192,7 +205,7 @@ function normalizeFeedStatus(raw: string): WeekFeedSession['status'] {
 function buildFiredTriggers(
   triggers: string[],
   pack: AthleteContextPack,
-  feed: WeekFeedSummary,
+  feed?: WeekFeedSummary,
 ): FiredTrigger[] {
   const fired: FiredTrigger[] = [];
   const pct = pack.compliance_7d != null ? Math.round(pack.compliance_7d * 100) : null;
@@ -203,10 +216,17 @@ function buildFiredTriggers(
         fired.push({
           code,
           label: 'Cumplimiento bajo',
+          // El conteo done/scheduled solo está cuando hay feed (evaluación en
+          // vivo). Para el "por qué" de la card (solo context_pack persistido) cae
+          // al porcentaje, que es el mismo número de la regla del veredicto.
           value:
             pct != null
-              ? `${pct}% (${feed.completed}/${feed.scheduled})`
-              : `${feed.completed}/${feed.scheduled}`,
+              ? feed
+                ? `${pct}% (${feed.completed}/${feed.scheduled})`
+                : `${pct}%`
+              : feed
+                ? `${feed.completed}/${feed.scheduled}`
+                : 'bajo',
           tone: 'danger',
         });
         break;

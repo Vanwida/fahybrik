@@ -23,6 +23,7 @@ import 'server-only';
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import type { CoachThreadSummary } from '@/lib/dashboard/chat/service';
 import type { CoachInbox, InboxDiffRow } from '@/lib/dashboard/coach/inbox';
+import type { FiredTrigger } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 import { readinessBucket } from '@/lib/dashboard/constants/readiness';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { formatRelative } from '@/lib/dashboard/relative-time';
@@ -58,7 +59,8 @@ export type V2LaneAction =
   | 'ver'
   | 'mensaje'
   | 'responder'
-  | 'ajustar_fase'
+  // "Descargar carga": crea una propuesta de ajuste de semana (suavizar/descanso)
+  // por la vía existente — el coach la revisa en el strip de Ajuste de semana.
   | 'descargar_carga';
 
 export interface V2LaneCard {
@@ -141,6 +143,12 @@ export interface V2WeekAdjustmentCard {
   diff_rows: InboxDiffRow[];
   /** Changes beyond the shown rows (drives the "+N más" hint). */
   extra_change_count: number;
+  /**
+   * Señales que dispararon la propuesta (cumplimiento, readiness, HRV, sesiones
+   * perdidas) — el "por qué" para que el coach no apruebe a ciegas. Vacío cuando
+   * no hay context_pack o ninguna regla disparó. Read-only desde datos existentes.
+   */
+  triggers: FiredTrigger[];
 }
 
 /**
@@ -703,6 +711,7 @@ export function buildHoyLanes(params: {
         summary: item.summary,
         diff_rows: item.diff_rows,
         extra_change_count: item.extra_change_count,
+        triggers: item.triggers,
       });
     }
   }
@@ -741,7 +750,10 @@ export function buildHoyLanes(params: {
         id: `fallo:${a.athlete_id}`,
         reason: fallaReason(a, inactivity),
         adherence_pct: a.compliance_pct,
-        actions: hasPlanGap(a) ? ['ver', 'ajustar_fase'] : ['ver', 'mensaje'],
+        // Plan gap → la acción real es asignar/materializar plan (ya cubierta por
+        // los strips de Asignación/Siguiente microciclo + "Ver" en la ficha); sin
+        // botón "ajustar fase" falso. Sesiones falladas → mensaje al atleta.
+        actions: hasPlanGap(a) ? ['ver'] : ['ver', 'mensaje'],
       });
       continue;
     }
@@ -763,7 +775,10 @@ export function buildHoyLanes(params: {
         id: `listo:${a.athlete_id}`,
         reason: `Semana al ${a.compliance_pct}% sin incidencias — lista para subir carga.`,
         adherence_pct: a.compliance_pct,
-        actions: ['ver', 'ajustar_fase'],
+        // El avance seguro (cuando el microciclo ha terminado) ya tiene su propia
+        // card gated (Siguiente microciclo → /advance-sequence). Desde la mera
+        // heurística "listo" no avanzamos (saltaría trabajo sin terminar): "Ver".
+        actions: ['ver'],
       });
     }
   }
