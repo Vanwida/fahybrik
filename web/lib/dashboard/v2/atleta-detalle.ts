@@ -150,7 +150,7 @@ function buildStats(resumen: AthleteResumen | null, body: BodyPayload | null): D
  * confirm it inline), and the coach's full level set for the picker. Ownership is
  * already gated by the shell load upstream; this reads the same athlete row.
  */
-async function loadClassification(params: {
+export async function loadClassification(params: {
   coach_id: number | bigint;
   athlete_id: number;
   client: Sql;
