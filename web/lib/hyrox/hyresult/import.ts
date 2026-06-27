@@ -9,6 +9,7 @@ import {
   type HyresultImportedRace,
 } from '@fahybrid/shared/schema';
 import { upsertRaceRow } from '../upsert';
+import { adoptPendingRaceForImport } from '../reconcile';
 import { fetchAthleteRaces } from './parse';
 import { mapToRaceRow, type MappedPartner } from './map';
 
@@ -59,6 +60,19 @@ export async function importAllRaces(params: {
   const races = await fetchAthleteRaces(slug);
 
   const result = await client.begin(async (tx) => {
+    // Persist the hyresult identity link (the auto-import LINCHPIN): this athlete
+    // IS this hyresult profile. Written here — the single chokepoint EVERY
+    // by-slug import flows through (web "¿eres tú?" confirm, iOS ImportRaceSheet
+    // confirm, and the auto-result cron) — so a profile can never be imported
+    // without its slug being recorded. Guarded by `is distinct from` so a
+    // re-import / cron pass is a no-op, not a needless write. Atomic with the
+    // races below: if the import rolls back, so does the link.
+    await tx`
+      update athletes
+      set hyresult_slug = ${slug}, updated_at = now()
+      where id = ${athleteId} and hyresult_slug is distinct from ${slug}
+    `;
+
     let imported = 0;
     let updated = 0;
     const out: HyresultImportedRace[] = [];
@@ -77,6 +91,35 @@ export async function importAllRaces(params: {
       try {
         const projected = await tx.savepoint(async (sp) => {
           const { row, partners } = mapToRaceRow(race, athleteId, slug);
+
+          // RECONCILE / ADOPT (the unified FUTURE→PAST seam): before writing this
+          // completed result, stamp its source_idp onto a matching PENDING future
+          // objective the athlete/coach created (same event_type+format, date
+          // within ±window, or a catalog event_id link). The upsert below keys ON
+          // CONFLICT (athlete_id, source_idp), so it then fills THAT row in place
+          // — the planned target becomes the completed result, no duplicate row.
+          // No-op when nothing matches (a tune-up with no objective just inserts
+          // as a fresh `tune_up` row). Conservative by construction: a past result
+          // can't match a still-future objective (date > window, event_id null),
+          // so this is a no-op on first import and only "bites" once a target's
+          // date has passed — which is exactly when it should adopt. Running it in
+          // EVERY import (manual confirm + cron) — not just the cron — also closes
+          // the duplicate/unique-violation race when an athlete manually re-imports
+          // after a target passes but before the next cron pass.
+          await adoptPendingRaceForImport({
+            athlete_id: athleteId,
+            imported: {
+              event_id: null, // hyresult imports carry no catalog link
+              race_date: row.race_date,
+              event_type: row.event_type,
+              format: row.format,
+              division: row.division,
+              gender_category: row.gender_category,
+              source_idp: row.source_idp,
+            },
+            client: sp,
+          });
+
           const { id, inserted } = await upsertRaceRow(sp, row);
           await replacePartners(sp, id, partners);
           const projection: HyresultImportedRace = hyresultImportedRaceSchema.parse({

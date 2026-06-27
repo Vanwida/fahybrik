@@ -1,4 +1,4 @@
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,7 +117,10 @@ export function matchPendingRace(
 export async function adoptPendingRaceForImport(args: {
   athlete_id: number | bigint;
   imported: ImportedResultKey & { source_idp: string };
-  client?: Sql;
+  // Accepts the pool OR an in-flight transaction/savepoint client so the adopt
+  // stamp runs atomically with the upsert that fills the row (importAllRaces
+  // calls this inside its per-race savepoint).
+  client?: Sql | TransactionClient;
 }): Promise<number | null> {
   const client = args.client ?? defaultSql;
 
