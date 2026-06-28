@@ -17,6 +17,7 @@ struct ProfileView: View {
     @State private var showPartnerInvite: Bool = false
     @State private var subscription: SubscriptionInfo? = nil
     @State private var identity: AthleteIdentity? = nil
+    @State private var coachName: String? = nil
     @State private var aEventDays: Int? = nil
     @State private var blockLabel: String? = nil
     // Future race objectives — the SAME source the Carreras tab reads
@@ -371,6 +372,11 @@ struct ProfileView: View {
         guard let bearer else { return }
         identity = try? await MeService.fetch(bearer: bearer)
         if let resp = try? await PlanService.fetchWeek(bearer: bearer) {
+            // Coach identity is agnostic data from the API (multi-coach), never
+            // hardcoded. Trimmed so an empty/whitespace value falls back cleanly.
+            if let name = resp.coachName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                coachName = name
+            }
             aEventDays = resp.macroSummary.aEventDays
             if let label = resp.macroSummary.weekLabel, !label.isEmpty {
                 blockLabel = label
@@ -748,8 +754,8 @@ struct ProfileView: View {
                 Hairline()
                 profileRow(
                     icon: "person.crop.rectangle",
-                    title: "Tu coach: Pablo",
-                    subtitle: "Fabrik Studio · Barcelona",
+                    title: coachName.map { "Tu coach: \($0)" } ?? "Tu coach",
+                    subtitle: "Diseña tu metodología y tu plan.",
                     action: { sheet = .coach }
                 )
             }
@@ -946,7 +952,7 @@ struct ProfileView: View {
     private func sheetView(for kind: SheetKind) -> some View {
         switch kind {
         case .methodology: MethodologySheet()
-        case .coach:       CoachSheet()
+        case .coach:       CoachSheet(coachName: coachName)
         case .privacy:     LegalSheet(title: "Política de privacidad", bodyText: LegalCopy.privacy)
         case .terms:       LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms)
         }
@@ -1054,6 +1060,18 @@ private struct MethodologySheet: View {
 }
 
 private struct CoachSheet: View {
+    /// Agnostic coach name from the athlete week API (nil until loaded / if unset).
+    let coachName: String?
+
+    /// Display name with a neutral, non-fabricated fallback.
+    private var displayName: String { coachName ?? "Tu coach" }
+
+    /// Single uppercased initial for the avatar; person glyph when unavailable.
+    private var initial: String? {
+        guard let first = coachName?.first else { return nil }
+        return String(first).uppercased()
+    }
+
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
@@ -1062,20 +1080,26 @@ private struct CoachSheet: View {
                     HStack(spacing: 14) {
                         ZStack {
                             Circle().fill(Theme.Color.surface).frame(width: 64, height: 64)
-                            Text("P")
-                                .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                                .foregroundStyle(Theme.Color.foreground)
+                            if let initial {
+                                Text(initial)
+                                    .font(.system(size: 20, weight: .heavy, design: .default).italic())
+                                    .foregroundStyle(Theme.Color.foreground)
+                            } else {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(Theme.Color.muted)
+                            }
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Pablo")
+                            Text(displayName)
                                 .font(Theme.Typography.headlineS)
                                 .foregroundStyle(Theme.Color.foreground)
-                            Text("Coach · Fabrik Studio Barcelona")
+                            Text("Coach")
                                 .scaledFont(12, relativeTo: .caption)
                                 .foregroundStyle(Theme.Color.muted)
                         }
                     }
-                    Text("Pablo escribe la metodología detrás de tu plan. Cada workout que ves se basa en una plantilla validada por él, ajustada a tu CTL/ATL/TSB y a tus weaknesses por estación.")
+                    Text("\(displayName) escribe la metodología detrás de tu plan. Cada workout que ves se basa en una plantilla validada por tu coach, ajustada a tu CTL/ATL/TSB y a tus weaknesses por estación.")
                         .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.foreground)
                 }
@@ -1110,7 +1134,7 @@ private struct LegalSheet: View {
 
 private enum LegalCopy {
     static let privacy = "FAHYBRID procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en fahybrid.com/privacy. Si tienes dudas, escribe a hello@fahybrid.com."
-    static let terms = "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de Pablo y Fabrik Studio. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
+    static let terms = "El uso de FAHYBRID implica aceptar nuestros términos de servicio: la metodología es propiedad de tu coach. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en fahybrid.com/terms."
 }
 
 // MARK: - Export Share Sheet plumbing

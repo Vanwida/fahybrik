@@ -5,21 +5,19 @@ import SwiftUI
 // first if a token here needs to move.
 
 // MARK: - Wordmark
-// Bracketed orange [F] + foreground AHYBRID. Italic-bold display, tracking -1.
+// Official FAHYBRID brand logo (the "FH" monogram from web/public/brand/).
+// Light canvas → black variant, dark canvas → white variant, resolved by the
+// `BrandLogo` asset's luminosity appearances. `size` is the rendered HEIGHT in
+// points (width scales with the logo's intrinsic aspect ratio).
 // Consumer brand = FAHYBRID (fahybrid.com); internal infra stays FAHYBRIK.
 struct Wordmark: View {
     var size: CGFloat = 22
     var body: some View {
-        HStack(spacing: 0) {
-            // Orange [F] is a display GLYPH (text) — on the light canvas the
-            // brand orange fails AA, so use the role-split accentText (darkens to
-            // #B5430B on light, stays #F06A2A on dark).
-            Text("[F]").foregroundStyle(Theme.Color.accentText)
-            Text("AHYBRID").foregroundStyle(Theme.Color.foreground)
-        }
-        .font(.system(size: size, weight: .heavy, design: .default).italic())
-        .tracking(-1)
-        .lineLimit(1)
+        Image("BrandLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(height: size)
+            .accessibilityLabel("FAHYBRID")
     }
 }
 
