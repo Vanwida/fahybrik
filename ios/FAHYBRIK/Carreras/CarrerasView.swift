@@ -291,9 +291,10 @@ struct CarrerasView: View {
     //
     // All upcoming races (target + secondary/tune-up), source of truth from
     // GET /api/athlete/races, sorted soonest-first by the server. Each card shows
-    // its role and offers "Hacer objetivo principal" (non-primary) + a confirm-gated
-    // remove. "Buscar carrera" (→ BuscarCarreraSheet → FijarObjetivoView) lives in
-    // the section header.
+    // its role; its rare actions ("Hacer objetivo principal" non-primary + a
+    // confirm-gated remove) live behind a discreet ⋯ menu / long-press, keeping the
+    // face clean. "Buscar carrera" (→ BuscarCarreraSheet → FijarObjetivoView) lives
+    // in the section header.
 
     @ViewBuilder
     private var upcomingSection: some View {
@@ -456,18 +457,18 @@ struct CarrerasView: View {
     }
 }
 
-// MARK: - Upcoming race card (countdown · role badge · promote / remove)
+// MARK: - Upcoming race card (countdown · role badge · actions menu)
 //
 // A premium countdown for one future objective: a role badge ("Objetivo
 // principal" for the target, "Secundaria"/"Tune-up" otherwise), the big mono days
 // number (the InicioView countdown language), the race name, its category line,
-// city + date, and an optional goal time. Two explicit controls: an accessory
-// remove button in the eyebrow (the hub confirms before dropping) and, on
-// non-primary cards, a full-width "Hacer objetivo principal" action that promotes
-// the race to the single primary (server demotes the prior target). The primary
-// card carries the orange top accent. Light+dark off Theme tokens; brand accent is
-// orange-as-text. Label copy reuses AthleteNextRace's static helpers so the home
-// countdown and this card never drift.
+// city + date, and an optional goal time. The card face stays clean — its two
+// rare actions ("Hacer objetivo principal", non-primary only, + a confirm-gated
+// "Eliminar carrera") live behind a discreet ⋯ Menu in the corner AND the native
+// long-press .contextMenu, for double discoverability without cluttering the card.
+// The primary card carries the orange top accent. Light+dark off Theme tokens;
+// brand accent is orange-as-text. Label copy reuses AthleteNextRace's static
+// helpers so the home countdown and this card never drift.
 
 private struct UpcomingRaceCard: View {
     let race: UpcomingRace
@@ -483,19 +484,17 @@ private struct UpcomingRaceCard: View {
     private var isPrimary: Bool { (race.priority?.lowercased() ?? "target") == "target" }
 
     var body: some View {
-        // A container (not a button): the card holds two explicit controls — an
-        // accessory remove button in the eyebrow and, for non-primary races, a
-        // "Hacer objetivo principal" action. The primary card carries the orange
-        // top accent so the goal race reads as the anchor at a glance.
+        // A container (not a button): its rare actions live behind a ⋯ Menu in the
+        // eyebrow and the long-press .contextMenu, keeping the face clean. The
+        // primary card carries the orange top accent so the goal race reads as the
+        // anchor at a glance.
         CardSurface(padding: 16, topAccent: isPrimary, elevated: true) {
             VStack(alignment: .leading, spacing: 11) {
                 eyebrowRow
                 infoBlock
-                if !isPrimary {
-                    makePrimaryButton
-                }
             }
         }
+        .contextMenu { actionsMenu }
         .accessibilityElement(children: .contain)
     }
 
@@ -505,19 +504,52 @@ private struct UpcomingRaceCard: View {
         HStack(spacing: 8) {
             priorityBadge
             Spacer(minLength: 8)
-            Button {
-                Haptics.light()
-                onRemove()
+            // Discreet ⋯ for the card's rare actions. Same item set as the
+            // long-press .contextMenu (see actionsMenu) — double discoverability.
+            Menu {
+                actionsMenu
             } label: {
-                Image(systemName: "xmark.circle")
-                    .font(.system(size: 15, weight: .semibold))
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Theme.Color.faint)
+                    // Comfortable hit target without distorting the eyebrow.
+                    .frame(width: 32, height: 28)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Quitar objetivo")
-            .accessibilityHint("\(race.name) dejará de contar para tu cuenta atrás")
+            .accessibilityLabel("Acciones de la carrera")
+            .accessibilityHint(menuAccessibilityHint)
         }
+    }
+
+    /// The shared action set for one upcoming objective, surfaced two ways for
+    /// double discoverability: the discreet ⋯ Menu in the corner and the native
+    /// long-press .contextMenu on the card. "Hacer objetivo principal" appears
+    /// only when this card is NOT already the primary (nothing to promote on the
+    /// target); "Eliminar carrera" is destructive and routes through the hub's
+    /// existing confirm. Both reuse onMakePrimary / onRemove — no new behavior.
+    @ViewBuilder
+    private var actionsMenu: some View {
+        if !isPrimary {
+            Button {
+                Haptics.light()
+                onMakePrimary()
+            } label: {
+                Label("Hacer objetivo principal", systemImage: "star")
+            }
+        }
+        Button(role: .destructive) {
+            Haptics.light()
+            onRemove()
+        } label: {
+            Label("Eliminar carrera", systemImage: "trash")
+        }
+    }
+
+    /// Accurate per state: the primary card has nothing to promote.
+    private var menuAccessibilityHint: String {
+        isPrimary
+            ? "Eliminar carrera"
+            : "Hacer objetivo principal o eliminar carrera"
     }
 
     /// The role badge: accent "Objetivo principal" for the target, a neutral
@@ -585,32 +617,6 @@ private struct UpcomingRaceCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(infoAccessibilityLabel)
-    }
-
-    /// Full-width accent capsule action to promote a secondary/tune-up race to the
-    /// primary objective. Hidden on the primary card (nothing to promote).
-    private var makePrimaryButton: some View {
-        Button {
-            Haptics.light()
-            onMakePrimary()
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "star")
-                    .font(.system(size: 11, weight: .bold))
-                Text("Hacer objetivo principal")
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .background(Theme.Color.accent.opacity(0.10))
-            .overlay(Capsule().stroke(Theme.Color.accent.opacity(0.30), lineWidth: 1))
-            .clipShape(Capsule())
-        }
-        .buttonStyle(PressScaleStyle())
-        .padding(.top, 2)
-        .accessibilityLabel("Hacer objetivo principal")
-        .accessibilityHint("Fija \(race.name) como tu carrera principal; la cuenta atrás de Inicio la reflejará")
     }
 
     @ViewBuilder
