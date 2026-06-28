@@ -11,6 +11,11 @@ struct ProfileView: View {
     let bearer: String?
     let onSignOut: () -> Void
 
+    // App appearance override (Auto / Claro / Oscuro). The same persisted value
+    // AppRoot reads to drive `.preferredColorScheme`, so changing it here re-themes
+    // the whole app instantly and survives relaunches.
+    @AppStorage(ThemeMode.storageKey) private var themeMode: ThemeMode = .system
+
     @State private var sheet: SheetKind? = nil
     @State private var partner: PartnerInfo? = nil
     @State private var athleteModality: String? = nil
@@ -89,6 +94,9 @@ struct ProfileView: View {
 
                         SectionHeader(title: "Dispositivos")
                         devicesCard
+
+                        SectionHeader(title: "Apariencia")
+                        appearanceCard
 
                         SectionHeader(title: "Metodología")
                         methodologyCard
@@ -740,6 +748,21 @@ struct ProfileView: View {
         .accessibilityAddTraits(.isButton)
     }
 
+    // MARK: - Appearance
+
+    /// Theme override control. Defaults to "Auto" (follow the system); "Claro" /
+    /// "Oscuro" force the scheme. Writes the shared @AppStorage value AppRoot reads.
+    private var appearanceCard: some View {
+        CardSurface(padding: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                ThemeModePicker(selection: $themeMode)
+                Text("«Auto» sigue la apariencia de tu iPhone.")
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+        }
+    }
+
     // MARK: - Methodology
 
     private var methodologyCard: some View {
@@ -1007,6 +1030,53 @@ private struct SectionHeader: View {
             .foregroundStyle(Theme.Color.muted)
             .padding(.horizontal, 4)
             .padding(.top, 4)
+    }
+}
+
+// MARK: - Theme mode segmented control
+//
+// On-brand segmented control for the appearance override — a recessed track with
+// the active segment lifted on the Fabrik-orange pill (accentOn text = the valid
+// 4.57:1 brown-on-orange pairing), inactive segments muted. Mirrors the AppTabBar's
+// active-pill language rather than the washed-out native `.segmented` Picker.
+private struct ThemeModePicker: View {
+    @Binding var selection: ThemeMode
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(ThemeMode.allCases) { mode in
+                segment(mode)
+            }
+        }
+        .padding(4)
+        .background(Theme.Color.surfaceSunken)
+        .clipShape(Capsule())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Apariencia")
+    }
+
+    private func segment(_ mode: ThemeMode) -> some View {
+        let active = selection == mode
+        return Button {
+            guard !active else { return }
+            Haptics.light()
+            withAnimation(.easeInOut(duration: 0.18)) { selection = mode }
+        } label: {
+            Text(mode.label)
+                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background {
+                    if active {
+                        Capsule().fill(Theme.Color.accent)
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(mode.label)
+        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
     }
 }
 

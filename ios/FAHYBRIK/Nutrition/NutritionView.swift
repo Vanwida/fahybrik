@@ -1,9 +1,15 @@
 import SwiftUI
 
-// Athlete-facing Nutrición tab — the day's food register, wired to the real
-// backend (GET/POST/DELETE /api/athlete/nutrition). Shows the selected day's
-// totals (kcal + macros) up top, the list of logged entries below (swipe to
-// delete), and a "+" to add via manual entry, barcode scan, or photo-IA.
+// PARKED — intentionally NOT reachable from the UI. Nutrition is a post-launch
+// idea on hold: this screen is deliberately not wired into AppShell's tab bar or
+// any navigation, so the athlete cannot reach it. The code is kept intact and
+// compilable for when it returns — do not delete. To re-enable, add a `nutricion`
+// case to AppTab + AppShell's switch (and a tab-bar entry).
+//
+// Athlete-facing food register, wired to the real backend (GET/POST/DELETE
+// /api/athlete/nutrition). Shows the selected day's totals (kcal + macros) up
+// top, the list of logged entries below (swipe to delete), and a "+" to add via
+// manual entry, barcode scan, or photo-IA.
 //
 // Honest states only: empty days show "Aún no has registrado comidas",
 // failures show an inline message — never fabricated meals or targets.
@@ -255,5 +261,4 @@ struct NutritionView: View {
 
 #Preview {
     NutritionView()
-        .preferredColorScheme(.dark)
 }

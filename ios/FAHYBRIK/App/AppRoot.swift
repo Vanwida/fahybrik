@@ -5,6 +5,11 @@ struct AppRoot: View {
     @State private var pendingPartnerToken: String? = nil
     @State private var pendingInviteToken: String? = nil
 
+    // User-selected appearance. `.system` follows the OS (the default + historical
+    // behaviour); `.light`/`.dark` force a scheme. Set from Perfil → Apariencia and
+    // applied to the whole hierarchy below via `.preferredColorScheme`.
+    @AppStorage(ThemeMode.storageKey) private var themeMode: ThemeMode = .system
+
     private func startHealthKitSync() {
         HealthKitSyncService.shared.configure(
             bearer: auth.bearer,
@@ -89,6 +94,9 @@ struct AppRoot: View {
         .onOpenURL { url in
             handleDeepLink(url)
         }
+        // Drive the entire app (sign-in, onboarding, shell, sheets) from the
+        // single persisted appearance preference.
+        .preferredColorScheme(themeMode.colorScheme)
     }
 
     // MARK: - Authenticated routing + cold-gate

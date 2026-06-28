@@ -314,6 +314,43 @@ enum Theme {
     }
 }
 
+// MARK: - Theme mode (user-selectable appearance override)
+//
+// The palette already resolves per interface style via `Theme.Color.dyn(light:dark:)`.
+// This enum lets the athlete OVERRIDE which style the app renders in, independent of
+// the OS setting: `.system` defers to the device (the historical default), `.light`
+// and `.dark` force the corresponding scheme. It's persisted once, read at the app
+// root (AppRoot) and written from the Perfil "Apariencia" control — a single
+// @AppStorage(ThemeMode.storageKey) value drives the whole app.
+enum ThemeMode: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    /// Single source of truth for the persisted preference key.
+    static let storageKey = "fahybrik.themeMode"
+
+    var id: String { rawValue }
+
+    /// Scheme to force via `.preferredColorScheme`. `nil` → follow the system.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light:  return .light
+        case .dark:   return .dark
+        }
+    }
+
+    /// Short ES label for the segmented control.
+    var label: String {
+        switch self {
+        case .system: return "Auto"
+        case .light:  return "Claro"
+        case .dark:   return "Oscuro"
+        }
+    }
+}
+
 extension View {
     func brandSurface(radius: CGFloat = Theme.Radius.l) -> some View {
         self
