@@ -1,19 +1,38 @@
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { buildAthleteMacroSummary } from '@/lib/coach/macro-progress';
-import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import {
+  addDays,
+  isoDateString,
+  mondayOfWeek,
+  parseIsoDate,
+  startOfDayInBox,
+} from '@fahybrid/shared/domain/dates';
 import { getNextRace, getTargetRace } from '@/lib/races/next-race';
 import { sql } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Weekly-delivery model: the athlete sees THIS week and may PEEK the next one
+// (the week that unlocks Saturday) — only the next, never arbitrary navigation.
+// So we accept a single bounded offset: 0 = this week (default), 1 = next week.
+const MAX_WEEK_OFFSET = 1;
+
+function parseWeekOffset(request: Request): number {
+  const raw = new URL(request.url).searchParams.get('week_offset');
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(MAX_WEEK_OFFSET, Math.max(0, Math.trunc(n)));
+}
+
 export async function GET(request: Request) {
   const auth = await getAthleteSessionFromBearer(request.headers.get('authorization'));
   if (!auth) return jsonError('unauthorized', 'Bearer token required', 401);
 
+  const weekOffset = parseWeekOffset(request);
   const summary = await buildAthleteMacroSummary({ athlete_id: auth.athlete_id });
-  const week = await buildAthleteWeekPlan(auth.athlete_id);
+  const week = await buildAthleteWeekPlan(auth.athlete_id, weekOffset);
   const coach_name = await getCoachName(auth.athlete_id);
 
   // RACE countdown. `target_race` = the goal the plan peaks to; `next_race` =
@@ -47,11 +66,14 @@ async function getCoachName(athlete_id: number | bigint): Promise<string | null>
   return rows[0]?.full_name ?? null;
 }
 
-async function buildAthleteWeekPlan(athlete_id: number | bigint) {
+async function buildAthleteWeekPlan(athlete_id: number | bigint, weekOffset = 0) {
   // "Today" must resolve in the box timezone (Europe/Madrid), not UTC —
   // otherwise between 00:00–02:00 BCN the athlete is shown yesterday's week.
+  // `weekOffset` shifts the window forward by N weeks (0 = this week, 1 = the
+  // next-week peek); `today_iso` stays the real today, so a peeked week has no
+  // "today" row and reads as a preview.
   const today = startOfDayInBox(new Date());
-  const weekStart = mondayOfWeek(today);
+  const weekStart = addDays(mondayOfWeek(today), weekOffset * 7);
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
 
@@ -126,7 +148,15 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint) {
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const microciclo_name = await resolveMicrocicloName(microcycleId);
+  const [microciclo_name, focus, has_next_week] = await Promise.all([
+    resolveMicrocicloName(microcycleId),
+    // Coach-authored "Foco de la semana" — the athlete-facing focus line for
+    // THIS week (program_week_templates.focus), resolved through the assignment.
+    resolveWeekFocus(microcycleId),
+    // Whether the athlete can peek a NEXT week with real, published content
+    // (drives the "Próxima semana" affordance). Relative to the returned week.
+    hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
+  ]);
 
   // C35 — partner_visibility is exposed as-is. The DB filter by athlete_id
   // already isolates each user's sessions, so the only rows here belong to
@@ -179,8 +209,74 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint) {
     week_end: weekEndIso,
     today_iso: isoDateString(today),
     microciclo_name,
+    // Athlete-facing week focus (a short coach line, no per-day detail). Null
+    // when the week wasn't materialized from a month template / has no focus.
+    focus,
+    // True when a next week with published content exists (peek affordance).
+    has_next_week,
     days,
   };
+}
+
+/**
+ * Resolve THIS week's athlete-facing focus = the coach's `program_week_templates.focus`
+ * for the week template that materialized into this microcycle. The materializer
+ * pushes one microcycle per week in position order into
+ * `athlete_month_assignments.microcycle_ids[]`, so the microcycle's 1-based index
+ * in that array is the week's position within the month. We pick the Nth week
+ * template by `program_month_weeks.position` (OFFSET N-1) to stay agnostic of
+ * whether positions are 0- or 1-based. Null when the microcycle isn't part of a
+ * month assignment (free-planned week) or the week has no focus — the athlete
+ * then simply sees no focus line, never an invented one.
+ */
+async function resolveWeekFocus(microcycleId: string | null): Promise<string | null> {
+  if (!microcycleId) return null;
+  const rows = await sql<Array<{ focus: string | null }>>`
+    select w.focus
+    from athlete_month_assignments ama
+    join lateral (
+      select pmw.week_template_id
+      from program_month_weeks pmw
+      where pmw.month_template_id = ama.month_template_id
+      order by pmw.position
+      offset greatest(array_position(ama.microcycle_ids, ${microcycleId}::bigint) - 1, 0)
+      limit 1
+    ) wk on true
+    join program_week_templates w on w.id = wk.week_template_id
+    where ${microcycleId}::bigint = any(ama.microcycle_ids)
+    limit 1
+  `;
+  const focus = rows[0]?.focus?.trim();
+  return focus ? focus : null;
+}
+
+/**
+ * Whether the athlete has a NON-DRAFT week with at least one assignment starting
+ * on `weekStartIso` (a Monday). Mirrors the publish gate in the main week query
+ * so a still-draft next week reads as "not available yet" (no peek), keeping the
+ * weekly-delivery promise (next week unlocks Saturday) honest.
+ */
+async function hasPublishedWeek(
+  athlete_id: number | bigint,
+  weekStartIso: string,
+): Promise<boolean> {
+  const weekEndIso = isoDateString(addDays(parseIsoDate(weekStartIso), 6));
+  const rows = await sql<Array<{ has_next: boolean }>>`
+    select exists (
+      select 1
+      from workout_assignments wa
+      where wa.athlete_id = ${athlete_id as number}
+        and wa.scheduled_for >= ${weekStartIso}::date
+        and wa.scheduled_for <= ${weekEndIso}::date
+        and not exists (
+          select 1 from weekly_plans wp
+          where wp.athlete_id = ${athlete_id as number}
+            and wp.week_start = ${weekStartIso}::date
+            and wp.status = 'draft'
+        )
+    ) as has_next
+  `;
+  return rows[0]?.has_next ?? false;
 }
 
 // Honest defaults for estimating session duration from template segments when
