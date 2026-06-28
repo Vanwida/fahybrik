@@ -31,6 +31,13 @@ export const executionMetricsSchema = z.object({
   score_time_s: z.number().int().min(0).optional(),
   score_rounds: z.number().int().min(0).optional(),
   score_reps: z.number().int().min(0).optional(),
+  // Provenance of the execution as a whole — the `biometric_source` enum.
+  // 'manual' for a retroactive log the athlete typed in by hand; omitted (→
+  // default 'healthkit') for the live-timer path and older clients. Validated
+  // against the exact enum so a stray string can never reach the column.
+  source: z
+    .enum(['healthkit', 'garmin', 'concept2', 'manual', 'whoop', 'oura', 'polar', 'coros', 'wahoo'])
+    .optional(),
   started_at: z.string().datetime().optional(),
   ended_at: z.string().datetime().optional(),
   // Optional per-segment detail from iOS on workout finish. Upserted by
@@ -94,7 +101,7 @@ export async function recordWorkoutExecution(args: {
       ${input.score_time_s ?? null},
       ${input.score_rounds ?? null},
       ${input.score_reps ?? null},
-      'healthkit'
+      ${input.source ?? 'healthkit'}::biometric_source
     )
     on conflict (assignment_id) do update set
       perceived_exertion = coalesce(excluded.perceived_exertion, workout_executions.perceived_exertion),
