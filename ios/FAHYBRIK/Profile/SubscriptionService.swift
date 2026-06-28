@@ -69,7 +69,7 @@ private struct StripePortalResponse: Decodable {
 /// Athlete subscription snapshot. Mirrors the web `GET /api/stripe/subscription`
 /// response (snake_case → camelCase via APIClient). All fields optional/safe
 /// for the "no subscription" envelope where the backend sends nulls.
-struct SubscriptionInfo: Decodable, Equatable {
+struct SubscriptionInfo: Codable, Equatable {
     let subscribed: Bool
     /// Raw Stripe status: active | trialing | past_due | unpaid | canceled |
     /// incomplete | incomplete_expired | paused. Nil when no subscription.

@@ -1,6 +1,6 @@
 import Foundation
 
-struct AthleteWeekDaySession: Decodable, Identifiable {
+struct AthleteWeekDaySession: Codable, Identifiable {
     var id: String { assignmentId }
     let assignmentId: String
     let slot: String
@@ -49,7 +49,7 @@ struct AthleteWeekDaySession: Decodable, Identifiable {
     var isTestSession: Bool { isTest ?? false }
 }
 
-struct AthleteWeekDay: Decodable, Identifiable {
+struct AthleteWeekDay: Codable, Identifiable {
     var id: String { isoDate }
     let dayOfWeek: Int
     let isoDate: String
@@ -57,7 +57,7 @@ struct AthleteWeekDay: Decodable, Identifiable {
     let isRest: Bool
 }
 
-struct AthleteWeekPayload: Decodable {
+struct AthleteWeekPayload: Codable {
     let weekStart: String
     let weekEnd: String
     let todayIso: String
@@ -77,7 +77,7 @@ struct AthleteWeekPayload: Decodable {
     let days: [AthleteWeekDay]
 }
 
-struct AthleteMacroSummary: Decodable {
+struct AthleteMacroSummary: Codable {
     let block: String?
     let weekLabel: String?
     let aEventDays: Int?
@@ -91,7 +91,7 @@ struct AthleteMacroSummary: Decodable {
 // property names here. Enum fields (eventType/format/division/genderCategory)
 // arrive as raw lowercase tokens; we map them to ES labels at render time via
 // the helpers below rather than failing to decode an unknown value.
-struct AthleteNextRace: Decodable, Equatable {
+struct AthleteNextRace: Codable, Equatable {
     let name: String
     let eventType: String?
     let format: String?
@@ -172,25 +172,25 @@ struct AthleteNextRace: Decodable, Equatable {
     }
 }
 
-struct AthleteMacroProgressWeek: Decodable, Identifiable {
+struct AthleteMacroProgressWeek: Codable, Identifiable {
     var id: String { weekStart }
     let weekStart: String
     let status: String
     let compliancePct: Double?
 }
 
-struct AthleteMacroProgressPayload: Decodable {
+struct AthleteMacroProgressPayload: Codable {
     let block: String?
     let totalAssignedWeeks: Int
     let weeks: [AthleteMacroProgressWeek]
 }
 
-struct AthleteMacroProgressResponse: Decodable {
+struct AthleteMacroProgressResponse: Codable {
     let macro: AthleteMacroSummary
     let macroProgress: AthleteMacroProgressPayload?
 }
 
-struct AthletePlanWeekResponse: Decodable {
+struct AthletePlanWeekResponse: Codable {
     let week: AthleteWeekPayload
     let macroSummary: AthleteMacroSummary
     /// The GOAL race the plan peaks for — drives the primary countdown card.

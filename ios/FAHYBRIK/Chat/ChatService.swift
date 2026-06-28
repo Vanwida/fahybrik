@@ -24,7 +24,7 @@ struct ChatMessageDTO: Decodable, Identifiable, Equatable {
     let editedAt: Date?
 }
 
-struct ChatThreadDTO: Decodable, Equatable {
+struct ChatThreadDTO: Codable, Equatable {
     let threadId: String
     let coachId: String
     let athleteId: String

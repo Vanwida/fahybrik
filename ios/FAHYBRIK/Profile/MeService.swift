@@ -7,7 +7,7 @@ import Foundation
 // APIClient's decoder uses `convertFromSnakeCase`, so the snake_case wire
 // fields map to these camelCase properties automatically.
 
-struct AthleteIdentity: Decodable {
+struct AthleteIdentity: Codable {
     let id: String
     let fullName: String
     let dob: String?

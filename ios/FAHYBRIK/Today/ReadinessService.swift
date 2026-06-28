@@ -1,6 +1,6 @@
 import Foundation
 
-struct DailyReadinessPayload: Decodable {
+struct DailyReadinessPayload: Codable {
     let score: Int
     let recordedFor: String
     let delta7d: Int?
