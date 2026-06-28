@@ -195,6 +195,71 @@ export async function setAthleteTargetRace(
   return { target_race, race_id };
 }
 
+export interface PromoteRaceToTargetParams {
+  athlete_id: number;
+  race_id: number;
+  client?: Sql;
+}
+
+/**
+ * Promote an EXISTING upcoming race to the athlete's primary objective ('target').
+ * The athlete-chosen counterpart to setAthleteTargetRace: that path picks a NEW
+ * catalog event; here the race is already on the calendar (added earlier as a
+ * secondary/tune_up objective), so we just flip its priority in place.
+ *
+ * Reuses the SAME single-target invariant — demote every OTHER current target to
+ * 'secondary' — so the two write paths can never produce two targets. tune_ups are
+ * left untouched on purpose: a tune-up is a training/test race, promoting another
+ * race never turns it into a secondary objective. Only the prior peak steps down.
+ *
+ * Scoped to ownership + a pure future objective (planned/registered, no result):
+ * a past/imported result can never become a future target. Returns null (→ 404)
+ * when nothing matched. Re-promoting the current target is idempotent.
+ */
+export async function promoteRaceToTarget(
+  params: PromoteRaceToTargetParams,
+): Promise<SetTargetRaceResult | null> {
+  const client = params.client ?? defaultSql;
+
+  const promoted = await client.begin(async (tx) => {
+    // Ownership + "is a promotable future objective" gate in one read.
+    const owned = await tx<{ id: string }[]>`
+      select id::text as id
+      from races
+      where id = ${params.race_id}
+        and athlete_id = ${params.athlete_id}
+        and status in ('planned', 'registered')
+        and result_time_seconds is null
+      limit 1
+    `;
+    if (!owned[0]) return null;
+
+    // 1) Demote every OTHER current target to 'secondary' (single-target
+    //    invariant — identical predicate to setAthleteTargetRace).
+    await tx`
+      update races set priority = 'secondary'::race_priority, updated_at = now()
+      where athlete_id = ${params.athlete_id}
+        and priority = 'target'
+        and status in ('planned', 'registered')
+        and id <> ${params.race_id}
+    `;
+
+    // 2) Promote the chosen race (idempotent if it was already the target).
+    await tx`
+      update races set priority = 'target'::race_priority, updated_at = now()
+      where id = ${params.race_id}
+    `;
+
+    return owned[0].id;
+  });
+
+  if (!promoted) return null;
+
+  // Read back through the canonical countdown reader (committed by now).
+  const target_race = await getTargetRace(params.athlete_id, client);
+  return { target_race, race_id: promoted };
+}
+
 export interface DeleteTargetRaceParams {
   athlete_id: number;
   race_id: number;
