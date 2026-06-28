@@ -8,8 +8,14 @@
  * Each part is a distinct, role-TITLED, fully-TYPED block (archetype + items with
  * measure + target). The week varies the principal block so the typed
  * differentiation is visible end-to-end:
- *   Lun Fuerza (%RM) · Mar Series de carrera (zona→ritmo) · Mié Metcon (EMOM) ·
+ *   Lun Fuerza (%RM → kg) · Mar Series de carrera (zona→ritmo) · Mié Metcon (EMOM) ·
  *   Jue Z2/Recuperación (zona→ritmo) · Vie Simulación HYROX (distancia + cargas).
+ *
+ * The Monday strength block is the BACK-SQUAT block (back-squat is the mapped lift,
+ * back-squat → back_squat_1rm). athlete 70 has a seeded back_squat_1rm of 80 kg, so
+ * its 65–80% band RESOLVES to an absolute "52–64 kg" via the real load resolver —
+ * the %RM→kg chip is visible end-to-end. Front-squat is intentionally unmapped
+ * (we never borrow another lift's 1RM), so a front-squat %RM can only show "% · —".
  *
  * Built entirely through the REAL coach machinery (no fabricated rows that skip
  * the pipeline):
@@ -25,7 +31,9 @@
  *      "Calentamiento general", "Calentamiento de carrera", "Vuelta a la calma" and
  *      "Simulación HYROX (Open)" (the canonical 16-leg race template). Created via
  *      the real createBlock / updateBlockFull (validated BlockWrite), idempotent by
- *      title. The principal blocks reuse Pablo's already-typed library blocks.
+ *      title. The principal blocks reuse Pablo's already-typed library blocks; the
+ *      back-squat principal additionally gets a %1RM band on its mapped lift (via the
+ *      same validated BlockWrite + updateBlockFull) so the %RM→kg chip resolves.
  *   4. MICROCICLO — a coach-29 program_month_templates (2 weeks) whose week slots
  *      compose each day as warmup + principal + cooldown, every block referencing a
  *      library block by source_block_id (items hydrate from block_exercises at
@@ -60,6 +68,8 @@ import './_load_web_env.ts';
 import type { Sql } from '@/lib/db';
 import type { Measure, Prescription } from '@fahybrid/shared/domain/prescription';
 import type { BlockWrite, BlockExerciseWrite } from '@fahybrid/shared/schema/blocks';
+import { blockWriteSchema } from '@fahybrid/shared/schema/blocks';
+import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 
 // ── CONFIG ───────────────────────────────────────────────────────────────────
@@ -72,6 +82,11 @@ const LEVEL_NAME = 'N3'; // Rendimiento
 const TRAINING_DAYS = 5;
 const WEEK_COUNT = 2; // covers current week (audit) + next week (TestFlight demo)
 const MONTH_NAME = 'Microciclo Demo · Atleta 1'; // stable idempotency marker
+
+/** %1RM band applied to the MAPPED strength lift of the STRENGTH_RM principal block
+ *  (mirrors Pablo's front-squat block encoding). With athlete 70's back_squat_1rm
+ *  of 80 kg this resolves to "65–80% → 52–64 kg" via the real load resolver. */
+const STRENGTH_RM_PCT = { min: 65, max: 80 } as const;
 
 // Methodology group ids (0030 methodology_groups). Warmups/cooldown live in the
 // movilidad/preventivos group; the HYROX sim in the race-simulation group.
@@ -191,7 +206,11 @@ function buildSupportSpecs(hyroxExercises: BlockExerciseWrite[]): Record<Support
 
 /** Pablo's typed PRINCIPAL blocks, cloned into coach 29's library (slug `--c29`). */
 const MAIN_SLUGS = {
-  STRENGTH_RM: 'g1-1-front-squat-5-rounds-10-10-8-8-6-al-65-80--c29', // %RM front squat
+  // %RM back squat — the MAPPED lift (back-squat → back_squat_1rm). athlete 70 has
+  // a seeded back_squat_1rm, so its %RM band resolves to an ABSOLUTE kg load in the
+  // brief ("65–80% → 52–64 kg"). Front-squat is intentionally unmapped (we don't
+  // borrow another lift's 1RM), so the front-squat block's %RM can only show "% · —".
+  STRENGTH_RM: 'g1-5-back-squat-4r-10-8-8-6--c29', //                   %RM back squat → resolves kg
   RUN_FARTLEK: 'g4-38-fartlek-10-wu-5x5-z4-1-z5--c29', //               run @Zn → resolves pace
   ERG_Z2: 'g5-52-10-row-z2--c29', //                                    erg @Zn → resolves pace
   WOD_EMOM: 'g9-87-emom-15-20-bw-lunges--c29', //                       typed WOD (EMOM)
@@ -234,6 +253,7 @@ type Deps = {
   sql: Sql;
   createBlock: typeof import('@/lib/dashboard/coach/blocks')['createBlock'];
   updateBlockFull: typeof import('@/lib/dashboard/coach/blocks')['updateBlockFull'];
+  getBlockById: typeof import('@/lib/dashboard/coach/blocks')['getBlockById'];
   buildHyroxItems: typeof import('@/lib/dashboard/v2/hyrox-template')['buildHyroxItems'];
   safeParsePrescription: typeof import('@fahybrid/shared/domain/prescription')['safeParsePrescription'];
   createMonthTemplateWithEmptyWeeks: typeof import('@/lib/dashboard/coach/program-months')['createMonthTemplateWithEmptyWeeks'];
@@ -268,6 +288,7 @@ async function loadDeps(): Promise<Deps> {
     sql: db.sql,
     createBlock: blocks.createBlock,
     updateBlockFull: blocks.updateBlockFull,
+    getBlockById: blocks.getBlockById,
     buildHyroxItems: hyrox.buildHyroxItems,
     safeParsePrescription: presc.safeParsePrescription,
     createMonthTemplateWithEmptyWeeks: months.createMonthTemplateWithEmptyWeeks,
@@ -428,6 +449,89 @@ async function resolveMainBlocks(): Promise<Record<MainKey, number>> {
     out[key] = id;
   }
   return out;
+}
+
+/** Give the STRENGTH_RM principal block a %1RM band on its MAPPED strength lift, so
+ *  the %RM→kg chip resolves to an absolute load (the whole point of the demo). The
+ *  block is rebuilt through the REAL validated BlockWrite + updateBlockFull (same
+ *  path the coach editor uses) — Pablo's content (exercises, rep schemes, order) is
+ *  preserved; we only ADD the intensity target. Only lifts in EXERCISE_TO_1RM_BENCHMARK
+ *  (tracked, resolvable) get the band — unmapped accessories (e.g. front-squat) stay
+ *  reps-only, honestly. Idempotent: re-applies the same band; runs BEFORE assignment
+ *  (which snapshots block_exercises into template_segments). */
+async function ensureStrengthRmTarget(blockId: number): Promise<void> {
+  const block = await D.getBlockById(COACH_ID, blockId);
+  if (!block) throw new Error(`STRENGTH_RM block ${blockId} not found in coach ${COACH_ID} library`);
+
+  const rows = await D.sql<
+    Array<{
+      block_position: number;
+      block_format: string | null;
+      block_title: string | null;
+      exercise_id: string;
+      exercise_slug: string;
+      prescription_json: unknown;
+      notes: string | null;
+    }>
+  >`
+    select be.block_position, be.block_format, be.block_title,
+           be.exercise_id::text as exercise_id, e.slug as exercise_slug,
+           be.prescription_json, be.notes
+    from block_exercises be
+    join exercises e on e.id = be.exercise_id
+    where be.block_id = ${blockId}
+    order by be.position
+  `;
+  if (rows.length === 0) throw new Error(`STRENGTH_RM block ${blockId} has no exercises to type`);
+
+  let injected = 0;
+  const exercises: BlockExerciseWrite[] = rows.map((r) => {
+    const parsed = D.safeParsePrescription(r.prescription_json);
+    if (!parsed.success) {
+      throw new Error(`STRENGTH_RM block ${blockId} exercise ${r.exercise_id} has an invalid prescription`);
+    }
+    let prescription = parsed.data as Prescription;
+    // Only the MAPPED, resolvable lift (back-squat → back_squat_1rm) carries the
+    // %RM band; unmapped variants (front-squat) are left reps-only — we never
+    // fabricate an intensity the resolver can't honestly turn into kg.
+    if (EXERCISE_TO_1RM_BENCHMARK[r.exercise_slug] && Array.isArray(prescription.sets) && prescription.sets.length > 0) {
+      prescription = {
+        ...prescription,
+        sets: prescription.sets.map((s) => ({
+          ...s,
+          target: { kind: 'percent_rm', min: STRENGTH_RM_PCT.min, max: STRENGTH_RM_PCT.max },
+        })),
+      };
+      injected++;
+    }
+    return {
+      exercise_id: Number(r.exercise_id),
+      block_position: r.block_position,
+      block_format: r.block_format,
+      block_title: r.block_title,
+      prescription_json: prescription,
+      notes: r.notes,
+    };
+  });
+
+  if (injected === 0) {
+    throw new Error(
+      `STRENGTH_RM block ${blockId} has no mapped strength lift (EXERCISE_TO_1RM_BENCHMARK) — cannot demo the %RM→kg resolution`,
+    );
+  }
+
+  const write = blockWriteSchema.parse({
+    title: block.title,
+    description: block.description,
+    methodology_group_id: block.methodology_group_id,
+    format: block.format,
+    exercises,
+  } satisfies BlockWrite); // build-right auto-QA: fail loud before persisting
+
+  await D.updateBlockFull(COACH_ID, blockId, write, D.sql);
+  log(
+    `STRENGTH_RM block ${blockId} "${block.title}": %RM band ${STRENGTH_RM_PCT.min}–${STRENGTH_RM_PCT.max}% on ${injected} mapped lift(s)`,
+  );
 }
 
 /** slots_json for one week: per training day, ONE workout session composed of three
@@ -605,6 +709,12 @@ async function verify(): Promise<void> {
       const presc = it.prescription_json ? JSON.stringify((it.prescription_json as { sets?: unknown[]; scheme?: string }).scheme) : 'null';
       const ri = it.resolved_intensity ? ` → ${it.resolved_intensity.zone_label} ${it.resolved_intensity.range_label}` : '';
       log(`       ${b.title}: ${it.exercise_name} scheme=${presc}${ri}`);
+      // %RM→kg proof: surface any item whose %RM target resolved to an absolute kg
+      // load (the demo's whole point — "65–80% → 52–64 kg" from the athlete's 1RM).
+      for (const item of b.items) {
+        const rl = item.resolved_load;
+        if (rl) log(`         ↳ %RM→kg  ${item.exercise_name}: ${rl.pct_label} → ${rl.kg_label} (1RM ${rl.one_rm_kg} kg)`);
+      }
     }
   }
 
@@ -646,6 +756,7 @@ async function main() {
   await deriveZoneProfiles();
   const support = await seedSupportBlocks();
   const main = await resolveMainBlocks();
+  await ensureStrengthRmTarget(main.STRENGTH_RM); // %RM band on the mapped lift → resolves to kg
   const { monthId } = await ensureMonthTemplate(level_id, main, support);
   await assignAndPublish(monthId, startDateIso);
   await verify();
