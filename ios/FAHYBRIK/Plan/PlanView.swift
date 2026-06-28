@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreTransferable
 
 // Plan tab — the week published by the coach, rendered as the handoff hi-fi
 // (design_handoff_fhp/App Atleta - Flujo.dc.html · `plan` screen).
@@ -58,6 +59,12 @@ struct PlanView: View {
     // open. Set from the per-session technique affordance in the week.
     @State private var techniqueTarget: AthleteWeekDaySession? = nil
 
+    // Move-a-session-to-another-day: the message shown when a move FAILS (and
+    // its optimistic update is reverted), plus the day currently under a drag
+    // (the drop-target highlight). Both clear themselves once handled.
+    @State private var moveError: String? = nil
+    @State private var dropTargetIso: String? = nil
+
     private var effectiveBearer: String? {
         bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
     }
@@ -109,6 +116,9 @@ struct PlanView: View {
                 }
             }
         }
+        // A failed move reverts the week and surfaces the reason here.
+        .overlay(alignment: .top) { moveErrorBanner }
+        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: moveError)
         .task { await loadPlan() }
         // Detalle — same path as Today's "Empezar" (presents the prescribed
         // workout for the tapped day's assignment).
@@ -531,6 +541,8 @@ struct PlanView: View {
                 }
             }
         }
+        // Smoothly raise/clear the drop-target highlight as a drag passes over days.
+        .animation(.easeOut(duration: 0.15), value: dropTargetIso)
     }
 
     // A collapsed day row: day label (mono) · modality dot · session name ·
@@ -542,41 +554,55 @@ struct PlanView: View {
         let rest = isRest(day)
         let done = isDayCompleted(day)
         let canOpen = !rest && !(primary?.assignmentId.isEmpty ?? true)
+        // A collapsed row operates on its PRIMARY session (as tap-to-open does):
+        // draggable + a move menu when that session can be rescheduled. The
+        // chevron is replaced by the move affordance to keep the trailing count
+        // unchanged (move + technique).
+        let movable = !rest && (primary.map(canMove) ?? false)
+        let isTarget = dropTargetIso == day.isoDate
 
-        HStack(spacing: Theme.Spacing.s) {
-            Button {
-                guard let id = primary?.assignmentId, !id.isEmpty, !rest else { return }
-                Haptics.light()
-                open(assignmentId: id, title: primary?.title)
-            } label: {
-                HStack(spacing: Theme.Spacing.m) {
-                    Text(dayLabelES(day.dayOfWeek))
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.Color.faint)
-                        .frame(width: 32, alignment: .leading)
+        let row = HStack(spacing: Theme.Spacing.s) {
+            draggableSession(
+                Button {
+                    guard let id = primary?.assignmentId, !id.isEmpty, !rest else { return }
+                    Haptics.light()
+                    open(assignmentId: id, title: primary?.title)
+                } label: {
+                    HStack(spacing: Theme.Spacing.m) {
+                        Text(dayLabelES(day.dayOfWeek))
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Theme.Color.faint)
+                            .frame(width: 32, alignment: .leading)
 
-                    if rest {
-                        // Rest day: no modality dot — a muted hollow placeholder.
-                        Circle()
-                            .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                            .frame(width: 7, height: 7)
-                    } else {
-                        ModalityDot(modality: primary?.modality, size: 7)
+                        if rest {
+                            // Rest day: no modality dot — a muted hollow placeholder.
+                            Circle()
+                                .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                                .frame(width: 7, height: 7)
+                        } else {
+                            ModalityDot(modality: primary?.modality, size: 7)
+                        }
+
+                        sessionTitleLine(day: day, rest: rest)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        trailingStatus(rest: rest, done: done,
+                                       hasSession: primary != nil, showChevron: !movable)
                     }
-
-                    sessionTitleLine(day: day, rest: rest)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    trailingStatus(rest: rest, done: done, hasSession: primary != nil)
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PressScaleStyle())
-            .disabled(!canOpen)
+                .buttonStyle(PressScaleStyle())
+                .disabled(!canOpen),
+                session: primary,
+                sourceIso: day.isoDate
+            )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(rowAccessibilityLabel(day: day, rest: rest, done: done))
             .accessibilityAddTraits(canOpen ? .isButton : [])
 
+            if movable, let session = primary {
+                moveMenu(for: session, sourceIso: day.isoDate)
+            }
             if canOpen, let session = primary {
                 techniqueButton(for: session)
             }
@@ -584,12 +610,15 @@ struct PlanView: View {
         .padding(.horizontal, 13)
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity)
-        .background(Theme.Color.surface)
+        .background(isTarget ? Theme.Color.accentText.opacity(0.08) : Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
+                .stroke(isTarget ? Theme.Color.accentText : Theme.Color.hairline,
+                        lineWidth: isTarget ? 2 : 1)
         )
+
+        dayDropTarget(row, day: day)
     }
 
     // TODAY's row: highlighted on the elevated surface with an ORANGE border,
@@ -600,8 +629,9 @@ struct PlanView: View {
         let rest = isRest(day)
         let sessions = day.sessions.filter { !$0.assignmentId.isEmpty }
         let multi = sessions.count > 1
+        let isTarget = dropTargetIso == day.isoDate
 
-        VStack(alignment: .leading, spacing: 9) {
+        let card = VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: Theme.Spacing.m) {
                 Text(dayLabelES(day.dayOfWeek))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -652,7 +682,7 @@ struct PlanView: View {
             // (~2.4:1) disappears, so use the role-split accentText (darker orange
             // on light, identical #F06A2A on dark) to keep the highlight visible.
             RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.accentText, lineWidth: 1.5)
+                .stroke(Theme.Color.accentText, lineWidth: isTarget ? 2.5 : 1.5)
         )
         .brandShadow(Theme.Shadow.cardTight)
         // Tapping anywhere on the (non-rest) card opens the first session, while
@@ -664,46 +694,55 @@ struct PlanView: View {
             open(assignmentId: first.assignmentId, title: first.title)
         }
         .accessibilityElement(children: .contain)
+
+        // Today is also a valid drop target — you can move a session ONTO today.
+        dayDropTarget(card, day: day)
     }
 
-    // One session line inside today's expanded card: slot badge + name + a
-    // technique affordance + status glyph.
+    // One session line inside today's expanded card: slot badge + name + the
+    // move/technique affordances + status glyph. Each line is its own drag
+    // source (a two-a-day moves one session at a time).
     private func todaySessionLine(_ session: AthleteWeekDaySession) -> some View {
         let done = isSessionCompleted(session)
+        let movable = canMove(session)
         return HStack(spacing: Theme.Spacing.s) {
-            Button {
-                Haptics.light()
-                open(assignmentId: session.assignmentId, title: session.title)
-            } label: {
-                HStack(spacing: Theme.Spacing.s) {
-                    SlotBadge(
-                        slot: slot(for: session),
-                        color: Theme.Modality.color(session.modality)
-                    )
-                    Text(session.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                    if session.isTestSession {
-                        TestBadge(compact: true)
+            draggableSession(
+                Button {
+                    Haptics.light()
+                    open(assignmentId: session.assignmentId, title: session.title)
+                } label: {
+                    HStack(spacing: Theme.Spacing.s) {
+                        SlotBadge(
+                            slot: slot(for: session),
+                            color: Theme.Modality.color(session.modality)
+                        )
+                        Text(session.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1)
+                        if session.isTestSession {
+                            TestBadge(compact: true)
+                        }
+                        if let badge = partnerBadge(for: session) {
+                            PartnerBadge(text: badge, compact: true)
+                        }
+                        Spacer(minLength: Theme.Spacing.s)
+                        if done {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Theme.Color.ok)
+                        } else if !movable {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Theme.Color.faint)
+                        }
                     }
-                    if let badge = partnerBadge(for: session) {
-                        PartnerBadge(text: badge, compact: true)
-                    }
-                    Spacer(minLength: Theme.Spacing.s)
-                    if done {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(Theme.Color.ok)
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Theme.Color.faint)
-                    }
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PressScaleStyle())
+                .buttonStyle(PressScaleStyle()),
+                session: session,
+                sourceIso: todayIso
+            )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(
                 "\(slot(for: session) == .am ? "Mañana" : "Tarde"), \(session.title)"
@@ -711,6 +750,9 @@ struct PlanView: View {
             )
             .accessibilityAddTraits(.isButton)
 
+            if movable {
+                moveMenu(for: session, sourceIso: todayIso)
+            }
             if !session.assignmentId.isEmpty {
                 techniqueButton(for: session)
             }
@@ -770,17 +812,26 @@ struct PlanView: View {
     // Trailing glyph for a collapsed row: ✓ when done, a chevron (tap-to-open)
     // for a pending session, nothing on rest days.
     @ViewBuilder
-    private func trailingStatus(rest: Bool, done: Bool, hasSession: Bool) -> some View {
+    private func trailingStatus(
+        rest: Bool,
+        done: Bool,
+        hasSession: Bool,
+        showChevron: Bool = true
+    ) -> some View {
         if rest || !hasSession {
             EmptyView()
         } else if done {
             Image(systemName: "checkmark")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Theme.Color.ok)
-        } else {
+        } else if showChevron {
+            // The "tap to open" hint — suppressed when a move button takes its
+            // place (the move/technique buttons already signal interactivity).
             Image(systemName: "chevron.right")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Theme.Color.faint)
+        } else {
+            EmptyView()
         }
     }
 
@@ -863,6 +914,279 @@ struct PlanView: View {
         openAssignmentId = assignmentId
         openFallbackTitle = title
         showWorkout = true
+    }
+
+    // MARK: - Move a session to another day (drag & drop + accessible menu)
+    //
+    // The athlete reschedules a session within THIS week. Drag & drop is the
+    // hero ("arrastrar con la mano"); the per-session "Mover" menu is the
+    // accessible, always-reliable alternative (drag-and-drop alone fails WCAG).
+    // Both paths funnel through `handleMove`, which updates optimistically and
+    // reverts on failure. Cross-week is a future phase — only this week's days
+    // are valid targets, so the UI only offers moves when `weekOffset == 0`.
+
+    /// A session can be moved only on THIS week, when it's a real assignment and
+    /// not yet completed. The next-week peek is read-only; completed sessions are
+    /// frozen (the backend returns 409). Drives the drag source and the menu.
+    private func canMove(_ session: AthleteWeekDaySession) -> Bool {
+        weekOffset == 0 && !session.assignmentId.isEmpty && !isSessionCompleted(session)
+    }
+
+    /// The lift preview shown while dragging — a compact branded pill so the
+    /// gesture reads as intentional.
+    private func dragPreview(_ session: AthleteWeekDaySession) -> some View {
+        HStack(spacing: 6) {
+            ModalityDot(modality: session.modality, size: 7)
+            Text(session.title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.foreground)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Theme.Color.surfaceElevated)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Theme.Color.accentText, lineWidth: 1.5))
+    }
+
+    /// Make `content` a drag source for `session` — but only when the session is
+    /// movable. Rest days / completed sessions / the peek week stay inert.
+    @ViewBuilder
+    private func draggableSession<V: View>(
+        _ content: V,
+        session: AthleteWeekDaySession?,
+        sourceIso: String
+    ) -> some View {
+        if let session, canMove(session) {
+            content.draggable(
+                MovableSession(assignmentId: session.assignmentId, sourceIso: sourceIso)
+            ) {
+                dragPreview(session)
+            }
+        } else {
+            content
+        }
+    }
+
+    /// Make `content` a drop target for the given day, highlighting it while a
+    /// drag hovers. Only active on this week (the peek is read-only).
+    @ViewBuilder
+    private func dayDropTarget<V: View>(_ content: V, day: AthleteWeekDay) -> some View {
+        if weekOffset == 0 {
+            content.dropDestination(for: MovableSession.self) { items, _ in
+                guard let payload = items.first else { return false }
+                return handleDrop(payload, onto: day.isoDate)
+            } isTargeted: { targeted in
+                if targeted {
+                    dropTargetIso = day.isoDate
+                } else if dropTargetIso == day.isoDate {
+                    dropTargetIso = nil
+                }
+            }
+        } else {
+            content
+        }
+    }
+
+    /// The accessible, non-drag path: a tap menu listing the OTHER days with what
+    /// each already holds, so the athlete picks a day with full context.
+    private func moveMenu(for session: AthleteWeekDaySession, sourceIso: String) -> some View {
+        Menu {
+            Section("Mover a otro día") {
+                ForEach(days.filter { $0.isoDate != sourceIso }) { day in
+                    Button {
+                        handleMove(assignmentId: session.assignmentId,
+                                   from: sourceIso, to: day.isoDate)
+                    } label: {
+                        Text(menuDayLabel(day))
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "calendar")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 34, height: 30)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Mover \(session.title) a otro día")
+    }
+
+    /// "Lunes 21 · libre" / "Hoy · 1 sesión" — the day, its date, and its load.
+    private func menuDayLabel(_ day: AthleteWeekDay) -> String {
+        let name = (day.isoDate == todayIso) ? "Hoy" : fullDayNameES(day.dayOfWeek)
+        let real = day.sessions.filter { !$0.assignmentId.isEmpty }.count
+        let load = real == 0 ? "libre" : (real == 1 ? "1 sesión" : "\(real) sesiones")
+        if let n = parseIsoDay(day.isoDate)?.day, day.isoDate != todayIso {
+            return "\(name) \(n) · \(load)"
+        }
+        return "\(name) · \(load)"
+    }
+
+    private func fullDayNameES(_ dow: Int) -> String {
+        switch dow {
+        case 1: return "Lunes"
+        case 2: return "Martes"
+        case 3: return "Miércoles"
+        case 4: return "Jueves"
+        case 5: return "Viernes"
+        case 6: return "Sábado"
+        default: return "Domingo"
+        }
+    }
+
+    /// Drop handler: clear the highlight and move (unless dropped on its own day).
+    private func handleDrop(_ payload: MovableSession, onto targetIso: String) -> Bool {
+        dropTargetIso = nil
+        guard payload.sourceIso != targetIso else { return false }
+        handleMove(assignmentId: payload.assignmentId, from: payload.sourceIso, to: targetIso)
+        return true
+    }
+
+    /// Move a session optimistically, then confirm with the backend. On failure
+    /// the week is reverted and the reason surfaced. Idempotent against no-ops.
+    private func handleMove(assignmentId: String, from sourceIso: String, to targetIso: String) {
+        guard weekOffset == 0, sourceIso != targetIso else { return }
+        guard let token = effectiveBearer, let numericId = Int(assignmentId) else {
+            showMoveError("No se pudo mover la sesión. Inténtalo de nuevo.")
+            return
+        }
+        // Defensive: a session completed on the server (or locally) is frozen —
+        // the backend would 409. We also keep completed sessions un-draggable.
+        if let session = realSessions.first(where: { $0.assignmentId == assignmentId }),
+           isSessionCompleted(session) {
+            Haptics.error()
+            showMoveError("Esta sesión ya está completada y no se puede mover.")
+            return
+        }
+
+        let snapshot = days
+        reschedule(assignmentId: assignmentId, to: targetIso)   // optimistic
+        moveError = nil
+        Haptics.success()
+
+        Task {
+            do {
+                _ = try await PlanService.moveSession(
+                    assignmentId: numericId, toDate: targetIso, bearer: token
+                )
+                // Success — keep the optimistic week. A later refetch (.task /
+                // workout completion) reconciles against the server's order.
+            } catch {
+                days = snapshot                 // revert
+                Haptics.error()
+                showMoveError(moveErrorMessage(for: error))
+            }
+        }
+    }
+
+    /// Optimistically move a session to `targetIso`: pull it from its current day
+    /// and append it to the target, re-sorting so AM precedes PM. Rest flags
+    /// follow the count (a day emptied becomes rest; a rest day that receives a
+    /// session no longer reads as rest).
+    private func reschedule(assignmentId: String, to targetIso: String) {
+        var moved: AthleteWeekDaySession?
+        var next: [AthleteWeekDay] = days.map { day in
+            guard let idx = day.sessions.firstIndex(where: { $0.assignmentId == assignmentId })
+            else { return day }
+            var ss = day.sessions
+            moved = ss.remove(at: idx)
+            return AthleteWeekDay(dayOfWeek: day.dayOfWeek, isoDate: day.isoDate,
+                                  sessions: ss, isRest: ss.isEmpty ? true : day.isRest)
+        }
+        guard let movedSession = moved else { return }
+        next = next.map { day in
+            guard day.isoDate == targetIso else { return day }
+            var ss = day.sessions
+            ss.append(movedSession)
+            ss.sort { slotRank($0) < slotRank($1) }
+            return AthleteWeekDay(dayOfWeek: day.dayOfWeek, isoDate: day.isoDate,
+                                  sessions: ss, isRest: false)
+        }
+        days = next
+    }
+
+    /// AM (or unspecified) sorts before PM so a two-a-day reads morning→evening.
+    private func slotRank(_ s: AthleteWeekDaySession) -> Int {
+        s.slot.lowercased().hasPrefix("pm") ? 1 : 0
+    }
+
+    /// Show a move-failure message that auto-dismisses (unless replaced sooner).
+    private func showMoveError(_ message: String) {
+        moveError = message
+        Task {
+            try? await Task.sleep(nanoseconds: 4_500_000_000)
+            if moveError == message { moveError = nil }
+        }
+    }
+
+    /// Map a move failure to athlete-facing copy. 409 = completed (frozen); 422 =
+    /// out-of-week (only this week's days are valid) or malformed; 404 = the
+    /// session vanished; else generic / offline.
+    private func moveErrorMessage(for error: Error) -> String {
+        guard case let APIError.http(status, data) = error else {
+            return "No se pudo mover la sesión. Revisa tu conexión."
+        }
+        let code = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error.code
+        switch status {
+        case 409: return "Esta sesión ya está completada y no se puede mover."
+        case 422:
+            if code == "out_of_range" {
+                return "Solo puedes mover la sesión dentro de esta semana."
+            }
+            return "No se pudo mover la sesión. Revisa el día e inténtalo de nuevo."
+        case 404: return "No encontramos esta sesión. Desliza para recargar tu plan."
+        case 401: return "Tu sesión ha caducado. Vuelve a entrar para mover la sesión."
+        default:  return "No se pudo mover la sesión. Inténtalo de nuevo."
+        }
+    }
+
+    // The move-failure banner (the week is already reverted by the time it shows).
+    @ViewBuilder
+    private var moveErrorBanner: some View {
+        if let moveError {
+            HStack(spacing: Theme.Spacing.s) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.Color.danger)
+                Text(moveError)
+                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: Theme.Spacing.s)
+                Button {
+                    self.moveError = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Cerrar aviso")
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 10)
+            .background {
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .fill(Theme.Color.surfaceElevated)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                            .fill(Theme.Color.dangerTint)
+                    )
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.danger.opacity(0.35), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .brandShadow(Theme.Shadow.cardTight)
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.top, Theme.Spacing.s)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("No se pudo mover: \(moveError)")
+        }
     }
 
     // MARK: - Load
@@ -1235,6 +1559,41 @@ struct CategoryTag: View {
         case "mobility":   return Theme.Color.muted
         default:           return Theme.Color.muted
         }
+    }
+}
+
+// MARK: - Drag payload (move a session to another day)
+//
+// The transferable carried by a session drag: which assignment, and the day it
+// started on (so a drop onto its own day is a no-op). Encoded as a tiny
+// "assignmentId|sourceIso" string via a proxy representation — no custom
+// UTType to declare (keeps it in-process, warning-free) and the `for:` drop
+// destination still matches only this type.
+struct MovableSession: Transferable {
+    let assignmentId: String
+    let sourceIso: String
+
+    init(assignmentId: String, sourceIso: String) {
+        self.assignmentId = assignmentId
+        self.sourceIso = sourceIso
+    }
+
+    init(encoded: String) throws {
+        let parts = encoded
+            .split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+            .map(String.init)
+        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
+            throw CocoaError(.coderInvalidValue)
+        }
+        self.assignmentId = parts[0]
+        self.sourceIso = parts[1]
+    }
+
+    static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(
+            exporting: { "\($0.assignmentId)|\($0.sourceIso)" },
+            importing: { try MovableSession(encoded: $0) }
+        )
     }
 }
 

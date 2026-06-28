@@ -223,6 +223,30 @@ struct AthletePlanWeekResponse: Decodable {
     }
 }
 
+// MARK: - Move a session to another day (within the week)
+//
+// The athlete reschedules ONE of their own sessions to another day of the SAME
+// week. The endpoint changes `scheduled_for` only — never the planned order
+// (`planned_sequence` is frozen server-side). See
+// app/api/athlete/plan/session/move/route.ts for the full contract.
+struct MoveSessionResult: Decodable {
+    struct MovedSession: Decodable {
+        let id: String
+        let scheduledFor: String    // YYYY-MM-DD (server-reconciled day)
+        let plannedSequence: Int?   // frozen order — unchanged by a move
+        let status: String
+    }
+    let session: MovedSession
+}
+
+// Decoded shape of an API error body ({ error: { code, message } }, mirrors
+// web/lib/api/responses.ts). Lets callers turn a 409/422 into precise,
+// athlete-facing copy (completed vs out-of-week) instead of a generic failure.
+struct APIErrorBody: Decodable {
+    struct Detail: Decodable { let code: String; let message: String }
+    let error: Detail
+}
+
 enum PlanService {
     /// Fetch a week of the plan. `weekOffset` is bounded to the weekly-delivery
     /// model: 0 = this week (default), 1 = the NEXT-week peek (the one that
@@ -244,6 +268,27 @@ enum PlanService {
     static func fetchAssignmentDetail(_ assignmentId: String, bearer: String) async throws -> AssignmentDetail {
         try await APIClient.shared.get(
             path: "api/athlete/assignments/\(assignmentId)/detail",
+            bearer: bearer
+        )
+    }
+
+    /// Move ONE session to another day WITHIN the same week. The week payload
+    /// ships `assignment_id` as a stringified bigint; the move endpoint wants a
+    /// numeric id, so callers pass the parsed Int. Throws `APIError.http(409)`
+    /// for a completed (frozen) session and `APIError.http(422)` for an
+    /// out-of-week target — the caller maps these to athlete-facing copy.
+    static func moveSession(
+        assignmentId: Int,
+        toDate: String,
+        bearer: String
+    ) async throws -> MoveSessionResult {
+        struct Body: Encodable {
+            let assignmentId: Int   // → assignment_id (snake_case encoder)
+            let toDate: String      // → to_date
+        }
+        return try await APIClient.shared.post(
+            path: "api/athlete/plan/session/move",
+            body: Body(assignmentId: assignmentId, toDate: toDate),
             bearer: bearer
         )
     }
