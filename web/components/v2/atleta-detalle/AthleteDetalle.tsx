@@ -46,7 +46,11 @@ export function AthleteDetalle({
             profiles={detalle.zone_profiles}
           />
         ) : tab === 'historico' ? (
-          <HistoricoTab plan={detalle.plan} performance={detalle.performance} />
+          <HistoricoTab
+            plan={detalle.plan}
+            strengthMaxes={detalle.strength_maxes}
+            benchmarks={detalle.benchmarks}
+          />
         ) : tab === 'biometria' ? (
           <BiometriaTab body={detalle.body} />
         ) : (

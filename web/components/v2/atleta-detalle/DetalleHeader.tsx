@@ -13,7 +13,7 @@ import { LevelBadge } from '@/components/v2/LevelBadge';
 import { StatusDot } from '@/components/v2/StatusDot';
 import { StatTile } from '@/components/v2/StatTile';
 import { cn } from '@/lib/utils';
-import type { DetalleHeader as HeaderData, DetalleStat } from '@/lib/dashboard/v2/atleta-detalle-types';
+import { EM_DASH, type DetalleHeader as HeaderData, type DetalleStat } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 function HeaderAction({
   href,
@@ -90,9 +90,28 @@ export function DetalleHeader({
       {/* Stat cluster + actions */}
       <div className="flex flex-col items-stretch gap-4 lg:items-end">
         <div className="flex items-end gap-6 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-5 py-3 shadow-[var(--v2-shadow-card)]">
-          {stats.map((s) => (
-            <StatTile key={s.label} label={s.label} value={s.value} tone={s.tone} className="gap-0.5" />
-          ))}
+          {stats.map((s) => {
+            // An empty metric reads as a deliberately muted "—" (no data yet), not
+            // a bright value that looks broken next to a real reading.
+            const empty = s.value === EM_DASH;
+            return (
+              <StatTile
+                key={s.label}
+                label={s.label}
+                value={
+                  empty ? (
+                    <span className="text-[color:var(--v2-faint)]" title="Sin dato">
+                      {EM_DASH}
+                    </span>
+                  ) : (
+                    s.value
+                  )
+                }
+                tone={empty ? 'fg' : s.tone}
+                className="gap-0.5"
+              />
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
           <HeaderAction href="/mensajes" icon="forum" label="Mensaje" />

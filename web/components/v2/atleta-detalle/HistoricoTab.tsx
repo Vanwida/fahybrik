@@ -1,67 +1,58 @@
 'use client';
 
-// HISTÓRICO — the athlete's longitudinal record. LEFT: completed microcycles
-// (name · duration · compliance %, colored) + an accumulated-load-by-block chart
-// placeholder. RIGHT: test progression (old→new + Δ, from the performance PR
-// series) + a profile-versions timeline. Built from the real MacroProgressPayload
-// (completed weeks) + PerformancePayload (exercise attempts). Sections with no
-// data show an inline empty note — never fabricated history.
+// HISTÓRICO — the athlete's longitudinal record. LEFT: genuinely completed
+// microcycles (name · duration · compliance %, colored). RIGHT: test progression
+// (old→new + Δ) from REAL reference tests — strength 1RM (kg) and pace/endurance
+// benchmarks (time) — plus a profile-versions timeline. Sections with no data show
+// an inline empty note — never fabricated history, never in-WOD segment durations
+// misread as test results.
 
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { Panel, ChartPlaceholder, relativeDate } from './parts';
+import { Panel, relativeDate } from './parts';
 import { adherenceBand, ADHERENCE_BAND_COLOR_VAR } from '@/components/v2/constants';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
-import type { PerformancePayload, ExerciseTimeSeries } from '@/lib/dashboard/coach/deep-dive-performance';
-
-function fmtTime(s: number | null): string {
-  if (s == null) return '—';
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  return `${m}:${sec.toString().padStart(2, '0')}`;
-}
-
-/** old→new + Δ for one exercise's first vs latest test/PR attempt. */
-function testProgression(ex: ExerciseTimeSeries): {
-  label: string;
-  old: string;
-  next: string;
-  delta_sec: number | null;
-} {
-  const tests = ex.attempts.filter((a) => a.is_test || a.is_pr);
-  const first = tests[0] ?? ex.attempts[0] ?? null;
-  const last = tests.at(-1) ?? ex.attempts.at(-1) ?? null;
-  const oldS = first?.best_seconds ?? null;
-  const newS = last?.best_seconds ?? null;
-  const delta = oldS != null && newS != null && first !== last ? newS - oldS : null;
-  return { label: ex.exercise_label, old: fmtTime(oldS), next: fmtTime(newS), delta_sec: delta };
-}
+import {
+  buildTestProgression,
+  type StrengthMaxView,
+  type BenchmarkSeries,
+} from '@/lib/dashboard/v2/atleta-detalle-types';
 
 export function HistoricoTab({
   plan,
-  performance,
+  strengthMaxes,
+  benchmarks,
 }: {
   plan: AthletePlanPayload | null;
-  performance: PerformancePayload | null;
+  strengthMaxes: StrengthMaxView[];
+  benchmarks: BenchmarkSeries[];
 }) {
-  const completedWeeks = (plan?.macro.weeks ?? []).filter(
-    (w) => w.status === 'completed' || w.status === 'missed',
-  );
+  const allWeeks = plan?.macro.weeks ?? [];
   const phaseAssignments = plan?.macro.phase_assignments ?? [];
 
-  const progressions = (performance?.exercises ?? [])
-    .map(testProgression)
-    .filter((p) => p.old !== '—' || p.next !== '—');
+  // Only GENUINELY completed microcycles: one whose materialized weeks all elapsed
+  // (every week completed/missed, none current/upcoming) and which has ≥1 week. A
+  // draft (0 weeks) or an in-progress microcycle never appears here — it lives in
+  // the Plan tab.
+  const completedMicros = phaseAssignments.filter((pa) => {
+    const weeks = allWeeks.filter((w) => w.microcycle_id === pa.microcycle_id);
+    return (
+      weeks.length > 0 &&
+      weeks.every((w) => w.status === 'completed' || w.status === 'missed')
+    );
+  });
+
+  const progressions = buildTestProgression(strengthMaxes, benchmarks);
 
   return (
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
       {/* LEFT */}
       <div className="flex flex-col gap-5">
         <Panel title="Microciclos completados" bodyClassName="flex flex-col gap-2">
-          {phaseAssignments.length > 0 ? (
-            phaseAssignments.map((p) => {
-              // Compliance for this assignment = avg of its weeks (best-effort).
-              const weeks = (plan?.macro.weeks ?? []).filter((w) => w.microcycle_id === p.microcycle_id);
+          {completedMicros.length > 0 ? (
+            completedMicros.map((p) => {
+              // Compliance for this microcycle = avg of its weeks (best-effort).
+              const weeks = allWeeks.filter((w) => w.microcycle_id === p.microcycle_id);
               const vals = weeks.map((w) => w.compliance_pct).filter((v): v is number => v != null);
               const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
               const colorVar = avg != null ? ADHERENCE_BAND_COLOR_VAR[adherenceBand(avg)] : '--v2-faint';
@@ -96,10 +87,6 @@ export function HistoricoTab({
             />
           )}
         </Panel>
-
-        <Panel title="Carga acumulada por microciclo">
-          <ChartPlaceholder label="Carga acumulada · microciclos" height={180} />
-        </Panel>
       </div>
 
       {/* RIGHT */}
@@ -116,43 +103,38 @@ export function HistoricoTab({
                 </tr>
               </thead>
               <tbody>
-                {progressions.map((p) => {
-                  // For time-based tests, a NEGATIVE delta (faster) is an improvement.
-                  const improved = p.delta_sec != null && p.delta_sec < 0;
-                  const worse = p.delta_sec != null && p.delta_sec > 0;
-                  return (
-                    <tr key={p.label} className="border-b border-[color:var(--v2-border)] last:border-0">
-                      <td className="py-2 pl-3.5 pr-2 text-xs font-medium text-[color:var(--v2-fg)]">
-                        {p.label}
-                      </td>
-                      <td className="v2-num py-2 px-2 text-right text-xs text-[color:var(--v2-muted)]">
-                        {p.old}
-                      </td>
-                      <td className="v2-num py-2 px-2 text-right text-xs font-semibold text-[color:var(--v2-fg)]">
-                        {p.next}
-                      </td>
-                      <td className="py-2 pr-3.5 text-right">
-                        {p.delta_sec != null ? (
-                          <span
-                            className="v2-num text-xs font-semibold"
-                            style={{
-                              color: improved
+                {progressions.map((p) => (
+                  <tr key={p.key} className="border-b border-[color:var(--v2-border)] last:border-0">
+                    <td className="py-2 pl-3.5 pr-2 text-xs font-medium text-[color:var(--v2-fg)]">
+                      {p.label}
+                    </td>
+                    <td className="v2-num py-2 px-2 text-right text-xs text-[color:var(--v2-muted)]">
+                      {p.before}
+                    </td>
+                    <td className="v2-num py-2 px-2 text-right text-xs font-semibold text-[color:var(--v2-fg)]">
+                      {p.after}
+                    </td>
+                    <td className="py-2 pr-3.5 text-right">
+                      {p.delta_label != null ? (
+                        <span
+                          className="v2-num text-xs font-semibold"
+                          style={{
+                            color:
+                              p.improved === true
                                 ? 'var(--v2-ok)'
-                                : worse
+                                : p.improved === false
                                   ? 'var(--v2-danger)'
                                   : 'var(--v2-muted)',
-                            }}
-                          >
-                            {improved ? '−' : '+'}
-                            {fmtTime(Math.abs(p.delta_sec))}
-                          </span>
-                        ) : (
-                          <span className="v2-num text-xs text-[color:var(--v2-faint)]">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          }}
+                        >
+                          {p.delta_label}
+                        </span>
+                      ) : (
+                        <span className="v2-num text-xs text-[color:var(--v2-faint)]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           ) : (

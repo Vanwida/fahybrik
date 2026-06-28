@@ -55,34 +55,6 @@ export function Panel({
   );
 }
 
-/** Themed chart placeholder — used where a real chart component is not in scope
- *  for this build (the loaders expose the series; charting lands later). Never
- *  shows fake data, just a labelled, dashed canvas so the layout reads right. */
-export function ChartPlaceholder({
-  label,
-  height = 160,
-  className,
-}: {
-  label: string;
-  height?: number;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center justify-center rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 text-center',
-        className,
-      )}
-      style={{ height }}
-    >
-      <span className="flex items-center gap-2 text-xs font-medium text-[color:var(--v2-faint)]">
-        <MIcon name="show_chart" size={18} />
-        {label}
-      </span>
-    </div>
-  );
-}
-
 /**
  * Sparkline — a dependency-free SVG trend line for a single biometric metric.
  * Inputs are the raw daily values (nulls = no reading that day); the line BREAKS

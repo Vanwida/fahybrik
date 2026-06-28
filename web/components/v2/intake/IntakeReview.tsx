@@ -30,20 +30,17 @@ import {
 } from '@/components/v2/intake/IntakeSteps';
 import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
 import type { IntakeBlockSpec } from '@fahybrid/shared/schema/coach-intake';
+import { tenureSuffix } from '@/lib/dashboard/relative-time';
 
 const EVENT_WARNING_KINDS = new Set(['a_event_invalid', 'a_event_close']);
 const SEX_LABEL: Record<string, string> = { male: 'Masculino', female: 'Femenino', other: 'Otro' };
 
-/** "alta hace N días/horas" tenure from the onboarding timestamp. */
-function tenureLabel(onboardedAt: string | null): string | null {
-  if (!onboardedAt) return null;
-  const ms = Date.now() - new Date(onboardedAt).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return null;
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours < 1) return 'recién llegado';
-  if (hours < 24) return `esperando ${hours} h`;
-  const days = Math.floor(hours / 24);
-  return `esperando ${days} ${days === 1 ? 'día' : 'días'}`;
+/** "esperando N días/h" tenure from onboarding — SAME elapsed source (tenureSuffix)
+ *  as the athlete ficha, so the same athlete shows the same number in both. */
+function waitingLabel(onboardedAt: string | null): string | null {
+  const suffix = tenureSuffix(onboardedAt);
+  if (suffix == null) return null;
+  return suffix === 'instantes' ? 'recién llegado' : `esperando ${suffix}`;
 }
 
 export function IntakeReview({
@@ -181,7 +178,7 @@ export function IntakeReview({
     );
   }
 
-  const tenure = tenureLabel(athlete.onboarded_at);
+  const tenure = waitingLabel(athlete.onboarded_at);
 
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5">

@@ -10,12 +10,12 @@ import 'server-only';
 // ./atleta-detalle-types (no DB / no `server-only`) so the client components can
 // import them; we re-export them here for callers that already import this module.
 //
-// Test→objetivos resolver: the periodization/benchmark engine that turns an
-// athlete's reference tests into derived training targets (zones, paces, %RM)
-// does NOT yet expose a typed loader. The Perfil tab is built against the REAL
-// performance/exercise data (deep-dive) + the Fabrik protocol catalogue and marks
-// the derived-targets table TODO(endpoint) so it wires to the resolver the moment
-// it lands — never inventing fake athletes/values.
+// Reference tests are REAL recorded results: pace/endurance from athlete_benchmarks
+// and 1RM from athlete_strength_maxes (versioned). They are NEVER derived from
+// in-WOD segment durations (a segment time inside a workout is not a test). The
+// derived-objectives table reads the stored zone profiles (resolver output) and
+// marks itself TODO(endpoint) until the resolver exposes a typed loader — never
+// inventing fake athletes/values.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -28,7 +28,6 @@ import { buildAthleteResumen, type AthleteResumen } from '@/lib/dashboard/coach/
 import { buildAthletePlan, type AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import { getAthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
-import { buildAthletePerformance } from '@/lib/dashboard/coach/deep-dive-performance';
 import {
   loadMessages,
   getOrCreateThread,
@@ -37,6 +36,8 @@ import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
+import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { tenureSuffix } from '@/lib/dashboard/relative-time';
 import { loadCoachLevels } from '@/lib/dashboard/v2/periodizacion';
 import {
   SEQUENCE_DAYS_MIN,
@@ -44,12 +45,14 @@ import {
 } from '@fahybrid/shared/schema/program-sequences';
 import type { V2Status } from '@/components/v2/StatusDot';
 import {
+  EM_DASH,
   type DetalleHeader,
   type DetalleStat,
   type DetalleChatMessage,
   type ClasificacionData,
   type V2AthleteDetalle,
   type StrengthMaxView,
+  type BenchmarkSeries,
 } from './atleta-detalle-types';
 
 // Re-export the client-safe surface so existing import sites keep working.
@@ -59,6 +62,7 @@ export {
   normalizeAtletaTab,
   buildPerfilTab,
   selectPerfilTab,
+  buildTestProgression,
 } from './atleta-detalle-types';
 export type {
   AtletaTab,
@@ -69,6 +73,9 @@ export type {
   ClasificacionLevelOption,
   V2AthleteDetalle,
   StrengthMaxView,
+  BenchmarkSeries,
+  BenchmarkResult,
+  TestProgressionRow,
   ReferenceTest,
   DerivedObjective,
   PerfilTabData,
@@ -108,23 +115,16 @@ function deriveStatus(
   return { status: 'activa', label: 'Activa' };
 }
 
-/** "alta hace N meses/semanas/días" approximated from the macro plan start.
- *  TODO(model): no persisted onboarded_at on the resumen payload; we approximate
- *  tenure from the first assignment start when present, else null. */
-function tenureLabel(plan: AthletePlanPayload | null): string | null {
-  const start = plan?.macro.phase_assignments[0]?.start_date ?? null;
-  if (!start) return null;
-  const startMs = new Date(start).getTime();
-  if (!Number.isFinite(startMs)) return null;
-  const days = Math.floor((Date.now() - startMs) / 86_400_000);
-  if (days < 0) return null;
-  if (days < 14) return `alta hace ${days} d`;
-  if (days < 60) return `alta hace ${Math.round(days / 7)} sem`;
-  return `alta hace ${Math.round(days / 30)} meses`;
+/** "alta hace N meses/semanas/días" from the REAL onboarding timestamp
+ *  (athletes.onboarded_at, surfaced by the shell). Shares the elapsed-time helper
+ *  with the Altas screen, so the SAME athlete shows the SAME number in both. */
+function tenureLabel(onboarded_at: string | null): string | null {
+  const suffix = tenureSuffix(onboarded_at);
+  return suffix ? `alta hace ${suffix}` : null;
 }
 
 function fmtPct(n: number | null): string {
-  return n == null ? '—' : `${Math.round(n)}%`;
+  return n == null ? EM_DASH : `${Math.round(n)}%`;
 }
 
 /** Builds the 4 header StatTiles from real signals (VO₂ est · FC reposo ·
@@ -139,10 +139,10 @@ function buildStats(resumen: AthleteResumen | null, body: BodyPayload | null): D
     adher == null ? 'fg' : adher >= 75 ? 'ok' : adher >= 60 ? 'warn' : 'danger';
 
   return [
-    { label: 'VO₂ est', value: vo2 != null ? `${Math.round(vo2)}` : '—', tone: 'fg' },
-    { label: 'FC reposo', value: rhr != null ? `${Math.round(rhr)}` : '—', tone: 'fg' },
+    { label: 'VO₂ est', value: vo2 != null ? `${Math.round(vo2)}` : EM_DASH, tone: 'fg' },
+    { label: 'FC reposo', value: rhr != null ? `${Math.round(rhr)}` : EM_DASH, tone: 'fg' },
     { label: 'Adherencia', value: fmtPct(adher), tone: adherTone },
-    { label: 'VFC', value: hrv != null ? `${Math.round(hrv)}` : '—', tone: 'info' },
+    { label: 'VFC', value: hrv != null ? `${Math.round(hrv)}` : EM_DASH, tone: 'info' },
   ];
 }
 
@@ -214,24 +214,24 @@ export async function loadAthleteDetalle(params: {
     resumen,
     plan,
     body,
-    performance,
     subscription,
     chat,
     zone_profiles,
     classification,
     strengthCurrent,
     strengthHistory,
+    benchmarks,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
     buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
-    buildAthletePerformance({ coach_id, athlete_id, client }).catch(() => null),
     getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
     loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
     loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
     loadClassification({ coach_id, athlete_id, client }).catch(() => null),
     loadStrengthMaxes({ coach_id, athlete_id, client }).catch(() => []),
     loadStrengthMaxHistory({ athlete_id, client }).catch(() => []),
+    loadBenchmarkHistory({ coach_id, athlete_id, client }).catch(() => []),
   ]);
 
   // Group each current 1RM with its full version history (oldest→newest) → the
@@ -256,7 +256,7 @@ export async function loadAthleteDetalle(params: {
     level: athleteLevel(shell),
     status,
     status_label: label,
-    tenure_label: tenureLabel(plan),
+    tenure_label: tenureLabel(shell.onboarded_at),
     phase_label: phaseLabel(shell, plan),
     modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
   };
@@ -280,12 +280,51 @@ export async function loadAthleteDetalle(params: {
     resumen,
     plan,
     body,
-    performance,
     subscription,
     chat,
     zone_profiles,
     strength_maxes,
+    benchmarks,
   };
+}
+
+/**
+ * Reference-test history per slug from `athlete_benchmarks` (coach-scoped via the
+ * athletes join). Rows are real recorded RESULTS — never in-WOD segment durations.
+ * Grouped oldest→newest per slug for the progression deltas; the label resolves
+ * server-side so the client view stays pure. Empty = no test recorded.
+ */
+async function loadBenchmarkHistory(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  client: Sql;
+}): Promise<BenchmarkSeries[]> {
+  const { coach_id, athlete_id, client } = params;
+  const rows = await client<
+    Array<{ exercise_slug: string; value: number; unit: string; recorded_at: Date }>
+  >`
+    select ab.exercise_slug, ab.value::float8 as value, ab.unit, ab.recorded_at
+    from athlete_benchmarks ab
+    join athletes a on a.id = ab.athlete_id and a.coach_id = ${coach_id}
+    where ab.athlete_id = ${athlete_id}
+    order by ab.exercise_slug asc, ab.recorded_at asc
+  `;
+
+  const grouped = new Map<string, BenchmarkSeries>();
+  for (const r of rows) {
+    let series = grouped.get(r.exercise_slug);
+    if (!series) {
+      series = {
+        exercise_slug: r.exercise_slug,
+        label: benchmarkLabel(r.exercise_slug),
+        unit: r.unit,
+        results: [],
+      };
+      grouped.set(r.exercise_slug, series);
+    }
+    series.results.push({ value: r.value, recorded_at: r.recorded_at.toISOString() });
+  }
+  return [...grouped.values()];
 }
 
 async function loadInitialChat(params: {

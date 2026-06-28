@@ -8,13 +8,16 @@ import type { V2Status } from '@/components/v2/StatusDot';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
-import type {
-  PerformancePayload,
-  ExerciseTimeSeries,
-} from '@/lib/dashboard/coach/deep-dive-performance';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
-import { BENCH_BACK_SQUAT_1RM } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import {
+  BENCH_BACK_SQUAT_1RM,
+  BENCH_RUN_5K,
+  BENCH_ROW_2K,
+  benchmarkLabel,
+  benchmarkMetric,
+  type BenchmarkMetric,
+} from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import {
   MODALITY_LABEL as ZONE_MODALITY_LABEL,
   formatZoneRange,
@@ -35,6 +38,43 @@ export interface StrengthMaxView {
   source: string;
   /** All versions for this lift, oldest→newest, for the progression delta. */
   history: { one_rm_kg: number; version: number; recorded_at: string }[];
+}
+
+/** Shared placeholder for a missing value — a muted "—", never a fake number. */
+export const EM_DASH = '—';
+
+// ── Benchmark test results (client-safe view of athlete_benchmarks) ─────────────
+// A benchmark = a reference test with a recorded RESULT + history (run 5k, row 2k,
+// pull-ups, …). Distinct from in-WOD segment durations: a segment time inside a
+// workout is NOT a test result. The unit decides how the value reads (see
+// benchmarkMetric). Strength 1RMs live in athlete_strength_maxes (versioned), so
+// kg benchmarks are never sourced from here — single source per concept.
+export interface BenchmarkResult {
+  value: number;
+  recorded_at: string;
+}
+export interface BenchmarkSeries {
+  exercise_slug: string;
+  label: string;
+  /** Stored unit ('seconds' | 'reps' | 'kg') — drives time/reps/load rendering. */
+  unit: string;
+  /** Results oldest→newest, for the progression delta. */
+  results: BenchmarkResult[];
+}
+
+// ── Progresión de tests (Histórico) — real reference tests only ────────────────
+// One row per test with ≥2 data points (first vs latest). Strength is kg, pace is
+// time (mm:ss), rep tests are a count. `improved` lights the delta color
+// (faster/heavier/more = ok); `delta_label` is the pre-formatted signed change.
+export interface TestProgressionRow {
+  key: string;
+  label: string;
+  before: string;
+  after: string;
+  /** Signed, pre-formatted change ("−0:12", "+5 kg", "+3"); null = single point / no change. */
+  delta_label: string | null;
+  /** true = improvement, false = regression, null = no change (muted). */
+  improved: boolean | null;
 }
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
@@ -111,7 +151,6 @@ export interface V2AthleteDetalle {
   resumen: AthleteResumen | null;
   plan: AthletePlanPayload | null;
   body: BodyPayload | null;
-  performance: PerformancePayload | null;
   subscription: AthleteSubscriptionStatus | null;
   /** Initial chat messages (role-resolved), newest last; null if thread load failed. */
   chat: { thread_id: string; messages: DetalleChatMessage[] } | null;
@@ -121,6 +160,10 @@ export interface V2AthleteDetalle {
   /** Current 1RM per lift + version history (Perfil tab · Fuerza). Empty = no max
    *  yet. READ from athlete_strength_maxes — never recomputed. */
   strength_maxes: StrengthMaxView[];
+  /** Reference-test results + history per slug (Perfil cards + Histórico
+   *  progression). Empty = no test recorded. READ from athlete_benchmarks — never
+   *  derived from in-WOD segment durations. */
+  benchmarks: BenchmarkSeries[];
 }
 
 // ── Tests de referencia (Perfil tab, left column) ──────────────────────────────
@@ -150,11 +193,80 @@ export interface PerfilTabData {
   strength_maxes: StrengthMaxView[];
 }
 
+const SECONDS_PER_MINUTE = 60;
+
 function fmtTime(s: number | null): string | null {
   if (s == null) return null;
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
+  const m = Math.floor(s / SECONDS_PER_MINUTE);
+  const sec = Math.round(s % SECONDS_PER_MINUTE);
   return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+/** Render one metric value in its native unit. */
+function fmtMetricValue(value: number, metric: BenchmarkMetric): string {
+  if (metric === 'time') return fmtTime(Math.round(value)) ?? EM_DASH;
+  if (metric === 'load') return `${Math.round(value)} kg`;
+  return `${Math.round(value)}`; // reps
+}
+
+/** Pre-format a signed metric change ("−0:12", "+5 kg", "+3"). */
+function fmtDeltaLabel(delta: number, metric: BenchmarkMetric): string {
+  const sign = delta > 0 ? '+' : '−';
+  const abs = Math.abs(delta);
+  if (metric === 'time') return `${sign}${fmtTime(Math.round(abs)) ?? '0:00'}`;
+  if (metric === 'load') return `${sign}${Math.round(abs)} kg`;
+  return `${sign}${Math.round(abs)}`;
+}
+
+/**
+ * "Progresión de tests" rows — REAL reference tests only, first vs latest:
+ *  · strength 1RM (kg, versioned) from athlete_strength_maxes → higher is better
+ *  · pace / endurance / rep benchmarks from athlete_benchmarks → time lower-better,
+ *    reps higher-better
+ * kg benchmarks are skipped (strength is the single kg source — never double-count),
+ * and a test needs ≥2 data points to show a delta. Never derived from in-WOD
+ * segment durations. Pure — safe in the client bundle.
+ */
+export function buildTestProgression(
+  strength_maxes: StrengthMaxView[] = [],
+  benchmarks: BenchmarkSeries[] = [],
+): TestProgressionRow[] {
+  const rows: TestProgressionRow[] = [];
+
+  for (const m of strength_maxes) {
+    if (m.history.length < 2) continue;
+    const first = m.history[0]!;
+    const last = m.history[m.history.length - 1]!;
+    const delta = Math.round(last.one_rm_kg - first.one_rm_kg);
+    rows.push({
+      key: `s:${m.exercise_slug}`,
+      label: m.exercise_label,
+      before: fmtMetricValue(first.one_rm_kg, 'load'),
+      after: fmtMetricValue(last.one_rm_kg, 'load'),
+      delta_label: delta === 0 ? null : fmtDeltaLabel(delta, 'load'),
+      improved: delta === 0 ? null : delta > 0,
+    });
+  }
+
+  for (const b of benchmarks) {
+    if (b.results.length < 2) continue;
+    const metric = benchmarkMetric(b.unit);
+    if (metric === 'load') continue; // kg sourced from strength_maxes above
+    const first = b.results[0]!;
+    const last = b.results[b.results.length - 1]!;
+    const delta = Math.round(last.value - first.value);
+    const improved = delta === 0 ? null : metric === 'time' ? delta < 0 : delta > 0;
+    rows.push({
+      key: `b:${b.exercise_slug}`,
+      label: b.label,
+      before: fmtMetricValue(first.value, metric),
+      after: fmtMetricValue(last.value, metric),
+      delta_label: delta === 0 ? null : fmtDeltaLabel(delta, metric),
+      improved,
+    });
+  }
+
+  return rows;
 }
 
 /**
@@ -186,34 +298,35 @@ function deriveObjectives(zone_profiles: AthleteZoneProfile[]): DerivedObjective
   return out;
 }
 
-/** Maps the real performance exercise series + Fabrik protocols into the Perfil
- *  reference-test cards. Values come from the deep-dive PR/test attempts when
- *  present; otherwise null ("pendiente"). The derived objectives come from the
- *  stored zone profiles (the resolver output). Pure — safe in the client bundle. */
+/** Maps the REAL reference-test results into the Perfil reference-test cards:
+ *  pace tests (5k / 2k) from athlete_benchmarks (latest result, mm:ss) and the
+ *  1RM from athlete_strength_maxes (kg). No result → null ("pendiente"). NEVER
+ *  derived from in-WOD segment durations. Derived objectives come from the stored
+ *  zone profiles (resolver output). Pure — safe in the client bundle. */
 export function buildPerfilTab(
-  performance: PerformancePayload | null,
+  benchmarks: BenchmarkSeries[] = [],
   zone_profiles: AthleteZoneProfile[] = [],
   strength_maxes: StrengthMaxView[] = [],
 ): PerfilTabData {
-  const exById = new Map<string, ExerciseTimeSeries>();
-  if (performance) for (const ex of performance.exercises) exById.set(ex.exercise_slug, ex);
+  const benchBySlug = new Map(benchmarks.map((b) => [b.exercise_slug, b]));
 
-  const latest = (slug: string): { value: string | null; date_iso: string | null } => {
-    const ex = exById.get(slug);
-    if (!ex) return { value: null, date_iso: null };
-    const test = [...ex.attempts].reverse().find((a) => a.is_test || a.is_pr) ?? ex.attempts.at(-1);
-    return { value: fmtTime(test?.best_seconds ?? ex.best_seconds), date_iso: test?.iso_date ?? null };
+  // Latest result of a TIME-based benchmark, formatted mm:ss (5k / 2k row are
+  // always seconds). No recorded result → null ("pendiente de registro").
+  const latestTime = (slug: string): { value: string | null; date_iso: string | null } => {
+    const last = benchBySlug.get(slug)?.results.at(-1) ?? null;
+    if (!last) return { value: null, date_iso: null };
+    return { value: fmtTime(Math.round(last.value)), date_iso: last.recorded_at };
   };
 
-  const run5k = latest('5k');
-  const row2k = latest('row_2k');
+  const run5k = latestTime(BENCH_RUN_5K);
+  const row2k = latestTime(BENCH_ROW_2K);
   // The 1RM reference card reads the REAL back-squat max (kg) from the strength
-  // system — NOT best_seconds (a time) misread as a load. No max → "Pendiente".
+  // system — NOT a segment time misread as a load. No max → "Pendiente".
   const squat = strength_maxes.find((m) => m.exercise_slug === BENCH_BACK_SQUAT_1RM) ?? null;
 
   const reference_tests: ReferenceTest[] = [
-    { slug: '5k', icon: 'directions_run', label: 'Carrera 5 km', value: run5k.value, date_iso: run5k.date_iso },
-    { slug: 'row_2k', icon: 'rowing', label: 'Remo 2000 m', value: row2k.value, date_iso: row2k.date_iso },
+    { slug: BENCH_RUN_5K, icon: 'directions_run', label: benchmarkLabel(BENCH_RUN_5K), value: run5k.value, date_iso: run5k.date_iso },
+    { slug: BENCH_ROW_2K, icon: 'rowing', label: benchmarkLabel(BENCH_ROW_2K), value: row2k.value, date_iso: row2k.date_iso },
     {
       slug: '1rm',
       icon: 'fitness_center',
@@ -238,5 +351,5 @@ export function buildPerfilTab(
 
 /** Selector convenience — builds the Perfil tab from the loaded detalle payload. */
 export function selectPerfilTab(detalle: V2AthleteDetalle): PerfilTabData {
-  return buildPerfilTab(detalle.performance, detalle.zone_profiles, detalle.strength_maxes ?? []);
+  return buildPerfilTab(detalle.benchmarks ?? [], detalle.zone_profiles, detalle.strength_maxes ?? []);
 }

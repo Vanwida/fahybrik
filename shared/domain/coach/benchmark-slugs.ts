@@ -58,3 +58,41 @@ export function hyroxBenchmarkSlug(division: string | null | undefined): string 
 export const BENCHMARK_UNIT_KG = 'kg';
 export const BENCHMARK_UNIT_REPS = 'reps';
 export const BENCHMARK_UNIT_SECONDS = 'seconds';
+
+// ── Display labels (Spanish) — canonical home for benchmark UI copy ───────────
+// Non-strength benchmarks (time-trials + rep tests + HYROX). Strength 1RM labels
+// live with the lift catalog (strengthLiftLabel) so there's a single source per
+// concept — these are the only ones a benchmark series needs a name for.
+export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
+  [BENCH_RUN_5K]: 'Carrera 5 km',
+  [BENCH_RUN_10K]: 'Carrera 10 km',
+  [BENCH_RUN_HALF]: 'Media maratón',
+  [BENCH_RUN_MARATHON]: 'Maratón',
+  [BENCH_ROW_2K]: 'Remo 2000 m',
+  [BENCH_SKI_1K]: 'SkiErg 1000 m',
+  [BENCH_HYROX_OPEN]: 'HYROX Open',
+  [BENCH_HYROX_PRO]: 'HYROX Pro',
+  [BENCH_STRICT_PULL_UP_MAX]: 'Dominadas estrictas',
+  [BENCH_PUSH_UPS_PER_MIN]: 'Flexiones / min',
+};
+
+/** Human label for a benchmark slug; falls back to a humanized slug. */
+export function benchmarkLabel(slug: string): string {
+  return (
+    BENCHMARK_LABEL[slug] ??
+    slug.replace(/_/g, ' ').replace(/\b([a-z])/g, (m) => m.toUpperCase())
+  );
+}
+
+/**
+ * How a benchmark's value reads, from its stored unit:
+ *  · 'time' (seconds) → mm:ss, LOWER is better
+ *  · 'reps'           → count, HIGHER is better
+ *  · 'load' (kg)      → 1RM in kg, HIGHER is better
+ */
+export type BenchmarkMetric = 'time' | 'reps' | 'load';
+export function benchmarkMetric(unit: string): BenchmarkMetric {
+  if (unit === BENCHMARK_UNIT_KG) return 'load';
+  if (unit === BENCHMARK_UNIT_REPS) return 'reps';
+  return 'time';
+}

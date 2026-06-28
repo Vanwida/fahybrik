@@ -22,6 +22,9 @@ export type AthleteProfileShell = {
   macro_block: string | null;
   /** Athlete finished onboarding but the coach hasn't reviewed intake yet. */
   intake_pending: boolean;
+  /** Real account/onboarding timestamp (ISO) — the single base for tenure ("alta
+   *  hace N"). null when never onboarded. NOT a plan-start proxy. */
+  onboarded_at: string | null;
   /** Modalidad de plan (suscripción más reciente) — null si aún no hay suscripción. */
   modality: AthleteModality | null;
   /** Real level name from athlete_levels.name (e.g. 'N1'–'N5'); null when not assigned. */
@@ -138,6 +141,7 @@ export async function fetchAthleteProfileShell(params: {
       onboarded_at: row.onboarded_at,
       intake_completed_at: row.intake_completed_at,
     }),
+    onboarded_at: row.onboarded_at ? row.onboarded_at.toISOString() : null,
     modality: isAthleteModality(row.modality) ? row.modality : null,
     level_name: row.level_name,
     level_sort: row.level_sort,
