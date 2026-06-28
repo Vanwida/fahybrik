@@ -23,20 +23,16 @@ struct ProfileView: View {
     @State private var subscription: SubscriptionInfo? = nil
     @State private var identity: AthleteIdentity? = nil
     @State private var coachName: String? = nil
-    @State private var aEventDays: Int? = nil
-    @State private var blockLabel: String? = nil
-    // Future race objectives — the SAME source the Carreras tab reads
-    // (GET /api/athlete/races → upcoming), so Perfil and Carreras never disagree
-    // about the athlete's objective. The displayed objective is derived in
-    // `objetivoRace` (target-flagged race, else the soonest upcoming).
+    // Upcoming races — the SAME source the Carreras tab reads
+    // (GET /api/athlete/races → upcoming). Used ONLY to derive the athlete's
+    // competition division for the identity subtitle (`objetivoRace`); the race
+    // objective itself lives in the Carreras tab, not in Perfil.
     @State private var upcomingRaces: [UpcomingRace] = []
     // Flips true once identity + partner + subscription have all resolved. Gates
     // the modality value so it never flashes a placeholder before the real one.
     @State private var initialLoadDone: Bool = false
 
     @State private var showEditProfile: Bool = false
-    // Presents the target-race picker from the "Carrera objetivo" row.
-    @State private var showBuscarCarrera: Bool = false
 
     // RGPD state.
     @State private var exporting: Bool = false
@@ -82,10 +78,6 @@ struct ProfileView: View {
 
                         if shouldShowPartnerSection, partner == nil {
                             partnerInviteCard
-                        }
-
-                        if let days = aEventDays {
-                            aEventCard(days: days)
                         }
 
                         SectionHeader(title: "Rendimiento")
@@ -154,13 +146,6 @@ struct ProfileView: View {
         .sheet(isPresented: $showEditProfile) {
             EditProfileView(bearer: bearer, identity: identity) { updated in
                 self.identity = updated
-            }
-        }
-        .sheet(isPresented: $showBuscarCarrera) {
-            BuscarCarreraSheet(bearer: bearer) {
-                // A target was fixed → refresh so the "Carrera objetivo" row
-                // (and the derived division subtitle) update.
-                Task { await loadIdentity() }
             }
         }
     }
@@ -260,19 +245,6 @@ struct ProfileView: View {
                     showsChevron: false
                 )
                 Hairline()
-                Button {
-                    Haptics.light()
-                    showBuscarCarrera = true
-                } label: {
-                    SettingValueRow(
-                        label: "Carrera objetivo",
-                        value: objetivoRace == nil ? "Elegir carrera" : goalValue,
-                        valueColor: objetivoRace == nil ? Theme.Color.accentText : Theme.Color.foreground,
-                        showsChevron: true
-                    )
-                }
-                .buttonStyle(.plain)
-                Hairline()
                 SettingValueRow(
                     label: "Idioma",
                     value: languageValue,
@@ -339,20 +311,10 @@ struct ProfileView: View {
     /// The athlete's race objective, read from the SAME list the Carreras tab shows
     /// (`upcomingRaces`). Prefer the race the coach flagged as the 'target' (the
     /// goal the plan peaks for); otherwise the soonest upcoming race (the server
-    /// sorts soonest-first). Nil only when there is no upcoming race at all — then
-    /// the row honestly invites the athlete to choose one.
+    /// sorts soonest-first). Used ONLY to derive the competition division shown in
+    /// the identity subtitle — the race objective itself lives in the Carreras tab.
     private var objetivoRace: UpcomingRace? {
         upcomingRaces.first { $0.priority?.lowercased() == "target" } ?? upcomingRaces.first
-    }
-
-    /// Goal time + race name for the objective, both real (from `objetivoRace`).
-    /// Honest empty when no upcoming race is scheduled — never fabricated.
-    private var goalValue: String {
-        guard let race = objetivoRace else { return "Sin carrera objetivo" }
-        if let goal = AthleteNextRace.goalTimeFormatted(race.goalTimeSeconds) {
-            return "\(goal) · \(race.name)"
-        }
-        return race.name
     }
 
     /// The app renders in Spanish only (no runtime localization switch yet), so
@@ -372,10 +334,10 @@ struct ProfileView: View {
     }
 
     /// Real athlete identity (name, body metrics, training context) from
-    /// /api/auth/me, plus A-event days + block label from the plan week, plus the
-    /// race objective from the races hub (GET /api/athlete/races — the same source
-    /// as the Carreras tab). Silent on failure — the identity card falls back to
-    /// neutral copy and the dependent rows/cards hide or show honest empties.
+    /// /api/auth/me, plus the coach name from the plan week, plus the athlete's
+    /// upcoming races from the races hub (GET /api/athlete/races — the same source
+    /// as the Carreras tab) used only to derive the competition division. Silent on
+    /// failure — the identity card falls back to neutral copy.
     private func loadIdentity() async {
         guard let bearer else { return }
         identity = try? await MeService.fetch(bearer: bearer)
@@ -385,18 +347,10 @@ struct ProfileView: View {
             if let name = resp.coachName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
                 coachName = name
             }
-            aEventDays = resp.macroSummary.aEventDays
-            if let label = resp.macroSummary.weekLabel, !label.isEmpty {
-                blockLabel = label
-            } else if let block = resp.macroSummary.block, !block.isEmpty {
-                // `block` is the coach's microciclo name (agnostic coach data).
-                blockLabel = block
-            }
         }
-        // Race objective: read the SAME list the Carreras tab shows
-        // (GET /api/athlete/races), not the plan/week `target_race` (which is
-        // priority='target'-only and goes empty when the athlete's races aren't
-        // flagged as the target). One source → Perfil and Carreras always agree.
+        // Upcoming races: read the SAME list the Carreras tab shows
+        // (GET /api/athlete/races). One source → Perfil and Carreras always agree.
+        // Used only to derive the competition division for the identity subtitle.
         if let races = await CarrerasService.fetchRaces(bearer: bearer) {
             upcomingRaces = races.upcoming
         }
@@ -490,30 +444,6 @@ struct ProfileView: View {
             // Silent fail: the section just won't render. We don't want a
             // partial network error to block the rest of Profile.
             partner = nil
-        }
-    }
-
-    // A-event: only days-to-event + block label are available from the macro
-    // summary (no event name / date / venue / bib endpoint yet). Card hidden
-    // entirely when there is no A-event days value.
-    private func aEventCard(days: Int) -> some View {
-        CardSurface(padding: 14, topAccent: true) {
-            VStack(alignment: .leading, spacing: 6) {
-                LabelText(text: "A-Event", color: Theme.Color.accentText, size: 9)
-                HStack(alignment: .lastTextBaseline, spacing: 12) {
-                    Text("Próximo A-event")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Spacer()
-                    Text("\(days) días")
-                        .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-                if let blockLabel {
-                    Hairline()
-                    MonoText(text: blockLabel.uppercased(), size: 10, color: Theme.Color.muted)
-                }
-            }
         }
     }
 
