@@ -164,3 +164,60 @@ export async function importAllRaces(params: {
   // this only re-affirms the envelope (counts + array shape).
   return hyresultImportAllResult.parse(result);
 }
+
+export interface UndoHyresultImportResult {
+  /** How many `races` rows were purged. */
+  deleted_races: number;
+  /** Whether the athlete's hyresult_slug identity link was cleared (false if it
+   *  was already null — an honest no-op). */
+  slug_cleared: boolean;
+}
+
+/**
+ * Undo a by-name hyresult import ("No soy yo / No eres tú"). The mirror of
+ * importAllRaces: purges EVERY race this athlete imported from hyresult
+ * (`source = 'hyresult_import'`) and clears the `athletes.hyresult_slug` identity
+ * link — both in ONE transaction, scoped to the owning athlete.
+ *
+ * Their `race_partners` go with the races automatically: the FK references
+ * races(id) ON DELETE CASCADE (migration 0071), so no separate teammate delete.
+ *
+ * NEVER touches manually-added races (`source = 'manual'`), the legacy
+ * single-link import (`source = 'hyrox_import'`), or catalog-target objectives —
+ * only the by-name imported set is the one that can carry a stranger's history.
+ *
+ * After this the slug is null, so a fresh search → import adopts the CORRECT
+ * profile cleanly: importAllRaces sets the new slug (its `is distinct from`
+ * guard now fires) and inserts fresh rows with no conflict against the purged set.
+ */
+export async function undoHyresultImport(params: {
+  athlete_id: bigint | number;
+  client?: Sql;
+}): Promise<UndoHyresultImportResult> {
+  const client = params.client ?? defaultSql;
+  const athleteId = Number(params.athlete_id);
+
+  return client.begin(async (tx) => {
+    // Purge the imported set. race_partners cascade-delete with each race (FK
+    // on delete cascade — migration 0071), so the teammates go without a
+    // separate statement.
+    const deleted = await tx<{ id: string }[]>`
+      delete from races
+      where athlete_id = ${athleteId}
+        and source = 'hyresult_import'
+      returning id::text as id
+    `;
+
+    // Clear the identity link so the next import can adopt the correct profile.
+    // Guarded by `is not null` so an already-clear slug reports false, not a
+    // phantom clear, and avoids a needless write.
+    const cleared = await tx<{ id: string }[]>`
+      update athletes
+      set hyresult_slug = null, updated_at = now()
+      where id = ${athleteId} and hyresult_slug is not null
+      returning id::text as id
+    `;
+
+    return { deleted_races: deleted.length, slug_cleared: cleared.length > 0 };
+  });
+}

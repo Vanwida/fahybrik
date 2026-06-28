@@ -146,6 +146,20 @@ struct HyresultImportAllResult: Codable, Hashable {
     let races: [ImportedRace]
 }
 
+/// `DELETE /api/athlete/races/import` response — the undo ("No soy yo"). Counts
+/// the purged races and whether the identity slug was cleared.
+struct HyresultUndoResult: Codable, Hashable {
+    let deleted_races: Int
+    let slug_cleared: Bool
+
+    // `.convertFromSnakeCase` rewrites both multi-word keys to camelCase before
+    // matching; map each to the post-conversion form.
+    enum CodingKeys: String, CodingKey {
+        case deleted_races = "deletedRaces"
+        case slug_cleared = "slugCleared"
+    }
+}
+
 // MARK: - Display helpers
 //
 // One source of truth for how an imported race reads in the UI: format/division
@@ -289,6 +303,28 @@ extension CarrerasService {
             throw HyresultImportError.unreachable
         }
     }
+
+    /// Undo a by-name hyresult import ("No soy yo"). `DELETE /api/athlete/races/import`
+    /// purges EVERY race the athlete imported from hyresult + clears their identity
+    /// slug, so they can re-search and pick the CORRECT profile. Idempotent: a
+    /// second call simply reports 0 deleted. Throws `HyresultImportError` on
+    /// failure so the hub can show an honest reason.
+    static func undoImport(bearer: String?) async throws -> HyresultUndoResult {
+        guard let bearer else { throw HyresultImportError.unauthorized }
+        do {
+            return try await APIClient.shared.delete(
+                path: "api/athlete/races/import",
+                body: Empty(),
+                bearer: bearer
+            )
+        } catch let error as APIError {
+            throw HyresultImportError(apiError: error)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw HyresultImportError.unreachable
+        }
+    }
 }
 
 /// Request body for import-all. `slug` is all-lowercase with hyphens, so
@@ -402,5 +438,11 @@ enum CarrerasHistoryStore {
     static func save(_ races: [ImportedRace]) {
         guard let data = try? JSONEncoder().encode(races) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    /// Drop the cached history — used when the athlete undoes an import ("No soy
+    /// yo") so a stranger's races never linger on-device after the server purge.
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
     }
 }

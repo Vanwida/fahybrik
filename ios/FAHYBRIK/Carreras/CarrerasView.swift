@@ -28,6 +28,12 @@ struct CarrerasView: View {
     // HYROX import sheet (search by name → import-all → refresh).
     @State private var showImport = false
 
+    // Undo import ("No soy yo"): confirm gate → purge server-side + locally →
+    // re-open the search so the athlete can pick the correct profile.
+    @State private var showRemoveConfirm = false
+    @State private var removing = false
+    @State private var removeError: String? = nil
+
     // Rich, doubles-aware history from the full-history import. Seeded from the
     // local cache on load and refreshed when an import returns; preferred over
     // the leaner race-context history whenever present.
@@ -64,6 +70,55 @@ struct CarrerasView: View {
                 }
                 Task { await load() }
             }
+        }
+        .confirmationDialog(
+            "¿Eliminar las carreras importadas?",
+            isPresented: $showRemoveConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Eliminar carreras importadas", role: .destructive) {
+                Task { await removeImport() }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Esto borrará las carreras importadas y podrás volver a buscar tu perfil.")
+        }
+        .alert(
+            "No se pudo eliminar",
+            isPresented: Binding(
+                get: { removeError != nil },
+                set: { if !$0 { removeError = nil } }
+            )
+        ) {
+            Button("Aceptar", role: .cancel) { removeError = nil }
+        } message: {
+            Text(removeError ?? "")
+        }
+    }
+
+    // Purge the imported history ("No soy yo"): clear it server-side + locally,
+    // refresh the (now empty) hub, then re-open the search so the athlete can
+    // pick the correct profile. The slug is null after the purge, so a fresh
+    // import adopts the new profile cleanly.
+    @MainActor
+    private func removeImport() async {
+        guard !removing else { return }
+        removing = true
+        defer { removing = false }
+        do {
+            _ = try await CarrerasService.undoImport(bearer: effectiveBearer)
+            Haptics.success()
+            importedRaces = []
+            CarrerasHistoryStore.clear()
+            await load()
+            // Back to the search step with a clean slate (slug now null).
+            showImport = true
+        } catch let err as HyresultImportError {
+            Haptics.error()
+            removeError = err.message
+        } catch {
+            Haptics.error()
+            removeError = "No pudimos eliminar las carreras importadas. Inténtalo de nuevo."
         }
     }
 
@@ -148,7 +203,9 @@ struct CarrerasView: View {
                 // History list: the rich, doubles-aware import when we have it;
                 // otherwise the leaner race-context history (legacy single-link).
                 if !importedRaces.isEmpty {
-                    ImportedRaceHistorySection(races: importedRaces)
+                    ImportedRaceHistorySection(races: importedRaces) {
+                        showRemoveConfirm = true
+                    }
                 } else if let overview, !overview.history.isEmpty {
                     LegacyHistorySection(history: overview.history)
                 }

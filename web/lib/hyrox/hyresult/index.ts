@@ -21,4 +21,8 @@ export {
   type MappedPartner,
   type MappedRace,
 } from './map';
-export { importAllRaces } from './import';
+export {
+  importAllRaces,
+  undoHyresultImport,
+  type UndoHyresultImportResult,
+} from './import';

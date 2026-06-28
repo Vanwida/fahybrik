@@ -13,6 +13,9 @@ import SwiftUI
 
 struct ImportedRaceHistorySection: View {
     let races: [ImportedRace]
+    /// Tapped when the athlete realizes these aren't their races ("No soy yo").
+    /// The hub owns the confirm + the actual purge; this only signals intent.
+    var onRemoveImport: () -> Void
 
     /// Most recent first; a null/unparseable date sinks to the bottom.
     private var ordered: [ImportedRace] {
@@ -27,7 +30,30 @@ struct ImportedRaceHistorySection: View {
                     ImportedRaceCard(race: race)
                 }
             }
+            removeImportFooter
         }
+    }
+
+    // Honest recovery affordance: importing the wrong profile pulls in a
+    // stranger's whole history, so the athlete needs a clear way out. Subtle
+    // (muted link, not a loud button) — the confirm dialog carries the weight.
+    private var removeImportFooter: some View {
+        Button {
+            Haptics.light()
+            onRemoveImport()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "person.crop.circle.badge.xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("¿No eres tú? Eliminar carreras importadas")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Theme.Color.muted)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .buttonStyle(PressScaleStyle())
+        .padding(.top, Theme.Spacing.xs)
+        .accessibilityLabel("No eres tú. Eliminar carreras importadas")
     }
 }
 
