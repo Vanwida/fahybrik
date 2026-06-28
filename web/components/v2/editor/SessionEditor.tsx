@@ -38,11 +38,33 @@ const SAVE_ICON: Record<SaveState, string> = {
   error: 'error',
 };
 
+/**
+ * Where a save POSTs to. Default (omitted) = the library template path
+ * (`/api/coach/templates`). The PER-ATHLETE day editor passes the instance PATCH
+ * endpoint + `extra` (the instance template_id), reusing this exact editor
+ * instead of forking a parallel one.
+ */
+export interface SessionSaveTarget {
+  url: string;
+  method: 'PUT' | 'POST' | 'PATCH';
+  /** Extra fields merged into the JSON body (e.g. { template_id }). */
+  extra?: Record<string, unknown>;
+}
+
+const DEFAULT_BACK = { href: '/biblioteca?tab=sesiones', label: 'Biblioteca · sesiones' };
+
 export function SessionEditor({
   model,
+  save,
+  back,
 }: {
   model: SessionEditorModel;
+  /** Custom save target. Omit for the library template behavior. */
+  save?: SessionSaveTarget;
+  /** Back link config. Omit = Biblioteca; `null` = hide (host renders its own). */
+  back?: { href: string; label: string } | null;
 }) {
+  const backCfg = back === undefined ? DEFAULT_BACK : back;
   const [name, setName] = useState(model.name);
   const [templateId, setTemplateId] = useState<string | null>(model.template_id);
   const [blocks, setBlocks] = useState<EditorBlock[]>(model.blocks);
@@ -94,6 +116,20 @@ export function SessionEditor({
       // exercise; serializeSessionSegments throws if not (defense-in-depth).
       const segments = serializeSessionSegments(blocks);
 
+      // Custom save target (per-athlete instance PATCH): name + segments + extra.
+      if (save) {
+        const res = await fetch(save.url, {
+          method: save.method,
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name, segments, ...(save.extra ?? {}) }),
+        });
+        if (!res.ok) throw new Error(`save failed (${res.status})`);
+        setSaveState('saved');
+        setTimeout(() => setSaveState('idle'), 2000);
+        return;
+      }
+
       const payload = {
         name,
         format: model.format,
@@ -133,13 +169,15 @@ export function SessionEditor({
       {/* Top bar */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <Link
-            href="/biblioteca?tab=sesiones"
-            className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="arrow_back" size={15} />
-            Biblioteca · sesiones
-          </Link>
+          {backCfg ? (
+            <Link
+              href={backCfg.href}
+              className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="arrow_back" size={15} />
+              {backCfg.label}
+            </Link>
+          ) : null}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}

@@ -4,6 +4,7 @@
 // reused across Perfil/Plan/Histórico/Biometría so each tab file stays focused
 // and under the 500-line budget. All read v2 tokens only.
 
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
@@ -194,12 +195,17 @@ export function ModalityDot({ modality, size = 8 }: { modality: V2Modality; size
   );
 }
 
-/** 7-day week strip: each cell tinted by that day's modality (rest = dashed).
- *  Used by the Plan "esta semana" row. */
+/** 7-day week strip: each cell tinted by that day's modality (rest = dashed),
+ *  shows the day's session FOCUS/title, and (when `href` is set) is a link into
+ *  that day's editor. Used by the Plan "esta semana" row. */
 export interface WeekStripDay {
   label: string;
   modality: V2Modality | null;
   state: 'done' | 'today' | 'scheduled' | 'rest';
+  /** Session focus/title shown under the indicator (null on rest days). */
+  title?: string | null;
+  /** Day editor link — when set the cell is clickable (null = not interactive). */
+  href?: string | null;
 }
 
 export function WeekStrip({ days }: { days: WeekStripDay[] }) {
@@ -208,19 +214,19 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
       {days.map((d, i) => {
         const isRest = d.state === 'rest' || d.modality == null;
         const color = d.modality ? `var(${MODALITY_META[d.modality].colorVar})` : undefined;
-        return (
-          <div
-            key={`${d.label}-${i}`}
-            className={cn(
-              'flex flex-col items-center gap-1 rounded-[var(--v2-r-s)] border px-1 py-1.5 text-center',
-              isRest
-                ? 'border-dashed border-[color:var(--v2-border)]'
-                : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
-              d.state === 'today' && 'ring-1 ring-[color:var(--v2-accent)]',
-            )}
-            style={!isRest ? { borderLeft: `2px solid ${color}` } : undefined}
-            title={d.label}
-          >
+        const interactive = !!d.href;
+        const cellClass = cn(
+          'flex min-w-0 flex-col items-center gap-1 rounded-[var(--v2-r-s)] border px-1 py-1.5 text-center',
+          isRest
+            ? 'border-dashed border-[color:var(--v2-border)]'
+            : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
+          d.state === 'today' && 'ring-1 ring-[color:var(--v2-accent)]',
+          interactive &&
+            'v2-focus cursor-pointer transition-colors hover:border-[color:var(--v2-border-strong)]',
+        );
+        const cellStyle = !isRest ? { borderLeft: `2px solid ${color}` } : undefined;
+        const inner = (
+          <>
             <span className="v2-micro text-[9px]">{d.label}</span>
             {d.state === 'done' ? (
               <MIcon name="check" size={13} className="text-[color:var(--v2-ok)]" />
@@ -231,6 +237,21 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
             ) : (
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
             )}
+            {d.title ? (
+              <span className="w-full truncate text-[8.5px] leading-tight text-[color:var(--v2-muted)]">
+                {d.title}
+              </span>
+            ) : null}
+          </>
+        );
+        const key = `${d.label}-${i}`;
+        return d.href ? (
+          <Link key={key} href={d.href} className={cellClass} style={cellStyle} title={d.title ?? d.label}>
+            {inner}
+          </Link>
+        ) : (
+          <div key={key} className={cellClass} style={cellStyle} title={d.title ?? d.label}>
+            {inner}
           </div>
         );
       })}

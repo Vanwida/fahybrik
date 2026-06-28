@@ -18,7 +18,7 @@ import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
 import { sessionModality } from './modality';
-import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
+import type { AthletePlanPayload, PlanSession, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import { cn } from '@/lib/utils';
 
@@ -30,9 +30,9 @@ function findTodaySession(plan: AthletePlanPayload): PlanSession | null {
   return null;
 }
 
-function findCurrentWeekDays(plan: AthletePlanPayload): WeekStripDay[] {
-  const week = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? plan.weeks[0];
-  if (!week) return [];
+// One week → the 7 day chips: modality color + state + the session FOCUS/title +
+// a link into that day's editor (only days WITH a session are clickable).
+function mapWeekToStripDays(week: PlanWeekRow, athleteId: string): WeekStripDay[] {
   return week.days.map((d) => {
     const s = d.sessions[0] ?? null;
     const modality = s ? sessionModality({ format: s.format, title: s.title }) : null;
@@ -41,8 +41,27 @@ function findCurrentWeekDays(plan: AthletePlanPayload): WeekStripDay[] {
     else if (d.is_today) state = 'today';
     else if (s.status === 'completed') state = 'done';
     else state = 'scheduled';
-    return { label: d.label, modality, state };
+    return {
+      label: d.label,
+      modality,
+      state,
+      title: s?.title ?? null,
+      href: s ? `/atletas/${athleteId}/dia/${d.iso_date}` : null,
+    };
   });
+}
+
+const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** "23–29 jun" (or "29 jun – 5 jul" across a month boundary) from ISO bounds. */
+function formatWeekRange(week: PlanWeekRow): string {
+  const s = week.week_start.split('-');
+  const e = week.week_end.split('-');
+  const sDay = Number(s[2]);
+  const eDay = Number(e[2]);
+  const sMonth = MONTHS_SHORT[Number(s[1]) - 1] ?? '';
+  const eMonth = MONTHS_SHORT[Number(e[1]) - 1] ?? '';
+  return sMonth === eMonth ? `${sDay}–${eDay} ${eMonth}` : `${sDay} ${sMonth} – ${eDay} ${eMonth}`;
 }
 
 /** Compact load bar fill (0–100) for a microcycle progress mini-card. We use the
@@ -147,6 +166,12 @@ export function PlanTab({
 }) {
   // The session whose prescrito→hecho detail is open in the drawer (assignment id).
   const [openSession, setOpenSession] = useState<string | null>(null);
+  // Week navigation: index into plan.weeks for the "esta semana" strip. Defaults
+  // to the week containing today; prev/next move within the materialized weeks.
+  const initialWeekIdx = plan
+    ? Math.max(0, plan.weeks.findIndex((w) => w.days.some((d) => d.is_today)))
+    : 0;
+  const [weekIdx, setWeekIdx] = useState(initialWeekIdx);
 
   if (!plan || plan.total_sessions === 0) {
     return (
@@ -176,7 +201,30 @@ export function PlanTab({
   )?.name;
 
   const todaySession = findTodaySession(plan);
-  const weekDays = findCurrentWeekDays(plan);
+
+  // The today-week (snapshot tiles stay anchored to it) vs the navigable active
+  // week shown in the strip.
+  const todayWeek = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? plan.weeks[0];
+  const todayWeekDays = todayWeek ? mapWeekToStripDays(todayWeek, athlete_id) : [];
+  const clampedWeekIdx = Math.min(Math.max(weekIdx, 0), plan.weeks.length - 1);
+  const activeWeek = plan.weeks[clampedWeekIdx] ?? todayWeek;
+  const activeWeekDays = activeWeek ? mapWeekToStripDays(activeWeek, athlete_id) : [];
+  const isTodayWeek = activeWeek === todayWeek;
+  const weekLabel = isTodayWeek || !activeWeek ? 'Esta semana' : formatWeekRange(activeWeek);
+  const canPrev = clampedWeekIdx > 0;
+  const canNext = clampedWeekIdx < plan.weeks.length - 1;
+
+  // "Abrir en editor de día" target: today's session if any, else the first
+  // session day of the today-week, else the first session day overall.
+  const allDays = plan.weeks.flatMap((w) => w.days);
+  const todayDay = allDays.find((d) => d.is_today) ?? null;
+  const editorTargetDate =
+    todayDay && todayDay.sessions.length > 0
+      ? todayDay.iso_date
+      : (todayWeek?.days.find((d) => d.sessions.length > 0)?.iso_date ??
+        allDays.find((d) => d.sessions.length > 0)?.iso_date ??
+        todayDay?.iso_date ??
+        null);
 
   // Microcycle progress: the macro weeks of the active block.
   const macroWeeks = plan.macro.weeks.slice(0, 6);
@@ -191,8 +239,8 @@ export function PlanTab({
   const adher = resumen?.adherence_pct_30d ?? null;
   const adherTone = adher == null ? 'fg' : adher >= 75 ? 'ok' : adher >= 60 ? 'warn' : 'danger';
   const currentWeek = plan.macro.weeks.find((w) => w.status === 'current');
-  const completedThisWeek = weekDays.filter((d) => d.state === 'done').length;
-  const plannedThisWeek = weekDays.filter((d) => d.state !== 'rest').length;
+  const completedThisWeek = todayWeekDays.filter((d) => d.state === 'done').length;
+  const plannedThisWeek = todayWeekDays.filter((d) => d.state !== 'rest').length;
 
   return (
     <>
@@ -239,13 +287,15 @@ export function PlanTab({
               assignmentId={plan.microciclo.assignment_id}
             />
           ) : null}
-          <Link
-            href={`/atletas/${athlete_id}?tab=plan`}
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-          >
-            Abrir en editor de día
-            <MIcon name="arrow_forward" size={15} />
-          </Link>
+          {editorTargetDate ? (
+            <Link
+              href={`/atletas/${athlete_id}/dia/${editorTargetDate}`}
+              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+            >
+              Abrir en editor de día
+              <MIcon name="arrow_forward" size={15} />
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -278,9 +328,44 @@ export function PlanTab({
             )}
           </Panel>
 
-          <Panel title="Esta semana">
-            {weekDays.length > 0 ? (
-              <WeekStrip days={weekDays} />
+          <Panel
+            title={weekLabel}
+            action={
+              plan.weeks.length > 1 ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={!canPrev}
+                    onClick={() => setWeekIdx(clampedWeekIdx - 1)}
+                    aria-label="Semana anterior"
+                    className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <MIcon name="chevron_left" size={16} />
+                  </button>
+                  {!isTodayWeek ? (
+                    <button
+                      type="button"
+                      onClick={() => setWeekIdx(initialWeekIdx)}
+                      className="v2-focus inline-flex h-6 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                    >
+                      Hoy
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={!canNext}
+                    onClick={() => setWeekIdx(clampedWeekIdx + 1)}
+                    aria-label="Semana siguiente"
+                    className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <MIcon name="chevron_right" size={16} />
+                  </button>
+                </div>
+              ) : null
+            }
+          >
+            {activeWeekDays.length > 0 ? (
+              <WeekStrip days={activeWeekDays} />
             ) : (
               <p className="text-center text-xs text-[color:var(--v2-muted)]">Semana sin datos</p>
             )}
