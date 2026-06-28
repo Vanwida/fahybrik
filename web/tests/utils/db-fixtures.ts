@@ -100,13 +100,15 @@ export async function makeCoachAndAthlete(sql: Sql): Promise<Fixture> {
       // Catch-all: templates the materializer created inline are coach-scoped
       // with auto-generated ids we don't track. Their segments cascade-delete.
       await sql`delete from templates where coach_id = ${coachId}`;
-      // 3) Coach + users, then any exercises the fixture seeded.
-      await sql`delete from coaches where id = ${coachId}`;
-      await sql`delete from users where id in (${athleteUserId}, ${coachUserId})`;
-      // Library blocks (block_exercises cascade) before the exercises they FK.
+      // 3) Library blocks (block_exercises cascade) — MUST go before the coach,
+      // since blocks.coach_id FKs coaches (blocks_coach_id_fkey).
       if (fx.blockIds.length > 0) {
         await sql`delete from blocks where id in ${sql(fx.blockIds)}`;
       }
+      // 4) Coach + users, then any exercises the fixture seeded (exercises are
+      // FK'd by block_exercises + template_segments, both already cascaded).
+      await sql`delete from coaches where id = ${coachId}`;
+      await sql`delete from users where id in (${athleteUserId}, ${coachUserId})`;
       if (fx.exerciseIds.length > 0) {
         await sql`delete from exercises where id in ${sql(fx.exerciseIds)}`;
       }
