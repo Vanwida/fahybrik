@@ -17,20 +17,37 @@ struct ProfileView: View {
     @AppStorage(ThemeMode.storageKey) private var themeMode: ThemeMode = .system
 
     @State private var sheet: SheetKind? = nil
-    @State private var partner: PartnerInfo? = nil
-    @State private var athleteModality: String? = nil
     @State private var showPartnerInvite: Bool = false
-    @State private var subscription: SubscriptionInfo? = nil
-    @State private var identity: AthleteIdentity? = nil
-    @State private var coachName: String? = nil
+
+    // ── Shared data: read live from the injected AppDataStore (cache-first/SWR) ──
+    // Identity, partner, subscription and the coach name come from the store, so
+    // opening Perfil renders instantly from memory — no redaction flash, no
+    // re-fetch on a tab switch; the store revalidates in the background.
+    @Environment(AppDataStore.self) private var store
+
+    private var identity: AthleteIdentity? { store.identity.value }
+    private var partner: PartnerInfo? { store.partner.value?.partner }
+    private var athleteModality: String? { store.partner.value?.athleteModality }
+    private var subscription: SubscriptionInfo? { store.subscription.value }
+
+    /// Coach display name from the week payload (agnostic, multi-coach). Nil when
+    /// unset / whitespace-only so callers fall back cleanly.
+    private var coachName: String? {
+        let n = store.planWeek.value?.coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (n?.isEmpty == false) ? n : nil
+    }
+
     // Upcoming races — the SAME source the Carreras tab reads
     // (GET /api/athlete/races → upcoming). Used ONLY to derive the athlete's
     // competition division for the identity subtitle (`objetivoRace`); the race
-    // objective itself lives in the Carreras tab, not in Perfil.
+    // objective itself lives in the Carreras tab, not in Perfil. Kept as a local
+    // fetch — Perfil-only, not a cross-tab slice.
     @State private var upcomingRaces: [UpcomingRace] = []
-    // Flips true once identity + partner + subscription have all resolved. Gates
-    // the modality value so it never flashes a placeholder before the real one.
-    @State private var initialLoadDone: Bool = false
+    // True once the modality-deciding slices (subscription + partner) have loaded,
+    // so the modality row never flashes a placeholder. Instant when cache-hydrated.
+    private var initialLoadDone: Bool {
+        store.subscription.hasLoaded && store.partner.hasLoaded
+    }
 
     @State private var showEditProfile: Bool = false
 
@@ -115,20 +132,22 @@ struct ProfileView: View {
             .navigationBarHidden(true)
         }
         .task {
-            await loadIdentity()
-            await loadPartner()
-            await loadSubscription()
-            initialLoadDone = true
+            // Cache-first: the screen already renders from the store's slices;
+            // this scopes the session and revalidates Perfil's slices in the
+            // background, plus the Perfil-only races list.
+            store.activate(bearer: bearer)
+            await store.loadProfile()
+            await loadRaces()
         }
         .sheet(item: $sheet) { kind in
             sheetView(for: kind)
         }
         .sheet(isPresented: $showPartnerInvite) {
             PartnerInviteSheet(bearer: bearer) { _ in
-                // After a successful invite, optimistically refetch — the
-                // partner only appears after they redeem, but envelope may
+                // After a successful invite, refresh the partner slice — the
+                // partner only appears after they redeem, but the envelope may
                 // expose a pending state in future iterations.
-                Task { await loadPartner() }
+                Task { await store.refreshPartner(force: true) }
             }
         }
         .sheet(isPresented: $showDeleteAccount) {
@@ -145,7 +164,7 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showEditProfile) {
             EditProfileView(bearer: bearer, identity: identity) { updated in
-                self.identity = updated
+                store.setIdentity(updated)
             }
         }
     }
@@ -323,34 +342,14 @@ struct ProfileView: View {
     /// misleading; "Español" is the honest, real value.
     private var languageValue: String { "Español" }
 
-    // MARK: - Subscription
+    // MARK: - Races (Perfil-only; identity / partner / subscription / coach name
+    //         all come from the AppDataStore now)
 
-    /// Loads the read-only subscription snapshot so the "Suscripción" row shows
-    /// live status (no price — Apple compliance). Silent on failure; the row
-    /// falls back to a neutral subtitle and the detail screen retries.
-    private func loadSubscription() async {
+    /// Upcoming races — the SAME list the Carreras tab shows (GET /api/athlete/
+    /// races). One source → Perfil and Carreras always agree. Used only to derive
+    /// the competition division for the identity subtitle. Silent on failure.
+    private func loadRaces() async {
         guard let bearer else { return }
-        subscription = try? await SubscriptionService.fetchSubscription(bearer: bearer)
-    }
-
-    /// Real athlete identity (name, body metrics, training context) from
-    /// /api/auth/me, plus the coach name from the plan week, plus the athlete's
-    /// upcoming races from the races hub (GET /api/athlete/races — the same source
-    /// as the Carreras tab) used only to derive the competition division. Silent on
-    /// failure — the identity card falls back to neutral copy.
-    private func loadIdentity() async {
-        guard let bearer else { return }
-        identity = try? await MeService.fetch(bearer: bearer)
-        if let resp = try? await PlanService.fetchWeek(bearer: bearer) {
-            // Coach identity is agnostic data from the API (multi-coach), never
-            // hardcoded. Trimmed so an empty/whitespace value falls back cleanly.
-            if let name = resp.coachName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-                coachName = name
-            }
-        }
-        // Upcoming races: read the SAME list the Carreras tab shows
-        // (GET /api/athlete/races). One source → Perfil and Carreras always agree.
-        // Used only to derive the competition division for the identity subtitle.
         if let races = await CarrerasService.fetchRaces(bearer: bearer) {
             upcomingRaces = races.upcoming
         }
@@ -431,19 +430,6 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 2)
             }
-        }
-    }
-
-    private func loadPartner() async {
-        guard let bearer else { return }
-        do {
-            let envelope = try await PartnerService.fetchEnvelope(bearer: bearer)
-            partner = envelope.partner
-            athleteModality = envelope.athleteModality
-        } catch {
-            // Silent fail: the section just won't render. We don't want a
-            // partial network error to block the rest of Profile.
-            partner = nil
         }
     }
 

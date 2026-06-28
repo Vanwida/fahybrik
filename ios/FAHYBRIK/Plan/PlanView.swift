@@ -28,8 +28,17 @@ import CoreTransferable
 struct PlanView: View {
     var bearer: String? = nil
 
-    // Raw week (all sessions per day) + the published-week metadata.
+    // The shared cache-first data layer. The CURRENT week (offset 0) is read from
+    // here so a tab switch into Plan renders instantly with no spinner; the
+    // next-week PEEK (offset 1) is a forward navigation and still fetches directly.
+    @Environment(AppDataStore.self) private var store
+
+    // Raw week (all sessions per day) + the published-week metadata. This is the
+    // screen's WORKING COPY — seeded from the store, then edited in place by the
+    // optimistic move-a-session flow. `movePending` guards a re-seed from
+    // clobbering an in-flight optimistic move.
     @State private var days: [AthleteWeekDay] = []
+    @State private var movePending = false
     @State private var todayIso: String = ""
     @State private var weekStart: String = ""
     @State private var weekEnd: String = ""
@@ -119,7 +128,10 @@ struct PlanView: View {
         // A failed move reverts the week and surfaces the reason here.
         .overlay(alignment: .top) { moveErrorBanner }
         .animation(.spring(response: 0.42, dampingFraction: 0.9), value: moveError)
-        .task { await loadPlan() }
+        .task {
+            store.activate(bearer: effectiveBearer)
+            await loadPlan()
+        }
         // Detalle — same path as Today's "Empezar" (presents the prescribed
         // workout for the tapped day's assignment).
         .fullScreenCover(isPresented: $showWorkout) {
@@ -130,8 +142,9 @@ struct PlanView: View {
                 onClose: { showWorkout = false },
                 onCompleted: { _ in
                     showWorkout = false
-                    // Refetch so the week reflects completion (✓) immediately.
-                    Task { await loadPlan() }
+                    // Reconcile the store (completion ✓ across all tabs), then
+                    // re-seed this screen's working copy from it.
+                    Task { await store.planMutated(); await loadPlan() }
                 }
             )
         }
@@ -1063,15 +1076,19 @@ struct PlanView: View {
         let snapshot = days
         reschedule(assignmentId: assignmentId, to: targetIso)   // optimistic
         moveError = nil
+        movePending = true
         Haptics.success()
 
         Task {
+            defer { movePending = false }
             do {
                 _ = try await PlanService.moveSession(
                     assignmentId: numericId, toDate: targetIso, bearer: token
                 )
-                // Success — keep the optimistic week. A later refetch (.task /
-                // workout completion) reconciles against the server's order.
+                // Success — keep the optimistic week locally, and refresh the
+                // store so the OTHER tabs (Inicio's week tile / next session)
+                // reflect the move too.
+                await store.planMutated()
             } catch {
                 days = snapshot                 // revert
                 Haptics.error()
@@ -1192,26 +1209,66 @@ struct PlanView: View {
     // MARK: - Load
 
     private func loadPlan() async {
-        defer { loading = false }
-        guard let token = effectiveBearer else {
+        guard effectiveBearer != nil else {
+            loading = false
             loadFailed = true
             return
         }
-        do {
-            async let weekResp = PlanService.fetchWeek(bearer: token, weekOffset: weekOffset)
-            async let partnerResp = PartnerService.fetchEnvelope(bearer: token)
-            let resp = try await weekResp
-            let envelope = try? await partnerResp
 
-            days = resp.week.days
-            todayIso = resp.week.todayIso
-            weekStart = resp.week.weekStart
-            weekEnd = resp.week.weekEnd
-            // Coach-authored week focus — surfaced verbatim, no per-day detail.
-            focus = resp.week.focus
-            hasNextWeek = resp.week.hasNextWeek ?? false
-            coachName = resp.coachName
-            partner = envelope?.partner
+        if weekOffset == 0 {
+            // CACHE-FIRST: render the store's current week instantly when present
+            // (no spinner on a tab switch).
+            if let cached = store.planWeek.value {
+                applyWeek(cached)
+                partner = store.partner.value?.partner
+                loading = false
+                loadFailed = false
+            }
+            // SWR: revalidate the current-week + partner slices, then re-seed.
+            await store.loadPlanScreen()
+            // Don't clobber an in-flight optimistic move, and bail if the athlete
+            // navigated to the peek while we were loading.
+            guard weekOffset == 0, !movePending else { return }
+            if let fresh = store.planWeek.value {
+                applyWeek(fresh)
+                loadFailed = false
+            } else if store.planWeek.hasLoaded {
+                // Loaded successfully but the athlete has no published week.
+                days = []
+                loadFailed = false
+            } else {
+                // First-ever load failed (offline, nothing cached).
+                loadFailed = true
+            }
+            partner = store.partner.value?.partner
+            loading = false
+        } else {
+            await loadPeekWeek()
+        }
+    }
+
+    /// Apply a week payload to the screen's working copy. `days` is the mutable
+    /// copy the move-a-session flow edits optimistically; the rest is metadata.
+    private func applyWeek(_ resp: AthletePlanWeekResponse) {
+        days = resp.week.days
+        todayIso = resp.week.todayIso
+        weekStart = resp.week.weekStart
+        weekEnd = resp.week.weekEnd
+        // Coach-authored week focus — surfaced verbatim, no per-day detail.
+        focus = resp.week.focus
+        hasNextWeek = resp.week.hasNextWeek ?? false
+        coachName = resp.coachName
+    }
+
+    /// The NEXT-week peek is a forward navigation (not a tab switch) and isn't
+    /// cached centrally, so it fetches directly. Partner still comes from the store.
+    private func loadPeekWeek() async {
+        defer { loading = false }
+        guard let token = effectiveBearer else { loadFailed = true; return }
+        do {
+            let resp = try await PlanService.fetchWeek(bearer: token, weekOffset: weekOffset)
+            applyWeek(resp)
+            partner = store.partner.value?.partner
             loadFailed = false
         } catch {
             // No plan available — honest empty state, never demo data.
@@ -1599,4 +1656,5 @@ struct MovableSession: Transferable {
 
 #Preview {
     PlanView()
+        .environment(AppDataStore())
 }

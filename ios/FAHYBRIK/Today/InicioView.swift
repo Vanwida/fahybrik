@@ -33,48 +33,61 @@ struct InicioView: View {
     @State private var checkinPending: Bool = CheckinStore.isPending()
     @State private var sessionBearer: String? = nil
 
+    // ── Shared data: read live from the injected AppDataStore (cache-first/SWR) ──
+    // These derive from the store's slices, so switching tabs renders instantly
+    // from memory — no per-view re-fetch, no spinner; the store revalidates in the
+    // background. The derivation helpers (sessionsForToday, weekSessionCounts, …)
+    // are unchanged; only their input now comes from the store.
+    @Environment(AppDataStore.self) private var store
+
     // Athlete identity (greeting + avatar). Nil until /api/auth/me resolves.
-    @State private var identity: AthleteIdentity? = nil
+    private var identity: AthleteIdentity? { store.identity.value }
 
-    @State private var readinessScore: Int? = nil
-    @State private var readinessDelta: Int? = nil
+    /// The current week payload — the single source for today's sessions, macro
+    /// context, the race countdown and the week counts below.
+    private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
 
-    // Today's sessions, in slot order (AM hero, then PM compact). Empty when
-    // today is a rest day or no plan is published.
-    @State private var todaySessions: [AthleteWeekDaySession] = []
+    private var readinessScore: Int? { store.readiness.value?.score }
+    private var readinessDelta: Int? { store.readiness.value?.delta7d }
+
+    // Today's still-active sessions, in slot order (AM hero, then PM compact).
+    private var todaySessions: [AthleteWeekDaySession] {
+        planWeek.map(sessionsForToday) ?? []
+    }
     // Fallback when today has no sessions: the next future session in the week.
-    @State private var nextWorkout: NextWorkout? = nil
-    // Whether the athlete has ANY published session this week (across all days).
-    // This is what distinguishes "no plan at all" (→ empty state) from "has a
-    // plan but today has no session" (→ rest / done card). Mirrors the Plan tab's
-    // `hasAnySession` so Inicio and Plan agree on what "has a plan" means.
-    @State private var hasPlan: Bool = false
-    // Whether TODAY is genuinely a rest day (no session assigned) vs a training
-    // day whose session(s) the athlete already completed — so the rest card can
-    // say "Hoy descansas" honestly and never tell someone who just trained that
-    // they rested.
-    @State private var todayIsRest: Bool = false
+    private var nextWorkout: NextWorkout? {
+        planWeek.flatMap(PlanService.nextWorkout)
+    }
+    // Whether the athlete has ANY published session this week (across all days) —
+    // distinguishes "no plan at all" from "has a plan but nothing left today".
+    private var hasPlan: Bool { planWeek.map(planExists) ?? false }
+    // Whether TODAY is genuinely a rest day vs a training day already completed.
+    private var todayIsRest: Bool { planWeek.map(isTodayRest) ?? false }
     // Real macro context (block / week label / days to A-event).
-    @State private var macro: AthleteMacroSummary? = nil
+    private var macro: AthleteMacroSummary? { planWeek?.macroSummary }
     // Per-week macro progress → real "week N/M" + segmented bar on the week tile.
-    @State private var macroWeeks: [AthleteMacroProgressWeek] = []
-    // Real sessions-done / sessions-total for THIS week, derived from the week
-    // payload (every day's sessions, completed vs scheduled). Drives the honest
-    // "N/M hechas" count on the week tile.
-    @State private var weekDone: Int = 0
-    @State private var weekTotal: Int = 0
+    private var macroWeeks: [AthleteMacroProgressWeek] {
+        store.macroProgress.value?.macroProgress?.weeks ?? []
+    }
+    // Real sessions-done / sessions-total for THIS week (one computation, two reads).
+    private var weekCounts: (done: Int, total: Int) {
+        planWeek.map(weekSessionCounts) ?? (done: 0, total: 0)
+    }
+    private var weekDone: Int { weekCounts.done }
+    private var weekTotal: Int { weekCounts.total }
     // The GOAL race the plan peaks for → primary countdown tile.
-    @State private var targetRace: AthleteNextRace? = nil
+    private var targetRace: AthleteNextRace? { planWeek?.targetRace }
     // The chronologically next race (intermediate or same as target).
-    @State private var nextRace: AthleteNextRace? = nil
+    private var nextRace: AthleteNextRace? { planWeek?.nextRace }
     // Unread coach messages → bell dot + coach-note row dot. 0 when none.
-    @State private var unreadCount: Int = 0
-    // The athlete's coach thread — carries the latest coach message preview +
-    // voice-note duration surfaced on the coach-note row.
-    @State private var coachThread: ChatThreadDTO? = nil
-    // Dobles partner training snapshot (GET /api/athlete/partner). Set only when
-    // the athlete is in a coach-created doubles_pair; nil otherwise (no panel).
-    @State private var partner: PartnerInfo? = nil
+    private var unreadCount: Int { store.unreadCount }
+    // The athlete's coach thread — latest coach message preview + voice note.
+    private var coachThread: ChatThreadDTO? { store.chatThread.value }
+    // Dobles partner training snapshot — only for a coach-created doubles_pair.
+    private var partner: PartnerInfo? {
+        let env = store.partner.value
+        return (env?.isDoublesPair == true) ? env?.partner : nil
+    }
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
@@ -126,12 +139,12 @@ struct InicioView: View {
                 fallbackTitle: startFallbackTitle,
                 bearer: effectiveBearer,
                 onClose: { showWorkout = false },
-                onCompleted: { completedId in
-                    if let completedId {
-                        todaySessions.removeAll { $0.assignmentId == completedId }
-                        if nextWorkout?.assignmentId == completedId { nextWorkout = nil }
-                    }
-                    Task { await loadPlan() }
+                onCompleted: { _ in
+                    // WorkoutContainer already records the optimistic completion in
+                    // CompletedAssignmentsStore, so the store-derived lists drop the
+                    // finished session immediately; force-refresh the plan slices to
+                    // reconcile with the server (and update every other tab too).
+                    Task { await store.planMutated() }
                 }
             )
         }
@@ -141,6 +154,8 @@ struct InicioView: View {
                 onSubmitted: { _, _ in
                     checkinPending = false
                     showCheckin = false
+                    // A check-in can change today's readiness — pull it fresh.
+                    Task { await store.refreshReadiness(force: true) }
                 },
                 onSkipped: {
                     checkinPending = false
@@ -150,8 +165,8 @@ struct InicioView: View {
         }
         .sheet(isPresented: $showBuscarCarrera) {
             BuscarCarreraSheet(bearer: effectiveBearer) {
-                // A target was fixed → reload the plan so the countdown appears.
-                Task { await loadPlan() }
+                // A target was fixed → refresh the plan so the countdown appears.
+                Task { await store.planMutated() }
             }
         }
         .onAppear {
@@ -165,85 +180,19 @@ struct InicioView: View {
             DispatchQueue.main.async { revealed = true }
         }
         .task(id: effectiveBearer) {
-            await loadIdentity()
-            await loadReadiness()
-            await loadPlan()
-            await loadUnread()
-            await loadPartner()
+            // Cache-first: the body already renders from the store's slices; this
+            // just scopes the session and revalidates Inicio's slices in the
+            // background (throttled + de-duped, so a tab switch won't refetch).
+            store.activate(bearer: effectiveBearer)
+            await store.loadHome()
+            pushNextWorkoutToWatch()
         }
     }
 
-    // MARK: - Data
-
-    private func loadIdentity() async {
-        guard let token = effectiveBearer else { return }
-        identity = try? await MeService.fetch(bearer: token)
-    }
-
-    private func loadReadiness() async {
-        guard let token = effectiveBearer else { return }
-        if let payload = try? await ReadinessService.fetchToday(bearer: token) {
-            readinessScore = payload.score
-            readinessDelta = payload.delta7d
-        } else {
-            readinessScore = nil
-            readinessDelta = nil
-        }
-    }
-
-    private func loadPlan() async {
-        guard let token = effectiveBearer else { return }
-        do {
-            async let weekResp = PlanService.fetchWeek(bearer: token)
-            async let macroResp = PlanService.fetchMacroProgress(bearer: token)
-            let resp = try await weekResp
-            let macroProgress = try? await macroResp
-
-            todaySessions = sessionsForToday(resp)
-            nextWorkout = PlanService.nextWorkout(from: resp)
-            macro = resp.macroSummary
-            macroWeeks = macroProgress?.macroProgress?.weeks ?? []
-            targetRace = resp.targetRace
-            nextRace = resp.nextRace
-            (weekDone, weekTotal) = weekSessionCounts(resp)
-            hasPlan = planExists(resp)
-            todayIsRest = isTodayRest(resp)
-        } catch {
-            todaySessions = []
-            nextWorkout = nil
-            macro = nil
-            macroWeeks = []
-            targetRace = nil
-            nextRace = nil
-            weekDone = 0
-            weekTotal = 0
-            hasPlan = false
-            todayIsRest = false
-        }
-        pushNextWorkoutToWatch()
-    }
-
-    private func loadUnread() async {
-        guard let token = effectiveBearer else { return }
-        // fetchThread is throwing AND optional → flatten both before reading.
-        let thread = (try? await ChatService.fetchThread(bearer: token)) ?? nil
-        coachThread = thread
-        unreadCount = max(0, thread?.unreadForAthlete ?? 0)
-    }
-
-    /// Loads the Dobles partner training snapshot. The "Tu pareja" panel renders
-    /// ONLY for a coach-created doubles_pair — a billing-only pair (no training
-    /// data), an unpaired athlete (404), or any error leaves `partner` nil so the
-    /// panel quietly stays hidden. Never blocks the rest of the screen.
-    private func loadPartner() async {
-        guard let token = effectiveBearer else { partner = nil; return }
-        if let envelope = try? await PartnerService.fetchEnvelope(bearer: token),
-           envelope.isDoublesPair {
-            partner = envelope.partner
-        } else {
-            partner = nil
-        }
-    }
+    // MARK: - Derivations
+    //
+    // Pure projections over the store's slices (used by the computed properties
+    // above). The loading itself lives in AppDataStore now.
 
     /// Completed vs scheduled sessions across THIS week (all days). "Done" unions
     /// the server status with locally-recorded optimistic completions, matching

@@ -16,6 +16,12 @@ struct AppShell: View {
     @State private var selection: AppTab = .inicio
     @State private var bearer: String? = nil
 
+    // The shared, cache-first data layer. Created ONCE here and injected via
+    // `.environment` so it survives tab switches — Inicio / Plan / Perfil read
+    // their data from it and never re-fetch (or spin) just because their tab was
+    // recreated on switch. See AppDataStore.
+    @State private var store = AppDataStore()
+
     // Push deep-link router — a tapped notification routes to a tab (chat opens
     // its tab directly now that Chat is a first-class destination).
     @State private var pushRouter = PushRouter.shared
@@ -50,6 +56,14 @@ struct AppShell: View {
             }
 
             AppTabBar(selection: $selection)
+        }
+        .environment(store)
+        // Scope the store to the session and warm every slice once, so whichever
+        // tab the athlete opens first already has its data (or loads it centrally,
+        // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
+        .task(id: bearer) {
+            store.activate(bearer: bearer)
+            await store.warm()
         }
         .onAppear {
             bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
