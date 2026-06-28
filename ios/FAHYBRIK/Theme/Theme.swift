@@ -129,37 +129,74 @@ enum Theme {
     // distinct, well-separated color (Color.modality* above) so metcon, HYROX,
     // strength and mobility never collapse into one dot.
     enum Modality {
-        /// Color for a modality (or format-fallback) string. Case-insensitive,
+        // The canonical training-modality buckets the day dot, the week breakdown
+        // and the legend all collapse onto — a SINGLE source of truth for both the
+        // hue and the ES label, so a dot can never drift from the word that names
+        // it. Ergometers (row/ski/bike) share one bucket; core + mobility + warmup/
+        // cooldown share the calm "support" bucket.
+        enum Kind: CaseIterable {
+            case run, ergo, strength, functional, hyrox, support, other
+
+            var color: SwiftUI.Color {
+                switch self {
+                case .run:        return Color.accent             // brand-orange spine of a race
+                case .ergo:       return Color.info               // machine-blue family
+                case .strength:   return Color.modalityStrength   // violet — iron
+                case .functional: return Color.modalityFunctional // green — metcon/WOD
+                case .hyrox:      return Color.modalityHyrox      // magenta — the flagship
+                case .support:    return Color.modalitySupport    // teal — core/mobility
+                case .other:      return Color.neutral            // ambiguous conditioning
+                }
+            }
+
+            /// ES label for the breakdown + legend ("3 carrera · 1 fuerza · 1 HYROX").
+            var label: String {
+                switch self {
+                case .run:        return "carrera"
+                case .ergo:       return "ergómetro"
+                case .strength:   return "fuerza"
+                case .functional: return "funcional"
+                case .hyrox:      return "HYROX"
+                case .support:    return "movilidad"
+                case .other:      return "otro"
+                }
+            }
+        }
+
+        /// Bucket a modality (or format-fallback) string. Case-insensitive,
         /// substring match, ordered most-specific-first. Unknown / ambiguous
-        /// conditioning formats (intervals, tempo, test) resolve to the neutral
-        /// "no signal" grey rather than guessing a discipline.
-        static func color(_ raw: String?) -> SwiftUI.Color {
+        /// conditioning formats (intervals, tempo, test) resolve to `.other`
+        /// rather than guessing a discipline.
+        static func kind(_ raw: String?) -> Kind {
             let s = (raw ?? "").lowercased()
             func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
 
             // HYROX first — the flagship discipline keeps its own identity, so
             // "hyrox_sim" never falls through to a generic run/strength dot.
-            if has("hyrox") { return Color.modalityHyrox }
+            if has("hyrox") { return .hyrox }
             // Running — the brand-orange spine of a HYROX race.
-            if has("run", "corr", "carrera") { return Color.accent }
+            if has("run", "corr", "carrera") { return .run }
             // Ergometers (row / ski / bike) — one machine-blue family.
-            if has("erg", "row", "remo", "ski", "bike", "bici", "assault") { return Color.info }
+            if has("erg", "row", "remo", "ski", "bike", "bici", "assault") { return .ergo }
             // Strength / lifting (incl. the "strength_block" format).
-            if has("strength", "fuerza", "lift", "weight") { return Color.modalityStrength }
+            if has("strength", "fuerza", "lift", "weight") { return .strength }
             // Functional / metcon / WOD formats.
             if has("functional", "metcon", "wod", "amrap", "emom",
-                   "for_time", "fortime", "circuit", "hiit", "crossfit") {
-                return Color.modalityFunctional
-            }
+                   "for_time", "fortime", "circuit", "hiit", "crossfit") { return .functional }
             // Core + mobility — low-intensity support work, one calm hue. (Also
             // catches warmup/cooldown titles for the per-block dots in the brief.)
             if has("core", "abdom", "mobility", "movilidad", "stretch", "estiram",
-                   "yoga", "warm", "calent", "activaci", "cooldown", "calma") {
-                return Color.modalitySupport
-            }
+                   "yoga", "warm", "calent", "activaci", "cooldown", "calma") { return .support }
             // Unknown / "other" / ambiguous formats (intervals, tempo, test).
-            return Color.neutral
+            return .other
         }
+
+        /// Color for a modality (or format-fallback) string. Delegates to `kind`
+        /// so the dot, the legend and the week breakdown can never diverge.
+        static func color(_ raw: String?) -> SwiftUI.Color { kind(raw).color }
+
+        /// ES label for a modality string (e.g. "carrera", "ergómetro").
+        static func label(_ raw: String?) -> String { kind(raw).label }
     }
 
     // MARK: - Depth (soft shadows for elevated instrument cards)

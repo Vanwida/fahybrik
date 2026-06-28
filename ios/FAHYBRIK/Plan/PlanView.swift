@@ -188,58 +188,318 @@ struct PlanView: View {
         .accessibilityLabel("Chat con tu coach")
     }
 
-    // MARK: - Title block ("Tu semana" + counter + provenance subtitle)
+    // MARK: - Title block ("Tu semana" / "Próxima semana" + clean attribution)
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                Text("Tu semana")
-                    .scaledFont(26, weight: .heavy, relativeTo: .title, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                Spacer(minLength: Theme.Spacing.s)
-                if let counter = weekCounter {
-                    MonoText(text: counter, size: 12, weight: .bold, color: Theme.Color.muted)
+            Text(weekOffset == 1 ? "Próxima semana" : "Tu semana")
+                .scaledFont(26, weight: .heavy, relativeTo: .title, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
+            // Clean, athlete-facing subtitle — date range + the coach who publishes
+            // the week. NO internal jargon ("microciclo"), no duplicated plan name.
+            if let subtitle = weekSubtitle {
+                subtitle
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.faint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// "21–27 jul · por Pablo" — the week's dates and the coach who publishes it.
+    /// Each part optional; nil when neither is available (never an empty line).
+    private var weekSubtitle: Text? {
+        let range = weekDateRange
+        let coach = coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let coachPart = (coach?.isEmpty == false) ? coach : nil
+        switch (range, coachPart) {
+        case let (range?, coach?): return Text(range) + Text(" · por \(coach)")
+        case let (range?, nil):    return Text(range)
+        case let (nil, coach?):    return Text("por \(coach)")
+        case (nil, nil):           return nil
+        }
+    }
+
+    // MARK: - Week navigation (this week ↔ the next-week peek ONLY)
+    //
+    // Matches the weekly-delivery model: the athlete can preview the NEXT week
+    // (the one that unlocks Saturday) and come back — never arbitrary navigation.
+    @ViewBuilder
+    private var weekNav: some View {
+        if weekOffset == 1 {
+            navButton(title: "Esta semana", systemImage: "chevron.left", leading: true) {
+                setWeekOffset(0)
+            }
+            .accessibilityLabel("Volver a esta semana")
+        } else if hasNextWeek {
+            HStack {
+                Spacer(minLength: 0)
+                navButton(title: "Próxima semana", systemImage: "chevron.right", leading: false) {
+                    setWeekOffset(1)
+                }
+                .accessibilityLabel("Ver la próxima semana")
+            }
+        }
+    }
+
+    private func navButton(
+        title: String,
+        systemImage: String,
+        leading: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            Haptics.light()
+            action()
+        } label: {
+            HStack(spacing: 4) {
+                if leading {
+                    Image(systemName: systemImage).font(.system(size: 10, weight: .bold))
+                }
+                Text(title).font(.system(size: 12, weight: .bold))
+                if !leading {
+                    Image(systemName: systemImage).font(.system(size: 10, weight: .bold))
                 }
             }
-            // Provenance — the published week derives from the coach's microciclo
-            // and "se publica sola". The week endpoint now exposes the coach name
-            // and the microciclo (periodization phase); we name both when present
-            // and degrade to the generic line when either is missing.
-            provenanceSubtitle
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(Theme.Color.accentText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Theme.Color.surface)
+            .overlay(Capsule().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(PressScaleStyle())
+    }
+
+    private func setWeekOffset(_ offset: Int) {
+        guard offset != weekOffset else { return }
+        weekOffset = offset
+        loading = true
+        Task { await loadPlan() }
+    }
+
+    // MARK: - Foco de la semana (coach-authored, athlete-facing — no detail)
+
+    private func focoCard(_ text: String) -> some View {
+        CardSurface(padding: 16, topAccent: true) {
+            VStack(alignment: .leading, spacing: 6) {
+                LabelText(text: "FOCO DE LA SEMANA")
+                Text(text)
+                    .scaledFont(15, weight: .semibold, relativeTo: .body)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Foco de la semana: \(text)")
+    }
+
+    // MARK: - Resumen de la semana (shape of the week, derived from the sessions)
+
+    private var weekSummaryCard: some View {
+        let sessions = realSessions
+        let count = sessions.count
+        let counts = modalityCounts(sessions)
+        let minutes = totalEstMinutes(sessions)
+        return CardSurface(padding: 16, topAccent: false) {
+            VStack(alignment: .leading, spacing: 10) {
+                LabelText(text: "RESUMEN DE LA SEMANA")
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text("\(count)")
+                        .font(.system(size: 30, weight: .heavy, design: .default).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(count == 1 ? "sesión" : "sesiones")
+                        .scaledFont(13, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.muted)
+                    Spacer(minLength: Theme.Spacing.s)
+                    if let vol = formatVolume(minutes) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock").font(.system(size: 11, weight: .semibold))
+                            Text(vol).font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        }
+                        .foregroundStyle(Theme.Color.muted)
+                    }
+                }
+                if !counts.isEmpty {
+                    breakdownChips(counts)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(summaryAccessibility(count: count, counts: counts, minutes: minutes))
+    }
+
+    @ViewBuilder
+    private func breakdownChips(_ counts: [(kind: Theme.Modality.Kind, count: Int)]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(chunk(counts, size: 3).enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 8) {
+                    ForEach(row, id: \.kind) { item in
+                        HStack(spacing: 5) {
+                            Circle().fill(item.kind.color).frame(width: 7, height: 7)
+                            Text("\(item.count) \(item.kind.label)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Theme.Color.foreground.opacity(0.9))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Theme.Color.surfaceElevated)
+                        .clipShape(Capsule())
+                    }
+                }
+            }
         }
     }
 
-    /// The "Tu semana" subtitle: names the microciclo (periodization phase) and
-    /// the coach who publishes the week. Each part is optional and the copy
-    /// adapts so it never reads awkwardly when a field is absent.
-    private var provenanceSubtitle: Text {
-        let phase = microcicloName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let coach = coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        switch (phase?.isEmpty == false ? phase : nil, coach?.isEmpty == false ? coach : nil) {
-        case let (phase?, coach?):
-            // "Microciclo de Acumulación · publicada por Pablo"
-            return Text("Microciclo de ")
-                + Text(phase).foregroundStyle(Theme.Color.accentText)
-                + Text(" · publicada por \(coach)")
-        case let (phase?, nil):
-            return Text("Microciclo de ")
-                + Text(phase).foregroundStyle(Theme.Color.accentText)
-        case let (nil, coach?):
-            return Text("Publicada por \(coach)")
-        case (nil, nil):
-            return Text("Tu coach publica esta semana automáticamente")
+    // MARK: - Progreso de la semana (real completion, not the date passing)
+
+    private var weekProgressCard: some View {
+        let planned = realSessions.count
+        let done = completedCount
+        let frac = planned > 0 ? Double(done) / Double(planned) : 0
+        let complete = planned > 0 && done >= planned
+        return CardSurface(padding: 16, topAccent: false) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    LabelText(text: "PROGRESO DE LA SEMANA")
+                    Spacer(minLength: Theme.Spacing.s)
+                    Text("\(done) / \(planned)")
+                        .font(.system(size: 13, weight: .bold).monospacedDigit())
+                        .foregroundStyle(complete ? Theme.Color.ok : Theme.Color.muted)
+                }
+                progressBar(fraction: frac)
+                Text(progressCaption(done: done, planned: planned))
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.faint)
+            }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Progreso de la semana: \(done) de \(planned) sesiones completadas")
     }
 
-    /// The week counter chip ("Semana 2/4", "REAL w2", …). We surface the
-    /// coach-authored freeform label verbatim — never a fabricated denominator.
-    /// Nil when the published week carries no label.
-    private var weekCounter: String? {
-        guard let label = macroLabel, !label.isEmpty else { return nil }
-        return label
+    private func progressBar(fraction: Double) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.Color.hairlineStrong)
+                Capsule().fill(Theme.Color.accent)
+                    .frame(width: max(0, min(1, fraction)) * geo.size.width)
+            }
+        }
+        .frame(height: 8)
+    }
+
+    private func progressCaption(done: Int, planned: Int) -> String {
+        if planned == 0 { return "Sin sesiones esta semana." }
+        if done == 0 { return "Aún no has completado ninguna sesión." }
+        if done >= planned { return "¡Semana completada! Buen trabajo." }
+        let left = planned - done
+        return left == 1 ? "Te queda 1 sesión." : "Te quedan \(left) sesiones."
+    }
+
+    // MARK: - Peek empty (next week not published yet — honest)
+
+    private var peekEmptyState: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 34))
+                .foregroundStyle(Theme.Color.muted)
+            Text("La próxima semana aún no está publicada")
+                .scaledFont(16, weight: .heavy, relativeTo: .title3, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.center)
+            Text("Tu coach la publica al cerrar esta semana.")
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.xxl)
+    }
+
+    // MARK: - Week summary / progress derivation (from the typed week, no mocks)
+
+    /// All real (assigned) sessions across the week — the unit the summary and
+    /// progress count (AM and PM each count once). Rest/empty days contribute none.
+    private var realSessions: [AthleteWeekDaySession] {
+        days.flatMap { $0.sessions.filter { !$0.assignmentId.isEmpty } }
+    }
+
+    /// Sessions bucketed by canonical modality, sorted by count desc then label,
+    /// so the breakdown reads "3 carrera · 1 fuerza · 1 HYROX". Honest: derived
+    /// only from the typed sessions already in the week.
+    private func modalityCounts(
+        _ sessions: [AthleteWeekDaySession]
+    ) -> [(kind: Theme.Modality.Kind, count: Int)] {
+        var counts: [Theme.Modality.Kind: Int] = [:]
+        for s in sessions {
+            counts[Theme.Modality.kind(s.modality), default: 0] += 1
+        }
+        return counts
+            .map { (kind: $0.key, count: $0.value) }
+            .sorted {
+                if $0.count != $1.count { return $0.count > $1.count }
+                return $0.kind.label < $1.kind.label
+            }
+    }
+
+    /// Estimated weekly volume = sum of per-session estimated minutes. Sessions the
+    /// backend couldn't time-estimate contribute 0; the caller hides the volume
+    /// when the total is 0 rather than under-reporting.
+    private func totalEstMinutes(_ sessions: [AthleteWeekDaySession]) -> Int {
+        sessions.reduce(0) { $0 + ($1.estDurationMinutes ?? 0) }
+    }
+
+    /// Human volume label with the "~" estimate marker. Nil when 0 (hidden).
+    private func formatVolume(_ minutes: Int) -> String? {
+        guard minutes > 0 else { return nil }
+        let h = minutes / 60
+        let m = minutes % 60
+        if h == 0 { return "~\(m) min" }
+        if m == 0 { return "~\(h) h" }
+        return "~\(h) h \(m) min"
+    }
+
+    /// Completed sessions this week — REAL completion (server 'completed' OR the
+    /// optimistic local store), never driven by the date passing.
+    private var completedCount: Int {
+        realSessions.filter { isSessionCompleted($0) }.count
+    }
+
+    /// "21–27 jul" (same month) / "28 jul – 3 ago" (cross-month). Nil when unset.
+    private var weekDateRange: String? {
+        guard let s = parseIsoDay(weekStart), let e = parseIsoDay(weekEnd) else { return nil }
+        let months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+        let sm = months[(s.month - 1) % 12]
+        let em = months[(e.month - 1) % 12]
+        if s.month == e.month { return "\(s.day)–\(e.day) \(em)" }
+        return "\(s.day) \(sm) – \(e.day) \(em)"
+    }
+
+    private func parseIsoDay(_ iso: String) -> (day: Int, month: Int)? {
+        let parts = iso.split(separator: "-")
+        guard parts.count == 3, let m = Int(parts[1]), let d = Int(parts[2]) else { return nil }
+        return (d, m)
+    }
+
+    private func summaryAccessibility(
+        count: Int,
+        counts: [(kind: Theme.Modality.Kind, count: Int)],
+        minutes: Int
+    ) -> String {
+        var parts = ["\(count) \(count == 1 ? "sesión" : "sesiones")"]
+        let breakdown = counts.map { "\($0.count) \($0.kind.label)" }.joined(separator: ", ")
+        if !breakdown.isEmpty { parts.append(breakdown) }
+        if let vol = formatVolume(minutes) { parts.append("volumen \(vol)") }
+        return "Resumen de la semana: " + parts.joined(separator: "; ")
+    }
+
+    /// Split an array into rows of `size` for the chip / legend grids.
+    private func chunk<T>(_ array: [T], size: Int) -> [[T]] {
+        guard size > 0 else { return [array] }
+        return stride(from: 0, to: array.count, by: size).map {
+            Array(array[$0 ..< Swift.min($0 + size, array.count)])
+        }
     }
 
     // MARK: - Day list (Lun–Dom, today expanded)
@@ -511,22 +771,19 @@ struct PlanView: View {
 
     private var legend: some View {
         // Two centered rows cover the full modality palette without overflowing
-        // 390pt. Colors come from Theme.Modality.color so the key can never drift
-        // from the dots it explains (single source of truth).
-        VStack(spacing: 6) {
-            HStack(spacing: Theme.Spacing.l) {
-                Spacer(minLength: 0)
-                legendItem(color: Theme.Modality.color("run"), label: "carrera")
-                legendItem(color: Theme.Modality.color("row"), label: "ergómetro")
-                legendItem(color: Theme.Modality.color("strength"), label: "fuerza")
-                Spacer(minLength: 0)
-            }
-            HStack(spacing: Theme.Spacing.l) {
-                Spacer(minLength: 0)
-                legendItem(color: Theme.Modality.color("functional"), label: "funcional")
-                legendItem(color: Theme.Modality.color("hyrox"), label: "HYROX")
-                legendItem(color: Theme.Modality.color("mobility"), label: "movilidad")
-                Spacer(minLength: 0)
+        // 390pt. Driven by the canonical modality KINDS (Theme.Modality.Kind) so
+        // the key can never drift from the dots + breakdown it explains (single
+        // source of truth for both the hue and the word).
+        let kinds: [Theme.Modality.Kind] = [.run, .ergo, .strength, .functional, .hyrox, .support]
+        return VStack(spacing: 6) {
+            ForEach(chunk(kinds, size: 3), id: \.self) { row in
+                HStack(spacing: Theme.Spacing.l) {
+                    Spacer(minLength: 0)
+                    ForEach(row, id: \.self) { kind in
+                        legendItem(color: kind.color, label: kind.label)
+                    }
+                    Spacer(minLength: 0)
+                }
             }
         }
         .padding(.top, Theme.Spacing.xs)
@@ -539,29 +796,6 @@ struct PlanView: View {
             Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.Color.muted)
-        }
-    }
-
-    // MARK: - A-event card
-    //
-    // The macro summary only exposes days-to-A-event (no event name / date / bib
-    // yet), so we surface exactly that. Hidden entirely when there is no value.
-    private func aEventCard(days: Int) -> some View {
-        CardSurface(padding: 16, topAccent: true) {
-            VStack(alignment: .leading, spacing: 0) {
-                LabelText(text: "A-EVENT")
-                HStack(alignment: .lastTextBaseline, spacing: 8) {
-                    Text("\(days)")
-                        .font(.system(size: 56, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.accentText)
-                    Text("días")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .padding(.top, 10)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Faltan \(days) días para tu A-event")
-            }
         }
     }
 
@@ -623,22 +857,19 @@ struct PlanView: View {
             return
         }
         do {
-            async let weekResp = PlanService.fetchWeek(bearer: token)
-            async let macroResp = PlanService.fetchMacroProgress(bearer: token)
+            async let weekResp = PlanService.fetchWeek(bearer: token, weekOffset: weekOffset)
             async let partnerResp = PartnerService.fetchEnvelope(bearer: token)
             let resp = try await weekResp
-            let macro = try? await macroResp
             let envelope = try? await partnerResp
 
             days = resp.week.days
             todayIso = resp.week.todayIso
-            // The week label is coach-authored freeform; we surface it verbatim.
-            // No periodization sigla/code is ever sent here as a label — only the
-            // human, coach-authored `weekLabel` reaches the athlete.
-            macroLabel = macro?.macro.weekLabel ?? resp.macroSummary.weekLabel
-            aEventDays = macro?.macro.aEventDays ?? resp.macroSummary.aEventDays
+            weekStart = resp.week.weekStart
+            weekEnd = resp.week.weekEnd
+            // Coach-authored week focus — surfaced verbatim, no per-day detail.
+            focus = resp.week.focus
+            hasNextWeek = resp.week.hasNextWeek ?? false
             coachName = resp.coachName
-            microcicloName = resp.week.microcicloName
             partner = envelope?.partner
             loadFailed = false
         } catch {

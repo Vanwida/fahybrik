@@ -67,6 +67,13 @@ struct AthleteWeekPayload: Decodable {
     /// hardcoded periodization vocabulary. Nil when the week is outside any
     /// microcycle (free planning) — callers keep their generic subtitle.
     let microcicloName: String?
+    /// Coach-authored "Foco de la semana" — a short athlete-facing line about what
+    /// THIS week is about (no per-day detail). Nil when the coach set none / the
+    /// week wasn't materialized from a month template (honest: no focus shown).
+    let focus: String?
+    /// True when a NEXT week with published content exists — drives the "Próxima
+    /// semana" peek affordance. Nil/false → no next week to preview.
+    let hasNextWeek: Bool?
     let days: [AthleteWeekDay]
 }
 
@@ -217,8 +224,14 @@ struct AthletePlanWeekResponse: Decodable {
 }
 
 enum PlanService {
-    static func fetchWeek(bearer: String) async throws -> AthletePlanWeekResponse {
-        try await APIClient.shared.get(path: "api/athlete/plan/week", bearer: bearer)
+    /// Fetch a week of the plan. `weekOffset` is bounded to the weekly-delivery
+    /// model: 0 = this week (default), 1 = the NEXT-week peek (the one that
+    /// unlocks Saturday). The backend clamps anything beyond [0, 1].
+    static func fetchWeek(bearer: String, weekOffset: Int = 0) async throws -> AthletePlanWeekResponse {
+        let path = weekOffset > 0
+            ? "api/athlete/plan/week?week_offset=\(weekOffset)"
+            : "api/athlete/plan/week"
+        return try await APIClient.shared.get(path: path, bearer: bearer)
     }
 
     static func fetchMacroProgress(bearer: String) async throws -> AthleteMacroProgressResponse {
