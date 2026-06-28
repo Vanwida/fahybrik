@@ -94,13 +94,13 @@ struct OnboardingFlow: View {
                 )
                 .transition(stepTransition)
             case 15:
-                HyroxHistoryStep(
-                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                ImportHistoryStep(
+                    state: state, bearer: bearer, onBack: goBack, onNext: advance, onSkip: advance
                 )
                 .transition(stepTransition)
             case 16:
-                AEventStep(
-                    state: state, onBack: goBack, onNext: advance, onSkip: advance
+                ObjectiveStep(
+                    state: state, bearer: bearer, onBack: goBack, onNext: advance, onSkip: advance
                 )
                 .transition(stepTransition)
             case 17:

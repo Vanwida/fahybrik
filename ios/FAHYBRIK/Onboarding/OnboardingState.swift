@@ -86,12 +86,25 @@ final class OnboardingState {
     var time1kSkiSeconds: Int? = nil
     var time500mSkiSeconds: Int? = nil
 
-    // Step 13 — A-event / carreras (AEventStep)
+    // Step 16 — Tu objetivo / carreras (ObjectiveStep). The free-text A-event is
+    // the MANUAL fallback (used only when the target isn't in the calendar); it
+    // round-trips through the snapshot. The catalog target + the imported history
+    // persist SERVER-SIDE via their own endpoints, so the fields below describe
+    // ONLY the manual path.
     var aEventName: String = ""
     var aEventDate: Date? = nil
     var aEventDivision: HyroxDivision? = nil
     var goalKind: GoalKind? = nil
     var goalTimeSeconds: Int? = nil
+
+    // ─── Race system — TRANSIENT UI state. The import + catalog target persist
+    // server-side immediately (importAllRaces / setTarget), NOT in the snapshot,
+    // so these are NOT encoded into snapshot()/draft. They live on the shared
+    // @Observable state only so the import/objective steps keep their "done"
+    // confirmation across back/forward navigation within a session.
+    var historyImported: Bool = false
+    var importedRaceCount: Int? = nil
+    var targetRaceFixed: Bool = false
 
     // Step 14 — connections
     var garminConnected: Bool = false
