@@ -63,10 +63,11 @@ struct CheckinSnapshot: Codable {
 // MARK: - Persistence (gating + draft notes)
 
 enum CheckinStore {
-    private static let lastCompletedKey = "checkin.lastCompletedDate.v1"
-    private static let lastSkippedKey   = "checkin.lastSkippedDate.v1"
-    private static let draftNotesKey    = "checkin.draftNotes.v1"
-    private static let lastScoreKey     = "checkin.lastScore.v1"
+    private static let lastCompletedKey     = "checkin.lastCompletedDate.v1"
+    private static let lastSkippedKey       = "checkin.lastSkippedDate.v1"
+    private static let lastAutoPresentedKey = "checkin.lastAutoPresentedDate.v1"
+    private static let draftNotesKey        = "checkin.draftNotes.v1"
+    private static let lastScoreKey         = "checkin.lastScore.v1"
 
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -88,6 +89,20 @@ enum CheckinStore {
         let lastDone = UserDefaults.standard.string(forKey: lastCompletedKey)
         let lastSkip = UserDefaults.standard.string(forKey: lastSkippedKey)
         return lastDone != key && lastSkip != key
+    }
+
+    /// Whether the gate already AUTO-presented the sheet today. SUAVE behavior:
+    /// the sheet auto-opens only the first time per local day. If the athlete
+    /// dismisses it without completing/skipping, the "pending" banner stays but
+    /// we never auto-reopen — they tap it to reopen on their own terms.
+    static func hasAutoPresentedToday(now: Date = Date()) -> Bool {
+        UserDefaults.standard.string(forKey: lastAutoPresentedKey) == todayKey(now)
+    }
+
+    /// Records that the sheet auto-opened today, so later appearances this same
+    /// day don't re-present it automatically.
+    static func markAutoPresented(now: Date = Date()) {
+        UserDefaults.standard.set(todayKey(now), forKey: lastAutoPresentedKey)
     }
 
     static func markCompleted(score: Int, now: Date = Date()) {

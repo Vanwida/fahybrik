@@ -172,7 +172,12 @@ struct InicioView: View {
         .onAppear {
             sessionBearer = bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
             checkinPending = CheckinStore.isPending()
-            if checkinPending {
+            // SUAVE: auto-open the check-in only the FIRST time per local day.
+            // After a manual dismiss (no complete/skip) the banner stays visible
+            // but we never re-present automatically — the athlete reopens it by
+            // tapping the banner. Completing/skipping suppresses it until tomorrow.
+            if checkinPending && !CheckinStore.hasAutoPresentedToday() {
+                CheckinStore.markAutoPresented()
                 showCheckin = true
             }
             // Fire the entrance cascade once per appearance.
@@ -292,46 +297,51 @@ struct InicioView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
+        // Brand logo CENTERED — the home is the only surface that carries it;
+        // other tabs lead with their own title. The bell + avatar actions pin to
+        // the trailing edge, overlaid on the centered logo.
+        ZStack {
             Wordmark(size: 26)
-            Spacer(minLength: 8)
-            // Bell → Chat tab. Unread dot only when there's a real unread count.
-            Button {
-                Haptics.light()
-                onOpenTab?(.chat)
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    ZStack {
-                        Circle().fill(Theme.Color.surfaceElevated)
-                        Image(systemName: "bell")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.Color.foreground)
+            HStack(spacing: 12) {
+                Spacer(minLength: 8)
+                // Bell → Chat tab. Unread dot only when there's a real unread count.
+                Button {
+                    Haptics.light()
+                    onOpenTab?(.chat)
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        ZStack {
+                            Circle().fill(Theme.Color.surfaceElevated)
+                            Image(systemName: "bell")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Theme.Color.foreground)
+                        }
+                        .frame(width: 34, height: 34)
+                        .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
+                        if unreadCount > 0 {
+                            Circle()
+                                .fill(Theme.Color.accent)
+                                .frame(width: 8, height: 8)
+                                .overlay(Circle().stroke(Theme.Color.background, lineWidth: 1.5))
+                                .offset(x: 1, y: -1)
+                        }
                     }
-                    .frame(width: 34, height: 34)
-                    .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
-                    if unreadCount > 0 {
-                        Circle()
-                            .fill(Theme.Color.accent)
-                            .frame(width: 8, height: 8)
-                            .overlay(Circle().stroke(Theme.Color.background, lineWidth: 1.5))
-                            .offset(x: 1, y: -1)
-                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+                .accessibilityLabel(unreadCount > 0
+                    ? "Notificaciones, \(unreadCount) sin leer"
+                    : "Notificaciones")
+                // Athlete avatar → Perfil tab.
+                Button {
+                    Haptics.light()
+                    onOpenTab?(.perfil)
+                } label: {
+                    CoachAvatar(initials: identity?.initials ?? "", size: 34, tint: Theme.Color.muted)
+                        .contentShape(Circle())
+                }
+                .accessibilityLabel("Tu perfil")
             }
-            .accessibilityLabel(unreadCount > 0
-                ? "Notificaciones, \(unreadCount) sin leer"
-                : "Notificaciones")
-            // Athlete avatar → Perfil tab.
-            Button {
-                Haptics.light()
-                onOpenTab?(.perfil)
-            } label: {
-                CoachAvatar(initials: identity?.initials ?? "", size: 34, tint: Theme.Color.muted)
-                    .contentShape(Circle())
-            }
-            .accessibilityLabel("Tu perfil")
         }
         .padding(.top, 2)
     }

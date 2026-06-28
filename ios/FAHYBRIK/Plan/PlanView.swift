@@ -169,11 +169,12 @@ struct PlanView: View {
         }
     }
 
-    // MARK: - Header (wordmark + cohort chip + avatar)
+    // MARK: - Header (cohort chip + chat action)
 
     private var headerRow: some View {
+        // No brand logo here — the logo lives on Inicio only; Plan leads with its
+        // own "Tu semana" title. The chat action (and Dobles chip) pin trailing.
         HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            Wordmark(size: 18)
             Spacer(minLength: Theme.Spacing.s)
             if isDobles, let partner {
                 // Cohort chip → opens the partner's connected plan (read-only).
