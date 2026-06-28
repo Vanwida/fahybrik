@@ -199,7 +199,9 @@ function stationFraction(rank: number | null, field: number | null): number {
 
 // ── Stored-row → summary ─────────────────────────────────────────────────────
 
-interface RaceRow {
+// Exported so the sibling rich-history reader (lib/races/athlete-races.ts) projects
+// from the SAME row shape — one definition of the structured history projection.
+export interface RaceHistoryRow {
   id: string;
   name: string;
   // null for an official single-URL import with no machine date (0072); to_char
@@ -249,7 +251,7 @@ function stationsTotalSeconds(splits: HyroxStationSplit[]): number | null {
  * finish time of the athlete's immediately-prior race (chronologically), used for
  * delta_vs_previous; null when this is their first/only race.
  */
-function toSummary(row: RaceRow, previousSeconds: number | null): RaceResultSummaryDTO {
+function toSummary(row: RaceHistoryRow, previousSeconds: number | null): RaceResultSummaryDTO {
   const stationSplits = parseStationSplits(row.station_splits_json);
   const finish = row.result_time_seconds;
   const delta =
@@ -287,7 +289,7 @@ function parsePartners(raw: unknown): RacePartner[] {
  * format !== 'singles'. Validated against the shared schema so the response IS
  * the contract, not whatever we happened to build.
  */
-function toHistoryItem(row: RaceRow): RaceHistoryItem | null {
+export function toHistoryItem(row: RaceHistoryRow): RaceHistoryItem | null {
   const percentile =
     row.overall_rank != null && row.field_size != null && row.field_size > 0
       ? Math.min(1, Math.max(0, row.overall_rank / row.field_size))
@@ -346,7 +348,7 @@ export async function buildCarrerasOverview(
   // to the bottom instead of floating above real-dated history; imported_at then
   // disambiguates ties deterministically. `group by r.id` (the PK) lets us project
   // every r.* column alongside the aggregate.
-  const rows = await client<RaceRow[]>`
+  const rows = await client<RaceHistoryRow[]>`
     select
       r.id::text                          as id,
       r.name,

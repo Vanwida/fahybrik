@@ -10,6 +10,7 @@ import type {
   RaceGender,
   RacePriority,
   RaceSummary,
+  UpcomingRace,
 } from '@fahybrid/shared/schema';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,6 +95,67 @@ export async function getNextRace(
     goal_time_seconds: row.goal_time_seconds,
     days_until: row.days_until,
   };
+}
+
+interface UpcomingRaceRow extends RaceRow {
+  id: string;
+  event_id: string | null;
+}
+
+/**
+ * ALL upcoming races (not just the soonest) — the athlete's full list of future
+ * objectives for GET /api/athlete/races. Same predicate as getNextRace
+ * (race_date >= today-in-box, status in planned/registered) PLUS
+ * result_time_seconds is null, so a future-dated row that already has a result
+ * (an early-logged finish) drops to `past` instead of double-counting here.
+ * Ordered race_date ASC, id ASC; carries race_id + the catalog event_id so the
+ * list can open/badge each entry. Uses the SAME "today" calc as getNextRace so
+ * every countdown in the app agrees.
+ */
+export async function getUpcomingRaces(
+  athlete_id: number | bigint,
+  client: Sql = defaultSql,
+): Promise<UpcomingRace[]> {
+  const todayIso = isoDateString(startOfDayInBox(new Date()));
+
+  const rows = await client<UpcomingRaceRow[]>`
+    select
+      r.id::text,
+      r.event_id::text as event_id,
+      r.name,
+      r.event_type::text as event_type,
+      r.format::text as format,
+      r.division::text as division,
+      r.gender_category::text as gender_category,
+      r.priority::text as priority,
+      r.age_group,
+      to_char(r.race_date, 'YYYY-MM-DD') as race_date,
+      r.location,
+      r.goal_time_seconds,
+      (r.race_date - ${todayIso}::date)::int as days_until
+    from races r
+    where r.athlete_id = ${athlete_id as number}
+      and r.race_date >= ${todayIso}::date
+      and r.status in ('planned', 'registered')
+      and r.result_time_seconds is null
+    order by r.race_date asc, r.id asc
+  `;
+
+  return rows.map((row) => ({
+    race_id: Number(row.id),
+    event_id: row.event_id != null ? Number(row.event_id) : null,
+    name: row.name,
+    event_type: row.event_type,
+    format: row.format,
+    division: row.division,
+    gender_category: row.gender_category,
+    priority: row.priority,
+    age_group: row.age_group,
+    race_date: row.race_date,
+    location: row.location,
+    goal_time_seconds: row.goal_time_seconds,
+    days_until: row.days_until,
+  }));
 }
 
 /**

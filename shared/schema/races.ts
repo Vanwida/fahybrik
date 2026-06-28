@@ -86,6 +86,19 @@ export const nextRaceSchema = z.object({
 });
 export type NextRace = z.infer<typeof nextRaceSchema>;
 
+// One UPCOMING race in the athlete's full race list (GET /api/athlete/races →
+// `upcoming[]`). The countdown view (nextRaceSchema) PLUS the row identity the
+// list needs: `race_id` (the numeric races.id, used to open/edit the entry) and
+// `event_id` (the catalog `events` link, null for a manually-created race). The
+// athlete can hold several upcoming objectives at once (target + tune-ups), so
+// this is a list — race_date is always non-null here (only dated future rows
+// surface), hence the non-nullable nextRaceSchema.race_date carries through.
+export const upcomingRaceSchema = nextRaceSchema.extend({
+  race_id: z.number().int().nonnegative(),
+  event_id: z.number().int().nonnegative().nullable(),
+});
+export type UpcomingRace = z.infer<typeof upcomingRaceSchema>;
+
 // Compact summary for the coach athletes-LIST and ficha headers — just enough to
 // render "Objetivo: HYROX BCN · 58 días" without the full race object.
 export const raceSummarySchema = z.object({
@@ -333,3 +346,16 @@ export const raceHistoryItemSchema = z.object({
   source_season: z.string().max(40).nullable(),
 });
 export type RaceHistoryItem = z.infer<typeof raceHistoryItemSchema>;
+
+// GET /api/athlete/races — the athlete's FULL race list split by time:
+//   upcoming — future objectives (race_date >= today, no result yet), MULTIPLE
+//              allowed, each with a live `days_until` countdown. ASC by date.
+//   past     — results + expired objectives (has a result, or a past date),
+//              the same rich raceHistoryItemSchema the Carreras hub renders. So
+//              an objective whose date passed with no result still shows here
+//              (result_time_seconds null). DESC by date.
+export const athleteRacesResponseSchema = z.object({
+  upcoming: z.array(upcomingRaceSchema),
+  past: z.array(raceHistoryItemSchema),
+});
+export type AthleteRacesResponse = z.infer<typeof athleteRacesResponseSchema>;
