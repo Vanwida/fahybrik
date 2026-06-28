@@ -151,9 +151,16 @@ export async function fetchAthletesForCoach(params: {
     left join lateral (
       -- Rolling 30-day completion adherence (NOT current week): completed vs
       -- scheduled across the trailing window, matching the resumen definition.
+      -- "completed" is EXECUTION-BACKED (a workout_executions row exists), not the
+      -- seed-inflatable status flag — record-workout-execution.ts creates the
+      -- execution AND flips status atomically, so the execution is the truth.
       select
         count(*)::int as scheduled,
-        count(*) filter (where status = 'completed')::int as completed
+        count(*) filter (
+          where exists (
+            select 1 from workout_executions we where we.assignment_id = x.id
+          )
+        )::int as completed
       from workout_assignments x
       where x.athlete_id = a.id
         and x.scheduled_for >= ${adhStart}::date
@@ -204,7 +211,11 @@ export async function fetchAthletesForCoach(params: {
     const prog = statusMap.get(r.athlete_id);
     const programming_status = prog?.status ?? 'ok';
     const programming_label = prog?.label ?? null;
-    const compliance_pct = adherencePct(r.scheduled, r.completed);
+    // Adherence is undefined without an ACTIVE microciclo: r.block_type is the
+    // current-microciclo name (null when no dated plan window contains today), so
+    // a planless athlete reads "—", never a stale/seed %.
+    const compliance_pct =
+      r.block_type != null ? adherencePct(r.scheduled, r.completed) : null;
 
     let alert_label: string | null = null;
     let alert_severity: AthleteRow['alert_severity'] = null;

@@ -1,19 +1,16 @@
 // Cohort row builder. Reads athletes assigned to the current coach and rolls up
-// per-athlete metrics for the dashboard. Falls back to a demo cohort when the
-// real data set is below the demo-quality threshold (Pablo's onboarding state).
+// per-athlete metrics for the dashboard. Real data only — a fresh coach with no
+// athletes returns an empty cohort (honest), never synthetic personas.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import { getDailyTssSeries, summarizeLoad } from '@/lib/training-load';
-import { buildDemoCohort } from './demo-data';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
 import { SIGNAL_THRESHOLDS } from './signal-config';
 import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
-
-const DEMO_THRESHOLD = 3;
 
 export interface BuildCohortParams {
   coach_id: bigint | number;
@@ -43,15 +40,7 @@ interface AthleteRow {
 export async function buildCohort(params: BuildCohortParams): Promise<CohortRow[]> {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
-
-  const realRows = await loadRealCohort(client, params.coach_id, now);
-  if (realRows.length >= DEMO_THRESHOLD) {
-    return realRows;
-  }
-
-  // Demo augmentation — show 13 personas plus any real athletes (real first).
-  const demo = buildDemoCohort({ now });
-  return [...realRows, ...demo].slice(0, Math.max(13, realRows.length));
+  return loadRealCohort(client, params.coach_id, now);
 }
 
 async function loadRealCohort(
@@ -475,7 +464,10 @@ function estimateRaceReadiness(
   compliance: number | null,
   hrv_delta: number | null,
   sessions_7d: number,
-): number {
+): number | null {
+  // No real signal (no completed sessions, no HRV, no compliance) → null. We do
+  // NOT invent a ~50 baseline for a data-less athlete; the UI shows "—" instead.
+  if (sessions_7d === 0 && hrv_delta == null && compliance == null) return null;
   // Rough composite — coach-grade rather than research-grade. Fitness band (-10..+10)
   // contributes 40, compliance 30, HRV 20, sessions completed 10.
   const tsbBand = Math.max(0, Math.min(40, ((tsb + 10) / 20) * 40));

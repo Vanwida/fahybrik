@@ -1,13 +1,83 @@
 import { describe, expect, test } from 'vitest';
 import { buildBriefing } from '@/lib/coach/briefing';
-import { buildDemoCohort } from '@/lib/coach/demo-data';
+import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
+
+// Real-shaped cohort fixture (is_demo: false) — buildBriefing is pure over a
+// CohortRow[], so we exercise it with honest rows instead of the deleted demo
+// generator. Defaults are all-null/empty; each test overrides only what it asserts.
+function row(overrides: Partial<CohortRow> = {}): CohortRow {
+  return {
+    athlete_id: '1',
+    full_name: 'Atleta Real',
+    is_demo: false,
+    block_type: 'Semana base',
+    block_week: 1,
+    compliance_pct: 80,
+    hrv_delta_ms: null,
+    hrv_trend: null,
+    acr: null,
+    tsb: null,
+    ctl: null,
+    atl: null,
+    next_session: null,
+    last_sync_at: null,
+    sync_minutes_ago: null,
+    race_readiness: null,
+    polarization_pct: null,
+    z45_pct_7d: null,
+    vo2max: null,
+    vo2max_trend: null,
+    sleep_avg_7d_h: null,
+    rhr: null,
+    days_to_a_event: null,
+    volume_7d_h: null,
+    sessions_today: { am: null, pm: null },
+    last_checkin_at: null,
+    in_gym_today: false,
+    alerts: [],
+    primary_alert: null,
+    flags: {
+      transition_ready: false,
+      test_today: false,
+      twice_daily_today: false,
+      a_event_within_30d: false,
+    },
+    programming_status: 'ok',
+    programming_label: null,
+    readiness_score: null,
+    ...overrides,
+  };
+}
+
+const CRITICAL_ALERT: AlertReason = {
+  kind: 'hrv_crash',
+  severity: 'critical',
+  label: 'HRV crash',
+  detail: '▼ 12 ms vs baseline',
+};
+
+function cohortFixture(): CohortRow[] {
+  return [
+    row({
+      athlete_id: '1',
+      full_name: 'Bruno Ferrer',
+      sessions_today: { am: 'done', pm: 'pending' },
+      alerts: [CRITICAL_ALERT],
+      primary_alert: CRITICAL_ALERT,
+    }),
+    row({
+      athlete_id: '2',
+      full_name: 'Marc Vidal',
+      sessions_today: { am: 'pending', pm: null },
+    }),
+  ];
+}
 
 describe('buildBriefing', () => {
   test('morning greeting uses BUENOS DÍAS and first name uppercase', () => {
-    const cohort = buildDemoCohort({ now: new Date('2026-05-07T09:00:00Z') });
     const briefing = buildBriefing({
       coach_first_name: 'Pablo Castaño',
-      cohort,
+      cohort: cohortFixture(),
       now: new Date('2026-05-07T09:00:00Z'),
     });
     expect(briefing.greeting).toBe('BUENOS DÍAS, PABLO');
@@ -15,10 +85,9 @@ describe('buildBriefing', () => {
   });
 
   test('aggregates session counts and alerts from the cohort', () => {
-    const cohort = buildDemoCohort();
     const briefing = buildBriefing({
       coach_first_name: 'Pablo',
-      cohort,
+      cohort: cohortFixture(),
     });
     const sessionLine = briefing.lines.find((l) => l.id === 'sessions');
     expect(sessionLine).toBeTruthy();
@@ -35,7 +104,7 @@ describe('buildBriefing', () => {
   test('night greeting after 22h', () => {
     const briefing = buildBriefing({
       coach_first_name: 'Pablo',
-      cohort: buildDemoCohort(),
+      cohort: cohortFixture(),
       now: new Date('2026-05-07T22:30:00'),
     });
     expect(briefing.time_of_day).toBe('night');

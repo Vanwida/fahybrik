@@ -98,14 +98,18 @@ export async function buildAthleteResumen(params: {
       )::int as week_scheduled,
       count(*) filter (
         where scheduled_for >= ${weekStart}::date and scheduled_for <= ${weekEnd}::date
-          and status = 'completed'
+          and exists (
+            select 1 from workout_executions we where we.assignment_id = workout_assignments.id
+          )
       )::int as week_completed,
       count(*) filter (
         where scheduled_for >= ${adhStart}::date and scheduled_for <= ${todayIso}::date
       )::int as adh_scheduled,
       count(*) filter (
         where scheduled_for >= ${adhStart}::date and scheduled_for <= ${todayIso}::date
-          and status = 'completed'
+          and exists (
+            select 1 from workout_executions we where we.assignment_id = workout_assignments.id
+          )
       )::int as adh_completed
     from workout_assignments
     where athlete_id = ${params.athlete_id}
@@ -115,10 +119,6 @@ export async function buildAthleteResumen(params: {
 
   const scheduled = complianceRows[0]?.week_scheduled ?? 0;
   const completed = complianceRows[0]?.week_completed ?? 0;
-  const adherence_pct_30d = adherencePct(
-    complianceRows[0]?.adh_scheduled ?? 0,
-    complianceRows[0]?.adh_completed ?? 0,
-  );
 
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
   const programming = await getAthleteProgrammingStatus({
@@ -136,6 +136,26 @@ export async function buildAthleteResumen(params: {
     currentWeek?.compliance_pct != null
       ? `Cumplimiento sem ${currentWeek.compliance_pct}%`
       : null;
+
+  // Adherencia is undefined without an ACTIVE microciclo. Gate on the SAME signal
+  // the roster uses (list.ts `ab` lateral / block_type != null): a dated
+  // athlete_month_assignments window CONTAINING today. The macro's "current" week
+  // can come from a different source (phase_assignments) and diverge from the
+  // roster for an ended/orphaned plan — so we read the assignment receipt directly
+  // to keep ficha and roster identical: no active window ⇒ "—", never a stale/seed %.
+  const activeMicrociclo = await client<Array<{ one: number }>>`
+    select 1 as one from athlete_month_assignments ama
+    where ama.athlete_id = ${params.athlete_id}
+      and ${todayIso}::date between ama.start_date and ama.end_date
+    limit 1
+  `;
+  const hasActivePlan = activeMicrociclo.length > 0;
+  const adherence_pct_30d = hasActivePlan
+    ? adherencePct(
+        complianceRows[0]?.adh_scheduled ?? 0,
+        complianceRows[0]?.adh_completed ?? 0,
+      )
+    : null;
 
   return {
     athlete_id: header[0].id,

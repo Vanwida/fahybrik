@@ -741,9 +741,13 @@ export function buildHoyLanes(params: {
     };
     const inactivity = inactivityByAthlete.get(a.athlete_id) ?? null;
 
-    // Priority order: falló (missed work / plan gap) wins, then vigilar
-    // (biometric), then listo (earned progress). One lane per athlete.
-    if (lowAdherence(a) || hasPlanGap(a) || inactivity != null) {
+    // Priority order: falló (missed work) wins, then vigilar (biometric), then
+    // listo (earned progress). One lane per athlete. Plan-gap athletes are NEVER
+    // here — with no active plan there's nothing to "fail" (an inactivity alert on
+    // a planless athlete is spurious: nothing was scheduled). They're surfaced in
+    // "Asignación sugerida" / "Siguiente microciclo" instead. lowAdherence is
+    // null-safe (planless ⇒ compliance null ⇒ not < threshold ⇒ excluded).
+    if (!hasPlanGap(a) && (lowAdherence(a) || inactivity != null)) {
       flaggedAthleteIds.add(a.athlete_id);
       fallo.push({
         ...base,
