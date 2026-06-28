@@ -1,6 +1,14 @@
 import 'server-only';
 
+import { z } from 'zod';
+
 import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
+import {
+  TemplateError,
+  templateSegmentInputSchema,
+  updateTemplate,
+} from './templates';
 
 /**
  * Per-athlete plan BIFURCATION — the fork primitive.
@@ -75,4 +83,87 @@ export async function cloneTemplateAsInstance(params: {
   `;
 
   return { template_id: newId, version: tplRows[0].version };
+}
+
+// ── Per-athlete day edit (Fase 2) ─────────────────────────────────────────────
+// The coach edits ONE day of an athlete's plan. A day's content is an INSTANCE
+// `templates` row (`template_segments`), so editing reuses the exact session
+// editor + serializer the library uses (SessionEditor → serializeSessionSegments)
+// and the SAME segment writer (updateTemplate). The ONLY thing added here is the
+// ISOLATION BOUNDARY: the write may target the row ONLY if it is THIS athlete's
+// instance, owned by THIS coach, AND actually assigned to this athlete on this
+// date. Fase 1 guarantees isolation by construction (clone-on-assign); this
+// re-enforces it at the write boundary so the per-athlete route can never reach a
+// library template or another athlete's copy.
+//
+// The editor emits ordered segments WITHOUT a global `position` (block order +
+// item order IS the array order — see serializeSessionSegments); `position` is
+// assigned here as the array index so the unique (template_id, position) key and
+// the load ordering hold.
+const athleteInstanceSegmentSchema = templateSegmentInputSchema.omit({
+  position: true,
+});
+
+export const athleteDayContentSchema = z.object({
+  /** The athlete's instance template id (the day being edited). */
+  template_id: z.union([z.string(), z.number()]).transform((v) => Number(v)),
+  /** Workout title (templates.name) — the name the athlete reads. */
+  name: z.string().min(1).max(200).optional(),
+  segments: z.array(athleteInstanceSegmentSchema).max(120),
+});
+export type AthleteDayContent = z.infer<typeof athleteDayContentSchema>;
+
+export async function updateAthleteInstanceDay(params: {
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  iso_date: string;
+  payload: unknown;
+  client?: Sql;
+}): Promise<{ template_id: number }> {
+  const parsed = athleteDayContentSchema.safeParse(params.payload);
+  if (!parsed.success) {
+    throw new TemplateError('invalid_payload', parsed.error.message, 400);
+  }
+  const body = parsed.data;
+  const client = params.client ?? defaultSql;
+  const coach = Number(params.coach_id);
+  const ath = Number(params.athlete_id);
+
+  // ISOLATION GUARD — the row MUST be this athlete's instance, owned by this
+  // coach, assigned to this athlete on this date. Rejects library rows
+  // (instance_athlete_id IS NULL) and any other athlete's instance.
+  const guard = await client<Array<{ id: string }>>`
+    select t.id::text as id
+    from templates t
+    join workout_assignments wa on wa.template_id = t.id
+    where t.id = ${body.template_id}
+      and t.coach_id = ${coach}
+      and t.instance_athlete_id = ${ath}
+      and t.archived_at is null
+      and wa.athlete_id = ${ath}
+      and wa.scheduled_for = ${params.iso_date}::date
+    limit 1
+  `;
+  if (!guard[0]) {
+    throw new TemplateError(
+      'not_found',
+      'Entreno del atleta no encontrado para ese día',
+      404,
+    );
+  }
+
+  const segments = body.segments.map((seg, i) => ({ ...seg, position: i }));
+  // DRY: reuse the single segment writer (delete + re-insert in a tx) +
+  // coach-scoped update. The name update keeps the workout title in sync.
+  await updateTemplate({
+    coach_id: coach,
+    template_id: body.template_id,
+    payload: {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      segments,
+    },
+    client,
+  });
+
+  return { template_id: body.template_id };
 }
