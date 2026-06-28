@@ -602,6 +602,7 @@ export async function loadIntakeProfile(params: {
     benchmarks,
     training_experience_years: a.training_experience_years,
     full_name: a.full_name,
+    sex: a.sex,
     now,
     onboarding_training_level: parseOnboardingTrainingLevel(a.intake_notes_json),
     hours_per_week: parseOnboardingHoursPerWeek(a.intake_notes_json),
@@ -770,6 +771,7 @@ interface BuildSuggestionsParams {
   benchmarks: IntakeProfile['benchmarks'];
   training_experience_years: number | null;
   full_name: string;
+  sex: 'male' | 'female' | 'other' | null;
   now: Date;
   onboarding_training_level: AthleteLevel | null;
   hours_per_week: number | null;
@@ -841,6 +843,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
 
   const welcome_draft = composeWelcomeDraft({
     full_name: params.full_name,
+    sex: params.sex,
     target_event: params.target_event
       ? { name: params.target_event.name, is_in_past: params.target_event.is_in_past }
       : null,

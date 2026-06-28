@@ -336,6 +336,9 @@ export function recommendBaselineTests(params: RecommendTestsParams): IntakeBase
 
 export function composeWelcomeDraft(params: {
   full_name: string;
+  /** Athlete's sex — drives the gendered welcome adjective so we never misgender
+   *  (female → "bienvenida"). Unknown / 'other' falls back to neutral phrasing. */
+  sex: 'male' | 'female' | 'other' | null;
   target_event: { name: string; is_in_past: boolean } | null;
   is_compressive: boolean;
   /** Whether the athlete actually completed intake (objetivos / experiencia /
@@ -350,12 +353,19 @@ export function composeWelcomeDraft(params: {
   const weekPhrase = params.is_compressive
     ? 'Esta semana es testing + arranque comprimido.'
     : 'Esta semana es testing + arranque del primer microciclo.';
+  // The welcome adjective agrees with the athlete's sex. When sex is unknown or
+  // 'other' we use a non-gendered phrasing ("te doy la bienvenida") so the draft
+  // never assumes a gender — masculine-by-default was the bug.
+  const welcome =
+    params.sex === 'male' ? 'bienvenido'
+    : params.sex === 'female' ? 'bienvenida'
+    : null;
   // Honest opener: only assert a profile review when the athlete actually
   // submitted intake answers. Otherwise welcome without the false claim and ask
   // for the missing context.
   const opener = params.has_intake_data
-    ? `Hola ${first}, bienvenido. He revisado tu perfil — tienes buena base. ${eventPhrase}`
-    : `Hola ${first}, bienvenido a bordo. Cuéntame tus objetivos y tu punto de partida para ajustar el plan. ${eventPhrase}`;
+    ? `Hola ${first}, ${welcome ?? 'te doy la bienvenida'}. He revisado tu perfil — tienes buena base. ${eventPhrase}`
+    : `Hola ${first}, ${welcome ? `${welcome} a bordo` : 'te doy la bienvenida'}. Cuéntame tus objetivos y tu punto de partida para ajustar el plan. ${eventPhrase}`;
   return [opener, weekPhrase, 'Cualquier duda escríbeme. Vamos.'].join(' ');
 }
 
