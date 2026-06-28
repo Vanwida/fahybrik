@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/sync-race-calendar",
       "schedule": "0 5 * * 1"
+    },
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "0 7 * * *"
     }
   ]
 }
