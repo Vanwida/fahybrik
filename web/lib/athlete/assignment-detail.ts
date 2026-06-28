@@ -1,4 +1,5 @@
 import type { Sql } from '@/lib/db';
+import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import {
   prescriptionToParams,
   safeParsePrescription,
@@ -233,7 +234,10 @@ export async function loadAssignmentDetail(
 
   // Ownership-scoped lookup. If the assignment doesn't belong to the calling
   // athlete OR doesn't exist, we return null → 404.
-  const assignmentRows = await sql<AssignmentRow[]>`
+  // Widen the row with the athlete's owning coach (athletes.coach_id) — used only
+  // by the loader for the per-coach exercise-override merge. The pure builder
+  // (buildAssignmentDetail) doesn't read it, so it stays off AssignmentRow.
+  const assignmentRows = await sql<(AssignmentRow & { coach_id: string | null })[]>`
     select
       wa.id::text                                    as id,
       wa.athlete_id::text                            as athlete_id,
@@ -242,14 +246,20 @@ export async function loadAssignmentDetail(
       wa.notes                                       as notes,
       wa.template_id::text                           as template_id,
       wa.template_version                            as template_version,
-      wa.partner_visibility                          as partner_visibility
+      wa.partner_visibility                          as partner_visibility,
+      a.coach_id::text                               as coach_id
     from workout_assignments wa
+    join athletes a on a.id = wa.athlete_id
     where wa.id = ${assignment_id as unknown as number}
       and wa.athlete_id = ${athlete_id as unknown as number}
     limit 1
   `;
   const assignment = assignmentRows[0];
   if (!assignment) return null;
+
+  // The athlete's coach drives the per-coach exercise-override merge (0085): a
+  // segment's cues/video are coalesce(coach override, global default).
+  const coachId = assignment.coach_id ? BigInt(assignment.coach_id) : null;
 
   // G1 — the athlete's stored zone profiles (one current row per modality),
   // derived coach-scoped from athletes.coach_id inside the loader. Used to
@@ -312,10 +322,10 @@ export async function loadAssignmentDetail(
           e.name                                      as exercise_name,
           e.slug                                      as exercise_slug,
           e.category::text                            as exercise_category,
-          e.video_url                                 as exercise_video_url,
-          e.cues                                      as exercise_cues
+          ${mergedExerciseContent(sql, 'exercise_')}
         from template_segments s
         join exercises e on e.id = s.exercise_id
+        ${joinCoachOverride(sql, coachId)}
         where s.template_id = ${assignment.template_id}::bigint
         order by s.block_position asc, s.position asc, s.id asc
       `;

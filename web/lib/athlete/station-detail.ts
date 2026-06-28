@@ -34,6 +34,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import { HYROX_STATION_LABELS, STATION_INDEX_STATION } from '@fahybrid/shared/schema';
 
 // ── Wire contract (matches iOS StationDetail) ───────────────────────────────
@@ -315,12 +316,22 @@ export async function buildStationDetail(
   const athleteId = Number(args.athlete_id);
   const { station } = args;
 
-  // technique_video_url: the matching station exercise's video. Projected from
-  // the real column — null when unseeded (honest placeholder on iOS).
+  // The athlete's owning coach (athletes.coach_id) — drives the per-coach
+  // exercise-override merge (0085) so the technique video is the coach's own when
+  // they set one, else the global default.
+  const coachRows = await client<{ coach_id: string | null }[]>`
+    select coach_id::text as coach_id from athletes where id = ${athleteId} limit 1
+  `;
+  const coachId = coachRows[0]?.coach_id ? BigInt(coachRows[0].coach_id) : null;
+
+  // technique_video_url: the matching station exercise's video, MERGED with the
+  // coach's override. Null when neither override nor global is set (honest
+  // placeholder on iOS).
   const videoRows = await client<VideoRow[]>`
-    select video_url
-    from exercises
-    where slug = ${station.slug}
+    select ${mergedExerciseContent(client)}
+    from exercises e
+    ${joinCoachOverride(client, coachId)}
+    where e.slug = ${station.slug}
     limit 1
   `;
   const technique_video_url = videoRows[0]?.video_url ?? null;
