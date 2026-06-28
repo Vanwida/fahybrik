@@ -158,17 +158,36 @@ struct RunLiveHUD: View {
 
     @State private var manualDistance: Double?
 
+    private var seg: WorkoutSegment? { session.currentSegment }
+
     private var hasLiveDistance: Bool {
         gpsActive && (session.liveRunDistanceMeters ?? 0) > 0
+    }
+
+    // A target-less run leg (no pace, no distance, no zone) with no live GPS has
+    // nothing measurable to display — the HUD would be all dashes. Switch it to
+    // the coach's effort/duration guidance instead (e.g. a warmup "8 min RPE 3").
+    private var isGuidanceOnly: Bool {
+        !hasLiveDistance
+            && seg?.targetPaceSecondsPerKm == nil
+            && seg?.targetDistanceMeters == nil
+            && seg?.targetZone == nil
+    }
+
+    // Effort cue for the hero in guidance mode: the prescribed RPE, else a plain
+    // "Suave" — never a dash.
+    private var guidanceHero: (value: String, caption: String) {
+        if let rpe = seg?.effortGuidance { return (rpe, "Esfuerzo objetivo") }
+        return ("Suave", "Esfuerzo objetivo")
     }
 
     var body: some View {
         VStack(spacing: 12) {
             CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
                 CenterMetric(
-                    value: paceString,
-                    unit: "/km",
-                    caption: paceCaption,
+                    value: isGuidanceOnly ? guidanceHero.value : paceString,
+                    unit: isGuidanceOnly ? "" : "/km",
+                    caption: isGuidanceOnly ? guidanceHero.caption : paceCaption,
                     color: hasLiveDistance ? Theme.Color.accentText : Theme.Color.foreground,
                     hero: true
                 )
@@ -176,20 +195,33 @@ struct RunLiveHUD: View {
 
             let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
             LazyVGrid(columns: cols, spacing: 4) {
-                ExpertCell(label: distanceLabel, value: distanceString, unit: "")
-                ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
-                ExpertCell(
-                    label: "HR",
-                    value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                    unit: "bpm",
-                    color: session.liveZone?.color ?? Theme.Color.foreground
-                )
-                ExpertCell(
-                    label: "Zone",
-                    value: session.currentSegment?.targetZone?.label ?? (session.liveZone?.label ?? "—"),
-                    unit: "",
-                    color: (session.currentSegment?.targetZone ?? session.liveZone)?.color ?? Theme.Color.foreground
-                )
+                if isGuidanceOnly {
+                    // Guidance cells (duration goal + clocks) — real values, no dashes.
+                    ExpertCell(label: "Duración", value: seg?.durationGuidance ?? "Libre", unit: "")
+                    ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+                    ExpertCell(
+                        label: "HR",
+                        value: session.liveHRBpm.map { "\($0)" } ?? "—",
+                        unit: "bpm",
+                        color: session.liveZone?.color ?? Theme.Color.foreground
+                    )
+                    ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
+                } else {
+                    ExpertCell(label: distanceLabel, value: distanceString, unit: "")
+                    ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+                    ExpertCell(
+                        label: "HR",
+                        value: session.liveHRBpm.map { "\($0)" } ?? "—",
+                        unit: "bpm",
+                        color: session.liveZone?.color ?? Theme.Color.foreground
+                    )
+                    ExpertCell(
+                        label: "Zone",
+                        value: session.currentSegment?.targetZone?.label ?? (session.liveZone?.label ?? "—"),
+                        unit: "",
+                        color: (session.currentSegment?.targetZone ?? session.liveZone)?.color ?? Theme.Color.foreground
+                    )
+                }
             }
 
             // No GPS → the athlete logs the distance they covered so the segment

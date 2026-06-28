@@ -23,6 +23,51 @@ enum WorkoutFormat: String, Codable, CaseIterable {
     }
 }
 
+// Pedagogical ROLE of a coach block, inferred from its title. A session is an
+// ordered list of blocks; the warmup runs FIRST and the cooldown LAST, so the
+// session's defining format (score type, live timer) must come from the
+// PRINCIPAL block — the main work — not whichever block happens to be first.
+//
+// Classification mirrors `classifyBlock` in
+// web/app/api/athlete/plan/week/route.ts (single concept, two languages): keep
+// the two in sync. Untitled blocks are `main` (no skew signal).
+enum BlockPhase: String, Codable {
+    case warmup
+    case principal
+    case cooldown
+    case main
+
+    static func classify(title: String?) -> BlockPhase {
+        let t = (title ?? "")
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.isEmpty { return .main }
+        if t.contains("principal") { return .principal }
+        if t.contains("calent") || t.contains("warm") || t.contains("activaci") { return .warmup }
+        if t.contains("calma") || t.contains("cooldown") || t.contains("cool down")
+            || t.contains("cool-down") || t.contains("enfriamiento") {
+            return .cooldown
+        }
+        return .main
+    }
+
+    /// Athlete-facing phase name shown in the active workout for context
+    /// ("Calentamiento" / "Principal" / "Vuelta a la calma"). `main` work and the
+    /// explicit `principal` block both read as the session's "Principal" phase.
+    var displayName: String {
+        switch self {
+        case .warmup:               return "Calentamiento"
+        case .cooldown:             return "Vuelta a la calma"
+        case .principal, .main:     return "Principal"
+        }
+    }
+
+    /// True for the session's main work (principal or untitled main blocks) — used
+    /// to keep the principal section the visual focus and de-emphasise warmup/cooldown.
+    var isMainWork: Bool { self == .principal || self == .main }
+}
+
 // Per-segment kind drives which 2x2 data grid is shown during execution.
 enum SegmentKind: String, Codable {
     case running
@@ -75,6 +120,18 @@ struct WorkoutSegment: Codable, Identifiable {
     let targetPowerWatts: Int?
     let targetZone: HRZone?
     let loadKg: Double?
+    /// Prescribed effort (RPE). The ONLY intensity cue for target-less work
+    /// (a warmup "8 min RPE 3"); without it the live HUD has nothing to show but
+    /// dashes. Optional so cached snapshots from older builds still decode.
+    let targetRpe: Double?
+    /// Coach-authored title of the block this segment belongs to (e.g.
+    /// "Calentamiento", "Principal", "Metcon"). Drives post-workout grouping and
+    /// the active-workout phase label. Optional for the freeform fallback segment
+    /// and older cached snapshots.
+    let blockTitle: String?
+    /// Position of the owning block within the session — the stable key that
+    /// groups consecutive segments back into their block. Optional as above.
+    let blockPosition: Int?
     /// YouTube watch URL — embedded in-app during brief / active workout.
     let videoUrl: String?
 
@@ -91,6 +148,9 @@ struct WorkoutSegment: Codable, Identifiable {
         targetPowerWatts: Int? = nil,
         targetZone: HRZone? = nil,
         loadKg: Double? = nil,
+        targetRpe: Double? = nil,
+        blockTitle: String? = nil,
+        blockPosition: Int? = nil,
         videoUrl: String? = nil
     ) {
         self.id = id
@@ -105,8 +165,53 @@ struct WorkoutSegment: Codable, Identifiable {
         self.targetPowerWatts = targetPowerWatts
         self.targetZone = targetZone
         self.loadKg = loadKg
+        self.targetRpe = targetRpe
+        self.blockTitle = blockTitle
+        self.blockPosition = blockPosition
         self.videoUrl = videoUrl
     }
+}
+
+extension WorkoutSegment {
+    /// Pedagogical phase of this segment's block (warmup / principal / cooldown).
+    var blockPhase: BlockPhase { BlockPhase.classify(title: blockTitle) }
+
+    /// True when the segment carries at least one MEASURABLE intensity target
+    /// (pace, distance, zone, power, reps or load). False for effort-only work
+    /// (a warmup run with just RPE/duration) — the live HUD then shows guidance
+    /// instead of a row of dashes.
+    var hasMeasurableTarget: Bool {
+        targetPaceSecondsPerKm != nil
+            || targetDistanceMeters != nil
+            || targetZone != nil
+            || targetPowerWatts != nil
+            || (targetReps ?? 0) > 0
+            || (loadKg ?? 0) > 0
+    }
+
+    /// Effort cue ("RPE 3"), or nil when no RPE was prescribed.
+    var effortGuidance: String? {
+        guard let r = targetRpe, r > 0 else { return nil }
+        let s = r == r.rounded() ? String(Int(r)) : String(format: "%.1f", r)
+        return "RPE \(s)"
+    }
+
+    /// Prescribed duration as mm:ss ("08:00"), or nil when none was prescribed.
+    var durationGuidance: String? {
+        guard let d = targetDurationSeconds, d > 0 else { return nil }
+        return WorkoutSession.formatElapsed(Double(d))
+    }
+}
+
+// A session's segments regrouped into their coach blocks, in session order, so
+// the post-workout summary reads as Calentamiento / Principal / Vuelta a la calma
+// instead of one flat mix. `title` is the coach block title (phase name as
+// fallback); `phase` drives ordering emphasis (principal = focus).
+struct WorkoutSegmentGroup: Identifiable {
+    let id: Int
+    let title: String
+    let phase: BlockPhase
+    let segments: [WorkoutSegment]
 }
 
 struct WorkoutPlan: Codable, Identifiable {
@@ -294,13 +399,15 @@ extension WorkoutPlan {
 
         // One segment per exercise item, ordered by block position then item
         // order, so the live timer/lap engine walks the session in coach order.
+        // Each segment carries its block's title + position so the post-workout
+        // summary can regroup by block and the active HUD can show the phase.
         var order = 0
         let segments: [WorkoutSegment] = workout.blocks
             .sorted { $0.blockPosition < $1.blockPosition }
             .flatMap { block -> [WorkoutSegment] in
                 block.items.map { item in
                     order += 1
-                    return segment(from: item, order: order)
+                    return segment(from: item, order: order, block: block)
                 }
             }
 
@@ -310,7 +417,10 @@ extension WorkoutPlan {
             ? [WorkoutSegment(order: 1, title: workout.name, kind: .reps)]
             : segments
 
-        let format = workoutFormat(from: workout.blocks.first?.format)
+        // Format/score-type comes from the PRINCIPAL block (the main work), NOT
+        // `blocks.first` — which is the warmup, so a For-Time/HYROX session would
+        // otherwise be misclassified as a circuit and never show its score field.
+        let format = workoutFormat(from: principalBlock(workout.blocks)?.format)
 
         return WorkoutPlan(
             id: UUID(),
@@ -327,7 +437,7 @@ extension WorkoutPlan {
         )
     }
 
-    private static func segment(from item: WorkoutItem, order: Int) -> WorkoutSegment {
+    private static func segment(from item: WorkoutItem, order: Int, block: WorkoutBlock) -> WorkoutSegment {
         let p = item.paramsJson
         let distanceMeters: Double? = p.distanceMeters.map(Double.init)
             ?? p.distanceKm.map { $0 * 1000 }
@@ -343,8 +453,31 @@ extension WorkoutPlan {
             targetPowerWatts: nil,
             targetZone: p.hrZone.flatMap { HRZone(rawValue: $0) },
             loadKg: p.loadKg,
+            targetRpe: p.rpe,
+            blockTitle: block.title,
+            blockPosition: block.blockPosition,
             videoUrl: item.exerciseVideoUrl
         )
+    }
+
+    // The session's PRINCIPAL block — the main work whose format defines the
+    // session. Mirrors `principalModality`/`classifyBlock` in
+    // web/app/api/athlete/plan/week/route.ts: an explicitly "principal"-titled
+    // block wins outright; else the largest non-warmup/cooldown block (most
+    // items); else any block. Ties keep the earliest position so the result is
+    // stable. Returns nil only for an empty block list.
+    private static func principalBlock(_ blocks: [WorkoutBlock]) -> WorkoutBlock? {
+        guard !blocks.isEmpty else { return nil }
+        let ordered = blocks.sorted { $0.blockPosition < $1.blockPosition }
+        let roles = ordered.map { BlockPhase.classify(title: $0.title) }
+
+        let principal = zip(ordered, roles).filter { $0.1 == .principal }.map(\.0)
+        let mains = zip(ordered, roles).filter { $0.1 == .principal || $0.1 == .main }.map(\.0)
+        let candidates = !principal.isEmpty ? principal : (!mains.isEmpty ? mains : ordered)
+
+        // Largest by item count; `ordered` is position-ascending so `max(by:)`
+        // keeping the first on a tie means the earliest block wins deterministically.
+        return candidates.max { $0.items.count < $1.items.count }
     }
 
     // Map the DB `exercise_category` enum (cardio | strength | skill |
@@ -397,5 +530,43 @@ extension WorkoutPlan {
         case "hyrox_sim":      return .hyroxSim
         default:               return .circuit   // circuit | nil | unknown
         }
+    }
+}
+
+extension WorkoutPlan {
+    // The plan's segments regrouped into their coach blocks, preserving session
+    // order: consecutive segments sharing a `blockPosition` (or, lacking one, a
+    // `blockTitle`) form one group. Lets the post-workout summary present
+    // Calentamiento / Principal / Vuelta a la calma sections instead of a flat
+    // 11-row mix, keeping the principal work the focus. Segments without any block
+    // context (the freeform fallback / older snapshots) fall into a single group.
+    var segmentGroups: [WorkoutSegmentGroup] {
+        var groups: [WorkoutSegmentGroup] = []
+        var current: [WorkoutSegment] = []
+        var currentKey: String? = nil
+
+        func flush() {
+            guard let first = current.first else { return }
+            let trimmed = first.blockTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = (trimmed?.isEmpty == false) ? trimmed! : first.blockPhase.displayName
+            groups.append(
+                WorkoutSegmentGroup(
+                    id: groups.count,
+                    title: title,
+                    phase: first.blockPhase,
+                    segments: current
+                )
+            )
+            current = []
+        }
+
+        for seg in segments {
+            let key = seg.blockPosition.map(String.init) ?? seg.blockTitle ?? "_freeform"
+            if let ck = currentKey, ck != key { flush() }
+            currentKey = key
+            current.append(seg)
+        }
+        flush()
+        return groups
     }
 }

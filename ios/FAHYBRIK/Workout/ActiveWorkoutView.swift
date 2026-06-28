@@ -33,6 +33,12 @@ struct ActiveWorkoutView: View {
     private var gpsActive: Bool {
         runGPS.status == .active || runGPS.status == .authorized
     }
+    // Current block's phase name, shown only when the session has real block
+    // context (a freeform single-segment fallback has no block, so no label).
+    private var currentPhaseLabel: String? {
+        guard let seg = session.currentSegment, seg.blockTitle != nil else { return nil }
+        return seg.blockPhase.displayName
+    }
 
     var body: some View {
         ZStack {
@@ -201,12 +207,23 @@ struct ActiveWorkoutView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(session.isPaused ? "Reanudar entreno" : "Pausar entreno")
             Spacer()
-            MonoText(
-                text: (session.currentSegment?.title ?? "—").uppercased(),
-                size: 11,
-                color: Theme.Color.muted
-            )
-            .lineLimit(1)
+            VStack(spacing: 1) {
+                // Block phase (Calentamiento / Principal / Vuelta a la calma) so the
+                // athlete always knows which part of the session they're in.
+                if let phase = currentPhaseLabel {
+                    Text(phase.uppercased())
+                        .font(.system(size: 9, weight: .heavy, design: .default).italic())
+                        .tracking(0.8)
+                        .foregroundStyle(Theme.Color.accentText)
+                        .lineLimit(1)
+                }
+                MonoText(
+                    text: (session.currentSegment?.title ?? "—").uppercased(),
+                    size: 11,
+                    color: Theme.Color.muted
+                )
+                .lineLimit(1)
+            }
             if segmentHasVideo {
                 Button(action: {
                     Haptics.light()

@@ -312,6 +312,11 @@ struct PostWorkoutSummaryView: View {
     }
 
     // MARK: - Per-segment table
+    //
+    // Grouped by coach block (Calentamiento / Principal / Vuelta a la calma …)
+    // rather than a flat mix, so the principal work reads as the focus and the
+    // warmup/cooldown drills (foam roll, breathing) sit under their own muted
+    // header instead of inflating one 11-row list.
     private var segmentsTable: some View {
         CardSurface(padding: 0) {
             VStack(spacing: 0) {
@@ -321,36 +326,59 @@ struct PostWorkoutSummaryView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                Hairline()
-                ForEach(Array(session.plan.segments.enumerated()), id: \.element.id) { idx, seg in
-                    if idx > 0 { Hairline() }
-                    let lap = session.laps.first(where: { $0.segmentId == seg.id })
-                    let timeStr = lap.map { WorkoutSession.formatElapsed($0.durationSeconds) } ?? "—"
-                    VStack(spacing: 0) {
-                        HStack(alignment: .center, spacing: 6) {
-                            Text(seg.title)
-                                .scaledFont(11, relativeTo: .caption2)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                            MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
-                                .frame(width: 60, alignment: .trailing)
-                            if let z = seg.targetZone {
-                                ZBadge(zone: z).frame(width: 38, alignment: .trailing)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        // Manual pace — only for a run/erg leg with no auto pace
-                        // (no GPS / no PM5 split). The athlete enters the pace they
-                        // read off the treadmill/erg so the segment still records a
-                        // real intensity instead of an empty cell.
-                        if needsManualPace(seg, lap: lap) {
-                            TimeMinSecRow(label: paceLabel(seg), seconds: paceBinding(seg))
-                        }
+                ForEach(session.plan.segmentGroups) { group in
+                    Hairline()
+                    blockHeader(group)
+                    ForEach(Array(group.segments.enumerated()), id: \.element.id) { idx, seg in
+                        if idx > 0 { Hairline().opacity(0.4) }
+                        segmentRow(seg)
                     }
                 }
+            }
+        }
+    }
+
+    // Block section header. The principal work is accented and the warmup/cooldown
+    // muted so the eye lands on the main effort.
+    private func blockHeader(_ group: WorkoutSegmentGroup) -> some View {
+        HStack(spacing: 6) {
+            Text(group.title.uppercased())
+                .font(.system(size: 10, weight: .heavy, design: .default).italic())
+                .tracking(0.6)
+                .foregroundStyle(group.phase.isMainWork ? Theme.Color.accentText : Theme.Color.muted)
+                .lineLimit(1)
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 9)
+        .padding(.bottom, 5)
+    }
+
+    private func segmentRow(_ seg: WorkoutSegment) -> some View {
+        let lap = session.laps.first(where: { $0.segmentId == seg.id })
+        let timeStr = lap.map { WorkoutSession.formatElapsed($0.durationSeconds) } ?? "—"
+        return VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 6) {
+                Text(seg.title)
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
+                    .frame(width: 60, alignment: .trailing)
+                if let z = seg.targetZone {
+                    ZBadge(zone: z).frame(width: 38, alignment: .trailing)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            // Manual pace — only for a run/erg leg with no auto pace
+            // (no GPS / no PM5 split). The athlete enters the pace they
+            // read off the treadmill/erg so the segment still records a
+            // real intensity instead of an empty cell.
+            if needsManualPace(seg, lap: lap) {
+                TimeMinSecRow(label: paceLabel(seg), seconds: paceBinding(seg))
             }
         }
     }
