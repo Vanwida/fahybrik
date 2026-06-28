@@ -546,10 +546,7 @@ private struct UpcomingRaceCard: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    private var goalText: String? {
-        guard let total = race.goalTimeSeconds, total > 0 else { return nil }
-        return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
-    }
+    private var goalText: String? { AthleteNextRace.goalTimeFormatted(race.goalTimeSeconds) }
 
     private var priorityChipLabel: String? {
         switch race.priority?.lowercased() {

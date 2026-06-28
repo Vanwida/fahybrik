@@ -124,12 +124,15 @@ struct AthleteNextRace: Decodable, Equatable {
     }
 
     /// Goal time as H:MM:SS (e.g. 1:12:30). Nil when no goal is set.
-    var goalTimeFormatted: String? {
-        guard let total = goalTimeSeconds, total > 0 else { return nil }
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        return String(format: "%d:%02d:%02d", h, m, s)
+    var goalTimeFormatted: String? { AthleteNextRace.goalTimeFormatted(goalTimeSeconds) }
+
+    /// H:MM:SS for a goal time in seconds (4350 → "1:12:30"); nil when absent or
+    /// non-positive. Static so EVERY race surface — the home countdown, the
+    /// Carreras objective card, the Perfil "Carrera objetivo" row — formats goal
+    /// times through ONE implementation and they can never drift.
+    static func goalTimeFormatted(_ seconds: Int?) -> String? {
+        guard let total = seconds, total > 0 else { return nil }
+        return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
     }
 
     // MARK: enum → ES label maps (unknown tokens map to nil, never crash)

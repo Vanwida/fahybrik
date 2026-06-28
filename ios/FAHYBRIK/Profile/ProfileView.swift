@@ -19,7 +19,11 @@ struct ProfileView: View {
     @State private var identity: AthleteIdentity? = nil
     @State private var aEventDays: Int? = nil
     @State private var blockLabel: String? = nil
-    @State private var targetRace: AthleteNextRace? = nil
+    // Future race objectives — the SAME source the Carreras tab reads
+    // (GET /api/athlete/races → upcoming), so Perfil and Carreras never disagree
+    // about the athlete's objective. The displayed objective is derived in
+    // `objetivoRace` (target-flagged race, else the soonest upcoming).
+    @State private var upcomingRaces: [UpcomingRace] = []
     // Flips true once identity + partner + subscription have all resolved. Gates
     // the modality value so it never flashes a placeholder before the real one.
     @State private var initialLoadDone: Bool = false
@@ -201,7 +205,7 @@ struct ProfileView: View {
     private var identitySubtitle: String? {
         guard let id = identity else { return nil }
         var parts: [String] = []
-        if let division = AthleteNextRace.divisionLabel(targetRace?.division) {
+        if let division = AthleteNextRace.divisionLabel(objetivoRace?.division) {
             parts.append("división \(division)")
         }
         if let age = id.age { parts.append("\(age)") }
@@ -253,8 +257,8 @@ struct ProfileView: View {
                 } label: {
                     SettingValueRow(
                         label: "Carrera objetivo",
-                        value: targetRace == nil ? "Elegir carrera" : goalValue,
-                        valueColor: targetRace == nil ? Theme.Color.accentText : Theme.Color.foreground,
+                        value: objetivoRace == nil ? "Elegir carrera" : goalValue,
+                        valueColor: objetivoRace == nil ? Theme.Color.accentText : Theme.Color.foreground,
                         showsChevron: true
                     )
                 }
@@ -323,11 +327,20 @@ struct ProfileView: View {
         }
     }
 
-    /// Goal time + target race, both real (from targetRace). Honest empty when
-    /// no target race is scheduled — never fabricated.
+    /// The athlete's race objective, read from the SAME list the Carreras tab shows
+    /// (`upcomingRaces`). Prefer the race the coach flagged as the 'target' (the
+    /// goal the plan peaks for); otherwise the soonest upcoming race (the server
+    /// sorts soonest-first). Nil only when there is no upcoming race at all — then
+    /// the row honestly invites the athlete to choose one.
+    private var objetivoRace: UpcomingRace? {
+        upcomingRaces.first { $0.priority?.lowercased() == "target" } ?? upcomingRaces.first
+    }
+
+    /// Goal time + race name for the objective, both real (from `objetivoRace`).
+    /// Honest empty when no upcoming race is scheduled — never fabricated.
     private var goalValue: String {
-        guard let race = targetRace else { return "Sin carrera objetivo" }
-        if let goal = race.goalTimeFormatted {
+        guard let race = objetivoRace else { return "Sin carrera objetivo" }
+        if let goal = AthleteNextRace.goalTimeFormatted(race.goalTimeSeconds) {
             return "\(goal) · \(race.name)"
         }
         return race.name
@@ -350,20 +363,27 @@ struct ProfileView: View {
     }
 
     /// Real athlete identity (name, body metrics, training context) from
-    /// /api/auth/me, plus A-event days + block label + the target race from the
-    /// plan week. Silent on failure — the identity card falls back to neutral
-    /// copy and the dependent rows/cards hide or show honest empties.
+    /// /api/auth/me, plus A-event days + block label from the plan week, plus the
+    /// race objective from the races hub (GET /api/athlete/races — the same source
+    /// as the Carreras tab). Silent on failure — the identity card falls back to
+    /// neutral copy and the dependent rows/cards hide or show honest empties.
     private func loadIdentity() async {
         guard let bearer else { return }
         identity = try? await MeService.fetch(bearer: bearer)
         if let resp = try? await PlanService.fetchWeek(bearer: bearer) {
             aEventDays = resp.macroSummary.aEventDays
-            targetRace = resp.targetRace
             if let label = resp.macroSummary.weekLabel, !label.isEmpty {
                 blockLabel = label
             } else if let block = resp.macroSummary.block, !block.isEmpty {
                 blockLabel = atrPhaseLabel(block)
             }
+        }
+        // Race objective: read the SAME list the Carreras tab shows
+        // (GET /api/athlete/races), not the plan/week `target_race` (which is
+        // priority='target'-only and goes empty when the athlete's races aren't
+        // flagged as the target). One source → Perfil and Carreras always agree.
+        if let races = await CarrerasService.fetchRaces(bearer: bearer) {
+            upcomingRaces = races.upcoming
         }
     }
 

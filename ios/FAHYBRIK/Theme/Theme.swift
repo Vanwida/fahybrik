@@ -85,6 +85,22 @@ enum Theme {
         static let infoTint = info.opacity(0.14)
         static let neutralTint = neutral.opacity(0.14)
 
+        // MARK: - Modality palette
+        //
+        // A DEDICATED hue per training modality for the day dot + legend (G5). This
+        // is a SEPARATE axis from the ok/warning/danger delta semantics (reserved
+        // for signed deltas) — these encode "what KIND of work", not "good/bad".
+        // Run keeps the brand orange (the spine of a HYROX race); ergometers the
+        // info blue; the rest get distinct, well-separated hues so metcon, HYROX,
+        // strength and mobility never collapse into the same neutral dot. The dot
+        // is decorative (accessibilityHidden — the session title carries meaning),
+        // but each hue is darkened on light / brightened on dark so it reads on the
+        // row surface in both modes (≥3:1 as a UI mark on #F6F7F9 light / #141416 dark).
+        static let modalityStrength   = dyn(light: ui(0x6A46B0), dark: ui(0xB49BEE)) // violet  — iron
+        static let modalityFunctional = dyn(light: ui(0x17834A), dark: ui(0x4FD08A)) // green   — metcon/WOD
+        static let modalityHyrox      = dyn(light: ui(0xBD2493), dark: ui(0xEE7ACF)) // magenta — the flagship
+        static let modalitySupport    = dyn(light: ui(0x0E7C72), dark: ui(0x3BD0BE)) // teal    — core/mobility
+
         // Asset-catalog brand colors, kept for anything that must track the
         // shared catalog 1:1 (e.g. cross-platform parity checks).
         static let backgroundAsset = SwiftUI.Color("BrandBackground")
@@ -102,25 +118,47 @@ enum Theme {
     // MARK: - Modality
     //
     // A training session's modality drives a single dot/badge color across the
-    // redesign (Plan day rows, compact session rows, day-detail switcher).
-    // The handoff maps run → brand accent, ergometers (row/ski/bike) → info blue,
-    // strength → neutral foreground. Strings come from the API's modality field;
-    // we normalize loosely (substring match) so "row"/"rowerg"/"remo" all land on
-    // the ergometer color without an exhaustive enum the backend doesn't promise.
+    // redesign (Plan day rows, compact session rows, day-detail switcher, the
+    // pre-workout brief, the Dobles plan). The input is the API's `modality`
+    // field — the PRINCIPAL block's real modality (run/row/ski/bike/strength/
+    // functional/core/mobility/other, see /api/athlete/plan/week G5) — OR, when a
+    // template has no readable segments, its FORMAT fallback (amrap/emom/for_time/
+    // circuit/hyrox_sim/strength_block/intervals/tempo/test). We match loosely
+    // (substring, EN+ES) so every spelling and the format fallbacks land on the
+    // right hue without the backend promising an exact enum. Every modality gets a
+    // distinct, well-separated color (Color.modality* above) so metcon, HYROX,
+    // strength and mobility never collapse into one dot.
     enum Modality {
-        /// Color for a modality string (case-insensitive, substring match).
+        /// Color for a modality (or format-fallback) string. Case-insensitive,
+        /// substring match, ordered most-specific-first. Unknown / ambiguous
+        /// conditioning formats (intervals, tempo, test) resolve to the neutral
+        /// "no signal" grey rather than guessing a discipline.
         static func color(_ raw: String?) -> SwiftUI.Color {
             let s = (raw ?? "").lowercased()
-            if s.contains("run") || s.contains("corr") || s.contains("carrera") {
-                return Color.accent
+            func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
+
+            // HYROX first — the flagship discipline keeps its own identity, so
+            // "hyrox_sim" never falls through to a generic run/strength dot.
+            if has("hyrox") { return Color.modalityHyrox }
+            // Running — the brand-orange spine of a HYROX race.
+            if has("run", "corr", "carrera") { return Color.accent }
+            // Ergometers (row / ski / bike) — one machine-blue family.
+            if has("erg", "row", "remo", "ski", "bike", "bici", "assault") { return Color.info }
+            // Strength / lifting (incl. the "strength_block" format).
+            if has("strength", "fuerza", "lift", "weight") { return Color.modalityStrength }
+            // Functional / metcon / WOD formats.
+            if has("functional", "metcon", "wod", "amrap", "emom",
+                   "for_time", "fortime", "circuit", "hiit", "crossfit") {
+                return Color.modalityFunctional
             }
-            if s.contains("erg") || s.contains("row") || s.contains("remo")
-                || s.contains("ski") || s.contains("bike") || s.contains("bici")
-                || s.contains("assault") {
-                return Color.info
+            // Core + mobility — low-intensity support work, one calm hue. (Also
+            // catches warmup/cooldown titles for the per-block dots in the brief.)
+            if has("core", "abdom", "mobility", "movilidad", "stretch", "estiram",
+                   "yoga", "warm", "calent", "activaci", "cooldown", "calma") {
+                return Color.modalitySupport
             }
-            // Strength / lifting / accessory / WOD-mixed → neutral foreground dot.
-            return Color.foreground
+            // Unknown / "other" / ambiguous formats (intervals, tempo, test).
+            return Color.neutral
         }
     }
 

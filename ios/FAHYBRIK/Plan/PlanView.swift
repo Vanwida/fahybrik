@@ -450,12 +450,24 @@ struct PlanView: View {
     // MARK: - Legend (modality colors)
 
     private var legend: some View {
-        HStack(spacing: Theme.Spacing.l) {
-            Spacer(minLength: 0)
-            legendItem(color: Theme.Modality.color("strength"), label: "fuerza")
-            legendItem(color: Theme.Color.info, label: "ergómetro")
-            legendItem(color: Theme.Color.accent, label: "carrera")
-            Spacer(minLength: 0)
+        // Two centered rows cover the full modality palette without overflowing
+        // 390pt. Colors come from Theme.Modality.color so the key can never drift
+        // from the dots it explains (single source of truth).
+        VStack(spacing: 6) {
+            HStack(spacing: Theme.Spacing.l) {
+                Spacer(minLength: 0)
+                legendItem(color: Theme.Modality.color("run"), label: "carrera")
+                legendItem(color: Theme.Modality.color("row"), label: "ergómetro")
+                legendItem(color: Theme.Modality.color("strength"), label: "fuerza")
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: Theme.Spacing.l) {
+                Spacer(minLength: 0)
+                legendItem(color: Theme.Modality.color("functional"), label: "funcional")
+                legendItem(color: Theme.Modality.color("hyrox"), label: "HYROX")
+                legendItem(color: Theme.Modality.color("mobility"), label: "movilidad")
+                Spacer(minLength: 0)
+            }
         }
         .padding(.top, Theme.Spacing.xs)
         .accessibilityHidden(true)
