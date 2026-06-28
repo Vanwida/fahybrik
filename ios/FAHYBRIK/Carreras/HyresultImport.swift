@@ -98,8 +98,10 @@ struct ImportedRace: Codable, Hashable, Identifiable {
     let gender_category: String
     /// Team bracket for doubles/relay (NOT the athlete's true age); nullable.
     let age_group: String?
-    /// Finish time in seconds.
-    let result_time_seconds: Int
+    /// Finish time in seconds. Optional: an expired objective surfaced in the
+    /// hub's `past` may not have a result yet (the athlete hasn't imported their
+    /// time), so the card reads "—" rather than a fabricated time.
+    let result_time_seconds: Int?
     let run_total_seconds: Int?
     let roxzone_seconds: Int?
     let best_run_lap_seconds: Int?
@@ -133,6 +135,40 @@ struct ImportedRace: Codable, Hashable, Identifiable {
         case station_splits = "stationSplits"
         case partners
     }
+}
+
+// MARK: - Races hub (upcoming objectives + past results)
+
+/// One FUTURE objective from the unified races hub (`GET /api/athlete/races`).
+/// The athlete can have several (a target plus secondary/tune-up races); the
+/// server returns them sorted soonest-first. Decoded ONLY via APIClient
+/// (`.convertFromSnakeCase`), so no CodingKeys are needed — `race_id` →
+/// `raceId`, `goal_time_seconds` → `goalTimeSeconds`, etc.
+struct UpcomingRace: Decodable, Identifiable, Hashable {
+    let raceId: Int
+    let eventId: Int?
+    let name: String
+    let eventType: String?
+    let format: String?
+    let division: String?
+    let genderCategory: String?
+    let ageGroup: String?
+    let raceDate: String?        // ISO YYYY-MM-DD
+    let location: String?
+    let goalTimeSeconds: Int?
+    let daysUntil: Int?
+    /// 'target' | 'secondary' | 'tune_up'.
+    let priority: String?
+
+    var id: Int { raceId }
+}
+
+/// `GET /api/athlete/races` envelope — the unified hub: future objectives
+/// (`upcoming`) + the athlete's past results (`past`, the same shape the rich
+/// history already decodes). The hub is the source of truth for both lists.
+struct RacesHubResponse: Decodable {
+    let upcoming: [UpcomingRace]
+    let past: [ImportedRace]
 }
 
 /// `POST /api/athlete/race-results/import-all` response. `races` is the COMPLETE
@@ -214,8 +250,13 @@ extension ImportedRace {
         return "con \(head) y \(names.last!)"
     }
 
-    /// Total finish time, pre-formatted "H:MM:SS" / "MM:SS".
-    var totalTimeText: String { StatsFormat.duration(Double(result_time_seconds)) }
+    /// Total finish time, pre-formatted "H:MM:SS" / "MM:SS". A dash when the
+    /// result isn't recorded yet (e.g. an expired objective whose time hasn't been
+    /// imported) — never a fabricated time.
+    var totalTimeText: String {
+        guard let seconds = result_time_seconds else { return "—" }
+        return StatsFormat.duration(Double(seconds))
+    }
 
     var runTotalText: String? { run_total_seconds.map { StatsFormat.duration(Double($0)) } }
     var roxzoneText: String? { roxzone_seconds.map { StatsFormat.duration(Double($0)) } }

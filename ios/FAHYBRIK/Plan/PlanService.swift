@@ -144,9 +144,10 @@ struct AthleteNextRace: Decodable, Equatable {
 
     static func divisionLabel(_ raw: String?) -> String? {
         switch raw?.lowercased() {
-        case "open": return "Open"
-        case "pro":  return "Pro"
-        default:     return nil
+        case "open":  return "Open"
+        case "pro":   return "Pro"
+        case "elite": return "Elite"
+        default:      return nil
         }
     }
 

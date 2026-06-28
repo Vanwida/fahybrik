@@ -837,7 +837,7 @@ struct InicioView: View {
     // MARK: - Derived: race + week progress
 
     /// The race to show on the tile: target if set, else the next race.
-    private var displayRace: AthleteNextRace? { targetRace ?? nextRace }
+    private var displayRace: AthleteNextRace? { nextRace ?? targetRace }
 
     private struct WeekSegment: Identifiable {
         let id = UUID()

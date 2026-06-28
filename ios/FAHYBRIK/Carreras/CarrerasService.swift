@@ -269,6 +269,45 @@ enum CarrerasService {
             return nil
         }
     }
+
+    /// Load the unified races hub — future objectives + past results — in one
+    /// shot. `GET /api/athlete/races` is the SOURCE OF TRUTH for both the PRÓXIMAS
+    /// countdown list and the PASADAS history (which the hub write-through caches
+    /// locally). Returns nil on no-bearer / request failure so the view keeps its
+    /// cached history and honest empty states rather than erroring.
+    static func fetchRaces(bearer: String?) async -> RacesHubResponse? {
+        guard let bearer else { return nil }
+        do {
+            return try await APIClient.shared.get(
+                path: "api/athlete/races",
+                bearer: bearer
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    /// Remove ONE future objective (target OR secondary/tune-up) from the
+    /// athlete's plan. `DELETE /api/athlete/races/target/{race_id}` works for any
+    /// upcoming race. No request body. Throws `HyresultImportError` so the hub can
+    /// surface an honest reason (mapped to removal-appropriate copy at the call
+    /// site, since the error's own messages are import-flavored).
+    static func deleteObjective(raceId: Int, bearer: String?) async throws {
+        guard let bearer else { throw HyresultImportError.unauthorized }
+        do {
+            let _: Empty = try await APIClient.shared.delete(
+                path: "api/athlete/races/target/\(raceId)",
+                body: Optional<Empty>.none,
+                bearer: bearer
+            )
+        } catch let error as APIError {
+            throw HyresultImportError(apiError: error)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw HyresultImportError.unreachable
+        }
+    }
 }
 
 // MARK: - Import request + errors

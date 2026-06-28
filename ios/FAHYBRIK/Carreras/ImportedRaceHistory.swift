@@ -148,7 +148,7 @@ private struct ImportedRaceCard: View {
         var parts: [String] = [race.name, race.dateText, race.divisionLabel]
         if let tag = race.formatTag { parts.append(tag) }
         if let partners = race.partnersLabel { parts.append(partners) }
-        parts.append(race.totalTimeText)
+        parts.append(race.result_time_seconds == nil ? "resultado pendiente" : race.totalTimeText)
         return parts.joined(separator: ", ")
     }
 

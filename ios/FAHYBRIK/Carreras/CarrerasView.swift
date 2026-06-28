@@ -39,6 +39,15 @@ struct CarrerasView: View {
     // the leaner race-context history whenever present.
     @State private var importedRaces: [ImportedRace] = []
 
+    // PRÓXIMAS — all future objectives (target + secondary/tune-up), source of
+    // truth from GET /api/athlete/races. The athlete can have several; the server
+    // sorts them soonest-first.
+    @State private var upcoming: [UpcomingRace] = []
+    @State private var loadingUpcoming = true
+    @State private var showBuscar = false
+    /// The objective the athlete tapped to remove — drives the confirm dialog.
+    @State private var objectiveToRemove: UpcomingRace? = nil
+
     @State private var appear = false
 
     private var effectiveBearer: String? {
@@ -70,6 +79,29 @@ struct CarrerasView: View {
                 }
                 Task { await load() }
             }
+        }
+        .sheet(isPresented: $showBuscar) {
+            // Reuse the target-race picker (→ FijarObjetivoView); on a successful
+            // set we reload so the new objective appears in PRÓXIMAS.
+            BuscarCarreraSheet(bearer: effectiveBearer) {
+                Task { await load() }
+            }
+        }
+        .confirmationDialog(
+            "¿Quitar este objetivo?",
+            isPresented: Binding(
+                get: { objectiveToRemove != nil },
+                set: { if !$0 { objectiveToRemove = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: objectiveToRemove
+        ) { race in
+            Button("Quitar objetivo", role: .destructive) {
+                Task { await removeObjective(race) }
+            }
+            Button("Cancelar", role: .cancel) { objectiveToRemove = nil }
+        } message: { race in
+            Text("\(race.name) dejará de contar para tu cuenta atrás. Podrás volver a fijarla cuando quieras.")
         }
         .confirmationDialog(
             "¿Eliminar las carreras importadas?",
@@ -122,17 +154,45 @@ struct CarrerasView: View {
         }
     }
 
+    // Remove one future objective ("Quitar objetivo"): confirm-gated delete via
+    // the races endpoint, then refresh both lists. The thrown HyresultImportError
+    // messages are import-flavored, so we map to removal-appropriate copy here and
+    // reuse the existing removeError alert.
+    @MainActor
+    private func removeObjective(_ race: UpcomingRace) async {
+        objectiveToRemove = nil
+        do {
+            try await CarrerasService.deleteObjective(raceId: race.raceId, bearer: effectiveBearer)
+            Haptics.success()
+            await load()
+        } catch let err as HyresultImportError {
+            Haptics.error()
+            switch err {
+            case .unauthorized:
+                removeError = "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
+            default:
+                removeError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
+            }
+        } catch {
+            Haptics.error()
+            removeError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
+        }
+    }
+
     private var scroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 header
                     .staggerReveal(appear, index: 0)
 
-                raceSection
+                upcomingSection
                     .staggerReveal(appear, index: 1)
 
-                performanceSection
+                pastSection
                     .staggerReveal(appear, index: 2)
+
+                performanceSection
+                    .staggerReveal(appear, index: 3)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.m)
@@ -144,33 +204,32 @@ struct CarrerasView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: "RENDIMIENTO Y CARRERAS", color: Theme.Color.accentText)
-                Text("Mis carreras")
-                    .scaledFont(30, weight: .heavy, relativeTo: .title, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
-
-            // Always-available import affordance (the empty state has its own
-            // primary CTA; this lets an athlete add another race at any time).
-            importPill
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: "RENDIMIENTO Y CARRERAS", color: Theme.Color.accentText)
+            Text("Mis carreras")
+                .scaledFont(30, weight: .heavy, relativeTo: .title, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
         .padding(.top, Theme.Spacing.s)
     }
 
-    private var importPill: some View {
+    // MARK: - Section header action pills (accent capsule)
+    //
+    // One pill style, two intents — DRY across "Buscar carrera" (PRÓXIMAS, adds a
+    // future objective) and "Importar" (PASADAS, adds a past result).
+
+    private func actionPill(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button {
             Haptics.light()
-            showImport = true
+            action()
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: "plus")
+                Image(systemName: icon)
                     .font(.system(size: 11, weight: .bold))
-                Text("Importar")
+                Text(title)
                     .font(.system(size: 12, weight: .semibold))
             }
             .foregroundStyle(Theme.Color.accentText)
@@ -181,20 +240,88 @@ struct CarrerasView: View {
             .clipShape(Capsule())
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Importar carrera")
+        .accessibilityLabel(title)
     }
 
-    // MARK: - Race section (live race-context → honest empty state when no race)
+    private var buscarPill: some View {
+        actionPill(icon: "plus", title: "Buscar carrera") { showBuscar = true }
+    }
+
+    private var importPill: some View {
+        actionPill(icon: "plus", title: "Importar") { showImport = true }
+    }
+
+    /// A section label with a trailing action pill, baseline-aligned on one row.
+    private func sectionHeaderRow<Trailing: View>(
+        _ title: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            SectionLabel(text: title)
+            Spacer(minLength: 8)
+            trailing()
+        }
+    }
+
+    // MARK: - PRÓXIMAS · the athlete's future objectives (countdowns)
+    //
+    // All upcoming races (target + secondary/tune-up), source of truth from
+    // GET /api/athlete/races, sorted soonest-first by the server. Each card is a
+    // confirm-gated remove control. "Buscar carrera" (→ BuscarCarreraSheet →
+    // FijarObjetivoView) lives in the section header.
 
     @ViewBuilder
-    private var raceSection: some View {
-        if loadingRace {
-            ProgressView()
-                .tint(Theme.Color.accentText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.xl)
-        } else if (overview?.last_race != nil) || !importedRaces.isEmpty {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+    private var upcomingSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            sectionHeaderRow("PRÓXIMAS · TUS OBJETIVOS") { buscarPill }
+
+            if loadingUpcoming {
+                ProgressView()
+                    .tint(Theme.Color.accentText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.l)
+            } else if !upcoming.isEmpty {
+                VStack(spacing: Theme.Spacing.m) {
+                    ForEach(upcoming) { race in
+                        UpcomingRaceCard(race: race) {
+                            objectiveToRemove = race
+                        }
+                    }
+                }
+            } else {
+                VStack(spacing: Theme.Spacing.l) {
+                    RedesignEmptyState(
+                        symbol: "target",
+                        title: "Sin objetivos todavía",
+                        message: "Fija tu próxima carrera y verás aquí la cuenta atrás. Tu plan se enfoca en la fecha que elijas."
+                    )
+                    ExpertPrimaryButton(title: "BUSCAR CARRERA") {
+                        showBuscar = true
+                    }
+                }
+                .padding(.top, Theme.Spacing.s)
+            }
+        }
+    }
+
+    // MARK: - PASADAS · history + race-derived analytics (honest empty state)
+    //
+    // The race-context analytics (last race, IA report, benchmarks, pace,
+    // evolution) + the rich doubles-aware history, fed by the new endpoint's
+    // `past` (write-through cached). "Importar" (past results) + the undo ("No soy
+    // yo") live here.
+
+    @ViewBuilder
+    private var pastSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            sectionHeaderRow("PASADAS · TU HISTORIAL") { importPill }
+
+            if loadingRace {
+                ProgressView()
+                    .tint(Theme.Color.accentText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.l)
+            } else if (overview?.last_race != nil) || !importedRaces.isEmpty {
                 // Race-context analytics (last race, IA report, benchmarks, pace,
                 // evolution) — present whenever the athlete has a singles result.
                 if let overview, overview.last_race != nil {
@@ -209,19 +336,19 @@ struct CarrerasView: View {
                 } else if let overview, !overview.history.isEmpty {
                     LegacyHistorySection(history: overview.history)
                 }
-            }
-        } else {
-            VStack(spacing: Theme.Spacing.l) {
-                RedesignEmptyState(
-                    symbol: "flag.checkered",
-                    title: "Aún no hay carreras",
-                    message: "Busca tu nombre e importa tu historial de HYROX —individuales y dobles— y verás aquí tus splits, el informe de puntos débiles y tu evolución."
-                )
-                ExpertPrimaryButton(title: "IMPORTAR CARRERAS") {
-                    showImport = true
+            } else {
+                VStack(spacing: Theme.Spacing.l) {
+                    RedesignEmptyState(
+                        symbol: "flag.checkered",
+                        title: "Aún no hay carreras pasadas",
+                        message: "Busca tu nombre e importa tu historial de HYROX —individuales y dobles— y verás aquí tus splits, el informe de puntos débiles y tu evolución."
+                    )
+                    ExpertPrimaryButton(title: "IMPORTAR CARRERAS") {
+                        showImport = true
+                    }
                 }
+                .padding(.top, Theme.Spacing.s)
             }
-            .padding(.top, Theme.Spacing.m)
         }
     }
 
@@ -263,9 +390,14 @@ struct CarrerasView: View {
         if importedRaces.isEmpty { importedRaces = CarrerasHistoryStore.load() }
         loadingRace = true
         loadingPerf = true
+        loadingUpcoming = true
         perfFailed = false
 
-        async let raceTask = CarrerasService.fetchOverview(bearer: effectiveBearer)
+        // The races hub (upcoming objectives + past results) is the source of
+        // truth for both lists; the race-context overview still powers the PASADAS
+        // analytics. Fetch both concurrently.
+        async let racesTask = CarrerasService.fetchRaces(bearer: effectiveBearer)
+        async let overviewTask = CarrerasService.fetchOverview(bearer: effectiveBearer)
 
         // Live analytics: only the performance section depends on it.
         if let token = effectiveBearer {
@@ -282,8 +414,162 @@ struct CarrerasView: View {
         }
         loadingPerf = false
 
-        overview = await raceTask
+        // Races hub → upcoming + past. Server is source of truth: on success we
+        // overwrite both the upcoming list and the history (write-through cache).
+        // On nil (offline / no bearer) we keep the cached history + empty upcoming.
+        if let races = await racesTask {
+            upcoming = races.upcoming
+            importedRaces = races.past
+            CarrerasHistoryStore.save(races.past)
+        }
+        loadingUpcoming = false
+
+        overview = await overviewTask
         loadingRace = false
+    }
+}
+
+// MARK: - Upcoming race card (countdown · confirm-gated remove)
+//
+// A premium countdown for one future objective: the big mono days number (the
+// InicioView countdown language), the race name, its category line, city + date,
+// an optional goal time, and a priority chip for secondary/tune-up races. The
+// whole card is a confirm-gated remove control — tapping signals intent and the
+// hub asks before dropping the objective. Light+dark off Theme tokens; brand
+// accent is orange-as-text. Label copy reuses AthleteNextRace's static helpers
+// so the home countdown and this card never drift.
+
+private struct UpcomingRaceCard: View {
+    let race: UpcomingRace
+    /// Signals intent to remove this objective (the hub owns the confirm + delete).
+    let onRemove: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.light()
+            onRemove()
+        } label: {
+            CardSurface(padding: 16, topAccent: true, elevated: true) {
+                VStack(alignment: .leading, spacing: 11) {
+                    eyebrowRow
+                    countdownRow
+                    Text(race.name)
+                        .scaledFont(18, weight: .heavy, relativeTo: .headline, italic: true)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let category = categoryLine {
+                        Text(category)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.Color.faint)
+                    }
+                    if let meta = locationDateLine {
+                        Text(meta)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    if let goal = goalText {
+                        HStack(spacing: 5) {
+                            Image(systemName: "target")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Theme.Color.accentText)
+                            Text("Objetivo \(goal)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Theme.Color.muted)
+                        }
+                    }
+                }
+            }
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Toca para quitar este objetivo")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: Rows
+
+    private var eyebrowRow: some View {
+        HStack(spacing: 8) {
+            LabelText(text: "Próxima carrera", color: Theme.Color.accentText)
+            Spacer(minLength: 8)
+            if let priority = priorityChipLabel {
+                Text(priority)
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.4)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Theme.Color.neutral)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Theme.Color.neutralTint)
+                    .clipShape(Capsule())
+            }
+            Image(systemName: "xmark.circle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.faint)
+                .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private var countdownRow: some View {
+        if let days = race.daysUntil {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(max(0, days))")
+                    .font(.system(size: 30, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.accentText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(days == 1 ? "día" : "días")
+                    .scaledFont(13, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+        }
+    }
+
+    // MARK: Derived copy (reuses AthleteNextRace helpers + the shared date fmt)
+
+    private var categoryLine: String? {
+        let parts = [
+            AthleteNextRace.formatLabel(race.format),
+            AthleteNextRace.divisionLabel(race.division),
+            AthleteNextRace.genderLabel(race.genderCategory),
+        ].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var locationDateLine: String? {
+        let date = race.raceDate
+            .flatMap { StatsDateParser.parse($0) }
+            .map { ImportedRaceDateFormat.medium.string(from: $0) }
+        let parts = [race.location, date].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var goalText: String? {
+        guard let total = race.goalTimeSeconds, total > 0 else { return nil }
+        return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+    }
+
+    private var priorityChipLabel: String? {
+        switch race.priority?.lowercased() {
+        case "tune_up":   return "tune-up"
+        case "secondary": return "secundaria"
+        default:          return nil
+        }
+    }
+
+    private var accessibilityLabel: String {
+        var parts: [String] = ["Próxima carrera", race.name]
+        if let days = race.daysUntil {
+            let d = max(0, days)
+            parts.append("faltan \(d) \(d == 1 ? "día" : "días")")
+        }
+        if let category = categoryLine { parts.append(category) }
+        if let meta = locationDateLine { parts.append(meta) }
+        if let goal = goalText { parts.append("objetivo \(goal)") }
+        if let priority = priorityChipLabel { parts.append(priority) }
+        return parts.joined(separator: ", ")
     }
 }
 
