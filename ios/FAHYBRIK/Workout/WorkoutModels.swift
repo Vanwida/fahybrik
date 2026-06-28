@@ -303,6 +303,10 @@ struct WorkoutExecutionPayload: Codable {
     let perceived_exertion: Int?
     let total_duration_seconds: Int?
     let notes: String?
+    /// Provenance of the execution (the backend `biometric_source` enum). Sent
+    /// "manual" for a retroactive "Ya lo hice" log the athlete typed by hand;
+    /// nil for the live-timer path, where the backend defaults it to 'healthkit'.
+    let source: String?
     /// Metcon/HYROX final score. `score_time_s` for For Time / RFT / HYROX-sim;
     /// `score_rounds` (+ `score_reps`) for AMRAP. All nil for non-scored formats.
     let score_time_s: Int?
@@ -466,7 +470,11 @@ extension WorkoutPlan {
     // block wins outright; else the largest non-warmup/cooldown block (most
     // items); else any block. Ties keep the earliest position so the result is
     // stable. Returns nil only for an empty block list.
-    private static func principalBlock(_ blocks: [WorkoutBlock]) -> WorkoutBlock? {
+    //
+    // Internal (not private) so the pre-workout brief reuses the SAME selection to
+    // derive its subtitle modality from the main work — never the warmup's first
+    // exercise. One definition, no second heuristic to drift from this one.
+    static func principalBlock(_ blocks: [WorkoutBlock]) -> WorkoutBlock? {
         guard !blocks.isEmpty else { return nil }
         let ordered = blocks.sorted { $0.blockPosition < $1.blockPosition }
         let roles = ordered.map { BlockPhase.classify(title: $0.title) }

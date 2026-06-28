@@ -47,6 +47,10 @@ struct WorkoutContainer: View {
     @State private var session: WorkoutSession? = nil
     @State private var crashRecoveryPrompt: PersistedWorkoutState? = nil
     @State private var loadState: LoadState = .loading
+    /// True when the athlete reached the summary via "Ya lo hice" (manual entry)
+    /// rather than the live timer — the summary then collects results by hand and
+    /// saves with source='manual'. Reset implicitly per container instance.
+    @State private var manualEntry = false
 
     let onClose: () -> Void
     /// Fired once the post-workout summary is saved, with the assignment id that
@@ -87,8 +91,19 @@ struct WorkoutContainer: View {
                     onStart: {
                         let new = WorkoutSession(plan: plan)
                         session = new
+                        manualEntry = false
                         Haptics.medium()
                         phase = .active
+                    },
+                    onManualLog: {
+                        // "Ya lo hice": skip ActiveWorkout entirely. Build a session
+                        // with NO live laps and jump straight to the summary, which
+                        // collects the result by hand and saves source='manual'.
+                        let new = WorkoutSession(plan: plan)
+                        session = new
+                        manualEntry = true
+                        Haptics.medium()
+                        phase = .summary
                     },
                     onClose: onClose
                 )
@@ -106,6 +121,7 @@ struct WorkoutContainer: View {
                         session: session,
                         assignmentId: assignmentId,
                         logTarget: logTarget,
+                        manualEntry: manualEntry,
                         onSave: {
                             // Record optimistic completion BEFORE closing so the
                             // caller's refetch (driven by onCompleted) already sees

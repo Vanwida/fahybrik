@@ -14,10 +14,20 @@ struct PostWorkoutSummaryView: View {
     /// Solo (default) → /api/sync/workout-execution. Dobles "train together" →
     /// the joint endpoint (links partner + shares result). Same payload.
     var logTarget: WorkoutLogTarget = .solo
+    /// Retroactive "Ya lo hice" entry: the athlete trained without the live timer
+    /// and logs it after the fact. There are NO measured laps, so the summary
+    /// hides the device-derived sections (zones, HR, per-segment splits) and
+    /// instead collects the session-level result by hand (total time / score /
+    /// RPE / notes). Saved with source='manual'.
+    var manualEntry: Bool = false
     let onSave: () -> Void
 
     @State private var rpe: Int = 7
     @State private var notes: String = ""
+    // Total session duration, entered by hand in manual mode (the live timer
+    // never ran). For time-scored formats the "Tiempo final" field IS the
+    // duration, so this is only collected for non-time-scored sessions.
+    @State private var manualTotalSeconds: Int? = nil
     // Metcon/HYROX final score — only surfaced for scored formats (see `showScore`).
     @State private var scoreTimeSeconds: Int? = nil
     @State private var scoreRounds: Int? = nil
@@ -49,16 +59,26 @@ struct PostWorkoutSummaryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     tightHeader
-                    if hasZoneData {
-                        zonesStackedBar
-                    }
-                    if hasHRData {
-                        metricTiles
+                    // Manual ("Ya lo hice") entry: no measured laps exist, so the
+                    // device-derived sections (zones, HR, per-segment splits) are
+                    // hidden — they'd collect data with nowhere to persist. The
+                    // athlete enters the session-level result by hand instead.
+                    if manualEntry {
+                        if !isTimeScored {
+                            manualDurationCard
+                        }
                     } else {
-                        manualHRCard
-                    }
-                    if session.plan.segments.count > 1 {
-                        segmentsTable
+                        if hasZoneData {
+                            zonesStackedBar
+                        }
+                        if hasHRData {
+                            metricTiles
+                        } else {
+                            manualHRCard
+                        }
+                        if session.plan.segments.count > 1 {
+                            segmentsTable
+                        }
                     }
                     if showScore {
                         scoreCard
@@ -115,13 +135,25 @@ struct PostWorkoutSummaryView: View {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
         let endedAt = Date()
-        let startedAt = session.startedAt
-        let segments = buildSegments(iso: iso)
+        // Manual log: total time is entered by hand (or, for a time-scored format,
+        // taken from the "Tiempo final" field). Live: measured by the timer.
+        let totalDuration: Int? = manualEntry
+            ? (manualTotalSeconds ?? (isTimeScored ? scoreTimeSeconds : nil))
+            : Int(session.elapsedSeconds.rounded())
+        // Manual: there's no real start instant, so derive it from the entered
+        // duration to keep started_at/ended_at consistent. Live: the real start.
+        let startedAt: Date = manualEntry
+            ? endedAt.addingTimeInterval(-Double(totalDuration ?? 0))
+            : session.startedAt
+        let segments = buildSegments(iso: iso)   // empty in manual mode (no laps)
         return WorkoutExecutionPayload(
             assignment_id: assignmentId,
             perceived_exertion: rpe,
-            total_duration_seconds: Int(session.elapsedSeconds.rounded()),
+            total_duration_seconds: totalDuration,
             notes: notes.isEmpty ? nil : notes,
+            // 'manual' for a retroactive log; nil for the live path (backend then
+            // defaults it to 'healthkit', preserving prior behaviour).
+            source: manualEntry ? "manual" : nil,
             // Only send the score dimensions relevant to this format.
             score_time_s: isTimeScored ? scoreTimeSeconds : nil,
             score_rounds: isRoundsScored ? scoreRounds : nil,
@@ -196,11 +228,35 @@ struct PostWorkoutSummaryView: View {
             Text("✓")
                 .font(.system(size: 18))
                 .foregroundStyle(Theme.Color.ok)
-            HeroNumber(text: WorkoutSession.formatElapsed(session.elapsedSeconds), size: 36)
+            if manualEntry {
+                // No live clock ran — show the intent, not a fake 00:00.
+                Text("Registrar entreno")
+                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.foreground)
+            } else {
+                HeroNumber(text: WorkoutSession.formatElapsed(session.elapsedSeconds), size: 36)
+            }
             Spacer()
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
+    }
+
+    // MARK: - Manual total duration (manual entry only)
+    //
+    // The single session-level field the live timer would otherwise provide.
+    // For time-scored formats the "Tiempo final" score IS the duration, so this
+    // card is only shown for non-time-scored sessions (Z2 run, strength, EMOM…).
+    private var manualDurationCard: some View {
+        CardSurface(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                LabelText(text: "Duración", size: 9)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+                TimeMinSecRow(label: "Tiempo total", seconds: $manualTotalSeconds)
+            }
+        }
     }
 
     // MARK: - Real-data gates

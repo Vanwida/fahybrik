@@ -30,11 +30,11 @@ struct PreWorkoutBriefView: View {
     var detail: AssignmentDetail? = nil
     let connections: ConnectionStatus
     let onStart: () -> Void
+    /// "Ya lo hice": the athlete trained without the live timer and registers it
+    /// after the fact. Routes straight to manual entry (no ActiveWorkout).
+    let onManualLog: () -> Void
     let onClose: () -> Void
 
-    // Logging block — local-only until completion is wired to the sync path.
-    @State private var rpe: Int? = nil
-    @State private var sessionNote: String = ""
     // Per-exercise technique video opened in-app from a series row, when present.
     @State private var segmentVideoUrl: String? = nil
 
@@ -57,8 +57,16 @@ struct PreWorkoutBriefView: View {
     // MARK: - Derived shape
 
     private var modality: String? {
-        // The dominant segment kind tints the screen accent (run = orange, erg =
-        // blue, strength = neutral). Mirrors Theme.Modality.color's vocabulary.
+        // The session's modality comes from the PRINCIPAL block (the main work),
+        // NOT the first exercise — otherwise a warmup BikeErg would label a leg-day
+        // session "Ergómetro". Reuses the SAME principal-block selection the live
+        // plan builder uses (WorkoutPlan.principalBlock), so the subtitle, the
+        // accent tint and the weekly card all agree. Falls back to the first
+        // segment's kind only for ad-hoc / title-only sessions with no blocks.
+        if let blocks = structuredBlocks, !blocks.isEmpty,
+           let principal = WorkoutPlan.principalBlock(blocks) {
+            return blockModality(principal)
+        }
         guard let first = sortedSegments.first else { return nil }
         return first.kind.modality
     }
@@ -97,12 +105,18 @@ struct PreWorkoutBriefView: View {
         return parts.joined(separator: " · ")
     }
 
+    // ES word for the subtitle. Covers both modality vocabularies the `modality`
+    // property can return: PrescriptionModality raw values (run/row/ski/bike/
+    // strength/functional/core/mobility) from the principal block, and the
+    // SegmentKind fallback (run/row/strength/other). Unknown → neutral "Sesión".
     private var modalityWord: String {
         switch modality {
-        case "run":      return "Carrera"
-        case "row":      return "Ergómetro"
-        case "strength": return "Fuerza"
-        default:         return "Sesión"
+        case "run":                 return "Carrera"
+        case "row", "ski", "bike":  return "Ergómetro"
+        case "strength":            return "Fuerza"
+        case "functional":          return "Funcional"
+        case "core", "mobility":    return "Movilidad"
+        default:                    return "Sesión"
         }
     }
 
@@ -133,7 +147,6 @@ struct PreWorkoutBriefView: View {
                     if anyConnection {
                         connectionsGrid
                     }
-                    loggingBlock
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.s)
@@ -462,11 +475,93 @@ struct PreWorkoutBriefView: View {
 
     @ViewBuilder
     private func structuredBody(_ blocks: [WorkoutBlock]) -> some View {
+        let ordered = blocks.sorted { $0.blockPosition < $1.blockPosition }
+        // Partition by pedagogical role. The MAIN work (principal + untitled main
+        // blocks) leads the brief as full sections; warmup/cooldown collapse into
+        // compact checklists below so they never push the main work below the fold.
+        let mainBlocks = ordered.filter { BlockPhase.classify(title: $0.title).isMainWork }
+        let warmupItems = ordered
+            .filter { BlockPhase.classify(title: $0.title) == .warmup }
+            .flatMap(\.items)
+        let cooldownItems = ordered
+            .filter { BlockPhase.classify(title: $0.title) == .cooldown }
+            .flatMap(\.items)
+        // Safety: if nothing classified as main work (every block is warmup/
+        // cooldown), render them all in full rather than hiding the whole session.
+        let leadBlocks = mainBlocks.isEmpty ? ordered : mainBlocks
+
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            ForEach(blocks.sorted { $0.blockPosition < $1.blockPosition }) { block in
+            ForEach(leadBlocks) { block in
                 blockSection(block)
             }
+            if !mainBlocks.isEmpty {
+                if !warmupItems.isEmpty {
+                    collapsedChecklist("Calentamiento", items: warmupItems)
+                }
+                if !cooldownItems.isEmpty {
+                    collapsedChecklist("Vuelta a la calma", items: cooldownItems)
+                }
+            }
         }
+    }
+
+    // MARK: Collapsed warmup / cooldown checklist
+    //
+    // Secondary work (warmup, cooldown) shown as a compact tickable list — one
+    // small row per drill with its dominant target — instead of full-size cards
+    // identical to the main work. Keeps the athlete's eye on the principal block.
+    @ViewBuilder
+    private func collapsedChecklist(_ title: String, items: [WorkoutItem]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(spacing: 9) {
+                Circle().fill(Theme.Color.faint).frame(width: 6, height: 6)
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .heavy, design: .default).italic())
+                    .tracking(0.6)
+                    .foregroundStyle(Theme.Color.muted)
+                Spacer(minLength: 8)
+            }
+            CardSurface(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                        if idx > 0 { Hairline() }
+                        checklistRow(item)
+                    }
+                }
+            }
+        }
+    }
+
+    private func checklistRow(_ item: WorkoutItem) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "circle")
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(Theme.Color.faint)
+            Text(item.exerciseName)
+                .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.foreground)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 8)
+            if let summary = compactSummary(item) {
+                MonoText(text: summary, size: 12, weight: .medium, color: Theme.Color.muted)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    // A one-line target for a collapsed row: the dominant measure + pace/zone.
+    // Reuses the same renderer the full cards use (structured prescription first,
+    // legacy scalar params as fallback), so the compact line never invents a value.
+    private func compactSummary(_ item: WorkoutItem) -> String? {
+        let line = item.prescription.map { PrescriptionRenderer.summaryLine($0) }
+            ?? lineFromParams(item)
+        var parts: [String] = []
+        if let h = line.headline { parts.append(h) }
+        if let p = line.pace { parts.append(p) }
+        if let z = line.zone { parts.append(z.label) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     @ViewBuilder
@@ -821,76 +916,31 @@ struct PreWorkoutBriefView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
-    // MARK: - Logging block (free-text + RPE + import note)
-
-    private var loggingBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Text("Registrar resultado")
-                .scaledFont(13, weight: .bold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-
-            // Free-text "Cómo te fue…". A native multiline field over the card
-            // surface; the placeholder degrades to muted helper text.
-            CardSurface(padding: 13) {
-                ZStack(alignment: .topLeading) {
-                    if sessionNote.isEmpty {
-                        Text("Cómo te fue, sensaciones, ritmos…")
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.faint)
-                            .padding(.top, 8)
-                            .padding(.leading, 5)
-                            .allowsHitTesting(false)
-                    }
-                    TextEditor(text: $sessionNote)
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 64)
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .tint(Theme.Color.accent)
-                }
-            }
-
-            // RPE selector 6–10 (reused foundation component).
-            HStack(spacing: Theme.Spacing.m) {
-                LabelText(text: "RPE")
-                RPESelector(value: $rpe)
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "applewatch")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.ok)
-                Text("o importa automáticamente desde Garmin / Polar / Strava")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     // MARK: - Footer
     //
-    // `onStart` is the ONLY launch the brief is wired to: it opens the live
-    // ActiveWorkout, whose PostWorkoutSummary records RPE + marks the session
-    // completed. So that IS the completion path for every session shape — the
-    // CTA wording is honest about what the tap does.
-    //
-    // The handoff's quick "Marcar completada ✓ + RPE" (skip the live timer for a
-    // box strength session, submit just note + RPE) needs a second callback that
-    // the container doesn't expose yet. Rather than fake a button that secretly
-    // launches the timer, we label by what actually happens and list the
-    // quick-complete entry point as a wiring gap (see handoff return).
+    // Two honest completion paths:
+    //  • `onStart` (primary) opens the live ActiveWorkout — timer + laps — whose
+    //    PostWorkoutSummary records the result and marks the session completed.
+    //  • `onManualLog` (secondary, "Ya lo hice") is for an athlete who trained
+    //    WITHOUT the timer and wants to log it after the fact: it skips
+    //    ActiveWorkout and goes straight to the same summary in manual mode, which
+    //    saves the by-hand result with source='manual'.
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
             ExpertPrimaryButton(title: ctaTitle, action: onStart)
-            Text(isStrengthSession
-                 ? "Cronometra cada serie; al terminar registras RPE y sensaciones."
-                 : "Cronometra la sesión y marca vueltas; al terminar registras el resultado.")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
-                .multilineTextAlignment(.center)
+            Button(action: { Haptics.light(); onManualLog() }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Ya lo hice · registrar sin cronómetro")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                }
+                .foregroundStyle(Theme.Color.accentText)
                 .frame(maxWidth: .infinity)
+                .frame(height: 40)
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Ya lo hice. Registrar sin cronómetro.")
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.m)
