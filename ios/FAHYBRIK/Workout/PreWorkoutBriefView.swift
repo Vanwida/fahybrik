@@ -12,21 +12,26 @@ import SwiftUI
 // doesn't have — every field is rendered from the coach's real prescription and
 // absent fields are empty-stated.
 //
-// DATA CONSTRAINT (see BACKEND GAPS in the handoff return): this view receives a
-// `WorkoutPlan` (the live-execution shape), which carries the per-exercise
-// targets the live engine needs — distance / duration / pace / zone / reps /
-// load / video — but NOT the strength-specific `sets` / `loadPct` / `rpe` /
-// `restSeconds` (those live on `WorkoutItemParams`, dropped by
-// `WorkoutPlan.from(detail:)`) nor true block grouping or the coach's name. So
-// the strength table renders the columns it truthfully has and em-dashes the
-// rest; the AM/PM cross-session switch is a follow-up (the brief is handed one
-// session). Both are listed as gaps for the wiring change.
+// DATA SOURCE: the body is rendered from the RICH `AssignmentDetail` — the same
+// authoritative `GET /api/athlete/assignments/{id}/detail` payload (blocks →
+// typed items → per-set prescription + resolved pace/load) that the
+// SessionExercisesSheet reads. There is ONE rendering of the day, single-sourced
+// from that detail; the `WorkoutPlan` is kept only to launch the live execution
+// engine (`onStart`), never as a second presentation of the prescription. When
+// the detail isn't available the brief shows an honest "sin detalle" state — it
+// never fabricates a placeholder session. (AM/PM cross-session switch remains a
+// follow-up: the brief is handed one session.)
 struct PreWorkoutBriefView: View {
+    /// The live-execution shape — used ONLY to launch the timer/lap engine via
+    /// `onStart` (and as the title/CTA source). NOT a rendering source for the
+    /// prescription: that is always the structured `detail` below.
     let plan: WorkoutPlan
     /// The RICH assignment detail — structured per-set prescription + true block
-    /// grouping. When present the brief renders the structured body (per-set
-    /// pyramids, modality-native targets, grouped blocks); when nil (ad-hoc /
-    /// title-only session) it degrades to the flat `WorkoutPlan` rendering below.
+    /// grouping — the brief's single rendering source (per-set pyramids,
+    /// modality-native targets, grouped blocks). When nil/empty (offline first-
+    /// open with no cache, ad-hoc session, or a session with no detailed
+    /// exercises) the brief shows an honest "sin detalle" card, never a fabricated
+    /// generic "Sesión".
     var detail: AssignmentDetail? = nil
     let connections: ConnectionStatus
     let onStart: () -> Void
@@ -70,8 +75,6 @@ struct PreWorkoutBriefView: View {
         guard let first = sortedSegments.first else { return nil }
         return first.kind.modality
     }
-
-    private var modalityColor: Color { Theme.Modality.color(modality) }
 
     private var sortedSegments: [WorkoutSegment] {
         plan.segments.sorted { $0.order < $1.order }
@@ -134,15 +137,21 @@ struct PreWorkoutBriefView: View {
                     header
                     coachNote
                     if let blocks = structuredBlocks, !blocks.isEmpty {
-                        // Rich path: render the coach's structured prescription,
-                        // grouped per block, branching by modality. This is the
-                        // source-of-truth presentation when the detail is loaded.
+                        // The brief renders the coach's structured prescription —
+                        // the SAME authoritative `GET /assignments/{id}/detail`
+                        // blocks the SessionExercisesSheet shows — grouped per
+                        // block and branched by modality. Single source of truth:
+                        // there is NO second, WorkoutPlan-derived rendering of the
+                        // day to drift from this one (that fork only ever produced
+                        // a fabricated generic "Sesión" and was removed).
                         structuredBody(blocks)
-                    } else if isStrengthSession {
-                        strengthTable
                     } else {
-                        warmupCard
-                        seriesBlocks
+                        // No detail blocks reached the brief: an offline first-open
+                        // with no cache, or a session with no detailed exercises.
+                        // We DON'T fabricate a placeholder warmup + a "Sesión"
+                        // series — we say so honestly. The footer still offers a
+                        // freeform start + the retroactive "Ya lo hice" log.
+                        detailUnavailableCard
                     }
                     if anyConnection {
                         connectionsGrid
@@ -240,224 +249,33 @@ struct PreWorkoutBriefView: View {
         }
     }
 
-    // MARK: - Warm-up card (with the technique video placeholder)
-
-    private var warmupCard: some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
+    // MARK: - Detail unavailable (honest — no fabricated session)
+    //
+    // Shown when the authoritative assignment detail didn't reach the brief: an
+    // offline first-open with no cache, or a session with no detailed exercises.
+    // The brief NEVER invents a placeholder warmup + a "Sesión" series here — it
+    // states it plainly and leaves the footer's freeform start / "Ya lo hice" log
+    // reachable so the athlete can still act.
+    private var detailUnavailableCard: some View {
+        CardSurface(padding: 18) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 9) {
-                    Circle().fill(Theme.Color.faint).frame(width: 8, height: 8)
-                    Text("Calentamiento")
-                        .scaledFont(14, weight: .bold, relativeTo: .subheadline)
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                    Text("Sin detalle de la sesión")
+                        .scaledFont(15, weight: .heavy, relativeTo: .subheadline, italic: true)
                         .foregroundStyle(Theme.Color.foreground)
-                    Spacer(minLength: 8)
-                    LabelText(text: "Técnica")
                 }
-                // Honest placeholder: no technique video URL is shipped on the
-                // session today (BACKEND GAP). Tapping a real per-exercise video
-                // happens in the series rows below when a URL is present.
-                TechniqueVideoPlaceholder(available: false)
+                Text("No pudimos cargar los ejercicios de esta sesión. Revisa tu conexión y vuelve a abrirla, o regístrala manualmente.")
+                    .scaledFont(13, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-    }
-
-    // MARK: - Series blocks (run / erg / mixed)
-
-    private var seriesBlocks: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(spacing: 9) {
-                Circle().fill(modalityColor).frame(width: 8, height: 8)
-                Text("Principal · series")
-                    .scaledFont(14, weight: .bold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                Spacer(minLength: 8)
-                if let z = headlineZone {
-                    ZBadge(zone: z)
-                }
-            }
-            ForEach(sortedSegments) { seg in
-                seriesCard(seg)
-            }
-        }
-    }
-
-    // One prescribed movement as a card with an orange left edge: the headline
-    // target reads big in mono, secondary targets (pace, zone, load, rest) sit
-    // beneath, and a per-exercise technique video opens in-app when present.
-    private func seriesCard(_ seg: WorkoutSegment) -> some View {
-        CardSurface(padding: 14, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(seg.title)
-                        .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    if let z = seg.targetZone {
-                        ZBadge(zone: z)
-                    }
-                }
-                if let headline = primaryTarget(seg) {
-                    HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(headline.value)
-                            .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        if !headline.unit.isEmpty {
-                            Text(headline.unit)
-                                .scaledFont(13, relativeTo: .footnote)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                        Spacer(minLength: 8)
-                        if let pace = paceTarget(seg) {
-                            MonoText(text: pace, size: 13, weight: .medium, color: Theme.Color.accentText)
-                        }
-                    }
-                }
-                if let secondary = secondaryTargets(seg) {
-                    MonoText(text: secondary, size: 12, weight: .medium, color: Theme.Color.muted)
-                }
-                if let url = seg.videoUrl, YouTubeLinkParser.videoId(from: url) != nil {
-                    Button {
-                        Haptics.light()
-                        segmentVideoUrl = url
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("Ver técnica")
-                                .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                        }
-                        .foregroundStyle(Theme.Color.accentText)
-                    }
-                    .buttonStyle(PressScaleStyle())
-                    .padding(.top, 2)
-                    .accessibilityLabel("Ver vídeo de técnica de \(seg.title)")
-                }
-            }
-        }
-    }
-
-    // The dominant prescribed measure for the headline mono readout. Honest
-    // priority: distance → duration → reps. Never fabricates an absent field.
-    private func primaryTarget(_ seg: WorkoutSegment) -> (value: String, unit: String)? {
-        if let m = seg.targetDistanceMeters, m > 0 {
-            if m >= 1000 {
-                let km = m / 1000
-                let str = km.truncatingRemainder(dividingBy: 1) == 0
-                    ? "\(Int(km))" : String(format: "%.1f", km)
-                return (str, "km")
-            }
-            return ("\(Int(m))", "m")
-        }
-        if let d = seg.targetDurationSeconds, d > 0 {
-            return (TimeMinSecRow.format(d), "")
-        }
-        if let r = seg.targetReps, r > 0 {
-            return ("\(r)", "reps")
-        }
-        return nil
-    }
-
-    // Right-aligned pace target on the headline row (run → /km, erg → /500m).
-    private func paceTarget(_ seg: WorkoutSegment) -> String? {
-        guard let pace = seg.targetPaceSecondsPerKm, pace > 0 else { return nil }
-        if seg.kind == .rowOrSki {
-            return "@ \(formatPace(pace / 2)) /500m"
-        }
-        return "@ \(formatPace(pace)) /km"
-    }
-
-    // Secondary line: load + power when present. Rest interval is NOT carried on
-    // WorkoutSegment (BACKEND GAP), so it's never shown rather than guessed.
-    private func secondaryTargets(_ seg: WorkoutSegment) -> String? {
-        var parts: [String] = []
-        if let kg = seg.loadKg, kg > 0 {
-            parts.append(formatKg(kg))
-        }
-        if let w = seg.targetPowerWatts, w > 0 {
-            parts.append("\(w) W")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    // MARK: - Strength table (Ejercicio / S×R / Carga / RPE)
-
-    private var strengthTable: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(spacing: 9) {
-                Circle().fill(modalityColor).frame(width: 8, height: 8)
-                Text("Fuerza")
-                    .scaledFont(14, weight: .bold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                Spacer(minLength: 8)
-            }
-            CardSurface(padding: 0) {
-                VStack(spacing: 0) {
-                    strengthHeaderRow
-                    ForEach(Array(sortedSegments.enumerated()), id: \.element.id) { idx, seg in
-                        if idx > 0 { Hairline() }
-                        strengthRow(seg)
-                    }
-                }
-            }
-            // The live-execution WorkoutSegment carries reps + load but not the
-            // coach's sets / %1RM / RPE / rest (BACKEND GAP). Surface that the
-            // full prescription lives in Plan rather than silently dropping it.
-            Text("Series, %1RM, RPE y descansos completos en tu Plan.")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
-        }
-    }
-
-    // Fixed widths for the numeric columns so the header and every row align;
-    // "Ejercicio" takes the remaining space. (layoutPriority can't replicate
-    // flexbox ratios, so explicit widths are the robust choice.)
-    private let colSR: CGFloat = 56
-    private let colLoad: CGFloat = 88
-    private let colRPE: CGFloat = 42
-
-    private var strengthHeaderRow: some View {
-        HStack(spacing: 0) {
-            headerCell("Ejercicio", leading: true)
-            headerCell("S×R", width: colSR)
-            headerCell("Carga", width: colLoad)
-            headerCell("RPE", width: colRPE)
-        }
-        .padding(.vertical, 9)
-        .background(Theme.Color.surfaceSunken)
-        .overlay(alignment: .bottom) { Hairline() }
-    }
-
-    private func strengthRow(_ seg: WorkoutSegment) -> some View {
-        HStack(spacing: 0) {
-            Text(seg.title)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
-            // S×R — only reps are known on the segment; sets are a gap → "× R".
-            monoCell(setsRepsString(seg), width: colSR)
-            // Carga — real kg when present; %1RM is a gap.
-            monoCell(loadString(seg), width: colLoad, color: seg.loadKg != nil ? Theme.Color.accentText : Theme.Color.faint)
-            // RPE — not on the segment → honest em-dash.
-            monoCell("—", width: colRPE, color: Theme.Color.faint)
-        }
-        .padding(.vertical, 11)
-    }
-
-    private func setsRepsString(_ seg: WorkoutSegment) -> String {
-        if let r = seg.targetReps, r > 0 { return "× \(r)" }
-        return "—"
-    }
-
-    private func loadString(_ seg: WorkoutSegment) -> String {
-        if let kg = seg.loadKg, kg > 0 { return formatKg(kg) }
-        return "—"
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Sin detalle de la sesión. No pudimos cargar los ejercicios. Revisa tu conexión y vuelve a abrirla, o regístrala manualmente.")
     }
 
     // MARK: - Structured body (from the rich AssignmentDetail prescription)
@@ -959,41 +777,10 @@ struct PreWorkoutBriefView: View {
         isStrengthSession ? "▶ EMPEZAR FUERZA" : "▶ EMPEZAR"
     }
 
-    // MARK: - Table cell helpers
-
-    @ViewBuilder
-    private func headerCell(_ text: String, width: CGFloat? = nil, leading: Bool = false) -> some View {
-        let label = Text(text)
-            .scaledFont(11, relativeTo: .caption2)
-            .foregroundStyle(Theme.Color.muted)
-            .padding(.horizontal, leading ? 12 : 8)
-        if let width {
-            label.frame(width: width, alignment: .leading)
-        } else {
-            label.frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func monoCell(_ text: String, width: CGFloat, color: Color = Theme.Color.foreground) -> some View {
-        Text(text)
-            .font(.system(size: 13, weight: .medium, design: .monospaced))
-            .foregroundStyle(color)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .frame(width: width, alignment: .leading)
-            .padding(.horizontal, 8)
-    }
-
-    // MARK: - Local formatters (mirror WorkoutItemParamsFormatter)
-
+    // Kg formatter for the structured `lineFromParams` legacy-scalar fallback
+    // (an item with no structured prescription that still carries a stored load).
     private func formatKg(_ kg: Double) -> String {
         if kg.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(kg)) kg" }
         return String(format: "%.1f kg", kg)
-    }
-
-    private func formatPace(_ secondsPerUnit: Int) -> String {
-        let m = secondsPerUnit / 60
-        let s = secondsPerUnit % 60
-        return String(format: "%d:%02d", m, s)
     }
 }
