@@ -44,8 +44,56 @@ interface CatalogRow {
   modality: Modality;
   primary_muscle_groups: string[];
   equipment: string[];
+  // GLOBAL pedagogical content (the shared catalog default) — shown as the
+  // placeholder when the coach hasn't overridden a field.
   video_url: string | null;
+  cues: string | null;
+  description: string | null;
+  // THIS coach's RAW override per field (null = inheriting the global). Edited by
+  // EditExerciseForm; the athlete sees coalesce(override, global) in their plan.
+  override_cues: string | null;
+  override_description: string | null;
+  override_video_url: string | null;
 }
+
+// The exercise shape the API returns (GET list / POST create / PATCH edit).
+// POST create has no override_* fields (a brand-new exercise) — coerced to null.
+type ApiExercise = {
+  id: string;
+  name: string;
+  category: ExerciseCategory;
+  modality: Modality;
+  primary_muscle_groups?: string[];
+  equipment?: string[];
+  video_url: string | null;
+  cues: string | null;
+  description: string | null;
+  override_cues?: string | null;
+  override_description?: string | null;
+  override_video_url?: string | null;
+};
+
+function toCatalogRow(ex: ApiExercise): CatalogRow {
+  return {
+    id: ex.id,
+    name: ex.name,
+    category: ex.category,
+    modality: ex.modality,
+    primary_muscle_groups: ex.primary_muscle_groups ?? [],
+    equipment: ex.equipment ?? [],
+    video_url: ex.video_url,
+    cues: ex.cues,
+    description: ex.description,
+    override_cues: ex.override_cues ?? null,
+    override_description: ex.override_description ?? null,
+    override_video_url: ex.override_video_url ?? null,
+  };
+}
+
+// Effective field = the coach's override when set, else the global default. This
+// is the same precedence the athlete-read SQL applies (coalesce); kept here only
+// for the coach's own picker display.
+const effectiveVideo = (ex: CatalogRow): string | null => ex.override_video_url ?? ex.video_url;
 
 // Coach-facing category chips → real enum. Mirrors EXERCISE_CATEGORY_LABELS but
 // kept here as the ordered create/filter set (the create form needs the same).
@@ -115,8 +163,8 @@ export function ExercisePicker({
     let alive = true;
     fetch('/api/exercises?limit=2000', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { exercises: CatalogRow[] } | null) => {
-        if (alive && data?.exercises) setCatalog(data.exercises);
+      .then((data: { exercises: ApiExercise[] } | null) => {
+        if (alive && data?.exercises) setCatalog(data.exercises.map(toCatalogRow));
       })
       .catch(() => undefined)
       .finally(() => {
@@ -156,7 +204,8 @@ export function ExercisePicker({
         name: ex.name,
         category: ex.category,
         modality: ex.modality,
-        video_url: ex.video_url,
+        // Editor preview uses the coach's effective video (override, else global).
+        video_url: effectiveVideo(ex),
       });
     },
     [onPick],
@@ -359,6 +408,7 @@ function ExerciseRow({
   const slug = modalityColorSlug(ex.modality);
   const muscles = ex.primary_muscle_groups.slice(0, 2).join(', ');
   const sub = [ex.equipment[0], muscles].filter(Boolean).join(' · ');
+  const hasVideo = effectiveVideo(ex) != null;
   return (
     <div className="group flex items-center gap-2 rounded-[var(--v2-r-s)] px-2 transition-colors hover:bg-[color:var(--v2-elevated)]">
       <button
@@ -394,9 +444,9 @@ function ExerciseRow({
         onClick={() => onEdit(ex)}
         aria-label={`Editar ${ex.name}`}
         className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-opacity hover:text-[color:var(--v2-fg)] focus:opacity-100 group-hover:opacity-100"
-        title={ex.video_url ? 'Editar (tiene vídeo)' : 'Editar — añadir vídeo'}
+        title={hasVideo ? 'Editar tu versión (tiene vídeo)' : 'Editar tu versión — indicaciones y vídeo'}
       >
-        <MIcon name={ex.video_url ? 'play_circle' : 'edit'} size={16} />
+        <MIcon name={hasVideo ? 'play_circle' : 'edit'} size={16} />
       </button>
     </div>
   );
@@ -464,8 +514,8 @@ function CreateExerciseForm({
         }),
       });
       if (!res.ok) throw new Error(`create failed (${res.status})`);
-      const data = (await res.json()) as { exercise: CatalogRow };
-      onCreated(data.exercise);
+      const data = (await res.json()) as { exercise: ApiExercise };
+      onCreated(toCatalogRow(data.exercise));
     } catch {
       setError('No se pudo crear el ejercicio. Reintenta.');
       setSaving(false);
@@ -537,7 +587,11 @@ function CreateExerciseForm({
   );
 }
 
-// ── Edit mode (set/update video on an existing exercise) ──────────────────────
+// ── Edit mode (the coach's OWN version of an existing exercise) ───────────────
+// Edits THIS coach's override (cues / description / video). The exercise stays a
+// single global row; only the coach's pedagogical content is per-coach. Each field
+// prefills with the coach's override and shows the GLOBAL value as placeholder —
+// left empty, the athlete inherits the global default (PATCH → coach_exercise_overrides).
 function EditExerciseForm({
   exercise,
   onCancel,
@@ -547,7 +601,9 @@ function EditExerciseForm({
   onCancel: () => void;
   onEdited: (ex: CatalogRow) => void;
 }) {
-  const [video, setVideo] = useState(exercise.video_url ?? '');
+  const [cues, setCues] = useState(exercise.override_cues ?? '');
+  const [description, setDescription] = useState(exercise.override_description ?? '');
+  const [video, setVideo] = useState(exercise.override_video_url ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -563,12 +619,18 @@ function EditExerciseForm({
         method: 'PATCH',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        // Send '' to clear, the canonical URL otherwise; youtubeUrlSchema handles both.
-        body: JSON.stringify({ video_url: video.trim() }),
+        // Send each field trimmed; '' → null server-side = clear the override for
+        // that field (athlete falls back to the global). The route writes these to
+        // THIS coach's override, never the global exercise row.
+        body: JSON.stringify({
+          cues: cues.trim(),
+          description: description.trim(),
+          video_url: video.trim(),
+        }),
       });
       if (!res.ok) throw new Error(`update failed (${res.status})`);
-      const data = (await res.json()) as { exercise: CatalogRow };
-      onEdited(data.exercise);
+      const data = (await res.json()) as { exercise: ApiExercise };
+      onEdited(toCatalogRow(data.exercise));
     } catch {
       setError('No se pudo guardar. Reintenta.');
       setSaving(false);
@@ -591,6 +653,30 @@ function EditExerciseForm({
         </div>
       </div>
 
+      <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
+        <MIcon name="person" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
+        <p className="text-[12px] leading-snug text-[color:var(--v2-fg)]">
+          <b>Tu versión.</b> Es lo que verán <b>tus</b> atletas en este ejercicio. Lo que dejes
+          vacío se hereda del contenido base.
+        </p>
+      </div>
+
+      <OverrideTextField
+        label="Indicaciones (cues)"
+        value={cues}
+        onChange={setCues}
+        globalValue={exercise.cues}
+        rows={3}
+      />
+
+      <OverrideTextField
+        label="Descripción"
+        value={description}
+        onChange={setDescription}
+        globalValue={exercise.description}
+        rows={3}
+      />
+
       <YouTubeField value={video} onChange={setVideo} state={videoState} forEdit />
 
       {error ? <p className="text-xs text-[color:var(--v2-danger)]">{error}</p> : null}
@@ -610,10 +696,46 @@ function EditExerciseForm({
           className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
         >
           <MIcon name={saving ? 'progress_activity' : 'save'} size={16} />
-          {saving ? 'Guardando…' : 'Guardar'}
+          {saving ? 'Guardando…' : 'Guardar mi versión'}
         </button>
       </div>
     </div>
+  );
+}
+
+// A multi-line override field: prefilled with the coach's override, the GLOBAL
+// value shown as placeholder, with an honest "empty = inherits the base" hint.
+function OverrideTextField({
+  label,
+  value,
+  onChange,
+  globalValue,
+  rows,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  globalValue: string | null;
+  rows: number;
+}) {
+  const base = globalValue?.trim() || null;
+  return (
+    <label className="block space-y-1.5">
+      <span className="v2-micro">{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        maxLength={2000}
+        placeholder={base ?? 'Sin contenido base — escribe el tuyo…'}
+        className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
+      />
+      <p className="text-[11px] text-[color:var(--v2-faint)]">
+        {base
+          ? 'Vacío = tus atletas verán el contenido base (el del placeholder).'
+          : 'No hay contenido base; si lo dejas vacío, no se mostrará nada.'}
+      </p>
+    </label>
   );
 }
 
