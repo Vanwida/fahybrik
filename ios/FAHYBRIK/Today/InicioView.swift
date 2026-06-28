@@ -872,12 +872,13 @@ struct InicioView: View {
 
     // MARK: - Derived: race + week progress
 
-    /// The race to show on the tile: the PRIMARY objective (target) when one is
-    /// set — it's the goal the plan peaks to and the one the athlete pins in "Mis
-    /// carreras" — falling back to the chronologically next race only when there's
-    /// no target yet. (Order matters: target first, so the athlete's chosen primary
-    /// drives this countdown rather than a sooner secondary/tune-up hijacking it.)
-    private var displayRace: AthleteNextRace? { targetRace ?? nextRace }
+    /// The race to show on the "Próxima carrera" tile: the chronologically
+    /// NEAREST upcoming race (`nextRace`) — whatever's soonest, regardless of
+    /// priority — so the countdown matches its label. A sooner secondary/tune-up
+    /// is the next race the athlete actually faces. Falls back to the target only
+    /// when there's no next race. The athlete's chosen primary objective still
+    /// lives in the Carreras tab, badged as "Objetivo principal".
+    private var displayRace: AthleteNextRace? { nextRace ?? targetRace }
 
     private struct WeekSegment: Identifiable {
         let id = UUID()
