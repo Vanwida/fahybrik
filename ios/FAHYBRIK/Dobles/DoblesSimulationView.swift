@@ -20,6 +20,7 @@ struct DoblesSimulationView: View {
 
     @State private var simulation: DoblesSimulation? = nil
     @State private var partner: PartnerInfo? = nil
+    @State private var coachName: String? = nil
     @State private var loading = true
     @State private var appear = false
 
@@ -29,6 +30,11 @@ struct DoblesSimulationView: View {
 
     private var selfName: String { simulation?.selfName ?? "Tú" }
     private var partnerName: String { simulation?.partnerName ?? partner?.firstName ?? "Compañero" }
+
+    /// Coach display name — AGNOSTIC data from the athlete week API
+    /// (coaches.full_name), never hardcoded. "Coach Demo 1" in the demo, not
+    /// "Pablo". Neutral fallback when absent; we never fabricate a name.
+    private var coachLabel: String { coachName ?? "Coach" }
 
     var body: some View {
         ScrollView {
@@ -65,6 +71,13 @@ struct DoblesSimulationView: View {
             loading = true
             if let bearer = effectiveBearer {
                 partner = try? await PartnerService.fetchPartner(bearer: bearer)
+                // Coach identity from the athlete week API (same source ProfileView
+                // reads), so the tactical note is attributed to the real coach.
+                if let resp = try? await PlanService.fetchWeek(bearer: bearer),
+                   let name = resp.coachName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !name.isEmpty {
+                    coachName = name
+                }
             }
             simulation = await DoblesService.fetchSimulation(bearer: effectiveBearer)
             loading = false
@@ -136,7 +149,7 @@ struct DoblesSimulationView: View {
         if let note = sim.coachNote, !note.isEmpty {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Pablo")
+                    Text(coachLabel)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Theme.Color.accentText)
                     Text(note)
@@ -158,7 +171,7 @@ struct DoblesSimulationView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Nota del coach Pablo: \(note)")
+            .accessibilityLabel("Nota del coach \(coachLabel): \(note)")
             .staggerReveal(appear, index: 3)
         }
 

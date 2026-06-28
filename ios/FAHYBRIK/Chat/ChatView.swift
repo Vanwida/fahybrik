@@ -1,6 +1,7 @@
 import SwiftUI
 
-// Chat tab — direct thread between the athlete and Pablo Casals (coach Fabrik).
+// Chat tab — direct thread between the athlete and their coach (coach identity
+// is agnostic data, read from the chat thread payload — never hardcoded).
 // Backed by the live chat API (ChatService): messages load on appear, poll while
 // the view is visible, and sends are optimistic with an offline queue fallback.
 // Voice notes render a static waveform + duration. Castilian throughout.
@@ -21,6 +22,12 @@ struct ChatView: View {
     @State private var isLoading: Bool = true
     @State private var loadFailed: Bool = false
     @FocusState private var inputFocused: Bool
+
+    // Coach identity is AGNOSTIC data from the chat thread payload (chat_threads
+    // -> coaches.full_name), never hardcoded. In the demo this resolves to
+    // "Coach Demo 1", not "Pablo". Neutral fallbacks below when it's absent — we
+    // never fabricate a name.
+    @State private var coachName: String? = nil
 
     // The athlete's own user id, learned from the first message they send (the
     // POST response carries senderUserId). Persisted so sender attribution is
@@ -59,7 +66,7 @@ struct ChatView: View {
                         } else {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(messages) { msg in
-                                    MessageRow(message: msg)
+                                    MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach")
                                         .id(msg.id)
                                 }
                             }
@@ -94,6 +101,7 @@ struct ChatView: View {
     @MainActor
     private func loadInitial() async {
         guard let bearer else { isLoading = false; return }
+        await loadCoachIdentity(bearer: bearer)
         do {
             let dtos = try await ChatService.fetchMessages(bearer: bearer)
             // Reconcile (not replace) so any still-optimistic / offline-queued
@@ -106,6 +114,19 @@ struct ChatView: View {
             if messages.isEmpty { loadFailed = true }
         }
         isLoading = false
+    }
+
+    /// Resolve the coach's display name from the athlete's chat thread (the
+    /// in-surface source: chat_threads -> coaches.full_name). Fetched once; the
+    /// thread auto-creates server-side, matching the lazy-create contract. Left
+    /// nil on failure / when the athlete has no coach → neutral fallbacks render.
+    @MainActor
+    private func loadCoachIdentity(bearer: String) async {
+        guard coachName == nil else { return }
+        guard let thread = try? await ChatService.fetchThread(bearer: bearer) else { return }
+        if let name = thread.coachName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+            coachName = name
+        }
     }
 
     /// Real-time loop: prefer the SSE stream; fall back to REST polling when it
@@ -330,6 +351,36 @@ struct ChatView: View {
         return fmt.string(from: date)
     }
 
+    // MARK: - Coach identity (agnostic display)
+
+    /// Full coach name for the header / empty state, with a neutral fallback.
+    private var coachDisplayName: String { coachName ?? "Coach" }
+
+    /// Up to two uppercased initials for the avatar. Empty when unknown →
+    /// CoachAvatar renders a person glyph instead of fabricated initials.
+    private var coachInitials: String {
+        guard let name = coachName else { return "" }
+        return name
+            .split(separator: " ")
+            .prefix(2)
+            .compactMap { $0.first }
+            .map { String($0).uppercased() }
+            .joined()
+    }
+
+    /// The coach's first name, preserving case. Used for the conversational
+    /// empty-state prompt and per-message sender attribution. Nil → neutral copy.
+    private var coachFirstName: String? {
+        guard let first = coachName?.split(separator: " ").first else { return nil }
+        return String(first)
+    }
+
+    /// Empty-state prompt addressed to the coach by first name, or neutral copy.
+    private var emptyPrompt: String {
+        if let name = coachFirstName { return "Escribe a \(name) para empezar" }
+        return "Escríbele a tu coach para empezar"
+    }
+
     // MARK: - Header
     //
     // Coach identity card (avatar + name + role), mirroring the handoff `chat`
@@ -339,12 +390,12 @@ struct ChatView: View {
     // sheet, a trailing close button is shown; as the tab root it is omitted.
     private var header: some View {
         HStack(spacing: 12) {
-            CoachAvatar(initials: "PC", size: 36)
+            CoachAvatar(initials: coachInitials, size: 36)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Pablo Casals")
+                Text(coachDisplayName)
                     .scaledFont(15, weight: .bold, relativeTo: .subheadline, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Coach Fabrik")
+                Text("Coach")
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
             }
@@ -365,7 +416,7 @@ struct ChatView: View {
         .padding(.top, 14)
         .padding(.bottom, 12)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Conversación con Pablo Casals, coach Fabrik")
+        .accessibilityLabel("Conversación con \(coachDisplayName)")
     }
 
     // MARK: - States
@@ -383,8 +434,8 @@ struct ChatView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            CoachAvatar(initials: "PC", size: 56)
-            Text(loadFailed ? "No se pudo cargar el chat" : "Escribe a Pablo para empezar")
+            CoachAvatar(initials: coachInitials, size: 56)
+            Text(loadFailed ? "No se pudo cargar el chat" : emptyPrompt)
                 .scaledFont(15, weight: .bold, relativeTo: .subheadline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
             Text(loadFailed
@@ -419,7 +470,7 @@ struct ChatView: View {
                 .clipShape(Capsule())
                 .submitLabel(.send)
                 .onSubmit { send() }
-                .accessibilityLabel("Mensaje para Pablo")
+                .accessibilityLabel(coachFirstName.map { "Mensaje para \($0)" } ?? "Mensaje para tu coach")
 
             Button(action: send) {
                 Image(systemName: "arrow.up")
@@ -464,6 +515,10 @@ private struct ChatMessage: Identifiable {
 
 private struct MessageRow: View {
     let message: ChatMessage
+    /// Agnostic coach name (first name) for sender attribution. Provided by the
+    /// parent from the chat thread payload, with a neutral fallback. The meta
+    /// line lowercases it; VoiceOver uses it as-is.
+    let coachLabel: String
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -486,7 +541,7 @@ private struct MessageRow: View {
     }
 
     private var metaLabel: String {
-        let who = message.sender == .me ? "tú" : "pablo"
+        let who = message.sender == .me ? "tú" : coachLabel.lowercased()
         switch message.status {
         case .sending: return "enviando… · \(who)"
         case .pending, .sent: return "\(message.timestamp) · \(who)"
@@ -495,7 +550,7 @@ private struct MessageRow: View {
 
     /// Coherent VoiceOver summary: who, when, and the message content.
     private var voiceOverLabel: String {
-        let who = message.sender == .me ? "Tú" : "Pablo"
+        let who = message.sender == .me ? "Tú" : coachLabel
         switch message.kind {
         case .text(let body):
             return "\(who), \(message.timestamp): \(body)"
