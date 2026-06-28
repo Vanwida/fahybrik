@@ -4,6 +4,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { blockExerciseToItem, type BlockExerciseRow } from './blocks';
+import { cloneTemplateAsInstance } from './template-instance';
 import { getMonthTemplate } from './program-months';
 import { getWeekTemplate } from './program-weeks';
 import { parseWeekSlotsFromDb } from './program-week-slots';
@@ -363,26 +364,35 @@ async function insertSlotAssignment(params: {
 }): Promise<number> {
   if (params.session.kind !== 'workout') return 0;
 
-  // Dos formas de definir el workout de una sesión:
-  //  1) `template_id` → referencia a un `templates` reutilizable existente.
-  //  2) `blocks[]` inline → contenido editado en el week-studio sin template
-  //     reutilizable; lo materializamos como un template (+ segments) propio
-  //     de esta sesión para poder referenciarlo (workout_assignments.template_id
-  //     es NOT NULL y GET /athlete/plan/week hace join contra `templates`).
+  // Dos formas de definir el workout de una sesión — en AMBAS la asignación
+  // recibe un INSTANCE per-atleta (fork), nunca una referencia compartida a la
+  // biblioteca (per-athlete plan bifurcation):
+  //  1) `template_id` → referencia a un `templates` reutilizable: lo CLONAMOS en
+  //     un instance per-atleta (cloneTemplateAsInstance) y apuntamos la
+  //     asignación al clon → editar la biblioteca no propaga al atleta, y editar
+  //     el atleta no toca la biblioteca ni a otros atletas.
+  //  2) `blocks[]` inline → contenido editado en el week-studio: lo
+  //     materializamos como un template propio de esta sesión, ya etiquetado
+  //     como instance del atleta. (workout_assignments.template_id es NOT NULL y
+  //     GET /athlete/plan/week hace join contra `templates`.)
   let templateId: number | null = null;
   let version = 1;
 
   if (params.session.template_id != null) {
-    templateId = Number(params.session.template_id);
-    const versionRows = await params.client<Array<{ version: number }>>`
-      select coalesce(max(version), 1)::int as version
-      from templates where id = ${templateId}
-    `;
-    version = versionRows[0]?.version ?? 1;
+    const instance = await cloneTemplateAsInstance({
+      client: params.client,
+      source_template_id: Number(params.session.template_id),
+      athlete_id: params.athlete_id,
+    });
+    // Plantilla de origen desaparecida → nada que asignar.
+    if (instance == null) return 0;
+    templateId = instance.template_id;
+    version = instance.version;
   } else {
     templateId = await materializeInlineSessionTemplate({
       client: params.client,
       coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
       target_block: params.target_block,
       session: params.session,
       name_base: params.template_name_base,
@@ -475,6 +485,8 @@ export async function hydrateBlockParts(
 async function materializeInlineSessionTemplate(params: {
   client: Sql;
   coach_id: number | bigint;
+  /** Owner of the per-athlete instance this inline session materializes into. */
+  athlete_id: number | bigint;
   target_block: (typeof TARGET_BLOCKS)[number];
   session: WeekSession;
   name_base: string;
@@ -514,9 +526,14 @@ async function materializeInlineSessionTemplate(params: {
   const name = (params.session.focus?.trim() || params.name_base).slice(0, 200);
   const coachNotes = params.session.notes ?? null;
 
+  // Materialized inline content is per-athlete by construction → tag it as that
+  // athlete's instance (instance_athlete_id) so it's a fork from birth and the
+  // coach library (which filters instance_athlete_id IS NULL) never lists it.
+  // No `instance_of_template_id`: inline content has no library source template.
   const tplRows = await params.client<Array<{ id: string }>>`
     insert into templates (
-      coach_id, name, format, target_block, is_draft, coach_notes
+      coach_id, name, format, target_block, is_draft, coach_notes,
+      instance_athlete_id
     )
     values (
       ${params.coach_id as number},
@@ -524,7 +541,8 @@ async function materializeInlineSessionTemplate(params: {
       ${format}::template_format,
       ${params.target_block}::target_block,
       false,
-      ${coachNotes}
+      ${coachNotes},
+      ${params.athlete_id as number}
     )
     returning id::text
   `;

@@ -4,6 +4,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
 import { coerceJson } from '@/lib/json-column';
+import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
 import { loadTemplateNames } from '@/lib/dashboard/coach/inbox';
 import {
   weekAdjustmentProposalJsonSchema,
@@ -164,18 +165,32 @@ export async function approveWeekAdjustment(params: {
 
   for (const change of proposal.slot_changes) {
     if (!change.to_template_id) continue;
-    const versionRows = await client<Array<{ version: number }>>`
-      select coalesce(max(version), 1)::int as version from templates where id = ${Number(change.to_template_id)}
-    `;
-    await client`
-      update workout_assignments
-      set template_id = ${Number(change.to_template_id)},
-          template_version = ${versionRows[0]?.version ?? 1},
-          updated_at = now()
+    // Per-athlete plan bifurcation: swapping in a library template forks it into
+    // a private per-athlete INSTANCE per matched assignment (never a shared
+    // reference). One clone PER assignment keeps slot↔slot isolation when a day
+    // has several scheduled sessions.
+    const targets = await client<Array<{ id: string }>>`
+      select id::text as id
+      from workout_assignments
       where athlete_id = ${params.athlete_id}
         and scheduled_for = ${change.date}::date
         and status = 'scheduled'
     `;
+    for (const target of targets) {
+      const instance = await cloneTemplateAsInstance({
+        client,
+        source_template_id: Number(change.to_template_id),
+        athlete_id: params.athlete_id,
+      });
+      if (!instance) continue;
+      await client`
+        update workout_assignments
+        set template_id = ${instance.template_id},
+            template_version = ${instance.version},
+            updated_at = now()
+        where id = ${Number(target.id)}
+      `;
+    }
   }
 
   await client`

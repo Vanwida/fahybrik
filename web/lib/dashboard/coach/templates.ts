@@ -115,6 +115,9 @@ export async function listTemplatesForCoach(
     ) seg on seg.template_id = t.id
     where t.coach_id = ${coach_id as number}
       and t.archived_at is null
+      -- Exclude per-athlete INSTANCES (forks): the library lists only reusable
+      -- templates; instances are reached through their assignment.
+      and t.instance_athlete_id is null
     order by t.updated_at desc
     limit 500
   `;

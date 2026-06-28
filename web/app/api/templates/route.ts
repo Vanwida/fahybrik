@@ -58,6 +58,9 @@ export async function GET(req: Request) {
     ) seg on seg.template_id = t.id
     where t.coach_id = ${session.coach_id}
       and t.archived_at is null
+      -- Exclude per-athlete INSTANCES (forks): the library lists only reusable
+      -- templates; instances are reached through their assignment.
+      and t.instance_athlete_id is null
       and (${include_drafts ? 1 : 0}::int = 1 or t.is_draft = false)
       and (${term}::text is null or lower(t.name) like ${term}::text)
     order by t.updated_at desc

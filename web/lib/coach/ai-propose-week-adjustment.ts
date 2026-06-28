@@ -9,6 +9,7 @@ import { notifyCoach } from '@/lib/notifications/dispatch';
 import { chatCompletion, isChatConfigured } from './ai-chat';
 import { retrieveRelevant } from '@/lib/rag/retrieve';
 import { coerceJson } from '@/lib/json-column';
+import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
 import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
@@ -487,19 +488,31 @@ export async function approveWeekAdjustment(params: {
 
   for (const change of proposal.slot_changes) {
     if (!change.to_template_id) continue;
-    const versionRows = await client<Array<{ version: number }>>`
-      select coalesce(max(version), 1)::int as version from templates where id = ${Number(change.to_template_id)}
-    `;
-    await client`
-      update workout_assignments
-      set template_id = ${Number(change.to_template_id)},
-          template_version = ${versionRows[0]?.version ?? 1},
-          updated_at = now()
+    // Per-athlete plan bifurcation: fork the swapped-in library template into a
+    // private per-athlete INSTANCE per matched assignment (never a shared ref).
+    const targets = await client<Array<{ id: string }>>`
+      select id::text as id
+      from workout_assignments
       where athlete_id = ${params.athlete_id as number}
         and scheduled_for = ${change.date}::date
         and status = 'scheduled'
         and notes ilike ${'%' + change.slot + '%'}
     `;
+    for (const target of targets) {
+      const instance = await cloneTemplateAsInstance({
+        client,
+        source_template_id: Number(change.to_template_id),
+        athlete_id: params.athlete_id,
+      });
+      if (!instance) continue;
+      await client`
+        update workout_assignments
+        set template_id = ${instance.template_id},
+            template_version = ${instance.version},
+            updated_at = now()
+        where id = ${Number(target.id)}
+      `;
+    }
   }
 
   await client`

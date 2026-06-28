@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { cloneTemplateAsInstance } from './template-instance';
 
 export class DaySessionError extends Error {
   constructor(
@@ -189,14 +190,23 @@ export async function createDaySession(params: {
     iso_date: params.iso_date,
   });
 
-  const templateId =
+  const sourceTemplateId =
     params.template_id ??
     (await resolveDefaultTemplateId({ client, coach_id: params.coach_id }));
 
-  const versionRows = await client<Array<{ version: number }>>`
-    select coalesce(max(version), 1)::int as version from templates where id = ${templateId}
-  `;
-  const version = versionRows[0]?.version ?? 1;
+  // Per-athlete plan bifurcation: the assignment owns a private INSTANCE (fork)
+  // of the chosen library template, never a shared reference — so later edits to
+  // this day stay isolated and library edits never reach this athlete.
+  const instance = await cloneTemplateAsInstance({
+    client,
+    source_template_id: sourceTemplateId,
+    athlete_id: params.athlete_id,
+  });
+  if (!instance) {
+    throw new DaySessionError('no_templates', 'La plantilla de origen no existe', 400);
+  }
+  const templateId = instance.template_id;
+  const version = instance.version;
 
   const notes = encodeCoachAssignmentNotes({
     display_title: params.display_title,
