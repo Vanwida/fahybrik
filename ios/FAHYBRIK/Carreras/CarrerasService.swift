@@ -308,6 +308,31 @@ enum CarrerasService {
             throw HyresultImportError.unreachable
         }
     }
+
+    /// Promote ONE existing upcoming race to the athlete's PRIMARY objective
+    /// ('target'). `POST /api/athlete/races/target/{race_id}` flips its priority
+    /// in place and demotes any prior target to 'secondary' (single-target
+    /// invariant, enforced server-side). No request body — the race is already on
+    /// the calendar. On success the hub should re-fetch so the badges AND Inicio's
+    /// main countdown reflect the new primary. Throws `HyresultImportError` so the
+    /// hub can surface an honest reason (mapped to promote-appropriate copy at the
+    /// call site, since the error's own messages are import-flavored).
+    static func makePrimaryObjective(raceId: Int, bearer: String?) async throws {
+        guard let bearer else { throw HyresultImportError.unauthorized }
+        do {
+            let _: Empty = try await APIClient.shared.post(
+                path: "api/athlete/races/target/\(raceId)",
+                body: Empty(),
+                bearer: bearer
+            )
+        } catch let error as APIError {
+            throw HyresultImportError(apiError: error)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw HyresultImportError.unreachable
+        }
+    }
 }
 
 // MARK: - Import request + errors

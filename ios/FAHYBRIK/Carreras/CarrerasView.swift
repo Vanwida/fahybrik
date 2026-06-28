@@ -32,7 +32,7 @@ struct CarrerasView: View {
     // re-open the search so the athlete can pick the correct profile.
     @State private var showRemoveConfirm = false
     @State private var removing = false
-    @State private var removeError: String? = nil
+    @State private var actionError: String? = nil
 
     // Rich, doubles-aware history from the full-history import. Seeded from the
     // local cache on load and refreshed when an import returns; preferred over
@@ -116,15 +116,15 @@ struct CarrerasView: View {
             Text("Esto borrará las carreras importadas y podrás volver a buscar tu perfil.")
         }
         .alert(
-            "No se pudo eliminar",
+            "No se pudo completar",
             isPresented: Binding(
-                get: { removeError != nil },
-                set: { if !$0 { removeError = nil } }
+                get: { actionError != nil },
+                set: { if !$0 { actionError = nil } }
             )
         ) {
-            Button("Aceptar", role: .cancel) { removeError = nil }
+            Button("Aceptar", role: .cancel) { actionError = nil }
         } message: {
-            Text(removeError ?? "")
+            Text(actionError ?? "")
         }
     }
 
@@ -147,17 +147,17 @@ struct CarrerasView: View {
             showImport = true
         } catch let err as HyresultImportError {
             Haptics.error()
-            removeError = err.message
+            actionError = err.message
         } catch {
             Haptics.error()
-            removeError = "No pudimos eliminar las carreras importadas. Inténtalo de nuevo."
+            actionError = "No pudimos eliminar las carreras importadas. Inténtalo de nuevo."
         }
     }
 
     // Remove one future objective ("Quitar objetivo"): confirm-gated delete via
     // the races endpoint, then refresh both lists. The thrown HyresultImportError
     // messages are import-flavored, so we map to removal-appropriate copy here and
-    // reuse the existing removeError alert.
+    // reuse the existing actionError alert.
     @MainActor
     private func removeObjective(_ race: UpcomingRace) async {
         objectiveToRemove = nil
@@ -169,13 +169,37 @@ struct CarrerasView: View {
             Haptics.error()
             switch err {
             case .unauthorized:
-                removeError = "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
+                actionError = "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
             default:
-                removeError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
+                actionError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
             }
         } catch {
             Haptics.error()
-            removeError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
+            actionError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
+        }
+    }
+
+    // Promote one upcoming race to the PRIMARY objective ("Hacer objetivo
+    // principal"): POST to the races endpoint (server demotes the prior target to
+    // secondary — single primary at a time), then refresh so the badges update and
+    // Inicio's main countdown follows the new primary. Reuses the actionError alert.
+    @MainActor
+    private func makePrimary(_ race: UpcomingRace) async {
+        do {
+            try await CarrerasService.makePrimaryObjective(raceId: race.raceId, bearer: effectiveBearer)
+            Haptics.success()
+            await load()
+        } catch let err as HyresultImportError {
+            Haptics.error()
+            switch err {
+            case .unauthorized:
+                actionError = "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
+            default:
+                actionError = "No pudimos cambiar tu objetivo principal. Inténtalo de nuevo."
+            }
+        } catch {
+            Haptics.error()
+            actionError = "No pudimos cambiar tu objetivo principal. Inténtalo de nuevo."
         }
     }
 
@@ -266,9 +290,10 @@ struct CarrerasView: View {
     // MARK: - PRÓXIMAS · the athlete's future objectives (countdowns)
     //
     // All upcoming races (target + secondary/tune-up), source of truth from
-    // GET /api/athlete/races, sorted soonest-first by the server. Each card is a
-    // confirm-gated remove control. "Buscar carrera" (→ BuscarCarreraSheet →
-    // FijarObjetivoView) lives in the section header.
+    // GET /api/athlete/races, sorted soonest-first by the server. Each card shows
+    // its role and offers "Hacer objetivo principal" (non-primary) + a confirm-gated
+    // remove. "Buscar carrera" (→ BuscarCarreraSheet → FijarObjetivoView) lives in
+    // the section header.
 
     @ViewBuilder
     private var upcomingSection: some View {
@@ -283,9 +308,11 @@ struct CarrerasView: View {
             } else if !upcoming.isEmpty {
                 VStack(spacing: Theme.Spacing.m) {
                     ForEach(upcoming) { race in
-                        UpcomingRaceCard(race: race) {
-                            objectiveToRemove = race
-                        }
+                        UpcomingRaceCard(
+                            race: race,
+                            onMakePrimary: { Task { await makePrimary(race) } },
+                            onRemove: { objectiveToRemove = race }
+                        )
                     }
                 }
             } else {
@@ -429,86 +456,161 @@ struct CarrerasView: View {
     }
 }
 
-// MARK: - Upcoming race card (countdown · confirm-gated remove)
+// MARK: - Upcoming race card (countdown · role badge · promote / remove)
 //
-// A premium countdown for one future objective: the big mono days number (the
-// InicioView countdown language), the race name, its category line, city + date,
-// an optional goal time, and a priority chip for secondary/tune-up races. The
-// whole card is a confirm-gated remove control — tapping signals intent and the
-// hub asks before dropping the objective. Light+dark off Theme tokens; brand
-// accent is orange-as-text. Label copy reuses AthleteNextRace's static helpers
-// so the home countdown and this card never drift.
+// A premium countdown for one future objective: a role badge ("Objetivo
+// principal" for the target, "Secundaria"/"Tune-up" otherwise), the big mono days
+// number (the InicioView countdown language), the race name, its category line,
+// city + date, and an optional goal time. Two explicit controls: an accessory
+// remove button in the eyebrow (the hub confirms before dropping) and, on
+// non-primary cards, a full-width "Hacer objetivo principal" action that promotes
+// the race to the single primary (server demotes the prior target). The primary
+// card carries the orange top accent. Light+dark off Theme tokens; brand accent is
+// orange-as-text. Label copy reuses AthleteNextRace's static helpers so the home
+// countdown and this card never drift.
 
 private struct UpcomingRaceCard: View {
     let race: UpcomingRace
+    /// Promote this race to the PRIMARY objective (the hub owns the POST + refresh).
+    /// Shown only on non-primary cards.
+    let onMakePrimary: () -> Void
     /// Signals intent to remove this objective (the hub owns the confirm + delete).
     let onRemove: () -> Void
 
+    /// The target race is the single primary objective. Absent priority defaults to
+    /// 'target' (the create path's default), so a legacy row with no priority reads
+    /// as primary rather than orphaned.
+    private var isPrimary: Bool { (race.priority?.lowercased() ?? "target") == "target" }
+
     var body: some View {
-        Button {
-            Haptics.light()
-            onRemove()
-        } label: {
-            CardSurface(padding: 16, topAccent: true, elevated: true) {
-                VStack(alignment: .leading, spacing: 11) {
-                    eyebrowRow
-                    countdownRow
-                    Text(race.name)
-                        .scaledFont(18, weight: .heavy, relativeTo: .headline, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let category = categoryLine {
-                        Text(category)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                    if let meta = locationDateLine {
-                        Text(meta)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    if let goal = goalText {
-                        HStack(spacing: 5) {
-                            Image(systemName: "target")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Theme.Color.accentText)
-                            Text("Objetivo \(goal)")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
+        // A container (not a button): the card holds two explicit controls — an
+        // accessory remove button in the eyebrow and, for non-primary races, a
+        // "Hacer objetivo principal" action. The primary card carries the orange
+        // top accent so the goal race reads as the anchor at a glance.
+        CardSurface(padding: 16, topAccent: isPrimary, elevated: true) {
+            VStack(alignment: .leading, spacing: 11) {
+                eyebrowRow
+                infoBlock
+                if !isPrimary {
+                    makePrimaryButton
                 }
             }
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Toca para quitar este objetivo")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: Rows
 
     private var eyebrowRow: some View {
         HStack(spacing: 8) {
-            LabelText(text: "Próxima carrera", color: Theme.Color.accentText)
+            priorityBadge
             Spacer(minLength: 8)
-            if let priority = priorityChipLabel {
-                Text(priority)
+            Button {
+                Haptics.light()
+                onRemove()
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Quitar objetivo")
+            .accessibilityHint("\(race.name) dejará de contar para tu cuenta atrás")
+        }
+    }
+
+    /// The role badge: accent "Objetivo principal" for the target, a neutral
+    /// "Secundaria" / "Tune-up" for the rest.
+    @ViewBuilder
+    private var priorityBadge: some View {
+        if isPrimary {
+            HStack(spacing: 5) {
+                Image(systemName: "target")
+                    .font(.system(size: 10, weight: .bold))
+                Text("Objetivo principal")
                     .font(.system(size: 10, weight: .bold))
                     .tracking(0.4)
                     .textCase(.uppercase)
-                    .foregroundStyle(Theme.Color.neutral)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Theme.Color.neutralTint)
-                    .clipShape(Capsule())
             }
-            Image(systemName: "xmark.circle")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-                .accessibilityHidden(true)
+            .foregroundStyle(Theme.Color.accentText)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Theme.Color.accent.opacity(0.12))
+            .clipShape(Capsule())
+        } else {
+            Text(secondaryBadgeLabel)
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.4)
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Color.neutral)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Theme.Color.neutralTint)
+                .clipShape(Capsule())
         }
+    }
+
+    /// The textual body of the card (countdown + name + category + city/date +
+    /// goal), combined into one a11y element so VoiceOver reads it as a unit and
+    /// the two action buttons stay separately focusable.
+    private var infoBlock: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            countdownRow
+            Text(race.name)
+                .scaledFont(18, weight: .heavy, relativeTo: .headline, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            if let category = categoryLine {
+                Text(category)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            if let meta = locationDateLine {
+                Text(meta)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            if let goal = goalText {
+                HStack(spacing: 5) {
+                    Image(systemName: "stopwatch")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text("Objetivo \(goal)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(infoAccessibilityLabel)
+    }
+
+    /// Full-width accent capsule action to promote a secondary/tune-up race to the
+    /// primary objective. Hidden on the primary card (nothing to promote).
+    private var makePrimaryButton: some View {
+        Button {
+            Haptics.light()
+            onMakePrimary()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "star")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Hacer objetivo principal")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Theme.Color.accentText)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(Theme.Color.accent.opacity(0.10))
+            .overlay(Capsule().stroke(Theme.Color.accent.opacity(0.30), lineWidth: 1))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(PressScaleStyle())
+        .padding(.top, 2)
+        .accessibilityLabel("Hacer objetivo principal")
+        .accessibilityHint("Fija \(race.name) como tu carrera principal; la cuenta atrás de Inicio la reflejará")
     }
 
     @ViewBuilder
@@ -548,16 +650,17 @@ private struct UpcomingRaceCard: View {
 
     private var goalText: String? { AthleteNextRace.goalTimeFormatted(race.goalTimeSeconds) }
 
-    private var priorityChipLabel: String? {
+    /// Neutral badge for a non-primary race. tune_up reads "Tune-up"; everything
+    /// else (secondary, or an unexpected token) reads "Secundaria".
+    private var secondaryBadgeLabel: String {
         switch race.priority?.lowercased() {
-        case "tune_up":   return "tune-up"
-        case "secondary": return "secundaria"
-        default:          return nil
+        case "tune_up": return "Tune-up"
+        default:        return "Secundaria"
         }
     }
 
-    private var accessibilityLabel: String {
-        var parts: [String] = ["Próxima carrera", race.name]
+    private var infoAccessibilityLabel: String {
+        var parts: [String] = [isPrimary ? "Objetivo principal" : secondaryBadgeLabel, race.name]
         if let days = race.daysUntil {
             let d = max(0, days)
             parts.append("faltan \(d) \(d == 1 ? "día" : "días")")
@@ -565,7 +668,6 @@ private struct UpcomingRaceCard: View {
         if let category = categoryLine { parts.append(category) }
         if let meta = locationDateLine { parts.append(meta) }
         if let goal = goalText { parts.append("objetivo \(goal)") }
-        if let priority = priorityChipLabel { parts.append(priority) }
         return parts.joined(separator: ", ")
     }
 }
