@@ -9,11 +9,17 @@ import SwiftUI
 // (see RecentExecution.parsedDate) because the backend sends a `YYYY-MM-DD`
 // session date, which the APIClient's strict ISO-8601 date strategy rejects —
 // letting Codable parse it as `Date` would take the whole payload down.
+//
+// These are `Codable` (not just `Decodable`) so the analytics slice persists to
+// disk via AppDataStore's plain coder: every property is already camelCase, so
+// the synthesized encode emits the same keys the plain decode reads back — an
+// exact round-trip (the wire's snake_case conversion only applies to the network
+// decode through APIClient, never to the on-disk snapshot).
 
 // MARK: - Wire models
 
 /// One modality's lifetime / window totals (run, row, ski, bike, …).
-struct ModalityTotals: Decodable, Identifiable {
+struct ModalityTotals: Codable, Identifiable {
     var id: String { modality }
     let modality: String
     let distanceMeters: Double
@@ -26,7 +32,7 @@ struct ModalityTotals: Decodable, Identifiable {
 }
 
 /// One (week, modality) volume bucket for the weekly trend.
-struct WeeklyVolume: Decodable, Identifiable {
+struct WeeklyVolume: Codable, Identifiable {
     var id: String { "\(weekStart)·\(modality)" }
     let weekStart: String          // "YYYY-MM-DD" (Monday)
     let modality: String
@@ -36,7 +42,7 @@ struct WeeklyVolume: Decodable, Identifiable {
 }
 
 /// A logged workout execution + its per-segment breakdown.
-struct RecentExecution: Decodable, Identifiable {
+struct RecentExecution: Codable, Identifiable {
     var id: String { executionId }
     let executionId: String
     let date: String               // session date, "YYYY-MM-DD"
@@ -57,7 +63,7 @@ struct RecentExecution: Decodable, Identifiable {
 /// (e.g. the 1 km run, then the 500 m row). Almost every metric is optional
 /// because what's measured depends on the modality and on what the device /
 /// athlete actually captured.
-struct ExecutionSegment: Decodable, Identifiable {
+struct ExecutionSegment: Codable, Identifiable {
     var id: String { "\(position)·\(modality)" }
     let position: Int
     let modality: String
@@ -75,7 +81,7 @@ struct ExecutionSegment: Decodable, Identifiable {
 }
 
 /// Top-level analytics envelope.
-struct AthleteAnalytics: Decodable {
+struct AthleteAnalytics: Codable {
     let byModalityTotals: [ModalityTotals]
     let weekly: [WeeklyVolume]
     let recentExecutions: [RecentExecution]

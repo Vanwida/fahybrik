@@ -180,14 +180,20 @@ enum CarrerasService {
     /// (so the view degrades to its empty state rather than erroring).
     static func fetchOverview(bearer: String?) async -> CarrerasOverview? {
         guard let bearer else { return nil }
-        do {
-            return try await APIClient.shared.get(
-                path: "api/athlete/race-context",
-                bearer: bearer
-            )
-        } catch {
-            return nil
-        }
+        return try? await fetchOverviewThrowing(bearer: bearer)
+    }
+
+    /// Throwing variant of `fetchOverview` — same endpoint, but it propagates the
+    /// error instead of swallowing it to nil. AppDataStore's SWR engine needs the
+    /// throw so a failed revalidation KEEPS the last good cached overview (and the
+    /// offline disk snapshot) rather than overwriting it with an empty result. The
+    /// non-throwing wrapper above preserves the "degrade to nil" contract its other
+    /// callers rely on. One endpoint path — no parallel fetch.
+    static func fetchOverviewThrowing(bearer: String) async throws -> CarrerasOverview {
+        try await APIClient.shared.get(
+            path: "api/athlete/race-context",
+            bearer: bearer
+        )
     }
 
     /// Import an official HYROX result for the authenticated athlete.
@@ -277,14 +283,20 @@ enum CarrerasService {
     /// cached history and honest empty states rather than erroring.
     static func fetchRaces(bearer: String?) async -> RacesHubResponse? {
         guard let bearer else { return nil }
-        do {
-            return try await APIClient.shared.get(
-                path: "api/athlete/races",
-                bearer: bearer
-            )
-        } catch {
-            return nil
-        }
+        return try? await fetchRacesThrowing(bearer: bearer)
+    }
+
+    /// Throwing variant of `fetchRaces` — same `GET /api/athlete/races`, but it
+    /// propagates the error instead of degrading to nil. AppDataStore's SWR engine
+    /// needs the throw so a failed revalidation KEEPS the last good cached hub
+    /// (and the offline disk snapshot) instead of wiping both lists. The
+    /// non-throwing wrapper above preserves the "degrade to nil" contract its
+    /// other callers (e.g. Perfil) rely on. One endpoint path — no parallel fetch.
+    static func fetchRacesThrowing(bearer: String) async throws -> RacesHubResponse {
+        try await APIClient.shared.get(
+            path: "api/athlete/races",
+            bearer: bearer
+        )
     }
 
     /// Remove ONE future objective (target OR secondary/tune-up) from the

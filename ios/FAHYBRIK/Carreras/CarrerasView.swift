@@ -17,13 +17,13 @@ import SwiftUI
 struct CarrerasView: View {
     var bearer: String? = nil
 
-    @State private var overview: CarrerasOverview? = nil
-    @State private var loadingRace = true
-
-    // Live training analytics (StatsService) — the real, shippable section.
-    @State private var analytics: AthleteAnalytics? = nil
-    @State private var loadingPerf = true
-    @State private var perfFailed = false
+    // The shared, cache-first data layer (cache-first / SWR). Carreras reads its
+    // three slices straight from here — exactly like Inicio / Plan / Perfil — so
+    // opening the tab renders INSTANTLY from memory (or the disk snapshot) and the
+    // store revalidates silently in the background; a spinner shows only on a true
+    // cold first load with no data. Mutations force-refresh through the store so
+    // every tab stays correct after an action.
+    @Environment(AppDataStore.self) private var store
 
     // HYROX import sheet (search by name → import-all → refresh).
     @State private var showImport = false
@@ -34,21 +34,37 @@ struct CarrerasView: View {
     @State private var removing = false
     @State private var actionError: String? = nil
 
-    // Rich, doubles-aware history from the full-history import. Seeded from the
-    // local cache on load and refreshed when an import returns; preferred over
-    // the leaner race-context history whenever present.
-    @State private var importedRaces: [ImportedRace] = []
-
-    // PRÓXIMAS — all future objectives (target + secondary/tune-up), source of
-    // truth from GET /api/athlete/races. The athlete can have several; the server
-    // sorts them soonest-first.
-    @State private var upcoming: [UpcomingRace] = []
-    @State private var loadingUpcoming = true
     @State private var showBuscar = false
     /// The objective the athlete tapped to remove — drives the confirm dialog.
     @State private var objectiveToRemove: UpcomingRace? = nil
 
     @State private var appear = false
+
+    // ── Shared data, read live from the store's slices (cache-first/SWR) ──
+    /// PASADAS race-derived analytics (last race, benchmarks, pace, evolution).
+    private var overview: CarrerasOverview? { store.raceOverview.value }
+    /// Rich, doubles-aware imported history — the hub's `past`, which is the
+    /// SINGLE cache for it (persisted in the store; no separate history store).
+    private var importedRaces: [ImportedRace] { store.racesHub.value?.past ?? [] }
+    /// PRÓXIMAS — all future objectives (target + secondary/tune-up), the hub's
+    /// `upcoming`. The athlete can have several; the server sorts soonest-first.
+    private var upcoming: [UpcomingRace] { store.racesHub.value?.upcoming ?? [] }
+    /// RENDIMIENTO — live training analytics.
+    private var analytics: AthleteAnalytics? { store.analytics.value }
+
+    // "Cold" = never loaded yet (no memory AND no disk snapshot) AND a first load
+    // is in flight — the ONLY case that shows a spinner. With any cached value the
+    // section renders instantly and revalidates silently underneath.
+    private var upcomingCold: Bool {
+        !store.racesHub.hasLoaded && store.racesHub.isRevalidating
+    }
+    private var pastCold: Bool {
+        !store.raceOverview.hasLoaded && !store.racesHub.hasLoaded
+            && (store.raceOverview.isRevalidating || store.racesHub.isRevalidating)
+    }
+    private var perfCold: Bool {
+        !store.analytics.hasLoaded && store.analytics.isRevalidating
+    }
 
     private var effectiveBearer: String? {
         bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
@@ -67,24 +83,31 @@ struct CarrerasView: View {
             }
             .navigationBarHidden(true)
         }
-        .task(id: effectiveBearer) { await load() }
+        .task(id: effectiveBearer) {
+            // Cache-first: the body already renders from the store's slices; this
+            // scopes the session and revalidates Carreras' slices in the background
+            // (throttled + de-duped, so a tab switch won't refetch fresh data).
+            store.activate(bearer: effectiveBearer)
+            await store.loadCarreras()
+        }
         .sheet(isPresented: $showImport) {
             ImportRaceSheet(bearer: effectiveBearer) { result in
-                // Full-history import returns the rich, doubles-aware races — seed
-                // the history immediately + persist. The legacy single-link path
-                // passes nil, so we just re-fetch the race-context overview.
+                // Full-history import returns the rich, doubles-aware races — fold
+                // them into the store's hub immediately (optimistic, instant), then
+                // reconcile every race-derived slice from the server. The legacy
+                // single-link path passes nil, so we just reconcile.
                 if let result {
-                    importedRaces = result.races
-                    CarrerasHistoryStore.save(result.races)
+                    store.applyImportedRaces(result.races)
                 }
-                Task { await load() }
+                Task { await store.racesMutated() }
             }
         }
         .sheet(isPresented: $showBuscar) {
             // Reuse the target-race picker (→ FijarObjetivoView); on a successful
-            // set we reload so the new objective appears in PRÓXIMAS.
+            // set we force-refresh the hub + plan so the new objective appears in
+            // PRÓXIMAS and Inicio's countdown follows.
             BuscarCarreraSheet(bearer: effectiveBearer) {
-                Task { await load() }
+                Task { await store.racesMutated() }
             }
         }
         .confirmationDialog(
@@ -140,9 +163,8 @@ struct CarrerasView: View {
         do {
             _ = try await CarrerasService.undoImport(bearer: effectiveBearer)
             Haptics.success()
-            importedRaces = []
-            CarrerasHistoryStore.clear()
-            await load()
+            store.applyImportedRaces([])   // optimistic: clear the history now
+            await store.racesMutated()     // reconcile hub + overview + plan
             // Back to the search step with a clean slate (slug now null).
             showImport = true
         } catch let err as HyresultImportError {
@@ -164,7 +186,7 @@ struct CarrerasView: View {
         do {
             try await CarrerasService.deleteObjective(raceId: race.raceId, bearer: effectiveBearer)
             Haptics.success()
-            await load()
+            await store.racesMutated()
         } catch let err as HyresultImportError {
             Haptics.error()
             switch err {
@@ -188,7 +210,7 @@ struct CarrerasView: View {
         do {
             try await CarrerasService.makePrimaryObjective(raceId: race.raceId, bearer: effectiveBearer)
             Haptics.success()
-            await load()
+            await store.racesMutated()
         } catch let err as HyresultImportError {
             Haptics.error()
             switch err {
@@ -301,7 +323,7 @@ struct CarrerasView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             sectionHeaderRow("PRÓXIMAS · TUS OBJETIVOS") { buscarPill }
 
-            if loadingUpcoming {
+            if upcomingCold {
                 ProgressView()
                     .tint(Theme.Color.accentText)
                     .frame(maxWidth: .infinity)
@@ -344,7 +366,7 @@ struct CarrerasView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             sectionHeaderRow("PASADAS · TU HISTORIAL") { importPill }
 
-            if loadingRace {
+            if pastCold {
                 ProgressView()
                     .tint(Theme.Color.accentText)
                     .frame(maxWidth: .infinity)
@@ -387,19 +409,13 @@ struct CarrerasView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             SectionLabel(text: "RENDIMIENTO · TU ENTRENAMIENTO")
 
-            if loadingPerf {
+            if perfCold {
                 ProgressView()
                     .tint(Theme.Color.accentText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Theme.Spacing.l)
             } else if let analytics, !analytics.isEmpty {
                 CarrerasPerformanceContent(analytics: analytics, bearer: effectiveBearer)
-            } else if perfFailed {
-                RedesignEmptyState(
-                    symbol: "exclamationmark.triangle",
-                    title: "No pudimos cargar tu rendimiento",
-                    message: "Revisa tu conexión e inténtalo de nuevo más tarde."
-                )
             } else {
                 RedesignEmptyState(
                     symbol: "chart.bar.xaxis",
@@ -410,51 +426,6 @@ struct CarrerasView: View {
         }
     }
 
-    // MARK: - Loading
-
-    private func load() async {
-        // Seed the doubles-aware history from the local cache so it paints
-        // instantly; a fresh import (which sets importedRaces first) is kept.
-        if importedRaces.isEmpty { importedRaces = CarrerasHistoryStore.load() }
-        loadingRace = true
-        loadingPerf = true
-        loadingUpcoming = true
-        perfFailed = false
-
-        // The races hub (upcoming objectives + past results) is the source of
-        // truth for both lists; the race-context overview still powers the PASADAS
-        // analytics. Fetch both concurrently.
-        async let racesTask = CarrerasService.fetchRaces(bearer: effectiveBearer)
-        async let overviewTask = CarrerasService.fetchOverview(bearer: effectiveBearer)
-
-        // Live analytics: only the performance section depends on it.
-        if let token = effectiveBearer {
-            do {
-                analytics = try await StatsService.fetchAnalytics(bearer: token)
-                perfFailed = false
-            } catch {
-                analytics = nil
-                perfFailed = true
-            }
-        } else {
-            analytics = nil
-            perfFailed = true
-        }
-        loadingPerf = false
-
-        // Races hub → upcoming + past. Server is source of truth: on success we
-        // overwrite both the upcoming list and the history (write-through cache).
-        // On nil (offline / no bearer) we keep the cached history + empty upcoming.
-        if let races = await racesTask {
-            upcoming = races.upcoming
-            importedRaces = races.past
-            CarrerasHistoryStore.save(races.past)
-        }
-        loadingUpcoming = false
-
-        overview = await overviewTask
-        loadingRace = false
-    }
 }
 
 // MARK: - Upcoming race card (countdown · role badge · actions menu)

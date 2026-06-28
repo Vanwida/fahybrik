@@ -16,7 +16,7 @@ import Observation
 //
 // The generic value must be Codable so a slice can be written to disk verbatim
 // (offline-first), reusing the same UserDefaults pattern as AssignmentDetailCache
-// and CarrerasHistoryStore — one mechanism, not a parallel one.
+// — one mechanism, not a parallel one.
 struct Slice<Value: Codable>: Codable {
     private(set) var value: Value?
     private(set) var loadedAt: Date?
@@ -58,10 +58,14 @@ struct Slice<Value: Codable>: Codable {
 //   3. The whole store is persisted to disk so a cold launch — even offline —
 //      opens with the last athlete's data.
 //
-// Scope: PHASE 1 holds exactly what Inicio / Plan / Perfil share — identity,
-// the current weekly plan, macro progress, today's readiness, the coach thread
-// (unread count), the Dobles partner envelope, and the subscription snapshot.
-// Chat history, APIClient-level request de-dup and richer offline are PHASE 2.
+// Scope: PHASE 1 holds what Inicio / Plan / Perfil share — identity, the current
+// weekly plan, macro progress, today's readiness, the coach thread (unread
+// count), the Dobles partner envelope, and the subscription snapshot. The
+// CARRERAS tab is now folded in too — the unified races hub (upcoming objectives
+// + past results), the race-context overview, and the live training analytics —
+// so it opens instantly from the same store/SWR/disk machinery (and its imported
+// history lives here, not in a separate cache). Chat history, APIClient-level
+// request de-dup and richer offline are PHASE 2.
 @MainActor
 @Observable
 final class AppDataStore {
@@ -74,6 +78,14 @@ final class AppDataStore {
     var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread)
     var partner = Slice<PartnerEnvelope>()                  // /athlete/partner   — Inicio, Plan, Perfil
     var subscription = Slice<SubscriptionInfo>()            // /stripe/subscription — Perfil
+
+    // Carreras-tab slices. The races hub is the single source of truth for both
+    // the PRÓXIMAS (upcoming objectives) and PASADAS (imported history) lists —
+    // and the single on-disk cache for that history. The overview powers the
+    // PASADAS race-derived analytics; analytics powers the RENDIMIENTO section.
+    var racesHub = Slice<RacesHubResponse>()                // /athlete/races        — Carreras (upcoming + past)
+    var raceOverview = Slice<CarrerasOverview>()            // /athlete/race-context — Carreras (PASADAS analytics)
+    var analytics = Slice<AthleteAnalytics>()               // /athlete/analytics    — Carreras (RENDIMIENTO)
 
     /// Unread coach messages (0 when none / not loaded). Single source so every
     /// surface (bell dot, coach-note row) agrees.
@@ -114,6 +126,9 @@ final class AppDataStore {
             chatThread = snapshot.chatThread
             partner = snapshot.partner
             subscription = snapshot.subscription
+            racesHub = snapshot.racesHub
+            raceOverview = snapshot.raceOverview
+            analytics = snapshot.analytics
         } else {
             // Different (or no) prior session on disk — start clean.
             clearSlices()
@@ -129,6 +144,9 @@ final class AppDataStore {
         chatThread = .init()
         partner = .init()
         subscription = .init()
+        racesHub = .init()
+        raceOverview = .init()
+        analytics = .init()
     }
 
     // MARK: Grouped loads (cache-first render is automatic; these revalidate)
@@ -176,6 +194,15 @@ final class AppDataStore {
         _ = await (i, p, pa, s)
     }
 
+    /// Carreras: the unified races hub (upcoming + past), the race-context
+    /// overview (PASADAS analytics) and the live training analytics (RENDIMIENTO).
+    func loadCarreras(force: Bool = false) async {
+        async let r: Void = refreshRacesHub(force: force)
+        async let o: Void = refreshRaceOverview(force: force)
+        async let a: Void = refreshAnalytics(force: force)
+        _ = await (r, o, a)
+    }
+
     /// The plan changed (workout completed, day moved, target race fixed) — pull
     /// the plan-derived slices fresh, bypassing the staleness window so every tab
     /// reflects it at once.
@@ -183,6 +210,32 @@ final class AppDataStore {
         async let p: Void = refreshPlanWeek(force: true)
         async let m: Void = refreshMacroProgress(force: true)
         _ = await (p, m)
+    }
+
+    /// A Carreras mutation happened — an objective was set / promoted to primary /
+    /// removed, or the imported history was imported / undone. Re-pull every
+    /// race-derived slice fresh: the hub (both lists), the race-context overview
+    /// (last race + benchmarks + evolution) AND the weekly plan, since the chosen
+    /// target race drives Inicio's main countdown. Force bypasses the staleness
+    /// window so the whole app reflects the change at once. Training analytics are
+    /// NOT race-derived, so they're left to their own revalidation.
+    func racesMutated() async {
+        async let r: Void = refreshRacesHub(force: true)
+        async let o: Void = refreshRaceOverview(force: true)
+        async let p: Void = refreshPlanWeek(force: true)
+        _ = await (r, o, p)
+    }
+
+    /// Optimistically fold a fresh full-history import into the races hub so the
+    /// PASADAS list updates INSTANTLY — the import-all response is the freshest,
+    /// most complete history (with partners / team-vs-individual), richer than a
+    /// follow-up `/races` round-trip. Keeps the current upcoming list untouched
+    /// and persists. Pass `[]` to optimistically clear the history on an undo.
+    /// A follow-up `racesMutated()` then reconciles with the server.
+    func applyImportedRaces(_ races: [ImportedRace]) {
+        let upcoming = racesHub.value?.upcoming ?? []
+        racesHub.setLoaded(RacesHubResponse(upcoming: upcoming, past: races))
+        persist()
     }
 
     // MARK: Per-slice revalidation
@@ -228,6 +281,29 @@ final class AppDataStore {
     func refreshSubscription(force: Bool = false) async {
         await revalidate(get: { self.subscription }, set: { self.subscription = $0 }, force: force) {
             try await SubscriptionService.fetchSubscription(bearer: $0)
+        }
+    }
+
+    func refreshRacesHub(force: Bool = false) async {
+        // Throwing fetch so a failed revalidation keeps the last good hub (SWR /
+        // offline-first), instead of the non-throwing wrapper's nil wiping it.
+        await revalidate(get: { self.racesHub }, set: { self.racesHub = $0 }, force: force) {
+            try await CarrerasService.fetchRacesThrowing(bearer: $0)
+        }
+    }
+
+    func refreshRaceOverview(force: Bool = false) async {
+        await revalidate(get: { self.raceOverview }, set: { self.raceOverview = $0 }, force: force) {
+            try await CarrerasService.fetchOverviewThrowing(bearer: $0)
+        }
+    }
+
+    func refreshAnalytics(force: Bool = false) async {
+        // StatsService.fetchAnalytics already throws on failure (and returns an
+        // honest-empty AthleteAnalytics when there's simply no data), so it slots
+        // straight into the SWR engine.
+        await revalidate(get: { self.analytics }, set: { self.analytics = $0 }, force: force) {
+            try await StatsService.fetchAnalytics(bearer: $0)
         }
     }
 
@@ -292,7 +368,10 @@ final class AppDataStore {
             readiness: readiness,
             chatThread: chatThread,
             partner: partner,
-            subscription: subscription
+            subscription: subscription,
+            racesHub: racesHub,
+            raceOverview: raceOverview,
+            analytics: analytics
         )
         AppDataPersistence.save(snapshot)
     }
@@ -301,8 +380,8 @@ final class AppDataStore {
 // MARK: - Disk persistence
 //
 // Single-blob, bearer-scoped snapshot of the store on UserDefaults — the same
-// lightweight pattern as AssignmentDetailCache / CarrerasHistoryStore, so the app
-// opens with the last athlete's data even offline. A self-consistent plain JSON
+// lightweight pattern as AssignmentDetailCache, so the app opens with the last
+// athlete's data even offline. A self-consistent plain JSON
 // coder (no snake_case, no custom date strategy) round-trips the slices: we own
 // both ends, so the models' camelCase CodingKeys + default date encoding match on
 // the way back. The fingerprint scopes the blob to its owning session so a
@@ -317,9 +396,15 @@ enum AppDataPersistence {
         var chatThread: Slice<ChatThreadDTO>
         var partner: Slice<PartnerEnvelope>
         var subscription: Slice<SubscriptionInfo>
+        var racesHub: Slice<RacesHubResponse>
+        var raceOverview: Slice<CarrerasOverview>
+        var analytics: Slice<AthleteAnalytics>
     }
 
-    private static let key = "fahybrik.appDataStore.v1"
+    // v2 adds the Carreras slices. An older v1 blob has a different shape, so its
+    // decode simply fails (→ start clean, refetch on launch) — no migration code,
+    // no stale-shape risk.
+    private static let key = "fahybrik.appDataStore.v2"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }

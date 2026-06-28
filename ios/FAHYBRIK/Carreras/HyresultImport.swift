@@ -141,10 +141,12 @@ struct ImportedRace: Codable, Hashable, Identifiable {
 
 /// One FUTURE objective from the unified races hub (`GET /api/athlete/races`).
 /// The athlete can have several (a target plus secondary/tune-up races); the
-/// server returns them sorted soonest-first. Decoded ONLY via APIClient
+/// server returns them sorted soonest-first. Decoded via APIClient
 /// (`.convertFromSnakeCase`), so no CodingKeys are needed — `race_id` →
-/// `raceId`, `goal_time_seconds` → `goalTimeSeconds`, etc.
-struct UpcomingRace: Decodable, Identifiable, Hashable {
+/// `raceId`, `goal_time_seconds` → `goalTimeSeconds`, etc. Also `Encodable`
+/// (Codable) so the races-hub slice persists to disk via AppDataStore's plain
+/// coder, which round-trips these camelCase property names verbatim.
+struct UpcomingRace: Codable, Identifiable, Hashable {
     let raceId: Int
     let eventId: Int?
     let name: String
@@ -166,7 +168,10 @@ struct UpcomingRace: Decodable, Identifiable, Hashable {
 /// `GET /api/athlete/races` envelope — the unified hub: future objectives
 /// (`upcoming`) + the athlete's past results (`past`, the same shape the rich
 /// history already decodes). The hub is the source of truth for both lists.
-struct RacesHubResponse: Decodable {
+/// `Codable` so the whole envelope persists as one cache-first slice in
+/// AppDataStore (offline-first) — the single cache for the imported history,
+/// replacing the old standalone CarrerasHistoryStore.
+struct RacesHubResponse: Codable {
     let upcoming: [UpcomingRace]
     let past: [ImportedRace]
 }
@@ -459,31 +464,7 @@ enum HyresultImportError: Error {
     }
 }
 
-// MARK: - Local rich-history cache
-//
-// import-all returns the athlete's COMPLETE rich history (with partners +
-// team-vs-individual), but the race-context overview the hub loads on launch is
-// the leaner projection (no partners/format). To keep the doubles-aware history
-// across launches without a new backend read, we persist the last import-all
-// races locally (single slot — Sign in with Apple is one athlete per device) and
-// seed the history section from it on load. A plain JSON coder round-trips via
-// the models' CodingKey raw values; never throws into the UI (failure → empty).
-enum CarrerasHistoryStore {
-    private static let key = "fahybrik.carreras.importedRaces"
-
-    static func load() -> [ImportedRace] {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([ImportedRace].self, from: data)) ?? []
-    }
-
-    static func save(_ races: [ImportedRace]) {
-        guard let data = try? JSONEncoder().encode(races) else { return }
-        UserDefaults.standard.set(data, forKey: key)
-    }
-
-    /// Drop the cached history — used when the athlete undoes an import ("No soy
-    /// yo") so a stranger's races never linger on-device after the server purge.
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: key)
-    }
-}
+// NOTE: the imported rich history is no longer cached in a standalone
+// CarrerasHistoryStore. It now lives in AppDataStore's `racesHub` slice (the
+// hub's `past`), persisted in the single bearer-scoped app-data snapshot —
+// one cache-first mechanism for the whole Carreras tab, not a parallel one.
