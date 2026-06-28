@@ -53,7 +53,11 @@ struct WorkoutDetail: Codable, Equatable {
     let focus: String?
     let coachNote: String?
     let estimatedDurationMinutes: Int?
-    let blocks: [WorkoutBlock]
+    // Lossy: a single block that fails to decode (an unknown shape the model
+    // doesn't anticipate) is SKIPPED rather than throwing the whole detail — so
+    // one odd block never collapses the entire session into the "sin detalle"
+    // empty state. The good blocks still render. See `LossyArray`.
+    @LossyArray var blocks: [WorkoutBlock]
 }
 
 struct WorkoutBlock: Codable, Equatable, Identifiable {
@@ -66,7 +70,9 @@ struct WorkoutBlock: Codable, Equatable, Identifiable {
     // Schemaless per format; keys arrive snake_case (rounds, time_cap_seconds,
     // emom_interval_seconds, work_seconds, rest_seconds — see JSONValue note).
     let configJson: JSONValue?
-    let items: [WorkoutItem]
+    // Lossy (see `blocks`): one item that fails to decode is dropped, not fatal —
+    // the rest of the block (e.g. a WOD's other movements) still renders.
+    @LossyArray var items: [WorkoutItem]
 }
 
 struct WorkoutItem: Codable, Equatable, Identifiable {
@@ -182,6 +188,53 @@ struct WorkoutItemParams: Codable, Equatable {
     let caloriesPerMin: Int?
     let hrZone: Int?
 }
+
+// MARK: - LossyArray (resilient element-wise array decode)
+//
+// Decodes a JSON array element by element, DROPPING (not throwing on) any element
+// that fails to decode. This is the session-detail's safety net: the structured
+// prescription unions already degrade to `.unknown` per field, but a wholly
+// unanticipated block/item shape (a future format the model doesn't model yet, a
+// null in a required scalar) would otherwise throw and take the ENTIRE
+// `AssignmentDetail` down — collapsing a perfectly good multi-block session into
+// the "sin detalle" empty state. Applied to `WorkoutDetail.blocks` and
+// `WorkoutBlock.items`, one bad element degrades to a skipped element while every
+// other block/movement still renders. Used in two places → defined once (DRY).
+//
+// The inner `LossyElement` wrapper is the canonical no-infinite-loop pattern: its
+// `init(from:)` never throws (it swallows the per-element error with `try?`), so
+// the unkeyed container's cursor ALWAYS advances exactly one element per
+// iteration regardless of whether that element decoded.
+@propertyWrapper
+struct LossyArray<Element: Decodable>: Decodable {
+    var wrappedValue: [Element]
+
+    init(wrappedValue: [Element]) { self.wrappedValue = wrappedValue }
+
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var result: [Element] = []
+        result.reserveCapacity(container.count ?? 0)
+        while !container.isAtEnd {
+            let element = try container.decode(LossyElement.self)
+            if let value = element.value { result.append(value) }
+        }
+        wrappedValue = result
+    }
+
+    private struct LossyElement: Decodable {
+        let value: Element?
+        init(from decoder: Decoder) throws { value = try? Element(from: decoder) }
+    }
+}
+
+extension LossyArray: Encodable where Element: Encodable {
+    // Re-encodes as a plain JSON array so the on-device cache round-trips
+    // byte-for-byte (AssignmentDetailCache encodes the detail back out).
+    func encode(to encoder: Encoder) throws { try wrappedValue.encode(to: encoder) }
+}
+
+extension LossyArray: Equatable where Element: Equatable {}
 
 // MARK: - JSONValue (lightweight any-shape decoder for block configJson)
 //
