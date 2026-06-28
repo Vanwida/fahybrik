@@ -59,6 +59,17 @@ function scoreTimeBenchmark(value: number, slug: TimeBenchmarkSlug, sex: 'male' 
   return 5
 }
 
+/**
+ * Map a HYROX finish time (seconds) to a level 1–5 using the SINGLE-SOURCE,
+ * sex-aware thresholds above (Pablo's methodology, mirrored as text in migration
+ * 0057). This is the one place a HYROX time becomes a level — the real-race level
+ * suggestion (computeAndStoreLevelSuggestion) and any "por qué" share it so they
+ * never diverge. Unknown sex defaults to the male band (same default as suggestLevel).
+ */
+export function scoreHyroxTime(seconds: number, sex: 'male' | 'female' | null): number {
+  return scoreTimeBenchmark(seconds, BENCH_HYROX_OPEN, sex ?? 'male')
+}
+
 function scoreSquatRatio(ratio: number): number {
   for (let i = 0; i < SQUAT_RATIOS.length; i++) {
     if (ratio < SQUAT_RATIOS[i]) return i + 1

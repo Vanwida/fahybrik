@@ -190,6 +190,9 @@ export async function loadClassification(params: {
     level_name: row?.level_name ?? null,
     suggested_level_id: row?.suggested_level_id ?? null,
     suggested_level_name: row?.suggested_level_name ?? null,
+    // The "por qué" is enriched only by the intake-review loader (it has the race
+    // context); the generic classification load leaves it null.
+    suggested_level_reason: null,
     training_days_per_week: row?.training_days_per_week ?? null,
     levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label })),
     days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
@@ -268,6 +271,7 @@ export async function loadAthleteDetalle(params: {
     level_name: null,
     suggested_level_id: null,
     suggested_level_name: null,
+    suggested_level_reason: null,
     training_days_per_week: null,
     levels: [],
     days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { suggestAthleteTrainingLevel } from '@/lib/coach/athlete-training-level';
+import { getBestRealHyroxResult, hyroxExperienceFromCount } from '@/lib/races/athlete-races';
 import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
@@ -349,16 +350,23 @@ export async function POST(request: Request) {
 
   const snap = parsed.data.snapshot;
   const level = snap.training_level ?? null;
-  const suggestion = suggestAthleteTrainingLevel({
-    athlete_level: level,
-    weekly_hours: snap.hours_per_week ?? null,
-    hyrox_experience: null,
-    self_declared_elite_signals: level === 4,
-  });
 
   const { sql } = await import('@/lib/db');
 
   const athleteId = Number(auth.athlete_id);
+
+  // Real race history (HYROX singles results imported BEFORE this submit) is the
+  // gold-standard signal — it drives both the experience tier (count → real
+  // hyrox_experience, no longer hardcoded null) and the N1–N5 level suggestion
+  // computed after the commit. No real history → graceful self-declared fallback.
+  const realHyrox = await getBestRealHyroxResult(athleteId, sql);
+  const suggestion = suggestAthleteTrainingLevel({
+    athlete_level: level,
+    weekly_hours: snap.hours_per_week ?? null,
+    hyrox_experience: hyroxExperienceFromCount(realHyrox.race_count),
+    hyrox_best_time_seconds: realHyrox.best_time_seconds,
+    self_declared_elite_signals: level === 4,
+  });
   // training_days_per_week: prefer the DERIVED count of 'program' availability
   // days (the structured truth); fall back to the legacy flat days_per_week.
   const derivedTrainingDays = programDayCount(snap.availability) ?? snap.days_per_week ?? null;
@@ -540,6 +548,25 @@ export async function POST(request: Request) {
     await deriveAndStoreOnboardingZones({ athlete_id: athleteId, client: sql });
   } catch {
     // auto-zones best-effort — the coach can still register a test manually.
+  }
+
+  // Compute + persist the N1–N5 level suggestion now, so the coach's intake
+  // review (and roster / Hoy's "nivel sugerido") sees a real-data-driven
+  // suggestion immediately — not only after the intake commit. Real HYROX
+  // results drive it; idempotent + guarded by level_id IS NULL, so it's safe to
+  // re-run when more races are imported later (intake-review load re-runs it).
+  // Best-effort like the zones: a failure never fails the onboarding submit.
+  try {
+    const coachRows = await sql<Array<{ coach_id: number }>>`
+      select coach_id from athletes where id = ${athleteId} limit 1
+    `;
+    const coachId = coachRows[0]?.coach_id;
+    if (coachId != null) {
+      const { computeAndStoreLevelSuggestion } = await import('@/lib/coach/level-proposal');
+      await computeAndStoreLevelSuggestion(athleteId, Number(coachId));
+    }
+  } catch {
+    // level-suggestion best-effort — the coach can still set the level by hand.
   }
 
   // Notify Pablo so an intake-pending athlete doesn't sit invisible. Only fire

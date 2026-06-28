@@ -17,15 +17,28 @@ export type TrainingLevelSuggestion = {
   reasons: string[];
 };
 
-/** Suggest training level from onboarding answers + optional self-declared PRs. */
+/**
+ * Suggest the experience tier from onboarding answers.
+ *
+ * `hyrox_experience` and `hyrox_best_time_seconds` are derived from the athlete's
+ * REAL imported race history (count + best HYROX singles result) when available —
+ * see getBestRealHyroxResult. This is a coarse tier (the precise, coach-facing
+ * N1–N5 level comes from the single-source time→level mapping in
+ * level-algorithm.ts, driven by the same real result). A HYROX finisher is never
+ * a beginner, so a real best time floors the tier at 'intermediate'.
+ */
 export function suggestAthleteTrainingLevel(input: {
   athlete_level?: 1 | 2 | 3 | 4 | null;
   hyrox_experience?: 'none' | '1-2' | '3+' | null;
+  /** Best REAL HYROX singles finish (seconds). Evidence of genuine race history. */
+  hyrox_best_time_seconds?: number | null;
   weekly_hours?: number | null;
   has_self_declared_prs?: boolean;
   self_declared_elite_signals?: boolean;
 }): TrainingLevelSuggestion {
   const reasons: string[] = [];
+  const hasRealHyrox =
+    input.hyrox_best_time_seconds != null && input.hyrox_best_time_seconds > 0;
 
   if (input.athlete_level === 4 || input.self_declared_elite_signals) {
     reasons.push('Nivel elite indicado en onboarding');
@@ -48,6 +61,16 @@ export function suggestAthleteTrainingLevel(input: {
       return { suggested_level: 'pro', confidence: 'high', reasons };
     }
     return { suggested_level: base, confidence: 'high', reasons };
+  }
+
+  // No self-declared level — lean on REAL race history when present.
+  if (hasRealHyrox || input.hyrox_experience === '3+' || input.hyrox_experience === '1-2') {
+    reasons.push(hasRealHyrox ? 'Carrera HYROX real registrada' : 'Experiencia HYROX declarada');
+    return {
+      suggested_level: 'intermediate',
+      confidence: hasRealHyrox ? 'medium' : 'low',
+      reasons,
+    };
   }
 
   if (input.hyrox_experience === 'none') {

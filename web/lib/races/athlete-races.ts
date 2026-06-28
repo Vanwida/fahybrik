@@ -90,3 +90,65 @@ export async function listAthletePastRaces(
     .map(toHistoryItem)
     .filter((item): item is RaceHistoryItem => item !== null);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Best REAL HYROX singles result — the gold-standard signal for the athlete's
+// level. A "real" result is a completed individual HYROX race:
+//   • event_type === 'hyrox'  (DEKA / other don't map to the HYROX level bands)
+//   • format === 'singles'    (doubles/relay are TEAM times, not an individual
+//                              benchmark — excluded)
+//   • result_time_seconds present (a finish, not a future objective)
+// Source-agnostic on purpose: the onboarding self-declared HYROX time is stored
+// as a benchmark / a `planned` race with NO result, so it never appears here —
+// only genuinely completed races (imported from hyresult/hyrox, or coach-logged)
+// do. "Real beats declared" therefore holds without a source filter.
+//
+// Built on listAthletePastRaces so the two readers share ONE projection.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type BestRealHyroxResult = {
+  /** Fastest real HYROX singles finish, in seconds (null when none exists). */
+  best_time_seconds: number | null;
+  /** How many real HYROX singles results the athlete has (0 when none). */
+  race_count: number;
+  /** The race that produced the best time, for display/"por qué" (null when none). */
+  best_race: { name: string; race_date: string | null } | null;
+};
+
+/** Pure: pick the best real HYROX singles result from an already-loaded past
+ *  list (so callers that already have it don't re-query). The single definition
+ *  of "real HYROX result" — every caller routes through this. */
+export function pickBestRealHyrox(past: RaceHistoryItem[]): BestRealHyroxResult {
+  const hyroxSingles = past.filter(
+    (r) =>
+      r.event_type === 'hyrox' &&
+      r.format === 'singles' &&
+      r.result_time_seconds != null &&
+      r.result_time_seconds > 0,
+  );
+  if (hyroxSingles.length === 0) {
+    return { best_time_seconds: null, race_count: 0, best_race: null };
+  }
+  const best = hyroxSingles.reduce((a, b) =>
+    (a.result_time_seconds as number) <= (b.result_time_seconds as number) ? a : b,
+  );
+  return {
+    best_time_seconds: best.result_time_seconds,
+    race_count: hyroxSingles.length,
+    best_race: { name: best.name, race_date: best.race_date },
+  };
+}
+
+export async function getBestRealHyroxResult(
+  athlete_id: number | bigint,
+  client: Sql = defaultSql,
+): Promise<BestRealHyroxResult> {
+  return pickBestRealHyrox(await listAthletePastRaces(athlete_id, client));
+}
+
+/** Real HYROX race count → the tier function's `hyrox_experience` bucket. */
+export function hyroxExperienceFromCount(count: number): 'none' | '1-2' | '3+' {
+  if (count >= 3) return '3+';
+  if (count >= 1) return '1-2';
+  return 'none';
+}

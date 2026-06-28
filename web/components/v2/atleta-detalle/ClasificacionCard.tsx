@@ -122,6 +122,12 @@ export function ClasificacionCard({
             </button>
           ) : null}
         </div>
+        {showSuggestion && data.suggested_level_reason ? (
+          <p className="flex items-start gap-1 text-[11px] text-[color:var(--v2-faint)]">
+            <MIcon name="insights" size={12} className="mt-px shrink-0" />
+            <span>{data.suggested_level_reason}</span>
+          </p>
+        ) : null}
         {data.levels.length === 0 ? (
           <p className="text-xs text-[color:var(--v2-faint)]">
             No hay niveles definidos todavía. Créalos en Periodización.

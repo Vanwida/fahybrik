@@ -135,6 +135,10 @@ export interface ClasificacionData {
   level_name: string | null;
   suggested_level_id: string | null;
   suggested_level_name: string | null;
+  /** Short human "por qué" for the suggestion (e.g. "Mejor HYROX real 1:02:30 →
+   *  N4"). Null when there's nothing to explain, or outside the intake review
+   *  (only that surface enriches it — see loadIntakeReview). */
+  suggested_level_reason: string | null;
   training_days_per_week: number | null;
   /** The coach's levels, ordered, for the picker. */
   levels: ClasificacionLevelOption[];

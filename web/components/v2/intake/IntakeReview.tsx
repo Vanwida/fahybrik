@@ -18,6 +18,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { ClasificacionCard } from '@/components/v2/atleta-detalle/ClasificacionCard';
 import { AthleteAnswers } from '@/components/v2/intake/AthleteAnswers';
+import { IntakeRaces } from '@/components/v2/intake/IntakeRaces';
 import {
   AssignBar,
   BaselineTestsStep,
@@ -282,10 +283,13 @@ export function IntakeReview({
           </StepShell>
         </div>
 
-        {/* Right — athlete answers (read-only) */}
-        <aside className="flex flex-col gap-2">
-          <span className="v2-micro">Respuestas del atleta</span>
-          <AthleteAnswers profile={profile} />
+        {/* Right — athlete data (read-only): real races, then onboarding answers */}
+        <aside className="flex flex-col gap-3">
+          <IntakeRaces past={review.races.past} upcoming={review.races.upcoming} />
+          <div className="flex flex-col gap-2">
+            <span className="v2-micro">Respuestas del atleta</span>
+            <AthleteAnswers profile={profile} />
+          </div>
         </aside>
       </div>
 
