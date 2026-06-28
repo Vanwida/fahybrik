@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildAssignmentDetail } from '@/lib/athlete/assignment-detail';
+import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
+
+const SQ_1RM = EXERCISE_TO_1RM_BENCHMARK['back-squat']!; // 'back_squat_1rm'
 
 const baseAssignment = {
   id: '101',
@@ -481,5 +484,99 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       zoneProfiles: [runProfile(240)],
     });
     expect(result.workout!.blocks[0]!.items[0]!.resolved_intensity).toBeNull();
+  });
+
+  // ── %RM → kg resolved from the athlete's 1RM ──────────────────────────────
+  const strengthSeg = (slug: string, target: unknown) => ({
+    id: '70',
+    position: 0,
+    block_position: 0,
+    block_format: null,
+    block_title: null,
+    params_json: { sets: 5 },
+    prescription_json: {
+      scheme: 'sets',
+      modality: 'strength',
+      sets: [{ measure: { kind: 'reps', value: 5 }, target }],
+    },
+    notes: null,
+    exercise_id: '960',
+    exercise_name: 'Back Squat',
+    exercise_slug: slug,
+    exercise_category: 'strength',
+    exercise_video_url: null,
+    exercise_cues: null,
+  });
+
+  it('resolves a %RM range to a kg range using the athlete 1RM', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [strengthSeg('back-squat', { kind: 'percent_rm', min: 65, max: 80 })],
+      oneRms: new Map([[SQ_1RM, { one_rm_kg: 80, needs_review: false }]]),
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.params_json.load_pct).toBe(65); // % kept
+    expect(item.resolved_load).not.toBeNull();
+    expect(item.resolved_load!.pct_label).toBe('65–80%');
+    expect(item.resolved_load!.kg_label).toBe('52–64 kg');
+    expect(item.resolved_load!.min_kg).toBe(52);
+    expect(item.resolved_load!.max_kg).toBe(64);
+    expect(item.resolved_load!.one_rm_kg).toBe(80);
+    expect(item.resolved_load!.needs_review).toBe(false);
+  });
+
+  it('resolves a single %RM value to a single kg', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [strengthSeg('back-squat', { kind: 'percent_rm', value: 75 })],
+      oneRms: new Map([[SQ_1RM, { one_rm_kg: 100, needs_review: false }]]),
+    });
+    const rl = result.workout!.blocks[0]!.items[0]!.resolved_load!;
+    expect(rl.pct_label).toBe('75%');
+    expect(rl.kg_label).toBe('75 kg');
+    expect(rl.min_kg).toBe(75);
+    expect(rl.max_kg).toBeNull();
+  });
+
+  it('keeps the % honest (no resolved kg) when the athlete has no 1RM', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [strengthSeg('back-squat', { kind: 'percent_rm', value: 75 })],
+      oneRms: new Map(), // no 1RM on file
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.params_json.load_pct).toBe(75); // % still shown
+    expect(item.resolved_load).toBeNull(); // never fabricated
+  });
+
+  it('does not resolve a lift that is not a tracked 1RM exercise', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      // front-squat is intentionally NOT mapped (a different lift, not the squat 1RM).
+      segments: [strengthSeg('front-squat', { kind: 'percent_rm', value: 75 })],
+      oneRms: new Map([[SQ_1RM, { one_rm_kg: 100, needs_review: false }]]),
+    });
+    expect(result.workout!.blocks[0]!.items[0]!.resolved_load).toBeNull();
+  });
+
+  it('carries the unconfirmed (needs_review) flag from the 1RM source', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [strengthSeg('back-squat', { kind: 'percent_rm', value: 80 })],
+      oneRms: new Map([[SQ_1RM, { one_rm_kg: 120, needs_review: true }]]),
+    });
+    const rl = result.workout!.blocks[0]!.items[0]!.resolved_load!;
+    expect(rl.kg_label).toBe('96 kg');
+    expect(rl.needs_review).toBe(true);
   });
 });

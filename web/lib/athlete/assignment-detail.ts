@@ -15,7 +15,17 @@ import {
 import {
   loadAthleteZoneProfilesForAthlete,
 } from '@/lib/dashboard/v2/zone-profile';
+import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
+import {
+  EXERCISE_TO_1RM_BENCHMARK,
+  resolveRmLoad,
+} from '@fahybrid/shared/domain/strength';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+
+// A benchmark-slug → current-1RM lookup, built once per request from the
+// athlete's strength maxes (+ onboarding-benchmark backfill). Empty when the
+// athlete has no 1RM on file → %RM lines keep the % with no resolved kg.
+export type OneRmLookup = Map<string, OneRmEntry>;
 
 // =============================================================================
 // Assignment-detail loader
@@ -101,7 +111,31 @@ export interface AssignmentDetailItem {
   // shows "Z4 · @4:15/km": the zone badge stays in params_json.hr_zone, this
   // field adds the resolved pace. Null when there's no zone target or no profile.
   resolved_intensity: ResolvedIntensity | null;
+  // The strength analog of `resolved_intensity`: when the line targets a %RM AND
+  // this athlete has a current 1RM for the lift, the % is resolved to the ABSOLUTE
+  // kg they lift (read from athlete_strength_maxes, never recomputed). iOS shows
+  // "65–80% → 52–64 kg": the % stays in params_json/prescription, this field adds
+  // the resolved kg. Null when there's no %RM target, the exercise isn't a tracked
+  // lift, or the athlete has no 1RM for it (then the % stands alone — never a
+  // fabricated kg).
+  resolved_load: ResolvedLoad | null;
   notes: string | null;
+}
+
+// A %RM target resolved to the athlete's ABSOLUTE load. `pct_label` is the source
+// percentage ("80%", "65–80%"); `kg_label` is the ready-to-render kg ("64 kg",
+// "52–64 kg"); the raw `min_kg`/`max_kg` (+ `one_rm_kg`) let iOS reformat. Present
+// only when the line targets a %RM on a tracked lift AND the athlete has a 1RM.
+export interface ResolvedLoad {
+  pct_label: string;
+  kg_label: string;
+  min_kg: number;
+  max_kg: number | null;
+  one_rm_kg: number;
+  // True when the 1RM feeding this load is from an UNCONFIRMED source (a strength
+  // max pending the coach's review). The kg still resolves; iOS can mark it
+  // "sin confirmar" until confirmed. Mirrors ResolvedIntensity.needs_review.
+  needs_review: boolean;
 }
 
 // The athlete's zone target resolved to an absolute pace band. `zone_label` is
@@ -226,6 +260,11 @@ export async function loadAssignmentDetail(
     client: sql,
   });
 
+  // The athlete's current 1RM per lift (strength maxes + onboarding backfill),
+  // used to resolve any %RM target on a line into its absolute kg. Empty (no 1RM
+  // yet) → %RM lines keep the percentage with no resolved kg.
+  const oneRms = await loadOneRmMap({ athlete_id, client: sql });
+
   // Execution (1:1 with assignment, may not exist yet if scheduled).
   const executionRows = await sql<ExecutionRow[]>`
     select
@@ -283,7 +322,7 @@ export async function loadAssignmentDetail(
     }
   }
 
-  return buildAssignmentDetail({ assignment, execution, template, segments, zoneProfiles });
+  return buildAssignmentDetail({ assignment, execution, template, segments, zoneProfiles, oneRms });
 }
 
 // A modality → resolved-zone-bands lookup, built once per request from the
@@ -328,9 +367,13 @@ export function buildAssignmentDetail(input: {
   // The athlete's stored zone profiles (G1). Default [] keeps the pure builder
   // testable without zones — items then carry the zone badge but no resolved pace.
   zoneProfiles?: AthleteZoneProfile[];
+  // The athlete's current 1RM per benchmark slug. Default empty keeps the pure
+  // builder testable without 1RMs — %RM items then carry the % but no kg.
+  oneRms?: OneRmLookup;
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
   const zoneLookup = buildZoneLookup(input.zoneProfiles ?? []);
+  const oneRms = input.oneRms ?? new Map();
 
   const slot = slotFromNotes(assignment.notes);
 
@@ -359,7 +402,7 @@ export function buildAssignmentDetail(input: {
     focus: null,
     coach_note: template.coach_notes,
     estimated_duration_minutes: null,
-    blocks: buildBlocks(template, segments, zoneLookup),
+    blocks: buildBlocks(template, segments, zoneLookup, oneRms),
   };
 
   return base;
@@ -381,6 +424,7 @@ function buildBlocks(
   template: TemplateRow,
   segments: SegmentRow[],
   zoneLookup: ZoneLookup,
+  oneRms: OneRmLookup,
 ): AssignmentDetailBlock[] {
   if (segments.length === 0) return [];
 
@@ -446,7 +490,7 @@ function buildBlocks(
       // Coach studio doesn't persist per-block config separately today, so
       // this is an empty object until the studio adds it.
       config_json: {},
-      items: m.segs.map((seg) => buildItem(seg, zoneLookup)),
+      items: m.segs.map((seg) => buildItem(seg, zoneLookup, oneRms)),
     };
   });
 }
@@ -489,7 +533,7 @@ function displayCategoryForModality(modality: string | null | undefined): string
   }
 }
 
-function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup): AssignmentDetailItem {
+function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup): AssignmentDetailItem {
   // ROOT-CAUSE FIX: the rich targets (reps/load/zone/pace/distance/calories)
   // live in `prescription_json` (the unified measure/target model), not in the
   // thin `params_json` (which can be as bare as `{sets:4}`). When a valid
@@ -520,8 +564,40 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup): AssignmentDetailIte
     params_json: normalizeParams(source),
     prescription_json: prescription,
     resolved_intensity: resolveIntensityForItem(prescription, modality, zoneLookup),
+    resolved_load: resolveLoadForItem(prescription, seg.exercise_slug, oneRms),
     notes: seg.notes,
   };
+}
+
+// Resolve a line's %RM target to the athlete's ABSOLUTE kg from their current
+// 1RM. The strength analog of resolveIntensityForItem. Returns null when: there's
+// no structured prescription, the line's target isn't a %RM (it's a zone / pace /
+// RPE / kg / …), the exercise isn't a tracked 1RM lift (EXERCISE_TO_1RM_BENCHMARK),
+// or the athlete has no 1RM for that lift — in every null case the % stands alone,
+// honestly, with NO fabricated kg.
+function resolveLoadForItem(
+  prescription: Prescription | null,
+  exerciseSlug: string,
+  oneRms: OneRmLookup,
+): ResolvedLoad | null {
+  if (!prescription) return null;
+
+  const target = lineTarget(prescription);
+  if (!target || target.kind !== 'percent_rm') return null;
+
+  const benchmarkSlug = EXERCISE_TO_1RM_BENCHMARK[exerciseSlug];
+  if (!benchmarkSlug) return null;
+
+  const entry = oneRms.get(benchmarkSlug);
+  if (!entry) return null;
+
+  const resolved = resolveRmLoad(
+    { value: target.value, min: target.min, max: target.max },
+    entry.one_rm_kg,
+  );
+  if (!resolved) return null;
+
+  return { ...resolved, needs_review: entry.needs_review };
 }
 
 // Profile modalities that have a pace-zone profile (run = /km; row/ski/bike =

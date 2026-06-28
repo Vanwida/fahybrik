@@ -101,6 +101,12 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     // nil otherwise — then renderers show the zone badge alone with NO fabricated
     // pace. The wire field `resolved_intensity` converts to `resolvedIntensity`.
     let resolvedIntensity: ResolvedIntensity?
+    // ABSOLUTE kg the BACKEND resolved from the athlete's current 1RM for this
+    // line's %RM target (strength analog of `resolvedIntensity`; read, never
+    // recomputed). Non-nil ONLY when the target is a %RM on a tracked lift AND the
+    // athlete has a 1RM for it; nil otherwise — then renderers show the % alone
+    // with NO fabricated kg. Wire `resolved_load` → `resolvedLoad`.
+    let resolvedLoad: ResolvedLoad?
     let notes: String?
 
     // Explicit keys are required because the wire field `prescription_json`
@@ -119,6 +125,7 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
         case paramsJson
         case prescription = "prescriptionJson"
         case resolvedIntensity
+        case resolvedLoad
         case notes
     }
 }
@@ -141,6 +148,22 @@ struct ResolvedIntensity: Codable, Equatable {
 
     /// The band prefixed for a pace slot, e.g. "@ 4:00–4:14/km".
     var paceChip: String { "@ \(rangeLabel)" }
+}
+
+// A %RM target resolved to the athlete's ABSOLUTE load (mirrors the backend
+// `ResolvedLoad` in lib/athlete/assignment-detail.ts). `kgLabel` is READY to
+// render ("64 kg", "52–64 kg"); `pctLabel` is the source percentage ("80%",
+// "65–80%"). `needsReview` flags an UNCONFIRMED 1RM (a strength max pending the
+// coach's review) — the kg still resolves; the UI marks it "sin confirmar".
+// Snake_case wire keys (`pct_label`, `kg_label`, `min_kg`, `max_kg`, `one_rm_kg`,
+// `needs_review`) convert to these via the shared decoder.
+struct ResolvedLoad: Codable, Equatable {
+    let pctLabel: String
+    let kgLabel: String
+    let minKg: Double
+    let maxKg: Double?
+    let oneRmKg: Double
+    let needsReview: Bool
 }
 
 struct WorkoutItemParams: Codable, Equatable {

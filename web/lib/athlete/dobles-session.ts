@@ -3,9 +3,10 @@
 //
 // Powers GET /api/athlete/dobles/session/[id] — the iOS dual-load table where
 // ONE shared session is shown with PER-ATHLETE load. Each `percent_rm`
-// prescription is resolved against THAT athlete's OWN 1RM (from
-// athlete_benchmarks), so the same "5×5 @ 80% RM" back squat reads "80% · 96kg"
-// for one athlete and "80% · 120kg" for the other.
+// prescription is resolved against THAT athlete's OWN 1RM (via the shared
+// loadOneRmMap — strength system + onboarding-benchmark backfill), so the same
+// "5×5 @ 80% RM" back squat reads "80% · 96kg" for one athlete and "80% · 120kg"
+// for the other.
 //
 // Domain model (load resolution):
 //   target kind      | resolution
@@ -38,7 +39,8 @@ import {
   type PrescriptionSet,
   type Target,
 } from '@fahybrid/shared/domain/prescription';
-import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
+import { EXERCISE_TO_1RM_BENCHMARK, resolvePercentRmToKg } from '@fahybrid/shared/domain/strength';
+import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 
 // ── Wire shape (snake_case; iOS decodes via convertFromSnakeCase) ────────────
 export interface DoblesExerciseRow {
@@ -87,12 +89,6 @@ interface SegmentRow {
   prescription_json: unknown;
   exercise_name: string;
   exercise_slug: string;
-}
-
-interface BenchmarkRow {
-  exercise_slug: string;
-  value: number;
-  unit: string;
 }
 
 interface AssignmentMeta {
@@ -161,10 +157,11 @@ export async function loadDoblesSession(
     `;
   }
 
-  // Latest 1RM per benchmark slug for each athlete.
+  // Current 1RM per benchmark slug for each athlete (shared loader — same source
+  // the individual brief resolves loads from, so the two surfaces never diverge).
   const [selfBenchmarks, partnerBenchmarks] = await Promise.all([
-    loadOneRms(sql, self_athlete_id),
-    loadOneRms(sql, partner_athlete_id),
+    loadOneRmMap({ athlete_id: self_athlete_id, client: sql }),
+    loadOneRmMap({ athlete_id: partner_athlete_id, client: sql }),
   ]);
 
   const exercises = segments.map((seg) =>
@@ -188,8 +185,8 @@ export async function loadDoblesSession(
 
 export function buildExerciseRow(
   seg: SegmentRow,
-  selfBenchmarks: Map<string, number>,
-  partnerBenchmarks: Map<string, number>,
+  selfBenchmarks: Map<string, OneRmEntry>,
+  partnerBenchmarks: Map<string, OneRmEntry>,
 ): DoblesExerciseRow {
   const prescription = parsePrescription(seg.prescription_json);
   const target = prescription ? resolveTarget(prescription) : undefined;
@@ -222,7 +219,7 @@ function resolveTarget(p: Prescription): Target | undefined {
 function formatLoad(
   target: Target | undefined,
   benchmarkSlug: string | null,
-  benchmarks: Map<string, number>,
+  benchmarks: Map<string, OneRmEntry>,
 ): string | null {
   if (!target) return null;
 
@@ -230,11 +227,10 @@ function formatLoad(
     case 'percent_rm': {
       const pct = scalarOf(target);
       if (pct === undefined) return null;
-      const oneRm = benchmarkSlug ? benchmarks.get(benchmarkSlug) : undefined;
+      const oneRm = benchmarkSlug ? benchmarks.get(benchmarkSlug)?.one_rm_kg : undefined;
       // Honest: no 1RM on file → show the relative intensity, never a fake kg.
       if (oneRm === undefined) return `${formatPct(pct)}% · —`;
-      const kg = Math.round((pct / 100) * oneRm);
-      return `${formatPct(pct)}% · ${kg}kg`;
+      return `${formatPct(pct)}% · ${resolvePercentRmToKg(pct, oneRm)}kg`;
     }
     case 'kg': {
       const kg = scalarOf(target);
@@ -337,60 +333,16 @@ function strParam(params: Record<string, unknown> | null, key: string): string |
 }
 
 // ── 1RM reference line ───────────────────────────────────────────────────────
-function formatOneRmLine(benchmarks: Map<string, number>): string | null {
+function formatOneRmLine(benchmarks: Map<string, OneRmEntry>): string | null {
   const parts: string[] = [];
   for (const [slug, abbrev] of BENCHMARK_ABBREV) {
-    const v = benchmarks.get(slug);
+    const v = benchmarks.get(slug)?.one_rm_kg;
     if (v !== undefined) parts.push(`${abbrev} 1RM ${roundKg(v)}`);
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-// ── DB / parse helpers ───────────────────────────────────────────────────────
-// Current 1RM per benchmark slug for one athlete. PREFERS the versioned strength
-// system (athlete_strength_maxes — fed by re-tests + coach overrides), then fills
-// any lift not yet tested there from the onboarding kg benchmarks. So a re-test
-// flows straight into %RM→kg resolution while onboarding-only lifts still resolve.
-async function loadOneRms(sql: Sql, athleteId: bigint): Promise<Map<string, number>> {
-  const map = new Map<string, number>();
-
-  // 1) Current (highest-version) 1RM per lift from the strength system.
-  const strengthRows = await sql<{ exercise_slug: string; one_rm_kg: number }[]>`
-    select distinct on (sm.exercise_slug)
-      sm.exercise_slug          as exercise_slug,
-      sm.one_rm_kg::float8       as one_rm_kg
-    from athlete_strength_maxes sm
-    where sm.athlete_id = ${athleteId as unknown as number}
-    order by sm.exercise_slug, sm.version desc
-  `;
-  for (const r of strengthRows) {
-    if (Number.isFinite(r.one_rm_kg) && r.one_rm_kg > 0) {
-      map.set(r.exercise_slug, r.one_rm_kg);
-    }
-  }
-
-  // 2) Backfill from athlete_benchmarks for any lift not in the strength system,
-  //    without overwriting a strength-max value.
-  const benchRows = await sql<BenchmarkRow[]>`
-    select distinct on (ab.exercise_slug)
-      ab.exercise_slug    as exercise_slug,
-      ab.value::float      as value,
-      ab.unit              as unit
-    from athlete_benchmarks ab
-    where ab.athlete_id = ${athleteId as unknown as number}
-    order by ab.exercise_slug, ab.recorded_at desc
-  `;
-  for (const r of benchRows) {
-    // Only kg-denominated 1RMs feed load resolution. A reps/seconds benchmark
-    // (pull-ups, 5k) is not a 1RM and must never be read as kg.
-    if (r.unit === 'kg' && Number.isFinite(r.value) && r.value > 0 && !map.has(r.exercise_slug)) {
-      map.set(r.exercise_slug, r.value);
-    }
-  }
-
-  return map;
-}
-
+// ── parse helpers ────────────────────────────────────────────────────────────
 function parsePrescription(raw: unknown): Prescription | null {
   if (raw == null) return null;
   const parsed = safeParsePrescription(raw);

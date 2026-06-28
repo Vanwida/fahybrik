@@ -60,6 +60,11 @@ struct ExerciseDetailView: View {
             if ri.needsReview { parts.append("sin confirmar") }
         }
         if let det = line.detail { parts.append(det) }
+        // Backend-resolved %RM→kg for a non-strength card carrying a %RM target.
+        if let rl = item.resolvedLoad {
+            parts.append(rl.kgLabel)
+            if rl.needsReview { parts.append("sin confirmar") }
+        }
         if let header = PrescriptionRenderer.wodHeader(p) { parts.insert(header, at: 0) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
@@ -129,10 +134,18 @@ struct ExerciseDetailView: View {
     private var prescriptionSection: some View {
         if let rows = setRows, !rows.isEmpty {
             section(title: "PRESCRIPCIÓN") {
-                if let collapsed = collapsedSets {
-                    MonoText(text: collapsed, size: 15, color: Theme.Color.foreground)
-                } else {
-                    setTable(rows)
+                VStack(alignment: .leading, spacing: 10) {
+                    if let collapsed = collapsedSets {
+                        MonoText(text: collapsed, size: 15, color: Theme.Color.foreground)
+                    } else {
+                        setTable(rows)
+                    }
+                    // Backend-resolved absolute load (the line's %RM × the athlete's
+                    // own 1RM). Only present when the lift is tracked AND the athlete
+                    // has a 1RM — never a fabricated kg.
+                    if let rl = item.resolvedLoad {
+                        resolvedLoadChip(rl)
+                    }
                 }
             }
         } else if let line = structuredLine {
@@ -143,6 +156,22 @@ struct ExerciseDetailView: View {
             section(title: "PRESCRIPCIÓN") {
                 MonoText(text: summary, size: 15, color: Theme.Color.foreground)
             }
+        }
+    }
+
+    // "Según tu 1RM · 52–64 kg" — the resolved absolute load beside the %.
+    private func resolvedLoadChip(_ rl: ResolvedLoad) -> some View {
+        HStack(spacing: 8) {
+            Text("Según tu 1RM")
+                .scaledFont(12, weight: .semibold, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+            MonoText(text: rl.kgLabel, size: 14, weight: .semibold, color: Theme.Color.accentText)
+            if rl.needsReview {
+                Text("sin confirmar")
+                    .scaledFont(10, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            Spacer(minLength: 0)
         }
     }
 

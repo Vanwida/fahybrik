@@ -557,7 +557,34 @@ struct PreWorkoutBriefView: View {
                         setTableRow(row, showTempo: showTempo, showRest: showRest)
                     }
                 }
+
+                // Backend-resolved absolute load: the line's %RM × the athlete's
+                // own 1RM → "52–64 kg". A divided footer beside the %; only present
+                // when the lift is tracked AND the athlete has a 1RM (never faked).
+                if let rl = item.resolvedLoad {
+                    Hairline()
+                    resolvedLoadLine(rl)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func resolvedLoadLine(_ rl: ResolvedLoad) -> some View {
+        HStack(spacing: 8) {
+            Text("SEGÚN TU 1RM")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(Theme.Color.muted)
+            MonoText(text: rl.kgLabel, size: 14, weight: .semibold, color: Theme.Color.accentText)
+            if rl.needsReview {
+                Text("sin confirmar")
+                    .scaledFont(10, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            Spacer(minLength: 0)
         }
     }
 
@@ -630,7 +657,9 @@ struct PreWorkoutBriefView: View {
         // beside the Z4 badge). Both are honest — nil when neither exists.
         let pace = line.pace ?? item.resolvedIntensity?.paceChip
         let needsReview = item.resolvedIntensity?.needsReview == true
-        let detail = [line.detail, needsReview ? "sin confirmar" : nil]
+        // Append the backend-resolved %RM→kg when present (a %RM on a non-strength
+        // card, e.g. a barbell complex); strength items render it in the table.
+        let detail = [line.detail, item.resolvedLoad?.kgLabel, needsReview ? "sin confirmar" : nil]
             .compactMap { $0 }
             .joined(separator: " · ")
         CardSurface(padding: 14, leftAccent: true) {

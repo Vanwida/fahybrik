@@ -154,6 +154,24 @@ export const resolvedIntensitySchema = z.object({
 });
 export type ResolvedIntensity = z.infer<typeof resolvedIntensitySchema>;
 
+// The strength analog of resolvedIntensity: a %RM target resolved to the athlete's
+// ABSOLUTE kg from their current 1RM (athlete_strength_maxes, read never
+// recomputed). `pct_label` is the source percentage ("80%", "65–80%"); `kg_label`
+// is the ready-to-render load ("64 kg", "52–64 kg"); raw `min_kg`/`max_kg`
+// (max null for a single value) + `one_rm_kg` let iOS reformat. Present only when
+// the line targets a %RM on a tracked lift AND the athlete has a 1RM for it.
+export const resolvedLoadSchema = z.object({
+  pct_label: z.string().min(1),
+  kg_label: z.string().min(1),
+  min_kg: z.number().nonnegative(),
+  max_kg: z.number().nonnegative().nullable(),
+  one_rm_kg: z.number().positive(),
+  // True when the 1RM is from an UNCONFIRMED source (a strength max pending the
+  // coach's review). Defaulted false for payloads built before the field existed.
+  needs_review: z.boolean().default(false),
+});
+export type ResolvedLoad = z.infer<typeof resolvedLoadSchema>;
+
 export const assignmentDetailItemSchema = z.object({
   uid: z.string().min(1),
   exercise_id: idSchema,
@@ -173,6 +191,8 @@ export const assignmentDetailItemSchema = z.object({
   prescription_json: prescriptionSchema.nullable(),
   // G1 — the line's zone target resolved to an absolute pace band, or null.
   resolved_intensity: resolvedIntensitySchema.nullable(),
+  // The line's %RM target resolved to the athlete's absolute kg, or null.
+  resolved_load: resolvedLoadSchema.nullable(),
   notes: z.string().nullable(),
 });
 export type AssignmentDetailItem = z.infer<typeof assignmentDetailItemSchema>;

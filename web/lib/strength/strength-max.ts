@@ -175,6 +175,72 @@ export async function loadStrengthMaxes(params: {
   return parseStrengthRows(rows);
 }
 
+/** One athlete's current 1RM (kg) for a lift, plus whether that value is still
+ * pending coach review (an unconfirmed source). Keyed by BENCHMARK slug. */
+export interface OneRmEntry {
+  one_rm_kg: number;
+  needs_review: boolean;
+}
+
+/**
+ * The athlete's CURRENT 1RM per BENCHMARK slug, for %RM→kg resolution anywhere a
+ * prescription is shown (the individual pre-workout brief AND the Dobles dual-load
+ * table). Single source of truth so both surfaces resolve loads identically.
+ *
+ * PREFERS the versioned strength system (athlete_strength_maxes — fed by re-tests
+ * + coach overrides, carrying `needs_review`), then BACKFILLS any lift not yet
+ * tested there from kg-denominated onboarding benchmarks (no review flag → false).
+ * So a re-test flows straight into load resolution while onboarding-only lifts
+ * still resolve. A lift with no 1RM anywhere is simply absent — callers keep
+ * showing the % honestly rather than fabricating a kg.
+ */
+export async function loadOneRmMap(params: {
+  athlete_id: number | bigint;
+  client?: Sql;
+}): Promise<Map<string, OneRmEntry>> {
+  const client = params.client ?? defaultSql;
+  const athleteId = Number(params.athlete_id);
+  const map = new Map<string, OneRmEntry>();
+
+  // 1) Current (highest-version) 1RM per lift from the strength system.
+  const strengthRows = await client<
+    { exercise_slug: string; one_rm_kg: number; needs_review: boolean }[]
+  >`
+    select distinct on (sm.exercise_slug)
+      sm.exercise_slug      as exercise_slug,
+      sm.one_rm_kg::float8   as one_rm_kg,
+      sm.needs_review        as needs_review
+    from athlete_strength_maxes sm
+    where sm.athlete_id = ${athleteId}
+    order by sm.exercise_slug, sm.version desc
+  `;
+  for (const r of strengthRows) {
+    if (Number.isFinite(r.one_rm_kg) && r.one_rm_kg > 0) {
+      map.set(r.exercise_slug, { one_rm_kg: r.one_rm_kg, needs_review: r.needs_review === true });
+    }
+  }
+
+  // 2) Backfill from athlete_benchmarks for any lift not in the strength system,
+  //    without overwriting a strength-max value. Only kg-denominated 1RMs feed
+  //    load resolution — a reps/seconds benchmark (pull-ups, 5k) is never a 1RM.
+  const benchRows = await client<{ exercise_slug: string; value: number; unit: string }[]>`
+    select distinct on (ab.exercise_slug)
+      ab.exercise_slug    as exercise_slug,
+      ab.value::float      as value,
+      ab.unit              as unit
+    from athlete_benchmarks ab
+    where ab.athlete_id = ${athleteId}
+    order by ab.exercise_slug, ab.recorded_at desc
+  `;
+  for (const r of benchRows) {
+    if (r.unit === 'kg' && Number.isFinite(r.value) && r.value > 0 && !map.has(r.exercise_slug)) {
+      map.set(r.exercise_slug, { one_rm_kg: r.value, needs_review: false });
+    }
+  }
+
+  return map;
+}
+
 /**
  * ALL versions for one athlete (oldest→newest per lift) — the progression history
  * the coach detail + athlete benchmarks screens read for deltas. Coach-ownership
