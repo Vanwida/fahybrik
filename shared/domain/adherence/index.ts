@@ -5,3 +5,4 @@
 
 export * from './bands';
 export * from './completion';
+export * from './order-altered';
