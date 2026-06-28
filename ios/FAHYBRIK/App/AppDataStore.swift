@@ -64,8 +64,10 @@ struct Slice<Value: Codable>: Codable {
 // CARRERAS tab is now folded in too — the unified races hub (upcoming objectives
 // + past results), the race-context overview, and the live training analytics —
 // so it opens instantly from the same store/SWR/disk machinery (and its imported
-// history lives here, not in a separate cache). Chat history, APIClient-level
-// request de-dup and richer offline are PHASE 2.
+// history lives here, not in a separate cache). The CHAT tab is folded in as well
+// — its message history is cached here (the thread envelope already was), so the
+// conversation renders instantly on open and the SSE stream layers live updates
+// on top. APIClient-level request de-dup and richer offline are PHASE 2.
 @MainActor
 @Observable
 final class AppDataStore {
@@ -75,7 +77,8 @@ final class AppDataStore {
     var planWeek = Slice<AthletePlanWeekResponse>()         // /plan/week (offset 0) — Inicio, Plan, Perfil(coach)
     var macroProgress = Slice<AthleteMacroProgressResponse>() // /macro-progress  — Inicio week tile
     var readiness = Slice<DailyReadinessPayload>()          // /readiness/today   — Inicio
-    var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread)
+    var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread) + Chat (coach identity)
+    var chatMessages = Slice<[ChatMessageDTO]>()            // /chat/threads/me/messages — Chat (message history)
     var partner = Slice<PartnerEnvelope>()                  // /athlete/partner   — Inicio, Plan, Perfil
     var subscription = Slice<SubscriptionInfo>()            // /stripe/subscription — Perfil
 
@@ -124,6 +127,7 @@ final class AppDataStore {
             macroProgress = snapshot.macroProgress
             readiness = snapshot.readiness
             chatThread = snapshot.chatThread
+            chatMessages = snapshot.chatMessages
             partner = snapshot.partner
             subscription = snapshot.subscription
             racesHub = snapshot.racesHub
@@ -142,6 +146,7 @@ final class AppDataStore {
         macroProgress = .init()
         readiness = .init()
         chatThread = .init()
+        chatMessages = .init()
         partner = .init()
         subscription = .init()
         racesHub = .init()
@@ -201,6 +206,15 @@ final class AppDataStore {
         async let o: Void = refreshRaceOverview(force: force)
         async let a: Void = refreshAnalytics(force: force)
         _ = await (r, o, a)
+    }
+
+    /// Chat: the message history (cache-first render) + the thread envelope (coach
+    /// identity + unread count). Both revalidate concurrently through the same SWR
+    /// engine, so opening the tab is instant from cache and silently refreshes.
+    func loadChat(force: Bool = false) async {
+        async let m: Void = refreshChatMessages(force: force)
+        async let t: Void = refreshChatThread(force: force)
+        _ = await (m, t)
     }
 
     /// The plan changed (workout completed, day moved, target race fixed) — pull
@@ -270,6 +284,32 @@ final class AppDataStore {
         await revalidate(get: { self.chatThread }, set: { self.chatThread = $0 }, force: force) {
             try await ChatService.fetchThread(bearer: $0)
         }
+    }
+
+    func refreshChatMessages(force: Bool = false) async {
+        // Throwing fetch so a failed revalidation keeps the last good history
+        // (SWR / offline-first), instead of nil wiping the cached conversation.
+        await revalidate(get: { self.chatMessages }, set: { self.chatMessages = $0 }, force: force) {
+            try await ChatService.fetchMessages(bearer: $0)
+        }
+    }
+
+    /// Fold a single canonical message — an SSE delivery or the athlete's own
+    /// CONFIRMED send — into the cached history: id-deduped (update in place if we
+    /// already have it, else append) and kept oldest-first, then persist. Keeps the
+    /// next open instant and offline showing the latest exchange without a full
+    /// refetch. Optimistic / still-sending local rows never reach here — only the
+    /// server-canonical DTO does — so the disk cache mirrors server truth.
+    func appendChatMessage(_ message: ChatMessageDTO) {
+        var list = chatMessages.value ?? []
+        if let idx = list.firstIndex(where: { $0.id == message.id }) {
+            list[idx] = message
+        } else {
+            list.append(message)
+        }
+        list.sort { $0.createdAt < $1.createdAt }
+        chatMessages.setLoaded(list)
+        persist()
     }
 
     func refreshPartner(force: Bool = false) async {
@@ -367,6 +407,7 @@ final class AppDataStore {
             macroProgress: macroProgress,
             readiness: readiness,
             chatThread: chatThread,
+            chatMessages: chatMessages,
             partner: partner,
             subscription: subscription,
             racesHub: racesHub,
@@ -394,6 +435,7 @@ enum AppDataPersistence {
         var macroProgress: Slice<AthleteMacroProgressResponse>
         var readiness: Slice<DailyReadinessPayload>
         var chatThread: Slice<ChatThreadDTO>
+        var chatMessages: Slice<[ChatMessageDTO]>
         var partner: Slice<PartnerEnvelope>
         var subscription: Slice<SubscriptionInfo>
         var racesHub: Slice<RacesHubResponse>
@@ -401,10 +443,10 @@ enum AppDataPersistence {
         var analytics: Slice<AthleteAnalytics>
     }
 
-    // v2 adds the Carreras slices. An older v1 blob has a different shape, so its
-    // decode simply fails (→ start clean, refetch on launch) — no migration code,
-    // no stale-shape risk.
-    private static let key = "fahybrik.appDataStore.v2"
+    // v3 adds the Chat message-history slice (v2 added the Carreras slices). An
+    // older blob has a different shape, so its decode simply fails (→ start clean,
+    // refetch on launch) — no migration code, no stale-shape risk.
+    private static let key = "fahybrik.appDataStore.v3"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }

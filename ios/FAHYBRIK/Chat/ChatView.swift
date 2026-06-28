@@ -2,17 +2,30 @@ import SwiftUI
 
 // Chat tab — direct thread between the athlete and their coach (coach identity
 // is agnostic data, read from the chat thread payload — never hardcoded).
-// Backed by the live chat API (ChatService): messages load on appear, poll while
-// the view is visible, and sends are optimistic with an offline queue fallback.
-// Voice notes render a static waveform + duration. Castilian throughout.
+//
+// Cache-first / SWR: the conversation is backed by the shared AppDataStore
+// (`chatMessages` history + `chatThread` envelope). Opening the tab renders the
+// cached conversation INSTANTLY from the store (no "pensando" spinner when a
+// cache exists — only on a true cold first load), then the live ChatService SSE
+// stream layers real-time updates ON TOP. Every canonical message (SSE-delivered
+// or the athlete's own confirmed send) is folded back into the store cache, so
+// the next open is instant and offline shows the latest exchange. Sends are
+// optimistic with an offline queue fallback. Voice notes render a static
+// waveform + duration. Castilian throughout.
 //
 // Presentation: Chat is a first-class TAB root (AppShell). It is ALSO raised as
-// a sheet from the Inicio "coach note" shortcut and the Plan header. We read
-// `\.isPresented` to know which: as a sheet we show a close affordance; as the
-// tab root the header is clean (no back chevron — the bottom bar owns nav),
-// matching the handoff `chat` screen.
+// a sheet from the Plan header (which re-injects the store across the sheet
+// boundary). We read `\.isPresented` to know which: as a sheet we show a close
+// affordance; as the tab root the header is clean (no back chevron — the bottom
+// bar owns nav), matching the handoff `chat` screen.
 struct ChatView: View {
     let bearer: String?
+
+    // The shared cache-first data layer. The conversation history lives in its
+    // `chatMessages` slice and the coach identity in `chatThread`, so the screen
+    // opens from memory/disk and revalidates silently — same engine as the other
+    // tabs. Injected by AppShell (tab root) / re-injected by PlanView (sheet).
+    @Environment(AppDataStore.self) private var store
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isPresented) private var isPresented
@@ -59,13 +72,18 @@ struct ChatView: View {
                 Hairline()
                 ScrollViewReader { proxy in
                     ScrollView {
-                        if isLoading && messages.isEmpty {
-                            loadingState
-                        } else if messages.isEmpty {
-                            emptyState
+                        if displayMessages.isEmpty {
+                            // Spinner ONLY on a true cold load — nothing on screen
+                            // AND the store has never loaded the history. A cached
+                            // (even legitimately-empty) conversation skips it.
+                            if isLoading && !store.chatMessages.hasLoaded {
+                                loadingState
+                            } else {
+                                emptyState
+                            }
                         } else {
                             VStack(alignment: .leading, spacing: 14) {
-                                ForEach(messages) { msg in
+                                ForEach(displayMessages) { msg in
                                     MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach")
                                         .id(msg.id)
                                 }
@@ -75,8 +93,8 @@ struct ChatView: View {
                             .padding(.bottom, 14)
                         }
                     }
-                    .onChange(of: messages.count) { _, _ in
-                        if let last = messages.last {
+                    .onChange(of: displayMessages.count) { _, _ in
+                        if let last = displayMessages.last {
                             withAnimation(.easeOut(duration: 0.18)) {
                                 proxy.scrollTo(last.id, anchor: .bottom)
                             }
@@ -91,6 +109,7 @@ struct ChatView: View {
         // the live connection down and re-establishes it against the now-existing
         // thread. Cancelled automatically when the view is dismissed.
         .task(id: streamEpoch) {
+            seedFromCache()
             await loadInitial()
             await liveLoop()
         }
@@ -98,35 +117,65 @@ struct ChatView: View {
 
     // MARK: - Data flow
 
+    /// The conversation to render. Prefers the live working copy (`messages`),
+    /// falling back to the store's cached history so the FIRST frame — before
+    /// `seedFromCache` has copied it into `messages` — already shows the cached
+    /// conversation instead of a spinner flash.
+    private var displayMessages: [ChatMessage] {
+        if !messages.isEmpty { return messages }
+        if let cached = store.chatMessages.value { return cached.map { mapDTO($0) } }
+        return []
+    }
+
+    /// Render the cached conversation INSTANTLY from the shared store before any
+    /// network — cache-first. Only seeds the working copy when it's empty (a
+    /// first-message reconnect re-keys the `.task` but keeps the live list).
+    /// Resolves the coach name from the already-warmed thread envelope. When the
+    /// history has been loaded (even legitimately empty), the cold spinner ends.
+    @MainActor
+    private func seedFromCache() {
+        if coachName == nil { coachName = cachedCoachName() }
+        guard messages.isEmpty else { return }
+        if let cached = store.chatMessages.value, !cached.isEmpty {
+            messages = cached.map { mapDTO($0) }
+            isLoading = false
+        } else if store.chatMessages.hasLoaded {
+            // Loaded but legitimately empty — show the empty state, not a spinner.
+            isLoading = false
+        }
+        // else: never loaded → keep the cold spinner until loadInitial returns.
+    }
+
     @MainActor
     private func loadInitial() async {
-        guard let bearer else { isLoading = false; return }
-        await loadCoachIdentity(bearer: bearer)
-        do {
-            let dtos = try await ChatService.fetchMessages(bearer: bearer)
+        guard bearer != nil else { isLoading = false; return }
+        // Cache-first / SWR through the shared store: revalidates the history +
+        // the thread envelope (coach identity) within the staleness window and
+        // keeps the last good value on failure. The cached list is already on
+        // screen, so this is a silent background refresh, not a blocking load.
+        await store.loadChat()
+        if coachName == nil { coachName = cachedCoachName() }
+        if let dtos = store.chatMessages.value {
             // Reconcile (not replace) so any still-optimistic / offline-queued
             // messages survive a reconnect-triggered reload.
             reconcile(with: dtos)
             loadFailed = false
             await markReadIfNeeded(dtos: dtos)
-        } catch {
-            // Only surface the failure banner on a cold start (nothing to show).
-            if messages.isEmpty { loadFailed = true }
+        } else if messages.isEmpty {
+            // Never loaded and nothing cached → the cold revalidation failed.
+            loadFailed = true
         }
         isLoading = false
     }
 
-    /// Resolve the coach's display name from the athlete's chat thread (the
-    /// in-surface source: chat_threads -> coaches.full_name). Fetched once; the
-    /// thread auto-creates server-side, matching the lazy-create contract. Left
-    /// nil on failure / when the athlete has no coach → neutral fallbacks render.
-    @MainActor
-    private func loadCoachIdentity(bearer: String) async {
-        guard coachName == nil else { return }
-        guard let thread = try? await ChatService.fetchThread(bearer: bearer) else { return }
-        if let name = thread.coachName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-            coachName = name
-        }
+    /// Coach display name from the store's chat-thread envelope (the in-surface
+    /// source: chat_threads -> coaches.full_name), trimmed. Nil when absent / not
+    /// loaded / the athlete has no coach → neutral fallbacks render. Never
+    /// fabricated. The store warms + revalidates the thread, so this is read-only.
+    private func cachedCoachName() -> String? {
+        guard let name = store.chatThread.value?.coachName?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
     }
 
     /// Real-time loop: prefer the SSE stream; fall back to REST polling when it
@@ -173,15 +222,15 @@ struct ChatView: View {
 
     @MainActor
     private func refresh() async {
-        guard let bearer else { return }
-        do {
-            let dtos = try await ChatService.fetchMessages(bearer: bearer)
-            reconcile(with: dtos)
-            loadFailed = false
-            await markReadIfNeeded(dtos: dtos)
-        } catch {
-            // Transient poll failure — keep showing what we have.
-        }
+        guard bearer != nil else { return }
+        // Force a fresh pull through the store (catch-up after the stream opens /
+        // poll fallback). The store persists the result + keeps the last good value
+        // on a transient failure, so we always reconcile against the best history.
+        await store.refreshChatMessages(force: true)
+        guard let dtos = store.chatMessages.value else { return }
+        reconcile(with: dtos)
+        loadFailed = false
+        await markReadIfNeeded(dtos: dtos)
     }
 
     /// Merge server truth with any optimistic (still-sending / offline-queued)
@@ -211,6 +260,10 @@ struct ChatView: View {
     ///   3. Otherwise it's genuinely new → append.
     @MainActor
     private func ingest(_ dto: ChatMessageDTO) {
+        // Whichever branch resolves the local working copy, always fold the
+        // canonical message into the shared store cache (id-deduped) so the next
+        // open is instant and offline shows the latest exchange.
+        defer { store.appendChatMessage(dto) }
         if let idx = messages.firstIndex(where: { $0.id == dto.id }) {
             messages[idx] = mapDTO(dto)
             return

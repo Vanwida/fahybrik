@@ -149,7 +149,11 @@ struct PlanView: View {
             )
         }
         .sheet(isPresented: $showChat) {
+            // Re-inject the shared store: a custom @Observable environment value
+            // does NOT cross the sheet presentation boundary, and ChatView now
+            // reads its cache-first history/identity from it.
             ChatView(bearer: effectiveBearer)
+                .environment(store)
         }
         .fullScreenCover(isPresented: $showPartnerPlan) {
             DoblesPlanView(bearer: effectiveBearer)

@@ -12,7 +12,12 @@ import Foundation
 
 // MARK: - DTOs
 
-struct ChatMessageDTO: Decodable, Identifiable, Equatable {
+// Codable (not just Decodable) so the message history can be cached to disk via
+// AppDataStore's `chatMessages` slice (offline-first). It has no custom
+// CodingKeys, so the synthesized encode/decode round-trips through the store's
+// plain camelCase coder — independent of the API path's snake_case + ISO8601
+// strategy used when it's decoded off the wire.
+struct ChatMessageDTO: Codable, Identifiable, Equatable {
     let id: String
     let threadId: String
     let senderUserId: String
