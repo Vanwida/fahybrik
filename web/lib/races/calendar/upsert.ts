@@ -17,10 +17,13 @@ type Client = Sql | TransactionClient;
  * written (inserts + updates) — rows locked by `verified_by_user_id` are
  * skipped and NOT counted.
  *
- * On INSERT we set is_visible_to_athletes = false (Pablo curates which scraped
- * events athletes see) and the deterministic slug. On CONFLICT we refresh the
- * scraped facts but deliberately do NOT overwrite: slug, is_visible_to_athletes,
- * division (headline), or created_by_coach_id — those are coach-owned. The
+ * On INSERT we set is_visible_to_athletes = true: the scraped catalog IS the
+ * public official race calendar, so athletes see it by default and the coach
+ * curates only EXCEPTIONS (hiding the odd irrelevant venue via the admin PATCH).
+ * We also set the deterministic slug. On CONFLICT we refresh the scraped facts
+ * but deliberately do NOT overwrite: slug, is_visible_to_athletes, division
+ * (headline), or created_by_coach_id — those are coach-owned, so a coach's hide
+ * (or manual show) persists across every re-sync. The
  * `where events.verified_by_user_id is null` clause makes a coach/admin-verified
  * row a no-op on conflict (skipped, no error) — the override contract reserved by
  * migration 0079_events_verified_by.
@@ -52,7 +55,7 @@ export async function upsertCatalogEvents(
         ${slug}, ${ev.name}, ${type}, ${ev.city}, ${ev.country}, ${region},
         ${ev.start_date}, ${ev.end_date}, ${ev.division_options}, ${ev.source_url},
         ${series}, ${series}, ${ev.source_ref}, ${ev.is_tentative},
-        false, ${runStartedAt}, 0, now()
+        true, ${runStartedAt}, 0, now()
       )
       on conflict (series, source_ref)
         where series is not null and source_ref is not null
