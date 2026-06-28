@@ -86,15 +86,18 @@ struct PlanView: View {
                         titleBlock
                         weekNav
                         if hasAnySession {
+                            // Hierarchy: a COMPACT foco rides on top, then THE PLAN
+                            // (the day list) as the hero, then the secondary recap
+                            // (progreso + resumen) below.
                             if let focus, !focus.isEmpty {
                                 focoCard(focus)
                             }
-                            weekSummaryCard
+                            dayList
+                            legend
                             if weekOffset == 0 {
                                 weekProgressCard
                             }
-                            dayList
-                            legend
+                            weekSummaryCard
                         } else {
                             // Peeking a next week that isn't published yet.
                             peekEmptyState
@@ -280,16 +283,30 @@ struct PlanView: View {
 
     // MARK: - Foco de la semana (coach-authored, athlete-facing — no detail)
 
+    // Compact, single-line treatment: the PLAN is the hero, so the foco rides
+    // above it as a discreet accented line (mono "FOCO" label inline with the
+    // text) rather than a full top-accent card. Content + a11y unchanged.
     private func focoCard(_ text: String) -> some View {
-        CardSurface(padding: 16, topAccent: true) {
-            VStack(alignment: .leading, spacing: 6) {
-                LabelText(text: "FOCO DE LA SEMANA")
-                Text(text)
-                    .scaledFont(15, weight: .semibold, relativeTo: .body)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+            Text("FOCO")
+                .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                .tracking(0.8)
+                .foregroundStyle(Theme.Color.accentText)
+            Text(text)
+                .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, Theme.Spacing.m)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Foco de la semana: \(text)")
     }
