@@ -3,7 +3,11 @@ import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { sql } from '@/lib/db';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
+import {
+  coachExerciseColumns,
+  joinCoachOverride,
+  type CoachExerciseRow,
+} from '@/lib/exercises/coach-override';
 import {
   createExercise,
   createExerciseSchema,
@@ -36,27 +40,16 @@ export async function GET(req: Request) {
   const { category, search, limit } = parsed.data;
   const term = search ? `%${search.toLowerCase()}%` : null;
 
-  const rows = await sql<CatalogExercise[]>`
-    select
-      id::text as id,
-      slug,
-      name,
-      category::text as category,
-      modality,
-      primary_muscle_groups,
-      equipment,
-      default_metrics_json,
-      hyrox_station_position,
-      description,
-      cues,
-      video_url
-    from exercises
-    where (${category ?? null}::exercise_category is null or category = ${category ?? null}::exercise_category)
+  const rows = await sql<CoachExerciseRow[]>`
+    select ${coachExerciseColumns(sql)}
+    from exercises e
+    ${joinCoachOverride(sql, session.coach_id)}
+    where (${category ?? null}::exercise_category is null or e.category = ${category ?? null}::exercise_category)
       and (${term}::text is null
-           or lower(name) like ${term}::text
-           or lower(slug) like ${term}::text)
+           or lower(e.name) like ${term}::text
+           or lower(e.slug) like ${term}::text)
     order by
-      case category
+      case e.category
         when 'hyrox_station' then 0
         when 'strength' then 1
         when 'cardio' then 2
@@ -66,7 +59,7 @@ export async function GET(req: Request) {
         when 'mobility' then 6
         else 7
       end,
-      name asc
+      e.name asc
     limit ${limit}
   `;
 
