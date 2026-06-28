@@ -159,6 +159,7 @@
 		F90FB6069AD601D11219F451 /* RedesignComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DB51A5239429B9A268B822D /* RedesignComponents.swift */; };
 		F973DC2581E6210245922558 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */; };
 		F9B735581824B7F65F32D523 /* ExerciseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93222A913BECABC311537B62 /* ExerciseDetailView.swift */; };
+		1A2B3C4D5E6F708192A3B4C5 /* SessionExercisesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5C /* SessionExercisesSheet.swift */; };
 		FD56B719DEE716A7FC872AB4 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61F84C0FCD2D3B53262EF35 /* ReadinessService.swift */; };
 		FF066F6E597C8EAFFCACF47C /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC94A17EBAE399DCC37750B5 /* Haptics.swift */; };
 		FF3A777CE7F3EFDE16504099 /* PlanStationsSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7131BB3114EA2DBDB2B6996C /* PlanStationsSectionTests.swift */; };
@@ -265,6 +266,7 @@
 		9120CB1234A2DD3E8B1AE0DC /* ImportRaceLinkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRaceLinkSheet.swift; sourceTree = "<group>"; };
 		92301D3099895B625F52E562 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		93222A913BECABC311537B62 /* ExerciseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304B5C /* SessionExercisesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionExercisesSheet.swift; sourceTree = "<group>"; };
 		96510F336429A30BA03E22DD /* FoodSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchView.swift; sourceTree = "<group>"; };
 		97736E2A223554D304876154 /* StrengthOneRMStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthOneRMStep.swift; sourceTree = "<group>"; };
 		9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutContainer.swift; sourceTree = "<group>"; };
@@ -513,6 +515,7 @@
 			children = (
 				15C0C622AB4411D866FA012C /* AssignmentDetail.swift */,
 				93222A913BECABC311537B62 /* ExerciseDetailView.swift */,
+				A1B2C3D4E5F6071829304B5C /* SessionExercisesSheet.swift */,
 				C3A6F6A06597A99FDB74B021 /* PlanService.swift */,
 				6864E864016B47E3286E44BA /* PlanStationsSection.swift */,
 				7977DBCE8367B9C75CC6D124 /* PlanView.swift */,
@@ -972,6 +975,7 @@
 				DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */,
 				A68764BA54E6F06F78581784 /* EventsModels.swift in Sources */,
 				F9B735581824B7F65F32D523 /* ExerciseDetailView.swift in Sources */,
+				1A2B3C4D5E6F708192A3B4C5 /* SessionExercisesSheet.swift in Sources */,
 				E098A6DDCC6361576489843A /* FAHYBRIKApp.swift in Sources */,
 				2AD3387B52E11CED13C90EE0 /* FacilityStep.swift in Sources */,
 				8A60F22CE2726C1554EC974A /* FijarObjetivoView.swift in Sources */,

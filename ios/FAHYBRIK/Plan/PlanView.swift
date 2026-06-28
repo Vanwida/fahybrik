@@ -30,14 +30,18 @@ struct PlanView: View {
     // Raw week (all sessions per day) + the published-week metadata.
     @State private var days: [AthleteWeekDay] = []
     @State private var todayIso: String = ""
-    // Coach-authored freeform week label ("Semana 2/4", "Construcción · sem 2").
-    // Surfaced verbatim as the counter chip — never a fabricated denominator.
-    @State private var macroLabel: String? = nil
-    @State private var aEventDays: Int? = nil
-    // Provenance for the "Tu semana" subtitle — the coach who publishes the week
-    // and the periodization phase (microciclo) it belongs to. Both honest-optional.
+    @State private var weekStart: String = ""
+    @State private var weekEnd: String = ""
+    // Coach-authored "Foco de la semana" — a short athlete-facing line. Honest-nil.
+    @State private var focus: String? = nil
+    // True when a NEXT week with published content exists (drives the peek button).
+    @State private var hasNextWeek: Bool = false
+    // The coach who publishes the week — surfaced as the "por {coach}" attribution.
     @State private var coachName: String? = nil
-    @State private var microcicloName: String? = nil
+
+    // Weekly-delivery navigation: 0 = this week, 1 = the NEXT-week peek (the one
+    // that unlocks Saturday). Bounded to {0, 1} — never arbitrary navigation.
+    @State private var weekOffset: Int = 0
 
     @State private var loading = true
     @State private var loadFailed = false
@@ -49,6 +53,10 @@ struct PlanView: View {
     @State private var openAssignmentId: String? = nil
     @State private var openFallbackTitle: String? = nil
     @State private var showWorkout = false
+
+    // The session whose technique index (exercise list → ExerciseDetailView) is
+    // open. Set from the per-session technique affordance in the week.
+    @State private var techniqueTarget: AthleteWeekDaySession? = nil
 
     private var effectiveBearer: String? {
         bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
@@ -68,24 +76,34 @@ struct PlanView: View {
             Theme.Color.background.ignoresSafeArea()
             if loading {
                 ProgressView().tint(Theme.Color.accentText)
-            } else if hasAnySession {
+            } else if weekOffset == 0 && !hasAnySession {
+                // No plan at all (current week empty) — the honest no-plan state.
+                emptyPlanState
+            } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                         headerRow
                         titleBlock
-                        dayList
-                        legend
-                        if let days = aEventDays {
-                            aEventCard(days: days)
-                                .padding(.top, Theme.Spacing.xs)
+                        weekNav
+                        if hasAnySession {
+                            if let focus, !focus.isEmpty {
+                                focoCard(focus)
+                            }
+                            weekSummaryCard
+                            if weekOffset == 0 {
+                                weekProgressCard
+                            }
+                            dayList
+                            legend
+                        } else {
+                            // Peeking a next week that isn't published yet.
+                            peekEmptyState
                         }
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.m)
                     .padding(.bottom, Theme.Spacing.xl)
                 }
-            } else {
-                emptyPlanState
             }
         }
         .task { await loadPlan() }
@@ -109,6 +127,15 @@ struct PlanView: View {
         }
         .fullScreenCover(isPresented: $showPartnerPlan) {
             DoblesPlanView(bearer: effectiveBearer)
+        }
+        // Technique index for the tapped session — its exercises, each opening
+        // the technique detail. Distinct from Detalle (the execution flow).
+        .sheet(item: $techniqueTarget) { session in
+            SessionExercisesSheet(
+                assignmentId: session.assignmentId,
+                sessionTitle: session.title,
+                bearer: effectiveBearer
+            )
         }
     }
 
@@ -237,48 +264,55 @@ struct PlanView: View {
         let primary = day.sessions.first
         let rest = isRest(day)
         let done = isDayCompleted(day)
+        let canOpen = !rest && !(primary?.assignmentId.isEmpty ?? true)
 
-        Button {
-            guard let id = primary?.assignmentId, !id.isEmpty, !rest else { return }
-            Haptics.light()
-            open(assignmentId: id, title: primary?.title)
-        } label: {
-            HStack(spacing: Theme.Spacing.m) {
-                Text(dayLabelES(day.dayOfWeek))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.Color.faint)
-                    .frame(width: 32, alignment: .leading)
+        HStack(spacing: Theme.Spacing.s) {
+            Button {
+                guard let id = primary?.assignmentId, !id.isEmpty, !rest else { return }
+                Haptics.light()
+                open(assignmentId: id, title: primary?.title)
+            } label: {
+                HStack(spacing: Theme.Spacing.m) {
+                    Text(dayLabelES(day.dayOfWeek))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Theme.Color.faint)
+                        .frame(width: 32, alignment: .leading)
 
-                if rest {
-                    // Rest day: no modality dot — a muted hollow placeholder.
-                    Circle()
-                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                        .frame(width: 7, height: 7)
-                } else {
-                    ModalityDot(modality: primary?.modality, size: 7)
+                    if rest {
+                        // Rest day: no modality dot — a muted hollow placeholder.
+                        Circle()
+                            .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                            .frame(width: 7, height: 7)
+                    } else {
+                        ModalityDot(modality: primary?.modality, size: 7)
+                    }
+
+                    sessionTitleLine(day: day, rest: rest)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    trailingStatus(rest: rest, done: done, hasSession: primary != nil)
                 }
-
-                sessionTitleLine(day: day, rest: rest)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                trailingStatus(rest: rest, done: done, hasSession: primary != nil)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .buttonStyle(PressScaleStyle())
+            .disabled(!canOpen)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(rowAccessibilityLabel(day: day, rest: rest, done: done))
+            .accessibilityAddTraits(canOpen ? .isButton : [])
+
+            if canOpen, let session = primary {
+                techniqueButton(for: session)
+            }
         }
-        .buttonStyle(PressScaleStyle())
-        .disabled(rest || primary == nil)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(rowAccessibilityLabel(day: day, rest: rest, done: done))
-        .accessibilityAddTraits(rest || primary == nil ? [] : .isButton)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
     }
 
     // TODAY's row: highlighted on the elevated surface with an ORANGE border,
@@ -355,48 +389,74 @@ struct PlanView: View {
         .accessibilityElement(children: .contain)
     }
 
-    // One session line inside today's expanded card: slot badge + name + chevron.
+    // One session line inside today's expanded card: slot badge + name + a
+    // technique affordance + status glyph.
     private func todaySessionLine(_ session: AthleteWeekDaySession) -> some View {
         let done = isSessionCompleted(session)
-        return Button {
-            Haptics.light()
-            open(assignmentId: session.assignmentId, title: session.title)
-        } label: {
-            HStack(spacing: Theme.Spacing.s) {
-                SlotBadge(
-                    slot: slot(for: session),
-                    color: Theme.Modality.color(session.modality)
-                )
-                Text(session.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                if session.isTestSession {
-                    TestBadge(compact: true)
+        return HStack(spacing: Theme.Spacing.s) {
+            Button {
+                Haptics.light()
+                open(assignmentId: session.assignmentId, title: session.title)
+            } label: {
+                HStack(spacing: Theme.Spacing.s) {
+                    SlotBadge(
+                        slot: slot(for: session),
+                        color: Theme.Modality.color(session.modality)
+                    )
+                    Text(session.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                    if session.isTestSession {
+                        TestBadge(compact: true)
+                    }
+                    if let badge = partnerBadge(for: session) {
+                        PartnerBadge(text: badge, compact: true)
+                    }
+                    Spacer(minLength: Theme.Spacing.s)
+                    if done {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Theme.Color.ok)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Theme.Color.faint)
+                    }
                 }
-                if let badge = partnerBadge(for: session) {
-                    PartnerBadge(text: badge, compact: true)
-                }
-                Spacer(minLength: Theme.Spacing.s)
-                if done {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Theme.Color.ok)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(PressScaleStyle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                "\(slot(for: session) == .am ? "Mañana" : "Tarde"), \(session.title)"
+                + (done ? ", completada" : "")
+            )
+            .accessibilityAddTraits(.isButton)
+
+            if !session.assignmentId.isEmpty {
+                techniqueButton(for: session)
+            }
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(slot(for: session) == .am ? "Mañana" : "Tarde"), \(session.title)"
-            + (done ? ", completada" : "")
-        )
-        .accessibilityAddTraits(.isButton)
+    }
+
+    // Trailing affordance opening the session's technique index (exercise list →
+    // per-exercise technique detail). A separate hit target from the row's main
+    // tap (which opens Detalle / the execution flow), so the athlete can study
+    // technique from the plan without starting the workout.
+    private func techniqueButton(for session: AthleteWeekDaySession) -> some View {
+        Button {
+            Haptics.light()
+            techniqueTarget = session
+        } label: {
+            Image(systemName: "list.bullet.rectangle")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 34, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ver ejercicios y técnica de \(session.title)")
     }
 
     // Session name line shared by collapsed rows: name + optional partner chip,
@@ -573,8 +633,8 @@ struct PlanView: View {
             days = resp.week.days
             todayIso = resp.week.todayIso
             // The week label is coach-authored freeform; we surface it verbatim.
-            // The raw ATR sigla (ACC/TRANS/REAL) is never sent here as a label
-            // (D2) — only the human `weekLabel` reaches the athlete.
+            // No periodization sigla/code is ever sent here as a label — only the
+            // human, coach-authored `weekLabel` reaches the athlete.
             macroLabel = macro?.macro.weekLabel ?? resp.macroSummary.weekLabel
             aEventDays = macro?.macro.aEventDays ?? resp.macroSummary.aEventDays
             coachName = resp.coachName
