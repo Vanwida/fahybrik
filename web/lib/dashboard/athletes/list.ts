@@ -8,6 +8,7 @@ import {
 } from '@/lib/dashboard/coach/programming-status';
 import type { RacePriority } from '@fahybrid/shared/schema';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
+import { getOrderAlteredByAthlete } from '@/lib/dashboard/v2/order-altered';
 
 export type { ProgrammingStatus };
 
@@ -57,6 +58,11 @@ export interface AthleteRow {
   /** ISO timestamp of the athlete's most recent logged session (workout_executions),
    *  null when they've never logged one. Drives the roster "Último registro" cell. */
   last_activity_at: string | null;
+  /** SOFT, derived INFO signal: the athlete completed THIS week's sessions OUT of
+   *  their planned order (true = "cumplió pero cambió el orden / los días"). Carries
+   *  NO adherence penalty — purely informational. Single-sourced via
+   *  @/lib/dashboard/v2/order-altered (isOrderAltered). False when <2 completions. */
+  order_altered: boolean;
 }
 
 export async function fetchAthletesForCoach(params: {
@@ -205,7 +211,12 @@ export async function fetchAthletesForCoach(params: {
   `;
 
   const ids = rows.map((r) => Number(r.athlete_id));
-  const statusMap = await loadProgrammingStatusMap({ athlete_ids: ids, client });
+  // Both maps cover the whole roster in one batched pass each (no N+1): programming
+  // status + the soft order-altered info signal.
+  const [statusMap, orderAlteredMap] = await Promise.all([
+    loadProgrammingStatusMap({ athlete_ids: ids, client }),
+    getOrderAlteredByAthlete(ids, client),
+  ]);
 
   return rows.map((r) => {
     const prog = statusMap.get(r.athlete_id);
@@ -266,6 +277,7 @@ export async function fetchAthletesForCoach(params: {
         intake_completed_at: r.intake_completed_at,
       }),
       last_activity_at: r.last_activity_at ? r.last_activity_at.toISOString() : null,
+      order_altered: orderAlteredMap.get(Number(r.athlete_id)) ?? false,
       target_race:
         r.target_race_name != null &&
         r.target_race_priority != null &&

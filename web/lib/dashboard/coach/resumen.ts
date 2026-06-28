@@ -4,6 +4,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, startOfDayUtc } from '@fahybrid/shared/domain/dates';
 import { ADHERENCE_WINDOW_DAYS, adherencePct } from '@fahybrid/shared/domain/adherence';
+import { getOrderAlteredForAthlete } from '@/lib/dashboard/v2/order-altered';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
 import { getAthleteProgrammingStatus, type AthleteProgrammingStatus } from './programming-status';
 import { getNextRace, getTargetRace, toRaceSummary } from '@/lib/races/next-race';
@@ -24,6 +25,11 @@ export interface AthleteResumen {
    *  "adherencia"): completed / scheduled across the window, null when nothing
    *  was due. Single-sourced with the roster via @fahybrid/shared/domain/adherence. */
   adherence_pct_30d: number | null;
+  /** SOFT, derived INFO signal: the athlete completed THIS week's sessions OUT of
+   *  their planned order (true = "cumplió pero cambió el orden / los días"). Carries
+   *  NO adherence penalty — purely informational. Single-sourced via
+   *  @/lib/dashboard/v2/order-altered (isOrderAltered). False when <2 completions. */
+  order_altered: boolean;
   /** Sesiones programadas de la semana en curso (lun-dom) — denominador del read. */
   week_scheduled: number;
   /** Sesiones completadas de la semana en curso — numerador "{done}/{total}". */
@@ -157,6 +163,10 @@ export async function buildAthleteResumen(params: {
       )
     : null;
 
+  // Soft, derived info signal — completed this week's sessions out of planned order.
+  // Single-sourced with the roster via @/lib/dashboard/v2/order-altered.
+  const order_altered = await getOrderAlteredForAthlete(params.athlete_id, client);
+
   return {
     athlete_id: header[0].id,
     full_name: header[0].full_name,
@@ -170,6 +180,7 @@ export async function buildAthleteResumen(params: {
     programming,
     readiness_score: readinessRows[0]?.score ?? null,
     adherence_pct_30d,
+    order_altered,
     week_scheduled: scheduled,
     week_completed: completed,
     load_label,
