@@ -22,6 +22,8 @@ export interface CoachSession {
   coach_id: bigint;
   email: string;
   full_name: string;
+  /** Coach photo URL (coaches.avatar_url); null = render initials. */
+  avatar_url: string | null;
   jti: string;
   /** Every role this login holds (multi-role RBAC, migration 0041). */
   roles: Role[];
@@ -36,9 +38,9 @@ const DEV_BYPASS_COACH_EMAIL = 'alexsole@gmail.com';
 
 async function coachSessionByEmail(email: string, jti: string): Promise<CoachSession | null> {
   const rows = await sql<
-    { user_id: string; coach_id: string; email: string; full_name: string }[]
+    { user_id: string; coach_id: string; email: string; full_name: string; avatar_url: string | null }[]
   >`
-    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name
+    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name, c.avatar_url
     from users u
     join coaches c on c.user_id = u.id
     where u.email = ${email} and u.deleted_at is null
@@ -53,6 +55,7 @@ async function coachSessionByEmail(email: string, jti: string): Promise<CoachSes
     coach_id: BigInt(row.coach_id),
     email: row.email,
     full_name: row.full_name,
+    avatar_url: row.avatar_url,
     jti,
     roles,
   };
@@ -64,9 +67,9 @@ async function coachSessionByClerkUserId(
   jti: string,
 ): Promise<CoachSession | null> {
   const rows = await sql<
-    { user_id: string; coach_id: string; email: string; full_name: string }[]
+    { user_id: string; coach_id: string; email: string; full_name: string; avatar_url: string | null }[]
   >`
-    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name
+    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name, c.avatar_url
     from users u
     join coaches c on c.user_id = u.id
     where u.clerk_user_id = ${clerkUserId} and u.deleted_at is null
@@ -81,6 +84,7 @@ async function coachSessionByClerkUserId(
     coach_id: BigInt(row.coach_id),
     email: row.email,
     full_name: row.full_name,
+    avatar_url: row.avatar_url,
     jti,
     roles,
   };
@@ -92,9 +96,9 @@ async function coachSessionByUserId(
   jti: string,
 ): Promise<CoachSession | null> {
   const rows = await sql<
-    { user_id: string; coach_id: string; email: string; full_name: string }[]
+    { user_id: string; coach_id: string; email: string; full_name: string; avatar_url: string | null }[]
   >`
-    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name
+    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name, c.avatar_url
     from users u
     join coaches c on c.user_id = u.id
     where u.id = ${userId} and u.deleted_at is null
@@ -109,6 +113,7 @@ async function coachSessionByUserId(
     coach_id: BigInt(row.coach_id),
     email: row.email,
     full_name: row.full_name,
+    avatar_url: row.avatar_url,
     jti,
     roles,
   };

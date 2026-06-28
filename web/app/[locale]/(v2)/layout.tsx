@@ -40,7 +40,11 @@ export default async function V2Layout({
   return (
     <>
       <V2ThemeScript />
-      <V2Shell coach_name={session.full_name} unread_messages={unread_messages}>
+      <V2Shell
+        coach_name={session.full_name}
+        coach_avatar_url={session.avatar_url}
+        unread_messages={unread_messages}
+      >
         {children}
       </V2Shell>
     </>

@@ -13,10 +13,12 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 
 export function V2Shell({
   coach_name,
+  coach_avatar_url,
   unread_messages,
   children,
 }: {
   coach_name: string;
+  coach_avatar_url: string | null;
   unread_messages: number;
   children: React.ReactNode;
 }) {
@@ -31,7 +33,7 @@ export function V2Shell({
           <ThemeToggle />
           <span className="hidden items-center gap-2 sm:flex">
             <span className="text-xs font-semibold text-[color:var(--v2-muted)]">{firstName}</span>
-            <AthleteAvatar name={coach_name} size="sm" />
+            <AthleteAvatar name={coach_name} imageUrl={coach_avatar_url} size="sm" />
           </span>
         </header>
 

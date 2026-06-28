@@ -1,15 +1,16 @@
-// v2 · AJUSTES — coach settings. Server component: reuses the same coach session
-// the v1 /ajustes page reads (getCoachSession → full_name + email). Minimal but
-// real: account identity + a link out to Metodología/Periodización (the doc
-// corpus that feeds the IA). Re-skinned to v2 brand tokens, light + dark.
+// v2 · AJUSTES — coach settings. Server component: loads the coach session (auth)
+// + the editable profile, then renders the editable profile form and a link out
+// to Metodología/Periodización (the doc corpus that feeds the IA). v2 brand
+// tokens, light + dark.
 
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
+import { getCoachProfile } from '@/lib/coach/profile';
 import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { SettingRow } from '@/components/v2/ajustes/SettingRow';
+import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,10 +26,11 @@ export default async function V2AjustesPage({
   setRequestLocale(locale);
 
   const session = await getCoachSession();
+  const profile = session ? await getCoachProfile(session.coach_id) : null;
 
   // Auth gate already runs in the v2 layout; this guards against a torn session
   // (loader returned null) so we degrade to an empty state instead of a crash.
-  if (!session) {
+  if (!session || !profile) {
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col">
         <Header />
@@ -48,14 +50,10 @@ export default async function V2AjustesPage({
       <Header />
 
       <div className="mt-6 flex flex-col gap-4">
-        {/* ── Cuenta ─────────────────────────────────────────────────────── */}
+        {/* ── Perfil ─────────────────────────────────────────────────────── */}
         <section>
-          <h2 className="v2-micro mb-2">Cuenta</h2>
-          <Card className="px-4 py-1 sm:px-5">
-            <SettingRow label="Coach" value={session.full_name} icon="person" />
-            <div className="h-px bg-[color:var(--v2-border)]" />
-            <SettingRow label="Email" value={session.email} icon="mail" />
-          </Card>
+          <h2 className="v2-micro mb-2">Perfil</h2>
+          <CoachProfileForm initial={profile} />
         </section>
 
         {/* ── Metodología ────────────────────────────────────────────────── */}

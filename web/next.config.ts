@@ -23,6 +23,13 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@fahybrid/shared"],
+  // Coach avatars are stored on Vercel Blob; allow next/image to optimize them.
+  // Public blob URLs are https://<storeId>.public.blob.vercel-storage.com/...
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+    ],
+  },
   // pdfjs-dist + mammoth ship Node-only assets (fonts/cmaps, fs access) — keep
   // them external so the bundler doesn't try to inline them.
   serverExternalPackages: ["pdfjs-dist", "mammoth"],
