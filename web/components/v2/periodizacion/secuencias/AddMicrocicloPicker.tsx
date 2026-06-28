@@ -8,7 +8,6 @@
 // microciclo is inserted at the END of the chain; ordering is then done by drag.
 
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2SequenceMicrociclo } from '@/lib/dashboard/v2/secuencias';
@@ -17,12 +16,15 @@ export function AddMicrocicloPicker({
   microciclos,
   usageById,
   onPick,
+  onCreateNew,
   onClose,
 }: {
   microciclos: V2SequenceMicrociclo[];
   /** month_template_id → how many sequences already use it (across the matrix). */
   usageById: Record<string, number>;
   onPick: (microciclo: V2SequenceMicrociclo) => void;
+  /** Create a brand-new microciclo IN THIS cell's context (level + days preserved). */
+  onCreateNew: () => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -126,12 +128,13 @@ export function AddMicrocicloPicker({
         </div>
 
         <div className="mt-3.5 flex items-center justify-between border-t border-[color:var(--v2-border)] pt-3">
-          <Link
-            href="/biblioteca?tab=microciclos"
+          <button
+            type="button"
+            onClick={onCreateNew}
             className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="add" size={15} /> Crear microciclo nuevo
-          </Link>
+          </button>
           <button
             type="button"
             onClick={onClose}

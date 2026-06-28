@@ -6,10 +6,20 @@
 // (1..8). La identidad del microciclo = nombre + nivel + nº semanas (el orden en
 // una secuencia ES la periodización; no hay entidad fase). Al guardar se crea el
 // program_month_template con N semanas vacías y se entra al editor.
+//
+// Dos modos de uso:
+//   · desde la Biblioteca (sin props extra) → el coach elige el nivel y, al crear,
+//     navega al editor del microciclo.
+//   · desde una celda de Periodización (lockedLevel + daysContext + onCreated) → el
+//     nivel viene FIJADO por la celda (cero re-entrada), se muestra el contexto de
+//     días, y el padre decide qué hacer al crear (asociarlo a la secuencia + navegar).
+//     Los días NO son propiedad del microciclo: son la coordenada de la celda
+//     (program_sequences); aquí sólo se muestran como contexto.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { LevelBadge } from '@/components/v2/LevelBadge';
 import { cn } from '@/lib/utils';
 
 const MIN_WEEKS = 1;
@@ -26,21 +36,37 @@ const selectClass =
   'h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-[13px] text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]';
 const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]';
 
-export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
+export function NuevoMicrocicloModal({
+  onClose,
+  lockedLevel,
+  daysContext,
+  onCreated,
+}: {
+  onClose: () => void;
+  /** When creating from a periodization cell: the level is fixed (no re-pick). */
+  lockedLevel?: { id: string; name: string; label: string };
+  /** The cell's días/semana — shown as context (days belongs to the cell, not the microciclo). */
+  daysContext?: number;
+  /** When set, the caller handles post-create (associate with the cell + navigate). */
+  onCreated?: (created: { id: string }) => void | Promise<void>;
+}) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [levels, setLevels] = useState<LevelOption[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
+  // With a locked level there's no catalog to fetch — nothing to wait for.
+  const [loadingData, setLoadingData] = useState(!lockedLevel);
 
   const [name, setName] = useState('');
-  const [levelId, setLevelId] = useState('');
+  const [levelId, setLevelId] = useState(lockedLevel?.id ?? '');
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load the coach's level catalog (agnostic data source).
+  // Load the coach's level catalog (agnostic data source) — only when the level
+  // isn't fixed by the calling cell.
   useEffect(() => {
+    if (lockedLevel) return;
     let alive = true;
     fetch('/api/coach/levels', { credentials: 'include' })
       .then((r) => r.json())
@@ -59,7 +85,7 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [lockedLevel]);
 
   useEffect(() => {
     dialogRef.current?.focus();
@@ -95,7 +121,21 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
         return;
       }
       const created = (await res.json()) as { id: string };
-      // Redirect into the editor with the N empty weeks ready.
+      // When the caller owns what happens next (associate to the cell + navigate),
+      // delegate. The microciclo already exists, so an association failure is its
+      // own honest message — not a "create failed".
+      if (onCreated) {
+        try {
+          await onCreated(created);
+        } catch {
+          setError(
+            'Microciclo creado, pero no se pudo asociarlo a la secuencia. Añádelo desde la biblioteca.',
+          );
+          setSubmitting(false);
+        }
+        return;
+      }
+      // Default (from the Biblioteca): redirect into the editor with the N empty weeks ready.
       router.push(`/microciclos/${created.id}`);
     } catch {
       setError('Error de red al crear el microciclo.');
@@ -117,8 +157,21 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         className="v2-focus flex w-full max-w-[480px] flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] p-[18px] shadow-[var(--v2-shadow-pop)]"
       >
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-sm font-bold text-[color:var(--v2-fg)]">Crear microciclo nuevo</span>
+        <div className="mb-4 flex items-start justify-between">
+          <div className="min-w-0">
+            <span className="text-sm font-bold text-[color:var(--v2-fg)]">Crear microciclo nuevo</span>
+            {lockedLevel ? (
+              <p className="mt-0.5 text-[12px] text-[color:var(--v2-muted)]">
+                para <b className="text-[color:var(--v2-fg)]">{lockedLevel.name}</b>
+                {daysContext != null ? (
+                  <>
+                    {' · '}
+                    <b className="text-[color:var(--v2-fg)]">{daysContext} días</b>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -134,7 +187,7 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
             <MIcon name="progress_activity" size={18} className="animate-spin" />
             Cargando tus niveles…
           </div>
-        ) : levels.length === 0 ? (
+        ) : !lockedLevel && levels.length === 0 ? (
           <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-[13px] text-[color:var(--v2-muted)]">
             Define al menos un nivel en Periodización › Niveles antes de crear un microciclo.
           </div>
@@ -160,18 +213,30 @@ export function NuevoMicrocicloModal({ onClose }: { onClose: () => void }) {
                 <label htmlFor="micro-level" className={labelClass}>
                   Nivel
                 </label>
-                <select
-                  id="micro-level"
-                  value={levelId}
-                  onChange={(e) => setLevelId(e.target.value)}
-                  className={selectClass}
-                >
-                  {levels.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name} · {l.label}
-                    </option>
-                  ))}
-                </select>
+                {lockedLevel ? (
+                  <div
+                    className="flex h-[38px] items-center gap-2 overflow-hidden rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5"
+                    title={`${lockedLevel.name} · ${lockedLevel.label}`}
+                  >
+                    <LevelBadge level={lockedLevel.name} />
+                    <span className="truncate text-[13px] text-[color:var(--v2-fg)]">
+                      {lockedLevel.label}
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    id="micro-level"
+                    value={levelId}
+                    onChange={(e) => setLevelId(e.target.value)}
+                    className={selectClass}
+                  >
+                    {levels.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name} · {l.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label htmlFor="micro-weeks" className={labelClass}>

@@ -12,9 +12,11 @@
 // Real persistence; on success the parent refetches the matrix so previews update.
 
 import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { LevelBadge } from '@/components/v2/LevelBadge';
+import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
 import type {
   SequenceEndPolicy,
   SequenceProgressionTarget,
@@ -79,8 +81,10 @@ export function SequenceEditor({
     sequence?.progression_applies_to ?? null,
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const microById = useMemo(
     () => new Map(microciclos.map((m) => [m.id, m])),
@@ -117,11 +121,9 @@ export function SequenceEditor({
     setError(null);
   }, []);
 
-  // ── Save (PUT atomic full-set) ──────────────────────────────────────────────
-  const save = useCallback(async () => {
-    setSaving(true);
-    setError(null);
-    try {
+  // ── Persist (PUT atomic full-set) — one source of truth for the cell save ─────
+  const persist = useCallback(
+    async (itemsToSave: DraftItem[]) => {
       const res = await fetch('/api/coach/sequences', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -132,22 +134,40 @@ export function SequenceEditor({
           // The all-or-nothing pair: only send when the loop repeats.
           progression_pct: endPolicy === 'repeat' ? progressionPct : null,
           progression_applies_to: endPolicy === 'repeat' ? progressionTarget : null,
-          items: items.map((it) => ({
+          items: itemsToSave.map((it) => ({
             month_template_id: Number(it.month_template_id),
           })),
         }),
       });
-      if (!res.ok) {
-        setError('No se pudo guardar la secuencia · Reintenta.');
-        return;
-      }
+      if (!res.ok) throw new Error('sequence_save_failed');
+    },
+    [level.id, days, endPolicy, progressionPct, progressionTarget],
+  );
+
+  const save = useCallback(async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await persist(items);
       onSaved();
     } catch {
       setError('No se pudo guardar la secuencia · Reintenta.');
     } finally {
       setSaving(false);
     }
-  }, [level.id, days, endPolicy, progressionPct, progressionTarget, items, onSaved]);
+  }, [persist, items, onSaved]);
+
+  // Create a brand-new microciclo straight from THIS cell: it's created with the
+  // cell's level, appended to the chain, and persisted with the rest of the cell so
+  // the association survives navigation — then we land in the microciclo editor.
+  const onCreatedFromCell = useCallback(
+    async (created: { id: string }) => {
+      const nextItems: DraftItem[] = [...items, { key: nextKey(), month_template_id: created.id }];
+      await persist(nextItems);
+      router.push(`/microciclos/${created.id}`);
+    },
+    [items, persist, router],
+  );
 
   const isEmpty = items.length === 0;
 
@@ -281,7 +301,20 @@ export function SequenceEditor({
           microciclos={microciclos}
           usageById={usageById}
           onPick={addMicrociclo}
+          onCreateNew={() => {
+            setPickerOpen(false);
+            setCreateOpen(true);
+          }}
           onClose={() => setPickerOpen(false)}
+        />
+      ) : null}
+
+      {createOpen ? (
+        <NuevoMicrocicloModal
+          lockedLevel={{ id: level.id, name: level.name, label: level.label }}
+          daysContext={days}
+          onCreated={onCreatedFromCell}
+          onClose={() => setCreateOpen(false)}
         />
       ) : null}
     </div>
