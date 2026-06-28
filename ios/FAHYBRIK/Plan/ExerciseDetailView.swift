@@ -16,9 +16,9 @@ struct ExerciseDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private var videoId: String? {
+    private var video: YouTubeLinkParser.Video? {
         guard let url = item.exerciseVideoUrl else { return nil }
-        return YouTubeLinkParser.videoId(from: url)
+        return YouTubeLinkParser.parse(from: url)
     }
 
     // Legacy single-line summary, used only when the item carries no structured
@@ -77,10 +77,8 @@ struct ExerciseDetailView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         header
 
-                        if let videoId {
-                            YouTubeEmbedView(videoId: videoId)
-                                .aspectRatio(16 / 9, contentMode: .fit)
-                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                        if let video {
+                            YouTubePlayer(video: video)
                                 .accessibilityLabel("Vídeo demostración de \(item.exerciseName)")
                         }
 
