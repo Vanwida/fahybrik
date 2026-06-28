@@ -9,21 +9,21 @@
 import { V2ThemeProvider } from '@/components/v2/theme/V2ThemeProvider';
 import { ThemeToggle } from '@/components/v2/theme/ThemeToggle';
 import { V2Sidebar } from '@/components/v2/V2Sidebar';
-import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
+import { AccountMenu } from '@/components/v2/AccountMenu';
 
 export function V2Shell({
   coach_name,
+  coach_email,
   coach_avatar_url,
   unread_messages,
   children,
 }: {
   coach_name: string;
+  coach_email: string;
   coach_avatar_url: string | null;
   unread_messages: number;
   children: React.ReactNode;
 }) {
-  const firstName = coach_name.split(/\s+/)[0] ?? coach_name;
-
   return (
     <V2ThemeProvider>
       <V2Sidebar unread_messages={unread_messages} />
@@ -31,10 +31,11 @@ export function V2Shell({
         {/* Top utility bar */}
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-end gap-3 border-b border-[color:var(--v2-border)] bg-[color:color-mix(in_srgb,var(--v2-bg)_85%,transparent)] px-4 backdrop-blur sm:px-6">
           <ThemeToggle />
-          <span className="hidden items-center gap-2 sm:flex">
-            <span className="text-xs font-semibold text-[color:var(--v2-muted)]">{firstName}</span>
-            <AthleteAvatar name={coach_name} imageUrl={coach_avatar_url} size="sm" />
-          </span>
+          <AccountMenu
+            coach_name={coach_name}
+            coach_email={coach_email}
+            coach_avatar_url={coach_avatar_url}
+          />
         </header>
 
         <main className="flex-1 p-4 sm:p-6">{children}</main>

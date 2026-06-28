@@ -42,6 +42,7 @@ export default async function V2Layout({
       <V2ThemeScript />
       <V2Shell
         coach_name={session.full_name}
+        coach_email={session.email}
         coach_avatar_url={session.avatar_url}
         unread_messages={unread_messages}
       >
