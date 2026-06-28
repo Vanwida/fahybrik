@@ -75,6 +75,22 @@ export function formatRaceTime(seconds: number | null | undefined): string | nul
 }
 
 /**
+ * Seconds → compact clock for splits/laps: "M:SS" under an hour, "H:MM:SS" at or
+ * above one. Returns null for null/non-positive input so callers can omit the
+ * cell. (Race TOTALS use formatRaceTime, which always emits H:MM:SS; splits are
+ * minutes-scale, so a bare "3:42" reads cleaner here.)
+ */
+export function formatClock(seconds: number | null | undefined): string | null {
+  if (seconds == null || seconds <= 0) return null;
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+/**
  * "H:MM:SS" / "MM:SS" → seconds. The parse counterpart of `formatRaceTime`, used
  * by the coach goal-time entry. Strict: 2 or 3 colon-separated integer parts with
  * minutes/seconds in 0–59. Returns null for an empty OR unparseable string so the

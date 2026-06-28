@@ -4,37 +4,11 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type {
   NextRace,
-  RaceEventType,
-  RaceFormat,
-  RaceDivision,
-  RaceGender,
-  RacePriority,
-  RaceStatus,
+  RaceHistoryItem,
+  UpcomingRace,
 } from '@fahybrid/shared/schema';
-import { getNextRace, getTargetRace } from './next-race';
-
-// IDs are serialized as strings over the wire (bigint → string), matching every
-// other coach payload in the app. This is the JSON-projection of the `Race`
-// schema with string ids.
-export interface RaceListItem {
-  id: string;
-  athlete_id: string;
-  created_by_coach_id: string | null;
-  name: string;
-  event_type: RaceEventType;
-  format: RaceFormat;
-  division: RaceDivision;
-  gender_category: RaceGender;
-  priority: RacePriority;
-  age_group: string | null;
-  race_date: string | null; // null for an official single-URL import with no machine date (0072)
-  location: string | null;
-  goal_time_seconds: number | null;
-  result_time_seconds: number | null;
-  status: RaceStatus;
-  created_at: string;
-  updated_at: string;
-}
+import { getTargetRace, getUpcomingRaces } from './next-race';
+import { listAthletePastRaces } from './athlete-races';
 
 export class CoachRacesError extends Error {
   constructor(
@@ -47,42 +21,30 @@ export class CoachRacesError extends Error {
   }
 }
 
+// The coach's view of one athlete's races — the SAME upcoming/past split the
+// athlete's Carreras hub renders (GET /api/athlete/races), plus the single
+// `target_race` the periodization card anchors to. We reuse the exact projections
+// (getUpcomingRaces / listAthletePastRaces) so the coach and athlete surfaces can
+// never drift: `upcoming` carries the priority + live countdown for every future
+// objective; `past` is the rich raceHistoryItemSchema (result, percentile,
+// doubles teammates from race_partners, HYROX splits).
 export interface AthleteRacesPayload {
   athlete_id: string;
-  // The goal race the plan peaks to (next upcoming priority='target'), null if none.
+  // The goal race the plan peaks to (soonest upcoming priority='target'), null if
+  // none. Kept distinct so the Perfil "Carrera objetivo" card needs no derivation.
   target_race: NextRace | null;
-  // The soonest upcoming race of ANY priority (may be an intermediate tune_up).
-  next_race: NextRace | null;
-  // Full race calendar (newest race_date first) so the ficha can render the
-  // calendar with priority badges + past results.
-  races: RaceListItem[];
-}
-
-interface DbRaceRow {
-  id: string;
-  athlete_id: string;
-  created_by_coach_id: string | null;
-  name: string;
-  event_type: RaceEventType;
-  format: RaceFormat;
-  division: RaceDivision;
-  gender_category: RaceGender;
-  priority: RacePriority;
-  age_group: string | null;
-  race_date: string | null; // null for an official single-URL import with no machine date (0072)
-  location: string | null;
-  goal_time_seconds: number | null;
-  result_time_seconds: number | null;
-  status: RaceStatus;
-  created_at: string;
-  updated_at: string;
+  // Every future objective (target + secondary/tune-up), soonest-first.
+  upcoming: UpcomingRace[];
+  // Imported/finished races (results + expired objectives), newest-first.
+  past: RaceHistoryItem[];
 }
 
 /**
- * Coach-gated read of an athlete's races: the full calendar + the next/target
- * race. Ownership is enforced (the athlete must belong to `coach_id`), 404 if
- * not — never leak another coach's athletes. Reuses getNextRace / getTargetRace
- * (single source of truth for the countdown logic).
+ * Coach-gated read of an athlete's races. Ownership is enforced (the athlete must
+ * belong to `coach_id`), 404 if not — never leak another coach's athletes. Reads
+ * are delegated to the single-source projections shared with the athlete endpoint
+ * (getTargetRace / getUpcomingRaces / listAthletePastRaces), so the two surfaces
+ * stay byte-symmetric.
  */
 export async function getAthleteRacesForCoach(params: {
   coach_id: number | bigint;
@@ -101,57 +63,16 @@ export async function getAthleteRacesForCoach(params: {
     throw new CoachRacesError('not_found', 'Atleta no encontrado', 404);
   }
 
-  const rows = await client<DbRaceRow[]>`
-    select
-      r.id::text,
-      r.athlete_id::text,
-      r.created_by_coach_id::text as created_by_coach_id,
-      r.name,
-      r.event_type::text as event_type,
-      r.format::text as format,
-      r.division::text as division,
-      r.gender_category::text as gender_category,
-      r.priority::text as priority,
-      r.age_group,
-      to_char(r.race_date, 'YYYY-MM-DD') as race_date,
-      r.location,
-      r.goal_time_seconds,
-      r.result_time_seconds,
-      r.status::text as status,
-      to_char(r.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-      to_char(r.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
-    from races r
-    where r.athlete_id = ${params.athlete_id}
-    order by r.race_date desc nulls last, r.id desc
-  `;
-
-  const [target_race, next_race] = await Promise.all([
+  const [target_race, upcoming, past] = await Promise.all([
     getTargetRace(params.athlete_id, client),
-    getNextRace(params.athlete_id, client),
+    getUpcomingRaces(params.athlete_id, client),
+    listAthletePastRaces(params.athlete_id, client),
   ]);
 
   return {
     athlete_id: owner[0].id,
     target_race,
-    next_race,
-    races: rows.map((r) => ({
-      id: r.id,
-      athlete_id: r.athlete_id,
-      created_by_coach_id: r.created_by_coach_id,
-      name: r.name,
-      event_type: r.event_type,
-      format: r.format,
-      division: r.division,
-      gender_category: r.gender_category,
-      priority: r.priority,
-      age_group: r.age_group,
-      race_date: r.race_date,
-      location: r.location,
-      goal_time_seconds: r.goal_time_seconds,
-      result_time_seconds: r.result_time_seconds,
-      status: r.status,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    })),
+    upcoming,
+    past,
   };
 }

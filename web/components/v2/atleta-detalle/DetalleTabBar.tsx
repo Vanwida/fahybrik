@@ -13,6 +13,7 @@ const TAB_LABEL: Record<AtletaTab, string> = {
   perfil: 'Perfil & objetivos',
   plan: 'Plan actual',
   ritmos: 'Ritmos / Zonas',
+  carreras: 'Carreras',
   historico: 'Histórico',
   biometria: 'Biometría',
   mensajes: 'Mensajes',

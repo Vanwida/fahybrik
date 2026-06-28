@@ -10,6 +10,7 @@ import { DetalleTabBar } from './DetalleTabBar';
 import { PerfilTab } from './PerfilTab';
 import { PlanTab } from './PlanTab';
 import { RitmosZonasTab } from './RitmosZonasTab';
+import { CarrerasTab } from './CarrerasTab';
 import { HistoricoTab } from './HistoricoTab';
 import { BiometriaTab } from './BiometriaTab';
 import { MensajesTab } from './MensajesTab';
@@ -45,6 +46,8 @@ export function AthleteDetalle({
             athleteName={header.full_name}
             profiles={detalle.zone_profiles}
           />
+        ) : tab === 'carreras' ? (
+          <CarrerasTab athleteId={header.athlete_id} />
         ) : tab === 'historico' ? (
           <HistoricoTab
             plan={detalle.plan}
