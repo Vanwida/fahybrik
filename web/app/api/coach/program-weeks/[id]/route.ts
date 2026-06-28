@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import {
   getWeekTemplate,
   ProgramWeekError,
+  updateWeekMeta,
   upsertWeekTemplate,
 } from '@/lib/dashboard/coach/program-weeks';
 
@@ -51,6 +52,43 @@ export async function PUT(
       payload: body,
     });
     return jsonOk({ id: outId });
+  } catch (err) {
+    if (err instanceof ProgramWeekError) {
+      return jsonError(err.code, err.message, err.status);
+    }
+    const message = err instanceof Error ? err.message : 'No se pudo guardar';
+    return jsonError('internal_error', message, 500);
+  }
+}
+
+// PATCH — metadata-only: set the athlete-facing "Foco de la semana" (`focus`)
+// without round-tripping slots_json. Used by the inline focus input in the
+// microciclo editor.
+export async function PATCH(
+  request: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const session = await getCoachSession();
+  if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+
+  const { id } = await ctx.params;
+  const weekId = Number(id);
+  if (!Number.isFinite(weekId)) return jsonError('bad_request', 'ID inválido', 400);
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError('bad_request', 'JSON inválido', 400);
+  }
+
+  try {
+    const out = await updateWeekMeta({
+      coach_id: session.coach_id,
+      id: weekId,
+      payload: body,
+    });
+    return jsonOk(out);
   } catch (err) {
     if (err instanceof ProgramWeekError) {
       return jsonError(err.code, err.message, err.status);

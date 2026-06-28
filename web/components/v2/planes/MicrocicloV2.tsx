@@ -448,6 +448,96 @@ function ActiveDayColumn({
   );
 }
 
+// Inline "Foco de la semana" editor — the coach writes the athlete-facing focus
+// line for the week in focus. Saves via PATCH /api/coach/program-weeks/[id]
+// (metadata-only, no slots_json round-trip) on blur / Enter; `focus` doubles as
+// the editor's week label and is surfaced verbatim to the athlete on the Plan.
+// Keyed by week id at the call site so switching weeks reseeds the draft.
+function WeekFocusInput({
+  weekId,
+  initial,
+  onSaved,
+}: {
+  weekId: string;
+  initial: string | null;
+  onSaved: (focus: string | null) => void;
+}) {
+  const [value, setValue] = useState(initial ?? '');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const baseline = (initial ?? '').trim();
+
+  const save = async () => {
+    const next = value.trim();
+    if (next === baseline) {
+      setStatus('idle');
+      return;
+    }
+    setStatus('saving');
+    try {
+      const res = await fetch(`/api/coach/program-weeks/${weekId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ focus: next.length > 0 ? next : null }),
+      });
+      if (!res.ok) {
+        setStatus('error');
+        return;
+      }
+      setStatus('saved');
+      onSaved(next.length > 0 ? next : null);
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="basis-full">
+      <label
+        htmlFor={`week-focus-${weekId}`}
+        className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]"
+      >
+        <MIcon name="flag" size={13} />
+        Foco de la semana
+        <span className="font-medium normal-case tracking-normal text-[color:var(--v2-faint)]">
+          · lo ve el atleta
+        </span>
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          id={`week-focus-${weekId}`}
+          type="text"
+          value={value}
+          maxLength={200}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (status !== 'idle') setStatus('idle');
+          }}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+          placeholder="p. ej. Acumulación de base aeróbica"
+          className="v2-focus w-full max-w-xl rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]"
+        />
+        {status === 'saving' ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-muted)]">
+            <MIcon name="progress_activity" size={14} /> Guardando…
+          </span>
+        ) : status === 'saved' ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-success,var(--v2-fg))]">
+            <MIcon name="check" size={14} /> Guardado
+          </span>
+        ) : status === 'error' ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-danger)]">
+            <MIcon name="error" size={14} /> No se pudo guardar
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function MicrocicloV2({
   microcycle_id,
   name,
@@ -722,6 +812,16 @@ export function MicrocicloV2({
             <p className="basis-full text-[11px] font-semibold text-[color:var(--v2-danger)]">
               No se pudo duplicar la semana. Inténtalo de nuevo.
             </p>
+          ) : null}
+
+          {/* Foco de la semana — the athlete-facing focus line for this week. */}
+          {focus ? (
+            <WeekFocusInput
+              key={focus.id}
+              weekId={focus.id}
+              initial={focus.focus}
+              onSaved={() => router.refresh()}
+            />
           ) : null}
         </div>
 

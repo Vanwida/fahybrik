@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
+  programWeekMetaSchema,
   programWeekUpsertSchema,
   type ProgramWeekUpsert,
 } from '@fahybrid/shared/schema/program-templates';
@@ -117,6 +118,32 @@ export async function upsertWeekTemplate(params: {
     returning id::text
   `;
   return rows[0]!.id;
+}
+
+/**
+ * Metadata-only update of a week template's athlete-facing "Foco de la semana".
+ * Sets `focus` (also the editor label) WITHOUT touching slots_json — the cheap
+ * path for the inline focus input in the microciclo editor. Ownership-scoped.
+ */
+export async function updateWeekMeta(params: {
+  coach_id: number | bigint;
+  id: number | bigint;
+  payload: unknown;
+  client?: Sql | TransactionClient | undefined;
+}): Promise<{ id: string; focus: string | null }> {
+  const parsed = programWeekMetaSchema.safeParse(params.payload);
+  if (!parsed.success) {
+    throw new ProgramWeekError('invalid_payload', parsed.error.message, 400);
+  }
+  const client = params.client ?? defaultSql;
+  const rows = await client<Array<{ id: string; focus: string | null }>>`
+    update program_week_templates
+    set focus = ${parsed.data.focus}, updated_at = now()
+    where id = ${Number(params.id)} and coach_id = ${Number(params.coach_id)}
+    returning id::text, focus
+  `;
+  if (!rows[0]) throw new ProgramWeekError('not_found', 'Week template not found', 404);
+  return rows[0];
 }
 
 export async function duplicateWeekTemplate(params: {

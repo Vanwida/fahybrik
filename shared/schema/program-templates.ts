@@ -338,6 +338,22 @@ export const programWeekUpsertSchema = z.object({
 });
 export type ProgramWeekUpsert = z.infer<typeof programWeekUpsertSchema>;
 
+// Metadata-only patch of a week template: the coach sets the athlete-facing
+// "Foco de la semana" (the week's focus line) WITHOUT round-tripping the whole
+// slots_json. `focus` doubles as the week's label in the editor and is the line
+// surfaced to the athlete on the Plan week view. Empty string → cleared (null).
+export const programWeekMetaSchema = z.object({
+  focus: z
+    .string()
+    .max(200)
+    .nullable()
+    .transform((v) => {
+      const t = v?.trim();
+      return t ? t : null;
+    }),
+});
+export type ProgramWeekMeta = z.infer<typeof programWeekMetaSchema>;
+
 export const programMonthUpsertSchema = z.object({
   name: z.string().min(1).max(200),
   week_template_ids: z.array(idSchema).min(1).max(6),
