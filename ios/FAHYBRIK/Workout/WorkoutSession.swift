@@ -101,6 +101,26 @@ final class WorkoutSession {
         }
     }
 
+    /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete
+    /// taps the technique video mid-set. Unlike `togglePause` it fires no haptic
+    /// and never drives the pause modal. Returns true only when it actually paused
+    /// a running clock, so the caller knows whether to resume on dismiss (an
+    /// already-paused or finished session is left untouched).
+    @discardableResult
+    func pauseForVideo() -> Bool {
+        guard !isPaused, !isFinished else { return false }
+        isPaused = true
+        return true
+    }
+
+    /// Resume after `pauseForVideo`. Resets the tick baseline so the elapsed
+    /// clock can't jump by the time the video sheet was open.
+    func resumeFromVideo() {
+        guard isPaused, !isFinished else { return }
+        isPaused = false
+        lastTick = Date()
+    }
+
     func tap(reps: Int = 1) {
         guard !isPaused, !isFinished else { return }
         repsCurrentSegment = max(0, repsCurrentSegment + reps)

@@ -151,11 +151,13 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint) {
           // back to the template's own name, then a generic label — never empty.
           title: s.template_name ?? 'Sesión',
           // G5 — the REAL training modality (run/row/ski/bike/strength/functional/
-          // core/mobility/other), derived from the template's segments (each
-          // line's exercise modality is the single source of truth; a per-line
-          // prescription override wins when present). This is what colors the iOS
-          // dot. Falls back to the workout FORMAT (amrap/emom/…) only when the
-          // template has no readable segments, so the field is never empty.
+          // core/mobility/other) of the session's PRINCIPAL block (the main work,
+          // never the warmup mobility drills or the cooldown stretch). Derived
+          // from the template's segments (each line's exercise modality is the
+          // single source of truth; a per-line prescription override wins). This
+          // is what colors the iOS day dot. Falls back to the workout FORMAT
+          // (amrap/emom/…) only when the template has no readable segments, so the
+          // field is never empty.
           modality: summary?.modality ?? s.template_format,
           status: s.status,
           partner_visibility: s.partner_visibility,
@@ -264,7 +266,7 @@ async function loadTemplateSummaries(
 
     const est_duration_minutes = estimateDurationMinutes(list.map((r) => r.params_json));
 
-    const modality = dominantModality(list);
+    const modality = principalModality(list);
 
     out.set(templateId, { est_duration_minutes, blocks_count, short_prescription, modality });
   }
@@ -300,6 +302,86 @@ function dominantModality(segments: SegmentRow[]): string | null {
     }
   }
   return best;
+}
+
+// A block's role inferred from its coach-authored title. The materializer
+// preserves block titles, so we read them to find the PRINCIPAL (main work)
+// block — the one whose modality is the session's actual point — instead of
+// letting a warmup with many mobility drills or a cooldown stretch skew the
+// weekly card's dot. Untitled blocks are treated as 'main' (no skew signal).
+type BlockRole = 'warmup' | 'cooldown' | 'principal' | 'main';
+
+// Lowercase + strip diacritics so "Activación" / "activacion" / "MIÉ" match.
+function normalizeBlockTitle(title: string | null): string {
+  return (title ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function classifyBlock(title: string | null): BlockRole {
+  const t = normalizeBlockTitle(title);
+  if (!t) return 'main';
+  if (t.includes('principal')) return 'principal';
+  if (t.includes('calent') || t.includes('warm') || t.includes('activaci')) return 'warmup';
+  if (
+    t.includes('calma') ||
+    t.includes('cooldown') ||
+    t.includes('cool down') ||
+    t.includes('cool-down') ||
+    t.includes('enfriamiento')
+  ) {
+    return 'cooldown';
+  }
+  return 'main';
+}
+
+// The session's PRINCIPAL-block modality for the weekly card (G5). Groups the
+// segments into blocks (by block_position; flat fallback), classifies each by
+// title, then derives the dominant modality WITHIN the principal block: the
+// explicitly "principal"-named block when present, else the largest non-warmup/
+// cooldown block (ties broken by segment order for determinism). Falls back to
+// the whole-session dominant modality when no main block carries a modality
+// (e.g. every block is untitled or warmup/cooldown only), so it's never lost.
+function principalModality(segments: SegmentRow[]): string | null {
+  // Group preserving first-seen order (the query orders by block_position, position).
+  const order: string[] = [];
+  const groups = new Map<string, SegmentRow[]>();
+  const roles = new Map<string, BlockRole>();
+  for (const seg of segments) {
+    const key = seg.block_position == null ? '_flat' : String(seg.block_position);
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+      roles.set(key, classifyBlock(seg.block_title));
+    }
+    groups.get(key)!.push(seg);
+  }
+
+  // Candidate blocks, most-specific first: an explicit principal block wins
+  // outright; else the main (non-warmup/cooldown) blocks; else every block.
+  const principalKeys = order.filter((k) => roles.get(k) === 'principal');
+  const mainKeys = order.filter(
+    (k) => roles.get(k) === 'principal' || roles.get(k) === 'main',
+  );
+  const candidates =
+    principalKeys.length > 0 ? principalKeys : mainKeys.length > 0 ? mainKeys : order;
+
+  // The principal block = the candidate with the most segments; ties keep the
+  // earliest (order is deterministic), so the result is stable across requests.
+  let bestKey: string | null = null;
+  let bestCount = 0;
+  for (const k of candidates) {
+    const count = groups.get(k)!.length;
+    if (count > bestCount) {
+      bestCount = count;
+      bestKey = k;
+    }
+  }
+
+  const principal = bestKey ? groups.get(bestKey)! : segments;
+  return dominantModality(principal) ?? dominantModality(segments);
 }
 
 // One-line human summary of a session's structure. Prefers the named blocks

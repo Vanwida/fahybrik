@@ -44,6 +44,16 @@ struct InicioView: View {
     @State private var todaySessions: [AthleteWeekDaySession] = []
     // Fallback when today has no sessions: the next future session in the week.
     @State private var nextWorkout: NextWorkout? = nil
+    // Whether the athlete has ANY published session this week (across all days).
+    // This is what distinguishes "no plan at all" (→ empty state) from "has a
+    // plan but today has no session" (→ rest / done card). Mirrors the Plan tab's
+    // `hasAnySession` so Inicio and Plan agree on what "has a plan" means.
+    @State private var hasPlan: Bool = false
+    // Whether TODAY is genuinely a rest day (no session assigned) vs a training
+    // day whose session(s) the athlete already completed — so the rest card can
+    // say "Hoy descansas" honestly and never tell someone who just trained that
+    // they rested.
+    @State private var todayIsRest: Bool = false
     // Real macro context (block / week label / days to A-event).
     @State private var macro: AthleteMacroSummary? = nil
     // Per-week macro progress → real "week N/M" + segmented bar on the week tile.
@@ -196,6 +206,8 @@ struct InicioView: View {
             targetRace = resp.targetRace
             nextRace = resp.nextRace
             (weekDone, weekTotal) = weekSessionCounts(resp)
+            hasPlan = planExists(resp)
+            todayIsRest = isTodayRest(resp)
         } catch {
             todaySessions = []
             nextWorkout = nil
@@ -205,6 +217,8 @@ struct InicioView: View {
             nextRace = nil
             weekDone = 0
             weekTotal = 0
+            hasPlan = false
+            todayIsRest = false
         }
         pushNextWorkoutToWatch()
     }
@@ -242,6 +256,25 @@ struct InicioView: View {
                 || CompletedAssignmentsStore.isCompleted($0.assignmentId)
         }.count
         return (done, total)
+    }
+
+    /// Whether a plan is published: at least one day this week carries a real
+    /// assignment. A week of pure rest/empty days for a brand-new athlete reads
+    /// as "no plan yet" — matching the Plan tab's `hasAnySession`.
+    private func planExists(_ resp: AthletePlanWeekResponse) -> Bool {
+        resp.week.days.contains { day in
+            day.sessions.contains { !$0.assignmentId.isEmpty }
+        }
+    }
+
+    /// Whether TODAY has no assigned session at all (a genuine rest day), as
+    /// opposed to a training day whose session(s) are merely done. Used only to
+    /// pick the rest-card copy; if today isn't found it reads as a rest day.
+    private func isTodayRest(_ resp: AthletePlanWeekResponse) -> Bool {
+        guard let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso }) else {
+            return true
+        }
+        return today.sessions.allSatisfy { $0.assignmentId.isEmpty }
     }
 
     /// Today's still-active sessions, in slot order (AM before PM). A session
@@ -424,22 +457,12 @@ struct InicioView: View {
                     showWorkout = true
                 }
             )
-        } else if let next = nextWorkout {
-            // No session today → surface the next future one as the hero, clearly
-            // labelled "Próximo".
-            SessionHeroCard(
-                slot: slotFor(next.slot),
-                kicker: "Próximo · \(dayLabel(forIso: next.isoDate))",
-                title: next.title,
-                meta: "Próxima sesión de tu semana",
-                modality: nil,
-                ctaTitle: "▶ Empezar",
-                onStart: {
-                    startAssignmentId = next.assignmentId
-                    startFallbackTitle = next.title
-                    showWorkout = true
-                }
-            )
+        } else if hasPlan {
+            // A plan IS published but there's nothing left to do today — either a
+            // genuine rest day or a training day already completed. NEVER the
+            // no-plan empty state. Shows the honest rest/done copy plus a glance
+            // at the next session in the week.
+            restCard
         } else {
             // No plan published yet — honest empty state, never demo data.
             CardSurface(padding: 18) {
@@ -454,6 +477,70 @@ struct InicioView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Rest / done card
+    //
+    // Shown when a plan exists but today has no active session. Reads as a calm,
+    // intentional state (not an error): "Hoy descansas" on a true rest day,
+    // "Listo por hoy" when today's sessions are all completed. When the week has
+    // a later session, a tappable glance routes to the Plan tab.
+    private var restCard: some View {
+        CardSurface(padding: 18) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: todayIsRest ? "moon.stars.fill" : "checkmark.seal.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(todayIsRest ? Theme.Color.accentText : Theme.Color.ok)
+                    VStack(alignment: .leading, spacing: 3) {
+                        LabelText(text: "Hoy")
+                        Text(todayIsRest ? "Hoy descansas" : "Listo por hoy")
+                            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
+                    Spacer(minLength: 0)
+                }
+                Text(todayIsRest
+                     ? "Sin sesión programada. Recupera, hidrata y duerme."
+                     : "Has completado tu sesión de hoy. Bien hecho.")
+                    .scaledFont(13, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let next = nextWorkout {
+                    Hairline()
+                    nextGlance(next)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// A tappable "Próximo · {weekday}" glance at the next session in the week.
+    /// Routes to the Plan tab rather than launching — on a rest day we surface
+    /// what's next without pushing the athlete to train early.
+    private func nextGlance(_ next: NextWorkout) -> some View {
+        Button {
+            Haptics.light()
+            onOpenTab?(.plan)
+        } label: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    LabelText(text: "Próximo · \(dayLabel(forIso: next.isoDate))",
+                              color: Theme.Color.accentText, size: 10)
+                    Text(next.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Próxima sesión, \(dayLabel(forIso: next.isoDate)), \(next.title). Ver el plan")
     }
 
     private func slotFor(_ session: AthleteWeekDaySession) -> SessionSlot {

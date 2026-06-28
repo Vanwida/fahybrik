@@ -24,6 +24,17 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
 
+    // MANUAL FALLBACK (no wearable). Optional session HR the athlete enters when
+    // no strap fed the workout; injected onto every lap that lacks measured HR so
+    // a failed wearable never loses the record. Shown only when `!hasHRData`.
+    @State private var manualAvgHR: Int? = nil
+    @State private var manualMaxHR: Int? = nil
+    // Per-segment manually-entered pace, keyed by segment id. Stored in the
+    // segment's display unit (sec/km for run, sec/500m for erg) and written to
+    // the matching wire field at build time. Only collected for run/erg segments
+    // that captured no auto pace (no GPS / no PM5 split).
+    @State private var manualSegmentPaceSeconds: [UUID: Int] = [:]
+
     // For Time / RFT / HYROX-sim are scored by final time; AMRAP by rounds (+reps).
     // Every other format (EMOM, intervals, strength, circuit) has no single score,
     // so we don't show the field — honest, no empty prompt.
@@ -43,6 +54,8 @@ struct PostWorkoutSummaryView: View {
                     }
                     if hasHRData {
                         metricTiles
+                    } else {
+                        manualHRCard
                     }
                     if session.plan.segments.count > 1 {
                         segmentsTable
@@ -122,7 +135,13 @@ struct PostWorkoutSummaryView: View {
     // Map each captured segment lap to the wire DTO. Position-ordered so the
     // backend can match on `position` when no integer segment id is available.
     private func buildSegments(iso: ISO8601DateFormatter) -> [SegmentExecutionDTO] {
-        session.laps
+        // Session-level manual HR overlay (only set when no strap measured HR),
+        // clamped to the analytics-accepted range so a stray entry can't 400 the
+        // whole sync. Applied per-lap below to any lap missing measured HR.
+        let manualHRAvg = validHR(manualAvgHR)
+        let manualHRMax = validHR(manualMaxHR)
+
+        return session.laps
             .sorted { $0.position < $1.position }
             .map { lap in
                 let zones: [String: Int]? = lap.zoneSecondsByZone.isEmpty
@@ -130,6 +149,22 @@ struct PostWorkoutSummaryView: View {
                     : lap.zoneSecondsByZone.reduce(into: [String: Int]()) {
                         $0["z\($1.key)"] = Int($1.value.rounded())
                     }
+
+                // Manual pace overlay — only when this lap captured no auto pace.
+                // Run pace is /km, erg pace /500m (lap.modality == "run" → km).
+                var avgPaceKm = lap.avgPaceSecPerKm
+                var avgPace500 = lap.avgPaceSecPer500m
+                var source = lap.source
+                if let mp = manualSegmentPaceSeconds[lap.segmentId], mp > 0,
+                   avgPaceKm == nil, avgPace500 == nil {
+                    if lap.modality == "run" {
+                        avgPaceKm = Double(mp)
+                    } else {
+                        avgPace500 = Double(mp)
+                    }
+                    source = "manual"
+                }
+
                 return SegmentExecutionDTO(
                     template_segment_id: lap.templateSegmentId,
                     position: lap.position,
@@ -138,17 +173,19 @@ struct PostWorkoutSummaryView: View {
                     ended_at: iso.string(from: lap.endedAt),
                     duration_seconds: Int(lap.durationSeconds.rounded()),
                     distance_meters: lap.distanceCoveredMeters,
-                    avg_pace_s_per_500m: lap.avgPaceSecPer500m,
-                    avg_pace_s_per_km: lap.avgPaceSecPerKm,
+                    avg_pace_s_per_500m: avgPace500,
+                    avg_pace_s_per_km: avgPaceKm,
                     avg_power_w: lap.avgPowerWatts,
                     stroke_rate_spm: lap.strokeRateSpm,
-                    avg_hr: lap.avgHRBpm,
-                    max_hr: lap.maxHRBpm,
+                    // Fall back to the manual session HR for any lap with none
+                    // measured, so a failed wearable still records a heart rate.
+                    avg_hr: lap.avgHRBpm ?? manualHRAvg,
+                    max_hr: lap.maxHRBpm ?? manualHRMax,
                     calories: lap.calories,
                     reps_completed: lap.repsCompleted,
                     weight_used_kg: lap.weightUsedKg,
                     zone_seconds_json: zones,
-                    source: lap.source
+                    source: source
                 )
             }
     }
@@ -243,6 +280,37 @@ struct PostWorkoutSummaryView: View {
     }
     private var maxHRBpm: Int? { session.laps.compactMap(\.maxHRBpm).max() }
 
+    // MARK: - Manual HR fallback (no wearable)
+    //
+    // Rendered in place of the HR tiles when no strap fed the session. Both
+    // fields are optional — the athlete fills in whatever they know off a watch
+    // that didn't sync. The value is wired into the execution payload at save.
+    private var manualHRCard: some View {
+        CardSurface(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    LabelText(text: "Frecuencia cardiaca", size: 9)
+                    Text("Sin pulsómetro. Anótala a mano si la conoces.")
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.faint)
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+                IntRow(label: "FC media", unit: "ppm", value: $manualAvgHR)
+                IntRow(label: "FC máx", unit: "ppm", value: $manualMaxHR)
+            }
+        }
+    }
+
+    // Heart-rate within the analytics-accepted range (Zod 30–260) — values
+    // outside it are dropped rather than sent, so a stray entry never rejects the
+    // whole sync. Used to clamp the manual avg/max before they reach the payload.
+    private func validHR(_ value: Int?) -> Int? {
+        guard let v = value, v >= 30, v <= 260 else { return nil }
+        return v
+    }
+
     // MARK: - Per-segment table
     private var segmentsTable: some View {
         CardSurface(padding: 0) {
@@ -258,24 +326,53 @@ struct PostWorkoutSummaryView: View {
                     if idx > 0 { Hairline() }
                     let lap = session.laps.first(where: { $0.segmentId == seg.id })
                     let timeStr = lap.map { WorkoutSession.formatElapsed($0.durationSeconds) } ?? "—"
-                    HStack(alignment: .center, spacing: 6) {
-                        Text(seg.title)
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
-                            .frame(width: 60, alignment: .trailing)
-                        if let z = seg.targetZone {
-                            ZBadge(zone: z).frame(width: 38, alignment: .trailing)
+                    VStack(spacing: 0) {
+                        HStack(alignment: .center, spacing: 6) {
+                            Text(seg.title)
+                                .scaledFont(11, relativeTo: .caption2)
+                                .foregroundStyle(Theme.Color.foreground)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            MonoText(text: timeStr, size: 11, color: Theme.Color.muted)
+                                .frame(width: 60, alignment: .trailing)
+                            if let z = seg.targetZone {
+                                ZBadge(zone: z).frame(width: 38, alignment: .trailing)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        // Manual pace — only for a run/erg leg with no auto pace
+                        // (no GPS / no PM5 split). The athlete enters the pace they
+                        // read off the treadmill/erg so the segment still records a
+                        // real intensity instead of an empty cell.
+                        if needsManualPace(seg, lap: lap) {
+                            TimeMinSecRow(label: paceLabel(seg), seconds: paceBinding(seg))
                         }
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
                 }
             }
         }
+    }
+
+    // True when this run/erg segment captured no automatic pace, so the athlete
+    // can enter it by hand. Strength/reps/sled segments have no pace and are
+    // never prompted; a leg with GPS/PM5 pace already shows its measured value.
+    private func needsManualPace(_ seg: WorkoutSegment, lap: LapRecord?) -> Bool {
+        guard seg.kind == .running || seg.kind == .rowOrSki else { return false }
+        return lap?.avgPaceSecPerKm == nil && lap?.avgPaceSecPer500m == nil
+    }
+
+    // Run pace is read /km; erg pace /500m (the erg-monitor convention).
+    private func paceLabel(_ seg: WorkoutSegment) -> String {
+        seg.kind == .rowOrSki ? "Ritmo /500m" : "Ritmo /km"
+    }
+
+    private func paceBinding(_ seg: WorkoutSegment) -> Binding<Int?> {
+        Binding(
+            get: { manualSegmentPaceSeconds[seg.id] },
+            set: { manualSegmentPaceSeconds[seg.id] = $0 }
+        )
     }
 
     // MARK: - Metcon/HYROX score

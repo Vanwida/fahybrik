@@ -13,6 +13,10 @@ struct ActiveWorkoutView: View {
     @State private var pauseAutoResume: Int = 10
     @State private var showPM5Sheet: Bool = false
     @State private var showSegmentVideo: Bool = false
+    // True when opening the technique video actively paused the clock, so we know
+    // to resume it when the sheet is dismissed (and not resume a session the
+    // athlete had already paused before opening the video).
+    @State private var resumeAfterVideo: Bool = false
     @State private var pm5 = PM5ConnectionStore.shared
     // Optional, permission-guarded live sources for non-erg work: phone GPS for
     // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
@@ -111,7 +115,11 @@ struct ActiveWorkoutView: View {
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
         }
-        .sheet(isPresented: $showSegmentVideo) {
+        .sheet(isPresented: $showSegmentVideo, onDismiss: {
+            // Resume only if opening the video is what paused the clock.
+            if resumeAfterVideo { session.resumeFromVideo() }
+            resumeAfterVideo = false
+        }) {
             if let url = session.currentSegment?.videoUrl {
                 YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
             }
@@ -200,14 +208,19 @@ struct ActiveWorkoutView: View {
             )
             .lineLimit(1)
             if segmentHasVideo {
-                Button(action: { Haptics.light(); showSegmentVideo = true }) {
-                    Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 14))
+                Button(action: {
+                    Haptics.light()
+                    // Pause the clock while the video is open; resume on dismiss.
+                    resumeAfterVideo = session.pauseForVideo()
+                    showSegmentVideo = true
+                }) {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 16))
                         .foregroundStyle(Theme.Color.accentText)
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Ver vídeo técnica")
+                .accessibilityLabel("Ver vídeo de técnica, pausa el cronómetro")
             }
             MonoText(
                 text: "\(session.currentSegmentIndex + 1)/\(session.plan.segments.count)",
