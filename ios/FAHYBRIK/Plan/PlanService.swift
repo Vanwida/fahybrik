@@ -61,9 +61,10 @@ struct AthleteWeekPayload: Decodable {
     let weekStart: String
     let weekEnd: String
     let todayIso: String
-    /// The periodization phase this published week belongs to (e.g.
-    /// "Acumulación"). DERIVED from the week's microcycle -> ATR block -> phase,
-    /// falling back to the ATR-type label. Nil when the week is outside any
+    /// The COACH'S microciclo name this published week belongs to (e.g.
+    /// "Acumulación", "Base aeróbica" — whatever the coach named it). Agnostic
+    /// coach DATA resolved server-side from the assigned month template; no
+    /// hardcoded periodization vocabulary. Nil when the week is outside any
     /// microcycle (free planning) — callers keep their generic subtitle.
     let microcicloName: String?
     let days: [AthleteWeekDay]
@@ -375,10 +376,11 @@ extension PlanWeek {
                 partnerVisibility: primary?.partnerVisibility
             )
         }
-        // weekLabel is coach-authored freeform; the `block` fallback is the raw
-        // ATR sigla (ACC/TRANS/REAL) which the athlete must never see (D2).
+        // weekLabel is the coach-authored freeform week label; `block` is the
+        // coach's current microciclo NAME (agnostic coach data — see
+        // shared/domain/coach/macro-progress.ts, never an ATR sigla). Shown as-is.
         let label = api.macroSummary.weekLabel
-            ?? api.macroSummary.block.map { atrPhaseLabel($0) }
+            ?? api.macroSummary.block
             ?? "Semana actual"
         return PlanWeek(label: label, todayIndex: todayIdx, days: days)
     }

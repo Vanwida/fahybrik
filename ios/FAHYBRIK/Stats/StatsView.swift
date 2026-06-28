@@ -276,7 +276,7 @@ struct StatsVolumeSection: View {
 //
 // Surfaces the avg pace per modality as a headline number, plus a weekly
 // distance trend chart per modality (Swift Charts). The trend answers "is my
-// volume building or tapering?" — the defining ATR question.
+// volume building or tapering?" — the defining periodization question.
 
 struct StatsPaceSection: View {
     let totals: [ModalityTotals]

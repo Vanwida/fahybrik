@@ -210,9 +210,9 @@ export default function PrivacyPage() {
       <P>Cada dato se procesa con una finalidad concreta y verificable:</P>
       <UL>
         <li>
-          <Term>Prescripción y adaptación del entrenamiento.</Term> Pablo y el motor ATR
-          (Acumulación / Transformación / Realización) usan tus datos para periodizar tus
-          bloques de entrenamiento.
+          <Term>Prescripción y adaptación del entrenamiento.</Term> Pablo y el motor de
+          periodización usan tus datos para planificar y adaptar tus bloques de
+          entrenamiento.
         </li>
         <li>
           <Term>Detección temprana de fatiga acumulada.</Term> Body Battery, HRV Status,

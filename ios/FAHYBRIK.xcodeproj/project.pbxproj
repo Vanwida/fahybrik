@@ -115,7 +115,6 @@
 		B566F0148E5456C40DF9B260 /* ConnectionsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC9D2C4228C07EEB8EBF306 /* ConnectionsStep.swift */; };
 		B7D324C1A3F68AB0341464FD /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F5AA95A8BE72BFDB602AFC /* ChatService.swift */; };
 		B941C8D1CE4EA7D022184C0C /* StrengthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 032FA1B5468960A7CFB64AE1 /* StrengthService.swift */; };
-		B97A4B0D751040A737CDF355 /* ATRPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25B7DC244BFC59C16102C329 /* ATRPhase.swift */; };
 		BA038CFE732F184BCF35D51B /* AthleticBackgroundStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */; };
 		C151C3D00F11EA5A60F3F3E7 /* WorkoutLiveHUDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE26ECEC308BA27BE287E5A6 /* WorkoutLiveHUDs.swift */; };
 		C36579C8244668482DF5DC89 /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AAE3312EA1F4ED97B1AC5A50 /* WatchConnectivity.framework */; };
@@ -196,7 +195,6 @@
 		22E8C5CC0905BCBC48019522 /* PM5LiveStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5LiveStreamView.swift; sourceTree = "<group>"; };
 		247CFBC8F79562247FA78B70 /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
 		258773F221C5DCA05BEBE809 /* DataGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGrid.swift; sourceTree = "<group>"; };
-		25B7DC244BFC59C16102C329 /* ATRPhase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ATRPhase.swift; sourceTree = "<group>"; };
 		26D1DD11BF4485137BD4B1B3 /* HabitsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitsStep.swift; sourceTree = "<group>"; };
 		2842D4B17C41EEA3B415E8BA /* SolicitarCarreraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolicitarCarreraView.swift; sourceTree = "<group>"; };
 		2CDCAAE16C5A93294F72843D /* DoblesTrainTogetherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesTrainTogetherView.swift; sourceTree = "<group>"; };
@@ -535,7 +533,6 @@
 		572AEED0394716065B2CDCC5 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				25B7DC244BFC59C16102C329 /* ATRPhase.swift */,
 				651101976D586B0953539DF1 /* SafariView.swift */,
 			);
 			path = Shared;
@@ -940,7 +937,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */,
-				B97A4B0D751040A737CDF355 /* ATRPhase.swift in Sources */,
 				EF04D46203ED3F7813E924CD /* AccountService.swift in Sources */,
 				106EA1C1E192DE83FA7D6ABA /* ActiveWorkoutView.swift in Sources */,
 				E16711BB7C8F02FC5317AC95 /* AppRoot.swift in Sources */,

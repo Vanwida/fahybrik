@@ -375,7 +375,8 @@ struct ProfileView: View {
             if let label = resp.macroSummary.weekLabel, !label.isEmpty {
                 blockLabel = label
             } else if let block = resp.macroSummary.block, !block.isEmpty {
-                blockLabel = atrPhaseLabel(block)
+                // `block` is the coach's microciclo name (agnostic coach data).
+                blockLabel = block
             }
         }
         // Race objective: read the SAME list the Carreras tab shows
@@ -740,8 +741,8 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 profileRow(
                     icon: "rectangle.3.group",
-                    title: "ATR · bloques",
-                    subtitle: "\(atrPhaseLabel("ACC")) → \(atrPhaseLabel("TRANS")) → \(atrPhaseLabel("REAL")) · cómo se construye tu plan",
+                    title: "Cómo se construye tu plan",
+                    subtitle: "Microciclos diseñados por tu coach, semana a semana.",
                     action: { sheet = .methodology }
                 )
                 Hairline()
@@ -1011,28 +1012,25 @@ private struct MethodologySheet: View {
             Theme.Color.background.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("ATR · cómo se construye tu plan")
+                    Text("Cómo se construye tu plan")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu macrociclo avanza en tres bloques: \(atrPhaseLabel("ACC")) (volumen y capacidad general), \(atrPhaseLabel("TRANS")) (trabajo específico de carrera) y \(atrPhaseLabel("REAL")) (afinado y pico el día A-event).")
+                    Text("Tu coach diseña tu entrenamiento en microciclos: bloques de varias semanas, cada uno con un objetivo. El nombre y el foco de cada microciclo los decide tu coach según tu nivel y tu carrera.")
                         .scaledFont(13, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.foreground)
-                    blockCard(
-                        code: "ACC",
-                        weeks: "4-6 semanas",
-                        focus: "Aerobic capacity · Z2 mileage · fuerza máxima general · técnica HYROX baja intensidad."
+                    principleCard(
+                        title: "Microciclos",
+                        text: "Bloques de varias semanas con un foco concreto. Avanzas de uno al siguiente conforme te acercas a tu carrera."
                     )
-                    blockCard(
-                        code: "TRANS",
-                        weeks: "2-3 semanas",
-                        focus: "Threshold · Z3-Z4 polarizado · trabajo específico estaciones · introducción potencia."
+                    principleCard(
+                        title: "Semana a semana",
+                        text: "Cada semana se publica cuando le toca. Te centras en lo que tienes delante, no en el plan entero de golpe."
                     )
-                    blockCard(
-                        code: "REAL",
-                        weeks: "3-4 semanas",
-                        focus: "VO2 + race pace · simulacros · taper · consolidación de PRs · pico el día A-event."
+                    principleCard(
+                        title: "Se adapta a ti",
+                        text: "Tu coach revisa cómo respondes —carga, recuperación, resultados— y ajusta lo que viene."
                     )
-                    Text("Cada bloque tiene microciclos de 7 días con día clave, complementarios y descarga. Tu posición dentro del macrociclo la fija tu coach y la ves en la pestaña Plan.")
+                    Text("El nombre de tu microciclo actual y la semana en la que estás los fija tu coach, y los ves en la pestaña Plan.")
                         .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
@@ -1041,19 +1039,13 @@ private struct MethodologySheet: View {
         }
     }
 
-    private func blockCard(code: String, weeks: String, focus: String) -> some View {
-        CardSurface(padding: 14, topAccent: code == "REAL") {
+    private func principleCard(title: String, text: String) -> some View {
+        CardSurface(padding: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(atrPhaseLabel(code))
-                        .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.accentText)
-                    Spacer()
-                    Text(weeks)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Text(focus)
+                Text(title)
+                    .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.accentText)
+                Text(text)
                     .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
             }

@@ -74,9 +74,8 @@ export default function TermsPage() {
           coaching técnico que recibes a través de la plataforma.
         </li>
         <li>
-          Un motor interno (ATR — Acumulación / Transformación / Realización) que ayuda a
-          Pablo a periodizar y adaptar tus planes en función de tus datos de entrenamiento
-          y recuperación.
+          Un motor interno de periodización que ayuda a Pablo a planificar y adaptar tus
+          planes en función de tus datos de entrenamiento y recuperación.
         </li>
       </UL>
       <P>
@@ -180,7 +179,7 @@ export default function TermsPage() {
       <H2 id="ip">5. Propiedad intelectual</H2>
       <P>
         Toda la <Term>metodología, plantillas, programas y documentación</Term> de
-        FAHYBRID — incluida la metodología ATR de Pablo, las plantillas de sesión, la
+        FAHYBRID — incluida la metodología de Pablo, las plantillas de sesión, la
         biblioteca de ejercicios y el material editorial — son propiedad intelectual de
         FAHYBRID y/o de Pablo, según corresponda.
       </P>
