@@ -21,11 +21,14 @@ export function Pill({
   tone = 'neutral',
   variant = 'soft',
   className,
+  title,
 }: {
   children: React.ReactNode;
   tone?: PillTone;
   variant?: PillVariant;
   className?: string;
+  /** Native tooltip text (e.g. a soft chip's "what does this mean" hint). */
+  title?: string;
 }) {
   const vars = TONE_VARS[tone];
   const base =
@@ -35,6 +38,7 @@ export function Pill({
     return (
       <span
         className={cn(base, className)}
+        title={title}
         style={{
           background: `var(${vars.color})`,
           color: tone === 'accent' ? 'var(--v2-accent-fg)' : 'var(--v2-bg)',
@@ -48,6 +52,7 @@ export function Pill({
     return (
       <span
         className={cn(base, 'border', className)}
+        title={title}
         style={{ borderColor: `var(${vars.color})`, color: `var(${vars.color})` }}
       >
         {children}
@@ -58,6 +63,7 @@ export function Pill({
   return (
     <span
       className={cn(base, className)}
+      title={title}
       style={{ background: `var(${vars.soft})`, color: `var(${vars.color})` }}
     >
       {children}

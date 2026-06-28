@@ -16,6 +16,7 @@ import { MODALITY_META } from '@/components/v2/constants';
 import { Pill } from '@/components/v2/Pill';
 import { StatTile } from '@/components/v2/StatTile';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
 import { Panel, WeekStrip, type WeekStripDay } from './parts';
 import { sessionModality } from './modality';
 import type { AthletePlanPayload, PlanSession, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
@@ -434,6 +435,9 @@ export function PlanTab({
               </div>
             </div>
           ) : null}
+
+          {/* Soft INFO — cumplió la semana pero en distinto orden/día (sin penalización) */}
+          {resumen?.order_altered ? <OrderAlteredNotice /> : null}
 
           <div className="flex flex-wrap gap-2">
             <PlanAction icon="forum" label="Mensaje" href="/mensajes" />

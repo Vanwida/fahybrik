@@ -80,6 +80,10 @@ export interface V2LaneCard {
   age_label: string | null;
   /** Unread count for message cards (badge when > 1). */
   unread_count: number | null;
+  /** SOFT INFO: the athlete completed this week's sessions OUT of their planned
+   *  order (true = "cumplió pero cambió el orden / los días"). NO penalty — drives
+   *  a calm info chip, never an error. Sourced from AthleteRow.order_altered. */
+  order_altered: boolean;
   /** Actions to render, in order. */
   actions: V2LaneAction[];
 }
@@ -724,9 +728,13 @@ export function buildHoyLanes(params: {
   // Level per athlete from the shared util — the espera-respuesta lane (built
   // from threads, which carry no modality) reuses this so the SAME athlete shows
   // the SAME level in every lane.
+  // order_altered is per-athlete on the roster row; the thread-built espera lane
+  // (no AthleteRow) reads it from this map so EVERY lane agrees on the same flag.
   const levelByAthlete = new Map<string, string | null>();
+  const orderAlteredByAthlete = new Map<string, boolean>();
   for (const a of athletes) {
     levelByAthlete.set(a.athlete_id, athleteLevel(a));
+    orderAlteredByAthlete.set(a.athlete_id, a.order_altered);
   }
 
   for (const a of athletes) {
@@ -738,6 +746,7 @@ export function buildHoyLanes(params: {
       readiness_score: a.readiness_score,
       age_label: null,
       unread_count: null,
+      order_altered: a.order_altered,
     };
     const inactivity = inactivityByAthlete.get(a.athlete_id) ?? null;
 
@@ -810,6 +819,7 @@ export function buildHoyLanes(params: {
       readiness_score: null,
       age_label: t.last_message_at ? formatRelative(t.last_message_at) : null,
       unread_count: t.unread_count,
+      order_altered: orderAlteredByAthlete.get(t.athlete_id) ?? false,
       actions: ['responder', 'ver'],
     }));
 

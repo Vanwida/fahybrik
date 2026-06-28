@@ -14,6 +14,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { AdherenceBar } from '@/components/v2/AdherenceBar';
 import { Pill } from '@/components/v2/Pill';
+import { OrderAlteredChip } from '@/components/v2/OrderAlteredSignal';
 import { cn } from '@/lib/utils';
 import type { V2LaneAction, V2LaneCard } from '@/lib/dashboard/v2/hoy-lanes';
 
@@ -166,6 +167,13 @@ export function LaneCard({ card, index }: { card: V2LaneCard; index: number }) {
         ) : null}
         {card.reason}
       </p>
+
+      {/* Soft INFO — completed the week but out of planned order (no penalty) */}
+      {card.order_altered ? (
+        <div className="mt-1.5">
+          <OrderAlteredChip />
+        </div>
+      ) : null}
 
       {/* Mini signal — adherence bar (roster lanes) */}
       {card.adherence_pct != null ? (
