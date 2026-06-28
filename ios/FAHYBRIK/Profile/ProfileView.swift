@@ -14,7 +14,6 @@ struct ProfileView: View {
     @State private var sheet: SheetKind? = nil
     @State private var partner: PartnerInfo? = nil
     @State private var athleteModality: String? = nil
-    @State private var partnerLoading: Bool = true
     @State private var showPartnerInvite: Bool = false
     @State private var subscription: SubscriptionInfo? = nil
     @State private var identity: AthleteIdentity? = nil
@@ -403,13 +402,16 @@ struct ProfileView: View {
 
     // MARK: - Partner
 
-    /// While loading we keep the invite card hidden — flash-of-empty-state is
-    /// worse than a brief gap until the request resolves. (When a partner IS
-    /// present, the Modalidad row already surfaces "con {nombre}", so we only
-    /// need the standalone invite prompt for the unpaired case.)
+    /// The "invita a tu compañero/a" prompt is a DOBLES-only affordance: it must
+    /// appear ONLY for an athlete on the Dobles modality who hasn't paired yet —
+    /// never on Individual or Pro. We gate on `isDobles` (subscription plan_type /
+    /// present partner / envelope hint) and wait for `initialLoadDone` so the
+    /// modality is known before deciding (no flash, no false prompt on Individual).
+    /// The card itself only renders when `partner == nil`; a paired Dobles athlete
+    /// sees "con {nombre}" on the Modalidad row instead.
     private var shouldShowPartnerSection: Bool {
-        if partnerLoading { return false }
-        return true
+        guard initialLoadDone else { return false }
+        return isDobles
     }
 
     private var partnerInviteCard: some View {
@@ -444,7 +446,6 @@ struct ProfileView: View {
     }
 
     private func loadPartner() async {
-        defer { partnerLoading = false }
         guard let bearer else { return }
         do {
             let envelope = try await PartnerService.fetchEnvelope(bearer: bearer)
