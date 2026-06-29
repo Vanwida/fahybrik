@@ -9,7 +9,7 @@ import SwiftUI
 // Layout (top → bottom): header (wordmark + bell w/ unread dot + athlete
 // avatar) → greeting (orange date kicker + "Hola, {name}") → AM hero session →
 // PM compact session (only when today has a second session) → readiness + race
-// tiles → step count → "lo que viene" (the next plan days) → coach-note row.
+// tiles → step count → coach-note row.
 // This view owns its own data load (me + readiness + plan week + chat thread)
 // and the Empezar / Check-in sheets that used to live on the Today tab.
 struct InicioView: View {
@@ -146,15 +146,8 @@ struct InicioView: View {
                 // connect / no-data states — never a fabricated number.
                 stepsRow
                     .staggerReveal(revealed, index: 8)
-                // What's coming next in the plan — the next few days FROM TOMORROW
-                // (today is the hero above; the race has its own tile, so neither
-                // is duplicated). Only when a plan exists.
-                if hasPlan {
-                    loQueVieneCard
-                        .staggerReveal(revealed, index: 9)
-                }
                 coachNoteRow
-                    .staggerReveal(revealed, index: 10)
+                    .staggerReveal(revealed, index: 9)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.s)
@@ -923,158 +916,6 @@ struct InicioView: View {
         return f
     }()
 
-    // MARK: - Lo que viene (the next days of the plan)
-    //
-    // A forward-looking glance at what's coming, starting FROM TOMORROW — today is
-    // already the hero above and the race has its own countdown tile, so neither
-    // is duplicated here. One row per calendar day to the end of the loaded week
-    // (capped at `maxUpcoming`): the day label on the left ("Mañana", then "Jue",
-    // "Vie"…), the session's name on the right with a modality color dot (the same
-    // Theme.Modality language the week used), or a muted "Descanso" on rest days.
-    // Test days surface the test (amber dot + TEST tag). Honest "nothing left"
-    // copy when the week has no further days. Tap → Plan. Drawn straight from the
-    // week payload's per-day data — no new fetch, no invented content.
-    private var loQueVieneCard: some View {
-        let days = upcomingDays
-        return Button {
-            Haptics.light()
-            onOpenTab?(.plan)
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    LabelText(text: "Lo que viene", size: 10)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                if days.isEmpty {
-                    // No further days in the loaded week (today is its last day) —
-                    // honest, never fabricated.
-                    Text("Nada más esta semana")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
-                            if index > 0 { Hairline() }
-                            upcomingRow(day)
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(loQueVieneAxLabel(days))
-        .accessibilityAddTraits(.isButton)
-    }
-
-    /// One upcoming-day row: a fixed-width day label, then the session name with a
-    /// modality color dot (amber + a TEST tag on test days), or a muted "Descanso".
-    /// A trailing "+N" notes additional sessions the same day (the Plan tab has the
-    /// full detail one tap away).
-    @ViewBuilder
-    private func upcomingRow(_ day: UpcomingDay) -> some View {
-        HStack(spacing: 10) {
-            Text(day.dayLabel)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(day.isRest ? Theme.Color.faint : Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .frame(width: 58, alignment: .leading)
-            if day.isRest {
-                Text("Descanso")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.faint)
-                Spacer(minLength: 0)
-            } else {
-                Circle()
-                    .fill(day.isTest ? Theme.Color.warning : Theme.Modality.color(day.modality))
-                    .frame(width: 7, height: 7)
-                Text(day.title)
-                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                if day.isTest {
-                    Text("TEST")
-                        .scaledFont(9, weight: .bold, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.warning)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1.5)
-                        .background(Theme.Color.warningTint, in: Capsule())
-                }
-                Spacer(minLength: 8)
-                if day.extraCount > 0 {
-                    Text("+\(day.extraCount)")
-                        .scaledFont(11, weight: .semibold, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-        }
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
-    }
-
-    /// The next days of the plan, from TOMORROW to the end of the loaded week
-    /// (capped at `maxUpcoming`). One entry per calendar day — a training day
-    /// carries its principal session, a rest day is flagged for the muted
-    /// "Descanso" row. TODAY is excluded by construction (we filter strictly after
-    /// `todayIso`). Built from the same per-day week slice the hero reads — no
-    /// new fetch, nothing invented.
-    private var upcomingDays: [UpcomingDay] {
-        guard let resp = planWeek else { return [] }
-        let todayIso = resp.week.todayIso
-        let tomorrowIso = Self.isoByAddingDays(1, to: todayIso)
-        let future = resp.week.days
-            .filter { $0.isoDate > todayIso }
-            .sorted { $0.isoDate < $1.isoDate }
-            .prefix(Self.maxUpcoming)
-        return future.map { day in
-            let label = (day.isoDate == tomorrowIso) ? "Mañana" : Self.weekdayShort(day.dayOfWeek)
-            let weekday = Self.weekdayFull(day.dayOfWeek)
-            if day.isRest || day.sessions.isEmpty {
-                return UpcomingDay(id: day.isoDate, dayLabel: label, isRest: true,
-                                   title: "", modality: nil, isTest: false, extraCount: 0,
-                                   axText: "\(weekday): descanso")
-            }
-            // Headline the day with its TEST session when there is one (so a test
-            // is never hidden behind a longer block), else its longest session
-            // (the main work) — matching how the rest of Inicio picks the principal.
-            let principal = day.sessions.first(where: { $0.isTestSession })
-                ?? day.sessions.max { ($0.estDurationMinutes ?? 0) < ($1.estDurationMinutes ?? 0) }
-                ?? day.sessions[0]
-            let extra = day.sessions.count - 1
-            let axExtra = extra > 0 ? ", +\(extra) sesión\(extra == 1 ? "" : "es") más" : ""
-            return UpcomingDay(
-                id: day.isoDate,
-                dayLabel: label,
-                isRest: false,
-                title: principal.title,
-                modality: principal.modality,
-                isTest: principal.isTestSession,
-                extraCount: extra,
-                axText: "\(weekday): \(principal.title)\(axExtra)"
-            )
-        }
-    }
-
-    /// VoiceOver narration of the whole block.
-    private func loQueVieneAxLabel(_ days: [UpcomingDay]) -> String {
-        guard !days.isEmpty else { return "Lo que viene. Nada más esta semana." }
-        let body = days.map { $0.axText }.joined(separator: ". ")
-        return "Lo que viene. \(body). Ver el plan."
-    }
-
     // MARK: - Readiness interpretation
     //
     // Plain-language read of the body STATE — never a training instruction (that's
@@ -1118,58 +959,6 @@ struct InicioView: View {
         if daysUntil <= Self.raceWeekDays { return "Confía en el trabajo hecho" }
         if daysUntil <= Self.taperDays { return "Afina y descansa" }
         return "Construyendo motor"
-    }
-
-    // MARK: - Lo que viene helpers (max rows · weekday labels · date math)
-
-    /// How many upcoming days the block lists at most.
-    private static let maxUpcoming = 4
-
-    /// Short ES weekday ("Lun" … "Dom") for a 1=Mon … 7=Sun day-of-week.
-    private static func weekdayShort(_ dow: Int) -> String {
-        switch dow {
-        case 1: return "Lun"
-        case 2: return "Mar"
-        case 3: return "Mié"
-        case 4: return "Jue"
-        case 5: return "Vie"
-        case 6: return "Sáb"
-        default: return "Dom"
-        }
-    }
-
-    /// Full ES weekday name for accessibility.
-    private static func weekdayFull(_ dow: Int) -> String {
-        switch dow {
-        case 1: return "lunes"
-        case 2: return "martes"
-        case 3: return "miércoles"
-        case 4: return "jueves"
-        case 5: return "viernes"
-        case 6: return "sábado"
-        default: return "domingo"
-        }
-    }
-
-    // Plain calendar-date math on the ISO (yyyy-MM-dd) day keys, pinned to UTC so
-    // adding a day never drifts across a DST boundary. Used to detect "tomorrow".
-    private static let isoDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-    private static let isoDayCalendar: Calendar = {
-        var c = Calendar(identifier: .gregorian)
-        c.timeZone = TimeZone(identifier: "UTC")!
-        return c
-    }()
-    /// `iso` shifted by `days` calendar days, or nil when `iso` is malformed.
-    private static func isoByAddingDays(_ days: Int, to iso: String) -> String? {
-        guard let date = isoDayFormatter.date(from: iso),
-              let next = isoDayCalendar.date(byAdding: .day, value: days, to: date) else { return nil }
-        return isoDayFormatter.string(from: next)
     }
 
     // MARK: - Coach note row
@@ -1347,20 +1136,4 @@ private struct TileButton<Content: View>: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(onTap == nil ? [] : .isButton)
     }
-}
-
-// MARK: - Upcoming day
-//
-// One row's worth of "Lo que viene" data: the day label, whether it's a rest
-// day, and (for a training day) the principal session's name + modality + test
-// flag, plus a count of any additional sessions that same day.
-private struct UpcomingDay: Identifiable {
-    let id: String          // isoDate — stable and unique within the week
-    let dayLabel: String    // "Mañana" / "Jue" / "Vie" …
-    let isRest: Bool
-    let title: String       // principal session name ("" on a rest day)
-    let modality: String?   // principal modality → the row's color dot
-    let isTest: Bool
-    let extraCount: Int      // additional sessions that day beyond the principal
-    let axText: String       // VoiceOver fragment for this row
 }
