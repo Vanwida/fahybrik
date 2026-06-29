@@ -19,7 +19,7 @@ struct AppleSignInView: View {
             VStack(spacing: Theme.Spacing.xl) {
                 Spacer()
 
-                Wordmark(size: 32)
+                Wordmark(size: 64)
 
                 Text("Entrenar al detalle.")
                     .font(Theme.Typography.body)
