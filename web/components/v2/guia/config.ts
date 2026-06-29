@@ -68,6 +68,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'tu-cuenta-y-tu-marca',
     title: 'Tu cuenta y tu marca',
     blurb: 'Tu identidad de entrenador: tu nombre y tu sello en la experiencia del atleta.',
+    built: true,
   },
   // ── Tu biblioteca ───────────────────────────────────────────────────────────
   {
@@ -76,6 +77,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'tu-catalogo-de-ejercicios',
     title: 'Tu catálogo de ejercicios',
     blurb: 'Tus ejercicios con vídeo, listos para usar en cualquier sesión.',
+    built: true,
   },
   {
     num: 4,
@@ -83,6 +85,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'tus-tipos-de-trabajo',
     title: 'Tus tipos de trabajo',
     blurb: 'Los bloques con los que montas una sesión: carrera, fuerza, circuito, test…',
+    built: true,
   },
   {
     num: 5,
@@ -90,6 +93,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'tu-metodologia-y-tus-fases',
     title: 'Tu metodología y tus fases',
     blurb: 'El nombre de tus fases es tuyo: tú lo escribes, tu atleta lo lee.',
+    built: true,
   },
   // ── El plan ──────────────────────────────────────────────────────────────────
   {
@@ -98,6 +102,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'como-se-estructura-un-plan',
     title: 'Cómo se estructura un plan',
     blurb: 'De la fase a la semana, de la semana al día, del día a la sesión.',
+    built: true,
   },
   {
     num: 7,
@@ -113,6 +118,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'carga-e-intensidad',
     title: 'Carga e intensidad de cada ejercicio',
     blurb: 'Cómo se mide el trabajo y contra qué objetivo en cada modalidad.',
+    built: true,
   },
   {
     num: 9,
@@ -120,6 +126,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'periodizacion-nombrar-fases',
     title: 'Periodización: nombrar fases',
     blurb: 'Nombrar y secuenciar tus fases a lo largo del plan.',
+    built: true,
   },
   // ── Asignar y empezar ───────────────────────────────────────────────────────
   {
@@ -128,6 +135,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'da-de-alta-e-invita',
     title: 'Da de alta e invita',
     blurb: 'De captar al atleta a que reciba la invitación a su app.',
+    built: true,
   },
   {
     num: 11,
@@ -135,6 +143,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'cuestionario-inicial-y-tests',
     title: 'Cuestionario inicial y tests',
     blurb: 'Lo que sabes de tu atleta antes de montarle el primer plan.',
+    built: true,
   },
   {
     num: 12,
@@ -142,6 +151,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'asigna-el-plan',
     title: 'Asigna el plan: borrador → publicado',
     blurb: 'El paso que hace que el plan aparezca en su móvil.',
+    built: true,
   },
   // ── El día a día ─────────────────────────────────────────────────────────────
   {
@@ -150,6 +160,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'tu-pantalla-hoy',
     title: 'Tu pantalla /hoy',
     blurb: 'Tu cola de decisiones del día: a quién atender primero.',
+    built: true,
   },
   {
     num: 14,
@@ -165,6 +176,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'habla-con-tu-atleta',
     title: 'Habla con tu atleta',
     blurb: 'El chat con tu atleta, con notas de voz.',
+    built: true,
   },
   // ── Seguimiento ──────────────────────────────────────────────────────────────
   {
@@ -173,6 +185,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'readiness-y-checkin',
     title: 'Readiness y check-in',
     blurb: 'El check-in de la mañana y cómo llega tu atleta a la sesión.',
+    built: true,
   },
   {
     num: 17,
@@ -180,6 +193,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'adherencia-y-constancia',
     title: 'Adherencia y constancia',
     blurb: 'La constancia de tu atleta, semana a semana.',
+    built: true,
   },
   {
     num: 18,
@@ -187,6 +201,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'carreras-y-objetivos',
     title: 'Carreras y objetivos',
     blurb: 'La próxima carrera y los objetivos que ordenan el plan.',
+    built: true,
   },
   {
     num: 19,
@@ -194,6 +209,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'progreso-y-rendimiento',
     title: 'Progreso y rendimiento',
     blurb: 'La evolución de marcas y tests a lo largo del tiempo.',
+    built: true,
   },
 ] as const;
 
