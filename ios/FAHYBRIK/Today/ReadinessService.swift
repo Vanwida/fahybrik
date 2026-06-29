@@ -58,10 +58,12 @@ enum ReadinessService {
     }
 }
 
-// MARK: - Biometric trend (Inicio "Tu progreso")
+// MARK: - Biometric trend (Biometría screen)
 //
 // The athlete's most relevant biometric trend over recent weeks — the "proof
-// you're advancing" signal. The backend (GET /api/athlete/biometrics/trend)
+// you're advancing" signal. NOT loaded by Inicio (which is built around
+// running-analysis): a screen that shows the trend loads this slice itself. The
+// backend (GET /api/athlete/biometrics/trend)
 // returns whichever metrics actually have recent real history (HRV / VO₂max /
 // resting HR / sleep), in priority order; `metrics` is empty when there's no
 // recent data. The view picks the first metric present and hides the element

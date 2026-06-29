@@ -77,7 +77,6 @@ final class AppDataStore {
     var planWeek = Slice<AthletePlanWeekResponse>()         // /plan/week (offset 0) — Inicio, Plan, Perfil(coach)
     var macroProgress = Slice<AthleteMacroProgressResponse>() // /macro-progress  — Inicio week tile
     var readiness = Slice<DailyReadinessPayload>()          // /readiness/today   — Inicio
-    var biometricTrend = Slice<BiometricTrend>()            // /biometrics/trend  — Inicio ("Tu progreso")
     var strengthMaxes = Slice<[StrengthMaxProfile]>()       // /benchmarks        — Inicio ("Tu progreso") + Perfil
     var runningAnalysis = Slice<RunningAnalysis>()          // /running-analysis  — Inicio ("Tu progreso · carrera") + Carreras
     var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread) + Chat (coach identity)
@@ -129,7 +128,6 @@ final class AppDataStore {
             planWeek = snapshot.planWeek
             macroProgress = snapshot.macroProgress
             readiness = snapshot.readiness
-            biometricTrend = snapshot.biometricTrend
             strengthMaxes = snapshot.strengthMaxes
             runningAnalysis = snapshot.runningAnalysis
             chatThread = snapshot.chatThread
@@ -151,7 +149,6 @@ final class AppDataStore {
         planWeek = .init()
         macroProgress = .init()
         readiness = .init()
-        biometricTrend = .init()
         strengthMaxes = .init()
         runningAnalysis = .init()
         chatThread = .init()
@@ -175,29 +172,26 @@ final class AppDataStore {
         async let p: Void = refreshPlanWeek(force: force)
         async let m: Void = refreshMacroProgress(force: force)
         async let r: Void = refreshReadiness(force: force)
-        async let bt: Void = refreshBiometricTrend(force: force)
         async let sm: Void = refreshStrengthMaxes(force: force)
         async let ra: Void = refreshRunningAnalysis(force: force)
         async let c: Void = refreshChatThread(force: force)
         async let pa: Void = refreshPartner(force: force)
         async let s: Void = refreshSubscription(force: force)
-        _ = await (i, p, m, r, bt, sm, ra, c, pa, s)
+        _ = await (i, p, m, r, sm, ra, c, pa, s)
     }
 
     /// Inicio: identity, plan, macro progress, readiness, the running analysis +
-    /// strength maxes (the "Tu progreso · carrera" proof), the biometric trend,
-    /// coach thread, partner.
+    /// strength maxes (the "Tu progreso · carrera" proof), coach thread, partner.
     func loadHome(force: Bool = false) async {
         async let i: Void = refreshIdentity(force: force)
         async let p: Void = refreshPlanWeek(force: force)
         async let m: Void = refreshMacroProgress(force: force)
         async let r: Void = refreshReadiness(force: force)
-        async let bt: Void = refreshBiometricTrend(force: force)
         async let sm: Void = refreshStrengthMaxes(force: force)
         async let ra: Void = refreshRunningAnalysis(force: force)
         async let c: Void = refreshChatThread(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (i, p, m, r, bt, sm, ra, c, pa)
+        _ = await (i, p, m, r, sm, ra, c, pa)
     }
 
     /// Plan: the current week + the partner (for the "Con [X]" badges).
@@ -294,14 +288,6 @@ final class AppDataStore {
         // successful load with no value (hasLoaded stays true).
         await revalidate(get: { self.readiness }, set: { self.readiness = $0 }, force: force) {
             try await ReadinessService.fetchToday(bearer: $0)
-        }
-    }
-
-    func refreshBiometricTrend(force: Bool = false) async {
-        // BiometricTrendService returns an honest-empty bundle (metrics: []) when
-        // the athlete has no recent data — recorded as a successful load.
-        await revalidate(get: { self.biometricTrend }, set: { self.biometricTrend = $0 }, force: force) {
-            try await BiometricTrendService.fetch(bearer: $0)
         }
     }
 
@@ -446,7 +432,6 @@ final class AppDataStore {
             planWeek: planWeek,
             macroProgress: macroProgress,
             readiness: readiness,
-            biometricTrend: biometricTrend,
             strengthMaxes: strengthMaxes,
             runningAnalysis: runningAnalysis,
             chatThread: chatThread,
@@ -477,7 +462,6 @@ enum AppDataPersistence {
         var planWeek: Slice<AthletePlanWeekResponse>
         var macroProgress: Slice<AthleteMacroProgressResponse>
         var readiness: Slice<DailyReadinessPayload>
-        var biometricTrend: Slice<BiometricTrend>
         var strengthMaxes: Slice<[StrengthMaxProfile]>
         var runningAnalysis: Slice<RunningAnalysis>
         var chatThread: Slice<ChatThreadDTO>
