@@ -321,7 +321,12 @@ struct InicioView: View {
                 Haptics.light()
                 onOpenTab?(.carreras)
             } label: {
-                CardSurface(padding: 18, topAccent: true, elevated: true) {
+                CardSurface(
+                    padding: 18,
+                    topAccent: true,
+                    elevated: true,
+                    backgroundImage: BrandImagery.raceCardBackground
+                ) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             LabelText(text: "Camino a la carrera")
@@ -381,7 +386,11 @@ struct InicioView: View {
                 Haptics.light()
                 showBuscarCarrera = true
             } label: {
-                CardSurface(padding: 18, topAccent: true) {
+                CardSurface(
+                    padding: 18,
+                    topAccent: true,
+                    backgroundImage: BrandImagery.raceCardBackground
+                ) {
                     VStack(alignment: .leading, spacing: 6) {
                         LabelText(text: "Camino a la carrera")
                         Text("Elige tu carrera objetivo")

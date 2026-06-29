@@ -459,7 +459,12 @@ private struct UpcomingRaceCard: View {
         // eyebrow and the long-press .contextMenu, keeping the face clean. The
         // primary card carries the orange top accent so the goal race reads as the
         // anchor at a glance.
-        CardSurface(padding: 16, topAccent: isPrimary, elevated: true) {
+        CardSurface(
+            padding: 16,
+            topAccent: isPrimary,
+            elevated: true,
+            backgroundImage: BrandImagery.raceCardBackground
+        ) {
             VStack(alignment: .leading, spacing: 11) {
                 eyebrowRow
                 infoBlock

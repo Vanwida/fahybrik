@@ -76,6 +76,11 @@ struct CardSurface<Content: View>: View {
     var leftAccent: Bool = false
     /// Raise onto the brightest layer (use for the hero card on a screen).
     var elevated: Bool = false
+    /// Optional asset name of a subtle athletic photo to lay behind the card,
+    /// sealed under an adaptive scrim (see `CardPhotoBackground`) so text keeps
+    /// full WCAG-AA contrast in both themes. Used by the race countdown cards;
+    /// `nil` everywhere else (the existing flat-surface fill is preserved).
+    var backgroundImage: String? = nil
     @ViewBuilder var content: () -> Content
 
     private var shape: RoundedRectangle {
@@ -92,17 +97,24 @@ struct CardSurface<Content: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background {
-            // Layered fill: a near-vertical gradient from elevated → surface
-            // gives the face a faint top-lit sheen rather than a flat slab.
-            shape.fill(
-                LinearGradient(
-                    colors: elevated
-                        ? [Theme.Color.surfaceElevated, Theme.Color.surface]
-                        : [Theme.Color.surface, Theme.Color.surface.opacity(0.92)],
-                    startPoint: .top,
-                    endPoint: .bottom
+            if let backgroundImage {
+                // A subtle athletic photo behind the card, sealed under an
+                // adaptive scrim that keeps every text element legible (AA) in
+                // both themes. The outer `.clipShape` rounds it to the card.
+                CardPhotoBackground(imageName: backgroundImage)
+            } else {
+                // Layered fill: a near-vertical gradient from elevated → surface
+                // gives the face a faint top-lit sheen rather than a flat slab.
+                shape.fill(
+                    LinearGradient(
+                        colors: elevated
+                            ? [Theme.Color.surfaceElevated, Theme.Color.surface]
+                            : [Theme.Color.surface, Theme.Color.surface.opacity(0.92)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                 )
-            )
+            }
         }
         .overlay(alignment: .leading) {
             if leftAccent {
@@ -122,6 +134,60 @@ struct CardSurface<Content: View>: View {
         }
         .clipShape(shape)
         .brandShadow(elevated ? Theme.Shadow.hero : Theme.Shadow.card)
+    }
+}
+
+// MARK: - Brand imagery
+//
+// Free-license photography that ships in the asset catalog. The race backdrop is
+// a HYROX sled-push competition shot from Unsplash, used under the Unsplash
+// License (free for commercial use, no attribution required). One source of
+// truth for the asset name so the Inicio anchor and the Carreras cards can't drift.
+enum BrandImagery {
+    /// `RaceCardBackground.imageset` — the subtle race-card backdrop.
+    static let raceCardBackground = "RaceCardBackground"
+}
+
+// MARK: - Card photo background (subtle athletic backdrop + legibility scrim)
+//
+// A faint athletic photo laid behind a `CardSurface`, sealed under an adaptive
+// surface-colored scrim so every text element keeps full WCAG-AA contrast in
+// BOTH themes — the photo only ever whispers through. The scrim is heaviest at
+// the top (where the chosen sled-push shot's bright LED wall sits, and where the
+// small tracked eyebrow label lives) and at the very bottom (the small proximity
+// line), easing in the middle so the photo breathes behind the large, tolerant
+// countdown/title type. Because the scrim is the adaptive `surface` color, the
+// backdrop reads dark-on-dark and a fainter ghost on the clean light canvas —
+// never muddy. Decorative: hidden from VoiceOver, never hit-tested.
+private struct CardPhotoBackground: View {
+    let imageName: String
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        // Scrim opacity stops (top / middle / bottom). On light the photo is a
+        // mere whisper (~6–12%) so the clean canvas stays clean; on dark it
+        // breathes a little more (~9–20%) for the moody, race-prep feel.
+        let s = scheme == .light
+            ? (top: 0.96, mid: 0.91, bottom: 0.94)
+            : (top: 0.91, mid: 0.80, bottom: 0.88)
+        ZStack {
+            // Opaque base so transparent regions never punch through to the canvas.
+            Theme.Color.surface
+            Image(imageName)
+                .resizable()
+                .scaledToFill()
+            LinearGradient(
+                stops: [
+                    .init(color: Theme.Color.surface.opacity(s.top), location: 0.0),
+                    .init(color: Theme.Color.surface.opacity(s.mid), location: 0.45),
+                    .init(color: Theme.Color.surface.opacity(s.bottom), location: 1.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
