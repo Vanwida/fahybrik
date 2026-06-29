@@ -126,6 +126,33 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
     /// round score, so they must never be pre-filled to the prescription.
     var repsAreOpenScore: Bool { self == .amrap }
 
+    /// How the live timer/HUD presents this format — the iOS mirror of the
+    /// canonical `presentation` axis in `shared/domain/prescription/format.ts`
+    /// (single source of truth). Drives BOTH the block fold (which conditioning
+    /// blocks collapse into one block-level segment) AND the live-HUD routing.
+    var presentation: FormatPresentation {
+        switch self {
+        case .emom, .tabata, .deathBy, .intervals:        return .rotating
+        case .forTime, .amrap, .chipper, .ladder, .rounds, .hyroxSim: return .fixed
+        case .steady:                                     return .continuous
+        case .sets:                                       return .setTable
+        case .warmup, .cooldown:                          return .list
+        }
+    }
+
+    /// True for the formats that run a block-level conditioning TIMER (rotating /
+    /// fixed / continuous) — every metcon + endurance scheme. These collapse a
+    /// multi-movement block into ONE block-level segment (the round/list shown at
+    /// once) and route to a dedicated live timer, never the per-set / structural
+    /// path. EMOM is conditioning too but keeps its own dedicated engine, so it is
+    /// excluded here (callers check `isEMOM`/`emom` separately).
+    var runsConditioningTimer: Bool {
+        switch presentation {
+        case .rotating, .fixed, .continuous: return true
+        case .setTable, .list:               return false
+        }
+    }
+
     /// Athlete-facing label, mirroring the canonical catalog. `.sets` reads as
     /// "Strength" (its real-world role); warmup/cooldown as "Warm-up"/"Cool-down".
     var displayName: String {
@@ -146,6 +173,20 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .cooldown: return "Cool-down"
         }
     }
+}
+
+/// The presentation family of a format — the iOS mirror of `FormatPresentation`
+/// in `shared/domain/prescription/format.ts`. ROTATING = the clock drives the
+/// screen forward (EMOM, Tabata, Intervals, Death By); FIXED = the whole round is
+/// shown and repeated, the screen never advances (AMRAP, For Time, Chipper,
+/// Ladder, Rounds, HYROX sim); CONTINUOUS = one unbroken bout (Steady); SET_TABLE
+/// = the per-set strength table; LIST = a plain checklist (warm-up / cool-down).
+enum FormatPresentation: Equatable {
+    case rotating
+    case fixed
+    case continuous
+    case setTable
+    case list
 }
 
 // MARK: - Modality

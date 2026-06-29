@@ -425,6 +425,106 @@ extension WorkoutSegment {
     var isMetconFamily: Bool { prescription?.scheme.isMetconFamily == true }
 }
 
+// MARK: - WorkoutSegment → conditioning-format live timer
+//
+// The non-EMOM conditioning formats (For Time, AMRAP, Tabata, Intervals, Death By,
+// Steady, Chipper, Ladder, Rounds, HYROX sim) each run a dedicated block-level
+// live timer. A multi-movement block is FOLDED into ONE segment (see
+// `WorkoutBlock.conditioningFold` / `WorkoutPlan.mergedConditioningSegment`,
+// mirroring the alternating-EMOM fold), so the timer always reads ONE segment
+// whose `prescription` carries the scheme, the block params (cap / rounds / work /
+// rest / death-by start+increment) and the movement list as `sets[]`. These
+// accessors expose those for the HUD + session engine, with no re-derivation.
+
+/// One movement (or round) in a conditioning block's round/list, render-ready:
+/// the movement name, its work string ("5 reps", "200 m", "15 cal") and an
+/// optional intensity detail ("@ 1:50/500m", "RPE 8"). The fixed-round task list
+/// (AMRAP / For Time / Chipper / Ladder) and the block preview both read this.
+struct WorkComponent: Identifiable, Equatable {
+    let id: Int
+    let name: String
+    let work: String
+    let detail: String?
+}
+
+extension WorkoutSegment {
+    /// The conditioning scheme driving this segment's live timer, or nil for a
+    /// legacy / structural / strength segment (no dedicated format timer).
+    var formatScheme: PrescriptionScheme? { prescription?.scheme }
+
+    /// True when this segment runs a NON-EMOM conditioning timer (For Time, AMRAP,
+    /// Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds, HYROX sim).
+    /// EMOM is excluded — it keeps its own dedicated engine (`isEMOM`).
+    var isConditioningTimer: Bool {
+        guard let s = formatScheme, !isEMOM else { return false }
+        return s.runsConditioningTimer
+    }
+
+    /// The block's movement list — one row per movement, from the folded
+    /// `prescription.sets[]` (the round shown at once in a FIXED format / the
+    /// rotation in a ROTATING one). Falls back to ONE row from this segment's
+    /// scalar work when no structured sets exist (a single-movement block shipped
+    /// with only scalar params). Reuses the per-set EMOM-interval builder so the
+    /// work/detail strings read exactly like the rest of the app.
+    var components: [WorkComponent] {
+        let isErg = kind.isErg
+        if let sets = prescription?.sets, !sets.isEmpty {
+            return sets.enumerated().map { i, s in
+                let itv = s.emomInterval(fallbackMovement: title, fallbackIsErg: isErg)
+                return WorkComponent(id: i, name: itv.movement,
+                                     work: itv.work, detail: itv.detail)
+            }
+        }
+        // Scalar fallback: one component from the dominant measure + intensity.
+        let work: String = targetReps.map { "\($0) reps" }
+            ?? targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? targetDurationSeconds.map { PrescriptionRenderer.formatClock($0) }
+            ?? "—"
+        let detail = effortGuidance
+            ?? prescription.flatMap { PrescriptionRenderer.targetLoad($0.target) }
+            ?? prescription.flatMap { PrescriptionRenderer.paceString($0.target, isErg: isErg) }
+        return [WorkComponent(id: 0, name: title, work: work, detail: detail)]
+    }
+
+    // ── Block-level conditioning params (read from the folded prescription) ──────
+
+    /// Time CAP (For Time / Chipper / Ladder / Rounds / HYROX sim) or fixed WINDOW
+    /// (AMRAP / Steady), in seconds. Nil = open clock (no cap / no window).
+    var formatTotalSeconds: Int? {
+        guard let t = prescription?.totalS, t > 0 else { return nil }
+        return t
+    }
+
+    /// Rounds / minutes the format runs (For Time scheme rounds, Tabata rounds,
+    /// Rounds circuits). Nil when not prescribed.
+    var formatRounds: Int? {
+        guard let r = prescription?.rounds, r > 0 else { return nil }
+        return r
+    }
+
+    /// Work-window length — Tabata work, interval bout, Death By minute. Defaults
+    /// to 60s ("on the minute") for Death By when unset, else nil.
+    var formatWorkSeconds: Int? {
+        guard let w = prescription?.workS, w > 0 else { return nil }
+        return w
+    }
+
+    /// Rest between intervals / rounds (Tabata rest, interval recovery). Nil when none.
+    var formatRestSeconds: Int? {
+        guard let r = prescription?.restS, r > 0 else { return nil }
+        return r
+    }
+
+    /// Death By starting amount (reps / cal in round 1); defaults to 1 when unset.
+    var deathByStart: Int { max(1, prescription?.start ?? 1) }
+    /// Death By per-round increment; defaults to 1 when unset.
+    var deathByIncrement: Int { max(1, prescription?.increment ?? 1) }
+
+    /// The single movement name a uniform conditioning block shows (Tabata air
+    /// squats, Steady run) — the first component's name, else the segment title.
+    var primaryMovement: String { components.first?.name ?? title }
+}
+
 // A session's segments regrouped into their coach blocks, in session order, so
 // the post-workout summary reads as Calentamiento / Principal / Vuelta a la calma
 // instead of one flat mix. `title` is the coach block title (phase name as
@@ -720,6 +820,16 @@ extension WorkoutPlan {
                     order += 1
                     return [mergedEmomSegment(block: block, merged: merged, order: order)]
                 }
+                // Every OTHER multi-movement conditioning block (For Time, AMRAP,
+                // Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds,
+                // HYROX sim) folds into ONE block-level segment the same way: the
+                // format runs a SINGLE timer over the whole round/list (the screen
+                // is the block, not a per-movement lap). Mirrors the EMOM fold;
+                // strength / warmup / cooldown stay one-segment-per-item.
+                if let folded = block.conditioningFold {
+                    order += 1
+                    return [mergedConditioningSegment(block: block, merged: folded, order: order)]
+                }
                 return block.items.map { item in
                     order += 1
                     return segment(from: item, order: order, block: block)
@@ -810,6 +920,50 @@ extension WorkoutPlan {
             // No single technique video for a multi-movement EMOM (the model carries
             // one per segment, not per minute) — omit rather than show a misleading one.
             videoUrl: nil,
+            prescription: merged
+        )
+    }
+
+    // Package the shared conditioning fold (`block.conditioningFold` — the ONE
+    // block-level prescription whose `sets[]` is the movement list, read by both
+    // the live timer and the preview) into the single segment that runs it.
+    // Mirrors `mergedEmomSegment`: only the segment-specific concerns (lap
+    // modality, title, attributed template id) live here; the fold itself is
+    // built once on `WorkoutBlock`.
+    private static func mergedConditioningSegment(block: WorkoutBlock, merged: Prescription, order: Int) -> WorkoutSegment {
+        // A homogeneous block (all-run series, all-erg) keeps that kind so its lap
+        // records the right modality + capture; a MIXED-movement WOD (pull-ups +
+        // run) has no single modality → `.reps` (a neutral timed record, no false
+        // GPS/PM5/load). Mirrors the EMOM-merge rule.
+        let kinds = Set(block.items.map(\.segmentKind))
+        let kind: SegmentKind = kinds.count == 1 ? (kinds.first ?? .reps) : .reps
+
+        let title = dedupPreservingOrder(block.items.map(\.exerciseName)).joined(separator: " · ")
+
+        // A homogeneous single-modality block (a run series, a steady ride) keeps
+        // its scalar pace / distance / zone targets so the pace HUD reads them; a
+        // mixed WOD carries none (the round list drives the FIXED HUD instead).
+        let principal = (kinds.count == 1) ? block.items.first : nil
+        let p = principal?.paramsJson
+        let distanceMeters: Double? = p?.distanceMeters.map(Double.init) ?? p?.distanceKm.map { $0 * 1000 }
+
+        return WorkoutSegment(
+            order: order,
+            title: title.isEmpty ? block.title : title,
+            kind: kind,
+            templateSegmentId: block.items.first?.templateSegmentId,
+            targetReps: p?.reps,
+            targetDistanceMeters: distanceMeters,
+            targetDurationSeconds: p?.durationSeconds,
+            targetPaceSecondsPerKm: p?.paceSecPerKm,
+            targetPowerWatts: nil,
+            targetZone: p?.hrZone.flatMap { HRZone(rawValue: $0) },
+            loadKg: p?.loadKg,
+            targetRpe: p?.rpe,
+            blockTitle: block.title,
+            blockPosition: block.blockPosition,
+            // One technique video only when the block is a single movement.
+            videoUrl: (kinds.count == 1) ? block.items.first?.exerciseVideoUrl : nil,
             prescription: merged
         )
     }
@@ -990,6 +1144,77 @@ extension WorkoutBlock {
             note: nil,
             start: nil,
             increment: nil
+        )
+    }
+
+    /// The block's canonical conditioning scheme — the authored `format`, else the
+    /// items' shared prescription scheme. Nil when neither resolves to a known
+    /// format.
+    var conditioningScheme: PrescriptionScheme? {
+        if let s = PrescriptionScheme(canonicalizing: format) { return s }
+        return items.first?.prescription?.scheme
+    }
+
+    /// The merged block-level prescription for a MULTI-movement conditioning block
+    /// that is NOT an alternating EMOM (For Time, AMRAP, Tabata, Intervals, Death
+    /// By, Steady, Chipper, Ladder, Rounds, HYROX sim): its movements folded into
+    /// ONE prescription whose `sets[]` is the round/list and whose top-level params
+    /// (cap/window `total_s`, `rounds`, `work_s`, `rest_s`, Death By `start`/
+    /// `increment`) drive the single live timer. nil when the block is not a
+    /// multi-movement conditioning block (single-movement blocks keep their natural
+    /// one-segment-per-item shape; strength / warmup / cooldown never fold). THE
+    /// single fold the live timer and the preview both read.
+    var conditioningFold: Prescription? {
+        guard items.count > 1,
+              let scheme = conditioningScheme,
+              scheme != .emom,           // alternating EMOM has its own fold
+              scheme.runsConditioningTimer else { return nil }
+
+        // Each movement becomes one round/list entry — its work (the item's set,
+        // else its scalar params), intensity target, modality and movement label.
+        let rotation: [PrescriptionSet] = items.map { item in
+            let baseSet = item.prescription?.sets?.first
+            let coachLabel = baseSet?.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return PrescriptionSet(
+                measure: baseSet?.measure ?? item.scalarMeasure,
+                target: baseSet?.target ?? item.prescription?.target,
+                modality: baseSet?.modality
+                    ?? item.prescription?.modality
+                    ?? PrescriptionModality(rawValue: item.segmentKind.modality),
+                restS: baseSet?.restS,
+                tempo: baseSet?.tempo,
+                note: (coachLabel?.isEmpty == false) ? coachLabel : item.exerciseName
+            )
+        }
+
+        // Block params: prefer the per-item prescription (each line carries the
+        // block-level config, as EMOM lines carry `rounds`), else the schemaless
+        // `config_json` keys (snake_case, read verbatim — see JSONValue note).
+        func itemMax(_ f: (Prescription) -> Int?) -> Int? {
+            items.compactMap { $0.prescription.flatMap(f) }.max()
+        }
+        func itemFirst(_ f: (Prescription) -> Int?) -> Int? {
+            items.compactMap { $0.prescription.flatMap(f) }.first
+        }
+        let totalS = itemMax { $0.totalS } ?? configJson?.int("time_cap_seconds") ?? configJson?.int("total_seconds")
+        let rounds = itemMax { $0.rounds } ?? configJson?.int("rounds")
+        let workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
+        let restS = itemFirst { $0.restS } ?? configJson?.int("rest_seconds")
+        let start = itemFirst { $0.start } ?? configJson?.int("start")
+        let increment = itemFirst { $0.increment } ?? configJson?.int("increment")
+
+        return Prescription(
+            scheme: scheme,
+            modality: nil,
+            sets: rotation,
+            rounds: rounds,
+            workS: workS,
+            restS: restS,
+            totalS: totalS,
+            target: items.first?.prescription?.target,
+            note: nil,
+            start: start,
+            increment: increment
         )
     }
 }

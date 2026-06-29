@@ -563,4 +563,107 @@ final class AssignmentDetailTests: XCTestCase {
         let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
         XCTAssertEqual(plan.segments.count, 2, "Non-EMOM multi-item blocks keep one segment per item.")
     }
+
+    // MARK: - Conditioning block fold (FASE 2 · PASO 3 — per-format timers)
+
+    func test_multiMovementAmrap_foldsIntoOneSegment_withRoundList() throws {
+        // AMRAP 20 "Cindy" (3 movements): the block folds into ONE block-level
+        // segment whose `sets[]` is the round shown at once; the window drives the
+        // count-down. Mirrors the alternating-EMOM fold.
+        let json = """
+        {
+          "assignment": { "id": "asg_amrap", "athlete_id": "ath_a", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Cindy", "blocks": [ { "uid": "b", "title": "Metcon — AMRAP 20", "format": "amrap", "block_position": 1, "items": [
+            { "uid": "i1", "exercise_id": "e1", "exercise_name": "Pull-ups", "exercise_slug": "pull-ups", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 5 },
+              "prescription_json": { "scheme": "amrap", "total_s": 1200, "sets": [ { "measure": { "kind": "reps", "value": 5 } } ] }, "notes": null },
+            { "uid": "i2", "exercise_id": "e2", "exercise_name": "Push-ups", "exercise_slug": "push-ups", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 10 },
+              "prescription_json": { "scheme": "amrap", "total_s": 1200, "sets": [ { "measure": { "kind": "reps", "value": 10 } } ] }, "notes": null },
+            { "uid": "i3", "exercise_id": "e3", "exercise_name": "Air Squats", "exercise_slug": "air-squats", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 15 },
+              "prescription_json": { "scheme": "amrap", "total_s": 1200, "sets": [ { "measure": { "kind": "reps", "value": 15 } } ] }, "notes": null }
+          ] } ] } }
+        """
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
+        XCTAssertEqual(plan.segments.count, 1, "A multi-movement AMRAP folds into ONE block-level segment.")
+        XCTAssertEqual(plan.format, .amrap)
+        let seg = try XCTUnwrap(plan.segments.first)
+        XCTAssertEqual(seg.formatScheme, .amrap)
+        XCTAssertTrue(seg.isConditioningTimer)
+        XCTAssertFalse(seg.isEMOM)
+        XCTAssertEqual(seg.formatTotalSeconds, 1200, "The AMRAP window drives the count-down.")
+        XCTAssertEqual(seg.components.count, 3, "The round is the three movements, shown at once.")
+        XCTAssertEqual(seg.components[0].name, "Pull-ups")
+        XCTAssertEqual(seg.components[0].work, "5 reps")
+        XCTAssertEqual(seg.components[2].work, "15 reps")
+    }
+
+    func test_multiMovementForTime_foldsIntoOneSegment_timeScored() throws {
+        // For Time "Fran"-style with a cap: folds to ONE segment, time-scored, cap
+        // carried so the HUD can flip to count-down in the final minute.
+        let json = """
+        {
+          "assignment": { "id": "asg_ft", "athlete_id": "ath_f", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Fran", "blocks": [ { "uid": "b", "title": "For Time", "format": "for_time", "block_position": 1, "items": [
+            { "uid": "i1", "exercise_id": "e1", "exercise_name": "Thrusters", "exercise_slug": "thruster", "exercise_category": "strength",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 21 },
+              "prescription_json": { "scheme": "for_time", "rounds": 3, "total_s": 480, "sets": [ { "measure": { "kind": "reps", "value": 21 } } ] }, "notes": null },
+            { "uid": "i2", "exercise_id": "e2", "exercise_name": "Pull-ups", "exercise_slug": "pull-ups", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 21 },
+              "prescription_json": { "scheme": "for_time", "rounds": 3, "total_s": 480, "sets": [ { "measure": { "kind": "reps", "value": 21 } } ] }, "notes": null }
+          ] } ] } }
+        """
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
+        XCTAssertEqual(plan.segments.count, 1)
+        XCTAssertEqual(plan.format, .forTime)
+        let seg = try XCTUnwrap(plan.segments.first)
+        XCTAssertEqual(seg.formatScheme, .forTime)
+        XCTAssertEqual(seg.formatTotalSeconds, 480, "The cap is carried for the last-minute flip.")
+        XCTAssertEqual(seg.formatRounds, 3)
+        XCTAssertEqual(seg.components.count, 2)
+    }
+
+    func test_singleMovementConditioning_isNotFolded_butRoutesByScheme() throws {
+        // A single-movement Steady run stays a natural one-item segment (no fold)
+        // yet still routes to its conditioning timer by scheme, with its window +
+        // scalar pace targets intact for the pace HUD.
+        let json = """
+        {
+          "assignment": { "id": "asg_st", "athlete_id": "ath_st", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Rodaje Z2", "blocks": [ { "uid": "b", "title": "Principal", "format": "steady", "block_position": 1, "items": [
+            { "uid": "i", "exercise_id": "e", "exercise_name": "Carrera", "exercise_slug": "run", "exercise_category": "running",
+              "exercise_video_url": null, "cues": null, "params_json": { "duration_seconds": 2400, "pace_sec_per_km": 300, "hr_zone": 2 },
+              "prescription_json": { "scheme": "steady", "total_s": 2400, "target": { "kind": "hr_zone", "value": 2 } }, "notes": null }
+          ] } ] } }
+        """
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
+        XCTAssertEqual(plan.segments.count, 1)
+        let seg = try XCTUnwrap(plan.segments.first)
+        XCTAssertEqual(seg.formatScheme, .steady)
+        XCTAssertTrue(seg.isConditioningTimer)
+        XCTAssertEqual(seg.formatTotalSeconds, 2400)
+        XCTAssertEqual(seg.targetPaceSecondsPerKm, 300, "Single-movement steady keeps its scalar pace target.")
+        XCTAssertEqual(seg.targetZone, HRZone(rawValue: 2))
+    }
+
+    func test_deathBy_foldParams_startAndIncrement() throws {
+        // Death By Burpees folds with its start/increment so the rising target is
+        // start + increment × roundsCompleted. (Single item → natural segment.)
+        let json = """
+        {
+          "assignment": { "id": "asg_db", "athlete_id": "ath_db", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Death By", "blocks": [ { "uid": "b", "title": "Death By Burpees", "format": "death_by", "block_position": 1, "items": [
+            { "uid": "i", "exercise_id": "e", "exercise_name": "Burpees", "exercise_slug": "burpees", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 1 },
+              "prescription_json": { "scheme": "death_by", "work_s": 60, "start": 1, "increment": 1 }, "notes": null }
+          ] } ] } }
+        """
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
+        let seg = try XCTUnwrap(plan.segments.first)
+        XCTAssertEqual(seg.formatScheme, .deathBy)
+        XCTAssertEqual(seg.deathByStart, 1)
+        XCTAssertEqual(seg.deathByIncrement, 1)
+        XCTAssertEqual(seg.formatWorkSeconds, 60)
+    }
 }
