@@ -1,0 +1,37 @@
+-- 0089: session-level PARTIAL status — the honest "finished early" state.
+--
+-- WHY
+-- ---
+-- `assignment_status` (0001:61) carried only ('scheduled','completed','missed',
+-- 'skipped'). An athlete who TERMINATED a session before reaching the end of the
+-- protocol (honest partial save — FASE 2 / paso 2) had no session-level state to
+-- live in: it was forced to either 'completed' (a lie — it wasn't) or left
+-- 'scheduled' (also a lie — work WAS recorded). The plan then could only paint a
+-- binary done/not-done, collapsing four real outcomes into two.
+--
+-- THE MODEL
+-- ---------
+-- A session is now one of FIVE states, each an explicit value (never derived by
+-- counting rows — which can't tell "stopped early" from "coach prescribed an
+-- optional block the athlete skipped"):
+--   scheduled  — not started / discarded. Empty mark.
+--   partial    — terminated before the end. Amber ½ mark.            ← THIS
+--   completed  — finished. Green ✓.
+--   missed/skipped — was due, not done. Red ✕.
+--
+-- SCOPE OF THIS MIGRATION
+-- -----------------------
+-- Adds ONLY the enum VALUE so the type can hold 'partial'. It deliberately does
+-- NOT change the recorder (lib/sync/record-workout-execution.ts) — WHO writes
+-- 'partial' (the live finish flow, by execution completeness) is owned by the
+-- paso-2 honest-logging work and lands with it. This is the shared substrate both
+-- the writer (paso 2) and the reader (PlanView four-state render, this layer)
+-- depend on; additive and harmless until written, exactly like the pre-existing
+-- 'missed'/'skipped' values the render already handles.
+--
+-- ADDITIVE + idempotent: `add value if not exists` is a no-op on re-run. Journaled
+-- by filename stem (0089_assignment_status_partial). PG 12+ allows ADD VALUE
+-- inside a transaction as long as the new value is not USED in the same tx — it
+-- isn't here, so the runner's per-migration transaction wrap is safe.
+
+alter type assignment_status add value if not exists 'partial';
