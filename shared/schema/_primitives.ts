@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  TEMPLATE_FORMAT_VALUES,
+  type LegacyTemplateFormat,
+  type WorkoutFormat,
+} from '../domain/prescription/format';
 
 export const idSchema = z.coerce.bigint().or(z.number().int().nonnegative());
 export type Id = z.infer<typeof idSchema>;
@@ -40,22 +45,16 @@ export const exerciseCategory = z.enum([
 ]);
 export type ExerciseCategory = z.infer<typeof exerciseCategory>;
 
-export const templateFormat = z.enum([
-  'amrap',
-  'for_time',
-  'emom',
-  'intervals',
-  'strength_block',
-  'hyrox_sim',
-  'tempo',
-  'circuit',
-  // 'test' — the Test archetype (a resolver block: a fixed-distance/time effort at
-  // RPE 10 whose result calculates the athlete's zone profile). The test TYPE is
-  // recoverable from the item prescription (modality × measure × amount), so no
-  // extra column is needed; the format only classifies it for the editor reload.
-  'test',
-]);
-export type TemplateFormat = z.infer<typeof templateFormat>;
+// `template_format` (the block/template format) shares ONE vocabulary with the
+// prescription scheme — the canonical catalog in
+// `shared/domain/prescription/format.ts`. This zod mirror = every value the DB
+// `template_format` enum accepts: the canonical formats PLUS the legacy DB-only
+// members (strength_block | tempo | circuit | test) still present in old rows.
+// Readers normalize the legacy members to canonical via `normalizeFormat`.
+export type TemplateFormat = WorkoutFormat | LegacyTemplateFormat;
+export const templateFormat = z.enum(
+  TEMPLATE_FORMAT_VALUES as unknown as [TemplateFormat, ...TemplateFormat[]],
+);
 
 export const targetBlock = z.enum(['ACC', 'TRANS', 'REAL', 'any']);
 export type TargetBlock = z.infer<typeof targetBlock>;

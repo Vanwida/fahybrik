@@ -33,6 +33,7 @@
 // This file therefore models exactly one line.
 
 import { z } from 'zod';
+import { normalizeFormat, WORKOUT_FORMAT_KEYS, type WorkoutFormat } from './format';
 
 // ── Bounds (named, not magic) ───────────────────────────────────────────────
 const RPE_MIN = 0; // a set can be prescribed at RPE 0 only as a floor; 1-10 is the live range
@@ -271,34 +272,27 @@ export const measureSchema: z.ZodType<Measure> = z.discriminatedUnion('kind', [
 ]) as unknown as z.ZodType<Measure>;
 
 // ── Scheme ──────────────────────────────────────────────────────────────────
-// The shape of the work. Drives which top-level Prescription fields are
-// meaningful (e.g. `emom` uses work_s/rest_s/rounds; `steady` uses total_s).
-//
-// `for_time` (a.k.a. AFAP — "as fast as possible") is a DISTINCT conditioning
-// scheme: the WORK is fixed (N rounds of the prescribed sets, or a 21-15-9
-// ladder) and the scored OUTPUT is the completion TIME — the inverse of `amrap`,
-// where the TIME is fixed and the scored output is rounds. It shares `rounds` +
-// `sets` with `rounds`, and may carry `total_s` as a time CAP. Modeling it as a
-// first-class scheme (vs. faking it as `rounds`) lets to-text render "For Time"/
-// "AFAP", analytics treat time as the result metric, and the AI adapt the cap.
-export type PrescriptionScheme =
-  | 'sets'
-  | 'rounds'
-  | 'emom'
-  | 'amrap'
-  | 'interval'
-  | 'steady'
-  | 'for_time';
+// A prescription's scheme IS its block's FORMAT — the same axis (a block has one
+// format, shared by its lines). So `PrescriptionScheme` is exactly the canonical
+// format catalog (`shared/domain/prescription/format.ts`), the single source of
+// truth shared coach↔athlete↔DB. The scheme drives which top-level Prescription
+// fields are meaningful (e.g. `emom` uses work_s/rounds; `steady` uses total_s;
+// `death_by` uses start/increment) — see each format's `params` in the catalog.
+export type PrescriptionScheme = WorkoutFormat;
 
-export const prescriptionSchemeSchema = z.enum([
-  'sets',
-  'rounds',
-  'emom',
-  'amrap',
-  'interval',
-  'steady',
-  'for_time',
-]);
+// Canonical-only enum (the OUTPUT type): use for `.options`/exhaustive switches.
+export const prescriptionSchemeSchema = z.enum(
+  WORKOUT_FORMAT_KEYS as [WorkoutFormat, ...WorkoutFormat[]],
+);
+
+// Input-tolerant scheme: accepts every legacy alias (e.g. the old singular
+// `interval`, or a `tempo`/`circuit`/`strength_block`/`test` that leaked into a
+// prescription) and NORMALIZES it to its canonical member before validating, so
+// old `prescription_json` still parses while new data is always canonical.
+export const prescriptionSchemeInputSchema = z.preprocess(
+  (v) => (typeof v === 'string' ? (normalizeFormat(v) ?? v) : v),
+  prescriptionSchemeSchema,
+);
 
 // ── PrescriptionSet ─────────────────────────────────────────────────────────
 // One explicit set/round. Carries its work (`measure`) and its intensity
@@ -380,10 +374,12 @@ export interface Prescription {
   scheme: PrescriptionScheme;
   modality?: Modality; // block/default modality for the line
   sets?: PrescriptionSet[]; // explicit per-set (strength pyramids / waves / interval bouts)
-  rounds?: number; // circuits
-  work_s?: number; // emom/amrap/interval work window
-  rest_s?: number; // round/interval rest
-  total_s?: number; // amrap/steady total cap
+  rounds?: number; // circuits / minutes (rounds, emom, intervals, tabata)
+  work_s?: number; // emom/interval/tabata work window
+  rest_s?: number; // round/interval/tabata rest
+  total_s?: number; // amrap/steady total, or for_time/chipper/ladder time CAP
+  start?: number; // death_by — starting amount (reps|cal) in round 1
+  increment?: number; // death_by — amount added each round
   target?: Target; // block-level intensity (e.g. a steady Z2 ride / @4:00/km tempo)
   hr_zone?: number; // DEPRECATED — use target {kind:'hr_zone'}; lifted on normalize
   note?: string;
@@ -399,13 +395,15 @@ function normalizePrescription(raw: Prescription): Prescription {
 
 const prescriptionObjectSchema = z
   .object({
-    scheme: prescriptionSchemeSchema,
+    scheme: prescriptionSchemeInputSchema,
     modality: modalitySchema.optional(),
     sets: z.array(prescriptionSetSchema).max(MAX_SETS).optional(),
     rounds: z.number().int().positive().optional(),
     work_s: z.number().nonnegative().optional(),
     rest_s: z.number().nonnegative().optional(),
     total_s: z.number().nonnegative().optional(),
+    start: z.number().nonnegative().optional(),
+    increment: z.number().nonnegative().optional(),
     target: targetSchema.optional(),
     hr_zone: z.number().int().min(HR_ZONE_MIN).max(HR_ZONE_MAX).optional(), // deprecated alias
     note: z.string().max(2000).optional(),

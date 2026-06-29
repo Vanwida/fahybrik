@@ -174,6 +174,24 @@ export function prescriptionToText(p: Prescription): string {
     case 'for_time':
       lead = p.rounds !== undefined ? `${p.rounds} rondas For Time` : 'For Time';
       break;
+    case 'tabata':
+      lead =
+        p.work_s !== undefined && p.rest_s !== undefined
+          ? `Tabata ${formatDuration(p.work_s)}/${formatDuration(p.rest_s)}`
+          : 'Tabata';
+      break;
+    case 'death_by':
+      lead = 'Death By';
+      break;
+    case 'chipper':
+      lead = 'Chipper';
+      break;
+    case 'ladder':
+      lead = 'Ladder';
+      break;
+    case 'hyrox_sim':
+      lead = 'Simulación HYROX';
+      break;
     default:
       break;
   }
@@ -210,7 +228,7 @@ export function prescriptionToText(p: Prescription): string {
     if (tempos.length === 1) tempoStr = `tempo ${tempos[0]}`;
   } else {
     switch (p.scheme) {
-      case 'interval':
+      case 'intervals':
       case 'rounds': {
         const w = p.work_s !== undefined ? formatDuration(p.work_s) : '';
         if (p.rounds !== undefined && w) work = `${p.rounds}×${w}`;

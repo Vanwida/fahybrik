@@ -202,7 +202,7 @@ function chooseScheme(params: Record<string, unknown>, keys: LegacyParamKeys): P
   const dur = num(params[keys.duration]);
   const sets = num(params['sets']);
   if (sets !== undefined && (dur !== undefined || num(params['distance_meters']) !== undefined)) {
-    return 'interval';
+    return 'intervals';
   }
   if (sets !== undefined) return 'sets';
   if (dur !== undefined || num(params['distance_meters']) !== undefined) return 'steady';
@@ -308,7 +308,7 @@ export function legacyRowToPrescription(row: LegacyRow, keys: LegacyParamKeys): 
       if (restS !== undefined) p.rest_s = restS;
       break;
     }
-    case 'interval': {
+    case 'intervals': {
       if (sets !== undefined) p.rounds = sets;
       if (dur !== undefined) p.work_s = dur;
       if (restS !== undefined) p.rest_s = restS;
@@ -341,7 +341,7 @@ export function legacyRowToPrescription(row: LegacyRow, keys: LegacyParamKeys): 
   }
 
   // Distance-based interval work: attach distance to each implied bout.
-  if (distance !== undefined && scheme === 'interval' && p.rounds) {
+  if (distance !== undefined && scheme === 'intervals' && p.rounds) {
     p.sets = Array.from({ length: p.rounds }, () => ({
       measure: { kind: 'distance', meters: distance },
     }));

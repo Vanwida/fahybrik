@@ -2,6 +2,7 @@
 // Single source of truth for the dosage of one exercise line (reps, load,
 // RIR/RPE, rest, tempo, zones) across web + iOS + infra.
 
+export * from './format';
 export * from './types';
 export * from './to-text';
 export * from './to-params';
