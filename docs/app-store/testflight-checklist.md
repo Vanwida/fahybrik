@@ -22,7 +22,7 @@ This is the end-to-end runbook from "no Apple Developer account" to "first build
 
 ## 1. App ID + capabilities — 🔒 Alex (developer.apple.com)
 
-- [ ] **Identifiers → App IDs → New** with explicit Bundle ID `pro.aistudios.vanwida.fahybrik`.
+- [ ] **Identifiers → App IDs → New** with explicit Bundle ID `com.fahybrid.app`.
 - [ ] Description: `FAHYBRIK Production`.
 - [ ] Capabilities to enable on the App ID:
    - [ ] **HealthKit** (read + write — strict allowed; see Health usage strings)
@@ -45,7 +45,7 @@ Two paths:
 **Path B — Manual signing with Fastlane Match (only if a CI pipeline lands later):**
 - [ ] Create a private Vanwida org repo `vanwida/fahybrik-certificates` (gitignored from this repo).
 - [ ] `bundle exec fastlane match init`, then `bundle exec fastlane match appstore`.
-- [ ] Set `CODE_SIGN_STYLE: Manual` and `PROVISIONING_PROFILE_SPECIFIER: match AppStore pro.aistudios.vanwida.fahybrik` in `project.yml`.
+- [ ] Set `CODE_SIGN_STYLE: Manual` and `PROVISIONING_PROFILE_SPECIFIER: match AppStore com.fahybrid.app` in `project.yml`.
 
 We default to Path A — Path B only if multiple machines / CI later need to sign.
 
@@ -55,7 +55,7 @@ We default to Path A — Path B only if multiple machines / CI later need to sig
    - Platforms: iOS
    - Name: FAHYBRIK
    - Primary Language: Spanish (Spain)
-   - Bundle ID: pro.aistudios.vanwida.fahybrik
+   - Bundle ID: com.fahybrid.app
    - SKU: `fahybrik-ios-001`
    - User Access: Full Access
 - [ ] Add `en-US` as additional language.

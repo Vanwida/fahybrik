@@ -1,4 +1,4 @@
-app_identifier("pro.aistudios.vanwida.fahybrik")
+app_identifier("com.fahybrid.app")
 apple_id(ENV["FASTLANE_USER"] || "vanwida@aistudios.pro")
 
 # Replace once Alex is enrolled in the Apple Developer Program. The 10-char

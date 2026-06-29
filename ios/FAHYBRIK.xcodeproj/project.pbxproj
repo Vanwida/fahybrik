@@ -1153,7 +1153,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = pro.aistudios.vanwida.fahybrik;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app;
 				PRODUCT_NAME = FAHYBRIK;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -1175,10 +1175,10 @@
 				INFOPLIST_KEY_CFBundleDisplayName = FAHYBRID;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRID lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRID guarda en Apple Health los entrenos que registras desde el reloj.";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = pro.aistudios.vanwida.fahybrik;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.fahybrid.app;
 				INFOPLIST_KEY_WKWatchOnly = NO;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = pro.aistudios.vanwida.fahybrik.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.watchkitapp;
 				PRODUCT_NAME = FAHYBRIKWatch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1201,10 +1201,10 @@
 				INFOPLIST_KEY_CFBundleDisplayName = FAHYBRID;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "FAHYBRID lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "FAHYBRID guarda en Apple Health los entrenos que registras desde el reloj.";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = pro.aistudios.vanwida.fahybrik;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.fahybrid.app;
 				INFOPLIST_KEY_WKWatchOnly = NO;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = pro.aistudios.vanwida.fahybrik.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.watchkitapp;
 				PRODUCT_NAME = FAHYBRIKWatch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1227,7 +1227,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = pro.aistudios.vanwida.fahybrik.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.tests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.10;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1325,7 +1325,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = pro.aistudios.vanwida.fahybrik;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app;
 				PRODUCT_NAME = FAHYBRIK;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -1406,7 +1406,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = pro.aistudios.vanwida.fahybrik.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fahybrid.app.tests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.10;
 				TARGETED_DEVICE_FAMILY = "1,2";

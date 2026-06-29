@@ -83,7 +83,7 @@ xcrun simctl install "$SIM_UUID" \
 ### 3. Launch with demo flag
 
 ```bash
-xcrun simctl launch "$SIM_UUID" pro.aistudios.vanwida.fahybrik --reviewer-demo
+xcrun simctl launch "$SIM_UUID" com.fahybrid.app --reviewer-demo
 ```
 
 ### 4. Capture each screen

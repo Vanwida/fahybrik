@@ -110,7 +110,7 @@ final class PushManager {
         let body = DeviceRegisterBody(
             device_token: hex,
             apns_env: Self.currentEnvironment,
-            bundle_id: Bundle.main.bundleIdentifier ?? "pro.aistudios.vanwida.fahybrik",
+            bundle_id: Bundle.main.bundleIdentifier ?? "com.fahybrid.app",
             app_version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
             app_build: Bundle.main.infoDictionary?["CFBundleVersion"] as? String
         )
