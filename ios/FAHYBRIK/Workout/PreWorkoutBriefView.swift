@@ -413,10 +413,100 @@ struct PreWorkoutBriefView: View {
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            ForEach(block.items) { item in
-                itemView(item)
+            // An ALTERNATING EMOM is ONE EMOM whose minutes rotate through its
+            // movements — render it as a single interleaved unit (min impar / min
+            // par …), NOT a stack of "15 wallballs" + "run" cards. Reads the SAME
+            // `block.alternatingEmom` fold the live timer runs, so the brief and the
+            // timer can never present the EMOM differently.
+            if let merged = block.alternatingEmom {
+                alternatingEmomCard(block, merged)
+            } else {
+                ForEach(block.items) { item in
+                    itemView(item)
+                }
             }
         }
+    }
+
+    // MARK: Alternating EMOM — one interleaved unit (the minute-by-minute rotation)
+    //
+    // Renders the shared `block.alternatingEmom` rotation as ONE card: an "alterna
+    // cada minuto · N min" header over one row per movement (Min impar / Min par,
+    // or Min 1/2/3 for ≥3), each with its work + intensity from the SAME
+    // `PrescriptionSet.emomInterval` the live HUD uses. The athlete reads "this
+    // alternates every minute", not "do 15 wallballs then run".
+    @ViewBuilder
+    private func alternatingEmomCard(_ block: WorkoutBlock, _ merged: Prescription) -> some View {
+        let sets = merged.sets ?? []
+        CardSurface(padding: 0, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "repeat")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text("ALTERNA CADA MINUTO")
+                        .font(.system(size: 11, weight: .heavy, design: .default).italic())
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.Color.accentText)
+                    Spacer(minLength: 8)
+                    if let minutes = merged.rounds, minutes > 0 {
+                        MonoText(text: "\(minutes) min", size: 12, weight: .semibold, color: Theme.Color.muted)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Theme.Color.surfaceSunken)
+                .overlay(alignment: .bottom) { Hairline() }
+
+                ForEach(Array(sets.enumerated()), id: \.offset) { idx, set in
+                    if idx > 0 { Hairline() }
+                    let interval = set.emomInterval(
+                        fallbackMovement: "Movimiento",
+                        fallbackIsErg: set.modality?.isErg ?? false
+                    )
+                    let item = idx < block.items.count ? block.items[idx] : nil
+                    emomRotationRow(
+                        label: minuteLabel(idx, of: sets.count),
+                        interval: interval,
+                        item: item
+                    )
+                }
+            }
+        }
+    }
+
+    private func emomRotationRow(label: String, interval: EmomInterval, item: WorkoutItem?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(Theme.Color.faint)
+                .frame(width: 66, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(interval.movement)
+                    .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let item { techniqueButton(item) }
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                MonoText(text: interval.work, size: 15, weight: .semibold, color: Theme.Color.foreground)
+                if let detail = interval.detail {
+                    MonoText(text: detail, size: 12, weight: .medium, color: Theme.Color.accentText)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    // The minute a rotation slot owns: for a 2-movement EMOM the slots fall on the
+    // odd / even minutes; for ≥3 movements they cycle Min 1 / 2 / 3 …
+    private func minuteLabel(_ index: Int, of count: Int) -> String {
+        if count == 2 { return index == 0 ? "Min impar" : "Min par" }
+        return "Min \(index + 1)"
     }
 
     // Render ONE item by its modality. Strength → per-set table; run/ergo →
