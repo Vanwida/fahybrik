@@ -272,7 +272,7 @@
   <!-- ════════════════════════════════════════════════════════════════ -->
   <div class="seclbl">02 · La propuesta</div>
   <h2><span class="surf">PROPUESTA</span>"Camino a la Carrera" — el Inicio completo</h2>
-  <p class="lead">El mismo dato de fase, ahora con <b>estructura</b>: vive dentro del bloque "Camino a la carrera" como <i>posición en la trayectoria</i>, no como saludo. De arriba a abajo: saludo mínimo &rarr; trayectoria &rarr; cómo llegas hoy &rarr; el entreno (acción) &rarr; tu progreso &rarr; pasos &rarr; la puerta honesta a la proyección.</p>
+  <p class="lead">El mismo dato de fase, ahora con <b>estructura</b>: vive dentro del bloque "Camino a la carrera" como <i>posición en la trayectoria</i>, no como saludo. Cabecera <b>decidida</b>: <b>saludo mínimo</b> ("Hola, Marc") &rarr; y debajo la <b>trayectoria</b>. De arriba a abajo: saludo &rarr; trayectoria &rarr; cómo llegas hoy &rarr; el entreno (acción) &rarr; <b>tu progreso de carrera</b> &rarr; pasos &rarr; la puerta honesta a la proyección.</p>
 
   <div class="fmt">
     <div class="phone"><div class="scr">
@@ -335,21 +335,37 @@
         <div class="btn">Empezar</div>
       </div>
 
-      <!-- 5 · TU PROGRESO -->
+      <!-- 5 · TU PROGRESO · CARRERA (correr = la mitad del híbrido) -->
       <div class="card prog" style="position:relative">
         <span class="tagn">4</span>
-        <div class="clbl"><span class="lbl">Tu progreso</span></div>
+        <div class="clbl"><span class="lbl">Tu progreso · carrera</span><span class="ico">&#127939;</span></div>
+
+        <!-- ritmo umbral (héroe) -->
+        <div class="pr">
+          <div class="meta"><div class="ml">Ritmo umbral · Z4</div><div class="mn">VDOT 49,9 desde tu 5k</div></div>
+          <div class="val"><div class="v">4:16<span style="font-size:10.5px;color:var(--muted);font-weight:600">/km</span></div></div>
+        </div>
+        <div class="hr"></div>
+
+        <!-- tendencia 5 km (3 versiones · va bajando) -->
+        <div class="pr">
+          <div class="meta"><div class="ml">5 km · prueba</div><div class="mn num">21:00 &rarr; 20:25 &rarr; 19:58</div></div>
+          <div class="spark"><svg width="60" height="22" viewBox="0 0 60 22"><polyline points="0,5 30,11 60,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="val"><div class="v fg">19:58</div><div class="d">&#8600; &#8722;1:02</div></div>
+        </div>
+        <div class="hr"></div>
+
+        <!-- mejor 1 km + volumen 7 días -->
+        <div class="pr">
+          <div class="meta" style="flex:1"><div class="ml">Mejor 1 km</div><div class="mn"><span class="num" style="color:var(--accent);font-weight:800">3:50</span><span style="color:var(--muted);font-weight:600"> /km</span></div></div>
+          <div class="meta" style="flex:1"><div class="ml">Volumen · 7 días</div><div class="mn"><span class="num" style="color:var(--fg);font-weight:800">21,3</span><span style="color:var(--muted);font-weight:600"> km</span></div></div>
+        </div>
+        <div class="hr"></div>
+
+        <!-- fuerza · la otra mitad -->
         <div class="pr">
           <div class="meta"><div class="ml">Fuerza · 1RM</div><div class="mn">Sentadilla trasera</div></div>
           <div class="val"><div class="v">80 kg</div></div>
-        </div>
-        <div class="hr"></div>
-        <div class="pr">
-          <div class="meta"><div class="ml">VO&#8322;máx</div><div class="mn">52 ml/kg/min</div></div>
-          <div class="spark dim">
-            <svg width="60" height="22" viewBox="0 0 60 22"><polyline points="0,17 15,15 30,12 45,9 60,5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div class="val"><div class="d">&#8599; Mejora</div></div>
         </div>
       </div>
 
@@ -393,9 +409,9 @@
           <div class="src"><code>planWeek</code> · WorkoutContainer (idéntico al Plan)</div>
         </li>
         <li><span class="n">4</span>
-          <div class="nm">Tu progreso <span class="badge honest" style="margin-left:6px">REAL PARCIAL</span></div>
-          <div class="ds">Prueba de que avanzas. 1RM actual <b>sin etiqueta "tendencia"</b> si solo hay una versión. Más una tendencia biométrica REAL (VO&#8322;máx / HRV) con sparkline.</div>
-          <div class="src"><code>athlete_strength_maxes</code> · atleta 70: sentadilla 80 kg (1 versión) · biométricas ricas</div>
+          <div class="nm">Tu progreso · carrera <span class="badge real" style="margin-left:6px">REAL · DEMO</span></div>
+          <div class="ds">Correr es <b>la mitad del híbrido</b>, así que el progreso lo lidera la carrera: <b>ritmo umbral</b> (Daniels/VDOT desde el 5k), <b>tendencia de 5 km</b> (3 pruebas, va bajando), <b>mejor 1 km</b> y <b>volumen de 7 días</b> — más el <b>1RM de fuerza</b> como la otra mitad. Todo sale de los mismos cálculos del deep-dive de carrera.</div>
+          <div class="src"><code>running-analysis.ts</code> · <code>vdot.ts</code> · <code>athlete_benchmarks</code> (run_5k) · <code>segment_executions</code> · <code>athlete_strength_maxes</code><br>atleta 70: 5k 19:58 → VDOT 49,9 · umbral 4:16/km · mejor 1k 3:50 · 21,3 km/7d · sentadilla 80 kg · <span class="em">sembrado por <code>seed_demo_athlete_running.ts</code></span></div>
         </li>
         <li><span class="n">5</span>
           <div class="nm">Pasos <span class="badge real" style="margin-left:6px">REAL · SE MANTIENE</span></div>
@@ -412,64 +428,7 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════ -->
-  <div class="seclbl">03 · Tu decisión · cabecera</div>
-  <h2><span class="surf">ELIGE</span>Cómo resuelve el arranque la pantalla</h2>
-  <p class="lead">Tu queja concreta es la cabecera colgante. Hay dos formas limpias de resolver el top — ambas matan el problema. Elige cuál te gusta; el resto del Inicio (bloques 2–6) es idéntico en las dos.</p>
-
-  <div class="pair">
-    <div class="pcol">
-      <div class="ttl"><span class="tag rec">A · RECOMENDADA</span>Trayectoria como héroe</div>
-      <div class="why">El saludo es un micro-kicker; el bloque "Camino a la carrera" abre la pantalla y manda. Más emocional y de app de carrera. La fase nunca toca el "Hola".</div>
-      <div class="phone"><div class="scr">
-        <div class="ptop">
-          <span class="ic">&#9737;</span><span class="wm">FA<b>HYBRID</b></span>
-          <span class="ic">&#128276;<span class="dot"></span></span><span class="av">M</span>
-        </div>
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin:0 2px 8px">Lunes 29 · Hola, Marc</div>
-        <div class="card elev camino">
-          <div class="clbl"><span class="lbl">Camino a la carrera</span><span class="ico">&#9873;</span></div>
-          <div class="race">Leapmotor HYROX Barcelona</div>
-          <div class="cd"><span class="big num">135</span><span class="un">días</span><span class="goal">&#9678; sub 59 min</span></div>
-          <div class="phase">Acumulación · semana 2 de 2</div>
-          <div class="posbar"><span class="seg on"></span><span class="seg on"></span></div>
-          <div class="prox">Construyendo motor</div>
-        </div>
-        <div class="card readi" style="opacity:.45;margin-bottom:0">
-          <div class="clbl"><span class="lbl">&iquest;Cómo llegas hoy?</span></div>
-          <div class="row"><div class="ring" style="width:46px;height:46px;background:conic-gradient(var(--ok) 0 74%, rgba(255,255,255,0.10) 74% 100%)"><div class="hole" style="width:34px;height:34px"><span class="hv num" style="font-size:13px">74</span></div></div><div class="read"><div class="st" style="font-size:13px">Recuperado y listo</div></div></div>
-        </div>
-      </div></div>
-    </div>
-
-    <div class="pcol">
-      <div class="ttl"><span class="tag">B · ALTERNATIVA</span>Saludo y luego trayectoria</div>
-      <div class="why">Un saludo propio y mínimo ("Lunes 29 · Hola, Marc") como su propia línea, y debajo la tarjeta de trayectoria. Más calmado y convencional; separa claramente saludo de fase.</div>
-      <div class="phone"><div class="scr">
-        <div class="ptop">
-          <span class="ic">&#9737;</span><span class="wm">FA<b>HYBRID</b></span>
-          <span class="ic">&#128276;<span class="dot"></span></span><span class="av">M</span>
-        </div>
-        <div class="greet">
-          <div class="kick">Lunes 29</div>
-          <div class="hola">Hola, Marc</div>
-        </div>
-        <div class="card elev camino">
-          <div class="clbl"><span class="lbl">Camino a la carrera</span><span class="ico">&#9873;</span></div>
-          <div class="race">Leapmotor HYROX Barcelona</div>
-          <div class="cd"><span class="big num">135</span><span class="un">días</span><span class="goal">&#9678; sub 59 min</span></div>
-          <div class="phase">Acumulación · semana 2 de 2</div>
-          <div class="posbar"><span class="seg on"></span><span class="seg on"></span></div>
-        </div>
-        <div class="card readi" style="opacity:.45;margin-bottom:0">
-          <div class="clbl"><span class="lbl">&iquest;Cómo llegas hoy?</span></div>
-          <div class="row"><div class="ring" style="width:46px;height:46px;background:conic-gradient(var(--ok) 0 74%, rgba(255,255,255,0.10) 74% 100%)"><div class="hole" style="width:34px;height:34px"><span class="hv num" style="font-size:13px">74</span></div></div><div class="read"><div class="st" style="font-size:13px">Recuperado y listo</div></div></div>
-        </div>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════ -->
-  <div class="seclbl">04 · Honestidad de datos</div>
+  <div class="seclbl">03 · Honestidad de datos</div>
   <h2><span class="surf">VERIFICADO</span>Qué es real y qué es vacío honesto</h2>
   <p class="lead">Comprobado contra el código y la BD demo (atleta 70). Nada de la pantalla está inventado.</p>
 
@@ -492,9 +451,9 @@
         <td>Sesión de hoy como acción "Empezar". <code>planWeek</code> + WorkoutContainer. Núcleo — se mantiene.</td>
       </tr>
       <tr>
-        <td><span class="fn">4 · Tu progreso</span></td>
-        <td><span class="st partial">REAL PARCIAL</span></td>
-        <td>1RM sin etiqueta "tendencia" con una sola versión + tendencia biométrica REAL (VO&#8322;máx/HRV). <code>athlete_strength_maxes</code>. Atleta 70: sentadilla 80 kg.</td>
+        <td><span class="fn">4 · Tu progreso · carrera</span></td>
+        <td><span class="st real">REAL · DEMO</span></td>
+        <td>Ritmo umbral 4:16/km (VDOT 49,9) · 5k 21:00&rarr;20:25&rarr;19:58 (&#8722;1:02) · mejor 1k 3:50 · vol 7&nbsp;días 21,3&nbsp;km · 1RM 80&nbsp;kg. <code>running-analysis.ts</code>, <code>vdot.ts</code>, <code>athlete_benchmarks</code> (run_5k, unit 'seconds'), <code>segment_executions</code>, <code>athlete_strength_maxes</code>. Valores = salida real de <code>buildRunningAnalysis</code>. Sembrado: <code>seed_demo_athlete_running.ts</code>.</td>
       </tr>
       <tr>
         <td><span class="fn">5 · Pasos</span></td>
@@ -508,23 +467,22 @@
       </tr>
       <tr>
         <td>Estación débil / "el muro"</td>
-        <td><span class="st gate">FUERA</span></td>
-        <td>Tablas <code>race_results</code> / <code>race_debriefs</code> borradas (mig 0078). No hay splits por estación &rarr; no se muestra (no se inventa).</td>
+        <td><span class="st partial">DOBLES</span></td>
+        <td>El atleta 70 tiene 4 HYROX pasados con <code>station_splits_json</code> y <code>run_splits_json</code> reales — pero son de <b>DOBLES</b> (splits de equipo, no individuales). No se atribuye una "estación débil" personal sin datos en solitario. <code>races</code> (mig 0077).</td>
       </tr>
     </tbody>
   </table>
 
   <!-- ════════════════════════════════════════════════════════════════ -->
-  <div class="seclbl">05 · Lo que necesito de ti</div>
+  <div class="seclbl">04 · Decidido · siguiente paso</div>
   <div class="decision">
-    <div class="q">¿Qué cabecera elijo, A o B?</div>
-    <div class="ctx">Las dos eliminan tu queja (la fase deja de colgar del saludo). Solo cambia el arranque; los bloques 2–6 son idénticos. El concepto "Camino a la Carrera" como espina lo doy por bueno salvo que digas lo contrario.</div>
+    <div class="q">Cabecera: <b>B</b> — saludo mínimo y luego trayectoria. Decidido.</div>
+    <div class="ctx">La fase deja de colgar del saludo: "Hola, Marc" es su propia línea y la tarjeta "Camino a la carrera" va debajo. Con esto construyo el Inicio entero (reemplaza la versión que se hizo sin que la vieras). El progreso ahora lo lidera la <b>carrera</b> (mitad del híbrido) con datos reales ya sembrados en la demo.</div>
     <div class="opts">
-      <div class="opt rec"><span class="pre">A · Mi recomendación</span><b>Trayectoria como héroe.</b> El saludo es un micro-kicker, la carrera abre la pantalla y manda. Más app de carrera, más emocional.</div>
-      <div class="opt"><b>B · Alternativa.</b> Saludo propio y mínimo, y debajo la tarjeta de trayectoria. Más calmado, separa más.</div>
+      <div class="opt rec"><span class="pre">Listo para construir</span>Cabecera B + bloque "Tu progreso · carrera" poblado (umbral, 5k, mejor 1k, volumen) + fuerza como otra mitad.</div>
+      <div class="opt">Si quieres tocar algo <b>subjetivo</b> — orden de bloques, copy del "prox" ("Construyendo motor"), o qué señal de carrera va de héroe (umbral vs 5k) — dímelo y lo ajusto antes de codificar.</div>
     </div>
   </div>
-  <p style="font-size:13.5px;color:#666;margin-top:14px">Una vez elijas A o B, construyo el Inicio entero (esto reemplaza la versión que se construyó sin que la vieras). Si quieres tocar algo subjetivo — orden de bloques, copy del "prox" ("Construyendo motor"), o si VO&#8322;máx vs HRV como tendencia por defecto — dímelo y lo ajusto antes de codificar.</p>
 
   <footer>
     FAHYBRID · Propuesta visual del Inicio del atleta · artefacto de decisión (doc, no código).
