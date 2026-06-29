@@ -42,6 +42,10 @@
       "types": "./domain/strength/index.ts",
       "default": "./domain/strength/index.ts"
     },
+    "./domain/athlete/*": {
+      "types": "./domain/athlete/*.ts",
+      "default": "./domain/athlete/*.ts"
+    },
     "./domain/*": {
       "types": "./domain/*.ts",
       "default": "./domain/*.ts"

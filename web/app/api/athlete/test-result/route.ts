@@ -12,6 +12,7 @@ import {
   insertZoneProfileVersion,
   toZonesSnapshot,
 } from '@/lib/dashboard/v2/zone-derivation';
+import { recordTestBenchmark } from '@/lib/athlete/record-test-benchmark';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -104,6 +105,22 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'No se pudieron calcular las zonas';
     return jsonError('unprocessable', msg, 422);
+  }
+
+  // KEYSTONE (a) sink: append the threshold as a dated benchmark row = progression
+  // evidence (feeds progress-readiness + the coach test_logged signal). Additive,
+  // best-effort: the zone profile above is the contract; a benchmark failure must
+  // never fail the test the athlete just recorded.
+  try {
+    await recordTestBenchmark(sql, {
+      kind: 'threshold',
+      athlete_id,
+      modality,
+      threshold_s,
+      source: 'athlete_test',
+    });
+  } catch {
+    // best-effort progression evidence — the zone profile already committed.
   }
 
   return jsonOk(

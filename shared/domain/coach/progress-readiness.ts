@@ -172,14 +172,19 @@ export async function assessAthleteProgressReadiness(params: {
     client,
   });
 
-  // Benchmark progression — mean % change of latest value within this microciclo vs
-  // the most recent value before it started, per exercise_slug. Null if no data.
+  // Benchmark progression — mean % IMPROVEMENT of latest value within this
+  // microciclo vs the most recent value before it started, per exercise_slug.
+  // DIRECTION-AWARE: time benchmarks (unit='seconds': 5k, threshold, ergo TTs)
+  // improve when the value DROPS, so improvement = (baseline - current)/baseline;
+  // load/rep benchmarks (kg, reps) improve when the value RISES. Without this, a
+  // faster 5 km would read as a regression and a heavier squat as progress on the
+  // same scale — incoherent. Null if no comparable data.
   const microStartIso = current.assignment_start;
   let benchmark_progression_pct: number | null = null;
   const benchRows = await client<Array<{ pct_change: number }>>`
     with current as (
       select distinct on (exercise_slug)
-        exercise_slug, value, recorded_at
+        exercise_slug, value, unit, recorded_at
       from athlete_benchmarks
       where athlete_id = ${params.athlete_id as number}
         and recorded_at >= ${microStartIso}::date
@@ -194,7 +199,12 @@ export async function assessAthleteProgressReadiness(params: {
       order by exercise_slug, recorded_at desc
     )
     select
-      ((c.value - b.value) / nullif(b.value, 0) * 100)::float as pct_change
+      (
+        case
+          when c.unit = 'seconds' then (b.value - c.value)
+          else (c.value - b.value)
+        end / nullif(b.value, 0) * 100
+      )::float as pct_change
     from current c
     join baseline b using (exercise_slug)
     where b.value > 0

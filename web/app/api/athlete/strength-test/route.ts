@@ -5,6 +5,7 @@ import { sql } from '@/lib/db';
 import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
 import { estimateOneRm, strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { insertStrengthMaxVersion, loadCoachOneRmMethod } from '@/lib/strength/strength-max';
+import { recordTestBenchmark } from '@/lib/athlete/record-test-benchmark';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,6 +78,21 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'No se pudo estimar el 1RM';
     return jsonError('unprocessable', msg, 422);
+  }
+
+  // KEYSTONE (a) sink: append the 1RM as a dated benchmark row = progression
+  // evidence (feeds progress-readiness + the coach test_logged signal). Additive,
+  // best-effort: the strength max above is the contract.
+  try {
+    await recordTestBenchmark(sql, {
+      kind: 'strength',
+      athlete_id,
+      exercise_slug,
+      one_rm_kg,
+      source: 'athlete_test',
+    });
+  } catch {
+    // best-effort progression evidence — the strength max already committed.
   }
 
   return jsonOk(

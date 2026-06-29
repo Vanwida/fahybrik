@@ -5,6 +5,8 @@ import { sql } from '@/lib/db';
 import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
 import { estimateOneRm, strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { insertStrengthMaxVersion, loadCoachOneRmMethod } from '@/lib/strength/strength-max';
+import { recordTestBenchmark } from '@/lib/athlete/record-test-benchmark';
+import type { OneRmMethod } from '@fahybrid/shared/domain/strength';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,49 +71,53 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   let one_rm_kg: number;
   let test_weight_kg: number | null;
   let test_reps: number | null;
+  let one_rm_method: OneRmMethod | null;
   try {
     if (directOneRm !== undefined) {
       // Direct entry: a witnessed single. No estimation, no test set recorded.
       one_rm_kg = directOneRm;
       test_weight_kg = null;
       test_reps = null;
-      inserted = await insertStrengthMaxVersion(
-        {
-          athlete_id,
-          exercise_slug,
-          one_rm_kg,
-          source: 'coach_test',
-          test_weight_kg: null,
-          test_reps: null,
-          one_rm_method: null,
-          needs_review: false,
-        },
-        sql,
-      );
+      one_rm_method = null;
     } else {
       // Estimated from a test set via the coach's formula.
-      const method = await loadCoachOneRmMethod(sql, coach_id);
+      one_rm_method = await loadCoachOneRmMethod(sql, coach_id);
       // The refine guarantees both are present here.
-      one_rm_kg = estimateOneRm(weight_kg as number, reps as number, method);
+      one_rm_kg = estimateOneRm(weight_kg as number, reps as number, one_rm_method);
       test_weight_kg = weight_kg as number;
       test_reps = reps as number;
-      inserted = await insertStrengthMaxVersion(
-        {
-          athlete_id,
-          exercise_slug,
-          one_rm_kg,
-          source: 'coach_test',
-          test_weight_kg,
-          test_reps,
-          one_rm_method: method,
-          needs_review: false,
-        },
-        sql,
-      );
     }
+    inserted = await insertStrengthMaxVersion(
+      {
+        athlete_id,
+        exercise_slug,
+        one_rm_kg,
+        source: 'coach_test',
+        test_weight_kg,
+        test_reps,
+        one_rm_method,
+        needs_review: false,
+      },
+      sql,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'No se pudo registrar el 1RM';
     return jsonError('unprocessable', msg, 422);
+  }
+
+  // KEYSTONE (a) sink: append the 1RM as a dated benchmark row = progression
+  // evidence (feeds progress-readiness + the coach test_logged signal). Additive,
+  // best-effort: the strength max above is the contract.
+  try {
+    await recordTestBenchmark(sql, {
+      kind: 'strength',
+      athlete_id,
+      exercise_slug,
+      one_rm_kg,
+      source: 'coach_test',
+    });
+  } catch {
+    // best-effort progression evidence — the strength max already committed.
   }
 
   return jsonOk(

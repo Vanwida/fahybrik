@@ -46,6 +46,34 @@ export const BENCH_SKI_1K = 'ski_1k';
 export const BENCH_HYROX_OPEN = 'hyrox_open';
 export const BENCH_HYROX_PRO = 'hyrox_pro';
 
+// ── Threshold (test) pace per modality (unit: seconds) ───────────────────────
+// The trained Z4-lower-bound pace recorded as progression evidence EACH time a
+// zone test is logged (coach- or athlete-entered). DISTINCT from the time-trial
+// slugs above (run_5k…): a threshold test is not a 5 km — it's the umbral pace,
+// per the modality's unit (run → /km, row/ski/bike → /500m). Kept out of the
+// zone-derivation anchors (CANONICAL_ANCHOR_SLUG) so it never feeds zone math;
+// its only consumers are the progression engine + the coach test_logged signal.
+export const BENCH_RUN_THRESHOLD = 'run_threshold_s_per_km';
+export const BENCH_ROW_THRESHOLD = 'row_threshold_s_per_500m';
+export const BENCH_SKI_THRESHOLD = 'ski_threshold_s_per_500m';
+export const BENCH_BIKE_THRESHOLD = 'bike_threshold_s_per_500m';
+
+export type TestModality = 'run' | 'row' | 'ski' | 'bike';
+
+/** The benchmark slug for a modality's threshold (umbral) test result. */
+export function thresholdBenchmarkSlug(modality: TestModality): string {
+  switch (modality) {
+    case 'run':
+      return BENCH_RUN_THRESHOLD;
+    case 'row':
+      return BENCH_ROW_THRESHOLD;
+    case 'ski':
+      return BENCH_SKI_THRESHOLD;
+    case 'bike':
+      return BENCH_BIKE_THRESHOLD;
+  }
+}
+
 /**
  * Map a HYROX division string to its benchmark slug. Open is the default for
  * any unknown / missing division (matches the level-algorithm thresholds,
@@ -74,6 +102,10 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_HYROX_PRO]: 'HYROX Pro',
   [BENCH_STRICT_PULL_UP_MAX]: 'Dominadas estrictas',
   [BENCH_PUSH_UPS_PER_MIN]: 'Flexiones / min',
+  [BENCH_RUN_THRESHOLD]: 'Umbral carrera',
+  [BENCH_ROW_THRESHOLD]: 'Umbral remo',
+  [BENCH_SKI_THRESHOLD]: 'Umbral ski',
+  [BENCH_BIKE_THRESHOLD]: 'Umbral bici',
 };
 
 /** Human label for a benchmark slug; falls back to a humanized slug. */
