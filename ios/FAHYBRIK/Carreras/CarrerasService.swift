@@ -266,14 +266,18 @@ enum CarrerasService {
     /// fails, so the screen degrades to its empty state rather than erroring.
     static func fetchRunningAnalysis(bearer: String?) async -> RunningAnalysis? {
         guard let bearer else { return nil }
-        do {
-            return try await APIClient.shared.get(
-                path: "api/athlete/running-analysis",
-                bearer: bearer
-            )
-        } catch {
-            return nil
-        }
+        return try? await fetchRunningAnalysisThrowing(bearer: bearer)
+    }
+
+    /// THROWING variant for the AppDataStore's SWR engine: a failed revalidation
+    /// must keep the last-good cached analysis (offline-first), so the store needs
+    /// the error to surface rather than be swallowed into a nil that wipes the
+    /// slice. The deep-dive screen keeps the non-throwing wrapper above.
+    static func fetchRunningAnalysisThrowing(bearer: String) async throws -> RunningAnalysis? {
+        try await APIClient.shared.get(
+            path: "api/athlete/running-analysis",
+            bearer: bearer
+        )
     }
 
     /// Load the unified races hub — future objectives + past results — in one
@@ -575,12 +579,20 @@ struct RunningProgressionPoint: Codable, Identifiable, Hashable {
 struct RunningAnalysis: Codable, Hashable {
     /// Key-metric tiles (pre-formatted strings keep the wire/display simple).
     let threshold_pace: String?
+    /// The Jack-Daniels VDOT off the latest 5 km (e.g. "49.9") — despite the
+    /// wire name, this carries the VDOT number, surfaced as "VDOT 49,9".
     let vo2_estimate: String?
     let best_1k: String?
     /// Weekly running volume — present in the analysis payload, but ALSO live
     /// via StatsService; the deep-dive prefers the live StatsService figure and
-    /// treats this as a fallback so the two never silently disagree.
+    /// treats this as a fallback so the two never silently disagree. ISO week.
     let weekly_volume_km: String?
+    /// Rolling last-7-days running volume — the Inicio "Volumen · 7 días" figure
+    /// (distinct from `weekly_volume_km`, which is the ISO week). Nil when none.
+    let volume_7d_km: String?
+    /// run_5k benchmark history (oldest→newest) — the Inicio 5 km trend. Empty
+    /// when the athlete has no 5 km test on file.
+    let five_k_trend: [FiveKTrendPoint]
     /// The most recent race's 8×1 km splits (per-km pace bars).
     let splits: [RunningSplit]
     /// Optional final-pace-drop callout, e.g. "+18s/km final".
@@ -594,16 +606,30 @@ struct RunningAnalysis: Codable, Hashable {
     // properties (threshold_pace, best_1k, …) would therefore never match. Map
     // each to the post-conversion form so the payload decodes while the property
     // names the views reference stay snake_case. Note `best_1k` converts to
-    // `best1k` (digit folded into the prior segment), not `best_1K`.
+    // `best1k` (digit folded into the prior segment), not `best_1K`; likewise
+    // `five_k_trend` → `fiveKTrend` and `volume_7d_km` → `volume7dKm`.
     enum CodingKeys: String, CodingKey {
         case threshold_pace = "thresholdPace"
         case vo2_estimate = "vo2Estimate"
         case best_1k = "best1k"
         case weekly_volume_km = "weeklyVolumeKm"
+        case volume_7d_km = "volume7dKm"
+        case five_k_trend = "fiveKTrend"
         case splits
         case split_drop_note = "splitDropNote"
         case pace_zones = "paceZones"
         case progression
         case training
     }
+}
+
+/// One past 5 km time trial — the run_5k benchmark history. Single-word wire
+/// fields (`date` / `seconds` / `time`) need no snake_case mapping, so they
+/// decode cleanly under the convertFromSnakeCase decoder AND round-trip verbatim
+/// through the plain on-disk coder.
+struct FiveKTrendPoint: Codable, Hashable, Identifiable {
+    var id: String { date }
+    let date: String      // YYYY-MM-DD the test was recorded
+    let seconds: Int      // total 5 km time (drives the sparkline + delta)
+    let time: String      // pre-formatted "m:ss" (e.g. "19:58")
 }
