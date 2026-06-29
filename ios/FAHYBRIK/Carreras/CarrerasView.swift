@@ -463,7 +463,7 @@ private struct UpcomingRaceCard: View {
             padding: 16,
             topAccent: isPrimary,
             elevated: true,
-            backgroundImage: BrandImagery.raceCardBackground
+            backgroundImage: BrandImagery.raceCardBackground(for: String(race.raceId))
         ) {
             VStack(alignment: .leading, spacing: 11) {
                 eyebrowRow

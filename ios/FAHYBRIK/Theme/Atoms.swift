@@ -139,13 +139,47 @@ struct CardSurface<Content: View>: View {
 
 // MARK: - Brand imagery
 //
-// Free-license photography that ships in the asset catalog. The race backdrop is
-// a HYROX sled-push competition shot from Unsplash, used under the Unsplash
+// Free-license photography that ships in the asset catalog. Every race backdrop
+// is a HYROX / functional-fitness shot from Unsplash, used under the Unsplash
 // License (free for commercial use, no attribution required). One source of
-// truth for the asset name so the Inicio anchor and the Carreras cards can't drift.
+// truth for both the asset POOL and the deterministic picker, so the Inicio
+// anchor and the Carreras cards can't drift and every race keeps its own photo.
 enum BrandImagery {
-    /// `RaceCardBackground.imageset` — the subtle race-card backdrop.
-    static let raceCardBackground = "RaceCardBackground"
+    /// The pool of race-card backdrops (each a `RaceCardBackground*.imageset`).
+    /// A race is mapped to ONE of these deterministically — see
+    /// `raceCardBackground(for:)` — so the same race always shows the same photo
+    /// and adjacent cards vary. Add a new imageset → append its name here.
+    ///   1 sled push · 2 indoor mass run · 3 wall-balls station · 4 competition
+    ///   rig · 5 grayscale strength. All Unsplash License (free, no attribution).
+    static let raceCardBackgrounds = [
+        "RaceCardBackground",
+        "RaceCardBackground2",
+        "RaceCardBackground3",
+        "RaceCardBackground4",
+        "RaceCardBackground5",
+    ]
+
+    /// Fallback backdrop for a race surface with no stable identity yet (e.g. the
+    /// Inicio "elige tu carrera" empty state, before a target race exists).
+    static let raceCardBackgroundDefault = raceCardBackgrounds[0]
+
+    /// Deterministically pick ONE backdrop from the pool for a race, keyed by a
+    /// STABLE identity string (the Carreras `raceId`, or the Inicio target race's
+    /// `name|date` identity). Uses a 64-bit FNV-1a hash of the key — NOT Swift's
+    /// `hashValue`, which is per-process randomized and would reshuffle photos on
+    /// every launch — so a given race renders the same photo across launches, and
+    /// the avalanche spreads neighbouring ids across the pool so visible cards differ.
+    static func raceCardBackground(for key: String) -> String {
+        let pool = raceCardBackgrounds
+        guard !pool.isEmpty else { return raceCardBackgroundDefault }
+        // FNV-1a (64-bit): offset basis + prime, &-ops to wrap without trapping.
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in key.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3
+        }
+        return pool[Int(hash % UInt64(pool.count))]
+    }
 }
 
 // MARK: - Card photo background (subtle athletic backdrop + legibility scrim)

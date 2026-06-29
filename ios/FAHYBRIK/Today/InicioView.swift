@@ -325,7 +325,7 @@ struct InicioView: View {
                     padding: 18,
                     topAccent: true,
                     elevated: true,
-                    backgroundImage: BrandImagery.raceCardBackground
+                    backgroundImage: BrandImagery.raceCardBackground(for: race.identity)
                 ) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -389,7 +389,7 @@ struct InicioView: View {
                 CardSurface(
                     padding: 18,
                     topAccent: true,
-                    backgroundImage: BrandImagery.raceCardBackground
+                    backgroundImage: BrandImagery.raceCardBackgroundDefault
                 ) {
                     VStack(alignment: .leading, spacing: 6) {
                         LabelText(text: "Camino a la carrera")
