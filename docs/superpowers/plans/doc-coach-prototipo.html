@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía del entrenador · FAHYBRID</title>
+<style>
+  /* ============================================================
+     DOC CHROME — light premium docs (Stripe / Linear vibe)
+     ============================================================ */
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --accent:#ff6600;          /* doc chrome orange */
+    --app-accent:#f06a2a;      /* real product (Fabrik) orange — only inside mockups */
+    --bg:#f7f7f5; --ink:#1a1a1a; --ink2:#2a2a2a; --lead:#444; --muted:#888; --faint:#aaa;
+    --card:#fff; --border:#e8e8e3; --hair:#ecece7;
+    --code-bg:#f0f0ec; --gold:#b07000;
+    --ok:#137a3a; --ok-bg:#e6f6ec; --ok-bd:#bfe6cd;
+    --warn:#9a6a12; --warn-bg:#fbeccd; --warn-bd:#f3d4ac;
+    --dng:#a83232; --dng-bg:#fdecec; --dng-bd:#f2cccc;
+    --sidebar-w:268px;
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);line-height:1.62;-webkit-font-smoothing:antialiased}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;overflow-y:auto;background:#fbfbfa;border-right:1px solid var(--border);padding:22px 0 40px}
+  .sb-brand{display:flex;align-items:center;gap:10px;padding:4px 22px 18px}
+  .sb-mark{width:30px;height:30px;border-radius:8px;background:#101010;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic;font-size:14px;letter-spacing:-0.5px}
+  .sb-brand .nm{font-weight:800;font-style:italic;font-size:15px;letter-spacing:-0.3px}
+  .sb-brand .nm small{display:block;font-style:normal;font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .sb-group{padding:14px 22px 2px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint)}
+  .sb-link{display:flex;align-items:center;gap:9px;padding:6px 22px 6px 22px;font-size:13px;color:#555;text-decoration:none;border-left:2px solid transparent;transition:color .12s,background .12s}
+  .sb-link .num{font-size:10.5px;font-weight:800;color:var(--faint);min-width:16px}
+  .sb-link:hover{color:var(--ink);background:#f2f2ef}
+  .sb-link.live{color:var(--ink);font-weight:600}
+  .sb-link.live .num{color:var(--accent)}
+  .sb-link.active{border-left-color:var(--accent);background:#fdf3ea;color:var(--ink);font-weight:700}
+  .sb-link.active .num{color:var(--accent)}
+  .sb-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+  .sb-soon{margin-left:auto;font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+  .sb-legend{margin:22px 22px 0;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.6}
+  .sb-legend .d{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:middle}
+
+  /* ---------- Content shell ---------- */
+  .main{margin-left:var(--sidebar-w);padding:52px 56px 90px;max-width:calc(var(--sidebar-w) + 980px)}
+  .wrap{max-width:840px}
+
+  h1{font-size:31px;font-weight:800;font-style:italic;letter-spacing:-0.6px;margin-bottom:6px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:26px}
+  h2{font-size:23px;font-weight:800;margin:14px 0 6px;letter-spacing:-0.4px;scroll-margin-top:24px}
+  h3{font-size:16px;font-weight:800;margin:26px 0 4px;letter-spacing:-0.2px}
+  p{font-size:14.5px;margin-bottom:12px;color:var(--ink2)}
+  .lead{font-size:15.5px;color:var(--lead);margin-bottom:14px;max-width:720px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:var(--code-bg);padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:var(--gold);font-weight:600}
+  a{color:var(--gold)}
+  ul.clean{list-style:none;margin:6px 0 14px}
+  ul.clean li{position:relative;padding:3px 0 3px 20px;font-size:14px;color:var(--ink2)}
+  ul.clean li::before{content:'→';position:absolute;left:0;color:var(--accent);font-weight:800}
+
+  /* numbered section eyebrow with trailing rule */
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#999;margin:64px 0 12px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:var(--border)}
+  .seclbl .pin{color:var(--accent)}
+
+  /* prototype banner */
+  .protobar{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--border);border-left:5px solid var(--accent);border-radius:10px;padding:14px 18px;margin:8px 0 22px}
+  .protobar .ic{width:24px;height:24px;border-radius:7px;background:#fdf0e6;color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px}
+  .protobar p{font-size:13px;margin:0;color:#3a3a3a}
+  .protobar b{color:var(--ink)}
+
+  /* north-star principle (inverted) */
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 6px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  /* qué/cómo/por qué triad */
+  .triad{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+  .qc{background:#fff;border:1px solid var(--border);border-radius:11px;padding:15px 17px}
+  .qc .h{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;display:flex;align-items:center;gap:7px}
+  .qc .h .ic{width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px}
+  .qc.q .h{color:#1a4ba0} .qc.q .h .ic{background:#eef4ff}
+  .qc.c .h{color:var(--gold)} .qc.c .h .ic{background:#fdf0e6}
+  .qc.w .h{color:#0d7a2e} .qc.w .h .ic{background:#eef7ef}
+  .qc p{font-size:13px;color:#3a3a3a;margin:0;line-height:1.55}
+
+  /* notes / callouts */
+  .note{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:14px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.cue .h .ic{background:#fdf0e6;color:var(--gold)}
+  .note.log .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note.bad .h .ic{background:#fdecec;color:var(--dng)}
+  .note ul{list-style:none;padding:0;font-size:13px;color:#3a3a3a}
+  .note li{padding:4px 0 4px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:var(--accent);font-weight:700}
+  .note.bad li::before{content:'✕';color:#c0392b;font-weight:800}
+  .note .k{font-weight:700;color:var(--ink)}
+  .note p{font-size:13px;margin:0}
+
+  /* flow strip */
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:12px;padding:15px 16px;margin:18px 0;font-size:12.5px}
+  .flow .step{font-weight:700;color:#333;background:#f3f3ef;border:1px solid var(--border);padding:7px 12px;border-radius:8px}
+  .flow .step.app{background:#fdf0e6;border-color:#f3d4ac;color:var(--gold)}
+  .flow .arr{color:var(--accent);font-weight:800;font-size:15px}
+
+  /* bridge legend (coach vs athlete) */
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0 4px}
+  .lg{border-radius:14px;padding:18px 20px;border:1px solid var(--border);background:#fff}
+  .lg .ico{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;display:block;color:var(--muted)}
+  .lg .lt{font-size:17px;font-weight:800;font-style:italic;letter-spacing:-0.3px;margin-bottom:4px}
+  .lg p{font-size:13px;color:#444;margin:0}
+  .lg.coach{border-color:#d7d7d1;background:linear-gradient(180deg,#fafafa,#fff)}
+  .lg.coach .lt{color:#1a1a1a}
+  .lg.ath{border-color:#2a2a2a;background:linear-gradient(180deg,#161616,#0d0d0d);color:#eaeae5}
+  .lg.ath .ico{color:#9a938b} .lg.ath .lt{color:var(--app-accent)} .lg.ath p{color:#c8c8c2}
+
+  /* "en el móvil" band */
+  .mobile-band{background:linear-gradient(180deg,#f2f1ef,#edece8);border:1px solid #e2e1db;border-radius:18px;padding:24px 24px 28px;margin:20px 0 8px}
+  .mb-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .mb-chip{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#fff;background:var(--app-accent);padding:4px 10px;border-radius:999px}
+  .mb-head .t{font-size:15px;font-weight:800;letter-spacing:-0.2px;color:#1a1a1a}
+  .mb-sub{font-size:13px;color:#6a6a64;margin:0 0 16px;max-width:640px}
+  .phones{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .phone-wrap{display:flex;flex-direction:column;align-items:center;gap:9px;max-width:312px}
+  .phone-cap{font-size:11.5px;color:#5a5a54;text-align:center;line-height:1.45;max-width:280px}
+  .phone-cap b{color:#1a1a1a}
+
+  /* ============================================================
+     DARK PHONE MOCKUP — real FAHYBRID athlete app palette (iOS)
+     ============================================================ */
+  .phone{
+    --bg:#0B0B0C; --surface:#141416; --elev:#1C1C1F; --sunken:#080809;
+    --fg:#F5F3F0; --muted:#9A938B; --faint:#6B6258;
+    --acc:#F06A2A; --accOn:#511900; --accSoft:rgba(240,106,42,.16);
+    --ok:#3FC773; --okSoft:rgba(63,199,115,.16);
+    --warn:#F2A52E; --warnSoft:rgba(242,165,46,.16);
+    --dng:#F23F3F; --dngSoft:rgba(242,63,63,.16);
+    --info:#4D9EEB; --violet:#B49BEE; --green:#4FD08A; --magenta:#EE7ACF; --teal:#3BD0BE;
+    --hair:rgba(255,255,255,.07); --hair2:rgba(255,255,255,.13);
+    width:312px;background:var(--bg);color:var(--fg);
+    border-radius:38px;border:1px solid rgba(255,255,255,.10);
+    padding:10px;box-shadow:0 34px 80px -30px rgba(0,0,0,.65);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+  }
+  .phone .scr{background:var(--bg);border-radius:30px;border:1px solid rgba(255,255,255,.05);padding:0 13px 12px;overflow:hidden;position:relative}
+  .notch{height:26px;display:flex;align-items:center;justify-content:center}
+  .notch::after{content:'';width:78px;height:6px;border-radius:99px;background:#000;border:1px solid rgba(255,255,255,.06)}
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+  .ph-hd{display:flex;align-items:center;justify-content:space-between;padding:2px 0 10px}
+  .ph-mark{font-weight:800;font-style:italic;font-size:15px;letter-spacing:.5px}
+  .ico-btn{width:30px;height:30px;border-radius:50%;background:var(--elev);display:flex;align-items:center;justify-content:center;position:relative}
+  .ico-btn svg{width:15px;height:15px;stroke:var(--fg);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .ico-btn .dot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--acc)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--accSoft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+  .kick{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--acc)}
+  .ph-title{font-size:24px;font-weight:800;font-style:italic;letter-spacing:-.4px;margin:2px 0 12px}
+  .ph-title.sm{font-size:21px}
+  .focus-line{display:flex;align-items:center;gap:7px;font-size:12px;margin:0 0 14px}
+  .focus-line .scope{width:14px;height:14px;flex-shrink:0;color:var(--acc)}
+  .focus-line .scope svg{width:14px;height:14px;stroke:var(--acc);fill:none;stroke-width:1.7}
+  .focus-line .ph{color:var(--acc);font-weight:700} .focus-line .fo{color:var(--muted)}
+
+  .hero{background:var(--surface);border-radius:16px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden;border:1px solid var(--hair)}
+  .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc)}
+  .hero .row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .slot{font-size:9px;font-weight:800;letter-spacing:.08em;background:var(--accSoft);color:var(--acc);padding:2px 7px;border-radius:5px}
+  .hero .hk{font-size:11px;color:var(--muted);font-weight:600}
+  .hero .ht{font-size:21px;font-weight:800;font-style:italic;letter-spacing:-.3px;margin-bottom:7px}
+  .hero .meta{font-size:11px;color:var(--muted);margin-bottom:12px}
+  .cta{background:var(--acc);color:var(--accOn);text-align:center;font-weight:800;font-size:13px;padding:11px;border-radius:11px;letter-spacing:.01em}
+  .cta.ghost{background:transparent;color:var(--muted);border:1px solid var(--hair2);font-weight:600}
+
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+  .tile{background:var(--surface);border:1px solid var(--hair);border-radius:13px;padding:12px 13px}
+  .tile .big{font-size:30px;font-weight:800;line-height:1;margin:5px 0 3px}
+  .tile .big small{font-size:13px;color:var(--muted);font-weight:600}
+  .tile .read{font-size:10.5px;color:var(--muted)}
+  .tile .delta{font-size:10px;font-weight:700}
+  .row-card{background:var(--surface);border:1px solid var(--hair);border-radius:13px;padding:11px 13px;display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .row-card .ca{width:28px;height:28px;border-radius:50%;background:var(--elev);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0}
+  .row-card .tx{flex:1;min-width:0}
+  .row-card .tx .e{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+  .row-card .tx .m{font-size:12px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row-card .chev{color:var(--faint);font-size:16px}
+
+  /* tab bar */
+  .tabbar{display:flex;justify-content:space-between;align-items:center;background:var(--elev);border:1px solid var(--hair);border-radius:18px;padding:8px 10px;margin-top:14px}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+  .tab svg{width:18px;height:18px;stroke:var(--faint);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .tab .tl{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .tab.on .pill{background:var(--accSoft);border-radius:9px;padding:3px 12px;margin-bottom:1px}
+  .tab.on svg{stroke:var(--acc)} .tab.on .tl{color:var(--acc)}
+
+  /* plan day rows */
+  .foco-strip{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:9px 12px;margin-bottom:12px}
+  .foco-strip .l{font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--acc)}
+  .foco-strip .v{font-size:12.5px;color:var(--fg);font-weight:600}
+  .day{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:12px;margin-bottom:7px;background:var(--surface);border:1px solid var(--hair)}
+  .day.today{border:1.5px solid var(--acc);background:var(--elev)}
+  .day .dl{font-family:'SF Mono',ui-monospace,monospace;font-size:9.5px;font-weight:800;color:var(--faint);width:26px;letter-spacing:.04em}
+  .day.today .dl{color:var(--acc)}
+  .mdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .day .dt{flex:1;min-width:0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .day .dt small{color:var(--muted)}
+  .day .rest{color:var(--faint)}
+  .stg{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+  .stg.done{background:var(--okSoft);color:var(--ok)}
+  .stg.part{background:var(--warnSoft);color:var(--warn)}
+  .stg.miss{background:var(--dngSoft);color:var(--dng)}
+  .stg.pend{color:var(--faint);background:transparent;font-size:15px}
+  .slotmini{font-size:8px;font-weight:800;background:var(--accSoft);color:var(--acc);padding:1px 5px;border-radius:4px}
+
+  .prog{background:var(--surface);border:1px solid var(--hair);border-radius:13px;padding:12px 13px;margin-top:11px}
+  .prog .l{font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+  .prog .v{font-size:18px;font-weight:800;margin:3px 0 8px}
+  .bar{height:7px;border-radius:99px;background:var(--sunken);overflow:hidden}
+  .bar > span{display:block;height:100%;border-radius:99px;background:var(--acc)}
+  .prog .cap{font-size:10.5px;color:var(--muted);margin-top:7px}
+
+  /* context menu over a row */
+  .ctx{background:var(--elev);border:1px solid var(--hair2);border-radius:13px;padding:5px;margin:6px 0 7px;box-shadow:0 14px 30px -10px rgba(0,0,0,.7)}
+  .ctx .mi{display:flex;align-items:center;gap:9px;padding:9px 11px;font-size:12.5px;border-radius:9px;color:var(--fg)}
+  .ctx .mi.dest{color:var(--dng)}
+  .ctx .mi .g{width:15px;color:var(--muted);font-weight:800;text-align:center}
+  .ctx .mi.dest .g{color:var(--dng)}
+
+  /* register / logging card */
+  .logcard{background:var(--surface);border:1px solid var(--hair);border-radius:13px;padding:12px 13px;margin-bottom:10px}
+  .logcard .lh{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .field{background:var(--sunken);border:1px solid var(--hair);border-radius:9px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+  .field .fl{font-size:11px;color:var(--muted)}
+  .field .fv{font-size:14px;font-weight:700}
+  .rpe{display:flex;gap:4px;flex-wrap:wrap}
+  .rpe .r{flex:1;min-width:0;text-align:center;font-family:'SF Mono',monospace;font-size:11px;font-weight:700;padding:7px 0;border-radius:7px;background:var(--sunken);border:1px solid var(--hair);color:var(--muted)}
+  .rpe .r.sel{background:var(--acc);color:var(--accOn);border-color:var(--acc)}
+  .legend-mini{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-top:4px;padding:0 2px}
+  .legend-mini span{display:flex;align-items:center;gap:5px}
+  .legend-mini .d{width:8px;height:8px;border-radius:50%}
+
+  /* ============================================================
+     DARK DASHBOARD MOCKUP — real coach dashboard (web V2)
+     ============================================================ */
+  .win{
+    --bg:#0a0a0a; --surface:#141414; --elev:#1c1c1f; --sunken:#0f0f0f;
+    --fg:#f4f4f0; --muted:#a1a1a1; --faint:#6e6e6e;
+    --acc:#f06a2a; --accSoft:rgba(240,106,42,.15);
+    --ok:#3fc773; --okSoft:rgba(63,199,115,.16);
+    --warn:#f2a52e; --warnSoft:rgba(242,165,46,.16);
+    --dng:#f2504f; --dngSoft:rgba(242,80,79,.16);
+    --violet:#b49bee; --green:#4fd08a; --magenta:#ee7acf; --teal:#3bd0be; --info:#4d9eeb;
+    --hair:rgba(255,255,255,.08); --hair2:rgba(255,255,255,.14);
+    border-radius:14px;border:1px solid #232323;overflow:hidden;background:var(--bg);color:var(--fg);
+    box-shadow:0 28px 64px -28px rgba(0,0,0,.55);margin:18px 0 8px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  .win-bar{display:flex;align-items:center;gap:10px;background:#161616;border-bottom:1px solid var(--hair);padding:9px 14px}
+  .win-bar .tl{display:flex;gap:6px}
+  .win-bar .tl i{width:11px;height:11px;border-radius:50%;display:block}
+  .win-bar .tl i:nth-child(1){background:#ff5f57} .win-bar .tl i:nth-child(2){background:#febc2e} .win-bar .tl i:nth-child(3){background:#28c840}
+  .win-url{font-size:11px;color:var(--faint);background:#0e0e0e;border:1px solid var(--hair);border-radius:7px;padding:4px 12px;font-family:'SF Mono',monospace}
+  .win-body{padding:18px 20px}
+  .num2{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums}
+
+  /* week canvas (7 columns) */
+  .wk-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .wk-title{font-size:16px;font-weight:800;font-style:italic;letter-spacing:-.3px}
+  .wk-title small{font-style:normal;font-weight:600;color:var(--acc);font-size:13px}
+  .wk-tools{display:flex;gap:7px}
+  .btn{font-size:11px;font-weight:700;padding:5px 10px;border-radius:7px;border:1px solid var(--hair2);color:var(--fg);background:var(--elev)}
+  .btn.pri{background:var(--acc);color:#1a0a00;border-color:var(--acc)}
+  .wk-sum{font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid var(--hair)}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+  .col{background:var(--surface);border:1px solid var(--hair);border-radius:9px;padding:8px 7px;min-height:118px;position:relative;overflow:hidden}
+  .col.today{border-color:var(--acc)}
+  .col::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:.9}
+  .col .cd{font-family:'SF Mono',monospace;font-size:8.5px;font-weight:800;color:var(--faint);letter-spacing:.05em;margin-bottom:5px}
+  .col.today .cd{color:var(--acc)}
+  .col .ch{font-size:10px;font-weight:700;line-height:1.25;margin-bottom:5px}
+  .col .blk{font-size:8.5px;color:var(--muted);line-height:1.35;margin-bottom:2px}
+  .col .blk .x{color:var(--faint)}
+  .col .rest{font-size:9px;color:var(--faint)}
+  .col .foot{position:absolute;bottom:6px;left:7px;font-size:8px;color:var(--faint);font-family:'SF Mono',monospace}
+  .col .add{font-size:9px;color:var(--faint);border:1px dashed var(--hair2);border-radius:6px;padding:5px;text-align:center}
+
+  /* master-detail note */
+  .md{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:12px}
+  .md .rail{display:flex;flex-direction:column;gap:6px}
+  .md .rc{background:var(--surface);border:1px solid var(--hair);border-radius:8px;padding:7px 9px;font-size:10.5px}
+  .md .rc.on{border-color:var(--acc);background:var(--elev)}
+  .md .rc .d{font-family:'SF Mono',monospace;font-size:8px;font-weight:800;color:var(--faint)}
+  .md .rc.on .d{color:var(--acc)}
+  .md .rc .s{color:var(--muted);font-size:9.5px}
+  .md .edit{background:var(--surface);border:1px solid var(--hair);border-radius:10px;padding:13px}
+  .ed-row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .ed-slot{font-size:9px;font-weight:800;background:var(--accSoft);color:var(--acc);padding:2px 7px;border-radius:5px}
+  .ed-input{flex:1;background:var(--sunken);border:1px solid var(--hair);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--fg)}
+  .ed-input .ph{color:var(--faint)}
+  .ed-ai{font-size:10px;color:var(--acc);border:1px solid var(--hair2);border-radius:7px;padding:6px 9px;white-space:nowrap}
+  .ed-block{border:1px solid var(--hair);border-radius:8px;padding:9px 10px;margin-bottom:8px}
+  .ed-block .bt{font-size:11px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  .extbl{width:100%;border-collapse:collapse;font-size:10px}
+  .extbl th{text-align:left;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);padding:3px 6px;border-bottom:1px solid var(--hair)}
+  .extbl td{padding:5px 6px;border-bottom:1px solid var(--hair);color:var(--fg)}
+  .extbl td.n{font-family:'SF Mono',monospace;color:var(--muted)}
+  .savegate{background:var(--dngSoft);border:1px solid rgba(242,80,79,.35);border-radius:8px;padding:8px 11px;font-size:10.5px;color:#ffb3b3;margin-top:8px;display:flex;align-items:center;gap:8px}
+
+  /* coach adherence / sessions table */
+  .ath-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .ath-hd .av{width:34px;height:34px;border-radius:50%;background:var(--accSoft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:800}
+  .ath-hd .nm{font-size:15px;font-weight:800}
+  .ath-hd .nm small{display:block;font-weight:600;color:var(--muted);font-size:11px}
+  .adh{margin-left:auto;text-align:right}
+  .adh .l{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .adh .v{font-size:22px;font-weight:800}
+  .adhbar{height:7px;width:130px;border-radius:99px;background:var(--sunken);overflow:hidden;margin-top:4px}
+  .adhbar > span{display:block;height:100%;border-radius:99px}
+  .sesstbl{width:100%;border-collapse:collapse;font-size:12px}
+  .sesstbl th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);padding:7px 8px;border-bottom:1px solid var(--hair)}
+  .sesstbl td{padding:9px 8px;border-bottom:1px solid var(--hair);color:var(--fg)}
+  .sesstbl td.n{font-family:'SF Mono',monospace;color:var(--muted)}
+  .sp{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:99px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .sp.done{background:var(--okSoft);color:var(--ok)} .sp.pend{background:var(--warnSoft);color:var(--warn)}
+  .sp.miss{background:var(--dngSoft);color:var(--dng)} .sp.skip{background:rgba(255,255,255,.07);color:var(--muted)}
+
+  /* hoy lane chip */
+  .lane{background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:12px 14px;margin-top:14px;max-width:340px}
+  .lane .lh{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--dng);display:flex;align-items:center;gap:7px;margin-bottom:9px}
+  .lane .ac{display:flex;align-items:center;gap:9px;background:var(--elev);border:1px solid var(--hair);border-radius:9px;padding:8px 10px}
+  .lane .ac .av{width:26px;height:26px;border-radius:50%;background:var(--accSoft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px}
+  .lane .ac .nm{font-size:12px;font-weight:700}
+  .lane .ac .rs{margin-left:auto;font-size:10px;color:var(--dng);font-weight:700}
+
+  /* footer + toc grid */
+  .toc{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:20px 0 8px}
+  .toc a{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;transition:border-color .15s}
+  .toc a:hover{border-color:var(--accent)}
+  .toc .n{font-size:10.5px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.6px}
+  .toc .t{font-size:14.5px;font-weight:700;margin:4px 0 3px}
+  .toc .d{font-size:12px;color:#777;line-height:1.4}
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
+
+  @media(max-width:980px){
+    .triad{grid-template-columns:1fr}
+    .legend{grid-template-columns:1fr}
+    .toc{grid-template-columns:1fr}
+    .md{grid-template-columns:1fr}
+  }
+  @media(max-width:760px){
+    .sidebar{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+    .main{margin-left:0;padding:32px 22px 70px}
+    .cal{grid-template-columns:repeat(7,1fr);overflow-x:auto}
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= SIDEBAR ======================= -->
+<nav class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-mark">FH</div>
+    <div class="nm">FAHYBRID<small>Guía del entrenador</small></div>
+  </div>
+
+  <div class="sb-group">Empezar</div>
+  <a class="sb-link" href="#intro"><span class="num">01</span>Qué es esta guía</a>
+  <a class="sb-link" href="#bridge"><span class="num">02</span>Tu cuenta y tu marca <span class="sb-soon">índice</span></a>
+
+  <div class="sb-group">Tu biblioteca</div>
+  <a class="sb-link" href="#bridge"><span class="num">03</span>Tu catálogo de ejercicios <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">04</span>Tus tipos de trabajo <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">05</span>Tu metodología y tus fases <span class="sb-soon">índice</span></a>
+
+  <div class="sb-group">El plan</div>
+  <a class="sb-link" href="#bridge"><span class="num">06</span>Cómo se estructura un plan <span class="sb-soon">índice</span></a>
+  <a class="sb-link active" href="#montar-semana"><span class="num">07</span>Monta la semana de tu atleta<span class="sb-dot" style="margin-left:auto"></span></a>
+  <a class="sb-link" href="#bridge"><span class="num">08</span>La dosis de cada ejercicio <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">09</span>Periodización: nombrar fases <span class="sb-soon">índice</span></a>
+
+  <div class="sb-group">Asignar y empezar</div>
+  <a class="sb-link" href="#bridge"><span class="num">10</span>Da de alta e invita <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">11</span>Cuestionario inicial y tests <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">12</span>Asigna el plan: borrador → publicado <span class="sb-soon">índice</span></a>
+
+  <div class="sb-group">El día a día</div>
+  <a class="sb-link" href="#bridge"><span class="num">13</span>Tu pantalla /hoy <span class="sb-soon">índice</span></a>
+  <a class="sb-link active" href="#estado-entreno"><span class="num">14</span>El estado de cada entreno<span class="sb-dot" style="margin-left:auto"></span></a>
+  <a class="sb-link" href="#bridge"><span class="num">15</span>Habla con tu atleta <span class="sb-soon">índice</span></a>
+
+  <div class="sb-group">Seguimiento</div>
+  <a class="sb-link" href="#bridge"><span class="num">16</span>Readiness y check-in <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">17</span>Adherencia y constancia <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">18</span>Carreras y objetivos <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">19</span>Progreso y rendimiento <span class="sb-soon">índice</span></a>
+
+  <div class="sb-legend"><span class="d"></span>Construido en este prototipo. El resto es el <b>índice propuesto</b> de la guía completa.</div>
+</nav>
+
+<!-- ======================= MAIN ======================= -->
+<main class="main">
+<div class="wrap">
+
+  <!-- INTRO -->
+  <span id="intro"></span>
+  <h1>Guía del entrenador</h1>
+  <p class="sub">Todo lo que haces en el panel, y cómo lo ve tu atleta en su móvil.</p>
+
+  <div class="protobar">
+    <div class="ic">i</div>
+    <p><b>Esto es un prototipo.</b> Hemos construido a fondo <b>2 secciones reales</b> ("Monta la semana de tu atleta" y "El estado de cada entreno") para validar el estilo y el enfoque. La barra lateral muestra el <b>índice completo</b> propuesto para toda la guía. Si te convence el estilo y el índice, generamos el resto igual.</p>
+  </div>
+
+  <p class="lead">El panel y la app de tu atleta son <em class="em">la misma cosa vista desde dos lados</em>. Tú montas el trabajo desde el ordenador; tu atleta lo recibe en el teléfono, día a día. Esta guía está organizada por <b>lo que tú quieres hacer</b> — no por menús ni botones — y en cada tema te enseñamos exactamente <b>cómo aparece en su móvil</b> lo que acabas de hacer.</p>
+
+  <div class="principle">
+    <p>La idea de toda la guía cabe en una frase:</p>
+    <p><b>Lo que tú escribes, tu atleta lo lee. Lo que tu atleta hace, tú lo ves de vuelta.</b></p>
+    <p>No hay "publicar y rezar". Cada decisión tuya tiene un reflejo concreto en la pantalla de tu atleta, y cada entreno que hace (o no hace) vuelve a ti como adherencia y estado. Esta guía hace visible ese puente, tema a tema.</p>
+  </div>
+
+  <!-- BRIDGE -->
+  <div class="seclbl" id="bridge"><span class="pin">●</span> El puente · los dos lados</div>
+  <h2>Dos lados, un mismo plan</h2>
+  <p class="lead">Antes de entrar en cada flujo, ten clara la repartición. No es "el panel" por un lado y "una app" por otro: es un único plan que vive en los dos sitios a la vez.</p>
+
+  <div class="legend">
+    <div class="lg coach">
+      <span class="ico">Tú · en el panel</span>
+      <div class="lt">Montas el trabajo</div>
+      <p>Desde el ordenador construyes la semana: el foco, las sesiones de cada día, los ejercicios y la dosis. Es tu mesa de trabajo.</p>
+    </div>
+    <div class="lg ath">
+      <span class="ico">Tu atleta · en el móvil</span>
+      <div class="lt">Recibe y entrena</div>
+      <p>En su teléfono ve su día, abre la sesión, entrena y marca cómo le fue. Solo ve lo que tú has publicado, limpio y sin jerga.</p>
+    </div>
+  </div>
+
+  <p style="margin-top:14px">A lo largo de la guía verás este bloque en cada tema:</p>
+  <div class="mobile-band" style="margin-bottom:0">
+    <div class="mb-head"><span class="mb-chip">En el móvil del atleta</span><span class="t">Así lo ve tu atleta</span></div>
+    <p class="mb-sub">Cada vez que aparezca esta banda, estás viendo una pantalla fiel de la app del atleta — para que sepas, sin abrir su teléfono, qué efecto tiene lo que acabas de hacer.</p>
+  </div>
+
+
+  <!-- =================================================================
+       SECCIÓN 7 — MONTA LA SEMANA
+       ================================================================= -->
+  <div class="seclbl" id="montar-semana"><span class="pin">07 ·</span> El plan</div>
+  <h2>Monta la semana de tu atleta</h2>
+  <p class="lead">Aquí construyes la unidad central del plan: una <b>semana</b> de entrenamiento. Le pones nombre a la fase, defines el foco, y rellenas las sesiones de cada día con sus ejercicios y su dosis. Todo lo que escribas con la etiqueta <em class="em">"lo ve el atleta"</em> aterriza tal cual en su móvil.</p>
+
+  <div class="triad">
+    <div class="qc q"><div class="h"><span class="ic">?</span>Qué</div><p>Una semana = 7 días. Cada día tiene una o dos sesiones (mañana / tarde). La semana vive dentro de un <b>microciclo</b>, al que tú le das un nombre — y ese nombre es la <b>fase</b> que ve tu atleta.</p></div>
+    <div class="qc c"><div class="h"><span class="ic">↳</span>Cómo</div><p>Pones el <b>foco de la semana</b>, abres un día y añades sesiones. Dentro de cada sesión eliges <b>tipos de trabajo</b> (bloques), añades <b>ejercicios</b> de tu catálogo y ajustas la <b>dosis</b>.</p></div>
+    <div class="qc w"><div class="h"><span class="ic">✓</span>Por qué</div><p>Porque tu atleta no quiere un Excel: quiere abrir el teléfono y saber qué toca hoy y por qué. Una semana bien montada se convierte en su día a día, sin que tú toques nada más.</p></div>
+  </div>
+
+  <h3>1 · El nombre del microciclo es la fase que ve tu atleta</h3>
+  <p>Al abrir un microciclo, su título es editable: haz clic y escribe. El propio panel te lo recuerda — <code>El atleta ve este nombre como su fase</code>. No hay fases prefijadas ni jerga impuesta: si tu método se organiza en "Acumulación / Transformación / Realización", escribes eso; si usas otro lenguaje, escribes el tuyo. <em class="em">La metodología es tuya; nosotros solo te damos dónde escribirla.</em></p>
+
+  <h3>2 · El foco de la semana</h3>
+  <p>Cada semana tiene un campo <code>Foco de la semana</code> (con la coletilla <em class="em">· lo ve el atleta</em>). Es una frase corta, por ejemplo <code>Acumulación de base aeróbica</code>. Se guarda solo al salir del campo y es lo primero que orienta a tu atleta cuando abre la app.</p>
+
+  <h3>3 · La semana ES el editor</h3>
+  <p>No hay una pantalla aparte para "ver la semana" y otra para "editar el día". Es un mismo lienzo: ves los 7 días a la vez y, al abrir uno, el resto se queda a la izquierda como una columna navegable mientras editas a la derecha. Así nunca pierdes el contexto de la semana entera.</p>
+
+  <!-- DASHBOARD MOCKUP: week canvas + master-detail -->
+  <div class="win">
+    <div class="win-bar"><div class="tl"><i></i><i></i><i></i></div><span class="win-url">tu-panel /microciclos / acumulación</span></div>
+    <div class="win-body">
+      <div class="wk-head">
+        <div class="wk-title">Microciclo · «Acumulación»&nbsp; <small>✎ lo ve el atleta como su fase</small></div>
+        <div class="wk-tools"><span class="btn">Añadir semana</span><span class="btn pri">Asignar a atleta</span></div>
+      </div>
+      <div class="wk-sum">
+        <span style="font-weight:700;color:var(--fg)">Semana 1 · base aeróbica</span>
+        <span class="chip" style="color:var(--acc);border-color:var(--acc)">3 Carrera</span>
+        <span class="chip" style="color:var(--violet)">1 Fuerza</span>
+        <span class="chip" style="color:var(--magenta)">1 HYROX</span>
+        <span class="chip" style="color:var(--info)">1 Ergómetro</span>
+      </div>
+      <div class="cal">
+        <div class="col today" style="--c:var(--acc)"><div class="cd">LUN 12</div><div class="ch">Tirada larga Z2</div><div class="blk">Carrera · 14 km <span class="x">@ Z2</span></div><div class="foot">1 bl · 1 ej</div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc)"></div></div>
+        <div class="col"><div class="cd">MAR 13</div><div class="ch">Fuerza · tren inferior</div><div class="blk">Sentadilla 4×5 <span class="x">75%</span></div><div class="blk">Peso muerto 3×5</div><div class="foot">2 bl · 4 ej</div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--violet)"></div></div>
+        <div class="col"><div class="cd">MIÉ 14</div><div class="ch">Series 6×800</div><div class="blk">Intervalos <span class="x">@ Z4</span></div><div class="foot">1 bl · 1 ej</div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc)"></div></div>
+        <div class="col"><div class="cd">JUE 15</div><div class="rest">Descanso</div></div>
+        <div class="col"><div class="cd">VIE 16</div><div class="ch">Simulación HYROX</div><div class="blk">4 estaciones</div><div class="foot">3 bl · 6 ej</div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--magenta)"></div></div>
+        <div class="col"><div class="cd">SÁB 17</div><div class="ch">Ergómetro Z2</div><div class="blk">Remo 40 min <span class="x">@ Z2</span></div><div class="foot">1 bl · 1 ej</div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--info)"></div></div>
+        <div class="col"><div class="cd">DOM 18</div><div class="ch" style="color:var(--teal)">Movilidad</div><div class="blk">Rutina 20 min</div><div class="foot">1 bl · 5 ej</div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--teal)"></div></div>
+      </div>
+
+      <!-- master-detail: open day -->
+      <div class="md">
+        <div class="rail">
+          <div class="rc on"><div class="d">LUN 12</div>Tirada larga Z2 <div class="s">Carrera · 1 ej</div></div>
+          <div class="rc"><div class="d">MAR 13</div>Fuerza <div class="s">tren inferior · 4 ej</div></div>
+          <div class="rc"><div class="d">MIÉ 14</div>Series 6×800 <div class="s">Carrera · 1 ej</div></div>
+          <div class="rc"><div class="d">JUE 15</div><span style="color:var(--faint)">Descanso</span></div>
+        </div>
+        <div class="edit">
+          <div class="ed-row">
+            <span class="ed-slot">AM</span>
+            <span class="ed-input">Tirada larga Z2</span>
+            <span class="ed-ai">◌ Sugerir título</span>
+          </div>
+          <div class="ed-block">
+            <div class="bt"><span class="mdot" style="background:var(--acc)"></span>Carrera continua / Z2</div>
+            <table class="extbl">
+              <tr><th>Tramo</th><th>Medida</th><th>Objetivo</th></tr>
+              <tr><td>Rodaje continuo</td><td class="n">14 km</td><td class="n">Z2 · 5:10–5:25/km</td></tr>
+            </table>
+          </div>
+          <div style="font-size:9.5px;color:var(--faint);display:flex;gap:6px;align-items:center;margin-top:4px"><span class="num2">Guardar día</span> · <span>Copiar día a…</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>4 · Dentro de la sesión: título, bloques, ejercicios y dosis</h3>
+  <p>Cada sesión tiene un <code>Título del entreno</code> editable — por ejemplo <em class="em">Tirada larga Z2</em> — que también ve tu atleta. Si te quedas en blanco, el botón <code>Sugerir título</code> te propone uno a partir del contenido (lo puedes editar antes de guardar). Luego añades <b>bloques</b> (eliges el tipo de trabajo: carrera, series, fuerza, HYROX, circuito, metcon, test, activación…), y dentro de cada bloque añades <b>ejercicios de tu catálogo</b> con su dosis.</p>
+
+  <div class="note cue">
+    <div class="h"><span class="ic">↳</span> El catálogo y tus vídeos</div>
+    <ul>
+      <li>Al añadir un ejercicio lo buscas en tu catálogo; si no existe, lo creas al vuelo (<span class="k">Crear "…" como ejercicio nuevo</span>) y queda disponible para cualquier sesión.</li>
+      <li>Puedes pegar un <span class="k">vídeo de YouTube</span> en tu versión del ejercicio. El panel te confirma: <code>El atleta verá el vídeo en el detalle del ejercicio en iOS.</code></li>
+    </ul>
+  </div>
+
+  <div class="note bad">
+    <div class="h"><span class="ic">!</span> La puerta honesta de guardado</div>
+    <ul>
+      <li>Una línea solo es válida si apunta a un ejercicio real de tu catálogo. Si dejas una línea sin ejercicio, <span class="k">Guardar se desactiva</span> y verás el motivo exacto: <code>1 línea sin ejercicio. Elígelo del catálogo o bórrala para guardar.</code></li>
+      <li>Esto evita el viejo fallo de "Guardado" mentiroso que tiraba líneas a medias en silencio. Lo que se guarda es lo que tu atleta verá — sin sorpresas.</li>
+    </ul>
+  </div>
+
+  <!-- EN EL MÓVIL: Inicio + Plan -->
+  <div class="mobile-band">
+    <div class="mb-head"><span class="mb-chip">En el móvil del atleta</span><span class="t">Lo que montaste, en su teléfono</span></div>
+    <p class="mb-sub">El nombre del microciclo se convierte en su <b>fase</b>. El foco de la semana aparece bajo el saludo. Y las sesiones que rellenaste por día se vuelven su plan, una sesión cada mañana.</p>
+    <div class="phones">
+
+      <!-- PHONE 1: INICIO -->
+      <div class="phone-wrap">
+        <div class="phone"><div class="scr">
+          <div class="notch"></div>
+          <div class="ph-hd">
+            <div class="ico-btn"><span class="dot"></span><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 21h4"/></svg></div>
+            <div class="ph-mark">FAHYBRID</div>
+            <div class="avatar">M</div>
+          </div>
+          <div class="kick">Miércoles 14 ene</div>
+          <div class="ph-title">Hola, Marc</div>
+          <div class="focus-line">
+            <span class="scope"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>
+            <span class="ph">Acumulación</span><span class="fo">· Foco: base aeróbica</span>
+          </div>
+          <div class="hero">
+            <div class="row"><span class="slot">AM</span><span class="hk">Carrera · sesión de hoy</span></div>
+            <div class="ht">Series 6×800</div>
+            <div class="meta num">Mañana · ≈ 48 min · 3 bloques</div>
+            <div class="cta">▶ Empezar</div>
+          </div>
+          <div class="tiles">
+            <div class="tile"><span class="lbl">Readiness</span><div class="big num">72<small> /100</small></div><div class="read" style="color:var(--ok)">Recuperado y listo</div></div>
+            <div class="tile"><span class="lbl">Próxima carrera</span><div class="big num">26<small> días</small></div><div class="read">Construyendo motor</div></div>
+          </div>
+          <div class="row-card"><div class="ca">P</div><div class="tx"><div class="e">Tu coach</div><div class="m">Buen trabajo en la tirada del lunes</div></div><div class="chev">›</div></div>
+          <div class="tabbar">
+            <div class="tab on"><div class="pill"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><span class="tl">Inicio</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/></svg><span class="tl">Plan</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M5 3v18M5 4h13l-2 4 2 4H5"/></svg><span class="tl">Carreras</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><span class="tl">Chat</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span class="tl">Perfil</span></div>
+          </div>
+        </div></div>
+        <div class="phone-cap"><b>Inicio.</b> Tu fase y tu foco encabezan el día; la sesión de hoy es la tarjeta grande con su botón <b>Empezar</b>.</div>
+      </div>
+
+      <!-- PHONE 2: PLAN -->
+      <div class="phone-wrap">
+        <div class="phone"><div class="scr">
+          <div class="notch"></div>
+          <div class="ph-hd" style="padding-bottom:6px"><div></div><div class="ph-mark" style="font-size:13px">Tu semana</div><div class="ico-btn"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></div></div>
+          <div class="ph-title sm" style="margin-bottom:2px">Tu semana</div>
+          <div class="num" style="font-size:11px;color:var(--muted);margin-bottom:12px">12–18 ene · por tu coach</div>
+          <div class="foco-strip"><span class="l">FOCO</span><span class="v">Base aeróbica</span></div>
+          <div class="day today"><span class="dl">LUN</span><span class="mdot" style="background:var(--acc)"></span><span class="dt">Tirada larga Z2 <span class="slotmini">AM</span></span><span class="stg done">✓</span></div>
+          <div class="day"><span class="dl">MAR</span><span class="mdot" style="background:var(--violet)"></span><span class="dt">Fuerza · tren inferior</span><span class="stg pend">›</span></div>
+          <div class="day"><span class="dl">MIÉ</span><span class="mdot" style="background:var(--acc)"></span><span class="dt">Series 6×800</span><span class="stg pend">›</span></div>
+          <div class="day"><span class="dl">JUE</span><span class="mdot" style="background:var(--faint)"></span><span class="dt rest">Descanso</span></div>
+          <div class="day"><span class="dl">VIE</span><span class="mdot" style="background:var(--magenta)"></span><span class="dt">Simulación HYROX</span><span class="stg pend">›</span></div>
+          <div class="day"><span class="dl">SÁB</span><span class="mdot" style="background:var(--info)"></span><span class="dt">Ergómetro Z2</span><span class="stg pend">›</span></div>
+          <div class="prog">
+            <span class="l">Progreso de la semana</span>
+            <div class="v num">1 / 5</div>
+            <div class="bar"><span style="width:20%"></span></div>
+            <div class="cap">Te quedan 4 sesiones.</div>
+          </div>
+        </div></div>
+        <div class="phone-cap"><b>Plan.</b> Cada día con su color de modalidad y su título. El foco que escribiste aparece arriba; abajo, el progreso real de la semana.</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- =================================================================
+       SECCIÓN 14 — EL ESTADO DE CADA ENTRENO
+       ================================================================= -->
+  <div class="seclbl" id="estado-entreno"><span class="pin">14 ·</span> El día a día</div>
+  <h2>El estado de cada entreno</h2>
+  <p class="lead">Montar la semana es solo la mitad. La otra mitad es el <b>retorno</b>: tu atleta entrena, marca con honestidad cómo le fue, y tú lo ves en el panel como adherencia y estado. Este es el bucle completo — y por qué no necesitas perseguir a nadie por WhatsApp para saber si cumplió.</p>
+
+  <div class="flow">
+    <span class="step">Tú montas la semana</span>
+    <span class="arr">→</span>
+    <span class="step app">Tu atleta entrena</span>
+    <span class="arr">→</span>
+    <span class="step app">Marca: hecha · parcial · no hecha</span>
+    <span class="arr">→</span>
+    <span class="step">Tú ves adherencia y estado</span>
+  </div>
+
+  <div class="triad">
+    <div class="qc q"><div class="h"><span class="ic">?</span>Qué</div><p>Cada sesión tiene un estado. Tu atleta lo marca desde su móvil; tú lo recibes en el panel. Sin partes de texto, sin "creo que lo hizo".</p></div>
+    <div class="qc c"><div class="h"><span class="ic">↳</span>Cómo</div><p>Él entrena (con cronómetro o "ya lo hice"), registra esfuerzo y notas, y marca el resultado. Tú lo ves por sesión y como <b>% de adherencia</b>.</p></div>
+    <div class="qc w"><div class="h"><span class="ic">✓</span>Por qué</div><p>Porque un plan sin retorno es a ciegas. El estado honesto te dice a quién empujar, a quién progresar y a quién dar margen — hoy, no la semana que viene.</p></div>
+  </div>
+
+  <h3>1 · Tu atleta marca con honestidad</h3>
+  <p>En su Plan, cada día muestra un estado claro: <span style="color:#137a3a;font-weight:700">hecha</span>, <span style="color:#9a6a12;font-weight:700">parcial</span>, <span style="color:#a83232;font-weight:700">no hecha</span> o pendiente. Puede corregirlo desde un menú por sesión — y si deshace algo que ya tenía trabajo registrado, la app le avisa de que se borrará. La honestidad está integrada en el diseño: marcar a medias o no hecho es tan fácil como marcar hecho.</p>
+
+  <h3>2 · Registro honesto, no decorado</h3>
+  <p>Hay dos caminos, ambos válidos. Si entrena con el cronómetro, la app guarda lo medido (tiempo, pulso, zonas). Si lo hizo por su cuenta, usa <code>Ya lo hice · registrar sin cronómetro</code> y lo anota a mano: duración, resultado, <b>RPE (esfuerzo del 1 al 10)</b> y notas. No se inflan datos que no existen — lo que no se midió, no se inventa.</p>
+
+  <!-- EN EL MÓVIL: marcar + registrar -->
+  <div class="mobile-band">
+    <div class="mb-head"><span class="mb-chip">En el móvil del atleta</span><span class="t">Cómo marca y registra</span></div>
+    <p class="mb-sub">A la izquierda, los estados de cada día y el menú de corrección. A la derecha, el registro honesto cuando entrenó sin cronómetro.</p>
+    <div class="phones">
+
+      <!-- PHONE 3: estados + menú -->
+      <div class="phone-wrap">
+        <div class="phone"><div class="scr">
+          <div class="notch"></div>
+          <div class="ph-title sm" style="margin:6px 0 2px">Tu semana</div>
+          <div class="num" style="font-size:11px;color:var(--muted);margin-bottom:12px">12–18 ene · por tu coach</div>
+          <div class="day"><span class="dl">LUN</span><span class="mdot" style="background:var(--acc)"></span><span class="dt">Tirada larga Z2</span><span class="stg done">✓</span></div>
+          <div class="day"><span class="dl">MAR</span><span class="mdot" style="background:var(--violet)"></span><span class="dt">Fuerza · tren inferior</span><span class="stg done">✓</span></div>
+          <div class="day today"><span class="dl">MIÉ</span><span class="mdot" style="background:var(--acc)"></span><span class="dt">Series 6×800</span><span class="stg part">◑</span></div>
+          <!-- context menu opened on the partial row -->
+          <div class="ctx">
+            <div class="mi"><span class="g">✓</span>Marcar como hecha</div>
+            <div class="mi"><span class="g">✎</span>Completar ahora</div>
+            <div class="mi dest"><span class="g">↺</span>Deshacer hecho</div>
+          </div>
+          <div class="day"><span class="dl">JUE</span><span class="mdot" style="background:var(--faint)"></span><span class="dt rest">Descanso</span></div>
+          <div class="day"><span class="dl">VIE</span><span class="mdot" style="background:var(--magenta)"></span><span class="dt">Simulación HYROX</span><span class="stg miss">✕</span></div>
+          <div class="day"><span class="dl">SÁB</span><span class="mdot" style="background:var(--info)"></span><span class="dt">Ergómetro Z2</span><span class="stg pend">›</span></div>
+          <div class="legend-mini">
+            <span><span class="d" style="background:var(--ok)"></span>Hecha</span>
+            <span><span class="d" style="background:var(--warn)"></span>Parcial</span>
+            <span><span class="d" style="background:var(--dng)"></span>No hecha</span>
+          </div>
+        </div></div>
+        <div class="phone-cap"><b>Marcar.</b> ✓ hecha, ◑ parcial, ✕ no hecha. El menú "···" deja corregir el estado en un toque, con aviso si ya había trabajo registrado.</div>
+      </div>
+
+      <!-- PHONE 4: registrar -->
+      <div class="phone-wrap">
+        <div class="phone"><div class="scr">
+          <div class="notch"></div>
+          <div class="ph-hd" style="padding-bottom:8px">
+            <div class="ico-btn"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></div>
+            <div class="ph-mark" style="font-size:13px">Registrar entreno</div>
+            <div class="stg done" style="width:24px;height:24px;font-size:13px">✓</div>
+          </div>
+          <div class="num" style="font-size:11px;color:var(--muted);margin-bottom:12px">Series 6×800 · sin cronómetro</div>
+          <div class="logcard">
+            <div class="lh">Duración</div>
+            <div class="field"><span class="fl">Tiempo total</span><span class="fv num">46:30</span></div>
+          </div>
+          <div class="logcard">
+            <div class="lh">RPE · esfuerzo percibido</div>
+            <div class="rpe">
+              <span class="r">3</span><span class="r">4</span><span class="r">5</span><span class="r">6</span><span class="r sel">7</span><span class="r">8</span><span class="r">9</span>
+            </div>
+          </div>
+          <div class="logcard">
+            <div class="lh">Frecuencia cardiaca</div>
+            <div style="font-size:10px;color:var(--faint);margin-bottom:7px">Sin pulsómetro. Anótala a mano si la conoces.</div>
+            <div class="field"><span class="fl">FC media</span><span class="fv num" style="color:var(--faint)">— ppm</span></div>
+          </div>
+          <div class="logcard">
+            <div class="lh">Notas</div>
+            <div style="font-size:11px;color:var(--fg)">Las dos últimas series con piernas cargadas.</div>
+          </div>
+          <div class="cta">Guardar</div>
+        </div></div>
+        <div class="phone-cap"><b>Registrar.</b> Cuando entrenó sin reloj, anota lo que sí sabe — duración, RPE, notas — y deja en blanco lo que no midió. Honesto por diseño.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <h3>3 · Y tú lo ves de vuelta</h3>
+  <p>Todo eso vuelve a ti sin que tu atleta tenga que escribirte. En su ficha, la pestaña <b>Plan</b> muestra cada sesión con su estado — <span style="color:#137a3a;font-weight:700">Completada</span>, <span style="color:#9a6a12;font-weight:700">Pendiente</span>, <span style="color:#a83232;font-weight:700">Perdida</span> — y su RPE. Arriba, un <b>% de adherencia</b> resume su constancia. Y en tu pantalla <code>/hoy</code>, quien falla sesiones aparece solo en la cola <em class="em">"Falló sesiones"</em>, para que sepas a quién atender primero.</p>
+
+  <div class="note log">
+    <div class="h"><span class="ic">i</span> Un detalle honesto sobre quién marca</div>
+    <p>Hoy el panel es tu <b>ventana de lectura</b>: ves los resultados, pero quien marca y corrige cada sesión es el atleta desde su móvil. Tú interpretas y decides (a quién progresar, a quién empujar); él reporta. Es deliberado — el dato es suyo, la lectura es tuya.</p>
+  </div>
+
+  <!-- DASHBOARD MOCKUP: coach back-view -->
+  <div class="win">
+    <div class="win-bar"><div class="tl"><i></i><i></i><i></i></div><span class="win-url">tu-panel /atletas / marc · plan</span></div>
+    <div class="win-body">
+      <div class="ath-hd">
+        <div class="av">M</div>
+        <div class="nm">Marc<small>Acumulación · semana 1</small></div>
+        <div class="adh">
+          <div class="l">Adherencia</div>
+          <div class="v" style="color:var(--warn)">67%</div>
+          <div class="adhbar"><span style="width:67%;background:var(--warn)"></span></div>
+        </div>
+      </div>
+      <table class="sesstbl">
+        <tr><th>Sesión</th><th>Día</th><th>Estado</th><th>RPE</th></tr>
+        <tr><td>Tirada larga Z2</td><td class="n">Lun 12</td><td><span class="sp done">● Completada</span></td><td class="n">7</td></tr>
+        <tr><td>Fuerza · tren inferior</td><td class="n">Mar 13</td><td><span class="sp done">● Completada</span></td><td class="n">8</td></tr>
+        <tr><td>Series 6×800</td><td class="n">Mié 14</td><td><span class="sp pend">● Pendiente</span></td><td class="n">—</td></tr>
+        <tr><td>Simulación HYROX</td><td class="n">Vie 16</td><td><span class="sp miss">● Perdida</span></td><td class="n">—</td></tr>
+      </table>
+
+      <div class="lane">
+        <div class="lh">⚑ Falló sesiones</div>
+        <div class="ac"><div class="av">M</div><div class="nm">Marc</div><div class="rs">1 perdida · 67%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:18px">Ese es el bucle entero: <b>tú montas → tu atleta hace y marca → tú ves y decides</b>. El resto de la guía aplica esta misma lógica de "los dos lados" a cada parte del panel — desde tu biblioteca hasta las carreras.</p>
+
+
+  <!-- PROPOSED FULL INDEX as cards -->
+  <div class="seclbl"><span class="pin">●</span> El índice completo propuesto</div>
+  <h2>Lo que cubriría la guía entera</h2>
+  <p class="lead">Estas son todas las secciones previstas, en el mismo estilo y con su bloque <em class="em">"Así lo ve tu atleta en el móvil"</em> donde aplique. Las dos marcadas están construidas en este prototipo.</p>
+  <div class="toc">
+    <a href="#intro"><div class="n">Empezar</div><div class="t">Qué es esta guía · Tu cuenta y tu marca</div><div class="d">Cómo funciona el panel y por qué tu nombre aparece en la app de tu atleta.</div></a>
+    <a href="#bridge"><div class="n">Tu biblioteca</div><div class="t">Catálogo · Tipos de trabajo · Metodología y fases</div><div class="d">El contenido que es tuyo: ejercicios con vídeo, bloques y el nombre de tus fases.</div></a>
+    <a href="#montar-semana"><div class="n">El plan · 07 ✓</div><div class="t">Monta la semana de tu atleta</div><div class="d">Foco, sesiones por día, dosis y la puerta honesta de guardado. <b>Construido.</b></div></a>
+    <a href="#bridge"><div class="n">El plan</div><div class="t">Dosis · Periodización</div><div class="d">Cómo se mide el trabajo y contra qué objetivo; nombrar y secuenciar fases.</div></a>
+    <a href="#bridge"><div class="n">Asignar y empezar</div><div class="t">Alta e invitación · Intake y tests · Borrador → publicado</div><div class="d">De captar al atleta a que su plan aparezca en su móvil.</div></a>
+    <a href="#estado-entreno"><div class="n">El día a día · 14 ✓</div><div class="t">El estado de cada entreno</div><div class="d">El bucle marcar → ver: adherencia, estados y la cola /hoy. <b>Construido.</b></div></a>
+    <a href="#bridge"><div class="n">El día a día</div><div class="t">Tu pantalla /hoy · Habla con tu atleta</div><div class="d">La cola de decisiones diaria y el chat con notas de voz.</div></a>
+    <a href="#bridge"><div class="n">Seguimiento</div><div class="t">Readiness · Adherencia · Carreras · Progreso</div><div class="d">Check-in matinal, constancia, "Próxima carrera" y la evolución de marcas y tests.</div></a>
+  </div>
+
+  <footer>
+    FAHYBRID · Guía del entrenador — prototipo. 2 secciones construidas + índice completo propuesto. Documento interno para validar estilo y enfoque.
+  </footer>
+
+</div>
+</main>
+</body>
+</html>
