@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análisis HYROX — Simulacro vs Historial (FAHYBRIK)</title>
+<style>
+  /* ───── DOC SHELL (light, readable) — mismo chrome que los pases hermanos ───── */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.6}
+  .container{max-width:1080px;margin:0 auto}
+  h1{font-size:31px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:24px}
+  h2{font-size:22px;font-weight:800;margin:50px 0 6px;letter-spacing:-0.3px;display:flex;align-items:center;gap:11px}
+  h2 .n{font-size:13px;font-weight:800;color:#fff;background:#ff6600;width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  h3{font-size:15.5px;font-weight:700;margin:24px 0 8px;color:#1a1a1a}
+  p{font-size:14.5px;margin-bottom:11px;color:#2a2a2a}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+  b{color:#111}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:20px 24px;margin:14px 0 4px}
+  .principle p{color:#e7e7e2;margin:0;font-size:15px}
+  .principle b{color:#ffb340}
+  .principle .big{font-size:16.5px;font-weight:700;color:#fff;margin-bottom:7px}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:22px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e6e6e1}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+
+  /* status matrix (real vs build) */
+  .stat{background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:16px 18px}
+  .stat .hd{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:11px;display:flex;align-items:center;gap:8px}
+  .stat.ok .hd{color:#0d7a2e}
+  .stat.build .hd{color:#b07000}
+  .stat .hd .b{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff}
+  .stat.ok .hd .b{background:#1aa64b}
+  .stat.build .hd .b{background:#e08a00}
+  .stat ul{list-style:none;padding:0;font-size:13.5px;color:#333}
+  .stat li{padding:6px 0 6px 22px;position:relative;line-height:1.45;border-top:1px solid #f1f1ec}
+  .stat li:first-child{border-top:none}
+  .stat.ok li::before{content:'✓';position:absolute;left:0;color:#1aa64b;font-weight:800}
+  .stat.build li::before{content:'⚙';position:absolute;left:0;color:#e08a00;font-weight:800}
+  .stat li .f{display:block;font-size:11.5px;color:#999;font-family:'Menlo',monospace;margin-top:1px}
+
+  .note{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 18px;margin:10px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.act .h .ic{background:#eef4ff;color:#1a4ba0}
+  .note.copy .h .ic{background:#fdf0e6;color:#b07000}
+  .note.state .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note ul{list-style:none;padding:0;font-size:13.5px;color:#3a3a3a}
+  .note li{padding:5px 0 5px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .note .k{font-weight:700;color:#1a1a1a}
+
+  .risk{background:#fff8ec;border:1px solid #f5d58a;border-radius:10px;padding:13px 16px;margin:12px 0;font-size:13.5px;color:#5a4410;display:flex;gap:11px;align-items:flex-start}
+  .risk .ic{font-size:17px;flex-shrink:0}
+  .risk b{color:#a36b00}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:16px 20px;margin:14px 0}
+  .decision .q{font-weight:800;font-size:15.5px;margin-bottom:10px}
+  .decision .opts{display:flex;flex-direction:column;gap:7px}
+  .decision .opt{font-size:13.5px;padding:9px 13px;border-radius:8px;background:#f8f8f5;border:1px solid #eee;display:flex;gap:10px;align-items:flex-start}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:#bbb;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:1px}
+  .decision .opt.rec .pre{background:#ff6600}
+  .decision .opt b{color:#111}
+
+  /* flow strip */
+  .flow{display:flex;align-items:stretch;margin:16px 0;background:#101010;border-radius:14px;padding:16px 14px;gap:0}
+  .flow .step{flex:1;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+  .flow .step .t{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#ff8a3d;margin-bottom:5px}
+  .flow .step .d{font-size:12.5px;color:#f0f0ec;font-weight:600;line-height:1.35}
+  .flow .step .s{font-size:11px;color:#9a9a94;margin-top:3px;line-height:1.35}
+  .flow .arr{display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#ff6600;width:26px}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  /* ════════ DARK MOCKUP CANVAS (espejo del producto v2 dark) ════════ */
+  .mock{
+    --bg:#0a0a0a;--surface:#141414;--surface2:#1a1a1a;--elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5;--muted:#a1a1a1;--faint:#6e6e6e;
+    --accent:#f06a2a;--accent-fg:#0a0a0a;--accent-soft:rgba(240,106,42,0.14);
+    --ok:#3fc773;--ok-soft:rgba(63,199,115,0.15);
+    --warn:#f2a52e;--warn-soft:rgba(242,165,46,0.15);
+    --danger:#f2504f;--danger-soft:rgba(242,80,79,0.15);
+    --info:#4d9eeb;--info-soft:rgba(77,158,235,0.15);
+    --r-s:8px;--r-m:12px;--r-l:16px;--r-pill:9999px;
+    background:var(--bg);color:var(--fg);border-radius:22px;padding:22px;margin:0;
+    border:1px solid rgba(255,255,255,0.06);box-shadow:0 24px 60px -24px rgba(0,0,0,0.55);
+    font-family:-apple-system,'SF Pro Text','Segoe UI',sans-serif;line-height:1.4;
+    max-width:392px;
+  }
+  .phonewrap{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin:14px 0}
+  .phonewrap .cap{flex:1;min-width:200px;padding-top:6px}
+  .phonewrap .cap .t{font-size:13px;font-weight:800;color:#111;margin-bottom:6px}
+  .phonewrap .cap p{font-size:13px;color:#555;margin-bottom:8px}
+  .mock *{box-sizing:border-box}
+  .mk-num{font-family:'SF Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+  .mk-display{font-weight:900;font-style:italic;letter-spacing:-0.01em;line-height:1}
+  .mk-micro{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+
+  .mk-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .mk-back{font-size:13px;color:var(--muted);font-weight:600}
+  .mk-kicker{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--accent);text-transform:uppercase}
+  .mk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:3px 9px;font-size:10.5px;font-weight:700}
+  .mk-pill.neutral{background:var(--surface2);color:var(--muted)}
+  .mk-pill.accent{background:var(--accent-soft);color:var(--accent)}
+  .mk-pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .mk-pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .mk-pill.danger{background:var(--danger-soft);color:var(--danger)}
+  .mk-pill.info{background:var(--info-soft);color:var(--info)}
+  .mk-pill.lock{background:var(--surface2);color:var(--faint)}
+
+  /* hero finish */
+  .mk-hero{background:linear-gradient(160deg,#1b1b1b,#121212);border:1px solid var(--border);border-radius:var(--r-l);padding:16px 18px;margin:12px 0}
+  .mk-hero .lab{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .mk-hero .big{font-size:40px;font-weight:900;font-style:italic;line-height:1;margin:7px 0 4px;color:var(--fg)}
+  .mk-hero .vs{display:flex;gap:14px;margin-top:10px;font-size:12px}
+  .mk-hero .vs div{flex:1}
+  .mk-hero .vs .v{font-size:16px;font-weight:800;color:var(--fg);font-family:'SF Mono',monospace}
+  .mk-hero .vs .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .mk-delta{font-weight:800;font-family:'SF Mono',monospace}
+  .mk-delta.up{color:var(--ok)} .mk-delta.down{color:var(--danger)} .mk-delta.flat{color:var(--muted)}
+
+  /* segmented control */
+  .mk-seg{display:inline-flex;gap:2px;border-radius:var(--r-pill);padding:2px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:700;width:100%;margin:12px 0 6px}
+  .mk-seg span{flex:1;text-align:center;padding:6px 0;border-radius:var(--r-pill);color:var(--muted)}
+  .mk-seg span.on{background:var(--accent);color:var(--accent-fg)}
+
+  /* station compare rows */
+  .mk-secrow{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:14px 2px 6px;display:flex;justify-content:space-between}
+  .mk-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 11px;margin-bottom:6px}
+  .mk-row .nm{display:flex;align-items:center;gap:8px}
+  .mk-row .ico{width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;background:var(--surface2)}
+  .mk-row .t{font-size:12.5px;font-weight:700;color:var(--fg)}
+  .mk-row .ref{font-size:10px;color:var(--faint)}
+  .mk-row .tm{font-size:14px;font-weight:800;font-family:'SF Mono',monospace;color:var(--fg)}
+  .mk-row .dl{font-size:11.5px;font-weight:800;font-family:'SF Mono',monospace;min-width:48px;text-align:right}
+  .mk-row.best{border-color:rgba(63,199,115,0.35)}
+  .mk-row.worst{border-color:rgba(242,80,79,0.35)}
+  .mk-row .bar{grid-column:1/-1;height:4px;border-radius:3px;background:var(--surface2);margin-top:4px;overflow:hidden;position:relative}
+  .mk-row .bar i{position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--border-strong)}
+  .mk-row .bar b{position:absolute;top:0;bottom:0;border-radius:3px}
+  .dup{background:var(--ok)} .ddn{background:var(--danger)}
+
+  /* run fade chart */
+  .mk-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 16px;margin:10px 0}
+  .mk-card .ct{font-size:12.5px;font-weight:800;color:var(--fg);display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .mk-card .cs{font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.4}
+  .mk-bars{display:flex;align-items:flex-end;gap:6px;height:96px;padding-top:4px}
+  .mk-bars .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%}
+  .mk-bars .bk{width:100%;border-radius:4px 4px 2px 2px;min-height:8px}
+  .mk-bars .bk.lo{background:var(--ok)} .mk-bars .bk.mid{background:var(--warn)} .mk-bars .bk.hi{background:var(--danger)}
+  .mk-bars .lb{font-size:9px;color:var(--faint);font-weight:700}
+  .mk-fadenote{display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--muted)}
+  .mk-fadenote b{color:var(--danger);font-family:'SF Mono',monospace}
+
+  /* insight cards */
+  .mk-ins{display:flex;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 14px;margin:8px 0}
+  .mk-ins .ic{width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .mk-ins.good .ic{background:var(--ok-soft)} .mk-ins.bad .ic{background:var(--danger-soft)} .mk-ins.info .ic{background:var(--info-soft)} .mk-ins.warnb .ic{background:var(--warn-soft)}
+  .mk-ins .tx .h{font-size:12.5px;font-weight:800;color:var(--fg)}
+  .mk-ins .tx .d{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:2px}
+  .mk-ins .tx .d b{color:var(--fg)}
+
+  /* projection gate */
+  .mk-gate{border:1.5px dashed var(--border-strong);border-radius:var(--r-l);padding:18px;text-align:center;margin:10px 0}
+  .mk-gate.open{border-style:solid;border-color:var(--accent-soft);background:linear-gradient(160deg,#181410,#121212);text-align:left}
+  .mk-gate .lk{font-size:22px;margin-bottom:8px}
+  .mk-gate .gt{font-size:13px;font-weight:800;color:var(--fg)}
+  .mk-gate .gs{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .mk-range{display:flex;align-items:baseline;gap:8px;margin:8px 0 2px}
+  .mk-range .r{font-size:30px;font-weight:900;font-style:italic;font-family:'SF Mono',monospace;color:var(--fg)}
+  .mk-range .to{color:var(--faint);font-size:16px}
+  .mk-meter{height:8px;border-radius:6px;background:var(--surface2);margin:12px 0 6px;position:relative;overflow:hidden}
+  .mk-meter b{position:absolute;top:0;bottom:0;left:0;border-radius:6px;background:linear-gradient(90deg,var(--ok),var(--warn))}
+  .mk-meter i{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--accent)}
+  .mk-goalrow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint)}
+
+  .mk-btn{display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:var(--r-s);font-size:12.5px;font-weight:800;width:100%;margin-top:12px}
+  .mk-btn.primary{background:var(--accent);color:var(--accent-fg)}
+  .mk-btn.ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+
+  /* legend chips */
+  .leg{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 2px;font-size:11px;color:#666}
+  .leg span{display:inline-flex;align-items:center;gap:6px}
+  .leg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  /* IA surfaces map */
+  .surfmap{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+  .surfmap .sf{background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:15px 16px;position:relative}
+  .surfmap .sf.home{border-color:#ff6600;box-shadow:0 6px 22px -12px rgba(255,102,0,.4)}
+  .surfmap .sf .tag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:#999;border-radius:5px;padding:2px 8px;display:inline-block;margin-bottom:9px}
+  .surfmap .sf.home .tag{background:#ff6600}
+  .surfmap .sf .nm{font-size:15px;font-weight:800;margin-bottom:3px}
+  .surfmap .sf .rl{font-size:12.5px;color:#555;line-height:1.45}
+  .surfmap .sf .pathx{font-family:'Menlo',monospace;font-size:11px;color:#999;margin-top:8px}
+
+  table.cmp{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;background:#fff;border:1px solid #e8e8e3;border-radius:10px;overflow:hidden}
+  table.cmp th{background:#f3f3ef;text-align:left;padding:9px 12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#777}
+  table.cmp td{padding:9px 12px;border-top:1px solid #f0f0ea;color:#333;vertical-align:top}
+  table.cmp td .mono{font-family:'Menlo',monospace;font-size:12px}
+  .tg{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:5px}
+  .tg.g{background:#e7f6ec;color:#0d7a2e} .tg.r{background:#fdeaea;color:#b3261e} .tg.y{background:#fdf3e3;color:#9a6800}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Análisis HYROX — Simulacro vs Historial</h1>
+  <div class="sub">Pase de diseño para firma · FAHYBRIK · datos reales del atleta #70 (demo) · 2026-06-29</div>
+
+  <div class="principle">
+    <p class="big">El atleta hace un simulacro HYROX → lo comparamos estación por estación con su historial → le decimos dónde gana y dónde sangra tiempo, y a qué meta llega.</p>
+    <p>Vive en <b>Carreras</b> (casa), se asoma como <b>resultado al terminar</b> y desbloquea la <b>proyección de Inicio</b>. Una sola fuente, tres ventanas.</p>
+  </div>
+
+  <!-- ════════════ 1 · QUÉ TENEMOS ════════════ -->
+  <h2><span class="n">1</span> Qué tenemos hoy (real vs por construir)</h2>
+  <div class="grid2">
+    <div class="stat ok">
+      <div class="hd"><span class="b">✓</span> Ya existe y está poblado</div>
+      <ul>
+        <li>Historial con parciales por estación<span class="f">races.station_splits_json · run_splits_json · roxzone_seconds</span></li>
+        <li>Layout HYROX canónico (16 elementos + nombres)<span class="f">shared/schema/hyrox-layout.ts</span></li>
+        <li>Tiempo de meta → nivel (umbrales de Pablo)<span class="f">scoreHyroxTime() · level-algorithm.ts</span></li>
+        <li>Estructura de ejecución por segmento<span class="f">segment_executions: modality, pace, hr…</span></li>
+        <li>Forma de la proyección ya tipada<span class="f">HyroxPrediction · HyroxStationPrediction</span></li>
+        <li>Marca de "es de dobles" (splits de equipo)<span class="f">is_team_result = format ≠ singles</span></li>
+      </ul>
+    </div>
+    <div class="stat build">
+      <div class="hd"><span class="b">⚙</span> Falta construir</div>
+      <ul>
+        <li>El simulacro como sesión de 16 segmentos<span class="f">hoy es 1 ejercicio compacto → 0 parciales</span></li>
+        <li>Resolver: ejecución del simulacro → parciales<span class="f">leer segment_executions → 8 runs+8 est.+roxzone</span></li>
+        <li>Motor de comparación (sim vs referencia)<span class="f">shared/domain/hyrox/compare.ts (nuevo)</span></li>
+        <li>Modelo de proyección (hoy es null)<span class="f">loadHyroxPrediction() devuelve null</span></li>
+        <li>Pantallas: análisis, resultado, puerta Inicio<span class="f">iOS Carreras + Inicio · coach mirror</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="risk"><span class="ic">⚠</span><div><b>El eslabón que falta de raíz:</b> hoy el simulacro se guarda como un único ejercicio (tiempo+distancia+HR), sin desglose. Para comparar hay que modelarlo como una sesión de 16 segmentos (el layout canónico ya existe) para que cada run/estación caiga en <code>segment_executions</code>. Eso es el prerequisito; lo demás se apoya en datos que ya tenemos.</div></div>
+
+  <!-- ════════════ 2 · LA COMPARACIÓN ════════════ -->
+  <h2><span class="n">2</span> La comparación: elemento por elemento</h2>
+  <p>HYROX es fijo: <b>8 carreras de 1 km</b> intercaladas con <b>8 estaciones</b> + el <b>RoxZone</b> (transiciones). El simulacro produce los mismos 17 parciales que una carrera real → se alinean uno a uno.</p>
+
+  <div class="flow">
+    <div class="step"><div class="t">Simulacro</div><div class="d">16 segmentos</div><div class="s">runs + estaciones medidos</div></div>
+    <div class="arr">+</div>
+    <div class="step"><div class="t">Historial</div><div class="d">tu mejor / tu último</div><div class="s">de carreras y simulacros</div></div>
+    <div class="arr">→</div>
+    <div class="step"><div class="t">Alineación</div><div class="d">por índice 1–16</div><div class="s">+ RoxZone + totales</div></div>
+    <div class="arr">→</div>
+    <div class="step"><div class="t">Delta</div><div class="d">+ rápido / − lento</div><div class="s">dónde ganas, dónde sangras</div></div>
+  </div>
+
+  <h3>Contra qué se compara cada elemento (3 referencias, una por defecto)</h3>
+  <table class="cmp">
+    <tr><th>Referencia</th><th>Qué responde</th><th>De dónde sale</th></tr>
+    <tr><td><b>Tu mejor</b> <span class="tg g">por defecto</span></td><td>¿Es tu mejor marca en esta estación?</td><td class="mono">mín. del elemento en todos tus simulacros + carreras comparables</td></tr>
+    <tr><td><b>Tu último</b></td><td>¿Voy mejor o peor que la última vez?</td><td class="mono">simulacro/carrera anterior</td></tr>
+    <tr><td><b>Tu meta</b></td><td>¿A qué ritmo tendría que ir para mi objetivo?</td><td class="mono">goal_time_seconds repartido por elemento</td></tr>
+  </table>
+
+  <!-- ════════════ 3 · EL AVISO DOBLES ════════════ -->
+  <h2><span class="n">3</span> El aviso de honestidad: dobles ≠ individual</h2>
+  <p>El atleta #70 tiene <b>4 HYROX, todas en DOBLES</b>. En dobles el trabajo de estación se reparte entre dos → esos tiempos <b>no</b> son comparables a un simulacro individual. Pero correr <b>no</b> se reparte: cada uno corre sus 8 km. El modelo lo separa por eje, sin texto libre:</p>
+
+  <div class="grid3">
+    <div class="note state"><div class="h"><span class="ic">✓</span> Correr — comparable</div><ul><li>En dobles corres los 8 km tú solo</li><li>Sim run <span class="k">vs</span> carrera real, manzana con manzana</li><li><b>Disponible HOY</b> para el #70</li></ul></div>
+    <div class="note copy"><div class="h"><span class="ic">½</span> RoxZone — parcial</div><ul><li>Hay transiciones en ambos formatos</li><li>Pero el flujo de dobles es distinto</li><li>Se muestra, con matiz</li></ul></div>
+    <div class="note act"><div class="h"><span class="ic">🔒</span> Estaciones — aún no</div><ul><li>Dobles = mitad del trabajo</li><li>No comparable a individual</li><li><b>El 1er simulacro fija la línea base</b></li></ul></div>
+  </div>
+  <div class="risk"><span class="ic">🎯</span><div><b>Esto convierte el simulacro en la pieza que desbloquea:</b> como el historial es de dobles, la proyección individual no se puede construir solo con carreras. El primer simulacro individual es exactamente lo que crea la línea base de estaciones. La "puerta honesta" de Inicio gana sentido sola.</div></div>
+
+  <!-- ════════════ 4 · MOCKUP COMPARACIÓN ════════════ -->
+  <h2><span class="n">4</span> Pantalla de comparación <span style="font-size:13px;font-weight:600;color:#999">(iOS · Carreras → Análisis HYROX)</span></h2>
+  <div class="leg">
+    <span><i style="background:#3fc773"></i> más rápido que tu referencia</span>
+    <span><i style="background:#f2504f"></i> más lento</span>
+    <span><i style="background:#1a1a1a;border:1px solid #ccc"></i> datos reales del #70 en verde · simulacro = ejemplo</span>
+  </div>
+
+  <div class="phonewrap">
+    <div class="mock">
+      <div class="mk-topbar">
+        <span class="mk-back">‹ Carreras</span>
+        <span class="mk-kicker">Análisis HYROX</span>
+      </div>
+
+      <div class="mk-hero">
+        <div class="lab">Simulacro individual · 28 jun</div>
+        <div class="big mk-num">1:04:20</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="mk-pill ok">2º simulacro</span><span class="mk-pill accent">Nivel 3 · sub-65</span><span class="mk-pill info">meta 1:00:00</span></div>
+        <div class="vs">
+          <div><div class="k">vs tu meta</div><div class="v mk-delta down">+4:20</div></div>
+          <div><div class="k">vs sim anterior</div><div class="v mk-delta up">−2:10</div></div>
+          <div><div class="k">correr · vs mejor carrera</div><div class="v mk-delta down">+1:38</div></div>
+        </div>
+      </div>
+
+      <div class="mk-seg"><span>Resumen</span><span class="on">Estaciones</span><span>Correr</span></div>
+
+      <div class="mk-secrow"><span>Estación</span><span>tu mejor · Δ</span></div>
+
+      <div class="mk-row best">
+        <div class="nm"><span class="ico">🚣</span><div><div class="t">Row 1 km</div><div class="ref">vs tu mejor 4:25</div></div></div>
+        <div class="tm mk-num">4:18</div><div class="dl mk-delta up">−0:07</div>
+        <div class="bar"><i></i><b class="dup" style="right:50%;width:9%"></b></div>
+      </div>
+      <div class="mk-row">
+        <div class="nm"><span class="ico">⛷️</span><div><div class="t">SkiErg 1 km</div><div class="ref">vs tu mejor 4:12</div></div></div>
+        <div class="tm mk-num">4:20</div><div class="dl mk-delta down">+0:08</div>
+        <div class="bar"><i></i><b class="ddn" style="left:50%;width:10%"></b></div>
+      </div>
+      <div class="mk-row">
+        <div class="nm"><span class="ico">🛷</span><div><div class="t">Sled push</div><div class="ref">vs tu mejor 3:02</div></div></div>
+        <div class="tm mk-num">3:10</div><div class="dl mk-delta down">+0:08</div>
+        <div class="bar"><i></i><b class="ddn" style="left:50%;width:11%"></b></div>
+      </div>
+      <div class="mk-row worst">
+        <div class="nm"><span class="ico">🧱</span><div><div class="t">Wall ball ×100</div><div class="ref">vs tu mejor 5:05</div></div></div>
+        <div class="tm mk-num">5:40</div><div class="dl mk-delta down">+0:35</div>
+        <div class="bar"><i></i><b class="ddn" style="left:50%;width:34%"></b></div>
+      </div>
+      <div class="mk-row">
+        <div class="nm"><span class="ico">🎒</span><div><div class="t">Sandbag lunge</div><div class="ref">vs tu mejor 4:18</div></div></div>
+        <div class="tm mk-num">4:30</div><div class="dl mk-delta down">+0:12</div>
+        <div class="bar"><i></i><b class="ddn" style="left:50%;width:14%"></b></div>
+      </div>
+      <div style="text-align:center;font-size:11px;color:var(--faint);margin-top:8px">+ Sled pull · Burpee BJ · Farmer carry</div>
+    </div>
+
+    <div class="cap">
+      <div class="t">Lo que ve el atleta de un vistazo</div>
+      <p><b>Cabecera:</b> tiempo total + nivel (vía <code>scoreHyroxTime</code>, ya existe) + 3 deltas: vs meta, vs sim anterior, y correr vs su mejor carrera real.</p>
+      <p><b>Lista de estaciones</b> ordenada, cada una con su tiempo, su mejor y el delta en color. Barra centrada: verde a la izquierda = ganas, rojo a la derecha = sangras. El borde resalta la mejor y la peor.</p>
+      <p><b>Pestañas</b> Resumen / Estaciones / Correr. En el 1er simulacro las estaciones salen como <span class="tg y">línea base</span> (sin delta); del 2º en adelante comparan sim-vs-sim.</p>
+    </div>
+  </div>
+
+  <!-- ════════════ 5 · MÉTRICAS ════════════ -->
+  <h2><span class="n">5</span> Las métricas que proponemos</h2>
+  <p>Cinco lecturas, todas calculables desde los parciales. Las marcadas <span class="tg g">real #70</span> salen ya de sus datos.</p>
+
+  <div class="phonewrap">
+    <div class="mock">
+      <div class="mk-secrow" style="margin-top:0"><span>Lecturas</span><span>simulacro 28 jun</span></div>
+
+      <div class="mk-ins good">
+        <span class="ic">💪</span>
+        <div class="tx"><div class="h">Tu punto fuerte: el Row</div><div class="d">Por debajo de tu mejor marca. <b>Aquí no pierdes</b> — mantén.</div></div>
+      </div>
+      <div class="mk-ins bad">
+        <span class="ic">🩸</span>
+        <div class="tx"><div class="h">Dónde sangras: Wall balls</div><div class="d"><b>+0:35</b> sobre tu mejor. La estación que más te cuesta hoy.</div></div>
+      </div>
+      <div class="mk-ins warnb">
+        <span class="ic">📉</span>
+        <div class="tx"><div class="h">Tu carrera se desmorona <span class="mk-pill danger" style="margin-left:4px">real #70</span></div><div class="d">Última carrera: <b>3:55 → 5:07</b> del km 1 al 8 · <b>+12%</b>. Llegas a las estaciones con las piernas vacías.</div></div>
+      </div>
+      <div class="mk-ins info">
+        <span class="ic">🎯</span>
+        <div class="tx"><div class="h">Proyección de meta</div><div class="d">Si juntas tus mejores parciales: <b>1:01:30–1:04:00</b>. Tu meta 1:00:00 está <b>a 1:30</b>.</div></div>
+      </div>
+      <div class="mk-ins info">
+        <span class="ic">📈</span>
+        <div class="tx"><div class="h">Tendencia</div><div class="d">2º simulacro <b>−2:10</b> vs el 1º. Vas hacia tu meta.</div></div>
+      </div>
+    </div>
+
+    <div class="cap">
+      <div class="t">El dato estrella es real y ya duele</div>
+      <p>El "running comprometido" del #70 no es teórico: sus 4 carreras muestran fatiga creciente carrera a carrera —</p>
+      <table class="cmp" style="font-size:12px">
+        <tr><th>Carrera</th><th>km1→km8</th><th>fade</th></tr>
+        <tr><td>Bilbao</td><td class="mono">4:49→4:16</td><td><span class="tg g">−1%</span></td></tr>
+        <tr><td>BCN abr</td><td class="mono">3:56→4:29</td><td><span class="tg y">+4%</span></td></tr>
+        <tr><td>Madrid</td><td class="mono">4:06→4:51</td><td><span class="tg y">+5%</span></td></tr>
+        <tr><td>BCN may</td><td class="mono">3:55→5:07</td><td><span class="tg r">+12%</span></td></tr>
+      </table>
+      <p style="font-size:12.5px;color:#666">Sale solo de <code>run_splits_json</code>, sin construir nada nuevo. El simulacro confirma si el trabajo de bloque lo está corrigiendo.</p>
+    </div>
+  </div>
+
+  <h3>El gráfico de "running comprometido" (datos reales BCN may · #70)</h3>
+  <div class="mock" style="max-width:520px">
+    <div class="mk-card" style="margin:0">
+      <div class="ct">📉 Tus 8 carreras se van apagando</div>
+      <div class="cs">Cada barra = 1 km. Verde fresco → rojo fundido. La diferencia entre tu primera mitad y tu segunda mitad es el tiempo que te come ir a las estaciones cansado.</div>
+      <div class="mk-bars">
+        <div class="col"><div class="bk lo" style="height:46%"></div><div class="lb">3:55</div></div>
+        <div class="col"><div class="bk lo" style="height:54%"></div><div class="lb">4:11</div></div>
+        <div class="col"><div class="bk mid" style="height:74%"></div><div class="lb">4:50</div></div>
+        <div class="col"><div class="bk mid" style="height:72%"></div><div class="lb">4:46</div></div>
+        <div class="col"><div class="bk mid" style="height:72%"></div><div class="lb">4:46</div></div>
+        <div class="col"><div class="bk hi" style="height:75%"></div><div class="lb">4:51</div></div>
+        <div class="col"><div class="bk hi" style="height:90%"></div><div class="lb">5:03</div></div>
+        <div class="col"><div class="bk hi" style="height:100%"></div><div class="lb">5:07</div></div>
+      </div>
+      <div class="mk-fadenote"><span>1ª mitad media <b style="color:var(--ok)">4:26</b></span><span>2ª mitad media <b>4:57</b> · cae <b>+31s/km (+12%)</b></span></div>
+    </div>
+  </div>
+
+  <!-- ════════════ 6 · PROYECCIÓN ════════════ -->
+  <h2><span class="n">6</span> El motor de proyección (boceto)</h2>
+  <p>La forma ya está tipada (<code>HyroxPrediction</code>). El cálculo, honesto, en una línea:</p>
+
+  <div class="principle" style="font-family:'Menlo',monospace;font-size:13.5px">
+    <p style="color:#ffb340"><b>proyección</b> = Σ(8 mejores runs) + Σ(8 mejores estaciones) + mejor RoxZone</p>
+    <p style="color:#cfcfca;margin-top:8px">→ se muestra como <b style="color:#fff">RANGO</b>, no como número único:</p>
+    <p style="color:#cfcfca;margin-top:4px"><b style="color:#3fc773">techo</b> = suma de tus mejores parciales &nbsp;·&nbsp; <b style="color:#f2a52e">realista</b> = + margen por la merma observada (tus mejores nunca caen el mismo día)</p>
+    <p style="color:#cfcfca;margin-top:8px">delta_meta = proyección − meta &nbsp;·&nbsp; nivel = scoreHyroxTime(proyección)</p>
+  </div>
+
+  <div class="note copy"><div class="h"><span class="ic">!</span> Supuestos que decimos en claro (no escondemos)</div><ul>
+    <li><span class="k">El techo es optimista:</span> casi nunca juntas todos tus mejores parciales el mismo día → por eso un rango, no un número.</li>
+    <li><span class="k">Usamos los runs del simulacro, no un test de 1 km aislado:</span> el simulacro corre cansado, entre estaciones → más honesto que un ritmo "fresco".</li>
+    <li><span class="k">Con historial solo de dobles</span> la proyección individual arranca <span class="tg y">a medias</span>: correr proyecta ya; estaciones se completan con el 1er simulacro individual.</li>
+  </ul></div>
+
+  <h3>La proyección vive en la puerta de Inicio (antes bloqueada → ahora abierta)</h3>
+  <div class="phonewrap">
+    <div class="mock" style="max-width:360px">
+      <div class="mk-micro" style="margin-bottom:8px">Inicio · Proyección</div>
+      <div class="mk-gate">
+        <div class="lk">🔒</div>
+        <div class="gt">¿Llegas a tu objetivo?</div>
+        <div class="gs">Haz tu primer simulacro HYROX y te diremos a qué tiempo llegas hoy — sin humo.</div>
+        <div class="mk-btn primary" style="background:var(--accent)">Empezar simulacro</div>
+      </div>
+      <div class="mk-micro" style="margin:12px 0 6px;color:var(--faint)">— antes del simulacro</div>
+    </div>
+
+    <div class="mock" style="max-width:360px">
+      <div class="mk-micro" style="margin-bottom:8px">Inicio · Proyección</div>
+      <div class="mk-gate open">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="gt">A tu ritmo de hoy llegas a</div>
+          <span class="mk-pill accent">Nivel 3</span>
+        </div>
+        <div class="mk-range"><span class="r">1:01:30</span><span class="to">–</span><span class="r" style="color:var(--warn)">1:04:00</span></div>
+        <div class="mk-meter"><b style="width:62%"></b><i style="left:50%"></i></div>
+        <div class="mk-goalrow"><span>techo</span><span style="color:var(--accent)">meta 1:00:00</span><span>realista</span></div>
+        <div class="gs" style="margin-top:10px">Estás <b style="color:var(--fg)">a 1:30</b> de tu meta. Tu freno: la <b style="color:var(--fg)">carrera de la 2ª mitad</b>.</div>
+        <div class="mk-btn ghost">Ver análisis completo ›</div>
+      </div>
+      <div class="mk-micro" style="margin:12px 0 6px;color:var(--ok)">— después del simulacro</div>
+    </div>
+  </div>
+
+  <!-- ════════════ 7 · DÓNDE VIVE ════════════ -->
+  <h2><span class="n">7</span> En qué pantalla vive — recomendación</h2>
+  <p>No es una u otra: <b>un componente, tres ventanas</b>, para no fragmentar la navegación.</p>
+
+  <div class="surfmap">
+    <div class="sf home">
+      <span class="tag">Casa · canónica</span>
+      <div class="nm">Carreras → Análisis HYROX</div>
+      <div class="rl">El análisis completo: estaciones, correr, métricas, tendencia entre simulacros. Se construye una vez aquí.</div>
+      <div class="pathx">iOS CarrerasView.swift</div>
+    </div>
+    <div class="sf">
+      <span class="tag">Primer impacto</span>
+      <div class="nm">Resultado al terminar</div>
+      <div class="rl">Al cerrar el simulacro, el mismo componente como "acabas de hacerlo". Momento de máxima emoción.</div>
+      <div class="pathx">reusa el componente de Carreras</div>
+    </div>
+    <div class="sf">
+      <span class="tag">Resumen diario</span>
+      <div class="nm">Puerta de Inicio</div>
+      <div class="rl">Solo el titular: rango vs meta + nivel. Se desbloquea con ≥1 simulacro y lleva a Carreras.</div>
+      <div class="pathx">InicioView.swift · puerta honesta</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">¿Por qué Carreras como casa y no una pestaña nueva ni Inicio?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Elegido</span><div><b>Carreras</b> ya es el hub de HYROX del atleta: PASADAS (carreras reales con parciales), RENDIMIENTO (analítica). El análisis del simulacro <b>es dato de carrera</b> → encaja sin inventar IA nueva.</div></div>
+      <div class="opt"><span class="pre">No</span><div><b>Pestaña nueva</b> "Simulacros" → fragmenta la navegación; el simulacro y la carrera real cuentan la misma historia, deben estar juntos.</div></div>
+      <div class="opt"><span class="pre">No</span><div><b>Solo Inicio</b> → Inicio es vistazo diario, no análisis profundo. Se queda con el titular (la puerta), no con el detalle.</div></div>
+    </div>
+  </div>
+
+  <div class="note act"><div class="h"><span class="ic">👤</span> Lado coach (espejo)</div><ul>
+    <li>Mismo análisis en <span class="k">Detalle de atleta → pestaña Carreras</span> (<code>CarrerasTab.tsx</code>), donde ya ve carreras + objetivos.</li>
+    <li>El coach <span class="k">lee y anota</span> — mismo patrón que la simulación de dobles ya existente (<code>dobles_simulations</code>: coach escribe, atleta lee).</li>
+  </ul></div>
+
+  <!-- ════════════ 8 · QUÉ CONSTRUIR ════════════ -->
+  <h2><span class="n">8</span> Qué hay que construir (orden)</h2>
+  <table class="cmp">
+    <tr><th>#</th><th>Pieza</th><th>Dónde</th><th>Apoyo</th></tr>
+    <tr><td>1</td><td><b>Simulacro = sesión de 16 segmentos</b> con el layout canónico</td><td class="mono">template del simulacro</td><td><span class="tg g">layout ya existe</span></td></tr>
+    <tr><td>2</td><td><b>Resolver</b> ejecución → 8 runs + 8 estaciones + RoxZone + totales (forma idéntica a los splits de carrera)</td><td class="mono">shared/domain/hyrox/resolve.ts</td><td><span class="tg g">segment_executions listo</span></td></tr>
+    <tr><td>3</td><td><b>Motor de comparación</b>: alinea sim vs referencia, tipado por formato (solo compara ejes comparables)</td><td class="mono">shared/domain/hyrox/compare.ts</td><td><span class="tg g">is_team_result existe</span></td></tr>
+    <tr><td>4</td><td><b>Modelo de proyección</b>: rango techo–realista + delta meta + nivel</td><td class="mono">loadHyroxPrediction()</td><td><span class="tg g">tipo + scoreHyroxTime listos</span></td></tr>
+    <tr><td>5</td><td><b>UI</b>: Análisis en Carreras + resultado post-sim + puerta Inicio + espejo coach</td><td class="mono">iOS + CarrerasTab.tsx</td><td><span class="tg y">pantallas a montar</span></td></tr>
+    <tr><td>6</td><td><i>(opcional)</i> HYROX como tipo de test que refresca anclas de ritmo</td><td class="mono">methodology_tests</td><td><span class="tg y">futuro</span></td></tr>
+  </table>
+
+  <div class="risk"><span class="ic">✅</span><div><b>Verificado contra repo + BD demo (ep-flat-wind):</b> #70 tiene 4 HYROX completadas (todas dobles) con parciales reales + 2 individuales planeadas (metas 1:00:00 y 0:59:00). <code>station_splits_json</code> = {index,seconds,rank} en índices 2–16. <code>loadHyroxPrediction()</code> devuelve null. <code>scoreHyroxTime()</code> mapea tiempo→nivel. El fade de carrera (+12% en BCN may) sale ya de <code>run_splits_json</code>. Todos los nombres de estación salen de <code>hyrox-layout.ts</code>.</div></div>
+
+  <footer>
+    FAHYBRIK · Pase de diseño "Análisis HYROX — Simulacro vs Historial" · datos reales atleta #70 (demo) · simulacro de ejemplo marcado como tal · 2026-06-29
+  </footer>
+
+</div>
+</body>
+</html>
