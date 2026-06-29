@@ -9,6 +9,11 @@ import UIKit
 struct ActiveWorkoutView: View {
     @State var session: WorkoutSession
     let onFinish: () -> Void
+    /// Leave the workout WITHOUT recording anything (clean discard): no execution
+    /// saved, the session is never marked done. Distinct from `onFinish`, which
+    /// routes to the post-workout summary that LOGS the result. Exiting via this
+    /// closure returns the athlete to a still-pending session.
+    let onExit: () -> Void
 
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
@@ -186,7 +191,8 @@ struct ActiveWorkoutView: View {
                 segments: segs,
                 canGoBack: session.canStepBack,
                 onEmpezar: { session.beginBlock() },
-                onBack: { requestBack() }
+                onBack: { requestBack() },
+                onExit: { requestExit() }
             )
         }
     }
@@ -267,6 +273,19 @@ struct ActiveWorkoutView: View {
 
     private var topStrip: some View {
         HStack {
+            // Exit (top-left): leave the workout without recording anything. The
+            // athlete is never trapped. Confirms only when there's unsaved captured
+            // work (a recorded lap, confirmed reps, live progress); a just-started
+            // run with nothing logged exits immediately.
+            Button(action: { requestExit() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(width: 26, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Salir del entreno")
             Button(action: {
                 session.togglePause()
                 if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
@@ -583,6 +602,31 @@ struct ActiveWorkoutView: View {
     private func jumpTargetTitle(_ index: Int) -> String {
         guard index >= 0, index < session.plan.segments.count else { return "—" }
         return session.plan.segments[index].title
+    }
+
+    // True when the session holds captured work that exiting would discard — a
+    // recorded lap (a finished segment / earlier block) OR live progress on the
+    // current segment. The very first block-preview gate (nothing started) and a
+    // just-tapped-Empezar segment are both false → exit is immediate there.
+    private var sessionHasRecordedWork: Bool {
+        !session.laps.isEmpty || session.currentSegmentHasLiveProgress
+    }
+
+    // Exit affordance (preview gate + in-progress HUD). Leaves the workout WITHOUT
+    // recording anything — no execution is saved and the session is NOT marked done
+    // (exit ≠ terminar). Confirms only when discarding would lose captured work;
+    // otherwise exits immediately.
+    private func requestExit() {
+        if sessionHasRecordedWork {
+            pendingNav = PendingNav(
+                title: "¿Salir del entreno?",
+                message: "Perderás lo no guardado. No se registrará como hecho.",
+                confirmTitle: "Salir",
+                action: { onExit() }
+            )
+        } else {
+            onExit()
+        }
     }
 
     // The "Terminar bloque" confirm. For an EMOM it names the honest partial

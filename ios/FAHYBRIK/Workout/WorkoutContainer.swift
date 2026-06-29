@@ -33,10 +33,17 @@ struct WorkoutContainer: View {
         // brief renders from when available. The detail is nil for ad-hoc /
         // title-only sessions, where the brief falls back to the flat plan.
         case ready(WorkoutPlan, AssignmentDetail?)
+        // A REAL assignment whose prescription couldn't be loaded (offline / auth /
+        // server error / no workout body). We surface this honestly with a retry
+        // instead of fabricating a fake title-only "Sesión" the athlete could
+        // pointlessly "complete" — the real block content (warmup, EMOM, …) always
+        // comes from the detail endpoint; when it can't load we say so.
+        case failed
 
         static func == (lhs: LoadState, rhs: LoadState) -> Bool {
             switch (lhs, rhs) {
             case (.loading, .loading): return true
+            case (.failed, .failed): return true
             case let (.ready(a, _), .ready(b, _)): return a.id == b.id
             default: return false
             }
@@ -65,6 +72,8 @@ struct WorkoutContainer: View {
                 loadingView
             case let .ready(plan, detail):
                 content(plan: plan, detail: detail)
+            case .failed:
+                failedView
             }
 
             if let recovery = crashRecoveryPrompt {
@@ -109,10 +118,22 @@ struct WorkoutContainer: View {
                 )
             case .active:
                 if let session {
-                    ActiveWorkoutView(session: session, onFinish: {
-                        Haptics.heavy()
-                        phase = .summary
-                    })
+                    ActiveWorkoutView(
+                        session: session,
+                        onFinish: {
+                            Haptics.heavy()
+                            phase = .summary
+                        },
+                        // Clean exit: leave the workout WITHOUT recording anything.
+                        // No execution is saved and the session is never marked done
+                        // — the athlete returns to a still-pending session, as if they
+                        // never entered. Clearing the autosaved snapshot leaves no
+                        // crash-recovery trace of the discarded run.
+                        onExit: {
+                            Task { await WorkoutStateStore.shared.clear() }
+                            onClose()
+                        }
+                    )
                     .toolbar(.hidden, for: .tabBar)
                 }
             case .summary:
@@ -153,10 +174,59 @@ struct WorkoutContainer: View {
         }
     }
 
-    // Load the real workout body. Prefer the on-device cache for an instant
-    // brief, then fetch the authoritative detail. Falls back to the title-only
-    // minimal plan only when there is no assignment or the fetch fails — never
-    // an empty shell when the real prescription is available.
+    // Honest "couldn't load" state for a REAL assignment whose prescription failed
+    // to load (offline / auth / server / no workout body). We never fabricate a
+    // fake "Sesión" the athlete could complete — we show the session name we know,
+    // a retry, and a clean way out.
+    private var failedView: some View {
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            VStack(spacing: Theme.Spacing.l) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                VStack(spacing: Theme.Spacing.xs) {
+                    Text("No pudimos cargar tu entreno")
+                        .font(Theme.Typography.headlineS)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .multilineTextAlignment(.center)
+                    if let title = fallbackTitle, !title.isEmpty {
+                        Text(title)
+                            .font(Theme.Typography.small)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    Text("Revisa tu conexión e inténtalo de nuevo.")
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                        .multilineTextAlignment(.center)
+                }
+                VStack(spacing: Theme.Spacing.s) {
+                    PrimaryButton(title: "Reintentar") {
+                        loadState = .loading
+                        Task { await loadPlan() }
+                    }
+                    SecondaryButton(title: "Salir") { onClose() }
+                }
+                .frame(maxWidth: 320)
+            }
+            .padding(Theme.Spacing.xl)
+        }
+    }
+
+    // Load the real workout body. Prefer the on-device cache for an instant brief,
+    // then fetch the authoritative detail.
+    //
+    // ROOT-CAUSE NOTE (the "Sesión" bug): the detail endpoint returns the FULL
+    // prescription (warmup + EMOM + cooldown) for a session even when it's already
+    // executed — being completed does NOT empty the payload (verified against real
+    // data). So a generic "Sesión" preview was never the real content: it was the
+    // title-only `WorkoutPlan.minimal` fallback this method used to fabricate
+    // whenever the load couldn't complete (offline / auth / server). That fake
+    // single-segment plan let the athlete "do" a meaningless session. We no longer
+    // fabricate for a REAL assignment — we either show the real content (cache or
+    // fetch) or fail honestly (.failed → retry). `minimal` survives ONLY for a
+    // genuinely ad-hoc session (no assignment), where a title-only freeform plan
+    // IS the real content (there is no prescription to load).
     private func loadPlan() async {
         guard case .loading = loadState else { return }
 
@@ -171,9 +241,9 @@ struct WorkoutContainer: View {
         }
 
         guard let bearer else {
-            if case .loading = loadState {
-                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
-            }
+            // No bearer to fetch with: keep the cached real plan if we have one,
+            // otherwise fail honestly — never a fabricated "Sesión".
+            if case .loading = loadState { loadState = .failed }
             return
         }
 
@@ -183,14 +253,14 @@ struct WorkoutContainer: View {
             if let plan = WorkoutPlan.from(detail: detail) {
                 loadState = .ready(plan, detail)
             } else if case .loading = loadState {
-                // Rest day (no workout body) reached via EMPEZAR — degrade to the
-                // minimal plan rather than blocking on the spinner.
-                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
+                // Fetched, but there is no runnable workout body (rest day / empty).
+                // Surface it honestly rather than inventing a fake session.
+                loadState = .failed
             }
         } catch {
-            if case .loading = loadState {
-                loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
-            }
+            // Offline / auth / server error. Keep the cached real plan if the cache
+            // already gave us one; otherwise fail honestly with a retry.
+            if case .loading = loadState { loadState = .failed }
         }
     }
 

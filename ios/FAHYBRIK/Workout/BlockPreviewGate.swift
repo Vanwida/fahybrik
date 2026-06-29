@@ -32,6 +32,9 @@ struct BlockPreviewGate: View {
     let canGoBack: Bool
     let onEmpezar: () -> Void
     let onBack: () -> Void
+    /// Leave the workout from the gate WITHOUT recording anything (clean discard).
+    /// The athlete is never trapped on the "ready" screen.
+    let onExit: () -> Void
 
     // One displayable work line. An alternating EMOM expands to one row per
     // distinct movement in the rotation; everything else is one row per segment.
@@ -90,6 +93,20 @@ struct BlockPreviewGate: View {
 
     private var topRow: some View {
         HStack(spacing: Theme.Spacing.m) {
+            // Exit (top-left): leave the workout without starting / recording
+            // anything. Clean discard — the session stays pending.
+            Button(action: { Haptics.light(); onExit() }) {
+                ZStack {
+                    Circle().fill(Theme.Color.surfaceElevated)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                .frame(width: 34, height: 34)
+                .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Salir del entreno")
             if canGoBack {
                 Button(action: { Haptics.light(); onBack() }) {
                     ZStack {
