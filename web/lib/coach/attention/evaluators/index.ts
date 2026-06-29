@@ -35,6 +35,11 @@ import {
   monthlyBlockPendingEvaluator,
   billingAtRiskEvaluator,
 } from './queue';
+import {
+  testLoggedEvaluator,
+  raceCompletedEvaluator,
+  testDueEvaluator,
+} from './progression';
 import { FLAGGED_OFF_EVALUATORS } from './flagged-off';
 
 const BACKED_EVALUATORS: SignalEvaluator[] = [
@@ -53,6 +58,9 @@ const BACKED_EVALUATORS: SignalEvaluator[] = [
   weekAdjustmentPendingEvaluator,
   monthlyBlockPendingEvaluator,
   billingAtRiskEvaluator,
+  testLoggedEvaluator,
+  raceCompletedEvaluator,
+  testDueEvaluator,
 ];
 
 /**

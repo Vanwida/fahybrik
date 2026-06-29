@@ -55,6 +55,10 @@ export const SIGNAL_KINDS = [
   'programming_status',
   'microcycle_ending',
   'a_event_near',
+  // Progression / test events (KEYSTONE-fed: a post-onboarding test or a finished
+  // race converts athlete improvement into a coach action — review / progress).
+  'test_logged',
+  'race_completed',
   // Coach-queue decision items (fed by existing loaders, persisted here so the
   // HOY queue is ONE indexed read instead of N+1 across surfaces)
   'intake_pending',
@@ -62,8 +66,8 @@ export const SIGNAL_KINDS = [
   'monthly_block_pending',
   // Operational (extracted from inbox.ts listInboxAlerts)
   'billing_at_risk',
-  // ── F7 follow-up — evaluator FLAGGED-OFF, emits nothing until backed ────────
   'test_due',
+  // ── F7 follow-up — evaluator FLAGGED-OFF, emits nothing until backed ────────
   'video_review_pending',
   'mass_adjustment_pending',
   'compliance_drop',
@@ -77,7 +81,6 @@ export type SignalKind = (typeof SIGNAL_KINDS)[number];
  * single flag flip (plus the F7 migration) turns them on. They emit NOTHING now.
  */
 export const FLAGGED_OFF_SIGNAL_KINDS = [
-  'test_due',
   'video_review_pending',
   'mass_adjustment_pending',
   'compliance_drop',
@@ -157,6 +160,23 @@ export interface SignalFacts {
   billing_risk: 'past_due' | 'renewal_soon' | null;
   /** Days to period end when billing_risk === 'renewal_soon'. */
   billing_days_to_period_end: number | null;
+
+  // Progression / test events (KEYSTONE-fed — real athlete_benchmarks history)
+  /** Timestamp of the athlete's most recent POST-onboarding test (a coach/athlete
+   *  benchmark row), or null. Drives test_logged. */
+  latest_test_at: Date | null;
+  /** Human label of that test's benchmark (e.g. "Umbral carrera", "Back squat"). */
+  latest_test_label: string | null;
+  /** That test beat every prior value for its benchmark (direction-aware PR). */
+  latest_test_is_pr: boolean;
+  /** Whole days since the athlete's most recent test of ANY kind (incl. onboarding),
+   *  or null when they have no benchmark at all. Drives test_due. */
+  days_since_last_test: number | null;
+  /** Timestamp a finished race result was imported/recorded, or null. Drives
+   *  race_completed. */
+  latest_race_completed_at: Date | null;
+  latest_race_name: string | null;
+  latest_race_id: string | null;
 }
 
 // ── Result (the per-fired-signal output) ──────────────────────────────────────

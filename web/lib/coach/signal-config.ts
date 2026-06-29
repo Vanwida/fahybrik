@@ -80,6 +80,14 @@ export const SIGNAL_THRESHOLDS = {
   a_event_near_days: 30,
   /** Max attention cards surfaced in the HOY queue before paginating. */
   queue_card_limit: 15,
+
+  // ── Progression / test events (KEYSTONE loop) ─────────────────────────────
+  /** A post-onboarding test logged within this many days → test_logged (review). */
+  test_logged_recent_days: 7,
+  /** A finished race within this many days → race_completed (review level/block). */
+  race_completed_recent_days: 14,
+  /** No test for at least this many days on an active plan → test_due (schedule one). */
+  test_due_days: 35,
 } as const;
 
 export type SignalThresholdKey = keyof typeof SIGNAL_THRESHOLDS;
@@ -103,6 +111,9 @@ export const signalThresholdsSchema = z
     microcycle_ending_days: z.number().int().positive(),
     a_event_near_days: z.number().int().positive(),
     queue_card_limit: z.number().int().positive(),
+    test_logged_recent_days: z.number().int().positive(),
+    race_completed_recent_days: z.number().int().positive(),
+    test_due_days: z.number().int().positive(),
   })
   .strict()
   // Warning window must be shorter than (or equal to) the critical one.

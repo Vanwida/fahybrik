@@ -31,7 +31,16 @@ import {
   type SignalFacts,
   type SignalResult,
 } from '@fahybrid/shared/domain/coach/signals';
+import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { loadBatch, type BatchRow } from './recompute-batch';
+
+/** Human label for a recorded test's benchmark (strength labels live with the
+ *  lift catalog — single source per concept). */
+function testLabel(slug: string | null, unit: string | null): string | null {
+  if (!slug) return null;
+  return unit === 'kg' ? strengthLiftLabel(slug) : benchmarkLabel(slug);
+}
 
 interface CoachLevelMaps {
   intake: Map<
@@ -145,6 +154,14 @@ async function assembleFacts(
     billing_risk: deriveBillingRisk(row),
     billing_days_to_period_end:
       deriveBillingRisk(row) === 'renewal_soon' ? row.billing_days_to_period_end : null,
+
+    latest_test_at: row.latest_test_at,
+    latest_test_label: testLabel(row.latest_test_slug, row.latest_test_unit),
+    latest_test_is_pr: row.latest_test_is_pr ?? false,
+    days_since_last_test: row.days_since_last_test,
+    latest_race_completed_at: row.latest_race_completed_at,
+    latest_race_name: row.latest_race_name,
+    latest_race_id: row.latest_race_id,
   };
 }
 

@@ -28,6 +28,15 @@ export interface BatchRow {
   billing_status: string | null;
   billing_cancel_at_period_end: boolean | null;
   billing_days_to_period_end: number | null;
+  // Progression / test events (KEYSTONE-fed)
+  latest_test_at: Date | null;
+  latest_test_slug: string | null;
+  latest_test_unit: string | null;
+  latest_test_is_pr: boolean | null;
+  days_since_last_test: number | null;
+  latest_race_completed_at: Date | null;
+  latest_race_name: string | null;
+  latest_race_id: string | null;
 }
 
 export async function loadBatch(
@@ -136,6 +145,32 @@ export async function loadBatch(
         on s.user_id = a.user_id or s.partner_user_id = a.user_id
       where a.coach_id = ${coach_id as number}
       order by a.id, s.created_at desc
+    ),
+    recent_test as (
+      -- The athlete's most recent POST-onboarding test (a coach/athlete-entered
+      -- benchmark row, tagged in notes — onboarding rows are tagged 'onboarding'
+      -- and excluded). Drives test_logged.
+      select distinct on (b.athlete_id)
+        b.athlete_id, b.recorded_at as ts, b.exercise_slug as slug,
+        b.unit as unit, b.value::float as value
+      from athlete_benchmarks b
+      where b.notes in ('coach_test', 'athlete_test')
+      order by b.athlete_id, b.recorded_at desc
+    ),
+    last_any_test as (
+      -- Most recent test of ANY kind (incl. onboarding) — drives test_due.
+      select b.athlete_id, max(b.recorded_at)::date as last_date
+      from athlete_benchmarks b
+      group by b.athlete_id
+    ),
+    recent_race as (
+      -- The most recently recorded FINISHED race (a result imported/logged).
+      -- Drives race_completed: prompt the coach to review level + next block.
+      select distinct on (r.athlete_id)
+        r.athlete_id, r.id::text as id, r.name as name, r.created_at as ts
+      from races r
+      where r.result_time_seconds is not null
+      order by r.athlete_id, r.created_at desc
     )
     select
       a.id::text                          as athlete_id,
@@ -154,7 +189,25 @@ export async function loadBatch(
       cm.iso                              as current_microcycle_end_iso,
       bl.status                           as billing_status,
       bl.cancel_at_period_end             as billing_cancel_at_period_end,
-      bl.days_to_period_end               as billing_days_to_period_end
+      bl.days_to_period_end               as billing_days_to_period_end,
+      rt.ts                               as latest_test_at,
+      rt.slug                             as latest_test_slug,
+      rt.unit                             as latest_test_unit,
+      (rt.athlete_id is not null and not exists (
+        select 1 from athlete_benchmarks p
+        where p.athlete_id = rt.athlete_id
+          and p.exercise_slug = rt.slug
+          and p.recorded_at < rt.ts
+          and (
+            (rt.unit = 'seconds' and p.value <= rt.value)
+            or (rt.unit <> 'seconds' and p.value >= rt.value)
+          )
+      ))                                  as latest_test_is_pr,
+      case when lat.last_date is null then null
+           else (${todayIso}::date - lat.last_date)::int end as days_since_last_test,
+      rr.ts                               as latest_race_completed_at,
+      rr.name                             as latest_race_name,
+      rr.id                               as latest_race_id
     from athletes a
     left join hrv_recent   hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
@@ -166,6 +219,9 @@ export async function loadBatch(
     left join unread_msgs  um on um.athlete_id = a.id
     left join current_micro cm on cm.athlete_id = a.id
     left join billing      bl on bl.athlete_id = a.id
+    left join recent_test  rt on rt.athlete_id = a.id
+    left join last_any_test lat on lat.athlete_id = a.id
+    left join recent_race  rr on rr.athlete_id = a.id
     where a.coach_id = ${coach_id as number}
       and (${athleteFilter}::bigint is null or a.id = ${athleteFilter}::bigint)
     order by a.full_name asc

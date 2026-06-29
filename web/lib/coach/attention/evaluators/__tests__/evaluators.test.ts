@@ -61,6 +61,14 @@ function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     billing_risk: null,
     billing_days_to_period_end: null,
 
+    latest_test_at: null,
+    latest_test_label: null,
+    latest_test_is_pr: false,
+    days_since_last_test: null,
+    latest_race_completed_at: null,
+    latest_race_name: null,
+    latest_race_id: null,
+
     ...overrides,
   };
 }
