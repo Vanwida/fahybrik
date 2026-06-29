@@ -226,6 +226,35 @@
   .flow .step{font-weight:700;color:#333;background:#f3f3ef;border:1px solid #e8e8e3;padding:6px 11px;border-radius:8px}
   .flow .step.bad{background:#fdecec;border-color:#f2cccc;color:#a83232}
   .flow .arr{color:#ff6600;font-weight:800}
+
+  /* ════════════ NUEVA CAPA — VER + CORREGIR EL ESTADO (G·H·I) ════════════ */
+  /* plan-row: NO-HECHA (missed) marker + the row "···" correct affordance */
+  .planrow .mk.miss{background:var(--danger-soft);border:1.5px solid var(--danger);color:var(--danger)}
+  .planrow .ptag.miss{background:var(--danger-soft);color:var(--danger)}
+  .planrow .more{margin-left:2px;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px solid var(--border);font-size:16px;font-weight:900;flex-shrink:0;line-height:1}
+
+  /* light status legend board (the four visible states, on the cream doc) */
+  .stlegend{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:8px 0 4px}
+  .stleg{display:flex;align-items:flex-start;gap:11px;background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:12px 14px}
+  .stleg .mkx{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;margin-top:1px}
+  .stleg .mkx.pend{border:1.5px solid #bdbdbd;color:transparent}
+  .stleg .mkx.part{background:#fbeccd;border:1.5px solid #e0a93a;color:#9a6a12}
+  .stleg .mkx.done{background:#1f8a4c;color:#fff}
+  .stleg .mkx.miss{background:#fdecec;border:1.5px solid #e0a3a3;color:#c0392b}
+  .stleg .stx{font-size:13px;line-height:1.45}
+  .stleg .stx b{font-weight:800}
+  .stleg .stx .sm{display:block;color:#777;font-size:11.5px;margin-top:1px}
+
+  /* action-row inside the correct sheet (icon + label + caption) */
+  .arow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:12px 13px;margin-top:8px}
+  .arow .ai{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .arow .at{flex:1;min-width:0}
+  .arow .at .an{font-size:13.5px;font-weight:800;color:var(--fg)}
+  .arow .at .ac{font-size:10.5px;font-weight:700;color:var(--muted);margin-top:1px;letter-spacing:0}
+  .arow.mark .ai{background:var(--ok-soft);color:var(--ok)}
+  .arow.late .ai{background:var(--accent-soft);color:var(--accent)}
+  .arow.undo .ai{background:var(--danger-soft);color:var(--danger)}
+  .arow.undo .at .an{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -247,6 +276,9 @@
     <a href="#status"><div class="n">D · El estado</div><div class="t">pendiente / parcial / hecho</div><div class="d">Qué hace cada opción al status. Descartar nunca marca.</div></a>
     <a href="#apps"><div class="n">E · Referencia</div><div class="t">Qué hacen las mejores apps</div><div class="d">Hevy, Strava, Garmin, Apple, WHOOP… con citas.</div></a>
     <a href="#decisions"><div class="n">F · Decisiones</div><div class="t">Para Alex</div><div class="d">Lo subjetivo que no decido yo, antes de construir.</div></a>
+    <a href="#see"><div class="n">G · Ver el estado</div><div class="t">Cada sesión, a la vista</div><div class="d">pendiente / hecha / parcial / no hecha. Cuatro marcas inequívocas.</div></a>
+    <a href="#correct"><div class="n">H · Corregir a mano</div><div class="t">Marcar · Completar · Deshacer</div><div class="d">El menú de la fila. Integra "Ya lo hice". Sin callejones sin salida.</div></a>
+    <a href="#flex"><div class="n">I · Flexibilidad</div><div class="t">El principio + integración</div><div class="d">Qué ya existe vs qué es nuevo. Todo estado es corregible.</div></a>
   </div>
 
 
@@ -620,10 +652,230 @@
   </div>
 
 
+  <div class="seclbl">Capa nueva (Alex) — el estado de cada sesión: visible y editable</div>
+  <div class="principle">
+    <p><b>El principio que añade esta capa.</b> La app da por hecho que el atleta <b>se equivoca, se salta entrenos y entrena tarde</b>. Por eso ningún estado de sesión es un callejón sin salida: <b>todo es corregible</b>. Si la app falló y no registró, lo marcas a mano. Si lo hiciste ayer y no lo apuntaste, lo completas hoy. Si tocaste "hecho" sin querer, lo deshaces. Cero fricción, cero datos fantasma, cero estados atascados.</p>
+    <p>Dos piezas: <b style="color:#ffb340">(1) VER</b> — en el plan se distingue de un vistazo cómo quedó cada sesión (pendiente · hecha · parcial · no hecha). <b style="color:#ffb340">(2) CORREGIR</b> — un menú en la fila para arreglar el estado retroactivamente. Se apoya en lo que YA existe ("Ya lo hice", el log retroactivo) en vez de duplicarlo, y añade lo único que falta: el acceso desde el plan y el <b>deshacer</b>.</p>
+  </div>
+
+
+  <!-- ════════════ G · SEE THE STATE ════════════ -->
+  <h2 id="see"><span class="surf">G</span>Ver el estado de cada sesión en el plan</h2>
+  <p class="lead">Hoy el plan es <b>binario</b>: <code>isSessionCompleted</code> (<code>PlanView.swift:1294</code>) solo distingue <b>hecho (✓)</b> de <b>no-hecho</b>, y pinta el mismo glifo para "aún no" y para "lo dejé pasar". El enum del backend ya tiene más vida — <code>assignment_status = ('scheduled','completed','missed','skipped')</code> (<code>mig 0001:61</code>) — pero la UI lo aplasta. Esta capa <b>saca a la superficie</b> cuatro estados con marcas distintas, sin que el atleta tenga que interpretar nada.</p>
+
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top" style="border-bottom:1px solid var(--border);padding-bottom:12px"><span class="ctl back" style="color:var(--muted)">&#8249;</span><span class="mid"><div class="ph">Mi plan</div><div class="sg">Semana 3 · Jue</div></span><span class="ix"></span></div>
+      <div style="padding-top:12px">
+        <div class="planrow">
+          <span class="mk done">&#10003;</span>
+          <span class="pt"><span class="pn">Fuerza · Lower</span><span class="ps">5 de 5 bloques · RPE 8</span></span>
+          <span class="ptag done">Hecha</span>
+        </div>
+        <div class="planrow">
+          <span class="mk part">&#189;</span>
+          <span class="pt"><span class="pn">Metcon · EMOM 12</span><span class="ps">2 de 3 bloques · terminado antes</span></span>
+          <span class="ptag part">Parcial</span>
+        </div>
+        <div class="planrow">
+          <span class="mk miss">&#10005;</span>
+          <span class="pt"><span class="pn">Rodaje Z2 · 40'</span><span class="ps">ayer · no registrada</span></span>
+          <span class="ptag miss">No hecha</span>
+        </div>
+        <div class="planrow">
+          <span class="mk pend">&#10003;</span>
+          <span class="pt"><span class="pn">Movilidad · 20'</span><span class="ps">aún sin empezar</span></span>
+          <span class="ptag pend">Pendiente</span>
+        </div>
+      </div>
+      <div class="caption" style="margin-top:14px">Cuatro marcas que no se confunden. Una sesión <b>abandonada</b> no tiene marca propia: vuelve a <b>pendiente</b> (§A–D).</div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge done">hecha</span>
+        <span class="badge part">parcial</span>
+        <span class="badge bug">no hecha</span>
+        <span class="badge pend">pendiente</span>
+      </div>
+      <div class="stlegend">
+        <div class="stleg"><span class="mkx pend">&#10003;</span><span class="stx"><b>Pendiente</b> <span class="sm">No empezada (o se abandonó). <code>scheduled</code>. Marca vacía.</span></span></div>
+        <div class="stleg"><span class="mkx done">&#10003;</span><span class="stx"><b>Hecha</b> <span class="sm">Protocolo al final. <code>completed</code> · <code>completeness='full'</code>.</span></span></div>
+        <div class="stleg"><span class="mkx part">&#189;</span><span class="stx"><b>Parcial</b> <span class="sm">Terminó antes. <code>partial</code> (estado propuesto en §D). Ámbar.</span></span></div>
+        <div class="stleg"><span class="mkx miss">&#10005;</span><span class="stx"><b>No hecha</b> <span class="sm">Tocaba y no se hizo. <code>missed</code>/<code>skipped</code> (ya en el enum). Roja.</span></span></div>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9633;</span>Qué cambia respecto a hoy</div>
+        <ul>
+          <li><span class="k">No hecha = marca propia.</span> Hoy una sesión <code>missed</code>/<code>skipped</code> se ve igual que una pendiente (ambas "no-✓"). Pasa a marca roja distinta — el atleta ve qué se le escapó, no solo qué le queda.</li>
+          <li><span class="k">Parcial visible.</span> Reutiliza la marca ámbar de §D (<code>completeness='partial'</code>); ningún parcial se enseña como check lleno.</li>
+          <li><span class="k">Abandonada no es un estado.</span> Descartar (§A–D) devuelve la fila a <b>pendiente</b>, sin estigma ni rastro — coherente con "cero rastro".</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════ H · CORRECT BY HAND ════════════ -->
+  <h2 id="correct"><span class="surf">H</span>Corregir y completar a mano — el menú de la fila</h2>
+  <p class="lead">Cada fila del plan tiene un acceso <code>···</code> que abre una hoja con las correcciones posibles <b>según el estado actual</b>. Lo que ya existe (el log retroactivo <b>"Ya lo hice"</b>) hoy solo se alcanza entrando en la sesión → brief → pie de pantalla (<code>PreWorkoutBriefView.swift:843</code>). Esta capa lo trae <b>al plan, en un toque</b>, y añade lo único que faltaba: <b>deshacer un "hecho"</b>.</p>
+
+  <!-- H.1 — pending / missed row → mark or complete -->
+  <h3>H.1 · Fila pendiente o no hecha — marcar o completar</h3>
+  <p class="lead">Dos intenciones, no una. <b>"Marcar como hecha"</b> es para cuando lo hiciste pero <b>no quedó registrado</b> (la app falló, no llevabas el móvil): afirmas el hecho, sin métricas inventadas. <b>"Completar ahora"</b> es para registrarlo con tus datos — y <b>es exactamente "Ya lo hice"</b>, abierto desde aquí.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top" style="border-bottom:1px solid var(--border);padding-bottom:12px"><span class="ctl back" style="color:var(--muted)">&#8249;</span><span class="mid"><div class="ph">Mi plan</div><div class="sg">Semana 3 · Jue</div></span><span class="ix"></span></div>
+      <div style="padding-top:12px;filter:blur(0.4px);opacity:.5">
+        <div class="planrow"><span class="mk miss">&#10005;</span><span class="pt"><span class="pn">Rodaje Z2 · 40'</span><span class="ps">ayer · no registrada</span></span><span class="more">&#8943;</span></div>
+      </div>
+      <div class="dim">
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="st">Rodaje Z2 · 40'</div>
+          <div class="sb">Ahora mismo: <b>no hecha</b>. ¿Qué pasó?</div>
+          <div class="arow mark"><span class="ai">&#10003;</span><span class="at"><span class="an">Marcar como hecha</span><span class="ac">Lo hice, pero no quedó registrado</span></span></div>
+          <div class="arow late"><span class="ai">&#8635;</span><span class="at"><span class="an">Completar ahora</span><span class="ac">Regístralo con tus datos · "Ya lo hice"</span></span></div>
+          <div class="btn ghost">Cerrar</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge done">&#10003; marcar hecha</span>
+        <span class="badge fin">&#8635; completar (Ya lo hice)</span>
+      </div>
+      <div class="note log">
+        <div class="h"><span class="ic">&#9745;</span>Copy exacto — hoja de la fila</div>
+        <ul>
+          <li>Título: <span class="k">el nombre de la sesión</span> ("Rodaje Z2 · 40'")</li>
+          <li>Cuerpo: <span class="k">"Ahora mismo: [estado]. ¿Qué pasó?"</span></li>
+          <li>Acción 1: <span class="k">"Marcar como hecha"</span> + sub "Lo hice, pero no quedó registrado"</li>
+          <li>Acción 2: <span class="k">"Completar ahora"</span> + sub "Regístralo con tus datos · Ya lo hice"</li>
+          <li>Salida: <span class="k">"Cerrar"</span></li>
+        </ul>
+      </div>
+      <div class="note cue">
+        <div class="h"><span class="ic">&#9873;</span>La diferencia que importa</div>
+        <p><b>Marcar como hecha</b> no inventa números: registra el <b>hecho</b> de que se hizo (log manual sin métricas, <code>source='manual'</code>), honesto. <b>Completar ahora</b> abre el resumen de "Ya lo hice" para meter marcador/RPE si los tienes. Misma fontanería, dos niveles de detalle.</p>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9633;</span>Disponible en parcial también</div>
+        <p>Una fila <b>parcial</b> ofrece <b>"Completar ahora"</b> para registrar lo que faltó y subirla a <b>hecha</b>, además de <b>"Deshacer hecho"</b> (H.2). Una <b>pendiente</b> futura ofrece lo mismo que una no-hecha.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- H.2 — done row → undo -->
+  <h3 style="margin-top:34px">H.2 · Fila hecha o parcial — deshacer un "hecho" equivocado</h3>
+  <p class="lead">Lo que <b>no existe hoy</b>: no hay forma de des-marcar una sesión. <code>CompletedAssignmentsStore</code> solo tiene <code>markCompleted</code>/<code>isCompleted</code> (<code>PlanService.swift:346,350</code>) y no hay endpoint que resetee un <code>workout_executions</code>. <b>"Deshacer hecho"</b> devuelve la sesión a <b>pendiente</b>. Fricción baja (es re-marcable al instante), salvo si había <b>registro en vivo real</b> — entonces se confirma, porque se descartan datos medidos.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top" style="border-bottom:1px solid var(--border);padding-bottom:12px"><span class="ctl back" style="color:var(--muted)">&#8249;</span><span class="mid"><div class="ph">Mi plan</div><div class="sg">Semana 3 · Jue</div></span><span class="ix"></span></div>
+      <div style="padding-top:12px;filter:blur(0.4px);opacity:.5">
+        <div class="planrow"><span class="mk done">&#10003;</span><span class="pt"><span class="pn">Fuerza · Lower</span><span class="ps">5 de 5 bloques · RPE 8</span></span><span class="more">&#8943;</span></div>
+      </div>
+      <div class="dim">
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="st">Fuerza · Lower</div>
+          <div class="sb">Ahora mismo: <b>hecha</b>. La marcaste como completada.</div>
+          <div class="arow undo"><span class="ai">&#8617;</span><span class="at"><span class="an">Deshacer hecho</span><span class="ac">Vuelve a pendiente · puedes re-marcarla cuando quieras</span></span></div>
+          <div class="btn ghost">Cerrar</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge dis">&#8617; deshacer</span>
+        <span class="badge pend">vuelve a pendiente</span>
+      </div>
+      <div class="note log">
+        <div class="h"><span class="ic">&#9745;</span>Copy exacto</div>
+        <ul>
+          <li>Cuerpo: <span class="k">"Ahora mismo: hecha. La marcaste como completada."</span></li>
+          <li>Acción: <span class="k">"Deshacer hecho"</span> + sub "Vuelve a pendiente · puedes re-marcarla cuando quieras"</li>
+        </ul>
+      </div>
+      <div class="note bad">
+        <div class="h"><span class="ic">&#9888;</span>Borde — undo de un entreno registrado en vivo</div>
+        <ul>
+          <li>Si era un <span class="k">log a mano</span> (<code>source='manual'</code>, sin métricas reales): deshacer es limpio, sin "¿seguro?".</li>
+          <li>Si había <span class="k">registro en vivo</span> (laps, splits, RPE medidos): se confirma primero — "Esto borrará lo que registraste. No se puede deshacer." Mismo patrón destructivo que §C.3.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════ I · FLEXIBILITY + INTEGRATION ════════════ -->
+  <h2 id="flex"><span class="surf">I</span>Integración con lo que ya existe — qué reusa, qué es nuevo</h2>
+  <p class="lead">El mandato es <b>no duplicar</b>. El log retroactivo <b>"Ya lo hice"</b> ya está construido y probado: secundario en el brief (<code>PreWorkoutBriefView.swift:843</code>) → <code>WorkoutContainer</code> en modo manual (<code>manualEntry</code>, <code>:98–107</code>) → resumen → guarda con <code>source='manual'</code> vía <code>POST /api/sync/workout-execution</code> (<code>record-workout-execution.ts</code>). Esta capa <b>cuelga de ahí</b>. Lo único genuinamente nuevo es el render de "no hecha", el acceso desde la fila y el <b>deshacer</b>.</p>
+
+  <table class="mx">
+    <thead><tr><th>Acción</th><th>Desde → a</th><th>¿Existe hoy?</th><th>Cómo se integra (reusa vs nuevo)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="fn">Completar ahora</span></td>
+        <td><span class="st-pill st-pend">pendiente</span>/<span class="st-pill" style="background:#fdecec;color:#c0392b">no hecha</span>/<span class="st-pill st-part">parcial</span> → <span class="st-pill st-done">hecha</span></td>
+        <td><b style="color:#1f8a4c">Sí — ES "Ya lo hice"</b></td>
+        <td><b>Reusa al 100%</b> el flujo manual (<code>manualEntry</code> → resumen → <code>source='manual'</code>). Cero código de guardado nuevo. Nuevo solo: abrirlo desde la fila del plan, no solo desde el brief.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">Marcar como hecha</span></td>
+        <td><span class="st-pill st-pend">pendiente</span>/<span class="st-pill" style="background:#fdecec;color:#c0392b">no hecha</span> → <span class="st-pill st-done">hecha</span></td>
+        <td><b style="color:#9a6a12">Parcial</b> — la base es "Ya lo hice"</td>
+        <td><b>Reusa</b> el log manual en su forma <b>sin métricas</b> (el atleta afirma el hecho, no inventa números). Nuevo: el atajo de un toque que salta el formulario del resumen.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">Deshacer hecho</span></td>
+        <td><span class="st-pill st-done">hecha</span>/<span class="st-pill st-part">parcial</span> → <span class="st-pill st-pend">pendiente</span></td>
+        <td><b style="color:#c0392b">NO existe</b></td>
+        <td><b>NUEVO.</b> <code>CompletedAssignmentsStore.unmark(id)</code> (local) + endpoint que pone <code>workout_assignments.status='scheduled'</code> y borra la ejecución manual asociada. Confirmación solo si había registro en vivo (datos reales).</td>
+      </tr>
+      <tr>
+        <td><span class="fn">Ver "no hecha" distinta</span></td>
+        <td>render en el plan</td>
+        <td><b style="color:#c0392b">No en UI</b></td>
+        <td><b>NUEVO en UI.</b> El enum ya trae <code>missed</code>/<code>skipped</code> (<code>mig 0001:61</code>) pero <code>PlanView</code> pinta binario. Se añade la marca roja. <code>partial</code> = estado propuesto en §D.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="flow">
+    <span class="step">Cualquier estado</span><span class="arr">→</span>
+    <span class="step">menú <code>···</code> de la fila</span><span class="arr">→</span>
+    <span class="step" style="background:#f0faf3;border-color:#a6dab9;color:#13693a">marcar · completar · deshacer</span><span class="arr">→</span>
+    <span class="step">estado correcto</span>
+    <span class="arr">·</span>
+    <span class="step" style="background:#fdf3ea;border-color:#f5cba0;color:#b07000"><b>nunca un callejón sin salida</b></span>
+  </div>
+
+  <div class="seclbl">Decisiones de esta capa — para Alex</div>
+
+  <div class="decision">
+    <div class="q">5 · "Marcar como hecha" sin métricas — ¿atajo de un toque, o siempre el formulario de "Ya lo hice"?</div>
+    <div class="ctx">"La app falló" suele significar que no hay números que meter. Forzar el resumen completo es fricción inútil; pero un atajo crea un segundo camino sobre el mismo log.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span><b>Atajo de un toque</b> = log manual sin métricas (honesto: registra el hecho, no inventa datos). "Completar ahora" queda para cuando SÍ hay datos. Dos niveles, una fontanería.</div>
+      <div class="opt">Siempre el formulario de "Ya lo hice" (un solo camino, pero más fricción para el caso "solo confirma que pasó").</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">6 · Fricción de "Deshacer hecho" — ¿confirmar siempre, o solo si había registro en vivo?</div>
+    <div class="ctx">Deshacer un log a mano no pierde nada (es re-marcable). Deshacer un entreno registrado en vivo descarta laps/splits/RPE reales.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span><b>Confirmar solo si hay datos en vivo</b> que se perderían (patrón §C.3). El log a mano se deshace directo — coherente con "baja fricción, todo corregible".</div>
+      <div class="opt">Confirmar siempre (más seguro, pero molesto en el caso común del marcado-por-error).</div>
+    </div>
+  </div>
+
+
   <footer>
     FAHYBRID · Concepto "Salir del entreno: Abandonar (descartar) vs Terminar (guardar)" · doc de sign-off (no es código).
     El bug, localizado: <code>ActiveWorkoutView.swift:667</code> "Abandonar" === <code>finish()</code> === resumen === GUARDAR === <code>markCompleted</code> + <code>status='completed'</code>.
     Fix: separar el verbo (<code>discard()</code> vs <code>finish()</code>), candado de completitud (<code>hasRecordedWork</code>), enum <code>partial</code> + <code>completeness</code> (aditivos, honestos — mig 0088).
+    Capa nueva (§G–I, Alex): el estado de cada sesión es <b>visible</b> (pendiente/hecha/parcial/no hecha) y <b>editable</b> (marcar · completar · deshacer) desde la fila del plan — reusa el log "Ya lo hice" (<code>PreWorkoutBriefView.swift:843</code> · <code>source='manual'</code>); lo nuevo = render de "no hecha", acceso desde la fila y el <code>deshacer</code> (no existe hoy: <code>CompletedAssignmentsStore</code> solo <code>markCompleted</code>). Principio: todo estado es corregible, sin callejones.
     Mockups oscuros porque la app es oscura; doc claro. Mismo lenguaje visual que <code>diseno-timers-fase2.html</code>.
   </footer>
 
