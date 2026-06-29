@@ -472,4 +472,95 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertNil(workout.blocks[0].configJson)
         XCTAssertTrue(workout.blocks[0].items.isEmpty)
     }
+
+    // MARK: - Alternating EMOM merge (WorkoutPlan.from)
+    //
+    // The backend ships an ALTERNATING EMOM as ONE emom block with N movement
+    // items, each carrying the SAME total in `rounds`. `WorkoutPlan.from` must fold
+    // them into ONE segment whose `emomPlan` rotates the movements minute by minute
+    // (min1 wallballs / min2 run / min3 wallballs …) — NOT N back-to-back EMOMs.
+
+    func test_alternatingEmom_mergesIntoOneSegment_andCyclesMinuteByMinute() throws {
+        // EMOM 15: minute alternates 10 Wallballs / 200 m Run. Both items carry
+        // rounds=15 (the EMOM total) and work_s=60 (on the minute).
+        let json = """
+        {
+          "assignment": { "id": "asg_emom1", "athlete_id": "ath_e1", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "EMOM 15", "blocks": [ { "uid": "b", "title": "Metcon — EMOM 15", "format": "emom", "block_position": 1, "items": [
+            { "uid": "i1", "exercise_id": "e1", "exercise_name": "Wallballs", "exercise_slug": "wall-balls", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 10 },
+              "prescription_json": { "scheme": "emom", "modality": "functional", "rounds": 15, "work_s": 60, "sets": [
+                { "measure": { "kind": "reps", "value": 10 } }
+              ] }, "notes": null },
+            { "uid": "i2", "exercise_id": "e2", "exercise_name": "Run", "exercise_slug": "run", "exercise_category": "running",
+              "exercise_video_url": null, "cues": null, "params_json": { "distance_meters": 200 },
+              "prescription_json": { "scheme": "emom", "modality": "run", "rounds": 15, "work_s": 60, "sets": [
+                { "measure": { "kind": "distance", "meters": 200 } }
+              ] }, "notes": null }
+          ] } ] } }
+        """
+        let detail = try decode(json)
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+
+        // ONE merged segment, not two — the whole point of the fix.
+        XCTAssertEqual(plan.segments.count, 1, "Two movements must merge into ONE EMOM segment, not two 15-min EMOMs.")
+        XCTAssertEqual(plan.format, .emom)
+        let seg = try XCTUnwrap(plan.segments.first)
+        // Title names both movements (the PostWorkout row + HUD fallback).
+        XCTAssertEqual(seg.title, "Wallballs / Run")
+
+        let emom = try XCTUnwrap(seg.emomPlan)
+        XCTAssertEqual(emom.intervalCount, 15, "EMOM total = 15 minutes, NOT 15×2 = 30.")
+        XCTAssertEqual(emom.intervalSeconds, 60, "On the minute.")
+        XCTAssertTrue(emom.isAlternating, "Rotation has 2 distinct movements → alternating.")
+        // The expanded minutes cycle the rotation: min1 wallballs, min2 run, min3 wallballs …
+        XCTAssertEqual(emom.intervals.count, 15)
+        XCTAssertEqual(emom.intervals[0].movement, "Wallballs")
+        XCTAssertEqual(emom.intervals[1].movement, "Run")
+        XCTAssertEqual(emom.intervals[2].movement, "Wallballs")
+        XCTAssertEqual(emom.intervals[14].movement, "Wallballs")   // index 14 % 2 == 0
+        // Each minute carries its OWN work (the right movement's dose).
+        XCTAssertEqual(emom.intervals[0].work, "10 reps")
+        XCTAssertEqual(emom.intervals[1].work, "200 m")
+    }
+
+    func test_singleMovementEmom_unchanged_oneMovementEveryMinute() throws {
+        // A single-item EMOM is NOT merged: one movement every minute, isAlternating false.
+        let json = """
+        {
+          "assignment": { "id": "asg_emom2", "athlete_id": "ath_e2", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "EMOM 15", "blocks": [ { "uid": "b", "title": "EMOM 15", "format": "emom", "block_position": 1, "items": [
+            { "uid": "i", "exercise_id": "e", "exercise_name": "Burpees", "exercise_slug": "burpees", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "reps": 12 },
+              "prescription_json": { "scheme": "emom", "modality": "functional", "rounds": 15, "work_s": 60, "sets": [
+                { "measure": { "kind": "reps", "value": 12 } }
+              ] }, "notes": null }
+          ] } ] } }
+        """
+        let detail = try decode(json)
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+        XCTAssertEqual(plan.segments.count, 1)
+        let emom = try XCTUnwrap(plan.segments.first?.emomPlan)
+        XCTAssertEqual(emom.intervalCount, 15)
+        XCTAssertFalse(emom.isAlternating, "One movement → not alternating.")
+        XCTAssertTrue(emom.intervals.allSatisfy { $0.movement == "Burpees" })
+    }
+
+    func test_nonEmomMultiItemBlock_keepsOneSegmentPerItem() throws {
+        // A non-EMOM multi-item block (a strength block's two lifts) is untouched:
+        // one segment per item, as before.
+        let json = """
+        {
+          "assignment": { "id": "asg_str", "athlete_id": "ath_s", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Fuerza", "blocks": [ { "uid": "b", "title": "A — Fuerza", "format": "straight_sets", "block_position": 1, "items": [
+            { "uid": "i1", "exercise_id": "e1", "exercise_name": "Back Squat", "exercise_slug": "back-squat", "exercise_category": "strength",
+              "exercise_video_url": null, "cues": null, "params_json": { "sets": 4, "reps": 5, "load_kg": 120 }, "notes": null },
+            { "uid": "i2", "exercise_id": "e2", "exercise_name": "Bench Press", "exercise_slug": "bench", "exercise_category": "strength",
+              "exercise_video_url": null, "cues": null, "params_json": { "sets": 4, "reps": 5, "load_kg": 90 }, "notes": null }
+          ] } ] } }
+        """
+        let detail = try decode(json)
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+        XCTAssertEqual(plan.segments.count, 2, "Non-EMOM multi-item blocks keep one segment per item.")
+    }
 }

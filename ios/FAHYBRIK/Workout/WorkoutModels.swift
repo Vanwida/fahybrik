@@ -556,7 +556,18 @@ extension WorkoutPlan {
         let segments: [WorkoutSegment] = workout.blocks
             .sorted { $0.blockPosition < $1.blockPosition }
             .flatMap { block -> [WorkoutSegment] in
-                block.items.map { item in
+                // An ALTERNATING EMOM is ONE block with several movements that the
+                // athlete cycles minute by minute (min1 wallballs / min2 run / min3
+                // wallballs …) — a SINGLE 15-min EMOM, not back-to-back ones. The
+                // backend ships it as one emom block with N items; folding those
+                // items into ONE segment (rotation = the movements) lets `emomPlan`
+                // cycle them across the EMOM's minutes. One-segment-per-item would
+                // run them as N separate 15-min EMOMs — the 30-min bug.
+                if isAlternatingEmomBlock(block) {
+                    order += 1
+                    return [mergedEmomSegment(block: block, order: order)]
+                }
+                return block.items.map { item in
                     order += 1
                     return segment(from: item, order: order, block: block)
                 }
@@ -613,6 +624,117 @@ extension WorkoutPlan {
             // generic HUDs. Preferred when present, ignored when nil.
             prescription: item.prescription
         )
+    }
+
+    // True when a block is an ALTERNATING EMOM: an EMOM (the block's declared
+    // format, else every item carries an EMOM prescription) with MORE THAN ONE
+    // movement. Such a block runs as ONE EMOM whose minutes rotate through the
+    // movements, so its items merge into a single segment. A single-movement EMOM
+    // (one item every minute) and every non-EMOM multi-item block (AMRAP, circuit,
+    // a strength block's exercises) keep one segment per item — untouched.
+    private static func isAlternatingEmomBlock(_ block: WorkoutBlock) -> Bool {
+        guard block.items.count > 1 else { return false }
+        // "emom" is the backend's `template_format` enum value (see workoutFormat).
+        if block.format == "emom" { return true }
+        return block.items.allSatisfy { $0.prescription?.scheme == .emom }
+    }
+
+    // Fold an alternating EMOM block's items into ONE segment whose prescription
+    // ROTATES the movements minute by minute. Each item becomes one rotation slot —
+    // its per-minute work (the item's set, else its scalar params), intensity target
+    // and modality, labelled with the movement name — so `emomPlan` expands the
+    // rotation across the EMOM's total minutes (min1 item0 / min2 item1 / min3 item0 …).
+    private static func mergedEmomSegment(block: WorkoutBlock, order: Int) -> WorkoutSegment {
+        let rotation: [PrescriptionSet] = block.items.map { item in
+            let baseSet = item.prescription?.sets?.first
+            let itemKind = segmentKind(category: item.exerciseCategory, slug: item.exerciseSlug)
+            let coachLabel = baseSet?.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return PrescriptionSet(
+                // The minute's WORK — the item's prescribed set, else derived from its
+                // scalar params so a legacy (prescription-less) item still rotates.
+                measure: baseSet?.measure ?? scalarMeasure(item.paramsJson),
+                // Its INTENSITY — the per-set target, else the item's block-level one.
+                target: baseSet?.target ?? item.prescription?.target,
+                // Its MODALITY — drives the erg /500m vs run /km pace unit in the HUD.
+                // Per-set, else item-level, else inferred from the exercise category.
+                modality: baseSet?.modality
+                    ?? item.prescription?.modality
+                    ?? PrescriptionModality(rawValue: itemKind.modality),
+                restS: baseSet?.restS,
+                tempo: baseSet?.tempo,
+                // The MOVEMENT label shown for this minute — the coach's set note, else
+                // the exercise name. Never nil, so each minute names its own movement
+                // (emomInterval would otherwise fall back to the segment title).
+                note: (coachLabel?.isEmpty == false) ? coachLabel : item.exerciseName
+            )
+        }
+
+        // EMOM TOTAL minutes (e.g. 15). Every item carries the SAME total in `rounds`;
+        // take the max (guards a nil/stray). NOT summed across items — an alternating
+        // "EMOM 15" is 15 minutes total cycling the rotation, NOT 15×items = 30 (the
+        // bug). Per-movement counts would DIFFER (8 vs 7 across 15 alternating
+        // minutes), so an equal `rounds` on every item can only be the EMOM total.
+        let totalMinutes = block.items.compactMap { $0.prescription?.rounds }.max()
+        // Cadence ("on the minute" = 60s); `emomPlan` defaults to 60 when absent.
+        let cadence = block.items.compactMap { $0.prescription?.workS }.first
+
+        let merged = Prescription(
+            scheme: .emom,
+            modality: nil,
+            sets: rotation,
+            rounds: totalMinutes,
+            workS: cadence,
+            restS: nil,
+            totalS: nil,
+            target: nil,
+            note: nil
+        )
+
+        // `kind` drives the ONE recorded lap's modality + capture. A mixed-modality
+        // EMOM (run + reps) has no single modality → `.reps` (a neutral timed record,
+        // no false GPS/PM5/load); a homogeneous EMOM (e.g. all-erg) keeps that kind.
+        let kinds = Set(block.items.map { segmentKind(category: $0.exerciseCategory, slug: $0.exerciseSlug) })
+        let kind: SegmentKind = kinds.count == 1 ? (kinds.first ?? .reps) : .reps
+
+        // Title = the movements in order, e.g. "Wallballs / Run" — the PostWorkout
+        // row label and the EMOM HUD's movement fallback.
+        let title = dedupPreservingOrder(block.items.map(\.exerciseName)).joined(separator: " / ")
+
+        return WorkoutSegment(
+            order: order,
+            title: title.isEmpty ? block.title : title,
+            kind: kind,
+            // One template_segments.id per segment. An alternating EMOM is ONE
+            // continuous effort recorded as a single lap, so we attribute it to the
+            // first movement's prescription (the rest share the block).
+            templateSegmentId: block.items.first?.templateSegmentId,
+            // Scalar targets stay nil: the structured `sets` rotation is the single
+            // source of truth for a merged EMOM, and `emomPlan` reads it directly.
+            blockTitle: block.title,
+            blockPosition: block.blockPosition,
+            // No single technique video for a multi-movement EMOM (the model carries
+            // one per segment, not per minute) — omit rather than show a misleading one.
+            videoUrl: nil,
+            prescription: merged
+        )
+    }
+
+    // A legacy (prescription-less) item's per-minute work, derived from its scalar
+    // params so it still rotates in a merged EMOM. Mirrors `emomWorkString`'s order.
+    private static func scalarMeasure(_ p: WorkoutItemParams) -> Measure? {
+        if let r = p.reps, r > 0 { return .reps(r) }
+        if let c = p.calories, c > 0 { return .calories(c) }
+        if let m = p.distanceMeters, m > 0 { return .distance(meters: Double(m)) }
+        if let km = p.distanceKm, km > 0 { return .distance(meters: km * 1000) }
+        if let d = p.durationSeconds, d > 0 { return .duration(seconds: d) }
+        return nil
+    }
+
+    // Distinct strings keeping first-seen order — for the merged EMOM title so a
+    // movement repeated across items isn't listed twice.
+    private static func dedupPreservingOrder(_ xs: [String]) -> [String] {
+        var seen = Set<String>()
+        return xs.filter { seen.insert($0).inserted }
     }
 
     // The session's PRINCIPAL block — the main work whose format defines the
