@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diseño visual — Cronómetros del entreno en vivo por formato (FASE 2 · PASO 3 · FAHYBRID)</title>
+<style>
+  /* ───────────────────────── DOC SHELL (light, readable) ─────────────────────────
+     Mismo lenguaje que los pases hermanos en docs/superpowers/plans/*.html:
+     fondo crema, tinta, acento naranja Fabrik, titulares bold. El doc es CLARO;
+     los MOCKUPS de teléfono dentro son oscuros porque la app es oscura. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1080px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;font-style:italic;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:22px;font-weight:800;margin:58px 0 6px;letter-spacing:-0.3px}
+  h2 .surf{font-size:13px;font-weight:700;color:#fff;background:#ff6600;padding:3px 9px;border-radius:6px;vertical-align:middle;margin-right:10px;letter-spacing:0}
+  h3{font-size:17px;font-weight:800;margin:8px 0 4px;color:#1a1a1a;letter-spacing:-0.2px}
+  h3 .es{color:#999;font-weight:600;font-size:14px;font-style:italic}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+  a{color:#b07000}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:40px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0 8px}
+  .toc a{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:14px 16px;transition:border-color .15s}
+  .toc a:hover{border-color:#ff6600}
+  .toc .n{font-size:10.5px;font-weight:800;color:#ff6600;text-transform:uppercase;letter-spacing:0.6px}
+  .toc .t{font-size:15px;font-weight:700;margin:4px 0 3px}
+  .toc .d{font-size:12px;color:#777;line-height:1.4}
+
+  /* the rotating vs fixed legend board */
+  .legend{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0 4px}
+  .lg{border-radius:14px;padding:18px 20px;border:1px solid #e8e8e3;background:#fff}
+  .lg .ico{font-size:26px;line-height:1;margin-bottom:8px;display:block}
+  .lg .lt{font-size:16px;font-weight:800;letter-spacing:-0.2px;margin-bottom:2px}
+  .lg .rule{font-size:13px;font-weight:600;margin-bottom:10px}
+  .lg .fms{display:flex;flex-wrap:wrap;gap:5px}
+  .lg .fm{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:#f3f3ef;color:#444}
+  .lg.rot{border-color:#f5b27a;background:linear-gradient(180deg,#fff7f0,#fff)}
+  .lg.rot .ico,.lg.rot .lt{color:#d2691e}
+  .lg.rot .fm{background:#fbe6d3;color:#9c4d12}
+  .lg.fix{border-color:#a9cdf0;background:linear-gradient(180deg,#f0f6fd,#fff)}
+  .lg.fix .ico,.lg.fix .lt{color:#2166ac}
+  .lg.fix .fm{background:#dcebf9;color:#1a4d80}
+  .lg.con{border-color:#a6dab9;background:linear-gradient(180deg,#f0faf3,#fff)}
+  .lg.con .ico,.lg.con .lt{color:#1f8a4c}
+  .lg.con .fm{background:#d8efe0;color:#13693a}
+  .lg .rule b{font-weight:800}
+
+  /* note cards */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+  .note{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 18px;margin:10px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.act .h .ic{background:#eef4ff;color:#1a4ba0}
+  .note.cue .h .ic{background:#fdf0e6;color:#b07000}
+  .note.log .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note.ex .h .ic{background:#f3ecff;color:#5a2da0}
+  .note ul{list-style:none;padding:0;font-size:13px;color:#3a3a3a}
+  .note li{padding:4px 0 4px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .note .k{font-weight:700;color:#1a1a1a}
+  .note p{font-size:13px;margin:0}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:16px 20px;margin:14px 0}
+  .decision .q{font-weight:700;font-size:15px;margin-bottom:6px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:10px}
+  .decision .opts{display:flex;flex-direction:column;gap:6px}
+  .decision .opt{font-size:13.5px;padding:7px 12px;border-radius:7px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:#ff6600;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  /* matrix table */
+  table.mx{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+  table.mx th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:8px 10px;border-bottom:2px solid #e8e8e3}
+  table.mx td{padding:9px 10px;border-bottom:1px solid #eee;color:#333;vertical-align:top}
+  table.mx td .fn{font-weight:800;color:#1a1a1a}
+  table.mx .pp{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:5px}
+  table.mx .pp.rot{background:#fbe6d3;color:#9c4d12}
+  table.mx .pp.fix{background:#dcebf9;color:#1a4d80}
+  table.mx .pp.con{background:#d8efe0;color:#13693a}
+  table.mx code{font-size:11.5px}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  /* the per-format layout: phone left, explanation right */
+  .fmt{display:grid;grid-template-columns:312px 1fr;gap:28px;align-items:start;margin:14px 0 8px}
+  .fmt .side{padding-top:2px}
+  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 14px}
+  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
+  .badge.rot{background:#fbe6d3;color:#9c4d12}
+  .badge.fix{background:#dcebf9;color:#1a4d80}
+  .badge.con{background:#d8efe0;color:#13693a}
+  .badge.up{background:#eef2f5;color:#33586e;border:1px solid #d6e2ea}
+  .badge.down{background:#fdecec;color:#a83232;border:1px solid #f2cccc}
+  .badge.score{background:#f3eefc;color:#5a2da0;border:1px solid #e3d6f7}
+  .badge.done{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
+
+  @media(max-width:880px){
+    .toc,.grid3,.legend{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+    .fmt{grid-template-columns:1fr}
+    .fmt .phone{margin:0 auto}
+  }
+
+  /* ════════════════════════ DARK PHONE MOCKUP (real product) ════════════════════════
+     Tokens = espejo de web/app/[locale]/(v2)/v2-theme.css + Theme/Atoms iOS.
+     El cronómetro replica la cara real ya enviada del EMOM (WorkoutLiveHUDs.swift):
+     reloj mono gigante en pozo elevado con acento superior, micro-label tracked,
+     fila de 3 celdas, botón primario contextual a ancho completo. ────── */
+  .phone{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.16);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.16);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.16);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.16);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.16);
+    --r-xs:6px; --r-s:9px; --r-m:13px; --r-l:18px;
+    width:312px;background:var(--bg);color:var(--fg);
+    border-radius:34px;border:1px solid rgba(255,255,255,0.10);
+    padding:11px;box-shadow:0 30px 70px -28px rgba(0,0,0,0.6);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+  }
+  .phone *{box-sizing:border-box}
+  .phone .scr{background:var(--bg);border-radius:25px;border:1px solid rgba(255,255,255,0.05);padding:12px 12px 14px;overflow:hidden}
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .lbl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}
+
+  /* topbar — pausa · back low-emphasis · PHASE+segmento · índice X/N */
+  .tmr-top{display:flex;align-items:center;gap:8px;padding:0 2px 10px}
+  .tmr-top .ctl{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);border:1px solid var(--border)}
+  .tmr-top .back{font-size:15px;border:none;color:var(--faint)}
+  .tmr-top .mid{flex:1;text-align:center;min-width:0}
+  .tmr-top .ph{font-size:9px;font-weight:900;font-style:italic;letter-spacing:.09em;color:var(--accent);text-transform:uppercase}
+  .tmr-top .sg{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tmr-top .ix{font-size:10.5px;font-weight:700;color:var(--faint)}
+
+  /* phase rail (la espina navegable — mostrado en anatomía) */
+  .rail{display:flex;gap:5px;margin:0 2px 11px}
+  .rail .rseg{flex:1;text-align:center;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:6px 4px;border-radius:8px;background:var(--surface2);color:var(--faint);border:1px solid var(--border);position:relative}
+  .rail .rseg.done{color:var(--muted)}
+  .rail .rseg.done::after{content:'✓';margin-left:4px;color:var(--ok)}
+  .rail .rseg.on{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+
+  /* state banner (color flip work/rest) */
+  .banner{text-align:center;font-weight:900;font-style:italic;letter-spacing:.14em;font-size:13px;padding:7px;border-radius:9px;margin:0 0 9px}
+  .banner.work{background:var(--accent);color:var(--accent-fg)}
+  .banner.rest{background:var(--info);color:#04223d}
+
+  /* hero clock card — pozo elevado, acento superior */
+  .hero{background:var(--elevated);border:1px solid var(--border);border-radius:var(--r-m);padding:16px 14px 14px;position:relative;text-align:center;overflow:hidden}
+  .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+  .hero .cap{margin-bottom:3px}
+  .hero .clock{font-size:56px;font-weight:800;line-height:.96;color:var(--fg)}
+  .hero .clock.down{color:var(--fg)}
+  .hero .clock.danger{color:var(--danger)}
+  .hero .clock.urgent{color:var(--accent)}
+  .hero .clock .sm{font-size:26px;color:var(--muted)}
+  .hero .csub{font-size:11px;font-weight:700;color:var(--muted);margin-top:4px;letter-spacing:.02em}
+  .hero .csub b{color:var(--accent)}
+  .hero .cap2{font-size:11px;color:var(--faint);margin-top:5px}
+  .hero .cap2 .num{color:var(--muted)}
+
+  /* dual clock: interval remaining big + round X/N secondary inline */
+  .hero .dual{display:flex;align-items:baseline;justify-content:center;gap:14px;flex-wrap:wrap}
+  .hero .dual .rnd{font-size:18px;font-weight:800;color:var(--muted)}
+  .hero .dual .rnd b{color:var(--fg)}
+
+  /* big tap-to-increment ROUND counter (AMRAP/RFT) — green */
+  .rounds{background:var(--ok-soft);border:1px solid rgba(63,199,115,.35);border-radius:var(--r-m);padding:13px 14px;margin-top:9px;display:flex;align-items:center;gap:14px}
+  .rounds .rn{font-size:42px;font-weight:900;color:var(--ok);line-height:.9}
+  .rounds .rmid{flex:1}
+  .rounds .rmid .rl{font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--ok);text-transform:uppercase}
+  .rounds .rmid .rt{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .rounds .plus{width:46px;height:46px;border-radius:13px;background:var(--ok);color:#04240f;font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .rounds .hint{font-size:9.5px;color:var(--faint);margin-top:3px}
+
+  /* death-by rising target */
+  .target{background:var(--accent-soft);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-m);padding:14px;margin-top:9px;text-align:center}
+  .target .tn{font-size:46px;font-weight:900;color:var(--accent);line-height:.9}
+  .target .tu{font-size:15px;font-weight:800;color:var(--fg);margin-left:4px}
+  .target .tl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+
+  /* work card (este intervalo / movimiento actual) */
+  .work{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 13px;margin-top:9px}
+  .work .wl{margin-bottom:6px}
+  .work .wl.acc{color:var(--accent)}
+  .work .wmain{display:flex;align-items:baseline;gap:9px}
+  .work .wmeas{font-size:19px;font-weight:800;color:var(--fg)}
+  .work .wmov{font-size:15px;font-weight:800;font-style:italic;color:var(--fg)}
+  .work .wnext{display:flex;gap:7px;align-items:center;border-top:1px solid var(--border);margin-top:9px;padding-top:8px}
+  .work .wnext .nv{font-size:12px;font-weight:700;color:var(--muted)}
+
+  /* fixed round task list (NO avanza — se repite) */
+  .tasklist{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:11px 13px;margin-top:9px}
+  .tasklist .tlh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .tasklist .tlh .repeat{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--info);background:var(--info-soft);padding:2px 8px;border-radius:999px}
+  .tasklist .ti{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13.5px;font-weight:700;color:var(--fg);border-bottom:1px solid rgba(255,255,255,.04)}
+  .tasklist .ti:last-child{border-bottom:none}
+  .tasklist .ti .reps{font-family:'SF Mono',monospace;font-weight:800;color:var(--accent);min-width:46px}
+  .tasklist .ti.done{color:var(--faint)}
+  .tasklist .ti.done .reps{color:var(--faint)}
+  .tasklist .ti .ck{margin-left:auto;font-size:13px;color:var(--ok)}
+  .tasklist .ti.done .ck{color:var(--ok)}
+  .tasklist .ti .ck.todo{color:var(--faint)}
+
+  /* metric row — 3 celdas */
+  .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:9px}
+  .metrics .cell{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 4px;text-align:center}
+  .metrics .cell .cl{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .metrics .cell .cv{font-size:16px;font-weight:800;color:var(--fg);margin-top:2px}
+  .metrics .cell .cv .u{font-size:9px;color:var(--muted);font-weight:700;margin-left:1px}
+  .metrics .cell .cv.hr{color:var(--danger)}
+
+  /* primary CTA — ancho completo, etiqueta contextual */
+  .cta{margin-top:10px;display:flex;gap:7px}
+  .cta .pri{flex:1;text-align:center;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:900;font-style:italic;letter-spacing:.03em;padding:13px;border-radius:13px}
+  .cta .pri.stop{background:var(--fg);color:var(--bg)}
+  .cta .pri.ok{background:var(--ok);color:#04240f}
+  .cta .sec{width:52px;text-align:center;background:var(--surface2);color:var(--danger);font-size:13px;font-weight:800;padding:13px 0;border-radius:13px;border:1px solid var(--border)}
+  .cta .sec.fail{color:var(--danger)}
+  .caption{font-size:11px;color:#9a9a96;text-align:center;margin-top:9px;font-style:italic}
+
+  /* live pace inline for intervals/steady */
+  .pacebar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px}
+  .pacebar .z{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
+  .pacebar .z.z2{background:rgba(77,158,235,.16);color:#7bbef5}
+  .pacebar .z.z4{background:rgba(242,80,79,.16);color:#f58282}
+  .pacebar .vs{font-size:10.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Cronómetros del entreno en vivo — diseño por formato</h1>
+  <div class="sub">FASE 2 · PASO 3 · Para sign-off de Alex · ANTES de construir nada en Swift · FAHYBRID · jun 2026</div>
+
+  <div class="principle">
+    <p><b>Qué es esto.</b> El catálogo de formatos (<code style="background:#222;color:#ffb340">shared/domain/prescription/format.ts</code>) ya es la fuente única de verdad: 14 formatos, cada uno con su <code style="background:#222;color:#ffb340">presentation</code> (rotating · fixed · continuous) y su <code style="background:#222;color:#ffb340">score</code>. Lo que falta es la <b>cara en vivo</b> de cada uno. Hoy todos caen al mismo "cronómetro genérico + botón LAP" — un AMRAP se ve igual que un EMOM que un For Time. Este doc diseña la pantalla de cada formato para que Alex la <b>vea y la apruebe</b> antes de tocar código.</p>
+    <p><b>La decisión que sostiene todo.</b> No hacemos un timer a medida por formato. El motor enruta por <code style="background:#222;color:#ffb340">format → presentation</code> a un puñado de <b>motores</b> que rellenan segmentos genéricos. El <b>EMOM ya está construido y enviado</b> (<code style="background:#222;color:#ffb340">WorkoutLiveHUDs.swift</code> · <code style="background:#222;color:#ffb340">EmomLiveHUD</code>) — es la prueba viva del patrón y la referencia visual de la que parten los demás: reloj mono gigante en pozo elevado con acento superior, micro-label, fila de 3 celdas, botón primario contextual a ancho completo.</p>
+    <p><b>El principio de Alex, aplicado por formato.</b> La pregunta que ordena TODO el diseño es una: <b>¿la pantalla avanza sola, o el atleta repite lo que ve?</b> <b style="color:#ff9a4d">ROTATING</b> = el reloj manda y la pantalla cambia de trabajo sola (EMOM, Tabata, Series, Death By). <b style="color:#7bbef5">FIXED</b> = se muestra la ronda entera y la pantalla NO avanza; el atleta la repite hasta que decide (AMRAP, For Time, Chipper, Ladder). <b style="color:#7fd6a0">CONTINUOUS</b> = un solo tramo sin cortes (Steady). Esa distinción es visible en cada mockup de abajo.</p>
+  </div>
+
+  <!-- ════════════ THE DISTINCTION ════════════ -->
+  <h2><span class="surf">A</span>La distinción que ordena todo: ¿avanza la pantalla, o repites?</h2>
+  <p class="lead">Antes de los formatos, la regla. Cada formato cae en exactamente una de estas tres familias según su <code>presentation</code> en <code>format.ts</code>. La familia decide si el cronómetro <b>conduce</b> al atleta (auto-avance) o si solo <b>cuenta</b> mientras el atleta repite un bloque de trabajo que ve entero.</p>
+
+  <div class="legend">
+    <div class="lg rot">
+      <span class="ico">&#x21BB;</span>
+      <div class="lt">ROTATING</div>
+      <div class="rule"><b>La pantalla avanza sola.</b> El reloj manda el cambio de trabajo. El atleta casi no toca el móvil — solo entrena.</div>
+      <div class="fms"><span class="fm">EMOM</span><span class="fm">Tabata</span><span class="fm">Series</span><span class="fm">Death By</span></div>
+    </div>
+    <div class="lg fix">
+      <span class="ico">&#x25A3;</span>
+      <div class="lt">FIXED</div>
+      <div class="rule"><b>La pantalla NO avanza.</b> Ves la ronda/lista entera y la repites. Tú decides cuándo marcas ronda o terminas.</div>
+      <div class="fms"><span class="fm">AMRAP</span><span class="fm">For Time</span><span class="fm">Chipper</span><span class="fm">Ladder</span></div>
+    </div>
+    <div class="lg con">
+      <span class="ico">&#x2014;</span>
+      <div class="lt">CONTINUOUS</div>
+      <div class="rule"><b>Un solo tramo, sin cortes.</b> Un esfuerzo continuo contra una zona/ritmo objetivo. Ni rondas ni intervalos.</div>
+      <div class="fms"><span class="fm">Steady</span></div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:10px">También son <b>FIXED</b> los formatos <code>rounds</code> (rondas por tiempo) y la <code>Simulación HYROX</code> — esta última con su <a href="2026-06-25-ux-hyrox-sim-test.html">pase propio</a> de 8 estaciones. Comparten el patrón "lista fija que se repite/recorre" sin pantalla que avance página. Ningún formato cae al lap genérico: los tres motores cubren el espacio entero.</p>
+
+
+  <!-- ════════════ SHARED ANATOMY ════════════ -->
+  <h2><span class="surf">B</span>Anatomía compartida — la cara base (ya enviada en el EMOM)</h2>
+  <p class="lead">Todos los formatos comparten el mismo esqueleto. Cambia el motor del reloj y la pieza central; el marco es uno. A la izquierda, la pantalla anotada; el reloj gigante es la cara real del <code>EmomLiveHUD</code> ya en producción.</p>
+
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top">
+        <span class="ctl">&#10073;&#10073;</span>
+        <span class="ctl back">&#8249;</span>
+        <span class="mid"><div class="ph">Principal</div><div class="sg">EMOM 12 · Metcon</div></span>
+        <span class="ix num">5/9</span>
+      </div>
+      <div class="rail">
+        <span class="rseg done">Calent.</span>
+        <span class="rseg on">Principal</span>
+        <span class="rseg">Vuelta</span>
+      </div>
+      <div class="hero">
+        <div class="cap lbl" style="color:var(--accent)">Intervalo 5 / 12</div>
+        <div class="clock num urgent">0:43</div>
+        <div class="csub">cada 1:00</div>
+      </div>
+      <div class="work">
+        <div class="wl lbl acc">Este intervalo</div>
+        <div class="wmain"><span class="wmeas num">15 cal</span><span class="wmov">Row Erg</span></div>
+        <div class="wnext"><span class="lbl">Luego</span><span class="nv">12 Burpees</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Total</div><div class="cv num">4:17</div></div>
+        <div class="cell"><div class="cl">Hechos</div><div class="cv num">4/12</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">162<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri">SIGUIENTE</span></div>
+    </div></div>
+
+    <div class="side">
+      <div class="badges">
+        <span class="badge done">&#10003; YA CONSTRUIDO · referencia</span>
+        <span class="badge rot">&#x21BB; ROTATING</span>
+        <span class="badge down">&#8595; cuenta atrás por intervalo</span>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9635;</span>Las 6 piezas del marco</div>
+        <ul>
+          <li><span class="k">Barra superior</span> — pausa <code>&#10073;&#10073;</code>, atrás <code>&#8249;</code> de baja jerarquía (no se pisa bajo una barra), FASE en cursiva naranja + segmento, e índice <code>X/N</code>.</li>
+          <li><span class="k">Riel de fases</span> — la espina navegable: Calentamiento · Principal · Vuelta. Tocas una fase para saltar (con confirmación si te saltas trabajo). En plan mínimo colapsa a "Entreno".</li>
+          <li><span class="k">Reloj héroe</span> — número mono gigante en pozo elevado con franja de acento. Es la única pieza que cambia de motor entre formatos.</li>
+          <li><span class="k">Pieza central</span> — el trabajo actual (rotating), el contador de rondas (AMRAP), la lista fija (For Time), o el objetivo creciente (Death By).</li>
+          <li><span class="k">Fila de 3 celdas</span> — total · progreso · HR (zona en color). Glanceable bajo esfuerzo.</li>
+          <li><span class="k">Botón primario</span> — a ancho completo, etiqueta contextual: <code>EMPEZAR</code> / <code>SIGUIENTE</code> / <code>HECHO</code> / <code>TERMINAR</code>. Nunca "LAP" genérico.</li>
+        </ul>
+      </div>
+      <div class="note cue">
+        <div class="h"><span class="ic">&#9834;</span>Avisos audio + háptico (motor compartido · pantalla bloqueada)</div>
+        <ul>
+          <li>Cuenta de entrada <span class="k">3-2-1-GO</span> antes de cada arranque.</li>
+          <li>Pitido en el <span class="k">límite de cada intervalo</span> (rotating) + tic en los <span class="k">últimos 3 s</span>.</li>
+          <li><span class="k">Tonos distintos</span> work vs rest (Tabata/Series) para correr con el móvil en el bolsillo.</li>
+          <li>Bocina de <span class="k">fin / cap</span>; baja la música mientras suena.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ TOC ════════════ -->
+  <div class="seclbl">Los 9 formatos, en orden por familia</div>
+  <div class="toc">
+    <a href="#emom"><div class="n">Rotating · 1</div><div class="t">EMOM</div><div class="d">Cada minuto on the minute. Ya construido — la referencia.</div></a>
+    <a href="#tabata"><div class="n">Rotating · 2</div><div class="t">Tabata</div><div class="d">Work/rest fijo (20/10 ×8). Flip de color a pantalla completa.</div></a>
+    <a href="#series"><div class="n">Rotating · 3</div><div class="t">Series / Intervalos</div><div class="d">Trabajo+descanso ×N. Ritmo vs objetivo en correr.</div></a>
+    <a href="#deathby"><div class="n">Rotating · 4</div><div class="t">Death By</div><div class="d">El objetivo sube cada minuto hasta que fallas.</div></a>
+    <a href="#amrap"><div class="n">Fixed · 5</div><div class="t">AMRAP</div><div class="d">Ventana fija. Reloj rojo / rondas verdes. El contador estrella.</div></a>
+    <a href="#fortime"><div class="n">Fixed · 6</div><div class="t">For Time</div><div class="d">Cuenta arriba (menos = mejor). Cap + reps restantes.</div></a>
+    <a href="#chipper"><div class="n">Fixed · 7</div><div class="t">Chipper</div><div class="d">Una lista larga que se recorre de arriba a abajo, una vez.</div></a>
+    <a href="#ladder"><div class="n">Fixed · 8</div><div class="t">Ladder</div><div class="d">El esquema de reps cambia; el reloj solo cuenta.</div></a>
+    <a href="#steady"><div class="n">Continuous · 9</div><div class="t">Steady</div><div class="d">Un tramo continuo contra zona/ritmo objetivo.</div></a>
+  </div>
+
+
+  <!-- ══════════════════════ ROTATING ══════════════════════ -->
+  <div class="seclbl">&#x21BB; Familia ROTATING — la pantalla avanza sola</div>
+
+  <!-- EMOM -->
+  <h2 id="emom"><span class="surf">1</span>EMOM <span class="es">— every minute on the minute</span></h2>
+  <p class="lead">El reloj cuenta atrás dentro del intervalo, llega a 0:00 y <b>rueda solo</b> al siguiente con pitido. La pantalla muestra <b>el trabajo de ESTE minuto</b> (clave en EMOM alternos) y, si alterna, qué viene después. El atleta no toca nada: el motor avanza. Ya está en producción.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">EMOM 12</div></span><span class="ix num">5/9</span></div>
+      <div class="hero">
+        <div class="cap lbl" style="color:var(--accent)">Intervalo 5 / 12</div>
+        <div class="clock num urgent">0:43</div>
+        <div class="csub">cada 1:00</div>
+      </div>
+      <div class="work">
+        <div class="wl lbl acc">Este intervalo</div>
+        <div class="wmain"><span class="wmeas num">15 cal</span><span class="wmov">Row Erg</span></div>
+        <div class="wnext"><span class="lbl">Luego</span><span class="nv">12 Burpees</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Total</div><div class="cv num">4:17</div></div>
+        <div class="cell"><div class="cl">Hechos</div><div class="cv num">4/12</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">162<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri">SIGUIENTE</span></div>
+      <div class="caption">La pantalla rueda sola al minuto · "SIGUIENTE" solo para saltar manualmente</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge done">&#10003; YA CONSTRUIDO</span><span class="badge rot">&#x21BB; ROTATING</span><span class="badge down">&#8595; cuenta atrás · auto-roll</span><span class="badge score"><code>pass_fail</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>EMOM 12.</b> Min impar: 15 cal Row · min par: 12 Burpees. Cada minuto on the minute, 12 minutos.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>pass_fail</code> por intervalo: ¿aguantó la prescripción los 12? Opción de reps por intervalo (splits por segmento). No es un número único.</p></div>
+      </div>
+      <div class="note cue"><div class="h"><span class="ic">&#9834;</span>Avisos</div><ul><li>Pitido en el <span class="k">tope de cada minuto</span> (el "on the minute" — el alma del formato).</li><li>Tic en los últimos 3 s; tono distinto al cambiar de movimiento en EMOM alterno.</li></ul></div>
+    </div>
+  </div>
+
+  <!-- TABATA -->
+  <h2 id="tabata"><span class="surf">2</span>Tabata <span class="es">— intervalos work/rest fijos</span></h2>
+  <p class="lead">Dos relojes que se alternan solos: <b>WORK</b> y <b>REST</b> (preset 20s/10s ×8; los tres parámetros son configurables). El motor mete un <b>flip de color a pantalla completa</b> para que se lea de un vistazo bajo esfuerzo — naranja=trabajo, azul=descanso — con tonos distintos para cada transición. La pantalla avanza sola por las 16 mini-fases.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">Tabata · Air Squats</div></span><span class="ix num">3/9</span></div>
+      <div class="banner work">WORK</div>
+      <div class="hero">
+        <div class="cap lbl" style="color:var(--accent)">Ronda 3 / 8</div>
+        <div class="clock num urgent">0:14</div>
+        <div class="csub">20 s work &middot; 10 s rest</div>
+      </div>
+      <div class="work">
+        <div class="wl lbl acc">Trabajo</div>
+        <div class="wmain"><span class="wmov">Air Squats</span></div>
+        <div class="wnext"><span class="lbl">Luego</span><span class="nv">Descanso 0:10</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Total</div><div class="cv num">2:38</div></div>
+        <div class="cell"><div class="cl">Reps</div><div class="cv num">18</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">171<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri">+ REPS</span></div>
+      <div class="caption">El flip naranja&#8596;azul avanza solo · solo registras reps por ronda</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge rot">&#x21BB; ROTATING</span><span class="badge down">&#8595; cuenta atrás · flip work/rest</span><span class="badge score"><code>rounds_reps</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>Tabata Air Squats, 20/10 ×8.</b> 20 s a tope, 10 s descanso, 8 rondas (4 min). También Tabata wall balls, row, etc.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>rounds_reps</code>. Por defecto, el <b>marcador Tabata clásico</b> = la ronda de menos reps. Alternativa: total de reps. Ver decisión 3.</p></div>
+      </div>
+      <div class="note cue"><div class="h"><span class="ic">&#9834;</span>Avisos</div><ul><li><span class="k">Tonos distintos</span> al empezar work y al empezar rest (distinto tono = corre sin mirar).</li><li>3-2-1 en cada transición; háptico por flip para pantalla bloqueada; voz opcional "work"/"rest".</li></ul></div>
+    </div>
+  </div>
+
+  <!-- SERIES / INTERVALS -->
+  <h2 id="series"><span class="surf">3</span>Series / Intervalos <span class="es">— trabajo + descanso ×N (endurance)</span></h2>
+  <p class="lead">El mismo motor de Tabata, pero pensado para correr/ergo: cada bout de trabajo lleva un <b>objetivo de ritmo o zona</b> y la pantalla muestra el <b>ritmo en vivo vs objetivo</b> mientras dura el WORK; al descanso flipea a una cuenta atrás azul y rueda sola a la siguiente serie. Es la cara de las series de Pablo (6×800, 5×500m ergo).</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">Series · 6×800 m</div></span><span class="ix num">4/9</span></div>
+      <div class="banner work">WORK</div>
+      <div class="hero">
+        <div class="cap lbl" style="color:var(--accent)">Serie 4 / 6 &middot; 800 m</div>
+        <div class="clock num">3:52<span class="sm">/km</span></div>
+        <div class="pacebar"><span class="z z4">Z4 umbral</span><span class="vs">objetivo <b style="color:var(--fg)">3:50</b> /km</span></div>
+      </div>
+      <div class="work">
+        <div class="wl lbl acc">Esta serie</div>
+        <div class="wmain"><span class="wmeas num">520 m</span><span class="wmov">de 800 m</span></div>
+        <div class="wnext"><span class="lbl">Luego</span><span class="nv">Trote 3:00 &middot; Z2</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Total</div><div class="cv num">14:02</div></div>
+        <div class="cell"><div class="cl">Series</div><div class="cv num">3/6</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">178<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri">SERIE HECHA</span></div>
+      <div class="caption">Work&#8596;rest avanza solo · ritmo en vivo contra el objetivo</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge rot">&#x21BB; ROTATING</span><span class="badge down">&#8595; descanso cuenta atrás · auto-roll</span><span class="badge score"><code>pace</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>6×800 m @ umbral (Z4), trote 3:00.</b> O en ergo: 5×500 m remo @ 1:50 /500m, descanso 2:00.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>pace</code> · splits por segmento: ritmo/reps/cal de cada bout + media y comparación contra objetivo. El entregable de coaching.</p></div>
+      </div>
+      <div class="note act"><div class="h"><span class="ic">&#9889;</span>Bout por distancia vs por tiempo</div><p>Series de correr van por <b>distancia</b> (800 m → auto-lap por GPS o "SERIE HECHA"); las de tiempo (work_s) ruedan solas. Ver decisión 4.</p></div>
+    </div>
+  </div>
+
+  <!-- DEATH BY -->
+  <h2 id="deathby"><span class="surf">4</span>Death By <span class="es">— intervalo auto-terminante</span></h2>
+  <p class="lead">Como un EMOM, pero el <b>objetivo SUBE cada minuto</b> (1 rep el min 1, 2 el min 2…). El número creciente es el foco de la pantalla. El entreno acaba el primer minuto que fallas — y a diferencia de las ventanas fijas, hace falta un <b>toque explícito "Fallé"</b> para terminar.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">Death By Burpees</div></span><span class="ix num">6/9</span></div>
+      <div class="hero">
+        <div class="cap lbl" style="color:var(--accent)">Minuto 9</div>
+        <div class="clock num">0:38</div>
+        <div class="csub">cada 1:00 &middot; objetivo +1 / min</div>
+      </div>
+      <div class="target">
+        <div><span class="tn num">9</span><span class="tu">burpees</span></div>
+        <div class="tl">objetivo de este minuto</div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Total</div><div class="cv num">8:22</div></div>
+        <div class="cell"><div class="cl">Ronda</div><div class="cv num">9</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">184<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec fail">FALLÉ</span><span class="pri ok">LO LOGRÉ</span></div>
+      <div class="caption">El objetivo sube solo cada minuto · "FALLÉ" es lo que termina</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge rot">&#x21BB; ROTATING</span><span class="badge down">&#8595; cuenta atrás por minuto</span><span class="badge score"><code>rounds_survived</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>Death By Burpees.</b> +1 burpee cada minuto: 1, 2, 3… hasta que no completas el objetivo dentro del minuto.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>rounds_survived</code> — el último minuto completado entero. Ej: "llegué a la ronda 14".</p></div>
+      </div>
+      <div class="note cue"><div class="h"><span class="ic">&#9834;</span>Avisos</div><ul><li>Pitido por minuto + tic en los últimos 3 s.</li><li><span class="k">Tono de fallo</span> distinto al terminar.</li></ul></div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════ FIXED ══════════════════════ -->
+  <div class="seclbl">&#x25A3; Familia FIXED — la pantalla NO avanza, repites lo que ves</div>
+
+  <!-- AMRAP -->
+  <h2 id="amrap"><span class="surf">5</span>AMRAP <span class="es">— as many rounds as possible (ventana fija)</span></h2>
+  <p class="lead">El reloj <b>cuenta atrás</b> desde la ventana fija — el reloj descendente es la urgencia, nunca lo avanzas tú. La lista de la ronda se queda <b>fija en pantalla</b> y el atleta la repite; el elemento estrella es el <b>contador de rondas grande, verde, tap-para-+1</b>. Convención Rogue/GymNext: <b>reloj rojo / rondas verdes</b>. Este es EL formato que pide el contador interactivo.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">AMRAP 20 · Cindy</div></span><span class="ix num">4/9</span></div>
+      <div class="hero">
+        <div class="cap lbl">Restante</div>
+        <div class="clock num danger">12:34</div>
+        <div class="cap2">de <span class="num">20:00</span></div>
+      </div>
+      <div class="rounds">
+        <div class="rn num">7</div>
+        <div class="rmid"><div class="rl">Rondas</div><div class="rt">+ 12 reps &middot; ronda parcial</div><div class="hint">toca para +1 ronda &middot; mantén para &minus;1</div></div>
+        <div class="plus">+</div>
+      </div>
+      <div class="tasklist">
+        <div class="tlh"><span class="lbl">La ronda</span><span class="repeat">se repite</span></div>
+        <div class="ti"><span class="reps num">5</span> Pull-ups</div>
+        <div class="ti"><span class="reps num">10</span> Push-ups</div>
+        <div class="ti"><span class="reps num">15</span> Air Squats</div>
+      </div>
+      <div class="cta"><span class="pri">+ RONDA</span></div>
+      <div class="caption">La pantalla NO avanza · ves la ronda entera y la repites · tocas +ronda cada vuelta</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge fix">&#x25A3; FIXED</span><span class="badge down">&#8595; cuenta atrás (deadline)</span><span class="badge score"><code>rounds_reps</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>AMRAP 20 — "Cindy".</b> 5 Pull-ups / 10 Push-ups / 15 Air Squats, tantas rondas como puedas en 20 min.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>rounds_reps</code> → "7 rondas + 12 reps". AMRAP de un solo movimiento (máx reps) → total de reps.</p></div>
+      </div>
+      <div class="note cue"><div class="h"><span class="ic">&#9834;</span>Avisos</div><ul><li>GO; aviso opcional a mitad; tic en los últimos 10 s y luego 3 s.</li><li><span class="k">Bocina a 0:00</span> = para y registra tu sitio. Atrás reabre el conteo, no el reloj.</li></ul></div>
+    </div>
+  </div>
+
+  <!-- FOR TIME -->
+  <h2 id="fortime"><span class="surf">6</span>For Time <span class="es">— RFT, reloj abierto (menos = mejor)</span></h2>
+  <p class="lead">El reloj <b>cuenta arriba</b> desde 0:00 (menos tiempo = mejor). El trabajo está fijo en pantalla; el atleta lo recorre y marca splits por ronda — la pantalla no avanza página. Si hay <b>time cap</b>, se muestra como línea secundaria y el reloj <b>flipea a cuenta atrás</b> en el último minuto; quien acaba antes, para.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">For Time · Fran</div></span><span class="ix num">4/9</span></div>
+      <div class="hero">
+        <div class="cap lbl">Tiempo</div>
+        <div class="clock num">4:32</div>
+        <div class="cap2">cap <span class="num">8:00</span></div>
+      </div>
+      <div class="tasklist">
+        <div class="tlh"><span class="lbl">Esquema 21-15-9</span><span class="repeat">recorrer</span></div>
+        <div class="ti done">Ronda 21 &middot; Thrusters + Pull-ups <span class="ck">&#10003;</span></div>
+        <div class="ti">Ronda 15 &middot; Thrusters + Pull-ups <span class="ck todo">&#9711;</span></div>
+        <div class="ti">Ronda 9 &middot; Thrusters + Pull-ups <span class="ck todo">&#9711;</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Split R21</div><div class="cv num">2:08</div></div>
+        <div class="cell"><div class="cl">Ronda</div><div class="cv num">2/3</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">175<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri stop">HECHO</span></div>
+      <div class="caption">La pantalla NO avanza · marcas split por ronda · "HECHO" = tu tiempo final</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge fix">&#x25A3; FIXED</span><span class="badge up">&#8593; cuenta arriba · cap flipea</span><span class="badge score"><code>time</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>"Fran" — 21-15-9.</b> Thrusters (43 kg) + Pull-ups, for time, cap 8:00.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>time</code> total. Si te cortó el cap → <b>tiempo + reps restantes</b> (convención CrossFit) para que dos atletas capados sigan siendo comparables. Splits por ronda siempre.</p></div>
+      </div>
+      <div class="note cue"><div class="h"><span class="ic">&#9834;</span>Avisos</div><ul><li>GO al arrancar; chime + captura de split al marcar ronda.</li><li>Tic en los últimos 3 s del cap; <span class="k">bocina del cap</span> = para y registra reps restantes.</li></ul></div>
+    </div>
+  </div>
+
+  <!-- CHIPPER -->
+  <h2 id="chipper"><span class="surf">7</span>Chipper <span class="es">— una lista larga, una sola vez</span></h2>
+  <p class="lead">Una sola ronda larga (rounds=1) que se <b>recorre de arriba a abajo</b>, una vez. Reloj cuenta arriba. La lista entera vive en pantalla y vas <b>tachando líneas</b> según las acabas — pero la pantalla no pagina ni avanza: es la misma lista de principio a fin.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">Chipper</div></span><span class="ix num">5/9</span></div>
+      <div class="hero">
+        <div class="cap lbl">Tiempo</div>
+        <div class="clock num">6:48</div>
+      </div>
+      <div class="tasklist">
+        <div class="tlh"><span class="lbl">5 estaciones</span><span class="repeat">recorrer 1 vez</span></div>
+        <div class="ti done"><span class="reps num">100</span> Wall Balls <span class="ck">&#10003;</span></div>
+        <div class="ti done"><span class="reps num">80</span> cal Row <span class="ck">&#10003;</span></div>
+        <div class="ti"><span class="reps num">60</span> Burpees <span class="ck todo">&#9711;</span></div>
+        <div class="ti"><span class="reps num">40</span> Box Jumps <span class="ck todo">&#9711;</span></div>
+        <div class="ti"><span class="reps num">20</span> Thrusters <span class="ck todo">&#9711;</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Hechas</div><div class="cv num">2/5</div></div>
+        <div class="cell"><div class="cl">Split</div><div class="cv num">2:31</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">169<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri stop">HECHO</span></div>
+      <div class="caption">Misma lista todo el rato · tachas según acabas · una sola pasada</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge fix">&#x25A3; FIXED</span><span class="badge up">&#8593; cuenta arriba</span><span class="badge score"><code>time</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>Chipper.</b> 100 Wall Balls → 80 cal Row → 60 Burpees → 40 Box Jumps → 20 Thrusters, for time.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>time</code> total + split por estación tachada (alto valor de coaching: dónde se atascó).</p></div>
+      </div>
+      <div class="note act"><div class="h"><span class="ic">&#9635;</span>Por qué es FIXED y no rotating</div><p>Aunque "avanzas" por la lista, la <b>pantalla es la misma</b> de principio a fin — no hay reloj que mande el cambio. Tú decides el ritmo. Por eso comparte motor con For Time, no con EMOM.</p></div>
+    </div>
+  </div>
+
+  <!-- LADDER -->
+  <h2 id="ladder"><span class="surf">8</span>Ladder <span class="es">— escalera de reps</span></h2>
+  <p class="lead">El <b>esquema de reps cambia</b> ronda a ronda (subiendo, bajando o las dos); el reloj solo cuenta arriba, indiferente al esquema. El esquema cambiante vive en la lista fija de la pantalla — que, como el resto de FIXED, no avanza sola: el atleta recorre la escalera a su ritmo.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">Ladder</div></span><span class="ix num">5/9</span></div>
+      <div class="hero">
+        <div class="cap lbl">Tiempo</div>
+        <div class="clock num">3:14</div>
+      </div>
+      <div class="tasklist">
+        <div class="tlh"><span class="lbl">Escalera DB Snatch &middot; Box Jump</span><span class="repeat">recorrer</span></div>
+        <div class="ti done"><span class="reps num">10-1</span> DB Snatch / Box Jump <span class="ck">&#10003;</span></div>
+        <div class="ti done"><span class="reps num">9-2</span> DB Snatch / Box Jump <span class="ck">&#10003;</span></div>
+        <div class="ti"><span class="reps num">8-3</span> DB Snatch / Box Jump <span class="ck todo">&#9711;</span></div>
+        <div class="ti"><span class="reps num">7-4</span> DB Snatch / Box Jump <span class="ck todo">&#9711;</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Peldaño</div><div class="cv num">3/10</div></div>
+        <div class="cell"><div class="cl">Split</div><div class="cv num">1:02</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">166<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="sec">&#8249;</span><span class="pri stop">HECHO</span></div>
+      <div class="caption">El esquema cambia por peldaño · el reloj solo cuenta · pantalla fija</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge fix">&#x25A3; FIXED</span><span class="badge up">&#8593; cuenta arriba</span><span class="badge score"><code>time</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>Ladder 10-1 / 1-10.</b> DB Snatch 10→1 emparejado con Box Jump 1→10, for time.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>time</code> total + split por peldaño. Mismo motor que For Time/Chipper; lo único distinto es que la lista lleva el esquema variable.</p></div>
+      </div>
+      <div class="note act"><div class="h"><span class="ic">&#9635;</span>Diseño clave</div><p>La escalera NO se hardcodea: es el <code>sets[]</code> de la prescripción mostrado como lista. Subir, bajar o pirámide es solo dato — la cara es la misma.</p></div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════ CONTINUOUS ══════════════════════ -->
+  <div class="seclbl">&#x2014; Familia CONTINUOUS — un solo tramo, sin cortes</div>
+
+  <!-- STEADY -->
+  <h2 id="steady"><span class="surf">9</span>Steady <span class="es">— un esfuerzo continuo contra una zona/ritmo</span></h2>
+  <p class="lead">Ni rondas ni intervalos: un <b>tramo continuo</b> contra una zona o ritmo objetivo. El reloj <b>cuenta atrás</b> la duración prescrita (claridad de deadline) y el héroe secundario es el <b>ritmo en vivo + la zona</b>, con señal de dentro/fuera de zona. Es el rodaje Z2, la tirada larga, el ergo continuo.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">Rodaje Z2</div></span><span class="ix num">6/9</span></div>
+      <div class="hero">
+        <div class="cap lbl">Restante</div>
+        <div class="clock num">27:48</div>
+        <div class="cap2">de <span class="num">40:00</span></div>
+        <div class="pacebar" style="margin-top:9px"><span class="z z2">Z2 &middot; en zona</span><span class="vs">objetivo <b style="color:var(--fg)">4:55&ndash;5:15</b> /km</span></div>
+      </div>
+      <div class="work">
+        <div class="wl lbl acc">Ritmo en vivo</div>
+        <div class="wmain"><span class="wmeas num">5:02</span><span class="wmov" style="font-style:normal;font-weight:700;color:var(--muted)">/km</span></div>
+        <div class="wnext"><span class="lbl">Dist</span><span class="nv">2,4 km</span></div>
+      </div>
+      <div class="metrics">
+        <div class="cell"><div class="cl">Media</div><div class="cv num">5:06<span class="u">/km</span></div></div>
+        <div class="cell"><div class="cl">% en zona</div><div class="cv num">92%</div></div>
+        <div class="cell"><div class="cl">HR</div><div class="cv num hr">141<span class="u">bpm</span></div></div>
+      </div>
+      <div class="cta"><span class="pri stop">TERMINAR</span></div>
+      <div class="caption">Un solo tramo · sin rondas · el objetivo es mantener la zona</div>
+    </div></div>
+    <div class="side">
+      <div class="badges"><span class="badge con">&#x2014; CONTINUOUS</span><span class="badge down">&#8595; cuenta atrás la duración</span><span class="badge score"><code>pace</code></span></div>
+      <div class="grid2" style="margin-top:0">
+        <div class="note ex"><div class="h"><span class="ic">&#9873;</span>Ejemplo real</div><p><b>Rodaje 40 min Z2 (4:55&ndash;5:15 /km).</b> O 60 min ergo continuo Z2; tirada larga aeróbica.</p></div>
+        <div class="note log"><div class="h"><span class="ic">&#9745;</span>Qué se registra</div><p><code>pace</code> — ritmo medio, distancia y <b>% de tiempo en zona</b> (adherencia a la zona objetivo).</p></div>
+      </div>
+      <div class="note cue"><div class="h"><span class="ic">&#9834;</span>Avisos</div><ul><li>Aviso <span class="k">al salir de zona</span> (arriba/abajo) — el único feedback que importa en continuo.</li><li>Bocina al llegar a 0:00.</li></ul></div>
+    </div>
+  </div>
+
+
+  <!-- ════════════ MATRIX ════════════ -->
+  <h2><span class="surf">C</span>Resumen — los 9 formatos en una tabla</h2>
+  <p class="lead">Todo lo anterior, escaneado de un vistazo. Presentación (de <code>format.ts</code>), dirección del reloj, marcador (<code>score</code> de <code>format.ts</code>), qué se registra y un ejemplo real.</p>
+  <table class="mx">
+    <thead><tr><th>Formato</th><th>Familia</th><th>Reloj</th><th>Marcador</th><th>Qué se registra</th><th>Ejemplo</th></tr></thead>
+    <tbody>
+      <tr><td><span class="fn">EMOM</span></td><td><span class="pp rot">rotating</span></td><td>&#8595; atrás · auto-roll</td><td><code>pass_fail</code></td><td>¿aguantó cada intervalo? · splits opc.</td><td>EMOM 12: 15 cal Row / 12 Burpees</td></tr>
+      <tr><td><span class="fn">Tabata</span></td><td><span class="pp rot">rotating</span></td><td>&#8595; atrás · flip work/rest</td><td><code>rounds_reps</code></td><td>ronda de menos reps (clásico) / total</td><td>20/10 ×8 Air Squats</td></tr>
+      <tr><td><span class="fn">Series</span></td><td><span class="pp rot">rotating</span></td><td>&#8595; descanso · auto-roll</td><td><code>pace</code></td><td>ritmo/reps por bout + media vs objetivo</td><td>6×800 m @ Z4, trote 3:00</td></tr>
+      <tr><td><span class="fn">Death By</span></td><td><span class="pp rot">rotating</span></td><td>&#8595; atrás por minuto</td><td><code>rounds_survived</code></td><td>último minuto completado</td><td>Death By Burpees, +1/min</td></tr>
+      <tr><td><span class="fn">AMRAP</span></td><td><span class="pp fix">fixed</span></td><td>&#8595; atrás (deadline)</td><td><code>rounds_reps</code></td><td>rondas + reps parciales</td><td>AMRAP 20: 5/10/15 (Cindy)</td></tr>
+      <tr><td><span class="fn">For Time</span></td><td><span class="pp fix">fixed</span></td><td>&#8593; arriba · cap flipea</td><td><code>time</code></td><td>tiempo total (+ reps restantes si cap) · splits</td><td>Fran 21-15-9, cap 8:00</td></tr>
+      <tr><td><span class="fn">Chipper</span></td><td><span class="pp fix">fixed</span></td><td>&#8593; arriba</td><td><code>time</code></td><td>tiempo total + split por estación</td><td>100 WB / 80 Row / 60 Burpees…</td></tr>
+      <tr><td><span class="fn">Ladder</span></td><td><span class="pp fix">fixed</span></td><td>&#8593; arriba</td><td><code>time</code></td><td>tiempo total + split por peldaño</td><td>10-1 / 1-10 DB Snatch + Box Jump</td></tr>
+      <tr><td><span class="fn">Steady</span></td><td><span class="pp con">continuous</span></td><td>&#8595; atrás la duración</td><td><code>pace</code></td><td>ritmo medio · dist · % en zona</td><td>Rodaje 40' Z2 (4:55&ndash;5:15/km)</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">El marcador final lo entrega una hoja de cierre <b>consciente del formato</b>, nunca un campo genérico: <code>time</code> / <code>time</code>+reps-restantes / <code>rounds_reps</code> / <code>pass_fail</code> / <code>rounds_survived</code> / <code>pace</code> (splits). Es honesto: registra lo que pasó, no un número idealizado.</p>
+
+
+  <!-- ════════════ DECISIONS ════════════ -->
+  <h2><span class="surf">D</span>Decisiones para Alex — antes de construir</h2>
+  <p class="lead">Estas son subjetivas o tocan metodología de Pablo; no las decido yo. El resto del diseño (correctitud, dirección del reloj, marcador) ya está fijado por el dominio y no necesita validación.</p>
+
+  <div class="decision">
+    <div class="q">1 · Contador de rondas del AMRAP — ¿zona de toque grande, o stepper +/&minus; discreto?</div>
+    <div class="ctx">Es el elemento más tocado del formato más interactivo. La referencia (Rogue/PushPress) usa una zona de toque enorme = +1 ronda.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span>Zona/botón <b>"+ RONDA"</b> a ancho completo (toque fácil con manos sudadas) + un &minus; pequeño para corregir. Reps parciales con +/&minus; aparte.</div>
+      <div class="opt">Stepper +/&minus; clásico, más pequeño y simétrico.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">2 · For Time con cap — ¿flip a cuenta atrás en el último minuto, o cuenta arriba siempre?</div>
+    <div class="ctx">El flip da urgencia en el sprint final; mantener cuenta arriba es más simple y constante.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span><b>Flip</b> a cuenta atrás solo en el último minuto del cap (con cap como línea secundaria el resto del tiempo).</div>
+      <div class="opt">Cuenta arriba siempre, con el cap como línea secundaria fija.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">3 · Marcador por defecto del Tabata — ¿ronda de menos reps (clásico), o total de reps?</div>
+    <div class="ctx">El "Tabata score" clásico es la ronda peor (penaliza bajar el ritmo). El total es más intuitivo para principiantes. Es decisión de metodología.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span><b>Ronda de menos reps</b> por defecto (estándar del formato), con total como alternativa visible.</div>
+      <div class="opt">Total de reps por defecto.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">4 · Series de correr — ¿el bout se mide por distancia (800 m) o por tiempo (3:00)?</div>
+    <div class="ctx">Decide si el WORK rueda solo (por tiempo, GPS opcional) o termina cuando el atleta llega a la distancia (auto-lap por GPS o toque "SERIE HECHA"). Depende de cómo prescribe Pablo en su biblioteca. Ambos están soportados; ¿cuál es el por defecto?</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span>Soportar los dos; por distancia (auto-lap GPS) como por defecto para correr, por tiempo para ergo/genéricas.</div>
+      <div class="opt">Solo por tiempo en v1 (más simple), distancia como follow-up.</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">5 · Voz de coach "work"/"rest" (Tabata/Series) — ¿en v1 o follow-up?</div>
+    <div class="ctx">Permite correr con el móvil en el bolsillo sin mirar (estilo Tabata Pro). Los tonos distintos + háptico ya cubren el mínimo; la voz es un plus.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span>Tonos distintos + háptico en v1 (table-stakes); <b>voz como follow-up</b>.</div>
+      <div class="opt">Voz desde v1.</div>
+    </div>
+  </div>
+
+
+  <footer>
+    FAHYBRID · Cronómetros del entreno en vivo por formato · FASE 2 · PASO 3 · doc de sign-off (no es código).
+    Fuente del modelo: <code>shared/domain/prescription/format.ts</code> (presentation rotating/fixed/continuous + score) · referencia visual: <code>ios/FAHYBRIK/Workout/WorkoutLiveHUDs.swift · EmomLiveHUD</code> (ya enviado).
+    Mockups oscuros porque la app es oscura; doc claro. Agnóstico de metodología — las zonas/fases las posee el coach.
+  </footer>
+
+</div>
+</body>
+</html>
