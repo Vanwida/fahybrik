@@ -68,11 +68,17 @@ struct PlanView: View {
     // open. Set from the per-session technique affordance in the week.
     @State private var techniqueTarget: AthleteWeekDaySession? = nil
 
-    // Move-a-session-to-another-day: the message shown when a move FAILS (and
-    // its optimistic update is reverted), plus the day currently under a drag
-    // (the drop-target highlight). Both clear themselves once handled.
-    @State private var moveError: String? = nil
+    // A transient error toast shared by the row actions that can fail: a failed
+    // move (its optimistic update already reverted) AND a failed state correction
+    // (marcar/completar/deshacer). One source — full-sentence messages — so the
+    // two flows never grow parallel banners. Plus the day under a drag (the
+    // drop-target highlight). Both clear themselves once handled.
+    @State private var actionError: String? = nil
     @State private var dropTargetIso: String? = nil
+
+    // "Deshacer hecho" is destructive when the server reports the session holds
+    // real recorded work — this holds the session awaiting the confirm dialog.
+    @State private var undoConfirmTarget: AthleteWeekDaySession? = nil
 
     private var effectiveBearer: String? {
         bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
@@ -125,9 +131,25 @@ struct PlanView: View {
                 }
             }
         }
-        // A failed move reverts the week and surfaces the reason here.
-        .overlay(alignment: .top) { moveErrorBanner }
-        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: moveError)
+        // A failed move/correction surfaces its reason here (the move already
+        // reverted its optimistic update by the time this shows).
+        .overlay(alignment: .top) { actionErrorBanner }
+        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: actionError)
+        // Destructive "Deshacer hecho": only reached when the server says the
+        // session holds real recorded work that the reset will permanently delete.
+        .confirmationDialog(
+            "¿Deshacer este entreno?",
+            isPresented: undoConfirmBinding,
+            titleVisibility: .visible,
+            presenting: undoConfirmTarget
+        ) { session in
+            Button("Deshacer y borrar lo registrado", role: .destructive) {
+                confirmUndo(session)
+            }
+            Button("Cancelar", role: .cancel) { undoConfirmTarget = nil }
+        } message: { _ in
+            Text("Se borrará lo que registraste y el entreno volverá a pendiente. Esto no se puede deshacer.")
+        }
         .task {
             store.activate(bearer: effectiveBearer)
             await loadPlan()
@@ -570,7 +592,9 @@ struct PlanView: View {
     private func dayRow(_ day: AthleteWeekDay) -> some View {
         let primary = day.sessions.first
         let rest = isRest(day)
-        let done = isDayCompleted(day)
+        // The collapsed row paints the PRIMARY session's state (its own mark); a
+        // second session is signalled by the "+N" hint in the title line.
+        let state = primary.map(sessionState) ?? .pending
         let canOpen = !rest && !(primary?.assignmentId.isEmpty ?? true)
         // A collapsed row operates on its PRIMARY session (as tap-to-open does):
         // draggable + a move menu when that session can be rescheduled. The
@@ -604,7 +628,7 @@ struct PlanView: View {
                         sessionTitleLine(day: day, rest: rest)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        trailingStatus(rest: rest, done: done,
+                        trailingStatus(rest: rest, state: state,
                                        hasSession: primary != nil, showChevron: !movable)
                     }
                     .contentShape(Rectangle())
@@ -615,7 +639,7 @@ struct PlanView: View {
                 sourceIso: day.isoDate
             )
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(rowAccessibilityLabel(day: day, rest: rest, done: done))
+            .accessibilityLabel(rowAccessibilityLabel(day: day, rest: rest, state: state))
             .accessibilityAddTraits(canOpen ? .isButton : [])
 
             if movable, let session = primary {
@@ -623,6 +647,7 @@ struct PlanView: View {
             }
             if canOpen, let session = primary {
                 techniqueButton(for: session)
+                correctMenu(for: session)
             }
         }
         .padding(.horizontal, 13)
@@ -721,7 +746,8 @@ struct PlanView: View {
     // move/technique affordances + status glyph. Each line is its own drag
     // source (a two-a-day moves one session at a time).
     private func todaySessionLine(_ session: AthleteWeekDaySession) -> some View {
-        let done = isSessionCompleted(session)
+        let state = sessionState(session)
+        let done = state == .done
         let movable = canMove(session)
         return HStack(spacing: Theme.Spacing.s) {
             draggableSession(
@@ -745,14 +771,14 @@ struct PlanView: View {
                             PartnerBadge(text: badge, compact: true)
                         }
                         Spacer(minLength: Theme.Spacing.s)
-                        if done {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(Theme.Color.ok)
-                        } else if !movable {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(Theme.Color.faint)
+                        if state == .pending {
+                            if !movable {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(Theme.Color.faint)
+                            }
+                        } else {
+                            sessionMarkGlyph(state)
                         }
                     }
                     .contentShape(Rectangle())
@@ -764,7 +790,7 @@ struct PlanView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(
                 "\(slot(for: session) == .am ? "Mañana" : "Tarde"), \(session.title)"
-                + (done ? ", completada" : "")
+                + sessionStateA11y(state)
             )
             .accessibilityAddTraits(.isButton)
 
@@ -773,6 +799,7 @@ struct PlanView: View {
             }
             if !session.assignmentId.isEmpty {
                 techniqueButton(for: session)
+                correctMenu(for: session)
             }
         }
     }
@@ -827,30 +854,198 @@ struct PlanView: View {
         }
     }
 
-    // Trailing glyph for a collapsed row: ✓ when done, a chevron (tap-to-open)
-    // for a pending session, nothing on rest days.
+    // Trailing glyph for a collapsed row: one of the four state marks (hecha ✓ /
+    // parcial ½ / no hecha ✕), or — for a PENDIENTE session — a chevron tap hint
+    // (suppressed when a button already signals interactivity). Nothing on rest.
     @ViewBuilder
     private func trailingStatus(
         rest: Bool,
-        done: Bool,
+        state: SessionMarkState,
         hasSession: Bool,
         showChevron: Bool = true
     ) -> some View {
         if rest || !hasSession {
             EmptyView()
-        } else if done {
+        } else if state == .pending {
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            } else {
+                EmptyView()
+            }
+        } else {
+            sessionMarkGlyph(state)
+        }
+    }
+
+    /// The single source for a session's state MARK — used by the collapsed row,
+    /// today's session lines, and the (a11y) row labels so the four marks can
+    /// never drift across surfaces. `.pending` carries no glyph (handled by the
+    /// caller's chevron / empty affordance).
+    @ViewBuilder
+    private func sessionMarkGlyph(_ state: SessionMarkState) -> some View {
+        switch state {
+        case .done:
             Image(systemName: "checkmark")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Theme.Color.ok)
-        } else if showChevron {
-            // The "tap to open" hint — suppressed when a move button takes its
-            // place (the move/technique buttons already signal interactivity).
-            Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-        } else {
+        case .partial:
+            // Amber half — "terminó antes", unmistakably not a full check.
+            Image(systemName: "circle.lefthalf.filled")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Theme.Color.warning)
+        case .missed:
+            // Red cross — "tocaba y no se hizo": what slipped, not just what's left.
+            Image(systemName: "xmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.Color.danger)
+        case .pending:
             EmptyView()
         }
+    }
+
+    // MARK: - Correct a session's state (concept §H)
+    //
+    // A per-row "···" menu that fixes the state retroactively, contextual to the
+    // CURRENT state. It leans on what already exists — the "Ya lo hice" manual log
+    // — and adds the two things that were missing: reaching it from the plan, and
+    // UNDOING a "hecho". No second save path is introduced.
+
+    /// The "···" correction menu. Offered actions depend on the session's state:
+    ///   pendiente / no hecha → Marcar como hecha · Completar ahora
+    ///   parcial              → Completar ahora · Deshacer hecho
+    ///   hecha                → Deshacer hecho
+    @ViewBuilder
+    private func correctMenu(for session: AthleteWeekDaySession) -> some View {
+        let state = sessionState(session)
+        Menu {
+            switch state {
+            case .pending, .missed:
+                Button { markDone(session) } label: {
+                    Label("Marcar como hecha", systemImage: "checkmark")
+                }
+                Button { completeNow(session) } label: {
+                    Label("Completar ahora", systemImage: "square.and.pencil")
+                }
+            case .partial:
+                Button { completeNow(session) } label: {
+                    Label("Completar ahora", systemImage: "square.and.pencil")
+                }
+                Button(role: .destructive) { requestUndo(session) } label: {
+                    Label("Deshacer hecho", systemImage: "arrow.uturn.backward")
+                }
+            case .done:
+                Button(role: .destructive) { requestUndo(session) } label: {
+                    Label("Deshacer hecho", systemImage: "arrow.uturn.backward")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+                .frame(width: 32, height: 30)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Corregir estado de \(session.title)")
+    }
+
+    /// Drives the destructive "Deshacer" confirm dialog from the awaiting session.
+    private var undoConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { undoConfirmTarget != nil },
+            set: { if !$0 { undoConfirmTarget = nil } }
+        )
+    }
+
+    // MARK: - Correction actions
+
+    /// "Marcar como hecha" — assert the FACT without inventing metrics. Optimistic
+    /// (instant ✓ via the local completed store + a cache-first reseed), then the
+    /// manual recorder writes an all-null execution (source='manual') and the plan
+    /// reconciles to the authoritative server status. Reverts on save failure.
+    private func markDone(_ session: AthleteWeekDaySession) {
+        guard let token = effectiveBearer, !session.assignmentId.isEmpty else {
+            showActionError("No se pudo marcar la sesión. Inténtalo de nuevo.")
+            return
+        }
+        let id = session.assignmentId
+        CompletedAssignmentsStore.markCompleted(id)                 // optimistic ✓
+        if let cached = store.planWeek.value { applyWeek(cached) }  // instant re-render
+        Haptics.success()
+        Task {
+            do {
+                try await PlanService.markSessionDone(assignmentId: id, bearer: token)
+                await store.planMutated()                            // refetch → 'completed'
+                await loadPlan()
+            } catch {
+                CompletedAssignmentsStore.unmark(id)                 // revert the mark
+                if let cached = store.planWeek.value { applyWeek(cached) }
+                Haptics.error()
+                showActionError("No se pudo marcar como hecha. Inténtalo de nuevo.")
+            }
+        }
+    }
+
+    /// "Completar ahora" — route into the EXISTING retroactive manual log. Opens
+    /// the session's Detalle (WorkoutContainer), whose brief carries the built-in
+    /// "Ya lo hice · registrar sin cronómetro" path. No save logic is duplicated.
+    private func completeNow(_ session: AthleteWeekDaySession) {
+        open(assignmentId: session.assignmentId, title: session.title)
+    }
+
+    /// "Deshacer hecho" — first pass, unconfirmed. The SERVER decides whether the
+    /// session holds real recorded work: if so it asks for confirmation (we raise
+    /// the destructive dialog); otherwise the reset already happened and we
+    /// reconcile the plan back to pendiente.
+    private func requestUndo(_ session: AthleteWeekDaySession) {
+        guard let token = effectiveBearer, let numericId = Int(session.assignmentId) else {
+            showActionError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+            return
+        }
+        Task {
+            do {
+                let outcome = try await PlanService.resetSession(
+                    assignmentId: numericId, confirm: false, bearer: token
+                )
+                switch outcome {
+                case .reset:            await applyUndo(session)
+                case .needsConfirmation: undoConfirmTarget = session  // → confirm dialog
+                }
+            } catch {
+                Haptics.error()
+                showActionError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+            }
+        }
+    }
+
+    /// Confirmed destructive reset — the athlete accepted losing the recorded work.
+    private func confirmUndo(_ session: AthleteWeekDaySession) {
+        undoConfirmTarget = nil
+        guard let token = effectiveBearer, let numericId = Int(session.assignmentId) else {
+            showActionError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+            return
+        }
+        Task {
+            do {
+                _ = try await PlanService.resetSession(
+                    assignmentId: numericId, confirm: true, bearer: token
+                )
+                await applyUndo(session)
+            } catch {
+                Haptics.error()
+                showActionError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+            }
+        }
+    }
+
+    /// Clear the local optimistic mark and re-fetch authoritative state (the server
+    /// returns the session as 'scheduled' → the plan re-renders pendiente).
+    private func applyUndo(_ session: AthleteWeekDaySession) async {
+        CompletedAssignmentsStore.unmark(session.assignmentId)
+        Haptics.success()
+        await store.planMutated()
+        await loadPlan()
     }
 
     // MARK: - Legend (modality colors)
@@ -1066,7 +1261,7 @@ struct PlanView: View {
     private func handleMove(assignmentId: String, from sourceIso: String, to targetIso: String) {
         guard weekOffset == 0, sourceIso != targetIso else { return }
         guard let token = effectiveBearer, let numericId = Int(assignmentId) else {
-            showMoveError("No se pudo mover la sesión. Inténtalo de nuevo.")
+            showActionError("No se pudo mover la sesión. Inténtalo de nuevo.")
             return
         }
         // Defensive: a session completed on the server (or locally) is frozen —
@@ -1074,13 +1269,13 @@ struct PlanView: View {
         if let session = realSessions.first(where: { $0.assignmentId == assignmentId }),
            isSessionCompleted(session) {
             Haptics.error()
-            showMoveError("Esta sesión ya está completada y no se puede mover.")
+            showActionError("Esta sesión ya está completada y no se puede mover.")
             return
         }
 
         let snapshot = days
         reschedule(assignmentId: assignmentId, to: targetIso)   // optimistic
-        moveError = nil
+        actionError = nil
         movePending = true
         Haptics.success()
 
@@ -1097,7 +1292,7 @@ struct PlanView: View {
             } catch {
                 days = snapshot                 // revert
                 Haptics.error()
-                showMoveError(moveErrorMessage(for: error))
+                showActionError(moveErrorMessage(for: error))
             }
         }
     }
@@ -1133,12 +1328,13 @@ struct PlanView: View {
         s.slot.lowercased().hasPrefix("pm") ? 1 : 0
     }
 
-    /// Show a move-failure message that auto-dismisses (unless replaced sooner).
-    private func showMoveError(_ message: String) {
-        moveError = message
+    /// Show a transient failure message that auto-dismisses (unless replaced
+    /// sooner). Shared by the move flow and the state-correction row actions.
+    private func showActionError(_ message: String) {
+        actionError = message
         Task {
             try? await Task.sleep(nanoseconds: 4_500_000_000)
-            if moveError == message { moveError = nil }
+            if actionError == message { actionError = nil }
         }
     }
 
@@ -1163,21 +1359,22 @@ struct PlanView: View {
         }
     }
 
-    // The move-failure banner (the week is already reverted by the time it shows).
+    // The transient action-failure banner (a failed move is already reverted by
+    // the time this shows; a failed correction left the state unchanged).
     @ViewBuilder
-    private var moveErrorBanner: some View {
-        if let moveError {
+    private var actionErrorBanner: some View {
+        if let actionError {
             HStack(spacing: Theme.Spacing.s) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Theme.Color.danger)
-                Text(moveError)
+                Text(actionError)
                     .scaledFont(13, weight: .medium, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: Theme.Spacing.s)
                 Button {
-                    self.moveError = nil
+                    self.actionError = nil
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
@@ -1207,7 +1404,7 @@ struct PlanView: View {
             .padding(.top, Theme.Spacing.s)
             .transition(.move(edge: .top).combined(with: .opacity))
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("No se pudo mover: \(moveError)")
+            .accessibilityLabel("Aviso: \(actionError)")
         }
     }
 
@@ -1289,20 +1486,30 @@ struct PlanView: View {
         day.isRest || day.sessions.allSatisfy { $0.assignmentId.isEmpty }
     }
 
-    /// A session is done when the server marks it completed OR we recorded it
-    /// locally (optimistic completion before the next /week refetch lands).
-    private func isSessionCompleted(_ session: AthleteWeekDaySession) -> Bool {
-        if session.status.lowercased() == "completed" { return true }
-        return CompletedAssignmentsStore.isCompleted(session.assignmentId)
+    /// The session's visible state — one of the four marks the plan paints
+    /// (pendiente / parcial / hecha / no hecha). Reads the REAL server status,
+    /// with the local optimistic-completed store unioned in. Single source for
+    /// both the marker glyph and the row's correction menu.
+    private func sessionState(_ session: AthleteWeekDaySession) -> SessionMarkState {
+        SessionMarkState.of(status: session.status, assignmentId: session.assignmentId)
     }
 
-    /// The collapsed-row ✓ reflects the PRIMARY session's completion. A day with
-    /// multiple sessions only reads "done" when every real session is finished —
-    /// otherwise it stays a pending row. Never driven by the date passing.
-    private func isDayCompleted(_ day: AthleteWeekDay) -> Bool {
-        let real = day.sessions.filter { !$0.assignmentId.isEmpty }
-        guard !real.isEmpty else { return false }
-        return real.allSatisfy { isSessionCompleted($0) }
+    /// A session is done when its state is `.done` (server 'completed' OR the
+    /// local optimistic mark). Kept as the move-guard / counter predicate; now
+    /// derived from `sessionState` so the two can never drift.
+    private func isSessionCompleted(_ session: AthleteWeekDaySession) -> Bool {
+        sessionState(session) == .done
+    }
+
+    /// VoiceOver suffix naming a session's state (matches the four marks). Empty
+    /// for pendiente — the row already reads as an actionable, not-yet-done item.
+    private func sessionStateA11y(_ state: SessionMarkState) -> String {
+        switch state {
+        case .done:    return ", completada"
+        case .partial: return ", parcial"
+        case .missed:  return ", no hecha"
+        case .pending: return ""
+        }
     }
 
     /// The session's slot, defaulting to AM when the backend leaves it blank
@@ -1332,11 +1539,11 @@ struct PlanView: View {
         }
     }
 
-    private func rowAccessibilityLabel(day: AthleteWeekDay, rest: Bool, done: Bool) -> String {
+    private func rowAccessibilityLabel(day: AthleteWeekDay, rest: Bool, state: SessionMarkState) -> String {
         let label = dayLabelES(day.dayOfWeek)
         if rest { return "\(label), descanso" }
         let title = day.sessions.first?.title ?? "sesión"
-        return "\(label), \(title)" + (done ? ", completada" : "")
+        return "\(label), \(title)" + sessionStateA11y(state)
     }
 }
 

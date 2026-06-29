@@ -292,6 +292,55 @@ enum PlanService {
             bearer: bearer
         )
     }
+
+    // MARK: - Correct a session's state from the plan row (concept §H)
+
+    /// "Marcar como hecha" — assert the FACT that a session was done, WITHOUT
+    /// fabricating any metric. Honest by construction: this reuses the exact same
+    /// execution recorder as the live finish, but sends NO numbers (no reps, time,
+    /// score or RPE) and `source='manual'`. The recorder writes an all-null
+    /// execution and flips the assignment to 'completed'. Zero new save path.
+    static func markSessionDone(assignmentId: String, bearer: String) async throws {
+        struct Body: Encodable {
+            let assignmentId: String   // → assignment_id (accepts string|number)
+            let source: String         // → 'manual' (biometric_source)
+        }
+        let _: Empty = try await APIClient.shared.post(
+            path: "api/sync/workout-execution",
+            body: Body(assignmentId: assignmentId, source: "manual"),
+            bearer: bearer
+        )
+    }
+
+    /// Outcome of a "Deshacer hecho" attempt. The destructive gate is decided by
+    /// the SERVER (only it knows what the execution holds): a clean mark resets
+    /// immediately; an execution with real recorded work comes back as
+    /// `.needsConfirmation`, and the caller re-issues with `confirm: true`.
+    enum ResetOutcome { case reset, needsConfirmation }
+
+    /// "Deshacer hecho" — reset a completed/partial session back to pendiente and
+    /// void its manual execution. `confirm: false` first; if the server reports
+    /// real recorded work (409 `needs_confirmation`) the caller asks the athlete
+    /// and retries with `confirm: true`.
+    static func resetSession(assignmentId: Int, confirm: Bool, bearer: String) async throws -> ResetOutcome {
+        struct Body: Encodable {
+            let assignmentId: Int   // → assignment_id
+            let confirm: Bool
+        }
+        struct Result: Decodable { let reset: Bool; let status: String; let deletedExecution: Bool }
+        do {
+            let _: Result = try await APIClient.shared.post(
+                path: "api/athlete/plan/session/reset",
+                body: Body(assignmentId: assignmentId, confirm: confirm),
+                bearer: bearer
+            )
+            return .reset
+        } catch let APIError.http(status, data) where status == 409 {
+            let code = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error.code
+            if code == "needs_confirmation" { return .needsConfirmation }
+            throw APIError.http(status, data)   // a different 409 (not undoable) — surface it
+        }
+    }
 }
 
 // MARK: - Local cache for assignment detail (offline-first)
@@ -352,6 +401,44 @@ enum CompletedAssignmentsStore {
         var current = ids()
         current.insert(assignmentId)
         UserDefaults.standard.set(Array(current), forKey: key)
+    }
+
+    /// Drop the optimistic-completed flag for an assignment — the local half of
+    /// "Deshacer hecho". After a reset the authoritative server status is
+    /// re-fetched (it comes back 'scheduled'); clearing the local flag keeps the
+    /// union from re-asserting 'done' from a stale optimistic mark.
+    static func unmark(_ assignmentId: String) {
+        guard !assignmentId.isEmpty else { return }
+        var current = ids()
+        current.remove(assignmentId)
+        UserDefaults.standard.set(Array(current), forKey: key)
+    }
+}
+
+// MARK: - Session state (the four marks the plan paints)
+//
+// One session is in exactly ONE of four visible states. The plan paints a
+// distinct, unambiguous mark for each (concept §G) — never the binary done/not-
+// done it used to. The state is read from the REAL data: the server
+// `assignment_status` string, with the local optimistic-completed store unioned
+// in so a just-marked session reads 'done' before the next /week refetch lands.
+enum SessionMarkState {
+    case pending   // scheduled (or not-yet-started) — empty mark
+    case partial   // terminated before the end (status 'partial') — amber ½
+    case done      // completed — green ✓
+    case missed    // was due and not done (status 'missed'/'skipped') — red ✕
+
+    /// Map the server status + the local optimistic-completed flag to a mark.
+    /// Optimistic completion wins (covers "Marcar como hecha" / "Completar ahora"
+    /// before the refetch); otherwise the server `assignment_status` decides.
+    static func of(status: String, assignmentId: String) -> SessionMarkState {
+        if CompletedAssignmentsStore.isCompleted(assignmentId) { return .done }
+        switch status.lowercased() {
+        case "completed":          return .done
+        case "partial":            return .partial
+        case "missed", "skipped":  return .missed
+        default:                   return .pending // scheduled / in_progress / unknown
+        }
     }
 }
 
