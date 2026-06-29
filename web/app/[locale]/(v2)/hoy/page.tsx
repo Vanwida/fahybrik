@@ -15,6 +15,7 @@ import {
   fetchNivelSugeridoCards,
   fetchAsignacionSugeridaCards,
   fetchSiguienteMicrocicloCards,
+  fetchTransitionReadyAthleteIds,
 } from '@/lib/dashboard/v2/hoy-lanes';
 import { HoyBoard } from '@/components/v2/hoy/HoyBoard';
 
@@ -47,6 +48,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     asignacion_sugerida_cards,
     siguiente_microciclo_cards,
     pending_intakes,
+    transition_ready_ids,
   ] = await Promise.all([
     fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
     listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
@@ -55,6 +57,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     fetchAsignacionSugeridaCards(session.coach_id).catch(() => []),
     fetchSiguienteMicrocicloCards(session.coach_id).catch(() => []),
     listPendingIntake({ coach_id: session.coach_id }).catch(() => []),
+    fetchTransitionReadyAthleteIds(session.coach_id).catch(() => new Set<string>()),
   ]);
 
   const data = buildHoyLanes({
@@ -64,6 +67,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     nivel_sugerido_cards,
     asignacion_sugerida_cards,
     siguiente_microciclo_cards,
+    transition_ready_ids,
   });
 
   return (

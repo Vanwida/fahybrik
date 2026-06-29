@@ -39,10 +39,12 @@ import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 /** Compliance below this % counts as "falló sesiones". */
 const COMPLIANCE_ATTENTION_MAX = SIGNAL_THRESHOLDS.compliance_attention_max_pct; // 70
 /**
- * "Listo para progresar" heuristic floor. The real model has no explicit
- * "ready to advance" flag, so we derive it: a clean week (week_ok), strong
- * adherence, and no alert. TODO(model): replace with a first-class signal once
- * the block-progression engine emits "phase near end + improving" (F-follow-up).
+ * "Listo para progresar" adherence FALLBACK floor. The first-class signal is the
+ * progress-readiness engine (transition_ready: phase-near-end + benchmark
+ * improving) — when it fires for an athlete they land here regardless of this
+ * number. This heuristic (clean week + strong adherence + no alert) is the honest
+ * fallback ONLY for athletes the engine can't judge yet (no benchmark delta / no
+ * active microciclo), so a compliant athlete still surfaces.
  */
 const READY_ADHERENCE_MIN = 90;
 
@@ -608,6 +610,24 @@ export async function fetchSiguienteMicrocicloCards(
 }
 
 /**
+ * The set of athlete ids the progress-readiness engine currently flags 'advance'
+ * — read straight from the persisted attention items (signal_kind='transition_
+ * ready'), so the listo_progresar lane reuses the SAME engine output the HOY queue
+ * shows (no recompute, no parallel path, no N+1). Best-effort: an empty set just
+ * falls the lane back to the adherence heuristic.
+ */
+export async function fetchTransitionReadyAthleteIds(
+  coachId: bigint | number,
+): Promise<Set<string>> {
+  const rows = await sql<Array<{ athlete_id: string }>>`
+    select athlete_id::text as athlete_id
+    from coach_attention_items
+    where coach_id = ${coachId as number} and signal_kind = 'transition_ready'
+  `;
+  return new Set(rows.map((r) => r.athlete_id));
+}
+
+/**
  * FINISHED check for the card — mirrors isCurrentMicrocicloFinished in
  * assign-sequence.ts: time-done (end_date past, box tz) OR work-done (every
  * workout terminal). Kept here to avoid a server-only import cycle; both read the
@@ -686,6 +706,10 @@ export function buildHoyLanes(params: {
   nivel_sugerido_cards?: V2NivelSugeridoCard[];
   asignacion_sugerida_cards?: V2AsignacionSugeridaCard[];
   siguiente_microciclo_cards?: V2SiguienteMicrocicloCard[];
+  /** Athlete ids the progress-readiness engine flags 'advance' (transition_ready
+   *  firing in coach_attention_items). These take the listo lane regardless of the
+   *  adherence fallback. */
+  transition_ready_ids?: Set<string>;
 }): V2HoyData {
   const {
     athletes,
@@ -694,6 +718,7 @@ export function buildHoyLanes(params: {
     nivel_sugerido_cards = [],
     asignacion_sugerida_cards = [],
     siguiente_microciclo_cards = [],
+    transition_ready_ids = new Set<string>(),
   } = params;
 
   // Inactivity days by athlete (reinforces "falló sesiones" reasons) and the
@@ -781,8 +806,20 @@ export function buildHoyLanes(params: {
       });
       continue;
     }
-    // Listo: clean week + strong adherence + no flags (derived heuristic).
-    if (a.week_ok && a.compliance_pct != null && a.compliance_pct >= READY_ADHERENCE_MIN) {
+    // Listo: the progress-readiness engine ('advance' = phase near end + benchmark
+    // improving) is the first-class signal; it answers "did they actually get
+    // fitter?", not just "did they comply?". When it fires, the athlete lands here.
+    if (transition_ready_ids.has(a.athlete_id)) {
+      listo.push({
+        ...base,
+        id: `listo:${a.athlete_id}`,
+        reason: 'Microciclo terminado y rindiendo — listo para progresar.',
+        adherence_pct: a.compliance_pct,
+        actions: ['ver'],
+      });
+    } else if (a.week_ok && a.compliance_pct != null && a.compliance_pct >= READY_ADHERENCE_MIN) {
+      // Fallback (no engine verdict yet — e.g. no benchmark delta / no active
+      // microciclo): a clean, strongly-adhered week still surfaces here.
       listo.push({
         ...base,
         id: `listo:${a.athlete_id}`,
