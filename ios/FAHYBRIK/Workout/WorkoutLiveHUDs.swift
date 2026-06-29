@@ -358,6 +358,150 @@ struct StrengthLiveHUD: View {
     }
 }
 
+// MARK: - EMOM HUD (every-minute-on-the-minute)
+//
+// The dedicated EMOM face — what was missing today, where an EMOM looked
+// identical to a generic circuit. A big per-interval count-DOWN (auto-rolling on
+// the minute, with the boundary beep fired by the session), the interval counter
+// (X / N), and THIS interval's work pulled from the prescription's `sets[]` so an
+// alternating EMOM shows the right movement each minute. Reads the session as the
+// single source of state; the session owns the timer, audio and auto-advance.
+
+struct EmomLiveHUD: View {
+    let session: WorkoutSession
+
+    private var plan: EmomPlan? { session.currentSegment?.emomPlan }
+    private var isCountIn: Bool { session.emomCountInRemaining > 0 }
+    private var isUrgent: Bool {
+        !isCountIn && session.emomIntervalRemaining <= WorkoutSession.emomUrgentThreshold
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            clockCard
+            workCard
+            metricRow
+        }
+    }
+
+    // Hero clock: the 3-2-1 count-in, then the per-interval count-DOWN. Goes accent
+    // in the final 3 seconds (paired with the session's audible ticks).
+    private var clockCard: some View {
+        CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
+            VStack(spacing: 4) {
+                if isCountIn {
+                    LabelText(text: "Prepárate", size: 10)
+                    Text("\(Int(session.emomCountInRemaining.rounded(.up)))")
+                        .font(Theme.Typography.readoutHero)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Color.accentText)
+                        .contentTransition(.numericText())
+                } else {
+                    LabelText(text: intervalLabel, color: Theme.Color.accentText, size: 10)
+                    Text(WorkoutSession.formatElapsed(max(0, session.emomIntervalRemaining)))
+                        .font(Theme.Typography.readoutHero)
+                        .monospacedDigit()
+                        .foregroundStyle(isUrgent ? Theme.Color.accentText : Theme.Color.foreground)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .scaleEffect(isUrgent ? 1.02 : 1.0)
+                        .animation(.easeOut(duration: 0.2), value: isUrgent)
+                    Text(cadenceLabel)
+                        .font(Theme.Typography.readoutLabel)
+                        .tracking(0.5)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.s)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(clockAccessibility)
+    }
+
+    // THIS interval's work — movement + measure + intensity, from sets[].
+    private var workCard: some View {
+        let current = plan?.interval(session.emomIntervalIndex)
+        return CardSurface(padding: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: 8) {
+                LabelText(text: isCountIn ? "Primer intervalo" : "Este intervalo", color: Theme.Color.accentText, size: 10)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    if let w = current?.work, w != "—" {
+                        Text(w)
+                            .font(Theme.Typography.readoutS)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.Color.foreground)
+                            .fixedSize()
+                    }
+                    Text(current?.movement ?? session.currentSegment?.title ?? "—")
+                        .scaledFont(16, weight: .heavy, relativeTo: .body, italic: true)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                if let detail = current?.detail {
+                    Text(detail)
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                if let next = nextMovement {
+                    Hairline()
+                    HStack(spacing: 6) {
+                        LabelText(text: "Luego", size: 9)
+                        Text(next)
+                            .scaledFont(12, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var metricRow: some View {
+        let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
+        return LazyVGrid(columns: cols, spacing: 4) {
+            ExpertCell(label: "Total", value: WorkoutSession.formatElapsed(session.elapsedSeconds), unit: "")
+            ExpertCell(label: "Hechos", value: "\(session.emomCompletedIntervals)/\(plan?.intervalCount ?? 0)", unit: "")
+            ExpertCell(
+                label: "HR",
+                value: session.liveHRBpm.map { "\($0)" } ?? "—",
+                unit: "bpm",
+                color: session.liveZone?.color ?? Theme.Color.foreground
+            )
+        }
+    }
+
+    // MARK: derived
+
+    private var intervalLabel: String {
+        "Intervalo \(session.emomIntervalIndex + 1) / \(plan?.intervalCount ?? 0)"
+    }
+
+    private var cadenceLabel: String {
+        guard let s = plan?.intervalSeconds else { return "" }
+        return "cada \(PrescriptionRenderer.formatRest(s))"
+    }
+
+    // The next movement, ONLY when the EMOM alternates and the upcoming interval
+    // is a different movement — so a uniform EMOM never shows a redundant "Luego".
+    private var nextMovement: String? {
+        guard let plan, plan.isAlternating else { return nil }
+        let n = session.emomIntervalIndex + 1
+        guard let nxt = plan.interval(n),
+              let cur = plan.interval(session.emomIntervalIndex),
+              nxt.movement != cur.movement else { return nil }
+        return nxt.work != "—" ? "\(nxt.work) · \(nxt.movement)" : nxt.movement
+    }
+
+    private var clockAccessibility: String {
+        if isCountIn { return "Empieza en \(Int(session.emomCountInRemaining.rounded(.up)))" }
+        let secs = Int(session.emomIntervalRemaining.rounded())
+        return "\(intervalLabel), quedan \(secs) segundos"
+    }
+}
+
 // MARK: - Connection / data-provenance strip
 //
 // A glanceable row of small chips telling the athlete (and, via the record, the
@@ -446,17 +590,17 @@ struct ConnectionStrip: View {
 struct BlockIntervalStrip: View {
     let segments: [WorkoutSegment]
     let currentIndex: Int
+    /// Tap handler — when provided, every chip becomes a button: a future chip
+    /// jumps forward (the caller confirms a skip), a past chip reopens it. Nil
+    /// keeps the strip a read-only progress indicator.
+    var onTap: ((Int) -> Void)? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(Array(segments.enumerated()), id: \.element.id) { idx, seg in
-                        IntervalChip(
-                            segment: seg,
-                            state: state(for: idx)
-                        )
-                        .id(idx)
+                        chip(idx: idx, seg: seg).id(idx)
                     }
                 }
                 .padding(.horizontal, 4)
@@ -469,6 +613,16 @@ struct BlockIntervalStrip: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Bloque estructurado, \(currentIndex + 1) de \(segments.count)")
+    }
+
+    @ViewBuilder
+    private func chip(idx: Int, seg: WorkoutSegment) -> some View {
+        if let onTap {
+            Button { onTap(idx) } label: { IntervalChip(segment: seg, state: state(for: idx)) }
+                .buttonStyle(PressScaleStyle())
+        } else {
+            IntervalChip(segment: seg, state: state(for: idx))
+        }
     }
 
     private func state(for idx: Int) -> IntervalChip.State {

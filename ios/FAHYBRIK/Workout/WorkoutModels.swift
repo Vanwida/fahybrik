@@ -134,6 +134,12 @@ struct WorkoutSegment: Codable, Identifiable {
     let blockPosition: Int?
     /// YouTube watch URL — embedded in-app during brief / active workout.
     let videoUrl: String?
+    /// The STRUCTURED per-set prescription this segment was built from (the rich
+    /// `prescription_json`). Threaded onto the segment so the live engine can read
+    /// the scheme (EMOM/AMRAP/…) and its per-interval `sets[]` directly, rather
+    /// than only the flattened scalar targets. Optional: legacy/freeform segments
+    /// carry only scalars (then the engine falls back to the generic lap).
+    let prescription: Prescription?
 
     init(
         id: UUID = UUID(),
@@ -151,7 +157,8 @@ struct WorkoutSegment: Codable, Identifiable {
         targetRpe: Double? = nil,
         blockTitle: String? = nil,
         blockPosition: Int? = nil,
-        videoUrl: String? = nil
+        videoUrl: String? = nil,
+        prescription: Prescription? = nil
     ) {
         self.id = id
         self.order = order
@@ -169,6 +176,103 @@ struct WorkoutSegment: Codable, Identifiable {
         self.blockTitle = blockTitle
         self.blockPosition = blockPosition
         self.videoUrl = videoUrl
+        self.prescription = prescription
+    }
+}
+
+// MARK: - EMOM (every-minute-on-the-minute) live model
+//
+// Resolved, render-ready description of ONE EMOM interval. For an ALTERNATING
+// EMOM the movement rotates minute by minute, so each interval carries its own
+// movement label + work + intensity. `movement` falls back to the exercise title
+// when a set has no explicit label; `work` / `detail` are formatted by the shared
+// PrescriptionRenderer so the live HUD reads exactly like the rest of the app.
+struct EmomInterval: Equatable {
+    let movement: String   // "Remo", "Burpees", or the exercise title
+    let work: String       // "15 cal", "12 reps", "200 m", "0:40"
+    let detail: String?    // "@ 1:50/500m", "RPE 8" — nil when none prescribed
+}
+
+// The full EMOM dosage for one segment, expanded across its N intervals. Built
+// ONCE from the segment's Prescription (the single source of truth) and read by
+// both the session timer and the HUD so there is no second interpretation.
+struct EmomPlan: Equatable {
+    let intervalCount: Int      // N intervals (rounds, or the set count)
+    let intervalSeconds: Int    // cadence — seconds per interval ("on the minute" = 60)
+    let intervals: [EmomInterval]   // length == intervalCount (rotation expanded)
+    let isAlternating: Bool     // the movement changes between intervals
+
+    func interval(_ i: Int) -> EmomInterval? {
+        guard i >= 0, i < intervals.count else { return nil }
+        return intervals[i]
+    }
+}
+
+extension WorkoutSegment {
+    /// True when this segment is a runnable EMOM (a valid `emomPlan` exists). A
+    /// `scheme==emom` prescription with neither `rounds` nor `sets` can't be run
+    /// and degrades to the generic lap rather than crashing.
+    var isEMOM: Bool { emomPlan != nil }
+
+    /// The EMOM dosage expanded across its intervals, or nil when this segment is
+    /// not a runnable EMOM. Default cadence is 60s ("on the minute"); the rotation
+    /// repeats across `rounds` intervals (alternating EMOM) or runs the explicit
+    /// `sets` one-per-interval when no `rounds` is given.
+    var emomPlan: EmomPlan? {
+        guard let p = prescription, p.scheme == .emom else { return nil }
+        let cadence = max(1, p.workS ?? 60)   // default to the minute
+        let sets = p.sets ?? []
+
+        // The rotation: one EmomInterval per prescribed set, else a single uniform
+        // interval derived from the segment's scalar targets.
+        let rotation: [EmomInterval] = sets.isEmpty
+            ? [uniformEmomInterval(p)]
+            : sets.map { emomInterval(from: $0, prescription: p) }
+
+        // N intervals: explicit `rounds`, else one per set. Must be > 0 to run.
+        let count = p.rounds ?? sets.count
+        guard count > 0, !rotation.isEmpty else { return nil }
+
+        let expanded = (0..<count).map { rotation[$0 % rotation.count] }
+        return EmomPlan(
+            intervalCount: count,
+            intervalSeconds: cadence,
+            intervals: expanded,
+            isAlternating: rotation.count > 1
+        )
+    }
+
+    private func emomInterval(from set: PrescriptionSet, prescription p: Prescription) -> EmomInterval {
+        let label = set.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let movement = (label?.isEmpty == false) ? label! : title
+        let isErg = (set.modality ?? p.modality)?.isErg ?? kind.isErg
+        let detail = PrescriptionRenderer.targetLoad(set.target)
+            ?? PrescriptionRenderer.paceString(set.target, isErg: isErg)
+        return EmomInterval(movement: movement, work: Self.emomWorkString(set.measure), detail: detail)
+    }
+
+    // Uniform EMOM (same work every minute) — work comes from the flattened scalar
+    // targets; intensity from the prescribed RPE / pace / the block target.
+    private func uniformEmomInterval(_ p: Prescription) -> EmomInterval {
+        let work: String = targetReps.map { "\($0) reps" }
+            ?? targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? targetDurationSeconds.map { PrescriptionRenderer.formatClock($0) }
+            ?? "—"
+        let detail = effortGuidance
+            ?? PrescriptionRenderer.targetLoad(p.target)
+            ?? PrescriptionRenderer.paceString(p.target, isErg: kind.isErg)
+        return EmomInterval(movement: title, work: work, detail: detail)
+    }
+
+    private static func emomWorkString(_ m: Measure?) -> String {
+        guard let m else { return "—" }
+        switch m {
+        case .reps(let v):           return v > 0 ? "\(v) reps" : "—"
+        case .distance(let meters):  return PrescriptionRenderer.formatDistance(meters) ?? "—"
+        case .duration(let seconds): return seconds > 0 ? PrescriptionRenderer.formatClock(seconds) : "—"
+        case .calories(let v):       return v > 0 ? "\(v) cal" : "—"
+        case .unknown:               return "—"
+        }
     }
 }
 
@@ -460,7 +564,11 @@ extension WorkoutPlan {
             targetRpe: p.rpe,
             blockTitle: block.title,
             blockPosition: block.blockPosition,
-            videoUrl: item.exerciseVideoUrl
+            videoUrl: item.exerciseVideoUrl,
+            // The rich structured prescription drives the live EMOM/interval timer
+            // (scheme + per-interval sets); scalar params above still feed the
+            // generic HUDs. Preferred when present, ignored when nil.
+            prescription: item.prescription
         )
     }
 
@@ -576,5 +684,55 @@ extension WorkoutPlan {
         }
         flush()
         return groups
+    }
+}
+
+// MARK: - Phase regions (the persistent top phase rail)
+//
+// The session's segments collapsed into their PEDAGOGICAL phases (Calentamiento /
+// Principal / Vuelta a la calma) with the segment-index span each phase covers,
+// in session order. Drives the active-workout phase rail: each region is one
+// rail segment whose state (done / current / upcoming) is read off the current
+// segment index, and tapping it jumps to `firstIndex`.
+
+struct WorkoutPhaseRegion: Identifiable, Equatable {
+    let id: Int
+    let phase: BlockPhase
+    let title: String      // phase display name ("Principal")
+    let firstIndex: Int    // first segment index of this phase
+    let lastIndex: Int     // last segment index of this phase
+}
+
+extension WorkoutPlan {
+    /// Distinct phases present in the session, ordered by first appearance, each
+    /// spanning the segment range it covers. Empty when NO segment carries block
+    /// context (the freeform / `minimal` fallback) — the rail then collapses to a
+    /// single "Entreno" chip rather than hiding (kills the dead-spot). `.main` and
+    /// `.principal` both fold into the one "Principal" phase.
+    var phaseRegions: [WorkoutPhaseRegion] {
+        guard segments.contains(where: { $0.blockTitle != nil }) else { return [] }
+
+        // Fold .main into .principal so warmup/principal/cooldown is the axis.
+        func key(_ p: BlockPhase) -> BlockPhase { p.isMainWork ? .principal : p }
+
+        var minIdx: [BlockPhase: Int] = [:]
+        var maxIdx: [BlockPhase: Int] = [:]
+        for (i, seg) in segments.enumerated() {
+            let k = key(seg.blockPhase)
+            minIdx[k] = Swift.min(minIdx[k] ?? i, i)
+            maxIdx[k] = Swift.max(maxIdx[k] ?? i, i)
+        }
+        return minIdx.keys
+            .sorted { (minIdx[$0] ?? 0) < (minIdx[$1] ?? 0) }
+            .enumerated()
+            .map { idx, phase in
+                WorkoutPhaseRegion(
+                    id: idx,
+                    phase: phase,
+                    title: phase.displayName,
+                    firstIndex: minIdx[phase]!,
+                    lastIndex: maxIdx[phase]!
+                )
+            }
     }
 }

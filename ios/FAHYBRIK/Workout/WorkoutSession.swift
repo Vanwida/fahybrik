@@ -16,6 +16,20 @@ final class WorkoutSession {
     var isPaused: Bool = false
     var isFinished: Bool = false
 
+    // MARK: - EMOM interval state
+    // Live ONLY while the current segment is an EMOM. `emomSegmentIndex` records
+    // which segment owns this state so entering / re-entering re-initialises it
+    // cleanly and leaving it tears the timer + audio down.
+    var emomCountInRemaining: Double = 0    // 3-2-1 pre-roll; 0 once running
+    var emomIntervalIndex: Int = 0          // 0-based interval within the EMOM
+    var emomIntervalRemaining: Double = 0   // count-DOWN within the current interval
+    private(set) var emomCompletedIntervals: Int = 0
+    private var emomSegmentIndex: Int? = nil
+    private static let countInSeconds: Double = 3
+    /// Seconds left in an interval at/under which the countdown reads as "urgent"
+    /// (drives the last-3s ticks + the HUD's accent colour).
+    static let emomUrgentThreshold: Double = 3
+
     /// Provenance of the live heart-rate signal currently feeding the session,
     /// so the connection strip can show WHERE HR comes from. nil = no HR.
     enum HRSource: String { case healthkit, pm5 }
@@ -56,6 +70,11 @@ final class WorkoutSession {
     private var lapErgLastCalories: Int? = nil
     private var lapHadPM5: Bool = false
 
+    // A previously-closed segment REOPENED via stepBack / jumpTo. Its captured
+    // aggregates (HR / zone / distance / calories) are merged back in when the
+    // segment is re-closed, so a back-step never silently drops recorded work.
+    private var reopenedLap: LapRecord? = nil
+
     init(plan: WorkoutPlan, athleteHRMax: Int = 190, startedAt: Date = Date()) {
         self.plan = plan
         self.athleteHRMax = athleteHRMax
@@ -73,6 +92,35 @@ final class WorkoutSession {
         return plan.segments[i]
     }
 
+    /// True when the current segment is the final one in the session.
+    var isLastSegment: Bool { currentSegmentIndex >= plan.segments.count - 1 }
+
+    /// True when the current segment is a running EMOM (past its count-in).
+    var isEMOMActive: Bool { currentSegment?.isEMOM == true }
+
+    /// EMOM intervals still ahead of the current one (0 on the last interval).
+    var emomIntervalsRemaining: Int {
+        guard let plan = currentSegment?.emomPlan else { return 0 }
+        return max(0, plan.intervalCount - emomIntervalIndex - 1)
+    }
+
+    /// True when going back is possible — a previous EMOM interval or a previous
+    /// segment. Drives the (low-emphasis) back chevron's enabled state.
+    var canStepBack: Bool {
+        if currentSegment?.isEMOM == true, emomCountInRemaining <= 0, emomIntervalIndex > 0 { return true }
+        return currentSegmentIndex > 0
+    }
+
+    /// True when the CURRENT segment has accumulated real, not-yet-saved work —
+    /// used to gate a confirm before a back / jump that would discard it.
+    var currentSegmentHasLiveProgress: Bool {
+        lapElapsedSeconds > 3
+            || repsCurrentSegment > 0
+            || (lapGpsDistanceMeters ?? 0) > 0
+            || !lapHRSamples.isEmpty
+            || lapHadPM5
+    }
+
     var liveZone: HRZone? {
         guard let bpm = liveHRBpm else { return nil }
         return HRZoneClassifier.zone(forBpm: bpm, hrMax: athleteHRMax)
@@ -84,11 +132,16 @@ final class WorkoutSession {
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        // Initialise whichever segment we resume on (count-in + audio if it's an
+        // EMOM, prime the manual load otherwise). Guarded by emomSegmentIndex so a
+        // restart while already on an EMOM doesn't re-trigger the count-in.
+        if emomSegmentIndex == nil { onEnterSegment() }
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        WorkoutAudio.shared.deactivate()
     }
 
     func togglePause() {
@@ -126,22 +179,85 @@ final class WorkoutSession {
         repsCurrentSegment = max(0, repsCurrentSegment + reps)
     }
 
+    // MARK: - Forward / back navigation
+    //
+    // ONE path drives the bottom primary button, the back chevron, the phase rail
+    // and the segment stepper: `primaryAdvance` (forward one step), `stepBack`
+    // (back one step, REOPENING the previous segment / interval), and `jumpTo`
+    // (the rail / stepper shortcut — close-then-skip forward, or reopen backward).
+
+    /// The bottom primary button. For an EMOM it advances the INTERVAL (or, on the
+    /// last one, closes the block); for every other format it closes the current
+    /// segment's lap and advances — the classic manual lap, unchanged.
+    func primaryAdvance() {
+        guard !isPaused, !isFinished, let seg = currentSegment else { return }
+        if seg.isEMOM {
+            if emomCountInRemaining > 0 { skipCountIn(); return }
+            advanceEMOMInterval(auto: false)
+        } else {
+            lap()
+        }
+    }
+
     // Closes current segment's lap, advances to next. Behavior shared by For
-    // Time / AMRAP / Circuit / HYROX Sim. EMOM / Intervals auto-advance instead.
+    // Time / AMRAP / Circuit / HYROX Sim. EMOM auto-advances its intervals instead.
     func lap() {
         guard !isPaused, !isFinished, currentSegment != nil else { return }
         Haptics.medium()
         closeCurrentSegmentLap()
-
         if currentSegmentIndex < plan.segments.count - 1 {
             currentSegmentIndex += 1
+            onEnterSegment()
         } else {
             finish()
         }
     }
 
+    /// Back one step. EMOM mid-block → previous interval (no data loss). Otherwise
+    /// → previous segment, REOPENED with its recorded lap restored so it can be
+    /// resumed + re-closed. No-op at the very start.
+    func stepBack() {
+        guard !isPaused, !isFinished else { return }
+        if let seg = currentSegment, seg.isEMOM, emomCountInRemaining <= 0, emomIntervalIndex > 0 {
+            Haptics.light()
+            emomIntervalIndex -= 1
+            emomCompletedIntervals = min(emomCompletedIntervals, emomIntervalIndex)
+            emomIntervalRemaining = Double(seg.emomPlan?.intervalSeconds ?? 60)
+            WorkoutAudio.shared.playIntervalStart()
+            return
+        }
+        guard currentSegmentIndex > 0 else { return }
+        Haptics.light()
+        clearEMOMState()
+        currentSegmentIndex -= 1
+        reopenCurrentSegment()
+        onEnterSegment()
+    }
+
+    /// Jump to an arbitrary segment (phase rail / stepper). Forward closes the
+    /// current segment then SKIPS the intermediate ones (they produce no lap — not
+    /// performed); backward reopens segment-by-segment until the target.
+    func jumpTo(_ index: Int) {
+        guard !isPaused, !isFinished,
+              index >= 0, index < plan.segments.count, index != currentSegmentIndex else { return }
+        Haptics.medium()
+        clearEMOMState()
+        if index > currentSegmentIndex {
+            closeCurrentSegmentLap()
+            currentSegmentIndex = index
+        } else {
+            discardCurrentLiveState()
+            while currentSegmentIndex > index {
+                currentSegmentIndex -= 1
+                reopenCurrentSegment()
+            }
+        }
+        onEnterSegment()
+    }
+
     func finish() {
         Haptics.success()
+        clearEMOMState()
         // Close the in-flight segment so the final segment is never dropped from
         // the execution record (finish can be reached directly via "Abandonar"
         // or after the last lap auto-finishes). lap() will have already closed
@@ -153,6 +269,119 @@ final class WorkoutSession {
         stop()
         Task { [snapshot = persistedSnapshot()] in
             await WorkoutStateStore.shared.save(snapshot)
+        }
+    }
+
+    // MARK: - Segment entry / EMOM lifecycle
+
+    // Called whenever the current segment changes. Primes the manual load for
+    // strength work and (re)starts the EMOM timer + audio when the new segment is
+    // an EMOM; tears EMOM state down otherwise.
+    private func onEnterSegment() {
+        if reopenedLap?.segmentId != currentSegment?.id { reopenedLap = nil }
+        primeManualLoadIfNeeded()
+        if currentSegment?.isEMOM == true {
+            startEMOM()
+        } else {
+            clearEMOMState()
+        }
+    }
+
+    private func startEMOM() {
+        guard let plan = currentSegment?.emomPlan else { clearEMOMState(); return }
+        emomSegmentIndex = currentSegmentIndex
+        emomIntervalIndex = 0
+        emomCompletedIntervals = 0
+        emomIntervalRemaining = Double(plan.intervalSeconds)
+        emomCountInRemaining = Self.countInSeconds
+        WorkoutAudio.shared.activate()
+        WorkoutAudio.shared.playTick()   // the opening "3" of the 3-2-1 count-in
+    }
+
+    private func clearEMOMState() {
+        if emomSegmentIndex != nil { WorkoutAudio.shared.deactivate() }
+        emomSegmentIndex = nil
+        emomCountInRemaining = 0
+        emomIntervalIndex = 0
+        emomIntervalRemaining = 0
+        emomCompletedIntervals = 0
+    }
+
+    private func skipCountIn() {
+        guard let plan = currentSegment?.emomPlan else { return }
+        emomCountInRemaining = 0
+        emomIntervalRemaining = Double(plan.intervalSeconds)
+        WorkoutAudio.shared.playGo()
+        Haptics.medium()
+    }
+
+    // Advance to the next EMOM interval, or close the block on the last one.
+    // `auto` = the timer rolled over; otherwise the athlete tapped through.
+    private func advanceEMOMInterval(auto: Bool) {
+        guard let plan = currentSegment?.emomPlan else { return }
+        emomCompletedIntervals = max(emomCompletedIntervals, emomIntervalIndex + 1)
+        let next = emomIntervalIndex + 1
+        if next >= plan.intervalCount {
+            WorkoutAudio.shared.playFinish()
+            Haptics.success()
+            closeEMOMAndAdvance()
+            return
+        }
+        let changed = plan.interval(next)?.movement != plan.interval(emomIntervalIndex)?.movement
+        emomIntervalIndex = next
+        emomIntervalRemaining = Double(plan.intervalSeconds)
+        if changed {
+            WorkoutAudio.shared.playMovementChange()
+            Haptics.heavy()
+        } else {
+            WorkoutAudio.shared.playIntervalStart()
+            Haptics.medium()
+        }
+    }
+
+    // Close the EMOM segment's lap (reusing the standard segment-close path) and
+    // advance to the next segment, or finish the session.
+    private func closeEMOMAndAdvance() {
+        let wasLast = isLastSegment
+        clearEMOMState()
+        closeCurrentSegmentLap()
+        if wasLast {
+            finish()
+        } else {
+            currentSegmentIndex += 1
+            onEnterSegment()
+        }
+    }
+
+    // Reset the in-progress live state WITHOUT recording a lap — used when the
+    // current segment is abandoned to step / jump backward.
+    private func discardCurrentLiveState() {
+        lapElapsedSeconds = 0
+        repsCurrentSegment = 0
+        lapHRSamples.removeAll(keepingCapacity: true)
+        lapZoneAccumSec.removeAll(keepingCapacity: true)
+        resetErgAccumulators()
+        resetSegmentManualAndGPS()
+    }
+
+    // Pop the returned-to segment's recorded lap back into editable live state so
+    // it resumes from where it ended (clock, reps, load, distance). The HR / zone
+    // / calorie aggregates ride along on `reopenedLap` and are merged on re-close
+    // (see closeCurrentSegmentLap). A skipped segment (no lap) starts fresh.
+    private func reopenCurrentSegment() {
+        discardCurrentLiveState()
+        guard let seg = currentSegment, let last = laps.last, last.segmentId == seg.id else {
+            reopenedLap = nil
+            return
+        }
+        let popped = laps.removeLast()
+        reopenedLap = popped
+        lapElapsedSeconds = popped.durationSeconds
+        repsCurrentSegment = popped.repsCompleted ?? 0
+        if let kg = popped.weightUsedKg { manualLoadKg = kg }
+        if seg.kind == .running, let d = popped.distanceCoveredMeters {
+            manualRunDistanceMeters = d
+            if popped.source == "gps" { lapGpsDistanceMeters = d; lapHadGPS = true }
         }
     }
 
@@ -198,15 +427,33 @@ final class WorkoutSession {
             : nil
         let reps: Int? = (seg.kind == .reps || seg.kind == .strength) ? repsCurrentSegment : nil
 
+        // Merge aggregates from a REOPENED lap (this segment was re-entered via
+        // stepBack / jumpTo) so the back-step never drops the HR / zone / distance
+        // / calories already recorded. Raw per-sample data can't be reconstructed,
+        // so we fold the stored aggregates: new HR wins when present (else keep
+        // the prior avg), max HR is the max of both, zone seconds sum, and the
+        // measured distance / calories keep the live value or fall back to prior.
+        let reopen = (reopenedLap?.segmentId == seg.id) ? reopenedLap : nil
+        let newAvgHR = lapHRSamples.isEmpty ? nil : lapHRSamples.reduce(0, +) / lapHRSamples.count
+        let mergedAvgHR = newAvgHR ?? reopen?.avgHRBpm
+        let mergedMaxHR = [lapHRSamples.max(), reopen?.maxHRBpm].compactMap { $0 }.max()
+        var mergedZone = lapZoneAccumSec
+        if let rz = reopen?.zoneSecondsByZone { for (k, v) in rz { mergedZone[k, default: 0] += v } }
+        let mergedDistance = distance ?? reopen?.distanceCoveredMeters
+        let mergedCalories = ergCalories ?? reopen?.calories
+
         // Source precedence: the most specific real measurement wins. Device
         // movement data (pm5 / gps) > athlete manual entry > HR-only wearable.
         let hasManualEntry = (runDistance != nil) || (manualLoadKg != nil)
-        let source: String
-        if usedPM5 { source = "pm5" }
-        else if usedGPS { source = "gps" }
-        else if hasManualEntry { source = "manual" }
-        else if !lapHRSamples.isEmpty { source = "healthkit" }
-        else { source = "manual" }
+        let computedSource: String
+        if usedPM5 { computedSource = "pm5" }
+        else if usedGPS { computedSource = "gps" }
+        else if hasManualEntry { computedSource = "manual" }
+        else if !lapHRSamples.isEmpty { computedSource = "healthkit" }
+        else { computedSource = "manual" }
+        // Keep a richer provenance from the reopened lap if this re-close captured
+        // nothing more specific than "manual".
+        let source = (computedSource == "manual") ? (reopen?.source ?? computedSource) : computedSource
 
         let lap = LapRecord(
             id: UUID(),
@@ -217,22 +464,21 @@ final class WorkoutSession {
             startedAt: now.addingTimeInterval(-lapElapsedSeconds),
             endedAt: now,
             durationSeconds: lapElapsedSeconds,
-            avgHRBpm: lapHRSamples.isEmpty ? nil : lapHRSamples.reduce(0, +) / lapHRSamples.count,
-            maxHRBpm: lapHRSamples.max(),
-            zoneSecondsByZone: lapZoneAccumSec.reduce(into: [Int: Double]()) {
-                $0[$1.key] = $1.value
-            },
+            avgHRBpm: mergedAvgHR,
+            maxHRBpm: mergedMaxHR,
+            zoneSecondsByZone: mergedZone,
             repsCompleted: reps,
-            distanceCoveredMeters: distance,
+            distanceCoveredMeters: mergedDistance,
             avgPaceSecPer500m: avgPace500,
             avgPaceSecPerKm: avgPaceKm,
             avgPowerWatts: avgPower,
             strokeRateSpm: avgSpm,
-            calories: ergCalories,
+            calories: mergedCalories,
             weightUsedKg: weight,
             source: source
         )
         laps.append(lap)
+        reopenedLap = nil
 
         lapElapsedSeconds = 0
         lapHRSamples.removeAll(keepingCapacity: true)
@@ -341,12 +587,52 @@ final class WorkoutSession {
             lapZoneAccumSec[zone.rawValue, default: 0] += dt
         }
 
+        if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
+
         autoSaveTicker += 1
         if autoSaveTicker >= 20 {        // 0.25s × 20 = 5s
             autoSaveTicker = 0
             Task { [snapshot = persistedSnapshot()] in
                 await WorkoutStateStore.shared.save(snapshot)
             }
+        }
+    }
+
+    // Drive the EMOM count-in and per-interval countdown. Fires the count-in
+    // ticks + "go", the last-3s ticks, the top-of-interval beep and the auto-roll
+    // to the next interval (or the block close on the last one). Runs off the same
+    // 0.25s tick as the main clock.
+    private func tickEMOM(dt: Double) {
+        guard let plan = currentSegment?.emomPlan else { return }
+
+        // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
+        if emomCountInRemaining > 0 {
+            let before = emomCountInRemaining
+            emomCountInRemaining = max(0, before - dt)
+            if before.rounded(.up) != emomCountInRemaining.rounded(.up) {
+                if emomCountInRemaining <= 0 {
+                    emomIntervalRemaining = Double(plan.intervalSeconds)
+                    WorkoutAudio.shared.playGo()
+                    Haptics.medium()
+                } else {
+                    WorkoutAudio.shared.playTick()
+                    Haptics.light()
+                }
+            }
+            return
+        }
+
+        // Running interval: count down, tick the final 3 seconds, roll at zero.
+        let before = emomIntervalRemaining
+        let after = before - dt
+        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+            WorkoutAudio.shared.playTick()
+            Haptics.light()
+        }
+        if after <= 0 {
+            advanceEMOMInterval(auto: true)   // beep + auto-roll (or close on last)
+        } else {
+            emomIntervalRemaining = after
         }
     }
 

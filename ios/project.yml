@@ -93,8 +93,14 @@ targets:
         # APNS — background delivery for silent/content-available pushes
         # (e.g. plan_published refresh). User-facing alerts don't require this
         # mode but it future-proofs background plan/chat refresh on tap.
+        #
+        # `audio` — the live EMOM/interval timer plays the every-minute beep + the
+        # last-3s ticks through an AVAudioEngine (see WorkoutAudio). Keeping that
+        # engine running while the EMOM is active holds background execution so the
+        # cue STILL fires with the screen locked / phone pocketed mid-workout.
         UIBackgroundModes:
           - remote-notification
+          - audio
         UILaunchScreen:
           UILaunchScreen: {}
         UISupportedInterfaceOrientations:

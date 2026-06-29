@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Expert variant of the Active Workout screen — Garmin watch-face density.
 // Mirrors docs/design/fahybrik-design-system/project/athlete_app/workout.jsx
@@ -18,6 +19,9 @@ struct ActiveWorkoutView: View {
     // athlete had already paused before opening the video).
     @State private var resumeAfterVideo: Bool = false
     @State private var pm5 = PM5ConnectionStore.shared
+    // A pending navigation awaiting confirmation (a forward skip that omits work,
+    // or a back-step that would discard live-captured data). Nil = nothing to ask.
+    @State private var pendingNav: PendingNav? = nil
     // Optional, permission-guarded live sources for non-erg work: phone GPS for
     // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
     // segment needs them and never block the workout.
@@ -47,6 +51,7 @@ struct ActiveWorkoutView: View {
                 .instrumentCanvas()
             VStack(spacing: 8) {
                 topStrip
+                phaseRail
                 ConnectionStrip(
                     session: session,
                     pm5: pm5,
@@ -58,7 +63,8 @@ struct ActiveWorkoutView: View {
                 if session.plan.segments.count > 1 {
                     BlockIntervalStrip(
                         segments: session.plan.segments,
-                        currentIndex: session.currentSegmentIndex
+                        currentIndex: session.currentSegmentIndex,
+                        onTap: { requestJump(to: $0) }
                     )
                 }
                 modalityHUD
@@ -67,7 +73,7 @@ struct ActiveWorkoutView: View {
                     connectPM5CTA
                 }
                 nextSegmentChip
-                lapButton
+                primaryButton
             }
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.top, Theme.Spacing.s)
@@ -76,6 +82,9 @@ struct ActiveWorkoutView: View {
             if showPauseConfirm {
                 pauseModal
             }
+            if let nav = pendingNav {
+                confirmModal(nav)
+            }
         }
         .onAppear {
             session.start()
@@ -83,11 +92,15 @@ struct ActiveWorkoutView: View {
             attemptPM5IfNeeded()
             updateRunGPS()
             liveHR.start(from: session.startedAt)
+            // Keep the screen awake during the lock-in workout (no auto-lock
+            // mid-EMOM); locked-screen beeps are still covered by background audio.
+            UIApplication.shared.isIdleTimerDisabled = true
         }
         .onDisappear {
             session.stop()
             runGPS.stop()
             liveHR.stop()
+            UIApplication.shared.isIdleTimerDisabled = false
         }
         .onChange(of: session.isFinished) { _, finished in
             if finished {
@@ -206,6 +219,19 @@ struct ActiveWorkoutView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(session.isPaused ? "Reanudar entreno" : "Pausar entreno")
+            // Back: a LOW-emphasis chevron (smaller + muted, never the weight of
+            // the primary button) so it can't be fat-fingered under load. Steps the
+            // EMOM interval back mid-block, else reopens the previous segment.
+            Button(action: { requestBack() }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(session.canStepBack ? Theme.Color.muted : Theme.Color.muted.opacity(0.3))
+                    .frame(width: 26, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!session.canStepBack)
+            .accessibilityLabel("Volver atrás")
             Spacer()
             VStack(spacing: 1) {
                 // Block phase (Calentamiento / Principal / Vuelta a la calma) so the
@@ -248,17 +274,24 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal, 4)
     }
 
-    // Modality-aware HUD: erg → split/watts (Concept2), run → pace/km,
-    // strength/reps/sled → reps + load. Single source of state (session + pm5).
+    // Modality-aware HUD. An EMOM segment gets the dedicated interval timer
+    // (count-down + auto-roll + the minute's work) REGARDLESS of its erg/strength
+    // kind; everything else routes by kind exactly as before: erg → split/watts
+    // (Concept2), run → pace/km, strength/reps/sled → reps + load. Single source
+    // of state (session + pm5).
     @ViewBuilder
     private var modalityHUD: some View {
-        switch session.currentSegment?.kind {
-        case .rowOrSki:
-            ErgLiveHUD(session: session, pm5: pm5)
-        case .running:
-            RunLiveHUD(session: session, gpsActive: gpsActive)
-        case .strength, .reps, .sled, .none:
-            StrengthLiveHUD(session: session)
+        if session.currentSegment?.isEMOM == true {
+            EmomLiveHUD(session: session)
+        } else {
+            switch session.currentSegment?.kind {
+            case .rowOrSki:
+                ErgLiveHUD(session: session, pm5: pm5)
+            case .running:
+                RunLiveHUD(session: session, gpsActive: gpsActive)
+            case .strength, .reps, .sled, .none:
+                StrengthLiveHUD(session: session)
+            }
         }
     }
 
@@ -288,9 +321,199 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    private var lapButton: some View {
-        ExpertLapButton(action: { session.lap() })
+    // MARK: - Phase rail (persistent top phases)
+
+    private enum RailState { case done, current, upcoming }
+
+    @ViewBuilder
+    private var phaseRail: some View {
+        let regions = session.plan.phaseRegions
+        HStack(spacing: 6) {
+            if regions.isEmpty {
+                // No block context (freeform / minimal plan) → one "Entreno" chip
+                // rather than a hidden, dead top area.
+                phaseChip(title: "Entreno", state: .current, action: nil)
+            } else {
+                ForEach(regions) { region in
+                    phaseChip(
+                        title: region.title,
+                        state: railState(region),
+                        action: { requestJump(to: region.firstIndex) }
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func railState(_ r: WorkoutPhaseRegion) -> RailState {
+        let i = session.currentSegmentIndex
+        if i > r.lastIndex { return .done }
+        if i >= r.firstIndex { return .current }
+        return .upcoming
+    }
+
+    @ViewBuilder
+    private func phaseChip(title: String, state: RailState, action: (() -> Void)?) -> some View {
+        let label = HStack(spacing: 5) {
+            if state == .done {
+                Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy))
+            }
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .heavy, design: .default).italic())
+                .tracking(0.6)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .foregroundStyle(railForeground(state))
+        .background(railBackground(state))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+                .stroke(state == .current ? Theme.Color.accentText : Theme.Color.hairline,
+                        lineWidth: state == .current ? 1.5 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
+        .opacity(state == .upcoming ? 0.5 : 1)
+
+        Group {
+            if let action {
+                Button(action: action) { label }.buttonStyle(PressScaleStyle())
+            } else {
+                label
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Fase \(title), \(railAccessibility(state))")
+    }
+
+    private func railForeground(_ state: RailState) -> Color {
+        switch state {
+        case .current:  return Theme.Color.accentOn
+        case .done:     return Theme.Color.muted
+        case .upcoming: return Theme.Color.muted
+        }
+    }
+
+    private func railBackground(_ state: RailState) -> Color {
+        state == .current ? Theme.Color.accent : Theme.Color.surface
+    }
+
+    private func railAccessibility(_ state: RailState) -> String {
+        switch state {
+        case .current:  return "actual"
+        case .done:     return "completada"
+        case .upcoming: return "siguiente, toca para saltar"
+        }
+    }
+
+    // MARK: - Primary action
+
+    private var primaryButton: some View {
+        ExpertActionButton(title: primaryTitle, action: { session.primaryAdvance() })
             .frame(height: 88)
+    }
+
+    // Context-labelled, never the generic "LAP". EMOM: EMPEZAR during the count-in,
+    // SIGUIENTE to skip a minute, TERMINAR on the last interval. Otherwise:
+    // TERMINAR on the last segment, HECHO for a discrete strength/reps piece,
+    // SIGUIENTE to move to the next leg.
+    private var primaryTitle: String {
+        if session.currentSegment?.isEMOM == true {
+            if session.emomCountInRemaining > 0 { return "EMPEZAR" }
+            return session.emomIntervalsRemaining > 0 ? "SIGUIENTE" : "TERMINAR"
+        }
+        if session.isLastSegment { return "TERMINAR" }
+        switch session.currentSegment?.kind {
+        case .strength, .reps: return "HECHO"
+        default:               return "SIGUIENTE"
+        }
+    }
+
+    // MARK: - Navigation requests (confirm where the move is destructive)
+
+    // Phase rail / segment stepper. A forward jump that OMITS intermediate work
+    // confirms; an adjacent forward step is the normal advance. A backward jump
+    // reopens; it confirms only if the current segment has unsaved live progress.
+    private func requestJump(to index: Int) {
+        let current = session.currentSegmentIndex
+        guard index != current else { return }
+        if index > current {
+            let omitted = index - current - 1
+            if omitted > 0 {
+                pendingNav = PendingNav(
+                    title: "Saltar a \(jumpTargetTitle(index))",
+                    message: omitted == 1
+                        ? "Se omite 1 tramo, sin registrarlo."
+                        : "Se omiten \(omitted) tramos, sin registrarlos.",
+                    confirmTitle: "Saltar",
+                    action: { session.jumpTo(index) }
+                )
+            } else {
+                session.jumpTo(index)
+            }
+        } else if session.currentSegmentHasLiveProgress {
+            pendingNav = PendingNav(
+                title: "Volver a \(jumpTargetTitle(index))",
+                message: "Perderás lo que llevas en este tramo sin guardar.",
+                confirmTitle: "Volver",
+                action: { session.jumpTo(index) }
+            )
+        } else {
+            session.jumpTo(index)
+        }
+    }
+
+    // Back chevron. EMOM mid-block → previous interval (never loses data, no
+    // confirm). Otherwise → previous segment, confirming only if it discards
+    // unsaved live progress.
+    private func requestBack() {
+        guard session.canStepBack else { return }
+        if session.isEMOMActive, session.emomCountInRemaining <= 0, session.emomIntervalIndex > 0 {
+            session.stepBack()
+            return
+        }
+        if session.currentSegmentHasLiveProgress {
+            pendingNav = PendingNav(
+                title: "Volver al tramo anterior",
+                message: "Perderás lo que llevas en este tramo sin guardar.",
+                confirmTitle: "Volver",
+                action: { session.stepBack() }
+            )
+        } else {
+            session.stepBack()
+        }
+    }
+
+    private func jumpTargetTitle(_ index: Int) -> String {
+        guard index >= 0, index < session.plan.segments.count else { return "—" }
+        return session.plan.segments[index].title
+    }
+
+    private func confirmModal(_ nav: PendingNav) -> some View {
+        ZStack {
+            Theme.Color.scrim.ignoresSafeArea()
+                .onTapGesture { pendingNav = nil }
+            CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    Text(nav.title)
+                        .font(Theme.Typography.headlineM)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(nav.message)
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                    ExpertPrimaryButton(title: nav.confirmTitle) {
+                        let act = nav.action
+                        pendingNav = nil
+                        act()
+                    }
+                    SecondaryButton(title: "Cancelar") { pendingNav = nil }
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+        }
+        .transition(.opacity)
     }
 
     private var pauseModal: some View {
@@ -336,8 +559,22 @@ struct ActiveWorkoutView: View {
     }
 }
 
-// Smaller LAP button matching Expert spec (88pt, radius 14).
-private struct ExpertLapButton: View {
+// A pending navigation awaiting the athlete's confirmation. Holds the copy and
+// the action to run on confirm (a forward skip that omits work, or a back-step
+// that would discard unsaved live data).
+private struct PendingNav {
+    let title: String
+    let message: String
+    let confirmTitle: String
+    let action: () -> Void
+}
+
+// The big bottom primary action (88pt, radius 14). Generalised from the old
+// LAP-only button: the title is contextual ("SIGUIENTE" / "HECHO" / "TERMINAR" /
+// "EMPEZAR"). The session methods own the haptic; this only flashes on tap. A
+// 0.5s debounce guards against a double-fire under sweaty fingers.
+private struct ExpertActionButton: View {
+    let title: String
     let action: () -> Void
     @State private var flashing: Bool = false
     @State private var lastTap: Date = .distantPast
@@ -347,7 +584,6 @@ private struct ExpertLapButton: View {
             let now = Date()
             guard now.timeIntervalSince(lastTap) > 0.5 else { return }
             lastTap = now
-            Haptics.medium()
             withAnimation(.easeOut(duration: 0.18)) { flashing = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 withAnimation(.easeIn(duration: 0.16)) { flashing = false }
@@ -357,13 +593,16 @@ private struct ExpertLapButton: View {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
                     .fill(flashing ? Theme.Color.ok : Theme.Color.accent)
-                Text("LAP")
-                    .font(.system(size: 56, weight: .heavy, design: .default).italic())
-                    .tracking(4)
+                Text(title)
+                    .font(.system(size: 40, weight: .heavy, design: .default).italic())
+                    .tracking(3)
                     .foregroundStyle(Theme.Color.accentOn)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .padding(.horizontal, Theme.Spacing.l)
             }
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Lap")
+        .accessibilityLabel(title)
     }
 }
