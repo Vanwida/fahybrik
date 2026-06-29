@@ -55,12 +55,17 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
         <RosterStatusDot status={row.status} />
       </div>
 
-      {/* Fase actual */}
-      <div className="hidden min-w-0 md:block">
+      {/* Fase actual — block span so `truncate` actually clips (an inline span
+          ignores overflow and would bleed into Adherencia); full label on hover. */}
+      <div className="hidden min-w-0 md:block" title={row.phase_label}>
         {row.phase_code ? (
-          <span className="truncate text-xs text-[color:var(--v2-muted)]">{row.phase_label}</span>
+          <span className="block truncate text-xs text-[color:var(--v2-muted)]">
+            {row.phase_label}
+          </span>
         ) : (
-          <span className="text-xs text-[color:var(--v2-faint)]">{row.phase_label}</span>
+          <span className="block truncate text-xs text-[color:var(--v2-faint)]">
+            {row.phase_label}
+          </span>
         )}
       </div>
 
