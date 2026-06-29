@@ -1,0 +1,52 @@
+// Section registry — maps a section slug to the component that renders its body.
+// The single config (components/v2/guia/config) owns the index + ordering; this
+// owns the slug→component wiring. Each phase-2 agent owns ONE file in this folder;
+// adding/replacing a section means editing that file + (if new) one line here.
+
+import type { ComponentType } from 'react';
+import type { GuiaSection } from '../config';
+
+import Section01 from './01-que-es-esta-guia';
+import Section02 from './02-tu-cuenta-y-tu-marca';
+import Section03 from './03-tu-catalogo-de-ejercicios';
+import Section04 from './04-tus-tipos-de-trabajo';
+import Section05 from './05-tu-metodologia-y-tus-fases';
+import Section06 from './06-como-se-estructura-un-plan';
+import Section07 from './07-monta-la-semana';
+import Section08 from './08-carga-e-intensidad';
+import Section09 from './09-periodizacion-nombrar-fases';
+import Section10 from './10-da-de-alta-e-invita';
+import Section11 from './11-cuestionario-inicial-y-tests';
+import Section12 from './12-asigna-el-plan';
+import Section13 from './13-tu-pantalla-hoy';
+import Section14 from './14-estado-de-cada-entreno';
+import Section15 from './15-habla-con-tu-atleta';
+import Section16 from './16-readiness-y-checkin';
+import Section17 from './17-adherencia-y-constancia';
+import Section18 from './18-carreras-y-objetivos';
+import Section19 from './19-progreso-y-rendimiento';
+
+/** A section body component — receives its own config metadata. */
+export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
+
+export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
+  'que-es-esta-guia': Section01,
+  'tu-cuenta-y-tu-marca': Section02,
+  'tu-catalogo-de-ejercicios': Section03,
+  'tus-tipos-de-trabajo': Section04,
+  'tu-metodologia-y-tus-fases': Section05,
+  'como-se-estructura-un-plan': Section06,
+  'monta-la-semana': Section07,
+  'carga-e-intensidad': Section08,
+  'periodizacion-nombrar-fases': Section09,
+  'da-de-alta-e-invita': Section10,
+  'cuestionario-inicial-y-tests': Section11,
+  'asigna-el-plan': Section12,
+  'tu-pantalla-hoy': Section13,
+  'estado-de-cada-entreno': Section14,
+  'habla-con-tu-atleta': Section15,
+  'readiness-y-checkin': Section16,
+  'adherencia-y-constancia': Section17,
+  'carreras-y-objetivos': Section18,
+  'progreso-y-rendimiento': Section19,
+};

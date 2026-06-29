@@ -10,6 +10,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import {
   V2_NAV_GROUP_LABELS,
   V2_NAV_GROUP_ORDER,
+  V2_NAV_GUIDE,
   V2_NAV_SETTINGS,
   isV2NavActive,
   v2NavItemsForGroup,
@@ -142,8 +143,13 @@ export function V2Sidebar({ unread_messages = 0 }: { unread_messages?: number })
         })}
       </nav>
 
-      {/* Ajustes — pinned bottom */}
-      <div className="mt-auto border-t border-[color:var(--v2-border)] px-3 py-3">
+      {/* Guía + Ajustes — pinned bottom */}
+      <div className="mt-auto flex flex-col gap-1 border-t border-[color:var(--v2-border)] px-3 py-3">
+        <NavLink
+          item={V2_NAV_GUIDE}
+          active={isV2NavActive(pathname, V2_NAV_GUIDE.href)}
+          unread={unread_messages}
+        />
         <NavLink
           item={V2_NAV_SETTINGS}
           active={isV2NavActive(pathname, V2_NAV_SETTINGS.href)}

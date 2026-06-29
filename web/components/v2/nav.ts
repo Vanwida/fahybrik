@@ -47,6 +47,15 @@ export function v2NavItemsForGroup(group: V2NavGroup): V2NavItem[] {
   return V2_NAV_ITEMS.filter((item) => item.group === group);
 }
 
+/** Pinned to the bottom of the sidebar, above Ajustes — the in-dashboard coach
+ *  guide (docs site at /guia). */
+export const V2_NAV_GUIDE: V2NavItem = {
+  href: '/guia',
+  label: 'Guía',
+  icon: 'school',
+  group: 'operar',
+};
+
 /** Pinned to the bottom of the sidebar. */
 export const V2_NAV_SETTINGS: V2NavItem = {
   href: '/ajustes',
