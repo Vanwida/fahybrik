@@ -9,7 +9,6 @@ export type ReadinessBreakdown = {
   sleep_component: number | null;
   rhr_component: number | null;
   recovery_component: number | null;
-  compliance_7d: number | null;
 };
 
 export type DailyReadinessSnapshot = {
@@ -112,8 +111,11 @@ export async function computeAthleteDailyReadiness(params: {
     sleep_component: sleepComponent,
     rhr_component: rhrComponent,
     recovery_component: recoveryComponent,
-    compliance_7d: compliance,
   };
+  // NOTE: `compliance` is still computed below as a SCORE MODIFIER, but it's no
+  // longer carried in the breakdown DTO — adherence-over-7d is a progression
+  // concept, not a "how you arrive today" readiness contributor, and no surface
+  // renders it as a chip.
 
   const parts: Array<{ w: number; v: number }> = [];
   if (subScore != null) parts.push({ w: WEIGHTS.sub_score, v: subScore });

@@ -30,7 +30,6 @@ struct ReadinessBreakdown: Codable {
     /// Normalized resting-HR component (0–100). Nil with no recent resting HR.
     let rhrComponent: Double?
     let recoveryComponent: Double?
-    let compliance7d: Double?
 
     /// Whether the morning check-in contributed (the primary signal for athletes
     /// without a connected wearable).
