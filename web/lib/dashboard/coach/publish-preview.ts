@@ -17,6 +17,7 @@ import type {
   WeekSession,
   WeekDayPart,
 } from '@fahybrid/shared/schema/program-templates';
+import { templateFormat } from '@fahybrid/shared/schema/_primitives';
 
 // =============================================================================
 // Publish preview — qué recibirá el atleta ANTES de confirmar.
@@ -117,16 +118,9 @@ export class PublishPreviewError extends Error {
   }
 }
 
-const TEMPLATE_FORMATS = [
-  'amrap',
-  'for_time',
-  'emom',
-  'intervals',
-  'strength_block',
-  'hyrox_sim',
-  'tempo',
-  'circuit',
-] as const;
+// Every value the `template_format` enum accepts — the single shared source
+// (canonical catalog ∪ legacy DB members). Used to validate a block's format.
+const TEMPLATE_FORMATS = templateFormat.options;
 
 export async function buildPublishPreview(params: {
   coach_id: number | bigint;

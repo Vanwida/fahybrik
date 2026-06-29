@@ -43,7 +43,7 @@ import { ConditioningFields, StrengthFields } from './prescription-field-groups'
 // Conditioning format options (CÓMO se estructura el trabajo) — the metcon axis.
 const FORMAT_OPTIONS: { value: PrescriptionScheme; label: string }[] = [
   { value: 'steady', label: 'Continuo' },
-  { value: 'interval', label: 'Intervalos' },
+  { value: 'intervals', label: 'Intervalos' },
   { value: 'amrap', label: 'AMRAP' },
   { value: 'emom', label: 'EMOM' },
   { value: 'for_time', label: 'For Time' },

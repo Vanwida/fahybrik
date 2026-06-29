@@ -69,12 +69,23 @@ function configLine(format: TemplateFormat, config: WeekDayPartConfig | undefine
  * pedagogical purpose. Kept terse + athletic for the dense week view.
  */
 const FORMAT_CHIP_LABEL: Record<TemplateFormat, string> = {
-  amrap: 'AMRAP',
+  // Canonical formats (shared workout-format catalog).
   for_time: 'For Time',
+  amrap: 'AMRAP',
   emom: 'EMOM',
+  tabata: 'Tabata',
+  death_by: 'Death By',
   intervals: 'Intervalo',
-  strength_block: 'Series',
+  steady: 'Continuo',
+  chipper: 'Chipper',
+  ladder: 'Escalera',
+  rounds: 'Rondas',
   hyrox_sim: 'Simulación',
+  sets: 'Series',
+  warmup: 'Calentamiento',
+  cooldown: 'Vuelta a la calma',
+  // Legacy DB-only members (normalized to canonical on read).
+  strength_block: 'Series',
   tempo: 'Continuo',
   circuit: 'Circuito',
   test: 'Test',

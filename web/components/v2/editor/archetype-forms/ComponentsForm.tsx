@@ -5,8 +5,9 @@
 // NOT one nested prescription: per the domain model a "compromised" block is
 // MULTIPLE block items, each its OWN exercise + dosis (measure ± target) sharing
 // one block. So this form edits the EditorBlock's ITEM LIST:
-//   - Formato (For Time | AMRAP | EMOM | Rondas) — the block-level scheme, applied
-//     to every component (one block = one format).
+//   - Formato — the block-level scheme drawn from the shared metcon catalog
+//     (For Time | AMRAP | EMOM | Tabata | Death By | Series | Chipper | Escalera |
+//     Rondas), applied to every component (one block = one format).
 //   - Rondas / Time cap / Ventana de trabajo — the scheme's structural fields,
 //     stored on EVERY item's prescription so the persisted shape stays coherent.
 //   - Componentes — the reorderable list: movimiento (exercise_name) + dosis
@@ -14,11 +15,12 @@
 // Edits the same EditorItem[] the serializer persists; zero free text.
 
 import type {
+  FormatParam,
   Measure,
   Prescription,
   PrescriptionScheme,
 } from '@fahybrid/shared/domain/prescription';
-import { setMeasure } from '@fahybrid/shared/domain/prescription';
+import { formatMeta, formatsByFamily, setMeasure } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
@@ -32,30 +34,84 @@ import {
   NumberCell,
 } from './form-controls';
 
-// The conditioning formats this form offers (block-level scheme).
-type Format = Extract<PrescriptionScheme, 'for_time' | 'amrap' | 'emom' | 'rounds'>;
+// The conditioning formats this WOD/components form offers: the full metcon
+// family (minus the dedicated HYROX-sim template, which has its own archetype +
+// ordered seed) plus the endurance interval format. The SET is DERIVED from the
+// shared catalog (formatsByFamily) so a metcon format added there surfaces here
+// automatically — there is no parallel list of format values.
+type Format = Extract<
+  PrescriptionScheme,
+  | 'for_time'
+  | 'amrap'
+  | 'emom'
+  | 'tabata'
+  | 'death_by'
+  | 'intervals'
+  | 'chipper'
+  | 'ladder'
+  | 'rounds'
+>;
 
-const FORMAT_OPTIONS: { value: Format; label: string }[] = [
-  { value: 'for_time', label: 'For Time' },
-  { value: 'amrap', label: 'AMRAP' },
-  { value: 'emom', label: 'EMOM' },
-  { value: 'rounds', label: 'Rondas' },
-];
+const OFFERED_FORMATS: Format[] = [
+  ...formatsByFamily('metcon').filter((f) => f !== 'hyrox_sim'),
+  'intervals',
+] as Format[];
+
+// Spanish picker labels. The catalog `label` is canonical/English; every surface
+// localizes its own copy. Keyed by the offered formats only.
+const FORMAT_LABEL_ES: Record<Format, string> = {
+  for_time: 'For Time',
+  amrap: 'AMRAP',
+  emom: 'EMOM',
+  tabata: 'Tabata',
+  death_by: 'Death By',
+  intervals: 'Series',
+  chipper: 'Chipper',
+  ladder: 'Escalera',
+  rounds: 'Rondas',
+};
+
+const FORMAT_OPTIONS: { value: Format; label: string }[] = OFFERED_FORMATS.map((f) => ({
+  value: f,
+  label: FORMAT_LABEL_ES[f],
+}));
 
 type DoseMode = 'reps' | 'distance' | 'duration';
 
-const DEFAULT_CAP_S = 1080; // 18'
-const DEFAULT_AMRAP_S = 720; // 12'
-const DEFAULT_WORK_S = 60; // EMOM window
+// Per-format structural defaults. The existing four (for_time/amrap/emom/rounds)
+// keep their exact prior values; the rest seed the catalog's new formats.
+const DEFAULT_CAP_S = 1080; // 18' — For Time / Chipper / Escalera time cap
+const DEFAULT_AMRAP_S = 720; // 12' — AMRAP total duration
+const DEFAULT_WORK_S = 60; // EMOM minute window
+const DEFAULT_TABATA_WORK_S = 20; // classic Tabata work
+const DEFAULT_TABATA_REST_S = 10; // classic Tabata rest
+const DEFAULT_TABATA_ROUNDS = 8; // classic Tabata rounds
+const DEFAULT_DEATH_BY_WORK_S = 60; // Death By minute window
+const DEFAULT_DEATH_BY_START = 1; // Death By round-1 reps
+const DEFAULT_DEATH_BY_INCREMENT = 1; // Death By reps added per round
+const DEFAULT_INTERVAL_ROUNDS = 4;
+const DEFAULT_INTERVAL_WORK_S = 60;
+const DEFAULT_INTERVAL_REST_S = 60;
+
+// Every structural scalar a format may carry — the universe cleanScheme strips
+// from, keeping only the format's catalog params.
+const STRUCTURAL_PARAMS: readonly FormatParam[] = [
+  'rounds',
+  'work_s',
+  'rest_s',
+  'total_s',
+  'start',
+  'increment',
+];
 
 function blockFormat(block: EditorBlock): Format {
   const s = block.items[0]?.prescription.scheme;
-  if (s === 'amrap' || s === 'emom' || s === 'rounds' || s === 'for_time') return s;
+  if (s && (OFFERED_FORMATS as string[]).includes(s)) return s as Format;
   return 'for_time';
 }
 
 // The block-level structural fields (rounds / cap / work window) read off the
-// first item (every item carries the same — kept coherent by `applyFormat`).
+// first item (every item carries the same — kept coherent by `applyHead`).
 function blockHead(block: EditorBlock): Prescription | undefined {
   return block.items[0]?.prescription;
 }
@@ -85,25 +141,51 @@ export function ComponentsForm({
 
   const setFormat = (next: Format) => {
     if (next === format) return;
-    // Reset the structural fields to the new format's natural defaults.
+    // Reset EVERY structural field, then seed the new format's natural defaults.
     const base: Partial<Prescription> = {
       scheme: next,
       rounds: undefined,
       total_s: undefined,
       work_s: undefined,
       rest_s: undefined,
+      start: undefined,
+      increment: undefined,
     };
-    if (next === 'for_time') {
-      base.rounds = head?.rounds ?? 3;
-      base.total_s = head?.total_s ?? DEFAULT_CAP_S;
-    } else if (next === 'amrap') {
-      base.total_s = head?.total_s ?? DEFAULT_AMRAP_S;
-    } else if (next === 'emom') {
-      base.rounds = head?.rounds ?? 10;
-      base.work_s = head?.work_s ?? DEFAULT_WORK_S;
-    } else if (next === 'rounds') {
-      base.rounds = head?.rounds ?? 3;
-      base.rest_s = head?.rest_s ?? 60;
+    switch (next) {
+      case 'for_time':
+        base.rounds = head?.rounds ?? 3;
+        base.total_s = head?.total_s ?? DEFAULT_CAP_S;
+        break;
+      case 'amrap':
+        base.total_s = head?.total_s ?? DEFAULT_AMRAP_S;
+        break;
+      case 'emom':
+        base.rounds = head?.rounds ?? 10;
+        base.work_s = head?.work_s ?? DEFAULT_WORK_S;
+        break;
+      case 'rounds':
+        base.rounds = head?.rounds ?? 3;
+        base.rest_s = head?.rest_s ?? 60;
+        break;
+      case 'tabata':
+        base.work_s = head?.work_s ?? DEFAULT_TABATA_WORK_S;
+        base.rest_s = head?.rest_s ?? DEFAULT_TABATA_REST_S;
+        base.rounds = head?.rounds ?? DEFAULT_TABATA_ROUNDS;
+        break;
+      case 'death_by':
+        base.work_s = head?.work_s ?? DEFAULT_DEATH_BY_WORK_S;
+        base.start = head?.start ?? DEFAULT_DEATH_BY_START;
+        base.increment = head?.increment ?? DEFAULT_DEATH_BY_INCREMENT;
+        break;
+      case 'intervals':
+        base.rounds = head?.rounds ?? DEFAULT_INTERVAL_ROUNDS;
+        base.work_s = head?.work_s ?? DEFAULT_INTERVAL_WORK_S;
+        base.rest_s = head?.rest_s ?? DEFAULT_INTERVAL_REST_S;
+        break;
+      case 'chipper':
+      case 'ladder':
+        base.total_s = head?.total_s ?? DEFAULT_CAP_S;
+        break;
     }
     applyHead(base);
   };
@@ -143,8 +225,8 @@ export function ComponentsForm({
 
   return (
     <div className="space-y-4">
-      {/* Formato + structural fields */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Formato + per-format structural fields (driven by the catalog params) */}
+      <div className="space-y-3">
         <Field label="Formato">
           <InlineToggle
             ariaLabel="Formato del bloque"
@@ -154,58 +236,17 @@ export function ComponentsForm({
           />
         </Field>
 
-        {format === 'for_time' || format === 'emom' || format === 'rounds' ? (
-          <Field label={format === 'emom' ? 'Minutos' : 'Rondas'}>
-            <NumberCell
-              value={head?.rounds ?? null}
-              ariaLabel={format === 'emom' ? 'Minutos del EMOM' : 'Número de rondas'}
-              min={1}
-              max={60}
-              suffix={format === 'emom' ? 'min' : 'rondas'}
-              onChange={(v) => applyHead({ rounds: v ?? undefined })}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {(formatMeta(format)?.params ?? []).map((param) => (
+            <FormatParamField
+              key={param}
+              param={param}
+              format={format}
+              head={head}
+              onPatch={applyHead}
             />
-          </Field>
-        ) : null}
-
-        {format === 'for_time' ? (
-          <Field label="Time cap">
-            <ClockCell
-              seconds={head?.total_s ?? null}
-              ariaLabel="Time cap (m:ss)"
-              onChange={(s) => applyHead({ total_s: s ?? undefined })}
-            />
-          </Field>
-        ) : null}
-
-        {format === 'amrap' ? (
-          <Field label="Duración total">
-            <ClockCell
-              seconds={head?.total_s ?? null}
-              ariaLabel="Duración total (m:ss)"
-              onChange={(s) => applyHead({ total_s: s ?? undefined })}
-            />
-          </Field>
-        ) : null}
-
-        {format === 'emom' ? (
-          <Field label="Ventana trabajo">
-            <ClockCell
-              seconds={head?.work_s ?? null}
-              ariaLabel="Ventana de trabajo (m:ss)"
-              onChange={(s) => applyHead({ work_s: s ?? undefined })}
-            />
-          </Field>
-        ) : null}
-
-        {format === 'rounds' ? (
-          <Field label="Descanso">
-            <ClockCell
-              seconds={head?.rest_s ?? null}
-              ariaLabel="Descanso entre rondas (m:ss)"
-              onChange={(s) => applyHead({ rest_s: s ?? undefined })}
-            />
-          </Field>
-        ) : null}
+          ))}
+        </div>
       </div>
 
       {/* Componentes */}
@@ -365,30 +406,108 @@ function ComponentRow({
   );
 }
 
+// One structural input for a metcon format, chosen by the catalog param key. The
+// labels localize per format (e.g. `rounds` reads "Minutos" for an EMOM); Death By
+// adds the reps-based `start`/`increment` NumberCells.
+function FormatParamField({
+  param,
+  format,
+  head,
+  onPatch,
+}: {
+  param: FormatParam;
+  format: Format;
+  head: Prescription | undefined;
+  onPatch: (p: Partial<Prescription>) => void;
+}) {
+  switch (param) {
+    case 'rounds':
+      return (
+        <Field label={format === 'emom' ? 'Minutos' : 'Rondas'}>
+          <NumberCell
+            value={head?.rounds ?? null}
+            ariaLabel={format === 'emom' ? 'Minutos del EMOM' : 'Número de rondas'}
+            min={1}
+            max={60}
+            suffix={format === 'emom' ? 'min' : 'rondas'}
+            onChange={(v) => onPatch({ rounds: v ?? undefined })}
+          />
+        </Field>
+      );
+    case 'total_s': {
+      const label = format === 'amrap' ? 'Duración total' : 'Time cap';
+      return (
+        <Field label={label}>
+          <ClockCell
+            seconds={head?.total_s ?? null}
+            ariaLabel={`${label} (m:ss)`}
+            onChange={(s) => onPatch({ total_s: s ?? undefined })}
+          />
+        </Field>
+      );
+    }
+    case 'work_s': {
+      const label = format === 'tabata' ? 'Trabajo' : 'Ventana trabajo';
+      return (
+        <Field label={label}>
+          <ClockCell
+            seconds={head?.work_s ?? null}
+            ariaLabel={`${label} (m:ss)`}
+            onChange={(s) => onPatch({ work_s: s ?? undefined })}
+          />
+        </Field>
+      );
+    }
+    case 'rest_s':
+      return (
+        <Field label="Descanso">
+          <ClockCell
+            seconds={head?.rest_s ?? null}
+            ariaLabel="Descanso (m:ss)"
+            onChange={(s) => onPatch({ rest_s: s ?? undefined })}
+          />
+        </Field>
+      );
+    case 'start':
+      return (
+        <Field label="Inicio">
+          <NumberCell
+            value={head?.start ?? null}
+            ariaLabel="Reps en la primera ronda"
+            min={1}
+            max={1000}
+            suffix="reps"
+            onChange={(v) => onPatch({ start: v ?? undefined })}
+          />
+        </Field>
+      );
+    case 'increment':
+      return (
+        <Field label="Incremento">
+          <NumberCell
+            value={head?.increment ?? null}
+            ariaLabel="Reps añadidas cada ronda"
+            min={1}
+            max={1000}
+            suffix="reps"
+            onChange={(v) => onPatch({ increment: v ?? undefined })}
+          />
+        </Field>
+      );
+    default:
+      return null;
+  }
+}
+
 // Strip the structural fields a scheme doesn't use, so the persisted prescription
 // stays clean (an AMRAP carries total_s, not rounds; EMOM carries work_s, etc.).
+// The keep-set is the format's catalog `params`; everything else (including Death
+// By's start/increment when not death_by) is dropped — one rule, every format.
 function cleanScheme(p: Prescription): Prescription {
+  const keep = new Set<FormatParam>(formatMeta(p.scheme)?.params ?? []);
   const out: Prescription = { ...p };
-  switch (out.scheme) {
-    case 'amrap':
-      delete out.rounds;
-      delete out.work_s;
-      delete out.rest_s;
-      break;
-    case 'emom':
-      delete out.total_s;
-      delete out.rest_s;
-      break;
-    case 'for_time':
-      delete out.work_s;
-      delete out.rest_s;
-      break;
-    case 'rounds':
-      delete out.total_s;
-      delete out.work_s;
-      break;
-    default:
-      break;
+  for (const param of STRUCTURAL_PARAMS) {
+    if (!keep.has(param)) delete out[param];
   }
   return out;
 }

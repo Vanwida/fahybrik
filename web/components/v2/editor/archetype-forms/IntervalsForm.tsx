@@ -4,6 +4,7 @@
 // N × (distancia | tiempo de trabajo) @ ritmo | RPE + descanso. The archetype
 // fixed scheme = interval; this form exposes: superficie/ergo (run ↔ row/ski/bike),
 // repeticiones (rounds), cada-repetición (work distance|duration), objetivo
+// (the archetype's fixed scheme is the canonical `intervals`).
 // (ritmo|RPE), descanso (rest_s). No modality/measure/objetivo board — the form is
 // the prescription.
 //
@@ -85,13 +86,13 @@ export function IntervalsForm({
         { value: 'rpe', label: 'RPE' },
       ];
 
-  const patch = (p: Partial<Prescription>) => onChange({ ...value, scheme: 'interval', ...p });
+  const patch = (p: Partial<Prescription>) => onChange({ ...value, scheme: 'intervals', ...p });
 
   const setSurface = (m: Modality) => {
     if (m === modality) return;
     // Re-seed the target to the new modality's natural pace unit (run → /km).
     const target = value.target?.kind === 'rpe' ? value.target : defaultTargetForModality(m);
-    onChange({ ...value, scheme: 'interval', modality: m, ...(target ? { target } : {}) });
+    onChange({ ...value, scheme: 'intervals', modality: m, ...(target ? { target } : {}) });
   };
 
   const setWorkMode = (next: WorkMode) => {
@@ -99,13 +100,13 @@ export function IntervalsForm({
     if (next === 'duration') {
       const { sets: _s, ...rest } = value;
       void _s;
-      onChange({ ...rest, scheme: 'interval', work_s: DEFAULT_WORK_DURATION_S });
+      onChange({ ...rest, scheme: 'intervals', work_s: DEFAULT_WORK_DURATION_S });
     } else {
       const { work_s: _w, ...rest } = value;
       void _w;
       onChange({
         ...rest,
-        scheme: 'interval',
+        scheme: 'intervals',
         sets: [{ measure: { kind: 'distance', meters: DEFAULT_WORK_DISTANCE_M } }],
       });
     }
@@ -114,7 +115,7 @@ export function IntervalsForm({
   const setWorkDuration = (seconds: number | null) => {
     const { sets: _s, ...rest } = value;
     void _s;
-    onChange({ ...rest, scheme: 'interval', work_s: seconds ?? 0 });
+    onChange({ ...rest, scheme: 'intervals', work_s: seconds ?? 0 });
   };
 
   const setWorkDistance = (meters: number | null) => {
@@ -122,7 +123,7 @@ export function IntervalsForm({
     void _w;
     onChange({
       ...rest,
-      scheme: 'interval',
+      scheme: 'intervals',
       sets: [{ measure: { kind: 'distance', meters: meters ?? 0 } }],
     });
   };
@@ -134,7 +135,7 @@ export function IntervalsForm({
         : kind === 'watts'
           ? { kind: 'watts', value: 200 }
           : { kind: 'pace', unit: modality === 'run' ? 'per_km' : 'per_500m', value_s: 205 };
-    onChange({ ...value, scheme: 'interval', target });
+    onChange({ ...value, scheme: 'intervals', target });
   };
 
   return (
@@ -201,21 +202,21 @@ export function IntervalsForm({
                 target={value.target}
                 modality={modality}
                 ariaPrefix="Trabajo"
-                onChange={(t) => onChange({ ...value, scheme: 'interval', target: t })}
+                onChange={(t) => onChange({ ...value, scheme: 'intervals', target: t })}
               />
             ) : objKind === 'watts' ? (
               <ScalarTargetCell
                 kind="watts"
                 target={value.target}
                 ariaLabel="Vatios objetivo"
-                onChange={(t) => onChange({ ...value, scheme: 'interval', target: t })}
+                onChange={(t) => onChange({ ...value, scheme: 'intervals', target: t })}
               />
             ) : (
               <ScalarTargetCell
                 kind="rpe"
                 target={value.target}
                 ariaLabel="RPE objetivo"
-                onChange={(t) => onChange({ ...value, scheme: 'interval', target: t })}
+                onChange={(t) => onChange({ ...value, scheme: 'intervals', target: t })}
               />
             )}
           </div>

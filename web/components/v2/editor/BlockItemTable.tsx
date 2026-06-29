@@ -341,7 +341,7 @@ function schemeLabel(scheme: string): string {
       return 'EMOM';
     case 'for_time':
       return 'For Time';
-    case 'interval':
+    case 'intervals':
       return 'Intervalos';
     case 'rounds':
       return 'Rondas';

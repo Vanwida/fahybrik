@@ -106,7 +106,7 @@ describe('prescriptionSchema — Measure validation', () => {
 
 describe('prescriptionSchema — scheme + modality', () => {
   test('rejects an unknown scheme', () => {
-    expect(safeParsePrescription({ scheme: 'tabata' }).success).toBe(false);
+    expect(safeParsePrescription({ scheme: 'not_a_real_format' }).success).toBe(false);
   });
   test('accepts the modality enum and rejects others', () => {
     expect(safeParsePrescription({ scheme: 'steady', modality: 'row' }).success).toBe(true);
@@ -325,7 +325,7 @@ describe('canonical real cases', () => {
 
   test('run pace interval: 6 × 400m @ 4:00/km', () => {
     const p: Prescription = {
-      scheme: 'interval',
+      scheme: 'intervals',
       modality: 'run',
       rounds: 6,
       rest_s: 90,

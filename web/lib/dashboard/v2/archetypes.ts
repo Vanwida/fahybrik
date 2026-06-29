@@ -215,7 +215,7 @@ const ARCHETYPE_AXIS: Record<ArchetypeId, AxisModalidad> = {
 /** The scheme each archetype's seed lands on (drives which fields are meaningful). */
 const ARCHETYPE_SCHEME: Record<ArchetypeId, Prescription['scheme']> = {
   steady_run: 'steady',
-  intervals: 'interval',
+  intervals: 'intervals',
   strength: 'sets',
   power_emom: 'emom',
   wod_metcon: 'for_time',
@@ -263,7 +263,7 @@ export function seedArchetype(id: ArchetypeId): Prescription {
       // (which rebuilds the measure cleanly — no orphan field here).
       next.total_s = measure.kind === 'duration' ? measure.seconds : 1800;
       break;
-    case 'interval':
+    case 'intervals':
       // N × (distance|duration work) @ pace|rpe + rest.
       next.rounds = 6;
       next.rest_s = 120;

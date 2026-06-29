@@ -65,7 +65,7 @@ describe('prescriptionToText — coach natural language (mockup-exact)', () => {
 
   test('series running: 4×1000m @ 4:10/km · r2\'', () => {
     const p: Prescription = {
-      scheme: 'interval',
+      scheme: 'intervals',
       modality: 'run',
       rounds: 4,
       rest_s: 120,
@@ -79,7 +79,7 @@ describe('prescriptionToText — coach natural language (mockup-exact)', () => {
 
   test('series ergómetro por tiempo: 3×3\' @ RPE 8 · r2\'', () => {
     const p: Prescription = {
-      scheme: 'interval',
+      scheme: 'intervals',
       modality: 'ski',
       rounds: 3,
       rest_s: 120,
@@ -187,7 +187,7 @@ describe('prescriptionToText — coach natural language (mockup-exact)', () => {
 
   test('intervalo sin per-set: 4×3\' @ Z4 · r3\'', () => {
     const p: Prescription = {
-      scheme: 'interval',
+      scheme: 'intervals',
       modality: 'bike',
       rounds: 4,
       work_s: 180,

@@ -14,7 +14,7 @@ import type {
   WeekDayPart,
   WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
-import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
+import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   applyProgression,
   safeParsePrescription,
@@ -52,17 +52,9 @@ function toSegmentPrescriptionJson(
 
 /** template.format is NOT NULL; used when an inline session has no usable block format. */
 const DEFAULT_TEMPLATE_FORMAT: TemplateFormat = 'circuit';
-/** Block format → template format. Both share the template_format enum domain. */
-const TEMPLATE_FORMATS: readonly TemplateFormat[] = [
-  'amrap',
-  'for_time',
-  'emom',
-  'intervals',
-  'strength_block',
-  'hyrox_sim',
-  'tempo',
-  'circuit',
-];
+/** Every value the `template_format` enum accepts — the single shared source
+ *  (canonical catalog ∪ legacy DB members). Block + template formats share it. */
+const TEMPLATE_FORMATS: readonly TemplateFormat[] = templateFormat.options;
 /** templates.target_block enum domain. Microciclos no longer carry a block hint
  *  (identity = name + level + nº weeks; order = periodization), so materialized
  *  templates target 'any'. */

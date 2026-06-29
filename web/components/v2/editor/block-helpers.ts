@@ -16,7 +16,7 @@ export function blockModalitySlug(block: EditorBlock): V2Modality {
   // No items yet — derive from the block format string when it hints a modality.
   const f = (block.format ?? '').toLowerCase();
   if (f.includes('strength')) return 'fuerza';
-  if (f.includes('tempo') || f.includes('interval')) return 'carrera';
+  if (f.includes('tempo') || f.includes('intervals')) return 'carrera';
   if (f) return 'circuito';
   return 'calentamiento';
 }

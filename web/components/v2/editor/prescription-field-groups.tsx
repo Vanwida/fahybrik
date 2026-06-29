@@ -180,9 +180,9 @@ export function ConditioningFields({
   };
 
   const { scheme } = value;
-  const showRounds = scheme === 'rounds' || scheme === 'emom' || scheme === 'interval';
-  const showWork = scheme === 'emom' || scheme === 'interval' || scheme === 'rounds';
-  const showRest = scheme === 'rounds' || scheme === 'interval' || scheme === 'emom';
+  const showRounds = scheme === 'rounds' || scheme === 'emom' || scheme === 'intervals';
+  const showWork = scheme === 'emom' || scheme === 'intervals' || scheme === 'rounds';
+  const showRest = scheme === 'rounds' || scheme === 'intervals' || scheme === 'emom';
   const showTotal = scheme === 'amrap' || scheme === 'steady';
 
   const axes = axesOf(value);

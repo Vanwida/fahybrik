@@ -129,12 +129,23 @@ export function formatLabel(format: TemplateFormat): string {
   const hit = HYROX_SECTION_TYPES.find((s) => s.section_format === format);
   if (hit) return hit.title;
   const map: Record<TemplateFormat, string> = {
-    amrap: 'AMRAP',
+    // Canonical formats (shared workout-format catalog).
     for_time: 'For Time',
+    amrap: 'AMRAP',
     emom: 'EMOM',
+    tabata: 'Tabata',
+    death_by: 'Death By',
     intervals: 'Intervals',
-    strength_block: 'Strength block',
+    steady: 'Steady',
+    chipper: 'Chipper',
+    ladder: 'Ladder',
+    rounds: 'Rounds',
     hyrox_sim: 'HYROX sim',
+    sets: 'Strength',
+    warmup: 'Warm-up',
+    cooldown: 'Cool-down',
+    // Legacy DB-only members (normalized to canonical on read).
+    strength_block: 'Strength block',
     tempo: 'Tempo',
     circuit: 'Circuit',
     test: 'Test',
