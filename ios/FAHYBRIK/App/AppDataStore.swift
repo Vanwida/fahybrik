@@ -77,6 +77,8 @@ final class AppDataStore {
     var planWeek = Slice<AthletePlanWeekResponse>()         // /plan/week (offset 0) — Inicio, Plan, Perfil(coach)
     var macroProgress = Slice<AthleteMacroProgressResponse>() // /macro-progress  — Inicio week tile
     var readiness = Slice<DailyReadinessPayload>()          // /readiness/today   — Inicio
+    var biometricTrend = Slice<BiometricTrend>()            // /biometrics/trend  — Inicio ("Tu progreso")
+    var strengthMaxes = Slice<[StrengthMaxProfile]>()       // /benchmarks        — Inicio ("Tu progreso") + Perfil
     var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread) + Chat (coach identity)
     var chatMessages = Slice<[ChatMessageDTO]>()            // /chat/threads/me/messages — Chat (message history)
     var partner = Slice<PartnerEnvelope>()                  // /athlete/partner   — Inicio, Plan, Perfil
@@ -126,6 +128,8 @@ final class AppDataStore {
             planWeek = snapshot.planWeek
             macroProgress = snapshot.macroProgress
             readiness = snapshot.readiness
+            biometricTrend = snapshot.biometricTrend
+            strengthMaxes = snapshot.strengthMaxes
             chatThread = snapshot.chatThread
             chatMessages = snapshot.chatMessages
             partner = snapshot.partner
@@ -145,6 +149,8 @@ final class AppDataStore {
         planWeek = .init()
         macroProgress = .init()
         readiness = .init()
+        biometricTrend = .init()
+        strengthMaxes = .init()
         chatThread = .init()
         chatMessages = .init()
         partner = .init()
@@ -166,21 +172,26 @@ final class AppDataStore {
         async let p: Void = refreshPlanWeek(force: force)
         async let m: Void = refreshMacroProgress(force: force)
         async let r: Void = refreshReadiness(force: force)
+        async let bt: Void = refreshBiometricTrend(force: force)
+        async let sm: Void = refreshStrengthMaxes(force: force)
         async let c: Void = refreshChatThread(force: force)
         async let pa: Void = refreshPartner(force: force)
         async let s: Void = refreshSubscription(force: force)
-        _ = await (i, p, m, r, c, pa, s)
+        _ = await (i, p, m, r, bt, sm, c, pa, s)
     }
 
-    /// Inicio: identity, plan, macro progress, readiness, coach thread, partner.
+    /// Inicio: identity, plan, macro progress, readiness, the biometric trend +
+    /// strength maxes (the "Tu progreso" proof), coach thread, partner.
     func loadHome(force: Bool = false) async {
         async let i: Void = refreshIdentity(force: force)
         async let p: Void = refreshPlanWeek(force: force)
         async let m: Void = refreshMacroProgress(force: force)
         async let r: Void = refreshReadiness(force: force)
+        async let bt: Void = refreshBiometricTrend(force: force)
+        async let sm: Void = refreshStrengthMaxes(force: force)
         async let c: Void = refreshChatThread(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (i, p, m, r, c, pa)
+        _ = await (i, p, m, r, bt, sm, c, pa)
     }
 
     /// Plan: the current week + the partner (for the "Con [X]" badges).
@@ -277,6 +288,20 @@ final class AppDataStore {
         // successful load with no value (hasLoaded stays true).
         await revalidate(get: { self.readiness }, set: { self.readiness = $0 }, force: force) {
             try await ReadinessService.fetchToday(bearer: $0)
+        }
+    }
+
+    func refreshBiometricTrend(force: Bool = false) async {
+        // BiometricTrendService returns an honest-empty bundle (metrics: []) when
+        // the athlete has no recent data — recorded as a successful load.
+        await revalidate(get: { self.biometricTrend }, set: { self.biometricTrend = $0 }, force: force) {
+            try await BiometricTrendService.fetch(bearer: $0)
+        }
+    }
+
+    func refreshStrengthMaxes(force: Bool = false) async {
+        await revalidate(get: { self.strengthMaxes }, set: { self.strengthMaxes = $0 }, force: force) {
+            try await StrengthService.fetch(bearer: $0)
         }
     }
 
@@ -406,6 +431,8 @@ final class AppDataStore {
             planWeek: planWeek,
             macroProgress: macroProgress,
             readiness: readiness,
+            biometricTrend: biometricTrend,
+            strengthMaxes: strengthMaxes,
             chatThread: chatThread,
             chatMessages: chatMessages,
             partner: partner,
@@ -434,6 +461,8 @@ enum AppDataPersistence {
         var planWeek: Slice<AthletePlanWeekResponse>
         var macroProgress: Slice<AthleteMacroProgressResponse>
         var readiness: Slice<DailyReadinessPayload>
+        var biometricTrend: Slice<BiometricTrend>
+        var strengthMaxes: Slice<[StrengthMaxProfile]>
         var chatThread: Slice<ChatThreadDTO>
         var chatMessages: Slice<[ChatMessageDTO]>
         var partner: Slice<PartnerEnvelope>
@@ -443,10 +472,12 @@ enum AppDataPersistence {
         var analytics: Slice<AthleteAnalytics>
     }
 
-    // v3 adds the Chat message-history slice (v2 added the Carreras slices). An
-    // older blob has a different shape, so its decode simply fails (→ start clean,
-    // refetch on launch) — no migration code, no stale-shape risk.
-    private static let key = "fahybrik.appDataStore.v3"
+    // v4 adds the Inicio "Tu progreso" slices (biometric trend + strength maxes)
+    // and the readiness breakdown field. v3 added the Chat message-history slice
+    // (v2 added the Carreras slices). An older blob has a different shape, so its
+    // decode simply fails (→ start clean, refetch on launch) — no migration code,
+    // no stale-shape risk.
+    private static let key = "fahybrik.appDataStore.v4"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }

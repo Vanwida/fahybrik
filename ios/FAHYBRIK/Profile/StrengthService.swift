@@ -21,7 +21,7 @@ struct AthleteBenchmarksResponse: Decodable {
 
 /// One lift's CURRENT (highest-version) 1RM plus its prior versions, for the
 /// evolution view. Identified by `exerciseSlug` so SwiftUI can diff rows.
-struct StrengthMaxProfile: Decodable, Identifiable {
+struct StrengthMaxProfile: Codable, Identifiable {
     var id: String { exerciseSlug }
     let exerciseSlug: String
     let exerciseLabel: String
@@ -49,7 +49,7 @@ struct StrengthMaxProfile: Decodable, Identifiable {
 }
 
 /// One past 1RM datapoint for the evolution view (a single version).
-struct StrengthMaxPoint: Decodable, Identifiable {
+struct StrengthMaxPoint: Codable, Identifiable {
     var id: Int { version }
     let oneRmKg: Double
     let version: Int
