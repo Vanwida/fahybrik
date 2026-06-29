@@ -13,8 +13,9 @@ import SwiftUI
 //   2. ¿CÓMO LLEGAS HOY? — readiness clearance: 0–100 score + plain read + a mini
 //      breakdown of the signals feeding it (check-in / HRV / sueño / FC reposo).
 //   3. TU PROGRESO · CARRERA — running is half of the hybrid, so progress leads
-//      with the run: threshold pace (VDOT), the 5 km trend, best 1 km + 7-day
-//      volume, plus the strength 1RM as the other half.
+//      with the run: the trained threshold pace (Z4 from the zone profile, what
+//      the plan prescribes), the 5 km trend + VDOT (distinct test progress), best
+//      1 km + 7-day volume, plus the strength 1RM as the other half.
 //   4. ENTRENO DE HOY — start TODAY's session (a single action card, not a menu).
 //   5. PASOS — today's HealthKit step count (all-day movement).
 //   6. PROYECCIÓN (puerta honesta) — where a finish projection would go. The model
@@ -629,7 +630,8 @@ struct InicioView: View {
     // MARK: - 3 · Tu progreso · carrera (running leads the proof)
     //
     // Running is half of the hybrid, so the proof leads with the run: threshold
-    // pace (Daniels/VDOT off the 5 km), the 5 km test trend, best 1 km + 7-day
+    // pace (the Z4 your plan trains, from the zone profile), the 5 km test trend
+    // + VDOT (a distinct test-progress concept), best 1 km + 7-day
     // volume, plus the strength 1RM as the other half. Every row is REAL data from
     // /running-analysis + /benchmarks; each renders only when its signal exists, so
     // a partial athlete reads honestly and nothing is fabricated.
@@ -684,18 +686,19 @@ struct InicioView: View {
         // else: not loaded → render nothing (no empty flash); appears once loaded.
     }
 
-    /// Threshold pace — the hero running metric (Daniels Z4 off the 5 km VDOT).
+    /// Threshold pace — the hero running metric. This is the Z4 the athlete TRAINS,
+    /// read from the active zone profile (the exact store the plan prescribes from),
+    /// NOT a re-derivation from VDOT — so it never contradicts the plan. VDOT + the
+    /// 5 km trend live below as a distinct test-progress concept.
     @ViewBuilder
     private var umbralRow: some View {
         if let pace = thresholdPace {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     LabelText(text: "Ritmo umbral · Z4", size: 10)
-                    if let vdot {
-                        Text("VDOT \(esDecimal(vdot)) desde tu 5k")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
+                    Text("el que entrena tu plan")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.muted)
                 }
                 Spacer(minLength: 8)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
@@ -706,7 +709,7 @@ struct InicioView: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Ritmo umbral \(pace) por kilómetro" + (vdot.map { ", VDOT \($0)" } ?? ""))
+            .accessibilityLabel("Ritmo umbral \(pace) por kilómetro, el que entrena tu plan")
         }
     }
 
@@ -724,6 +727,12 @@ struct InicioView: View {
                             .foregroundStyle(Theme.Color.foreground)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
+                    } else if let vdot {
+                        // VDOT is a property of the 5 km test (not the trained umbral) —
+                        // shown here as test-progress context, distinct from the Z4 above.
+                        Text("VDOT \(esDecimal(vdot))")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
                     }
                 }
                 Spacer(minLength: 6)

@@ -204,13 +204,29 @@ export async function buildRunningAnalysis(
     .filter((r) => r.seconds > 0)
     .map((r) => ({ date: r.date, seconds: r.seconds, time: paceStr(r.seconds) ?? '' }));
 
-  let threshold_pace: string | null = null;
+  // ── Ritmo umbral (Z4) — the trained threshold the PLAN prescribes from ───────
+  // Source = the athlete's CURRENT run zone profile threshold_s (the exact store
+  // the plan resolver reads), NOT a re-derivation from VDOT. This kills the
+  // two-truths bug where Inicio showed a 5k→VDOT umbral that differed from what
+  // the plan actually trains. VDOT + the 5 km trend stay below as a DISTINCT
+  // test-progress concept, so the two numbers can never contradict. Honest null
+  // when the athlete has no run zone profile yet.
+  const runProfileRows = await client<Array<{ threshold_s: string }>>`
+    select threshold_s::text as threshold_s
+    from athlete_zone_profiles
+    where athlete_id = ${athleteId} and modality = 'run'
+    order by version desc
+    limit 1
+  `;
+  const trainedThresholdS = runProfileRows[0] ? num(runProfileRows[0].threshold_s) : null;
+  const threshold_pace: string | null =
+    trainedThresholdS != null && trainedThresholdS > 0 ? paceStr(trainedThresholdS) : null;
+
   let vo2_estimate: string | null = null;
   let pace_zones: RunningPaceZoneDTO[] = [];
 
   if (vdot) {
     const p = vdot.paces;
-    threshold_pace = paceStr(p.threshold_s_per_km);
     vo2_estimate = `${vdot.vdot.toFixed(1)}`;
     // Map Daniels paces onto the deep-dive's Z2–Z5 rows. Threshold (Z4) is the
     // accented row. Each row shows a small band around the canonical pace so the
