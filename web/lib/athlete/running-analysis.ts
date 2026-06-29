@@ -55,11 +55,26 @@ export interface TrainingLinkDTO {
   modality: string | null;
 }
 
+/** One past 5 km time trial — the run_5k benchmark history, oldest→newest, so the
+ *  athlete sees their 5 km progression (e.g. 21:00 → 20:25 → 19:58). */
+export interface FiveKTrendPointDTO {
+  date: string; // YYYY-MM-DD the test was recorded
+  seconds: number; // total 5 km time in seconds (drives the sparkline + delta)
+  time: string; // pre-formatted "m:ss" (e.g. "19:58")
+}
+
 export interface RunningAnalysisDTO {
   threshold_pace: string | null;
   vo2_estimate: string | null;
   best_1k: string | null;
+  /** Current ISO-week (Monday-start) running volume — the deep-dive's "esta
+   *  semana" figure (also available live via StatsService). */
   weekly_volume_km: string | null;
+  /** Rolling last-7-days running volume — the Inicio "Volumen · 7 días" figure.
+   *  Distinct from `weekly_volume_km` (ISO week) so each label stays honest. */
+  volume_7d_km: string | null;
+  /** run_5k benchmark history (oldest→newest); [] when the athlete has none. */
+  five_k_trend: FiveKTrendPointDTO[];
   splits: RunningSplitDTO[];
   split_drop_note: string | null;
   pace_zones: RunningPaceZoneDTO[];
@@ -171,6 +186,24 @@ export async function buildRunningAnalysis(
       ? computeVdot({ distance_meters: RUN_5K_METERS, duration_seconds: fiveKSeconds })
       : null;
 
+  // ── 5 km trend (run_5k benchmark history, oldest→newest) ───────────────────
+  // The full versioned history of the same canonical (slug, unit) the latest-row
+  // VDOT query reads — so the athlete sees their 5 km progression, not just the
+  // current number. Empty when they have no run_5k benchmark.
+  const fiveKRows = await client<Array<{ value: string; recorded_on: string }>>`
+    select value::text as value,
+           to_char(recorded_at, 'YYYY-MM-DD') as recorded_on
+    from athlete_benchmarks
+    where athlete_id = ${athleteId}
+      and exercise_slug = 'run_5k'
+      and unit = 'seconds'
+    order by recorded_at asc
+  `;
+  const five_k_trend: FiveKTrendPointDTO[] = fiveKRows
+    .map((r) => ({ date: r.recorded_on, seconds: Math.round(num(r.value)) }))
+    .filter((r) => r.seconds > 0)
+    .map((r) => ({ date: r.date, seconds: r.seconds, time: paceStr(r.seconds) ?? '' }));
+
   let threshold_pace: string | null = null;
   let vo2_estimate: string | null = null;
   let pace_zones: RunningPaceZoneDTO[] = [];
@@ -261,6 +294,21 @@ export async function buildRunningAnalysis(
       and coalesce(we.ended_at, we.started_at) >= date_trunc('week', now())
   `;
   const weekly_volume_km = kmStr(weekVolRows[0]?.meters != null ? num(weekVolRows[0].meters) : 0);
+
+  // volume_7d_km: rolling last-7-days running distance — the Inicio "Volumen ·
+  // 7 días" figure. Same run-modality filter as above; only the window differs
+  // (a moving 7-day window vs the ISO week), so the two labels never lie.
+  const vol7Rows = await client<Array<{ meters: string | null }>>`
+    select sum(coalesce(se.distance_meters, 0))::float as meters
+    from segment_executions se
+    join workout_executions we on we.id = se.execution_id
+    left join template_segments ts on ts.id = se.template_segment_id
+    left join exercises ex on ex.id = ts.exercise_id
+    where we.athlete_id = ${athleteId}
+      and ${mod} = 'run'
+      and coalesce(we.ended_at, we.started_at) >= now() - interval '7 days'
+  `;
+  const volume_7d_km = kmStr(vol7Rows[0]?.meters != null ? num(vol7Rows[0].meters) : 0);
 
   // ── Splits: the most recent run execution's per-km segments ────────────────
   const lastRunExecRows = await client<Array<{ execution_id: string }>>`
@@ -390,6 +438,8 @@ export async function buildRunningAnalysis(
     vo2_estimate,
     best_1k,
     weekly_volume_km,
+    volume_7d_km,
+    five_k_trend,
     splits,
     split_drop_note,
     pace_zones,
