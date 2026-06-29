@@ -442,38 +442,39 @@ struct CoachAvatar: View {
 
 // MARK: - Technique video placeholder
 
-/// Striped/hatched rounded rect with a play glyph — a placeholder for a future
-/// technique video. When no URL is available it stays honest: "Vídeo
-/// próximamente". (No real player wired yet — BACKEND GAP: technique video URLs.)
+/// Striped/hatched rounded rect with a play glyph for a technique video.
+/// Renders ONLY when a video is available; when none exists it renders NOTHING
+/// (no "coming soon" placeholder — App Store 2.1 forbids placeholder content).
+/// (No real player wired yet — BACKEND GAP: technique video URLs.)
 struct TechniqueVideoPlaceholder: View {
     var title: String = "Técnica"
     var available: Bool = false
 
     var body: some View {
-        ZStack {
-            // Diagonal hatch over a sunken face.
-            DiagonalHatch()
-                .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                .background(Theme.Color.surfaceSunken)
-            VStack(spacing: 8) {
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 34, weight: .semibold))
-                    // Glyph over the light sunken face → text-safe accent (brand
-                    // orange only reaches ~2.7:1 there; accentText == orange on dark).
-                    .foregroundStyle(available ? Theme.Color.accentText : Theme.Color.faint)
-                Text(available ? title : "Vídeo próximamente")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
+        if available {
+            ZStack {
+                // Diagonal hatch over a sunken face.
+                DiagonalHatch()
+                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                    .background(Theme.Color.surfaceSunken)
+                VStack(spacing: 8) {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text(title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                }
             }
+            .frame(height: 120)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Vídeo de técnica: \(title)")
         }
-        .frame(height: 120)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(available ? "Vídeo de técnica: \(title)" : "Vídeo de técnica próximamente")
     }
 }
 
