@@ -378,7 +378,7 @@
   <div class="sb-group">El plan</div>
   <a class="sb-link" href="#bridge"><span class="num">06</span>Cómo se estructura un plan <span class="sb-soon">índice</span></a>
   <a class="sb-link active" href="#montar-semana"><span class="num">07</span>Monta la semana de tu atleta<span class="sb-dot" style="margin-left:auto"></span></a>
-  <a class="sb-link" href="#bridge"><span class="num">08</span>La dosis de cada ejercicio <span class="sb-soon">índice</span></a>
+  <a class="sb-link" href="#bridge"><span class="num">08</span>Carga e intensidad de cada ejercicio <span class="sb-soon">índice</span></a>
   <a class="sb-link" href="#bridge"><span class="num">09</span>Periodización: nombrar fases <span class="sb-soon">índice</span></a>
 
   <div class="sb-group">Asignar y empezar</div>
@@ -425,13 +425,13 @@
   <!-- BRIDGE -->
   <div class="seclbl" id="bridge"><span class="pin">●</span> El puente · los dos lados</div>
   <h2>Dos lados, un mismo plan</h2>
-  <p class="lead">Antes de entrar en cada flujo, ten clara la repartición. No es "el panel" por un lado y "una app" por otro: es un único plan que vive en los dos sitios a la vez.</p>
+  <p class="lead">Antes de entrar en cada tema, ten claro el reparto. No es "el panel" por un lado y "una app" por otro: es un único plan que vive en los dos sitios a la vez.</p>
 
   <div class="legend">
     <div class="lg coach">
       <span class="ico">Tú · en el panel</span>
       <div class="lt">Montas el trabajo</div>
-      <p>Desde el ordenador construyes la semana: el foco, las sesiones de cada día, los ejercicios y la dosis. Es tu mesa de trabajo.</p>
+      <p>Desde el ordenador construyes la semana: el foco, las sesiones de cada día, los ejercicios y su carga. Es tu mesa de trabajo.</p>
     </div>
     <div class="lg ath">
       <span class="ico">Tu atleta · en el móvil</span>
@@ -452,11 +452,11 @@
        ================================================================= -->
   <div class="seclbl" id="montar-semana"><span class="pin">07 ·</span> El plan</div>
   <h2>Monta la semana de tu atleta</h2>
-  <p class="lead">Aquí construyes la unidad central del plan: una <b>semana</b> de entrenamiento. Le pones nombre a la fase, defines el foco, y rellenas las sesiones de cada día con sus ejercicios y su dosis. Todo lo que escribas con la etiqueta <em class="em">"lo ve el atleta"</em> aterriza tal cual en su móvil.</p>
+  <p class="lead">Aquí construyes la unidad central del plan: una <b>semana</b> de entrenamiento. Le pones nombre a la fase, defines el foco, y rellenas las sesiones de cada día con sus ejercicios y la carga de cada uno. Todo lo que escribas con la etiqueta <em class="em">"lo ve el atleta"</em> aterriza tal cual en su móvil.</p>
 
   <div class="triad">
     <div class="qc q"><div class="h"><span class="ic">?</span>Qué</div><p>Una semana = 7 días. Cada día tiene una o dos sesiones (mañana / tarde). La semana vive dentro de un <b>microciclo</b>, al que tú le das un nombre — y ese nombre es la <b>fase</b> que ve tu atleta.</p></div>
-    <div class="qc c"><div class="h"><span class="ic">↳</span>Cómo</div><p>Pones el <b>foco de la semana</b>, abres un día y añades sesiones. Dentro de cada sesión eliges <b>tipos de trabajo</b> (bloques), añades <b>ejercicios</b> de tu catálogo y ajustas la <b>dosis</b>.</p></div>
+    <div class="qc c"><div class="h"><span class="ic">↳</span>Cómo</div><p>Pones el <b>foco de la semana</b>, abres un día y añades sesiones. Dentro de cada sesión eliges <b>tipos de trabajo</b> (bloques), añades <b>ejercicios</b> de tu catálogo y ajustas su <b>carga e intensidad</b>.</p></div>
     <div class="qc w"><div class="h"><span class="ic">✓</span>Por qué</div><p>Porque tu atleta no quiere un Excel: quiere abrir el teléfono y saber qué toca hoy y por qué. Una semana bien montada se convierte en su día a día, sin que tú toques nada más.</p></div>
   </div>
 
@@ -467,7 +467,7 @@
   <p>Cada semana tiene un campo <code>Foco de la semana</code> (con la coletilla <em class="em">· lo ve el atleta</em>). Es una frase corta, por ejemplo <code>Acumulación de base aeróbica</code>. Se guarda solo al salir del campo y es lo primero que orienta a tu atleta cuando abre la app.</p>
 
   <h3>3 · La semana ES el editor</h3>
-  <p>No hay una pantalla aparte para "ver la semana" y otra para "editar el día". Es un mismo lienzo: ves los 7 días a la vez y, al abrir uno, el resto se queda a la izquierda como una columna navegable mientras editas a la derecha. Así nunca pierdes el contexto de la semana entera.</p>
+  <p>No hay una pantalla aparte para "ver la semana" y otra para "editar el día". Es un mismo lienzo: ves los 7 días a la vez y, al abrir uno, el resto se queda a la izquierda como una lista mientras editas a la derecha. Así nunca pierdes el contexto de la semana entera.</p>
 
   <!-- DASHBOARD MOCKUP: week canvas + master-detail -->
   <div class="win">
@@ -521,8 +521,8 @@
     </div>
   </div>
 
-  <h3>4 · Dentro de la sesión: título, bloques, ejercicios y dosis</h3>
-  <p>Cada sesión tiene un <code>Título del entreno</code> editable — por ejemplo <em class="em">Tirada larga Z2</em> — que también ve tu atleta. Si te quedas en blanco, el botón <code>Sugerir título</code> te propone uno a partir del contenido (lo puedes editar antes de guardar). Luego añades <b>bloques</b> (eliges el tipo de trabajo: carrera, series, fuerza, HYROX, circuito, metcon, test, activación…), y dentro de cada bloque añades <b>ejercicios de tu catálogo</b> con su dosis.</p>
+  <h3>4 · Dentro de la sesión: título, bloques, ejercicios y carga</h3>
+  <p>Cada sesión tiene un <code>Título del entreno</code> editable — por ejemplo <em class="em">Tirada larga Z2</em> — que también ve tu atleta. Si te quedas en blanco, el botón <code>Sugerir título</code> te propone uno a partir del contenido (lo puedes editar antes de guardar). Luego añades <b>bloques</b> (eliges el tipo de trabajo: carrera, series, fuerza, HYROX, circuito, metcon, test, activación…), y dentro de cada bloque añades <b>ejercicios de tu catálogo</b> con su carga e intensidad.</p>
 
   <div class="note cue">
     <div class="h"><span class="ic">↳</span> El catálogo y tus vídeos</div>
@@ -533,7 +533,7 @@
   </div>
 
   <div class="note bad">
-    <div class="h"><span class="ic">!</span> La puerta honesta de guardado</div>
+    <div class="h"><span class="ic">!</span> Guardado honesto: nada a medias</div>
     <ul>
       <li>Una línea solo es válida si apunta a un ejercicio real de tu catálogo. Si dejas una línea sin ejercicio, <span class="k">Guardar se desactiva</span> y verás el motivo exacto: <code>1 línea sin ejercicio. Elígelo del catálogo o bórrala para guardar.</code></li>
       <li>Esto evita el viejo fallo de "Guardado" mentiroso que tiraba líneas a medias en silencio. Lo que se guarda es lo que tu atleta verá — sin sorpresas.</li>
@@ -616,7 +616,7 @@
        ================================================================= -->
   <div class="seclbl" id="estado-entreno"><span class="pin">14 ·</span> El día a día</div>
   <h2>El estado de cada entreno</h2>
-  <p class="lead">Montar la semana es solo la mitad. La otra mitad es el <b>retorno</b>: tu atleta entrena, marca con honestidad cómo le fue, y tú lo ves en el panel como adherencia y estado. Este es el bucle completo — y por qué no necesitas perseguir a nadie por WhatsApp para saber si cumplió.</p>
+  <p class="lead">Montar la semana es solo la mitad. La otra mitad es <b>lo que vuelve</b>: tu atleta entrena, marca con honestidad cómo le fue, y tú lo ves en el panel como adherencia y estado. Este es el círculo completo — y por qué no necesitas perseguir a nadie por WhatsApp para saber si cumplió.</p>
 
   <div class="flow">
     <span class="step">Tú montas la semana</span>
@@ -631,13 +631,13 @@
   <div class="triad">
     <div class="qc q"><div class="h"><span class="ic">?</span>Qué</div><p>Cada sesión tiene un estado. Tu atleta lo marca desde su móvil; tú lo recibes en el panel. Sin partes de texto, sin "creo que lo hizo".</p></div>
     <div class="qc c"><div class="h"><span class="ic">↳</span>Cómo</div><p>Él entrena (con cronómetro o "ya lo hice"), registra esfuerzo y notas, y marca el resultado. Tú lo ves por sesión y como <b>% de adherencia</b>.</p></div>
-    <div class="qc w"><div class="h"><span class="ic">✓</span>Por qué</div><p>Porque un plan sin retorno es a ciegas. El estado honesto te dice a quién empujar, a quién progresar y a quién dar margen — hoy, no la semana que viene.</p></div>
+    <div class="qc w"><div class="h"><span class="ic">✓</span>Por qué</div><p>Porque un plan sin respuesta es ir a ciegas. El estado honesto te dice a quién empujar, a quién progresar y a quién dar margen — hoy, no la semana que viene.</p></div>
   </div>
 
   <h3>1 · Tu atleta marca con honestidad</h3>
-  <p>En su Plan, cada día muestra un estado claro: <span style="color:#137a3a;font-weight:700">hecha</span>, <span style="color:#9a6a12;font-weight:700">parcial</span>, <span style="color:#a83232;font-weight:700">no hecha</span> o pendiente. Puede corregirlo desde un menú por sesión — y si deshace algo que ya tenía trabajo registrado, la app le avisa de que se borrará. La honestidad está integrada en el diseño: marcar a medias o no hecho es tan fácil como marcar hecho.</p>
+  <p>En su Plan, cada día muestra un estado claro: <span style="color:#137a3a;font-weight:700">hecha</span>, <span style="color:#9a6a12;font-weight:700">parcial</span>, <span style="color:#a83232;font-weight:700">no hecha</span> o pendiente. Puede corregirlo desde un menú por sesión — y si deshace algo que ya tenía trabajo registrado, la app le avisa de que se borrará. Está pensado a propósito: marcar a medias o no hecho es tan fácil como marcar hecho.</p>
 
-  <h3>2 · Registro honesto, no decorado</h3>
+  <h3>2 · Registro honesto, sin adornos</h3>
   <p>Hay dos caminos, ambos válidos. Si entrena con el cronómetro, la app guarda lo medido (tiempo, pulso, zonas). Si lo hizo por su cuenta, usa <code>Ya lo hice · registrar sin cronómetro</code> y lo anota a mano: duración, resultado, <b>RPE (esfuerzo del 1 al 10)</b> y notas. No se inflan datos que no existen — lo que no se midió, no se inventa.</p>
 
   <!-- EN EL MÓVIL: marcar + registrar -->
@@ -704,7 +704,7 @@
           </div>
           <div class="cta">Guardar</div>
         </div></div>
-        <div class="phone-cap"><b>Registrar.</b> Cuando entrenó sin reloj, anota lo que sí sabe — duración, RPE, notas — y deja en blanco lo que no midió. Honesto por diseño.</div>
+        <div class="phone-cap"><b>Registrar.</b> Cuando entrenó sin reloj, anota lo que sí sabe — duración, RPE, notas — y deja en blanco lo que no midió. Sin inventar nada.</div>
       </div>
 
     </div>
@@ -715,7 +715,7 @@
 
   <div class="note log">
     <div class="h"><span class="ic">i</span> Un detalle honesto sobre quién marca</div>
-    <p>Hoy el panel es tu <b>ventana de lectura</b>: ves los resultados, pero quien marca y corrige cada sesión es el atleta desde su móvil. Tú interpretas y decides (a quién progresar, a quién empujar); él reporta. Es deliberado — el dato es suyo, la lectura es tuya.</p>
+    <p>Hoy el panel es tu <b>ventana de lectura</b>: ves los resultados, pero quien marca y corrige cada sesión es el atleta desde su móvil. Tú interpretas y decides (a quién progresar, a quién empujar); él lo registra. Es a propósito — el dato es suyo, la lectura es tuya.</p>
   </div>
 
   <!-- DASHBOARD MOCKUP: coach back-view -->
@@ -746,7 +746,7 @@
     </div>
   </div>
 
-  <p style="margin-top:18px">Ese es el bucle entero: <b>tú montas → tu atleta hace y marca → tú ves y decides</b>. El resto de la guía aplica esta misma lógica de "los dos lados" a cada parte del panel — desde tu biblioteca hasta las carreras.</p>
+  <p style="margin-top:18px">Ese es el círculo entero: <b>tú montas → tu atleta hace y marca → tú ves y decides</b>. El resto de la guía aplica esta misma lógica de "los dos lados" a cada parte del panel — desde tu biblioteca hasta las carreras.</p>
 
 
   <!-- PROPOSED FULL INDEX as cards -->
@@ -756,12 +756,12 @@
   <div class="toc">
     <a href="#intro"><div class="n">Empezar</div><div class="t">Qué es esta guía · Tu cuenta y tu marca</div><div class="d">Cómo funciona el panel y por qué tu nombre aparece en la app de tu atleta.</div></a>
     <a href="#bridge"><div class="n">Tu biblioteca</div><div class="t">Catálogo · Tipos de trabajo · Metodología y fases</div><div class="d">El contenido que es tuyo: ejercicios con vídeo, bloques y el nombre de tus fases.</div></a>
-    <a href="#montar-semana"><div class="n">El plan · 07 ✓</div><div class="t">Monta la semana de tu atleta</div><div class="d">Foco, sesiones por día, dosis y la puerta honesta de guardado. <b>Construido.</b></div></a>
-    <a href="#bridge"><div class="n">El plan</div><div class="t">Dosis · Periodización</div><div class="d">Cómo se mide el trabajo y contra qué objetivo; nombrar y secuenciar fases.</div></a>
-    <a href="#bridge"><div class="n">Asignar y empezar</div><div class="t">Alta e invitación · Intake y tests · Borrador → publicado</div><div class="d">De captar al atleta a que su plan aparezca en su móvil.</div></a>
-    <a href="#estado-entreno"><div class="n">El día a día · 14 ✓</div><div class="t">El estado de cada entreno</div><div class="d">El bucle marcar → ver: adherencia, estados y la cola /hoy. <b>Construido.</b></div></a>
+    <a href="#montar-semana"><div class="n">El plan · 07 ✓</div><div class="t">Monta la semana de tu atleta</div><div class="d">Foco, sesiones por día, carga e intensidad y el guardado honesto. <b>Construido.</b></div></a>
+    <a href="#bridge"><div class="n">El plan</div><div class="t">Carga e intensidad · Periodización</div><div class="d">Cómo se mide el trabajo y contra qué objetivo; nombrar y secuenciar fases.</div></a>
+    <a href="#bridge"><div class="n">Asignar y empezar</div><div class="t">Alta e invitación · Cuestionario inicial y tests · Borrador → publicado</div><div class="d">De captar al atleta a que su plan aparezca en su móvil.</div></a>
+    <a href="#estado-entreno"><div class="n">El día a día · 14 ✓</div><div class="t">El estado de cada entreno</div><div class="d">El círculo marcar → ver: adherencia, estados y la cola /hoy. <b>Construido.</b></div></a>
     <a href="#bridge"><div class="n">El día a día</div><div class="t">Tu pantalla /hoy · Habla con tu atleta</div><div class="d">La cola de decisiones diaria y el chat con notas de voz.</div></a>
-    <a href="#bridge"><div class="n">Seguimiento</div><div class="t">Readiness · Adherencia · Carreras · Progreso</div><div class="d">Check-in matinal, constancia, "Próxima carrera" y la evolución de marcas y tests.</div></a>
+    <a href="#bridge"><div class="n">Seguimiento</div><div class="t">Readiness · Adherencia · Carreras · Progreso</div><div class="d">Check-in de la mañana, constancia, "Próxima carrera" y la evolución de marcas y tests.</div></a>
   </div>
 
   <footer>
