@@ -1024,6 +1024,7 @@ private struct MethodologySheet: View {
                 .padding(20)
             }
         }
+        .dismissableSheet()
     }
 
     private func principleCard(title: String, text: String) -> some View {
@@ -1087,6 +1088,7 @@ private struct CoachSheet: View {
                 .padding(20)
             }
         }
+        .dismissableSheet()
     }
 }
 
@@ -1110,6 +1112,7 @@ private struct LegalSheet: View {
                 .padding(20)
             }
         }
+        .dismissableSheet()
     }
 }
 

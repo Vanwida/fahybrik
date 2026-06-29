@@ -70,6 +70,10 @@ struct CheckinView: View {
         .onAppear {
             answers.notes = CheckinStore.loadDraftNotes()
         }
+        // Explicit, findable escape (top-leading "Cerrar") for the auto-presented
+        // morning check-in — a MANUAL dismiss that leaves the pending banner up,
+        // distinct from the bottom "Saltar" (which clears it for the day).
+        .dismissableSheet()
     }
 
     // MARK: - Sections

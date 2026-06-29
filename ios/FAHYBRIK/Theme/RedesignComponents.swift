@@ -541,3 +541,46 @@ struct ChatBubble: View {
         .accessibilityLabel("\(isMine ? "Yo" : "Coach"): \(text)")
     }
 }
+
+// MARK: - Dismissable sheet chrome
+//
+// A CONSISTENT escape for modally-presented content that would otherwise rely
+// only on the easy-to-miss swipe-down — informational sheets with no nav bar of
+// their own (the "cómo se construye tu plan" / coach / legal cards, the morning
+// check-in). It wraps the content in the SAME chrome the rest of the app's
+// sheets already use: a NavigationStack with an inline top-leading "Cerrar"
+// bound to the environment dismiss, so every modal exits the same, findable way.
+//
+// The dismiss is read where the modifier is APPLIED (the sheet's content root,
+// OUTSIDE the NavigationStack this introduces), so calling it closes the
+// presentation — mirroring how DoblesPlanView dismisses its own cover.
+extension View {
+    /// Adds the app's standard top-leading "Cerrar" affordance to modal content
+    /// that has no toolbar / nav bar of its own. Pass a custom `closeTitle` only
+    /// when "Cerrar" doesn't fit the context.
+    func dismissableSheet(closeTitle: String = "Cerrar") -> some View {
+        modifier(DismissableSheetModifier(closeTitle: closeTitle))
+    }
+}
+
+private struct DismissableSheetModifier: ViewModifier {
+    let closeTitle: String
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        NavigationStack {
+            content
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(closeTitle) {
+                            Haptics.light()
+                            dismiss()
+                        }
+                        .foregroundStyle(Theme.Color.accentText)
+                        .accessibilityLabel("Cerrar")
+                    }
+                }
+        }
+    }
+}
