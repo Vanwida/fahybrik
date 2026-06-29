@@ -250,15 +250,19 @@ struct CarrerasView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: "RENDIMIENTO Y CARRERAS", color: Theme.Color.accentText)
-            Text("Mis carreras")
-                .scaledFont(30, weight: .heavy, relativeTo: .title, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
+        HStack(alignment: .center, spacing: Theme.Spacing.s) {
+            VStack(alignment: .leading, spacing: 4) {
+                LabelText(text: "RENDIMIENTO Y CARRERAS", color: Theme.Color.accentText)
+                Text("Mis carreras")
+                    .scaledFont(30, weight: .heavy, relativeTo: .title, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            // Persistent chat affordance (icon + unread badge) → coach thread.
+            ChatHeaderButton()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
         .padding(.top, Theme.Spacing.s)
     }
 

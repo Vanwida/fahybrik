@@ -3,10 +3,14 @@ import SwiftUI
 // The authenticated app root. Owns a premium custom bottom tab bar over our
 // near-black canvas and hosts the 5 redesign destinations:
 //
-//   Inicio · Plan · Carreras · Chat · Perfil
+//   Inicio · Plan · Analíticas · Carreras · Perfil
 //
-// "Carreras" is the performance/race hub and absorbs the old Analíticas/Stats
-// content. The handoff's bottom bar is intentionally crude — this is the
+// "Analíticas" is the deep training-analytics surface (running / ergo / strength /
+// HYROX / recovery, period-windowed, every number drillable). "Carreras" stays
+// the race hub. CHAT is no longer a tab — it must not be buried, but it isn't a
+// primary destination either, so it lives behind a persistent header icon (with an
+// unread badge) and is raised here as a full-screen cover via the `\.openChat`
+// environment value. The handoff's bottom bar is intentionally crude — this is the
 // production-quality version: a floating blurred material bar, SF Symbols, a
 // crisp orange active pill, tracked-uppercase micro labels, haptics, and an
 // eased cross-fade between tabs.
@@ -14,6 +18,8 @@ struct AppShell: View {
     let onSignOut: () -> Void
 
     @State private var selection: AppTab = .inicio
+    // Chat presentation — raised from any main-screen header via `\.openChat`.
+    @State private var showChat = false
     // Seed the session bearer from the persisted token AT INIT (not in onAppear).
     // AppShell is only ever mounted post-auth, so the token is already in
     // UserDefaults by the time this view is created. Starting nil and assigning
@@ -48,10 +54,10 @@ struct AppShell: View {
                     InicioView(bearer: bearer, onOpenTab: { selection = $0 })
                 case .plan:
                     PlanView(bearer: bearer)
+                case .analiticas:
+                    AnalyticsView(bearer: bearer)
                 case .carreras:
                     CarrerasView(bearer: bearer)
-                case .chat:
-                    ChatView(bearer: bearer)
                 case .perfil:
                     ProfileView(bearer: bearer, onSignOut: onSignOut)
                 }
@@ -66,6 +72,14 @@ struct AppShell: View {
             AppTabBar(selection: $selection)
         }
         .environment(store)
+        // Persistent chat: any main-screen header opens it through this value;
+        // it's raised as a full-screen cover that re-injects the store (a custom
+        // @Observable environment value does NOT cross the presentation boundary).
+        .environment(\.openChat) { showChat = true }
+        .fullScreenCover(isPresented: $showChat) {
+            ChatView(bearer: bearer)
+                .environment(store)
+        }
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
@@ -83,15 +97,15 @@ struct AppShell: View {
 
     // MARK: - Push routing
     //
-    // Maps a tapped-notification destination to a tab. Chat is now a tab root,
-    // so chat pushes select the Chat tab directly instead of raising a sheet.
+    // Maps a tapped-notification destination to a tab. Chat is no longer a tab —
+    // a chat push raises the chat cover instead of switching tabs.
     private func handlePushDestination(_ dest: PushRouter.Destination?) {
         guard let dest else { return }
         switch dest {
         case .today: selection = .inicio
         case .plan: selection = .plan
         case .profile: selection = .perfil
-        case .chat: selection = .chat
+        case .chat: showChat = true
         }
         pushRouter.pendingDestination = nil
     }
@@ -100,14 +114,15 @@ struct AppShell: View {
 // MARK: - Tabs
 
 enum AppTab: Int, CaseIterable, Hashable {
-    case inicio, plan, carreras, chat, perfil
+    // Order IS the tab-bar order: Inicio · Plan · Analíticas · Carreras · Perfil.
+    case inicio, plan, analiticas, carreras, perfil
 
     var title: String {
         switch self {
         case .inicio: return "Inicio"
         case .plan: return "Plan"
+        case .analiticas: return "Analíticas"
         case .carreras: return "Carreras"
-        case .chat: return "Chat"
         case .perfil: return "Perfil"
         }
     }
@@ -117,8 +132,8 @@ enum AppTab: Int, CaseIterable, Hashable {
         switch self {
         case .inicio: return "house"
         case .plan: return "list.bullet.rectangle"
+        case .analiticas: return "chart.line.uptrend.xyaxis"
         case .carreras: return "flag.checkered"
-        case .chat: return "message"
         case .perfil: return "person"
         }
     }
@@ -128,8 +143,8 @@ enum AppTab: Int, CaseIterable, Hashable {
         switch self {
         case .inicio: return "house.fill"
         case .plan: return "list.bullet.rectangle.fill"
+        case .analiticas: return "chart.line.uptrend.xyaxis" // no filled variant; same glyph
         case .carreras: return "flag.checkered" // no filled variant; same glyph
-        case .chat: return "message.fill"
         case .perfil: return "person.fill"
         }
     }

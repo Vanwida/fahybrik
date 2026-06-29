@@ -92,6 +92,13 @@ final class AppDataStore {
     var raceOverview = Slice<CarrerasOverview>()            // /athlete/race-context — Carreras (PASADAS analytics)
     var analytics = Slice<AthleteAnalytics>()               // /athlete/analytics    — Carreras (RENDIMIENTO)
 
+    // ANALÍTICAS-tab cache. One slice per (section × period) — keyed by
+    // "section:periodKey:from-to" — so switching to a section/period you've
+    // already opened renders instantly (cache-first / SWR), and a cold launch
+    // (even offline) reopens the last-viewed analytics. The dictionary is small
+    // (the athlete views a handful of the 20 combos); only fetched keys are held.
+    var analyticsSections: [String: Slice<AnalyticsSection>] = [:]  // /athlete/analytics/sections/{section}
+
     /// Unread coach messages (0 when none / not loaded). Single source so every
     /// surface (bell dot, coach-note row) agrees.
     var unreadCount: Int { max(0, chatThread.value?.unreadForAthlete ?? 0) }
@@ -137,6 +144,7 @@ final class AppDataStore {
             racesHub = snapshot.racesHub
             raceOverview = snapshot.raceOverview
             analytics = snapshot.analytics
+            analyticsSections = snapshot.analyticsSections
         } else {
             // Different (or no) prior session on disk — start clean.
             clearSlices()
@@ -158,6 +166,7 @@ final class AppDataStore {
         racesHub = .init()
         raceOverview = .init()
         analytics = .init()
+        analyticsSections = [:]
     }
 
     // MARK: Grouped loads (cache-first render is automatic; these revalidate)
@@ -373,6 +382,37 @@ final class AppDataStore {
         }
     }
 
+    // MARK: ANALÍTICAS section cache (one slice per section × period)
+
+    /// Stable cache key for a (section, period) pair.
+    private func analyticsKey(_ section: AnalyticsSectionKey, _ period: AnalyticsPeriod) -> String {
+        "\(section.rawValue):\(period.cacheSuffix)"
+    }
+
+    /// The cache-first slice for a (section, period). Returns an empty slice the
+    /// first time so the view renders a cold-load skeleton, not a stale value.
+    func analyticsSection(_ section: AnalyticsSectionKey, period: AnalyticsPeriod) -> Slice<AnalyticsSection> {
+        analyticsSections[analyticsKey(section, period)] ?? Slice<AnalyticsSection>()
+    }
+
+    /// Revalidate one section×period through the shared SWR engine: serve the warm
+    /// slice from memory, refresh in the background, keep the last-good on error
+    /// (offline-first), and persist. Throws-aware via AnalyticsService.fetchSection.
+    func refreshAnalyticsSection(
+        _ section: AnalyticsSectionKey,
+        period: AnalyticsPeriod,
+        force: Bool = false
+    ) async {
+        let key = analyticsKey(section, period)
+        await revalidate(
+            get: { self.analyticsSections[key] ?? Slice<AnalyticsSection>() },
+            set: { self.analyticsSections[key] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchSection(section, period: period, bearer: bearer)
+        }
+    }
+
     /// Optimistically replace the locally-known identity (e.g. right after the
     /// athlete saves their profile) so every screen reflects it immediately, and
     /// persist. No network — the PATCH already returned the canonical row.
@@ -440,7 +480,8 @@ final class AppDataStore {
             subscription: subscription,
             racesHub: racesHub,
             raceOverview: raceOverview,
-            analytics: analytics
+            analytics: analytics,
+            analyticsSections: analyticsSections
         )
         AppDataPersistence.save(snapshot)
     }
@@ -471,6 +512,7 @@ enum AppDataPersistence {
         var racesHub: Slice<RacesHubResponse>
         var raceOverview: Slice<CarrerasOverview>
         var analytics: Slice<AthleteAnalytics>
+        var analyticsSections: [String: Slice<AnalyticsSection>]
     }
 
     // v5 adds the Inicio running-analysis slice ("Tu progreso · carrera"). v4
@@ -478,7 +520,10 @@ enum AppDataPersistence {
     // breakdown; v3 the Chat message-history slice (v2 the Carreras slices). An
     // older blob has a different shape, so its decode simply fails (→ start clean,
     // refetch on launch) — no migration code, no stale-shape risk.
-    private static let key = "fahybrik.appDataStore.v5"
+    // v6 adds the ANALÍTICAS section cache (one slice per section × period). An
+    // older blob has a different shape, so its decode simply fails (→ start clean,
+    // refetch on launch) — no migration code, no stale-shape risk.
+    private static let key = "fahybrik.appDataStore.v6"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }

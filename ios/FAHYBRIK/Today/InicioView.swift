@@ -221,34 +221,8 @@ struct InicioView: View {
             Wordmark(size: 26)
             HStack(spacing: 12) {
                 Spacer(minLength: 8)
-                // Bell → Chat tab. Unread dot only when there's a real unread count.
-                Button {
-                    Haptics.light()
-                    onOpenTab?(.chat)
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        ZStack {
-                            Circle().fill(Theme.Color.surfaceElevated)
-                            Image(systemName: "bell")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Theme.Color.foreground)
-                        }
-                        .frame(width: 34, height: 34)
-                        .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
-                        if unreadCount > 0 {
-                            Circle()
-                                .fill(Theme.Color.accent)
-                                .frame(width: 8, height: 8)
-                                .overlay(Circle().stroke(Theme.Color.background, lineWidth: 1.5))
-                                .offset(x: 1, y: -1)
-                        }
-                    }
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-                }
-                .accessibilityLabel(unreadCount > 0
-                    ? "Notificaciones, \(unreadCount) sin leer"
-                    : "Notificaciones")
+                // Persistent chat affordance (icon + unread badge) → coach thread.
+                ChatHeaderButton()
                 // Athlete avatar → Perfil tab.
                 Button {
                     Haptics.light()
