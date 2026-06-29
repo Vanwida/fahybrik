@@ -100,6 +100,43 @@ final class WorkoutSession {
     /// (drives the last-3s ticks + the HUD's accent colour).
     static let emomUrgentThreshold: Double = 3
 
+    // MARK: - Conditioning format clock (non-EMOM live timers)
+    //
+    // Parallel to the EMOM engine (which it never touches): live ONLY while the
+    // current segment runs a NON-EMOM conditioning timer (For Time, AMRAP, Tabata,
+    // Intervals, Death By, Steady, Chipper, Ladder, Rounds, HYROX sim). A 3-2-1
+    // count-in fires after "Empezar"; `condStartElapsed` marks GO so the count-in
+    // (and pre-GO time) never inflates the format clock / score. `condSegmentIndex`
+    // records which segment owns the state so re-entry re-initialises cleanly.
+    var condCountInRemaining: Double = 0
+    private var condStartElapsed: Double = 0   // lapElapsedSeconds at GO
+    private var condSegmentIndex: Int? = nil
+
+    /// FIXED formats — rounds the athlete has completed (AMRAP rounds, For Time /
+    /// Rounds circuits) and the lap-relative time of each round mark (For Time
+    /// splits). `repsCurrentSegment` carries the AMRAP partial-round rep tally.
+    var fixedRoundsDone: Int = 0
+    private(set) var fixedRoundSplits: [Double] = []
+
+    /// ROTATING formats (Tabata / Intervals / Death By) — the work/rest phase, the
+    /// 0-based round index, the count-DOWN remaining in the current phase, and the
+    /// Tabata per-round rep tally. `deathByFailed` ends a Death By on "Fallé".
+    enum RotatingPhase: String { case work, rest }
+    var rotPhase: RotatingPhase = .work
+    var rotRoundIndex: Int = 0
+    var rotPhaseRemaining: Double = 0
+    private(set) var rotRepsByRound: [Int] = []
+    var deathByFailed: Bool = false
+
+    /// Captured final score for the PRINCIPAL conditioning block, set on its close
+    /// and read by the post-workout summary to PRE-FILL the result (the athlete
+    /// never re-enters what the live timer already counted). Format-aware: time for
+    /// For Time / Chipper / Ladder / Rounds / HYROX sim; rounds(+reps) for AMRAP /
+    /// Tabata / Death By; nil for pace formats (carried by the per-segment splits).
+    private(set) var capturedScoreTimeSeconds: Int? = nil
+    private(set) var capturedScoreRounds: Int? = nil
+    private(set) var capturedScoreReps: Int? = nil
+
     /// Provenance of the live heart-rate signal currently feeding the session,
     /// so the connection strip can show WHERE HR comes from. nil = no HR.
     enum HRSource: String { case healthkit, pm5 }
@@ -187,6 +224,57 @@ final class WorkoutSession {
 
     /// True when the current segment is a running EMOM (past its count-in).
     var isEMOMActive: Bool { currentSegment?.isEMOM == true }
+
+    // MARK: Conditioning accessors (read by the format HUDs)
+
+    /// True when the current segment runs a non-EMOM conditioning timer.
+    var isConditioningActive: Bool { currentSegment?.isConditioningTimer == true }
+
+    /// True while the conditioning 3-2-1 count-in is on screen.
+    var isCondCountIn: Bool { condCountInRemaining > 0 }
+
+    /// Format clock time since GO (the count-in excluded), in seconds — the base
+    /// for the FIXED count-up / count-down and the CONTINUOUS countdown.
+    var condElapsed: Double { max(0, lapElapsedSeconds - condStartElapsed) }
+
+    /// AMRAP / Steady time remaining in the fixed window (count-DOWN, never < 0).
+    var condRemaining: Double {
+        guard let total = currentSegment?.formatTotalSeconds else { return 0 }
+        return max(0, Double(total) - condElapsed)
+    }
+
+    /// Total rounds the current ROTATING format runs (Tabata / Intervals), else 0.
+    var rotTotalRounds: Int { currentSegment?.formatRounds ?? 0 }
+
+    /// Reps logged so far this Tabata round (the live tally shown on the HUD).
+    var rotRepsThisRound: Int {
+        guard rotRoundIndex >= 0, rotRoundIndex < rotRepsByRound.count else { return 0 }
+        return rotRepsByRound[rotRoundIndex]
+    }
+
+    /// Death By target for the CURRENT minute = start + increment × roundsCompleted.
+    var deathByTarget: Int {
+        guard let seg = currentSegment else { return 0 }
+        return seg.deathByStart + seg.deathByIncrement * rotRoundIndex
+    }
+
+    /// % of the current bout spent in the target HR zone (Steady adherence) — read
+    /// from the per-bout zone accumulation. nil when no target zone is prescribed
+    /// or no HR has been sampled yet (no fabricated 100%).
+    var liveZonePctInTarget: Int? {
+        guard let z = currentSegment?.targetZone else { return nil }
+        let total = lapZoneAccumSec.values.reduce(0, +)
+        guard total > 0 else { return nil }
+        let inZone = lapZoneAccumSec[z.rawValue] ?? 0
+        return Int((inZone / total * 100).rounded())
+    }
+
+    /// Live covered pace (sec/km) for the current run bout from GPS/manual distance
+    /// over the elapsed bout, or nil when no distance has been measured.
+    var liveCoveredPaceSecPerKm: Int? {
+        guard let d = liveRunDistanceMeters, d > 0, lapElapsedSeconds > 0 else { return nil }
+        return Int((lapElapsedSeconds / (d / 1000.0)).rounded())
+    }
 
     /// EMOM intervals still ahead of the current one (0 on the last interval).
     var emomIntervalsRemaining: Int {
@@ -355,6 +443,8 @@ final class WorkoutSession {
         if seg.isEMOM {
             if emomCountInRemaining > 0 { skipCountIn(); return }
             advanceEMOMInterval(auto: false)
+        } else if seg.isConditioningTimer {
+            conditioningPrimary(seg)
         } else {
             lap()
         }
@@ -392,6 +482,7 @@ final class WorkoutSession {
         Haptics.light()
         let origin = currentSegmentIndex
         clearEMOMState()
+        clearConditioning()
         currentSegmentIndex -= 1
         reopenCurrentSegment()
         // Stepping back into an EARLIER block lands on that block's preview (the
@@ -409,6 +500,7 @@ final class WorkoutSession {
         Haptics.medium()
         let origin = currentSegmentIndex
         clearEMOMState()
+        clearConditioning()
         if index > currentSegmentIndex {
             closeCurrentSegmentLap()
             currentSegmentIndex = index
@@ -433,7 +525,12 @@ final class WorkoutSession {
     func finish(completeness: WorkoutCompleteness = .full) {
         self.completeness = completeness
         Haptics.success()
+        // Capture the in-flight conditioning score before the engine is torn down
+        // (a "Terminar y guardar" mid-AMRAP keeps the rounds so far). No-op when
+        // the engine already closed itself via `closeConditioningAndAdvance`.
+        captureConditioningScore()
         clearEMOMState()
+        clearConditioning()
         // Close the in-flight segment so the final segment is never dropped from
         // the execution record (finish can be reached via the last lap auto-finish,
         // "Terminar bloque", or "Terminar y guardar" mid-session). lap() will have
@@ -479,6 +576,7 @@ final class WorkoutSession {
     /// block keeps its restored progress, ready to resume on Empezar.
     private func armBlock() {
         clearEMOMState()
+        clearConditioning()
         // A new block resets the block-scoped Rx/Scaled choice; priming re-defaults
         // it to "rx" for a metcon block (nil otherwise).
         rxScaled = nil
@@ -515,7 +613,11 @@ final class WorkoutSession {
     func endBlockEarly() {
         guard canEndBlockEarly, let region = currentBlockRegion else { return }
         Haptics.heavy()   // a firm, intentional cue — NOT the success chord
+        // An in-flight conditioning block records its partial score (rounds/time so
+        // far) before the engine is torn down.
+        captureConditioningScore()
         clearEMOMState()
+        clearConditioning()
         // A structural warmup/cooldown closes as ONE completion, never a partial
         // per-exercise lap.
         if currentBlockIsStructural {
@@ -545,9 +647,14 @@ final class WorkoutSession {
         primeSetsIfNeeded()
         primeRxScaledIfNeeded()
         if currentSegment?.isEMOM == true {
+            clearConditioning()
             startEMOM()
+        } else if currentSegment?.isConditioningTimer == true {
+            clearEMOMState()
+            startConditioning()
         } else {
             clearEMOMState()
+            clearConditioning()
         }
     }
 
@@ -610,6 +717,342 @@ final class WorkoutSession {
         let wasLast = isLastSegment
         let origin = currentSegmentIndex
         clearEMOMState()
+        closeCurrentSegmentLap()
+        if wasLast {
+            finish()
+        } else {
+            currentSegmentIndex += 1
+            enterOrArm(from: origin)
+        }
+    }
+
+    // MARK: - Conditioning format engine (non-EMOM live timers)
+    //
+    // Drives For Time / AMRAP / Tabata / Intervals / Death By / Steady / Chipper /
+    // Ladder / Rounds / HYROX sim. Self-contained and parallel to the EMOM engine
+    // (which it never touches): a 3-2-1 count-in, then a FIXED count-up/down, a
+    // ROTATING work/rest phase clock, or a CONTINUOUS countdown — each off the same
+    // 0.25s tick, reusing WorkoutAudio for the cues.
+
+    private func startConditioning() {
+        guard let seg = currentSegment, seg.isConditioningTimer else { clearConditioning(); return }
+        condSegmentIndex = currentSegmentIndex
+        condStartElapsed = lapElapsedSeconds          // provisional; reset at GO
+        condCountInRemaining = Self.countInSeconds
+        fixedRoundsDone = 0
+        fixedRoundSplits = []
+        rotRoundIndex = 0
+        rotPhase = .work
+        rotPhaseRemaining = 0
+        deathByFailed = false
+        repsCurrentSegment = 0                          // AMRAP partial-round reps
+        rotRepsByRound = Array(repeating: 0, count: max(1, seg.formatRounds ?? 1))
+        WorkoutAudio.shared.activate()
+        WorkoutAudio.shared.playTick()                  // opening "3" of the count-in
+    }
+
+    private func clearConditioning() {
+        if condSegmentIndex != nil { WorkoutAudio.shared.deactivate() }
+        condSegmentIndex = nil
+        condCountInRemaining = 0
+        condStartElapsed = 0
+        fixedRoundsDone = 0
+        fixedRoundSplits = []
+        rotRoundIndex = 0
+        rotPhaseRemaining = 0
+        rotPhase = .work
+        rotRepsByRound = []
+        deathByFailed = false
+    }
+
+    /// The number of strike-able list items in a FIXED checklist: the movements for
+    /// a Chipper (one pass), else the round count (For Time / Ladder / Rounds).
+    var fixedListTotal: Int {
+        guard let seg = currentSegment else { return 1 }
+        switch seg.formatScheme {
+        case .chipper:
+            return max(1, seg.components.count)
+        case .forTime, .ladder, .rounds, .hyroxSim:
+            return max(1, seg.formatRounds ?? seg.components.count)
+        default:
+            return max(1, seg.formatRounds ?? 1)
+        }
+    }
+
+    // Seconds in the WORK phase of a rotating format (Tabata / Intervals work, a
+    // Death By minute). nil for a distance-based interval bout → no auto-roll, the
+    // athlete (or a GPS auto-lap) ends it via "Serie hecha".
+    private func workPhaseSeconds(_ seg: WorkoutSegment) -> Int? {
+        switch seg.formatScheme {
+        case .deathBy:            return seg.formatWorkSeconds ?? 60
+        case .tabata, .intervals: return seg.formatWorkSeconds
+        default:                  return nil
+        }
+    }
+
+    private func startRotatingFirstPhase(_ seg: WorkoutSegment) {
+        guard seg.formatScheme?.presentation == .rotating else { return }
+        rotPhase = .work
+        rotPhaseRemaining = Double(workPhaseSeconds(seg) ?? 0)
+    }
+
+    private func skipCondCountIn() {
+        guard let seg = currentSegment else { return }
+        condCountInRemaining = 0
+        condStartElapsed = lapElapsedSeconds
+        startRotatingFirstPhase(seg)
+        WorkoutAudio.shared.playGo()
+        Haptics.medium()
+    }
+
+    private func tickConditioning(dt: Double) {
+        guard let seg = currentSegment, let scheme = seg.formatScheme else { return }
+
+        // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
+        if condCountInRemaining > 0 {
+            let before = condCountInRemaining
+            condCountInRemaining = max(0, before - dt)
+            if before.rounded(.up) != condCountInRemaining.rounded(.up) {
+                if condCountInRemaining <= 0 {
+                    condStartElapsed = lapElapsedSeconds      // GO — the format clock starts now
+                    startRotatingFirstPhase(seg)
+                    WorkoutAudio.shared.playGo()
+                    Haptics.medium()
+                } else {
+                    WorkoutAudio.shared.playTick()
+                    Haptics.light()
+                }
+            }
+            return
+        }
+
+        switch scheme.presentation {
+        case .rotating:   tickRotating(dt: dt, seg: seg, scheme: scheme)
+        case .fixed:      tickFixed(dt: dt, seg: seg)
+        case .continuous: tickDeadline(dt: dt, seg: seg)
+        case .setTable, .list: break
+        }
+    }
+
+    // FIXED — AMRAP counts DOWN a fixed window and closes at 0:00; a capped For
+    // Time counts UP and closes when the cap is hit (the capped finish). An open
+    // For Time has no deadline → it just counts up until "Hecho".
+    private func tickFixed(dt: Double, seg: WorkoutSegment) {
+        tickDeadline(dt: dt, seg: seg)
+    }
+
+    // Shared deadline tick for AMRAP / capped For-Time / Steady: tick the final 3s,
+    // bocina + close at zero. No-op when the format has no cap/window (open clock).
+    private func tickDeadline(dt: Double, seg: WorkoutSegment) {
+        guard let total = seg.formatTotalSeconds else { return }
+        let remaining = Double(total) - condElapsed
+        let before = remaining + dt
+        for boundary in [3.0, 2.0, 1.0] where before > boundary && remaining <= boundary {
+            WorkoutAudio.shared.playTick()
+            Haptics.light()
+        }
+        if remaining <= 0 {
+            WorkoutAudio.shared.playFinish()
+            Haptics.success()
+            closeConditioningAndAdvance()
+        }
+    }
+
+    // ROTATING — count DOWN the current phase, tick the last 3s, roll at zero.
+    private func tickRotating(dt: Double, seg: WorkoutSegment, scheme: PrescriptionScheme) {
+        // A distance-based interval bout has no fixed duration → it waits for
+        // "Serie hecha" / a GPS auto-lap; nothing to tick down.
+        guard rotPhaseRemaining > 0 else { return }
+        let before = rotPhaseRemaining
+        let after = before - dt
+        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+            WorkoutAudio.shared.playTick()
+            Haptics.light()
+        }
+        if after <= 0 {
+            rollRotatingPhase(seg: seg, scheme: scheme)
+        } else {
+            rotPhaseRemaining = after
+        }
+    }
+
+    private func rollRotatingPhase(seg: WorkoutSegment, scheme: PrescriptionScheme) {
+        switch scheme {
+        case .deathBy:
+            advanceDeathByMinute()          // a completed minute = an implicit "logré"
+        case .tabata, .intervals:
+            if rotPhase == .work, let rest = seg.formatRestSeconds {
+                rotPhase = .rest
+                rotPhaseRemaining = Double(rest)
+                WorkoutAudio.shared.playMovementChange()   // distinct rest tone
+                Haptics.heavy()
+            } else {
+                advanceRotatingRound(seg: seg)
+            }
+        default:
+            break
+        }
+    }
+
+    private func advanceRotatingRound(seg: WorkoutSegment) {
+        let total = max(1, seg.formatRounds ?? 1)
+        let next = rotRoundIndex + 1
+        if next >= total {
+            WorkoutAudio.shared.playFinish()
+            Haptics.success()
+            closeConditioningAndAdvance()
+            return
+        }
+        rotRoundIndex = next
+        rotPhase = .work
+        rotPhaseRemaining = Double(workPhaseSeconds(seg) ?? 0)
+        if rotRepsByRound.count < total {
+            rotRepsByRound += Array(repeating: 0, count: total - rotRepsByRound.count)
+        }
+        WorkoutAudio.shared.playIntervalStart()   // work tone
+        Haptics.medium()
+    }
+
+    private func advanceDeathByMinute() {
+        guard let seg = currentSegment else { return }
+        rotRoundIndex += 1                // survived another minute; the target rises
+        rotPhase = .work
+        rotPhaseRemaining = Double(seg.formatWorkSeconds ?? 60)
+        WorkoutAudio.shared.playIntervalStart()
+        Haptics.medium()
+    }
+
+    // The bottom primary button, routed by scheme.
+    private func conditioningPrimary(_ seg: WorkoutSegment) {
+        if condCountInRemaining > 0 { skipCondCountIn(); return }
+        switch seg.formatScheme {
+        case .amrap:                                          bumpAmrapRound()
+        case .tabata:                                         tabataAddRep()
+        case .intervals:                                      intervalsBoutDone()
+        case .deathBy:                                        deathByLogged()
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim: closeConditioningAndAdvance()
+        case .steady:                                         closeConditioningAndAdvance()
+        default:                                              lap()
+        }
+    }
+
+    // MARK: Conditioning actions (called by the format HUDs / the view)
+
+    /// AMRAP "+ Ronda" — one tap per completed round; the partial-round rep tally
+    /// resets for the new round. The block auto-closes when the window hits 0:00.
+    func bumpAmrapRound() {
+        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
+        fixedRoundsDone += 1
+        repsCurrentSegment = 0
+        WorkoutAudio.shared.playIntervalStart()
+        Haptics.medium()
+    }
+
+    /// AMRAP partial-round rep tally (+/−1).
+    func amrapAddRep(_ delta: Int) {
+        guard isConditioningActive, !isPaused, !isFinished else { return }
+        repsCurrentSegment = max(0, repsCurrentSegment + delta)
+        Haptics.light()
+    }
+
+    /// For Time / Chipper / Ladder list strike — records the split, advances the
+    /// active line; the LAST item closes the block (the final time).
+    func markRoundDone() {
+        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
+        let total = fixedListTotal
+        guard fixedRoundsDone < total else { return }
+        fixedRoundSplits.append(condElapsed)
+        fixedRoundsDone += 1
+        Haptics.medium()
+        if fixedRoundsDone >= total {
+            WorkoutAudio.shared.playFinish()
+            closeConditioningAndAdvance()
+        } else {
+            WorkoutAudio.shared.playIntervalStart()
+        }
+    }
+
+    /// Undo the last For Time / Chipper / Ladder strike (a mis-tap), restoring the
+    /// previous split.
+    func unmarkLastRound() {
+        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
+        guard fixedRoundsDone > 0 else { return }
+        fixedRoundsDone -= 1
+        if !fixedRoundSplits.isEmpty { fixedRoundSplits.removeLast() }
+        Haptics.light()
+    }
+
+    /// Tabata per-round rep tally (the classic min-reps score). The bottom "+ Reps"
+    /// adds one; the in-HUD stepper passes ±1 (a real 0 is the floor).
+    func tabataAddRep(_ delta: Int = 1) {
+        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
+        guard rotRepsByRound.indices.contains(rotRoundIndex) else { return }
+        rotRepsByRound[rotRoundIndex] = max(0, rotRepsByRound[rotRoundIndex] + delta)
+        Haptics.light()
+    }
+
+    /// Intervals "Serie hecha" — end the current work bout (→ rest, or the next
+    /// round when there's no rest), e.g. a distance bout finished by feel/GPS.
+    func intervalsBoutDone() {
+        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished,
+              let seg = currentSegment else { return }
+        Haptics.medium()
+        if rotPhase == .work {
+            rollRotatingPhase(seg: seg, scheme: .intervals)
+        } else {
+            advanceRotatingRound(seg: seg)
+        }
+    }
+
+    /// Death By "Lo logré" — completed this minute's target; advance to the next
+    /// (the target rises). Auto-roll on the minute does the same implicitly.
+    func deathByLogged() {
+        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
+        advanceDeathByMinute()
+    }
+
+    /// Death By "Fallé" — missed this minute's target; the block ends. Score =
+    /// rounds survived (the last full minute completed).
+    func deathByFail() {
+        guard isConditioningActive, !isFinished else { return }
+        deathByFailed = true
+        Haptics.heavy()
+        WorkoutAudio.shared.playFinish()
+        closeConditioningAndAdvance()
+    }
+
+    // Capture the PRINCIPAL conditioning block's headline score before the engine
+    // is torn down. Idempotent: a no-op once the engine has cleared (so the
+    // close-then-finish path can't re-capture zeros over the real result).
+    private func captureConditioningScore() {
+        guard condSegmentIndex == currentSegmentIndex,
+              let seg = currentSegment, let scheme = seg.formatScheme,
+              scheme == plan.format else { return }
+        switch scheme {
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
+            let elapsed = Int(condElapsed.rounded())
+            capturedScoreTimeSeconds = seg.formatTotalSeconds.map { min(elapsed, $0) } ?? elapsed
+        case .amrap:
+            capturedScoreRounds = fixedRoundsDone
+            capturedScoreReps = repsCurrentSegment
+        case .deathBy:
+            capturedScoreRounds = rotRoundIndex          // minutes survived
+        case .tabata:
+            capturedScoreRounds = seg.formatRounds
+            capturedScoreReps = rotRepsByRound.isEmpty ? nil : rotRepsByRound.min()
+        default:
+            break
+        }
+    }
+
+    // Close the conditioning segment's lap (reusing the standard close path) and
+    // advance to the next segment, or finish the session — mirrors
+    // `closeEMOMAndAdvance`. Crossing into the next block parks on its preview.
+    private func closeConditioningAndAdvance() {
+        let wasLast = isLastSegment
+        let origin = currentSegmentIndex
+        captureConditioningScore()
+        clearConditioning()
         closeCurrentSegmentLap()
         if wasLast {
             finish()
@@ -737,7 +1180,7 @@ final class WorkoutSession {
             repsConfirmedOut = recs.contains { $0.confirmed }
             // Representative load for the segment aggregate = max ACTUAL load logged.
             if let maxLoad = recs.compactMap({ $0.loadActualKg }).max() { weight = maxLoad }
-        } else if (seg.kind == .reps || seg.kind == .strength) && !seg.isEMOM {
+        } else if (seg.kind == .reps || seg.kind == .strength) && !seg.isEMOM && !seg.isConditioningTimer {
             if repsSkipped {
                 repsActual = nil
                 repsStatusOut = "skipped"
@@ -1165,6 +1608,7 @@ final class WorkoutSession {
         }
 
         if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
+        else if currentSegment?.isConditioningTimer == true { tickConditioning(dt: dt) }
 
         // Per-set rest countdown: tick the final 3s, soft cue at zero.
         if restRemainingSeconds > 0 {
