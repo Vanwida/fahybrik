@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concepto — Salir del entreno: Abandonar (descartar) vs Terminar (guardar) · FAHYBRID</title>
+<style>
+  /* ───────────────────────── DOC SHELL (light, readable) ─────────────────────────
+     Mismo lenguaje que los pases hermanos en docs/superpowers/plans/*.html
+     (ver diseno-timers-fase2.html): fondo crema, tinta, acento naranja Fabrik,
+     titulares bold. El doc es CLARO; los MOCKUPS de teléfono son oscuros (la app
+     es oscura). */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1080px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;font-style:italic;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:28px}
+  h2{font-size:22px;font-weight:800;margin:58px 0 6px;letter-spacing:-0.3px}
+  h2 .surf{font-size:13px;font-weight:700;color:#fff;background:#ff6600;padding:3px 9px;border-radius:6px;vertical-align:middle;margin-right:10px;letter-spacing:0}
+  h3{font-size:17px;font-weight:800;margin:8px 0 4px;color:#1a1a1a;letter-spacing:-0.2px}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+  a{color:#b07000}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:40px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  .toc{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0 8px}
+  .toc a{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:14px 16px;transition:border-color .15s}
+  .toc a:hover{border-color:#ff6600}
+  .toc .n{font-size:10.5px;font-weight:800;color:#ff6600;text-transform:uppercase;letter-spacing:0.6px}
+  .toc .t{font-size:15px;font-weight:700;margin:4px 0 3px}
+  .toc .d{font-size:12px;color:#777;line-height:1.4}
+
+  /* the two-verb legend board */
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0 4px}
+  .lg{border-radius:14px;padding:18px 20px;border:1px solid #e8e8e3;background:#fff}
+  .lg .ico{font-size:26px;line-height:1;margin-bottom:8px;display:block}
+  .lg .lt{font-size:16px;font-weight:800;letter-spacing:-0.2px;margin-bottom:2px}
+  .lg .rule{font-size:13px;font-weight:600;margin-bottom:10px}
+  .lg .fms{display:flex;flex-wrap:wrap;gap:5px}
+  .lg .fm{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:#f3f3ef;color:#444}
+  .lg.dis{border-color:#f0a9a9;background:linear-gradient(180deg,#fdf2f2,#fff)}
+  .lg.dis .ico,.lg.dis .lt{color:#c0392b}
+  .lg.dis .fm{background:#f8dada;color:#9c2a1f}
+  .lg.fin{border-color:#a6dab9;background:linear-gradient(180deg,#f0faf3,#fff)}
+  .lg.fin .ico,.lg.fin .lt{color:#1f8a4c}
+  .lg.fin .fm{background:#d8efe0;color:#13693a}
+  .lg .rule b{font-weight:800}
+
+  /* note cards */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+  .note{background:#fff;border:1px solid #e8e8e3;border-radius:10px;padding:14px 18px;margin:10px 0}
+  .note .h{font-weight:700;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .note .h .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .note.act .h .ic{background:#eef4ff;color:#1a4ba0}
+  .note.cue .h .ic{background:#fdf0e6;color:#b07000}
+  .note.log .h .ic{background:#eef7ef;color:#0d7a2e}
+  .note.bad .h .ic{background:#fdecec;color:#a83232}
+  .note.ex .h .ic{background:#f3ecff;color:#5a2da0}
+  .note ul{list-style:none;padding:0;font-size:13px;color:#3a3a3a}
+  .note li{padding:4px 0 4px 18px;position:relative;line-height:1.5}
+  .note li::before{content:'→';position:absolute;left:0;color:#ff6600;font-weight:700}
+  .note.bad li::before{content:'✕';color:#c0392b;font-weight:800}
+  .note .k{font-weight:700;color:#1a1a1a}
+  .note p{font-size:13px;margin:0 0 8px}
+  .note p:last-child{margin:0}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:16px 20px;margin:14px 0}
+  .decision .q{font-weight:700;font-size:15px;margin-bottom:6px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:10px}
+  .decision .opts{display:flex;flex-direction:column;gap:6px}
+  .decision .opt{font-size:13.5px;padding:7px 12px;border-radius:7px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:#ff6600;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  /* matrix table */
+  table.mx{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+  table.mx th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:8px 10px;border-bottom:2px solid #e8e8e3}
+  table.mx td{padding:9px 10px;border-bottom:1px solid #eee;color:#333;vertical-align:top}
+  table.mx td .fn{font-weight:800;color:#1a1a1a}
+  table.mx code{font-size:11.5px}
+  /* status pills (pendiente/parcial/hecho + verb tags) */
+  .st-pill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:999px;white-space:nowrap;display:inline-block}
+  .st-pend{background:#ececec;color:#666}
+  .st-part{background:#fbeccd;color:#9a6a12}
+  .st-done{background:#d8efe0;color:#13693a}
+  .vb{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:5px;white-space:nowrap;display:inline-block}
+  .vb.dis{background:#f8dada;color:#9c2a1f}
+  .vb.fin{background:#d8efe0;color:#13693a}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  /* per-case layout: phone left, explanation right */
+  .fmt{display:grid;grid-template-columns:312px 1fr;gap:28px;align-items:start;margin:14px 0 8px}
+  .fmt.rev{grid-template-columns:1fr 312px}
+  .fmt .side{padding-top:2px}
+  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 14px}
+  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
+  .badge.dis{background:#f8dada;color:#9c2a1f}
+  .badge.fin{background:#d8efe0;color:#13693a}
+  .badge.bug{background:#fdecec;color:#a83232;border:1px solid #f2cccc}
+  .badge.pend{background:#ececec;color:#666}
+  .badge.part{background:#fbeccd;color:#9a6a12}
+  .badge.done{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
+
+  @media(max-width:880px){
+    .toc,.grid3{grid-template-columns:1fr}
+    .grid2,.legend{grid-template-columns:1fr}
+    .fmt,.fmt.rev{grid-template-columns:1fr}
+    .fmt .phone{margin:0 auto}
+  }
+
+  /* ════════════════════════ DARK PHONE MOCKUP (real product) ════════════════════════
+     Tokens = espejo de web/app/[locale]/(v2)/v2-theme.css + Theme/Atoms iOS, igual
+     que diseno-timers-fase2.html. Aquí la pieza nueva son las HOJAS DE ACCIÓN
+     (action sheets) que aparecen al intentar salir del entreno en vivo. ────── */
+  .phone{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.16);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.16);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.16);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.16);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.16);
+    --r-xs:6px; --r-s:9px; --r-m:13px; --r-l:18px;
+    width:312px;background:var(--bg);color:var(--fg);
+    border-radius:34px;border:1px solid rgba(255,255,255,0.10);
+    padding:11px;box-shadow:0 30px 70px -28px rgba(0,0,0,0.6);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+  }
+  .phone *{box-sizing:border-box}
+  .phone .scr{background:var(--bg);border-radius:25px;border:1px solid rgba(255,255,255,0.05);padding:12px 12px 14px;overflow:hidden;position:relative;min-height:476px}
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .lbl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}
+
+  /* topbar */
+  .tmr-top{display:flex;align-items:center;gap:8px;padding:0 2px 10px}
+  .tmr-top .ctl{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);border:1px solid var(--border)}
+  .tmr-top .back{font-size:15px;border:none;color:var(--faint)}
+  .tmr-top .mid{flex:1;text-align:center;min-width:0}
+  .tmr-top .ph{font-size:9px;font-weight:900;font-style:italic;letter-spacing:.09em;color:var(--accent);text-transform:uppercase}
+  .tmr-top .sg{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tmr-top .ix{font-size:10.5px;font-weight:700;color:var(--faint)}
+
+  /* hero clock card */
+  .hero{background:var(--elevated);border:1px solid var(--border);border-radius:var(--r-m);padding:16px 14px 14px;position:relative;text-align:center;overflow:hidden}
+  .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+  .hero .cap{margin-bottom:3px}
+  .hero .clock{font-size:52px;font-weight:800;line-height:.96;color:var(--fg)}
+  .hero .clock.urgent{color:var(--accent)}
+  .hero .csub{font-size:11px;font-weight:700;color:var(--muted);margin-top:4px;letter-spacing:.02em}
+
+  .work{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 13px;margin-top:9px}
+  .work .wl{margin-bottom:6px}
+  .work .wl.acc{color:var(--accent)}
+  .work .wmain{display:flex;align-items:baseline;gap:9px}
+  .work .wmeas{font-size:19px;font-weight:800;color:var(--fg)}
+  .work .wmov{font-size:15px;font-weight:800;font-style:italic;color:var(--fg)}
+
+  .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:9px}
+  .metrics .cell{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 4px;text-align:center}
+  .metrics .cell .cl{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .metrics .cell .cv{font-size:16px;font-weight:800;color:var(--fg);margin-top:2px}
+  .metrics .cell .cv .u{font-size:9px;color:var(--muted);font-weight:700;margin-left:1px}
+  .metrics .cell .cv.hr{color:var(--danger)}
+
+  .cta{margin-top:10px;display:flex;gap:7px}
+  .cta .pri{flex:1;text-align:center;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:900;font-style:italic;letter-spacing:.03em;padding:13px;border-radius:13px}
+  .cta .sec{width:52px;text-align:center;background:var(--surface2);color:var(--muted);font-size:13px;font-weight:800;padding:13px 0;border-radius:13px;border:1px solid var(--border)}
+  .caption{font-size:11px;color:#9a9a96;text-align:center;margin-top:9px;font-style:italic}
+
+  /* ── ACTION SHEET (the exit decision — the heart of this doc) ── */
+  .dim{position:absolute;inset:0;background:rgba(0,0,0,0.62);border-radius:25px;display:flex;flex-direction:column;justify-content:flex-end;padding:10px}
+  .sheet{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-l);padding:18px 16px 14px;box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+  .sheet .grab{width:34px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);margin:0 auto 13px}
+  .sheet .st{font-size:17px;font-weight:800;text-align:center;color:var(--fg);margin-bottom:6px;letter-spacing:-0.2px}
+  .sheet .sb{font-size:12.5px;line-height:1.5;text-align:center;color:var(--muted);margin-bottom:14px;padding:0 4px}
+  .sheet .sb b{color:var(--fg)}
+  .sheet .sb .warnote{color:var(--warn)}
+  .btn{display:block;width:100%;text-align:center;font-size:14px;font-weight:800;padding:13px;border-radius:13px;margin-top:8px;letter-spacing:.01em}
+  .btn .bcap{display:block;font-size:10.5px;font-weight:700;margin-top:2px;opacity:.8;letter-spacing:0}
+  .btn.go{background:var(--accent);color:var(--accent-fg)}            /* seguir entrenando — default */
+  .btn.save{background:var(--ok);color:#04240f}                       /* terminar y guardar */
+  .btn.discard{background:transparent;color:var(--danger);border:1px solid rgba(242,80,79,.45)}
+  .btn.discard-solid{background:var(--danger);color:#2a0606}          /* confirm destructivo */
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);font-weight:700}
+  .btn.go-ghost{background:transparent;color:var(--fg);border:1px solid var(--border-strong)}
+
+  /* post-workout summary (the BUG screen) */
+  .summary{padding:6px 2px}
+  .summary .stitle{font-size:18px;font-weight:900;font-style:italic;text-align:center;color:var(--fg);margin:18px 0 4px}
+  .summary .ssub{font-size:11.5px;text-align:center;color:var(--muted);margin-bottom:16px}
+  .summary .row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:11px 13px;margin-bottom:7px;font-size:12.5px}
+  .summary .row .rl{color:var(--muted);font-weight:700}
+  .summary .row .rv{color:var(--fg);font-weight:800}
+  .summary .row .rv.empty{color:var(--danger)}
+  .summary .savebtn{background:var(--accent);color:var(--accent-fg);text-align:center;font-size:15px;font-weight:900;font-style:italic;padding:14px;border-radius:13px;margin-top:14px;letter-spacing:.03em}
+
+  /* plan row markers (what the athlete sees back in the plan) */
+  .planrow{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:11px 12px;margin-bottom:7px}
+  .planrow .mk{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0}
+  .planrow .mk.pend{border:1.5px solid var(--faint);color:transparent}
+  .planrow .mk.part{background:var(--warn-soft);border:1.5px solid var(--warn);color:var(--warn)}
+  .planrow .mk.done{background:var(--ok);color:#04240f}
+  .planrow .pt{flex:1;min-width:0}
+  .planrow .pt .pn{font-size:13px;font-weight:800;color:var(--fg)}
+  .planrow .pt .ps{font-size:10.5px;font-weight:700;color:var(--muted);margin-top:1px}
+  .planrow .ptag{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px}
+  .planrow .ptag.pend{background:#2a2a2a;color:var(--faint)}
+  .planrow .ptag.part{background:var(--warn-soft);color:var(--warn)}
+  .planrow .ptag.done{background:var(--ok-soft);color:var(--ok)}
+
+  /* flow strip */
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:14px 16px;margin:12px 0;font-size:12.5px}
+  .flow .step{font-weight:700;color:#333;background:#f3f3ef;border:1px solid #e8e8e3;padding:6px 11px;border-radius:8px}
+  .flow .step.bad{background:#fdecec;border-color:#f2cccc;color:#a83232}
+  .flow .arr{color:#ff6600;font-weight:800}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Salir del entreno — Abandonar (descartar) vs Terminar (guardar)</h1>
+  <div class="sub">Concepto · Para sign-off de Alex · ANTES de tocar Swift · FAHYBRID · jun 2026</div>
+
+  <div class="principle">
+    <p><b>El bug en una frase.</b> Hoy <b>Abandonar</b> un entreno recién empezado lo <b>GUARDA</b> y marca la sesión como <b>HECHA</b>. No existe ningún camino de "salir sin guardar": empezar → pausa → "Abandonar" cae en el mismo código que terminar de verdad (<code style="background:#222;color:#ffb340">finish()</code>), te lleva al resumen con un único botón <b>GUARDAR</b>, y eso registra la ejecución y marca <code style="background:#222;color:#ffb340">status = 'completed'</code> sin mirar si hiciste algo.</p>
+    <p><b>Por qué importa.</b> Es deshonesto: marca como completado lo que no se hizo. Contamina las analíticas de Pablo (adherencia, RPE, splits) con entrenos fantasma y le quita al atleta la salida natural — "me equivoqué, esto no cuenta". Choca de frente con el <b>registro honesto</b> (mig 0088: un skip nunca es un 0 fabricado; un bloque no alcanzado no tiene fila). Abandonar tiene que ser exactamente eso: <b>cero rastro</b>.</p>
+    <p><b>El principio que ordena todo.</b> Dos verbos distintos, no uno. <b style="color:#ff6a6a">ABANDONAR = descartar</b> (no guarda nada, no marca hecho, la sesión vuelve a <b>pendiente</b>). <b style="color:#7fd6a0">TERMINAR = guardar lo que se hizo</b> (completo si llegaste al final, parcial honesto si no). El sistema decide qué ofrecer con <b>una sola señal</b>: <code style="background:#222;color:#ffb340">hasRecordedWork</code> — ¿hay al menos un bloque/serie/ronda real registrada (sin contar calentamiento)? Si no hay nada hecho, ni siquiera se ofrece "Terminar".</p>
+  </div>
+
+  <div class="toc">
+    <a href="#bug"><div class="n">A · El fallo</div><div class="t">El bug, tal cual</div><div class="d">Abandonar → GUARDAR → marcado hecho. Por qué está mal.</div></a>
+    <a href="#model"><div class="n">B · El modelo</div><div class="t">Espacio de estados de salida</div><div class="d">4 estados × 2 verbos. La señal que decide: hasRecordedWork.</div></a>
+    <a href="#dialogs"><div class="n">C · Los diálogos</div><div class="t">Qué ve el atleta</div><div class="d">Copy exacto. "Recién empezado" vs "en progreso" (parcial).</div></a>
+    <a href="#status"><div class="n">D · El estado</div><div class="t">pendiente / parcial / hecho</div><div class="d">Qué hace cada opción al status. Descartar nunca marca.</div></a>
+    <a href="#apps"><div class="n">E · Referencia</div><div class="t">Qué hacen las mejores apps</div><div class="d">Hevy, Strava, Garmin, Apple, WHOOP… con citas.</div></a>
+    <a href="#decisions"><div class="n">F · Decisiones</div><div class="t">Para Alex</div><div class="d">Lo subjetivo que no decido yo, antes de construir.</div></a>
+  </div>
+
+
+  <!-- ════════════ A · THE BUG ════════════ -->
+  <h2 id="bug"><span class="surf">A</span>El bug, tal cual está hoy</h2>
+  <p class="lead">Trazado en el código (file:line abajo). Hay <b>una sola salida</b> de un entreno en vivo, y siempre guarda. Tocar la pausa <code>&#10073;&#10073;</code> y pulsar <b>"Abandonar"</b> llama directo a <code>finish()</code> — el mismo verbo que "lo he hecho todo". Te suelta en el resumen, cuyo único botón es <b>GUARDAR</b>, que <b>siempre</b> envía la ejecución y marca la asignación como <code>completed</code>. Da igual que no hayas tocado un solo movimiento.</p>
+
+  <div class="flow">
+    <span class="step">Empiezas el entreno</span><span class="arr">→</span>
+    <span class="step">Pausa <code>&#10073;&#10073;</code></span><span class="arr">→</span>
+    <span class="step bad">"Abandonar"</span><span class="arr">→</span>
+    <span class="step bad"><code>finish()</code></span><span class="arr">→</span>
+    <span class="step bad">Resumen · GUARDAR</span><span class="arr">→</span>
+    <span class="step bad">✓ marcado HECHO</span>
+  </div>
+
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="summary">
+        <div class="stitle">Entreno completado</div>
+        <div class="ssub">Metcon · EMOM 12</div>
+        <div class="row"><span class="rl">Duración</span><span class="rv num">0:04</span></div>
+        <div class="row"><span class="rl">Bloques registrados</span><span class="rv empty">ninguno</span></div>
+        <div class="row"><span class="rl">RPE</span><span class="rv">—</span></div>
+        <div class="savebtn">GUARDAR</div>
+        <div class="caption" style="color:#f2504f">Único botón. No hay "descartar". Guarda 4 s vacíos y marca hecho.</div>
+      </div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge bug">&#9888; BUG actual</span>
+        <span class="badge pend">debería volver a pendiente</span>
+      </div>
+      <div class="note bad">
+        <div class="h"><span class="ic">&#9888;</span>Lo que pasa de verdad (file:line)</div>
+        <ul>
+          <li>"Abandonar" (<code>ActiveWorkoutView.swift:667</code>) llama a <code>session.finish()</code> — <span class="k">el mismo método que terminar de verdad</span>.</li>
+          <li><code>finish()</code> (<code>WorkoutSession.swift:385</code>) pone <code>isFinished</code> y enruta a <code>.summary</code>. <span class="k">No mira si se hizo algo.</span></li>
+          <li>El resumen solo tiene <b>GUARDAR</b> (<code>PostWorkoutSummaryView.swift:93</code>) → <code>handleSave()</code> envía la ejecución <span class="k">sin condición</span>.</li>
+          <li><code>markCompleted</code> (<code>PlanService.swift:350</code>) escribe el id en local; <code>record-workout-execution.ts:130</code> hace <code>set status = 'completed'</code> en <span class="k">todo POST</span>.</li>
+          <li>No existe ningún <b>"descartar"</b> de una sesión viva. El único "Descartar" del flujo es la recuperación tras crash, no relacionado.</li>
+        </ul>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9633;</span>El daño concreto</div>
+        <p>Abandonar y terminar son <b>el mismo camino</b>: "abandonar" es un finish con laps vacíos. No hay rama honesta de "esto no lo hice". Resultado: entrenos fantasma marcados ✓ en el plan, adherencia falseada, y el atleta sin forma de deshacer un toque por error.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════ B · THE MODEL ════════════ -->
+  <h2 id="model"><span class="surf">B</span>El modelo — el espacio de estados de salida</h2>
+  <p class="lead">Salir de un entreno no es un caso, es un <b>espacio</b>. Cuatro estados según dónde estés y si has hecho trabajo real. El atleta nunca se auto-clasifica con jerga: el sistema lo deduce de <code>hasRecordedWork</code> (≥1 segmento cerrado / serie confirmada / ronda ≥1, <b>excluyendo</b> calentamiento y vuelta a la calma). De ahí salen los dos verbos.</p>
+
+  <div class="legend">
+    <div class="lg dis">
+      <span class="ico">&#x2715;</span>
+      <div class="lt">ABANDONAR = DESCARTAR</div>
+      <div class="rule"><b>No guarda nada.</b> No crea ejecución, no marca hecho. La sesión vuelve a <b>pendiente</b>, sin rastro y sin estigma. Es destructivo y se confirma.</div>
+      <div class="fms"><span class="fm">no creé fila</span><span class="fm">status → pendiente</span><span class="fm">"me equivoqué"</span></div>
+    </div>
+    <div class="lg fin">
+      <span class="ico">&#x2713;</span>
+      <div class="lt">TERMINAR = GUARDAR</div>
+      <div class="rule"><b>Guarda lo que se hizo.</b> Completo si llegaste al final del protocolo; <b>parcial honesto</b> si paraste antes. Los bloques no alcanzados quedan sin fila — nunca un 0 inventado.</div>
+      <div class="fms"><span class="fm">crea ejecución</span><span class="fm">completeness full/partial</span><span class="fm">cuenta</span></div>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-top:22px">Las dos intenciones, no cuatro botones. La señal manda:</p>
+  <div class="flow">
+    <span class="step">¿<code>hasRecordedWork</code>?</span><span class="arr">→</span>
+    <span class="step bad" style="background:#fdecec;border-color:#f2cccc;color:#a83232"><b>NO</b> · solo ABANDONAR (descartar). "Terminar" ni se ofrece.</span>
+    <span class="arr">·</span>
+    <span class="step" style="background:#f0faf3;border-color:#a6dab9;color:#13693a"><b>SÍ</b> · se ofrecen las dos: TERMINAR (cuenta, guárdalo) y ABANDONAR (scrap, fue un error).</span>
+  </div>
+
+  <table class="mx">
+    <thead><tr><th>Estado</th><th>Cuándo</th><th>Qué se ofrece</th><th><code>workout_executions</code></th><th>Status asignación</th><th>El atleta ve</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="fn">(a) No empezado</span><br><span style="color:#888">preview / brief</span></td>
+        <td>Nunca entró en vivo (<code>phase = .brief</code>)</td>
+        <td>Cerrar = <span class="vb dis">descartar</span> (silencioso, sin diálogo)</td>
+        <td>no se crea</td>
+        <td><span class="st-pill st-pend">pendiente</span> (sigue <code>scheduled</code>)</td>
+        <td>Vuelve al plan, sesión intacta, sin estigma</td>
+      </tr>
+      <tr>
+        <td><span class="fn">(b) Empezado por error</span><br><span style="color:#888">muy temprano</span></td>
+        <td><code>.active</code> · <code>hasRecordedWork = false</code></td>
+        <td>Solo <span class="vb dis">ABANDONAR</span> → descartar</td>
+        <td>no se crea; limpia <code>WorkoutStateStore</code>; <b>nunca</b> toca <code>CompletedAssignmentsStore</code></td>
+        <td><span class="st-pill st-pend">pendiente</span></td>
+        <td>Vuelve a pendiente, cronómetro descartado</td>
+      </tr>
+      <tr>
+        <td><span class="fn">(c) En progreso,<br>no puede seguir</span></td>
+        <td><code>.active</code> · <code>hasRecordedWork = true</code> · no llegó al último bloque</td>
+        <td><span class="vb fin">TERMINAR</span> → guardar <b>parcial</b><br><span class="vb dis">ABANDONAR</span> → descartar (scrap incluso lo hecho)</td>
+        <td>fila con <code>completeness = 'partial'</code>; solo los bloques hechos tienen segmentos; los no alcanzados <b>sin fila</b> · (descartar: no crea, y <b>nunca borra</b> una ejecución previa)</td>
+        <td><span class="st-pill st-part">parcial</span> (terminar)<br><span class="st-pill st-pend">pendiente</span> (abandonar)</td>
+        <td>Resumen "Registrado: N de M bloques"; el plan muestra <b>marca parcial</b>, no un check lleno</td>
+      </tr>
+      <tr>
+        <td><span class="fn">(d) Completado</span><br><span style="color:#888">llegó al final</span></td>
+        <td>Último segmento alcanzado y cerrado (TERMINAR en el final)</td>
+        <td><span class="vb fin">TERMINAR</span> → guardar <b>completo</b></td>
+        <td>fila con <code>completeness = 'full'</code>; segmentos honestos (un skip a mitad sigue siendo <code>skipped</code>)</td>
+        <td><span class="st-pill st-done">hecho</span> (<code>completed</code>)</td>
+        <td>Resumen con marcador/RPE → sesión marcada ✓</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:12.5px;color:#888;margin-top:8px">Matiz de (d): <code>completeness = 'full'</code> significa que el atleta <b>llevó el protocolo hasta el final</b>, no que todo saliera perfecto. Un movimiento escalado o saltado a mitad mantiene su estado honesto a nivel de segmento (mig 0088); la sesión sigue siendo <code>completed</code>. Coincide con la norma de TrainingPeaks/Trainerize: honestidad en el segmento, completitud en la sesión.</p>
+
+
+  <!-- ════════════ C · THE DIALOGS ════════════ -->
+  <h2 id="dialogs"><span class="surf">C</span>Los diálogos reales — qué ve el atleta al salir</h2>
+  <p class="lead">Cuando el atleta intenta salir de un entreno en vivo (pausa → salir, o gesto atrás), aparece una <b>hoja de acción</b>. Lo que ofrece depende de la señal. La diferencia clave que hoy no existe: la salida puede <b>no guardar nada</b>. El copy es directo y sin jerga.</p>
+
+  <!-- C.1 — just started (no work) -->
+  <h3>C.1 · "Recién empezado" — nada registrado <span style="color:#999;font-weight:600;font-size:14px;font-style:italic">(estado b)</span></h3>
+  <p class="lead">No hay trabajo que guardar, así que "Terminar y guardar" <b>ni aparece</b> (regla de Hevy: sin trabajo registrado no hay camino de Finish, su única salida es descartar). Dos opciones: seguir, o salir sin guardar. La sesión queda pendiente.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">EMOM 12</div></span><span class="ix num">1/9</span></div>
+      <div class="hero"><div class="cap lbl" style="color:var(--accent)">Intervalo 1 / 12</div><div class="clock num urgent">0:56</div><div class="csub">cada 1:00</div></div>
+      <div class="work"><div class="wl lbl acc">Este intervalo</div><div class="wmain"><span class="wmeas num">15 cal</span><span class="wmov">Row Erg</span></div></div>
+      <div class="dim">
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="st">¿Salir del entreno?</div>
+          <div class="sb">No has registrado nada todavía. <b>El entreno seguirá pendiente.</b></div>
+          <div class="btn go">Seguir</div>
+          <div class="btn discard">Salir sin guardar</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge dis">&#x2715; solo DESCARTAR</span>
+        <span class="badge pend">queda pendiente</span>
+      </div>
+      <div class="note log">
+        <div class="h"><span class="ic">&#9745;</span>Copy exacto</div>
+        <ul>
+          <li>Título: <span class="k">"¿Salir del entreno?"</span></li>
+          <li>Cuerpo: <span class="k">"No has registrado nada todavía. El entreno seguirá pendiente."</span></li>
+          <li>Por defecto (acento): <span class="k">"Seguir"</span></li>
+          <li>Destructivo: <span class="k">"Salir sin guardar"</span></li>
+        </ul>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9633;</span>Qué hace</div>
+        <p>"Salir sin guardar" llama a <code>discard()</code>: limpia el estado vivo, <b>no crea ejecución</b>, <b>nunca</b> llama a <code>markCompleted</code>, vuelve al plan. La sesión sigue <span class="st-pill st-pend" style="vertical-align:baseline">pendiente</span>. Sin segundo "¿seguro?" — no hay nada que perder, no hace falta fricción.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- C.2 — in progress (has work) -->
+  <h3 style="margin-top:34px">C.2 · "En progreso" — ya hay trabajo hecho <span style="color:#999;font-weight:600;font-size:14px;font-style:italic">(estado c)</span></h3>
+  <p class="lead">Aquí sí hay algo que guardar. La hoja ofrece <b>tres</b> opciones (el patrón estándar de Strava/Garmin/Apple): seguir (default), terminar guardando lo hecho, o descartar. "Terminar y guardar" dice explícitamente <b>cuánto</b> se guardará (N de M bloques) — el guardado parcial honesto. Descartar es destructivo y pide confirmación.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">EMOM 12</div></span><span class="ix num">5/9</span></div>
+      <div class="hero"><div class="cap lbl" style="color:var(--accent)">Intervalo 7 / 12</div><div class="clock num urgent">0:31</div><div class="csub">cada 1:00</div></div>
+      <div class="dim">
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="st">¿Salir del entreno?</div>
+          <div class="sb">Llevas <b>2 de 3 bloques</b> hechos. Puedes guardar lo que has hecho o descartarlo.</div>
+          <div class="btn go">Seguir entrenando</div>
+          <div class="btn save">Terminar y guardar<span class="bcap">Guarda 2 de 3 bloques · el resto queda sin completar</span></div>
+          <div class="btn discard">Descartar entreno</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge fin">&#x2713; TERMINAR (parcial)</span>
+        <span class="badge dis">&#x2715; o DESCARTAR</span>
+        <span class="badge part">parcial</span>
+      </div>
+      <div class="note log">
+        <div class="h"><span class="ic">&#9745;</span>Copy exacto — hoja de 3 opciones</div>
+        <ul>
+          <li>Título: <span class="k">"¿Salir del entreno?"</span></li>
+          <li>Cuerpo: <span class="k">"Llevas N de M bloques hechos. Puedes guardar lo que has hecho o descartarlo."</span></li>
+          <li>Default (acento): <span class="k">"Seguir entrenando"</span></li>
+          <li>Guardar (verde): <span class="k">"Terminar y guardar"</span> + sub "Guarda N de M bloques · el resto queda sin completar"</li>
+          <li>Destructivo (rojo): <span class="k">"Descartar entreno"</span></li>
+        </ul>
+      </div>
+      <div class="note cue">
+        <div class="h"><span class="ic">&#9873;</span>Por qué el sub-texto importa</div>
+        <p>Es el guardado <b>parcial honesto</b>: registra exactamente hasta donde llegó. Los bloques no alcanzados quedan <b>sin fila</b> (no un 0 inventado). El atleta sabe, antes de tocar, que esto contará como <span class="st-pill st-part" style="vertical-align:baseline">parcial</span>, no como hecho.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- C.3 — discard confirm -->
+  <h3 style="margin-top:34px">C.3 · Confirmación de descarte — destructivo, irreversible</h3>
+  <p class="lead">"Descartar entreno" (en cualquiera de los casos con trabajo) abre un segundo paso destructivo, como hacen todas las apps de referencia ("una vez confirmado no se puede recuperar"). El botón de confirmar va en rojo sólido; el seguro es volver.</p>
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="tmr-top"><span class="ctl">&#10073;&#10073;</span><span class="ctl back">&#8249;</span><span class="mid"><div class="ph">Principal</div><div class="sg">EMOM 12</div></span><span class="ix num">5/9</span></div>
+      <div class="hero"><div class="cap lbl" style="color:var(--accent)">Intervalo 7 / 12</div><div class="clock num urgent">0:31</div><div class="csub">cada 1:00</div></div>
+      <div class="dim">
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="st" style="color:var(--danger)">¿Abandonar el entreno?</div>
+          <div class="sb">Se descartará <b>lo que has registrado</b> y el entreno volverá a quedar pendiente. <span class="warnote">Esto no se puede deshacer.</span></div>
+          <div class="btn go-ghost">Seguir</div>
+          <div class="btn discard-solid">Abandonar y descartar</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="side">
+      <div class="badges">
+        <span class="badge dis">&#x2715; destructivo · confirmado</span>
+        <span class="badge pend">vuelve a pendiente</span>
+      </div>
+      <div class="note log">
+        <div class="h"><span class="ic">&#9745;</span>Copy exacto</div>
+        <ul>
+          <li>Título: <span class="k">"¿Abandonar el entreno?"</span></li>
+          <li>Cuerpo: <span class="k">"Se descartará lo que has registrado y el entreno volverá a quedar pendiente. Esto no se puede deshacer."</span></li>
+          <li>Seguro: <span class="k">"Seguir"</span></li>
+          <li>Confirmar (rojo sólido): <span class="k">"Abandonar y descartar"</span></li>
+        </ul>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9633;</span>Borde importante</div>
+        <p>Si había una ejecución previa (un parcial de ayer), descartar <b>suprime solo la escritura nueva</b> — <b>nunca borra</b> el histórico. Descartar = "este intento no cuenta", no "borra lo de antes".</p>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;color:#888;margin-top:8px"><b>Caso (d) completado:</b> al llegar al final no hay "¿seguro?" — TERMINAR va directo al resumen y marca <span class="st-pill st-done" style="vertical-align:baseline">hecho</span> (solo se confirma si queda un segmento abierto en vivo).</p>
+
+
+  <!-- ════════════ D · STATUS ════════════ -->
+  <h2 id="status"><span class="surf">D</span>Qué le pasa al estado de la sesión</h2>
+  <p class="lead">El punto entero del rediseño. Hay tres estados de sesión y cada opción de salida lleva a uno concreto. Lo explícito que hoy no se cumple: <b>descartar deja la sesión en pendiente, nunca marcada</b>. El plan muestra los tres distintos — pendiente (vacío), parcial (marca ámbar), hecho (check lleno) — nunca confunde uno con otro.</p>
+
+  <div class="fmt rev">
+    <div class="side">
+      <div class="note log">
+        <div class="h"><span class="ic">&#9745;</span>Los tres estados de sesión</div>
+        <ul>
+          <li><span class="st-pill st-pend" style="vertical-align:baseline">pendiente</span> <code>scheduled</code> — no se hizo o se descartó. Sin ejecución. Marca vacía en el plan.</li>
+          <li><span class="st-pill st-part" style="vertical-align:baseline">parcial</span> <code>partial</code> (enum nuevo) — se terminó antes; <code>completeness = 'partial'</code>. Marca ámbar, no check.</li>
+          <li><span class="st-pill st-done" style="vertical-align:baseline">hecho</span> <code>completed</code> — protocolo hasta el final; <code>completeness = 'full'</code>. Check lleno.</li>
+        </ul>
+      </div>
+      <div class="note act">
+        <div class="h"><span class="ic">&#9633;</span>Cambios mínimos (aditivos, honestos)</div>
+        <ul>
+          <li><b>DB</b>: añadir <code>'partial'</code> al enum <code>assignment_status</code> + columna <code>completeness</code> en <code>workout_executions</code>. Explícito, no derivado (los bloques no alcanzados no tienen fila).</li>
+          <li><b>Recorder</b> (<code>record-workout-execution.ts:130</code>): <code>status = completeness === 'full' ? 'completed' : 'partial'</code>. <b>Nunca</b> <code>completed</code> para un parcial.</li>
+          <li><b>iOS</b>: separar el verbo. <code>finish()</code> = TERMINAR (fija <code>completeness</code>). Nuevo <code>discard()</code> = ABANDONAR (no crea ejecución, no marca, vuelve a <code>onClose</code>).</li>
+          <li><b>Plan/Hoy</b>: renderizar <code>partial</code> distinto de <code>completed</code> y de <code>scheduled</code>.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phone"><div class="scr">
+      <div class="tmr-top" style="border-bottom:1px solid var(--border);padding-bottom:12px"><span class="ctl back" style="color:var(--muted)">&#8249;</span><span class="mid"><div class="ph">Mi plan</div><div class="sg">Semana 3 · Jue</div></span><span class="ix"></span></div>
+      <div style="padding-top:12px">
+        <div class="planrow">
+          <span class="mk done">&#10003;</span>
+          <span class="pt"><span class="pn">Fuerza · Lower</span><span class="ps">5 de 5 bloques · RPE 8</span></span>
+          <span class="ptag done">Hecho</span>
+        </div>
+        <div class="planrow">
+          <span class="mk part">&#189;</span>
+          <span class="pt"><span class="pn">Metcon · EMOM 12</span><span class="ps">2 de 3 bloques · terminado antes</span></span>
+          <span class="ptag part">Parcial</span>
+        </div>
+        <div class="planrow">
+          <span class="mk pend">&#10003;</span>
+          <span class="pt"><span class="pn">Rodaje Z2 · 40'</span><span class="ps">aún sin empezar</span></span>
+          <span class="ptag pend">Pendiente</span>
+        </div>
+      </div>
+      <div class="caption" style="margin-top:14px">Tres marcas distintas. Un descarte deja la fila como la de abajo: pendiente, sin check.</div>
+    </div></div>
+  </div>
+
+
+  <!-- ════════════ E · REFERENCE ════════════ -->
+  <h2 id="apps"><span class="surf">E</span>Qué hacen las mejores apps (no reinventamos)</h2>
+  <p class="lead">El patrón dominante en las 10 apps revisadas es de <b>dos niveles</b>: una capa reversible PAUSA/REANUDAR que no compromete nada, sobre un cierre terminal que fuerza una decisión explícita <b>Guardar vs Descartar</b>. Las mejores añaden un <b>candado de completitud</b> para que un entreno con cero trabajo no pueda guardarse como "hecho". Eso es exactamente lo que copiamos.</p>
+
+  <div class="grid2">
+    <div class="note ex">
+      <div class="h"><span class="ic">&#9873;</span>Hevy — el modelo más limpio para nuestro caso</div>
+      <p>A mitad del entreno la acción es <b>"Discard Workout"</b> (abandonar, no guarda nada). <b>"Finish"</b> está <b>bloqueado</b>: solo puedes terminar si <b>≥1 serie está marcada como completa</b>, y guarda solo lo que hiciste. Un entreno vacío <b>no tiene camino de Finish</b> — su única salida es descartar, sin rastro. Es el anti-"falso hecho" exacto que adoptamos.</p>
+      <p style="font-size:11.5px;color:#999"><a href="https://www.hevyapp.com/features/start-empty-workout/">hevyapp.com — empty workout</a> · <a href="https://help.hevyapp.com/hc/en-us/articles/35361530647959-How-to-Log-a-Workout-in-the-Hevy-App-Step-by-Step-Guide">help — log a workout</a></p>
+    </div>
+    <div class="note ex">
+      <div class="h"><span class="ic">&#9873;</span>Garmin — el prompt más explícito + red de seguridad</div>
+      <p>Al parar ofrece <b>Resume · Save · Discard · Resume Later</b>. Descartado no es recuperable. Red de seguridad: si paras y te vas, <b>auto-guarda a los 30 min</b> en vez de tirar datos en silencio — sesga a no perder esfuerzo real. Usamos esa idea <b>solo por encima</b> del candado de completitud: nunca auto-guardar una sesión vacía.</p>
+      <p style="font-size:11.5px;color:#999"><a href="https://www8.garmin.com/manuals/webhelp/GUID-C001C335-A8EC-4A41-AB0E-BAC434259F92/EN-US/GUID-996CC115-E86F-4FA9-8C13-1405A9A7485F.html">garmin — stopping an activity</a> · <a href="https://support.garmin.com/en-US/?faq=RmoM73wWYr8uyivdK5mrG7">recover discarded</a></p>
+    </div>
+    <div class="note ex">
+      <div class="h"><span class="ic">&#9873;</span>Strava · Apple — Pausa reversible, fin binario</div>
+      <p><b>Strava</b>: Pause/Resume libre; <b>Finish</b> → pantalla de guardar con <b>Save Activity</b> / <b>Discard Activity</b> (confirmado, "no hay forma de recuperarlo"). <b>Apple Workout</b>: Pausa es el único estado reversible; al pulsar End no se puede reanudar → <b>Save / Discard</b> binario. Confirma la separación reversible/terminal que ponemos en la hoja.</p>
+      <p style="font-size:11.5px;color:#999"><a href="https://support.strava.com/hc/en-us/articles/216917397-Recording-an-Activity">strava — recording</a> · <a href="https://support.apple.com/guide/watch/pause-and-resume-a-fitness-workout-apd1566795b6/8.0/watchos/8.0">apple — pause/resume</a></p>
+    </div>
+    <div class="note ex">
+      <div class="h"><span class="ic">&#9873;</span>WHOOP · Strong — descarte granular + aviso de guardar la navegación</div>
+      <p><b>WHOOP Strength</b>: "Discard set" descarta una serie empezada por error sin matar la sesión (≈ nuestro "Terminar bloque"). <b>Strong</b>: "Cancel Workout" (abandonar) vs "Finish Workout" (guardar). WHOOP también es un <b>aviso</b>: tienen un bug donde navegar atrás borra la sesión sin querer — la navegación destructiva <b>debe estar protegida</b> (por eso confirmamos el descarte).</p>
+      <p style="font-size:11.5px;color:#999"><a href="https://support.whoop.com/s/article/Track-Muscular-Load-with-Strength-Trainer">whoop — strength trainer</a> · <a href="https://www.community.whoop.com/t/strength-trainer-ui-bug-accidental-session-discard/14751">whoop — bug de descarte</a> · <a href="https://help.strongapp.io/article/224-workout-on-apple-watch">strong</a></p>
+    </div>
+  </div>
+
+  <div class="note act" style="margin-top:14px">
+    <div class="h"><span class="ic">&#9633;</span>El patrón estándar que copiamos — 6 reglas</div>
+    <ul>
+      <li><span class="k">Separar reversible de terminal.</span> Pausa/Reanudar nunca compromete ni pregunta; solo Terminar/Salir dispara la decisión Guardar-vs-Descartar.</li>
+      <li><span class="k">Al salir de una sesión con trabajo, 3 opciones, no 2:</span> Seguir entrenando (default, lo más prominente) · Guardar y salir · Descartar (rojo).</li>
+      <li><span class="k">Descartar es destructivo + confirmado + permanente.</span> Segundo "¿seguro?", botón rojo, "no se puede deshacer".</li>
+      <li><span class="k">Candado de completitud (regla Hevy):</span> sin ≥1 unidad registrada NO hay camino de Guardar — la única salida es Descartar. Esto es lo que impide marcar "hecho" lo que no se hizo.</li>
+      <li><span class="k">Guardar solo lo realmente hecho</span> (Hevy persiste solo las series completas). La sesión refleja trabajo real, no la prescripción.</li>
+      <li><span class="k">Red de seguridad opcional (Garmin):</span> stash/auto-guardar al abandonar app — solo por encima del candado, nunca una sesión vacía.</li>
+    </ul>
+  </div>
+  <p style="font-size:12px;color:#999;margin-top:8px">No-aplican como plantilla: <b>Peloton</b> (salir a veces pone a cero las métricas — modelo débil) y <b>SugarWOD/Wodify</b> (son de registrar score, no de sesión en vivo — nada que descartar; nada se graba hasta que envías el score). Su lección coincide: nada se registra hasta una acción deliberada.</p>
+
+
+  <!-- ════════════ F · DECISIONS ════════════ -->
+  <h2 id="decisions"><span class="surf">F</span>Decisiones para Alex — antes de construir</h2>
+  <p class="lead">El resto del diseño ya está fijado por el dominio (honestidad, separación de verbos, el candado de completitud) y no necesita validación. Esto es lo subjetivo o lo que toca metodología:</p>
+
+  <div class="decision">
+    <div class="q">1 · "Terminar y guardar" parcial — ¿pedimos RPE/notas, o guardado directo?</div>
+    <div class="ctx">Un parcial honesto sigue siendo dato útil para Pablo. Pedir RPE da contexto ("paré porque estaba reventado") pero añade un paso a alguien que ya está saliendo.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span>Mini-resumen parcial con <b>RPE opcional + 1 línea de nota</b> ("¿por qué paraste?"), saltable. Da a Pablo el porqué sin bloquear la salida.</div>
+      <div class="opt">Guardado directo sin resumen (más rápido, menos contexto para el coach).</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">2 · Umbral de <code>hasRecordedWork</code> — ¿qué cuenta como "trabajo hecho"?</div>
+    <div class="ctx">Define cuándo aparece "Terminar". Propongo: ≥1 segmento de trabajo cerrado / serie confirmada / ronda ≥1, <b>excluyendo</b> calentamiento y vuelta a la calma (un tap en "calentamiento hecho" no debe forzar un parcial falso ni bloquear el descarte limpio).</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span>Excluir estructural (warmup/cooldown). Solo trabajo principal activa el camino de Terminar. Es lo coherente con el registro honesto.</div>
+      <div class="opt">Cualquier interacción cuenta (más simple, pero genera parciales triviales de solo-calentamiento).</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">3 · Red de seguridad estilo Garmin — ¿guardar borrador si la app se va a segundo plano?</div>
+    <div class="ctx">Garmin auto-guarda a los 30 min para no perder esfuerzo real. Nosotros ya persistimos un snapshot local (recuperación tras crash). La pregunta es si, sobre el candado, ofrecemos "reanudar más tarde".</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span>Mantener el snapshot de recuperación (ya existe) y, en v1, <b>no</b> auto-guardar como ejecución. Reanudar-más-tarde como follow-up. Nunca auto-guardar una sesión vacía.</div>
+      <div class="opt">Añadir "Reanudar más tarde" explícito en la hoja desde v1 (4ª opción, estilo Garmin).</div>
+    </div>
+  </div>
+
+  <div class="decision">
+    <div class="q">4 · Marca visual del parcial en el plan — ¿½ ámbar, anillo a medias, o barra de progreso?</div>
+    <div class="ctx">Estética pura. Tiene que leerse distinto del check lleno (hecho) y del vacío (pendiente) de un vistazo. Arriba lo mockeé como ½ ámbar.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">Reco</span><b>½ ámbar</b> (medio relleno) + etiqueta "Parcial" + "N de M bloques". Inequívoco y consistente con los tokens de estado.</div>
+      <div class="opt">Anillo a medias (estilo Apple) o mini barra de progreso bajo el título.</div>
+    </div>
+  </div>
+
+
+  <footer>
+    FAHYBRID · Concepto "Salir del entreno: Abandonar (descartar) vs Terminar (guardar)" · doc de sign-off (no es código).
+    El bug, localizado: <code>ActiveWorkoutView.swift:667</code> "Abandonar" === <code>finish()</code> === resumen === GUARDAR === <code>markCompleted</code> + <code>status='completed'</code>.
+    Fix: separar el verbo (<code>discard()</code> vs <code>finish()</code>), candado de completitud (<code>hasRecordedWork</code>), enum <code>partial</code> + <code>completeness</code> (aditivos, honestos — mig 0088).
+    Mockups oscuros porque la app es oscura; doc claro. Mismo lenguaje visual que <code>diseno-timers-fase2.html</code>.
+  </footer>
+
+</div>
+</body>
+</html>
