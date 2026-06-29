@@ -1,26 +1,40 @@
 import SwiftUI
 
-// Inicio tab root — "qué toca hoy" without noise. Faithful rebuild of the
-// handoff Inicio (design_handoff_fhp/App Atleta - Flujo.dc.html → `inicio`)
-// using our Theme tokens + Fabrik orange (the handoff's brand red maps to our
-// orange; partner/ergo blue stays Theme.Color.info). Every value is REAL data
-// or an honest empty state — nothing fabricated.
+// Inicio tab root — "CAMINO A LA CARRERA" (variante B: name as protagonist). The
+// home is a VERDICT toward the race, not a calendar: it shows trajectory + STATE
+// + proof + one action, never the future / week / session-selection (that's the
+// Plan tab) and never duplicates the Plan's "Foco de la semana".
 //
-// Layout (top → bottom): header (wordmark + bell w/ unread dot + athlete
-// avatar) → greeting (orange date kicker + "Hola, {name}") → AM hero session →
-// PM compact session (only when today has a second session) → readiness + race
-// tiles → step count → coach-note row.
-// This view owns its own data load (me + readiness + plan week + chat thread)
-// and the Empezar / Check-in sheets that used to live on the Today tab.
+// Layout (top → bottom):
+//   header  → greeting ("Lunes 29 · Hola, {name}", the name big)
+//   1. CAMINO A LA CARRERA — target race + "N días" + goal time ("sub 59 min") +
+//      "{fase} · semana N de M" + a position bar. The phase lives HERE (inside the
+//      trajectory), never dangling off the greeting. The peak/objective race.
+//   2. ¿CÓMO LLEGAS HOY? — readiness clearance: 0–100 score + plain read + a mini
+//      breakdown of the signals feeding it (check-in / HRV / sueño / FC reposo).
+//   3. TU PROGRESO · CARRERA — running is half of the hybrid, so progress leads
+//      with the run: threshold pace (VDOT), the 5 km trend, best 1 km + 7-day
+//      volume, plus the strength 1RM as the other half.
+//   4. ENTRENO DE HOY — start TODAY's session (a single action card, not a menu).
+//   5. PASOS — today's HealthKit step count (all-day movement).
+//   6. PROYECCIÓN (puerta honesta) — where a finish projection would go. The model
+//      doesn't exist yet, so we invite a HYROX simulation instead of faking a number.
+//
+// Every value is REAL data or an honest empty state — nothing fabricated. No
+// projected finish time (no model exists yet), no week strip / session picker, no
+// standalone focus line.
+//
+// This view owns its own data load (via AppDataStore, cache-first / SWR) and the
+// Empezar / Check-in / target-race sheets.
 struct InicioView: View {
     /// Session bearer, provided by AppShell. Falls back to the persisted token.
     var bearer: String? = nil
-    /// Lets the header / tiles / coach note route the shell to another tab.
+    /// Lets the header / anchor / cards route the shell to another tab.
     var onOpenTab: ((AppTab) -> Void)? = nil
 
     @State private var showWorkout: Bool = false
     @State private var showCheckin: Bool = false
-    // Presents the target-race picker from the empty race tile.
+    // Presents the target-race picker from the empty race anchor.
     @State private var showBuscarCarrera: Bool = false
 
     // Which of today's sessions "Empezar" launches (the hero's session).
@@ -38,21 +52,17 @@ struct InicioView: View {
     @State private var stepsReading: HealthKitStepsReader.Reading? = nil
 
     // ── Shared data: read live from the injected AppDataStore (cache-first/SWR) ──
-    // These derive from the store's slices, so switching tabs renders instantly
-    // from memory — no per-view re-fetch, no spinner; the store revalidates in the
-    // background. The derivation helpers (sessionsForToday, …) are unchanged;
-    // only their input now comes from the store.
     @Environment(AppDataStore.self) private var store
 
     // Athlete identity (greeting + avatar). Nil until /api/auth/me resolves.
     private var identity: AthleteIdentity? { store.identity.value }
 
-    /// The current week payload — the single source for today's sessions, macro
-    /// context, the race countdown and the week counts below.
+    /// The current week payload — source for today's sessions + the target race.
     private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
 
     private var readinessScore: Int? { store.readiness.value?.score }
     private var readinessDelta: Int? { store.readiness.value?.delta7d }
+    private var readinessBreakdown: ReadinessBreakdown? { store.readiness.value?.breakdown }
 
     // Today's still-active sessions, in slot order (AM hero, then PM compact).
     private var todaySessions: [AthleteWeekDaySession] {
@@ -62,38 +72,42 @@ struct InicioView: View {
     private var nextWorkout: NextWorkout? {
         planWeek.flatMap(PlanService.nextWorkout)
     }
-    // Whether the athlete has ANY published session this week (across all days) —
-    // distinguishes "no plan at all" from "has a plan but nothing left today".
     private var hasPlan: Bool { planWeek.map(planExists) ?? false }
-    // Whether TODAY is genuinely a rest day vs a training day already completed.
     private var todayIsRest: Bool { planWeek.map(isTodayRest) ?? false }
-    // The GOAL race the plan peaks for → primary countdown tile.
+    // The GOAL race the plan peaks for → the Camino anchor. NOT the nearest tune-up
+    // (that lives in the Carreras tab); the journey is toward the objective.
     private var targetRace: AthleteNextRace? { planWeek?.targetRace }
-    // The chronologically next race (intermediate or same as target).
-    private var nextRace: AthleteNextRace? { planWeek?.nextRace }
 
-    // Coach weekly context for the focus/phase line. The PHASE name lives on
-    // `week.microcicloName` (the field that actually carries it server-side);
-    // `macroSummary.block` is intentionally null for athletes by design. The
-    // "Foco de la semana" is `week.focus`. Both are already in the payload and
-    // were simply not rendered before — no new data. AGNOSTIC: we show whatever
-    // the coach named the phase, never a hardcoded periodization vocabulary, and
-    // never the internal word "microciclo" as a label.
-    private var phaseName: String? {
-        let t = planWeek?.week.microcicloName?.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// The coach's current periodization label — "{fase} · semana N de M" — already
+    /// composed server-side (AGNOSTIC: whatever the coach named the phase). This is
+    /// the ONLY place the phase name surfaces on Inicio (inside the race anchor).
+    private var macroWeekLabel: String? {
+        let t = store.macroProgress.value?.macro.weekLabel?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return (t?.isEmpty == false) ? t : nil
     }
-    private var weekFocus: String? {
-        let t = planWeek?.week.focus?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (t?.isEmpty == false) ? t : nil
+
+    // ── "Tu progreso · carrera" inputs ──────────────────────────────────────────
+    // The running deep-dive bundle (live /running-analysis) + the strength 1RM.
+    private var running: RunningAnalysis? { store.runningAnalysis.value }
+    private var thresholdPace: String? { nonEmpty(running?.threshold_pace) }   // "4:16"
+    private var vdot: String? { nonEmpty(running?.vo2_estimate) }              // "49.9"
+    private var best1k: String? { nonEmpty(running?.best_1k) }                 // "3:50"
+    private var volume7d: String? { nonEmpty(running?.volume_7d_km) }          // "21.3 km"
+    private var fiveKTrend: [FiveKTrendPoint] { running?.five_k_trend ?? [] }
+
+    /// The lift to glance on the home: the first in canonical order the athlete has
+    /// (back squat → deadlift → …). The full list lives in Perfil → Mi fuerza.
+    private var topLift: StrengthMaxProfile? {
+        let maxes = store.strengthMaxes.value ?? []
+        for slug in StrengthService.STRENGTH_LIFTS.map({ $0.slug }) {
+            if let m = maxes.first(where: { $0.exerciseSlug == slug }) { return m }
+        }
+        return maxes.first
     }
-    /// Render the focus/phase line only when the coach actually set a phase name
-    /// or a focus — never an empty bar.
-    private var hasFocusLine: Bool { phaseName != nil || weekFocus != nil }
-    // Unread coach messages → bell dot + coach-note row dot. 0 when none.
+
+    // Unread coach messages → bell dot. 0 when none.
     private var unreadCount: Int { store.unreadCount }
-    // The athlete's coach thread — latest coach message preview + voice note.
-    private var coachThread: ChatThreadDTO? { store.chatThread.value }
     // Dobles partner training snapshot — only for a coach-created doubles_pair.
     private var partner: PartnerInfo? {
         let env = store.partner.value
@@ -112,17 +126,14 @@ struct InicioView: View {
                     .staggerReveal(revealed, index: 0)
                 greeting
                     .staggerReveal(revealed, index: 1)
-                if hasFocusLine {
-                    // Coach context: the week's PHASE name + "Foco de la semana".
-                    focusPhaseLine
-                        .staggerReveal(revealed, index: 2)
-                }
-                if checkinPending {
-                    checkinRow
-                        .staggerReveal(revealed, index: 3)
-                }
-                heroSection
+                raceAnchorCard
+                    .staggerReveal(revealed, index: 2)
+                readinessCard
+                    .staggerReveal(revealed, index: 3)
+                progressCard
                     .staggerReveal(revealed, index: 4)
+                heroSection
+                    .staggerReveal(revealed, index: 5)
                 if let pm = pmSession {
                     SessionCompactRow(
                         slot: slotFor(pm),
@@ -131,22 +142,15 @@ struct InicioView: View {
                         modality: pm.modality,
                         onTap: { onOpenTab?(.plan) }
                     )
-                    .staggerReveal(revealed, index: 5)
+                    .staggerReveal(revealed, index: 6)
                 }
                 if let partner {
                     PartnerTodayPanel(partner: partner)
-                        .staggerReveal(revealed, index: 6)
+                        .staggerReveal(revealed, index: 7)
                 }
-                // Readiness (always its OWN slot) + the race countdown, side by side.
-                tilesRow
-                    .staggerReveal(revealed, index: 7)
-                // All-day movement beyond training: today's step count. A slim stat
-                // row that sits with the daily-signal cluster (readiness = recovery,
-                // steps = movement). Display-local from HealthKit, with honest
-                // connect / no-data states — never a fabricated number.
                 stepsRow
                     .staggerReveal(revealed, index: 8)
-                coachNoteRow
+                projectionGate
                     .staggerReveal(revealed, index: 9)
             }
             .padding(.horizontal, Theme.Spacing.xl)
@@ -154,19 +158,13 @@ struct InicioView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .fullScreenCover(isPresented: $showWorkout) {
-            // EMPEZAR runs the real prescribed workout via WorkoutContainer,
-            // matching what the athlete sees in Plan. When no assignment exists
-            // the id is nil and the container degrades to a title-only plan.
+            // EMPEZAR runs the real prescribed workout via WorkoutContainer.
             WorkoutContainer(
                 assignmentId: startAssignmentId,
                 fallbackTitle: startFallbackTitle,
                 bearer: effectiveBearer,
                 onClose: { showWorkout = false },
                 onCompleted: { _ in
-                    // WorkoutContainer already records the optimistic completion in
-                    // CompletedAssignmentsStore, so the store-derived lists drop the
-                    // finished session immediately; force-refresh the plan slices to
-                    // reconcile with the server (and update every other tab too).
                     Task { await store.planMutated() }
                 }
             )
@@ -177,7 +175,7 @@ struct InicioView: View {
                 onSubmitted: { _, _ in
                     checkinPending = false
                     showCheckin = false
-                    // A check-in can change today's readiness — pull it fresh.
+                    // A check-in changes today's readiness — pull it fresh.
                     Task { await store.refreshReadiness(force: true) }
                 },
                 onSkipped: {
@@ -188,7 +186,7 @@ struct InicioView: View {
         }
         .sheet(isPresented: $showBuscarCarrera) {
             BuscarCarreraSheet(bearer: effectiveBearer) {
-                // A target was fixed → refresh the plan so the countdown appears.
+                // A target was fixed → refresh the plan so the anchor appears.
                 Task { await store.planMutated() }
             }
         }
@@ -196,9 +194,6 @@ struct InicioView: View {
             sessionBearer = bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
             checkinPending = CheckinStore.isPending()
             // SUAVE: auto-open the check-in only the FIRST time per local day.
-            // After a manual dismiss (no complete/skip) the banner stays visible
-            // but we never re-present automatically — the athlete reopens it by
-            // tapping the banner. Completing/skipping suppresses it until tomorrow.
             if checkinPending && !CheckinStore.hasAutoPresentedToday() {
                 CheckinStore.markAutoPresented()
                 showCheckin = true
@@ -208,113 +203,19 @@ struct InicioView: View {
             DispatchQueue.main.async { revealed = true }
         }
         .task(id: effectiveBearer) {
-            // Cache-first: the body already renders from the store's slices; this
-            // just scopes the session and revalidates Inicio's slices in the
-            // background (throttled + de-duped, so a tab switch won't refetch).
             store.activate(bearer: effectiveBearer)
             await store.loadHome()
             pushNextWorkoutToWatch()
         }
         .task {
-            // All-day step count is device-local (HealthKit), not bearer-scoped —
-            // read it on appear, independent of the API store's revalidation.
+            // All-day step count is device-local (HealthKit), not bearer-scoped.
             stepsReading = await HealthKitStepsReader.todaySteps()
         }
-    }
-
-    // MARK: - Derivations
-    //
-    // Pure projections over the store's slices (used by the computed properties
-    // above). The loading itself lives in AppDataStore now.
-
-    /// Whether a plan is published: at least one day this week carries a real
-    /// assignment. A week of pure rest/empty days for a brand-new athlete reads
-    /// as "no plan yet" — matching the Plan tab's `hasAnySession`.
-    private func planExists(_ resp: AthletePlanWeekResponse) -> Bool {
-        resp.week.days.contains { day in
-            day.sessions.contains { !$0.assignmentId.isEmpty }
-        }
-    }
-
-    /// Whether TODAY has no assigned session at all (a genuine rest day), as
-    /// opposed to a training day whose session(s) are merely done. Used only to
-    /// pick the rest-card copy; if today isn't found it reads as a rest day.
-    private func isTodayRest(_ resp: AthletePlanWeekResponse) -> Bool {
-        guard let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso }) else {
-            return true
-        }
-        return today.sessions.allSatisfy { $0.assignmentId.isEmpty }
-    }
-
-    /// Today's still-active sessions, in slot order (AM before PM). A session
-    /// already marked completed (server or local optimistic) is dropped so the
-    /// hero only ever shows what's left to do today.
-    private func sessionsForToday(_ resp: AthletePlanWeekResponse) -> [AthleteWeekDaySession] {
-        let todayIso = resp.week.todayIso
-        guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
-        let active = today.sessions.filter {
-            $0.status.lowercased() != "completed"
-                && !CompletedAssignmentsStore.isCompleted($0.assignmentId)
-        }
-        return active.sorted { slotRank($0.slot) < slotRank($1.slot) }
-    }
-
-    /// AM sorts before PM; unknown slots sort last but keep input order via index.
-    private func slotRank(_ slot: String) -> Int {
-        switch slot.lowercased() {
-        case "am": return 0
-        case "pm": return 1
-        default:   return 2
-        }
-    }
-
-    private func pushNextWorkoutToWatch() {
-        WatchConnectivityiOSService.shared.activate()
-        // Prefer today's first active session; else the derived next workout.
-        guard let id = heroAssignmentId, let title = heroTitle else {
-            WatchConnectivityiOSService.shared.pushWorkoutForToday(nil)
-            return
-        }
-        let slot = heroSlotRaw
-        let payload = WatchWorkoutPayload(
-            id: id,
-            title: title,
-            focus: slot.isEmpty ? nil : slot.uppercased(),
-            duration_minutes: 60, // refined per-assignment once detail endpoint lands
-            intensity_label: nil,
-            activity_kind: "mixed"
-        )
-        WatchConnectivityiOSService.shared.pushWorkoutForToday(payload)
-    }
-
-    // MARK: - Hero / PM resolution
-    //
-    // The hero is today's FIRST active session (usually AM, but honestly shows
-    // PM if that's all that's left). When today has no sessions we fall back to
-    // the next future session. The PM compact row only appears when there's a
-    // genuine SECOND session today — never invented.
-
-    private var heroSession: AthleteWeekDaySession? { todaySessions.first }
-    private var pmSession: AthleteWeekDaySession? {
-        todaySessions.count > 1 ? todaySessions[1] : nil
-    }
-
-    private var heroAssignmentId: String? {
-        heroSession?.assignmentId ?? nextWorkout?.assignmentId
-    }
-    private var heroTitle: String? {
-        heroSession?.title ?? nextWorkout?.title
-    }
-    private var heroSlotRaw: String {
-        heroSession?.slot ?? nextWorkout?.slot ?? ""
     }
 
     // MARK: - Header
 
     private var header: some View {
-        // Brand logo CENTERED — the home is the only surface that carries it;
-        // other tabs lead with their own title. The bell + avatar actions pin to
-        // the trailing edge, overlaid on the centered logo.
         ZStack {
             Wordmark(size: 26)
             HStack(spacing: 12) {
@@ -363,9 +264,9 @@ struct InicioView: View {
 
     // MARK: - Greeting
     //
-    // Orange date kicker (handoff uses red — we use orange) + "Hola, {name}".
-    // Name comes from /api/auth/me; first word only. No streak chip — there is
-    // no backend streak signal (BACKEND GAP), so we omit it rather than invent.
+    // Variante B: the NAME is the protagonist. Orange date kicker ("Lunes 29") +
+    // "Hola, {name}" big. Name comes from /api/auth/me; first word only. When the
+    // name is missing we fall back to a complete, time-aware greeting.
 
     private var greeting: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -379,9 +280,6 @@ struct InicioView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "Hola, Ana" — first word of fullName. When the name is missing (still
-    /// loading, or an athlete with no name on file, e.g. the demo account) we
-    /// fall back to a complete, time-aware greeting instead of a bare "Hola".
     private var greetingName: String {
         guard let name = identity?.fullName.split(separator: " ").first.map(String.init),
               !name.isEmpty else {
@@ -390,68 +288,11 @@ struct InicioView: View {
         return "Hola, \(name)"
     }
 
-    /// "Buenos días" / "Buenas tardes" / "Buenas noches" by local hour — the
-    /// nameless fallback so the hero greeting never renders incomplete.
     private var timeOfDayGreeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
         case 6..<13:  return "Buenos días"
         case 13..<21: return "Buenas tardes"
         default:      return "Buenas noches"
-        }
-    }
-
-    // MARK: - Coach focus / phase line
-    //
-    // A single warm line under the greeting carrying the week's COACH context:
-    // the periodization phase name + the "Foco de la semana". Both are real
-    // coach DATA already in the payload (week.microcicloName + week.focus) — we
-    // just surface them. The phase reads in the brand-orange text role (where
-    // you are in the plan); the focus in calm muted (what this week is about).
-    // AGNOSTIC: the phase is whatever the coach named it; we add no periodization
-    // vocabulary and never expose the internal "microciclo" label.
-    private var focusPhaseLine: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Image(systemName: "scope")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.accentText)
-            // Phase + focus combined: "{Fase} · Foco: {foco}". Each segment is
-            // included only when present, so a week with just one still reads well.
-            (
-                phaseText
-                + focusText
-            )
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(focusPhaseAxLabel)
-    }
-
-    /// The phase-name run of the focus line (brand-orange text), empty when none.
-    private var phaseText: Text {
-        guard let phase = phaseName else { return Text("") }
-        return Text(phase)
-            .font(.system(size: 12.5, weight: .semibold))
-            .foregroundColor(Theme.Color.accentText)
-    }
-
-    /// The "· Foco: {foco}" run (muted), empty when no focus. Drops the leading
-    /// separator when there's no phase before it.
-    private var focusText: Text {
-        guard let focus = weekFocus else { return Text("") }
-        let prefix = phaseName == nil ? "Foco: " : " · Foco: "
-        return Text(prefix + focus)
-            .font(.system(size: 12.5, weight: .regular))
-            .foregroundColor(Theme.Color.muted)
-    }
-
-    private var focusPhaseAxLabel: String {
-        switch (phaseName, weekFocus) {
-        case let (phase?, focus?): return "\(phase). Foco de la semana: \(focus)"
-        case let (phase?, nil):    return phase
-        case let (nil, focus?):    return "Foco de la semana: \(focus)"
-        default:                   return ""
         }
     }
 
@@ -464,15 +305,535 @@ struct InicioView: View {
         return raw.prefix(1).uppercased() + raw.dropFirst()
     }
 
-    // MARK: - Hero session
+    // MARK: - 1 · Camino a la carrera (trajectory anchor)
+    //
+    // The emotional lead: where the athlete is going (the OBJECTIVE race), how far
+    // out, the goal time, where they are in the plan ("{fase} · semana N de M") and
+    // a subtle position bar through the current microciclo's weeks — POSITION in the
+    // block, not a calendar of upcoming sessions. The phase lives HERE, with
+    // structure — never dangling off the greeting.
+
+    @ViewBuilder
+    private var raceAnchorCard: some View {
+        if let race = targetRace, let days = race.daysUntil {
+            let d = max(0, days)
+            Button {
+                Haptics.light()
+                onOpenTab?(.carreras)
+            } label: {
+                CardSurface(padding: 18, topAccent: true, elevated: true) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            LabelText(text: "Camino a la carrera")
+                            Spacer(minLength: 8)
+                            Image(systemName: "flag.checkered")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Theme.Color.accentText)
+                        }
+                        Text(race.name)
+                            .scaledFont(22, weight: .heavy, relativeTo: .title2, italic: true)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        // Countdown — the journey distance — with the goal time pinned right.
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("\(d)")
+                                .font(.system(size: 44, weight: .heavy, design: .monospaced).monospacedDigit())
+                                .foregroundStyle(Theme.Color.accentText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Text(d == 1 ? "día" : "días")
+                                .scaledFont(14, relativeTo: .subheadline)
+                                .foregroundStyle(Theme.Color.muted)
+                            Spacer(minLength: 8)
+                            if let goal = goalLabel(race) {
+                                goalPill(goal)
+                            }
+                        }
+                        // Phase + position within the plan (agnostic coach data).
+                        if let label = macroWeekLabel {
+                            Text(label)
+                                .scaledFont(12.5, weight: .semibold, relativeTo: .caption)
+                                .foregroundStyle(Theme.Color.muted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            if let pos = weekPosition {
+                                weekPositionBar(n: pos.n, m: pos.m)
+                            }
+                        }
+                        // Proximity tone (objective, agnostic — keyed off days-to-race).
+                        Text(raceProximityCopy(daysUntil: d))
+                            .scaledFont(11, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.faint)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(raceAnchorAxLabel(race: race, days: d))
+            .accessibilityAddTraits(.isButton)
+        } else {
+            // No objective fixed → invite the athlete to pick one. Tapping opens the
+            // race picker; on success the plan refreshes and the anchor appears.
+            Button {
+                Haptics.light()
+                showBuscarCarrera = true
+            } label: {
+                CardSurface(padding: 18, topAccent: true) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        LabelText(text: "Camino a la carrera")
+                        Text("Elige tu carrera objetivo")
+                            .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Fíjala y tu plan tendrá un destino: cuenta atrás, fase y objetivo de tiempo.")
+                            .scaledFont(12, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Busca tu carrera")
+                                .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                        }
+                        .foregroundStyle(Theme.Color.accentText)
+                        .padding(.top, 2)
+                    }
+                }
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Elige tu carrera objetivo, busca tu carrera")
+            .accessibilityAddTraits(.isButton)
+        }
+    }
+
+    /// "Objetivo · sub 59 min" capsule.
+    private func goalPill(_ goal: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "target")
+                .font(.system(size: 9, weight: .bold))
+            Text("Objetivo · \(goal)")
+                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+        }
+        .foregroundStyle(Theme.Color.accentText)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(Theme.Color.surfaceSunken)
+        .clipShape(Capsule())
+        .accessibilityHidden(true)
+    }
+
+    /// A row of M segments with the first N lit — position within the microciclo.
+    private func weekPositionBar(n: Int, m: Int) -> some View {
+        HStack(spacing: 4) {
+            ForEach(0..<m, id: \.self) { i in
+                Capsule()
+                    .fill(i < n ? Theme.Color.accent : Theme.Color.hairlineStrong)
+                    .frame(height: 4)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// Goal time as a goal ceiling: "sub 59 min" for whole minutes, else exact
+    /// MM:SS / H:MM:SS. Nil when no goal is set. Never fabricated.
+    private func goalLabel(_ race: AthleteNextRace) -> String? {
+        guard let plain = goalPlain(race) else { return nil }
+        // Whole-minute goals read as a ceiling ("sub 59 min"); exact times stay exact.
+        return plain.hasSuffix(" min") ? "sub \(plain)" : plain
+    }
+
+    /// The bare goal time — "59 min" for whole minutes, else "MM:SS" / "H:MM:SS".
+    /// Used in the projection-gate sentence ("…baja de 59 min"). Nil when unset.
+    private func goalPlain(_ race: AthleteNextRace) -> String? {
+        guard let s = race.goalTimeSeconds, s > 0 else { return nil }
+        if s % 60 == 0 { return "\(s / 60) min" }
+        let h = s / 3600, mins = (s % 3600) / 60, secs = s % 60
+        return h > 0
+            ? String(format: "%d:%02d:%02d", h, mins, secs)
+            : String(format: "%d:%02d", mins, secs)
+    }
+
+    /// Extract (N, M) from the server "… semana N de M" label — the first two
+    /// integer runs after "semana". Robust to the phase name; nil when unparseable
+    /// (then the text line still communicates the position, just no bar).
+    private var weekPosition: (n: Int, m: Int)? {
+        guard let wl = macroWeekLabel?.lowercased(),
+              let r = wl.range(of: "semana") else { return nil }
+        let nums = wl[r.upperBound...]
+            .split(whereSeparator: { !$0.isNumber })
+            .compactMap { Int($0) }
+        guard nums.count >= 2, nums[1] > 0 else { return nil }
+        let m = nums[1]
+        return (min(max(nums[0], 1), m), m)
+    }
+
+    private func raceAnchorAxLabel(race: AthleteNextRace, days: Int) -> String {
+        var label = "Camino a \(race.name), faltan \(days) \(days == 1 ? "día" : "días")"
+        if let phase = macroWeekLabel { label += ". \(phase)" }
+        if let goal = goalLabel(race) { label += ". Objetivo \(goal)" }
+        return label
+    }
+
+    // Supporting line under the countdown, shifting tone as the race nears. Driven
+    // by days-to-race — the objective, agnostic signal — over standard windows.
+    private static let raceWeekDays = 7
+    private static let taperDays = 21
+
+    private func raceProximityCopy(daysUntil: Int) -> String {
+        if daysUntil <= Self.raceWeekDays { return "Confía en el trabajo hecho" }
+        if daysUntil <= Self.taperDays { return "Afina y descansa" }
+        return "Construyendo motor"
+    }
+
+    // MARK: - 2 · ¿Cómo llegas hoy? (readiness clearance)
+    //
+    // The athlete's single most actionable daily signal: the 0–100 readiness score
+    // (colored by recovery bucket), a one-line plain read of the body STATE (never a
+    // training prescription — that's coach methodology), the 7-day delta, and a mini
+    // breakdown of the signals feeding it. Honest empty / compute states.
+
+    @ViewBuilder
+    private var readinessCard: some View {
+        CardSurface(padding: Theme.Spacing.l) {
+            VStack(alignment: .leading, spacing: 14) {
+                LabelText(text: "¿Cómo llegas hoy?")
+                if let score = readinessScore {
+                    HStack(alignment: .center, spacing: 16) {
+                        RecoveryRing(value: score, size: 66, stroke: 7, color: readinessColor(score))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(readinessInterpretation(score))
+                                .scaledFont(16, weight: .semibold, relativeTo: .headline)
+                                .foregroundStyle(Theme.Color.foreground)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let delta = readinessDelta {
+                                HStack(spacing: 4) {
+                                    Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("\(abs(delta)) en 7 días")
+                                        .scaledFont(11, weight: .medium, relativeTo: .caption)
+                                }
+                                .foregroundStyle(delta >= 0 ? Theme.Color.ok : Theme.Color.warning)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    if readinessBreakdown != nil {
+                        breakdownChips
+                    }
+                } else if store.readiness.hasLoaded {
+                    // Loaded but no real signal yet (no check-in, no wearable).
+                    Button {
+                        guard checkinPending else { return }
+                        Haptics.light()
+                        showCheckin = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Sin datos aún")
+                                .scaledFont(16, weight: .semibold, relativeTo: .headline)
+                                .foregroundStyle(Theme.Color.foreground)
+                            Text(checkinPending
+                                 ? "Haz tu check-in matinal para verlo"
+                                 : "Conecta Apple Salud o haz tu check-in")
+                                .scaledFont(12, relativeTo: .caption)
+                                .foregroundStyle(checkinPending ? Theme.Color.accentText : Theme.Color.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressScaleStyle())
+                    .disabled(!checkinPending)
+                } else {
+                    // Not yet loaded (rare with cache-first) — stable placeholder.
+                    Text("—")
+                        .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
+                        .foregroundStyle(Theme.Color.faint)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(readinessAxLabel)
+    }
+
+    /// The signals that fed the score, each lit when present and dim when not — an
+    /// honest "what's behind your number" without inventing raw values we don't have.
+    private var breakdownChips: some View {
+        let b = readinessBreakdown
+        return HStack(spacing: 8) {
+            SignalChip(icon: "checkmark.circle.fill", text: "Check-in", active: b?.hasCheckin == true)
+            SignalChip(icon: "waveform.path.ecg", text: "HRV", active: b?.hasHRV == true)
+            SignalChip(
+                icon: "moon.zzz.fill",
+                text: sleepChipText(b),
+                active: b?.hasSleep == true
+            )
+            SignalChip(icon: "heart.fill", text: "FC reposo", active: b?.hasRestingHR == true)
+        }
+    }
+
+    /// "7.5 h" when we have the real sleep hours, else just the label.
+    private func sleepChipText(_ b: ReadinessBreakdown?) -> String {
+        if let h = b?.sleepHours, h > 0 {
+            let v = h == h.rounded() ? String(Int(h)) : String(format: "%.1f", h)
+            return "\(v) h"
+        }
+        return "Sueño"
+    }
+
+    private var readinessAxLabel: String {
+        guard let score = readinessScore else {
+            return store.readiness.hasLoaded
+                ? "Readiness sin datos aún. Haz tu check-in"
+                : "Readiness cargando"
+        }
+        var label = "Cómo llegas hoy: readiness \(score) de 100, \(readinessInterpretation(score))"
+        if let delta = readinessDelta {
+            label += ", \(delta >= 0 ? "sube" : "baja") \(abs(delta)) en 7 días"
+        }
+        return label
+    }
+
+    // Buckets MIRROR web/lib/dashboard/constants/readiness.ts (ok ≥67 · caution
+    // 45–66 · low <45) so the athlete's read can't drift from the coach's.
+    private static let readinessOkMin = 67
+    private static let readinessCautionMin = 45
+
+    private func readinessInterpretation(_ score: Int) -> String {
+        if score >= Self.readinessOkMin { return "Recuperado y listo" }
+        if score >= Self.readinessCautionMin { return "Recuperación parcial" }
+        return "Cuerpo cargado"
+    }
+
+    private func readinessColor(_ score: Int) -> Color {
+        if score >= Self.readinessOkMin { return Theme.Color.ok }
+        if score >= Self.readinessCautionMin { return Theme.Color.warning }
+        return Theme.Color.danger
+    }
+
+    // MARK: - 3 · Tu progreso · carrera (running leads the proof)
+    //
+    // Running is half of the hybrid, so the proof leads with the run: threshold
+    // pace (Daniels/VDOT off the 5 km), the 5 km test trend, best 1 km + 7-day
+    // volume, plus the strength 1RM as the other half. Every row is REAL data from
+    // /running-analysis + /benchmarks; each renders only when its signal exists, so
+    // a partial athlete reads honestly and nothing is fabricated.
+
+    /// Which rows have data — drives both presence and the hairlines between them.
+    private var showUmbral: Bool { thresholdPace != nil }
+    private var showFiveK: Bool { !fiveKTrend.isEmpty }
+    private var showBestVol: Bool { best1k != nil || volume7d != nil }
+    private var showStrength: Bool { topLift != nil }
+    private var hasProgress: Bool { showUmbral || showFiveK || showBestVol || showStrength }
+
+    @ViewBuilder
+    private var progressCard: some View {
+        if hasProgress {
+            CardSurface(padding: Theme.Spacing.l) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        LabelText(text: "Tu progreso · carrera")
+                        Spacer(minLength: 8)
+                        Image(systemName: "figure.run")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.Color.accentText)
+                    }
+                    if showUmbral { umbralRow }
+                    if showFiveK {
+                        if showUmbral { Hairline() }
+                        fiveKRow
+                    }
+                    if showBestVol {
+                        if showUmbral || showFiveK { Hairline() }
+                        bestVolRow
+                    }
+                    if showStrength, let lift = topLift {
+                        if showUmbral || showFiveK || showBestVol { Hairline() }
+                        strengthRow(lift)
+                    }
+                }
+            }
+            .accessibilityElement(children: .contain)
+        } else if store.runningAnalysis.hasLoaded && store.strengthMaxes.hasLoaded {
+            // Truly nothing yet — honest, quiet empty state.
+            CardSurface(padding: Theme.Spacing.l) {
+                VStack(alignment: .leading, spacing: 4) {
+                    LabelText(text: "Tu progreso · carrera")
+                    Text("Corre y registra tus tests para ver tu progreso")
+                        .scaledFont(13, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        // else: not loaded → render nothing (no empty flash); appears once loaded.
+    }
+
+    /// Threshold pace — the hero running metric (Daniels Z4 off the 5 km VDOT).
+    @ViewBuilder
+    private var umbralRow: some View {
+        if let pace = thresholdPace {
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    LabelText(text: "Ritmo umbral · Z4", size: 10)
+                    if let vdot {
+                        Text("VDOT \(esDecimal(vdot)) desde tu 5k")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
+                }
+                Spacer(minLength: 8)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    progressValue(pace, accent: true)
+                    Text("/km")
+                        .scaledFont(10.5, weight: .semibold, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Ritmo umbral \(pace) por kilómetro" + (vdot.map { ", VDOT \($0)" } ?? ""))
+        }
+    }
+
+    /// The 5 km test trend — "21:00 → 20:25 → 19:58", a sparkline, the latest time
+    /// and the total improvement delta. With a single test, just the latest time.
+    @ViewBuilder
+    private var fiveKRow: some View {
+        if let latest = fiveKTrend.last {
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    LabelText(text: "5 km · prueba", size: 10)
+                    if fiveKTrend.count >= 2 {
+                        Text(fiveKTrendString)
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                }
+                Spacer(minLength: 6)
+                if fiveKTrend.count >= 2 {
+                    // Lower seconds = faster: the sparkline descends as the time drops.
+                    TrendSparkline(
+                        values: fiveKTrend.map { Double($0.seconds) },
+                        color: Theme.Color.accentText
+                    )
+                    .frame(width: 52, height: 22)
+                    .accessibilityHidden(true)
+                }
+                VStack(alignment: .trailing, spacing: 2) {
+                    progressValue(latest.time, accent: false)
+                    if let delta = fiveKDeltaSeconds {
+                        fiveKDeltaBadge(delta)
+                    }
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(fiveKAxLabel)
+        }
+    }
+
+    /// The shown trend string, capped to the last 3 tests ("21:00 → 20:25 → 19:58").
+    private var fiveKTrendString: String {
+        fiveKTrend.suffix(3).map { $0.time }.joined(separator: " → ")
+    }
+
+    /// Latest minus first (whole journey): negative = faster = improvement. Nil with
+    /// fewer than two tests (no trend to claim).
+    private var fiveKDeltaSeconds: Int? {
+        guard let first = fiveKTrend.first, let last = fiveKTrend.last, fiveKTrend.count >= 2
+        else { return nil }
+        return last.seconds - first.seconds
+    }
+
+    private func fiveKDeltaBadge(_ delta: Int) -> some View {
+        let improved = delta < 0
+        return HStack(spacing: 3) {
+            Image(systemName: improved ? "arrow.down.right" : "arrow.up.right")
+                .font(.system(size: 9, weight: .bold))
+            Text("\(improved ? "−" : "+")\(clock(abs(delta)))")
+                .font(.system(size: 10.5, weight: .bold, design: .monospaced).monospacedDigit())
+        }
+        .foregroundStyle(improved ? Theme.Color.ok : Theme.Color.danger)
+    }
+
+    private var fiveKAxLabel: String {
+        guard let latest = fiveKTrend.last else { return "5 kilómetros" }
+        var label = "5 kilómetros, \(latest.time)"
+        if let delta = fiveKDeltaSeconds {
+            label += delta < 0
+                ? ", mejoras \(clock(abs(delta)))"
+                : ", subes \(clock(abs(delta)))"
+        }
+        return label
+    }
+
+    /// Best 1 km + rolling 7-day volume, side by side.
+    @ViewBuilder
+    private var bestVolRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if let best1k {
+                VStack(alignment: .leading, spacing: 2) {
+                    LabelText(text: "Mejor 1 km", size: 10)
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text(best1k)
+                            .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
+                            .foregroundStyle(Theme.Color.accentText)
+                        Text("/km")
+                            .scaledFont(10.5, weight: .semibold, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Mejor 1 kilómetro, \(best1k) por kilómetro")
+            }
+            if let volume7d {
+                VStack(alignment: .leading, spacing: 2) {
+                    LabelText(text: "Volumen · 7 días", size: 10)
+                    Text(esDecimal(volume7d))
+                        .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Volumen de 7 días, \(esDecimal(volume7d))")
+            }
+        }
+    }
+
+    /// Strength 1RM — the other half of the hybrid.
+    private func strengthRow(_ lift: StrengthMaxProfile) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                LabelText(text: "Fuerza · 1RM", size: 10)
+                Text(lift.exerciseLabel)
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+            Spacer(minLength: 8)
+            progressValue(lift.oneRmLabel, accent: true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Fuerza, \(lift.exerciseLabel), \(lift.oneRmLabel)")
+    }
+
+    /// The shared big italic-mono value style for the progress rows. `accent`
+    /// paints the brand-orange text role (the key metric); else foreground.
+    private func progressValue(_ text: String, accent: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 19, weight: .heavy).italic().monospacedDigit())
+            .foregroundStyle(accent ? Theme.Color.accentText : Theme.Color.foreground)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+    }
+
+    // MARK: - 4 · Entreno de hoy (one action)
 
     @ViewBuilder
     private var heroSection: some View {
         if let hero = heroSession {
-            // Today's session. The kicker reads modality + role; the meta line
-            // now uses the DERIVED duration / blocks / prescription when the
-            // backend supplies them, and falls back to slot + modality otherwise
-            // — we never invent a duration we don't have.
             SessionHeroCard(
                 slot: slotFor(hero),
                 kicker: heroKicker(for: hero),
@@ -487,13 +848,8 @@ struct InicioView: View {
                 }
             )
         } else if hasPlan {
-            // A plan IS published but there's nothing left to do today — either a
-            // genuine rest day or a training day already completed. NEVER the
-            // no-plan empty state. Shows the honest rest/done copy plus a glance
-            // at the next session in the week.
             restCard
         } else {
-            // No plan published yet — honest empty state, never demo data.
             CardSurface(padding: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     LabelText(text: "Hoy")
@@ -508,12 +864,6 @@ struct InicioView: View {
         }
     }
 
-    // MARK: - Rest / done card
-    //
-    // Shown when a plan exists but today has no active session. Reads as a calm,
-    // intentional state (not an error): "Hoy descansas" on a true rest day,
-    // "Listo por hoy" when today's sessions are all completed. When the week has
-    // a later session, a tappable glance routes to the Plan tab.
     private var restCard: some View {
         CardSurface(padding: 18) {
             VStack(alignment: .leading, spacing: 12) {
@@ -545,8 +895,6 @@ struct InicioView: View {
     }
 
     /// A tappable "Próximo · {weekday}" glance at the next session in the week.
-    /// Routes to the Plan tab rather than launching — on a rest day we surface
-    /// what's next without pushing the athlete to train early.
     private func nextGlance(_ next: NextWorkout) -> some View {
         Button {
             Haptics.light()
@@ -572,255 +920,10 @@ struct InicioView: View {
         .accessibilityLabel("Próxima sesión, \(dayLabel(forIso: next.isoDate)), \(next.title). Ver el plan")
     }
 
-    private func slotFor(_ session: AthleteWeekDaySession) -> SessionSlot {
-        slotFor(session.slot)
-    }
-
-    private func slotFor(_ raw: String) -> SessionSlot {
-        raw.lowercased() == "pm" ? .pm : .am
-    }
-
-    /// Hero eyebrow, e.g. "Carrera · sesión principal". When today has two
-    /// sessions the hero is the "principal"; with one it's just the modality.
-    private func heroKicker(for session: AthleteWeekDaySession) -> String {
-        let mod = modalityLabel(session.modality)
-        if pmSession != nil {
-            return mod.isEmpty ? "Sesión principal" : "\(mod) · sesión principal"
-        }
-        return mod.isEmpty ? "Sesión de hoy" : "\(mod) · sesión de hoy"
-    }
-
-    /// Hero meta line. The week payload now carries DERIVED session metadata
-    /// (duration / blocks / short prescription). We build the richest honest
-    /// line available, prepending the time-of-day, and fall back to the plain
-    /// slot + modality when the backend has nothing derived (old payloads /
-    /// templates with no estimable segments) — never an invented duration.
-    private func heroMeta(for session: AthleteWeekDaySession) -> String {
-        let slot = slotFor(session) == .pm ? "Tarde" : "Mañana"
-        let detail = sessionDetailMeta(for: session)
-        if detail.isEmpty {
-            let mod = modalityLabel(session.modality)
-            return mod.isEmpty ? slot : "\(slot) · \(mod)"
-        }
-        return "\(slot) · \(detail)"
-    }
-
-    /// PM compact meta — prefers the derived duration/prescription, falling back
-    /// to the honest modality + "más tarde hoy" line when none is available.
-    private func compactMeta(for session: AthleteWeekDaySession) -> String {
-        let detail = sessionDetailMeta(for: session)
-        if detail.isEmpty {
-            let mod = modalityLabel(session.modality)
-            return mod.isEmpty ? "Más tarde hoy" : "\(mod) · más tarde hoy"
-        }
-        return "\(detail) · más tarde hoy"
-    }
-
-    /// Shared, honest detail line built from the DERIVED fields:
-    /// "≈ 62 min · 5 bloques" / "Calentamiento · Series · …". Each segment is
-    /// included only when present; empty string when nothing is derivable so
-    /// callers keep their own fallback. Caps the prescription so the line stays
-    /// short on the hero/compact cards.
-    private func sessionDetailMeta(for session: AthleteWeekDaySession) -> String {
-        var parts: [String] = []
-        if let min = session.estDurationMinutes, min > 0 {
-            parts.append("≈ \(min) min")
-        }
-        if let blocks = session.blocksCount, blocks > 0 {
-            parts.append("\(blocks) \(blocks == 1 ? "bloque" : "bloques")")
-        }
-        // If we have neither duration nor blocks, the short prescription is the
-        // most useful single signal; otherwise keep the line to duration+blocks.
-        if parts.isEmpty, let summary = session.shortPrescription, !summary.isEmpty {
-            parts.append(summary)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    /// Human modality label from the API token (run / strength / ergo families).
-    /// Empty when modality is absent — callers omit the segment.
-    private func modalityLabel(_ raw: String?) -> String {
-        let s = (raw ?? "").lowercased()
-        if s.isEmpty { return "" }
-        if s.contains("run") || s.contains("corr") || s.contains("carrera") { return "Carrera" }
-        if s.contains("erg") || s.contains("row") || s.contains("remo")
-            || s.contains("ski") || s.contains("bike") || s.contains("bici")
-            || s.contains("assault") { return "Ergómetro" }
-        if s.contains("str") || s.contains("fuer") || s.contains("lift") || s.contains("squat") {
-            return "Fuerza"
-        }
-        if s.contains("wod") || s.contains("circ") || s.contains("metcon") { return "Circuito" }
-        return ""
-    }
-
-    private func dayLabel(forIso iso: String) -> String {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.dateFormat = "yyyy-MM-dd"
-        guard let date = fmt.date(from: iso) else { return "próxima sesión" }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: "es_ES")
-        out.dateFormat = "EEEE"
-        let raw = out.string(from: date)
-        return raw.prefix(1).uppercased() + raw.dropFirst()
-    }
-
-    // MARK: - Tiles row (readiness + race)
+    // MARK: - 5 · Pasos (all-day movement)
     //
-    // Readiness and the race countdown now hold SEPARATE, permanent slots side by
-    // side — they no longer share one tile where the race hid readiness (the #1
-    // gap). Readiness (left) is ALWAYS shown; the race (right) shows its countdown
-    // or invites the athlete to pick a target. `maxHeight: .infinity` on a
-    // vertically-fixed row equalizes the two tiles' heights so they read as a pair.
-    private var tilesRow: some View {
-        HStack(alignment: .top, spacing: 12) {
-            readinessTile
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            raceTile
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    // MARK: Readiness tile (always its own slot)
-    //
-    // Readiness is the athlete's single most actionable daily signal, so it gets a
-    // permanent slot — never hidden behind a race. Shows the 0–100 score (colored
-    // by recovery bucket, Whoop-style), a one-line plain-language read of the body
-    // STATE (never a training prescription — that's coach methodology), and the
-    // existing 7-day delta arrow. Honest empty state when there's no signal yet.
-    @ViewBuilder
-    private var readinessTile: some View {
-        if let score = readinessScore {
-            TileButton(onTap: nil) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        LabelText(text: "Readiness", size: 10)
-                        Spacer(minLength: 0)
-                        if let delta = readinessDelta {
-                            MonoText(
-                                text: "\(delta >= 0 ? "▲" : "▼")\(abs(delta))",
-                                size: 10,
-                                weight: .semibold,
-                                color: delta >= 0 ? Theme.Color.ok : Theme.Color.warning
-                            )
-                        }
-                    }
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(score)")
-                            .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(readinessColor(score))
-                        Text("/100")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Text(readinessInterpretation(score))
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .accessibilityLabel(readinessAxLabel(score))
-        } else if store.readiness.hasLoaded {
-            // Loaded but no real signal yet (no check-in, no wearable) — honest
-            // empty, never an invented score. Taps to the check-in when pending,
-            // which is what generates a score.
-            TileButton(onTap: checkinPending ? { Haptics.light(); showCheckin = true } : nil) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Readiness", size: 10)
-                    Text("Sin datos aún")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(checkinPending ? "Haz tu check-in" : "Hoy")
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(checkinPending ? Theme.Color.accentText : Theme.Color.muted)
-                        .lineLimit(1)
-                }
-            }
-            .accessibilityLabel("Readiness sin datos aún")
-        } else {
-            // Not yet loaded (rare with cache-first) — a stable placeholder keeps
-            // the slot from popping in.
-            TileButton(onTap: nil) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Readiness", size: 10)
-                    Text("—")
-                        .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(Theme.Color.faint)
-                }
-            }
-            .accessibilityHidden(true)
-        }
-    }
-
-    // MARK: Race tile (keeps its own slot)
-    @ViewBuilder
-    private var raceTile: some View {
-        if let race = displayRace, let days = race.daysUntil {
-            let d = max(0, days)
-            TileButton(onTap: { onOpenTab?(.carreras) }) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Próxima carrera", size: 10)
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text("\(d)")
-                            .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.accentText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        Text(d == 1 ? "día" : "días")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Text(race.name)
-                        .scaledFont(11, weight: .semibold, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                    // Adaptive supporting copy by proximity (4a). The tone shifts
-                    // from "building the engine" (far) to "trust the work" (race
-                    // week). Keyed off days-to-race — the objective, AGNOSTIC
-                    // signal — not the coach's free-text phase name.
-                    Text(raceProximityCopy(daysUntil: d))
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1)
-                }
-            }
-            .accessibilityLabel("Próxima carrera, \(race.name), faltan \(d) \(d == 1 ? "día" : "días"). \(raceProximityCopy(daysUntil: d))")
-        } else {
-            // No race fixed → invite the athlete to pick their target. Tapping
-            // opens the race picker; on success the plan refreshes the countdown.
-            TileButton(onTap: { showBuscarCarrera = true }) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Próxima carrera", size: 10)
-                    Text("Elige tu objetivo")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    HStack(spacing: 4) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("Busca tu carrera")
-                            .scaledFont(11, relativeTo: .caption)
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(Theme.Color.accentText)
-                }
-            }
-            .accessibilityLabel("Elige tu carrera objetivo, busca tu carrera")
-        }
-    }
-
-    // MARK: - Steps row (all-day movement)
-    //
-    // A slim, single-line stat: footsteps icon + "Pasos hoy" label on the left,
-    // today's step count on the right. Steps are device-local (HealthKit) and
-    // shown only when real — never fabricated. Three honest states:
-    //   • count   → the formatted step total ("8.432")
-    //   • connect → Health not connected (or unavailable, e.g. Simulator) → an
-    //               accent "Conecta Salud →" that routes to Perfil to connect
-    //   • empty   → connected but no steps recorded yet today → a muted "—"
-    // Visually lighter than the readiness/race tiles (shorter row) so it adds the
-    // signal without saturating the home.
+    // Display-local from HealthKit, with honest connect / no-data states — never a
+    // fabricated number.
     private enum StepsDisplay {
         case count(String)
         case connect
@@ -828,9 +931,6 @@ struct InicioView: View {
         var isConnect: Bool { if case .connect = self { return true } else { return false } }
     }
 
-    /// Maps the raw HealthKit reading + the persisted connection flag to one of
-    /// the three honest display states. `.unavailable` (Simulator / no Health)
-    /// folds into `.connect` so dev sees a graceful prompt, not a blank slot.
     private var stepsDisplay: StepsDisplay {
         switch stepsReading {
         case .steps(let n):
@@ -840,7 +940,7 @@ struct InicioView: View {
         case .unavailable:
             return .connect
         case nil:
-            return .empty   // brief pre-read placeholder — muted "—", never a number
+            return .empty
         }
     }
 
@@ -907,8 +1007,6 @@ struct InicioView: View {
         }
     }
 
-    /// Spanish-grouped step count ("8.432"). Built once — a NumberFormatter is
-    /// expensive to allocate per render.
     private static let stepsFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
@@ -916,224 +1014,297 @@ struct InicioView: View {
         return f
     }()
 
-    // MARK: - Readiness interpretation
+    // MARK: - 6 · Proyección (puerta honesta)
     //
-    // Plain-language read of the body STATE — never a training instruction (that's
-    // coach methodology, out of scope here). Buckets MIRROR the single source of
-    // truth in web/lib/dashboard/constants/readiness.ts (ok ≥ 67 · caution 45–66 ·
-    // low < 45) so the athlete's read can never drift from the coach's.
-    private static let readinessOkMin = 67
-    private static let readinessCautionMin = 45
+    // Where a finish-time projection would live. The model doesn't exist yet
+    // (deep-dive-performance.ts returns null), so instead of fabricating a number we
+    // show an honest, dashed "locked" placeholder inviting a HYROX simulation — the
+    // path that WILL unlock it. No fake projection, and no dead button (there's no
+    // simulation flow to route to yet), just the honest invitation.
 
-    private func readinessInterpretation(_ score: Int) -> String {
-        if score >= Self.readinessOkMin { return "Recuperado y listo" }
-        if score >= Self.readinessCautionMin { return "Recuperación parcial" }
-        return "Cuerpo cargado"
-    }
-
-    private func readinessColor(_ score: Int) -> Color {
-        if score >= Self.readinessOkMin { return Theme.Color.ok }
-        if score >= Self.readinessCautionMin { return Theme.Color.warning }
-        return Theme.Color.danger
-    }
-
-    private func readinessAxLabel(_ score: Int) -> String {
-        var label = "Readiness \(score) de 100, \(readinessInterpretation(score))"
-        if let delta = readinessDelta {
-            label += ", \(delta >= 0 ? "sube" : "baja") \(abs(delta)) en 7 días"
-        }
-        return label
-    }
-
-    // MARK: - Adaptive race copy (proximity)
-    //
-    // Supporting line under the countdown, shifting tone as the race nears. Driven
-    // by days-to-race — the objective, agnostic signal — over standard endurance
-    // windows: race week (≤7d) → trust the work; taper (≤21d) → sharpen + rest;
-    // beyond → build the engine. We do NOT switch on the coach's free-text phase
-    // name (that would break the agnostic rule), but proximity tracks the phase.
-    private static let raceWeekDays = 7
-    private static let taperDays = 21
-
-    private func raceProximityCopy(daysUntil: Int) -> String {
-        if daysUntil <= Self.raceWeekDays { return "Confía en el trabajo hecho" }
-        if daysUntil <= Self.taperDays { return "Afina y descansa" }
-        return "Construyendo motor"
-    }
-
-    // MARK: - Coach note row
-    //
-    // The handoff coach-note row carries a specific message. We have no cheap,
-    // reliably-attributed "last coach message" here (sender attribution needs
-    // the persisted chat user-id mapping that lives in ChatView). So we surface
-    // the REAL unread signal honestly: unread → "Mensaje de tu coach" + dot;
-    // otherwise a neutral "Habla con tu coach". Both route to the Chat tab.
-
-    /// Trimmed last-coach-message text, when present and non-empty.
-    private var coachMessagePreview: String? {
-        guard let raw = coachThread?.lastCoachMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else { return nil }
-        return raw
-    }
-
-    /// The voice-note chip label ("Nota de voz · 0:42") when the coach's latest
-    /// message is a voice note with a stored duration.
-    private var coachVoiceLabel: String? {
-        guard let dur = coachThread?.coachVoiceDurationLabel else { return nil }
-        return "Nota de voz · \(dur)"
-    }
-
-    /// The line shown in the coach-note row. Prefers the actual latest coach
-    /// message (text or voice-note chip); falls back to the unread-count prompt,
-    /// then to the generic invite. Honest at every level.
-    private var coachNoteLine: String {
-        if let voice = coachVoiceLabel { return voice }
-        if let preview = coachMessagePreview { return preview }
-        if unreadCount > 0 {
-            return unreadCount == 1
-                ? "Tienes un mensaje de tu coach"
-                : "Tienes \(unreadCount) mensajes de tu coach"
-        }
-        return "Habla con tu coach"
-    }
-
-    private var coachNoteRow: some View {
-        // The row reads "live" (foreground) when there's an unread message or an
-        // actual coach note to show; muted when it's just the generic invite.
-        let hasContent = unreadCount > 0 || coachMessagePreview != nil || coachVoiceLabel != nil
-        return Button {
-            Haptics.light()
-            onOpenTab?(.chat)
-        } label: {
-            HStack(spacing: 12) {
-                CoachAvatar(initials: "P", size: 30)
-                VStack(alignment: .leading, spacing: 2) {
-                    if coachMessagePreview != nil || coachVoiceLabel != nil {
-                        Text("Tu coach")
-                            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.accentText)
-                    }
-                    HStack(spacing: 6) {
-                        if coachVoiceLabel != nil {
-                            Image(systemName: "waveform")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                        Text(coachNoteLine)
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(hasContent ? Theme.Color.foreground : Theme.Color.muted)
-                            .lineLimit(2)
-                    }
+    private var projectionGate: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+                        .fill(Theme.Color.accent.opacity(0.14))
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if unreadCount > 0 {
-                    Circle()
-                        .fill(Theme.Color.accent)
-                        .frame(width: 8, height: 8)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                }
+                .frame(width: 24, height: 24)
+                Text("¿Llegas a tu objetivo?")
+                    .scaledFont(13, weight: .heavy, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            Text(projectionGateCopy)
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(PressScaleStyle())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .strokeBorder(
+                    Theme.Color.hairlineStrong,
+                    style: StrokeStyle(lineWidth: 1, dash: [5, 4])
+                )
+        )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(coachNoteAccessibilityLabel)
-        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("¿Llegas a tu objetivo? \(projectionGateCopy)")
     }
 
-    private var coachNoteAccessibilityLabel: String {
-        if let voice = coachVoiceLabel { return "Tu coach te envió una \(voice.lowercased())" }
-        if let preview = coachMessagePreview { return "Mensaje de tu coach: \(preview)" }
-        if unreadCount > 0 {
-            return "Tienes \(unreadCount) \(unreadCount == 1 ? "mensaje" : "mensajes") de tu coach"
+    /// Honest gate copy — names the goal time when one is set, generic otherwise.
+    private var projectionGateCopy: String {
+        if let race = targetRace, let goal = goalPlain(race) {
+            return "Haz una simulación de HYROX y veremos si tu ritmo proyectado baja de \(goal)."
         }
-        return "Habla con tu coach"
+        return "Haz una simulación de HYROX para ver si llegas a tu objetivo."
     }
 
-    // MARK: - Check-in affordance
+    // MARK: - Small formatters
+    //
+    // Spanish decimal comma for the two figures that carry a fraction (volume +
+    // VDOT); the server pre-formats them with a dot. Everything else is integer or
+    // already m:ss.
 
-    private var checkinRow: some View {
-        Button(action: { Haptics.light(); showCheckin = true }) {
-            HStack {
-                HStack(spacing: 8) {
-                    Circle().fill(Theme.Color.warning).frame(width: 6, height: 6)
-                    Text("Check-in matinal pendiente")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-                Spacer()
-                Text("20s →")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(Theme.Color.warningTint)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.warning.opacity(0.3), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+    private func esDecimal(_ s: String) -> String {
+        s.replacingOccurrences(of: ".", with: ",")
+    }
+
+    /// Seconds → "m:ss" (62 → "1:02"). Used for the 5 km improvement delta.
+    private func clock(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    /// Trim a wire string, returning nil for empty/whitespace (honest-empty guard).
+    private func nonEmpty(_ s: String?) -> String? {
+        let t = s?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (t?.isEmpty == false) ? t : nil
+    }
+
+    // MARK: - Derivations (pure projections over the store's slices)
+
+    private func planExists(_ resp: AthletePlanWeekResponse) -> Bool {
+        resp.week.days.contains { day in
+            day.sessions.contains { !$0.assignmentId.isEmpty }
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Check-in matinal pendiente, 20 segundos")
-        .accessibilityAddTraits(.isButton)
     }
 
-    // MARK: - Derived: race
+    private func isTodayRest(_ resp: AthletePlanWeekResponse) -> Bool {
+        guard let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso }) else {
+            return true
+        }
+        return today.sessions.allSatisfy { $0.assignmentId.isEmpty }
+    }
 
-    /// The race to show on the "Próxima carrera" tile: the chronologically
-    /// NEAREST upcoming race (`nextRace`) — whatever's soonest, regardless of
-    /// priority — so the countdown matches its label. A sooner secondary/tune-up
-    /// is the next race the athlete actually faces. Falls back to the target only
-    /// when there's no next race. The athlete's chosen primary objective still
-    /// lives in the Carreras tab, badged as "Objetivo principal".
-    private var displayRace: AthleteNextRace? { nextRace ?? targetRace }
+    private func sessionsForToday(_ resp: AthletePlanWeekResponse) -> [AthleteWeekDaySession] {
+        let todayIso = resp.week.todayIso
+        guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
+        let active = today.sessions.filter {
+            $0.status.lowercased() != "completed"
+                && !CompletedAssignmentsStore.isCompleted($0.assignmentId)
+        }
+        return active.sorted { slotRank($0.slot) < slotRank($1.slot) }
+    }
+
+    private func slotRank(_ slot: String) -> Int {
+        switch slot.lowercased() {
+        case "am": return 0
+        case "pm": return 1
+        default:   return 2
+        }
+    }
+
+    private func pushNextWorkoutToWatch() {
+        WatchConnectivityiOSService.shared.activate()
+        guard let id = heroAssignmentId, let title = heroTitle else {
+            WatchConnectivityiOSService.shared.pushWorkoutForToday(nil)
+            return
+        }
+        let slot = heroSlotRaw
+        let payload = WatchWorkoutPayload(
+            id: id,
+            title: title,
+            focus: slot.isEmpty ? nil : slot.uppercased(),
+            duration_minutes: 60,
+            intensity_label: nil,
+            activity_kind: "mixed"
+        )
+        WatchConnectivityiOSService.shared.pushWorkoutForToday(payload)
+    }
+
+    // MARK: - Hero / PM resolution
+
+    private var heroSession: AthleteWeekDaySession? { todaySessions.first }
+    private var pmSession: AthleteWeekDaySession? {
+        todaySessions.count > 1 ? todaySessions[1] : nil
+    }
+
+    private var heroAssignmentId: String? {
+        heroSession?.assignmentId ?? nextWorkout?.assignmentId
+    }
+    private var heroTitle: String? {
+        heroSession?.title ?? nextWorkout?.title
+    }
+    private var heroSlotRaw: String {
+        heroSession?.slot ?? nextWorkout?.slot ?? ""
+    }
+
+    private func slotFor(_ session: AthleteWeekDaySession) -> SessionSlot {
+        slotFor(session.slot)
+    }
+
+    private func slotFor(_ raw: String) -> SessionSlot {
+        raw.lowercased() == "pm" ? .pm : .am
+    }
+
+    private func heroKicker(for session: AthleteWeekDaySession) -> String {
+        let mod = modalityLabel(session.modality)
+        if pmSession != nil {
+            return mod.isEmpty ? "Sesión principal" : "\(mod) · sesión principal"
+        }
+        return mod.isEmpty ? "Sesión de hoy" : "\(mod) · sesión de hoy"
+    }
+
+    private func heroMeta(for session: AthleteWeekDaySession) -> String {
+        let slot = slotFor(session) == .pm ? "Tarde" : "Mañana"
+        let detail = sessionDetailMeta(for: session)
+        if detail.isEmpty {
+            let mod = modalityLabel(session.modality)
+            return mod.isEmpty ? slot : "\(slot) · \(mod)"
+        }
+        return "\(slot) · \(detail)"
+    }
+
+    private func compactMeta(for session: AthleteWeekDaySession) -> String {
+        let detail = sessionDetailMeta(for: session)
+        if detail.isEmpty {
+            let mod = modalityLabel(session.modality)
+            return mod.isEmpty ? "Más tarde hoy" : "\(mod) · más tarde hoy"
+        }
+        return "\(detail) · más tarde hoy"
+    }
+
+    private func sessionDetailMeta(for session: AthleteWeekDaySession) -> String {
+        var parts: [String] = []
+        if let min = session.estDurationMinutes, min > 0 {
+            parts.append("≈ \(min) min")
+        }
+        if let blocks = session.blocksCount, blocks > 0 {
+            parts.append("\(blocks) \(blocks == 1 ? "bloque" : "bloques")")
+        }
+        if parts.isEmpty, let summary = session.shortPrescription, !summary.isEmpty {
+            parts.append(summary)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func modalityLabel(_ raw: String?) -> String {
+        let s = (raw ?? "").lowercased()
+        if s.isEmpty { return "" }
+        if s.contains("run") || s.contains("corr") || s.contains("carrera") { return "Carrera" }
+        if s.contains("erg") || s.contains("row") || s.contains("remo")
+            || s.contains("ski") || s.contains("bike") || s.contains("bici")
+            || s.contains("assault") { return "Ergómetro" }
+        if s.contains("str") || s.contains("fuer") || s.contains("lift") || s.contains("squat") {
+            return "Fuerza"
+        }
+        if s.contains("wod") || s.contains("circ") || s.contains("metcon") { return "Circuito" }
+        return ""
+    }
+
+    private func dayLabel(forIso iso: String) -> String {
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.dateFormat = "yyyy-MM-dd"
+        guard let date = fmt.date(from: iso) else { return "próxima sesión" }
+        let out = DateFormatter()
+        out.locale = Locale(identifier: "es_ES")
+        out.dateFormat = "EEEE"
+        let raw = out.string(from: date)
+        return raw.prefix(1).uppercased() + raw.dropFirst()
+    }
 }
 
-// MARK: - Tile button
+// MARK: - Signal chip
 //
-// A square-ish tappable tile matching the handoff's race/week pair: a sunken
-// card surface, left-aligned content, optional tap (chevron-free — the whole
-// tile is the target). When `onTap` is nil it renders as a static tile.
-private struct TileButton<Content: View>: View {
-    let onTap: (() -> Void)?
-    @ViewBuilder let content: () -> Content
+// A compact readiness-input indicator: a small icon + label, lit in the accent
+// text role when the signal contributed to the score, dim (faint) when absent.
+// Honest — it shows what's behind the number without inventing raw values.
+private struct SignalChip: View {
+    let icon: String
+    let text: String
+    let active: Bool
 
     var body: some View {
-        Button {
-            guard let onTap else { return }
-            Haptics.light()
-            onTap()
-        } label: {
-            content()
-                // maxHeight lets a pair of tiles equalize to the taller one when
-                // the row is height-bounded (see `tilesRow`'s fixedSize); minHeight
-                // keeps a lone tile from collapsing.
-                .frame(maxWidth: .infinity, minHeight: 72, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 13)
-                .background(Theme.Color.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.hairline, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(text)
+                .scaledFont(10, weight: .semibold, relativeTo: .caption2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .buttonStyle(PressScaleStyle())
-        .disabled(onTap == nil)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(onTap == nil ? [] : .isButton)
+        .foregroundStyle(active ? Theme.Color.accentText : Theme.Color.faint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+        .background(active ? Theme.Color.surfaceSunken : Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+                .stroke(active ? Color.clear : Theme.Color.hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(active ? "\(text), activo" : "\(text), sin datos")
+    }
+}
+
+// MARK: - Trend sparkline
+//
+// A minimal line over a value series (oldest→newest) with a trailing dot on the
+// latest point. Decorative — the host row carries the accessible label. A vertical
+// inset keeps the stroke + dot from clipping at the frame edges.
+private struct TrendSparkline: View {
+    let values: [Double]
+    var color: Color = Theme.Color.accentText
+
+    var body: some View {
+        GeometryReader { geo in
+            let pts = points(in: geo.size)
+            ZStack {
+                Path { path in
+                    guard let first = pts.first else { return }
+                    path.move(to: first)
+                    for pt in pts.dropFirst() { path.addLine(to: pt) }
+                }
+                .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                if let last = pts.last {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 4, height: 4)
+                        .position(last)
+                }
+            }
+        }
+    }
+
+    private func points(in size: CGSize) -> [CGPoint] {
+        guard values.count > 1 else { return [] }
+        let inset: CGFloat = 3
+        let minV = values.min() ?? 0
+        let maxV = values.max() ?? 1
+        let range = max(maxV - minV, 0.0001)
+        let usableH = max(size.height - inset * 2, 1)
+        let stepX = size.width / CGFloat(values.count - 1)
+        return values.enumerated().map { index, value in
+            let x = CGFloat(index) * stepX
+            let y = inset + (usableH - CGFloat((value - minV) / range) * usableH)
+            return CGPoint(x: x, y: y)
+        }
     }
 }
