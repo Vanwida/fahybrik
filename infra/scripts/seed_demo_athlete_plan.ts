@@ -81,7 +81,14 @@ const SOURCE_ZONE_COACH_ID = 4; // Pablo — source of the methodology_zones off
 const LEVEL_NAME = 'N3'; // Rendimiento
 const TRAINING_DAYS = 5;
 const WEEK_COUNT = 2; // covers current week (audit) + next week (TestFlight demo)
-const MONTH_NAME = 'Microciclo Demo · Atleta 1'; // stable idempotency marker
+// Athlete-facing periodization PHASE name. This is the value surfaced to the
+// athlete on iOS Inicio/Plan as the week's microciclo label (week.microcicloName
+// ← resolveMicrocicloName ← program_month_templates.name). It MUST read like a
+// real phase the athlete understands — never internal jargon ("microciclo",
+// "Demo", "Atleta N"). "Acumulación" is agnostic coach DATA (a real ATR-style
+// phase name), not a hardcoded system concept. Doubles as the stable idempotency
+// marker: coach 29 owns exactly this one month template in the demo.
+const MONTH_NAME = 'Acumulación';
 
 /** %1RM band applied to the MAPPED strength lift of the STRENGTH_RM principal block
  *  (mirrors Pablo's front-squat block encoding). With athlete 70's back_squat_1rm
@@ -246,6 +253,16 @@ const WEEK_PLANS: DaySpec[][] = [
 
 const WARMUP_FORMAT: Record<'WU_GENERAL' | 'WU_RUN', TemplateFormat> = { WU_GENERAL: 'circuit', WU_RUN: 'tempo' };
 const COOLDOWN_FORMAT: TemplateFormat = 'tempo';
+
+// Athlete-facing "Foco de la semana" per week-of-month (program_week_templates.focus,
+// surfaced as week.focus on iOS). Descriptive coach voice, athlete-readable, and
+// deliberately NON-redundant with the phase NAME (MONTH_NAME = "Acumulación") so the
+// athlete never reads the same word twice. Index = week position; the last entry
+// covers any extra week beyond the list.
+const WEEK_FOCUS = [
+  'Subir volumen aeróbico y técnica de estaciones',
+  'Más volumen y ritmo en las estaciones',
+] as const;
 
 // ── deps (dynamic import — server-only `@/` libs form cycles tsx's static linker
 //    rejects; deferring to runtime under --conditions=react-server avoids it) ────
@@ -616,7 +633,7 @@ async function ensureMonthTemplate(
       id: weekIds[i],
       payload: {
         name: `Semana ${i + 1}`,
-        focus: i === 0 ? 'Acumulación' : 'Acumulación · progresión',
+        focus: WEEK_FOCUS[i] ?? WEEK_FOCUS[WEEK_FOCUS.length - 1]!,
         slots_json: buildWeekSlots(i, WEEK_PLANS[i]!, main, support),
       },
     });
