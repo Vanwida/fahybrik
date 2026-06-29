@@ -16,6 +16,49 @@ final class WorkoutSession {
     var isPaused: Bool = false
     var isFinished: Bool = false
 
+    // MARK: - Honest rep / strength / WOD logging (FASE 2 · PASO 2)
+    //
+    // Per logged unit of work we record what was ACTUALLY done vs prescribed
+    // (done / scaled / skipped) plus a confidence flag. The headline bug this
+    // kills: `repsCurrentSegment` seeded to 0, so advancing an untouched
+    // prescribed-reps segment used to write a fabricated 0. Now prescribed reps
+    // are PRE-FILLED on segment entry (`primeRepsIfNeeded`) and the lap records
+    // that primed value with `repsConfirmed=false` (assumed) until the athlete
+    // edits it.
+
+    /// TRUE once the athlete explicitly touched/confirmed the current segment's
+    /// reps (stepper edit or open-score tap). FALSE = assumed from the prescription.
+    var repsConfirmed: Bool = false
+    /// The athlete explicitly skipped the current segment → actual = null.
+    var repsSkipped: Bool = false
+    /// Which segment index the reps were primed for — the idempotency sentinel,
+    /// reset (alongside EMOM / manual-load state) on segment change so re-entry
+    /// re-primes but a same-segment re-entry never clobbers an athlete edit.
+    private var repsPrimedSegmentIndex: Int? = nil
+
+    /// Per-set strength detail for the current segment (a 5×5 / pyramid). Primed
+    /// from `prescription.sets`; each set defaults to prescribed until touched.
+    var setRecords: [SetRecord] = []
+    private var setsPrimedSegmentIndex: Int? = nil
+
+    /// Rx / Scaled for the current metcon-family BLOCK (set once per block, stamped
+    /// on each of its laps). Reset at block boundaries; primed to "rx".
+    var rxScaled: String? = nil
+    /// Optional free note on HOW the current WOD was scaled.
+    var scaledNote: String? = nil
+
+    /// Block grouping keys whose warmup/cooldown structural completion is already
+    /// recorded, so a block is never double-logged (button + auto-infer backstop).
+    private var completedStructuralBlockKeys: Set<String> = []
+    /// Set once the athlete confirms their first real working set — the trigger to
+    /// auto-infer a preceding warmup as done.
+    private var firstWorkingSetConfirmed: Bool = false
+
+    /// Rest countdown fired when a strength set is confirmed (from the set's
+    /// prescribed `rest_s`). 0 = no rest running. Decremented on the main tick.
+    var restRemainingSeconds: Double = 0
+    private(set) var restTotalSeconds: Double = 0
+
     // MARK: - Block-transition gate
     //
     // Each coach BLOCK starts and ends with the athlete's approval. While
@@ -144,13 +187,30 @@ final class WorkoutSession {
     }
 
     /// True when the CURRENT segment has accumulated real, not-yet-saved work —
-    /// used to gate a confirm before a back / jump that would discard it.
+    /// used to gate a confirm before a back / jump that would discard it. A
+    /// PRE-FILLED but untouched prescription is NOT progress (only an explicit
+    /// rep/set confirmation counts), so a primed value never triggers the prompt.
     var currentSegmentHasLiveProgress: Bool {
         lapElapsedSeconds > 3
-            || repsCurrentSegment > 0
+            || repsConfirmed
+            || setRecords.contains { $0.confirmed }
             || (lapGpsDistanceMeters ?? 0) > 0
             || !lapHRSamples.isEmpty
             || lapHadPM5
+    }
+
+    /// True when the current block is a warmup / cooldown — logged as ONE
+    /// structural completion (a checklist gated behind a single button), never
+    /// per-exercise. Excluded from volume/analytics.
+    var currentBlockIsStructural: Bool {
+        guard let phase = currentBlockRegion?.phase else { return false }
+        return phase == .warmup || phase == .cooldown
+    }
+
+    /// True when the current segment belongs to a metcon-family block (Rx/Scaled
+    /// axis applies) and is not a structural warmup/cooldown.
+    var currentSegmentIsMetcon: Bool {
+        !currentBlockIsStructural && currentSegment?.isMetconFamily == true
     }
 
     var liveZone: HRZone? {
@@ -215,6 +275,27 @@ final class WorkoutSession {
     func tap(reps: Int = 1) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
         repsCurrentSegment = max(0, repsCurrentSegment + reps)
+        repsConfirmed = true
+        repsSkipped = false
+        registerFirstWorkingSet()
+    }
+
+    /// Stepper setter for the pre-filled rep HUD — sets the ACTUAL reps and marks
+    /// the value confirmed (the athlete touched it), clearing any skip.
+    func setReps(_ value: Int) {
+        guard !isFinished else { return }
+        repsCurrentSegment = max(0, value)
+        repsConfirmed = true
+        repsSkipped = false
+        registerFirstWorkingSet()
+    }
+
+    /// Explicit SKIP for the current rep/strength segment → actual = null,
+    /// status = skipped. Toggleable so a mis-tap is reversible before advancing.
+    func setRepsSkipped(_ skipped: Bool) {
+        guard !isFinished else { return }
+        repsSkipped = skipped
+        repsConfirmed = true
     }
 
     // MARK: - Forward / back navigation
@@ -308,7 +389,9 @@ final class WorkoutSession {
         // the execution record (finish can be reached directly via "Abandonar"
         // or after the last lap auto-finishes). lap() will have already closed
         // and zeroed lapElapsedSeconds, so a residual >0 means work is pending.
-        if !isFinished, currentSegment != nil, lapElapsedSeconds > 0 {
+        // A structural warmup/cooldown only ever logs via its own "hecho" button —
+        // an untapped one emits NO row (null = not done; we don't nag).
+        if !isFinished, currentSegment != nil, lapElapsedSeconds > 0, !currentBlockIsStructural {
             closeCurrentSegmentLap()
         }
         isFinished = true
@@ -347,7 +430,14 @@ final class WorkoutSession {
     /// block keeps its restored progress, ready to resume on Empezar.
     private func armBlock() {
         clearEMOMState()
+        // A new block resets the block-scoped Rx/Scaled choice; priming re-defaults
+        // it to "rx" for a metcon block (nil otherwise).
+        rxScaled = nil
+        scaledNote = nil
         primeManualLoadIfNeeded()
+        primeRepsIfNeeded()
+        primeSetsIfNeeded()
+        primeRxScaledIfNeeded()
         isPaused = false
         isAwaitingBlockStart = true
     }
@@ -377,7 +467,14 @@ final class WorkoutSession {
         guard canEndBlockEarly, let region = currentBlockRegion else { return }
         Haptics.heavy()   // a firm, intentional cue — NOT the success chord
         clearEMOMState()
-        closeCurrentSegmentLap()
+        // A structural warmup/cooldown closes as ONE completion, never a partial
+        // per-exercise lap.
+        if currentBlockIsStructural {
+            appendStructuralLap(for: region, durationSeconds: max(0, lapElapsedSeconds))
+            discardCurrentLiveState()
+        } else {
+            closeCurrentSegmentLap()
+        }
         let next = region.lastIndex + 1
         if next < plan.segments.count {
             currentSegmentIndex = next
@@ -393,6 +490,9 @@ final class WorkoutSession {
     private func onEnterSegment() {
         if reopenedLap?.segmentId != currentSegment?.id { reopenedLap = nil }
         primeManualLoadIfNeeded()
+        primeRepsIfNeeded()
+        primeSetsIfNeeded()
+        primeRxScaledIfNeeded()
         if currentSegment?.isEMOM == true {
             startEMOM()
         } else {
@@ -473,6 +573,12 @@ final class WorkoutSession {
     private func discardCurrentLiveState() {
         lapElapsedSeconds = 0
         repsCurrentSegment = 0
+        repsConfirmed = false
+        repsSkipped = false
+        repsPrimedSegmentIndex = nil
+        setRecords = []
+        setsPrimedSegmentIndex = nil
+        dismissRest()
         lapHRSamples.removeAll(keepingCapacity: true)
         lapZoneAccumSec.removeAll(keepingCapacity: true)
         resetErgAccumulators()
@@ -493,6 +599,18 @@ final class WorkoutSession {
         reopenedLap = popped
         lapElapsedSeconds = popped.durationSeconds
         repsCurrentSegment = popped.repsCompleted ?? 0
+        // Restore the honesty carriers and mark this segment already primed, so the
+        // re-entry's `primeRepsIfNeeded` / `primeSetsIfNeeded` can't clobber the
+        // values the athlete recorded before stepping back.
+        repsConfirmed = popped.repsConfirmed
+        repsSkipped = popped.repsStatus == "skipped"
+        repsPrimedSegmentIndex = currentSegmentIndex
+        if let sets = popped.sets {
+            setRecords = sets
+            setsPrimedSegmentIndex = currentSegmentIndex
+        }
+        if let rx = popped.rxScaled { rxScaled = rx }
+        if let note = popped.scaledNote { scaledNote = note }
         if let kg = popped.weightUsedKg { manualLoadKg = kg }
         if seg.kind == .running, let d = popped.distanceCoveredMeters {
             manualRunDistanceMeters = d
@@ -537,10 +655,68 @@ final class WorkoutSession {
         }()
 
         // Load USED (kg) — athlete's manual actual when present, else prescribed.
-        let weight: Double? = (seg.kind == .strength || seg.kind == .sled)
+        var weight: Double? = (seg.kind == .strength || seg.kind == .sled)
             ? (manualLoadKg ?? seg.loadKg)
             : nil
-        let reps: Int? = (seg.kind == .reps || seg.kind == .strength) ? repsCurrentSegment : nil
+
+        // Honest reps / strength logging. Three states (done/scaled/skipped) plus
+        // a confidence flag; NEVER a fabricated 0. EMOM is excluded (its work is
+        // interval/time driven, recorded by the EMOM HUD, not the rep field).
+        var repsActual: Int? = nil          // canonical actual; nil ONLY when skipped
+        var repsPrescribedOut: Int? = nil
+        var repsStatusOut: String? = nil
+        var repsConfirmedOut = false
+        var setRecordsOut: [SetRecord]? = nil
+
+        if seg.usesMultiSetStrength {
+            // Per-set strength: aggregate for back-compat analytics; detail in `sets`.
+            let recs = setRecords
+            setRecordsOut = recs.isEmpty ? nil : recs
+            let actuals = recs.compactMap { $0.repsActual }
+            repsActual = actuals.isEmpty ? nil : actuals.reduce(0, +)
+            let prescribed = recs.compactMap { $0.repsPrescribed }
+            repsPrescribedOut = prescribed.isEmpty ? nil : prescribed.reduce(0, +)
+            if recs.allSatisfy({ $0.status == "skipped" }) {
+                repsStatusOut = "skipped"; repsActual = nil
+            } else if recs.contains(where: { $0.status == "scaled" }) {
+                repsStatusOut = "scaled"
+            } else {
+                repsStatusOut = "done"
+            }
+            repsConfirmedOut = recs.contains { $0.confirmed }
+            // Representative load for the segment aggregate = max ACTUAL load logged.
+            if let maxLoad = recs.compactMap({ $0.loadActualKg }).max() { weight = maxLoad }
+        } else if (seg.kind == .reps || seg.kind == .strength) && !seg.isEMOM {
+            if repsSkipped {
+                repsActual = nil
+                repsStatusOut = "skipped"
+                repsConfirmedOut = true
+            } else if seg.repsAreOpenScore {
+                // Reps ARE the score — a real 0 is legal; no prescribed reference.
+                repsActual = repsCurrentSegment
+                repsPrescribedOut = nil
+                repsStatusOut = "done"
+                repsConfirmedOut = repsConfirmed
+            } else {
+                // Prescribed chunk: untouched advance = primed prescribed value,
+                // confirmed=false (assumed). An edit makes it scaled + confirmed.
+                repsPrescribedOut = seg.prescribedRepsForLog
+                repsActual = repsCurrentSegment
+                if let p = repsPrescribedOut, let a = repsActual, a != p {
+                    repsStatusOut = "scaled"
+                } else {
+                    repsStatusOut = "done"
+                }
+                repsConfirmedOut = repsConfirmed
+            }
+        }
+
+        // Back-compat `repsCompleted` == actual (nil stays nil on a skip — never 0).
+        let reps: Int? = repsActual
+
+        // Rx / Scaled only on metcon-family laps (block-scoped choice).
+        let lapRxScaled: String? = seg.isMetconFamily ? rxScaled : nil
+        let lapScaledNote: String? = (lapRxScaled == "scaled") ? scaledNote : nil
 
         // Merge aggregates from a REOPENED lap (this segment was re-entered via
         // stepBack / jumpTo) so the back-step never drops the HR / zone / distance
@@ -590,7 +766,14 @@ final class WorkoutSession {
             strokeRateSpm: avgSpm,
             calories: mergedCalories,
             weightUsedKg: weight,
-            source: source
+            source: source,
+            repsPrescribed: repsPrescribedOut,
+            repsStatus: repsStatusOut,
+            repsConfirmed: repsConfirmedOut,
+            isStructural: false,
+            rxScaled: lapRxScaled,
+            scaledNote: lapScaledNote,
+            sets: setRecordsOut
         )
         laps.append(lap)
         reopenedLap = nil
@@ -599,6 +782,12 @@ final class WorkoutSession {
         lapHRSamples.removeAll(keepingCapacity: true)
         lapZoneAccumSec.removeAll(keepingCapacity: true)
         repsCurrentSegment = 0
+        repsConfirmed = false
+        repsSkipped = false
+        repsPrimedSegmentIndex = nil
+        setRecords = []
+        setsPrimedSegmentIndex = nil
+        dismissRest()
         resetErgAccumulators()
         resetSegmentManualAndGPS()
     }
@@ -622,6 +811,225 @@ final class WorkoutSession {
               seg.kind == .strength || seg.kind == .sled,
               let kg = seg.loadKg else { return }
         manualLoadKg = kg
+    }
+
+    /// Pre-fills the current segment's reps from the prescription so an untouched
+    /// advance records the PRESCRIBED value (confirmed=false), never a fabricated
+    /// 0. Idempotent per segment (the `repsPrimedSegmentIndex` sentinel), so it
+    /// never clobbers an athlete edit or a reopened lap. Open-score (AMRAP) and
+    /// target-less reps are NOT primed — there reps count up from a legal 0.
+    /// Mirrors `primeManualLoadIfNeeded`.
+    func primeRepsIfNeeded() {
+        guard repsPrimedSegmentIndex != currentSegmentIndex, let seg = currentSegment else { return }
+        repsPrimedSegmentIndex = currentSegmentIndex
+        repsConfirmed = false
+        repsSkipped = false
+        guard seg.repsArePrimable, let prescribed = seg.prescribedRepsForLog else { return }
+        repsCurrentSegment = prescribed
+    }
+
+    /// Builds the per-set strength records for a multi-set segment, each defaulting
+    /// to its prescribed reps/load (confirmed=false until touched). Idempotent per
+    /// segment; clears the list for non-multi-set segments.
+    func primeSetsIfNeeded() {
+        guard setsPrimedSegmentIndex != currentSegmentIndex else { return }
+        setsPrimedSegmentIndex = currentSegmentIndex
+        guard let seg = currentSegment, seg.usesMultiSetStrength,
+              let sets = seg.prescription?.sets else {
+            setRecords = []
+            return
+        }
+        setRecords = sets.enumerated().map { i, s in
+            SetRecord(
+                setIndex: i + 1,
+                repsPrescribed: s.prescribedReps,
+                repsActual: s.prescribedReps,          // default = did as written
+                loadPrescribedKg: s.prescribedLoadKg,
+                loadActualKg: s.prescribedLoadKg,
+                rpe: nil,                              // collected only if entered
+                rir: nil,
+                status: "done",                        // assumed until touched/skipped
+                confirmed: false,
+                tempo: s.tempo,
+                restS: s.restS
+            )
+        }
+    }
+
+    /// Defaults the block-scoped Rx/Scaled to "rx" for a metcon-family block (the
+    /// athlete switches to "scaled" if they deviated); nil for non-metcon blocks.
+    /// Only sets a default when unset, so it stays stable across the block's segments.
+    func primeRxScaledIfNeeded() {
+        if currentSegmentIsMetcon {
+            if rxScaled == nil { rxScaled = "rx" }
+        } else {
+            rxScaled = nil
+            scaledNote = nil
+        }
+    }
+
+    // MARK: - Per-set strength logging
+
+    /// Confirm a set "as written" — marks it confirmed, recomputes done/scaled,
+    /// and fires the rest timer from its prescribed rest. One tap = did as prescribed.
+    func confirmSet(_ index: Int) {
+        guard setRecords.indices.contains(index) else { return }
+        setRecords[index].confirmed = true
+        recomputeSetStatus(index)
+        registerFirstWorkingSet()
+        startRest(setRecords[index].restS)
+    }
+
+    func setSetReps(_ index: Int, _ reps: Int) {
+        guard setRecords.indices.contains(index) else { return }
+        setRecords[index].repsActual = max(0, reps)
+        setRecords[index].confirmed = true
+        recomputeSetStatus(index)
+        registerFirstWorkingSet()
+    }
+
+    func setSetLoad(_ index: Int, _ kg: Double?) {
+        guard setRecords.indices.contains(index) else { return }
+        setRecords[index].loadActualKg = kg.map { max(0, $0) }
+        setRecords[index].confirmed = true
+        recomputeSetStatus(index)
+        registerFirstWorkingSet()
+    }
+
+    func setSetRPE(_ index: Int, _ rpe: Double?) {
+        guard setRecords.indices.contains(index) else { return }
+        setRecords[index].rpe = rpe
+        setRecords[index].confirmed = true
+    }
+
+    func setSetRIR(_ index: Int, _ rir: Double?) {
+        guard setRecords.indices.contains(index) else { return }
+        setRecords[index].rir = rir
+        setRecords[index].confirmed = true
+    }
+
+    func setSetSkipped(_ index: Int, _ skipped: Bool) {
+        guard setRecords.indices.contains(index) else { return }
+        if skipped {
+            setRecords[index].status = "skipped"
+            setRecords[index].repsActual = nil
+            setRecords[index].loadActualKg = nil
+        } else {
+            // Un-skip: restore prescribed defaults and recompute.
+            setRecords[index].repsActual = setRecords[index].repsPrescribed
+            setRecords[index].loadActualKg = setRecords[index].loadPrescribedKg
+            recomputeSetStatus(index)
+        }
+        setRecords[index].confirmed = true
+    }
+
+    /// done when reps AND load match the prescription, else scaled. A skipped set
+    /// stays skipped (only `setSetSkipped` clears it).
+    private func recomputeSetStatus(_ index: Int) {
+        guard setRecords.indices.contains(index) else { return }
+        guard setRecords[index].status != "skipped" else { return }
+        let s = setRecords[index]
+        let repsDiff = s.repsPrescribed != nil && s.repsActual != s.repsPrescribed
+        let loadDiff = s.loadPrescribedKg != nil && s.loadActualKg != nil
+            && s.loadActualKg != s.loadPrescribedKg
+        setRecords[index].status = (repsDiff || loadDiff) ? "scaled" : "done"
+    }
+
+    // MARK: - Rest timer (per-set strength)
+
+    /// Start a rest countdown from a set's prescribed rest. No-op when there's no
+    /// prescribed rest. Drives off the same 0.25s tick as the main clock.
+    func startRest(_ seconds: Int?) {
+        guard let s = seconds, s > 0 else { return }
+        restTotalSeconds = Double(s)
+        restRemainingSeconds = Double(s)
+    }
+
+    func dismissRest() {
+        restRemainingSeconds = 0
+        restTotalSeconds = 0
+    }
+
+    // MARK: - Warmup / cooldown structural completion
+
+    /// Stable grouping key for a region (its first segment's block key) — the
+    /// dedupe key for structural completion.
+    private func structuralKey(_ region: WorkoutBlockRegion) -> String {
+        plan.segments[region.firstIndex].blockGroupingKey
+    }
+
+    /// Append ONE structural completion lap for a warmup/cooldown block (idempotent
+    /// per block). No reps/load — completion-only, excluded from analytics.
+    private func appendStructuralLap(for region: WorkoutBlockRegion, durationSeconds: Double) {
+        let key = structuralKey(region)
+        guard !completedStructuralBlockKeys.contains(key) else { return }
+        completedStructuralBlockKeys.insert(key)
+        let first = plan.segments[region.firstIndex]
+        let now = Date()
+        laps.append(
+            LapRecord(
+                id: UUID(),
+                segmentId: first.id,
+                templateSegmentId: first.templateSegmentId,
+                position: first.order,
+                modality: first.kind.modality,
+                startedAt: now.addingTimeInterval(-durationSeconds),
+                endedAt: now,
+                durationSeconds: durationSeconds,
+                avgHRBpm: nil,
+                maxHRBpm: nil,
+                zoneSecondsByZone: [:],
+                repsCompleted: nil,
+                distanceCoveredMeters: nil,
+                avgPaceSecPer500m: nil,
+                avgPaceSecPerKm: nil,
+                avgPowerWatts: nil,
+                strokeRateSpm: nil,
+                calories: nil,
+                weightUsedKg: nil,
+                source: "manual",
+                repsPrescribed: nil,
+                repsStatus: "done",
+                repsConfirmed: true,
+                isStructural: true,
+                rxScaled: nil,
+                scaledNote: nil,
+                sets: nil
+            )
+        )
+    }
+
+    /// "Calentamiento hecho" / "Vuelta a la calma hecha" — close the WHOLE
+    /// structural block as ONE completion and advance past it. One tap, never
+    /// per-exercise.
+    func completeStructuralBlock() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              let region = currentBlockRegion, currentBlockIsStructural else { return }
+        Haptics.success()
+        appendStructuralLap(for: region, durationSeconds: max(0, lapElapsedSeconds))
+        // No per-exercise laps for the block — drop any live state, jump past it.
+        discardCurrentLiveState()
+        let next = region.lastIndex + 1
+        if next < plan.segments.count {
+            let origin = currentSegmentIndex
+            currentSegmentIndex = next
+            enterOrArm(from: origin)
+        } else {
+            finish()
+        }
+    }
+
+    /// Backstop: when the athlete confirms their first real working set, infer that
+    /// any PRECEDING warmup block was done (covers a skip/jump past it without the
+    /// button). Cooldown is last, so it's never auto-inferred — only its button logs it.
+    private func registerFirstWorkingSet() {
+        guard !currentBlockIsStructural else { return }
+        guard !firstWorkingSetConfirmed else { return }
+        firstWorkingSetConfirmed = true
+        for region in plan.blockRegions
+        where region.phase == .warmup && region.lastIndex < currentSegmentIndex {
+            appendStructuralLap(for: region, durationSeconds: 0)
+        }
     }
 
     private func resetErgAccumulators() {
@@ -706,6 +1114,22 @@ final class WorkoutSession {
         }
 
         if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
+
+        // Per-set rest countdown: tick the final 3s, soft cue at zero.
+        if restRemainingSeconds > 0 {
+            let before = restRemainingSeconds
+            let after = before - dt
+            for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+                Haptics.light()
+            }
+            if after <= 0 {
+                restRemainingSeconds = 0
+                restTotalSeconds = 0
+                Haptics.medium()
+            } else {
+                restRemainingSeconds = after
+            }
+        }
 
         autoSaveTicker += 1
         if autoSaveTicker >= 20 {        // 0.25s × 20 = 5s

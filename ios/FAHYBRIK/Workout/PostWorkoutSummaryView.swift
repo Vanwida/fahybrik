@@ -197,6 +197,23 @@ struct PostWorkoutSummaryView: View {
                     source = "manual"
                 }
 
+                // Per-set strength detail → wire (1:1 with SetRecord).
+                let setDTOs: [SetExecutionDTO]? = lap.sets?.map { s in
+                    SetExecutionDTO(
+                        set_index: s.setIndex,
+                        reps_prescribed: s.repsPrescribed,
+                        reps_actual: s.repsActual,
+                        load_prescribed_kg: s.loadPrescribedKg,
+                        load_actual_kg: s.loadActualKg,
+                        rpe: s.rpe,
+                        rir: s.rir,
+                        status: s.status,
+                        confirmed: s.confirmed,
+                        tempo: s.tempo,
+                        rest_s: s.restS
+                    )
+                }
+
                 return SegmentExecutionDTO(
                     template_segment_id: lap.templateSegmentId,
                     position: lap.position,
@@ -214,10 +231,21 @@ struct PostWorkoutSummaryView: View {
                     avg_hr: lap.avgHRBpm ?? manualHRAvg,
                     max_hr: lap.maxHRBpm ?? manualHRMax,
                     calories: lap.calories,
+                    // `reps_completed` == the ACTUAL reps (nil on a skip — never a
+                    // fabricated 0). We send `reps_actual` too (canonical); the
+                    // backend accepts both and prefers reps_actual.
                     reps_completed: lap.repsCompleted,
                     weight_used_kg: lap.weightUsedKg,
                     zone_seconds_json: zones,
-                    source: source
+                    source: source,
+                    reps_prescribed: lap.repsPrescribed,
+                    reps_actual: lap.repsCompleted,
+                    reps_status: lap.repsStatus,
+                    reps_confirmed: lap.repsConfirmed,
+                    is_structural: lap.isStructural,
+                    rx_scaled: lap.rxScaled,
+                    scaled_note: lap.scaledNote,
+                    sets: setDTOs
                 )
             }
     }

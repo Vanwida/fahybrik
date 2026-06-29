@@ -52,28 +52,39 @@ struct ActiveWorkoutView: View {
             VStack(spacing: 8) {
                 topStrip
                 phaseRail
-                ConnectionStrip(
-                    session: session,
-                    pm5: pm5,
-                    gpsActive: gpsActive,
-                    segmentIsErg: isErgSegment,
-                    segmentIsRun: isRunSegment,
-                    onTapPM5: { showPM5Sheet = true }
-                )
-                if session.plan.segments.count > 1 {
-                    BlockIntervalStrip(
-                        segments: session.plan.segments,
-                        currentIndex: session.currentSegmentIndex,
-                        onTap: { requestJump(to: $0) }
+                if session.currentBlockIsStructural {
+                    // Warmup / cooldown: ONE readable checklist, gated behind a
+                    // single "hecho" button — never per-exercise navigation/logging.
+                    structuralWorkSurface
+                    Spacer(minLength: 0)
+                    primaryButton
+                } else {
+                    ConnectionStrip(
+                        session: session,
+                        pm5: pm5,
+                        gpsActive: gpsActive,
+                        segmentIsErg: isErgSegment,
+                        segmentIsRun: isRunSegment,
+                        onTapPM5: { showPM5Sheet = true }
                     )
+                    if session.plan.segments.count > 1 {
+                        BlockIntervalStrip(
+                            segments: session.plan.segments,
+                            currentIndex: session.currentSegmentIndex,
+                            onTap: { requestJump(to: $0) }
+                        )
+                    }
+                    modalityHUD
+                    if session.currentSegmentIsMetcon {
+                        RxScaledToggle(session: session)
+                    }
+                    Spacer(minLength: 0)
+                    if isErgSegment && !pm5.isConnected {
+                        connectPM5CTA
+                    }
+                    nextSegmentChip
+                    primaryButton
                 }
-                modalityHUD
-                Spacer(minLength: 0)
-                if isErgSegment && !pm5.isConnected {
-                    connectPM5CTA
-                }
-                nextSegmentChip
-                primaryButton
             }
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.top, Theme.Spacing.s)
@@ -459,9 +470,33 @@ struct ActiveWorkoutView: View {
 
     // MARK: - Primary action
 
+    // Warmup / cooldown checklist surface — every movement + a rounds guide,
+    // scrollable for a long block. The single "hecho" button below closes it.
+    @ViewBuilder
+    private var structuralWorkSurface: some View {
+        if let region = session.currentBlockRegion {
+            ScrollView(showsIndicators: false) {
+                StructuralBlockChecklist(
+                    segments: session.plan.segments(in: region),
+                    phaseName: region.phase.displayName
+                )
+                .padding(.top, 4)
+            }
+        }
+    }
+
     private var primaryButton: some View {
-        ExpertActionButton(title: primaryTitle, action: { session.primaryAdvance() })
+        ExpertActionButton(title: primaryTitle, action: { primaryAction() })
             .frame(height: 88)
+    }
+
+    // A structural block closes as ONE completion; everything else advances.
+    private func primaryAction() {
+        if session.currentBlockIsStructural {
+            session.completeStructuralBlock()
+        } else {
+            session.primaryAdvance()
+        }
     }
 
     // Context-labelled, never the generic "LAP". EMOM: EMPEZAR during the count-in,
@@ -469,6 +504,12 @@ struct ActiveWorkoutView: View {
     // TERMINAR on the last segment, HECHO for a discrete strength/reps piece,
     // SIGUIENTE to move to the next leg.
     private var primaryTitle: String {
+        // Warmup / cooldown: one tap closes the whole structural block.
+        if session.currentBlockIsStructural {
+            return session.currentBlockRegion?.phase == .cooldown
+                ? "VUELTA A LA CALMA HECHA"
+                : "CALENTAMIENTO HECHO"
+        }
         if session.currentSegment?.isEMOM == true {
             // During the post-Empezar 3-2-1, the button SKIPS the count-in.
             if session.emomCountInRemaining > 0 { return "SALTAR" }

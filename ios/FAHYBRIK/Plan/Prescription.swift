@@ -105,6 +105,27 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         }
     }
 
+    /// True for the metcon / conditioning family — the schemes that earn an
+    /// Rx / Scaled toggle on the execution record (a WOD is done "as prescribed"
+    /// or "scaled"). Mirrors the family listed in the honest-logging contract.
+    /// Per-set strength (`.sets`), steady/intervals endurance and warmup/cooldown
+    /// are NOT metcons (their honesty lives in the per-set / per-segment values).
+    var isMetconFamily: Bool {
+        switch self {
+        case .forTime, .amrap, .emom, .tabata, .deathBy,
+             .chipper, .ladder, .rounds, .hyroxSim:
+            return true
+        case .intervals, .steady, .sets, .warmup, .cooldown:
+            return false
+        }
+    }
+
+    /// True when reps ARE the score (the athlete counts UP from 0 across the
+    /// piece, a real 0 is legal) rather than a fixed prescribed chunk to hit
+    /// once. AMRAP is the canonical case: per-movement reps accumulate into the
+    /// round score, so they must never be pre-filled to the prescription.
+    var repsAreOpenScore: Bool { self == .amrap }
+
     /// Athlete-facing label, mirroring the canonical catalog. `.sets` reads as
     /// "Strength" (its real-world role); warmup/cooldown as "Warm-up"/"Cool-down".
     var displayName: String {
@@ -303,4 +324,39 @@ struct PrescriptionSet: Codable, Equatable {
     let restS: Int?
     let tempo: String?
     let note: String?
+}
+
+// MARK: - PrescriptionSet → prescribed scalars (per-set strength logging)
+//
+// The honest per-set logger pre-fills each set from its prescription. These pull
+// the concrete numbers it needs (reps, a real kg load, an RPE/RIR objective)
+// from the typed `measure` / `target` without re-deriving the renderer's strings.
+extension PrescriptionSet {
+    /// Prescribed reps for this set (the `.reps` measure), nil for distance /
+    /// duration / calorie work.
+    var prescribedReps: Int? {
+        if case let .reps(v) = measure, v > 0 { return v }
+        return nil
+    }
+
+    /// Prescribed ABSOLUTE load in kg — only when the target is an explicit `kg`
+    /// objective (a single value, else the low end of a range). A `%RM` / RPE /
+    /// bodyweight target carries no absolute kg, so it stays nil (the athlete
+    /// logs the real load they used).
+    var prescribedLoadKg: Double? {
+        if case let .kg(value, min, _) = target { return value ?? min }
+        return nil
+    }
+
+    /// Prescribed RPE objective, when the target is `.rpe` (value, else low end).
+    var prescribedRpe: Double? {
+        if case let .rpe(value, min, _) = target { return value ?? min }
+        return nil
+    }
+
+    /// Prescribed RIR objective, when the target is `.rir` (value, else low end).
+    var prescribedRir: Double? {
+        if case let .rir(value, min, _) = target { return value ?? min }
+        return nil
+    }
 }

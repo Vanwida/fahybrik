@@ -278,6 +278,14 @@ struct RunLiveHUD: View {
 }
 
 // MARK: - Strength / reps HUD
+//
+// Routes by how the segment's reps are logged (the honest-logging model):
+//   • multi-set strength (5×5 / pyramid) → a per-SET list, each set pre-filled
+//   • prescribed single chunk (squat 15)  → a PRE-FILLED stepper + confirm-by-advance
+//   • open-score (AMRAP) / target-less     → tap-to-count up from a legal 0
+// The bottom "HECHO" advance confirms-by-advancing: an untouched prefilled value
+// records the prescription with `confirmed=false` (assumed); a stepper edit marks
+// it confirmed. Hitting target needs ZERO typing — just advance.
 
 struct StrengthLiveHUD: View {
     let session: WorkoutSession
@@ -287,40 +295,38 @@ struct StrengthLiveHUD: View {
     // into the segment record (session.manualLoadKg), overriding the prescription.
     @State private var loadKg: Double?
 
+    private var seg: WorkoutSegment? { session.currentSegment }
     private var supportsLoad: Bool {
-        let k = session.currentSegment?.kind
+        let k = seg?.kind
         return k == .strength || k == .sled
     }
 
     var body: some View {
+        if seg?.usesMultiSetStrength == true {
+            StrengthSetsHUD(session: session)
+        } else {
+            singleView
+        }
+    }
+
+    // Single-chunk strength / reps: prefilled-or-open rep hero + load + metrics.
+    private var singleView: some View {
         VStack(spacing: 12) {
-            // Tap the reps hero to log a rep — strength/reps have no sensor, the
-            // athlete counts. Generous hit area; haptic on each tap. Set into the
-            // same elevated instrument well as the erg / run heroes.
-            Button(action: { session.tap(); Haptics.light() }) {
-                CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
-                    CenterMetric(
-                        value: repsString,
-                        unit: "reps",
-                        caption: "Reps · toca para +1",
-                        color: Theme.Color.accentText,
-                        hero: true
-                    )
-                }
+            if seg?.repsArePrimable == true {
+                PrefilledRepStepper(session: session)
+            } else {
+                openScoreHero
             }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Sumar repetición. Llevas \(repsString)")
 
             let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
             LazyVGrid(columns: cols, spacing: 4) {
                 if supportsLoad {
-                    // Manual actual load — primary strength data when no device.
                     ManualStepperField(
                         label: "Carga",
                         unit: "kg",
                         value: $loadKg,
                         step: 2.5,
-                        seedOnFirstTap: session.currentSegment?.loadKg ?? 0
+                        seedOnFirstTap: seg?.loadKg ?? 0
                     )
                     .onChange(of: loadKg) { _, new in session.manualLoadKg = new }
                 } else {
@@ -343,18 +349,596 @@ struct StrengthLiveHUD: View {
         }
     }
 
+    // Open-score (AMRAP) / target-less: reps ARE the score, count up from 0.
+    private var openScoreHero: some View {
+        Button(action: { session.tap(); Haptics.light() }) {
+            CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
+                CenterMetric(
+                    value: "\(session.repsCurrentSegment)",
+                    unit: "reps",
+                    caption: "Reps · toca para +1",
+                    color: Theme.Color.accentText,
+                    hero: true
+                )
+            }
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Sumar repetición. Llevas \(session.repsCurrentSegment)")
+    }
+
     private func primeLoad() {
         guard supportsLoad else { loadKg = nil; return }
         session.primeManualLoadIfNeeded()
         loadKg = session.manualLoadKg
     }
+}
 
-    private var repsString: String {
-        let seg = session.currentSegment
-        if seg?.kind == .reps, let t = seg?.targetReps {
-            return "\(session.repsCurrentSegment)/\(t)"
+// MARK: - Pre-filled rep stepper (a prescribed single chunk: "squat × 15")
+//
+// The headline fix: the value starts PRE-FILLED at the prescription, so hitting
+// target is zero typing — just advance. − / + adjust to what was really done
+// (marking it confirmed → scaled if it differs). A SKIP affordance records the
+// segment as not done (actual = null). The prescribed value rides along read-only.
+
+private struct PrefilledRepStepper: View {
+    let session: WorkoutSession
+
+    private var prescribed: Int? { session.currentSegment?.prescribedRepsForLog }
+    private var skipped: Bool { session.repsSkipped }
+
+    var body: some View {
+        CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
+            VStack(spacing: 10) {
+                LabelText(text: skipped ? "Saltado" : "Reps", size: 10)
+                if skipped {
+                    Text("—")
+                        .font(Theme.Typography.readoutHero)
+                        .foregroundStyle(Theme.Color.muted)
+                } else {
+                    HStack(spacing: 18) {
+                        roundStep(systemName: "minus", delta: -1)
+                        Text("\(session.repsCurrentSegment)")
+                            .font(Theme.Typography.readoutHero)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.Color.accentText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .frame(minWidth: 96)
+                            .contentTransition(.numericText())
+                        roundStep(systemName: "plus", delta: 1)
+                    }
+                }
+                if let p = prescribed {
+                    Text(deviationLabel(prescribed: p))
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                Button(action: { session.setRepsSkipped(!skipped); Haptics.light() }) {
+                    Text(skipped ? "Deshacer salto" : "Saltar ejercicio")
+                        .scaledFont(12, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(skipped ? Theme.Color.accentText : Theme.Color.muted)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(skipped ? "Deshacer, marcar como hecho" : "Saltar este ejercicio")
+            }
+            .frame(maxWidth: .infinity)
         }
-        return "\(session.repsCurrentSegment)"
+        .accessibilityElement(children: .contain)
+    }
+
+    private func deviationLabel(prescribed: Int) -> String {
+        let done = session.repsCurrentSegment
+        if done == prescribed { return "Prescrito: \(prescribed) reps" }
+        let diff = done - prescribed
+        let sign = diff > 0 ? "+\(diff)" : "\(diff)"
+        return "Prescrito: \(prescribed) · hecho \(done) (\(sign))"
+    }
+
+    private func roundStep(systemName: String, delta: Int) -> some View {
+        Button(action: {
+            session.setReps(session.repsCurrentSegment + delta)
+            Haptics.light()
+        }) {
+            Image(systemName: systemName)
+                .font(.system(size: 18, weight: .heavy))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 52, height: 52)
+                .background(Theme.Color.surfaceElevated)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(delta > 0 ? "Sumar una repetición" : "Restar una repetición")
+    }
+}
+
+// MARK: - Per-set strength HUD (a 5×5 / pyramid, logged set by set)
+//
+// Each set is PRE-FILLED to its prescription. "Hecho" = one tap (did as written,
+// confirmed, fires the rest timer). "Ajustar" reveals reps / load steppers (+
+// optional RPE / RIR) → the set reads scaled when it differs. A set can be
+// skipped. The segment aggregate (Σ reps, max load) is built on close for the
+// back-compat analytics; the per-set detail rides in `sets[]`.
+
+struct StrengthSetsHUD: View {
+    let session: WorkoutSession
+    @State private var expanded: Set<Int> = []   // setIndex currently editing
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if session.restRemainingSeconds > 0 {
+                RestBanner(session: session)
+            }
+            CardSurface(padding: 0, topAccent: true) {
+                VStack(spacing: 0) {
+                    HStack {
+                        LabelText(text: "Series", size: 10)
+                        Spacer()
+                        Text("\(doneCount)/\(session.setRecords.count)")
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    ForEach(session.setRecords) { rec in
+                        Hairline()
+                        SetRowView(
+                            session: session,
+                            index: rec.setIndex - 1,
+                            rec: rec,
+                            isExpanded: expanded.contains(rec.setIndex),
+                            toggleExpanded: {
+                                if expanded.contains(rec.setIndex) { expanded.remove(rec.setIndex) }
+                                else { expanded.insert(rec.setIndex) }
+                            }
+                        )
+                    }
+                }
+            }
+            metricRow
+        }
+        .onChange(of: session.currentSegmentIndex) { _, _ in expanded.removeAll() }
+    }
+
+    private var doneCount: Int {
+        session.setRecords.filter { $0.confirmed && $0.status != "skipped" }.count
+    }
+
+    private var metricRow: some View {
+        let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
+        return LazyVGrid(columns: cols, spacing: 4) {
+            ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
+            ExpertCell(
+                label: "HR",
+                value: session.liveHRBpm.map { "\($0)" } ?? "—",
+                unit: "bpm",
+                color: session.liveZone?.color ?? Theme.Color.foreground
+            )
+        }
+    }
+}
+
+// One set row. Collapsed: set #, prescribed (or logged) work, status, "Hecho".
+// Expanded: reps / load steppers, optional RPE / RIR, skip.
+private struct SetRowView: View {
+    let session: WorkoutSession
+    let index: Int
+    let rec: SetRecord
+    let isExpanded: Bool
+    let toggleExpanded: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Text("S\(rec.setIndex)")
+                    .font(.system(size: 13, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 30, alignment: .leading)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(workLine)
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                    if let sub = subLine {
+                        Text(sub)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Theme.Color.muted)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 6)
+                statusControl
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .onTapGesture { toggleExpanded() }
+
+            if isExpanded {
+                editor
+            }
+        }
+    }
+
+    // Confirmed → status pill; otherwise a one-tap "Hecho" (did as written).
+    @ViewBuilder
+    private var statusControl: some View {
+        if rec.status == "skipped" {
+            Text("SALTADA")
+                .font(.system(size: 10, weight: .heavy)).tracking(0.6)
+                .foregroundStyle(Theme.Color.muted)
+        } else if rec.confirmed {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(rec.status == "scaled" ? Theme.Color.warning : Theme.Color.ok)
+                if rec.status == "scaled" {
+                    Text("AJUSTADA")
+                        .font(.system(size: 9, weight: .heavy)).tracking(0.5)
+                        .foregroundStyle(Theme.Color.warning)
+                }
+            }
+        } else {
+            Button(action: { session.confirmSet(index); Haptics.medium() }) {
+                Text("HECHO")
+                    .font(.system(size: 12, weight: .heavy, design: .default).italic())
+                    .tracking(0.8)
+                    .foregroundStyle(Theme.Color.accentOn)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Theme.Color.accent)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Serie \(rec.setIndex) hecha como prescrita")
+        }
+    }
+
+    private var editor: some View {
+        VStack(spacing: 8) {
+            Hairline().opacity(0.4)
+            HStack(spacing: 8) {
+                IntStepperTile(
+                    label: "Reps", value: rec.repsActual ?? rec.repsPrescribed ?? 0,
+                    onChange: { session.setSetReps(index, $0) }
+                )
+                if rec.loadPrescribedKg != nil || rec.loadActualKg != nil {
+                    DoubleStepperTile(
+                        label: "Carga", unit: "kg", step: 2.5,
+                        value: rec.loadActualKg ?? rec.loadPrescribedKg,
+                        onChange: { session.setSetLoad(index, $0) }
+                    )
+                }
+            }
+            HStack(spacing: 8) {
+                DoubleStepperTile(
+                    label: "RPE", unit: "", step: 0.5, maxValue: 10, optional: true,
+                    value: rec.rpe,
+                    onChange: { session.setSetRPE(index, $0) }
+                )
+                DoubleStepperTile(
+                    label: "RIR", unit: "", step: 1, maxValue: 10, optional: true,
+                    value: rec.rir,
+                    onChange: { session.setSetRIR(index, $0) }
+                )
+            }
+            Button(action: {
+                session.setSetSkipped(index, rec.status != "skipped"); Haptics.light()
+            }) {
+                Text(rec.status == "skipped" ? "Deshacer salto" : "Saltar serie")
+                    .scaledFont(12, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(rec.status == "skipped" ? Theme.Color.accentText : Theme.Color.muted)
+                    .underline()
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+        .padding(.top, 2)
+    }
+
+    // Prescribed work, or the logged actual once confirmed.
+    private var workLine: String {
+        let reps = rec.confirmed ? (rec.repsActual ?? rec.repsPrescribed) : rec.repsPrescribed
+        let load = rec.confirmed ? (rec.loadActualKg ?? rec.loadPrescribedKg) : rec.loadPrescribedKg
+        var s = reps.map { "\($0)" } ?? "—"
+        if let kg = load { s += " × \(kgString(kg)) kg" }
+        return s
+    }
+
+    private var subLine: String? {
+        var parts: [String] = []
+        if rec.confirmed, let p = rec.repsPrescribed, (rec.repsActual ?? p) != p {
+            parts.append("prescrito \(p)")
+        }
+        if let rpe = rec.rpe { parts.append("RPE \(kgString(rpe))") }
+        if let rir = rec.rir { parts.append("RIR \(kgString(rir))") }
+        if rec.restS != nil, !rec.confirmed, let r = rec.restS { parts.append("descanso \(r)s") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func kgString(_ v: Double) -> String {
+        v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+    }
+}
+
+// Compact rest countdown shown while a set's rest timer runs.
+private struct RestBanner: View {
+    let session: WorkoutSession
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "timer")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Theme.Color.accentText)
+            Text("Descanso")
+                .font(.system(size: 12, weight: .heavy, design: .default).italic())
+                .tracking(0.6)
+                .foregroundStyle(Theme.Color.foreground)
+            Spacer()
+            Text(WorkoutSession.formatElapsed(max(0, session.restRemainingSeconds)))
+                .font(.system(size: 18, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.accentText)
+            Button(action: { session.dismissRest(); Haptics.light() }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Saltar descanso")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.Color.accent.opacity(0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .stroke(Theme.Color.accentText.opacity(0.4), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Small stepper tiles (per-set editor)
+
+private struct IntStepperTile: View {
+    let label: String
+    let value: Int
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: label, size: 10)
+            HStack(spacing: 8) {
+                stepButton("minus") { onChange(max(0, value - 1)) }
+                Text("\(value)")
+                    .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .frame(maxWidth: .infinity)
+                stepButton("plus") { onChange(value + 1) }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func stepButton(_ name: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: { Haptics.light(); action() }) {
+            Image(systemName: name)
+                .font(.system(size: 13, weight: .heavy))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 32, height: 32)
+                .background(Theme.Color.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name == "plus" ? "Sumar \(label)" : "Restar \(label)")
+    }
+}
+
+private struct DoubleStepperTile: View {
+    let label: String
+    var unit: String = ""
+    let step: Double
+    var maxValue: Double? = nil
+    var optional: Bool = false        // shows "—" until first tap (RPE/RIR)
+    let value: Double?
+    let onChange: (Double?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: label, size: 10)
+            HStack(spacing: 8) {
+                stepButton("minus") { adjust(-step) }
+                HStack(alignment: .lastTextBaseline, spacing: 3) {
+                    Text(display)
+                        .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
+                        .foregroundStyle(value == nil ? Theme.Color.muted : Theme.Color.foreground)
+                    if !unit.isEmpty {
+                        Text(unit).font(.system(size: 10)).foregroundStyle(Theme.Color.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                stepButton("plus") { adjust(step) }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var display: String {
+        guard let v = value else { return "—" }
+        return v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+    }
+
+    private func adjust(_ delta: Double) {
+        Haptics.light()
+        // Optional fields (RPE/RIR) seed at 0 on the first tap, then count.
+        var next = max(0, (value ?? 0) + delta)
+        if let mx = maxValue { next = min(mx, next) }
+        onChange(next)
+    }
+
+    private func stepButton(_ name: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: name)
+                .font(.system(size: 13, weight: .heavy))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 32, height: 32)
+                .background(Theme.Color.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name == "plus" ? "Sumar \(label)" : "Restar \(label)")
+    }
+}
+
+// MARK: - Warmup / cooldown checklist (ONE structural completion)
+//
+// A readable checklist of every movement in the block, looping `prescription.rounds`
+// as a display guide ("Ronda X de N"). The WHOLE block is gated behind ONE button
+// in ActiveWorkoutView ("Calentamiento hecho") — never per-exercise logging.
+
+struct StructuralBlockChecklist: View {
+    let segments: [WorkoutSegment]
+    let phaseName: String
+
+    // Rounds guide: the max prescribed rounds across the block's movements (a
+    // warmup circuit "3 rondas"); 1 when none, so a flat list still renders.
+    private var rounds: Int {
+        max(1, segments.compactMap { $0.prescription?.rounds }.max() ?? 1)
+    }
+
+    var body: some View {
+        CardSurface(padding: 0, topAccent: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    LabelText(text: phaseName, size: 10)
+                    Spacer()
+                    if rounds > 1 {
+                        Text("\(rounds) rondas")
+                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                if rounds > 1 {
+                    ForEach(1...rounds, id: \.self) { r in
+                        Hairline()
+                        roundHeader(r)
+                        movementList
+                    }
+                } else {
+                    Hairline()
+                    movementList
+                }
+
+                Hairline()
+                Text("Marca el bloque entero cuando termines.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.Color.faint)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+            }
+        }
+    }
+
+    private func roundHeader(_ r: Int) -> some View {
+        Text("Ronda \(r) de \(rounds)")
+            .font(.system(size: 11, weight: .heavy, design: .default).italic())
+            .tracking(0.6)
+            .foregroundStyle(Theme.Color.accentText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+    }
+
+    private var movementList: some View {
+        ForEach(segments) { seg in
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: "circle")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Theme.Color.muted)
+                Text(seg.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                if let line = seg.previewWorkLine {
+                    Text(line)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+// MARK: - Rx / Scaled toggle (metcon-family blocks)
+//
+// A WOD is done "as prescribed" (Rx) or "scaled". Block-scoped: set once, stamped
+// onto each of the block's laps. An optional note captures HOW it was scaled.
+
+struct RxScaledToggle: View {
+    let session: WorkoutSession
+    @State private var note: String = ""
+
+    private var isScaled: Bool { session.rxScaled == "scaled" }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                segment(title: "RX", on: !isScaled) { session.rxScaled = "rx"; Haptics.light() }
+                segment(title: "ESCALADO", on: isScaled) { session.rxScaled = "scaled"; Haptics.light() }
+            }
+            if isScaled {
+                TextField("¿Cómo lo escalaste? (opcional)", text: $note)
+                    .scaledFont(12, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Theme.Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                    .onChange(of: note) { _, new in
+                        session.scaledNote = new.isEmpty ? nil : new
+                    }
+            }
+        }
+        .padding(.horizontal, 4)
+        .onAppear { note = session.scaledNote ?? "" }
+        .onChange(of: session.currentSegmentIndex) { _, _ in note = session.scaledNote ?? "" }
+    }
+
+    private func segment(title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .heavy, design: .default).italic())
+                .tracking(1)
+                .foregroundStyle(on ? Theme.Color.accentOn : Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(on ? Theme.Color.accent : Theme.Color.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+                        .stroke(on ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(title == "RX" ? "Marcar como prescrito" : "Marcar como escalado")
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 

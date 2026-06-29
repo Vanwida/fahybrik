@@ -381,6 +381,50 @@ extension WorkoutSegment {
     }
 }
 
+// MARK: - WorkoutSegment → honest rep / strength logging
+//
+// The execution timer records what was ACTUALLY done against what was prescribed
+// (done / scaled / skipped + a confidence flag). These helpers classify a segment
+// so the session knows whether to PRE-FILL the prescribed reps (a fixed chunk to
+// hit once) or count UP from zero (reps ARE the score), and whether to log the
+// strength work PER SET. EMOM owns its own interval model, so it's excluded.
+extension WorkoutSegment {
+    /// Prescribed reps to LOG against (the scalar target), nil for open-score /
+    /// target-less work. A real 0 is never prescribed.
+    var prescribedRepsForLog: Int? {
+        guard let r = targetReps, r > 0 else { return nil }
+        return r
+    }
+
+    /// True when reps ACCUMULATE as the score (count up from 0, a real 0 is
+    /// legal) — an AMRAP movement — rather than a fixed prescribed chunk. EMOM is
+    /// not open-score here (its work is interval-driven, handled by the EMOM HUD).
+    var repsAreOpenScore: Bool {
+        guard !isEMOM else { return false }
+        return prescription?.scheme.repsAreOpenScore == true
+    }
+
+    /// True when the segment's reps should be PRE-FILLED from the prescription
+    /// (a fixed chunk the athlete confirms or adjusts). Excludes EMOM, open-score
+    /// AMRAP work, and target-less reps (which start at 0 and count up).
+    var repsArePrimable: Bool {
+        guard kind == .reps || kind == .strength, !isEMOM, !repsAreOpenScore else { return false }
+        return prescribedRepsForLog != nil
+    }
+
+    /// True when this strength segment is a multi-SET piece (a 5×5, a pyramid) the
+    /// athlete logs set by set — driven by the structured `prescription.sets`.
+    /// A single-set strength move falls back to the simple prefilled rep flow.
+    var usesMultiSetStrength: Bool {
+        guard kind == .strength, !isEMOM else { return false }
+        return (prescription?.sets?.count ?? 0) > 1
+    }
+
+    /// True when this segment belongs to a metcon-family block (the Rx / Scaled
+    /// axis applies). Read from the structured scheme; nil prescription = not a WOD.
+    var isMetconFamily: Bool { prescription?.scheme.isMetconFamily == true }
+}
+
 // A session's segments regrouped into their coach blocks, in session order, so
 // the post-workout summary reads as Calentamiento / Principal / Vuelta a la calma
 // instead of one flat mix. `title` is the coach block title (phase name as
@@ -440,6 +484,50 @@ struct LapRecord: Codable, Identifiable {
     /// Provenance of the metrics: "pm5" for erg segments fed by the Concept2,
     /// "healthkit" when HR came from a wearable, else "manual".
     let source: String
+
+    // MARK: Honest-logging carriers (FASE 2 · PASO 2)
+    //
+    // `repsCompleted` above STAYS the canonical "actual" reps (nil = skipped,
+    // never a fabricated 0). These add the prescribed reference + the three-state
+    // honesty (done/scaled/skipped) + the confidence flag, mirroring the wire/DB
+    // contract. Defaulted so older persisted snapshots and the freeform fallback
+    // keep building without them.
+    /// Prescribed reps this segment was logged against (nil for open-score /
+    /// target-less / structural work).
+    var repsPrescribed: Int? = nil
+    /// "done" | "scaled" | "skipped" — nil for segments with no rep dimension.
+    var repsStatus: String? = nil
+    /// TRUE only when the athlete explicitly touched/confirmed the value; FALSE =
+    /// assumed from the prescription (advanced past without acting).
+    var repsConfirmed: Bool = false
+    /// Warmup / cooldown completion-only marker — one structural row per block,
+    /// EXCLUDED from volume/analytics (no reps/load).
+    var isStructural: Bool = false
+    /// "rx" | "scaled" — only on metcon-family laps.
+    var rxScaled: String? = nil
+    /// Optional free note on HOW a WOD was scaled.
+    var scaledNote: String? = nil
+    /// Per-set strength detail (a 5×5 / pyramid); nil for single-set / non-strength.
+    var sets: [SetRecord]? = nil
+}
+
+// One logged STRENGTH set — the on-device source the per-set view fills and
+// `closeCurrentSegmentLap` carries onto the wire. Each value defaults to the
+// prescription (confirmed=false) until the athlete touches it; mirrors
+// `SetExecutionDTO` 1:1. `id` (== setIndex) makes it ForEach-stable.
+struct SetRecord: Codable, Equatable, Identifiable {
+    var id: Int { setIndex }
+    let setIndex: Int                  // 1-based
+    var repsPrescribed: Int?
+    var repsActual: Int?
+    var loadPrescribedKg: Double?
+    var loadActualKg: Double?
+    var rpe: Double?
+    var rir: Double?
+    var status: String                 // "done" | "scaled" | "skipped"
+    var confirmed: Bool
+    var tempo: String?
+    var restS: Int?
 }
 
 // Per-segment execution record on the wire. Property names are already
@@ -471,6 +559,36 @@ struct SegmentExecutionDTO: Codable {
     let weight_used_kg: Double?
     let zone_seconds_json: [String: Int]?
     let source: String
+
+    // Honest-logging fields (FASE 2 · PASO 2). All optional — the backend Zod
+    // schema accepts them as optional and derives sensible defaults. `reps_actual`
+    // is the canonical actual (NULL only when skipped); we also keep sending
+    // `reps_completed` (= actual) as the legacy alias the analytics readers use.
+    let reps_prescribed: Int?
+    let reps_actual: Int?
+    let reps_status: String?         // "done" | "scaled" | "skipped"
+    let reps_confirmed: Bool?
+    let is_structural: Bool?
+    let rx_scaled: String?           // "rx" | "scaled"
+    let scaled_note: String?
+    let sets: [SetExecutionDTO]?
+}
+
+// Per-set strength execution on the wire. Explicit snake_case keys (the encoder's
+// key strategy is a no-op) matching `setInputSchema` in
+// web/lib/sync/ingest-execution-segments.ts byte-for-byte.
+struct SetExecutionDTO: Codable {
+    let set_index: Int
+    let reps_prescribed: Int?
+    let reps_actual: Int?
+    let load_prescribed_kg: Double?
+    let load_actual_kg: Double?
+    let rpe: Double?
+    let rir: Double?
+    let status: String?              // "done" | "scaled" | "skipped"
+    let confirmed: Bool?
+    let tempo: String?
+    let rest_s: Int?
 }
 
 // POST /api/sync/workout-execution body. Explicit snake_case keys to match the
