@@ -373,9 +373,10 @@ struct InicioView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(raceAnchorAxLabel(race: race, days: d))
             .accessibilityAddTraits(.isButton)
-        } else {
-            // No objective fixed → invite the athlete to pick one. Tapping opens the
-            // race picker; on success the plan refreshes and the anchor appears.
+        } else if store.planWeek.hasLoaded {
+            // No objective fixed (and the week HAS loaded — genuinely empty, not
+            // mid-load) → invite the athlete to pick one. Tapping opens the race
+            // picker; on success the plan refreshes and the anchor appears.
             Button {
                 Haptics.light()
                 showBuscarCarrera = true
@@ -405,6 +406,10 @@ struct InicioView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Elige tu carrera objetivo, busca tu carrera")
             .accessibilityAddTraits(.isButton)
+        } else {
+            // Cold start, no cache yet — show a quiet skeleton, NOT the "elige
+            // carrera" CTA, until the week load resolves and we know the truth.
+            loadingCard(label: "Camino a la carrera", titleWidth: 200)
         }
     }
 
@@ -849,7 +854,8 @@ struct InicioView: View {
             )
         } else if hasPlan {
             restCard
-        } else {
+        } else if store.planWeek.hasLoaded {
+            // Week loaded and there is genuinely no published plan — honest empty.
             CardSurface(padding: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     LabelText(text: "Hoy")
@@ -861,6 +867,10 @@ struct InicioView: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
+        } else {
+            // Cold start, week not loaded yet — skeleton instead of the
+            // "plan no publicado" empty state (which would be a lie mid-load).
+            loadingCard(label: "Hoy", titleWidth: 150)
         }
     }
 
@@ -1065,6 +1075,25 @@ struct InicioView: View {
         return "Haz una simulación de HYROX para ver si llegas a tu objetivo."
     }
 
+    // MARK: - Loading placeholder
+    //
+    // A quiet skeleton card shown while a slice is still loading on a COLD cache,
+    // so the honest empty CTAs ("elige carrera" / "plan no publicado") only ever
+    // appear once we KNOW the slice is genuinely empty — never as a not-loaded-yet
+    // flash on first paint. On a warm (disk-cached) launch the real value is
+    // present immediately, so this never shows.
+    private func loadingCard(label: String, titleWidth: CGFloat) -> some View {
+        CardSurface(padding: 18) {
+            VStack(alignment: .leading, spacing: 12) {
+                LabelText(text: label)
+                SkeletonBar(width: titleWidth, height: 24)
+                SkeletonBar(height: 12)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando")
+    }
+
     // MARK: - Small formatters
     //
     // Spanish decimal comma for the two figures that carry a fraction (volume +
@@ -1261,6 +1290,31 @@ private struct SignalChip: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(active ? "\(text), activo" : "\(text), sin datos")
+    }
+}
+
+// MARK: - Skeleton bar
+//
+// A neutral, gently-pulsing placeholder bar for the cold-start loading cards.
+// Purely decorative (the host card carries the "Cargando" a11y label); the
+// slow opacity pulse signals "loading" without a spinner or fake content.
+private struct SkeletonBar: View {
+    var width: CGFloat? = nil
+    var height: CGFloat = 14
+    @State private var pulse = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+            .fill(Theme.Color.surfaceElevated)
+            .frame(width: width, height: height)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .opacity(pulse ? 0.5 : 1)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
+            .accessibilityHidden(true)
     }
 }
 

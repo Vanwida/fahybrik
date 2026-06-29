@@ -14,7 +14,15 @@ struct AppShell: View {
     let onSignOut: () -> Void
 
     @State private var selection: AppTab = .inicio
-    @State private var bearer: String? = nil
+    // Seed the session bearer from the persisted token AT INIT (not in onAppear).
+    // AppShell is only ever mounted post-auth, so the token is already in
+    // UserDefaults by the time this view is created. Starting nil and assigning
+    // in onAppear created a nil→token churn: the store was activated once with
+    // nil (clearing it) WHILE a tab's cold-start load was in flight, so the SWR
+    // session guard (`bearer == self.bearer`) discarded those first results — the
+    // Inicio "loads only after visiting Plan" bug. A stable bearer from frame 1
+    // means a single, deterministic `store.activate(token)`.
+    @State private var bearer: String? = UserDefaults.standard.string(forKey: AuthState.bearerStorageKey)
 
     // The shared, cache-first data layer. Created ONCE here and injected via
     // `.environment` so it survives tab switches — Inicio / Plan / Perfil read
@@ -66,7 +74,6 @@ struct AppShell: View {
             await store.warm()
         }
         .onAppear {
-            bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
             handlePushDestination(pushRouter.pendingDestination)
         }
         .onChange(of: pushRouter.pendingDestination) { _, dest in

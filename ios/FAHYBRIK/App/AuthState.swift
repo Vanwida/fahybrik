@@ -20,7 +20,11 @@ final class AuthState {
     /// launch / sign-in so a lapsed athlete gets gated again.
     var accessGated: Bool? = nil
 
-    private static let bearerKey = "fahybrik.bearer"
+    /// Single source of truth for the persisted-bearer UserDefaults key, so
+    /// callers that seed a session bearer from disk (e.g. AppShell) never drift
+    /// from where AuthState writes it.
+    static let bearerStorageKey = "fahybrik.bearer"
+    private static let bearerKey = bearerStorageKey
     private static let athleteKey = "fahybrik.athleteId"
     private static let stageKey = "fahybrik.stage"
 
