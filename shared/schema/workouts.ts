@@ -80,6 +80,40 @@ export const rawLapDataSchema = z.object({
 }).passthrough();
 export type RawLapData = z.infer<typeof rawLapDataSchema>;
 
+// Honest-logging vocabulary — the SINGLE SOURCE of the three states a logged
+// unit of work can be in, shared coach↔athlete↔DB↔wire (web ingest re-exports
+// these). NULL actual ⇔ 'skipped'; a real 0 is legal only for open/AMRAP score-
+// reps. Mirrors the CHECK constraints on segment_executions / set_executions.
+export const REPS_STATUSES = ['done', 'scaled', 'skipped'] as const;
+export type RepsStatus = (typeof REPS_STATUSES)[number];
+
+// Rx/Scaled toggle for metcon-family blocks (whole-block scaling).
+export const RX_SCALED_VALUES = ['rx', 'scaled'] as const;
+export type RxScaled = (typeof RX_SCALED_VALUES)[number];
+
+// One working set of a strength segment (table `set_executions`). The parent
+// segment keeps the back-compat aggregate (reps_completed = Σ reps_actual,
+// weight_used_kg = representative load); this carries the per-set honest detail.
+export const setExecutionSchema = z.object({
+  id: idSchema,
+  segment_execution_id: idSchema,
+  set_index: z.number().int().min(1),
+  reps_prescribed: z.number().int().nonnegative().nullable(),
+  // NULL only when the set was skipped — never a fabricated 0.
+  reps_actual: z.number().int().nonnegative().nullable(),
+  load_prescribed_kg: z.number().nonnegative().nullable(),
+  load_actual_kg: z.number().nonnegative().nullable(),
+  rpe: z.number().min(0).max(10).nullable(),
+  rir: z.number().min(0).max(10).nullable(),
+  status: z.enum(REPS_STATUSES),
+  confirmed: z.boolean(),
+  tempo: z.string().nullable(),
+  rest_s: z.number().int().nonnegative().nullable(),
+  created_at: isoDateTime,
+  updated_at: isoDateTime,
+});
+export type SetExecution = z.infer<typeof setExecutionSchema>;
+
 export const segmentExecutionSchema = z.object({
   id: idSchema,
   execution_id: idSchema,
@@ -87,12 +121,21 @@ export const segmentExecutionSchema = z.object({
   position: z.number().int().nonnegative(),
   started_at: isoDateTime.nullable(),
   ended_at: isoDateTime.nullable(),
+  // ACTUAL completed reps (NULL when skipped) — the legacy alias for reps_actual.
   reps_completed: z.number().int().nonnegative().nullable(),
   weight_used_kg: z.number().nonnegative().nullable(),
   distance_meters: z.number().nonnegative().nullable(),
   calories: z.number().nonnegative().nullable(),
   avg_hr: z.number().int().min(30).max(260).nullable(),
   max_hr: z.number().int().min(30).max(260).nullable(),
+  // Honest-logging fields (migration 0088). reps_confirmed / is_structural are
+  // NOT NULL with a default, so always present; the rest are nullable.
+  reps_prescribed: z.number().int().nonnegative().nullable(),
+  reps_status: z.enum(REPS_STATUSES).nullable(),
+  reps_confirmed: z.boolean(),
+  is_structural: z.boolean(),
+  rx_scaled: z.enum(RX_SCALED_VALUES).nullable(),
+  scaled_note: z.string().nullable(),
   raw_lap_data_json: rawLapDataSchema.nullable(),
   reconciled_at: isoDateTime.nullable(),
   reconciled_by_user_id: idSchema.nullable(),

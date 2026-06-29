@@ -12,6 +12,11 @@
 
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
+import { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus } from '@fahybrid/shared/schema';
+
+// Re-export the honest-logging vocabulary (single source lives in shared) so the
+// sync layer's public surface stays self-contained for callers/tests.
+export { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus };
 
 // Canonical modality vocabulary — the single source of truth shared with the
 // analytics aggregation. iOS is expected to send one of these; anything else is
@@ -51,6 +56,40 @@ export function normalizeModality(raw: string | null | undefined): SegmentModali
   }
 }
 
+/**
+ * Derive the honest reps status when the client omits it (locked contract rule):
+ *   actual == null                          → 'skipped'
+ *   prescribed != null && actual != presc.  → 'scaled'
+ *   else                                    → 'done'
+ * A wire-supplied status always wins; this only fills the gap.
+ */
+export function deriveRepsStatus(
+  actual: number | null | undefined,
+  prescribed: number | null | undefined,
+): RepsStatus {
+  if (actual == null) return 'skipped';
+  if (prescribed != null && actual !== prescribed) return 'scaled';
+  return 'done';
+}
+
+// One working set of a strength segment. All optional except `set_index`; a NULL
+// `reps_actual` means the set was skipped (never a fabricated 0).
+export const setInputSchema = z.object({
+  set_index: z.number().int().min(1),
+  reps_prescribed: z.number().int().min(0).nullable().optional(),
+  reps_actual: z.number().int().min(0).nullable().optional(),
+  load_prescribed_kg: z.number().nonnegative().nullable().optional(),
+  load_actual_kg: z.number().nonnegative().nullable().optional(),
+  rpe: z.number().min(0).max(10).nullable().optional(),
+  rir: z.number().min(0).max(10).nullable().optional(),
+  status: z.enum(REPS_STATUSES).optional(),
+  confirmed: z.boolean().optional(),
+  tempo: z.string().max(20).optional(),
+  rest_s: z.number().int().min(0).optional(),
+});
+
+export type SetInput = z.infer<typeof setInputSchema>;
+
 // Exactly the shape iOS sends per segment on workout finish.
 export const segmentInputSchema = z.object({
   template_segment_id: z.number().int().positive().optional(),
@@ -67,8 +106,21 @@ export const segmentInputSchema = z.object({
   avg_hr: z.number().int().min(30).max(260).optional(),
   max_hr: z.number().int().min(30).max(260).optional(),
   calories: z.number().nonnegative().optional(),
+  // Legacy alias kept for back-compat: = ACTUAL reps (or null when skipped).
+  // Ingest prefers `reps_actual` when present; never coalesces a skip to 0.
   reps_completed: z.number().int().min(0).optional(),
   weight_used_kg: z.number().nonnegative().optional(),
+  // Honest-logging fields (all optional; see deriveRepsStatus for the fallback).
+  reps_prescribed: z.number().int().min(0).nullable().optional(),
+  // Canonical actual; NULL only when skipped.
+  reps_actual: z.number().int().min(0).nullable().optional(),
+  reps_status: z.enum(REPS_STATUSES).optional(),
+  reps_confirmed: z.boolean().optional(),
+  is_structural: z.boolean().optional(),
+  rx_scaled: z.enum(RX_SCALED_VALUES).optional(),
+  scaled_note: z.string().max(500).optional(),
+  // Per-set strength detail; delete-then-insert by segment on re-sync.
+  sets: z.array(setInputSchema).max(60).optional(),
   zone_seconds_json: z.unknown().optional(),
   source: z.string().min(1).max(40).optional(),
 });
@@ -112,13 +164,32 @@ export async function ingestExecutionSegments(args: {
         ? sql.json({ zone_seconds: seg.zone_seconds_json } as Parameters<typeof sql.json>[0])
         : null;
 
-    await sql`
+    // Honest reps state. `reps_actual` is canonical; `reps_completed` is the
+    // legacy alias for the SAME value. NULL means skipped — NEVER fabricate a 0.
+    const repsActual =
+      seg.reps_actual !== undefined ? seg.reps_actual : (seg.reps_completed ?? null);
+    const repsPrescribed = seg.reps_prescribed ?? null;
+    // Only rep-bearing segments carry a status — a pure run/erg leg (no reps at
+    // all) must NOT be stamped 'skipped'. Derive only when the client omits it
+    // AND the segment actually involves reps.
+    const hasRepSignal =
+      seg.reps_actual !== undefined ||
+      seg.reps_completed !== undefined ||
+      repsPrescribed != null ||
+      seg.reps_status !== undefined;
+    const repsStatus =
+      seg.reps_status ?? (hasRepSignal ? deriveRepsStatus(repsActual, repsPrescribed) : null);
+    const repsConfirmed = seg.reps_confirmed ?? false;
+    const isStructural = seg.is_structural ?? false;
+
+    const rows = await sql<Array<{ id: string }>>`
       insert into segment_executions (
         execution_id, template_segment_id, position,
         started_at, ended_at,
         modality, distance_meters,
         avg_pace_s_per_500m, avg_pace_s_per_km, avg_power_w, stroke_rate_spm,
         avg_hr, max_hr, calories, reps_completed, weight_used_kg,
+        reps_prescribed, reps_status, reps_confirmed, is_structural, rx_scaled, scaled_note,
         raw_lap_data_json, source
       ) values (
         ${executionId}::bigint,
@@ -135,8 +206,14 @@ export async function ingestExecutionSegments(args: {
         ${seg.avg_hr ?? null},
         ${seg.max_hr ?? null},
         ${seg.calories ?? null},
-        ${seg.reps_completed ?? null},
+        ${repsActual},
         ${seg.weight_used_kg ?? null},
+        ${repsPrescribed},
+        ${repsStatus},
+        ${repsConfirmed},
+        ${isStructural},
+        ${seg.rx_scaled ?? null},
+        ${seg.scaled_note ?? null},
         ${rawLap},
         ${seg.source ?? null}
       )
@@ -153,13 +230,59 @@ export async function ingestExecutionSegments(args: {
         avg_hr              = coalesce(excluded.avg_hr, segment_executions.avg_hr),
         max_hr              = coalesce(excluded.max_hr, segment_executions.max_hr),
         calories            = coalesce(excluded.calories, segment_executions.calories),
-        reps_completed      = coalesce(excluded.reps_completed, segment_executions.reps_completed),
         weight_used_kg      = coalesce(excluded.weight_used_kg, segment_executions.weight_used_kg),
+        -- Honest-logging fields are a COHERENT group: the latest payload is the
+        -- athlete's declared truth, so we OVERWRITE (a skip's NULL stays NULL —
+        -- never coalesced to an old value or a fabricated 0).
+        reps_completed      = excluded.reps_completed,
+        reps_prescribed     = excluded.reps_prescribed,
+        reps_status         = excluded.reps_status,
+        reps_confirmed      = excluded.reps_confirmed,
+        is_structural       = excluded.is_structural,
+        rx_scaled           = excluded.rx_scaled,
+        scaled_note         = excluded.scaled_note,
         raw_lap_data_json   = coalesce(excluded.raw_lap_data_json, segment_executions.raw_lap_data_json),
         source              = coalesce(excluded.source, segment_executions.source),
         updated_at          = now()
+      returning id::text
     `;
     written += 1;
+
+    // Per-set strength detail. Delete-then-insert keyed on the parent segment so
+    // a retried sync replaces cleanly (no orphan/dupe sets). Only touched when
+    // the client sends a `sets` array for this segment.
+    if (seg.sets && seg.sets.length > 0) {
+      const segmentExecutionId = Number(rows[0]?.id);
+      if (Number.isFinite(segmentExecutionId)) {
+        await sql`delete from set_executions where segment_execution_id = ${segmentExecutionId}`;
+        for (const s of seg.sets) {
+          const setActual = s.reps_actual ?? null;
+          const setPrescribed = s.reps_prescribed ?? null;
+          const setStatus = s.status ?? deriveRepsStatus(setActual, setPrescribed);
+          await sql`
+            insert into set_executions (
+              segment_execution_id, set_index,
+              reps_prescribed, reps_actual,
+              load_prescribed_kg, load_actual_kg,
+              rpe, rir, status, confirmed, tempo, rest_s
+            ) values (
+              ${segmentExecutionId}::bigint,
+              ${s.set_index},
+              ${setPrescribed},
+              ${setActual},
+              ${s.load_prescribed_kg ?? null},
+              ${s.load_actual_kg ?? null},
+              ${s.rpe ?? null},
+              ${s.rir ?? null},
+              ${setStatus},
+              ${s.confirmed ?? false},
+              ${s.tempo ?? null},
+              ${s.rest_s ?? null}
+            )
+          `;
+        }
+      }
+    }
   }
   return written;
 }
