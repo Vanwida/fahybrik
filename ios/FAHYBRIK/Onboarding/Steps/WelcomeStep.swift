@@ -9,11 +9,7 @@ struct WelcomeStep: View {
             Theme.Color.background.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.xl) {
                 Spacer()
-                HStack(spacing: 0) {
-                    Text("[F]").foregroundStyle(Theme.Color.accentText)
-                    Text("AHYBRID").foregroundStyle(Theme.Color.foreground)
-                }
-                .font(Theme.Typography.display)
+                Wordmark(size: 32)
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     Text("Bienvenido.")
