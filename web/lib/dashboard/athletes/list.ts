@@ -9,6 +9,7 @@ import {
 import type { RacePriority } from '@fahybrid/shared/schema';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
 import { getOrderAlteredByAthlete } from '@/lib/dashboard/v2/order-altered';
+import { getLatestReadinessBatch } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 
 export type { ProgrammingStatus };
 
@@ -92,7 +93,6 @@ export async function fetchAthletesForCoach(params: {
       block_type: string | null;
       block_week: number | null;
       block_total: number | null;
-      readiness_score: number | null;
       scheduled: number;
       completed: number;
       modality: string | null;
@@ -117,7 +117,6 @@ export async function fetchAthletesForCoach(params: {
       ab.block_type as block_type,
       ab.block_week as block_week,
       ab.block_total as block_total,
-      rds.score as readiness_score,
       coalesce(wa.scheduled, 0)::int as scheduled,
       coalesce(wa.completed, 0)::int as completed,
       sub.plan_type as modality,
@@ -148,12 +147,6 @@ export async function fetchAthletesForCoach(params: {
       order by ama.start_date desc
       limit 1
     ) ab on true
-    left join lateral (
-      select score from athlete_daily_readiness_snapshots s
-      where s.athlete_id = a.id
-      order by s.recorded_for desc
-      limit 1
-    ) rds on true
     left join lateral (
       -- Rolling 30-day completion adherence (NOT current week): completed vs
       -- scheduled across the trailing window, matching the resumen definition.
@@ -211,11 +204,14 @@ export async function fetchAthletesForCoach(params: {
   `;
 
   const ids = rows.map((r) => Number(r.athlete_id));
-  // Both maps cover the whole roster in one batched pass each (no N+1): programming
-  // status + the soft order-altered info signal.
-  const [statusMap, orderAlteredMap] = await Promise.all([
+  // Each map covers the whole roster in one batched pass (no N+1): programming
+  // status, the soft order-altered info signal, and readiness — the last via the
+  // shared motor (compute-on-miss + recorded_for <= today guard) so the roster
+  // shows the SAME live score the athlete's own surface computes, never a raw '—'.
+  const [statusMap, orderAlteredMap, readinessMap] = await Promise.all([
     loadProgrammingStatusMap({ athlete_ids: ids, client }),
     getOrderAlteredByAthlete(ids, client),
+    getLatestReadinessBatch({ athlete_ids: ids, client }),
   ]);
 
   return rows.map((r) => {
@@ -227,6 +223,7 @@ export async function fetchAthletesForCoach(params: {
     // a planless athlete reads "—", never a stale/seed %.
     const compliance_pct =
       r.block_type != null ? adherencePct(r.scheduled, r.completed) : null;
+    const readiness_score = readinessMap.get(r.athlete_id)?.score ?? null;
 
     let alert_label: string | null = null;
     let alert_severity: AthleteRow['alert_severity'] = null;
@@ -244,11 +241,11 @@ export async function fetchAthletesForCoach(params: {
         programming_status === 'month_2_pending' || programming_status === 'no_month'
           ? 'critical'
           : 'warning';
-    } else if (r.readiness_score != null && r.readiness_score < 45) {
+    } else if (readiness_score != null && readiness_score < 45) {
       alert_label = 'Fatiga CNS alta';
       alert_severity = 'warning';
-    } else if (r.readiness_score != null && r.readiness_score < 55) {
-      alert_label = `Readiness ${r.readiness_score}%`;
+    } else if (readiness_score != null && readiness_score < 55) {
+      alert_label = `Readiness ${readiness_score}%`;
       alert_severity = 'warning';
     }
 
@@ -263,7 +260,7 @@ export async function fetchAthletesForCoach(params: {
       block_type: r.block_type ?? null,
       block_week: r.block_week,
       block_total: r.block_total,
-      readiness_score: r.readiness_score,
+      readiness_score,
       compliance_pct,
       programming_status,
       programming_label,

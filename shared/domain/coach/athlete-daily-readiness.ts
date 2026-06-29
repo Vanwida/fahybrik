@@ -210,3 +210,63 @@ export async function getLatestReadiness(params: {
     delta_7d: null,
   };
 }
+
+/**
+ * Batched `getLatestReadiness` for a cohort — the roster/resumen reader, so coach
+ * surfaces show the SAME compute-on-miss score the athlete's own surface does (no
+ * raw `select score limit 1` that reads '—' where a live score exists), without
+ * an N+1. One indexed read returns the latest snapshot (recorded_for <= today,
+ * the same future-guard as the single getter) per athlete; athletes with NO
+ * snapshot are computed-on-miss individually (best-effort) — which after the first
+ * pass is zero, so steady-state is a single query. Returns a Map keyed by
+ * athlete_id string.
+ */
+export async function getLatestReadinessBatch(params: {
+  athlete_ids: Array<number | bigint>;
+  on_date?: Date;
+  client: Sql;
+}): Promise<Map<string, DailyReadinessSnapshot>> {
+  const client = params.client;
+  const out = new Map<string, DailyReadinessSnapshot>();
+  const ids = Array.from(new Set(params.athlete_ids.map((x) => Number(x))));
+  if (ids.length === 0) return out;
+  const iso = isoDateString(startOfDayInBox(params.on_date ?? new Date()));
+
+  const rows = await client<
+    Array<{ athlete_id: string; recorded_for: string; score: number; breakdown_json: unknown }>
+  >`
+    select distinct on (athlete_id)
+      athlete_id::text as athlete_id,
+      to_char(recorded_for, 'YYYY-MM-DD') as recorded_for,
+      score,
+      breakdown_json
+    from athlete_daily_readiness_snapshots
+    where athlete_id = any(${ids}::bigint[])
+      and recorded_for <= ${iso}::date
+    order by athlete_id, recorded_for desc
+  `;
+  for (const r of rows) {
+    out.set(r.athlete_id, {
+      athlete_id: r.athlete_id,
+      recorded_for: r.recorded_for,
+      score: r.score,
+      breakdown: r.breakdown_json as ReadinessBreakdown,
+      delta_7d: null,
+    });
+  }
+
+  for (const id of ids) {
+    if (out.has(String(id))) continue;
+    try {
+      const snap = await computeAthleteDailyReadiness({
+        athlete_id: id,
+        recorded_for: iso,
+        client,
+      });
+      if (snap) out.set(String(id), snap);
+    } catch {
+      // best-effort compute-on-miss — a bad athlete just stays absent ('—').
+    }
+  }
+  return out;
+}

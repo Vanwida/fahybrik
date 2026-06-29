@@ -9,6 +9,7 @@ import { buildMacroProgress, type MacroProgressPayload } from './macro-progress'
 import { getAthleteProgrammingStatus, type AthleteProgrammingStatus } from './programming-status';
 import { getNextRace, getTargetRace, toRaceSummary } from '@/lib/races/next-race';
 import type { RaceSummary } from '@fahybrid/shared/schema';
+import { getLatestReadiness } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 
 export interface AthleteResumen {
   athlete_id: string;
@@ -74,11 +75,10 @@ export async function buildAthleteResumen(params: {
     throw new ResumenError('not_found', 'Atleta no encontrado', 404);
   }
 
-  const readinessRows = await client<Array<{ score: number }>>`
-    select score from athlete_daily_readiness_snapshots
-    where athlete_id = ${params.athlete_id}
-    order by recorded_for desc limit 1
-  `;
+  // Readiness via the shared motor (compute-on-miss + recorded_for <= today) so
+  // the resumen shows the SAME live score the athlete's own surface computes,
+  // never a raw '—' where one exists.
+  const readiness = await getLatestReadiness({ athlete_id: params.athlete_id, client });
 
   const checkinRows = await client<Array<{ sub_score: number; recorded_for: string }>>`
     select sub_score, to_char(recorded_for, 'YYYY-MM-DD') as recorded_for
@@ -178,7 +178,7 @@ export async function buildAthleteResumen(params: {
     next_race: nextRace ? toRaceSummary(nextRace) : null,
     macro,
     programming,
-    readiness_score: readinessRows[0]?.score ?? null,
+    readiness_score: readiness?.score ?? null,
     adherence_pct_30d,
     order_altered,
     week_scheduled: scheduled,

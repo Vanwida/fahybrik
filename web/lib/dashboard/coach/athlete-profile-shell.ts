@@ -4,6 +4,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
+import { getLatestReadiness } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 
 export type ReadinessLabel = 'READY' | 'CAUTION' | 'LOW';
 
@@ -57,7 +58,6 @@ export async function fetchAthleteProfileShell(params: {
       level_sort: number;
       block_type: string | null;
       block_week: number | null;
-      readiness_score: number | null;
       onboarded_at: Date | null;
       intake_completed_at: Date | null;
       modality: string | null;
@@ -72,7 +72,6 @@ export async function fetchAthleteProfileShell(params: {
       coalesce(al.sort_order, 0)::int as level_sort,
       ab.block_type as block_type,
       ab.block_week as block_week,
-      rds.score as readiness_score,
       a.onboarded_at,
       a.intake_completed_at,
       sub.plan_type as modality,
@@ -108,12 +107,6 @@ export async function fetchAthleteProfileShell(params: {
       order by ama.start_date desc
       limit 1
     ) ab on true
-    left join lateral (
-      select score from athlete_daily_readiness_snapshots
-      where athlete_id = a.id
-      order by recorded_for desc
-      limit 1
-    ) rds on true
     where a.id = ${params.athlete_id} and a.coach_id = ${params.coach_id}
     limit 1
   `;
@@ -124,6 +117,11 @@ export async function fetchAthleteProfileShell(params: {
   // Target race = soonest upcoming race with priority='target' (unified spine).
   const targetRace = await getTargetRaceRow(params.athlete_id, client);
 
+  // Readiness via the shared motor (compute-on-miss + recorded_for <= today) so
+  // the coach sees the SAME live score the athlete's own surface computes.
+  const readiness = await getLatestReadiness({ athlete_id: params.athlete_id, client });
+  const readinessScore = readiness?.score ?? null;
+
   const blockType = row.block_type ?? null;
 
   return {
@@ -131,8 +129,8 @@ export async function fetchAthleteProfileShell(params: {
     full_name: row.full_name,
     block_type: blockType,
     block_week: row.block_week,
-    readiness_score: row.readiness_score,
-    readiness_label: readinessLabel(row.readiness_score),
+    readiness_score: readinessScore,
+    readiness_label: readinessLabel(readinessScore),
     a_event: targetRace
       ? { name: targetRace.name, iso_date: targetRace.race_date, days_until: targetRace.days_until }
       : null,
