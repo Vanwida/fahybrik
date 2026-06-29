@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propuesta visual — Inicio del atleta · "Camino a la Carrera" (FAHYBRID iOS)</title>
+<style>
+  /* ───────────────────────── DOC SHELL (claro, legible) ─────────────────────────
+     Mismo lenguaje que los pases hermanos en docs/superpowers/plans/*.html:
+     fondo crema, tinta, acento naranja Fabrik, titulares bold italic. El doc es
+     CLARO; los MOCKUPS de teléfono dentro son OSCUROS porque la app es oscura.
+     Esto es un artefacto de DECISIÓN: Alex mira y elige antes de tocar código. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1080px;margin:0 auto}
+  h1{font-size:31px;font-weight:800;font-style:italic;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:26px}
+  h2{font-size:22px;font-weight:800;margin:56px 0 6px;letter-spacing:-0.3px}
+  h2 .surf{font-size:13px;font-weight:700;color:#fff;background:#ff6600;padding:3px 9px;border-radius:6px;vertical-align:middle;margin-right:10px;letter-spacing:0}
+  h3{font-size:17px;font-weight:800;margin:8px 0 4px;color:#1a1a1a;letter-spacing:-0.2px}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px;max-width:760px}
+  code{font-family:'Menlo',monospace;font-size:12.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+  a{color:#b07000}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:42px 0 10px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  /* layout: teléfono a la izquierda, explicación a la derecha */
+  .fmt{display:grid;grid-template-columns:312px 1fr;gap:34px;align-items:start;margin:18px 0 8px}
+  .fmt.center{justify-items:center}
+  .fmt .side{padding-top:4px}
+
+  /* dos teléfonos lado a lado (variantes de cabecera) */
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:18px 0 8px}
+  .pcol .ttl{font-size:15px;font-weight:800;margin:0 0 3px}
+  .pcol .ttl .tag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:#1a1a1a;padding:2px 8px;border-radius:5px;margin-right:8px;vertical-align:middle}
+  .pcol .ttl .tag.rec{background:#ff6600}
+  .pcol .why{font-size:12.5px;color:#666;margin:4px 0 14px;min-height:34px}
+
+  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 14px}
+  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
+  .badge.real{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
+  .badge.honest{background:#fef3e7;color:#9c5512;border:1px solid #f3d4ac}
+  .badge.gate{background:#eef2f5;color:#33586e;border:1px solid #d6e2ea}
+  .badge.kill{background:#fdecec;color:#a83232;border:1px solid #f2cccc}
+
+  /* lista anotada (qué es cada bloque) */
+  .anno{list-style:none;padding:0;margin:6px 0 0}
+  .anno li{position:relative;padding:11px 0 11px 40px;border-bottom:1px solid #ecece7}
+  .anno li:last-child{border-bottom:none}
+  .anno .n{position:absolute;left:0;top:10px;width:26px;height:26px;border-radius:8px;background:#1a1a1a;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .anno .nm{font-weight:800;font-size:14px;color:#1a1a1a}
+  .anno .ds{font-size:13px;color:#555;margin-top:2px;line-height:1.5}
+  .anno .src{font-size:11.5px;color:#999;margin-top:3px}
+  .anno .src code{font-size:11px}
+
+  /* callout problema */
+  .flaw{background:#fff;border:1px solid #f2cccc;border-left:5px solid #e0533f;border-radius:10px;padding:16px 20px;margin:12px 0}
+  .flaw .h{font-weight:800;font-size:14px;color:#a83232;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  .flaw p{font-size:13.5px;color:#5a3a3a;margin:0}
+  .flaw .fix{margin-top:9px;font-size:13.5px;color:#1f6b3a;font-weight:600}
+
+  /* tabla honestidad */
+  table.mx{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+  table.mx th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:9px 12px;border-bottom:2px solid #e8e8e3}
+  table.mx td{padding:11px 12px;border-bottom:1px solid #eee;color:#333;vertical-align:top}
+  table.mx td .fn{font-weight:800;color:#1a1a1a}
+  table.mx .st{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 8px;border-radius:5px;white-space:nowrap}
+  table.mx .st.real{background:#d8efe0;color:#13693a}
+  table.mx .st.partial{background:#fbe6d3;color:#9c4d12}
+  table.mx .st.gate{background:#dde7ee;color:#2c5570}
+  table.mx code{font-size:11px}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:18px 22px;margin:16px 0}
+  .decision .q{font-weight:800;font-size:16px;margin-bottom:8px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:12px}
+  .decision .opts{display:flex;flex-direction:column;gap:7px}
+  .decision .opt{font-size:13.5px;padding:9px 13px;border-radius:8px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt.rec{background:#fdf3ea;border-color:#f5cba0}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:#ff6600;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  @media(max-width:880px){
+    .fmt{grid-template-columns:1fr}
+    .fmt .phone{margin:0 auto}
+    .pair{grid-template-columns:1fr}
+  }
+
+  /* ════════════════════════ MOCKUP DE TELÉFONO OSCURO (producto real) ════════════════════════
+     Tokens = espejo de ios/FAHYBRIK/Theme/Theme.swift + web/app/globals.css:
+     Fabrik orange #F06A2A, fondo #0A0A0A, superficies escalonadas. ────── */
+  .phone{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f; --sunken:#0f0f0f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --hairline:rgba(255,255,255,0.06);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.15);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.16);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.16);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.16);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.16);
+    --r-xs:6px; --r-s:9px; --r-m:13px; --r-l:18px;
+    width:312px;background:var(--bg);color:var(--fg);
+    border-radius:34px;border:1px solid rgba(255,255,255,0.10);
+    padding:11px;box-shadow:0 30px 70px -28px rgba(0,0,0,0.6);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+  }
+  .phone *{box-sizing:border-box}
+  .phone .scr{background:var(--bg);border-radius:25px;border:1px solid rgba(255,255,255,0.05);padding:14px 13px 16px;overflow:hidden}
+  .phone.flaw-frame{box-shadow:0 18px 44px -24px rgba(0,0,0,0.55)}
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .lbl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+
+  /* topbar: wordmark centrado + campana + avatar */
+  .ptop{display:flex;align-items:center;gap:8px;padding:2px 2px 14px}
+  .ptop .wm{flex:1;text-align:center;font-size:14px;font-weight:900;font-style:italic;letter-spacing:.04em;color:var(--fg)}
+  .ptop .wm b{color:var(--accent)}
+  .ptop .ic{width:26px;height:26px;border-radius:8px;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);position:relative}
+  .ptop .ic .dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent);border:1px solid var(--bg)}
+  .ptop .av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#2a2a2a,#161616);border:1px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--muted)}
+
+  /* saludo */
+  .greet{margin-bottom:14px}
+  .greet .kick{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--accent)}
+  .greet .hola{font-size:23px;font-weight:800;font-style:italic;color:var(--fg);letter-spacing:-0.3px;margin-top:2px}
+  /* saludo "dangling" del estado actual (el problema) */
+  .greet.dangling .dang{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.45}
+  .greet.dangling .dang .ph{color:var(--accent);font-weight:700}
+
+  /* tarjeta base */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:16px;margin-bottom:11px}
+  .card.elev{background:var(--surface);position:relative;overflow:hidden}
+  .card.elev::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+  .card .clbl{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+  .card .clbl .ico{font-size:13px;color:var(--accent)}
+
+  /* 1 · CAMINO A LA CARRERA */
+  .camino .race{font-size:21px;font-weight:800;font-style:italic;color:var(--fg);line-height:1.12;letter-spacing:-0.3px;margin-bottom:11px}
+  .camino .cd{display:flex;align-items:baseline;gap:6px;margin-bottom:13px}
+  .camino .cd .big{font-size:44px;font-weight:800;color:var(--accent);line-height:.9}
+  .camino .cd .un{font-size:13px;color:var(--muted);font-weight:600}
+  .camino .cd .goal{margin-left:auto;align-self:center;font-size:11px;font-weight:700;color:var(--accent);background:var(--sunken);border:1px solid var(--border);padding:5px 10px;border-radius:999px;display:inline-flex;gap:5px;align-items:center}
+  .camino .phase{font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:8px}
+  .camino .posbar{display:flex;gap:4px;margin-bottom:11px}
+  .camino .posbar .seg{flex:1;height:4px;border-radius:2px;background:var(--border-strong)}
+  .camino .posbar .seg.on{background:var(--accent)}
+  .camino .prox{font-size:11px;color:var(--faint);font-style:italic}
+
+  /* 2 · ¿CÓMO LLEGAS HOY? readiness */
+  .readi .row{display:flex;align-items:center;gap:15px}
+  .ring{position:relative;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}
+  .ring .hole{position:relative;width:48px;height:48px;border-radius:50%;background:var(--surface);display:grid;place-items:center}
+  .ring .hv{font-size:18px;font-weight:900;color:var(--fg)}
+  .ring .hu{position:absolute;bottom:5px;font-size:7px;font-weight:800;color:var(--faint);letter-spacing:.04em}
+  .readi .read{flex:1;min-width:0}
+  .readi .read .st{font-size:15px;font-weight:700;color:var(--fg)}
+  .readi .read .dl{font-size:11px;font-weight:600;color:var(--ok);margin-top:3px;display:inline-flex;gap:4px;align-items:center}
+  .chips{display:flex;gap:7px;margin-top:13px}
+  .chip{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;border-radius:9px;background:var(--sunken);border:1px solid var(--border)}
+  .chip .ci{font-size:13px}
+  .chip .ct{font-size:9px;font-weight:700;color:var(--muted);text-align:center}
+  .chip.on .ci{color:var(--ok)}
+  .chip.off{opacity:.42}
+  .chip.off .ci{color:var(--faint)}
+
+  /* 4 · ENTRENO DE HOY (acción) */
+  .hero2{background:var(--elevated);border:1px solid var(--border);border-radius:var(--r-l);padding:16px;margin-bottom:11px;position:relative;overflow:hidden}
+  .hero2::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--accent)}
+  .hero2 .kk{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:5px}
+  .hero2 .ti{font-size:19px;font-weight:800;font-style:italic;color:var(--fg);letter-spacing:-0.3px}
+  .hero2 .meta{font-size:12px;color:var(--muted);margin-top:5px}
+  .hero2 .meta b{color:var(--fg);font-weight:700}
+  .hero2 .btn{margin-top:13px;width:100%;text-align:center;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:800;padding:11px;border-radius:11px;letter-spacing:.02em}
+
+  /* 5 · TU PROGRESO */
+  .prog .pr{display:flex;align-items:center;gap:11px;padding:3px 0}
+  .prog .pr .meta{min-width:0}
+  .prog .pr .meta .ml{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+  .prog .pr .meta .mn{font-size:14px;font-weight:700;color:var(--fg);margin-top:2px}
+  .prog .pr .spark{margin-left:auto;color:var(--accent)}
+  .prog .pr .spark.dim{color:rgba(245,245,245,0.5)}
+  .prog .pr .val{text-align:right;flex-shrink:0;min-width:54px}
+  .prog .pr .val .v{font-size:19px;font-weight:800;font-style:italic;color:var(--accent)}
+  .prog .pr .val .v.fg{color:var(--fg)}
+  .prog .pr .val .d{font-size:10.5px;font-weight:800;color:var(--ok);margin-top:1px}
+  .prog .hr{height:1px;background:var(--hairline);margin:11px 0}
+
+  /* 6 · PASOS */
+  .steps{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:13px 16px;margin-bottom:11px}
+  .steps .si{font-size:16px;color:var(--accent)}
+  .steps .sl{font-size:12.5px;color:var(--muted)}
+  .steps .sv{margin-left:auto;font-size:16px;font-weight:800;color:var(--fg)}
+  .steps .sv .u{font-size:11px;color:var(--muted);font-weight:600;margin-left:3px}
+
+  /* 7 · GATE proyección (honesto, sin número falso) */
+  .gate{border:1px dashed var(--border-strong);border-radius:var(--r-m);padding:14px 15px;margin-bottom:4px;background:repeating-linear-gradient(135deg,transparent,transparent 9px,rgba(255,255,255,0.015) 9px,rgba(255,255,255,0.015) 18px)}
+  .gate .gh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .gate .gh .gi{width:22px;height:22px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+  .gate .gh .gt{font-size:12.5px;font-weight:800;color:var(--fg)}
+  .gate .gd{font-size:11.5px;color:var(--muted);line-height:1.45}
+  .gate .gcta{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:var(--accent)}
+
+  /* mini etiqueta de bloque dentro del scroll del mockup principal */
+  .tagn{position:absolute;left:-30px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#1a1a1a;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Inicio del atleta — "Camino a la Carrera"</h1>
+  <div class="sub">Propuesta visual para revisar y elegir <b>antes</b> de tocar código · FAHYBRID iOS · negro + naranja Fabrik · 2026-06-29</div>
+
+  <div class="principle">
+    <p><b>El Inicio es un VEREDICTO, no un calendario.</b> Responde en dos segundos la pregunta de la mañana: <i>¿cómo estoy, está funcionando esto, y qué hago ahora?</i> El <b>Plan</b> ya responde "qué viene y cómo encaja todo" — el Inicio no lo repite.</p>
+    <p>Por eso la fase y el foco <b>no cuelgan del saludo</b>: pertenecen a un bloque con sentido — la <b>trayectoria hacia tu carrera</b>. Ahí es donde "Acumulación · semana 2 de 2" cobra significado, no como adorno del "Hola".</p>
+  </div>
+
+  <p class="lead" style="margin-top:18px">Todo lo que ves abajo es <span class="badge real">DATO REAL</span> o un <span class="badge honest">VACÍO HONESTO</span> verificado contra el código y la BD demo (atleta 70). Nada está inventado. Donde iría una predicción que aún no existe, hay una puerta honesta, nunca un número falso.</p>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">01 · El problema actual</div>
+  <h2><span class="surf">HOY</span>La cabecera actual deja la fase colgando del saludo</h2>
+  <p class="lead">La fase en la que está el atleta y su descripción aparecen <b>pegadas al "Hola"</b>, como si fueran parte del bienvenido. Se ve suelto, sin estructura, y además <b>duplica</b> el "Foco de la semana" que ya vive en el Plan.</p>
+
+  <div class="fmt">
+    <div class="phone flaw-frame"><div class="scr">
+      <div class="ptop">
+        <span class="ic">&#9737;</span>
+        <span class="wm">FA<b>HYBRID</b></span>
+        <span class="ic">&#128276;<span class="dot"></span></span>
+        <span class="av">M</span>
+      </div>
+      <div class="greet dangling">
+        <div class="kick">Lunes 29</div>
+        <div class="hola">Hola, atleta</div>
+        <div class="dang"><span class="ph">Acumulación</span> · más volumen esta semana, mantén la técnica en las series largas</div>
+      </div>
+      <div class="hero2" style="opacity:.5">
+        <div class="kk">AM · HOY</div>
+        <div class="ti">Umbral + Fuerza</div>
+        <div class="meta">Sesión de hoy</div>
+      </div>
+      <div class="card" style="opacity:.35;margin-bottom:0">
+        <div class="clbl"><span class="lbl">Readiness</span></div>
+        <div style="font-size:13px;color:var(--muted)">74 · Recuperado</div>
+      </div>
+    </div></div>
+
+    <div class="side">
+      <div class="badges">
+        <span class="badge kill">&#10005; SE VE SUELTO</span>
+        <span class="badge kill">&#10005; DUPLICA EL PLAN</span>
+      </div>
+      <div class="flaw">
+        <div class="h">&#9888;&#65039; Qué está mal</div>
+        <p>La línea <i>"Acumulación · más volumen…"</i> cuelga directamente bajo "Hola, atleta". El atleta lee la <b>fase de su periodización</b> como si fuera parte del saludo — pierde jerarquía y peso. Y ese mismo texto (fase + foco) <b>ya está en el Plan</b> como "Foco de la semana": el Inicio lo está copiando.</p>
+        <div class="fix">&rarr; La fase necesita un <b>contenedor con significado</b>. No se borra: se mueve a donde tiene sentido — la trayectoria hacia la carrera.</div>
+      </div>
+      <p style="font-size:13px;color:#777">Además el saludo dice "Hola, atleta" cuando no hay nombre. En la propuesta el saludo es mínimo y el nombre real (<code>/api/auth/me</code>) cuando existe.</p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">02 · La propuesta</div>
+  <h2><span class="surf">PROPUESTA</span>"Camino a la Carrera" — el Inicio completo</h2>
+  <p class="lead">El mismo dato de fase, ahora con <b>estructura</b>: vive dentro del bloque "Camino a la carrera" como <i>posición en la trayectoria</i>, no como saludo. De arriba a abajo: saludo mínimo &rarr; trayectoria &rarr; cómo llegas hoy &rarr; el entreno (acción) &rarr; tu progreso &rarr; pasos &rarr; la puerta honesta a la proyección.</p>
+
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <!-- topbar -->
+      <div class="ptop">
+        <span class="ic">&#9737;</span>
+        <span class="wm">FA<b>HYBRID</b></span>
+        <span class="ic">&#128276;<span class="dot"></span></span>
+        <span class="av">M</span>
+      </div>
+
+      <!-- 0 · saludo mínimo -->
+      <div class="greet">
+        <div class="kick">Lunes 29</div>
+        <div class="hola">Hola, Marc</div>
+      </div>
+
+      <!-- 1 · CAMINO A LA CARRERA -->
+      <div class="card elev camino" style="position:relative">
+        <span class="tagn">1</span>
+        <div class="clbl"><span class="lbl">Camino a la carrera</span><span class="ico">&#9873;</span></div>
+        <div class="race">Leapmotor HYROX Barcelona</div>
+        <div class="cd">
+          <span class="big num">135</span>
+          <span class="un">días</span>
+          <span class="goal">&#9678; Objetivo · sub 59 min</span>
+        </div>
+        <div class="phase">Acumulación · semana 2 de 2</div>
+        <div class="posbar"><span class="seg on"></span><span class="seg on"></span></div>
+        <div class="prox">Construyendo motor</div>
+      </div>
+
+      <!-- 2 · ¿CÓMO LLEGAS HOY? -->
+      <div class="card readi" style="position:relative">
+        <span class="tagn">2</span>
+        <div class="clbl"><span class="lbl">&iquest;Cómo llegas hoy?</span></div>
+        <div class="row">
+          <div class="ring" style="background:conic-gradient(var(--ok) 0 74%, rgba(255,255,255,0.10) 74% 100%)">
+            <div class="hole"><span class="hv num">74</span><span class="hu">/100</span></div>
+          </div>
+          <div class="read">
+            <div class="st">Recuperado y listo</div>
+            <div class="dl">&#8599; 3 en 7 días</div>
+          </div>
+        </div>
+        <div class="chips">
+          <div class="chip on"><span class="ci">&#10003;</span><span class="ct">Check-in</span></div>
+          <div class="chip on"><span class="ci">&#10084;</span><span class="ct">HRV</span></div>
+          <div class="chip on"><span class="ci">&#9790;</span><span class="ct">7.5 h</span></div>
+          <div class="chip on"><span class="ci">&#10084;</span><span class="ct">FC reposo</span></div>
+        </div>
+      </div>
+
+      <!-- 4 · ENTRENO DE HOY (acción) -->
+      <div class="hero2" style="position:relative">
+        <span class="tagn">3</span>
+        <div class="kk">AM · HOY</div>
+        <div class="ti">Umbral + Fuerza</div>
+        <div class="meta"><b>~60 min</b> · 5 bloques · correr + fuerza</div>
+        <div class="btn">Empezar</div>
+      </div>
+
+      <!-- 5 · TU PROGRESO -->
+      <div class="card prog" style="position:relative">
+        <span class="tagn">4</span>
+        <div class="clbl"><span class="lbl">Tu progreso</span></div>
+        <div class="pr">
+          <div class="meta"><div class="ml">Fuerza · 1RM</div><div class="mn">Sentadilla trasera</div></div>
+          <div class="val"><div class="v">80 kg</div></div>
+        </div>
+        <div class="hr"></div>
+        <div class="pr">
+          <div class="meta"><div class="ml">VO&#8322;máx</div><div class="mn">52 ml/kg/min</div></div>
+          <div class="spark dim">
+            <svg width="60" height="22" viewBox="0 0 60 22"><polyline points="0,17 15,15 30,12 45,9 60,5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="val"><div class="d">&#8599; Mejora</div></div>
+        </div>
+      </div>
+
+      <!-- 6 · PASOS -->
+      <div class="steps" style="position:relative">
+        <span class="tagn">5</span>
+        <span class="si">&#128694;</span>
+        <span class="sl">Pasos de hoy</span>
+        <span class="sv num">8.430<span class="u">pasos</span></span>
+      </div>
+
+      <!-- 7 · GATE proyección honesta -->
+      <div class="gate" style="position:relative">
+        <span class="tagn">6</span>
+        <div class="gh"><span class="gi">&#128274;</span><span class="gt">¿Llegas a tu objetivo?</span></div>
+        <div class="gd">Haz una <b>simulación de HYROX</b> y veremos si tu ritmo proyectado baja de 59 min.</div>
+        <div class="gcta">Programar simulación &#8594;</div>
+      </div>
+    </div></div>
+
+    <div class="side">
+      <div class="badges">
+        <span class="badge real">DATO REAL</span>
+        <span class="badge honest">VACÍO HONESTO</span>
+        <span class="badge gate">PUERTA</span>
+      </div>
+      <ol class="anno">
+        <li><span class="n">1</span>
+          <div class="nm">Camino a la carrera <span class="badge real" style="margin-left:6px">REAL</span></div>
+          <div class="ds">Aquí vive la fase, con estructura. Carrera objetivo + días + objetivo de tiempo + <b>"fase · semana N de M"</b> con barra de posición. La fase es <b>dato del coach (agnóstico)</b>, nunca un vocabulario fijo.</div>
+          <div class="src"><code>macro-progress.ts</code> · <code>target-race.ts</code> · atleta 70: Leapmotor HYROX BCN, 11-nov, sub 59 min</div>
+        </li>
+        <li><span class="n">2</span>
+          <div class="nm">¿Cómo llegas hoy? <span class="badge real" style="margin-left:6px">REAL</span></div>
+          <div class="ds">Readiness 0–100 + lectura en claro + delta 7 días + las señales que lo alimentan (check-in / HRV / sueño / FC reposo). Es el <i>"por qué"</i> que hoy se calcula y se tira.</div>
+          <div class="src"><code>athlete-daily-readiness.ts</code> · se computa en demanda · atleta 70 tiene check-ins + 12.484 filas biométricas</div>
+        </li>
+        <li><span class="n">3</span>
+          <div class="nm">Entreno de hoy <span class="badge real" style="margin-left:6px">REAL · SE MANTIENE</span></div>
+          <div class="ds">La única sesión que muestra el Inicio: la de HOY, como <b>acción</b> (Empezar), nunca como menú de elección. Es el núcleo — no se quita.</div>
+          <div class="src"><code>planWeek</code> · WorkoutContainer (idéntico al Plan)</div>
+        </li>
+        <li><span class="n">4</span>
+          <div class="nm">Tu progreso <span class="badge honest" style="margin-left:6px">REAL PARCIAL</span></div>
+          <div class="ds">Prueba de que avanzas. 1RM actual <b>sin etiqueta "tendencia"</b> si solo hay una versión. Más una tendencia biométrica REAL (VO&#8322;máx / HRV) con sparkline.</div>
+          <div class="src"><code>athlete_strength_maxes</code> · atleta 70: sentadilla 80 kg (1 versión) · biométricas ricas</div>
+        </li>
+        <li><span class="n">5</span>
+          <div class="nm">Pasos <span class="badge real" style="margin-left:6px">REAL · SE MANTIENE</span></div>
+          <div class="ds">Movimiento de todo el día desde HealthKit (local del dispositivo). Estados honestos de conectar / sin datos.</div>
+          <div class="src"><code>HealthKitStepsReader</code></div>
+        </li>
+        <li><span class="n">6</span>
+          <div class="nm">Puerta a la proyección <span class="badge gate" style="margin-left:6px">PUERTA HONESTA</span></div>
+          <div class="ds">Donde iría "vas a 1h28, objetivo 1h30". <b>El modelo no existe</b> (está stubbeado a null). En vez de inventar un número, invitamos a hacer una simulación que sí lo desbloqueará.</div>
+          <div class="src"><code>deep-dive-performance.ts:439</code> → returns null · cero fabricación</div>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">03 · Tu decisión · cabecera</div>
+  <h2><span class="surf">ELIGE</span>Cómo resuelve el arranque la pantalla</h2>
+  <p class="lead">Tu queja concreta es la cabecera colgante. Hay dos formas limpias de resolver el top — ambas matan el problema. Elige cuál te gusta; el resto del Inicio (bloques 2–6) es idéntico en las dos.</p>
+
+  <div class="pair">
+    <div class="pcol">
+      <div class="ttl"><span class="tag rec">A · RECOMENDADA</span>Trayectoria como héroe</div>
+      <div class="why">El saludo es un micro-kicker; el bloque "Camino a la carrera" abre la pantalla y manda. Más emocional y de app de carrera. La fase nunca toca el "Hola".</div>
+      <div class="phone"><div class="scr">
+        <div class="ptop">
+          <span class="ic">&#9737;</span><span class="wm">FA<b>HYBRID</b></span>
+          <span class="ic">&#128276;<span class="dot"></span></span><span class="av">M</span>
+        </div>
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin:0 2px 8px">Lunes 29 · Hola, Marc</div>
+        <div class="card elev camino">
+          <div class="clbl"><span class="lbl">Camino a la carrera</span><span class="ico">&#9873;</span></div>
+          <div class="race">Leapmotor HYROX Barcelona</div>
+          <div class="cd"><span class="big num">135</span><span class="un">días</span><span class="goal">&#9678; sub 59 min</span></div>
+          <div class="phase">Acumulación · semana 2 de 2</div>
+          <div class="posbar"><span class="seg on"></span><span class="seg on"></span></div>
+          <div class="prox">Construyendo motor</div>
+        </div>
+        <div class="card readi" style="opacity:.45;margin-bottom:0">
+          <div class="clbl"><span class="lbl">&iquest;Cómo llegas hoy?</span></div>
+          <div class="row"><div class="ring" style="width:46px;height:46px;background:conic-gradient(var(--ok) 0 74%, rgba(255,255,255,0.10) 74% 100%)"><div class="hole" style="width:34px;height:34px"><span class="hv num" style="font-size:13px">74</span></div></div><div class="read"><div class="st" style="font-size:13px">Recuperado y listo</div></div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="pcol">
+      <div class="ttl"><span class="tag">B · ALTERNATIVA</span>Saludo y luego trayectoria</div>
+      <div class="why">Un saludo propio y mínimo ("Lunes 29 · Hola, Marc") como su propia línea, y debajo la tarjeta de trayectoria. Más calmado y convencional; separa claramente saludo de fase.</div>
+      <div class="phone"><div class="scr">
+        <div class="ptop">
+          <span class="ic">&#9737;</span><span class="wm">FA<b>HYBRID</b></span>
+          <span class="ic">&#128276;<span class="dot"></span></span><span class="av">M</span>
+        </div>
+        <div class="greet">
+          <div class="kick">Lunes 29</div>
+          <div class="hola">Hola, Marc</div>
+        </div>
+        <div class="card elev camino">
+          <div class="clbl"><span class="lbl">Camino a la carrera</span><span class="ico">&#9873;</span></div>
+          <div class="race">Leapmotor HYROX Barcelona</div>
+          <div class="cd"><span class="big num">135</span><span class="un">días</span><span class="goal">&#9678; sub 59 min</span></div>
+          <div class="phase">Acumulación · semana 2 de 2</div>
+          <div class="posbar"><span class="seg on"></span><span class="seg on"></span></div>
+        </div>
+        <div class="card readi" style="opacity:.45;margin-bottom:0">
+          <div class="clbl"><span class="lbl">&iquest;Cómo llegas hoy?</span></div>
+          <div class="row"><div class="ring" style="width:46px;height:46px;background:conic-gradient(var(--ok) 0 74%, rgba(255,255,255,0.10) 74% 100%)"><div class="hole" style="width:34px;height:34px"><span class="hv num" style="font-size:13px">74</span></div></div><div class="read"><div class="st" style="font-size:13px">Recuperado y listo</div></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">04 · Honestidad de datos</div>
+  <h2><span class="surf">VERIFICADO</span>Qué es real y qué es vacío honesto</h2>
+  <p class="lead">Comprobado contra el código y la BD demo (atleta 70). Nada de la pantalla está inventado.</p>
+
+  <table class="mx">
+    <thead><tr><th>Bloque del Inicio</th><th>Estado</th><th>Qué se muestra · fuente</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="fn">1 · Camino a la carrera</span></td>
+        <td><span class="st real">REAL</span></td>
+        <td>Carrera + días + objetivo + "fase · semana N de M" con barra. <code>macro-progress.ts</code>, <code>target-race.ts</code>. Atleta 70: Leapmotor HYROX BCN, sub 59 min.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">2 · ¿Cómo llegas hoy?</span></td>
+        <td><span class="st real">REAL</span></td>
+        <td>Readiness 0–100 + delta + señales. Se computa en demanda. <code>athlete-daily-readiness.ts</code>. Atleta 70: check-ins + 12.484 filas biométricas.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">3 · Entreno de hoy</span></td>
+        <td><span class="st real">REAL</span></td>
+        <td>Sesión de hoy como acción "Empezar". <code>planWeek</code> + WorkoutContainer. Núcleo — se mantiene.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">4 · Tu progreso</span></td>
+        <td><span class="st partial">REAL PARCIAL</span></td>
+        <td>1RM sin etiqueta "tendencia" con una sola versión + tendencia biométrica REAL (VO&#8322;máx/HRV). <code>athlete_strength_maxes</code>. Atleta 70: sentadilla 80 kg.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">5 · Pasos</span></td>
+        <td><span class="st real">REAL</span></td>
+        <td>HealthKit, local del dispositivo, con estados honestos. <code>HealthKitStepsReader</code>.</td>
+      </tr>
+      <tr>
+        <td><span class="fn">6 · Proyección de meta</span></td>
+        <td><span class="st gate">PUERTA</span></td>
+        <td>Sin número falso: invita a una simulación de HYROX. El modelo de proyección está a null. <code>deep-dive-performance.ts:439</code>.</td>
+      </tr>
+      <tr>
+        <td>Estación débil / "el muro"</td>
+        <td><span class="st gate">FUERA</span></td>
+        <td>Tablas <code>race_results</code> / <code>race_debriefs</code> borradas (mig 0078). No hay splits por estación &rarr; no se muestra (no se inventa).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">05 · Lo que necesito de ti</div>
+  <div class="decision">
+    <div class="q">¿Qué cabecera elijo, A o B?</div>
+    <div class="ctx">Las dos eliminan tu queja (la fase deja de colgar del saludo). Solo cambia el arranque; los bloques 2–6 son idénticos. El concepto "Camino a la Carrera" como espina lo doy por bueno salvo que digas lo contrario.</div>
+    <div class="opts">
+      <div class="opt rec"><span class="pre">A · Mi recomendación</span><b>Trayectoria como héroe.</b> El saludo es un micro-kicker, la carrera abre la pantalla y manda. Más app de carrera, más emocional.</div>
+      <div class="opt"><b>B · Alternativa.</b> Saludo propio y mínimo, y debajo la tarjeta de trayectoria. Más calmado, separa más.</div>
+    </div>
+  </div>
+  <p style="font-size:13.5px;color:#666;margin-top:14px">Una vez elijas A o B, construyo el Inicio entero (esto reemplaza la versión que se construyó sin que la vieras). Si quieres tocar algo subjetivo — orden de bloques, copy del "prox" ("Construyendo motor"), o si VO&#8322;máx vs HRV como tendencia por defecto — dímelo y lo ajusto antes de codificar.</p>
+
+  <footer>
+    FAHYBRID · Propuesta visual del Inicio del atleta · artefacto de decisión (doc, no código).
+    Mockups oscuros = espejo de <code>ios/FAHYBRIK/Theme/Theme.swift</code> + <code>web/app/globals.css</code> (Fabrik orange #F06A2A).
+    Datos verificados contra la BD demo (atleta 70). Predicción de meta intencionadamente vacía: el modelo no existe aún.
+  </footer>
+
+</div>
+</body>
+</html>
