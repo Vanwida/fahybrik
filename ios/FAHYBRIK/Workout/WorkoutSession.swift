@@ -16,6 +16,18 @@ final class WorkoutSession {
     var isPaused: Bool = false
     var isFinished: Bool = false
 
+    // MARK: - Block-transition gate
+    //
+    // Each coach BLOCK starts and ends with the athlete's approval. While
+    // `isAwaitingBlockStart` is true the session is parked on the upcoming block's
+    // PREVIEW: the main clock and any EMOM count-in stay frozen until the athlete
+    // taps "Empezar" (`beginBlock`). The gate fires at BLOCK boundaries only —
+    // crossing from one coach block into another (warmup→principal, fuerza→metcon,
+    // …) and at the very first block. WITHIN a block, intervals/items still
+    // auto-advance (EMOM minute-to-minute), so the gate never interrupts the work.
+    var isAwaitingBlockStart: Bool = false
+    private var hasArmedInitial = false
+
     // MARK: - EMOM interval state
     // Live ONLY while the current segment is an EMOM. `emomSegmentIndex` records
     // which segment owns this state so entering / re-entering re-initialises it
@@ -95,6 +107,26 @@ final class WorkoutSession {
     /// True when the current segment is the final one in the session.
     var isLastSegment: Bool { currentSegmentIndex >= plan.segments.count - 1 }
 
+    /// The coach block the session is currently in (or parked at, during the gate).
+    var currentBlockRegion: WorkoutBlockRegion? {
+        plan.blockRegion(containing: currentSegmentIndex)
+    }
+
+    /// True when the current block is the last block of the session — so ending it
+    /// (naturally or early) ends the whole session rather than opening another gate.
+    var isLastBlock: Bool {
+        guard let r = currentBlockRegion else { return true }
+        return r.id >= plan.blockRegions.count - 1
+    }
+
+    /// 1-based "block N of M" position, for the preview header.
+    var blockNumber: Int { (currentBlockRegion?.id ?? 0) + 1 }
+    var blockCount: Int { max(1, plan.blockRegions.count) }
+
+    /// True while a block is actually running (not on a preview, not finished) —
+    /// gates the "Terminar bloque" early-finish action.
+    var canEndBlockEarly: Bool { !isAwaitingBlockStart && !isFinished && currentSegment != nil }
+
     /// True when the current segment is a running EMOM (past its count-in).
     var isEMOMActive: Bool { currentSegment?.isEMOM == true }
 
@@ -132,10 +164,16 @@ final class WorkoutSession {
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.tick()
         }
-        // Initialise whichever segment we resume on (count-in + audio if it's an
-        // EMOM, prime the manual load otherwise). Guarded by emomSegmentIndex so a
-        // restart while already on an EMOM doesn't re-trigger the count-in.
-        if emomSegmentIndex == nil { onEnterSegment() }
+        // First appearance: ARM the current block (show its preview, hold the
+        // clock) so the session begins with the athlete's approval, not a timer
+        // that's already running. A crash-recovered EMOM keeps its live interval
+        // state (emomSegmentIndex != nil) and resumes running, exactly as before.
+        // Re-appearances (hasArmedInitial) just resume the timer — they never
+        // re-arm a block mid-session.
+        if !hasArmedInitial {
+            hasArmedInitial = true
+            if emomSegmentIndex == nil { armBlock() }
+        }
     }
 
     func stop() {
@@ -175,7 +213,7 @@ final class WorkoutSession {
     }
 
     func tap(reps: Int = 1) {
-        guard !isPaused, !isFinished else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
         repsCurrentSegment = max(0, repsCurrentSegment + reps)
     }
 
@@ -190,7 +228,7 @@ final class WorkoutSession {
     /// last one, closes the block); for every other format it closes the current
     /// segment's lap and advances — the classic manual lap, unchanged.
     func primaryAdvance() {
-        guard !isPaused, !isFinished, let seg = currentSegment else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
         if seg.isEMOM {
             if emomCountInRemaining > 0 { skipCountIn(); return }
             advanceEMOMInterval(auto: false)
@@ -202,12 +240,13 @@ final class WorkoutSession {
     // Closes current segment's lap, advances to next. Behavior shared by For
     // Time / AMRAP / Circuit / HYROX Sim. EMOM auto-advances its intervals instead.
     func lap() {
-        guard !isPaused, !isFinished, currentSegment != nil else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment != nil else { return }
         Haptics.medium()
+        let origin = currentSegmentIndex
         closeCurrentSegmentLap()
         if currentSegmentIndex < plan.segments.count - 1 {
             currentSegmentIndex += 1
-            onEnterSegment()
+            enterOrArm(from: origin)
         } else {
             finish()
         }
@@ -228,19 +267,24 @@ final class WorkoutSession {
         }
         guard currentSegmentIndex > 0 else { return }
         Haptics.light()
+        let origin = currentSegmentIndex
         clearEMOMState()
         currentSegmentIndex -= 1
         reopenCurrentSegment()
-        onEnterSegment()
+        // Stepping back into an EARLIER block lands on that block's preview (the
+        // athlete re-approves before its clock runs); stepping back WITHIN the same
+        // multi-segment block resumes the reopened segment running, as before.
+        enterOrArm(from: origin)
     }
 
     /// Jump to an arbitrary segment (phase rail / stepper). Forward closes the
     /// current segment then SKIPS the intermediate ones (they produce no lap — not
     /// performed); backward reopens segment-by-segment until the target.
     func jumpTo(_ index: Int) {
-        guard !isPaused, !isFinished,
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
               index >= 0, index < plan.segments.count, index != currentSegmentIndex else { return }
         Haptics.medium()
+        let origin = currentSegmentIndex
         clearEMOMState()
         if index > currentSegmentIndex {
             closeCurrentSegmentLap()
@@ -252,7 +296,9 @@ final class WorkoutSession {
                 reopenCurrentSegment()
             }
         }
-        onEnterSegment()
+        // A jump that lands in a DIFFERENT block (the phase rail always does)
+        // shows that block's preview; a jump within the same block runs straight in.
+        enterOrArm(from: origin)
     }
 
     func finish() {
@@ -273,6 +319,73 @@ final class WorkoutSession {
     }
 
     // MARK: - Segment entry / EMOM lifecycle
+
+    // MARK: Block-transition gate
+
+    /// Decide, after a move that changed `currentSegmentIndex`, whether we crossed
+    /// a BLOCK boundary (→ park on the new block's preview) or merely moved within
+    /// the same block (→ enter it running, keeping intra-block auto-advance). The
+    /// block a segment belongs to is its `blockGroupingKey`; comparing origin vs
+    /// destination is the single boundary test for forward, back AND jump moves.
+    private func enterOrArm(from origin: Int) {
+        if blockKey(at: origin) != blockKey(at: currentSegmentIndex) {
+            armBlock()
+        } else {
+            onEnterSegment()
+        }
+    }
+
+    private func blockKey(at index: Int) -> String? {
+        guard index >= 0, index < plan.segments.count else { return nil }
+        return plan.segments[index].blockGroupingKey
+    }
+
+    /// Park on the current block's PREVIEW: tear down any running EMOM so the
+    /// preview never shows stale interval state, prime the strength load, and clear
+    /// a stale pause (the gate is its own hold). The clock stays frozen until
+    /// `beginBlock`. Does NOT touch a reopened lap — a back-step into an earlier
+    /// block keeps its restored progress, ready to resume on Empezar.
+    private func armBlock() {
+        clearEMOMState()
+        primeManualLoadIfNeeded()
+        isPaused = false
+        isAwaitingBlockStart = true
+    }
+
+    /// "Empezar" — leave the preview and START the current block. Resets the tick
+    /// baseline (no elapsed jump), then runs the real segment entry: an EMOM kicks
+    /// its 3-2-1 count-in + audio AFTER this tap (never as a between-blocks
+    /// transition); every other format just starts its clock.
+    func beginBlock() {
+        guard isAwaitingBlockStart, !isFinished else { return }
+        isAwaitingBlockStart = false
+        isPaused = false
+        lastTick = Date()
+        Haptics.medium()
+        onEnterSegment()
+    }
+
+    /// "Terminar bloque" — end the CURRENT block before it's complete (e.g. an
+    /// EMOM 15 abandoned at round 12 because the athlete is spent). The in-flight
+    /// segment is recorded HONESTLY: `closeCurrentSegmentLap` logs only the real
+    /// elapsed time + work actually done — never the full prescription — and any
+    /// remaining segments of this block are SKIPPED (not performed → no lap), so
+    /// the block reads as partial in the execution, not 100% complete. Then it
+    /// parks on the next block's preview, or finishes the session if this was the
+    /// last block. Applies to every format; EMOM is the live case today.
+    func endBlockEarly() {
+        guard canEndBlockEarly, let region = currentBlockRegion else { return }
+        Haptics.heavy()   // a firm, intentional cue — NOT the success chord
+        clearEMOMState()
+        closeCurrentSegmentLap()
+        let next = region.lastIndex + 1
+        if next < plan.segments.count {
+            currentSegmentIndex = next
+            armBlock()
+        } else {
+            finish()
+        }
+    }
 
     // Called whenever the current segment changes. Primes the manual load for
     // strength work and (re)starts the EMOM timer + audio when the new segment is
@@ -340,16 +453,18 @@ final class WorkoutSession {
     }
 
     // Close the EMOM segment's lap (reusing the standard segment-close path) and
-    // advance to the next segment, or finish the session.
+    // advance to the next segment, or finish the session. Crossing into the next
+    // block parks on its preview (the gate) instead of auto-starting it.
     private func closeEMOMAndAdvance() {
         let wasLast = isLastSegment
+        let origin = currentSegmentIndex
         clearEMOMState()
         closeCurrentSegmentLap()
         if wasLast {
             finish()
         } else {
             currentSegmentIndex += 1
-            onEnterSegment()
+            enterOrArm(from: origin)
         }
     }
 
@@ -529,7 +644,7 @@ final class WorkoutSession {
     /// the view's PM5 onChange so the session stays the single owner of capture
     /// state without depending on the PM5 store directly (testable seam).
     func sampleErg(paceSecPer500m: Double?, powerWatts: Int?, strokeRate: Int?, distanceMeters: Double?, caloriesKcal: Int?) {
-        guard !isPaused, !isFinished, currentSegment?.kind.isErg == true else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind.isErg == true else { return }
         lapHadPM5 = true
         if let p = paceSecPer500m, p > 0 { lapErgPaceSamples.append(p) }
         if let w = powerWatts, w > 0 { lapErgPowerSamples.append(Double(w)) }
@@ -562,7 +677,7 @@ final class WorkoutSession {
     /// them into the in-window total. Ignored for non-run segments and when an
     /// erg owns the distance.
     func sampleRunGPS(deltaMeters: Double) {
-        guard !isPaused, !isFinished, currentSegment?.kind == .running, deltaMeters > 0 else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running, deltaMeters > 0 else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
     }
@@ -574,7 +689,10 @@ final class WorkoutSession {
     }
 
     private func tick() {
-        guard !isPaused, !isFinished else {
+        // The block-preview gate freezes ALL clocks (elapsed, lap, EMOM count-in/
+        // countdown) until the athlete taps Empezar; resetting lastTick means the
+        // elapsed clock can't jump by the time spent on the preview.
+        guard !isPaused, !isFinished, !isAwaitingBlockStart else {
             lastTick = Date()
             return
         }

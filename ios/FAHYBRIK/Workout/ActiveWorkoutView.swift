@@ -79,6 +79,13 @@ struct ActiveWorkoutView: View {
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, 10)
 
+            // Block-transition gate: the upcoming block's preview / "ready" screen.
+            // Full-screen over the live HUD while the session is parked before a
+            // block (`isAwaitingBlockStart`); the clock starts only on "Empezar".
+            if session.isAwaitingBlockStart {
+                blockPreviewOverlay
+            }
+
             if showPauseConfirm {
                 pauseModal
             }
@@ -86,6 +93,7 @@ struct ActiveWorkoutView: View {
                 confirmModal(nav)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: session.isAwaitingBlockStart)
         .onAppear {
             session.start()
             wireLiveSources()
@@ -143,6 +151,47 @@ struct ActiveWorkoutView: View {
                 YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
             }
         }
+    }
+
+    // MARK: - Block-transition gate (preview / "ready" screen)
+
+    @ViewBuilder
+    private var blockPreviewOverlay: some View {
+        if let region = session.currentBlockRegion {
+            let segs = session.plan.segments(in: region)
+            // A freeform / title-only session has no block context — show the
+            // session name and no phase tag. When a coach block's title already IS
+            // the phase name (e.g. "Calentamiento"), drop the redundant tag.
+            let freeform = session.plan.phaseRegions.isEmpty
+            let phaseName = region.phase.displayName
+            let tag: String? = (freeform || region.title.lowercased() == phaseName.lowercased())
+                ? nil : phaseName
+            BlockPreviewGate(
+                title: freeform ? session.plan.name : region.title,
+                phaseTag: tag,
+                blockNumber: session.blockNumber,
+                blockCount: session.blockCount,
+                formatLabel: blockFormatLabel(segs),
+                segments: segs,
+                canGoBack: session.canStepBack,
+                onEmpezar: { session.beginBlock() },
+                onBack: { requestBack() }
+            )
+        }
+    }
+
+    // The block's format/scheme line for the preview. An EMOM reads its resolved
+    // plan ("EMOM · 15 rondas · cada 1:00"); other conditioning schemes (AMRAP /
+    // For Time) reuse the shared PrescriptionRenderer; plain strength / warmup
+    // blocks have no format line (the title carries them).
+    private func blockFormatLabel(_ segments: [WorkoutSegment]) -> String? {
+        if let emom = segments.compactMap(\.emomPlan).first {
+            return "EMOM · \(emom.intervalCount) rondas · cada \(PrescriptionRenderer.formatRest(emom.intervalSeconds))"
+        }
+        if let wod = segments.compactMap(\.prescription).first(where: { $0.scheme.isWOD }) {
+            return PrescriptionRenderer.wodHeader(wod)
+        }
+        return nil
     }
 
     private var segmentHasVideo: Bool {
@@ -421,8 +470,12 @@ struct ActiveWorkoutView: View {
     // SIGUIENTE to move to the next leg.
     private var primaryTitle: String {
         if session.currentSegment?.isEMOM == true {
-            if session.emomCountInRemaining > 0 { return "EMPEZAR" }
-            return session.emomIntervalsRemaining > 0 ? "SIGUIENTE" : "TERMINAR"
+            // During the post-Empezar 3-2-1, the button SKIPS the count-in.
+            if session.emomCountInRemaining > 0 { return "SALTAR" }
+            if session.emomIntervalsRemaining > 0 { return "SIGUIENTE" }
+            // Last interval: TERMINAR ends the session only on the FINAL block;
+            // otherwise it closes the EMOM and opens the next block's preview.
+            return session.isLastSegment ? "TERMINAR" : "SIGUIENTE"
         }
         if session.isLastSegment { return "TERMINAR" }
         switch session.currentSegment?.kind {
@@ -491,6 +544,27 @@ struct ActiveWorkoutView: View {
         return session.plan.segments[index].title
     }
 
+    // The "Terminar bloque" confirm. For an EMOM it names the honest partial
+    // ("12/15 rondas hechas"); for any other format it states the block is closed
+    // with whatever was done so far. Confirming records the partial and advances
+    // to the next block's preview (or ends the session on the last block).
+    private func endBlockPendingNav() -> PendingNav {
+        if session.currentSegment?.isEMOM == true, let plan = session.currentSegment?.emomPlan {
+            return PendingNav(
+                title: "Terminar EMOM",
+                message: "Se registrará con \(session.emomCompletedIntervals)/\(plan.intervalCount) rondas hechas; el resto queda sin completar.",
+                confirmTitle: "Terminar bloque",
+                action: { session.endBlockEarly() }
+            )
+        }
+        return PendingNav(
+            title: "Terminar bloque",
+            message: "Se registrará lo hecho hasta ahora; el resto del bloque queda sin completar.",
+            confirmTitle: "Terminar bloque",
+            action: { session.endBlockEarly() }
+        )
+    }
+
     private func confirmModal(_ nav: PendingNav) -> some View {
         ZStack {
             Theme.Color.scrim.ignoresSafeArea()
@@ -530,6 +604,24 @@ struct ActiveWorkoutView: View {
                     ExpertPrimaryButton(title: "Reanudar") {
                         session.togglePause()
                         showPauseConfirm = false
+                    }
+                    // Discreet, lower-hierarchy: end THIS block early (e.g. an EMOM
+                    // you can't finish) — records the partial honestly and moves to
+                    // the next block's preview. Confirmed before it closes.
+                    if session.canEndBlockEarly {
+                        Button(action: {
+                            session.togglePause()       // leave the pause hold
+                            showPauseConfirm = false
+                            pendingNav = endBlockPendingNav()
+                        }) {
+                            Text("Terminar bloque")
+                                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                                .foregroundStyle(Theme.Color.muted)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 36)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                        .accessibilityLabel("Terminar este bloque antes de tiempo")
                     }
                     SecondaryButton(title: "Abandonar") {
                         session.finish()

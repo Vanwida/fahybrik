@@ -24,6 +24,7 @@
 		0B1FD64FEF8A3224A1CBACC9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92301D3099895B625F52E562 /* ChatView.swift */; };
 		0BC4CB79B20EEBAC971122F1 /* FoodScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF52F661AB1368C35F9E7999 /* FoodScannerView.swift */; };
 		0CEF4E5347591EAC8CA8E054 /* WorkoutAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */; };
+		0013BE29F385EC24037353F6 /* BlockPreviewGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2022568FCECBE41E463490 /* BlockPreviewGate.swift */; };
 		0F38747F69AF64E4B64A104C /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC0608678E17B47D5C1C22C5 /* RealityKit.framework */; };
 		106EA1C1E192DE83FA7D6ABA /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */; };
 		1260F5D25CAF33D77A4A70A7 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6638A2E174C3189F64CFDB4 /* CoreBluetooth.framework */; };
@@ -201,6 +202,7 @@
 		26D1DD11BF4485137BD4B1B3 /* HabitsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitsStep.swift; sourceTree = "<group>"; };
 		2842D4B17C41EEA3B415E8BA /* SolicitarCarreraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolicitarCarreraView.swift; sourceTree = "<group>"; };
 		29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAudio.swift; sourceTree = "<group>"; };
+		7C2022568FCECBE41E463490 /* BlockPreviewGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPreviewGate.swift; sourceTree = "<group>"; };
 		2CDCAAE16C5A93294F72843D /* DoblesTrainTogetherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesTrainTogetherView.swift; sourceTree = "<group>"; };
 		2DC7725660B538E3914048E9 /* DoneStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoneStep.swift; sourceTree = "<group>"; };
 		2E47D3571BC5882CD320FC08 /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = System/Library/Frameworks/ARKit.framework; sourceTree = SDKROOT; };
@@ -418,6 +420,7 @@
 				75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */,
 				C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */,
 				29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */,
+				7C2022568FCECBE41E463490 /* BlockPreviewGate.swift */,
 				9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */,
 				88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */,
 				AE26ECEC308BA27BE287E5A6 /* WorkoutLiveHUDs.swift */,
@@ -1078,6 +1081,7 @@
 				197E64A4DF0A762AF1DFB340 /* WatchConnectivityiOSService.swift in Sources */,
 				00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */,
 				0CEF4E5347591EAC8CA8E054 /* WorkoutAudio.swift in Sources */,
+				0013BE29F385EC24037353F6 /* BlockPreviewGate.swift in Sources */,
 				38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */,
 				13CDD2668A7998ABDA91AA41 /* WorkoutLiveDataSources.swift in Sources */,
 				C151C3D00F11EA5A60F3F3E7 /* WorkoutLiveHUDs.swift in Sources */,

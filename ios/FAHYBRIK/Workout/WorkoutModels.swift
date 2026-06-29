@@ -280,6 +280,14 @@ extension WorkoutSegment {
     /// Pedagogical phase of this segment's block (warmup / principal / cooldown).
     var blockPhase: BlockPhase { BlockPhase.classify(title: blockTitle) }
 
+    /// Stable key that groups CONSECUTIVE segments into their coach block — the
+    /// authored block position, else its title, else a single freeform bucket.
+    /// The ONE definition both `WorkoutPlan.segmentGroups` and `.blockRegions`
+    /// partition on, so the two groupings can never drift.
+    var blockGroupingKey: String {
+        blockPosition.map(String.init) ?? blockTitle ?? "_freeform"
+    }
+
     /// True when the segment carries at least one MEASURABLE intensity target
     /// (pace, distance, zone, power, reps or load). False for effort-only work
     /// (a warmup run with just RPE/duration) — the live HUD then shows guidance
@@ -304,6 +312,41 @@ extension WorkoutSegment {
     var durationGuidance: String? {
         guard let d = targetDurationSeconds, d > 0 else { return nil }
         return WorkoutSession.formatElapsed(Double(d))
+    }
+
+    /// A compact, athlete-readable line of THIS segment's prescribed work for the
+    /// block-preview gate — the dominant measure + pace / zone / load / effort.
+    /// Reuses the shared `PrescriptionRenderer` (structured prescription first),
+    /// falling back to the scalar targets so a legacy/freeform segment still reads.
+    /// Nil only when the segment carries no readable target at all.
+    var previewWorkLine: String? {
+        if let p = prescription {
+            let line = PrescriptionRenderer.summaryLine(p)
+            var parts: [String] = []
+            if let h = line.headline { parts.append(h) }
+            if let pace = line.pace { parts.append(pace) }
+            if let z = line.zone { parts.append(z.label) }
+            if let d = line.detail { parts.append(d) }
+            if !parts.isEmpty { return parts.joined(separator: " · ") }
+        }
+        // Scalar fallback (no structured prescription): one dominant measure +
+        // load / pace / zone / effort. Pace unit follows the segment kind (erg
+        // reads /500m, run reads /km), mirroring the brief's lineFromParams.
+        var parts: [String] = []
+        if let r = targetReps, r > 0 { parts.append("\(r) reps") }
+        else if let m = targetDistanceMeters, let s = PrescriptionRenderer.formatDistance(m) { parts.append(s) }
+        else if let d = durationGuidance { parts.append(d) }
+        if let kg = loadKg, kg > 0 {
+            parts.append(kg.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(kg)) kg" : String(format: "%.1f kg", kg))
+        }
+        if let p = targetPaceSecondsPerKm, p > 0 {
+            parts.append(kind.isErg
+                ? "@ \(PrescriptionRenderer.formatPace(p / 2)) /500m"
+                : "@ \(PrescriptionRenderer.formatPace(p)) /km")
+        }
+        if let z = targetZone { parts.append(z.label) }
+        if let e = effortGuidance { parts.append(e) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 
@@ -649,41 +692,83 @@ extension WorkoutPlan {
     }
 }
 
-extension WorkoutPlan {
-    // The plan's segments regrouped into their coach blocks, preserving session
-    // order: consecutive segments sharing a `blockPosition` (or, lacking one, a
-    // `blockTitle`) form one group. Lets the post-workout summary present
-    // Calentamiento / Principal / Vuelta a la calma sections instead of a flat
-    // 11-row mix, keeping the principal work the focus. Segments without any block
-    // context (the freeform fallback / older snapshots) fall into a single group.
-    var segmentGroups: [WorkoutSegmentGroup] {
-        var groups: [WorkoutSegmentGroup] = []
-        var current: [WorkoutSegment] = []
-        var currentKey: String? = nil
+// MARK: - Block regions (coach-authored block boundaries)
+//
+// The session's segments partitioned into the coach's AUTHORED blocks (a
+// "Calentamiento", a "Fuerza" block, a "Metcon"), in session order, each with the
+// segment-index span it covers. Unlike `phaseRegions` — which FOLDS every main
+// block into one "Principal" phase for the top rail — this keeps every block
+// DISTINCT, because the block-transition gate must fire at EACH block boundary the
+// athlete sets up for: a Fuerza→Metcon hand-off needs a gate (load the bar, read
+// the WOD) just as much as Calentamiento→Principal does, even though both are the
+// "Principal" phase. Phase granularity would miss those intra-phase gates.
+struct WorkoutBlockRegion: Identifiable, Equatable {
+    let id: Int            // 0-based block index in session order
+    let title: String      // coach block title, else the phase display name
+    let phase: BlockPhase
+    let firstIndex: Int    // first segment index of this block
+    let lastIndex: Int     // last segment index of this block
+}
 
-        func flush() {
-            guard let first = current.first else { return }
+extension WorkoutPlan {
+    /// The coach's blocks as index-spanned regions, in session order. Consecutive
+    /// segments sharing a `blockGroupingKey` form one block. Empty only for an
+    /// empty plan. THE single partition both the block-preview gate and
+    /// `segmentGroups` read, so block boundaries are defined in exactly one place.
+    var blockRegions: [WorkoutBlockRegion] {
+        var regions: [WorkoutBlockRegion] = []
+        var start = 0
+        var key: String? = nil
+        func flush(_ end: Int) {
+            let first = segments[start]
             let trimmed = first.blockTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
             let title = (trimmed?.isEmpty == false) ? trimmed! : first.blockPhase.displayName
-            groups.append(
-                WorkoutSegmentGroup(
-                    id: groups.count,
+            regions.append(
+                WorkoutBlockRegion(
+                    id: regions.count,
                     title: title,
                     phase: first.blockPhase,
-                    segments: current
+                    firstIndex: start,
+                    lastIndex: end
                 )
             )
-            current = []
         }
+        for (i, seg) in segments.enumerated() {
+            let k = seg.blockGroupingKey
+            if let prev = key, prev != k { flush(i - 1); start = i }
+            key = k
+        }
+        if !segments.isEmpty { flush(segments.count - 1) }
+        return regions
+    }
 
-        for seg in segments {
-            let key = seg.blockPosition.map(String.init) ?? seg.blockTitle ?? "_freeform"
-            if let ck = currentKey, ck != key { flush() }
-            currentKey = key
-            current.append(seg)
+    /// The block region that contains `index`, or nil when out of range.
+    func blockRegion(containing index: Int) -> WorkoutBlockRegion? {
+        blockRegions.first { index >= $0.firstIndex && index <= $0.lastIndex }
+    }
+
+    /// The segments belonging to a block region, in session order.
+    func segments(in region: WorkoutBlockRegion) -> [WorkoutSegment] {
+        guard region.firstIndex <= region.lastIndex,
+              region.firstIndex >= 0, region.lastIndex < segments.count else { return [] }
+        return Array(segments[region.firstIndex...region.lastIndex])
+    }
+}
+
+extension WorkoutPlan {
+    // The plan's segments regrouped into their coach blocks, preserving session
+    // order. Derived from `blockRegions` (the single block partition) so the
+    // post-workout summary's Calentamiento / Principal / Vuelta a la calma sections
+    // and the live block-preview gate can never disagree on where a block begins.
+    var segmentGroups: [WorkoutSegmentGroup] {
+        blockRegions.map { region in
+            WorkoutSegmentGroup(
+                id: region.id,
+                title: region.title,
+                phase: region.phase,
+                segments: segments(in: region)
+            )
         }
-        flush()
-        return groups
     }
 }
 
