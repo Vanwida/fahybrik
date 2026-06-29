@@ -3,622 +3,582 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Algoritmos y métricas del Inicio del atleta — FAHYBRID (verificado contra el código)</title>
+<title>Algoritmos y métricas del Inicio del atleta — FAHYBRID (visual)</title>
 <style>
-  /* ── DOC SHELL (crema, legible) — mismo lenguaje que docs/superpowers/plans/*.html ── */
+  /* ── DOC SHELL (crema, premium) — mismo lenguaje que docs/superpowers/plans/*.html ── */
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.55}
   .container{max-width:1080px;margin:0 auto}
   h1{font-size:31px;font-weight:800;font-style:italic;letter-spacing:-0.5px;margin-bottom:6px}
-  .sub{color:#888;font-size:14px;margin-bottom:26px}
-  h2{font-size:22px;font-weight:800;margin:8px 0 6px;letter-spacing:-0.3px}
-  h3{font-size:17px;font-weight:800;margin:8px 0 4px;color:#1a1a1a;letter-spacing:-0.2px}
-  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
-  .lead{font-size:15px;color:#444;margin-bottom:10px;max-width:820px}
-  code{font-family:'Menlo',monospace;font-size:12px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
-  .em{color:#b07000;font-weight:600}
+  .sub{color:#888;font-size:14px;margin-bottom:24px}
+  code{font-family:'Menlo',monospace;font-size:11.5px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#444}
+  .em{color:#b07000;font-weight:700}
   a{color:#b07000}
-  .src{font-size:11.5px;color:#999;margin-top:3px}
-  .src code{font-size:11px;background:#eceae4}
+  .src{font-size:11px;color:#a3a3a0;margin-top:6px}
+  .src code{font-size:10.5px;background:#eceae4}
 
-  .principle{background:#101010;color:#f4f4f0;border-radius:14px;padding:22px 26px;margin:18px 0 8px}
-  .principle p{color:#e0e0db;margin:0 0 10px;font-size:14.5px}
-  .principle p:last-child{margin:0}
-  .principle b{color:#ffb340}
-
-  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:54px 0 14px;display:flex;align-items:center;gap:10px}
+  /* etiqueta de sección */
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.9px;color:#999;margin:52px 0 16px;display:flex;align-items:center;gap:10px}
   .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+  .seclbl .ix{width:22px;height:22px;border-radius:6px;background:#1a1a1a;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-style:normal}
 
-  /* lista anotada (el mapa del Inicio) */
-  .anno{list-style:none;padding:0;margin:6px 0 0}
-  .anno li{position:relative;padding:13px 0 13px 44px;border-bottom:1px solid #ecece7}
-  .anno li:last-child{border-bottom:none}
-  .anno .n{position:absolute;left:0;top:12px;width:28px;height:28px;border-radius:8px;background:#1a1a1a;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
-  .anno .nm{font-weight:800;font-size:14.5px;color:#1a1a1a}
-  .anno .ds{font-size:13px;color:#555;margin-top:2px;line-height:1.5}
+  /* TL;DR — tira de 3 hechos */
+  .tldr{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 4px}
+  .fact{background:#101010;color:#f4f4f0;border-radius:14px;padding:18px 20px}
+  .fact .ic{font-size:24px;line-height:1;margin-bottom:8px}
+  .fact .big{font-size:15px;font-weight:800;color:#ffb340;margin-bottom:3px}
+  .fact .txt{font-size:12.5px;color:#cfcfca;line-height:1.45}
 
-  /* badges de estado */
-  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 14px}
-  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
+  /* leyenda de estado */
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:18px 0 0;font-size:12px;color:#666}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block;flex-shrink:0}
+
+  /* ── PHONE MAP — el Inicio de un vistazo ── */
+  .maprow{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .phone{flex-shrink:0;width:300px;background:#0e0e0e;border-radius:30px;padding:12px;box-shadow:0 10px 34px rgba(0,0,0,.18)}
+  .phone .notch{width:96px;height:6px;border-radius:99px;background:#3a3a3a;margin:4px auto 10px}
+  .screen{background:#161616;border-radius:20px;padding:10px;display:flex;flex-direction:column;gap:7px}
+  .pblock{display:flex;align-items:center;gap:10px;background:#1f1f1f;border-radius:11px;padding:10px 12px;border-left:3px solid #555;position:relative}
+  .pblock .pn{position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:#b07000;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .pblock .pic{font-size:18px;line-height:1;width:22px;text-align:center}
+  .pblock .pt{flex:1;min-width:0}
+  .pblock .pt b{display:block;color:#f2f2ef;font-size:12.5px;font-weight:700;line-height:1.2}
+  .pblock .pt small{color:#8f8f8a;font-size:10.5px}
+  .pblock.real{border-left-color:#3fc773}
+  .pblock.part{border-left-color:#e0902f}
+  .pblock.stub{border-left-color:#e0533f}
+  .maptext{flex:1;min-width:280px}
+  .maptext p{font-size:14px;color:#444;margin-bottom:10px}
+  .maptext .mk{display:flex;align-items:center;gap:8px;font-size:13px;color:#3a3a3a;padding:5px 0;border-bottom:1px dashed #e6e6e1}
+  .maptext .mk:last-child{border:none}
+  .maptext .mk .kk{font-size:15px}
+
+  /* ── CONTROL — 🔒 vs ⚙️ ── */
+  .banner{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #e3e3dd;border-left:6px solid #33586e;border-radius:14px;padding:18px 22px;margin:8px 0 18px}
+  .banner .lock{font-size:34px;line-height:1}
+  .banner b{font-size:16px}
+  .banner p{font-size:13px;color:#555;margin-top:3px}
+  .ctrlgrid{border:1px solid #e8e8e3;border-radius:14px;overflow:hidden;background:#fff}
+  .cg{display:grid;grid-template-columns:1.4fr 90px 110px 1.7fr;align-items:center}
+  .cg.head{background:#fafaf8;border-bottom:2px solid #ececE7}
+  .cg.head>div{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:11px 14px;text-align:center}
+  .cg.head>div:first-child{text-align:left}
+  .cg.row{border-bottom:1px solid #f0f0eb}
+  .cg.row:last-child{border-bottom:none}
+  .cg.row>div{padding:13px 14px}
+  .cg .nm{font-weight:700;font-size:13.5px;color:#1a1a1a}
+  .cg .ic{text-align:center;font-size:22px;line-height:1}
+  .cg .ic small{display:block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-top:3px}
+  .cg .ic.fix small{color:#33586e}
+  .cg .ic.co small{color:#5b3aa6}
+  .cg .note{font-size:12.5px;color:#555;line-height:1.45}
+  .cg .note code{font-size:10.5px}
+
+  /* ── FICHA de métrica ── */
+  .ficha{background:#fff;border:1px solid #e8e8e3;border-radius:16px;padding:24px 26px;margin:16px 0;box-shadow:0 1px 0 #efefe9}
+  .fh{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .fh .fi{width:38px;height:38px;border-radius:10px;background:#fdf3ea;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .fh h3{font-size:18px;font-weight:800;letter-spacing:-0.2px}
+  .fh .tag{font-size:11px;color:#a3a3a0;font-weight:600;margin-top:1px}
+  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 16px}
+  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
   .badge.real{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
-  .badge.heur{background:#fef3e7;color:#9c5512;border:1px solid #f3d4ac}
   .badge.fallback{background:#fff7e0;color:#8a6a12;border:1px solid #ecd9a0}
-  .badge.stub{background:#fdecec;color:#a83232;border:1px solid #f2cccc}
   .badge.fixed{background:#eef2f5;color:#33586e;border:1px solid #d6e2ea}
   .badge.coach{background:#efe9fb;color:#5b3aa6;border:1px solid #d8c9f2}
+  .badge.heur{background:#fef3e7;color:#9c5512;border:1px solid #f3d4ac}
+  .badge.stub{background:#fdecec;color:#a83232;border:1px solid #f2cccc}
 
-  /* FICHA de métrica */
-  .ficha{background:#fff;border:1px solid #e8e8e3;border-radius:14px;padding:24px 26px;margin:18px 0;box-shadow:0 1px 0 #efefe9}
-  .ficha h3{font-size:18px;margin-bottom:2px}
-  .ficha .tag{font-size:11px;color:#999;font-weight:700;margin-bottom:12px}
-  .ficha .row{margin:14px 0}
-  .ficha .k{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#b07000;margin-bottom:5px}
-  .ficha .v{font-size:14px;color:#2a2a2a}
-  .ficha .v ul{margin:4px 0 0 18px}
-  .ficha .v li{margin-bottom:4px;font-size:13.5px}
+  /* valor en una línea */
+  .valline{display:flex;align-items:flex-start;gap:9px;background:#f6f9f6;border:1px solid #d7e8da;border-radius:11px;padding:12px 15px;margin:14px 0 8px;font-size:13.5px;color:#2f4a37}
+  .valline .vi{font-size:16px;line-height:1.3}
+  .valline b{color:#2f7a47}
+  /* chips de mejora */
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 0}
+  .chip{font-size:12px;background:#f4f4f0;border:1px solid #e6e6e0;border-radius:8px;padding:6px 11px;color:#3a3a3a;line-height:1.35}
+  .chip b{color:#1a1a1a}
+  .chips .lbl{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#aaa;align-self:center;margin-right:2px}
+  /* base small print */
+  .basis{font-size:12.5px;color:#777;margin:12px 0 2px;display:flex;gap:8px;align-items:flex-start}
+  .basis .bi{font-size:14px}
+  .basis b{color:#555}
 
-  /* fórmula */
-  .formula{background:#0f1115;color:#e8e8e3;border-radius:10px;padding:16px 18px;font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-size:12.5px;line-height:1.85;overflow-x:auto;margin:6px 0}
-  .formula .c{color:#7a8290}
-  .formula .o{color:#ffb340}
-  .formula .g{color:#7fd49a}
+  /* DONUT readiness */
+  .donutwrap{display:flex;gap:30px;align-items:center;flex-wrap:wrap;margin:6px 0}
+  .donut{flex-shrink:0;position:relative;width:200px;height:200px}
+  .donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .donut .ctr .b{font-size:22px;font-weight:800;color:#1a1a1a;line-height:1}
+  .donut .ctr .s{font-size:11px;color:#888;margin-top:3px;max-width:120px}
+  .dlegend{flex:1;min-width:260px;display:flex;flex-direction:column;gap:8px}
+  .dl{display:flex;align-items:center;gap:11px}
+  .dl .sw{width:13px;height:13px;border-radius:4px;flex-shrink:0}
+  .dl .di{font-size:17px;width:22px;text-align:center}
+  .dl .dn{flex:1;font-size:13.5px;color:#2a2a2a}
+  .dl .dn small{display:block;color:#999;font-size:11px}
+  .dl .dp{font-size:15px;font-weight:800;color:#1a1a1a;font-variant-numeric:tabular-nums}
 
-  /* diagrama de dependencias (flujo) */
-  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#faf9f6;border:1px solid #ecece7;border-radius:10px;padding:16px;margin:6px 0;font-size:12.5px}
-  .flow .box{background:#fff;border:1px solid #ddd;border-radius:7px;padding:6px 10px;font-weight:600;color:#333}
+  /* FLOW horizontal con flechas */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:9px;background:#faf9f6;border:1px solid #ecece7;border-radius:12px;padding:18px 16px;margin:6px 0}
+  .flow .box{background:#fff;border:1px solid #ddd;border-radius:9px;padding:9px 13px;font-weight:700;font-size:12.5px;color:#333;text-align:center;line-height:1.25}
+  .flow .box small{display:block;font-weight:500;font-size:10.5px;color:#999;margin-top:2px}
   .flow .box.src{background:#eef2f5;border-color:#d2dde4;color:#33586e}
   .flow .box.calc{background:#fdf3ea;border-color:#f3d4ac;color:#9c5512}
-  .flow .box.out{background:#1a1a1a;color:#fff;border-color:#1a1a1a;font-weight:800}
-  .flow .arr{color:#b07000;font-weight:800;font-size:14px}
-  .flow .stack{display:flex;flex-direction:column;gap:5px}
-  .flow .w{font-size:10px;color:#999;font-weight:800;margin-left:4px}
+  .flow .box.out{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+  .flow .arr{color:#b07000;font-weight:800;font-size:16px}
+  .flow .arr small{display:block;font-size:9px;color:#b9954f;font-weight:700;text-align:center;margin-top:-3px}
 
-  /* tabla genérica */
-  table.mx{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
-  table.mx th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:9px 12px;border-bottom:2px solid #e8e8e3;background:#fafaf8}
-  table.mx td{padding:11px 12px;border-bottom:1px solid #eee;color:#333;vertical-align:top}
-  table.mx td .fn{font-weight:800;color:#1a1a1a}
-  table.mx .st{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 8px;border-radius:5px;white-space:nowrap;display:inline-block}
-  table.mx .st.fixed{background:#dde7ee;color:#2c5570}
-  table.mx .st.coach{background:#e7defb;color:#5b3aa6}
+  /* steps de combinación (readiness) */
+  .steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 0;font-size:12px}
+  .steps .st{background:#fff;border:1px dashed #d8d8d2;border-radius:8px;padding:7px 11px;color:#555}
+  .steps .st b{color:#1a1a1a}
+  .steps .arr{color:#b07000;font-weight:800}
+
+  /* ZONAS bar */
+  .zones{display:flex;border-radius:10px;overflow:hidden;border:1px solid #e3e3dd;margin:8px 0}
+  .zone{flex:1;padding:11px 10px;text-align:center;color:#fff}
+  .zone b{display:block;font-size:12.5px;font-weight:800}
+  .zone small{font-size:10.5px;opacity:.92}
+  .zone.z2{background:#4a9d6e}.zone.z3{background:#8aa83e}.zone.z4{background:#d8902f}.zone.z5{background:#c5503e}
+
+  /* mini-cards */
+  .mcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin:10px 0}
+  .mc{background:#faf9f6;border:1px solid #ecece7;border-radius:11px;padding:13px 15px}
+  .mc .ml{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#999;display:flex;align-items:center;gap:5px}
+  .mc .mv{font-size:19px;font-weight:800;color:#1a1a1a;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+  .mc .md{font-size:11px;color:#888;line-height:1.4}
+  .mc svg{display:block;margin:4px 0 2px}
+  .mc .badge{margin-top:6px}
+
+  /* semanas (fase) */
+  .weeks{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+  .wk{flex:1;min-width:62px;border-radius:8px;padding:9px 6px;text-align:center;font-size:11px;font-weight:700;border:1px solid transparent}
+  .wk small{display:block;font-size:9.5px;font-weight:600;opacity:.85}
+  .wk.done{background:#e6f6ec;color:#137a3a;border-color:#bfe6cd}
+  .wk.cur{background:#1a1a1a;color:#fff}
+  .wk.miss{background:#fdecec;color:#a83232;border-color:#f2cccc}
+  .wk.up{background:#f3f3ef;color:#999;border-color:#e6e6e0}
+
+  /* details fórmula */
+  details.fx{margin:10px 0 2px;border:1px solid #e8e8e3;border-radius:10px;overflow:hidden;background:#fbfbf9}
+  details.fx summary{cursor:pointer;list-style:none;padding:11px 15px;font-size:12.5px;font-weight:700;color:#555;display:flex;align-items:center;gap:8px;user-select:none}
+  details.fx summary::-webkit-details-marker{display:none}
+  details.fx summary::before{content:'▸';color:#b07000;font-size:11px;transition:transform .15s}
+  details.fx[open] summary::before{transform:rotate(90deg)}
+  details.fx summary .tg{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#aaa;margin-left:auto}
+  .formula{background:#0f1115;color:#e8e8e3;padding:16px 18px;font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-size:12px;line-height:1.85;overflow-x:auto;border-top:1px solid #23262c}
+  .formula .c{color:#7a8290}.formula .o{color:#ffb340}.formula .g{color:#7fd49a}
+
+  /* callouts compactos */
+  .note{display:flex;gap:10px;background:#f4f8fb;border:1px solid #d6e2ea;border-radius:11px;padding:13px 16px;margin:12px 0}
+  .note .ni{font-size:18px}
+  .note .nt b{color:#2c5570;font-size:13px}
+  .note .nt p{font-size:12.5px;color:#33495a;margin-top:2px}
+
+  /* tabla honestidad */
+  table.mx{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;background:#fff;border:1px solid #e8e8e3;border-radius:12px;overflow:hidden}
+  table.mx th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:11px 14px;border-bottom:2px solid #ececE7;background:#fafaf8}
+  table.mx td{padding:11px 14px;border-bottom:1px solid #f0f0eb;color:#444;vertical-align:middle}
+  table.mx tr:last-child td{border-bottom:none}
+  table.mx .fn{font-weight:700;color:#1a1a1a}
+  table.mx .st{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:6px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
   table.mx .st.real{background:#d8efe0;color:#13693a}
   table.mx .st.heur{background:#fbe6d3;color:#9c4d12}
   table.mx .st.stub{background:#f6d4d4;color:#a02e2e}
-  table.mx code{font-size:11px;background:#f0f0ec}
+  table.mx code{font-size:10.5px;background:#f0f0ec}
 
-  /* callout */
-  .note{background:#fff;border:1px solid #d6e2ea;border-left:5px solid #4d80a0;border-radius:10px;padding:15px 19px;margin:14px 0}
-  .note .h{font-weight:800;font-size:13.5px;color:#2c5570;margin-bottom:5px}
-  .note p{font-size:13.5px;color:#33495a;margin:0}
-  .warn{background:#fffaf3;border:1px solid #f3d4ac;border-left:5px solid #e0902f;border-radius:10px;padding:15px 19px;margin:14px 0}
-  .warn .h{font-weight:800;font-size:13.5px;color:#9c5512;margin-bottom:5px}
-  .warn p{font-size:13.5px;color:#6e4a1a;margin:0}
+  /* preguntas grandes */
+  .bigq{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:8px 0}
+  .qcard{background:#fff;border:1px solid #e8e8e3;border-radius:14px;padding:18px 20px}
+  .qcard .qi{font-size:22px}
+  .qcard b{display:block;font-size:14px;margin:6px 0 4px;color:#1a1a1a}
+  .qcard p{font-size:12.5px;color:#555;line-height:1.5}
 
-  /* mejora */
-  .improve{background:#f6f9f6;border:1px solid #d7e8da;border-radius:10px;padding:14px 18px;margin:10px 0 2px}
-  .improve .h{font-weight:800;font-size:12.5px;color:#2f7a47;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
-  .improve p,.improve li{font-size:13.5px;color:#2f4a37}
-  .improve ul{margin:2px 0 0 18px}
+  footer{margin-top:60px;padding-top:18px;border-top:1px solid #e8e8e3;font-size:11.5px;color:#aaa;line-height:1.7}
 
-  footer{margin-top:64px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
-  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 0;font-size:12px;color:#666}
-  .legend span{display:inline-flex;align-items:center;gap:6px}
-  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  @media(max-width:760px){.tldr{grid-template-columns:1fr}.cg{grid-template-columns:1fr 60px 60px}.cg .note{display:none}.bigq{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="container">
 
   <h1>Algoritmos y métricas del Inicio del atleta</h1>
-  <div class="sub">FAHYBRID · qué calcula la Home del atleta, con qué la calcula y qué peso tiene cada cosa — verificado línea a línea contra el código. 29 jun 2026.</div>
+  <div class="sub">FAHYBRID · qué calcula la Home del atleta, con qué peso, y quién lo controla — verificado línea a línea contra el código. 29 jun 2026.</div>
 
-  <div class="principle">
-    <p><b>Para qué es este doc.</b> Explica, sin inventar nada, los algoritmos que mueven la pantalla de Inicio: la <b>preparación de hoy</b> (readiness), el <b>progreso de carrera</b> (VDOT, 5 km, ritmo umbral, zonas), la <b>fuerza</b> (1RM), la <b>fase</b> del plan, la <b>carrera objetivo</b> y los <b>pasos</b>.</p>
-    <p>Todo lo de aquí está leído del código real y citado con <code>archivo:línea</code>. Donde algo es una <b>aproximación</b>, un <b>respaldo cuando faltan datos</b> o directamente <b>no existe todavía</b>, lo digo claro — no presento un hueco como si fuera un algoritmo.</p>
-    <p>Además respondo dos preguntas por cada bloque: <b>¿lo decidimos nosotros (fijo) o puede el coach configurarlo?</b> y <b>¿qué valor le da al atleta y cómo lo mejoraríamos?</b></p>
+  <!-- TL;DR -->
+  <div class="tldr">
+    <div class="fact">
+      <div class="ic">📱</div>
+      <div class="big">8 bloques</div>
+      <div class="txt">El Inicio es un <b>veredicto hacia la carrera</b>, no un calendario. Cada bloque carga su dato o muestra un vacío honesto.</div>
+    </div>
+    <div class="fact">
+      <div class="ic">🔒</div>
+      <div class="big">Hoy 100% fijo</div>
+      <div class="txt">El coach <b>no</b> decide qué ve cada atleta. Solo influye en algunos <i>valores</i> (fórmula 1RM, nombre de fase, carrera).</div>
+    </div>
+    <div class="fact">
+      <div class="ic">🧭</div>
+      <div class="big">2 huecos honestos</div>
+      <div class="txt">Wearables (HRV/sueño) <b>bloqueados</b> por falta de entidad legal · la <b>proyección HYROX</b> aún no tiene modelo.</div>
+    </div>
   </div>
 
   <div class="legend">
     <span><span class="dot" style="background:#3fc773"></span> Dato real</span>
-    <span><span class="dot" style="background:#e0902f"></span> Aproximación / heurística</span>
-    <span><span class="dot" style="background:#ecd9a0"></span> Respaldo si faltan datos</span>
-    <span><span class="dot" style="background:#e0533f"></span> No existe aún (hueco honesto)</span>
-    <span><span class="dot" style="background:#33586e"></span> Fijo (lo decidimos nosotros)</span>
-    <span><span class="dot" style="background:#5b3aa6"></span> Influye el coach</span>
+    <span><span class="dot" style="background:#e0902f"></span> Real solo si hay wearable</span>
+    <span><span class="dot" style="background:#e0533f"></span> No existe aún</span>
+    <span>🔒 Lo fijamos nosotros</span>
+    <span>⚙️ Lo elige el coach</span>
   </div>
 
-  <!-- ════════════════════════ MAPA ════════════════════════ -->
-  <div class="seclbl">El mapa del Inicio — 9 bloques, de arriba a abajo</div>
-  <p class="lead">La pantalla es un <em>veredicto hacia la carrera</em>, no un calendario. El orden y la presencia de cada bloque están escritos a mano en <code>ios/FAHYBRIK/Today/InicioView.swift</code> (cabecera líneas 1-28, montaje líneas 122-155). Cada bloque carga su propio dato y, si no lo tiene, muestra un vacío honesto en vez de un número falso.</p>
-
-  <ul class="anno">
-    <li><span class="n">1</span><span class="nm">Camino a la carrera</span><div class="ds">Carrera objetivo + "N días" + tiempo meta + "{fase} · semana N de M" + barra de posición. <span class="src">InicioView.swift:9-12, 129 · <code>buildAthleteMacroSummary</code></span></div></li>
-    <li><span class="n">2</span><span class="nm">¿Cómo llegas hoy?</span><div class="ds">Preparación 0-100 + lectura en lenguaje normal + mini-desglose de las señales (check-in / HRV / sueño / FC reposo). <span class="src">InicioView.swift:13-15, 131 · <code>computeAthleteDailyReadiness</code></span></div></li>
-    <li><span class="n">3</span><span class="nm">Tu progreso · carrera</span><div class="ds">Ritmo umbral (VDOT), tendencia de 5 km, mejor 1 km + volumen 7 días, y el 1RM de fuerza como la otra mitad. <span class="src">InicioView.swift:16-17, 90-107, 133 · <code>buildRunningAnalysis</code> + 1RM</span></div></li>
-    <li><span class="n">4</span><span class="nm">Entreno de hoy</span><div class="ds">La sesión de hoy como única acción (no es un menú). Sale del plan de la semana. <span class="src">InicioView.swift:18, 135 · <code>PlanService</code></span></div></li>
-    <li><span class="n">5</span><span class="nm">Sesión PM compacta</span><div class="ds">Si hay segunda sesión hoy, fila compacta que abre el Plan. <span class="src">InicioView.swift:137-146</span></div></li>
-    <li><span class="n">6</span><span class="nm">Panel de pareja (Dobles)</span><div class="ds">Solo si el atleta tiene una pareja de Dobles creada por el coach. <span class="src">InicioView.swift:112-115, 147-150</span></div></li>
-    <li><span class="n">7</span><span class="nm">Pasos</span><div class="ds">Pasos de hoy leídos de Apple Health en el propio teléfono. <span class="src">InicioView.swift:19, 151 · <code>HealthKitStepsReader</code></span></div></li>
-    <li><span class="n">8</span><span class="nm">Proyección (puerta honesta)</span><div class="ds">Donde iría una proyección de tiempo de meta. El modelo no existe → invita a una simulación en vez de inventar un número. <span class="src">InicioView.swift:20-21, 1017-1066</span></div></li>
-  </ul>
-
-  <!-- ════════════════════════ CONTROL ════════════════════════ -->
-  <div class="seclbl">Control — ¿lo decidimos nosotros o lo configura el coach?</div>
-
-  <div class="warn">
-    <div class="h">Respuesta corta: hoy el Inicio es 100% fijo. El coach NO controla qué ve cada atleta.</div>
-    <p>Busqué en todo el repo una configuración del coach sobre la Home del atleta (tablas, columnas, toggles de visibilidad): <b>no existe</b>. No hay <code>athlete_home_config</code>, ni <code>home_widgets</code>, ni <code>metric_visibility</code>, ni nada parecido en <code>infra/migrations/</code>. El layout, el orden y la presencia de cada bloque están escritos a mano en <code>InicioView.swift</code>. Lo que el coach SÍ puede tocar son algunos <em>valores</em> que entran en una métrica (la fórmula de 1RM, los nombres de fase, la carrera objetivo, los anclajes de zona) — pero nunca <em>si</em> el bloque aparece.</p>
+  <!-- ════════════ MAPA ════════════ -->
+  <div class="seclbl"><span class="ix">1</span> El Inicio de un vistazo</div>
+  <div class="maprow">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="pblock real"><span class="pn">1</span><span class="pic">🏁</span><div class="pt"><b>Camino a la carrera</b><small>N días · meta · fase · semana N/M</small></div></div>
+        <div class="pblock part"><span class="pn">2</span><span class="pic">⚡</span><div class="pt"><b>¿Cómo llegas hoy?</b><small>preparación 0–100 + desglose</small></div></div>
+        <div class="pblock real"><span class="pn">3</span><span class="pic">🏃</span><div class="pt"><b>Tu progreso · carrera</b><small>umbral · 5 km · 1 km · volumen · 1RM</small></div></div>
+        <div class="pblock real"><span class="pn">4</span><span class="pic">🏋️</span><div class="pt"><b>Entreno de hoy</b><small>la sesión, como única acción</small></div></div>
+        <div class="pblock real"><span class="pn">5</span><span class="pic">🌙</span><div class="pt"><b>Sesión PM</b><small>si hay segunda sesión hoy</small></div></div>
+        <div class="pblock real"><span class="pn">6</span><span class="pic">👥</span><div class="pt"><b>Panel de pareja</b><small>solo Dobles</small></div></div>
+        <div class="pblock real"><span class="pn">7</span><span class="pic">👟</span><div class="pt"><b>Pasos</b><small>Apple Health, en el teléfono</small></div></div>
+        <div class="pblock stub"><span class="pn">8</span><span class="pic">🔒</span><div class="pt"><b>Proyección</b><small>puerta honesta — sin modelo aún</small></div></div>
+      </div>
+    </div>
+    <div class="maptext">
+      <p>El orden y la presencia de cada bloque están escritos a mano en <code>InicioView.swift</code> (cabecera 1–28, montaje 122–155). No es configurable: es la misma pantalla para todos.</p>
+      <div class="mk"><span class="kk">🟢</span> Carga su dato real cuando existe</div>
+      <div class="mk"><span class="kk">🟠</span> La readiness depende de un wearable conectado</div>
+      <div class="mk"><span class="kk">🔴</span> La proyección invita a una simulación en vez de inventar</div>
+      <div class="mk"><span class="kk">🚫</span> Nunca un número falso — si falta el dato, vacío honesto</div>
+    </div>
   </div>
 
-  <table class="mx">
-    <thead><tr><th>Bloque del Inicio</th><th>¿Visibilidad?</th><th>¿El coach influye en el valor?</th><th>Qué configura el coach (si algo)</th></tr></thead>
-    <tbody>
-      <tr><td><span class="fn">Camino a la carrera</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st coach">Sí, en el valor</span></td><td>Asigna/define la carrera objetivo y el tiempo meta; los días salen solos.</td></tr>
-      <tr><td><span class="fn">Fase · semana N de M</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st coach">Sí, en el valor</span></td><td>El <em>nombre</em> de la fase y los microciclos son dato del coach (agnóstico, no ATR). El "semana N de M" se deriva.</td></tr>
-      <tr><td><span class="fn">¿Cómo llegas hoy? (0-100)</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st fixed">No</span></td><td><b>Nada.</b> Pesos y fórmulas están escritos en código. Ver nota debajo: el coach tiene umbrales de readiness en su metodología, pero <em>esta nota 0-100 no los usa</em>.</td></tr>
-      <tr><td><span class="fn">Ritmo umbral · VDOT · zonas · 5 km · mejor 1 km · volumen</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st coach">Solo entrada</span></td><td>El modelo (Daniels) es fijo. El coach define qué prueba es el ancla de ritmo (<code>run_pace_anchor</code>, por defecto 5 km) y el atleta/coach registra el 5 km que alimenta el cálculo.</td></tr>
-      <tr><td><span class="fn">1RM de fuerza</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st coach">Sí, en el valor</span></td><td>Elige la fórmula de estimación (Epley / Brzycki / Lombardi) vía <code>coach_methodology.one_rm_estimation</code>. El qué lift se muestra es orden canónico fijo.</td></tr>
-      <tr><td><span class="fn">Pasos</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st fixed">No</span></td><td>Nada. Es Apple Health del teléfono, sin paso por el coach.</td></tr>
-      <tr><td><span class="fn">Proyección de meta</span></td><td><span class="st fixed">Fijo</span></td><td><span class="st fixed">No</span></td><td>Nada — es un placeholder bloqueado; no hay modelo detrás.</td></tr>
-    </tbody>
-  </table>
+  <!-- ════════════ CONTROL ════════════ -->
+  <div class="seclbl"><span class="ix">2</span> ¿Lo fijamos nosotros o lo configura el coach?</div>
+
+  <div class="banner">
+    <span class="lock">🔒</span>
+    <div>
+      <b>Respuesta corta: hoy el Inicio es fijo. El coach NO controla qué ve cada atleta.</b>
+      <p>No existe ninguna tabla de configuración (<code>athlete_home_config</code>, <code>home_widgets</code>, <code>metric_visibility</code>…) en <code>infra/migrations/</code>. El coach solo influye en algunos <em>valores</em> que entran en una métrica — nunca en <em>si</em> el bloque aparece.</p>
+    </div>
+  </div>
+
+  <div class="ctrlgrid">
+    <div class="cg head"><div>Bloque</div><div>Visibilidad</div><div>El valor</div><div>Qué toca el coach</div></div>
+    <div class="cg row"><div class="nm">Camino a la carrera</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">Asigna la carrera objetivo y el tiempo meta; los días salen solos.</div></div>
+    <div class="cg row"><div class="nm">Fase · semana N de M</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">El <em>nombre</em> de la fase y los microciclos son dato del coach (agnóstico, no ATR). El "N de M" se deriva.</div></div>
+    <div class="cg row"><div class="nm">¿Cómo llegas hoy? (0–100)</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic fix">🔒<small>fijo</small></div><div class="note"><b>Nada.</b> Pesos y fórmulas en código. (El coach tiene umbrales de readiness en su metodología, pero esta nota <em>no los usa</em> — ver abajo.)</div></div>
+    <div class="cg row"><div class="nm">VDOT · umbral · zonas · 5 km</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>entrada</small></div><div class="note">Modelo Daniels = fijo. El coach define qué prueba es el ancla de ritmo (<code>run_pace_anchor</code>, por defecto 5 km).</div></div>
+    <div class="cg row"><div class="nm">1RM de fuerza</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">Elige la fórmula (Epley / Brzycki / Lombardi) vía <code>coach_methodology.one_rm_estimation</code>.</div></div>
+    <div class="cg row"><div class="nm">Pasos</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic fix">🔒<small>fijo</small></div><div class="note">Apple Health del teléfono, sin paso por el coach.</div></div>
+    <div class="cg row"><div class="nm">Proyección de meta</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic fix">🔒<small>fijo</small></div><div class="note">Placeholder bloqueado; no hay modelo detrás.</div></div>
+  </div>
 
   <div class="note">
-    <div class="h">Matiz importante sobre la readiness y el coach</div>
-    <p>La tabla <code>coach_methodology</code> SÍ tiene umbrales de readiness que el coach define — <code>hrv_skip_threshold_pct</code>, <code>hrv_modify_threshold_pct</code>, <code>sleep_min_hours</code>, etc. (<code>infra/migrations/0048_methodology_system.sql:59-65</code>). Pero esos umbrales son para <em>decidir si saltar/modificar un entreno</em>, una lógica distinta. La nota 0-100 que ve el atleta en Inicio <b>no los lee</b>: <code>computeAthleteDailyReadiness</code> no consulta <code>coach_methodology</code> en ningún momento — usa pesos fijos. O sea: lo que el coach cree que configura de readiness y lo que el atleta ve como "preparación" hoy son dos mundos separados.</p>
+    <span class="ni">⚠️</span>
+    <div class="nt"><b>Dos mundos de readiness que no se hablan</b><p>El coach SÍ define umbrales en su metodología (<code>hrv_skip_threshold_pct</code>, <code>sleep_min_hours</code>… <code>migr 0048:59-65</code>), pero son para <em>decidir si saltar/modificar un entreno</em>. La nota 0–100 del Inicio <b>no los lee</b>: <code>computeAthleteDailyReadiness</code> nunca consulta <code>coach_methodology</code>.</p></div>
   </div>
 
-  <!-- ════════════════════════ FICHA 1 · READINESS ════════════════════════ -->
-  <div class="seclbl">Ficha 1 · "¿Cómo llegas hoy?" — la preparación 0-100</div>
+  <!-- ════════════ READINESS ════════════ -->
+  <div class="seclbl"><span class="ix">3</span> ¿Cómo llegas hoy? — preparación 0–100</div>
 
   <div class="ficha">
-    <h3>Preparación diaria (readiness)</h3>
-    <div class="tag">shared/domain/coach/athlete-daily-readiness.ts → <code>computeAthleteDailyReadiness</code></div>
-
+    <div class="fh"><div class="fi">⚡</div><div><h3>Preparación diaria (readiness)</h3><div class="tag">shared/domain/coach/athlete-daily-readiness.ts</div></div></div>
     <div class="badges">
-      <span class="badge real">Sensación (check-in) = real</span>
-      <span class="badge fallback">HRV/sueño/FC = solo si hay wearable</span>
-      <span class="badge fixed">Pesos fijos por nosotros</span>
+      <span class="badge real">Sensación = real siempre</span>
+      <span class="badge fallback">HRV/sueño/FC = solo con wearable</span>
+      <span class="badge fixed">🔒 Pesos fijos</span>
     </div>
 
-    <div class="row">
-      <div class="k">Qué es</div>
-      <div class="v">Un número 0-100 que resume "cómo está el cuerpo hoy para entrenar", mezclando lo que el atleta <em>siente</em> (su check-in) con lo que dicen sus <em>señales fisiológicas</em> (HRV, sueño, frecuencia cardiaca en reposo, recuperación) cuando hay un wearable conectado.</div>
-    </div>
-
-    <div class="row">
-      <div class="k">De qué depende — qué alimenta qué</div>
-      <div class="flow">
-        <div class="stack">
-          <div class="box src">daily_checkins.sub_score <span class="w">35%</span></div>
-          <div class="box src">HRV hoy vs base 60d <span class="w">25%</span></div>
-          <div class="box src">sueño (horas) <span class="w">20%</span></div>
-          <div class="box src">FC reposo <span class="w">10%</span></div>
-          <div class="box src">recovery_score <span class="w">10%</span></div>
-        </div>
-        <span class="arr">→</span>
-        <div class="box calc">cada señal → 0-100 + media ponderada (re-normalizada a las señales presentes)</div>
-        <span class="arr">→</span>
-        <div class="box calc">−5 si cumplimiento 7d &lt; 60%</div>
-        <span class="arr">→</span>
-        <div class="box out">Preparación 0-100</div>
+    <!-- DONUT de pesos -->
+    <div class="donutwrap">
+      <div class="donut">
+        <svg viewBox="0 0 200 200" width="200" height="200">
+          <g transform="rotate(-90 100 100)" fill="none" stroke-width="30">
+            <circle cx="100" cy="100" r="80" stroke="#e0902f" stroke-dasharray="171.93 600" stroke-dashoffset="0"></circle>
+            <circle cx="100" cy="100" r="80" stroke="#3f9e8b" stroke-dasharray="121.66 600" stroke-dashoffset="-175.93"></circle>
+            <circle cx="100" cy="100" r="80" stroke="#4d80a0" stroke-dasharray="96.53 600" stroke-dashoffset="-301.59"></circle>
+            <circle cx="100" cy="100" r="80" stroke="#9b6fb0" stroke-dasharray="46.27 600" stroke-dashoffset="-402.12"></circle>
+            <circle cx="100" cy="100" r="80" stroke="#cda23f" stroke-dasharray="46.27 600" stroke-dashoffset="-452.39"></circle>
+          </g>
+        </svg>
+        <div class="ctr"><div class="b">0–100</div><div class="s">media ponderada de 5 señales</div></div>
       </div>
-      <div class="src">Pesos: <code>athlete-daily-readiness.ts:23-29</code> · señales: <code>:40-92</code> · combinación: <code>:118-136</code></div>
-    </div>
-
-    <div class="row">
-      <div class="k">La fórmula y los pesos REALES</div>
-      <div class="formula">
-<span class="c">// Pesos fijos (athlete-daily-readiness.ts:23-29)</span>
-sub_score (sensación) <span class="o">0.35</span>   hrv <span class="o">0.25</span>   sueño <span class="o">0.20</span>   fc_reposo <span class="o">0.10</span>   recuperación <span class="o">0.10</span>
-
-<span class="c">// Cada señal se convierte primero a 0-100 (todo se recorta a [0,100]):</span>
-hrv_componente   = clamp( 50 + (hrv_hoy − hrv_base) / hrv_base × 100 )   <span class="c">// :94-97</span>
-sueño_componente = clamp( min(100, horas_sueño / 8 × 100) )              <span class="c">// :99-100</span>
-fc_componente    = clamp( 100 − max(0, fc_reposo − 50) × 2 )             <span class="c">// :102</span>
-recup_componente = clamp( recovery_score )                               <span class="c">// :104-105 (se usa tal cual)</span>
-sensación        = daily_checkins.sub_score                              <span class="c">// :46 (ya viene 0-100)</span>
-
-<span class="c">// Media ponderada SOLO sobre las señales presentes (re-normaliza los pesos):</span>
-score = round( Σ valor × (peso / Σ pesos_presentes) )                    <span class="c">// :131-134</span>
-<span class="g">if</span> cumplimiento_7d &lt; 0.6:  score = score − 5                          <span class="c">// :135 (penalización)</span>
-<span class="g">if</span> no hay NINGUNA señal:    devuelve null  <span class="c">// vacío honesto, NO inventa un 50 — :125-132</span>
+      <div class="dlegend">
+        <div class="dl"><span class="sw" style="background:#e0902f"></span><span class="di">✍️</span><span class="dn">Sensación (tu check-in)<small>el único input sin wearable</small></span><span class="dp">35%</span></div>
+        <div class="dl"><span class="sw" style="background:#3f9e8b"></span><span class="di">💓</span><span class="dn">HRV hoy vs tu base 60 d<small>variabilidad sobre/bajo tu normal</small></span><span class="dp">25%</span></div>
+        <div class="dl"><span class="sw" style="background:#4d80a0"></span><span class="di">😴</span><span class="dn">Sueño (horas)<small>ideal fijado en 8 h</small></span><span class="dp">20%</span></div>
+        <div class="dl"><span class="sw" style="background:#9b6fb0"></span><span class="di">❤️</span><span class="dn">FC en reposo<small>−2 pts por ppm sobre 50</small></span><span class="dp">10%</span></div>
+        <div class="dl"><span class="sw" style="background:#cda23f"></span><span class="di">🔋</span><span class="dn">Recuperación (wearable)<small>se usa tal cual</small></span><span class="dp">10%</span></div>
       </div>
     </div>
 
-    <div class="row">
-      <div class="k">De dónde sale cada señal (la fuente)</div>
-      <div class="v"><ul>
-        <li><b>Sensación</b> — <code>daily_checkins.sub_score</code> del día; si hoy no hay, coge el último check-in anterior (<code>:40-55</code>). Es el único input que no necesita wearable.</li>
-        <li><b>HRV</b> — media de <code>biometric_streams</code> tipo <code>hrv</code> de hoy, comparada con la base = media de hace 14 a 60 días (<code>:61-67</code>). Mide si tu variabilidad está por encima o por debajo de tu normal.</li>
-        <li><b>Sueño</b> — media de <code>sleep_duration</code> de hoy, en segundos ÷ 3600 → horas (<code>:68-70</code>). El "ideal" está fijado en 8 h.</li>
-        <li><b>FC en reposo</b> — media de <code>hr_resting</code> de hoy (<code>:71-73</code>). Penaliza 2 puntos por cada pulsación por encima de 50.</li>
-        <li><b>Recuperación</b> — media de <code>recovery_score</code> de hoy (<code>:74-76</code>); se usa tal cual viene del wearable.</li>
-        <li><b>Cumplimiento 7d</b> — entrenos completados / programados últimos 7 días (<code>:80-92</code>). NO es una señal con peso: solo resta 5 puntos si bajas del 60%.</li>
-      </ul></div>
+    <!-- combinación -->
+    <div class="steps">
+      <span class="st">cada señal <b>→ 0–100</b></span><span class="arr">→</span>
+      <span class="st"><b>media ponderada</b> (re-normalizada a las señales presentes)</span><span class="arr">→</span>
+      <span class="st"><b>−5</b> si cumplimiento 7 d &lt; 60%</span><span class="arr">→</span>
+      <span class="st" style="background:#1a1a1a;color:#fff;border:none"><b style="color:#ffb340">Preparación 0–100</b></span>
     </div>
+    <div class="src">Si no hay <em>ninguna</em> señal → devuelve <code>null</code> (vacío honesto, no inventa un 50). Resultado guardado en <code>athlete_daily_readiness_snapshots</code> con <code>delta_7d</code>.</div>
 
-    <div class="row">
-      <div class="k">En qué nos basamos</div>
-      <div class="v">El principio es estándar en apps de readiness (Whoop, Oura, Garmin Body Battery): comparar la <b>HRV reciente contra tu propia base</b> y mezclar sueño + FC en reposo + sensación. Pero ojo: <b>los pesos concretos (35/25/20/10/10) y los umbrales (8 h de sueño, base de 50 ppm, ±2 por pulsación) son una elección nuestra</b>, no una fórmula publicada. Son razonables, pero calibrados a ojo, no validados.</div>
-    </div>
+    <details class="fx"><summary>Ver fórmula y umbrales exactos <span class="tg">athlete-daily-readiness.ts:23-136</span></summary>
+<div class="formula"><span class="c">// Pesos fijos (:23-29)</span>
+sensación <span class="o">0.35</span>   hrv <span class="o">0.25</span>   sueño <span class="o">0.20</span>   fc_reposo <span class="o">0.10</span>   recuperación <span class="o">0.10</span>
 
-    <div class="row">
-      <div class="k">Cómo se interpreta</div>
-      <div class="v">Más alto = mejor preparado. La gracia de re-normalizar los pesos es que el número es honesto aunque falten señales: un atleta sin wearable pero con check-in obtiene una preparación basada 100% en su sensación, no un número diluido. Y si no hay ni check-in ni wearable, <b>no se inventa un 50</b> — devuelve <code>null</code> y la app enseña "Sin datos · haz tu check-in" (<code>:125-132</code>). El resultado se guarda en <code>athlete_daily_readiness_snapshots</code> con el desglose completo (<code>breakdown_json</code>, <code>:146-158</code>) y se calcula un <code>delta_7d</code> contra el snapshot de hace 7 días (<code>:138-144</code>).</div>
-    </div>
+<span class="c">// Cada señal → 0-100, todo recortado a [0,100]:</span>
+hrv   = clamp( 50 + (hrv_hoy − hrv_base)/hrv_base × 100 )    <span class="c">// :94-97 · base = media de 14 a 60 d atrás</span>
+sueño = clamp( min(100, horas/8 × 100) )                     <span class="c">// :99-100</span>
+fc    = clamp( 100 − max(0, fc_reposo − 50) × 2 )            <span class="c">// :102</span>
+recup = clamp( recovery_score )                              <span class="c">// :104-105</span>
+sens. = daily_checkins.sub_score                             <span class="c">// :46 · si hoy no hay, coge el último</span>
 
-    <div class="improve">
-      <div class="h">Valor + cómo lo mejoraríamos</div>
-      <p><b>Valor:</b> en una sola ojeada el atleta sabe si hoy empuja o se cuida — y, sobre todo, conecta su sensación subjetiva con datos. Es lo más cercano a "tener al coach al lado por la mañana".</p>
-      <ul>
-        <li><b>Wearables de verdad.</b> Hoy las señales HRV/sueño/FC dependen de que <code>biometric_streams</code> esté lleno, lo cual exige la ingesta de Garmin/Whoop/etc. — que sigue bloqueada por no tener entidad legal. Sin wearable, la preparación es básicamente el check-in. Conectar wearables es la mejora #1 de esta métrica.</li>
-        <li><b>Pesos calibrados, no a ojo.</b> Hoy 35/25/20/10/10 son nuestros. Lo correcto a futuro: validarlos contra resultados reales (¿la preparación baja predice peor rendimiento?) o dejar que el coach module el énfasis.</li>
-        <li><b>Que el coach lo configure.</b> Pregunta clave abierta: ¿debería el coach poder ajustar los pesos por atleta, o elegir qué señales cuentan? Hoy no puede. Y más raro aún: el coach define umbrales de readiness en su metodología que esta nota ni mira — habría que unir los dos mundos.</li>
-        <li><b>Tendencia, no solo hoy.</b> Ya guardamos <code>delta_7d</code> pero el Inicio apenas lo usa. Una mini-tendencia de 7-14 días daría mucho más contexto que el número suelto.</li>
-      </ul>
+<span class="c">// Media ponderada SOLO sobre señales presentes (re-normaliza pesos):</span>
+score = round( Σ valor × (peso / Σ pesos_presentes) )        <span class="c">// :131-134</span>
+<span class="g">if</span> cumplimiento_7d &lt; 0.6:  score −= 5                       <span class="c">// :135</span>
+<span class="g">if</span> sin ninguna señal:     return null                      <span class="c">// :125-132</span></div>
+    </details>
+
+    <div class="basis"><span class="bi">📐</span><div><b>Base:</b> principio estándar de apps de readiness (Whoop / Oura / Garmin Body Battery) — HRV reciente vs tu base + sueño + FC + sensación. <em>Lo nuestro:</em> los pesos 35/25/20/10/10 y los umbrales (8 h, 50 ppm, ±2) están calibrados a ojo, no validados ni publicados.</div></div>
+
+    <div class="valline"><span class="vi">💡</span><div><b>Valor:</b> de un vistazo el atleta sabe si hoy empuja o se cuida, conectando su sensación con datos. Lo más cercano a tener al coach al lado por la mañana.</div></div>
+    <div class="chips"><span class="lbl">Mejorar</span>
+      <span class="chip"><b>Wearables de verdad</b> — sin ellos la readiness ≈ solo tu sensación (ingesta bloqueada)</span>
+      <span class="chip"><b>Pesos validados</b>, no a ojo</span>
+      <span class="chip"><b>Que el coach</b> ajuste pesos/señales por atleta</span>
+      <span class="chip"><b>Tendencia 7–14 d</b> (ya guardamos <code>delta_7d</code>)</span>
     </div>
   </div>
 
-  <!-- ════════════════════════ FICHA 2 · VDOT / RITMO UMBRAL ════════════════════════ -->
-  <div class="seclbl">Ficha 2 · Progreso de carrera — VDOT, ritmo umbral y zonas</div>
+  <!-- ════════════ RUNNING / VDOT ════════════ -->
+  <div class="seclbl"><span class="ix">4</span> Progreso de carrera — VDOT, umbral y zonas</div>
 
   <div class="ficha">
-    <h3>VDOT, ritmo umbral y las zonas de ritmo</h3>
-    <div class="tag">shared/domain/running/vdot.ts → <code>computeVdot</code> · web/lib/athlete/running-analysis.ts → <code>buildRunningAnalysis</code></div>
-
+    <div class="fh"><div class="fi">🏃</div><div><h3>De un 5 km a tus ritmos de entreno</h3><div class="tag">shared/domain/running/vdot.ts · web/lib/athlete/running-analysis.ts</div></div></div>
     <div class="badges">
       <span class="badge real">Modelo publicado (Daniels)</span>
       <span class="badge fallback">Solo si hay un 5 km registrado</span>
-      <span class="badge fixed">Anclajes de intensidad fijos</span>
+      <span class="badge fixed">🔒 Anclajes de intensidad fijos</span>
     </div>
 
-    <div class="row">
-      <div class="k">Qué es</div>
-      <div class="v">A partir de <b>un solo tiempo de 5 km</b> se estima la condición física de carrera (VDOT, un equivalente de VO₂máx) y de ahí salen los ritmos de entrenamiento: rodaje, maratón, <b>umbral</b> y VO₂máx. El Inicio destaca el ritmo umbral y el VDOT; el detalle completo (las 4 zonas) vive en la pestaña Carreras.</div>
+    <!-- FLOW -->
+    <div class="flow">
+      <div class="box src">🏁 tu 5 km<small>athlete_benchmarks · segundos</small></div>
+      <span class="arr">→<small>Daniels</small></span>
+      <div class="box out">VDOT<small style="color:#bbb">≈ VO₂máx</small></div>
+      <span class="arr">→</span>
+      <div class="box calc">ritmo umbral<small>la fila destacada</small></div>
+      <span class="arr">→</span>
+      <div class="box out">4 zonas de ritmo</div>
     </div>
 
-    <div class="row">
-      <div class="k">De qué depende</div>
-      <div class="flow">
-        <div class="box src">athlete_benchmarks · run_5k (segundos)</div>
-        <span class="arr">→</span>
-        <div class="box calc">velocidad + duración → VO₂ demanda / %VO₂máx sostenible</div>
-        <span class="arr">→</span>
-        <div class="box out">VDOT</div>
-        <span class="arr">→</span>
-        <div class="box calc">VDOT × % de cada zona → velocidad → ritmo (s/km)</div>
-        <span class="arr">→</span>
-        <div class="box out">umbral · rodaje · maratón · VO₂máx</div>
+    <!-- ZONAS bar -->
+    <div class="zones">
+      <div class="zone z2"><b>Z2 rodaje</b><small>70% · −10/+20 s/km</small></div>
+      <div class="zone z3"><b>Z3 maratón</b><small>84% · ±8 s/km</small></div>
+      <div class="zone z4"><b>Z4 umbral</b><small>88% · ±5 s/km</small></div>
+      <div class="zone z5"><b>Z5 VO₂máx</b><small>98% · ±6 s/km</small></div>
+    </div>
+    <div class="src">Cada zona es una <em>banda</em> alrededor del ritmo, no un número frágil. <code>running-analysis.ts:218-247</code></div>
+
+    <!-- mini-cards señales extra -->
+    <div class="mcards">
+      <div class="mc"><div class="ml">📉 Tendencia 5 km</div>
+        <svg width="130" height="34" viewBox="0 0 130 34"><polyline points="4,6 34,12 64,18 94,22 126,28" fill="none" stroke="#3fc773" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="126" cy="28" r="3" fill="#3fc773"/></svg>
+        <div class="md">historial completo (p. ej. 21:00 → 19:58). El dato más motivador.</div>
       </div>
-      <div class="src"><code>running-analysis.ts:174-186</code> (lee el 5 km) → <code>vdot.ts:119-153</code> (calcula)</div>
+      <div class="mc"><div class="ml">⚡ Mejor 1 km</div><div class="mv">— /km</div><div class="md">el km más rápido en 90 d</div><span class="badge heur">heurística: 800–1200 m → escala a 1 km</span></div>
+      <div class="mc"><div class="ml">📊 Volumen 7 d</div><div class="mv">— km</div><div class="md">ventana móvil (la del Inicio)</div></div>
+      <div class="mc"><div class="ml">📅 Volumen semana</div><div class="mv">— km</div><div class="md">semana ISO lun→hoy (la de Carreras)</div></div>
     </div>
+    <div class="src">Dos volúmenes distintos <em>a propósito</em>, cada uno etiquetado, para que ninguno mienta. "Carrera" = filtro SQL <code>SEG_MODALITY_SQL</code> single-sourced (<code>:108-121</code>).</div>
 
-    <div class="row">
-      <div class="k">La fórmula REAL (Daniels &amp; Gilbert)</div>
-      <div class="formula">
-<span class="c">// vdot.ts:51-67 — ecuaciones publicadas en "Daniels' Running Formula"</span>
-VO₂(v)   = <span class="o">−4.6</span> + <span class="o">0.182258</span>·v + <span class="o">0.000104</span>·v²            <span class="c">// v = velocidad en m/min</span>
-%máx(t)  = <span class="o">0.8</span> + <span class="o">0.1894393</span>·e^(<span class="o">−0.012778</span>·t) + <span class="o">0.2989558</span>·e^(<span class="o">−0.1932605</span>·t)   <span class="c">// t = minutos</span>
-VDOT     = VO₂(v) / %máx(t)                                <span class="c">// :138</span>
+    <details class="fx"><summary>Ver fórmula Daniels &amp; Gilbert <span class="tg">vdot.ts:51-153</span></summary>
+<div class="formula"><span class="c">// Ecuaciones publicadas en "Daniels' Running Formula"</span>
+VO₂(v)  = <span class="o">−4.6</span> + <span class="o">0.182258</span>·v + <span class="o">0.000104</span>·v²                              <span class="c">// v = m/min</span>
+%máx(t) = <span class="o">0.8</span> + <span class="o">0.1894393</span>·e^(<span class="o">−0.012778</span>·t) + <span class="o">0.2989558</span>·e^(<span class="o">−0.1932605</span>·t)   <span class="c">// t = min</span>
+VDOT    = VO₂(v) / %máx(t)                                                <span class="c">// :138</span>
 
-<span class="c">// Ritmos por zona = invertir la ecuación de VO₂ para VDOT × % (vdot.ts:103-106, 141-151):</span>
-rodaje    <span class="o">70%</span>     maratón <span class="o">84%</span>     umbral <span class="o">88%</span>     VO₂máx <span class="o">98%</span>
+<span class="c">// Ritmos = invertir VO₂ para VDOT × % de cada zona (:103-106,141-151):</span>
+rodaje <span class="o">70%</span>   maratón <span class="o">84%</span>   umbral <span class="o">88%</span>   VO₂máx <span class="o">98%</span>     <span class="c">// puntos medios de los rangos de Daniels</span>
+<span class="g">if</span> VDOT fuera de 25–90 → null  <span class="c">// 5 km basura, :111-112,139</span></div>
+    </details>
 
-<span class="c">// Cordura: si el VDOT sale fuera de 25-90 se descarta (5 km basura) → null. :111-112,139</span>
-      </div>
-    </div>
+    <div class="basis"><span class="bi">📐</span><div><b>Base:</b> ecuaciones de Jack Daniels y Jimmy Gilbert — el estándar de facto del running, no algo nuestro. <em>Lo nuestro:</em> solo los % de intensidad por zona (puntos medios de Daniels). Sin 5 km → todo <code>null</code> y se oculta la sección.</div></div>
 
-    <div class="row">
-      <div class="k">Las zonas que se muestran (banda alrededor del ritmo, no un número frágil)</div>
-      <div class="v"><ul>
-        <li><b>Z2 rodaje</b> — easy −10 / +20 s/km</li>
-        <li><b>Z3 maratón</b> — ±8 s/km</li>
-        <li><b>Z4 umbral</b> — ±5 s/km (la fila destacada)</li>
-        <li><b>Z5 VO₂máx</b> — ±6 s/km</li>
-      </ul><div class="src"><code>running-analysis.ts:218-247</code></div></div>
-    </div>
-
-    <div class="row">
-      <div class="k">En qué nos basamos</div>
-      <div class="v">Son las ecuaciones de <b>Jack Daniels y Jimmy Gilbert</b>, el estándar de facto del running — la misma matemática que usa cualquier calculadora VDOT. Es un modelo publicado y reconocido, no algo nuestro. Lo único nuestro son los <em>porcentajes de intensidad</em> elegidos para cada zona (70/84/88/98%), que son los puntos medios de los rangos de Daniels (<code>vdot.ts:100-106</code>) — razonable y documentado.</div>
-    </div>
-
-    <div class="row">
-      <div class="k">Cómo se interpreta</div>
-      <div class="v">VDOT más alto = mejor fondo de carrera. El ritmo umbral baja (mejora) según mejora el VDOT. <b>Honestidad:</b> si el atleta no tiene un 5 km registrado, no hay VDOT, no hay umbral y no hay zonas — todo sale <code>null</code> y la app oculta la sección (<code>running-analysis.ts:207-211</code>). Nunca se inventa un ritmo.</div>
-    </div>
-
-    <div class="improve">
-      <div class="h">Valor + cómo lo mejoraríamos</div>
-      <p><b>Valor:</b> convierte UN test (un 5 km) en ritmos de entreno accionables y en un número de fitness que sube con el trabajo. Es objetivo y científico.</p>
-      <ul>
-        <li><b>Más de un test.</b> Hoy solo usa el 5 km. Daniels funciona con cualquier distancia; aceptar 1 km, 3 km, 10 km y quedarse con el más reciente/fiable daría un VDOT más robusto.</li>
-        <li><b>VDOT a partir de entrenos reales, no solo del test.</b> Podríamos estimar VDOT de los intervalos duros que ya se ejecutan (<code>segment_executions</code>), no esperar a que el atleta repita el 5 km.</li>
-        <li><b>Decaimiento por antigüedad.</b> Un 5 km de hace 6 meses no vale lo mismo que uno de la semana pasada. Falta marcar el VDOT como "fresco/caducado" (el coach ya define <code>freshness_pace_hr_weeks</code>, pero esta métrica no lo usa).</li>
-      </ul>
+    <div class="valline"><span class="vi">💡</span><div><b>Valor:</b> convierte UN test en ritmos de entreno accionables + un número de fitness que sube con el trabajo. Objetivo y científico.</div></div>
+    <div class="chips"><span class="lbl">Mejorar</span>
+      <span class="chip"><b>Aceptar más distancias</b> (1/3/10 km), no solo 5 km</span>
+      <span class="chip"><b>VDOT desde entrenos reales</b>, no solo el test</span>
+      <span class="chip"><b>Decaimiento por antigüedad</b> (un 5 km de hace 6 meses no vale igual)</span>
     </div>
   </div>
 
-  <!-- ════════════════════════ FICHA 3 · 5K / BEST1K / VOLUMEN ════════════════════════ -->
-  <div class="seclbl">Ficha 3 · Tendencia de 5 km, mejor 1 km y volumen</div>
+  <!-- ════════════ 1RM ════════════ -->
+  <div class="seclbl"><span class="ix">5</span> Fuerza — el 1RM</div>
 
   <div class="ficha">
-    <h3>Tendencia de 5 km · mejor 1 km · volumen (7 días / semana)</h3>
-    <div class="tag">web/lib/athlete/running-analysis.ts → <code>buildRunningAnalysis</code></div>
-
-    <div class="badges">
-      <span class="badge real">Todo de ejecuciones reales</span>
-      <span class="badge heur">"mejor 1 km" usa una banda + escalado</span>
-    </div>
-
-    <div class="row">
-      <div class="k">Qué es y cómo se calcula cada uno</div>
-      <div class="v"><ul>
-        <li><b>Tendencia 5 km</b> — el historial completo de tus 5 km (de viejo a nuevo) para ver la progresión (21:00 → 20:25 → 19:58). Sale de todas las versiones del benchmark <code>run_5k</code> (<code>:193-205</code>). Vacío si no hay ninguno.</li>
-        <li><b>Mejor 1 km</b> — el ritmo por km más rápido entre tus segmentos de carrera, en una ventana de 90 días. <span class="em">Heurística:</span> solo cuentan segmentos entre <b>800 y 1200 m</b> (para no mezclar calentamientos ni tiradas largas) y se escala a 1 km exacto (<code>:254-281</code>).</li>
-        <li><b>Volumen 7 días</b> — kilómetros corridos en los últimos 7 días (ventana móvil) — la cifra del Inicio (<code>:301-311</code>).</li>
-        <li><b>Volumen semana</b> — kilómetros de la semana ISO en curso (lunes a hoy) — la del deep-dive de Carreras (<code>:286-296</code>).</li>
-      </ul></div>
-    </div>
-
-    <div class="note">
-      <div class="h">Por qué dos volúmenes distintos</div>
-      <p>"7 días" (ventana móvil) y "esta semana" (semana ISO desde el lunes) son números diferentes a propósito, cada uno con su etiqueta, para que ninguno mienta. El Inicio usa el de 7 días; Carreras prefiere el de la semana, y para ese además prefiere la cifra en vivo del <code>StatsService</code> (la API de analíticas) sobre el respaldo que calcula este módulo.</p>
-    </div>
-
-    <div class="row">
-      <div class="k">Qué modalidad cuenta como "carrera"</div>
-      <div class="v">Un fragmento SQL (<code>SEG_MODALITY_SQL</code>, <code>:108-121</code>) decide si un segmento es "run": gana la columna explícita <code>se.modality</code>; si no, se deriva del ejercicio (categoría cardio + slug que contenga "run"). Es exactamente el mismo filtro que usa el desglose por modalidad, single-sourced para que nunca se desincronicen.</div>
-    </div>
-
-    <div class="row">
-      <div class="k">Cómo se interpreta</div>
-      <div class="v">La tendencia de 5 km es la prueba más honesta de mejora real. El mejor 1 km es tu "punta" de velocidad reciente. El volumen mide carga de carrera, no rendimiento. Todo sale de ejecuciones reales: si no has corrido, sale vacío, no cero falso.</div>
-    </div>
-
-    <div class="improve">
-      <div class="h">Valor + cómo lo mejoraríamos</div>
-      <p><b>Valor:</b> la tendencia de 5 km es probablemente el dato más motivador de toda la app — ver el número bajar mes a mes. El volumen da sensación de "estoy haciendo el trabajo".</p>
-      <ul>
-        <li><b>Importar de wearables/Strava.</b> Hoy "mejor 1 km" y volumen solo cuentan lo ejecutado <em>dentro</em> de la app. Las carreras libres del reloj no entran. Con ingesta de wearables esto se multiplicaría.</li>
-        <li><b>Delta explícito en la tendencia.</b> Ya tenemos los segundos de cada 5 km; mostrar "−27 s vs hace 2 meses" lo haría más legible que la sparkline sola.</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- ════════════════════════ FICHA 3b · SPLITS / PROGRESIÓN (deep-dive) ════════════════════════ -->
-  <div class="ficha">
-    <h3>Extra del deep-dive de Carreras: splits y progresión semanal</h3>
-    <div class="tag">web/lib/athlete/running-analysis.ts (mismo bundle, se muestra en Carreras, no en Inicio)</div>
-    <div class="row">
-      <div class="k">Qué son</div>
-      <div class="v"><ul>
-        <li><b>Splits</b> — los ritmos por km de tu última carrera, con barras (más alta = más lenta) y un color por severidad respecto a tu mejor km de esa misma carrera: ≤4% peor = "mejor", ≤10% = "algo peor", más = "peor" (<code>:101-102, 357-371</code>). Si la segunda mitad va ≥8 s/km más lenta que la primera, se añade una nota de deriva (<code>:96, 374-383</code>).</li>
-        <li><b>Progresión</b> — el ritmo medio (ponderado por distancia) de carrera por semana ISO, últimas 6 semanas con carrera (<code>:392-430</code>).</li>
-        <li><b>"training" (entrenos vinculados)</b> — <span class="em">intencionadamente vacío</span>: no hay una fuente limpia para enlazar sesión→estación aquí, así que se deja <code>[]</code> y la vista oculta la sección en vez de inventar (<code>:432-434</code>).</li>
-      </ul></div>
-    </div>
-  </div>
-
-  <!-- ════════════════════════ FICHA 4 · 1RM ════════════════════════ -->
-  <div class="seclbl">Ficha 4 · Fuerza — el 1RM</div>
-
-  <div class="ficha">
-    <h3>1RM (máximo de una repetición)</h3>
-    <div class="tag">shared/domain/strength/one-rm.ts → <code>estimateOneRm</code> · ios InicioView.swift:99-107</div>
-
+    <div class="fh"><div class="fi">🏋️</div><div><h3>1RM (máximo de una repetición)</h3><div class="tag">shared/domain/strength/one-rm.ts · InicioView.swift:99-107</div></div></div>
     <div class="badges">
       <span class="badge real">Fórmulas estándar de coaching</span>
-      <span class="badge coach">El coach elige la fórmula</span>
+      <span class="badge coach">⚙️ El coach elige la fórmula</span>
     </div>
 
-    <div class="row">
-      <div class="k">Qué es</div>
-      <div class="v">El peso máximo estimado a una repetición. El atleta registra un test (peso × reps) y se estima el 1RM. El Inicio muestra <b>un</b> lift: el primero en orden canónico (sentadilla → peso muerto → …) que el atleta tenga (<code>InicioView.swift:99-107</code>); el listado completo vive en Perfil → Mi fuerza.</div>
+    <div class="flow">
+      <div class="box src">test del atleta<small>peso × reps</small></div>
+      <span class="arr">→</span>
+      <div class="box calc">fórmula elegida por el coach</div>
+      <span class="arr">→</span>
+      <div class="box out">1RM estimado</div>
     </div>
 
-    <div class="row">
-      <div class="k">La fórmula REAL</div>
-      <div class="formula">
-<span class="c">// one-rm.ts:40-47 — fórmulas canónicas de estimación de 1RM</span>
-Epley     = peso × (1 + reps/30)        <span class="c">// por defecto</span>
-Brzycki   = peso × 36 / (37 − reps)
-Lombardi  = peso × reps^0.10
-
-<span class="g">if</span> reps == 1:  1RM = peso  <span class="c">// un single ES el máximo, sin estimar — :33-34</span>
-      </div>
-      <div class="src">El coach elige cuál vía <code>coach_methodology.one_rm_estimation</code> (por defecto Epley). <code>migr 0048:50</code> · <code>one-rm.ts:24</code></div>
+    <div class="mcards" style="grid-template-columns:repeat(3,1fr)">
+      <div class="mc" style="border-color:#d8c9f2;background:#faf7ff"><div class="ml" style="color:#5b3aa6">⚙️ Epley · por defecto</div><div class="mv" style="font-size:15px">peso × (1 + reps/30)</div></div>
+      <div class="mc"><div class="ml">Brzycki</div><div class="mv" style="font-size:15px">peso × 36 / (37 − reps)</div></div>
+      <div class="mc"><div class="ml">Lombardi</div><div class="mv" style="font-size:15px">peso × reps^0.10</div></div>
     </div>
+    <div class="src">Si <code>reps == 1</code> el 1RM <em>es</em> el peso, sin estimar (<code>:33-34</code>). El coach elige cuál vía <code>coach_methodology.one_rm_estimation</code> (<code>migr 0048:50</code>). El Inicio muestra UN lift (orden canónico fijo: sentadilla → peso muerto → …); el resto en Perfil.</div>
 
-    <div class="row">
-      <div class="k">En qué nos basamos</div>
-      <div class="v">Son <b>las ecuaciones de 1RM estándar del entrenamiento de fuerza</b> (Epley, Brzycki, Lombardi) — no una invención. Cuál usar es decisión del coach (su metodología). El backend del atleta reutiliza exactamente la misma rutina de estimación + guardado que la del coach, así que un test del atleta y uno del coach producen el mismo número (<code>web/app/api/athlete/strength-test/route.ts</code>).</div>
-    </div>
+    <div class="basis"><span class="bi">📐</span><div><b>Base:</b> ecuaciones de 1RM estándar del entrenamiento de fuerza (Epley/Brzycki/Lombardi). El backend del atleta reutiliza la misma rutina que la del coach → mismo número siempre.</div></div>
 
-    <div class="row">
-      <div class="k">Cómo se interpreta</div>
-      <div class="v">Es la "otra mitad" del híbrido frente a la carrera. Sube con el trabajo de fuerza. El 1RM resuelto se versiona por atleta×lift (la versión más alta es la vigente; el historial se guarda para progresión).</div>
-    </div>
-
-    <div class="improve">
-      <div class="h">Valor + cómo lo mejoraríamos</div>
-      <p><b>Valor:</b> da peso a la mitad de fuerza del híbrido y permite prescribir cargas (%1RM) con sentido. Es de las pocas métricas donde el coach ya tiene control real (elige la fórmula).</p>
-      <ul>
-        <li><b>Tendencia de fuerza.</b> Igual que el 5 km, mostrar la progresión del 1RM en el tiempo, no solo el número actual.</li>
-        <li><b>Caducidad.</b> El coach ya define <code>freshness_1rm_weeks</code> (12 sem por defecto); el Inicio podría avisar "tu 1RM tiene 4 meses, toca retest".</li>
-        <li><b>Relación fuerza/peso corporal.</b> El nivel del atleta ya usa el ratio sentadilla/peso; mostrarlo aquí daría más contexto que los kg sueltos.</li>
-      </ul>
+    <div class="valline"><span class="vi">💡</span><div><b>Valor:</b> da peso a la mitad de fuerza del híbrido y permite prescribir cargas (%1RM) con sentido. De las pocas métricas con control real del coach.</div></div>
+    <div class="chips"><span class="lbl">Mejorar</span>
+      <span class="chip"><b>Tendencia de fuerza</b> en el tiempo, no solo el número de hoy</span>
+      <span class="chip"><b>Caducidad</b> ("tu 1RM tiene 4 meses, toca retest" — coach ya define <code>freshness_1rm_weeks</code>)</span>
+      <span class="chip"><b>Ratio fuerza/peso corporal</b></span>
     </div>
   </div>
 
-  <!-- ════════════════════════ FICHA 5 · FASE / MACRO ════════════════════════ -->
-  <div class="seclbl">Ficha 5 · Fase del plan — "semana N de M"</div>
+  <!-- ════════════ FASE ════════════ -->
+  <div class="seclbl"><span class="ix">6</span> Fase del plan — "semana N de M"</div>
 
   <div class="ficha">
-    <h3>Fase y progreso del microciclo</h3>
-    <div class="tag">shared/domain/coach/macro-progress.ts → <code>buildAthleteMacroSummary</code> / <code>currentMicrocicloLabel</code></div>
-
+    <div class="fh"><div class="fi">🧭</div><div><h3>Fase y progreso del microciclo</h3><div class="tag">shared/domain/coach/macro-progress.ts</div></div></div>
     <div class="badges">
       <span class="badge real">Derivado del plan real</span>
-      <span class="badge coach">El nombre lo pone el coach (agnóstico)</span>
+      <span class="badge coach">⚙️ El nombre lo pone el coach (agnóstico)</span>
     </div>
 
-    <div class="row">
-      <div class="k">Qué es</div>
-      <div class="v">La etiqueta "{nombre de fase} · semana N de M" dentro del Camino a la carrera. <b>Agnóstico:</b> el nombre es el que el coach le dio a su microciclo (no "ATR", no "acumulación" hardcodeado). Al atleta nunca le llega jerga de periodización: el campo <code>block</code> va siempre <code>null</code> en la vista de atleta (<code>:361-372, 396</code>).</div>
+    <!-- barra de semanas -->
+    <div class="weeks">
+      <div class="wk done">S1<small>✓ hecha</small></div>
+      <div class="wk done">S2<small>✓ hecha</small></div>
+      <div class="wk cur">S3<small>● ahora</small></div>
+      <div class="wk up">S4<small>próxima</small></div>
+    </div>
+    <div class="src">Ejemplo de "{nombre de fase} · semana 3 de 4". El nombre es el que el coach dio a su microciclo (no "ATR" hardcodeado). Al atleta nunca le llega jerga: el campo <code>block</code> va siempre <code>null</code> en su vista (<code>:361-372,396</code>).</div>
+
+    <div class="flow" style="margin-top:12px">
+      <div class="box src">athlete_month_assignments<small>el "recibo" del plan</small></div>
+      <span class="arr">→</span>
+      <div class="box calc">microciclo cuyo rango contiene HOY</div>
+      <span class="arr">→</span>
+      <div class="box out">"{nombre} · semana N de M"</div>
     </div>
 
-    <div class="row">
-      <div class="k">De qué depende y cómo se calcula</div>
-      <div class="flow">
-        <div class="box src">athlete_month_assignments (el "recibo" del plan)</div>
-        <span class="arr">→</span>
-        <div class="box calc">microciclo cuyo rango de fechas contiene HOY</div>
-        <span class="arr">→</span>
-        <div class="box calc">N = semana lunes-domingo dentro del rango · M = nº de semanas</div>
-        <span class="arr">→</span>
-        <div class="box out">"{nombre} · semana N de M"</div>
-      </div>
-      <div class="formula">
-<span class="c">// macro-progress.ts:438-444</span>
-M (totalWeeks) = nº de entradas en microcycle_ids[]   <span class="c">// con span por fechas como respaldo</span>
-N (weekN)      = floor( (lunes_hoy − lunes_inicio) / 7 ) + 1, acotado a [1, M]
-<span class="g">if</span> hoy fuera de cualquier microciclo materializado → null  <span class="c">// se queda "Tu semana"</span>
-      </div>
-    </div>
+    <details class="fx"><summary>Ver cálculo de N/M y estado de semana <span class="tg">macro-progress.ts:438-494</span></summary>
+<div class="formula"><span class="c">// :438-444</span>
+M = nº de microciclos en microcycle_ids[]                 <span class="c">// span por fechas como respaldo</span>
+N = floor( (lunes_hoy − lunes_inicio)/7 ) + 1, en [1, M]
+<span class="g">if</span> hoy fuera de cualquier microciclo → null  ("Tu semana")
 
-    <div class="row">
-      <div class="k">El estado de cada semana (la barra)</div>
-      <div class="formula">
-<span class="c">// macro-progress.ts:485-494 — cumplimiento = completados / programados</span>
-semana pasada:  completado <span class="g">si</span> completados ≥ 50% de programados, <span class="g">si no</span> "perdida"
-semana actual:  "current"        semana futura: "upcoming"
-      </div>
-      <div class="src">El umbral del <span class="em">50%</span> para considerar una semana "completada" es una decisión nuestra (<code>:491</code>), no un estándar.</div>
-    </div>
+<span class="c">// estado de cada semana (:485-494) — cumplimiento = completados / programados</span>
+pasada:  "hecha" <span class="g">si</span> ≥ 50% completado, <span class="g">si no</span> "perdida"   <span class="c">// el 50% es decisión NUESTRA</span>
+actual:  "current"        futura: "upcoming"</div>
+    </details>
 
-    <div class="row">
-      <div class="k">En qué nos basamos · cómo se interpreta</div>
-      <div class="v">Es puro reflejo del plan que el coach montó: no hay modelo, solo lectura del recibo de materialización (<code>athlete_month_assignments</code>) + los entrenos (<code>workout_assignments</code>). "Días hasta la carrera" sale de la carrera objetivo (<code>getTargetRaceRow</code>, <code>:393-399</code>). Le dice al atleta dónde está en el viaje sin tecnicismos.</div>
-    </div>
+    <div class="basis"><span class="bi">📐</span><div><b>Base:</b> puro reflejo del plan del coach — no hay modelo, solo lectura del recibo de materialización + entrenos. "Días a la carrera" sale de la carrera objetivo.</div></div>
 
-    <div class="improve">
-      <div class="h">Valor + cómo lo mejoraríamos</div>
-      <p><b>Valor:</b> orientación — "vas por la semana 2 de 4 de tu bloque, faltan 38 días". Da estructura sin abrumar con jerga.</p>
-      <ul>
-        <li><b>El "para qué" de la fase.</b> Hoy se nombra la fase pero no se explica su intención. Una línea ("esta semana subimos volumen") daría sentido, y el coach ya tiene un campo de "profundidad del porqué" en su metodología.</li>
-        <li><b>El 50% es discutible.</b> Considerar "completada" una semana con la mitad hecha puede pintar de verde semanas flojas. Revisable.</li>
-      </ul>
+    <div class="valline"><span class="vi">💡</span><div><b>Valor:</b> orientación sin jerga — "vas por la semana 2 de 4 de tu bloque, faltan 38 días".</div></div>
+    <div class="chips"><span class="lbl">Mejorar</span>
+      <span class="chip"><b>El "para qué"</b> de la fase ("esta semana subimos volumen")</span>
+      <span class="chip"><b>El 50%</b> es discutible — puede pintar de verde semanas flojas</span>
     </div>
   </div>
 
-  <!-- ════════════════════════ FICHA 6 · PASOS ════════════════════════ -->
-  <div class="seclbl">Ficha 6 · Pasos</div>
+  <!-- ════════════ PASOS ════════════ -->
+  <div class="seclbl"><span class="ix">7</span> Pasos</div>
 
   <div class="ficha">
-    <h3>Pasos de hoy</h3>
-    <div class="tag">ios/FAHYBRIK/HealthKit/HealthKitStepsReader.swift</div>
-    <div class="badges"><span class="badge real">Apple Health en el teléfono</span><span class="badge fixed">Solo iOS, sin servidor</span></div>
+    <div class="fh"><div class="fi">👟</div><div><h3>Pasos de hoy</h3><div class="tag">ios/FAHYBRIK/HealthKit/HealthKitStepsReader.swift</div></div></div>
+    <div class="badges"><span class="badge real">Apple Health en el teléfono</span><span class="badge fixed">🔒 Solo iOS, sin servidor</span></div>
 
-    <div class="row">
-      <div class="k">Qué es y de dónde sale</div>
-      <div class="v">El recuento de pasos del día, leído de <b>Apple Health en el propio dispositivo</b> — una señal de movimiento de todo el día, más allá del entreno. No es un cálculo: es una consulta directa a HealthKit (<code>HKStatisticsQuery</code>, suma acumulada de <code>stepCount</code> desde el inicio del día local hasta ahora, <code>:42-72</code>). No se sube al servidor, no hay observadores ni anclajes; es solo para mostrar.</div>
+    <div class="flow">
+      <div class="box src">📱 Apple Health<small>HKStatisticsQuery</small></div>
+      <span class="arr">→</span>
+      <div class="box calc">suma de stepCount desde las 00:00 locales</div>
+      <span class="arr">→</span>
+      <div class="box out">pasos de hoy</div>
     </div>
+    <div class="src">No es un cálculo: consulta directa en el dispositivo, no se sube al servidor (<code>:42-72</code>). En el Simulador → <code>.unavailable</code>.</div>
 
-    <div class="row">
-      <div class="k">Cómo se interpreta · honestidad</div>
-      <div class="v">HealthKit no revela si tienes permiso de lectura, así que la app no lo finge: si no hay datos los empareja con "¿Health conectado?" para elegir entre invitar a conectar o un estado mudo de "sin datos" — nunca un número falso. En el Simulador <code>isHealthDataAvailable()</code> es false → <code>.unavailable</code> (<code>:33-38, 62-68</code>).</div>
-    </div>
+    <div class="note"><span class="ni">🔍</span><div class="nt"><b>Honestidad</b><p>HealthKit no revela si tienes permiso de lectura, así que la app no lo finge: sin datos enseña "¿Health conectado?" o un estado mudo — nunca un número falso.</p></div></div>
 
-    <div class="improve">
-      <div class="h">Valor + cómo lo mejoraríamos</div>
-      <p><b>Valor:</b> contexto de carga diaria total (NEAT) que el plan de entreno no ve. Útil para detectar días sedentarios o demasiado activos fuera del entreno.</p>
-      <ul>
-        <li><b>Es la métrica más floja del Inicio.</b> Pasos sueltos sin objetivo ni tendencia aportan poco. O se le da un objetivo y una racha, o se baja de prioridad. Buen candidato para que el coach decida si mostrarla.</li>
-      </ul>
+    <div class="valline"><span class="vi">💡</span><div><b>Valor:</b> carga diaria total (NEAT) que el plan no ve — detectar días sedentarios o demasiado activos fuera del entreno.</div></div>
+    <div class="chips"><span class="lbl">Mejorar</span>
+      <span class="chip"><b>Es la métrica más floja</b>: pasos sueltos sin objetivo aportan poco — darle meta + racha, o bajarla de prioridad</span>
     </div>
   </div>
 
-  <!-- ════════════════════════ FICHA 7 · PROYECCIÓN (STUB) ════════════════════════ -->
-  <div class="seclbl">Ficha 7 · Proyección de meta — el hueco honesto</div>
+  <!-- ════════════ PROYECCIÓN ════════════ -->
+  <div class="seclbl"><span class="ix">8</span> Proyección de meta — el hueco honesto</div>
 
-  <div class="ficha" style="border-color:#f2cccc;border-left:5px solid #e0533f">
-    <h3>Proyección de tiempo de meta HYROX</h3>
-    <div class="tag">ios InicioView.swift:1017-1066 · web/lib/coach/deep-dive-performance.ts → <code>loadHyroxPrediction</code></div>
+  <div class="ficha" style="border-color:#f2cccc;border-left:6px solid #e0533f">
+    <div class="fh"><div class="fi" style="background:#fdecec">🔒</div><div><h3>Proyección de tiempo HYROX</h3><div class="tag">InicioView.swift:1017-1066 · deep-dive-performance.ts</div></div></div>
     <div class="badges"><span class="badge stub">No existe — placeholder bloqueado</span></div>
 
-    <div class="row">
-      <div class="k">Qué es (o sería)</div>
-      <div class="v">Donde iría una proyección del tiempo final que el atleta haría hoy en su HYROX objetivo. <b>El modelo no existe.</b> En el backend, <code>loadHyroxPrediction()</code> devuelve <code>null</code> a propósito: el comentario dice que el modelo real se construiría con los mejores tiempos por estación + modelado de transiciones, pero en fase 1 se mantiene null cuando no hay datos reales de estación (<code>deep-dive-performance.ts:439-443</code>).</div>
+    <div class="flow" style="opacity:.55">
+      <div class="box src">mejores tiempos por estación</div><span class="arr">+</span>
+      <div class="box src">8×1 km</div><span class="arr">+</span>
+      <div class="box src">transiciones + fatiga</div><span class="arr">→</span>
+      <div class="box out" style="background:#e0533f;border-color:#e0533f">tiempo final 🔒</div>
     </div>
+    <div class="src"><code>loadHyroxPrediction()</code> devuelve <code>null</code> a propósito: el modelo real se construiría así, pero en fase 1 no hay datos de estación (<code>:439-443</code>).</div>
 
-    <div class="row">
-      <div class="k">Qué hace la app en su lugar</div>
-      <div class="v">En vez de inventar un número, el Inicio muestra una tarjeta bloqueada (candado, borde discontinuo) que <b>invita a hacer una simulación de HYROX</b> — el camino que la desbloquearía. Sin proyección falsa y sin botón muerto. El texto incluso nombra tu objetivo si lo tienes: "Haz una simulación de HYROX y veremos si tu ritmo proyectado baja de {meta}" (<code>InicioView.swift:1061-1066</code>).</div>
-    </div>
+    <div class="note"><span class="ni">✅</span><div class="nt"><b>Qué hace en su lugar</b><p>En vez de inventar un número, muestra una tarjeta bloqueada (candado, borde discontinuo) que <b>invita a una simulación de HYROX</b> — el camino que la desbloquearía. Sin proyección falsa, sin botón muerto. "…veremos si tu ritmo proyectado baja de {meta}".</p></div></div>
 
-    <div class="improve">
-      <div class="h">Cómo lo construiríamos (la mejora más grande de la app)</div>
-      <ul>
-        <li><b>Modelo de proyección HYROX de verdad.</b> Sumar los mejores tiempos por estación (los 8 ejercicios) + los 8×1 km de carrera + un modelo de transiciones y de fatiga acumulada. El esqueleto de datos por estación ya está pensado (<code>deep-dive-performance.ts</code>), falta el modelo.</li>
-        <li><b>Alimentarlo con la simulación.</b> Una sesión de simulación HYROX en la app daría los tiempos por estación reales que el modelo necesita. Hoy ni la simulación ni el modelo están conectados al Inicio.</li>
-      </ul>
+    <div class="chips"><span class="lbl">Construir</span>
+      <span class="chip"><b>Modelo HYROX real</b> — 8 estaciones + 8×1 km + transiciones + fatiga acumulada</span>
+      <span class="chip"><b>Alimentarlo</b> con una simulación dentro de la app</span>
     </div>
   </div>
 
-  <!-- ════════════════════════ HONESTIDAD GLOBAL ════════════════════════ -->
-  <div class="seclbl">Tabla de honestidad — qué es real, qué es aproximación, qué falta</div>
+  <!-- ════════════ HONESTIDAD ════════════ -->
+  <div class="seclbl"><span class="ix">✓</span> Tabla de honestidad — real / aproximación / falta</div>
 
   <table class="mx">
     <thead><tr><th>Métrica</th><th>Estado</th><th>Por qué</th></tr></thead>
     <tbody>
-      <tr><td><span class="fn">Sensación del check-in</span></td><td><span class="st real">Real</span></td><td>Lo que el atleta declara; el único input sin wearable.</td></tr>
-      <tr><td><span class="fn">HRV / sueño / FC / recuperación</span></td><td><span class="st heur">Real si hay wearable</span></td><td>Dependen de <code>biometric_streams</code>. Sin wearable conectado no entran (ingesta bloqueada por entidad legal).</td></tr>
-      <tr><td><span class="fn">Pesos de readiness (35/25/20/10/10) y umbrales</span></td><td><span class="st heur">Decisión nuestra</span></td><td>Razonables pero calibrados a ojo, no validados ni publicados. El coach no los toca.</td></tr>
-      <tr><td><span class="fn">VDOT · ritmo umbral · zonas</span></td><td><span class="st real">Real (modelo Daniels)</span></td><td>Ecuaciones publicadas. Null honesto si no hay 5 km.</td></tr>
-      <tr><td><span class="fn">Tendencia 5 km · volúmenes</span></td><td><span class="st real">Real</span></td><td>De benchmarks y ejecuciones reales. Vacío si no hay datos.</td></tr>
-      <tr><td><span class="fn">Mejor 1 km</span></td><td><span class="st heur">Real + heurística</span></td><td>Banda 800-1200 m + escalado a 1 km para comparar justo.</td></tr>
-      <tr><td><span class="fn">1RM</span></td><td><span class="st real">Real (fórmula estándar)</span></td><td>Epley/Brzycki/Lombardi; el coach elige cuál.</td></tr>
-      <tr><td><span class="fn">Fase · semana N de M · días a carrera</span></td><td><span class="st real">Real (refleja el plan)</span></td><td>Lectura del recibo del plan. El umbral 50% de "semana completada" es nuestro.</td></tr>
-      <tr><td><span class="fn">Pasos</span></td><td><span class="st real">Real (Apple Health)</span></td><td>Consulta directa en el dispositivo.</td></tr>
-      <tr><td><span class="fn">Proyección de meta HYROX</span></td><td><span class="st stub">No existe</span></td><td>Modelo sin construir; el backend devuelve null y la UI muestra un placeholder honesto.</td></tr>
+      <tr><td class="fn">Sensación del check-in</td><td><span class="st real">🟢 Real</span></td><td>Lo que el atleta declara; el único input sin wearable.</td></tr>
+      <tr><td class="fn">HRV / sueño / FC / recuperación</td><td><span class="st heur">🟠 Real con wearable</span></td><td>Dependen de <code>biometric_streams</code>. Ingesta bloqueada por entidad legal.</td></tr>
+      <tr><td class="fn">Pesos readiness (35/25/20/10/10)</td><td><span class="st heur">🟠 Decisión nuestra</span></td><td>Razonables pero a ojo, no validados. El coach no los toca.</td></tr>
+      <tr><td class="fn">VDOT · umbral · zonas</td><td><span class="st real">🟢 Real (Daniels)</span></td><td>Ecuaciones publicadas. Null honesto si no hay 5 km.</td></tr>
+      <tr><td class="fn">Tendencia 5 km · volúmenes</td><td><span class="st real">🟢 Real</span></td><td>De benchmarks y ejecuciones reales. Vacío si no hay datos.</td></tr>
+      <tr><td class="fn">Mejor 1 km</td><td><span class="st heur">🟠 Real + heurística</span></td><td>Banda 800–1200 m + escalado a 1 km para comparar justo.</td></tr>
+      <tr><td class="fn">1RM</td><td><span class="st real">🟢 Real (fórmula estándar)</span></td><td>Epley/Brzycki/Lombardi; el coach elige cuál.</td></tr>
+      <tr><td class="fn">Fase · semana N/M · días a carrera</td><td><span class="st real">🟢 Real (refleja el plan)</span></td><td>Lectura del recibo. El umbral 50% de "semana hecha" es nuestro.</td></tr>
+      <tr><td class="fn">Pasos</td><td><span class="st real">🟢 Real (Apple Health)</span></td><td>Consulta directa en el dispositivo.</td></tr>
+      <tr><td class="fn">Proyección de meta HYROX</td><td><span class="st stub">🔴 No existe</span></td><td>Modelo sin construir; backend null + UI honesta.</td></tr>
     </tbody>
   </table>
 
-  <!-- ════════════════════════ MEJORAS TRANSVERSALES ════════════════════════ -->
-  <div class="seclbl">Cómo lo mejoraríamos — las preguntas grandes</div>
+  <!-- ════════════ PREGUNTAS GRANDES ════════════ -->
+  <div class="seclbl"><span class="ix">»</span> Las preguntas grandes para mejorar</div>
 
-  <div class="ficha">
-    <h3>1 · ¿Debería el coach configurar qué ve cada atleta?</h3>
-    <div class="v" style="font-size:14px">
-      <p>Hoy <b>no puede</b>, y es la decisión de producto más importante que está abierta. El Inicio es un layout fijo igual para todos. Pero tiene todo el sentido que un coach quiera, por atleta o por perfil:</p>
-      <ul style="margin:4px 0 0 18px">
-        <li>Ocultar pasos a quien no le sirve, o readiness a quien no tiene wearable.</li>
-        <li>Decidir si la mitad de fuerza pesa tanto como la de carrera para ese atleta.</li>
-        <li>Ajustar qué señales y qué pesos entran en la preparación.</li>
-      </ul>
-      <p style="margin-top:10px">Técnicamente sería una tabla de preferencias por atleta (o por nivel) que el Inicio lea para mostrar/ordenar bloques — no existe ninguna hoy. Es una pregunta de CEO: <em>¿FAHYBRID es una experiencia única que nosotros curamos, o una herramienta que el coach moldea?</em></p>
-    </div>
-  </div>
-
-  <div class="ficha">
-    <h3>2 · Wearables de verdad = readiness de verdad</h3>
-    <div class="v" style="font-size:14px"><p>La mitad de la preparación (HRV, sueño, FC, recuperación) está construida y esperando datos que hoy no llegan porque la ingesta de Garmin/Whoop/etc. está bloqueada (falta entidad legal). Es la palanca con más impacto sobre la calidad real del Inicio: desbloquearla convierte la readiness de "casi solo tu sensación" a una señal fisiológica completa.</p></div>
-  </div>
-
-  <div class="ficha">
-    <h3>3 · El modelo de proyección HYROX</h3>
-    <div class="v" style="font-size:14px"><p>Es el "número estrella" que la app promete y aún no da: ¿llego a mi objetivo? Construir el modelo (tiempos por estación + carrera + transiciones + fatiga), alimentado por una simulación dentro de la app, cerraría el círculo del Inicio como "veredicto hacia la carrera".</p></div>
-  </div>
-
-  <div class="ficha">
-    <h3>4 · Tendencias, no solo "hoy"</h3>
-    <div class="v" style="font-size:14px"><p>Varias métricas ya guardan historial (readiness con <code>delta_7d</code>, 5 km, 1RM versionado) pero el Inicio enseña sobre todo el valor de hoy. Surfacear la <em>dirección</em> (subiendo/bajando) es barato y multiplica el valor motivacional sin tocar ningún algoritmo.</p></div>
+  <div class="bigq">
+    <div class="qcard"><div class="qi">⚙️</div><b>¿Debería el coach configurar qué ve cada atleta?</b><p>Hoy <b>no puede</b> — es la decisión de producto más importante abierta. Ocultar pasos, ajustar pesos de readiness, decidir si fuerza pesa como carrera… Sería una tabla de preferencias por atleta. <em>¿FAHYBRID es una experiencia que curamos o una herramienta que el coach moldea?</em></p></div>
+    <div class="qcard"><div class="qi">⌚</div><b>Wearables de verdad = readiness de verdad</b><p>La mitad de la preparación (HRV/sueño/FC) está construida y esperando datos que hoy no llegan (ingesta Garmin/Whoop bloqueada por entidad legal). La palanca con más impacto sobre la calidad real del Inicio.</p></div>
+    <div class="qcard"><div class="qi">🔮</div><b>El modelo de proyección HYROX</b><p>Es el "número estrella" que la app promete y aún no da: ¿llego a mi objetivo? Construir el modelo (estaciones + carrera + transiciones + fatiga) cerraría el círculo del Inicio como veredicto.</p></div>
+    <div class="qcard"><div class="qi">📈</div><b>Tendencias, no solo "hoy"</b><p>Varias métricas ya guardan historial (readiness <code>delta_7d</code>, 5 km, 1RM versionado) pero el Inicio enseña el valor de hoy. Surfacear la <em>dirección</em> es barato y multiplica el valor motivacional.</p></div>
   </div>
 
   <footer>
-    Verificado línea a línea contra: <code>shared/domain/coach/athlete-daily-readiness.ts</code> · <code>shared/domain/running/vdot.ts</code> · <code>web/lib/athlete/running-analysis.ts</code> · <code>shared/domain/coach/macro-progress.ts</code> · <code>shared/domain/strength/one-rm.ts</code> · <code>ios/FAHYBRIK/Today/InicioView.swift</code> · <code>ios/FAHYBRIK/HealthKit/HealthKitStepsReader.swift</code> · <code>web/lib/coach/deep-dive-performance.ts</code> · <code>infra/migrations/0048_methodology_system.sql</code>. Sin configuración de coach sobre el Inicio en <code>infra/migrations/</code> (confirmado por búsqueda). FAHYBRID · 29 jun 2026.
+    Verificado línea a línea contra: <code>athlete-daily-readiness.ts</code> · <code>vdot.ts</code> · <code>running-analysis.ts</code> · <code>macro-progress.ts</code> · <code>one-rm.ts</code> · <code>InicioView.swift</code> · <code>HealthKitStepsReader.swift</code> · <code>deep-dive-performance.ts</code> · <code>0048_methodology_system.sql</code>. Sin configuración de coach sobre el Inicio en <code>infra/migrations/</code> (confirmado por búsqueda). FAHYBRID · 29 jun 2026.
   </footer>
 
 </div>
