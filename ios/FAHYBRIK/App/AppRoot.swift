@@ -5,6 +5,12 @@ struct AppRoot: View {
     @State private var pendingPartnerToken: String? = nil
     @State private var pendingInviteToken: String? = nil
 
+    // Cold-start launch splash gate. `@State` on the WindowGroup root view, so it
+    // is created once per process and survives background→foreground and all
+    // in-app navigation — the energy-wipe therefore plays ONLY on a cold launch,
+    // never on resume or tab switches. Dismissed when LaunchSplashView finishes.
+    @State private var showSplash = true
+
     // User-selected appearance. `.system` follows the OS (the default + historical
     // behaviour); `.light`/`.dark` force a scheme. Set from Perfil → Apariencia and
     // applied to the whole hierarchy below via `.preferredColorScheme`.
@@ -28,6 +34,24 @@ struct AppRoot: View {
     }
 
     var body: some View {
+        ZStack {
+            mainContent
+
+            // Cold-start only (gated by `showSplash`). Overlays the app while the
+            // energy-wipe plays; the app mounts + bootstraps underneath so it is
+            // ready by the time the splash fades out. Fails-open: if the video is
+            // missing/stalls or Reduce Motion is on, it finishes near-instantly.
+            if showSplash {
+                LaunchSplashView(onFinish: {
+                    withAnimation(.easeOut(duration: 0.4)) { showSplash = false }
+                })
+                .transition(.opacity)
+                .zIndex(100)
+            }
+        }
+    }
+
+    private var mainContent: some View {
         Group {
             if let token = pendingInviteToken, auth.stage == .unauthenticated {
                 // Coach → athlete invite flow — invitee landed via deep link
