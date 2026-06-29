@@ -77,7 +77,8 @@ export type {
   BenchmarkResult,
   TestProgressionRow,
   ReferenceTest,
-  DerivedObjective,
+  DerivedZone,
+  DerivedObjectiveGroup,
   PerfilTabData,
 } from './atleta-detalle-types';
 

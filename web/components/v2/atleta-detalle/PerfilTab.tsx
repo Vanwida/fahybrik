@@ -54,11 +54,13 @@ function TestCard({
 }
 
 function ObjectiveRow({
-  zone_label,
+  label,
+  aria_label,
   target,
   adjusted,
 }: {
-  zone_label: string;
+  label: string;
+  aria_label: string;
   target: string | null;
   adjusted: boolean;
 }) {
@@ -71,7 +73,7 @@ function ObjectiveRow({
     >
       <td className="py-2 pl-1 pr-2 text-xs font-medium text-[color:var(--v2-fg)]">
         <span className="flex items-center gap-1.5">
-          {zone_label}
+          {label}
           {adjusted ? (
             <Pill tone="warn" variant="soft" className="px-1.5 py-0">
               ajustado
@@ -85,7 +87,7 @@ function ObjectiveRow({
       <td className="py-2 pl-2 pr-1 text-right">
         <button
           type="button"
-          aria-label={`Ajustar ${zone_label}`}
+          aria-label={aria_label}
           className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="edit" size={15} />
@@ -141,10 +143,11 @@ export function PerfilTab({
   classification: ClasificacionData;
   athleteId: string;
 }) {
-  const versionLabel =
-    data.profile_version != null
-      ? `versión ${data.profile_version} · recalculada tras re-test`
-      : 'sin versionar todavía';
+  // At least one resolved target across modalities → show the table; otherwise the
+  // honest empty state. (No test yet → objective_groups is [].)
+  const hasObjectives = data.objective_groups.some((g) =>
+    g.zones.some((z) => z.target != null),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,38 +176,58 @@ export function PerfilTab({
         </span>
       </div>
 
-      {/* RIGHT · derived objectives */}
+      {/* RIGHT · zonas de entrenamiento — the resolver output, grouped by modality */}
       <Panel
-        title="Objetivos derivados"
+        title="Zonas de entrenamiento"
         action={
-          <Pill tone="info" variant="soft">
-            {versionLabel}
-          </Pill>
+          hasObjectives ? (
+            <Pill tone="info" variant="soft">
+              Calculadas con sus tests
+            </Pill>
+          ) : undefined
         }
         bodyClassName="flex flex-col gap-3"
       >
-        {data.objectives.every((o) => o.target == null) ? (
+        {!hasObjectives ? (
           <EmptyState
-            icon="hub"
-            title="Aún sin objetivos derivados"
-            description="Los objetivos se calculan automáticamente al registrar los tests de referencia."
+            icon="speed"
+            title="Aún sin zonas"
+            description="Las zonas y ritmos se calculan automáticamente al registrar los tests de referencia."
             className="border-none py-6"
           />
         ) : (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-[color:var(--v2-border)]">
-                <th className="v2-micro py-1.5 pl-1 text-left">Zona / ritmo</th>
-                <th className="v2-micro py-1.5 px-2 text-right">Objetivo</th>
-                <th className="py-1.5 pr-1 text-right" />
-              </tr>
-            </thead>
-            <tbody>
-              {data.objectives.map((o) => (
-                <ObjectiveRow key={o.zone_label} {...o} />
-              ))}
-            </tbody>
-          </table>
+          <div className="flex flex-col gap-4">
+            {data.objective_groups.map((group) => (
+              <div key={group.modality} className="flex flex-col">
+                {/* Modality header — same dot/label family as the Ritmos / Zonas tab */}
+                <div className="mb-1.5 flex items-center gap-2 border-b border-[color:var(--v2-border)] pb-1.5">
+                  <span
+                    aria-hidden
+                    className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+                    style={{
+                      background: `var(--v2-mod-${group.modality === 'run' ? 'carrera' : 'ergo'})`,
+                    }}
+                  />
+                  <span className="text-[12.5px] font-bold text-[color:var(--v2-fg)]">
+                    {group.modality_label}
+                  </span>
+                </div>
+                <table className="w-full border-collapse">
+                  <tbody>
+                    {group.zones.map((z) => (
+                      <ObjectiveRow
+                        key={z.code}
+                        label={z.code}
+                        aria_label={`Ajustar ${group.modality_label} ${z.code}`}
+                        target={z.target}
+                        adjusted={z.adjusted}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
           <button

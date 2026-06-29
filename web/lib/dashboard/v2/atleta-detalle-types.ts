@@ -23,6 +23,7 @@ import {
   formatZoneRange,
   groupProfilesForCalculator,
   paceUnitLabel,
+  type ProfileModality,
 } from '@/lib/dashboard/v2/zone-view';
 
 // ── Strength · 1RM (client-safe view of athlete_strength_maxes) ─────────────────
@@ -181,16 +182,31 @@ export interface ReferenceTest {
   date_iso: string | null;
 }
 
-// ── Objetivos derivados (Perfil tab, right column) ─────────────────────────────
-export interface DerivedObjective {
-  zone_label: string;
+// ── Zonas de entrenamiento (Perfil tab, right column) ──────────────────────────
+// The resolver's output, GROUPED BY MODALITY so the panel reads as separate
+// sections (Remo / Ski-Erg / Bike-Erg / Carrera) instead of one flat list.
+// AGNOSTIC: the zone `code` is the stored band code, never a hardcoded
+// Z2/umbral/ATR vocabulary.
+export interface DerivedZone {
+  /** Stored band code (e.g. "Z1"), shown as the row label. */
+  code: string;
+  /** Absolute resolved range + unit (e.g. "2:15–2:30 /500m"), or null. */
   target: string | null;
+  /** True when the coach hand-adjusted this band (no per-band override yet → false). */
   adjusted: boolean;
+}
+
+export interface DerivedObjectiveGroup {
+  modality: ProfileModality;
+  /** Coach-facing modality name (Remo / Ski-Erg / Bike-Erg / Carrera). */
+  modality_label: string;
+  zones: DerivedZone[];
 }
 
 export interface PerfilTabData {
   reference_tests: ReferenceTest[];
-  objectives: DerivedObjective[];
+  /** Resolved zone targets grouped by modality (Perfil tab · Zonas de entrenamiento). */
+  objective_groups: DerivedObjectiveGroup[];
   /** Profile version count (resolver versions athlete profiles on re-test). */
   profile_version: number | null;
   /** Strength maxes (1RM per lift + history) for the Fuerza · 1RM section. */
@@ -274,32 +290,31 @@ export function buildTestProgression(
 }
 
 /**
- * Derived objectives = the absolute zone bands the resolver already produced from
- * the athlete's tests (the stored athlete_zone_profiles snapshot). This is the
- * test → profile → absolute-targets chain: each modality's threshold (test) in →
- * its 6 resolved bands out. We surface those bands verbatim — never inventing a
- * target — ordered ergo (row/ski/bike) then run, each zone by sort_order.
+ * Derived zone targets = the absolute zone bands the resolver already produced from
+ * the athlete's tests (the stored athlete_zone_profiles snapshot), GROUPED BY
+ * MODALITY. This is the test → profile → absolute-targets chain: each modality's
+ * threshold (test) in → its resolved bands out. We surface those bands verbatim —
+ * never inventing a target — ordered ergo (row/ski/bike) then run, one group per
+ * modality, each zone by sort_order.
  *
  * AGNOSTIC: labels come from the stored `code` + the modality, never a hardcoded
  * Z2/umbral/ATR vocabulary. `adjusted` stays false — this model has no per-band
  * manual override yet, so we don't fake one.
  */
-function deriveObjectives(zone_profiles: AthleteZoneProfile[]): DerivedObjective[] {
+function deriveObjectiveGroups(zone_profiles: AthleteZoneProfile[]): DerivedObjectiveGroup[] {
   const { ergo, run } = groupProfilesForCalculator(zone_profiles);
   const ordered = [...ergo, ...run];
-  const out: DerivedObjective[] = [];
-  for (const p of ordered) {
+  return ordered.map((p) => {
     const unit = paceUnitLabel(p.pace_unit);
-    const zones = [...p.zones_json].sort((a, b) => a.sort_order - b.sort_order);
-    for (const z of zones) {
-      out.push({
-        zone_label: `${ZONE_MODALITY_LABEL[p.modality]} · ${z.code}`,
+    const zones = [...p.zones_json]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((z) => ({
+        code: z.code,
         target: `${formatZoneRange(z)} ${unit}`,
         adjusted: false,
-      });
-    }
-  }
-  return out;
+      }));
+    return { modality: p.modality, modality_label: ZONE_MODALITY_LABEL[p.modality], zones };
+  });
 }
 
 /** Maps the REAL reference-test results into the Perfil reference-test cards:
@@ -340,17 +355,17 @@ export function buildPerfilTab(
     },
   ];
 
-  // Real derived objectives from the stored zone profiles (resolver output). When
-  // the athlete has no test yet this is [] → the Perfil tab shows its honest empty
-  // state ("aún sin objetivos derivados"). No fake targets ever ship.
-  const objectives = deriveObjectives(zone_profiles);
+  // Real derived zone targets from the stored zone profiles (resolver output),
+  // grouped by modality. When the athlete has no test yet this is [] → the Perfil
+  // tab shows its honest empty state. No fake targets ever ship.
+  const objective_groups = deriveObjectiveGroups(zone_profiles);
 
   // Profile version = the latest resolved zone-profile version across modalities
   // (each modality versions on re-test); null when there's no profile yet.
   const profile_version =
     zone_profiles.length > 0 ? Math.max(...zone_profiles.map((p) => p.version)) : null;
 
-  return { reference_tests, objectives, profile_version, strength_maxes };
+  return { reference_tests, objective_groups, profile_version, strength_maxes };
 }
 
 /** Selector convenience — builds the Perfil tab from the loaded detalle payload. */
