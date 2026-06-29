@@ -608,6 +608,10 @@ struct WorkoutExecutionPayload: Codable {
     let score_time_s: Int?
     let score_rounds: Int?
     let score_reps: Int?
+    /// Session completeness: "full" when the protocol ran to its end → assignment
+    /// 'completed'; "partial" when terminated early → assignment 'partial'. The
+    /// honest finish signal — the backend never marks 'completed' for a partial.
+    let completeness: String?
     let started_at: String?
     let ended_at: String?
     /// Per-segment measured execution. Omitted (nil) for sessions with a single

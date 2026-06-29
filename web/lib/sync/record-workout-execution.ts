@@ -38,6 +38,13 @@ export const executionMetricsSchema = z.object({
   source: z
     .enum(['healthkit', 'garmin', 'concept2', 'manual', 'whoop', 'oura', 'polar', 'coros', 'wahoo'])
     .optional(),
+  // Session completeness — did the athlete reach the END of the protocol ('full')
+  // or TERMINATE early ('partial', the honest "ya no puedo más" save)? Maps 1:1 to
+  // the assignment status: full → 'completed', partial → 'partial'. Omitted by the
+  // manual "Ya lo hice" log and older clients → defaults to 'full' (completed),
+  // preserving prior behaviour. This is the writer mig 0089 deliberately deferred:
+  // 'partial' is NEVER a fabricated 'completed'.
+  completeness: z.enum(['full', 'partial']).optional(),
   started_at: z.string().datetime().optional(),
   ended_at: z.string().datetime().optional(),
   // Optional per-segment detail from iOS on workout finish. Upserted by
@@ -58,7 +65,8 @@ export type RecordExecutionResult =
 
 /**
  * Upsert the workout_executions row for an athlete's assignment, ingest any
- * per-segment actuals, and mark the assignment completed. Ownership-scoped: the
+ * per-segment actuals, and mark the assignment 'completed' (full protocol) or
+ * 'partial' (terminated early), per `input.completeness`. Ownership-scoped: the
  * assignment MUST belong to the athlete (else `not_found`). Idempotent — a
  * retried sync merges by assignment_id / (execution_id, position).
  */
@@ -126,9 +134,13 @@ export async function recordWorkoutExecution(args: {
     });
   }
 
+  // Earned, not assumed: 'completed' ONLY when the protocol ran to the end;
+  // 'partial' when the athlete terminated early. Older clients omit completeness
+  // → 'full' → 'completed' (unchanged behaviour).
+  const assignmentStatus = input.completeness === 'partial' ? 'partial' : 'completed';
   await sql`
     update workout_assignments
-    set status = 'completed', updated_at = now()
+    set status = ${assignmentStatus}::assignment_status, updated_at = now()
     where id = ${assignmentId} and athlete_id = ${athleteId}
   `;
 

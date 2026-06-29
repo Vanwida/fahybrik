@@ -27,6 +27,11 @@ struct ActiveWorkoutView: View {
     // A pending navigation awaiting confirmation (a forward skip that omits work,
     // or a back-step that would discard live-captured data). Nil = nothing to ask.
     @State private var pendingNav: PendingNav? = nil
+    // The exit decision (concept §C.2/§C.3) when leaving a session that has REAL
+    // recorded work: step 1 = the 3-option choose sheet (seguir / terminar y
+    // guardar / descartar), step 2 = the destructive discard confirmation. Nil =
+    // not exiting. A no-work exit never reaches here — it discards immediately.
+    @State private var exitStep: ExitStep? = nil
     // Optional, permission-guarded live sources for non-erg work: phone GPS for
     // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
     // segment needs them and never block the workout.
@@ -108,8 +113,12 @@ struct ActiveWorkoutView: View {
             if let nav = pendingNav {
                 confirmModal(nav)
             }
+            if exitStep != nil {
+                exitOverlay
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: session.isAwaitingBlockStart)
+        .animation(.easeInOut(duration: 0.2), value: exitStep)
         .onAppear {
             session.start()
             wireLiveSources()
@@ -604,29 +613,150 @@ struct ActiveWorkoutView: View {
         return session.plan.segments[index].title
     }
 
-    // True when the session holds captured work that exiting would discard — a
-    // recorded lap (a finished segment / earlier block) OR live progress on the
-    // current segment. The very first block-preview gate (nothing started) and a
-    // just-tapped-Empezar segment are both false → exit is immediate there.
-    private var sessionHasRecordedWork: Bool {
-        !session.laps.isEmpty || session.currentSegmentHasLiveProgress
+    // Exit affordance (preview gate + in-progress HUD) — the heart of "ABANDONAR ≠
+    // TERMINAR". With REAL recorded work, opens the 3-option decision sheet (seguir
+    // / terminar y guardar / descartar) and freezes the clock while the athlete
+    // decides. With nothing recorded (just started, or warmup-only), there's
+    // nothing to save → discard immediately and silently (§C.1): no execution, the
+    // session stays pending, no fake "done". The clock is left frozen at a preview
+    // gate (it isn't running there).
+    private func requestExit() {
+        guard session.hasRecordedWork else { onExit(); return }
+        if !session.isAwaitingBlockStart { session.pauseForVideo() }
+        exitStep = .choose
     }
 
-    // Exit affordance (preview gate + in-progress HUD). Leaves the workout WITHOUT
-    // recording anything — no execution is saved and the session is NOT marked done
-    // (exit ≠ terminar). Confirms only when discarding would lose captured work;
-    // otherwise exits immediately.
-    private func requestExit() {
-        if sessionHasRecordedWork {
-            pendingNav = PendingNav(
-                title: "¿Salir del entreno?",
-                message: "Perderás lo no guardado. No se registrará como hecho.",
-                confirmTitle: "Salir",
-                action: { onExit() }
-            )
-        } else {
-            onExit()
+    // Close the exit sheet and resume training — the safe path ("Seguir"). Resumes
+    // the clock only if we actually paused it for the decision (never at a preview
+    // gate, where the clock is held by the gate itself).
+    private func dismissExitAndResume() {
+        exitStep = nil
+        if session.isPaused, !session.isAwaitingBlockStart { session.resumeFromVideo() }
+    }
+
+    private enum ExitStep { case choose, confirmDiscard }
+
+    // The exit decision overlay (concept §C.2/§C.3). Same scrim + centred card
+    // idiom as the pause / confirm modals. Scrim tap = "Seguir" (the safe default).
+    @ViewBuilder
+    private var exitOverlay: some View {
+        if let step = exitStep {
+            ZStack {
+                Theme.Color.scrim.ignoresSafeArea()
+                    .onTapGesture { dismissExitAndResume() }
+                CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
+                    switch step {
+                    case .choose:         exitChooseContent
+                    case .confirmDiscard: exitDiscardContent
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.m)
+            }
+            .transition(.opacity)
         }
+    }
+
+    // Step 1 — the three honest options. "Seguir entrenando" is the accent default
+    // (most prominent: ending a workout should never be the easy mis-tap).
+    private var exitChooseContent: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text("¿Salir del entreno?")
+                .font(Theme.Typography.headlineM)
+                .foregroundStyle(Theme.Color.foreground)
+            Text(exitChooseMessage)
+                .font(Theme.Typography.small)
+                .foregroundStyle(Theme.Color.muted)
+            ExpertPrimaryButton(title: "Seguir entrenando") { dismissExitAndResume() }
+            terminarYGuardarButton
+            descartarButton
+        }
+    }
+
+    // "Terminar y guardar" — the honest partial save. finish(.partial) closes the
+    // in-flight segment, sets completeness, and routes to the summary; the recorder
+    // then marks the assignment 'partial' (never 'completed'). Green so it reads as
+    // a positive, distinct action next to the accent default.
+    private var terminarYGuardarButton: some View {
+        Button {
+            exitStep = nil
+            session.finish(completeness: .partial)
+        } label: {
+            VStack(spacing: 2) {
+                Text("Terminar y guardar")
+                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                    .tracking(0.5)
+                Text(terminarSubcaption)
+                    .font(.system(size: 11, weight: .semibold))
+                    .multilineTextAlignment(.center)
+            }
+            // `background` token = the high-contrast counterpart of `ok` in BOTH
+            // light and dark (near-black on bright green / white on dark green),
+            // so the label stays WCAG-AA on the green fill either way.
+            .foregroundStyle(Theme.Color.background)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Theme.Color.ok)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Terminar y guardar. \(terminarSubcaption)")
+    }
+
+    // "Descartar entreno" — opens the destructive confirm (step 2). Low-emphasis
+    // red text so it can't be mistaken for the save action.
+    private var descartarButton: some View {
+        Button { exitStep = .confirmDiscard } label: {
+            Text("Descartar entreno")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Theme.Color.danger)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Descartar entreno, no guarda nada")
+    }
+
+    // Step 2 — destructive, irreversible confirm (§C.3). ABANDONAR = scrap: no
+    // execution is written, the session returns to pending. "Seguir" is the safe
+    // way back; the red solid button is the deliberate confirm.
+    private var exitDiscardContent: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text("¿Abandonar el entreno?")
+                .font(Theme.Typography.headlineM)
+                .foregroundStyle(Theme.Color.danger)
+            Text("Se descartará lo que has registrado y el entreno volverá a quedar pendiente. Esto no se puede deshacer.")
+                .font(Theme.Typography.small)
+                .foregroundStyle(Theme.Color.muted)
+            Button {
+                exitStep = nil
+                onExit()
+            } label: {
+                Text("Abandonar y descartar")
+                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                    .tracking(0.5)
+                    .foregroundStyle(Theme.Color.background)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Theme.Color.danger)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Abandonar y descartar el entreno, no se puede deshacer")
+            SecondaryButton(title: "Seguir") { dismissExitAndResume() }
+        }
+    }
+
+    // "N de M bloques" for the exit sheet — N = blocks the athlete completed
+    // (the in-flight one isn't "hecho"), M = total blocks. Pluralised on M.
+    private var exitBlocksDone: Int { session.completedBlockCount }
+    private var exitBlocksTotal: Int { session.blockCount }
+    private var exitBlockUnit: String { exitBlocksTotal == 1 ? "bloque" : "bloques" }
+    private var exitChooseMessage: String {
+        "Llevas \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) hechos. Puedes guardar lo que has hecho o descartarlo."
+    }
+    private var terminarSubcaption: String {
+        "Guarda \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) · el resto queda sin completar"
     }
 
     // The "Terminar bloque" confirm. For an EMOM it names the honest partial
@@ -708,9 +838,15 @@ struct ActiveWorkoutView: View {
                         .buttonStyle(PressScaleStyle())
                         .accessibilityLabel("Terminar este bloque antes de tiempo")
                     }
-                    SecondaryButton(title: "Abandonar") {
-                        session.finish()
+                    // Leave the workout. Routes to the SAME honest exit decision as
+                    // the top-left X — NOT a blind finish() (the old bug marked a
+                    // barely-started session 'completed'). With work, the 3-option
+                    // sheet (terminar y guardar / descartar) appears; with none, a
+                    // clean discard. The session stays paused underneath until the
+                    // athlete chooses.
+                    SecondaryButton(title: "Salir del entreno") {
                         showPauseConfirm = false
+                        requestExit()
                     }
                 }
             }

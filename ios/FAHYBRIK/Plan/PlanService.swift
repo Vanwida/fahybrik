@@ -386,9 +386,18 @@ enum AssignmentDetailCache {
 // UserDefaults pattern.
 enum CompletedAssignmentsStore {
     private static let key = "fahybrik.completedAssignmentIds.v1"
+    /// Sibling set for sessions the athlete just TERMINATED early (honest partial).
+    /// Kept apart from the completed set so the plan paints amber ½, not a green ✓,
+    /// in the window before the server status refetch lands — never a fake "done".
+    private static let partialKey = "fahybrik.partialAssignmentIds.v1"
 
     static func ids() -> Set<String> {
         let arr = UserDefaults.standard.array(forKey: key) as? [String] ?? []
+        return Set(arr)
+    }
+
+    private static func partialStored() -> Set<String> {
+        let arr = UserDefaults.standard.array(forKey: partialKey) as? [String] ?? []
         return Set(arr)
     }
 
@@ -396,22 +405,49 @@ enum CompletedAssignmentsStore {
         ids().contains(assignmentId)
     }
 
+    static func isPartial(_ assignmentId: String) -> Bool {
+        partialStored().contains(assignmentId)
+    }
+
     static func markCompleted(_ assignmentId: String) {
         guard !assignmentId.isEmpty else { return }
         var current = ids()
         current.insert(assignmentId)
         UserDefaults.standard.set(Array(current), forKey: key)
+        // A session can't be both done AND partial — completing supersedes a prior
+        // optimistic partial (e.g. "Completar ahora" on a parcial → hecha).
+        var partials = partialStored()
+        if partials.remove(assignmentId) != nil {
+            UserDefaults.standard.set(Array(partials), forKey: partialKey)
+        }
     }
 
-    /// Drop the optimistic-completed flag for an assignment — the local half of
-    /// "Deshacer hecho". After a reset the authoritative server status is
-    /// re-fetched (it comes back 'scheduled'); clearing the local flag keeps the
-    /// union from re-asserting 'done' from a stale optimistic mark.
+    /// Optimistic partial — the local half of "Terminar y guardar". The server
+    /// refetch confirms 'partial'; this just bridges the gap so the row reads amber
+    /// ½ immediately instead of flashing pending. Mutually exclusive with completed.
+    static func markPartial(_ assignmentId: String) {
+        guard !assignmentId.isEmpty else { return }
+        var partials = partialStored()
+        partials.insert(assignmentId)
+        UserDefaults.standard.set(Array(partials), forKey: partialKey)
+        var current = ids()
+        if current.remove(assignmentId) != nil {
+            UserDefaults.standard.set(Array(current), forKey: key)
+        }
+    }
+
+    /// Drop BOTH optimistic flags for an assignment — the local half of "Deshacer
+    /// hecho". After a reset the authoritative server status is re-fetched (it comes
+    /// back 'scheduled'); clearing the local flags keeps the union from re-asserting
+    /// 'done'/'partial' from a stale optimistic mark.
     static func unmark(_ assignmentId: String) {
         guard !assignmentId.isEmpty else { return }
         var current = ids()
         current.remove(assignmentId)
         UserDefaults.standard.set(Array(current), forKey: key)
+        var partials = partialStored()
+        partials.remove(assignmentId)
+        UserDefaults.standard.set(Array(partials), forKey: partialKey)
     }
 }
 
@@ -433,6 +469,7 @@ enum SessionMarkState {
     /// before the refetch); otherwise the server `assignment_status` decides.
     static func of(status: String, assignmentId: String) -> SessionMarkState {
         if CompletedAssignmentsStore.isCompleted(assignmentId) { return .done }
+        if CompletedAssignmentsStore.isPartial(assignmentId) { return .partial }
         switch status.lowercased() {
         case "completed":          return .done
         case "partial":            return .partial

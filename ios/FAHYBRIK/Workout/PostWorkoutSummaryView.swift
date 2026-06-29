@@ -158,6 +158,10 @@ struct PostWorkoutSummaryView: View {
             score_time_s: isTimeScored ? scoreTimeSeconds : nil,
             score_rounds: isRoundsScored ? scoreRounds : nil,
             score_reps: isRoundsScored ? scoreReps : nil,
+            // Honest finish: 'full' (→ completed) only when the protocol ran to its
+            // end; 'partial' (→ partial) when terminated early. A manual "Ya lo hice"
+            // log is an affirmation it was done → the session's default '.full'.
+            completeness: session.completeness.rawValue,
             started_at: iso.string(from: startedAt),
             ended_at: iso.string(from: endedAt),
             segments: segments.isEmpty ? nil : segments

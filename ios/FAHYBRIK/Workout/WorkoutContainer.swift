@@ -144,11 +144,17 @@ struct WorkoutContainer: View {
                         logTarget: logTarget,
                         manualEntry: manualEntry,
                         onSave: {
-                            // Record optimistic completion BEFORE closing so the
+                            // Record the optimistic mark BEFORE closing so the
                             // caller's refetch (driven by onCompleted) already sees
-                            // this assignment as done, even pre-server-sync.
+                            // this assignment, even pre-server-sync. Honest: a
+                            // terminated-early session marks PARTIAL (amber ½), never
+                            // a fake 'completed'; the full path marks done.
                             if let assignmentId, !assignmentId.isEmpty {
-                                CompletedAssignmentsStore.markCompleted(assignmentId)
+                                if session.completeness == .partial {
+                                    CompletedAssignmentsStore.markPartial(assignmentId)
+                                } else {
+                                    CompletedAssignmentsStore.markCompleted(assignmentId)
+                                }
                             }
                             Task { await WorkoutStateStore.shared.clear() }
                             onCompleted(assignmentId)

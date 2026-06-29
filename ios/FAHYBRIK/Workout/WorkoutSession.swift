@@ -1,6 +1,16 @@
 import Foundation
 import Observation
 
+/// Did the athlete reach the END of the prescribed protocol, or stop short?
+/// `.full` → the assignment is marked 'completed'; `.partial` → 'partial' (the
+/// honest "terminé antes" save — concept §B/§D). Set once, at `finish()`. A
+/// `completed` status is EARNED (ran to the end); it is never fabricated for a
+/// barely-started or early-terminated session.
+enum WorkoutCompleteness: String {
+    case full
+    case partial
+}
+
 @Observable
 final class WorkoutSession {
     let plan: WorkoutPlan
@@ -15,6 +25,11 @@ final class WorkoutSession {
     var repsCurrentSegment: Int = 0
     var isPaused: Bool = false
     var isFinished: Bool = false
+    /// Set by `finish(completeness:)` — whether the session ran to the natural end
+    /// (`.full` → 'completed') or was terminated early via "Terminar y guardar" /
+    /// "Terminar bloque" (`.partial` → 'partial'). Read by the post-workout summary
+    /// when building the execution payload. Never fabricates a fake completion.
+    var completeness: WorkoutCompleteness = .full
 
     // MARK: - Honest rep / strength / WOD logging (FASE 2 · PASO 2)
     //
@@ -207,6 +222,33 @@ final class WorkoutSession {
         return phase == .warmup || phase == .cooldown
     }
 
+    /// The completeness lock (concept §B / decision F.2): TRUE when the session
+    /// holds at least one unit of REAL work — a closed working lap or live progress
+    /// on a NON-structural segment. Warmup/cooldown completions are EXCLUDED: a
+    /// "calentamiento hecho" tap must not force a false partial nor block a clean
+    /// discard. No real work → only ABANDONAR (discard) is offered; "Terminar y
+    /// guardar" never appears, so a barely-started session can't be saved as done.
+    var hasRecordedWork: Bool {
+        laps.contains { !$0.isStructural }
+            || (currentSegmentHasLiveProgress && !currentBlockIsStructural)
+    }
+
+    /// Blocks the athlete has actually COMPLETED — fully moved past
+    /// (`currentSegmentIndex` is beyond the block) AND with recorded work in it.
+    /// The in-flight block is NOT counted (it isn't "hecho" yet), nor is a block
+    /// jumped past without doing anything. Drives the exit sheet's honest "N de M
+    /// bloques hechos"; M is `blockCount`. Counts structural blocks too, so it
+    /// reflects every completed block the athlete moved through.
+    var completedBlockCount: Int {
+        let lapBlockIds = Set(laps.compactMap { lap -> Int? in
+            guard let idx = plan.segments.firstIndex(where: { $0.id == lap.segmentId }) else { return nil }
+            return plan.blockRegion(containing: idx)?.id
+        })
+        return plan.blockRegions.filter {
+            lapBlockIds.contains($0.id) && currentSegmentIndex > $0.lastIndex
+        }.count
+    }
+
     /// True when the current segment belongs to a metcon-family block (Rx/Scaled
     /// axis applies) and is not a structural warmup/cooldown.
     var currentSegmentIsMetcon: Bool {
@@ -382,15 +424,22 @@ final class WorkoutSession {
         enterOrArm(from: origin)
     }
 
-    func finish() {
+    /// End the session and route to the post-workout summary. `completeness` is the
+    /// EARNED outcome: `.full` only when the protocol ran to its end (the default,
+    /// the happy path); `.partial` when the athlete terminated early ("Terminar y
+    /// guardar" / "Terminar bloque"). The summary reads it to mark the assignment
+    /// 'completed' vs 'partial' — never a fabricated completion. Discarding
+    /// (ABANDONAR) does NOT come through here: it saves nothing.
+    func finish(completeness: WorkoutCompleteness = .full) {
+        self.completeness = completeness
         Haptics.success()
         clearEMOMState()
         // Close the in-flight segment so the final segment is never dropped from
-        // the execution record (finish can be reached directly via "Abandonar"
-        // or after the last lap auto-finishes). lap() will have already closed
-        // and zeroed lapElapsedSeconds, so a residual >0 means work is pending.
-        // A structural warmup/cooldown only ever logs via its own "hecho" button —
-        // an untapped one emits NO row (null = not done; we don't nag).
+        // the execution record (finish can be reached via the last lap auto-finish,
+        // "Terminar bloque", or "Terminar y guardar" mid-session). lap() will have
+        // already closed and zeroed lapElapsedSeconds, so a residual >0 means work
+        // is pending. A structural warmup/cooldown only ever logs via its own
+        // "hecho" button — an untapped one emits NO row (null = not done).
         if !isFinished, currentSegment != nil, lapElapsedSeconds > 0, !currentBlockIsStructural {
             closeCurrentSegmentLap()
         }
@@ -480,7 +529,9 @@ final class WorkoutSession {
             currentSegmentIndex = next
             armBlock()
         } else {
-            finish()
+            // Ending the LAST block early ends the session — and it's a partial:
+            // the athlete cut the protocol short, so it's never marked 'completed'.
+            finish(completeness: .partial)
         }
     }
 
