@@ -114,7 +114,7 @@ enum PrescriptionRenderer {
         // Detail line: everything that isn't the headline measure or pace/zone.
         var detail: [String] = []
         // Interval shape: N × (work) with rest.
-        if let count = p.sets?.count, count > 1, p.scheme == .interval {
+        if let count = p.sets?.count, count > 1, p.scheme == .intervals {
             detail.insert("\(count)×", at: 0)
         }
         if let load = targetLoad(target), !isPaceOrZone(target) {

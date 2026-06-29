@@ -32,32 +32,97 @@ struct Prescription: Codable, Equatable {
     let totalS: Int?
     let target: Target?
     let note: String?
+    /// Death By progression: the starting work count (`start`) and the per-round
+    /// increment (`increment`) — e.g. "minute 1: 1 rep, +1 each minute". Plain
+    /// single-word keys on the wire, so `convertFromSnakeCase` leaves them
+    /// unchanged (no explicit CodingKeys). Optional so older cached snapshots,
+    /// and every non-`death_by` scheme, still decode.
+    let start: Int?
+    let increment: Int?
 }
 
-// MARK: - Scheme
+// MARK: - Scheme — the SINGLE unified workout-format enum
+//
+// One enum, decoded from `prescription_json.scheme` AND built from the DB block
+// `template_format` string (via `WorkoutPlan.workoutFormat`). Mirrors the
+// canonical catalog in `shared/domain/.../format` — the single source of truth
+// for the wire vocabulary. Raw values match the wire strings verbatim.
 
-enum PrescriptionScheme: String, Codable, Equatable {
-    case sets
-    case rounds
-    case emom
-    case amrap
-    case interval
-    case steady
+enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
     case forTime = "for_time"
+    case amrap
+    case emom
+    case tabata
+    case deathBy = "death_by"
+    case intervals
+    case steady
+    case chipper
+    case ladder
+    case rounds
+    case hyroxSim = "hyrox_sim"
+    case sets
+    case warmup
+    case cooldown
 
-    // Tolerant decode: an unrecognized scheme degrades to `.sets` rather than
-    // failing the whole item (the renderer treats it as a plain per-set list).
+    /// Canonicalize a raw wire string into a scheme, accepting BOTH the canonical
+    /// rawValues and the legacy values still possibly on the wire — never losing a
+    /// format silently. Returns nil only for a genuinely-unknown string, so callers
+    /// that need an explicit (non-silent) decision can branch on it.
+    ///
+    /// Legacy map: strength_block / strength → .sets, tempo → .steady,
+    /// circuit → .rounds, test → .forTime, interval (old singular) → .intervals.
+    init?(canonicalizing raw: String) {
+        if let direct = PrescriptionScheme(rawValue: raw) {
+            self = direct
+            return
+        }
+        switch raw {
+        case "strength_block", "strength": self = .sets
+        case "tempo":                      self = .steady
+        case "circuit":                    self = .rounds
+        case "test":                       self = .forTime
+        case "interval":                   self = .intervals
+        default:                           return nil
+        }
+    }
+
+    // Tolerant decode: canonicalize legacy values, and degrade an unrecognized
+    // scheme to `.sets` rather than failing the whole item (the renderer then
+    // treats it as a plain per-set list).
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
-        self = PrescriptionScheme(rawValue: raw) ?? .sets
+        self = PrescriptionScheme(canonicalizing: raw) ?? .sets
     }
 
     /// True for the conditioning schemes rendered as a "WOD" block (format +
-    /// cap/rounds + component list) rather than a per-set table.
+    /// cap/rounds + component list) rather than a per-set table. Kept EXACTLY as
+    /// before the catalog expansion — only amrap/emom/forTime — so existing
+    /// formats are byte-for-byte unchanged; new schemes fall to the per-set path.
     var isWOD: Bool {
         switch self {
         case .amrap, .emom, .forTime: return true
         default: return false
+        }
+    }
+
+    /// Athlete-facing label, mirroring the canonical catalog. `.sets` reads as
+    /// "Strength" (its real-world role); warmup/cooldown as "Warm-up"/"Cool-down".
+    var displayName: String {
+        switch self {
+        case .forTime:  return "For Time"
+        case .amrap:    return "AMRAP"
+        case .emom:     return "EMOM"
+        case .tabata:   return "Tabata"
+        case .deathBy:  return "Death By"
+        case .intervals: return "Intervals"
+        case .steady:   return "Steady"
+        case .chipper:  return "Chipper"
+        case .ladder:   return "Ladder"
+        case .rounds:   return "Rounds"
+        case .hyroxSim: return "HYROX Sim"
+        case .sets:     return "Strength"
+        case .warmup:   return "Warm-up"
+        case .cooldown: return "Cool-down"
         }
     }
 }

@@ -1,27 +1,8 @@
 import Foundation
 
-// Format set per UX spec 03-workout-execution.md "Format-specific timer behavior".
-enum WorkoutFormat: String, Codable, CaseIterable {
-    case forTime = "for_time"
-    case amrap = "amrap"
-    case circuit = "circuit"
-    case hyroxSim = "hyrox_sim"
-    case emom = "emom"
-    case intervals = "intervals"
-    case strength = "strength"
-
-    var displayName: String {
-        switch self {
-        case .forTime: return "For Time"
-        case .amrap: return "AMRAP"
-        case .circuit: return "Circuit"
-        case .hyroxSim: return "HYROX Sim"
-        case .emom: return "EMOM"
-        case .intervals: return "Intervals"
-        case .strength: return "Strength"
-        }
-    }
-}
+// The session's workout format is `PrescriptionScheme` (see Plan/Prescription.swift)
+// — the SINGLE unified format enum, shared by the structured prescription and the
+// execution timer. There is no separate format enum.
 
 // Pedagogical ROLE of a coach block, inferred from its title. A session is an
 // ordered list of blocks; the warmup runs FIRST and the cooldown LAST, so the
@@ -414,7 +395,7 @@ struct WorkoutSegmentGroup: Identifiable {
 struct WorkoutPlan: Codable, Identifiable {
     let id: UUID
     let name: String
-    let format: WorkoutFormat
+    let format: PrescriptionScheme
     let estimatedDurationSeconds: Int
     let blockContext: String        // pedagogical phase, e.g. "Tapering · sem 2 · día 4"
     let zoneTargets: [ZoneTarget]
@@ -742,22 +723,14 @@ extension WorkoutPlan {
         return candidates.max { $0.items.count < $1.items.count }
     }
 
-    // Map the DB `template_format` enum (block_format override) to the live
-    // WorkoutFormat that drives the execution timer. Covers every enum value:
-    // amrap | for_time | emom | intervals | strength_block | hyrox_sim | tempo
-    // | circuit. strength_block → strength; hyrox_sim → hyroxSim; tempo →
-    // intervals (paced work intervals); circuit / unknown → circuit.
-    private static func workoutFormat(from blockFormat: String?) -> WorkoutFormat {
-        switch blockFormat {
-        case "for_time":       return .forTime
-        case "amrap":          return .amrap
-        case "emom":           return .emom
-        case "intervals":      return .intervals
-        case "tempo":          return .intervals
-        case "strength_block": return .strength
-        case "hyrox_sim":      return .hyroxSim
-        default:               return .circuit   // circuit | nil | unknown
-        }
+    // Map the DB `template_format` string (the block_format override) to the
+    // unified `PrescriptionScheme` that drives the execution timer + score type.
+    // Every canonical AND legacy value maps explicitly via `canonicalizing`
+    // (strength_block/strength → .sets, tempo → .steady, circuit → .rounds,
+    // test → .forTime, interval → .intervals); only a genuinely-unknown or nil
+    // value falls to the generic default `.rounds` (a plain multi-round block).
+    private static func workoutFormat(from blockFormat: String?) -> PrescriptionScheme {
+        PrescriptionScheme(canonicalizing: blockFormat ?? "") ?? .rounds
     }
 }
 
@@ -892,7 +865,9 @@ extension WorkoutBlock {
             restS: nil,
             totalS: nil,
             target: nil,
-            note: nil
+            note: nil,
+            start: nil,
+            increment: nil
         )
     }
 }
