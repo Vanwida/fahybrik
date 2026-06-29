@@ -79,6 +79,25 @@ struct InicioView: View {
     private var targetRace: AthleteNextRace? { planWeek?.targetRace }
     // The chronologically next race (intermediate or same as target).
     private var nextRace: AthleteNextRace? { planWeek?.nextRace }
+
+    // Coach weekly context for the focus/phase line. The PHASE name lives on
+    // `week.microcicloName` (the field that actually carries it server-side);
+    // `macroSummary.block` is intentionally null for athletes by design. The
+    // "Foco de la semana" is `week.focus`. Both are already in the payload and
+    // were simply not rendered before — no new data. AGNOSTIC: we show whatever
+    // the coach named the phase, never a hardcoded periodization vocabulary, and
+    // never the internal word "microciclo" as a label.
+    private var phaseName: String? {
+        let t = planWeek?.week.microcicloName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (t?.isEmpty == false) ? t : nil
+    }
+    private var weekFocus: String? {
+        let t = planWeek?.week.focus?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (t?.isEmpty == false) ? t : nil
+    }
+    /// Render the focus/phase line only when the coach actually set a phase name
+    /// or a focus — never an empty bar.
+    private var hasFocusLine: Bool { phaseName != nil || weekFocus != nil }
     // Unread coach messages → bell dot + coach-note row dot. 0 when none.
     private var unreadCount: Int { store.unreadCount }
     // The athlete's coach thread — latest coach message preview + voice note.
@@ -101,12 +120,17 @@ struct InicioView: View {
                     .staggerReveal(revealed, index: 0)
                 greeting
                     .staggerReveal(revealed, index: 1)
-                if checkinPending {
-                    checkinRow
+                if hasFocusLine {
+                    // Coach context: the week's PHASE name + "Foco de la semana".
+                    focusPhaseLine
                         .staggerReveal(revealed, index: 2)
                 }
+                if checkinPending {
+                    checkinRow
+                        .staggerReveal(revealed, index: 3)
+                }
                 heroSection
-                    .staggerReveal(revealed, index: 3)
+                    .staggerReveal(revealed, index: 4)
                 if let pm = pmSession {
                     SessionCompactRow(
                         slot: slotFor(pm),
@@ -115,16 +139,23 @@ struct InicioView: View {
                         modality: pm.modality,
                         onTap: { onOpenTab?(.plan) }
                     )
-                    .staggerReveal(revealed, index: 4)
+                    .staggerReveal(revealed, index: 5)
                 }
                 if let partner {
                     PartnerTodayPanel(partner: partner)
-                        .staggerReveal(revealed, index: 5)
+                        .staggerReveal(revealed, index: 6)
                 }
+                // Readiness (always its OWN slot) + the race countdown, side by side.
                 tilesRow
-                    .staggerReveal(revealed, index: 6)
-                coachNoteRow
                     .staggerReveal(revealed, index: 7)
+                // The whole week's stress MIX at a glance — color = type, size =
+                // duration, filled = done, dash = rest. Only when a plan exists.
+                if hasPlan {
+                    weekStripCard
+                        .staggerReveal(revealed, index: 8)
+                }
+                coachNoteRow
+                    .staggerReveal(revealed, index: 9)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.s)
@@ -385,6 +416,61 @@ struct InicioView: View {
         }
     }
 
+    // MARK: - Coach focus / phase line
+    //
+    // A single warm line under the greeting carrying the week's COACH context:
+    // the periodization phase name + the "Foco de la semana". Both are real
+    // coach DATA already in the payload (week.microcicloName + week.focus) — we
+    // just surface them. The phase reads in the brand-orange text role (where
+    // you are in the plan); the focus in calm muted (what this week is about).
+    // AGNOSTIC: the phase is whatever the coach named it; we add no periodization
+    // vocabulary and never expose the internal "microciclo" label.
+    private var focusPhaseLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "scope")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.Color.accentText)
+            // Phase + focus combined: "{Fase} · Foco: {foco}". Each segment is
+            // included only when present, so a week with just one still reads well.
+            (
+                phaseText
+                + focusText
+            )
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(focusPhaseAxLabel)
+    }
+
+    /// The phase-name run of the focus line (brand-orange text), empty when none.
+    private var phaseText: Text {
+        guard let phase = phaseName else { return Text("") }
+        return Text(phase)
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundColor(Theme.Color.accentText)
+    }
+
+    /// The "· Foco: {foco}" run (muted), empty when no focus. Drops the leading
+    /// separator when there's no phase before it.
+    private var focusText: Text {
+        guard let focus = weekFocus else { return Text("") }
+        let prefix = phaseName == nil ? "Foco: " : " · Foco: "
+        return Text(prefix + focus)
+            .font(.system(size: 12.5, weight: .regular))
+            .foregroundColor(Theme.Color.muted)
+    }
+
+    private var focusPhaseAxLabel: String {
+        switch (phaseName, weekFocus) {
+        case let (phase?, focus?): return "\(phase). Foco de la semana: \(focus)"
+        case let (phase?, nil):    return phase
+        case let (nil, focus?):    return "Foco de la semana: \(focus)"
+        default:                   return ""
+        }
+    }
+
     /// Capitalized ES date, e.g. "Miércoles 14 ene".
     private var todayDateLabel: String {
         let fmt = DateFormatter()
@@ -595,44 +681,33 @@ struct InicioView: View {
         return raw.prefix(1).uppercased() + raw.dropFirst()
     }
 
-    // MARK: - Tiles row (readiness / race / week)
+    // MARK: - Tiles row (readiness + race)
     //
-    // Two tiles side by side, mirroring the handoff's race + week pair. We add
-    // readiness (real, daily-valuable data the handoff omits) only when it
-    // exists, so the row never shows fabricated numbers.
-
+    // Readiness and the race countdown now hold SEPARATE, permanent slots side by
+    // side — they no longer share one tile where the race hid readiness (the #1
+    // gap). Readiness (left) is ALWAYS shown; the race (right) shows its countdown
+    // or invites the athlete to pick a target. `maxHeight: .infinity` on a
+    // vertically-fixed row equalizes the two tiles' heights so they read as a pair.
     private var tilesRow: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
+            readinessTile
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             raceTile
-            weekTile
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
+    // MARK: Readiness tile (always its own slot)
+    //
+    // Readiness is the athlete's single most actionable daily signal, so it gets a
+    // permanent slot — never hidden behind a race. Shows the 0–100 score (colored
+    // by recovery bucket, Whoop-style), a one-line plain-language read of the body
+    // STATE (never a training prescription — that's coach methodology), and the
+    // existing 7-day delta arrow. Honest empty state when there's no signal yet.
     @ViewBuilder
-    private var raceTile: some View {
-        if let race = displayRace, let days = race.daysUntil {
-            TileButton(onTap: { onOpenTab?(.carreras) }) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Próxima carrera", size: 10)
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text("\(max(0, days))")
-                            .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.accentText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        Text(days == 1 ? "día" : "días")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Text(race.name)
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1)
-                }
-            }
-            .accessibilityLabel("Próxima carrera, \(race.name), faltan \(max(0, days)) \(days == 1 ? "día" : "días")")
-        } else if let score = readinessScore {
-            // No race scheduled → readiness fills the slot (still real data).
+    private var readinessTile: some View {
+        if let score = readinessScore {
             TileButton(onTap: nil) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
@@ -650,22 +725,87 @@ struct InicioView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text("\(score)")
                             .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
+                            .foregroundStyle(readinessColor(score))
                         Text("/100")
                             .scaledFont(12, relativeTo: .caption)
                             .foregroundStyle(Theme.Color.muted)
                     }
-                    Text("Tu estado de hoy")
+                    Text(readinessInterpretation(score))
+                        .scaledFont(11, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .accessibilityLabel(readinessAxLabel(score))
+        } else if store.readiness.hasLoaded {
+            // Loaded but no real signal yet (no check-in, no wearable) — honest
+            // empty, never an invented score. Taps to the check-in when pending,
+            // which is what generates a score.
+            TileButton(onTap: checkinPending ? { Haptics.light(); showCheckin = true } : nil) {
+                VStack(alignment: .leading, spacing: 4) {
+                    LabelText(text: "Readiness", size: 10)
+                    Text("Sin datos aún")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(checkinPending ? "Haz tu check-in" : "Hoy")
+                        .scaledFont(11, relativeTo: .caption)
+                        .foregroundStyle(checkinPending ? Theme.Color.accentText : Theme.Color.muted)
+                        .lineLimit(1)
+                }
+            }
+            .accessibilityLabel("Readiness sin datos aún")
+        } else {
+            // Not yet loaded (rare with cache-first) — a stable placeholder keeps
+            // the slot from popping in.
+            TileButton(onTap: nil) {
+                VStack(alignment: .leading, spacing: 4) {
+                    LabelText(text: "Readiness", size: 10)
+                    Text("—")
+                        .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
+                        .foregroundStyle(Theme.Color.faint)
+                }
+            }
+            .accessibilityHidden(true)
+        }
+    }
+
+    // MARK: Race tile (keeps its own slot)
+    @ViewBuilder
+    private var raceTile: some View {
+        if let race = displayRace, let days = race.daysUntil {
+            let d = max(0, days)
+            TileButton(onTap: { onOpenTab?(.carreras) }) {
+                VStack(alignment: .leading, spacing: 4) {
+                    LabelText(text: "Próxima carrera", size: 10)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("\(d)")
+                            .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
+                            .foregroundStyle(Theme.Color.accentText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(d == 1 ? "día" : "días")
+                            .scaledFont(12, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    Text(race.name)
+                        .scaledFont(11, weight: .semibold, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                    // Adaptive supporting copy by proximity (4a). The tone shifts
+                    // from "building the engine" (far) to "trust the work" (race
+                    // week). Keyed off days-to-race — the objective, AGNOSTIC
+                    // signal — not the coach's free-text phase name.
+                    Text(raceProximityCopy(daysUntil: d))
                         .scaledFont(11, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                         .lineLimit(1)
                 }
             }
-            .accessibilityLabel("Readiness \(score) de 100")
+            .accessibilityLabel("Próxima carrera, \(race.name), faltan \(d) \(d == 1 ? "día" : "días"). \(raceProximityCopy(daysUntil: d))")
         } else {
             // No race fixed → invite the athlete to pick their target. Tapping
-            // opens the race picker; on success loadPlan() refreshes the
-            // countdown into this slot.
+            // opens the race picker; on success the plan refreshes the countdown.
             TileButton(onTap: { showBuscarCarrera = true }) {
                 VStack(alignment: .leading, spacing: 4) {
                     LabelText(text: "Próxima carrera", size: 10)
@@ -686,68 +826,195 @@ struct InicioView: View {
         }
     }
 
-    @ViewBuilder
-    private var weekTile: some View {
-        if let progress = weekProgress {
-            TileButton(onTap: { onOpenTab?(.plan) }) {
-                VStack(alignment: .leading, spacing: 5) {
-                    LabelText(text: progress.label, size: 10)
-                    if let counts = progress.counts {
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("\(counts.done)")
-                                .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                                .foregroundStyle(Theme.Color.foreground)
-                            Text("/\(counts.total) hechas")
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    } else {
-                        Text("Ver el plan")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    if !progress.segments.isEmpty {
-                        weekSegments(progress)
+    // MARK: - Week strip card (color = type · size = duration)
+    //
+    // The whole week's stress MIX at a glance, zero numbers (G3): one mark per day
+    // Mon–Sun, COLOR encodes the session type/modality (the shared Theme.Modality
+    // palette), SIZE encodes duration, a filled dot = completed vs an open ring =
+    // still to do, and a slim dash = a rest day. Today's weekday initial reads in
+    // the brand-orange text role. A weekly adherence line ("X de Y esta semana",
+    // from the real session count — not a daily streak) anchors it. Tap → Plan.
+    private var weekStripCard: some View {
+        Button {
+            Haptics.light()
+            onOpenTab?(.plan)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    LabelText(text: weekStripLabel, size: 10)
+                    Spacer(minLength: 8)
+                    if let line = weekAdherenceLine {
+                        Text(line)
+                            .scaledFont(11, weight: .semibold, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.muted)
                     }
                 }
+                WeekStrip(days: stripDays)
             }
-            .accessibilityLabel(weekTileAxLabel(progress))
-        } else {
-            TileButton(onTap: { onOpenTab?(.plan) }) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Tu semana", size: 10)
-                    Text("Ver el plan")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Día a día")
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(weekStripAxLabel)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// The week strip header label — the block position ("Semana 2/4") when known,
+    /// else a neutral "Tu semana".
+    private var weekStripLabel: String { weekProgress?.label ?? "Tu semana" }
+
+    /// "X de Y esta semana" — the weekly adherence line (4b). Real sessions
+    /// done/total for THIS week, NOT a daily streak. Nil when the week has no
+    /// sessions (the strip's rest dashes already say so).
+    private var weekAdherenceLine: String? {
+        guard weekTotal > 0 else { return nil }
+        return "\(weekDone) de \(weekTotal) esta semana"
+    }
+
+    /// The 7 Mon–Sun marks, derived from the week payload (per-day type + duration
+    /// already ship for every day). Empty when there's no week loaded.
+    private var stripDays: [StripDay] {
+        guard let resp = planWeek else { return [] }
+        let todayIso = resp.week.todayIso
+        return resp.week.days
+            .sorted { $0.dayOfWeek < $1.dayOfWeek }
+            .map { day in
+                let letter = Self.weekdayInitial(day.dayOfWeek)
+                let isToday = day.isoDate == todayIso
+                let weekdayFull = Self.weekdayFull(day.dayOfWeek)
+                if day.isRest || day.sessions.isEmpty {
+                    return StripDay(id: day.isoDate, weekdayLetter: letter, isToday: isToday,
+                                    kind: .rest, color: Theme.Color.faint, diameter: 0, completed: false,
+                                    axText: "\(weekdayFull): descanso")
                 }
+                // The day's PRINCIPAL session = its longest (the main work) — that
+                // session's modality colors the dot. Total daily minutes drive size.
+                let principal = day.sessions.max {
+                    ($0.estDurationMinutes ?? 0) < ($1.estDurationMinutes ?? 0)
+                } ?? day.sessions[0]
+                let totalMin = day.sessions.compactMap { $0.estDurationMinutes }.reduce(0, +)
+                let completed = day.sessions.allSatisfy { isSessionDone($0) }
+                let modalityLbl = Theme.Modality.label(principal.modality)
+                return StripDay(
+                    id: day.isoDate,
+                    weekdayLetter: letter,
+                    isToday: isToday,
+                    kind: .session,
+                    color: Theme.Modality.color(principal.modality),
+                    diameter: Self.dotDiameter(forMinutes: totalMin > 0 ? totalMin : nil),
+                    completed: completed,
+                    axText: "\(weekdayFull): \(modalityLbl)\(completed ? ", hecho" : "")"
+                )
             }
+    }
+
+    private var weekStripAxLabel: String {
+        let body = stripDays.map { $0.axText }.joined(separator: ". ")
+        let adherence = weekAdherenceLine.map { ". \($0)." } ?? ""
+        return "\(weekStripLabel). \(body)\(adherence) Ver el plan"
+    }
+
+    /// A session is "done" when the server marks it completed OR it's recorded
+    /// locally (optimistic completion) — the same rule the counts/hero use.
+    private func isSessionDone(_ s: AthleteWeekDaySession) -> Bool {
+        s.status.lowercased() == "completed" || CompletedAssignmentsStore.isCompleted(s.assignmentId)
+    }
+
+    // MARK: - Readiness interpretation
+    //
+    // Plain-language read of the body STATE — never a training instruction (that's
+    // coach methodology, out of scope here). Buckets MIRROR the single source of
+    // truth in web/lib/dashboard/constants/readiness.ts (ok ≥ 67 · caution 45–66 ·
+    // low < 45) so the athlete's read can never drift from the coach's.
+    private static let readinessOkMin = 67
+    private static let readinessCautionMin = 45
+
+    private func readinessInterpretation(_ score: Int) -> String {
+        if score >= Self.readinessOkMin { return "Recuperado y listo" }
+        if score >= Self.readinessCautionMin { return "Recuperación parcial" }
+        return "Cuerpo cargado"
+    }
+
+    private func readinessColor(_ score: Int) -> Color {
+        if score >= Self.readinessOkMin { return Theme.Color.ok }
+        if score >= Self.readinessCautionMin { return Theme.Color.warning }
+        return Theme.Color.danger
+    }
+
+    private func readinessAxLabel(_ score: Int) -> String {
+        var label = "Readiness \(score) de 100, \(readinessInterpretation(score))"
+        if let delta = readinessDelta {
+            label += ", \(delta >= 0 ? "sube" : "baja") \(abs(delta)) en 7 días"
+        }
+        return label
+    }
+
+    // MARK: - Adaptive race copy (proximity)
+    //
+    // Supporting line under the countdown, shifting tone as the race nears. Driven
+    // by days-to-race — the objective, agnostic signal — over standard endurance
+    // windows: race week (≤7d) → trust the work; taper (≤21d) → sharpen + rest;
+    // beyond → build the engine. We do NOT switch on the coach's free-text phase
+    // name (that would break the agnostic rule), but proximity tracks the phase.
+    private static let raceWeekDays = 7
+    private static let taperDays = 21
+
+    private func raceProximityCopy(daysUntil: Int) -> String {
+        if daysUntil <= Self.raceWeekDays { return "Confía en el trabajo hecho" }
+        if daysUntil <= Self.taperDays { return "Afina y descansa" }
+        return "Construyendo motor"
+    }
+
+    // MARK: - Week strip helpers (weekday letters · duration → size)
+
+    /// ES weekday initial (L M X J V S D) for a 1=Mon … 7=Sun day-of-week.
+    private static func weekdayInitial(_ dow: Int) -> String {
+        switch dow {
+        case 1: return "L"
+        case 2: return "M"
+        case 3: return "X"
+        case 4: return "J"
+        case 5: return "V"
+        case 6: return "S"
+        default: return "D"
         }
     }
 
-    /// Segmented week bar: one segment per macro week, colored by status
-    /// (completed = ok, current = orange, missed = danger, future = surface).
-    private func weekSegments(_ progress: WeekProgress) -> some View {
-        HStack(spacing: 3) {
-            ForEach(progress.segments) { seg in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(seg.color)
-                    .frame(height: 4)
-                    .frame(maxWidth: .infinity)
-            }
+    /// Full ES weekday name for accessibility.
+    private static func weekdayFull(_ dow: Int) -> String {
+        switch dow {
+        case 1: return "lunes"
+        case 2: return "martes"
+        case 3: return "miércoles"
+        case 4: return "jueves"
+        case 5: return "viernes"
+        case 6: return "sábado"
+        default: return "domingo"
         }
-        .padding(.top, 3)
-        .accessibilityHidden(true)
     }
 
-    private func weekTileAxLabel(_ progress: WeekProgress) -> String {
-        if let counts = progress.counts {
-            return "\(progress.label), \(counts.done) de \(counts.total) sesiones hechas"
-        }
-        return "\(progress.label), ver el plan"
+    // Dot diameter range and the duration window it maps onto. A typical training
+    // day runs 30–90 min; we map that to a restrained 7–14 pt range so the size
+    // difference is legible without any one dot dominating. Sessions with no
+    // estimable duration fall back to a mid baseline (we still know one happened).
+    private static let dotMin: CGFloat = 7
+    private static let dotMax: CGFloat = 14
+    private static let dotBaseline: CGFloat = 9
+    private static let dotDurationLo: Double = 30
+    private static let dotDurationHi: Double = 90
+
+    private static func dotDiameter(forMinutes minutes: Int?) -> CGFloat {
+        guard let m = minutes, m > 0 else { return dotBaseline }
+        let t = min(1, max(0, (Double(m) - dotDurationLo) / (dotDurationHi - dotDurationLo)))
+        return dotMin + CGFloat(t) * (dotMax - dotMin)
     }
 
     // MARK: - Coach note row
@@ -890,56 +1157,26 @@ struct InicioView: View {
     /// lives in the Carreras tab, badged as "Objetivo principal".
     private var displayRace: AthleteNextRace? { nextRace ?? targetRace }
 
-    private struct WeekSegment: Identifiable {
-        let id = UUID()
-        let color: Color
-    }
+    private struct WeekProgress { let label: String }
 
-    private struct WeekProgress {
-        let label: String                 // "Semana 2/4" or coach week label
-        let counts: (done: Int, total: Int)?  // real session count, nil if unknown
-        let segments: [WeekSegment]
-    }
-
-    /// Real week progress: label + position from macro weeks, session count from
-    /// the week payload. Nil when there's no macro context AND no week sessions
-    /// (→ neutral "Ver el plan" tile).
+    /// Week strip header label: the block position ("Semana 2/4") from macro
+    /// progress when known, else the coach's freeform week label, else nil (the
+    /// strip then falls back to a neutral "Tu semana"). The coarse macro-week
+    /// segmented bar this used to drive is replaced by the granular day strip.
     private var weekProgress: WeekProgress? {
-        // Position within the block, when macro weeks are known.
-        let segments: [WeekSegment]
-        let label: String
         if !macroWeeks.isEmpty {
             let total = macroWeeks.count
             let currentIdx = macroWeeks.firstIndex { $0.status == "current" }
                 ?? macroWeeks.firstIndex { $0.status != "completed" }
                 ?? max(0, total - 1)
-            let weekNumber = currentIdx + 1
-            label = macro?.weekLabel.flatMap { $0.isEmpty ? nil : $0 }
-                ?? "Semana \(weekNumber)/\(total)"
-            segments = macroWeeks.map { WeekSegment(color: macroWeekColor($0.status)) }
-        } else if weekTotal > 0 {
-            // No block context but we do have this week's sessions.
-            label = macro?.weekLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Tu semana"
-            segments = []
-        } else {
-            return nil
+            let label = macro?.weekLabel.flatMap { $0.isEmpty ? nil : $0 }
+                ?? "Semana \(currentIdx + 1)/\(total)"
+            return WeekProgress(label: label)
         }
-
-        // Honest session count — only when we actually know the week's sessions.
-        let counts: (done: Int, total: Int)? = weekTotal > 0 ? (done: weekDone, total: weekTotal) : nil
-        return WeekProgress(label: label, counts: counts, segments: segments)
-    }
-
-    private func macroWeekColor(_ status: String) -> Color {
-        switch status {
-        case "completed": return Theme.Color.ok
-        case "current":   return Theme.Color.accent
-        case "missed":    return Theme.Color.danger
-        // Future / not-yet weeks read as an empty SUNKEN track. In light,
-        // surfaceElevated is pure white → invisible on the near-white tile; the
-        // "well" token recedes correctly in both modes.
-        default:          return Theme.Color.surfaceSunken
+        if weekTotal > 0 {
+            return WeekProgress(label: macro?.weekLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Tu semana")
         }
+        return nil
     }
 }
 
@@ -959,7 +1196,10 @@ private struct TileButton<Content: View>: View {
             onTap()
         } label: {
             content()
-                .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+                // maxHeight lets a pair of tiles equalize to the taller one when
+                // the row is height-bounded (see `tilesRow`'s fixedSize); minHeight
+                // keeps a lone tile from collapsing.
+                .frame(maxWidth: .infinity, minHeight: 72, maxHeight: .infinity, alignment: .topLeading)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 13)
                 .background(Theme.Color.surface)
@@ -973,5 +1213,68 @@ private struct TileButton<Content: View>: View {
         .disabled(onTap == nil)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(onTap == nil ? [] : .isButton)
+    }
+}
+
+// MARK: - Week strip
+//
+// One mark per day Mon–Sun encoding the week's stress mix at a glance:
+//   • COLOR  = the day's principal session modality (shared Theme.Modality hues)
+//   • SIZE   = the day's total duration (bigger = longer)
+//   • FILLED = completed · OPEN RING = still to do
+//   • DASH   = a rest day (a deliberately different, calm mark)
+// Today's weekday initial reads in the brand-orange text role so the athlete
+// instantly locates "now". Purely visual — the accessibility label on the parent
+// card narrates the week, so the strip itself is hidden from VoiceOver.
+private struct StripDay: Identifiable {
+    enum Kind { case session, rest }
+    let id: String
+    let weekdayLetter: String
+    let isToday: Bool
+    let kind: Kind
+    let color: Color
+    let diameter: CGFloat
+    let completed: Bool
+    let axText: String
+}
+
+private struct WeekStrip: View {
+    let days: [StripDay]
+
+    // The dot zone is a fixed height so every mark is vertically centered on one
+    // baseline regardless of its diameter — the size difference reads cleanly.
+    private let zoneHeight: CGFloat = 16
+    private let restDashWidth: CGFloat = 8
+    private let restDashHeight: CGFloat = 2.5
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(days) { day in
+                VStack(spacing: 6) {
+                    ZStack {
+                        switch day.kind {
+                        case .rest:
+                            Capsule(style: .continuous)
+                                .fill(Theme.Color.faint)
+                                .frame(width: restDashWidth, height: restDashHeight)
+                        case .session where day.completed:
+                            Circle()
+                                .fill(day.color)
+                                .frame(width: day.diameter, height: day.diameter)
+                        case .session:
+                            Circle()
+                                .stroke(day.color, lineWidth: 1.6)
+                                .frame(width: day.diameter - 1.6, height: day.diameter - 1.6)
+                        }
+                    }
+                    .frame(height: zoneHeight)
+                    Text(day.weekdayLetter)
+                        .font(.system(size: 9, weight: day.isToday ? .bold : .medium))
+                        .foregroundStyle(day.isToday ? Theme.Color.accentText : Theme.Color.faint)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
