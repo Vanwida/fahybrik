@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pestaña Analíticas del atleta — "Qué significan tus números para tu HYROX" (FAHYBRID iOS)</title>
+<style>
+  /* ───────────────────────── DOC SHELL (crema, legible) ─────────────────────────
+     Mismo lenguaje que los pases hermanos en docs/superpowers/plans/*.html:
+     fondo crema, tinta, acento naranja Fabrik, titulares bold italic. El doc es
+     CLARO; los MOCKUPS de teléfono y las tarjetas dentro son OSCUROS porque la
+     app es oscura. Esto es un artefacto de DECISIÓN: Alex mira, debate y elige
+     ANTES de tocar código. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:48px 24px;line-height:1.62}
+  .container{max-width:1080px;margin:0 auto}
+  h1{font-size:31px;font-weight:800;font-style:italic;letter-spacing:-0.5px;margin-bottom:6px}
+  .sub{color:#888;font-size:14px;margin-bottom:26px}
+  h2{font-size:23px;font-weight:800;margin:14px 0 6px;letter-spacing:-0.3px;display:flex;align-items:center;gap:12px}
+  h2 .surf{font-size:13px;font-weight:800;color:#fff;background:#ff6600;padding:4px 11px;border-radius:7px;letter-spacing:.02em;flex-shrink:0}
+  h2 .surf.dim{background:#1a1a1a}
+  h2 .mods{margin-left:auto;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#bbb}
+  h3{font-size:17px;font-weight:800;margin:8px 0 4px;color:#1a1a1a;letter-spacing:-0.2px}
+  p{font-size:14.5px;margin-bottom:12px;color:#2a2a2a}
+  .lead{font-size:15px;color:#444;margin-bottom:10px;max-width:820px}
+  code{font-family:'Menlo',monospace;font-size:12px;background:#f0f0ec;padding:1px 5px;border-radius:3px;color:#333}
+  .em{color:#b07000;font-weight:600}
+  a{color:#b07000}
+
+  .principle{background:#101010;color:#f4f4f0;border-radius:16px;padding:24px 28px;margin:18px 0 4px}
+  .principle p{color:#e0e0db;margin:0 0 11px;font-size:14.5px}
+  .principle p:last-child{margin:0}
+  .principle b{color:#ffb340}
+  .principle .big{font-size:17px;color:#fff;font-weight:700;font-style:italic;margin-bottom:13px;line-height:1.4}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:54px 0 12px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  /* ─── leyenda de honestidad (los 5 estados) ─── */
+  .legend{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin:18px 0 6px}
+  .lg{background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:13px 15px}
+  .lg .tg{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:3px 9px;border-radius:6px;display:inline-block;margin-bottom:8px}
+  .lg .ds{font-size:11.5px;color:#555;line-height:1.45}
+  .tg.real{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
+  .tg.log{background:#fef3e7;color:#9c5512;border:1px solid #f3d4ac}
+  .tg.wear{background:#eaf1fb;color:#27548f;border:1px solid #cadcf3}
+  .tg.field{background:#f1ecfb;color:#5a3aa0;border:1px solid #d9cdf2}
+  .tg.gate{background:#eef2f5;color:#33586e;border:1px solid #d6e2ea}
+
+  /* layout: teléfono a la izq, explicación a la der */
+  .fmt{display:grid;grid-template-columns:312px 1fr;gap:34px;align-items:start;margin:18px 0 8px}
+  .fmt .side{padding-top:2px}
+
+  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 14px}
+  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:5px}
+  .badge.real{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
+  .badge.log{background:#fef3e7;color:#9c5512;border:1px solid #f3d4ac}
+  .badge.wear{background:#eaf1fb;color:#27548f;border:1px solid #cadcf3}
+  .badge.field{background:#f1ecfb;color:#5a3aa0;border:1px solid #d9cdf2}
+  .badge.gate{background:#eef2f5;color:#33586e;border:1px solid #d6e2ea}
+
+  /* lista anotada */
+  .anno{list-style:none;padding:0;margin:6px 0 0}
+  .anno li{position:relative;padding:11px 0 11px 40px;border-bottom:1px solid #ecece7}
+  .anno li:last-child{border-bottom:none}
+  .anno .n{position:absolute;left:0;top:10px;width:26px;height:26px;border-radius:8px;background:#1a1a1a;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .anno .n.on{background:#ff6600}
+  .anno .nm{font-weight:800;font-size:14px;color:#1a1a1a}
+  .anno .ds{font-size:13px;color:#555;margin-top:2px;line-height:1.5}
+  .anno .src{font-size:11.5px;color:#999;margin-top:3px}
+
+  /* callout problema / nota */
+  .flaw{background:#fff;border:1px solid #f2cccc;border-left:5px solid #e0533f;border-radius:10px;padding:15px 19px;margin:12px 0}
+  .flaw .h{font-weight:800;font-size:13.5px;color:#a83232;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  .flaw p{font-size:13px;color:#5a3a3a;margin:0}
+
+  /* tabla honestidad */
+  table.mx{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+  table.mx th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#999;padding:9px 12px;border-bottom:2px solid #e8e8e3}
+  table.mx td{padding:11px 12px;border-bottom:1px solid #eee;color:#333;vertical-align:top}
+  table.mx td .fn{font-weight:800;color:#1a1a1a}
+  table.mx .st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 8px;border-radius:5px;white-space:nowrap}
+  table.mx .st.real{background:#d8efe0;color:#13693a}
+  table.mx .st.log{background:#fbe6d3;color:#9c4d12}
+  table.mx .st.wear{background:#dde9f8;color:#27548f}
+  table.mx .st.field{background:#e7defa;color:#5a3aa0}
+  table.mx .st.gate{background:#dde7ee;color:#2c5570}
+  table.mx code{font-size:11px}
+
+  .decision{background:#fff;border:1px solid #e8e8e3;border-left:5px solid #ff6600;border-radius:10px;padding:18px 22px;margin:16px 0}
+  .decision .q{font-weight:800;font-size:16px;margin-bottom:8px}
+  .decision .ctx{font-size:13.5px;color:#555;margin-bottom:12px}
+  .decision .opts{display:flex;flex-direction:column;gap:7px}
+  .decision .opt{font-size:13.5px;padding:9px 13px;border-radius:8px;background:#f8f8f5;border:1px solid #eee}
+  .decision .opt b{color:#b07000}
+  .decision .opt .pre{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:#1a1a1a;padding:1px 7px;border-radius:4px;margin-right:8px;vertical-align:middle}
+
+  /* noise / no construir */
+  .noise{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+  .noise .ni{background:#fbfbf9;border:1px solid #ececE7;border-radius:9px;padding:11px 15px;font-size:13px;color:#555;display:flex;gap:9px;align-items:flex-start}
+  .noise .ni .x{color:#c0392b;font-weight:800;flex-shrink:0}
+  .noise .ni b{color:#1a1a1a}
+
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12.5px;color:#aaa}
+
+  @media(max-width:900px){
+    .fmt{grid-template-columns:1fr}.fmt .phone{margin:0 auto}
+    .legend{grid-template-columns:1fr 1fr}.noise{grid-template-columns:1fr}
+    .frontier{grid-template-columns:1fr!important}.fr-arrow{transform:rotate(90deg)!important}
+    .acards{grid-template-columns:1fr!important}
+  }
+
+  /* ════════════════════════ FRONTERA · reloj vs FAHYBRID ════════════════════════ */
+  .frontier{display:grid;grid-template-columns:1fr 54px 1fr;align-items:stretch;gap:0;margin:16px 0 6px}
+  .fr-col{border-radius:14px;padding:18px 20px}
+  .fr-col.watch{background:#fff;border:1px solid #e3e3de}
+  .fr-col.us{background:#101010;color:#f4f4f0}
+  .fr-col .frh{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .fr-col.watch .frh{color:#999}
+  .fr-col.us .frh{color:#ff8a3d}
+  .fr-col .frt{font-size:16px;font-weight:800;margin-bottom:12px}
+  .fr-col.watch .frt{color:#444}
+  .fr-col.us .frt{color:#fff;font-style:italic}
+  .fr-col .fl{font-size:13px;padding:7px 0;border-bottom:1px solid;display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+  .fr-col.watch .fl{color:#777;border-color:#efefe9}
+  .fr-col.us .fl{color:#d8d8d3;border-color:rgba(255,255,255,.08)}
+  .fr-col .fl:last-child{border-bottom:none}
+  .fr-col .fl .d{flex-shrink:0;font-weight:800}
+  .fr-col.watch .fl .d{color:#bbb}
+  .fr-col.us .fl .d{color:#ff8a3d}
+  .fr-col.us .fl b{color:#fff}
+  .fr-arrow{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#ff6600}
+
+  /* ════════════════════════ TELÉFONO OSCURO (producto real) ════════════════════════
+     Tokens = espejo de ios/FAHYBRIK/Theme/Theme.swift + web/app/globals.css.
+     Fabrik orange #F06A2A, fondo #0A0A0A, superficies escalonadas. ────── */
+  .phone, .dk{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f; --sunken:#0f0f0f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16); --hairline:rgba(255,255,255,0.06);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.15);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.16);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.16);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.16);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.16);
+    --mod-carrera:#e5484d; --mod-ergo:#4d9eeb; --mod-fuerza:#e0a93b; --mod-circuito:#3fc773;
+    --z1:#34c46a;--z2:#4d9eeb;--z3:#e0a93b;--z4:#f2504f;--z5:#b13a52;--z6:#e8e8e8;
+    --r-xs:6px; --r-s:9px; --r-m:13px; --r-l:18px;
+  }
+  .phone{
+    width:312px;background:var(--bg);color:var(--fg);
+    border-radius:34px;border:1px solid rgba(255,255,255,0.10);
+    padding:11px;box-shadow:0 30px 70px -28px rgba(0,0,0,0.6);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+  }
+  .phone *,.dk *{box-sizing:border-box}
+  .phone .scr{background:var(--bg);border-radius:25px;border:1px solid rgba(255,255,255,0.05);padding:14px 12px 0;overflow:hidden}
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .lbl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+
+  /* topbar dentro del teléfono */
+  .ptop{display:flex;align-items:center;gap:8px;padding:2px 2px 12px}
+  .ptop .ttl{flex:1;font-size:18px;font-weight:800;font-style:italic;letter-spacing:-0.3px;color:var(--fg)}
+  .ptop .ic{width:26px;height:26px;border-radius:8px;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
+  .ptop .av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#2a2a2a,#161616);border:1px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--muted)}
+
+  /* segmented nav de secciones (sticky look dentro del teléfono) */
+  .snav{display:flex;gap:5px;overflow-x:auto;padding:2px 0 12px;margin-bottom:2px}
+  .snav .s{flex-shrink:0;font-size:11px;font-weight:800;padding:6px 11px;border-radius:999px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+  .snav .s.on{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+
+  /* tarjeta base dentro del teléfono / dk */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:15px;margin-bottom:11px}
+  .card .clbl{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+  .card .clbl .ico{font-size:13px}
+  .card .clbl .mtag{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+  .mtag.real{background:var(--ok-soft);color:var(--ok)}
+  .mtag.log{background:var(--warn-soft);color:var(--warn)}
+  .mtag.wear{background:var(--info-soft);color:var(--info)}
+  .mtag.field{background:rgba(155,120,235,.16);color:#b59bf0}
+  .mtag.gate{background:rgba(255,255,255,.07);color:var(--muted)}
+
+  /* hero de sección (carrera) */
+  .shero{position:relative;overflow:hidden}
+  .shero::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--mod-carrera)}
+  .modbar::before{background:var(--mod-carrera)}
+
+  /* fila métrica con valor a la derecha + sparkline */
+  .pr{display:flex;align-items:center;gap:11px;padding:3px 0}
+  .pr .meta{min-width:0;flex:1}
+  .pr .meta .ml{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+  .pr .meta .mn{font-size:13.5px;font-weight:700;color:var(--fg);margin-top:2px}
+  .pr .spark{margin-left:auto;color:var(--accent)}
+  .pr .val{text-align:right;flex-shrink:0;min-width:54px}
+  .pr .val .v{font-size:19px;font-weight:800;font-style:italic;color:var(--accent)}
+  .pr .val .v.fg{color:var(--fg)}
+  .pr .val .v small{font-size:10.5px;color:var(--muted);font-weight:600;font-style:normal}
+  .pr .val .d{font-size:10.5px;font-weight:800;color:var(--ok);margin-top:1px}
+  .pr .val .d.bad{color:var(--danger)}
+  .hr{height:1px;background:var(--hairline);margin:10px 0}
+
+  /* gran número héroe */
+  .bignum{display:flex;align-items:baseline;gap:7px;margin:2px 0 4px}
+  .bignum .b{font-size:38px;font-weight:800;font-style:italic;color:var(--accent);line-height:.9}
+  .bignum .u{font-size:13px;color:var(--muted);font-weight:600}
+  .bignum .side{margin-left:auto;align-self:flex-end;text-align:right}
+  .bignum .side .sv{font-size:14px;font-weight:800;color:var(--fg)}
+  .bignum .side .sl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--faint)}
+
+  /* barras de volumen */
+  .vbars{display:flex;align-items:flex-end;gap:5px;height:46px;margin:6px 0 2px}
+  .vbars .vb{flex:1;background:var(--surface2);border-radius:3px 3px 0 0;position:relative}
+  .vbars .vb i{position:absolute;bottom:0;left:0;right:0;background:var(--accent);border-radius:3px 3px 0 0;display:block}
+  .vbars .vb.dim i{background:rgba(240,106,42,.35)}
+  .vaxis{display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:4px;font-weight:700}
+
+  /* zonas de carrera (pace) */
+  .zrow{display:flex;align-items:center;gap:9px;padding:5px 0}
+  .zrow .zd{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .zrow .zt{font-size:12px;font-weight:700;color:var(--fg)}
+  .zrow .zl{font-size:10.5px;color:var(--muted);margin-left:2px}
+  .zrow .zv{margin-left:auto;font-size:12.5px;font-weight:800;color:var(--fg)}
+  .zrow .zv small{font-size:9.5px;color:var(--faint);font-weight:600}
+  .z1{background:var(--z1)}.z2{background:var(--z2)}.z3{background:var(--z3)}.z4{background:var(--z4)}.z5{background:var(--z5)}
+
+  /* carrera comprometida — 8 runs decay */
+  .decay{display:flex;align-items:flex-end;gap:4px;height:64px;margin:8px 0 4px}
+  .decay .rb{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .decay .rb .bar{width:100%;background:var(--mod-carrera);border-radius:3px;opacity:.55}
+  .decay .rb .bar.late{opacity:1}
+  .decay .rb .rl{font-size:8px;font-weight:700;color:var(--faint)}
+
+  /* percentil vs el campo */
+  .pct{padding:6px 0}
+  .pct .ph{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .pct .ph .pn{font-size:12px;font-weight:700;color:var(--fg)}
+  .pct .ph .pn .mi{font-size:9px;font-weight:800;text-transform:uppercase;color:var(--faint);margin-left:5px;letter-spacing:.05em}
+  .pct .ph .pp{font-size:12px;font-weight:800}
+  .pct .track{height:7px;border-radius:4px;background:var(--surface2);position:relative;overflow:hidden}
+  .pct .track i{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
+  .pp.good,.track i.good{color:var(--ok)}.track i.good{background:var(--ok)}
+  .pp.mid,.track i.mid{color:var(--warn)}.track i.mid{background:var(--warn)}
+  .pp.weak,.track i.weak{color:var(--danger)}.track i.weak{background:var(--danger)}
+
+  /* eslabón débil callout */
+  .weak-cta{background:var(--danger-soft);border:1px solid rgba(242,80,79,.3);border-left:3px solid var(--danger);border-radius:var(--r-m);padding:12px 14px;margin-top:4px}
+  .weak-cta .wh{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:5px}
+  .weak-cta .wt{font-size:13px;color:var(--fg);line-height:1.45}
+  .weak-cta .wt b{color:var(--danger)}
+
+  /* puerta honesta */
+  .gate{border:1px dashed var(--border-strong);border-radius:var(--r-m);padding:14px 15px;margin-bottom:11px;background:repeating-linear-gradient(135deg,transparent,transparent 9px,rgba(255,255,255,0.015) 9px,rgba(255,255,255,0.015) 18px)}
+  .gate .gh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .gate .gh .gi{width:22px;height:22px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+  .gate .gh .gt{font-size:12.5px;font-weight:800;color:var(--fg)}
+  .gate .gd{font-size:11.5px;color:var(--muted);line-height:1.45}
+  .gate .gcta{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:var(--accent)}
+
+  /* tab bar iOS inferior */
+  .tabbar{display:flex;justify-content:space-around;align-items:center;padding:10px 4px 6px;margin:8px -12px 0;border-top:1px solid var(--hairline);background:var(--bg)}
+  .tabbar .tb{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--faint)}
+  .tabbar .tb .ti{font-size:17px}
+  .tabbar .tb .tt{font-size:8.5px;font-weight:700;letter-spacing:.02em}
+  .tabbar .tb.on{color:var(--accent)}
+
+  /* recuperación = contexto, atenuada a propósito */
+  .ctxcard{opacity:.92}
+  .meaning{display:flex;gap:9px;align-items:flex-start;background:var(--sunken);border:1px solid var(--border);border-radius:var(--r-s);padding:10px 12px;margin-top:9px}
+  .meaning .mi{color:var(--accent);font-size:14px;flex-shrink:0}
+  .meaning .mt{font-size:11.5px;color:var(--muted);line-height:1.45}
+  .meaning .mt b{color:var(--fg)}
+
+  /* ─── DK: lienzo oscuro con rejilla de tarjetas analíticas (fuera del teléfono) ─── */
+  .dk{background:var(--bg);border-radius:18px;padding:18px;margin:14px 0 6px;border:1px solid rgba(255,255,255,0.06);box-shadow:0 24px 60px -24px rgba(0,0,0,0.55);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;color:var(--fg)}
+  .dk-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#888;margin:22px 0 7px;display:flex;align-items:center;gap:8px}
+  .dk-tag::before{content:'▸';color:#ff6600}
+  .acards{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  .acards .card{margin-bottom:0}
+  .acards .card.wide{grid-column:1 / -1}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Pestaña Analíticas del atleta</h1>
+  <div class="sub">Para revisar y debatir <b>antes</b> de tocar código · La 3ª pestaña: Inicio · Plan · <b style="color:#ff6600">Analíticas</b> · Carreras · Perfil · FAHYBRID iOS · negro + naranja Fabrik · 2026-06-29</div>
+
+  <div class="principle">
+    <p class="big">El reloj te da el número crudo. Esta pestaña te dice qué significa ese número para tu HYROX.</p>
+    <p>Garmin, COROS, Polar y Whoop llevan una década midiendo ritmo, FC, VO2max y recuperación. <b>No competimos con el sensor</b> — lo consumimos. Su pregunta es <i>"¿cómo está mi cuerpo hoy?"</i>. La nuestra es <i>"¿voy camino de mi tiempo objetivo el día de la carrera, y qué me está frenando?"</i></p>
+    <p>Por eso ninguna métrica entra aquí por ser bonita. Una analítica solo existe si responde una <b>pregunta real de un atleta HYROX</b> y necesita una de tres cosas que el reloj no tiene: el <b>formato de carrera</b> (8 runs + 8 estaciones + RoxZone), el <b>plan del coach</b>, o los <b>datos del campo</b> (percentil vs el resto). Si es un dato genérico de pulsera, es <i>contexto</i>, nunca el titular.</p>
+    <p><b>Correr primero.</b> HYROX se gana corriendo — el 50% del tiempo de carrera son los 8 km. La carrera abre la pestaña y se lleva la sección más grande. Después: ergo, fuerza, la foto cruzada de HYROX, y la recuperación como contexto.</p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">La regla de honestidad · qué se puede construir HOY</div>
+  <p class="lead">Cada tarjeta de la pestaña lleva una etiqueta. Sin humo: lo que es real hoy se marca real; lo que necesita un wearable o más registro se marca como tal, y donde iría una predicción que aún no existe hay una <b>puerta</b>, nunca un número inventado. Todo verificado contra el código y la BD demo (atleta&nbsp;70).</p>
+
+  <div class="legend">
+    <div class="lg"><span class="tg real">Real ahora</span><div class="ds">Se construye hoy con nuestros datos: segmentos, benchmarks, carreras, zonas de ritmo — y HealthKit en iOS. <b>Sin entidad legal.</b></div></div>
+    <div class="lg"><span class="tg log">Necesita más registro</span><div class="ds">El esquema existe, faltan datos: ergo (1-2 segmentos), fuerza (1 test), sueño (iOS aún no lee <code>sleepAnalysis</code>).</div></div>
+    <div class="lg"><span class="tg wear">Necesita wearable</span><div class="ds">APIs de socio (Garmin/COROS/Polar/Whoop), bloqueadas por falta de entidad legal. Dan streams continuos más ricos.</div></div>
+    <div class="lg"><span class="tg field">Necesita datos del campo</span><div class="ds">El percentil vs el campo HYROX requiere el dataset de resultados (mikatiming / HyroxDataLab): licencia + ingesta.</div></div>
+    <div class="lg"><span class="tg gate">Puerta honesta</span><div class="ds">El modelo aún no existe (p. ej. proyección de meta). En vez de un número falso, una invitación a desbloquearlo.</div></div>
+  </div>
+
+  <div class="flaw" style="margin-top:16px">
+    <div class="h">&#9888;&#65039; El matiz que mucha gente confunde: HealthKit NO está bloqueado</div>
+    <p>"Bloqueado por entidad legal" aplica solo a las <b>APIs de socio</b> (Garmin/COROS/Polar/Whoop). <b>HealthKit es otra vía, ya construida y sin entidad:</b> el iPhone/Apple Watch escriben HRV, FC reposo, VO2max, energía y entrenos en Apple Health, y la app los lee en el dispositivo. El atleta 70 tiene <b>12.484 filas biométricas</b>, todas <code>source='healthkit'</code>. Así que las tendencias de recuperación son <span class="badge real" style="margin:0 2px">REAL AHORA</span> para usuarios iOS — lo que el wearable añadiría es <i>más</i> resolución (body battery, sueño por fases, HRV continuo).</p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">La frontera, explícita</div>
+  <h2><span class="surf dim">ÁNGULO</span>Lo que el reloj ya hace bien — y lo que hacemos nosotros</h2>
+  <p class="lead">No duplicamos el sensor. Lo reinterpretamos contra tu carrera, tu plan y el campo. Esta es la línea, columna a columna:</p>
+
+  <div class="frontier">
+    <div class="fr-col watch">
+      <div class="frh">El reloj · Garmin · COROS · Whoop</div>
+      <div class="frt">"¿Cómo está mi cuerpo hoy?"</div>
+      <div class="fl"><span class="d">·</span>Ritmo, FC, cadencia, potencia, GPS</div>
+      <div class="fl"><span class="d">·</span>VO2max estimado, Training Load, Training Status</div>
+      <div class="fl"><span class="d">·</span>Recovery %, HRV, FC reposo, sueño, Strain</div>
+      <div class="fl"><span class="d">·</span>Te compara <b style="color:#999">solo contigo mismo</b></div>
+      <div class="fl"><span class="d">·</span>No sabe qué es un sled pull. No tiene meta ni fecha.</div>
+    </div>
+    <div class="fr-arrow">&#10142;</div>
+    <div class="fr-col us">
+      <div class="frh">FAHYBRID · el cerebro de carrera</div>
+      <div class="frt">"¿Llego a mi tiempo objetivo, y qué me frena?"</div>
+      <div class="fl"><span class="d">&#9873;</span>Proyección de <b>finish</b> descompuesta en 8 runs + 8 estaciones + RoxZone</div>
+      <div class="fl"><span class="d">&#9873;</span><b>Carrera comprometida</b>: cuánto cae tu ritmo tras cada estación</div>
+      <div class="fl"><span class="d">&#9873;</span>Tu <b>percentil vs el campo</b> por división, edad y sexo</div>
+      <div class="fl"><span class="d">&#9873;</span>Tu <b>eslabón débil</b>: la estación donde sangras tiempo</div>
+      <div class="fl"><span class="d">&#9873;</span>Todo leído <b>contra el plan de tu coach</b> (¿semana de carga o vas a la deriva?)</div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:#888;margin-top:10px">Donde el reloj pondría un VO2max como titular, nosotros decimos: <i>"tu tendencia de VO2max se traduce en ~4 s/km menos en tus splits — eso son ~90 s el día de la carrera."</i> Consumimos el dato; el titular siempre es lo que significa para HYROX.</p>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">La pestaña, de un vistazo</div>
+  <h2><span class="surf">ESTRUCTURA</span>Orden de la pestaña — correr arriba, el resto debajo</h2>
+  <p class="lead">Scroll vertical con un selector de secciones fijo arriba. Se abre en <b>Carrera</b>. El teléfono muestra el inicio de la pestaña; al lado, el orden completo y por qué.</p>
+
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="ptop">
+        <span class="av">M</span>
+        <span class="ttl">Analíticas</span>
+        <span class="ic">&#9881;</span>
+      </div>
+      <div class="snav">
+        <span class="s on">Carrera</span>
+        <span class="s">Ergo</span>
+        <span class="s">Fuerza</span>
+        <span class="s">HYROX</span>
+        <span class="s">Recuperación</span>
+      </div>
+
+      <!-- hero carrera: ritmo umbral -->
+      <div class="card shero">
+        <div class="clbl"><span class="lbl">Carrera · ritmo umbral</span><span class="mtag real">Real</span></div>
+        <div class="bignum">
+          <span class="b num">4:16</span><span class="u">/km · Z4</span>
+          <span class="side"><div class="sv num">49,9</div><div class="sl">VDOT</div></span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Derivado de tu 5k (Daniels). Es el ritmo que sostiene tu motor en carrera.</div>
+      </div>
+
+      <!-- tendencia 5k -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">5 km · progresión</span><span class="mtag real">Real</span></div>
+        <div class="pr">
+          <div class="meta"><div class="mn num">21:00 &rarr; 20:25 &rarr; 19:58</div></div>
+          <div class="spark"><svg width="62" height="24" viewBox="0 0 62 24"><polyline points="0,5 31,12 62,19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="val"><div class="v fg num">19:58</div><div class="d">&#8600; &#8722;1:02</div></div>
+        </div>
+      </div>
+
+      <!-- volumen -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Volumen de carrera · semanas</span><span class="mtag real">Real</span></div>
+        <div class="vbars">
+          <div class="vb"><i style="height:48%"></i></div>
+          <div class="vb"><i style="height:63%"></i></div>
+          <div class="vb"><i style="height:55%"></i></div>
+          <div class="vb"><i style="height:78%"></i></div>
+          <div class="vb"><i style="height:70%"></i></div>
+          <div class="vb dim"><i style="height:42%"></i></div>
+        </div>
+        <div class="vaxis"><span>hace 6</span><span class="num" style="color:var(--accent)">21,3 km esta sem.</span></div>
+      </div>
+
+      <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0 0">Carrera continúa &#8595; · mejor 1 km · zonas · carrera comprometida</div>
+
+      <!-- tab bar -->
+      <div class="tabbar">
+        <div class="tb"><span class="ti">&#8962;</span><span class="tt">Inicio</span></div>
+        <div class="tb"><span class="ti">&#9783;</span><span class="tt">Plan</span></div>
+        <div class="tb on"><span class="ti">&#128200;</span><span class="tt">Analíticas</span></div>
+        <div class="tb"><span class="ti">&#9873;</span><span class="tt">Carreras</span></div>
+        <div class="tb"><span class="ti">&#128100;</span><span class="tt">Perfil</span></div>
+      </div>
+    </div></div>
+
+    <div class="side">
+      <ol class="anno">
+        <li><span class="n on">1</span>
+          <div class="nm">Carrera <span class="badge real" style="margin-left:6px">REAL · mayoría</span></div>
+          <div class="ds">La sección más grande, primera. Ritmo umbral/VDOT, progresión de 5k, volumen, mejor 1 km, zonas de ritmo y <b>carrera comprometida</b>. Casi todo construible hoy.</div>
+        </li>
+        <li><span class="n">2</span>
+          <div class="nm">Ergo · Remo · Ski · Bike <span class="badge log" style="margin-left:6px">MÁS REGISTRO</span></div>
+          <div class="ds">Mejor split a 1000 m (distancia de carrera) y tendencia. El esquema existe; faltan registros (Concept2 PM5 / wearable).</div>
+        </li>
+        <li><span class="n">3</span>
+          <div class="nm">Fuerza <span class="badge log" style="margin-left:6px">MÁS REGISTRO</span></div>
+          <div class="ds">1RM por levantamiento (Epley) en los lifts que sostienen sled/farmers/lunges/wall-balls. Timeline real, hoy con un solo test.</div>
+        </li>
+        <li><span class="n">4</span>
+          <div class="nm">HYROX · la foto de carrera <span class="badge field" style="margin-left:6px">DIFERENCIADOR</span></div>
+          <div class="ds">La sección que <b>nadie más tiene</b>: los 16 segmentos, RoxZone, percentil vs el campo, tu eslabón débil y la proyección de finish. Mezcla real + datos del campo + puerta.</div>
+        </li>
+        <li><span class="n">5</span>
+          <div class="nm">Recuperación · contexto <span class="badge real" style="margin-left:6px">REAL · HealthKit</span></div>
+          <div class="ds">Demotada a propósito: HRV, FC reposo y VO2max, pero leídos <b>como significan para tus splits</b>, nunca como gauge crudo. El reloj ya gana esa guerra.</div>
+        </li>
+      </ol>
+      <p style="font-size:12.5px;color:#777;margin-top:14px">El orden es deliberado: lo más accionable y más construible (carrera) arriba; lo más diferenciador (HYROX) en el corazón; el contexto fisiológico al final, donde apoya sin robar el titular.</p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Sección 1 de 5</div>
+  <h2><span class="surf">CARRERA</span>Correr — el motor del híbrido<span class="mods">la sección más grande</span></h2>
+  <p class="lead">El 50% del tiempo de un HYROX son los 8 km. Esta sección es la más densa y la más <b>real</b>: casi todo sale ya de nuestros datos (benchmarks de 5k, segmentos de carrera, perfil de zonas de ritmo). Cada tarjeta responde una pregunta concreta de un corredor HYROX.</p>
+
+  <div class="dk-tag">Mockups · tarjetas de la sección Carrera</div>
+  <div class="dk">
+    <div class="acards">
+
+      <!-- ritmo umbral / vdot -->
+      <div class="card shero">
+        <div class="clbl"><span class="lbl">Ritmo umbral · tu motor</span><span class="mtag real">Real ahora</span></div>
+        <div class="bignum"><span class="b num">4:16</span><span class="u">/km</span><span class="side"><div class="sv num">49,9</div><div class="sl">VDOT</div></span></div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.4">El ritmo que puedes sostener ~1 h. Derivado de tu 5k con Daniels. <b style="color:var(--fg)">Pregunta:</b> ¿a qué ritmo debería correr cada km de la carrera?</div>
+      </div>
+
+      <!-- progresión vdot / 5k -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Progresión de fitness · 5k</span><span class="mtag real">Real ahora</span></div>
+        <svg width="100%" height="58" viewBox="0 0 240 58" preserveAspectRatio="none" style="margin:2px 0 6px">
+          <polyline points="6,40 120,24 234,10" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="6" cy="40" r="3.5" fill="var(--accent)"/><circle cx="120" cy="24" r="3.5" fill="var(--accent)"/><circle cx="234" cy="10" r="4" fill="var(--accent)"/>
+        </svg>
+        <div class="pr" style="padding:0">
+          <div class="meta"><div class="mn num" style="font-size:12.5px">21:00 &rarr; 20:25 &rarr; 19:58</div><div style="font-size:10px;color:var(--faint)">3 pruebas · VDOT 45,8 &rarr; 49,9</div></div>
+          <div class="val"><div class="v fg num">19:58</div><div class="d">&#8600; &#8722;1:02</div></div>
+        </div>
+      </div>
+
+      <!-- volumen semana/mes -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Volumen · 7 días vs mes</span><span class="mtag real">Real ahora</span></div>
+        <div class="vbars">
+          <div class="vb"><i style="height:48%"></i></div><div class="vb"><i style="height:63%"></i></div>
+          <div class="vb"><i style="height:55%"></i></div><div class="vb"><i style="height:78%"></i></div>
+          <div class="vb"><i style="height:70%"></i></div><div class="vb dim"><i style="height:42%"></i></div>
+        </div>
+        <div class="pr" style="padding:6px 0 0">
+          <div class="meta"><div class="ml">Esta semana</div></div>
+          <div class="val"><div class="v num">21,3<small> km</small></div></div>
+          <div class="meta" style="text-align:right;margin-left:14px"><div class="ml">Este mes</div></div>
+          <div class="val"><div class="v fg num">84<small> km</small></div></div>
+        </div>
+      </div>
+
+      <!-- mejor 1k / best efforts -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Mejores esfuerzos</span><span class="mtag real">Real ahora</span></div>
+        <div class="pr"><div class="meta"><div class="ml">Mejor 1 km</div></div><div class="val"><div class="v num">3:50<small> /km</small></div></div></div>
+        <div class="hr"></div>
+        <div class="pr"><div class="meta"><div class="ml">Mejor 3 km</div></div><div class="val"><div class="v fg num">12:24</div></div></div>
+        <div class="hr"></div>
+        <div class="pr"><div class="meta"><div class="ml">Mejor 5 km</div></div><div class="val"><div class="v fg num">19:58</div></div></div>
+        <div style="font-size:10px;color:var(--faint);margin-top:8px">Tu curva ritmo-duración. De aquí salen los ritmos objetivo, no de una encuesta.</div>
+      </div>
+
+      <!-- zonas de ritmo -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Tus zonas de ritmo</span><span class="mtag real">Real ahora</span></div>
+        <div class="zrow"><span class="zd z1"></span><span class="zt">Z1<span class="zl">Recuperación</span></span><span class="zv num">&gt;5:38<small> /km</small></span></div>
+        <div class="zrow"><span class="zd z2"></span><span class="zt">Z2<span class="zl">Aeróbico ext.</span></span><span class="zv num">5:00–5:37</span></div>
+        <div class="zrow"><span class="zd z3"></span><span class="zt">Z3<span class="zl">Aeróbico int.</span></span><span class="zv num">4:32–4:59</span></div>
+        <div class="zrow"><span class="zd z4"></span><span class="zt">Z4<span class="zl">Umbral</span></span><span class="zv num">4:10–4:31</span></div>
+        <div class="zrow"><span class="zd z5"></span><span class="zt">Z5<span class="zl">VO2 / potencia</span></span><span class="zv num">&lt;4:09</span></div>
+        <div style="font-size:10px;color:var(--faint);margin-top:6px">Zonas de <b style="color:var(--muted)">ritmo</b> (no de FC) desde tu test. <code style="font-size:9px;background:rgba(255,255,255,.06);color:var(--muted)">athlete_zone_profiles</code></div>
+      </div>
+
+      <!-- carrera comprometida -->
+      <div class="card wide">
+        <div class="clbl"><span class="lbl">Carrera comprometida · la métrica que define HYROX</span><span class="mtag field">Real desde carrera/sim</span></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:18px;align-items:center">
+          <div>
+            <div class="decay">
+              <div class="rb"><div class="bar" style="height:40%"></div><div class="rl">R1</div></div>
+              <div class="rb"><div class="bar" style="height:44%"></div><div class="rl">R2</div></div>
+              <div class="rb"><div class="bar" style="height:50%"></div><div class="rl">R3</div></div>
+              <div class="rb"><div class="bar" style="height:55%"></div><div class="rl">R4</div></div>
+              <div class="rb"><div class="bar late" style="height:64%"></div><div class="rl">R5</div></div>
+              <div class="rb"><div class="bar late" style="height:72%"></div><div class="rl">R6</div></div>
+              <div class="rb"><div class="bar late" style="height:84%"></div><div class="rl">R7</div></div>
+              <div class="rb"><div class="bar late" style="height:96%"></div><div class="rl">R8</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);font-weight:700"><span>4:18 /km</span><span style="color:var(--danger)">+22 s &rarr; 4:40 /km</span></div>
+          </div>
+          <div>
+            <div style="font-size:12.5px;color:var(--muted);line-height:1.5"><b style="color:var(--fg)">Pregunta:</b> ¿cuánto cae mi ritmo a medida que las estaciones fatigan las piernas? Tu run 8 va <b style="color:var(--danger)">22 s/km más lento</b> que el run 1.</div>
+            <div class="meaning"><span class="mi">&#9873;</span><span class="mt">Sostener &lt;10% de variación entre runs = <b>5-10% más rápido</b> en meta. Ninguna app de running muestra "tu ritmo después de un sled push" — solo lo sabe quien conoce el formato.</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="flaw" style="border-color:#cfe0d2;border-left-color:#3fa564;background:#f4faf6">
+    <div class="h" style="color:#1f7a45">&#9873; Honestidad de la carrera comprometida</div>
+    <p style="color:#2f5a40">El <b>cómo</b> está diseñado y es buildable: se calcula de los <code>run_splits_json</code> de una carrera o simulación. Pero el atleta 70 solo tiene 4 HYROX en <b>DOBLES</b> (splits de equipo, no individuales). Su curva personal llega con su <b>próxima carrera o simulación en solitario</b> — y la app ya tiene la plantilla de simulación para generarla. No fabricamos una curva individual que no existe.</p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Sección 2 de 5</div>
+  <h2><span class="surf">ERGO</span>Remo · Ski · Bike<span class="mods">esquema real · datos finos</span></h2>
+  <p class="lead">Tres estaciones de carrera son ergo (SkiErg, RowErg, y el bike en algunas divisiones). Lo que importa para HYROX no es el 2k de test sino tu <b>mejor split a 1000 m</b> (la distancia real de la estación) y cómo evoluciona. El pipeline existe (<code>avg_pace_s_per_500m</code>, <code>avg_power_w</code>, <code>stroke_rate_spm</code>); hoy el dato es escaso — se llena con cada registro de Concept2 o un wearable.</p>
+
+  <div class="dk-tag">Mockups · tarjetas de Ergo</div>
+  <div class="dk">
+    <div class="acards">
+      <div class="card">
+        <div class="clbl"><span class="lbl">Mejor split · 1000 m</span><span class="mtag log">Más registro</span></div>
+        <div class="pr"><div class="meta"><div class="ml" style="color:var(--info)">Remo</div></div><div class="val"><div class="v fg num">1:58<small> /500m</small></div></div></div>
+        <div class="hr"></div>
+        <div class="pr"><div class="meta"><div class="ml" style="color:var(--info)">SkiErg</div></div><div class="val"><div class="v fg num">2:04<small> /500m</small></div></div></div>
+        <div class="meaning"><span class="mi">&#9873;</span><span class="mt">A la distancia que de verdad corres en carrera, no a la del test. <b>Watts y split son lo mismo</b> (w = 2,80/split³) — guardamos uno, mostramos los dos.</span></div>
+      </div>
+      <div class="card">
+        <div class="clbl"><span class="lbl">Tendencia de split · remo</span><span class="mtag log">Más registro</span></div>
+        <svg width="100%" height="50" viewBox="0 0 240 50" preserveAspectRatio="none" style="margin:4px 0">
+          <polyline points="6,16 120,22 234,30" fill="none" stroke="var(--info)" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="3 4" opacity=".75"/>
+          <circle cx="6" cy="16" r="3" fill="var(--info)"/><circle cx="234" cy="30" r="3" fill="var(--info)"/>
+        </svg>
+        <div style="font-size:11px;color:var(--muted)">Ritmo-a-FC dada (eficiencia aeróbica) y rate de paladas. El remo HYROX eficiente es <b style="color:var(--fg)">rate bajo / potencia alta</b>.</div>
+        <div style="font-size:10px;color:var(--faint);margin-top:8px;font-style:italic">Línea discontinua = pocos registros aún. Se solidifica al loguear más sesiones.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Sección 3 de 5</div>
+  <h2><span class="surf">FUERZA</span>La base de las estaciones<span class="mods">timeline real · 1 test hoy</span></h2>
+  <p class="lead">No es culturismo. La fuerza que importa para HYROX es la que sostiene el <b>sled push/pull, farmers, lunges y wall balls</b>. Trazamos el 1RM estimado (Epley) de esos lifts en el tiempo — una línea de progreso, no un mapa de calor por músculo (eso es ruido para un atleta de carrera). <code>athlete_strength_maxes</code> es versionado = un timeline real; hoy con un solo registro, se vuelve tendencia cuando el atleta testea.</p>
+
+  <div class="dk-tag">Mockups · tarjetas de Fuerza</div>
+  <div class="dk">
+    <div class="acards">
+      <div class="card">
+        <div class="clbl"><span class="lbl">1RM · sentadilla trasera</span><span class="mtag log">Más registro</span></div>
+        <div class="bignum"><span class="b num" style="color:var(--mod-fuerza)">80</span><span class="u">kg</span><span class="side"><div class="sv num">+0</div><div class="sl">1 test</div></span></div>
+        <svg width="100%" height="34" viewBox="0 0 240 34" preserveAspectRatio="none">
+          <line x1="6" y1="20" x2="234" y2="20" stroke="rgba(255,255,255,.08)" stroke-width="1.5" stroke-dasharray="3 4"/>
+          <circle cx="6" cy="20" r="4" fill="var(--mod-fuerza)"/>
+        </svg>
+        <div style="font-size:10.5px;color:var(--faint);margin-top:4px">Un punto = aún no hay línea. Cada re-test añade un nodo y dibuja la tendencia.</div>
+      </div>
+      <div class="card">
+        <div class="clbl"><span class="lbl">Lifts que mueven tu HYROX</span><span class="mtag log">Más registro</span></div>
+        <div class="pr"><div class="meta"><div class="ml">Sentadilla &rarr; sled</div></div><div class="val"><div class="v num" style="color:var(--mod-fuerza)">80<small> kg</small></div></div></div>
+        <div class="hr"></div>
+        <div class="pr"><div class="meta"><div class="ml">Peso muerto &rarr; sled pull</div><div style="font-size:10px;color:var(--faint)">sin registrar</div></div><div class="val"><div class="v fg" style="color:var(--faint);font-size:15px">—</div></div></div>
+        <div class="hr"></div>
+        <div class="pr"><div class="meta"><div class="ml">Press hombro &rarr; wall balls</div><div style="font-size:10px;color:var(--faint)">sin registrar</div></div><div class="val"><div class="v fg" style="color:var(--faint);font-size:15px">—</div></div></div>
+        <div style="font-size:10.5px;color:var(--faint);margin-top:6px">Vacíos honestos: invitan a testear, no muestran ceros falsos.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Sección 4 de 5 · el diferenciador</div>
+  <h2><span class="surf">HYROX</span>La foto de carrera — lo que nadie más tiene<span class="mods">cross-modalidad</span></h2>
+  <p class="lead">Aquí está el motivo de existir de la pestaña. Ninguna app general conecta las modalidades como exige HYROX. Esta sección descompone la carrera en los <b>16 segmentos que deciden tu puesto</b>, los pone contra el campo, y diagnostica tu <b>eslabón débil</b>. Mezcla dato real (nuestras carreras), dato del campo (a licenciar) y una puerta honesta para la proyección que aún no modelamos.</p>
+
+  <div class="fmt">
+    <div class="phone"><div class="scr">
+      <div class="ptop">
+        <span class="av">M</span>
+        <span class="ttl">Analíticas</span>
+        <span class="ic">&#9881;</span>
+      </div>
+      <div class="snav">
+        <span class="s">Carrera</span><span class="s">Ergo</span><span class="s">Fuerza</span>
+        <span class="s on">HYROX</span><span class="s">Recuperación</span>
+      </div>
+
+      <!-- proyección finish = puerta -->
+      <div class="gate">
+        <div class="gh"><span class="gi">&#128274;</span><span class="gt">¿Llegas a tu sub 59?</span></div>
+        <div class="gd">Aún no proyectamos tu finish — el modelo no existe. Haz una <b>simulación HYROX</b> y la desbloqueamos con tus splits reales.</div>
+        <div class="gcta">Programar simulación &#8594;</div>
+      </div>
+
+      <!-- desglose 16 segmentos (resumen) -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Última carrera · desglose</span><span class="mtag real">Real</span></div>
+        <div class="pr" style="padding:2px 0"><div class="meta"><div class="ml">8 carreras</div></div><div class="val"><div class="v fg num" style="font-size:16px">38:42</div></div></div>
+        <div class="pr" style="padding:2px 0"><div class="meta"><div class="ml">8 estaciones</div></div><div class="val"><div class="v fg num" style="font-size:16px">25:10</div></div></div>
+        <div class="pr" style="padding:2px 0"><div class="meta"><div class="ml" style="color:var(--accent)">RoxZone · transiciones</div></div><div class="val"><div class="v num" style="font-size:16px">4:48</div></div></div>
+        <div class="meaning"><span class="mi">&#9873;</span><span class="mt">RoxZone es ~6,5% de la carrera y <b>3+ min gratis</b>: el recreacional pierde 52 s/transición vs 28 s del élite. Invisible para el reloj.</span></div>
+      </div>
+
+      <!-- percentil vs campo -->
+      <div class="card">
+        <div class="clbl"><span class="lbl">Tú vs el campo</span><span class="mtag field">Datos del campo</span></div>
+        <div class="pct"><div class="ph"><span class="pn">Wall Balls<span class="mi">fuerte</span></span><span class="pp good num">P80</span></div><div class="track"><i class="good" style="width:80%"></i></div></div>
+        <div class="pct"><div class="ph"><span class="pn">SkiErg</span><span class="pp mid num">P58</span></div><div class="track"><i class="mid" style="width:58%"></i></div></div>
+        <div class="pct"><div class="ph"><span class="pn">Sled Pull<span class="mi">débil</span></span><span class="pp weak num">P32</span></div><div class="track"><i class="weak" style="width:32%"></i></div></div>
+        <div style="font-size:9.5px;color:var(--faint);margin-top:6px">Por división · sexo · edad. Requiere el dataset HYROX.</div>
+      </div>
+
+      <!-- eslabón débil -->
+      <div class="weak-cta">
+        <div class="wh">&#9888; Tu eslabón débil</div>
+        <div class="wt">Tu <b>sled pull</b> está en P32 y tu ritmo cae 8% justo después. Ahí está tu tiempo: <b>fuerza de tracción</b>.</div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tb"><span class="ti">&#8962;</span><span class="tt">Inicio</span></div>
+        <div class="tb"><span class="ti">&#9783;</span><span class="tt">Plan</span></div>
+        <div class="tb on"><span class="ti">&#128200;</span><span class="tt">Analíticas</span></div>
+        <div class="tb"><span class="ti">&#9873;</span><span class="tt">Carreras</span></div>
+        <div class="tb"><span class="ti">&#128100;</span><span class="tt">Perfil</span></div>
+      </div>
+    </div></div>
+
+    <div class="side">
+      <div class="badges">
+        <span class="badge real">REAL</span>
+        <span class="badge field">DATOS DEL CAMPO</span>
+        <span class="badge gate">PUERTA</span>
+      </div>
+      <ol class="anno">
+        <li><span class="n">A</span>
+          <div class="nm">Proyección de finish <span class="badge gate" style="margin-left:6px">PUERTA</span></div>
+          <div class="ds">El santo grial: finish proyectado descompuesto, semana a semana hacia tu meta. <b>El modelo está a null</b> (<code>deep-dive-performance.ts:439</code>). En vez de inventar "vas a 1h28", invitamos a la simulación que sí lo poblará.</div>
+        </li>
+        <li><span class="n">B</span>
+          <div class="nm">Desglose de 16 segmentos + RoxZone <span class="badge real" style="margin-left:6px">REAL</span></div>
+          <div class="ds">8 runs + 8 estaciones + transiciones, de <code>station_splits_json</code> / <code>run_splits_json</code> / <code>roxzone_seconds</code> (mig 0054). El atleta 70 tiene 4 carreras con splits reales — hoy en dobles, individual con su próxima en solitario.</div>
+        </li>
+        <li><span class="n">C</span>
+          <div class="nm">Percentil vs el campo <span class="badge field" style="margin-left:6px">DATOS DEL CAMPO</span></div>
+          <div class="ds">Cada split sobre la distribución real (mikatiming, 425k+ resultados) por división/sexo/edad. El reloj solo te compara contigo; aquí ves dónde está el tiempo vs el resto. Requiere licenciar/ingerir el dataset (HyroxDataLab-style).</div>
+        </li>
+        <li><span class="n">D</span>
+          <div class="nm">Tu eslabón débil <span class="badge field" style="margin-left:6px">DERIVADO</span></div>
+          <div class="ds"><b>El diferenciador que nadie entrega.</b> Funde percentil de estación + caída de ritmo + tendencia de fuerza en una lista de debilidades ranqueada: "tu sled pull es P32 y tu run cae 8% después &rarr; entrena tracción". Necesita B + C poblados.</div>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Sección 5 de 5 · contexto, no titular</div>
+  <h2><span class="surf dim">RECUPERACIÓN</span>El cuerpo, reinterpretado<span class="mods">HealthKit · real</span></h2>
+  <p class="lead">Aquí es donde <b>consumimos</b> el dato del reloj — y donde más disciplina hace falta. No ponemos un gauge de VO2max ni un Recovery % como titular: eso lo hace Garmin/Whoop mejor y diluiría nuestra diferencia. Lo mostramos solo <b>traducido a lo que significa para tu carrera</b>, y leído contra el plan de tu coach. HRV, FC reposo y VO2max llegan ya por HealthKit (real ahora, sin entidad). El sueño aún no — iOS no lo lee todavía.</p>
+
+  <div class="dk-tag">Mockups · tarjetas de Recuperación (contexto)</div>
+  <div class="dk">
+    <div class="acards">
+      <div class="card ctxcard">
+        <div class="clbl"><span class="lbl">Tendencia VO2max &rarr; tus splits</span><span class="mtag real">Real · HealthKit</span></div>
+        <svg width="100%" height="44" viewBox="0 0 240 44" preserveAspectRatio="none" style="margin:2px 0 4px">
+          <polyline points="6,30 80,26 150,20 234,14" fill="none" stroke="var(--ok)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="meaning"><span class="mi">&#9873;</span><span class="mt">No te decimos "VO2max 52". Te decimos: <b>tu tendencia se traduce en ~4 s/km menos en tus runs — ~90 s en meta.</b> El número es del reloj; el significado es nuestro.</span></div>
+      </div>
+      <div class="card ctxcard">
+        <div class="clbl"><span class="lbl">HRV · FC reposo · tendencia</span><span class="mtag real">Real · HealthKit</span></div>
+        <div class="pr"><div class="meta"><div class="ml">HRV (7 días)</div></div><div class="val"><div class="v fg num">68<small> ms</small></div></div></div>
+        <div class="hr"></div>
+        <div class="pr"><div class="meta"><div class="ml">FC reposo</div></div><div class="val"><div class="v fg num">48<small> ppm</small></div><div class="d">&#8600; bien</div></div></div>
+        <div class="meaning"><span class="mi">&#9873;</span><span class="mt">Solo como <b>tendencia</b> y leído contra el plan: una "comprometida" dura es <i>on-plan</i>, no "overreaching". El reloj la malinterpretaría; nosotros sabemos que tocaba.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flaw" style="margin-top:14px">
+    <div class="h">&#9888;&#65039; Vacíos honestos de recuperación</div>
+    <p><b>Sueño:</b> <code>biometric-trend.ts</code> lo espera pero iOS aún no observa <code>sleepAnalysis</code> → 0 filas. Es un hueco de una línea en iOS, <b>no</b> el bloqueo legal. Lo marcamos "conectar", no inventamos horas. · <b>Frescura:</b> el HRV del atleta 70 se corta en 2021 (dato viejo de la demo) — cuando es viejo lo decimos, no fingimos que es de hoy. · <b>Zonas de FC:</b> "tiempo en zona de FC" necesita streams continuos + un modelo de zonas de FC que <b>no tenemos</b> (las zonas que sí tenemos son de ritmo). Eso es <span class="badge wear" style="margin:0 2px">NECESITA WEARABLE</span>, no se finge.</p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Honestidad · la matriz completa</div>
+  <h2><span class="surf">VERIFICADO</span>Qué es real, qué necesita registro, qué necesita wearable</h2>
+  <p class="lead">Comprobado contra el código y la BD demo (atleta 70). Nada de la pestaña está inventado.</p>
+
+  <table class="mx">
+    <thead><tr><th>Analítica</th><th>Estado</th><th>Por qué · fuente</th></tr></thead>
+    <tbody>
+      <tr><td><span class="fn">Volumen de carrera · semana/mes</span></td><td><span class="st real">REAL</span></td><td><code>segment_executions.distance_meters</code> filtrado a carrera. <code>weekly_volume_km</code> ya enviado en <code>running-analysis.ts</code>. Mensual = ventana trivial.</td></tr>
+      <tr><td><span class="fn">Ritmo umbral · VDOT · progresión 5k</span></td><td><span class="st real">REAL</span></td><td><code>running-analysis.ts</code> + <code>vdot.ts</code> sobre histórico de <code>run_5k</code>. Atleta 70: 21:00 &rarr; 20:25 &rarr; 19:58.</td></tr>
+      <tr><td><span class="fn">Mejores esfuerzos (mejor 1k)</span></td><td><span class="st real">REAL</span></td><td>PR escalado por km en la banda 800-1200 m. <code>running-analysis.ts</code>.</td></tr>
+      <tr><td><span class="fn">Zonas de ritmo</span></td><td><span class="st real">REAL</span></td><td><code>athlete_zone_profiles</code> (mig 0061) son zonas de <b>ritmo</b> (threshold_s). OJO: no son zonas de FC.</td></tr>
+      <tr><td><span class="fn">Desglose de carrera · 16 segmentos + RoxZone</span></td><td><span class="st real">REAL</span></td><td><code>races.station_splits_json</code> / <code>run_splits_json</code> / <code>roxzone_seconds</code> (mig 0054). Atleta 70: 4 carreras con splits — en dobles.</td></tr>
+      <tr><td><span class="fn">Carrera comprometida (decay 8 runs)</span></td><td><span class="st real">REAL*</span></td><td>De <code>run_splits_json</code>. *Curva individual necesita una carrera/sim en <b>solitario</b> (las del atleta 70 son dobles).</td></tr>
+      <tr><td><span class="fn">Recuperación · HRV / FC reposo / VO2max</span></td><td><span class="st real">REAL · HealthKit</span></td><td><code>biometric-trend.ts</code> sobre <code>biometric_streams</code>. iOS lee estos vía HealthKit. <b>Sin entidad legal.</b> Atleta 70: 12.484 filas.</td></tr>
+      <tr><td><span class="fn">Ergo · split 1000 m + tendencia</span></td><td><span class="st log">MÁS REGISTRO</span></td><td>Esquema real (<code>avg_pace_s_per_500m</code>, mig 0045). Atleta 70: 1-2 segmentos. Concept2 PM5 sin construir aún.</td></tr>
+      <tr><td><span class="fn">Fuerza · 1RM por lift</span></td><td><span class="st log">MÁS REGISTRO</span></td><td><code>athlete_strength_maxes</code> (mig 0076) versionado = timeline real. Atleta 70: 1 fila (sentadilla 80 kg).</td></tr>
+      <tr><td><span class="fn">Sueño · tendencia</span></td><td><span class="st log">MÁS REGISTRO</span></td><td>iOS no observa <code>sleepAnalysis</code> (<code>biometric-trend.ts:49</code> lo espera). Hueco de una línea en iOS, no el bloqueo legal.</td></tr>
+      <tr><td><span class="fn">Percentil vs el campo</span></td><td><span class="st field">DATOS DEL CAMPO</span></td><td>Requiere el dataset de resultados HYROX (mikatiming / HyroxDataLab): licencia + ingesta. No lo tenemos aún.</td></tr>
+      <tr><td><span class="fn">Eslabón débil (diagnóstico fusionado)</span></td><td><span class="st field">DERIVADO</span></td><td>Funde percentil + decay + tendencia de fuerza. Necesita splits individuales + dataset del campo. <b>El diferenciador a poseer.</b></td></tr>
+      <tr><td><span class="fn">Tiempo en zona de FC</span></td><td><span class="st wear">WEARABLE</span></td><td>Necesita streams continuos de FC + un modelo de zonas de FC que no existe. Las APIs de socio están bloqueadas por entidad.</td></tr>
+      <tr><td><span class="fn">Proyección de finish vs meta</span></td><td><span class="st gate">PUERTA</span></td><td>Modelo a null (<code>deep-dive-performance.ts:439</code>). Sin número falso: puerta a la simulación.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Lo que NO construimos</div>
+  <h2><span class="surf dim">RUIDO</span>Vanidad que dejamos fuera a propósito</h2>
+  <p class="lead">Cada uno de estos lo hace otra app, o no responde ninguna pregunta de carrera. Incluirlos diluiría la pestaña.</p>
+  <div class="noise">
+    <div class="ni"><span class="x">&#10005;</span><span><b>Score diario único como verdad</b> (Recovery de hoy, TSB de hoy). Solo sirve como tendencia; el número diario es ansiedad.</span></div>
+    <div class="ni"><span class="x">&#10005;</span><span><b>Mapa de calor de volumen por músculo.</b> Métrica de culturismo, señal casi nula para un atleta de carrera.</span></div>
+    <div class="ni"><span class="x">&#10005;</span><span><b>Leaderboards sociales / kudos / rachas / badges.</b> Retención, no señal de entrenamiento.</span></div>
+    <div class="ni"><span class="x">&#10005;</span><span><b>VO2max como titular.</b> Estimado de muñeca, salta mucho; solo la <i>dirección</i> de la tendencia es usable — y va de contexto, no de héroe.</span></div>
+    <div class="ni"><span class="x">&#10005;</span><span><b>Arcoíris de 7 zonas de FC.</b> Tres cubos cargan la decisión real; siete son decoración.</span></div>
+    <div class="ni"><span class="x">&#10005;</span><span><b>Re-construir ritmo/FC/GPS crudos.</b> Es input del reloj. Lo ingerimos, no lo medimos — perderíamos la guerra de precisión.</span></div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div class="seclbl">Para debatir · decisiones abiertas</div>
+  <div class="decision">
+    <div class="q">Lo OBJETIVO ya está decidido. Lo SUBJETIVO lo decides tú.</div>
+    <div class="ctx">El orden (carrera primero), la regla de honestidad y qué es real vs wearable no se votan — son correctitud del dominio. Lo que sí quiero contigo:</div>
+    <div class="opts">
+      <div class="opt"><span class="pre">Debate 1</span>¿La sección <b>HYROX (foto de carrera)</b> sube a 2ª posición (justo tras Carrera), o se queda en el corazón tras Ergo/Fuerza? Es el diferenciador, pero hoy depende más de datos del campo/sim.</div>
+      <div class="opt"><span class="pre">Debate 2</span>El <b>percentil vs el campo</b> es nuestro mayor diferenciador y nuestra mayor dependencia externa (licenciar el dataset HYROX). ¿Lo priorizamos como inversión, o arrancamos sin percentil y solo "tú vs tu última carrera"?</div>
+      <div class="opt"><span class="pre">Debate 3</span>¿La <b>proyección de finish</b> va arriba del todo como puerta visible (motivacional, "haz una sim y te lo desbloqueo"), o discreta hasta que exista el modelo?</div>
+      <div class="opt"><span class="pre">Debate 4</span>Subjetivo de copy/forma: nombres de sección (¿"Carrera" o "Correr"?, ¿"Recuperación" o "Tu cuerpo"?), y si la recuperación se muestra como tarjetas o se colapsa en una sola fila de contexto.</div>
+    </div>
+  </div>
+
+  <footer>
+    FAHYBRID · Pestaña Analíticas del atleta · artefacto de decisión (doc, no código).
+    Mockups oscuros = espejo de <code>ios/FAHYBRIK/Theme/Theme.swift</code> + <code>web/app/globals.css</code> (Fabrik orange #F06A2A).
+    Estados verificados contra el código (<code>running-analysis.ts</code>, <code>biometric-trend.ts</code>, <code>race-context.ts</code>, <code>modality-analytics.ts</code>) y la BD demo (atleta 70).
+    Frontera reloj↔FAHYBRID e inventario de honestidad basados en la investigación de apps de analítica y la frontera de wearables.
+  </footer>
+
+</div>
+</body>
+</html>
