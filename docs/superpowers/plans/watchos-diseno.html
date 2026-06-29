@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apple Watch — App del atleta · FAHYBRID</title>
+<style>
+  /* ───────── DOC SHELL (crema, premium) — mismo lenguaje que los pases hermanos ─────────
+     El doc es CLARO. Los MOCKUPS del reloj son OSCUROS (la app es negra + naranja Fabrik). */
+  :root{
+    --orange:#F06A2A; --orange-soft:#ff8a4c; --ink:#101010;
+    --cream:#f7f7f5; --card:#ffffff; --line:#e8e8e3;
+    --watch-bg:#000000; --watch-ink:#ffffff; --watch-dim:#8a8a8e;
+    --z-run:#2fd14f; --z-thr:#ffb340; --z-vo2:#ff4d4d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--cream);color:#1a1a1a;padding:48px 24px 80px;line-height:1.55}
+  .container{max-width:1180px;margin:0 auto}
+  h1{font-size:32px;font-weight:800;font-style:italic;letter-spacing:-0.5px}
+  .sub{color:#999;font-size:13.5px;margin:6px 0 8px}
+  .principle{background:var(--ink);color:#f4f4f0;border-radius:16px;padding:20px 26px;margin:18px 0 6px;display:flex;gap:26px;flex-wrap:wrap}
+  .principle .pc{flex:1;min-width:150px}
+  .principle .pc .big{font-size:15px;font-weight:800;color:#fff;margin-bottom:3px;display:flex;align-items:center;gap:8px}
+  .principle .pc .sm{font-size:12.5px;color:#bdbdb7}
+  .principle .pc .big .d{width:9px;height:9px;border-radius:50%;background:var(--orange)}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#aaa;margin:54px 0 18px;display:flex;align-items:center;gap:12px}
+  .seclbl::before{content:attr(data-n);color:var(--orange);font-size:11px}
+  .seclbl::after{content:'';flex:1;height:1px;background:var(--line)}
+
+  /* ── gesture legend ── */
+  .gest{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0}
+  .g{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:14px 16px;display:flex;gap:12px;align-items:center}
+  .g .gi{width:42px;height:42px;border-radius:11px;background:#faf3ee;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .g .gt{font-size:13.5px;font-weight:800;letter-spacing:-0.2px}
+  .g .gd{font-size:11.5px;color:#888;margin-top:1px}
+  svg{display:block}
+
+  /* ── family chips ── */
+  .fams{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:4px 0}
+  .fam{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;border-top:3px solid var(--orange)}
+  .fam .ft{font-size:13px;font-weight:800;margin-bottom:5px}
+  .fam .fl{font-size:10.5px;color:#7a7a7a;line-height:1.45}
+  .fam .fl b{color:#444;font-weight:700}
+
+  /* ── watch grid ── */
+  .row{display:flex;flex-wrap:wrap;gap:34px 28px;margin-top:6px;align-items:flex-start}
+  .cell{width:236px}
+  .cap{font-size:14px;font-weight:800;letter-spacing:-0.2px;margin:14px 0 2px;display:flex;align-items:center;gap:8px}
+  .cap .num{font-size:10px;font-weight:800;color:#fff;background:var(--orange);width:19px;height:19px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  .capd{font-size:11.5px;color:#8a8a8a;min-height:30px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .chip{font-size:10px;font-weight:800;padding:4px 8px 4px 6px;border-radius:999px;background:#f0ece6;color:#5a5249;display:inline-flex;align-items:center;gap:5px}
+  .chip.acc{background:#fbe7da;color:#a64413}
+  .chip.hap{background:#eae6f7;color:#5a4aa0}
+
+  /* ── THE APPLE WATCH FRAME (faithful cushion / rounded-rect) ── */
+  .aw{position:relative;width:212px;margin:0 auto}
+  .aw .body{position:relative;background:#1b1b1d;border-radius:54px;padding:13px 12px;
+    box-shadow:0 18px 40px -16px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06);}
+  /* digital crown */
+  .aw .crown{position:absolute;right:-6px;top:64px;width:9px;height:42px;border-radius:5px;
+    background:linear-gradient(90deg,#3a3a3d,#5a5a5e);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+  .aw .crown::after{content:'';position:absolute;right:-3px;top:9px;width:5px;height:24px;border-radius:4px;background:var(--orange);opacity:.0}
+  .aw.cr .crown::after{opacity:1;box-shadow:0 0 9px 1px rgba(240,106,42,.8)}
+  .aw .sbtn{position:absolute;right:-4px;top:120px;width:7px;height:30px;border-radius:5px;background:linear-gradient(90deg,#2c2c2f,#444448)}
+  .screen{position:relative;background:var(--watch-bg);border-radius:42px;overflow:hidden;
+    aspect-ratio:198/242;color:var(--watch-ink);padding:16px 15px 15px}
+  .screen .st{position:absolute;top:8px;left:0;right:0;text-align:center;font-size:10px;font-weight:700;color:#c8c8cc;letter-spacing:.3px}
+  /* full-bleed tap affordance flash */
+  .tapring{position:absolute;inset:0;border:2.5px solid var(--orange);border-radius:42px;opacity:.0}
+  .aw.tap .tapring{opacity:.85;box-shadow:inset 0 0 24px rgba(240,106,42,.35)}
+
+  /* shared screen atoms */
+  .lab{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--watch-dim)}
+  .lab.o{color:var(--orange-soft)}
+  .huge{font-weight:800;letter-spacing:-2px;font-variant-numeric:tabular-nums;line-height:.92}
+  .now{font-size:16px;font-weight:800;letter-spacing:-.4px}
+  .nxt{font-size:12.5px;font-weight:700;color:#c2c2c6}
+  .dim{color:var(--watch-dim)}
+  .hrpill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+  .hrpill .hd{width:8px;height:8px;border-radius:50%}
+  .ctrls{position:absolute;bottom:13px;left:0;right:0;display:flex;justify-content:center;gap:9px}
+  .ctrls .cb{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .cb.pause{background:#2a2a2c}
+  .cb.stop{background:#3a1410}
+  .bigtap{position:absolute;left:11px;right:11px;bottom:11px;height:52px;border-radius:18px;background:var(--orange);
+    display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:800;color:#fff;letter-spacing:-.2px;
+    box-shadow:0 6px 16px -4px rgba(240,106,42,.7)}
+  .bigtap.green{background:var(--z-run);box-shadow:0 6px 16px -4px rgba(47,209,79,.55);color:#06280f}
+
+  /* zone bar */
+  .zbar{height:12px;border-radius:6px;background:#2a2a2c;overflow:hidden;position:relative;display:flex}
+  .zbar i{display:block;height:100%}
+  .ztgt{position:absolute;top:-3px;bottom:-3px;width:3px;background:#fff;border-radius:2px}
+
+  /* set table rows */
+  .srow{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid #222}
+  .srow b{font-variant-numeric:tabular-nums}
+  .srow.done{color:#5a5a5e}
+  .srow.cur{color:#fff}
+  .srow .dot{width:6px;height:6px;border-radius:50%;background:#3a3a3c;margin-right:7px;display:inline-block}
+  .srow.cur .dot{background:var(--orange)}
+  .srow.done .dot{background:var(--z-run)}
+
+  /* checklist */
+  .ck{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;padding:6px 0}
+  .ck .box{width:18px;height:18px;border-radius:6px;border:2px solid #3a3a3c;flex-shrink:0}
+  .ck.done{color:#5a5a5e}
+  .ck.done .box{background:var(--z-run);border-color:var(--z-run)}
+  .ck.cur .box{border-color:var(--orange)}
+
+  /* splits rows */
+  .lp{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid #1f1f1f;font-variant-numeric:tabular-nums}
+  .lp .n{color:var(--watch-dim);font-weight:700}
+  .lp .t{font-weight:800}
+  .lp.best .t{color:var(--orange-soft)}
+
+  .footnote{font-size:11.5px;color:#9a9a9a;margin-top:46px;border-top:1px solid var(--line);padding-top:14px}
+  .scope{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .scope .sc{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 18px}
+  .scope .sc h4{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px}
+  .scope .sc.watch h4{color:var(--orange)}
+  .scope .sc.phone h4{color:#5a5aa0}
+  .scope .sc .it{font-size:12.5px;font-weight:700;color:#444;padding:3px 0 3px 16px;position:relative}
+  .scope .sc.watch .it::before{content:'';position:absolute;left:0;top:9px;width:7px;height:7px;border-radius:50%;background:var(--orange)}
+  .scope .sc.phone .it::before{content:'';position:absolute;left:0;top:9px;width:7px;height:7px;border-radius:2px;background:#9a9ad0}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Apple Watch — App del atleta</h1>
+  <div class="sub">FAHYBRID · DOING the workout, no analytics · negro + naranja Fabrik · tipografía gigante</div>
+
+  <div class="principle">
+    <div class="pc"><div class="big"><span class="d"></span>CLARO</div><div class="sm">Un dato manda. El número gigante.</div></div>
+    <div class="pc"><div class="big"><span class="d"></span>GRANDE</div><div class="sm">≤4 métricas. Tipo auto-escala al máximo.</div></div>
+    <div class="pc"><div class="big"><span class="d"></span>BÁSICO</div><div class="sm">Una cosa a la vez. Sin dashboards.</div></div>
+    <div class="pc"><div class="big"><span class="d"></span>FÁCIL</div><div class="sm">Mínimos taps. Pantalla = botón.</div></div>
+  </div>
+
+  <!-- ════════════ INTERACTION MODEL ════════════ -->
+  <div class="seclbl" data-n="">MODELO DE INTERACCIÓN</div>
+  <div class="gest">
+    <div class="g">
+      <div class="gi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="11" r="6.2" stroke="#F06A2A" stroke-width="2"/><circle cx="12" cy="11" r="2.3" fill="#F06A2A"/></svg></div>
+      <div><div class="gt">Tap pantalla</div><div class="gd">Acción primaria · ronda/set hecho</div></div>
+    </div>
+    <div class="g">
+      <div class="gi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="#F06A2A" stroke-width="2"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" stroke="#F06A2A" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div><div class="gt">Digital Crown</div><div class="gd">Girar = cambiar pantalla/métrica</div></div>
+    </div>
+    <div class="g">
+      <div class="gi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 9c2-3 4-3 7 0M3 12c3-5 7-5 11 0M19 6c2 4 2 8 0 12" stroke="#5a4aa0" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div><div class="gt">Háptico</div><div class="gd">Confirma transición · beep al pitido</div></div>
+    </div>
+    <div class="g">
+      <div class="gi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 12h12M13 7l5 5-5 5" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div><div class="gt">Swipe</div><div class="gd">Pausa / Terminar fuera de la vista</div></div>
+    </div>
+  </div>
+
+  <!-- families -->
+  <div class="seclbl" data-n="">5 FAMILIAS DE FORMATO · UN LAYOUT CADA UNA</div>
+  <div class="fams">
+    <div class="fam"><div class="ft">Rotativo</div><div class="fl"><b>EMOM·Tabata·Intervals·DeathBy</b> — cuenta atrás del intervalo, auto-avance</div></div>
+    <div class="fam"><div class="ft">Fijo</div><div class="fl"><b>AMRAP·ForTime·Chipper·Rounds</b> — reloj gigante + ronda con un tap</div></div>
+    <div class="fam"><div class="ft">Continuo</div><div class="fl"><b>Steady</b> — tiempo + barra de zona FC objetivo</div></div>
+    <div class="fam"><div class="ft">Tabla series</div><div class="fl"><b>Sets·Fuerza</b> — serie x/N, carga, reps+RIR, descanso</div></div>
+    <div class="fam"><div class="ft">Lista</div><div class="fl"><b>Calentamiento·Vuelta calma</b> — checklist, avanzar</div></div>
+  </div>
+
+  <!-- ════════════ ANTES ════════════ -->
+  <div class="seclbl" data-n="ANTES · ">LLEGAR Y EMPEZAR</div>
+  <div class="row">
+
+    <!-- 1. Readiness glance -->
+    <div class="cell">
+      <div class="aw cr">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st">9:41</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab o">¿Cómo llegas?</div>
+            <div class="huge" style="font-size:74px;color:var(--z-run);margin:6px 0 0">82</div>
+            <div style="font-size:11px;color:var(--watch-dim);font-weight:700;margin-top:-2px">READINESS · ▲ +6</div>
+          </div>
+          <div style="margin-top:14px;background:#141414;border-radius:14px;padding:9px 11px">
+            <div style="font-size:10px;font-weight:800;color:var(--watch-dim);letter-spacing:.6px">PEOR DRIVER</div>
+            <div style="font-size:13.5px;font-weight:800;margin-top:1px">Sueño 6h 10m</div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">1</span>¿Cómo llegas?</div>
+      <div class="capd">Glance + complicación. Un número, peor driver. Sin gráficas.</div>
+      <div class="chips"><span class="chip">Glance</span><span class="chip acc">Crown ▸ detalle</span></div>
+    </div>
+
+    <!-- 2. Empezar hoy -->
+    <div class="cell">
+      <div class="aw">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st">9:41</div>
+          <div style="margin-top:16px">
+            <div class="lab o">Hoy toca</div>
+            <div style="font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.04;margin:4px 0 8px">Umbral<br>+ Fuerza</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:800;background:#1f1f1f;border-radius:999px;padding:4px 9px">4 bloques</span>
+              <span style="font-size:11px;font-weight:800;background:#1f1f1f;border-radius:999px;padding:4px 9px">~58 min</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--watch-dim);font-weight:700;margin-top:10px">1º · 15:00 Z3 carrera</div>
+          </div>
+          <div class="bigtap"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M7 5v14l11-7z"/></svg>Empezar</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">2</span>Empezar hoy</div>
+      <div class="capd">Qué toca + 1 tap. Sin sacar el móvil del locker.</div>
+      <div class="chips"><span class="chip acc">Tap ▸ start</span></div>
+    </div>
+
+    <!-- 3. Block gate / next up -->
+    <div class="cell">
+      <div class="aw tap">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen"><div class="tapring"></div>
+          <div class="st">BLOQUE 2 / 4</div>
+          <div style="margin-top:24px">
+            <div class="lab o">Ahora</div>
+            <div class="now" style="font-size:21px;line-height:1.05;margin:3px 0 2px">Sentadilla<br>trasera</div>
+            <div style="display:flex;gap:7px;margin:9px 0 0">
+              <div style="flex:1;background:#141414;border-radius:11px;padding:7px 9px"><div style="font-size:9px;color:var(--watch-dim);font-weight:800">CARGA</div><div style="font-size:17px;font-weight:800">80kg</div></div>
+              <div style="flex:1;background:#141414;border-radius:11px;padding:7px 9px"><div style="font-size:9px;color:var(--watch-dim);font-weight:800">5×5 · RIR2</div><div style="font-size:17px;font-weight:800">5 ser.</div></div>
+            </div>
+          </div>
+          <div class="bigtap">Empezar bloque</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">3</span>Siguiente bloque</div>
+      <div class="capd">Gate entre bloques. Objetivo del bloque (reps·carga·zona). 1 tap.</div>
+      <div class="chips"><span class="chip acc">Tap ▸ go</span><span class="chip hap">Háptico</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════ DURANTE · LOS TIMERS ════════════ -->
+  <div class="seclbl" data-n="DURANTE · ">EL TIMER DE FORMATO EN LA MUÑECA</div>
+  <div class="row">
+
+    <!-- EMOM rotating -->
+    <div class="cell">
+      <div class="aw cr">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">EMOM · 7 / 12</div>
+          <div style="margin-top:20px;text-align:center">
+            <div class="lab">Trabajo · queda</div>
+            <div class="huge" style="font-size:88px;color:#fff;margin:2px 0">:34</div>
+          </div>
+          <div style="text-align:center;margin-top:6px">
+            <div class="now" style="color:var(--orange-soft)">15 Wall Balls</div>
+            <div class="nxt">luego · 12 Burpees</div>
+          </div>
+          <div class="hrpill" style="position:absolute;bottom:15px;left:14px"><span class="hd" style="background:var(--z-thr)"></span>164</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">4a</span>EMOM · rotativo</div>
+      <div class="capd">Minuto que rota. Cuenta atrás gigante, auto-avanza. Pitido háptico al cambio.</div>
+      <div class="chips"><span class="chip">Auto-avance</span><span class="chip hap">Háptico beep</span><span class="chip acc">Crown ▸ FC</span></div>
+    </div>
+
+    <!-- AMRAP countdown + ronda -->
+    <div class="cell">
+      <div class="aw tap">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen"><div class="tapring"></div>
+          <div class="st" style="color:var(--orange-soft)">AMRAP · 20:00</div>
+          <div style="margin-top:14px;text-align:center">
+            <div class="lab">Queda</div>
+            <div class="huge" style="font-size:64px;margin:2px 0 0">12:48</div>
+          </div>
+          <div style="text-align:center;margin-top:4px">
+            <span style="font-size:12px;font-weight:800;color:var(--watch-dim)">RONDAS</span>
+            <span style="font-size:22px;font-weight:800;margin-left:6px">7</span>
+          </div>
+          <div class="bigtap green" style="height:58px"><svg width="18" height="18" viewBox="0 0 24 24" fill="#06280f"><path d="M12 5v14M5 12h14" stroke="#06280f" stroke-width="3" stroke-linecap="round"/></svg>+ Ronda</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">4b</span>AMRAP · cuenta atrás</div>
+      <div class="capd">Reloj baja. Botón gigante <b>+Ronda</b>: toda la pantalla inferior es la diana.</div>
+      <div class="chips"><span class="chip acc">Tap ▸ +ronda</span><span class="chip hap">Háptico</span></div>
+    </div>
+
+    <!-- For Time count-up -->
+    <div class="cell">
+      <div class="aw tap">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen"><div class="tapring"></div>
+          <div class="st" style="color:var(--orange-soft)">FOR TIME · 5 rondas</div>
+          <div style="margin-top:14px;text-align:center">
+            <div class="lab">Tiempo</div>
+            <div class="huge" style="font-size:64px;margin:2px 0 0">08:21</div>
+          </div>
+          <div style="text-align:center;margin-top:5px">
+            <span style="font-size:13px;font-weight:800;color:var(--orange-soft)">Ronda 3</span>
+            <span style="font-size:12px;color:var(--watch-dim);font-weight:700"> / 5</span>
+          </div>
+          <div class="bigtap green" style="height:58px">Ronda hecha</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">4c</span>For Time · cuenta arriba</div>
+      <div class="capd">El crono sube. <b>Ronda hecha</b> registra el split y avanza. Háptico.</div>
+      <div class="chips"><span class="chip acc">Tap ▸ ronda</span><span class="chip hap">Háptico</span></div>
+    </div>
+
+    <!-- Sets / strength table -->
+    <div class="cell">
+      <div class="aw tap">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen"><div class="tapring"></div>
+          <div class="st" style="color:var(--orange-soft)">FUERZA · Serie 3 / 5</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Objetivo</div>
+            <div class="huge" style="font-size:40px;margin:3px 0 0">80<span style="font-size:18px;letter-spacing:0">kg</span></div>
+            <div style="font-size:13px;font-weight:800;color:var(--orange-soft);margin-top:2px">5 reps · RIR 2</div>
+          </div>
+          <div style="margin-top:11px;display:flex;justify-content:center;gap:5px">
+            <span class="dot" style="width:9px;height:9px;border-radius:50%;background:var(--z-run);display:inline-block"></span>
+            <span class="dot" style="width:9px;height:9px;border-radius:50%;background:var(--z-run);display:inline-block"></span>
+            <span class="dot" style="width:9px;height:9px;border-radius:50%;background:var(--orange);display:inline-block"></span>
+            <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#3a3a3c;display:inline-block"></span>
+            <span class="dot" style="width:9px;height:9px;border-radius:50%;background:#3a3a3c;display:inline-block"></span>
+          </div>
+          <div class="bigtap green" style="height:50px">Serie hecha</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">4d</span>Series · fuerza</div>
+      <div class="capd">Carga + reps + RIR gigantes. Serie x/N en puntos. Tap ▸ descanso.</div>
+      <div class="chips"><span class="chip acc">Tap ▸ hecha</span><span class="chip acc">Crown ▸ ±carga</span></div>
+    </div>
+
+    <!-- Continuous / zone -->
+    <div class="cell">
+      <div class="aw">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">CONTINUO · Z2</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Tiempo</div>
+            <div class="huge" style="font-size:58px;margin:2px 0 0">24:06</div>
+          </div>
+          <div style="margin-top:16px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:800;color:var(--watch-dim);margin-bottom:5px"><span>EN ZONA 87%</span><span>FC 142</span></div>
+            <div class="zbar">
+              <i style="width:18%;background:#2a6cff"></i>
+              <i style="width:46%;background:var(--z-run)"></i>
+              <i style="width:22%;background:var(--z-thr)"></i>
+              <i style="width:14%;background:var(--z-vo2)"></i>
+              <span class="ztgt" style="left:55%"></span>
+            </div>
+            <div style="text-align:center;font-size:11px;font-weight:800;color:var(--z-run);margin-top:7px">EN ZONA ✓</div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">4e</span>Continuo · zona</div>
+      <div class="capd">Tiempo + barra de zona FC. La pantalla tiñe la zona — sin leer números.</div>
+      <div class="chips"><span class="chip">Color = zona</span><span class="chip hap">Háptico fuera</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════ TRANSICIÓN ════════════ -->
+  <div class="seclbl" data-n="TRANSICIÓN · ">DESCANSO Y SIGUIENTE</div>
+  <div class="row">
+
+    <!-- Rest banner -->
+    <div class="cell">
+      <div class="aw">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen" style="background:#0d1b0f">
+          <div class="st" style="color:var(--z-run)">DESCANSO</div>
+          <div style="margin-top:24px;text-align:center">
+            <div class="lab" style="color:#7fd98f">Vuelve en</div>
+            <div class="huge" style="font-size:80px;color:var(--z-run);margin:4px 0">:42</div>
+          </div>
+          <div style="text-align:center;margin-top:8px">
+            <div class="lab">Luego</div>
+            <div class="now">12 Burpees</div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">5</span>Descanso</div>
+      <div class="capd">Banner trabajo↔descanso. Cuenta atrás + qué viene. Háptico a 3·2·1.</div>
+      <div class="chips"><span class="chip">Auto</span><span class="chip hap">Háptico 3·2·1</span></div>
+    </div>
+
+    <!-- Pause / finish (swipe) -->
+    <div class="cell">
+      <div class="aw">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st">12:48 · Ronda 7</div>
+          <div style="margin-top:30px;display:flex;flex-direction:column;gap:11px">
+            <div style="display:flex;align-items:center;gap:12px;background:#2a2a2c;border-radius:18px;padding:14px 16px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+              <span style="font-size:16px;font-weight:800">Pausar</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;background:#3a1410;border-radius:18px;padding:14px 16px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#ff6b5a"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              <span style="font-size:16px;font-weight:800;color:#ff6b5a">Terminar</span>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">6</span>Pausar / Terminar</div>
+      <div class="capd">Un swipe fuera de la vista activa. Reachable, pero no se toca sin querer.</div>
+      <div class="chips"><span class="chip">Swipe ▸ aquí</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════ DESPUÉS ════════════ -->
+  <div class="seclbl" data-n="DESPUÉS · ">SPLITS Y FIN</div>
+  <div class="row">
+
+    <!-- Splits / round log -->
+    <div class="cell">
+      <div class="aw cr">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st">SPLITS</div>
+          <div style="margin-top:20px">
+            <div class="lp"><span class="n">R1</span><span class="t">2:41</span></div>
+            <div class="lp best"><span class="n">R2</span><span class="t">2:33</span></div>
+            <div class="lp"><span class="n">R3</span><span class="t">2:38</span></div>
+            <div class="lp"><span class="n">R4</span><span class="t">2:45</span></div>
+            <div class="lp"><span class="n">R5</span><span class="t">2:50</span></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">7</span>Splits</div>
+      <div class="capd">Las vueltas que acabas de marcar. Mejor en naranja. Crown ▸ scroll.</div>
+      <div class="chips"><span class="chip acc">Crown ▸ scroll</span></div>
+    </div>
+
+    <!-- Finish summary -->
+    <div class="cell">
+      <div class="aw">
+        <span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div style="margin-top:16px;text-align:center">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style="margin:0 auto 6px"><circle cx="12" cy="12" r="11" fill="#2fd14f"/><path d="M7 12.5l3.2 3.2L17 8.5" stroke="#06280f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="lab o">Completado</div>
+            <div class="huge" style="font-size:46px;margin:4px 0 0">42:10</div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:7px">
+            <div style="flex:1;background:#141414;border-radius:11px;padding:8px 6px;text-align:center"><div style="font-size:9px;color:var(--watch-dim);font-weight:800">RONDAS</div><div style="font-size:18px;font-weight:800">5</div></div>
+            <div style="flex:1;background:#141414;border-radius:11px;padding:8px 6px;text-align:center"><div style="font-size:9px;color:var(--watch-dim);font-weight:800">FC MED</div><div style="font-size:18px;font-weight:800">158</div></div>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--watch-dim);text-align:center;margin-top:11px">Guardado en el iPhone</div>
+        </div></div>
+      </div>
+      <div class="cap"><span class="num">8</span>Resumen</div>
+      <div class="capd">Total + rondas + FC media. El detalle (gráficas, zonas) se ve en el móvil.</div>
+      <div class="chips"><span class="chip">Sync iPhone</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════ SCOPE ════════════ -->
+  <div class="seclbl" data-n="">REPARTO RELOJ ↔ MÓVIL</div>
+  <div class="scope">
+    <div class="sc watch">
+      <h4>Reloj · EJECUTAR (sin móvil)</h4>
+      <div class="it">Empezar el entreno de hoy</div>
+      <div class="it">Timers de los 5 formatos en vivo</div>
+      <div class="it">Marcar ronda / serie con 1 tap</div>
+      <div class="it">FC + zona como color ambiente</div>
+      <div class="it">Splits + resumen al terminar</div>
+      <div class="it">Readiness glance + complicación</div>
+    </div>
+    <div class="sc phone">
+      <h4>Móvil · PLANIFICAR + REVISAR</h4>
+      <div class="it">Construir / explorar el plan</div>
+      <div class="it">Gráficas de biometría y zonas</div>
+      <div class="it">Analítica post-entreno, comparativas</div>
+      <div class="it">Importar carrera + historial</div>
+      <div class="it">Brief pre-entreno detallado · vídeo</div>
+    </div>
+  </div>
+
+  <div class="footnote">FAHYBRID · Apple Watch del atleta · mockups de diseño · negro #000 + naranja Fabrik #F06A2A · tipografía gigante auto-escalada (HIG: menos métricas = números más grandes).</div>
+
+</div>
+</body>
+</html>
