@@ -14,8 +14,11 @@
 //     other six SHRINK to a thin clickable rail (the week IS the editor). The
 //     column-grow animates; "← Semana completa" clears `?dia`.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useRouter } from '@/i18n/navigation';
+import { MIcon } from '@/components/ui/MIcon';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
+import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
 import type { DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MicrocicloV2 } from '@/components/v2/planes/MicrocicloV2';
@@ -44,6 +47,146 @@ const viewOptions = (weekCount: number) => [
     label: `Vista general · ${weekCount} ${weekCount === 1 ? 'semana' : 'semanas'}`,
   },
 ];
+
+// The microciclo NAME is athlete-facing: it surfaces as the phase label on the
+// athlete's Inicio (`/api/athlete/plan/week` → microcicloName). The coach renames
+// it in place from the editor header — click the title (or its pencil) → an inline
+// field styled as the heading → saves on blur / Enter via PUT /api/coach/program-
+// months/[id]. Optimistic: the new name shows immediately and reverts on error;
+// Escape cancels without saving. Mirrors WeekFocusInput's save quality (shared
+// useInlineSave + InlineSaveBadge), adding the display↔edit toggle a page title needs.
+function MicrocicloNameEditor({
+  microcycleId,
+  initialName,
+  level,
+}: {
+  microcycleId: string;
+  initialName: string;
+  level: string;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(initialName);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(initialName);
+  // Escape sets this so the blur it triggers cancels instead of committing.
+  const cancelRef = useRef(false);
+
+  // Adopt server truth when it changes (e.g. after router.refresh()) without an
+  // effect — React's reset-state-on-prop-change pattern. The optimistic `name`
+  // already matches on a successful save, so this is a no-op there (no flicker)
+  // and the "Guardado" badge survives the refresh.
+  const [syncedName, setSyncedName] = useState(initialName);
+  if (initialName !== syncedName) {
+    setSyncedName(initialName);
+    setName(initialName);
+  }
+
+  const { status, setStatus, save } = useInlineSave(async (next) => {
+    const previous = name;
+    setName(next); // optimistic
+    try {
+      const res = await fetch(`/api/coach/program-months/${microcycleId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: next }),
+      });
+      if (!res.ok) {
+        setName(previous); // revert
+        return false;
+      }
+      router.refresh();
+      return true;
+    } catch {
+      setName(previous);
+      return false;
+    }
+  });
+
+  const startEdit = () => {
+    setDraft(name);
+    setStatus('idle');
+    setEditing(true);
+  };
+
+  // Leave edit mode. On commit, the name is required (min 1) — an empty draft is
+  // ignored and the current name kept; otherwise persist (no-op if unchanged).
+  const finishEdit = (commit: boolean) => {
+    setEditing(false);
+    if (!commit) {
+      setDraft(name);
+      return;
+    }
+    const next = draft.trim();
+    if (next.length === 0) return;
+    void save(next, name.trim());
+  };
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 items-center gap-2">
+        <h1 className="v2-display flex min-w-0 items-baseline text-3xl sm:text-4xl">
+          <span className="shrink-0 text-[color:var(--v2-muted)]">Microciclo&nbsp;·&nbsp;</span>
+          {editing ? (
+            <input
+              autoFocus
+              type="text"
+              value={draft}
+              maxLength={200}
+              aria-label="Nombre del microciclo"
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                if (status !== 'idle') setStatus('idle');
+              }}
+              onBlur={() => {
+                const commit = !cancelRef.current;
+                cancelRef.current = false;
+                finishEdit(commit);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  cancelRef.current = true;
+                  e.currentTarget.blur();
+                }
+              }}
+              className="v2-display v2-focus min-w-0 flex-1 border-b-2 border-[color:var(--v2-accent)] bg-transparent text-3xl text-[color:var(--v2-fg)] outline-none sm:text-4xl"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startEdit}
+              title="Renombrar microciclo · lo ve el atleta"
+              className="v2-focus group inline-flex min-w-0 items-baseline gap-2 rounded-[var(--v2-r-s)] text-left"
+            >
+              <span className="truncate text-[color:var(--v2-fg)]">«{name}»</span>
+              <MIcon
+                name="edit"
+                size={18}
+                className="shrink-0 self-center text-[color:var(--v2-faint)] opacity-0 transition-opacity group-hover:opacity-100"
+              />
+            </button>
+          )}
+        </h1>
+        <InlineSaveBadge status={status} />
+      </div>
+      <p className="flex flex-wrap items-center gap-1.5 text-sm text-[color:var(--v2-muted)]">
+        {level ? <span>{level}</span> : null}
+        {level ? (
+          <span aria-hidden className="text-[color:var(--v2-faint)]">
+            ·
+          </span>
+        ) : null}
+        <span className="inline-flex items-center gap-1 text-[color:var(--v2-faint)]">
+          <MIcon name="visibility" size={13} />
+          El atleta ve este nombre como su fase
+        </span>
+      </p>
+    </div>
+  );
+}
 
 export function MicrocicloEditor({
   microcycle_id,
@@ -75,15 +218,7 @@ export function MicrocicloEditor({
     <div className="mx-auto flex w-full max-w-[1480px] flex-col">
       {/* Top bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="v2-display truncate text-3xl sm:text-4xl">
-            <span className="text-[color:var(--v2-muted)]">Microciclo · </span>
-            <span className="text-[color:var(--v2-fg)]">«{name}»</span>
-          </h1>
-          <p className="flex flex-wrap items-center gap-1.5 text-sm text-[color:var(--v2-muted)]">
-            <span>{level}</span>
-          </p>
-        </div>
+        <MicrocicloNameEditor microcycleId={microcycle_id} initialName={name} level={level} />
         {/* The view toggle is a full-week affordance; while a day is open the
             canvas is locked to the master-detail week calendar. */}
         {dayModel ? null : (

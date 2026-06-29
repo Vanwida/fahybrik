@@ -22,6 +22,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
 import {
   DAY_LABELS_FULL,
   DAY_LABELS_SHORT,
@@ -463,33 +464,18 @@ function WeekFocusInput({
   onSaved: (focus: string | null) => void;
 }) {
   const [value, setValue] = useState(initial ?? '');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const baseline = (initial ?? '').trim();
-
-  const save = async () => {
-    const next = value.trim();
-    if (next === baseline) {
-      setStatus('idle');
-      return;
-    }
-    setStatus('saving');
-    try {
-      const res = await fetch(`/api/coach/program-weeks/${weekId}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ focus: next.length > 0 ? next : null }),
-      });
-      if (!res.ok) {
-        setStatus('error');
-        return;
-      }
-      setStatus('saved');
-      onSaved(next.length > 0 ? next : null);
-    } catch {
-      setStatus('error');
-    }
-  };
+  const { status, setStatus, save } = useInlineSave(async (next) => {
+    const res = await fetch(`/api/coach/program-weeks/${weekId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ focus: next.length > 0 ? next : null }),
+    });
+    if (!res.ok) return false;
+    onSaved(next.length > 0 ? next : null);
+    return true;
+  });
 
   return (
     <div className="basis-full">
@@ -513,26 +499,14 @@ function WeekFocusInput({
             setValue(e.target.value);
             if (status !== 'idle') setStatus('idle');
           }}
-          onBlur={save}
+          onBlur={() => save(value.trim(), baseline)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur();
           }}
           placeholder="p. ej. Acumulación de base aeróbica"
           className="v2-focus w-full max-w-xl rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]"
         />
-        {status === 'saving' ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-muted)]">
-            <MIcon name="progress_activity" size={14} /> Guardando…
-          </span>
-        ) : status === 'saved' ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-success,var(--v2-fg))]">
-            <MIcon name="check" size={14} /> Guardado
-          </span>
-        ) : status === 'error' ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--v2-danger)]">
-            <MIcon name="error" size={14} /> No se pudo guardar
-          </span>
-        ) : null}
+        <InlineSaveBadge status={status} />
       </div>
     </div>
   );
