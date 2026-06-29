@@ -56,6 +56,16 @@ struct BlockPreviewGate: View {
                         .joined(separator: " · ")
                     out.append(WorkRow(id: out.count, name: itv.movement, work: detail.isEmpty ? nil : detail))
                 }
+            } else if seg.isConditioningTimer, seg.components.count > 1 {
+                // A FOLDED multi-movement conditioning block (AMRAP / For Time /
+                // Chipper / …): list each movement of the round, exactly as the
+                // live FIXED HUD shows it.
+                for comp in seg.components {
+                    let detail = [comp.work != "—" ? comp.work : nil, comp.detail]
+                        .compactMap { $0 }
+                        .joined(separator: " · ")
+                    out.append(WorkRow(id: out.count, name: comp.name, work: detail.isEmpty ? nil : detail))
+                }
             } else {
                 out.append(WorkRow(id: out.count, name: seg.title, work: seg.previewWorkLine))
             }

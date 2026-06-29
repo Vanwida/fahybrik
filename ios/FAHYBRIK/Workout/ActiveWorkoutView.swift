@@ -59,6 +59,13 @@ struct ActiveWorkoutView: View {
             Theme.Color.background
                 .ignoresSafeArea()
                 .instrumentCanvas()
+            // ROTATING work/rest full-bleed colour flip — a subtle wash so the
+            // phase reads from across the box even when the phone is on the floor.
+            if let flip = rotatingFlipColor {
+                flip.opacity(0.10)
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.3), value: session.rotPhase)
+            }
             VStack(spacing: 8) {
                 topStrip
                 phaseRail
@@ -93,7 +100,7 @@ struct ActiveWorkoutView: View {
                         connectPM5CTA
                     }
                     nextSegmentChip
-                    primaryButton
+                    bottomControls
                 }
             }
             .padding(.horizontal, Theme.Spacing.m)
@@ -217,7 +224,34 @@ struct ActiveWorkoutView: View {
         if let wod = segments.compactMap(\.prescription).first(where: { $0.scheme.isWOD }) {
             return PrescriptionRenderer.wodHeader(wod)
         }
+        // The remaining conditioning formats (Tabata, Death By, Intervals, Steady,
+        // Chipper, Ladder, Rounds, HYROX sim) build their own header line.
+        if let seg = segments.first(where: { $0.isConditioningTimer }) {
+            return conditioningFormatLabel(seg)
+        }
         return nil
+    }
+
+    private func conditioningFormatLabel(_ seg: WorkoutSegment) -> String? {
+        guard let scheme = seg.formatScheme else { return nil }
+        var parts: [String] = [scheme.displayName]
+        switch scheme {
+        case .amrap, .steady:
+            if let t = seg.formatTotalSeconds { parts.append(PrescriptionRenderer.formatClock(t)) }
+        case .tabata:
+            if let w = seg.formatWorkSeconds, let r = seg.formatRestSeconds { parts.append("\(w)/\(r)s") }
+            if let n = seg.formatRounds { parts.append("×\(n)") }
+        case .intervals:
+            if let n = seg.formatRounds { parts.append("\(n) series") }
+        case .deathBy:
+            parts.append("+\(seg.deathByIncrement)/min")
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
+            if let n = seg.formatRounds, n > 1 { parts.append("\(n) rondas") }
+            if let cap = seg.formatTotalSeconds { parts.append("cap \(PrescriptionRenderer.formatClock(cap))") }
+        default:
+            break
+        }
+        return parts.joined(separator: " · ")
     }
 
     private var segmentHasVideo: Bool {
@@ -371,6 +405,10 @@ struct ActiveWorkoutView: View {
     private var modalityHUD: some View {
         if session.currentSegment?.isEMOM == true {
             EmomLiveHUD(session: session)
+        } else if session.currentSegment?.isConditioningTimer == true {
+            // Conditioning formats route by SCHEME to their dedicated timer (the
+            // block-level fold means one segment = one format), regardless of kind.
+            conditioningHUD
         } else {
             switch session.currentSegment?.kind {
             case .rowOrSki:
@@ -380,6 +418,21 @@ struct ActiveWorkoutView: View {
             case .strength, .reps, .sled, .none:
                 StrengthLiveHUD(session: session)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var conditioningHUD: some View {
+        switch session.currentSegment?.formatScheme {
+        case .amrap:     AmrapLiveHUD(session: session)
+        case .tabata:    TabataLiveHUD(session: session)
+        case .intervals: IntervalsLiveHUD(session: session)
+        case .deathBy:   DeathByLiveHUD(session: session)
+        case .steady:    SteadyLiveHUD(session: session)
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
+            ForTimeLiveHUD(session: session)
+        default:
+            StrengthLiveHUD(session: session)
         }
     }
 
@@ -546,10 +599,74 @@ struct ActiveWorkoutView: View {
             // otherwise it closes the EMOM and opens the next block's preview.
             return session.isLastSegment ? "TERMINAR" : "SIGUIENTE"
         }
+        if session.currentSegment?.isConditioningTimer == true {
+            return conditioningPrimaryTitle
+        }
         if session.isLastSegment { return "TERMINAR" }
         switch session.currentSegment?.kind {
         case .strength, .reps: return "HECHO"
         default:               return "SIGUIENTE"
+        }
+    }
+
+    // The conditioning bottom button label, by scheme. During the post-Empezar
+    // 3-2-1 it SKIPS the count-in. AMRAP marks a round; For Time / Chipper / Ladder
+    // / Steady close (final time); Tabata logs a rep; Intervals end a bout. Death By
+    // uses dual buttons (see `deathByControls`) — this label is for accessibility.
+    private var conditioningPrimaryTitle: String {
+        if session.condCountInRemaining > 0 { return "SALTAR" }
+        switch session.currentSegment?.formatScheme {
+        case .amrap:     return "+ RONDA"
+        case .tabata:    return "+ REPS"
+        case .intervals: return session.rotPhase == .work ? "SERIE HECHA" : "SALTAR DESCANSO"
+        case .deathBy:   return "LO LOGRÉ"
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim, .steady:
+            return session.isLastSegment ? "TERMINAR" : "HECHO"
+        default:         return "SIGUIENTE"
+        }
+    }
+
+    // The bottom action area: Death By gets a dual "Fallé / Lo logré" control (the
+    // fail is what ends it); every other format uses the single contextual button.
+    @ViewBuilder
+    private var bottomControls: some View {
+        if session.currentSegment?.formatScheme == .deathBy && session.condCountInRemaining <= 0 {
+            deathByControls
+        } else {
+            primaryButton
+        }
+    }
+
+    private var deathByControls: some View {
+        HStack(spacing: 8) {
+            Button(action: { session.deathByFail() }) {
+                Text("FALLÉ")
+                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                    .tracking(1.2)
+                    .foregroundStyle(Theme.Color.danger)
+                    .frame(width: 116)
+                    .frame(height: 88)
+                    .background(Theme.Color.surfaceElevated)
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                        .stroke(Theme.Color.danger.opacity(0.55), lineWidth: 1.5))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Fallé, termina el Death By")
+            ExpertActionButton(title: "LO LOGRÉ", action: { session.deathByLogged() })
+                .frame(height: 88)
+        }
+    }
+
+    // The rotating work/rest wash colour, or nil for non-rotating / count-in / EMOM
+    // (EMOM has its own face). Tabata + Intervals flip orange (work) ↔ blue (rest).
+    private var rotatingFlipColor: Color? {
+        guard session.condCountInRemaining <= 0 else { return nil }
+        switch session.currentSegment?.formatScheme {
+        case .tabata, .intervals:
+            return session.rotPhase == .work ? Theme.Color.accent : Theme.Color.info
+        default:
+            return nil
         }
     }
 

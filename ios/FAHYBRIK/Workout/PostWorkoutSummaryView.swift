@@ -45,14 +45,38 @@ struct PostWorkoutSummaryView: View {
     // that captured no auto pace (no GPS / no PM5 split).
     @State private var manualSegmentPaceSeconds: [UUID: Int] = [:]
 
-    // For Time / RFT / HYROX-sim are scored by final time; AMRAP by rounds (+reps).
-    // Every other format (EMOM, intervals, strength, circuit) has no single score,
-    // so we don't show the field — honest, no empty prompt.
+    // For Time / RFT / Chipper / Ladder / Rounds / HYROX-sim are scored by final
+    // time; AMRAP / Tabata / Death By by rounds (+reps). Intervals / Steady (pace)
+    // and EMOM / strength have no single headline score — their result lives in the
+    // per-segment splits, so we show no field (honest, no empty prompt).
     private var isTimeScored: Bool {
-        session.plan.format == .forTime || session.plan.format == .hyroxSim
+        switch session.plan.format {
+        case .forTime, .chipper, .ladder, .rounds, .hyroxSim: return true
+        default: return false
+        }
     }
-    private var isRoundsScored: Bool { session.plan.format == .amrap }
+    private var isRoundsScored: Bool {
+        switch session.plan.format {
+        case .amrap, .tabata, .deathBy: return true
+        default: return false
+        }
+    }
     private var showScore: Bool { isTimeScored || isRoundsScored }
+
+    // Reps-extra (AMRAP partial round / Tabata min-reps) only applies to AMRAP and
+    // Tabata; Death By's score is rounds survived alone.
+    private var showScoreReps: Bool {
+        session.plan.format == .amrap || session.plan.format == .tabata
+    }
+    private var roundsScoreLabel: String {
+        switch session.plan.format {
+        case .deathBy: return "Rondas superadas"
+        default:       return "Rondas"
+        }
+    }
+    private var repsScoreLabel: String {
+        session.plan.format == .tabata ? "Reps (mín.)" : "Reps extra"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -101,6 +125,23 @@ struct PostWorkoutSummaryView: View {
                 .disabled(isSaving)
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        .onAppear { seedCapturedScore() }
+    }
+
+    // Pre-fill the result from what the live timer already counted (the athlete
+    // never re-enters their AMRAP rounds or For Time clock). Only seeds an unset
+    // field, so a manual edit is never clobbered. Manual ("Ya lo hice") logs have
+    // no captured score and stay blank for hand entry.
+    private func seedCapturedScore() {
+        guard !manualEntry else { return }
+        if isTimeScored, scoreTimeSeconds == nil {
+            scoreTimeSeconds = session.capturedScoreTimeSeconds
+                ?? (isTimeScored ? Int(session.elapsedSeconds.rounded()) : nil)
+        }
+        if isRoundsScored {
+            if scoreRounds == nil { scoreRounds = session.capturedScoreRounds }
+            if scoreReps == nil { scoreReps = session.capturedScoreReps }
+        }
     }
 
     // Fire-and-forget the sync (RequestQueue handles retry on failure), then
@@ -506,8 +547,10 @@ struct PostWorkoutSummaryView: View {
                 if isTimeScored {
                     TimeMinSecRow(label: "Tiempo final", seconds: $scoreTimeSeconds)
                 } else if isRoundsScored {
-                    IntRow(label: "Rondas", unit: "", value: $scoreRounds)
-                    IntRow(label: "Reps extra", unit: "", value: $scoreReps)
+                    IntRow(label: roundsScoreLabel, unit: "", value: $scoreRounds)
+                    if showScoreReps {
+                        IntRow(label: repsScoreLabel, unit: "", value: $scoreReps)
+                    }
                 }
             }
         }
