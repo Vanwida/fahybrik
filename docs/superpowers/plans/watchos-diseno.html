@@ -125,6 +125,39 @@
   .scope .sc .it{font-size:12.5px;font-weight:700;color:#444;padding:3px 0 3px 16px;position:relative}
   .scope .sc.watch .it::before{content:'';position:absolute;left:0;top:9px;width:7px;height:7px;border-radius:50%;background:var(--orange)}
   .scope .sc.phone .it::before{content:'';position:absolute;left:0;top:9px;width:7px;height:7px;border-radius:2px;background:#9a9ad0}
+
+  /* ── NAVIGATION VARIANTS (A/B/C compare) ── */
+  .vcard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px 22px;border-left:4px solid var(--orange);margin-bottom:18px;display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+  .vmeta{width:160px;flex-shrink:0}
+  .vmeta .vk{font-size:14px;font-weight:800;color:#fff;background:var(--orange);width:32px;height:32px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .vmeta .vt{font-size:22px;font-weight:800;font-style:italic;letter-spacing:-.6px;line-height:1.04}
+  .vmeta .vchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+  .vflow{display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap;justify-content:center}
+  .vframe{width:184px;flex-shrink:0}
+  .vframe .aw{width:184px}
+  .vframe .aw .body{padding:12px 11px;border-radius:48px}
+  .vframe .aw .crown{top:56px;height:38px}
+  .vframe .aw .sbtn{top:104px}
+  .vframe .screen{border-radius:38px;padding:14px 13px 13px}
+  .vsl{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#9a9a9a;text-align:center;margin-top:9px}
+  .varr{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;padding:0 2px;align-self:center;margin-bottom:26px}
+  .varr .vat{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:#b0876a;max-width:52px;text-align:center;line-height:1.2}
+  .chip.best{background:#e8f7ec;color:#1c7a36}
+
+  /* ── pace hero metrics · HYROX rail · phone mirror ── */
+  .metricrow{display:flex;gap:6px;margin-top:12px}
+  .metricrow .mt{flex:1;background:#141414;border-radius:11px;padding:7px 5px;text-align:center}
+  .metricrow .mt .ml{font-size:8.5px;color:var(--watch-dim);font-weight:800;letter-spacing:.3px}
+  .metricrow .mt .mv{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:1px}
+  .rail{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 18px;align-items:center}
+  .rail .rp{font-size:10px;font-weight:800;padding:5px 9px;border-radius:999px;background:#f0ece6;color:#6f675d}
+  .rail .rp.run{background:#e7eef0;color:#3a6b78}
+  .rail .rp.cur{background:var(--orange);color:#fff;box-shadow:0 4px 11px -3px rgba(240,106,42,.6)}
+  .rail .rp.done{opacity:.4}
+  .ph{width:132px;flex-shrink:0}
+  .ph .pbody{background:#1b1b1d;border-radius:28px;padding:7px;box-shadow:0 16px 34px -16px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.06)}
+  .ph .pscreen{position:relative;background:#000;border-radius:22px;overflow:hidden;aspect-ratio:132/300;color:#fff;padding:26px 12px 66px}
+  .ph .pnotch{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:50px;height:14px;border-radius:9px;background:#000;box-shadow:inset 0 0 0 1px #2a2a2c}
 </style>
 </head>
 <body>
@@ -240,6 +273,532 @@
       <div class="cap"><span class="num">3</span>Siguiente bloque</div>
       <div class="capd">Gate entre bloques. Objetivo del bloque (reps·carga·zona). 1 tap.</div>
       <div class="chips"><span class="chip acc">Tap ▸ go</span><span class="chip hap">Háptico</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════ VARIANTES DE NAVEGACIÓN ════════════ -->
+  <div class="seclbl" data-n="ELIGE · ">VARIANTES DE NAVEGACIÓN — FASES Y BLOQUES</div>
+
+  <!-- A · Carrusel -->
+  <div class="vcard">
+    <div class="vmeta">
+      <div class="vk">A</div>
+      <div class="vt">Carrusel</div>
+      <div class="vchips">
+        <span class="chip acc">Swipe ◀▶ bloque</span>
+        <span class="chip acc">Crown ± dentro</span>
+        <span class="chip">Tap hecho</span>
+        <span class="chip best">★ Ritmo medio</span>
+      </div>
+    </div>
+    <div class="vflow">
+
+      <div class="vframe">
+        <div class="aw cr"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen">
+            <div class="st" style="color:var(--orange-soft)">PRINCIPAL · 3 / 4</div>
+            <div style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:18px;color:#3a3a3c;font-weight:800">‹</div>
+            <div style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--orange-soft);font-weight:800">›</div>
+            <div style="margin-top:20px;text-align:center">
+              <div class="lab">Bloque</div>
+              <div class="now" style="font-size:18px;line-height:1.05;margin:3px 0 7px">Sentadilla<br>trasera</div>
+              <div style="display:flex;gap:6px;padding:0 6px">
+                <div style="flex:1;background:#141414;border-radius:10px;padding:6px 7px"><div style="font-size:8px;color:var(--watch-dim);font-weight:800">CARGA</div><div style="font-size:15px;font-weight:800">80kg</div></div>
+                <div style="flex:1;background:#141414;border-radius:10px;padding:6px 7px"><div style="font-size:8px;color:var(--watch-dim);font-weight:800">SERIE</div><div style="font-size:15px;font-weight:800">3/5</div></div>
+              </div>
+            </div>
+            <div style="position:absolute;bottom:60px;left:0;right:0;display:flex;justify-content:center;gap:5px">
+              <span style="width:6px;height:6px;border-radius:50%;background:#3a3a3c"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:#3a3a3c"></span>
+              <span style="width:15px;height:6px;border-radius:3px;background:var(--orange)"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:#3a3a3c"></span>
+            </div>
+            <div class="bigtap green" style="height:44px;font-size:14px">Serie hecha</div>
+          </div></div>
+        </div>
+        <div class="vsl">Bloque 3</div>
+      </div>
+
+      <div class="varr">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12h13M12 6l6 6-6 6" stroke="#F06A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="vat">Swipe</span>
+      </div>
+
+      <div class="vframe">
+        <div class="aw cr"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen">
+            <div class="st" style="color:var(--orange-soft)">PRINCIPAL · 4 / 4</div>
+            <div style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--orange-soft);font-weight:800">‹</div>
+            <div style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:18px;color:#3a3a3c;font-weight:800">›</div>
+            <div style="margin-top:20px;text-align:center">
+              <div class="lab">Bloque · último</div>
+              <div class="now" style="font-size:18px;line-height:1.05;margin:3px 0 7px">AMRAP 12'</div>
+              <div class="huge" style="font-size:34px;margin-top:2px">07:41</div>
+            </div>
+            <div style="position:absolute;bottom:60px;left:0;right:0;display:flex;justify-content:center;gap:5px">
+              <span style="width:6px;height:6px;border-radius:50%;background:#3a3a3c"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:#3a3a3c"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:#3a3a3c"></span>
+              <span style="width:15px;height:6px;border-radius:3px;background:var(--orange)"></span>
+            </div>
+            <div class="bigtap green" style="height:44px;font-size:14px">+ Ronda</div>
+          </div></div>
+        </div>
+        <div class="vsl">Bloque 4</div>
+      </div>
+
+      <div class="varr">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12h13M12 6l6 6-6 6" stroke="#F06A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="vat">Swipe fin</span>
+      </div>
+
+      <div class="vframe">
+        <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen" style="background:#140d07">
+            <div class="st" style="color:var(--orange-soft)">FIN PRINCIPAL</div>
+            <div style="margin-top:34px;text-align:center">
+              <div class="lab o">Siguiente fase</div>
+              <div style="font-size:32px;font-weight:800;font-style:italic;letter-spacing:-1px;margin:5px 0 0">VUELTA</div>
+              <div style="font-size:11px;color:var(--watch-dim);font-weight:700;margin-top:3px">a la calma</div>
+            </div>
+            <div class="bigtap" style="height:50px">Empezar ▸</div>
+          </div></div>
+        </div>
+        <div class="vsl">Cambia de fase</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- B · Lista mapa -->
+  <div class="vcard">
+    <div class="vmeta">
+      <div class="vk">B</div>
+      <div class="vt">Lista mapa</div>
+      <div class="vchips">
+        <span class="chip acc">Crown recorrer</span>
+        <span class="chip">Tap entrar</span>
+        <span class="chip">Swipe ◀ mapa</span>
+        <span class="chip best">★ Sesión larga</span>
+      </div>
+    </div>
+    <div class="vflow">
+
+      <div class="vframe">
+        <div class="aw cr"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen">
+            <div class="st">EL ENTRENO</div>
+            <div style="margin-top:15px">
+              <div style="font-size:8px;font-weight:800;letter-spacing:.8px;color:var(--watch-dim);margin:2px 0 2px">CALENTAMIENTO</div>
+              <div style="display:flex;align-items:center;gap:7px;padding:2px 0;color:#5a5a5e">
+                <span style="width:7px;height:7px;border-radius:50%;background:var(--z-run);flex-shrink:0"></span>
+                <span style="font-size:11px;font-weight:700">Movilidad</span>
+              </div>
+              <div style="font-size:8px;font-weight:800;letter-spacing:.8px;color:var(--orange-soft);margin:5px 0 2px">PRINCIPAL</div>
+              <div style="display:flex;align-items:center;gap:7px;padding:2px 0;color:#5a5a5e">
+                <span style="width:7px;height:7px;border-radius:50%;background:var(--z-run);flex-shrink:0"></span>
+                <span style="font-size:11px;font-weight:700">Bloque 1 · EMOM</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;padding:5px 7px;margin:2px -5px;background:#1f1510;border:1px solid var(--orange);border-radius:9px">
+                <span style="width:7px;height:7px;border-radius:50%;background:var(--orange);flex-shrink:0"></span>
+                <span style="font-size:11.5px;font-weight:800">Bloque 2 · Sentadilla</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;padding:2px 0;color:#9a9a9e">
+                <span style="width:7px;height:7px;border-radius:50%;background:#3a3a3c;flex-shrink:0"></span>
+                <span style="font-size:11px;font-weight:700">Bloque 3 · AMRAP</span>
+              </div>
+              <div style="font-size:8px;font-weight:800;letter-spacing:.8px;color:var(--watch-dim);margin:5px 0 2px">VUELTA</div>
+              <div style="display:flex;align-items:center;gap:7px;padding:2px 0;color:#9a9a9e">
+                <span style="width:7px;height:7px;border-radius:50%;background:#3a3a3c;flex-shrink:0"></span>
+                <span style="font-size:11px;font-weight:700">Estiramientos</span>
+              </div>
+            </div>
+          </div></div>
+        </div>
+        <div class="vsl">Mapa · Crown</div>
+      </div>
+
+      <div class="varr">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12h13M12 6l6 6-6 6" stroke="#F06A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="vat">Tap entrar</span>
+      </div>
+
+      <div class="vframe">
+        <div class="aw tap"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen"><div class="tapring"></div>
+            <div style="position:absolute;top:8px;left:12px;font-size:12px;font-weight:800;color:var(--orange-soft)">‹</div>
+            <div class="st" style="color:var(--orange-soft)">PRINCIPAL · B2</div>
+            <div style="margin-top:24px;text-align:center">
+              <div class="lab">Objetivo</div>
+              <div class="huge" style="font-size:38px;margin:3px 0 0">80<span style="font-size:16px;letter-spacing:0">kg</span></div>
+              <div style="font-size:12px;font-weight:800;color:var(--orange-soft);margin-top:2px">5 reps · RIR 2</div>
+            </div>
+            <div style="margin-top:11px;display:flex;justify-content:center;gap:5px">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--z-run)"></span>
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--z-run)"></span>
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--orange)"></span>
+              <span style="width:8px;height:8px;border-radius:50%;background:#3a3a3c"></span>
+              <span style="width:8px;height:8px;border-radius:50%;background:#3a3a3c"></span>
+            </div>
+            <div class="bigtap green" style="height:46px;font-size:14px">Serie hecha</div>
+          </div></div>
+        </div>
+        <div class="vsl">Entrar al bloque</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- C · Auto · 1 botón -->
+  <div class="vcard">
+    <div class="vmeta">
+      <div class="vk">C</div>
+      <div class="vt">Auto · 1 botón</div>
+      <div class="vchips">
+        <span class="chip acc">Tap siguiente</span>
+        <span class="chip hap">Auto al acabar</span>
+        <span class="chip">0 navegación</span>
+        <span class="chip best">★ Alta intensidad</span>
+      </div>
+    </div>
+    <div class="vflow">
+
+      <div class="vframe">
+        <div class="aw tap"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen"><div class="tapring"></div>
+            <div class="st">AHORA</div>
+            <div style="position:absolute;top:7px;right:11px;font-size:8px;font-weight:800;color:var(--watch-dim);background:#1f1f1f;border-radius:999px;padding:2px 7px">↻ AUTO</div>
+            <div style="margin-top:22px;text-align:center">
+              <div class="lab o">Bloque 2 · último</div>
+              <div class="now" style="font-size:19px;line-height:1.05;margin:4px 0 7px">Sentadilla<br>trasera</div>
+              <div style="font-size:13px;font-weight:800;color:var(--orange-soft)">80kg · 5×5 · RIR2</div>
+            </div>
+            <div class="bigtap" style="height:54px">Hecho ▸</div>
+          </div></div>
+        </div>
+        <div class="vsl">Un botón</div>
+      </div>
+
+      <div class="varr">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12h13M12 6l6 6-6 6" stroke="#F06A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="vat">Tap / auto</span>
+      </div>
+
+      <div class="vframe">
+        <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen" style="background:#140d07">
+            <div class="st" style="color:var(--orange-soft)">PRINCIPAL ▸ VUELTA</div>
+            <div style="margin-top:30px;text-align:center">
+              <div class="lab o">Empieza</div>
+              <div style="font-size:32px;font-weight:800;font-style:italic;letter-spacing:-1px;margin:5px 0 0">VUELTA</div>
+              <div style="font-size:11px;color:var(--watch-dim);font-weight:700;margin-top:3px">a la calma · 3 ej.</div>
+            </div>
+            <div style="position:absolute;bottom:20px;left:16px;right:16px">
+              <div style="height:6px;border-radius:3px;background:#2a2a2c;overflow:hidden"><i style="display:block;height:100%;width:66%;background:var(--orange)"></i></div>
+              <div style="text-align:center;font-size:9px;font-weight:800;color:var(--watch-dim);margin-top:5px;letter-spacing:.5px">EMPIEZA SOLO ▸</div>
+            </div>
+          </div></div>
+        </div>
+        <div class="vsl">Cambia de fase</div>
+      </div>
+
+      <div class="varr">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12h13M12 6l6 6-6 6" stroke="#F06A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="vat">Auto</span>
+      </div>
+
+      <div class="vframe">
+        <div class="aw tap"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen"><div class="tapring"></div>
+            <div class="st">AHORA</div>
+            <div style="margin-top:22px;text-align:center">
+              <div class="lab o">Vuelta · 1 / 3</div>
+              <div class="now" style="font-size:19px;margin:4px 0 8px">Estiramiento</div>
+              <div class="huge" style="font-size:40px">04:00</div>
+            </div>
+            <div class="bigtap" style="height:54px">Hecho ▸</div>
+          </div></div>
+        </div>
+        <div class="vsl">Siguiente solo</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- D · Espejo del móvil -->
+  <div class="vcard">
+    <div class="vmeta">
+      <div class="vk">D</div>
+      <div class="vt">Espejo del móvil</div>
+      <div class="vchips">
+        <span class="chip acc">iPhone controla</span>
+        <span class="chip">Reloj muestra</span>
+        <span class="chip">0 taps reloj</span>
+        <span class="chip best">★ Lo más simple</span>
+      </div>
+    </div>
+    <div class="vflow">
+
+      <div class="ph">
+        <div class="pbody"><div class="pscreen">
+          <div class="pnotch"></div>
+          <div class="lab o" style="font-size:9px">Hoy · Umbral + Fuerza</div>
+          <div style="background:#1f1510;border:1px solid var(--orange);border-radius:12px;padding:9px 10px;margin-top:8px">
+            <div style="font-size:8px;font-weight:800;color:var(--orange-soft);letter-spacing:.3px">AHORA · 2 / 4</div>
+            <div style="font-size:15px;font-weight:800;margin-top:2px;line-height:1.1">Sentadilla trasera</div>
+            <div style="font-size:10.5px;color:var(--watch-dim);font-weight:700;margin-top:2px">80kg · 5×5 · RIR2</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;color:#9a9a9e;padding:8px 0 0"><span>▸ Bloque 3 · AMRAP</span><span class="dim">12'</span></div>
+          <div style="position:absolute;left:11px;right:11px;bottom:12px;height:42px;border-radius:13px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:800">Hecho ▸ siguiente</div>
+        </div></div>
+        <div class="vsl">iPhone manda</div>
+      </div>
+
+      <div class="varr">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M3 8.5c5-4 13-4 18 0M5 13c4-3 10-3 14 0" stroke="#F06A2A" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.5" r="1.7" fill="#F06A2A"/></svg>
+        <span class="vat">Manda ▸</span>
+      </div>
+
+      <div class="vframe">
+        <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+          <div class="body"><div class="screen">
+            <div class="st" style="color:var(--orange-soft)">DESDE IPHONE</div>
+            <div style="margin-top:18px;text-align:center">
+              <div class="lab">Ronda</div>
+              <div class="huge" style="font-size:72px;margin:2px 0 0">7</div>
+            </div>
+            <div style="text-align:center;margin-top:8px">
+              <div class="lab">Queda</div>
+              <div class="now" style="font-size:23px;margin-top:1px">12:48</div>
+            </div>
+          </div></div>
+        </div>
+        <div class="vsl">Solo muestra</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════ RITMO POR MODALIDAD ════════════ -->
+  <div class="seclbl" data-n="EN VIVO · ">RITMO POR MODALIDAD — EL NÚMERO PROTAGONISTA</div>
+  <div class="row">
+
+    <div class="cell">
+      <div class="aw cr"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">CORRER · Z3</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Ritmo</div>
+            <div class="huge" style="font-size:56px;margin:2px 0 0">4:38<span style="font-size:18px;letter-spacing:0;color:var(--watch-dim)"> /km</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">DIST</div><div class="mv">6.4<span style="font-size:10px"> km</span></div></div>
+            <div class="mt"><div class="ml">FC</div><div class="mv">158</div></div>
+            <div class="mt"><div class="ml">KCAL</div><div class="mv">412</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap">Correr · /km</div>
+      <div class="chips"><span class="chip acc">Hero = ritmo /km</span><span class="chip">GPS + FC</span></div>
+    </div>
+
+    <div class="cell">
+      <div class="aw cr"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">SKIERG · PM5</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Ritmo /500m</div>
+            <div class="huge" style="font-size:54px;margin:2px 0 0">1:46<span style="font-size:17px;letter-spacing:0;color:var(--watch-dim)"> /500m</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">WATTS</div><div class="mv">318</div></div>
+            <div class="mt"><div class="ml">S/M</div><div class="mv">35</div></div>
+            <div class="mt"><div class="ml">METROS</div><div class="mv">740</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap">SkiErg · /500m</div>
+      <div class="chips"><span class="chip acc">Hero = /500m</span><span class="chip">Concept2 PM5</span><span class="chip">Watts · s/m</span></div>
+    </div>
+
+    <div class="cell">
+      <div class="aw cr"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">ROWERG · PM5</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Ritmo /500m</div>
+            <div class="huge" style="font-size:54px;margin:2px 0 0">1:52<span style="font-size:17px;letter-spacing:0;color:var(--watch-dim)"> /500m</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">WATTS</div><div class="mv">286</div></div>
+            <div class="mt"><div class="ml">S/M</div><div class="mv">28</div></div>
+            <div class="mt"><div class="ml">METROS</div><div class="mv">1000</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="cap">RowErg · /500m</div>
+      <div class="chips"><span class="chip acc">Hero = /500m</span><span class="chip">Concept2 PM5</span><span class="chip">Watts · s/m</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════ SIMULACIÓN HYROX ════════════ -->
+  <div class="seclbl" data-n="SIM · ">SIMULACIÓN HYROX — RUN ↔ ESTACIÓN, PASO A PASO</div>
+  <div class="rail">
+    <span class="rp run done">RUN 1km</span>
+    <span class="rp cur">SkiErg 1km</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Sled Push 50m</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Sled Pull 50m</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Burpee BJ 80m</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Row 1km</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Farmers 200m</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Lunges 100m</span>
+    <span class="rp run">RUN 1km</span>
+    <span class="rp">Wall Balls 100</span>
+  </div>
+  <div class="vflow" style="justify-content:flex-start;gap:14px 12px">
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">RUN · 1 / 8</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Ritmo</div>
+            <div class="huge" style="font-size:44px;margin:2px 0 0">4:38<span style="font-size:14px;color:var(--watch-dim)"> /km</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">DIST</div><div class="mv">950<span style="font-size:9px">m</span></div></div>
+            <div class="mt"><div class="ml">FC</div><div class="mv">156</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="vsl">1 · Run 1km</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen" style="background:#140d07">
+          <div class="st" style="color:var(--orange-soft)">TRANSICIÓN</div>
+          <div style="margin-top:30px;text-align:center">
+            <div class="lab o">Entras a</div>
+            <div style="font-size:26px;font-weight:800;font-style:italic;letter-spacing:-.8px;margin:5px 0 0">SKIERG</div>
+            <div style="font-size:12px;color:var(--watch-dim);font-weight:700;margin-top:3px">1000 m</div>
+          </div>
+          <div style="position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:10px;font-weight:800;color:var(--watch-dim);letter-spacing:.5px">RUN ▸ ESTACIÓN</div>
+        </div></div>
+      </div>
+      <div class="vsl">2 · Run▸Estación</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">ESTACIÓN · SKI · PM5</div>
+          <div style="margin-top:16px;text-align:center">
+            <div class="lab">Ritmo /500m</div>
+            <div class="huge" style="font-size:42px;margin:2px 0 0">1:46<span style="font-size:13px;color:var(--watch-dim)"> /500m</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">WATTS</div><div class="mv">318</div></div>
+            <div class="mt"><div class="ml">S/M</div><div class="mv">35</div></div>
+          </div>
+          <div style="text-align:center;font-size:10px;font-weight:800;color:var(--watch-dim);margin-top:8px">420 / 1000 m</div>
+        </div></div>
+      </div>
+      <div class="vsl">3 · Ski 1000m</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">RUN · 2 / 8</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Ritmo</div>
+            <div class="huge" style="font-size:44px;margin:2px 0 0">4:41<span style="font-size:14px;color:var(--watch-dim)"> /km</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">DIST</div><div class="mv">380<span style="font-size:9px">m</span></div></div>
+            <div class="mt"><div class="ml">FC</div><div class="mv">162</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="vsl">4 · Run 1km</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">ESTACIÓN · SLED</div>
+          <div style="margin-top:16px;text-align:center">
+            <div class="lab">Empuje · metros</div>
+            <div class="huge" style="font-size:46px;margin:2px 0 0">32<span style="font-size:15px;color:var(--watch-dim)"> /50m</span></div>
+            <div style="font-size:12px;font-weight:800;color:var(--orange-soft);margin-top:3px">Sled Push</div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">FC</div><div class="mv">168</div></div>
+            <div class="mt"><div class="ml">TIEMPO</div><div class="mv">0:54</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="vsl">5 · Sled push 50m</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">ESTACIÓN · ROW · PM5</div>
+          <div style="margin-top:16px;text-align:center">
+            <div class="lab">Ritmo /500m</div>
+            <div class="huge" style="font-size:42px;margin:2px 0 0">1:52<span style="font-size:13px;color:var(--watch-dim)"> /500m</span></div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">WATTS</div><div class="mv">290</div></div>
+            <div class="mt"><div class="ml">S/M</div><div class="mv">29</div></div>
+          </div>
+          <div style="text-align:center;font-size:10px;font-weight:800;color:var(--watch-dim);margin-top:8px">620 / 1000 m</div>
+        </div></div>
+      </div>
+      <div class="vsl">6 · Row 1000m</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div class="st" style="color:var(--orange-soft)">ESTACIÓN · WALL BALLS</div>
+          <div style="margin-top:18px;text-align:center">
+            <div class="lab">Reps</div>
+            <div class="huge" style="font-size:54px;margin:2px 0 0">63<span style="font-size:18px;color:var(--watch-dim)"> /100</span></div>
+            <div style="font-size:12px;font-weight:800;color:var(--orange-soft);margin-top:3px">Wall Balls 9kg</div>
+          </div>
+          <div class="metricrow">
+            <div class="mt"><div class="ml">FC</div><div class="mv">171</div></div>
+            <div class="mt"><div class="ml">TIEMPO</div><div class="mv">2:08</div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="vsl">7 · Wall balls 100</div>
+    </div>
+
+    <div class="vframe">
+      <div class="aw"><span class="crown"></span><span class="sbtn"></span>
+        <div class="body"><div class="screen">
+          <div style="margin-top:16px;text-align:center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin:0 auto 6px"><circle cx="12" cy="12" r="11" fill="#2fd14f"/><path d="M7 12.5l3.2 3.2L17 8.5" stroke="#06280f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="lab o">Meta · Sim HYROX</div>
+            <div class="huge" style="font-size:40px;margin:4px 0 0">58:24</div>
+          </div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--watch-dim);margin-top:12px">8 estaciones ✓</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--watch-dim);margin-top:3px">Guardado en iPhone</div>
+        </div></div>
+      </div>
+      <div class="vsl">8 · Meta</div>
     </div>
 
   </div>
