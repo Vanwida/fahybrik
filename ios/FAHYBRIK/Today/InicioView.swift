@@ -33,6 +33,10 @@ struct InicioView: View {
     @State private var checkinPending: Bool = CheckinStore.isPending()
     @State private var sessionBearer: String? = nil
 
+    // Today's all-day step count, read display-local from HealthKit (not the API
+    // store — it's device-local). Nil until the first read resolves.
+    @State private var stepsReading: HealthKitStepsReader.Reading? = nil
+
     // ── Shared data: read live from the injected AppDataStore (cache-first/SWR) ──
     // These derive from the store's slices, so switching tabs renders instantly
     // from memory — no per-view re-fetch, no spinner; the store revalidates in the
@@ -148,14 +152,20 @@ struct InicioView: View {
                 // Readiness (always its OWN slot) + the race countdown, side by side.
                 tilesRow
                     .staggerReveal(revealed, index: 7)
+                // All-day movement beyond training: today's step count. A slim stat
+                // row that sits with the daily-signal cluster (readiness = recovery,
+                // steps = movement). Display-local from HealthKit, with honest
+                // connect / no-data states — never a fabricated number.
+                stepsRow
+                    .staggerReveal(revealed, index: 8)
                 // The whole week's stress MIX at a glance — color = type, size =
                 // duration, filled = done, dash = rest. Only when a plan exists.
                 if hasPlan {
                     weekStripCard
-                        .staggerReveal(revealed, index: 8)
+                        .staggerReveal(revealed, index: 9)
                 }
                 coachNoteRow
-                    .staggerReveal(revealed, index: 9)
+                    .staggerReveal(revealed, index: 10)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.s)
@@ -222,6 +232,11 @@ struct InicioView: View {
             store.activate(bearer: effectiveBearer)
             await store.loadHome()
             pushNextWorkoutToWatch()
+        }
+        .task {
+            // All-day step count is device-local (HealthKit), not bearer-scoped —
+            // read it on appear, independent of the API store's revalidation.
+            stepsReading = await HealthKitStepsReader.todaySteps()
         }
     }
 
@@ -825,6 +840,112 @@ struct InicioView: View {
             .accessibilityLabel("Elige tu carrera objetivo, busca tu carrera")
         }
     }
+
+    // MARK: - Steps row (all-day movement)
+    //
+    // A slim, single-line stat: footsteps icon + "Pasos hoy" label on the left,
+    // today's step count on the right. Steps are device-local (HealthKit) and
+    // shown only when real — never fabricated. Three honest states:
+    //   • count   → the formatted step total ("8.432")
+    //   • connect → Health not connected (or unavailable, e.g. Simulator) → an
+    //               accent "Conecta Salud →" that routes to Perfil to connect
+    //   • empty   → connected but no steps recorded yet today → a muted "—"
+    // Visually lighter than the readiness/race tiles (shorter row) so it adds the
+    // signal without saturating the home.
+    private enum StepsDisplay {
+        case count(String)
+        case connect
+        case empty
+        var isConnect: Bool { if case .connect = self { return true } else { return false } }
+    }
+
+    /// Maps the raw HealthKit reading + the persisted connection flag to one of
+    /// the three honest display states. `.unavailable` (Simulator / no Health)
+    /// folds into `.connect` so dev sees a graceful prompt, not a blank slot.
+    private var stepsDisplay: StepsDisplay {
+        switch stepsReading {
+        case .steps(let n):
+            return .count(Self.stepsFormatter.string(from: NSNumber(value: n)) ?? "\(n)")
+        case .noData:
+            return HealthKitConnection.isConnected ? .empty : .connect
+        case .unavailable:
+            return .connect
+        case nil:
+            return .empty   // brief pre-read placeholder — muted "—", never a number
+        }
+    }
+
+    private var stepsRow: some View {
+        let display = stepsDisplay
+        let tappable = display.isConnect
+        return Button {
+            guard tappable else { return }
+            Haptics.light()
+            onOpenTab?(.perfil)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "shoeprints.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                LabelText(text: "Pasos hoy", size: 10)
+                Spacer(minLength: 8)
+                stepsValue(display)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .disabled(!tappable)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(stepsAxLabel(display))
+        .accessibilityAddTraits(tappable ? .isButton : [])
+    }
+
+    @ViewBuilder
+    private func stepsValue(_ display: StepsDisplay) -> some View {
+        switch display {
+        case .count(let text):
+            Text(text)
+                .font(.system(size: 20, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.foreground)
+        case .connect:
+            HStack(spacing: 4) {
+                Text("Conecta Salud")
+                    .scaledFont(12, weight: .semibold, relativeTo: .footnote)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(Theme.Color.accentText)
+        case .empty:
+            Text("—")
+                .font(.system(size: 20, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.faint)
+        }
+    }
+
+    private func stepsAxLabel(_ display: StepsDisplay) -> String {
+        switch display {
+        case .count(let text): return "Pasos hoy, \(text)"
+        case .connect:         return "Pasos hoy. Conecta Apple Salud para ver tus pasos"
+        case .empty:           return "Pasos hoy, sin datos todavía"
+        }
+    }
+
+    /// Spanish-grouped step count ("8.432"). Built once — a NumberFormatter is
+    /// expensive to allocate per render.
+    private static let stepsFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.locale = Locale(identifier: "es_ES")
+        return f
+    }()
 
     // MARK: - Week strip card (color = type · size = duration)
     //

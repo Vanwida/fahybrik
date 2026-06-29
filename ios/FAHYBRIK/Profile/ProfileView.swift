@@ -63,15 +63,10 @@ struct ProfileView: View {
     // we set after a granted request(), because HealthKit does NOT expose
     // read-authorization status reliably (authorizationStatus only reports
     // share/write). `healthRequesting` drives the in-flight spinner.
-    @State private var healthConnected: Bool = ProfileView.isHealthConnected()
+    @State private var healthConnected: Bool = HealthKitConnection.isConnected
     @State private var healthRequesting: Bool = false
     @State private var healthDenied: Bool = false
     private let healthAvailable: Bool = HKHealthStore.isHealthDataAvailable()
-
-    private static let healthConnectedKey = "healthkit_connected"
-    private static func isHealthConnected() -> Bool {
-        UserDefaults.standard.bool(forKey: healthConnectedKey)
-    }
 
     private enum SheetKind: String, Identifiable {
         case methodology
@@ -618,7 +613,7 @@ struct ProfileView: View {
             athleteId: AuthState.persistedAthleteId()
         )
         HealthKitSyncService.shared.start()
-        UserDefaults.standard.set(true, forKey: Self.healthConnectedKey)
+        UserDefaults.standard.set(true, forKey: HealthKitConnection.connectedKey)
         healthConnected = true
         healthDenied = false
         showToast("Apple Health conectado")

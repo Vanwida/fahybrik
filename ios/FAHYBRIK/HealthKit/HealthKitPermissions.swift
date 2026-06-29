@@ -10,6 +10,7 @@ enum HealthKitPermissions {
         if let t = HKObjectType.quantityType(forIdentifier: .restingHeartRate) { s.insert(t) }
         if let t = HKObjectType.quantityType(forIdentifier: .vo2Max) { s.insert(t) }
         if let t = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) { s.insert(t) }
+        if let t = HKObjectType.quantityType(forIdentifier: .stepCount) { s.insert(t) }
         if let t = HKObjectType.quantityType(forIdentifier: .bodyMass) { s.insert(t) }
         if let t = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { s.insert(t) }
         if let t = HKObjectType.quantityType(forIdentifier: .runningPower) { s.insert(t) }
