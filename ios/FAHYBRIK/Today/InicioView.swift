@@ -84,10 +84,7 @@ struct InicioView: View {
         let todayIso = resp.week.todayIso
         guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
         return today.sessions
-            .filter {
-                let st = SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId)
-                return st == .done || st == .partial
-            }
+            .filter { SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished }
             .sorted { slotRank($0.slot) < slotRank($1.slot) }
     }
     // Fallback when today has no sessions: the next future session in the week.
@@ -1278,8 +1275,7 @@ struct InicioView: View {
         let todayIso = resp.week.todayIso
         guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
         let active = today.sessions.filter {
-            $0.status.lowercased() != "completed"
-                && !CompletedAssignmentsStore.isCompleted($0.assignmentId)
+            !SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished
         }
         return active.sorted { slotRank($0.slot) < slotRank($1.slot) }
     }

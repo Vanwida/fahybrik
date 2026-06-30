@@ -487,6 +487,13 @@ enum SessionMarkState {
         default:                   return .pending // scheduled / in_progress / unknown
         }
     }
+
+    /// True when the session has been PERFORMED — fully (`.done`) or terminated
+    /// early (`.partial`). A finished session is no longer "to do": it must never
+    /// surface as a hero / "Próximo" / "▶ Empezar", and instead lands in the
+    /// "Hecho hoy" confirmation. Single source of truth so the active (to-do) and
+    /// finished (done) halves of the loop can never disagree about `partial`.
+    var isFinished: Bool { self == .done || self == .partial }
 }
 
 // Lightweight projection for the Today "next workout" card. We avoid creating
@@ -508,11 +515,12 @@ extension PlanService {
     /// earliest future, non-completed session in the week.
     static func nextWorkout(from resp: AthletePlanWeekResponse) -> NextWorkout? {
         let todayIso = resp.week.todayIso
-        // A session is "done" when the server marks it completed OR we recorded
-        // it locally (optimistic completion before the status refetch lands).
+        // A session is still "to do" only when it has NOT been performed — neither
+        // completed NOR partial (incl. the optimistic stores). Reusing the shared
+        // SessionMarkState.isFinished keeps "Próximo"/hero from re-surfacing a
+        // partial that already lives in "Hecho hoy".
         let active: (AthleteWeekDaySession) -> Bool = {
-            $0.status.lowercased() != "completed"
-                && !CompletedAssignmentsStore.isCompleted($0.assignmentId)
+            !SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished
         }
 
         // 1. Today, first active session.
