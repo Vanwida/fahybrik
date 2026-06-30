@@ -21,10 +21,21 @@ struct ExecutedWorkoutView: View {
 
     @State private var detail: AssignmentDetail?
     @State private var loadFailed = false
+    /// The CONCRETE cause behind `loadFailed` (HTTP status / decode error / network),
+    /// shown under the headline and logged — so a real failure is never anonymous.
+    @State private var failureReason: String?
     @State private var showCapture = false
 
     private var execution: ExecutionSummary? { detail?.execution }
     private var isPartial: Bool { execution?.isPartial ?? false }
+
+    // Retry budget for the detail fetch. A serverless cold start (the demo's known
+    // cause) or a brief network blip produces a one-off failure on this screen, so
+    // we retry a couple of times with a short, growing backoff BEFORE ever showing
+    // the error state. Deterministic failures (4xx, decode) are NOT retried — a
+    // re-fetch can't fix them and would only delay surfacing the real reason.
+    private static let maxFetchAttempts = 3
+    private static let retryBackoff: [Duration] = [.milliseconds(400), .milliseconds(900)]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -248,8 +259,16 @@ struct ExecutedWorkoutView: View {
             Text("No pudimos cargar tu entreno")
                 .font(Theme.Typography.headlineS)
                 .foregroundStyle(Theme.Color.foreground)
+            if let failureReason {
+                Text(failureReason)
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Theme.Spacing.m)
+            }
             PrimaryButton(title: "Reintentar") {
                 loadFailed = false
+                failureReason = nil
                 Task { await load() }
             }
             .frame(maxWidth: 280)
@@ -272,17 +291,46 @@ struct ExecutedWorkoutView: View {
             detail = cached
         }
         guard let bearer else {
-            if detail == nil { loadFailed = true }
+            if detail == nil { fail(reason: "Sin sesión.") }
             return
         }
-        do {
-            let fetched = try await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
-            AssignmentDetailCache.save(fetched)
-            detail = fetched
-            loadFailed = false
-        } catch {
-            if detail == nil { loadFailed = true }
+
+        // Retry the fetch a couple of times on a TRANSIENT failure (network blip /
+        // serverless cold start) before giving up — these blips are the known cause
+        // of the spurious "No pudimos cargar" on a workout that loads fine on a
+        // second tap. A deterministic failure (4xx, decode) breaks out immediately
+        // so its real reason surfaces without delay.
+        var lastError: Error?
+        for attempt in 0..<Self.maxFetchAttempts {
+            do {
+                let fetched = try await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
+                AssignmentDetailCache.save(fetched)
+                detail = fetched
+                loadFailed = false
+                failureReason = nil
+                return
+            } catch {
+                lastError = error
+                guard Self.isTransient(error), attempt < Self.maxFetchAttempts - 1 else { break }
+                try? await Task.sleep(for: Self.retryBackoff[min(attempt, Self.retryBackoff.count - 1)])
+            }
         }
+
+        // Exhausted the budget (or hit a deterministic failure). Keep any cached
+        // detail painted — only drop to the error state when there's nothing to
+        // show — and surface + log the concrete reason instead of a blank message.
+        if let lastError {
+            #if DEBUG
+            print("[ExecutedWorkoutView] load failed for assignment \(assignmentId): \(Self.describe(lastError))")
+            #endif
+            if detail == nil { fail(reason: Self.describe(lastError)) }
+        }
+    }
+
+    /// Set the error state with its concrete reason in one place (DRY).
+    private func fail(reason: String) {
+        failureReason = reason
+        loadFailed = true
     }
 
     // Force a refresh after a capture-confirm (the `load()` short-circuit on a
@@ -293,6 +341,52 @@ struct ExecutedWorkoutView: View {
         if let fetched = try? await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer) {
             AssignmentDetailCache.save(fetched)
             detail = fetched
+        }
+    }
+
+    // MARK: - Failure classification
+
+    /// Is this a TRANSIENT blip worth retrying (network drop / serverless cold
+    /// start → 5xx / unexpected non-HTTP response), versus a DETERMINISTIC failure
+    /// (4xx, undecodable body) a re-fetch can't fix? Only the former is retried.
+    private static func isTransient(_ error: Error) -> Bool {
+        switch error {
+        case let APIError.http(status, _): return status >= 500
+        case APIError.invalidResponse:     return true
+        case APIError.offline:             return true
+        case is URLError:                  return true
+        default:                           return false
+        }
+    }
+
+    /// Compact, readable reason for the failure — shown under the headline and
+    /// logged. Mirrors the APIError→copy mapping used at the auth surfaces so the
+    /// concrete cause is never swallowed into an anonymous "No pudimos cargar".
+    private static func describe(_ error: Error) -> String {
+        switch error {
+        case let APIError.http(status, _):  return "HTTP \(status)"
+        case let APIError.decoding(inner):  return "decode: \(decodeReason(inner))"
+        case APIError.invalidResponse:      return "respuesta no válida del servidor"
+        case APIError.offline:              return "sin conexión"
+        case let urlError as URLError:      return "red: \(urlError.localizedDescription)"
+        default:                            return error.localizedDescription
+        }
+    }
+
+    /// Pull the diagnostic essence out of a `DecodingError` (the field + path that
+    /// failed) instead of its near-useless `localizedDescription`, so a real schema
+    /// mismatch is identifiable from the error state / log.
+    private static func decodeReason(_ error: Error) -> String {
+        guard let dec = error as? DecodingError else { return error.localizedDescription }
+        let path: (DecodingError.Context) -> String = { ctx in
+            ctx.codingPath.map(\.stringValue).joined(separator: ".")
+        }
+        switch dec {
+        case let .keyNotFound(key, ctx):  return "falta '\(key.stringValue)' (\(path(ctx)))"
+        case let .typeMismatch(_, ctx):   return "tipo en \(path(ctx)): \(ctx.debugDescription)"
+        case let .valueNotFound(_, ctx):  return "nulo en \(path(ctx))"
+        case let .dataCorrupted(ctx):     return ctx.debugDescription
+        @unknown default:                 return dec.localizedDescription
         }
     }
 
