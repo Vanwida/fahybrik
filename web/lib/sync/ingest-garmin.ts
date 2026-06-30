@@ -18,6 +18,7 @@
 // activityId, falling back to startTimeInSeconds when missing.
 
 import type { Sql } from '@/lib/db';
+import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
 import { deriveLapIntensity, garminActivityToModality } from '@/lib/garmin/lap-mapping';
 
 export type GarminSummary = {
@@ -291,6 +292,11 @@ async function ingestGarminActivity(args: {
             updated_at = now()
     `;
     executionInserted = true;
+
+    // Close the loop: a synced Garmin activity proves the session was performed,
+    // so promote a still-'scheduled' assignment to 'completed'. Guarded to never
+    // clobber an explicit manual 'partial'/'completed' or coach 'skipped'/'missed'.
+    await markAssignmentDoneFromDevice(sql, rows[0].id, athlete_id);
 
     if (summary.laps && summary.laps.length > 0) {
       const exec = await sql<{ id: string }[]>`

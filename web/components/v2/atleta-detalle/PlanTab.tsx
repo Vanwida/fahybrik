@@ -40,7 +40,9 @@ function mapWeekToStripDays(week: PlanWeekRow, athleteId: string): WeekStripDay[
     let state: WeekStripDay['state'] = 'rest';
     if (!s) state = 'rest';
     else if (d.is_today) state = 'today';
-    else if (s.status === 'completed') state = 'done';
+    // 'partial' is performed-but-incomplete — the coarse week strip treats it as
+    // done (the precise ½ shows in the recent-sessions row + the session drawer).
+    else if (s.status === 'completed' || s.status === 'partial') state = 'done';
     else state = 'scheduled';
     return {
       label: d.label,
@@ -109,6 +111,7 @@ function MiniWeekCard({
 function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: string) => void }) {
   const modality = sessionModality({ format: s.format, title: s.title });
   const ok = s.status === 'completed';
+  const partial = s.status === 'partial';
   return (
     <tr
       role="button"
@@ -133,22 +136,32 @@ function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: strin
         </span>
       </td>
       <td className="py-2 px-2 text-xs text-[color:var(--v2-muted)]">
-        {ok ? 'Hecho' : s.status === 'missed' ? 'Perdida' : 'Pendiente'}
+        {ok ? 'Hecho' : partial ? 'Parcial' : s.status === 'missed' ? 'Perdida' : 'Pendiente'}
       </td>
       <td className="v2-num py-2 px-2 text-right text-xs text-[color:var(--v2-muted)]">
         {s.rpe != null ? `RPE ${s.rpe}` : '—'}
       </td>
       <td className="py-2 pl-2 text-right">
         <MIcon
-          name={ok ? 'check_circle' : s.status === 'missed' ? 'warning' : 'schedule'}
+          name={
+            ok
+              ? 'check_circle'
+              : partial
+                ? 'contrast'
+                : s.status === 'missed'
+                  ? 'warning'
+                  : 'schedule'
+          }
           size={16}
           filled={ok}
           className={cn(
             ok
               ? 'text-[color:var(--v2-ok)]'
-              : s.status === 'missed'
-                ? 'text-[color:var(--v2-danger)]'
-                : 'text-[color:var(--v2-faint)]',
+              : partial
+                ? 'text-[color:var(--v2-warn)]'
+                : s.status === 'missed'
+                  ? 'text-[color:var(--v2-danger)]'
+                  : 'text-[color:var(--v2-faint)]',
           )}
         />
       </td>

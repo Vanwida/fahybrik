@@ -14,6 +14,7 @@
 // across sources.
 
 import type { Sql } from '@/lib/db';
+import { markAssignmentDoneFromDevice } from './assignment-status';
 import { canonicalizeHealthkitMetric } from './metric-map';
 import type { HKBiometricSampleDTO, HKSyncBatch, HKWorkoutDTO } from './schema';
 
@@ -215,6 +216,13 @@ async function linkExecution(args: {
           end,
           updated_at = now()
   `;
+
+  // Close the loop: a synced HealthKit workout proves the session was done, so
+  // promote a still-'scheduled' assignment to 'completed'. Never clobbers an
+  // explicit manual 'partial'/'completed' or a coach 'skipped'/'missed' (the
+  // helper guards on status='scheduled'). This is the fix for the "done workout
+  // still shows Empezar" bug — the insert above filed actuals but left status.
+  await markAssignmentDoneFromDevice(sql, assign.id, athlete_id);
   return true;
 }
 

@@ -16,6 +16,8 @@ import { AltasPendientesStrip } from '@/components/v2/hoy/AltasPendientesStrip';
 import { AsignacionSugeridaStrip } from '@/components/v2/hoy/AsignacionSugeridaCard';
 import { SiguienteMicrocicloStrip } from '@/components/v2/hoy/SiguienteMicrocicloCard';
 import { AjusteSemanalStrip } from '@/components/v2/hoy/AjusteSemanalCard';
+import { ActividadHoyStrip } from '@/components/v2/hoy/ActividadHoyStrip';
+import type { ActivityToday } from '@/lib/dashboard/coach/activity-today';
 import {
   IntroStrip,
   InfoDot,
@@ -65,12 +67,14 @@ export function HoyBoard({
   coach_name,
   coachKey,
   pending_intakes,
+  activity,
 }: {
   data: V2HoyData;
   today: string;
   coach_name: string;
   coachKey: string;
   pending_intakes: PendingIntakeAthlete[];
+  activity: ActivityToday;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -177,6 +181,11 @@ export function HoyBoard({
       {/* ── Ajuste de semana strip (pending Pablo IA week-adjustment proposals —
           accept applies the slot changes, ignore rejects them) ── */}
       <AjusteSemanalStrip cards={data.week_adjustment_cards} />
+
+      {/* ── Actividad de hoy (SABER glance — what the roster actually logged today,
+          incl. off-plan entrenos libres; tap a row to drill into the executed
+          session on the athlete's detail). Ambient, never a queue. ── */}
+      <ActividadHoyStrip activity={activity} />
 
       {boardEmpty && !q ? (
         /* Empty board is a GOOD signal, not an error — teach the reframe. */

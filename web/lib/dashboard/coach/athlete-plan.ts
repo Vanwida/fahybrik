@@ -14,7 +14,9 @@ import { buildMacroProgress, type MacroProgressPayload } from './macro-progress'
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
 
-export type PlanSessionStatus = 'scheduled' | 'completed' | 'missed' | 'skipped';
+// Mirrors the DB `assignment_status` enum. 'partial' = the athlete terminated the
+// session early (honest "ya no puedo más" save) — performed, but not to the end.
+export type PlanSessionStatus = 'scheduled' | 'completed' | 'partial' | 'missed' | 'skipped';
 
 export interface PlanSession {
   assignment_id: string;

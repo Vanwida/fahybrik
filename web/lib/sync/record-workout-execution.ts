@@ -17,6 +17,7 @@ import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { ingestExecutionSegments, segmentInputSchema } from '@/lib/sync/ingest-execution-segments';
+import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 // The measured outcome of a session, WITHOUT the assignment id (the solo route
@@ -140,11 +141,7 @@ export async function recordWorkoutExecution(args: {
   // 'partial' when the athlete terminated early. Older clients omit completeness
   // → 'full' → 'completed' (unchanged behaviour).
   const assignmentStatus = input.completeness === 'partial' ? 'partial' : 'completed';
-  await sql`
-    update workout_assignments
-    set status = ${assignmentStatus}::assignment_status, updated_at = now()
-    where id = ${assignmentId} and athlete_id = ${athleteId}
-  `;
+  await setAssignmentStatus(sql, assignmentId, athleteId, assignmentStatus);
 
   // Fire-and-forget: refresh the coach attention queue for this athlete (a
   // completed workout can clear missed_sessions / compliance signals). Never

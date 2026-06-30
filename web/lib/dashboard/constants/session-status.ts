@@ -6,6 +6,7 @@ export type StatusDotVariant = PlanSessionStatus | 'pending' | 'warning';
 export const SESSION_STATUS_COLOR: Record<StatusDotVariant, string> = {
   scheduled: 'var(--text-muted)',
   completed: 'var(--status-success)',
+  partial: 'var(--status-warning)',
   missed: 'var(--danger)',
   skipped: 'var(--status-warning)',
   pending: 'var(--accent)',
@@ -20,6 +21,7 @@ export function sessionStatusColor(status: PlanSessionStatus): string {
 export const SESSION_STATUS_LABEL: Record<PlanSessionStatus, string> = {
   scheduled: 'Pendiente',
   completed: 'Completada',
+  partial: 'Parcial',
   missed: 'Perdida',
   skipped: 'Saltada',
 };

@@ -17,6 +17,8 @@ import {
   loadAthleteZoneProfilesForAthlete,
 } from '@/lib/dashboard/v2/zone-profile';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
+import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
 import {
   EXERCISE_TO_1RM_BENCHMARK,
   resolveRmLoad,
@@ -54,7 +56,7 @@ export interface AssignmentDetailResponse {
     id: string;
     athlete_id: string;
     scheduled_for: string;
-    status: 'scheduled' | 'completed' | 'missed' | 'skipped';
+    status: 'scheduled' | 'completed' | 'partial' | 'missed' | 'skipped';
     slot: string | null;
     template_id: string | null;
     template_version: number | null;
@@ -66,6 +68,35 @@ export interface AssignmentDetailResponse {
     partner_visibility: 'shared' | 'self_only';
   };
   workout: AssignmentDetailWorkout | null;
+  // The athlete's REAL executed result, when the session has been done. Powers
+  // the read-only post-workout detail the athlete reaches by tapping a finished
+  // session (closing the loop: they see what they logged — tiempo / score / RPE /
+  // per-segment splits). Null while the session is still pending (no execution).
+  execution: AssignmentDetailExecution | null;
+}
+
+// What the athlete ACTUALLY did — the executed reality for a finished session.
+// Aggregate (duration / score / RPE / notes / provenance) + per-exercise actuals.
+// Mirrors what the coach session-detail already returns, so both surfaces read the
+// same execution numbers from ONE loader.
+export interface AssignmentDetailExecution {
+  execution_id: string | null;
+  total_duration_seconds: number | null;
+  perceived_exertion: number | null;
+  // Metcon/HYROX headline result, pre-formatted ("42:15", "5 rondas + 8 reps").
+  // Null for non-scored formats or when no score was recorded.
+  score_label: string | null;
+  notes: string | null;
+  ended_at: string | null;
+  // Provenance of the execution — 'manual' | 'healthkit' | 'garmin' | … (the
+  // biometric_source enum). Lets the UI say "registrado a mano" vs synced.
+  source: string | null;
+  // Honest finish state, derived from the assignment status: 'completed' (ran to
+  // the end → green ✓) or 'partial' (terminated early → amber ½).
+  completeness: 'completed' | 'partial';
+  // Per-exercise actuals (segment_executions) mapped to the prescribed item via
+  // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
+  segments: SegmentActual[];
 }
 
 export interface AssignmentDetailWorkout {
@@ -184,7 +215,7 @@ interface AssignmentRow {
   id: string;
   athlete_id: string;
   scheduled_for: string;
-  status: 'scheduled' | 'completed' | 'missed' | 'skipped';
+  status: 'scheduled' | 'completed' | 'partial' | 'missed' | 'skipped';
   notes: string | null;
   template_id: string | null;
   template_version: number | null;
@@ -194,6 +225,15 @@ interface AssignmentRow {
 interface ExecutionRow {
   ended_at: string | null;
   perceived_exertion: number | null;
+  // Extended actuals for the read-only executed-session view. Optional so the
+  // pure builder's existing tests (which only supply ended_at + RPE) keep typing.
+  execution_id?: string | null;
+  total_duration_seconds?: number | null;
+  score_time_s?: number | null;
+  score_rounds?: number | null;
+  score_reps?: number | null;
+  notes?: string | null;
+  source?: string | null;
 }
 
 interface TemplateRow {
@@ -275,16 +315,32 @@ export async function loadAssignmentDetail(
   // yet) → %RM lines keep the percentage with no resolved kg.
   const oneRms = await loadOneRmMap({ athlete_id, client: sql });
 
-  // Execution (1:1 with assignment, may not exist yet if scheduled).
+  // Execution (1:1 with assignment, may not exist yet if scheduled). We pull the
+  // full executed aggregate (id / duration / score / notes / source) so the
+  // read-only athlete summary renders real numbers, not just completed_at + RPE.
   const executionRows = await sql<ExecutionRow[]>`
     select
+      id::text                as execution_id,
       ended_at::text          as ended_at,
-      perceived_exertion      as perceived_exertion
+      perceived_exertion      as perceived_exertion,
+      total_duration_seconds  as total_duration_seconds,
+      score_time_s            as score_time_s,
+      score_rounds            as score_rounds,
+      score_reps              as score_reps,
+      notes                   as notes,
+      source::text            as source
     from workout_executions
     where assignment_id = ${assignment_id as unknown as number}
     limit 1
   `;
   const execution = executionRows[0] ?? null;
+
+  // Per-exercise actuals (segment_executions) for the executed view — only when
+  // there's a real execution to attribute them to. Empty otherwise (no fabrication).
+  const executionSegments =
+    execution?.execution_id != null
+      ? await loadSegmentActuals(sql, Number(execution.execution_id))
+      : [];
 
   // Template + segments. Archived templates still resolve — the athlete
   // already has the assignment, we don't strip it out.
@@ -332,7 +388,15 @@ export async function loadAssignmentDetail(
     }
   }
 
-  return buildAssignmentDetail({ assignment, execution, template, segments, zoneProfiles, oneRms });
+  return buildAssignmentDetail({
+    assignment,
+    execution,
+    template,
+    segments,
+    zoneProfiles,
+    oneRms,
+    executionSegments,
+  });
 }
 
 // A modality → resolved-zone-bands lookup, built once per request from the
@@ -365,6 +429,37 @@ function buildZoneLookup(profiles: AthleteZoneProfile[]): ZoneLookup {
   return out;
 }
 
+// Assemble the read-only executed block for a finished session. Returns null when
+// there's no execution AND the session isn't marked done — a still-pending session
+// has nothing to show. A done session with no execution row (legacy / edge) still
+// yields a block so the UI can render the "hecho" state honestly with no numbers.
+function buildExecutionBlock(
+  status: AssignmentRow['status'],
+  execution: ExecutionRow | null,
+  segments: SegmentActual[],
+): AssignmentDetailExecution | null {
+  const isDone = status === 'completed' || status === 'partial';
+  if (!execution && !isDone) return null;
+
+  return {
+    execution_id: execution?.execution_id ?? null,
+    total_duration_seconds: execution?.total_duration_seconds ?? null,
+    perceived_exertion: execution?.perceived_exertion ?? null,
+    score_label: execution
+      ? formatExecutionScore({
+          score_time_s: execution.score_time_s ?? null,
+          score_rounds: execution.score_rounds ?? null,
+          score_reps: execution.score_reps ?? null,
+        })
+      : null,
+    notes: execution?.notes ?? null,
+    ended_at: execution?.ended_at ?? null,
+    source: execution?.source ?? null,
+    completeness: status === 'partial' ? 'partial' : 'completed',
+    segments,
+  };
+}
+
 // =============================================================================
 // Pure builder (testable without a DB)
 // =============================================================================
@@ -380,6 +475,9 @@ export function buildAssignmentDetail(input: {
   // The athlete's current 1RM per benchmark slug. Default empty keeps the pure
   // builder testable without 1RMs — %RM items then carry the % but no kg.
   oneRms?: OneRmLookup;
+  // Per-exercise actuals for the executed view. Default [] keeps the pure builder
+  // testable without a DB — a finished session then shows the aggregate alone.
+  executionSegments?: SegmentActual[];
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
   const zoneLookup = buildZoneLookup(input.zoneProfiles ?? []);
@@ -401,8 +499,12 @@ export function buildAssignmentDetail(input: {
       partner_visibility: assignment.partner_visibility,
     },
     workout: null,
+    execution: buildExecutionBlock(assignment.status, execution, input.executionSegments ?? []),
   };
 
+  // The executed block is independent of the template (a "marcar como hecha" log
+  // has an execution but the same template), so it's set on `base` above and
+  // survives the rest-day early return.
   if (!template) return base;
 
   base.workout = {

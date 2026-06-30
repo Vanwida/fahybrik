@@ -88,6 +88,7 @@ const STATUS_META: Record<
   { label: string; tone: 'ok' | 'warn' | 'danger' | 'neutral' }
 > = {
   completed: { label: 'Completada', tone: 'ok' },
+  partial: { label: 'Parcial', tone: 'warn' },
   scheduled: { label: 'Pendiente', tone: 'warn' },
   missed: { label: 'Perdida', tone: 'danger' },
   skipped: { label: 'Saltada', tone: 'neutral' },

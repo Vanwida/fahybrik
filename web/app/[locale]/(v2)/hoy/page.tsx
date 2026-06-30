@@ -11,6 +11,11 @@ import { listPendingIntake } from '@/lib/coach/intake';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
 import { loadCoachInbox, type CoachInbox } from '@/lib/dashboard/coach/inbox';
 import {
+  loadActivityToday,
+  ACTIVITY_GLANCE_LIMIT,
+  type ActivityToday,
+} from '@/lib/dashboard/coach/activity-today';
+import {
   buildHoyLanes,
   fetchNivelSugeridoCards,
   fetchAsignacionSugeridaCards,
@@ -49,6 +54,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     siguiente_microciclo_cards,
     pending_intakes,
     transition_ready_ids,
+    activity,
   ] = await Promise.all([
     fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
     listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
@@ -58,6 +64,11 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     fetchSiguienteMicrocicloCards(session.coach_id).catch(() => []),
     listPendingIntake({ coach_id: session.coach_id }).catch(() => []),
     fetchTransitionReadyAthleteIds(session.coach_id).catch(() => new Set<string>()),
+    // "Actividad de hoy" — what the roster actually logged today (SABER glance).
+    // Newest-first, capped to the rail limit; degrades to empty, never 500s.
+    loadActivityToday({ coach_id: session.coach_id, limit: ACTIVITY_GLANCE_LIMIT }).catch(
+      (): ActivityToday => ({ sessions: [], total: 0, off_target_count: 0 }),
+    ),
   ]);
 
   const data = buildHoyLanes({
@@ -77,6 +88,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
       coach_name={session.full_name}
       coachKey={String(session.coach_id)}
       pending_intakes={pending_intakes}
+      activity={activity}
     />
   );
 }
