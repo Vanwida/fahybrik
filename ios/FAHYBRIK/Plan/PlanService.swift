@@ -383,6 +383,14 @@ enum AssignmentDetailCache {
         guard let data = try? encoder.encode(detail) else { return }
         UserDefaults.standard.set(data, forKey: prefix + detail.assignment.id)
     }
+
+    /// Drop a cached detail. Called when the authoritative fetch reports the
+    /// assignment no longer resolves (HTTP 404) — the plan moved server-side and
+    /// the id the app held is stale, so any cached body for it is dead too. Keeps
+    /// a re-open from re-painting a detail that no longer exists.
+    static func remove(_ assignmentId: String) {
+        UserDefaults.standard.removeObject(forKey: prefix + assignmentId)
+    }
 }
 
 // MARK: - Locally-completed assignments (optimistic completion)

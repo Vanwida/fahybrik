@@ -203,7 +203,10 @@ struct InicioView: View {
                 assignmentId: executedAssignmentId ?? "",
                 fallbackTitle: executedFallbackTitle,
                 bearer: effectiveBearer,
-                onClose: { showExecuted = false }
+                onClose: { showExecuted = false },
+                // Stale id (404) → re-sync to the authoritative plan so today's
+                // "Hecho hoy" rows reflect their current wa.id on re-open.
+                onStale: { Task { await store.planMutated() } }
             )
         }
         .fullScreenCover(isPresented: $showFreeBuilder) {

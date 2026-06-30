@@ -18,6 +18,12 @@ struct ExecutedWorkoutView: View {
     let fallbackTitle: String?
     let bearer: String?
     let onClose: () -> Void
+    /// Fired when the detail fetch reports the assignment no longer resolves
+    /// (HTTP 404): the id the app held is STALE — the plan changed server-side —
+    /// so the presenter re-syncs to the authoritative plan (re-pulls /plan/week)
+    /// and the day resolves to its current `wa.id` on the next open. Optional so
+    /// existing call sites that don't yet re-sync compile unchanged.
+    var onStale: (() -> Void)? = nil
 
     @State private var detail: AssignmentDetail?
     @State private var loadFailed = false
@@ -323,6 +329,16 @@ struct ExecutedWorkoutView: View {
             #if DEBUG
             print("[ExecutedWorkoutView] load failed for assignment \(assignmentId): \(Self.describe(lastError))")
             #endif
+            // STALE ID (404): the assignment no longer resolves — the plan moved
+            // server-side, so the id carried from the week payload is dead. Drop
+            // its cached body and ask the presenter to re-sync to the authoritative
+            // plan (/plan/week) so the day resolves to its CURRENT wa.id on re-open.
+            // This is the honest recovery for a shifted id — never a dead-end on a
+            // raw "HTTP 404".
+            if case APIError.http(404, _) = lastError {
+                AssignmentDetailCache.remove(assignmentId)
+                onStale?()
+            }
             if detail == nil { fail(reason: Self.describe(lastError)) }
         }
     }
@@ -364,7 +380,11 @@ struct ExecutedWorkoutView: View {
     /// concrete cause is never swallowed into an anonymous "No pudimos cargar".
     private static func describe(_ error: Error) -> String {
         switch error {
-        case let APIError.http(status, _):  return "HTTP \(status)"
+        // 404 = the assignment no longer resolves (the plan moved server-side and
+        // the id is stale). Athlete-facing + actionable: we've re-synced the plan
+        // (onStale), so closing and re-opening the day finds its current session.
+        case APIError.http(404, _):         return "Esta sesión ya no está en tu plan. Lo hemos actualizado — cierra y vuelve a abrirla."
+        case let APIError.http(status, _):  return "Error del servidor (\(status)). Inténtalo de nuevo."
         case let APIError.decoding(inner):  return "decode: \(decodeReason(inner))"
         case APIError.invalidResponse:      return "respuesta no válida del servidor"
         case APIError.offline:              return "sin conexión"

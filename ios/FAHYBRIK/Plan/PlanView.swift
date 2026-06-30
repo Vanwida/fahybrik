@@ -184,7 +184,10 @@ struct PlanView: View {
                 assignmentId: executedAssignmentId ?? "",
                 fallbackTitle: executedFallbackTitle,
                 bearer: effectiveBearer,
-                onClose: { showExecuted = false }
+                onClose: { showExecuted = false },
+                // Stale id (404) → re-sync to the authoritative plan so the day
+                // reflects its current wa.id (and this screen's working copy with it).
+                onStale: { Task { await store.planMutated(); await loadPlan() } }
             )
         }
         .sheet(isPresented: $showChat) {
