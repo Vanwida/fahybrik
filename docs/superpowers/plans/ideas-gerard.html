@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dos ideas — reunión Gerard · FAHYBRID</title>
+<style>
+  /* ───────── DOC SHELL (crema, claro) — mismo lenguaje que docs/superpowers/plans/*.html.
+     El doc es claro; los MOCKUPS de teléfono son oscuros (la app es oscura). Marca negro + naranja Fabrik. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f5;color:#1a1a1a;padding:44px 24px 80px;line-height:1.5}
+  .container{max-width:1180px;margin:0 auto}
+  h1{font-size:32px;font-weight:800;font-style:italic;letter-spacing:-0.6px;margin-bottom:6px}
+  .sub{color:#8a8a86;font-size:13.5px;margin-bottom:26px;font-weight:600}
+
+  /* honesty legend */
+  .leg{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid #e8e8e3;border-radius:12px;padding:13px 16px;margin:0 0 6px}
+  .leg .lt{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-right:4px}
+  .htag{font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .htag::before{content:'';width:7px;height:7px;border-radius:999px;flex-shrink:0}
+  .htag.real{background:#e6f6ec;color:#137a3a;border:1px solid #bfe6cd}
+  .htag.real::before{background:#1f8a4c}
+  .htag.part{background:#fbeccd;color:#9a6a12;border:1px solid #f0d79a}
+  .htag.part::before{background:#e0a93a}
+  .htag.ai{background:#fdecdf;color:#c0560f;border:1px solid #f5cba0}
+  .htag.ai::before{background:#f06a2a}
+
+  h2{font-size:23px;font-weight:800;margin:54px 0 4px;letter-spacing:-0.4px;display:flex;align-items:center;gap:12px}
+  h2 .surf{font-size:12px;font-weight:800;color:#fff;background:#ff6600;padding:4px 11px;border-radius:7px;letter-spacing:.02em}
+  .h2sub{font-size:14px;color:#666;font-weight:600;margin:2px 0 8px}
+
+  .seclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.9px;color:#a0a0a0;margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+  .seclbl::after{content:'';flex:1;height:1px;background:#e8e8e3}
+
+  /* build-honesty board per feature */
+  .board{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0 6px}
+  .bcol{background:#fff;border:1px solid #e8e8e3;border-radius:13px;padding:15px 18px}
+  .bcol.ai{background:linear-gradient(180deg,#fff8f1,#fff);border-color:#f3d6b6}
+  .bcol .bh{font-size:12px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .bcol ul{list-style:none;padding:0;font-size:12.5px;color:#3a3a3a}
+  .bcol li{padding:5px 0 5px 19px;position:relative;line-height:1.45}
+  .bcol li::before{content:'✓';position:absolute;left:0;color:#1f8a4c;font-weight:800}
+  .bcol.ai li::before{content:'◆';color:#f06a2a;font-size:10px;top:6px}
+  .bcol li b{color:#1a1a1a;font-weight:800}
+
+  /* flow strip (sequence + arrows) */
+  .flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:#fbfbf9;border:1px solid #e8e8e3;border-radius:12px;padding:13px 15px;margin:14px 0 18px;font-size:12px}
+  .flow .step{font-weight:700;color:#333;background:#fff;border:1px solid #e3e3de;padding:6px 11px;border-radius:8px;white-space:nowrap}
+  .flow .step.k{background:#101010;color:#fff;border-color:#101010}
+  .flow .step.ai{background:#fdecdf;border-color:#f5cba0;color:#b04e0c}
+  .flow .arr{color:#ff6600;font-weight:800;font-size:14px}
+
+  /* PHONE FILMSTRIP */
+  .strip{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;margin:6px 0 4px;justify-content:center}
+  .arrx{align-self:center;color:#ff6600;font-weight:800;font-size:22px;flex-shrink:0;padding:0 1px}
+  .pcol{display:flex;flex-direction:column;align-items:center;width:248px}
+  .pcap{font-size:11px;font-weight:700;color:#777;text-align:center;margin-top:9px;line-height:1.35;font-style:italic;max-width:230px}
+  .pcap b{color:#1a1a1a;font-style:normal}
+  .pstep{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#ff6600;margin-bottom:7px}
+
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid #e8e8e3;font-size:12px;color:#aaa}
+
+  @media(max-width:880px){ .board{grid-template-columns:1fr} .arrx{display:none} }
+
+  /* ════════════ DARK PHONE MOCKUP — tokens espejo de v2-theme.css + iOS ════════════ */
+  .phone{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,0.08); --border-strong:rgba(255,255,255,0.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-fg:#0a0a0a; --accent-soft:rgba(240,106,42,0.16);
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,0.16);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,0.16);
+    --danger:#f2504f; --danger-soft:rgba(242,80,79,0.16);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,0.16);
+    --r-xs:6px; --r-s:9px; --r-m:13px; --r-l:18px;
+    width:248px;background:var(--bg);color:var(--fg);
+    border-radius:32px;border:1px solid rgba(255,255,255,0.10);
+    padding:9px;box-shadow:0 26px 60px -28px rgba(0,0,0,0.55);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;flex-shrink:0;
+  }
+  .phone *{box-sizing:border-box}
+  .phone .scr{background:var(--bg);border-radius:24px;border:1px solid rgba(255,255,255,0.05);padding:11px 11px 13px;overflow:hidden;position:relative;min-height:452px;display:flex;flex-direction:column}
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}
+  .acc{color:var(--accent)}
+
+  /* topbar */
+  .top{display:flex;align-items:center;gap:7px;padding:0 1px 9px}
+  .top .back{font-size:15px;color:var(--faint);font-weight:700}
+  .top .mid{flex:1;min-width:0}
+  .top .ph{font-size:8.5px;font-weight:900;font-style:italic;letter-spacing:.09em;color:var(--accent);text-transform:uppercase}
+  .top .sg{font-size:11px;font-weight:800;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .x{font-size:14px;color:var(--faint);font-weight:700}
+
+  /* generic section heading inside phone */
+  .ph-h{font-size:13.5px;font-weight:800;color:var(--fg);margin:2px 0 3px;letter-spacing:-.2px}
+  .ph-sub{font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:11px;line-height:1.4}
+
+  /* banner "¿Entrenaste fuera?" */
+  .banner{background:linear-gradient(180deg,rgba(240,106,42,.14),var(--surface));border:1px solid var(--border-strong);border-radius:var(--r-m);padding:13px;margin-bottom:9px}
+  .banner .bt{font-size:13px;font-weight:800;color:var(--fg);margin-bottom:2px}
+  .banner .bd{font-size:10.5px;color:var(--muted);line-height:1.4;margin-bottom:11px}
+  .opt2{display:flex;gap:7px}
+  .opt2 .o{flex:1;text-align:center;border-radius:11px;padding:11px 6px;font-size:11px;font-weight:800;line-height:1.25}
+  .opt2 .o .oi{font-size:18px;display:block;margin-bottom:4px}
+  .opt2 .o.ghost{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+  .opt2 .o.prim{background:var(--accent);color:var(--accent-fg)}
+
+  /* source chips */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:3px 0 11px}
+  .chip{font-size:10.5px;font-weight:800;padding:7px 11px;border-radius:999px;background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+  .chip.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+
+  /* screenshot of another app */
+  .shot{background:#0e1116;border:1px solid var(--border-strong);border-radius:var(--r-m);padding:12px;position:relative;overflow:hidden}
+  .shot .sapp{font-size:8.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6da8e0;margin-bottom:9px}
+  .shot .sbig{font-size:30px;font-weight:800;color:#eef3f8;line-height:1;text-align:center;margin:2px 0}
+  .shot .sbsub{font-size:9px;color:#7f8a98;text-align:center;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+  .shot .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .shot .sg{background:#141a22;border:1px solid #1f2730;border-radius:8px;padding:6px 7px}
+  .shot .sg .sgl{font-size:8px;color:#7f8a98;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+  .shot .sg .sgv{font-size:13px;color:#eef3f8;font-weight:800;margin-top:1px}
+  .shot .sspl{margin-top:7px;display:flex;flex-direction:column;gap:3px}
+  .shot .sspl .sl{display:flex;justify-content:space-between;font-size:9.5px;color:#aeb8c4;border-top:1px solid #1a212a;padding-top:3px}
+  .shot .sspl .sl .n{color:#eef3f8;font-weight:800}
+
+  /* scan overlay */
+  .scan{position:absolute;inset:0;background:rgba(8,10,13,.55);border-radius:var(--r-m);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+  .scanline{position:absolute;left:8px;right:8px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);box-shadow:0 0 12px 2px rgba(240,106,42,.6);border-radius:2px;animation:scan 1.8s ease-in-out infinite}
+  @keyframes scan{0%{top:14px}50%{top:calc(100% - 14px)}100%{top:14px}}
+  .scan .sc-t{font-size:12px;font-weight:800;color:#fff;letter-spacing:.02em;z-index:1}
+  .scan .sc-d{font-size:9.5px;font-weight:700;color:#cbd3dc;text-align:center;line-height:1.4;padding:0 18px;z-index:1}
+  .dotpulse{display:inline-flex;gap:4px;z-index:1}
+  .dotpulse i{width:6px;height:6px;border-radius:999px;background:var(--accent);animation:bp 1s ease-in-out infinite}
+  .dotpulse i:nth-child(2){animation-delay:.15s}.dotpulse i:nth-child(3){animation-delay:.3s}
+  @keyframes bp{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+
+  /* "la IA entiende" mini panel */
+  .reads{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 10px;margin:8px 0}
+  .reads .rh{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);margin-bottom:6px}
+  .reads .rr{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--muted);padding:2px 0}
+  .reads .rr .k{color:var(--fg);font-weight:800}
+  .reads .rr .ar{color:var(--accent);font-weight:800}
+
+  /* result fields (auto-filled) */
+  .rfield{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 11px;margin-bottom:6px}
+  .rfield .rdot{width:8px;height:8px;border-radius:999px;flex-shrink:0}
+  .rfield .rdot.det{background:var(--ok)}
+  .rfield .rdot.chk{background:var(--warn)}
+  .rfield .rt{flex:1;min-width:0}
+  .rfield .rt .rl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .rfield .rt .rv{font-size:14px;font-weight:800;color:var(--fg);margin-top:1px}
+  .rfield .rt .rv .u{font-size:9px;color:var(--muted);font-weight:700;margin-left:2px}
+  .rfield .rbadge{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 7px;border-radius:999px;white-space:nowrap}
+  .rfield .rbadge.det{background:var(--ok-soft);color:var(--ok)}
+  .rfield .rbadge.chk{background:var(--warn-soft);color:var(--warn)}
+  .rfield.editing{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft)}
+
+  /* splits mini list inside result */
+  .splits{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 10px;margin-bottom:6px}
+  .splits .sh{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:5px;display:flex;justify-content:space-between}
+  .splits .sh .ok{color:var(--ok)}
+  .splits .srow{display:flex;justify-content:space-between;font-size:10.5px;padding:2px 0;color:var(--muted)}
+  .splits .srow .sn{color:var(--fg);font-weight:800}
+  .splits .srow .sp{color:var(--accent);font-weight:800}
+
+  /* generic CTA */
+  .cta{margin-top:auto;padding-top:9px}
+  .pri{display:block;text-align:center;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:900;font-style:italic;letter-spacing:.03em;padding:13px;border-radius:13px}
+  .pri.ok{background:var(--ok);color:#04240f}
+  .ghostbtn{display:block;text-align:center;background:transparent;color:var(--muted);border:1px solid var(--border);font-size:11.5px;font-weight:700;padding:10px;border-radius:11px;margin-top:7px}
+  .hint{font-size:9.5px;color:var(--faint);text-align:center;margin-top:8px;font-style:italic;line-height:1.4}
+
+  /* builder pickers (Feature 2) */
+  .grid2x{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:3px 0 9px}
+  .gtile{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:11px 9px;text-align:center}
+  .gtile .gi{font-size:19px;display:block;margin-bottom:5px}
+  .gtile .gn{font-size:11px;font-weight:800;color:var(--fg)}
+  .gtile .gd{font-size:8.5px;color:var(--faint);font-weight:700;margin-top:1px}
+  .gtile.on{background:var(--accent-soft);border-color:var(--accent)}
+  .gtile.on .gn{color:var(--accent)}
+
+  /* bout config (series) */
+  .bout{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:12px;margin:3px 0 9px}
+  .bout .brow{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+  .bout .brow:last-child{border-bottom:none}
+  .bout .brow .bl{font-size:11px;font-weight:700;color:var(--muted)}
+  .bout .stp{display:flex;align-items:center;gap:9px}
+  .bout .stp .pm{width:26px;height:26px;border-radius:8px;background:var(--surface2);border:1px solid var(--border-strong);color:var(--fg);font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .bout .stp .bv{font-size:15px;font-weight:800;color:var(--fg);min-width:54px;text-align:center}
+  .bout .stp .bv .u{font-size:9px;color:var(--muted);font-weight:700;margin-left:1px}
+  .preview{background:var(--accent-soft);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-s);padding:9px 11px;margin-bottom:9px}
+  .preview .pvl{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:2px}
+  .preview .pvt{font-size:13px;font-weight:800;color:var(--fg)}
+
+  /* LIVE PM5 HUD */
+  .hero{background:var(--elevated);border:1px solid var(--border);border-radius:var(--r-m);padding:13px 12px 12px;position:relative;text-align:center;overflow:hidden}
+  .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+  .hero .cap{margin-bottom:2px}
+  .hero .clock{font-size:46px;font-weight:800;line-height:.95;color:var(--fg)}
+  .hero .clock .u{font-size:15px;color:var(--muted);font-weight:700}
+  .hero .csub{font-size:10px;font-weight:800;color:var(--accent);margin-top:3px;letter-spacing:.04em;text-transform:uppercase}
+  .serprog{display:flex;gap:4px;margin:9px 0}
+  .serprog .sd{flex:1;height:5px;border-radius:3px;background:var(--surface2);border:1px solid var(--border)}
+  .serprog .sd.done{background:var(--ok)}
+  .serprog .sd.now{background:var(--accent)}
+  .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:2px}
+  .metrics .cell{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-s);padding:8px 3px;text-align:center}
+  .metrics .cell .cl{font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .metrics .cell .cv{font-size:15px;font-weight:800;color:var(--fg);margin-top:2px}
+  .metrics .cell .cv.hr{color:var(--danger)}
+  .pm5tag{display:inline-flex;align-items:center;gap:5px;font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);background:var(--ok-soft);padding:4px 9px;border-radius:999px;margin:9px auto 0}
+  .pm5tag .blip{width:6px;height:6px;border-radius:999px;background:var(--ok);animation:bp 1.2s ease-in-out infinite}
+
+  /* plan rows / coach card */
+  .planrow{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:10px 11px;margin-bottom:6px}
+  .planrow .mk{width:21px;height:21px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0}
+  .planrow .mk.done{background:var(--ok);color:#04240f}
+  .planrow .mk.free{background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent)}
+  .planrow .mk.pend{border:1.5px solid var(--faint);color:transparent}
+  .planrow .pt{flex:1;min-width:0}
+  .planrow .pt .pn{font-size:12px;font-weight:800;color:var(--fg)}
+  .planrow .pt .ps{font-size:9.5px;font-weight:700;color:var(--muted);margin-top:1px}
+  .planrow .ptag{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;white-space:nowrap}
+  .planrow .ptag.free{background:var(--accent-soft);color:var(--accent)}
+  .planrow .ptag.done{background:var(--ok-soft);color:var(--ok)}
+  .planrow .ptag.pend{background:#2a2a2a;color:var(--faint)}
+
+  /* coach inbox card (the closed loop) */
+  .coachhdr{font-size:9px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+  .ccard{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--r-s);padding:11px 12px;margin-bottom:8px}
+  .ccard .cc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+  .ccard .cc-who{font-size:11.5px;font-weight:800;color:var(--fg)}
+  .ccard .cc-free{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+  .ccard .cc-line{font-size:10.5px;color:var(--muted);line-height:1.45}
+  .ccard .cc-line b{color:var(--fg)}
+  .ccard .cc-quote{font-size:10.5px;color:var(--fg);font-style:italic;background:var(--surface2);border-radius:7px;padding:7px 9px;margin-top:7px}
+  .ccard .cc-stats{display:flex;gap:6px;margin-top:8px}
+  .ccard .cc-stats .cs{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px;text-align:center}
+  .ccard .cc-stats .cs .cl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .ccard .cc-stats .cs .cv{font-size:12px;font-weight:800;color:var(--fg);margin-top:1px}
+
+  /* loop banner (cream) */
+  .loop{background:#101010;color:#f4f4f0;border-radius:16px;padding:22px 26px;margin:30px 0 6px}
+  .loop .lh{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#ffb340;margin-bottom:12px}
+  .loopflow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px}
+  .loopflow .ls{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:9px;padding:8px 13px;font-weight:700;color:#e6e6e1}
+  .loopflow .ls.coach{background:#f06a2a;border-color:#f06a2a;color:#0a0a0a;font-weight:800}
+  .loopflow .la{color:#f06a2a;font-weight:800;font-size:15px}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Dos ideas — reunión Gerard</h1>
+  <div class="sub">Concepto visual · para sign-off de Alex · ANTES de tocar código · FAHYBRID · jun 2026</div>
+
+  <div class="leg">
+    <span class="lt">Honestidad de build</span>
+    <span class="htag real">YA construible — tenemos la pieza</span>
+    <span class="htag part">Parcial — arquitectura lista, falta enchufar</span>
+    <span class="htag ai">Necesita IA-visión — pieza nueva</span>
+  </div>
+
+
+  <!-- ════════════════════════ FEATURE 1 ════════════════════════ -->
+  <h2><span class="surf">IDEA 1</span> Subir una captura → la IA rellena el resultado</h2>
+  <div class="h2sub">Entrenaste con otra app (Garmin · Coros · Strava · Concept2 PM5) y no llevabas el móvil conectado. Foto del resumen → la IA lo lee y lo coloca en su sitio. Tú revisas y guardas.</div>
+
+  <div class="seclbl">Qué es real vs qué es nuevo</div>
+  <div class="board">
+    <div class="bcol">
+      <div class="bh"><span class="htag real">YA construible</span></div>
+      <ul>
+        <li>El <b>modelo de ejecución</b> ya existe: Medida × Objetivo × Modalidad × Formato (un campo para cada cosa, cero texto libre).</li>
+        <li>La <b>pantalla de resultado</b> y el guardado honesto ya están (registro parcial/completo).</li>
+        <li>El resultado <b>llega al coach</b> y alimenta adherencia y analíticas.</li>
+      </ul>
+    </div>
+    <div class="bcol ai">
+      <div class="bh"><span class="htag ai">Necesita IA-visión</span></div>
+      <ul>
+        <li><b>Leer la captura</b> (visión/OCR) — sacar números de cualquier app.</li>
+        <li><b>Mapear cada valor a su campo</b>: la IA sabe qué pedía el entreno y coloca tiempo, distancia, ritmo, splits, rondas en su slot del modelo.</li>
+        <li>Marcar lo dudoso como <b>«revisar»</b> en vez de inventar.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flow">
+    <span class="step">Entreno hecho fuera</span><span class="arr">→</span>
+    <span class="step">Abrir sesión</span><span class="arr">→</span>
+    <span class="step">«Subir captura»</span><span class="arr">→</span>
+    <span class="step ai">Leyendo…</span><span class="arr">→</span>
+    <span class="step ai">Campos rellenos</span><span class="arr">→</span>
+    <span class="step">Revisar · corregir</span><span class="arr">→</span>
+    <span class="step k">Guardar → al coach</span>
+  </div>
+
+  <div class="strip">
+
+    <!-- P1 — entry -->
+    <div class="pcol">
+      <div class="pstep">1 · Sesión</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph">HOY · Realización</div><div class="sg">Remo — Series</div></div><span class="x">⋯</span></div>
+        <div class="ph-h">5 × 500 m</div>
+        <div class="ph-sub">Remo · descanso 1:30 · objetivo 1:52 /500m</div>
+        <div class="banner">
+          <div class="bt">¿Entrenaste fuera?</div>
+          <div class="bd">No llevabas el reloj conectado. Trae el resultado desde tu app.</div>
+          <div class="opt2">
+            <div class="o ghost"><span class="oi">⌚</span>Conectar reloj</div>
+            <div class="o prim"><span class="oi">▣</span>Subir captura</div>
+          </div>
+        </div>
+        <div class="hint">Concept2 PM5 · Garmin · Coros · Strava…</div>
+        <div class="cta"><span class="ghostbtn">Rellenar a mano</span></div>
+      </div></div>
+      <div class="pcap">Sesión sin datos → <b>«Subir captura»</b></div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P2 — pick source + shot -->
+    <div class="pcol">
+      <div class="pstep">2 · La captura</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph">SUBIR CAPTURA</div><div class="sg">¿De qué app?</div></div><span class="x">✕</span></div>
+        <div class="chips">
+          <span class="chip on">Concept2 PM5</span><span class="chip">Garmin</span><span class="chip">Coros</span><span class="chip">Strava</span><span class="chip">Apple</span>
+        </div>
+        <div class="shot">
+          <div class="sapp">Concept2 · PM5</div>
+          <div class="sbig num">9:41.2</div>
+          <div class="sbsub">5 × 500m · /500m</div>
+          <div class="sgrid">
+            <div class="sg"><div class="sgl">Avg /500m</div><div class="sgv num">1:54.1</div></div>
+            <div class="sg"><div class="sgl">Avg SPM</div><div class="sgv num">28</div></div>
+            <div class="sg"><div class="sgl">Dist</div><div class="sgv num">2500 m</div></div>
+            <div class="sg"><div class="sgl">Rest</div><div class="sgv num">1:30</div></div>
+          </div>
+          <div class="sspl">
+            <div class="sl"><span>1</span><span class="n num">1:51.0</span></div>
+            <div class="sl"><span>2</span><span class="n num">1:53.4</span></div>
+            <div class="sl"><span>3</span><span class="n num">1:55.2</span></div>
+          </div>
+        </div>
+        <div class="cta"><span class="pri">Leer captura</span></div>
+      </div></div>
+      <div class="pcap">Eliges la app y subes <b>la foto del resumen</b></div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P3 — scanning -->
+    <div class="pcol">
+      <div class="pstep">3 · Leyendo</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph acc">LEYENDO CAPTURA</div><div class="sg">No cierres</div></div><span class="x">✕</span></div>
+        <div class="shot" style="margin-top:2px">
+          <div class="sapp">Concept2 · PM5</div>
+          <div class="sbig num">9:41.2</div>
+          <div class="sbsub">5 × 500m · /500m</div>
+          <div class="sgrid">
+            <div class="sg"><div class="sgl">Avg /500m</div><div class="sgv num">1:54.1</div></div>
+            <div class="sg"><div class="sgl">Avg SPM</div><div class="sgv num">28</div></div>
+            <div class="sg"><div class="sgl">Dist</div><div class="sgv num">2500 m</div></div>
+            <div class="sg"><div class="sgl">Rest</div><div class="sgv num">1:30</div></div>
+          </div>
+          <div class="scan">
+            <div class="scanline"></div>
+            <div class="dotpulse"><i></i><i></i><i></i></div>
+            <div class="sc-t">Leyendo resultado…</div>
+            <div class="sc-d">El entreno pedía <b style="color:#fff">5×500m de remo a ritmo</b>. Buscando tiempo, ritmo /500m y splits.</div>
+          </div>
+        </div>
+        <div class="reads">
+          <div class="rh">La IA entiende</div>
+          <div class="rr"><span class="k">Pedías</span> <span class="ar">→</span> remo · distancia · ritmo/500m · series</div>
+          <div class="rr"><span class="k">La captura da</span> <span class="ar">→</span> tiempo · ritmo · SPM · splits</div>
+        </div>
+      </div></div>
+      <div class="pcap">Cruza <b>lo que pedía el entreno</b> con lo que muestra la foto</div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P4 — filled fields -->
+    <div class="pcol">
+      <div class="pstep">4 · Rellenado</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph acc">DETECTADO</div><div class="sg">Remo — 5×500m</div></div><span class="x">✕</span></div>
+        <div class="rfield">
+          <span class="rdot det"></span>
+          <div class="rt"><div class="rl">Tiempo total</div><div class="rv num">9:41<span class="u">.2</span></div></div>
+          <span class="rbadge det">Detectado</span>
+        </div>
+        <div class="rfield">
+          <span class="rdot det"></span>
+          <div class="rt"><div class="rl">Distancia</div><div class="rv num">2500<span class="u">m</span></div></div>
+          <span class="rbadge det">Detectado</span>
+        </div>
+        <div class="rfield">
+          <span class="rdot det"></span>
+          <div class="rt"><div class="rl">Ritmo medio</div><div class="rv num">1:54<span class="u">/500m</span></div></div>
+          <span class="rbadge det">Detectado</span>
+        </div>
+        <div class="splits">
+          <div class="sh"><span>Splits · 5 series</span><span class="ok">5/5 leídos</span></div>
+          <div class="srow"><span class="sn">1</span><span class="sp num">1:51.0</span></div>
+          <div class="srow"><span class="sn">2</span><span class="sp num">1:53.4</span></div>
+          <div class="srow"><span class="sn">3</span><span class="sp num">1:55.2</span></div>
+          <div class="srow" style="color:var(--faint)"><span>4 · 5</span><span class="num">1:56 · 1:57</span></div>
+        </div>
+        <div class="rfield">
+          <span class="rdot chk"></span>
+          <div class="rt"><div class="rl">RPE</div><div class="rv" style="color:var(--warn)">¿?</div></div>
+          <span class="rbadge chk">Revisar</span>
+        </div>
+      </div></div>
+      <div class="pcap">Cada valor en su campo · <b>verde = leído</b>, ámbar = revisar</div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P5 — confirm -->
+    <div class="pcol">
+      <div class="pstep">5 · Confirmar</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph">REVISAR Y GUARDAR</div><div class="sg">Tú mandas</div></div><span class="x">✕</span></div>
+        <div class="rfield editing">
+          <span class="rdot chk"></span>
+          <div class="rt"><div class="rl">RPE — añádelo</div><div class="rv num acc">8<span class="u">/10</span></div></div>
+          <span class="rbadge chk">Tú</span>
+        </div>
+        <div class="rfield">
+          <span class="rdot det"></span>
+          <div class="rt"><div class="rl">Tiempo total</div><div class="rv num">9:41.2</div></div>
+          <span class="rbadge det">OK</span>
+        </div>
+        <div class="rfield">
+          <span class="rdot det"></span>
+          <div class="rt"><div class="rl">Ritmo medio</div><div class="rv num">1:54 /500m</div></div>
+          <span class="rbadge det">OK</span>
+        </div>
+        <div class="hint">Toca cualquier campo para corregir.<br>Nada se guarda hasta que tú confirmas.</div>
+        <div class="cta">
+          <span class="pri ok">Confirmar y guardar</span>
+          <div class="hint" style="margin-top:8px">↳ marca la sesión <b style="color:var(--ok)">HECHA</b> · llega al coach</div>
+        </div>
+      </div></div>
+      <div class="pcap">Honesto: <b>tú revisas y corriges</b> antes de guardar</div>
+    </div>
+
+  </div>
+
+
+  <!-- ════════════════════════ FEATURE 2 ════════════════════════ -->
+  <h2><span class="surf">IDEA 2</span> Crea tu propio entreno (libre · no prescrito)</h2>
+  <div class="h2sub">Hoy te apetece lo tuyo (ej. «un remo de series 5×500m») en vez del plan del coach. Lo montas en la app, lo haces con ritmo PM5 en vivo, y le llega al coach como entreno LIBRE — suma al plan, no lo rompe.</div>
+
+  <div class="seclbl">Qué es real vs qué falta enchufar</div>
+  <div class="board">
+    <div class="bcol">
+      <div class="bh"><span class="htag real">YA construible</span></div>
+      <ul>
+        <li>El <b>modelo de prescripción + catálogo de formatos</b> ya existe (Series, Continuo, EMOM, AMRAP…). El atleta monta con las MISMAS piezas que el coach.</li>
+        <li>El <b>motor de ejecución y los HUD</b> en vivo ya están construidos.</li>
+        <li>Una sesión <b>llega al coach</b> y entra en sus analíticas.</li>
+      </ul>
+    </div>
+    <div class="bcol ai">
+      <div class="bh"><span class="htag part">Parcial — falta poco</span></div>
+      <ul>
+        <li><b>Ritmo PM5 /500m en vivo</b>: la arquitectura de fuentes en vivo existe; el BLE de Concept2 PM5 es <b>fase 4</b>.</li>
+        <li><b>Marca «sesión libre»</b>: un campo nuevo en el modelo de sesión (origen = libre, sin asignación del coach).</li>
+        <li><b>Vista del coach</b>: que lo libre se vea distinto del plan, sin contar como incumplimiento.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flow">
+    <span class="step">«Hoy lo mío»</span><span class="arr">→</span>
+    <span class="step">Modalidad</span><span class="arr">→</span>
+    <span class="step">Formato</span><span class="arr">→</span>
+    <span class="step">Series</span><span class="arr">→</span>
+    <span class="step part">Ejecutar · ritmo PM5</span><span class="arr">→</span>
+    <span class="step">Guardado</span><span class="arr">→</span>
+    <span class="step k">Al coach: LIBRE</span>
+  </div>
+
+  <div class="strip">
+
+    <!-- P1 — plan + entry -->
+    <div class="pcol">
+      <div class="pstep">1 · Hoy</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph">PLAN DE HOY</div><div class="sg">Jueves</div></div><span class="x">⋯</span></div>
+        <div class="planrow"><span class="mk pend"></span><div class="pt"><div class="pn">Carrera Z2 · 40′</div><div class="ps">Del coach · pendiente</div></div><span class="ptag pend">Plan</span></div>
+        <div class="planrow"><span class="mk pend"></span><div class="pt"><div class="pn">Core · 3 rondas</div><div class="ps">Del coach · pendiente</div></div><span class="ptag pend">Plan</span></div>
+        <div class="banner" style="margin-top:11px">
+          <div class="bt">¿Hoy lo tuyo?</div>
+          <div class="bd">Monta tu propio entreno. Suma al plan, no lo rompe.</div>
+          <div class="opt2"><div class="o prim" style="flex:none;width:100%"><span class="oi">+</span>Crear entreno libre</div></div>
+        </div>
+        <div class="hint">No prescrito · igual le llega al coach</div>
+      </div></div>
+      <div class="pcap">En el plan, <b>«+ Crear entreno libre»</b></div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P2 — modality -->
+    <div class="pcol">
+      <div class="pstep">2 · Modalidad</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph acc">ENTRENO LIBRE</div><div class="sg">¿Qué vas a hacer?</div></div><span class="x">✕</span></div>
+        <div class="grid2x">
+          <div class="gtile on"><span class="gi">🚣</span><div class="gn">Remo</div><div class="gd">Concept2</div></div>
+          <div class="gtile"><span class="gi">🏃</span><div class="gn">Correr</div><div class="gd">GPS · cinta</div></div>
+          <div class="gtile"><span class="gi">⛷️</span><div class="gn">Ski-Erg</div><div class="gd">Concept2</div></div>
+          <div class="gtile"><span class="gi">🚴</span><div class="gn">Bici</div><div class="gd">BikeErg</div></div>
+          <div class="gtile"><span class="gi">🏋️</span><div class="gn">Fuerza</div><div class="gd">cargas</div></div>
+          <div class="gtile"><span class="gi">🔥</span><div class="gn">Funcional</div><div class="gd">WOD</div></div>
+        </div>
+        <div class="cta"><span class="pri">Siguiente</span></div>
+      </div></div>
+      <div class="pcap">Modalidad — <b>fija la unidad</b> (remo → /500m)</div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P3 — format -->
+    <div class="pcol">
+      <div class="pstep">3 · Formato</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph acc">REMO</div><div class="sg">¿Cómo lo estructuras?</div></div><span class="x">✕</span></div>
+        <div class="grid2x">
+          <div class="gtile on"><span class="gi">▥</span><div class="gn">Series</div><div class="gd">intervalos</div></div>
+          <div class="gtile"><span class="gi">▬</span><div class="gn">Continuo</div><div class="gd">tempo</div></div>
+          <div class="gtile"><span class="gi">⏱</span><div class="gn">EMOM</div><div class="gd">por minuto</div></div>
+          <div class="gtile"><span class="gi">∞</span><div class="gn">AMRAP</div><div class="gd">rondas</div></div>
+          <div class="gtile"><span class="gi">⚑</span><div class="gn">For Time</div><div class="gd">a tiempo</div></div>
+          <div class="gtile"><span class="gi">▦</span><div class="gn">Rounds</div><div class="gd">circuito</div></div>
+        </div>
+        <div class="hint">Mismos formatos que usa el coach</div>
+        <div class="cta"><span class="pri">Siguiente</span></div>
+      </div></div>
+      <div class="pcap">Formato — <b>el catálogo real</b> (Series elegido)</div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P4 — bouts -->
+    <div class="pcol">
+      <div class="pstep">4 · Series</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph acc">REMO · SERIES</div><div class="sg">Monta los bloques</div></div><span class="x">✕</span></div>
+        <div class="bout">
+          <div class="brow"><span class="bl">Series</span><div class="stp"><span class="pm">−</span><span class="bv num">5</span><span class="pm">+</span></div></div>
+          <div class="brow"><span class="bl">Distancia</span><div class="stp"><span class="pm">−</span><span class="bv num">500<span class="u">m</span></span><span class="pm">+</span></div></div>
+          <div class="brow"><span class="bl">Descanso</span><div class="stp"><span class="pm">−</span><span class="bv num">1:30</span><span class="pm">+</span></div></div>
+          <div class="brow"><span class="bl">Objetivo</span><div class="stp"><span class="bv num" style="color:var(--accent)">1:52<span class="u">/500m</span></span></div></div>
+        </div>
+        <div class="preview">
+          <div class="pvl">Tu entreno</div>
+          <div class="pvt">5 × 500 m · r 1:30 · @1:52/500m</div>
+        </div>
+        <div class="hint">Mismo modelo: medida × objetivo × modalidad</div>
+        <div class="cta"><span class="pri">Empezar</span></div>
+      </div></div>
+      <div class="pcap">Defines los <b>bloques</b> (5 × 500m, descanso, ritmo)</div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P5 — live PM5 -->
+    <div class="pcol">
+      <div class="pstep">5 · Ejecutar</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph acc">EN VIVO · LIBRE</div><div class="sg">Serie 2 / 5</div></div><span class="x">⏸</span></div>
+        <div class="hero">
+          <div class="cap"><span class="lbl">Ritmo actual</span></div>
+          <div class="clock num">1:51<span class="u">/500m</span></div>
+          <div class="csub">objetivo 1:52 · vas por delante</div>
+        </div>
+        <div class="serprog"><span class="sd done"></span><span class="sd now"></span><span class="sd"></span><span class="sd"></span><span class="sd"></span></div>
+        <div class="metrics">
+          <div class="cell"><div class="cl">Dist serie</div><div class="cv num">312<span style="font-size:9px">m</span></div></div>
+          <div class="cell"><div class="cl">SPM</div><div class="cv num">28</div></div>
+          <div class="cell"><div class="cl">FC</div><div class="cv num hr">168</div></div>
+        </div>
+        <div style="text-align:center"><span class="pm5tag"><span class="blip"></span>Concept2 PM5 conectado</span></div>
+      </div></div>
+      <div class="pcap"><b>Ritmo /500m en vivo</b> desde el PM5 · serie a serie</div>
+    </div>
+
+    <span class="arrx">›</span>
+
+    <!-- P6 — saved + coach -->
+    <div class="pcol">
+      <div class="pstep">6 · Al coach</div>
+      <div class="phone"><div class="scr">
+        <div class="top"><span class="back">‹</span><div class="mid"><div class="ph">GUARDADO</div><div class="sg">Tu plan, hoy</div></div><span class="x">✕</span></div>
+        <div class="planrow"><span class="mk pend"></span><div class="pt"><div class="pn">Carrera Z2 · 40′</div><div class="ps">Del coach · pendiente</div></div><span class="ptag pend">Plan</span></div>
+        <div class="planrow"><span class="mk free">＋</span><div class="pt"><div class="pn">Remo 5×500m</div><div class="ps">9:41 · 1:54/500m · RPE 8</div></div><span class="ptag free">Libre</span></div>
+        <div class="coachhdr" style="margin-top:14px">Lo que ve el coach</div>
+        <div class="ccard">
+          <div class="cc-top"><span class="cc-who">Marc · hoy</span><span class="cc-free">Libre</span></div>
+          <div class="cc-line"><b>Remo 5×500m</b> · no prescrito · suma al plan</div>
+          <div class="cc-quote">«No hice tu Z2, pero metí esto — mira»</div>
+          <div class="cc-stats">
+            <div class="cs"><div class="cl">Tiempo</div><div class="cv num">9:41</div></div>
+            <div class="cs"><div class="cl">/500m</div><div class="cv num">1:54</div></div>
+            <div class="cs"><div class="cl">RPE</div><div class="cv num">8</div></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="pcap">Le llega como <b>LIBRE</b> · complementa, no rompe el plan</div>
+    </div>
+
+  </div>
+
+
+  <!-- ════════════════════════ CLOSED LOOP ════════════════════════ -->
+  <div class="loop">
+    <div class="lh">Las dos ideas cierran el mismo bucle — todo acaba en el coach</div>
+    <div class="loopflow">
+      <span class="ls">Idea 1 · captura → resultado honesto</span>
+      <span class="la">↘</span>
+      <span class="ls">Idea 2 · entreno libre</span>
+      <span class="la">↘</span>
+      <span class="ls coach">Pablo: adherencia + analíticas reales</span>
+    </div>
+  </div>
+  <div class="leg" style="margin-top:14px">
+    <span class="lt">Resumen build</span>
+    <span class="htag real">Modelo ejecución · resultado · formatos · motor · loop al coach</span>
+    <span class="htag part">PM5 BLE (fase 4) · marca «libre»</span>
+    <span class="htag ai">Leer + mapear la captura</span>
+  </div>
+
+  <footer>
+    FAHYBRID · docs/superpowers/plans/ideas-gerard.html · concepto visual para sign-off · jun 2026 · marca negro + naranja Fabrik
+  </footer>
+
+</div>
+</body>
+</html>
