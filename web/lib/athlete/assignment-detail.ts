@@ -42,7 +42,14 @@ export type OneRmLookup = Map<string, OneRmEntry>;
 // shared/schema/workouts.ts). The exposed `workout` is `null` when the
 // assignment has no template (defensive — DB column is currently NOT NULL,
 // but the iOS contract preserves the rest-day fallback in case that
-// constraint is relaxed in the future).
+// constraint is relaxed in the future) OR when the template resolves to ZERO
+// renderable blocks. A non-null `workout` with an empty `blocks` array is a
+// pathological shape: each iOS surface gated it differently (brief → "Sin
+// detalle", list → "Sin ejercicios", done-detail → rendered from execution),
+// so the SAME day appeared to "load differently per view". Collapsing the
+// empty case to `workout: null` makes EVERY surface show the one honest
+// rest/empty state. There is no content to lose — zero blocks means zero
+// segments.
 // =============================================================================
 
 export interface AssignmentDetailParams {
@@ -507,6 +514,16 @@ export function buildAssignmentDetail(input: {
   // survives the rest-day early return.
   if (!template) return base;
 
+  const blocks = buildBlocks(template, segments, zoneLookup, oneRms);
+
+  // A template that resolves to ZERO renderable blocks (no segments) is NOT a
+  // previewable / runnable / listable workout — it is the rest/empty state. We
+  // must NEVER emit `workout = { …, blocks: [] }`: that pathological shape is the
+  // single root cause of the cross-view inconsistency (see the file header).
+  // Keep `workout = null` so every iOS surface collapses to the same honest
+  // state. The execution (set on `base`) still drives the done-detail.
+  if (blocks.length === 0) return base;
+
   base.workout = {
     name: template.name,
     // No first-class `focus` column on templates today. Leave null — iOS
@@ -514,7 +531,7 @@ export function buildAssignmentDetail(input: {
     focus: null,
     coach_note: template.coach_notes,
     estimated_duration_minutes: null,
-    blocks: buildBlocks(template, segments, zoneLookup, oneRms),
+    blocks,
   };
 
   return base;

@@ -800,6 +800,12 @@ extension WorkoutPlan {
     /// is invented. Returns nil for rest days (no workout body).
     static func from(detail: AssignmentDetail) -> WorkoutPlan? {
         guard let workout = detail.workout else { return nil }
+        // A non-null workout with ZERO blocks is NOT a runnable/previewable body —
+        // it is the rest/empty state, same as `workout == null`. The backend now
+        // collapses that case to null, but a STALE cache written before the fix
+        // could still carry the pathological shape; treat it as no body so the
+        // brief never reaches its half-rendered "Sin detalle" / "Sesión" state.
+        guard !workout.blocks.isEmpty else { return nil }
 
         // One segment per exercise item, ordered by block position then item
         // order, so the live timer/lap engine walks the session in coach order.

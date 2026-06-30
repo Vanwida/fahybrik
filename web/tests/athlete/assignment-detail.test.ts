@@ -41,6 +41,36 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(result.assignment.perceived_exertion).toBeNull();
   });
 
+  it('returns workout=null when the template has ZERO renderable blocks (root fix)', () => {
+    // A template that exists but resolves to no segments must NOT emit the
+    // pathological `workout = { …, blocks: [] }` shape — the single root cause of
+    // the cross-view inconsistency (brief "Sin detalle" / list "Sin ejercicios" /
+    // done-detail rendering from execution). It must collapse to workout=null so
+    // every iOS surface shows the same honest rest/empty state.
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [],
+    });
+    expect(result.workout).toBeNull();
+  });
+
+  it('keeps the execution block on an empty-blocks completed day (done-detail survives)', () => {
+    // The empty-blocks → null collapse must NOT strip the executed result: a
+    // completed day with no prescription segments still shows its done-detail.
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T10:00:00Z', perceived_exertion: 7 },
+      template: baseTemplate,
+      segments: [],
+    });
+    expect(result.workout).toBeNull();
+    expect(result.execution).not.toBeNull();
+    expect(result.execution?.completeness).toBe('completed');
+    expect(result.execution?.perceived_exertion).toBe(7);
+  });
+
   it('parses am/pm slot from assignment notes', () => {
     const pm = buildAssignmentDetail({
       assignment: { ...baseAssignment, notes: 'slot:pm' },
