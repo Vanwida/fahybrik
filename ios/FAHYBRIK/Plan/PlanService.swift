@@ -25,10 +25,14 @@ struct AthleteWeekDaySession: Codable, Identifiable {
     /// that feed the athlete's profile). Drives the amber test badge. Defaults
     /// false when the backend omits it (old payloads).
     let isTest: Bool?
+    /// Provenance of the session: "coach" (prescribed) | "self" (an entreno libre
+    /// the athlete built and logged). Drives the "Libre" chip. Defaults to "coach"
+    /// when the backend omits it (back-compat with older payloads).
+    let origin: String?
 
     enum CodingKeys: String, CodingKey {
         case assignmentId, slot, title, modality, status, partnerVisibility
-        case estDurationMinutes, blocksCount, shortPrescription, isTest
+        case estDurationMinutes, blocksCount, shortPrescription, isTest, origin
     }
 
     init(from decoder: Decoder) throws {
@@ -43,10 +47,16 @@ struct AthleteWeekDaySession: Codable, Identifiable {
         blocksCount = try c.decodeIfPresent(Int.self, forKey: .blocksCount)
         shortPrescription = try c.decodeIfPresent(String.self, forKey: .shortPrescription)
         isTest = try c.decodeIfPresent(Bool.self, forKey: .isTest)
+        origin = try c.decodeIfPresent(String.self, forKey: .origin)
     }
 
     /// Whether to render the test badge — true only when the backend says so.
     var isTestSession: Bool { isTest ?? false }
+
+    /// True for an athlete-built "entreno libre". Honest default: a session with no
+    /// `origin` is a coach-prescribed one, so the "Libre" chip never mislabels a
+    /// prescribed session on an older payload.
+    var isSelfOrigin: Bool { origin == "self" }
 }
 
 struct AthleteWeekDay: Codable, Identifiable {

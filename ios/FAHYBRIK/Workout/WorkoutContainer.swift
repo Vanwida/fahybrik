@@ -19,6 +19,12 @@ struct WorkoutContainer: View {
     /// "train together" flow passes `.doublesJoint` so the summary logs against
     /// the joint endpoint (links partner + shares result). Same workout flow.
     var logTarget: WorkoutLogTarget = .solo
+    /// FREE MODE (entreno libre / no prescrito). When present the athlete BUILT
+    /// this workout themselves: there is no assignment to fetch — the runnable plan
+    /// is carried here — and the post-workout save routes to `FreeWorkoutAPI`
+    /// (title/modality/prescription + the engine's metrics) instead of the
+    /// prescribed `/api/sync/workout-execution`. Nil = the unchanged prescribed path.
+    var freeContext: FreeWorkoutContext? = nil
 
     enum Phase: Equatable {
         case brief
@@ -81,7 +87,10 @@ struct WorkoutContainer: View {
             }
         }
         .task {
-            if let saved = await WorkoutStateStore.shared.load(),
+            // A free workout is a one-off in-memory build with no assignment — never
+            // offer to recover an unrelated prescribed snapshot over it.
+            if freeContext == nil,
+               let saved = await WorkoutStateStore.shared.load(),
                !saved.plan.id.uuidString.isEmpty {
                 crashRecoveryPrompt = saved
             }
@@ -143,6 +152,7 @@ struct WorkoutContainer: View {
                         assignmentId: assignmentId,
                         logTarget: logTarget,
                         manualEntry: manualEntry,
+                        freeContext: freeContext,
                         onSave: {
                             // Record the optimistic mark BEFORE closing so the
                             // caller's refetch (driven by onCompleted) already sees
@@ -235,6 +245,16 @@ struct WorkoutContainer: View {
     // IS the real content (there is no prescription to load).
     private func loadPlan() async {
         guard case .loading = loadState else { return }
+
+        // FREE MODE: the plan is already built (the athlete configured it). Skip the
+        // brief + the assignment fetch and go straight to the live engine.
+        if let free = freeContext {
+            loadState = .ready(free.plan, nil)
+            session = WorkoutSession(plan: free.plan)
+            manualEntry = false
+            phase = .active
+            return
+        }
 
         guard let assignmentId else {
             loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)

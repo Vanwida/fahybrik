@@ -73,6 +73,31 @@ struct SlotBadge: View {
     }
 }
 
+// MARK: - Libre chip
+
+/// Small accent chip marking an athlete-built "entreno libre" (no prescrito).
+/// Mirrors `TestBadge`'s shape with the brand-accent text role (AA on both the
+/// light + dark surfaces). Shown wherever a self-origin session is listed.
+struct LibreBadge: View {
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkle")
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+            Text("Libre")
+                .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Theme.Color.accentText)
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.vertical, compact ? 2 : 3)
+        .background(Theme.Color.accent.opacity(0.14))
+        .clipShape(Capsule())
+        .accessibilityLabel("Entreno libre")
+    }
+}
+
 // MARK: - Session hero card
 
 /// The Inicio hero: an elevated card with an orange top-edge accent, an AM/PM
@@ -90,6 +115,8 @@ struct SessionHeroCard: View {
     /// Modality, used to tint the slot badge + accent.
     var modality: String? = nil
     var ctaTitle: String = "▶ Empezar"
+    /// Marks an athlete-built "entreno libre" — adds the accent "Libre" chip.
+    var isFree: Bool = false
     let onStart: () -> Void
 
     private var modalityColor: Color { Theme.Modality.color(modality) }
@@ -100,6 +127,7 @@ struct SessionHeroCard: View {
                 HStack(spacing: 8) {
                     SlotBadge(slot: slot, color: modalityColor)
                     LabelText(text: kicker)
+                    if isFree { LibreBadge(compact: true) }
                     Spacer(minLength: 0)
                 }
                 Text(title)
@@ -126,6 +154,8 @@ struct SessionCompactRow: View {
     let title: String
     let meta: String
     var modality: String? = nil
+    /// Marks an athlete-built "entreno libre" — adds the accent "Libre" chip.
+    var isFree: Bool = false
     var onTap: (() -> Void)? = nil
 
     private var modalityColor: Color { Theme.Modality.color(modality) }
@@ -138,9 +168,12 @@ struct SessionCompactRow: View {
             HStack(spacing: 12) {
                 SlotBadge(slot: slot, color: modalityColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Theme.Color.foreground)
+                        if isFree { LibreBadge(compact: true) }
+                    }
                     Text(meta)
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.Color.muted)

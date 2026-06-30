@@ -20,6 +20,11 @@ struct PostWorkoutSummaryView: View {
     /// instead collects the session-level result by hand (total time / score /
     /// RPE / notes). Saved with source='manual'.
     var manualEntry: Bool = false
+    /// FREE MODE (entreno libre). When present this execution is saved via
+    /// `FreeWorkoutAPI` (title/modality/prescription + the SAME metrics) instead of
+    /// the prescribed sync — there is no assignment to attribute it to. Nil = the
+    /// unchanged prescribed path.
+    var freeContext: FreeWorkoutContext? = nil
     let onSave: () -> Void
 
     @State private var rpe: Int = 7
@@ -151,6 +156,13 @@ struct PostWorkoutSummaryView: View {
         guard !isSaving else { return }
         isSaving = true
         let bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        // FREE MODE: route to the free-save contract instead of the prescribed sync.
+        if let free = freeContext {
+            let payload = buildFreePayload(free)
+            Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
+            onSave()
+            return
+        }
         let payload = buildPayload()
         if let payload {
             let target = logTarget
@@ -171,8 +183,25 @@ struct PostWorkoutSummaryView: View {
         onSave()
     }
 
-    private func buildPayload() -> WorkoutExecutionPayload? {
-        guard let assignmentId, !assignmentId.isEmpty else { return nil }
+    // The execution metrics SHARED by the prescribed and the free save paths —
+    // computed once so neither path re-derives durations / scores / segments and
+    // the two can't drift. The only per-path differences are the carrier fields
+    // (assignment_id vs title/modality/prescription) and the source.
+    private struct ExecutionCore {
+        let totalDuration: Int?
+        let startedAtISO: String
+        let endedAtISO: String
+        let scoreTime: Int?
+        let scoreRounds: Int?
+        let scoreReps: Int?
+        let completeness: String
+        let segments: [SegmentExecutionDTO]?
+        let notes: String?
+        /// 'manual' for a retroactive log; nil for the live prescribed path.
+        let liveSource: String?
+    }
+
+    private func executionCore() -> ExecutionCore {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
         let endedAt = Date()
@@ -187,25 +216,64 @@ struct PostWorkoutSummaryView: View {
             ? endedAt.addingTimeInterval(-Double(totalDuration ?? 0))
             : session.startedAt
         let segments = buildSegments(iso: iso)   // empty in manual mode (no laps)
+        return ExecutionCore(
+            totalDuration: totalDuration,
+            startedAtISO: iso.string(from: startedAt),
+            endedAtISO: iso.string(from: endedAt),
+            // Only send the score dimensions relevant to this format.
+            scoreTime: isTimeScored ? scoreTimeSeconds : nil,
+            scoreRounds: isRoundsScored ? scoreRounds : nil,
+            scoreReps: isRoundsScored ? scoreReps : nil,
+            // Honest finish: 'full' (→ completed) only when the protocol ran to its
+            // end; 'partial' (→ partial) when terminated early.
+            completeness: session.completeness.rawValue,
+            segments: segments.isEmpty ? nil : segments,
+            notes: notes.isEmpty ? nil : notes,
+            liveSource: manualEntry ? "manual" : nil
+        )
+    }
+
+    private func buildPayload() -> WorkoutExecutionPayload? {
+        guard let assignmentId, !assignmentId.isEmpty else { return nil }
+        let c = executionCore()
         return WorkoutExecutionPayload(
             assignment_id: assignmentId,
             perceived_exertion: rpe,
-            total_duration_seconds: totalDuration,
-            notes: notes.isEmpty ? nil : notes,
+            total_duration_seconds: c.totalDuration,
+            notes: c.notes,
             // 'manual' for a retroactive log; nil for the live path (backend then
             // defaults it to 'healthkit', preserving prior behaviour).
-            source: manualEntry ? "manual" : nil,
-            // Only send the score dimensions relevant to this format.
-            score_time_s: isTimeScored ? scoreTimeSeconds : nil,
-            score_rounds: isRoundsScored ? scoreRounds : nil,
-            score_reps: isRoundsScored ? scoreReps : nil,
-            // Honest finish: 'full' (→ completed) only when the protocol ran to its
-            // end; 'partial' (→ partial) when terminated early. A manual "Ya lo hice"
-            // log is an affirmation it was done → the session's default '.full'.
-            completeness: session.completeness.rawValue,
-            started_at: iso.string(from: startedAt),
-            ended_at: iso.string(from: endedAt),
-            segments: segments.isEmpty ? nil : segments
+            source: c.liveSource,
+            score_time_s: c.scoreTime,
+            score_rounds: c.scoreRounds,
+            score_reps: c.scoreReps,
+            completeness: c.completeness,
+            started_at: c.startedAtISO,
+            ended_at: c.endedAtISO,
+            segments: c.segments
+        )
+    }
+
+    // Free workout: the SAME execution metrics + the three free-only carriers
+    // (title/modality/prescription). PM5 is not live, so the provenance is
+    // 'manual' per the free-save contract (the generic/manual live HUD ran it).
+    private func buildFreePayload(_ free: FreeWorkoutContext) -> FreeWorkoutPayload {
+        let c = executionCore()
+        return FreeWorkoutPayload(
+            title: free.title,
+            modality: free.modalityWire,
+            prescription: free.prescription,
+            perceived_exertion: rpe,
+            total_duration_seconds: c.totalDuration,
+            notes: c.notes,
+            source: "manual",
+            score_time_s: c.scoreTime,
+            score_rounds: c.scoreRounds,
+            score_reps: c.scoreReps,
+            completeness: c.completeness,
+            started_at: c.startedAtISO,
+            ended_at: c.endedAtISO,
+            segments: c.segments
         )
     }
 

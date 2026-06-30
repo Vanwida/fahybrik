@@ -34,6 +34,7 @@ struct InicioView: View {
     var onOpenTab: ((AppTab) -> Void)? = nil
 
     @State private var showWorkout: Bool = false
+    @State private var showFreeBuilder: Bool = false
     @State private var showCheckin: Bool = false
     // Presents the target-race picker from the empty race anchor.
     @State private var showBuscarCarrera: Bool = false
@@ -141,10 +142,13 @@ struct InicioView: View {
                         title: pm.title,
                         meta: compactMeta(for: pm),
                         modality: pm.modality,
+                        isFree: pm.isSelfOrigin,
                         onTap: { onOpenTab?(.plan) }
                     )
                     .staggerReveal(revealed, index: 6)
                 }
+                freeBanner
+                    .staggerReveal(revealed, index: 7)
                 if let partner {
                     PartnerTodayPanel(partner: partner)
                         .staggerReveal(revealed, index: 7)
@@ -168,6 +172,15 @@ struct InicioView: View {
                 onCompleted: { _ in
                     Task { await store.planMutated() }
                 }
+            )
+        }
+        .fullScreenCover(isPresented: $showFreeBuilder) {
+            // P1 → builder → existing engine → free save. On finish the plan is
+            // refreshed so the new self-origin session appears as a "Libre" row.
+            FreeWorkoutBuilderView(
+                bearer: effectiveBearer,
+                onClose: { showFreeBuilder = false },
+                onCompleted: { Task { await store.planMutated() } }
             )
         }
         .sheet(isPresented: $showCheckin) {
@@ -838,6 +851,7 @@ struct InicioView: View {
                 meta: heroMeta(for: hero),
                 modality: hero.modality,
                 ctaTitle: "▶ Empezar",
+                isFree: hero.isSelfOrigin,
                 onStart: {
                     startAssignmentId = hero.assignmentId
                     startFallbackTitle = hero.title
@@ -863,6 +877,46 @@ struct InicioView: View {
             // Cold start, week not loaded yet — skeleton instead of the
             // "plan no publicado" empty state (which would be a lie mid-load).
             loadingCard(label: "Hoy", titleWidth: 150)
+        }
+    }
+
+    // P1 — "¿Hoy lo tuyo?" Banner inviting the athlete to build their own session.
+    // It SUMS to the plan (it never replaces the prescribed work), and is honest
+    // that the coach still sees it.
+    private var freeBanner: some View {
+        CardSurface(padding: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    LabelText(text: "¿Hoy lo tuyo?", color: Theme.Color.accentText, size: 12)
+                    Text("Monta tu propio entreno. Suma al plan, no lo rompe.")
+                        .scaledFont(13, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button {
+                    Haptics.medium()
+                    showFreeBuilder = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 13, weight: .heavy))
+                        Text("Crear entreno libre")
+                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                            .tracking(0.5)
+                    }
+                    .foregroundStyle(Theme.Color.accentOn)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Theme.Color.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel("Crear entreno libre")
+                Text("No prescrito · igual le llega al coach")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.Color.faint)
+            }
         }
     }
 

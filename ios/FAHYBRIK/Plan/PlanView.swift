@@ -764,6 +764,9 @@ struct PlanView: View {
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Theme.Color.foreground)
                             .lineLimit(1)
+                        if session.isSelfOrigin {
+                            LibreBadge(compact: true)
+                        }
                         if session.isTestSession {
                             TestBadge(compact: true)
                         }
@@ -837,6 +840,9 @@ struct PlanView: View {
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.Color.foreground.opacity(0.92))
                     .lineLimit(1)
+                if day.sessions.first?.isSelfOrigin == true {
+                    LibreBadge(compact: true)
+                }
                 if day.sessions.first?.isTestSession == true {
                     TestBadge(compact: true)
                 }
