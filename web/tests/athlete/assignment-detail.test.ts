@@ -609,4 +609,117 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(rl.kg_label).toBe('96 kg');
     expect(rl.needs_review).toBe(true);
   });
+
+  // ===========================================================================
+  // ENTRENO LIBRE with content (regression: "No pudimos cargar tu entreno")
+  //
+  // A free workout is persisted by create-free-workout.ts as a one-segment
+  // instance template whose `params_json` is the EMPTY object `{}` and whose
+  // rich targets live ENTIRELY in `prescription_json` (measure × target ×
+  // modality). This is the exact shape behind the athlete-created "Correr ·
+  // 12×400m" / "Remo · 5×500m" report. The loader MUST emit a non-null `workout`
+  // with ONE block + ONE item (never the empty-blocks → null collapse, never a
+  // throw), and surface the rich params derived from the prescription — so the
+  // executed/active surfaces always have content to render.
+  // ===========================================================================
+
+  // Mirror of the row create-free-workout.ts writes: params_json '{}', the whole
+  // dose in prescription_json, block_position 1 / block_format = the scheme.
+  const freeSeg = (
+    id: string,
+    slug: string,
+    category: string,
+    title: string,
+    prescription: Record<string, unknown>,
+  ) => ({
+    id,
+    position: 1,
+    block_position: 1,
+    block_format: 'intervals',
+    block_title: title,
+    params_json: {}, // create-free-workout persists '{}'::jsonb
+    prescription_json: prescription,
+    notes: null,
+    exercise_id: '3479',
+    exercise_name: slug === 'run' ? 'Run' : 'Rowing',
+    exercise_slug: slug,
+    exercise_category: category,
+    exercise_video_url: null,
+    exercise_cues: null,
+  });
+
+  it('loads a free RUN workout (12×400m) — workout non-null, params derived from prescription', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'partial' as const },
+      execution: { ended_at: '2026-06-30T12:09:45Z', perceived_exertion: 7 },
+      template: { ...baseTemplate, name: 'Correr · 12×400m', format: 'intervals' },
+      segments: [
+        freeSeg('3320', 'run', 'cardio', 'Correr · 12×400m', {
+          scheme: 'intervals',
+          modality: 'run',
+          sets: [
+            {
+              measure: { kind: 'distance', meters: 400 },
+              target: { kind: 'pace', unit: 'per_km', value_s: 285 },
+              rest_s: 90,
+            },
+          ],
+          rounds: 12,
+          rest_s: 90,
+          target: { kind: 'pace', unit: 'per_km', value_s: 285 },
+        }),
+      ],
+    });
+
+    // The single root invariant: content exists → workout is NON-null with content.
+    expect(result.workout).not.toBeNull();
+    const blocks = result.workout!.blocks;
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.items.length).toBe(1);
+
+    const item = blocks[0]!.items[0]!;
+    expect(item.exercise_slug).toBe('run');
+    // Modality drives the display category (not the bare catalog 'cardio').
+    expect(item.exercise_category).toBe('running');
+    // params_json '{}' on the segment, yet rich params are DERIVED from prescription.
+    expect(item.params_json.distance_meters).toBe(400);
+    expect(item.params_json.pace_sec_per_km).toBe(285);
+    expect(item.prescription_json).not.toBeNull();
+
+    // The executed block survives so the done/partial detail renders.
+    expect(result.execution).not.toBeNull();
+    expect(result.execution!.completeness).toBe('partial');
+  });
+
+  it('loads a free ROW workout (5×500m) — erg modality + /500m pace prescription', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-06-30T10:07:20Z', perceived_exertion: 8 },
+      template: { ...baseTemplate, name: 'Remo 5×500 libre', format: 'intervals' },
+      segments: [
+        freeSeg('3308', 'row', 'cardio', 'Remo 5×500 libre', {
+          scheme: 'intervals',
+          modality: 'row',
+          sets: [
+            {
+              measure: { kind: 'distance', meters: 500 },
+              target: { kind: 'pace', unit: 'per_500m', value_s: 112 },
+              rest_s: 90,
+            },
+          ],
+          rounds: 5,
+          rest_s: 90,
+          target: { kind: 'pace', unit: 'per_500m', value_s: 112 },
+        }),
+      ],
+    });
+
+    expect(result.workout).not.toBeNull();
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.exercise_slug).toBe('row');
+    expect(item.exercise_category).toBe('rowing');
+    expect(item.params_json.distance_meters).toBe(500);
+    expect(item.prescription_json).not.toBeNull();
+    expect(result.execution!.completeness).toBe('completed');
+  });
 });

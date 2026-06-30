@@ -748,4 +748,81 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(seg.deathByIncrement, 1)
         XCTAssertEqual(seg.formatWorkSeconds, 60)
     }
+
+    // MARK: - Free workout WITH content (regression: "No pudimos cargar")
+    //
+    // VERBATIM bodies captured from the live demo endpoint
+    // (GET /api/athlete/assignments/{id}/detail, athlete 70) for the athlete-CREATED
+    // free workouts that surfaced the "No pudimos cargar tu entreno" report:
+    //   665 "Correr · 12×400m" (run, partial), 645 "Remo · 5×500m" (row, partial),
+    //   644 "Remo 5×500 libre" (row, completed).
+    // Unlike the OLD seed case (0 blocks → workout:null) these carry REAL content:
+    // a non-null `workout` with ONE block + ONE prescribed item AND an `execution`.
+    // These pins prove the read-only executed detail can ALWAYS load a free workout
+    // with content — every required-non-lossy field present, the structured
+    // `prescription_json` (pace/distance/intervals) decoded, the execution intact —
+    // so this class of failure can never silently regress.
+
+    // 665 — Correr · 12×400m (run intervals, partial), captured verbatim from prod.
+    func test_decode_freeWorkout_run12x400_partial_loadsContentAndExecution() throws {
+        let json = """
+        {"assignment":{"id":"665","athlete_id":"70","scheduled_for":"2026-06-30","status":"partial","slot":null,"template_id":"651","template_version":1,"completed_at":"2026-06-30 12:09:45+00","perceived_exertion":7,"partner_visibility":"shared"},"workout":{"name":"Correr · 12×400m","focus":null,"coach_note":null,"estimated_duration_minutes":null,"blocks":[{"uid":"block-1","title":"Correr · 12×400m","format":"intervals","block_position":1,"coach_note":null,"config_json":{},"items":[{"uid":"segment-3320","template_segment_id":3320,"exercise_id":"3479","exercise_name":"Run","exercise_slug":"run","exercise_category":"running","exercise_video_url":"https://www.youtube.com/watch?v=brFHyOtTwH4","cues":null,"params_json":{"sets":1,"rest_seconds":90,"distance_meters":400,"distance_km":0.4,"pace_sec_per_km":285},"prescription_json":{"scheme":"intervals","modality":"run","sets":[{"measure":{"kind":"distance","meters":400},"target":{"kind":"pace","unit":"per_km","value_s":285},"rest_s":90}],"rounds":12,"rest_s":90,"target":{"kind":"pace","unit":"per_km","value_s":285}},"resolved_intensity":null,"resolved_load":null,"notes":null}]}]},"execution":{"execution_id":"137","total_duration_seconds":1891,"perceived_exertion":7,"score_label":null,"notes":null,"ended_at":"2026-06-30 12:09:45+00","source":"healthkit","completeness":"partial","segments":[{"position":1,"item_uid":null,"modality":"run","duration_seconds":3,"reps_completed":null,"weight_used_kg":null,"distance_meters":null,"avg_pace_s_per_500m":null,"avg_pace_s_per_km":null,"avg_power_w":null,"stroke_rate_spm":null,"avg_hr":null,"max_hr":null,"calories":null}]}}
+        """
+        let detail = try decode(json)
+        // Content loads — NOT a rest/empty shell, NOT a throw.
+        let workout = try XCTUnwrap(detail.workout, "Free workout with content must decode a non-null workout.")
+        XCTAssertEqual(workout.name, "Correr · 12×400m")
+        XCTAssertEqual(workout.blocks.count, 1)
+        let item = try XCTUnwrap(workout.blocks.first?.items.first, "The one prescribed item must survive decode.")
+        XCTAssertEqual(item.exerciseSlug, "run")
+        XCTAssertEqual(item.exerciseCategory, "running")
+        XCTAssertEqual(item.paramsJson.distanceMeters, 400)
+        XCTAssertEqual(item.paramsJson.paceSecPerKm, 285)
+        // Structured prescription decoded (run intervals @ pace).
+        let p = try XCTUnwrap(item.prescription)
+        XCTAssertEqual(p.scheme, .intervals)
+        XCTAssertEqual(p.modality, .run)
+        XCTAssertEqual(p.rounds, 12)
+        // The executed block loads → ExecutedWorkoutView renders, never "No pudimos cargar".
+        let exec = try XCTUnwrap(detail.execution)
+        XCTAssertTrue(exec.isPartial)
+        // A runnable plan also builds from this same detail (the active/brief path).
+        XCTAssertNotNil(WorkoutPlan.from(detail: detail))
+    }
+
+    // 645 — Remo · 5×500m (row intervals, partial), captured verbatim from prod.
+    func test_decode_freeWorkout_row5x500_partial_loadsContentAndExecution() throws {
+        let json = """
+        {"assignment":{"id":"645","athlete_id":"70","scheduled_for":"2026-06-30","status":"partial","slot":null,"template_id":"646","template_version":1,"completed_at":"2026-06-30 11:23:43+00","perceived_exertion":7,"partner_visibility":"shared"},"workout":{"name":"Remo · 5×500m","focus":null,"coach_note":null,"estimated_duration_minutes":null,"blocks":[{"uid":"block-1","title":"Remo · 5×500m","format":"intervals","block_position":1,"coach_note":null,"config_json":{},"items":[{"uid":"segment-3309","template_segment_id":3309,"exercise_id":"3481","exercise_name":"Rowing","exercise_slug":"row","exercise_category":"rowing","exercise_video_url":"https://www.youtube.com/watch?v=QPvYrfyGHi8","cues":null,"params_json":{"sets":1,"rest_seconds":90,"distance_meters":500,"distance_km":0.5,"pace_sec_per_km":224},"prescription_json":{"scheme":"intervals","modality":"row","sets":[{"measure":{"kind":"distance","meters":500},"target":{"kind":"pace","unit":"per_500m","value_s":112},"rest_s":90}],"rounds":5,"rest_s":90,"target":{"kind":"pace","unit":"per_500m","value_s":112}},"resolved_intensity":null,"resolved_load":null,"notes":null}]}]},"execution":{"execution_id":"116","total_duration_seconds":3579,"perceived_exertion":7,"score_label":null,"notes":null,"ended_at":"2026-06-30 11:23:43+00","source":"healthkit","completeness":"partial","segments":[{"position":1,"item_uid":null,"modality":"row","duration_seconds":30,"reps_completed":null,"weight_used_kg":null,"distance_meters":100.19,"avg_pace_s_per_500m":119.88,"avg_pace_s_per_km":null,"avg_power_w":217.3,"stroke_rate_spm":28,"avg_hr":151,"max_hr":155,"calories":4}]}}
+        """
+        let detail = try decode(json)
+        let workout = try XCTUnwrap(detail.workout)
+        XCTAssertEqual(workout.blocks.count, 1)
+        let item = try XCTUnwrap(workout.blocks.first?.items.first)
+        XCTAssertEqual(item.exerciseSlug, "row")
+        let p = try XCTUnwrap(item.prescription)
+        XCTAssertEqual(p.scheme, .intervals)
+        XCTAssertEqual(p.modality, .row)
+        let exec = try XCTUnwrap(detail.execution)
+        XCTAssertTrue(exec.isPartial)
+        // The erg /500m split (capital-M coding-key edge) decodes.
+        XCTAssertEqual(exec.segments.first?.avgPaceSPer500m, 119.88)
+    }
+
+    // 644 — Remo 5×500 libre (row intervals, COMPLETED, no per-segment log),
+    // captured verbatim from prod.
+    func test_decode_freeWorkout_row_completed_noSegments_loadsContent() throws {
+        let json = """
+        {"assignment":{"id":"644","athlete_id":"70","scheduled_for":"2026-06-30","status":"completed","slot":null,"template_id":"645","template_version":1,"completed_at":"2026-06-30 10:07:20+00","perceived_exertion":8,"partner_visibility":"shared"},"workout":{"name":"Remo 5×500 libre","focus":null,"coach_note":null,"estimated_duration_minutes":null,"blocks":[{"uid":"block-1","title":"Remo 5×500 libre","format":"intervals","block_position":1,"coach_note":null,"config_json":{},"items":[{"uid":"segment-3308","template_segment_id":3308,"exercise_id":"3481","exercise_name":"Rowing","exercise_slug":"row","exercise_category":"rowing","exercise_video_url":"https://www.youtube.com/watch?v=QPvYrfyGHi8","cues":null,"params_json":{"sets":1,"rest_seconds":90,"distance_meters":500,"distance_km":0.5,"pace_sec_per_km":224},"prescription_json":{"scheme":"intervals","modality":"row","sets":[{"measure":{"kind":"distance","meters":500},"target":{"kind":"pace","unit":"per_500m","value_s":112},"rest_s":90}],"rounds":5,"rest_s":90,"target":{"kind":"pace","unit":"per_500m","value_s":112}},"resolved_intensity":null,"resolved_load":null,"notes":null}]}]},"execution":{"execution_id":"114","total_duration_seconds":1630,"perceived_exertion":8,"score_label":null,"notes":"entreno libre de prueba","ended_at":"2026-06-30 10:07:20+00","source":"healthkit","completeness":"completed","segments":[]}}
+        """
+        let detail = try decode(json)
+        let workout = try XCTUnwrap(detail.workout)
+        XCTAssertEqual(workout.name, "Remo 5×500 libre")
+        XCTAssertEqual(workout.blocks.first?.items.count, 1)
+        let exec = try XCTUnwrap(detail.execution)
+        XCTAssertFalse(exec.isPartial)
+        XCTAssertEqual(exec.completeness, "completed")
+        XCTAssertTrue(exec.segments.isEmpty, "Aggregate-only completion → no per-segment log, still loads.")
+        XCTAssertEqual(exec.notes, "entreno libre de prueba")
+    }
 }
