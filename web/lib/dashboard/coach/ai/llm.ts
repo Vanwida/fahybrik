@@ -130,6 +130,115 @@ export async function callPabloIaLlmJson(args: CallArgs): Promise<unknown> {
   return parseJsonLenient(content);
 }
 
+// ── Image-capable variant ────────────────────────────────────────────────────
+// Same OpenRouter-compatible wire, but the user turn carries multimodal content
+// parts: a text instruction + an `image_url` block with a data: URI (base64).
+// Used by the workout-capture vision feature (athlete uploads a screenshot of
+// another app's summary). The MODEL is passed in by the caller (read from env,
+// NEVER hardcoded) so a single multimodal model (text+image) serves it.
+//
+// Provider/base/key resolution mirrors callPabloIaLlmJson exactly (OpenRouter by
+// default: LLM_BASE_URL + OPENROUTER_API_KEY). `fetchImpl` is injectable for tests.
+export async function callLlmJsonWithImage(args: {
+  model: string;
+  system: string;
+  user: string;
+  image_base64: string; // raw base64 (no data: prefix)
+  mime_type: string; // e.g. image/jpeg
+  temperature?: number;
+  max_tokens?: number;
+  meta?: {
+    surface: string;
+    athlete_id?: number | bigint | null;
+    coach_id?: number | bigint | null;
+  };
+  fetchImpl?: typeof fetch;
+}): Promise<unknown> {
+  const fetchImpl = args.fetchImpl ?? fetch;
+  const provider = (process.env.PABLO_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
+    .trim()
+    .toLowerCase();
+  const apiKey = (
+    process.env.PABLO_IA_API_KEY ??
+    process.env.LLM_API_KEY ??
+    process.env.OPENROUTER_API_KEY ??
+    ''
+  ).trim();
+  if (!apiKey) throw new PabloIaLlmError('unconfigured', 'LLM API key no configurada');
+
+  const baseUrl =
+    process.env.LLM_BASE_URL?.trim() ??
+    (provider === 'openai' ? 'https://api.openai.com/v1' : 'https://openrouter.ai/api/v1');
+  const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    authorization: `Bearer ${apiKey}`,
+  };
+  if (provider === 'openrouter') {
+    const referer = process.env.OPENROUTER_HTTP_REFERER?.trim();
+    const title = process.env.OPENROUTER_APP_TITLE?.trim();
+    if (referer) headers['HTTP-Referer'] = referer;
+    if (title) headers['X-Title'] = title;
+  }
+
+  const dataUri = `data:${args.mime_type};base64,${args.image_base64}`;
+  const body = {
+    model: args.model,
+    messages: [
+      { role: 'system', content: args.system },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: args.user },
+          { type: 'image_url', image_url: { url: dataUri } },
+        ],
+      },
+    ],
+    temperature: args.temperature ?? 0.1,
+    max_tokens: args.max_tokens ?? 2048,
+    response_format: { type: 'json_object' },
+  };
+
+  const res = await fetchImpl(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Number(process.env.LLM_VISION_TIMEOUT_MS ?? 90_000)),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new PabloIaLlmError(
+      'http',
+      `LLM vision request failed (${res.status}): ${text || res.statusText}`,
+    );
+  }
+
+  const json = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+    };
+  };
+
+  if (args.meta && json.usage) {
+    void recordLlmInvocation({
+      surface: args.meta.surface,
+      model: args.model,
+      usage: json.usage,
+      athlete_id: args.meta.athlete_id ?? null,
+      coach_id: args.meta.coach_id ?? null,
+    });
+  }
+
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) throw new PabloIaLlmError('empty', 'LLM vision response empty');
+
+  return parseJsonLenient(content);
+}
+
 /**
  * Algunos modelos (deepseek, llamas finetune) ignoran `response_format`
  * y devuelven JSON envuelto en markdown fences o con preámbulo/epílogo.
