@@ -37,6 +37,10 @@ export interface BatchRow {
   latest_race_completed_at: Date | null;
   latest_race_name: string | null;
   latest_race_id: string | null;
+  // Entreno libre (athlete-originated, no prescrito) — most recent self-origin
+  // executed session. The detail line is built in JS (assembleFacts), not SQL.
+  latest_libre_at: Date | null;
+  latest_libre_title: string | null;
 }
 
 export async function loadBatch(
@@ -171,6 +175,17 @@ export async function loadBatch(
       from races r
       where r.result_time_seconds is not null
       order by r.athlete_id, r.created_at desc
+    ),
+    recent_libre as (
+      -- The most recent EXECUTED self-origin ("entreno libre") session per
+      -- athlete. Drives workout_libre: the coach sees the extra work the athlete
+      -- did off-plan. Joins the assignment's origin (mig 0090) → its template.
+      select distinct on (we.athlete_id)
+        we.athlete_id, we.ended_at as ts, t.name as title, t.format::text as format
+      from workout_executions we
+      join workout_assignments wa on wa.id = we.assignment_id and wa.origin = 'self'
+      join templates t on t.id = wa.template_id
+      order by we.athlete_id, we.ended_at desc nulls last
     )
     select
       a.id::text                          as athlete_id,
@@ -207,7 +222,9 @@ export async function loadBatch(
            else (${todayIso}::date - lat.last_date)::int end as days_since_last_test,
       rr.ts                               as latest_race_completed_at,
       rr.name                             as latest_race_name,
-      rr.id                               as latest_race_id
+      rr.id                               as latest_race_id,
+      rl.ts                               as latest_libre_at,
+      rl.title                            as latest_libre_title
     from athletes a
     left join hrv_recent   hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
@@ -222,6 +239,7 @@ export async function loadBatch(
     left join recent_test  rt on rt.athlete_id = a.id
     left join last_any_test lat on lat.athlete_id = a.id
     left join recent_race  rr on rr.athlete_id = a.id
+    left join recent_libre rl on rl.athlete_id = a.id
     where a.coach_id = ${coach_id as number}
       and (${athleteFilter}::bigint is null or a.id = ${athleteFilter}::bigint)
     order by a.full_name asc

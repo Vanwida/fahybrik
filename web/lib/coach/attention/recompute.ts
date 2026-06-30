@@ -162,6 +162,12 @@ async function assembleFacts(
     latest_race_completed_at: row.latest_race_completed_at,
     latest_race_name: row.latest_race_name,
     latest_race_id: row.latest_race_id,
+
+    latest_libre_at: row.latest_libre_at,
+    latest_libre_title: row.latest_libre_title,
+    latest_libre_detail: row.latest_libre_title
+      ? `${row.latest_libre_title} · no prescrito · suma al plan`
+      : null,
   };
 }
 

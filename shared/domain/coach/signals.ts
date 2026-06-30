@@ -59,6 +59,10 @@ export const SIGNAL_KINDS = [
   // race converts athlete improvement into a coach action — review / progress).
   'test_logged',
   'race_completed',
+  // An athlete-originated "entreno libre / no prescrito" the athlete built + ran
+  // themselves. It COMPLEMENTS the coach's plan (never alters compliance) and
+  // surfaces here so the coach sees the extra work and can react.
+  'workout_libre',
   // Coach-queue decision items (fed by existing loaders, persisted here so the
   // HOY queue is ONE indexed read instead of N+1 across surfaces)
   'intake_pending',
@@ -177,6 +181,13 @@ export interface SignalFacts {
   latest_race_completed_at: Date | null;
   latest_race_name: string | null;
   latest_race_id: string | null;
+
+  // Entreno libre (athlete-originated, no prescrito). Timestamp of the most recent
+  // self-origin executed session, its title, and the prebuilt detail line. Drives
+  // workout_libre.
+  latest_libre_at: Date | null;
+  latest_libre_title: string | null;
+  latest_libre_detail: string | null;
 }
 
 // ── Result (the per-fired-signal output) ──────────────────────────────────────

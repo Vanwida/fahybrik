@@ -73,6 +73,34 @@ export const raceCompletedEvaluator: SignalEvaluator = {
   },
 };
 
+export const workoutLibreEvaluator: SignalEvaluator = {
+  kind: 'workout_libre',
+  default_severity: 'warning',
+  enabled: true,
+  evaluate(facts, thresholds, now): SignalResult | null {
+    if (facts.latest_libre_at == null) return null;
+    const days = wholeDaysSince(facts.latest_libre_at, now);
+    if (days < 0 || days > thresholds.workout_libre_recent_days) return null;
+    return {
+      kind: 'workout_libre',
+      fires: true,
+      severity: 'warning',
+      value: days,
+      baseline: thresholds.workout_libre_recent_days,
+      trend: null,
+      label: 'Entreno libre',
+      detail: facts.latest_libre_detail ?? 'Entreno libre · no prescrito',
+      // The session's day is part of the identity so a NEW libre session (newer
+      // day) is a distinct item a resolved card never masks.
+      dedupe_key: dedupeKey(
+        'workout_libre',
+        facts.athlete_id,
+        facts.latest_libre_at.toISOString().slice(0, 10),
+      ),
+    };
+  },
+};
+
 export const testDueEvaluator: SignalEvaluator = {
   kind: 'test_due',
   default_severity: 'warning',

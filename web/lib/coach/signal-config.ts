@@ -88,6 +88,8 @@ export const SIGNAL_THRESHOLDS = {
   race_completed_recent_days: 14,
   /** No test for at least this many days on an active plan → test_due (schedule one). */
   test_due_days: 35,
+  /** An athlete-originated "entreno libre" within this many days → workout_libre. */
+  workout_libre_recent_days: 3,
 } as const;
 
 export type SignalThresholdKey = keyof typeof SIGNAL_THRESHOLDS;
@@ -114,6 +116,7 @@ export const signalThresholdsSchema = z
     test_logged_recent_days: z.number().int().positive(),
     race_completed_recent_days: z.number().int().positive(),
     test_due_days: z.number().int().positive(),
+    workout_libre_recent_days: z.number().int().positive(),
   })
   .strict()
   // Warning window must be shorter than (or equal to) the critical one.

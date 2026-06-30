@@ -69,6 +69,10 @@ function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     latest_race_name: null,
     latest_race_id: null,
 
+    latest_libre_at: null,
+    latest_libre_title: null,
+    latest_libre_detail: null,
+
     ...overrides,
   };
 }
@@ -395,6 +399,39 @@ describe('monthly_block_pending', () => {
 
   it('does NOT fire when null', () => {
     notFired('monthly_block_pending', baseFacts({ monthly_block_proposal_id: null }));
+  });
+});
+
+describe('workout_libre', () => {
+  it('fires warning when a self-origin session is within the window (today)', () => {
+    const r = fired(
+      'workout_libre',
+      baseFacts({
+        latest_libre_at: NOW,
+        latest_libre_title: 'Remo 5×500',
+        latest_libre_detail: 'Remo 5×500 · no prescrito · suma al plan',
+      }),
+    );
+    expect(r.severity).toBe('warning');
+    expect(r.value).toBe(0);
+    expect(r.baseline).toBe(SIGNAL_THRESHOLDS.workout_libre_recent_days);
+    expect(r.label).toBe('Entreno libre');
+    expect(r.detail).toBe('Remo 5×500 · no prescrito · suma al plan');
+    expect(r.dedupe_key).toBe(`workout_libre:${ATHLETE_ID}:${NOW.toISOString().slice(0, 10)}`);
+  });
+
+  it('falls back to default detail when none provided', () => {
+    const r = fired('workout_libre', baseFacts({ latest_libre_at: NOW }));
+    expect(r.detail).toBe('Entreno libre · no prescrito');
+  });
+
+  it('does NOT fire when older than the window', () => {
+    const old = new Date(NOW.getTime() - 10 * 86_400_000); // 10d ago
+    notFired('workout_libre', baseFacts({ latest_libre_at: old }));
+  });
+
+  it('does NOT fire when null', () => {
+    notFired('workout_libre', baseFacts({ latest_libre_at: null }));
   });
 });
 

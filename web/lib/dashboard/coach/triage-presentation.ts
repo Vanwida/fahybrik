@@ -130,6 +130,13 @@ const SIGNAL_PRESENTATION: Partial<Record<SignalKind, SignalPresentation>> = {
     deepLink: toFicha,
     lens: null,
   },
+  workout_libre: {
+    tier: 'info',
+    icon: 'fitness_center',
+    label: 'Entreno libre',
+    deepLink: toFicha,
+    lens: null,
+  },
 };
 
 const FALLBACK: SignalPresentation = {
