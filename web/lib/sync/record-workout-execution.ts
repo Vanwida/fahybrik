@@ -14,7 +14,7 @@
 // independent.
 
 import { z } from 'zod';
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { ingestExecutionSegments, segmentInputSchema } from '@/lib/sync/ingest-execution-segments';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
@@ -74,7 +74,9 @@ export async function recordWorkoutExecution(args: {
   athleteId: number;
   assignmentId: number;
   input: ExecutionMetricsInput;
-  sql?: Sql;
+  // Accepts a transaction client so callers (e.g. the entreno-libre save) can run
+  // the recording inside their OWN transaction; defaults to the pool otherwise.
+  sql?: Sql | TransactionClient;
 }): Promise<RecordExecutionResult> {
   const sql = args.sql ?? defaultSql;
   const { athleteId, assignmentId, input } = args;

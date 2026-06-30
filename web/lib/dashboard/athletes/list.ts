@@ -164,6 +164,9 @@ export async function fetchAthletesForCoach(params: {
       where x.athlete_id = a.id
         and x.scheduled_for >= ${adhStart}::date
         and x.scheduled_for <= ${adhEnd}::date
+        -- COACH-PLAN compliance only: a self-origin "entreno libre" (mig 0090)
+        -- complements the plan, it must never inflate nor dilute adherence.
+        and x.origin = 'coach'
     ) wa on true
     left join lateral (
       select plan_type, source

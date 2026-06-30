@@ -90,6 +90,7 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint, weekOffset = 0)
       status: string;
       notes: string | null;
       partner_visibility: 'shared' | 'self_only';
+      origin: 'coach' | 'self';
     }>
   >`
     select
@@ -112,7 +113,10 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint, weekOffset = 0)
       ) as is_test,
       wa.status::text as status,
       wa.notes,
-      wa.partner_visibility as partner_visibility
+      wa.partner_visibility as partner_visibility,
+      -- origin (mig 0090): 'self' = athlete's entreno libre (renders a "Libre"
+      -- tag on iOS), 'coach' = prescribed plan session.
+      wa.origin::text as origin
     from workout_assignments wa
     left join templates t on t.id = wa.template_id
     where wa.athlete_id = ${athlete_id as number}
@@ -191,6 +195,8 @@ async function buildAthleteWeekPlan(athlete_id: number | bigint, weekOffset = 0)
           modality: summary?.modality ?? s.template_format,
           status: s.status,
           partner_visibility: s.partner_visibility,
+          // 'self' = athlete's entreno libre (no prescrito), 'coach' = plan session.
+          origin: s.origin,
           // DERIVED, additive. Null when the template has no segments to read.
           est_duration_minutes: summary?.est_duration_minutes ?? null,
           blocks_count: summary?.blocks_count ?? null,

@@ -11,7 +11,7 @@
 // used for the parent workout_executions row.
 
 import { z } from 'zod';
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus } from '@fahybrid/shared/schema';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
@@ -136,7 +136,7 @@ export type SegmentInput = z.infer<typeof segmentInputSchema>;
  * @returns number of segments written.
  */
 export async function ingestExecutionSegments(args: {
-  sql: Sql;
+  sql: Sql | TransactionClient;
   executionId: number;
   executionStartedAt: string;
   segments: SegmentInput[];
