@@ -647,6 +647,88 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(seg.targetZone, HRZone(rawValue: 2))
     }
 
+    // MARK: - Executed-session detail (`execution` block)
+    //
+    // Powers ExecutedWorkoutView (tap a DONE session → read-only what-you-logged).
+    // The `execution` block was added with the post-workout loop; these pin its
+    // decode so a finished session's detail can never silently fail to load.
+
+    // A done COACH workout: aggregate only (duration + RPE + source), no segments.
+    func test_decode_doneCoachWorkout_executionAggregate() throws {
+        let json = """
+        {
+          "assignment": { "id": "587", "athlete_id": "70", "scheduled_for": "2026-06-29", "status": "completed" },
+          "workout": null,
+          "execution": {
+            "execution_id": "115", "total_duration_seconds": null, "perceived_exertion": 7,
+            "score_label": null, "notes": null, "ended_at": "2026-06-30 15:59:17+00",
+            "source": "manual", "completeness": "completed", "segments": []
+          }
+        }
+        """
+        let detail = try decode(json)
+        let exec = try XCTUnwrap(detail.execution)
+        XCTAssertEqual(exec.completeness, "completed")
+        XCTAssertFalse(exec.isPartial)
+        XCTAssertEqual(exec.perceivedExertion, 7)
+        XCTAssertEqual(exec.source, "manual")
+        XCTAssertTrue(exec.segments.isEmpty)
+    }
+
+    // A PARTIAL free workout with one logged segment (real erg piece) decodes with
+    // its per-segment actuals intact.
+    func test_decode_partialWorkout_withSegmentActual() throws {
+        let json = """
+        {
+          "assignment": { "id": "645", "athlete_id": "70", "scheduled_for": "2026-06-30", "status": "partial" },
+          "workout": null,
+          "execution": {
+            "execution_id": "116", "total_duration_seconds": 31, "perceived_exertion": 7,
+            "score_label": null, "notes": null, "ended_at": "2026-06-30 15:55:35+00",
+            "source": "manual", "completeness": "partial",
+            "segments": [
+              { "position": 1, "item_uid": null, "modality": "row", "duration_seconds": 30,
+                "reps_completed": null, "weight_used_kg": null, "distance_meters": 100.19,
+                "avg_pace_s_per_500m": 119.88, "avg_pace_s_per_km": null, "avg_power_w": 217.3,
+                "stroke_rate_spm": 28, "avg_hr": 151, "max_hr": 155, "calories": 4 }
+            ]
+          }
+        }
+        """
+        let detail = try decode(json)
+        let exec = try XCTUnwrap(detail.execution)
+        XCTAssertTrue(exec.isPartial)
+        XCTAssertEqual(exec.segments.count, 1)
+        let seg = try XCTUnwrap(exec.segments.first)
+        XCTAssertEqual(seg.modality, "row")
+        XCTAssertEqual(seg.distanceMeters, 100.19)
+        XCTAssertEqual(seg.avgPaceSPer500m, 119.88)
+        XCTAssertEqual(seg.avgHr, 151)
+    }
+
+    // DEFENSIVE: a leaner / older `execution` payload that OMITS `completeness`
+    // and `segments` must still decode — never throw `keyNotFound` and collapse the
+    // whole detail into "No pudimos cargar". Completeness defaults to "completed",
+    // segments to []. (Regression guard for the read-fail this fixes.)
+    func test_decode_execution_missingOptionalKeys_decodesGracefully() throws {
+        let json = """
+        {
+          "assignment": { "id": "999", "athlete_id": "70", "scheduled_for": "2026-06-30", "status": "completed" },
+          "workout": null,
+          "execution": {
+            "execution_id": "500", "total_duration_seconds": 1200, "perceived_exertion": 8,
+            "ended_at": "2026-06-30 10:00:00+00", "source": "manual"
+          }
+        }
+        """
+        let detail = try decode(json)
+        let exec = try XCTUnwrap(detail.execution, "A lean execution payload must still decode.")
+        XCTAssertEqual(exec.completeness, "completed", "Absent completeness defaults to completed.")
+        XCTAssertFalse(exec.isPartial)
+        XCTAssertTrue(exec.segments.isEmpty, "Absent segments defaults to [].")
+        XCTAssertEqual(exec.totalDurationSeconds, 1200)
+    }
+
     func test_deathBy_foldParams_startAndIncrement() throws {
         // Death By Burpees folds with its start/increment so the rising target is
         // start + increment × roundsCompleted. (Single item → natural segment.)

@@ -39,9 +39,37 @@ struct ExecutionSummary: Codable, Equatable {
     /// Per-exercise actuals, matched to a prescribed item via `itemUid`. Lossy so
     /// one odd segment never collapses the whole detail. Empty when only the
     /// aggregate was logged — the view then shows time/score alone (no fabrication).
-    @LossyArray var segments: [SegmentActualDTO]
+    let segments: [SegmentActualDTO]
 
     var isPartial: Bool { completeness == "partial" }
+
+    enum CodingKeys: String, CodingKey {
+        case executionId, totalDurationSeconds, perceivedExertion, scoreLabel
+        case notes, endedAt, source, completeness, segments
+    }
+
+    // Tolerant decode (mirrors AthleteWeekDaySession): EVERY field is optional or
+    // defaulted, so a done session's detail ALWAYS loads — even from a leaner /
+    // older `execution` payload that omits `completeness` or `segments`. Decoding
+    // these two as REQUIRED keys (the synthesized default) would throw
+    // `keyNotFound` and collapse the whole AssignmentDetail into the "No pudimos
+    // cargar" failure. They're genuinely optional in meaning (a finished session
+    // is 'completed' unless explicitly 'partial'; no per-segment log → no
+    // segments), so absence must degrade gracefully, never hard-fail.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        executionId = try c.decodeIfPresent(String.self, forKey: .executionId)
+        totalDurationSeconds = try c.decodeIfPresent(Int.self, forKey: .totalDurationSeconds)
+        perceivedExertion = try c.decodeIfPresent(Int.self, forKey: .perceivedExertion)
+        scoreLabel = try c.decodeIfPresent(String.self, forKey: .scoreLabel)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        endedAt = try c.decodeIfPresent(String.self, forKey: .endedAt)
+        source = try c.decodeIfPresent(String.self, forKey: .source)
+        completeness = try c.decodeIfPresent(String.self, forKey: .completeness) ?? "completed"
+        // Element-wise lossy (LossyArray) AND key-optional: a missing key → [],
+        // one undecodable segment → dropped, never fatal.
+        segments = (try c.decodeIfPresent(LossyArray<SegmentActualDTO>.self, forKey: .segments))?.wrappedValue ?? []
+    }
 }
 
 // One logged segment (segment_executions), mapped to its prescribed item. Mirrors
@@ -64,6 +92,19 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     let avgHr: Int?
     let maxHr: Int?
     let calories: Double?
+
+    // `.convertFromSnakeCase` capitalizes the digit→letter boundary, so the wire
+    // key `avg_pace_s_per_500m` converts to `avgPaceSPer500M` (capital M) — which
+    // did NOT match the `avgPaceSPer500m` property, silently dropping the erg's
+    // /500m split (the headline pace for row/ski). Pin the converted key
+    // explicitly so it decodes; every other key converts cleanly to its property
+    // name. Encode is symmetric (the cache round-trips back to the same key).
+    enum CodingKeys: String, CodingKey {
+        case position, itemUid, modality, durationSeconds, repsCompleted
+        case weightUsedKg, distanceMeters
+        case avgPaceSPer500m = "avgPaceSPer500M"
+        case avgPaceSPerKm, avgPowerW, strokeRateSpm, avgHr, maxHr, calories
+    }
 }
 
 struct AssignmentInfo: Codable, Equatable {
