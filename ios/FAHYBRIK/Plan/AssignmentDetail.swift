@@ -12,6 +12,58 @@ import Foundation
 struct AssignmentDetail: Codable, Equatable {
     let assignment: AssignmentInfo
     let workout: WorkoutDetail?
+    // The athlete's REAL executed result — present once the session is done
+    // (completed / partial). Powers the read-only post-workout detail the athlete
+    // reaches by tapping a finished session (tiempo / score / RPE / per-segment
+    // splits). Nil while the session is still pending. Optional → older cached
+    // payloads (no `execution` key) decode fine.
+    let execution: ExecutionSummary?
+}
+
+// What the athlete ACTUALLY did, for the read-only executed view. Mirrors the
+// backend `AssignmentDetailExecution` (lib/athlete/assignment-detail.ts).
+// Snake_case wire keys convert to these via APIClient's `.convertFromSnakeCase`.
+struct ExecutionSummary: Codable, Equatable {
+    let executionId: String?
+    let totalDurationSeconds: Int?
+    let perceivedExertion: Int?
+    /// Pre-formatted metcon/HYROX headline result ("42:15", "5 rondas + 8 reps").
+    /// Nil for non-scored formats or when no score was recorded.
+    let scoreLabel: String?
+    let notes: String?
+    let endedAt: String?
+    /// Provenance — "manual" | "healthkit" | "garmin" | … (biometric_source).
+    let source: String?
+    /// "completed" (ran to the end → ✓) | "partial" (terminated early → ½).
+    let completeness: String
+    /// Per-exercise actuals, matched to a prescribed item via `itemUid`. Lossy so
+    /// one odd segment never collapses the whole detail. Empty when only the
+    /// aggregate was logged — the view then shows time/score alone (no fabrication).
+    @LossyArray var segments: [SegmentActualDTO]
+
+    var isPartial: Bool { completeness == "partial" }
+}
+
+// One logged segment (segment_executions), mapped to its prescribed item. Mirrors
+// the backend `SegmentActual` (lib/dashboard/coach/session-actuals.ts). Property
+// names match the `.convertFromSnakeCase` output of the wire keys.
+struct SegmentActualDTO: Codable, Equatable, Identifiable {
+    var id: Int { position }
+    let position: Int
+    /// uid of the prescribed item this maps to ("segment-{id}"); nil when unmatched.
+    let itemUid: String?
+    let modality: String
+    let durationSeconds: Int?
+    let repsCompleted: Int?
+    let weightUsedKg: Double?
+    let distanceMeters: Double?
+    let avgPaceSPer500m: Double?
+    let avgPaceSPerKm: Double?
+    let avgPowerW: Double?
+    let strokeRateSpm: Double?
+    let avgHr: Int?
+    let maxHr: Int?
+    let calories: Double?
 }
 
 struct AssignmentInfo: Codable, Equatable {

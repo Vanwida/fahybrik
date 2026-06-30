@@ -43,6 +43,12 @@ struct InicioView: View {
     @State private var startAssignmentId: String? = nil
     @State private var startFallbackTitle: String? = nil
 
+    // A FINISHED session tapped from the "Hecho hoy" confirmation — drives the
+    // read-only executed detail cover (what was logged), not the active brief.
+    @State private var executedAssignmentId: String? = nil
+    @State private var executedFallbackTitle: String? = nil
+    @State private var showExecuted: Bool = false
+
     // Drives the one orchestrated staggered reveal of the cards on appear.
     @State private var revealed: Bool = false
 
@@ -69,6 +75,20 @@ struct InicioView: View {
     // Today's still-active sessions, in slot order (AM hero, then PM compact).
     private var todaySessions: [AthleteWeekDaySession] {
         planWeek.map(sessionsForToday) ?? []
+    }
+    // Today's FINISHED sessions (done / partial), in slot order — surfaced as the
+    // "Hecho hoy" confirmation so the loop closes on the home screen and the athlete
+    // can reopen what they logged. Reads the same state machine as the plan marks.
+    private var completedTodaySessions: [AthleteWeekDaySession] {
+        guard let resp = planWeek else { return [] }
+        let todayIso = resp.week.todayIso
+        guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
+        return today.sessions
+            .filter {
+                let st = SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId)
+                return st == .done || st == .partial
+            }
+            .sorted { slotRank($0.slot) < slotRank($1.slot) }
     }
     // Fallback when today has no sessions: the next future session in the week.
     private var nextWorkout: NextWorkout? {
@@ -132,10 +152,11 @@ struct InicioView: View {
                     .staggerReveal(revealed, index: 2)
                 readinessCard
                     .staggerReveal(revealed, index: 3)
-                progressCard
-                    .staggerReveal(revealed, index: 4)
+                // TODAY cluster — the day's action sits right after readiness (the
+                // natural "am I recovered → here's today's session" flow), ABOVE the
+                // secondary progress analytics. Hero (to do) → PM → "Hecho hoy" (done).
                 heroSection
-                    .staggerReveal(revealed, index: 5)
+                    .staggerReveal(revealed, index: 4)
                 if let pm = pmSession {
                     SessionCompactRow(
                         slot: slotFor(pm),
@@ -145,18 +166,22 @@ struct InicioView: View {
                         isFree: pm.isSelfOrigin,
                         onTap: { onOpenTab?(.plan) }
                     )
-                    .staggerReveal(revealed, index: 6)
+                    .staggerReveal(revealed, index: 5)
                 }
-                freeBanner
+                hechoHoySection
+                    .staggerReveal(revealed, index: 6)
+                progressCard
                     .staggerReveal(revealed, index: 7)
+                freeBanner
+                    .staggerReveal(revealed, index: 8)
                 if let partner {
                     PartnerTodayPanel(partner: partner)
-                        .staggerReveal(revealed, index: 7)
+                        .staggerReveal(revealed, index: 8)
                 }
                 stepsRow
-                    .staggerReveal(revealed, index: 8)
-                projectionGate
                     .staggerReveal(revealed, index: 9)
+                projectionGate
+                    .staggerReveal(revealed, index: 10)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.s)
@@ -172,6 +197,16 @@ struct InicioView: View {
                 onCompleted: { _ in
                     Task { await store.planMutated() }
                 }
+            )
+        }
+        .fullScreenCover(isPresented: $showExecuted) {
+            // Read-only detail of a session already DONE today — what the athlete
+            // logged (tiempo / score / RPE / splits), not the active brief.
+            ExecutedWorkoutView(
+                assignmentId: executedAssignmentId ?? "",
+                fallbackTitle: executedFallbackTitle,
+                bearer: effectiveBearer,
+                onClose: { showExecuted = false }
             )
         }
         .fullScreenCover(isPresented: $showFreeBuilder) {
@@ -878,6 +913,69 @@ struct InicioView: View {
             // "plan no publicado" empty state (which would be a lie mid-load).
             loadingCard(label: "Hoy", titleWidth: 150)
         }
+    }
+
+    // MARK: - "Hecho hoy" — closed-loop confirmation of today's finished sessions
+    //
+    // When a session is done (prescribed via timer/manual/device sync, OR a free
+    // workout), it leaves the "to do" hero and lands here as a HECHA confirmation.
+    // Each row reopens the read-only executed detail (what was logged). This is the
+    // home-screen half of closing the athlete loop — the plan tab carries the full
+    // week, but the day's win is acknowledged right here.
+    @ViewBuilder
+    private var hechoHoySection: some View {
+        let done = completedTodaySessions
+        if !done.isEmpty {
+            CardSurface(padding: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Theme.Color.ok)
+                        LabelText(text: "Hecho hoy", color: Theme.Color.ok, size: 12)
+                    }
+                    VStack(spacing: 8) {
+                        ForEach(done) { session in
+                            hechoHoyRow(session)
+                            if session.id != done.last?.id { Hairline().opacity(0.5) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func hechoHoyRow(_ session: AthleteWeekDaySession) -> some View {
+        let partial = SessionMarkState.of(status: session.status, assignmentId: session.assignmentId) == .partial
+        return Button {
+            Haptics.light()
+            executedAssignmentId = session.assignmentId
+            executedFallbackTitle = session.title
+            showExecuted = true
+        } label: {
+            HStack(spacing: Theme.Spacing.s) {
+                Circle()
+                    .fill(Theme.Modality.color(session.modality))
+                    .frame(width: 7, height: 7)
+                Text(session.title)
+                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                if session.isSelfOrigin {
+                    LibreBadge(compact: true)
+                }
+                Spacer(minLength: Theme.Spacing.s)
+                Image(systemName: partial ? "circle.lefthalf.filled" : "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(partial ? Theme.Color.warning : Theme.Color.ok)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("\(session.title), \(partial ? "parcial" : "completada"). Ver detalle.")
     }
 
     // P1 — "¿Hoy lo tuyo?" Banner inviting the athlete to build their own session.

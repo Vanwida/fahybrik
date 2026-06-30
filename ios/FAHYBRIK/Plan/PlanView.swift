@@ -64,6 +64,12 @@ struct PlanView: View {
     @State private var openFallbackTitle: String? = nil
     @State private var showWorkout = false
 
+    // A FINISHED session the athlete tapped — drives the read-only executed detail
+    // cover (what they logged), distinct from the active-workout brief above.
+    @State private var executedAssignmentId: String? = nil
+    @State private var executedFallbackTitle: String? = nil
+    @State private var showExecuted = false
+
     // The session whose technique index (exercise list → ExerciseDetailView) is
     // open. Set from the per-session technique affordance in the week.
     @State private var techniqueTarget: AthleteWeekDaySession? = nil
@@ -168,6 +174,17 @@ struct PlanView: View {
                     // re-seed this screen's working copy from it.
                     Task { await store.planMutated(); await loadPlan() }
                 }
+            )
+        }
+        // Detalle de un entreno HECHO — read-only summary of what the athlete
+        // logged (tiempo / score / RPE / splits). Reached by tapping a done/partial
+        // session; never the active-workout brief.
+        .fullScreenCover(isPresented: $showExecuted) {
+            ExecutedWorkoutView(
+                assignmentId: executedAssignmentId ?? "",
+                fallbackTitle: executedFallbackTitle,
+                bearer: effectiveBearer,
+                onClose: { showExecuted = false }
             )
         }
         .sheet(isPresented: $showChat) {
@@ -606,9 +623,9 @@ struct PlanView: View {
         let row = HStack(spacing: Theme.Spacing.s) {
             draggableSession(
                 Button {
-                    guard let id = primary?.assignmentId, !id.isEmpty, !rest else { return }
+                    guard let primary, !primary.assignmentId.isEmpty, !rest else { return }
                     Haptics.light()
-                    open(assignmentId: id, title: primary?.title)
+                    tap(primary)
                 } label: {
                     HStack(spacing: Theme.Spacing.m) {
                         Text(dayLabelES(day.dayOfWeek))
@@ -734,7 +751,7 @@ struct PlanView: View {
         .onTapGesture {
             guard !rest, let first = day.sessions.first(where: { !$0.assignmentId.isEmpty }) else { return }
             Haptics.light()
-            open(assignmentId: first.assignmentId, title: first.title)
+            tap(first)
         }
         .accessibilityElement(children: .contain)
 
@@ -753,7 +770,7 @@ struct PlanView: View {
             draggableSession(
                 Button {
                     Haptics.light()
-                    open(assignmentId: session.assignmentId, title: session.title)
+                    tap(session)
                 } label: {
                     HStack(spacing: Theme.Spacing.s) {
                         SlotBadge(
@@ -1133,6 +1150,23 @@ struct PlanView: View {
         openAssignmentId = assignmentId
         openFallbackTitle = title
         showWorkout = true
+    }
+
+    /// Tapping a session row routes by STATE: a FINISHED session (done / partial)
+    /// opens its read-only executed detail (what was logged); a pending / missed
+    /// session opens the active-workout brief (the path to do it). One decision
+    /// point so done and pending can never be confused at the tap. The per-row
+    /// "···" correction menu still offers "Completar ahora" for a partial.
+    private func tap(_ session: AthleteWeekDaySession) {
+        guard !session.assignmentId.isEmpty else { return }
+        switch sessionState(session) {
+        case .done, .partial:
+            executedAssignmentId = session.assignmentId
+            executedFallbackTitle = session.title
+            showExecuted = true
+        case .pending, .missed:
+            open(assignmentId: session.assignmentId, title: session.title)
+        }
     }
 
     // MARK: - Move a session to another day (drag & drop + accessible menu)
