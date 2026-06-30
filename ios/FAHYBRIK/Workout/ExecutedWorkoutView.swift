@@ -21,7 +21,7 @@ struct ExecutedWorkoutView: View {
 
     @State private var detail: AssignmentDetail?
     @State private var loadFailed = false
-    @State private var showScreenshotNote = false
+    @State private var showCapture = false
 
     private var execution: ExecutionSummary? { detail?.execution }
     private var isPartial: Bool { execution?.isPartial ?? false }
@@ -39,10 +39,19 @@ struct ExecutedWorkoutView: View {
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .task { await load() }
-        .alert("Subir captura", isPresented: $showScreenshotNote) {
-            Button("Entendido", role: .cancel) {}
-        } message: {
-            Text("Pronto podrás subir una captura de Garmin, Strava o tu reloj y la leeremos por ti para rellenar el entreno. Aún no está disponible.")
+        .fullScreenCover(isPresented: $showCapture) {
+            WorkoutCaptureView(
+                assignmentId: assignmentId,
+                sessionTitle: detail?.workout?.name ?? fallbackTitle,
+                bearer: bearer,
+                onClose: { showCapture = false },
+                onSaved: {
+                    showCapture = false
+                    // Re-pull the detail so the just-confirmed result replaces what
+                    // was shown (new splits / time / source).
+                    Task { await reload() }
+                }
+            )
         }
     }
 
@@ -188,15 +197,17 @@ struct ExecutedWorkoutView: View {
         }
     }
 
-    // MARK: - Screenshot entry point (honest placeholder — parsing not built yet)
+    // MARK: - Screenshot entry point (LIVE — Idea 1)
     //
-    // The ENTRY POINT lives where it belongs (inside the done-workout detail), but
-    // the AI-vision parsing is not built. So this is an honest "Pronto" affordance:
-    // it explains what's coming and does NOT fabricate any reading. No fake AI.
+    // The ENTRY POINT lives where it belongs (inside the done-workout detail):
+    // tap → pick a screenshot of another app's summary → the IA reads it → the
+    // athlete reviews/corrects → confirm re-logs the result through the honest
+    // path. Useful here to CORRECT or enrich an already-logged session with the
+    // real device numbers.
     private var screenshotEntry: some View {
         Button {
             Haptics.light()
-            showScreenshotNote = true
+            showCapture = true
         } label: {
             CardSurface(padding: 12) {
                 HStack(spacing: 10) {
@@ -204,20 +215,10 @@ struct ExecutedWorkoutView: View {
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(Theme.Color.accentText)
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text("Subir captura de otra app")
-                                .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                                .foregroundStyle(Theme.Color.foreground)
-                            Text("PRONTO")
-                                .font(.system(size: 8, weight: .heavy))
-                                .tracking(0.5)
-                                .foregroundStyle(Theme.Color.accentOn)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Theme.Color.accent)
-                                .clipShape(Capsule())
-                        }
-                        Text("Garmin, Strava, tu reloj… la leeremos por ti.")
+                        Text("Subir captura de otra app")
+                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Garmin, Strava, Concept2… la leemos por ti.")
                             .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                     }
@@ -229,7 +230,7 @@ struct ExecutedWorkoutView: View {
             }
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityHint("Función en preparación")
+        .accessibilityHint("Sube una captura y la IA rellena el resultado")
     }
 
     // MARK: - Loading / failed
@@ -281,6 +282,17 @@ struct ExecutedWorkoutView: View {
             loadFailed = false
         } catch {
             if detail == nil { loadFailed = true }
+        }
+    }
+
+    // Force a refresh after a capture-confirm (the `load()` short-circuit on a
+    // present detail would otherwise keep the stale copy). Best-effort: a network
+    // failure leaves the prior detail on screen rather than wiping it.
+    private func reload() async {
+        guard let bearer else { return }
+        if let fetched = try? await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer) {
+            AssignmentDetailCache.save(fetched)
+            detail = fetched
         }
     }
 

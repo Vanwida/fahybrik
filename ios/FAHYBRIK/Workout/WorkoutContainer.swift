@@ -64,6 +64,10 @@ struct WorkoutContainer: View {
     /// rather than the live timer — the summary then collects results by hand and
     /// saves with source='manual'. Reset implicitly per container instance.
     @State private var manualEntry = false
+    /// Idea 1: the athlete brings a result in from another app via a screenshot.
+    /// Presented over the brief; on confirm it logs through the honest path and
+    /// the day flips to HECHO (same as a finished session).
+    @State private var showCapture = false
 
     let onClose: () -> Void
     /// Fired once the post-workout summary is saved, with the assignment id that
@@ -85,6 +89,25 @@ struct WorkoutContainer: View {
             if let recovery = crashRecoveryPrompt {
                 recoveryModal(recovery)
             }
+        }
+        .fullScreenCover(isPresented: $showCapture) {
+            // Capture-log is only meaningful for a REAL assignment (the result is
+            // attributed to it). Ad-hoc/free sessions never reach this button.
+            WorkoutCaptureView(
+                assignmentId: assignmentId ?? "",
+                sessionTitle: fallbackTitle,
+                bearer: bearer,
+                onClose: { showCapture = false },
+                onSaved: {
+                    showCapture = false
+                    if let assignmentId, !assignmentId.isEmpty {
+                        CompletedAssignmentsStore.markCompleted(assignmentId)
+                    }
+                    Task { await WorkoutStateStore.shared.clear() }
+                    onCompleted(assignmentId)
+                    onClose()
+                }
+            )
         }
         .task {
             // A free workout is a one-off in-memory build with no assignment — never
@@ -123,6 +146,14 @@ struct WorkoutContainer: View {
                         Haptics.medium()
                         phase = .summary
                     },
+                    onCaptureLog: {
+                        // Only offer the capture-log for a real assignment (the
+                        // result must attribute to one); ad-hoc sessions skip it.
+                        guard let id = assignmentId, !id.isEmpty else { return }
+                        Haptics.light()
+                        showCapture = true
+                    },
+                    showCaptureLog: assignmentId?.isEmpty == false,
                     onClose: onClose
                 )
             case .active:

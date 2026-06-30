@@ -170,16 +170,19 @@ actor APIClient {
         return (data, filename, mime)
     }
 
-    /// Multipart POST of a single image part. Used by nutrition photo analysis
-    /// (the vision endpoint expects `multipart/form-data` with one image file).
-    /// Returns the decoded response. HTTP errors (incl. 501 when the vision
-    /// model is not configured) surface as `APIError.http(status, data)`.
+    /// Multipart POST of a single image part, plus optional plain-text form
+    /// fields. Used by nutrition photo analysis and workout-capture vision (both
+    /// expect `multipart/form-data` with one image file; the latter adds an
+    /// optional `app` text field). Returns the decoded response. HTTP errors
+    /// (incl. 501 when the vision model is not configured) surface as
+    /// `APIError.http(status, data)`.
     func postImage<TResp: Decodable>(
         path: String,
         imageData: Data,
         fieldName: String = "image",
         filename: String = "meal.jpg",
         mimeType: String = "image/jpeg",
+        fields: [String: String] = [:],
         bearer: String? = nil
     ) async throws -> TResp {
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -189,6 +192,13 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
         var body = Data()
+        // Plain-text fields first (e.g. `app=concept2`), then the image part.
+        for (name, value) in fields {
+            let part = "--\(boundary)\r\n"
+                + "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n"
+                + "\(value)\r\n"
+            body.append(Data(part.utf8))
+        }
         let prologue = "--\(boundary)\r\n"
             + "Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n"
             + "Content-Type: \(mimeType)\r\n\r\n"

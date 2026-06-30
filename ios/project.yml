@@ -116,10 +116,12 @@ targets:
         #   HealthKit  → HealthKitPermissions.requestAuthorization (AppRoot)
         #   Bluetooth  → PM5Service CBCentralManager (Concept2 PM5)
         #   Location   → WorkoutLiveDataSources requestWhenInUseAuthorization
-        # Removed (no reachable requesting code): NSCameraUsageDescription,
-        # NSMicrophoneUsageDescription, NSPhotoLibraryUsageDescription. Camera was
-        # only used by the parked Nutrition module (BarcodeScanner/FoodScanner),
-        # which is not wired into AppShell. Re-add when those features ship.
+        #   Camera     → WorkoutCaptureView CameraPicker (Idea 1 — foto del
+        #                resumen de otra app; guarded by isSourceTypeAvailable).
+        # Removed (no reachable requesting code): NSMicrophoneUsageDescription,
+        # NSPhotoLibraryUsageDescription. PhotosPicker (the primary capture source)
+        # is out-of-process and needs NO usage key; only the camera path does.
+        NSCameraUsageDescription: "FAHYBRID usa la cámara para que fotografíes el resumen de otra app (Garmin, Coros, Concept2…) y la IA rellene tu resultado."
         NSHealthShareUsageDescription: "FAHYBRID lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
         NSHealthUpdateUsageDescription: "FAHYBRID guarda los entrenos que registras en la app en Apple Health."
         NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu Concept2 para registrar potencia y SPM con precisión durante row y ski erg."

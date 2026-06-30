@@ -38,6 +38,12 @@ struct PreWorkoutBriefView: View {
     /// "Ya lo hice": the athlete trained without the live timer and registers it
     /// after the fact. Routes straight to manual entry (no ActiveWorkout).
     let onManualLog: () -> Void
+    /// "Registrar con captura" (Idea 1): the athlete trained with ANOTHER app and
+    /// brings the result in via a screenshot the IA reads. Opens the capture flow.
+    var onCaptureLog: () -> Void = {}
+    /// Show the capture-log button — only for a REAL assignment (the result must
+    /// attribute to one). Hidden for ad-hoc/free sessions.
+    var showCaptureLog: Bool = false
     let onClose: () -> Void
 
     // Per-exercise technique video opened in-app from a series row, when present.
@@ -849,6 +855,22 @@ struct PreWorkoutBriefView: View {
             }
             .buttonStyle(PressScaleStyle())
             .accessibilityLabel("Ya lo hice. Registrar sin cronómetro.")
+            // Idea 1: entrenaste fuera con otra app → trae el resultado por foto.
+            if showCaptureLog {
+                Button(action: { Haptics.light(); onCaptureLog() }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Registrar con captura de otra app")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    }
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel("Registrar con una captura de otra app.")
+            }
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.m)
