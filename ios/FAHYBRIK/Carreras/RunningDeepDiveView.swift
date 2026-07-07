@@ -25,7 +25,7 @@ struct RunningDeepDiveView: View {
     @State private var loading = true
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     /// Live running totals from StatsService, if the athlete has any.

@@ -67,7 +67,7 @@ struct CarrerasView: View {
     }
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     var body: some View {

@@ -27,7 +27,7 @@ struct AnalyticsView: View {
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: AuthState.bearerStorageKey)
+        bearer
     }
 
     private var slice: Slice<AnalyticsSection> { store.analyticsSection(section, period: period) }
@@ -44,6 +44,11 @@ struct AnalyticsView: View {
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.xl)
+        }
+        .refreshable {
+            // Pull-to-refresh: re-pull the active section×period fresh (force
+            // bypasses the SWR staleness window).
+            await store.refreshAnalyticsSection(section, period: period, force: true)
         }
         .sheet(item: $drillTarget) { target in
             AnalyticsDrillDownSheet(target: target, bearer: effectiveBearer)

@@ -95,7 +95,9 @@ final class AuthState {
     /// Re-derive the invite-only access gate from the subscription endpoint.
     /// Active / trialing access ⇒ ungated; everything else ⇒ gated. On a
     /// network error we fail OPEN (ungated) so a transient outage doesn't lock
-    /// a legitimately-paid athlete out of the app.
+    /// a legitimately-paid athlete out of the app — EXCEPT a 401, which means the
+    /// bearer itself is dead: we clear the session and route to login instead of
+    /// failing open into the app with a token every request will reject.
     @MainActor
     func refreshAccess() async {
         guard let bearer else { accessGated = true; return }
@@ -103,8 +105,30 @@ final class AuthState {
             let info = try await SubscriptionService.fetchSubscription(bearer: bearer)
             accessGated = !info.isActiveAccess
         } catch {
-            accessGated = false
+            if case APIError.http(401, _) = error {
+                handleUnauthorized()
+            } else {
+                accessGated = false
+            }
         }
+    }
+
+    /// The server rejected our session bearer with 401 on an authenticated
+    /// request — the persisted token is dead. This happens when its server-side
+    /// session was revoked/expired, or when a stale token outlives its session
+    /// across an app REINSTALL (an Xcode "Run" is an upgrade install: the data
+    /// container — and thus the persisted bearer — survives, but the old session
+    /// may not). There is no reliable SILENT Sign-in-with-Apple re-auth (minting
+    /// a fresh identity token needs a user-initiated authorization), and we do
+    /// NOT invent a server refresh endpoint — so we clear the dead session and
+    /// drop the athlete on the login screen, where one SiwA tap re-mints a valid
+    /// session. Idempotent: a launch fires every slice's revalidation at once, so
+    /// a dead token produces a BURST of 401s — they all collapse to a single
+    /// sign-out (and clearing the bearer stops the rest mid-flight).
+    @MainActor
+    func handleUnauthorized() {
+        guard stage != .unauthenticated else { return }
+        signOut()
     }
 
     private func persist() {

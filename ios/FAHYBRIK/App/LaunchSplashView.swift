@@ -23,9 +23,9 @@ struct LaunchSplashView: View {
 
     /// Hard ceiling on how long the splash may hold the launch, even if the
     /// player's end notification never arrives (corrupt asset, decode stall).
-    /// Slightly longer than the 2.6s composition so the final lock-up reads
+    /// Slightly longer than the 3.2s composition so the final lock-up reads
     /// before we cut to the app.
-    private static let maxHold: TimeInterval = 3.0
+    private static let maxHold: TimeInterval = 3.6
 
     private static let videoURL: URL? =
         Bundle.main.url(forResource: "splash-fahybrid", withExtension: "mp4")

@@ -19,7 +19,7 @@ struct StationDetailView: View {
     @State private var loading = true
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     var body: some View {

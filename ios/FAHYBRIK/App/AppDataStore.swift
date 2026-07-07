@@ -108,6 +108,14 @@ final class AppDataStore {
     /// another's cached data.
     private(set) var bearer: String?
 
+    /// Invoked when a slice revalidation fails with 401 — the session bearer is
+    /// dead. AppShell wires this to AuthState.handleUnauthorized so the app clears
+    /// the session and routes to login. WITHOUT it, the SWR catch below would
+    /// swallow the 401 and keep showing stale cache indefinitely (the "readiness
+    /// stuck empty while the token is dead, plan still shows cached" bug). Not
+    /// persisted; a transient closure set per session.
+    var onUnauthorized: (() -> Void)?
+
     /// A slice older than this is silently revalidated on the next access; a
     /// fresher one is served straight from memory with NO network — this is what
     /// makes rapid tab switching free. Mutations bypass it via `force: true`.
@@ -459,6 +467,13 @@ final class AppDataStore {
             var done = get()
             done.isRevalidating = false
             set(done)
+            // A 401 = the bearer is dead. Do NOT treat it as a transient blip and
+            // keep stale cache on screen forever: surface it so the app clears the
+            // session and routes to login. Every OTHER error (offline, 5xx, decode)
+            // keeps the last good value — offline-first, unchanged.
+            if case APIError.http(401, _) = error {
+                onUnauthorized?()
+            }
         }
     }
 
