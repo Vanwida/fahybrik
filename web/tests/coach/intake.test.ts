@@ -6,29 +6,31 @@ import {
 } from '@/lib/coach/intake-suggestions';
 
 describe('proposeBlockSpecs', () => {
-  test('long horizon produces ACC + TRANS + REAL with ACC dominant', () => {
+  // NOTE: proposeBlockSpecs is AGNOSTIC by design — it returns neutral
+  // "Microciclo N" placeholders, NEVER ATR block names (ACC/TRANS/REAL). The
+  // periodization IS the ORDER + sizing of the microciclos, which the coach owns.
+  // These tests pin that sizing logic, not any hardcoded phase label.
+  test('long horizon produces 3 microciclos, front-loaded', () => {
     const specs = proposeBlockSpecs(13 * 7);
-    expect(specs.map((b) => b.type)).toEqual(['ACC', 'TRANS', 'REAL']);
+    expect(specs).toHaveLength(3);
     const total = specs.reduce((s, b) => s + b.weeks, 0);
     expect(total).toBeGreaterThanOrEqual(12);
     expect(total).toBeLessThanOrEqual(14);
-    const acc = specs.find((b) => b.type === 'ACC')!.weeks;
-    const real = specs.find((b) => b.type === 'REAL')!.weeks;
-    expect(acc).toBeGreaterThanOrEqual(real);
+    // First microciclo carries at least as much as the last (base-heavy start).
+    expect(specs[0].weeks).toBeGreaterThanOrEqual(specs[2].weeks);
   });
 
-  test('compressive horizon (6 weeks) keeps tiny ACC', () => {
+  test('compressive horizon (6 weeks) keeps a tiny first microciclo', () => {
     const specs = proposeBlockSpecs(6 * 7);
-    expect(specs.map((b) => b.type)).toEqual(['ACC', 'TRANS', 'REAL']);
-    const acc = specs.find((b) => b.type === 'ACC')!.weeks;
-    expect(acc).toBe(1);
+    expect(specs).toHaveLength(3);
+    expect(specs[0].weeks).toBe(1);
   });
 
-  test('very short horizon drops ACC entirely', () => {
+  test('very short horizon compresses to 2 microciclos', () => {
     const specs = proposeBlockSpecs(2 * 7);
-    expect(specs.find((b) => b.type === 'ACC')).toBeUndefined();
-    expect(specs.find((b) => b.type === 'TRANS')).toBeDefined();
-    expect(specs.find((b) => b.type === 'REAL')).toBeDefined();
+    // 2 weeks collapses the 3-microciclo shape to 2 (lead-in + event block).
+    expect(specs).toHaveLength(2);
+    expect(specs.every((b) => b.weeks >= 1)).toBe(true);
   });
 
   test('zero or negative days falls back to defaults', () => {
@@ -42,9 +44,9 @@ describe('inferLevel', () => {
     const level = inferLevel({
       training_experience_years: 5,
       benchmarks: [
-        { exercise_slug: 'back_squat', label: 'BS', value: 140, unit: 'kg' },
-        { exercise_slug: 'deadlift', label: 'DL', value: 180, unit: 'kg' },
-        { exercise_slug: '5k_run', label: '5K', value: 19 * 60 + 42, unit: 's' },
+        { exercise_slug: 'back_squat_1rm', label: 'BS', value: 140, unit: 'kg' },
+        { exercise_slug: 'deadlift_1rm', label: 'DL', value: 180, unit: 'kg' },
+        { exercise_slug: 'run_5k', label: '5K', value: 19 * 60 + 42, unit: 's' },
       ],
     });
     expect(level).toBe(3);
@@ -54,9 +56,9 @@ describe('inferLevel', () => {
     const level = inferLevel({
       training_experience_years: 3,
       benchmarks: [
-        { exercise_slug: 'back_squat', label: 'BS', value: 115, unit: 'kg' },
-        { exercise_slug: 'deadlift', label: 'DL', value: 145, unit: 'kg' },
-        { exercise_slug: 'bench_press', label: 'BP', value: 85, unit: 'kg' },
+        { exercise_slug: 'back_squat_1rm', label: 'BS', value: 115, unit: 'kg' },
+        { exercise_slug: 'deadlift_1rm', label: 'DL', value: 145, unit: 'kg' },
+        { exercise_slug: 'bench_press_1rm', label: 'BP', value: 85, unit: 'kg' },
       ],
     });
     expect(level).toBe(2);
@@ -72,7 +74,7 @@ describe('inferLevel', () => {
       training_experience_years: 5,
       benchmarks: [
         { exercise_slug: 'hyrox_pro', label: 'HYROX', value: 59 * 60, unit: 's' },
-        { exercise_slug: 'back_squat', label: 'BS', value: 150, unit: 'kg' },
+        { exercise_slug: 'back_squat_1rm', label: 'BS', value: 150, unit: 'kg' },
       ],
     });
     expect(level).toBe(4);
@@ -82,9 +84,9 @@ describe('inferLevel', () => {
     const level = inferLevel({
       training_experience_years: 4,
       benchmarks: [
-        { exercise_slug: 'back_squat', label: 'BS', value: 140, unit: 'kg' },
-        { exercise_slug: 'deadlift', label: 'DL', value: 180, unit: 'kg' },
-        { exercise_slug: '5k_run', label: '5K', value: 19 * 60, unit: 's' },
+        { exercise_slug: 'back_squat_1rm', label: 'BS', value: 140, unit: 'kg' },
+        { exercise_slug: 'deadlift_1rm', label: 'DL', value: 180, unit: 'kg' },
+        { exercise_slug: 'run_5k', label: '5K', value: 19 * 60, unit: 's' },
       ],
     });
     expect(level).toBe(3);
@@ -108,7 +110,7 @@ describe('recommendBaselineTests', () => {
   test('includes 1RM battery when 2+ key 1RMs missing', () => {
     const tests = recommendBaselineTests({
       benchmarks: [
-        { exercise_slug: 'back_squat', label: 'BS', value: 140, unit: 'kg' },
+        { exercise_slug: 'back_squat_1rm', label: 'BS', value: 140, unit: 'kg' },
       ],
       is_compressive: false,
     });
@@ -118,7 +120,7 @@ describe('recommendBaselineTests', () => {
   test('skips 5K test when endurance benchmark already present', () => {
     const tests = recommendBaselineTests({
       benchmarks: [
-        { exercise_slug: '5k_run', label: '5K', value: 19 * 60, unit: 's' },
+        { exercise_slug: 'run_5k', label: '5K', value: 19 * 60, unit: 's' },
       ],
       is_compressive: false,
     });
