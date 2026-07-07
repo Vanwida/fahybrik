@@ -1,5 +1,13 @@
+// The invitation emails emit two custom-scheme deep links the iOS handler must
+// match (see lib/invites/deeplinks.ts and the AASA paths):
+//   fahybrid://partner/redeem?token=…   (this file — Dobles partner pairing)
+//   fahybrid://invite?token=…           (coach → athlete account claim)
+// Each email pairs a Universal Link (HTTPS, primary button — falls back to the
+// web landing page when the app isn't installed) with the custom scheme
+// (secondary line — opens the app directly).
 import { Resend } from 'resend';
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { partnerRedeemDeepLink } from '@/lib/invites/deeplinks';
 
 export interface PartnerInvitationEmailInput {
   to: string;
@@ -60,6 +68,10 @@ export async function sendPartnerInvitationEmail(
   // but we escape there too as defence-in-depth).
   const inviterLabelHtml = escapeHtml(inviterLabel);
   const link = buildRedeemLink(input.token);
+  // Custom-scheme fallback for people who already have the app installed and
+  // want to skip the Universal-Link round-trip. The token is base64url (URL-safe)
+  // and additionally encoded by the helper.
+  const appLink = partnerRedeemDeepLink(input.token);
   const expiresDays = Math.max(
     1,
     Math.round((input.expires_at.getTime() - Date.now()) / 86_400_000),
@@ -73,6 +85,7 @@ export async function sendPartnerInvitationEmail(
     text:
       `${inviterLabel} te ha invitado a entrenar en pareja en FAHYBRID (modalidad Dobles HYROX).\n\n` +
       `Acepta la invitación aquí (sin pago, tu compañero/a ya cubre la suscripción Dobles):\n\n${link}\n\n` +
+      `¿Ya tienes la app FAHYBRID? Ábrela directamente:\n${appLink}\n\n` +
       `El enlace expira en ${expiresDays} días.\n\nSi no esperabas este correo, ignóralo.`,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
@@ -83,8 +96,11 @@ export async function sendPartnerInvitationEmail(
         <p style="margin:0 0 20px;line-height:1.5;color:#444;">
           Modalidad Dobles HYROX. Sin pago — tu compañero/a ya cubre la suscripción compartida.
         </p>
-        <p style="margin:0 0 28px;">
+        <p style="margin:0 0 12px;">
           <a href="${link}" style="display:inline-block;padding:12px 20px;background:#ff5b1f;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Aceptar invitación</a>
+        </p>
+        <p style="margin:0 0 28px;font-size:13px;line-height:1.5;">
+          <a href="${appLink}" style="color:#ff5b1f;text-decoration:none;font-weight:600;">Abrir directamente en la app FAHYBRID →</a>
         </p>
         <p style="margin:0 0 8px;font-size:13px;color:#666;line-height:1.5;">
           El enlace expira en ${expiresDays} días.<br>

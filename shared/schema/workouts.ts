@@ -9,17 +9,49 @@ import {
 } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
 
-// Dobles HYROX station assignment.
-// 'a' / 'b' identify the two partners deterministically inside this
-// assignment (the application layer maps a/b to user IDs); 'alternate' means
-// either partner can take the station depending on the runtime decision.
+// Dobles HYROX station assignment (reparto).
+//
+// SOURCE: DERIVED at read from the coach's `dobles_simulations` (single source
+// of truth) by the athlete assignment-detail endpoint — see
+// web/lib/athlete/dobles-station-split.ts. It is NOT stored on
+// `workout_assignments.station_assignment`; that column is LEGACY / never
+// written (migration 0091 documents it on the column). Do not add a writer.
+//
+// 'a' / 'b' identify the two partners deterministically (the application layer
+// maps a/b to user IDs via `my_role`); 'split' means the station is shared
+// (`self_share` = the reading athlete's fraction); the legacy 'alternate' value
+// stays accepted so older payloads keep validating.
+//
+// This schema is TOLERANT by design: the legacy fields (`name`, `assigned_to`)
+// still validate, and the derived per-station fields (`label`, `station_index`,
+// `template_segment_id`, `self_share`, `note`) are optional additions so no
+// existing payload breaks.
 export const stationAssignmentEntrySchema = z.object({
-  name: z.string().min(1).max(80),
-  assigned_to: z.enum(['a', 'b', 'alternate']),
+  // Legacy display field (== `label`); kept for back-compat with clients that
+  // require it. Optional so a lean derived payload can omit it.
+  name: z.string().min(1).max(80).optional(),
+  // Canonical HYROX station label, e.g. "SkiErg 1km".
+  label: z.string().min(1).max(80).optional(),
+  assigned_to: z.enum(['a', 'b', 'alternate', 'split']),
+  // Canonical HYROX station index (2,4,…,16), from dobles_simulations.
+  station_index: z.number().int().optional(),
+  // The template_segments.id of the session line that IS this station, so the
+  // client attributes the reparto to the exact segment it executes.
+  template_segment_id: z.number().int().optional(),
+  // The READING athlete's share of this station, 0..1 (partner = 1 − this).
+  self_share: z.number().min(0).max(1).optional(),
+  // Coach's per-station reparto note ("alterna 250m"), or null.
+  note: z.string().nullable().optional(),
 });
 export type StationAssignmentEntry = z.infer<typeof stationAssignmentEntrySchema>;
 
 export const stationAssignmentSchema = z.object({
+  // 'a' | 'b' — which side of the pair the READING user is (== dobles_simulations
+  // athlete_a/b). Optional so legacy payloads (no role) still validate.
+  my_role: z.enum(['a', 'b']).optional(),
+  // #23 — partner's first name for the live relay line. Optional/nullable so
+  // legacy payloads still validate.
+  partner_first_name: z.string().nullable().optional(),
   stations: z.array(stationAssignmentEntrySchema),
 });
 export type StationAssignment = z.infer<typeof stationAssignmentSchema>;
@@ -33,8 +65,11 @@ export const workoutAssignmentSchema = z.object({
   template_version: z.number().int().min(1),
   status: assignmentStatus,
   notes: z.string().max(4000).nullable(),
-  // Dobles HYROX: per-station partner assignment. NULL for non-Dobles
-  // assignments (the overwhelming majority).
+  // LEGACY / NEVER WRITTEN. The Dobles reparto is DERIVED at read from
+  // dobles_simulations (see stationAssignmentSchema above + migration 0091 which
+  // documents this on the column). This column has no writer and stays NULL;
+  // it's kept only so the row schema still parses the DB shape. Do not add a
+  // writer — derive the reparto instead.
   station_assignment: stationAssignmentSchema.nullable(),
   // Whether this assignment is shared with the paired partner (default) or
   // private to the assigned athlete. DB default is 'shared' so legacy rows
@@ -54,8 +89,16 @@ export const workoutExecutionSchema = z.object({
   total_duration_seconds: z.number().int().nonnegative().nullable(),
   perceived_exertion: z.number().int().min(1).max(10).nullable(),
   notes: z.string().max(4000).nullable(),
+  // Metcon/HYROX final score (migration 0069). score_time_s for For Time / RFT /
+  // HYROX-sim; score_rounds (+ score_reps) for AMRAP. Null for non-scored formats.
+  score_time_s: z.number().int().nonnegative().nullable(),
+  score_rounds: z.number().int().nonnegative().nullable(),
+  score_reps: z.number().int().nonnegative().nullable(),
   source: biometricSource.nullable(),
   source_workout_ref: z.string().max(200).nullable(),
+  // Joint HYROX Dobles link (migration 0074): the partner this execution was
+  // logged with, else null (the solo-logging default). bigint FK → idSchema.
+  partner_athlete_id: idSchema.nullable(),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });
@@ -128,6 +171,17 @@ export const segmentExecutionSchema = z.object({
   calories: z.number().nonnegative().nullable(),
   avg_hr: z.number().int().min(30).max(260).nullable(),
   max_hr: z.number().int().min(30).max(260).nullable(),
+  // Per-segment modality + modality-native intensity (migration 0045). The DB
+  // columns are all nullable (plain text / numeric, no CHECK). `modality` is free
+  // text on the column (writes are normalized to run|row|ski|bike|strength|other);
+  // `source` is this segment's ingestion provenance, distinct from the execution's
+  // biometric_source enum. Matched here so the wire contract stops dropping them.
+  modality: z.string().nullable(),
+  avg_pace_s_per_km: z.number().nonnegative().nullable(),
+  avg_pace_s_per_500m: z.number().nonnegative().nullable(),
+  avg_power_w: z.number().nonnegative().nullable(),
+  stroke_rate_spm: z.number().nonnegative().nullable(),
+  source: z.string().nullable(),
   // Honest-logging fields (migration 0088). reps_confirmed / is_structural are
   // NOT NULL with a default, so always present; the rest are nullable.
   reps_prescribed: z.number().int().nonnegative().nullable(),
@@ -274,6 +328,13 @@ export const assignmentDetailResponseSchema = z.object({
     template_version: z.number().int().min(1).nullable(),
     completed_at: isoDateTime.nullable(),
     perceived_exertion: z.number().int().min(1).max(10).nullable(),
+    // Dobles HYROX reparto, DERIVED at read from dobles_simulations for a HYROX-
+    // simulation session (see stationAssignmentSchema). Null for individual /
+    // non-simulation sessions or when no simulation is authored.
+    station_assignment: stationAssignmentSchema.nullable(),
+    // Which side of the pair the reading user is ('a' | 'b'), or null when there
+    // is no reparto. Mirrors station_assignment.my_role for direct access.
+    my_role: z.enum(['a', 'b']).nullable(),
   }),
   workout: assignmentDetailWorkoutSchema.nullable(),
 });

@@ -40,6 +40,14 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: SECURITY_HEADERS,
       },
+      {
+        // Apple App Site Association: no file extension, so Next serves it as
+        // octet-stream by default. Force application/json so iOS Universal Link
+        // verification accepts it. It lives in public/.well-known/ and is served
+        // verbatim at /.well-known/apple-app-site-association.
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
     ];
   },
   // localePrefix is 'always', so the public legal pages live at /es/privacy and
@@ -50,6 +58,15 @@ const nextConfig: NextConfig = {
     return [
       { source: "/privacy", destination: "/es/privacy", permanent: true },
       { source: "/terms", destination: "/es/terms", permanent: true },
+      // Invitation Universal Links are emitted WITHOUT a locale prefix
+      // (`${APP_URL}/partner/redeem?token=…`, `${APP_URL}/invite/<token>`), but
+      // localePrefix is 'always' so the bare paths have no route. When the app
+      // is installed iOS intercepts these via AASA before any request; when it
+      // isn't, Safari follows this redirect to the default-locale landing page.
+      // Query strings (?token=…) are preserved automatically. Temporary (307)
+      // because these are transactional, not canonical SEO URLs.
+      { source: "/partner/redeem", destination: "/es/partner/redeem", permanent: false },
+      { source: "/invite/:token", destination: "/es/invite/:token", permanent: false },
     ];
   },
 };

@@ -89,4 +89,38 @@ enum PartnerService {
             body: Body(token: token, appleIdentityToken: appleIdentityToken)
         )
     }
+
+    /// `POST /api/athlete/partner/redeem` for an ALREADY-authenticated athlete
+    /// (existing account accepting a partner invite). The caller is identified by
+    /// their bearer — no Apple re-auth. Backend links `users.partner_id` both ways
+    /// and auto-creates the training pair when both share a coach.
+    static func redeemAuthenticated(token: String, bearer: String) async throws -> PartnerRedeemResponse {
+        struct Body: Encodable { let token: String }
+        return try await APIClient.shared.post(
+            path: "api/athlete/partner/redeem",
+            body: Body(token: token),
+            bearer: bearer
+        )
+    }
+
+    /// `POST /api/athlete/partner/unlink` — the athlete un-pairs themselves. The
+    /// backend dissolves the active training pair AND clears both account axes
+    /// (users.partner_id + subscriptions.partner_user_id); past joint executions
+    /// are conserved. Forward-looking pair surfaces then hide the partner.
+    @discardableResult
+    static func unlink(bearer: String) async throws -> PartnerUnlinkResponse {
+        struct Empty: Encodable {}
+        return try await APIClient.shared.post(
+            path: "api/athlete/partner/unlink",
+            body: Empty(),
+            bearer: bearer
+        )
+    }
+}
+
+/// Minimal decode of the unlink response (all fields optional — we only need to
+/// know the call succeeded).
+struct PartnerUnlinkResponse: Codable, Equatable {
+    let dissolvedPairId: Int?
+    let clearedPartner: Bool?
 }

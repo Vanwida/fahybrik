@@ -122,6 +122,32 @@ actor APIClient {
         }
     }
 
+    func put<TBody: Encodable, TResp: Decodable>(
+        path: String,
+        body: TBody,
+        bearer: String? = nil
+    ) async throws -> TResp {
+        var req = URLRequest(url: Self.requestURL(path: path))
+        req.httpMethod = "PUT"
+        req.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        req.httpBody = try encoder.encode(body)
+
+        let (data, resp) = try await session.data(for: req)
+        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(http.statusCode, data)
+        }
+        if let empty = Empty() as? TResp {
+            return empty
+        }
+        do {
+            return try decoder.decode(TResp.self, from: data)
+        } catch {
+            throw APIError.decoding(error)
+        }
+    }
+
     func get<TResp: Decodable>(
         path: String,
         bearer: String? = nil

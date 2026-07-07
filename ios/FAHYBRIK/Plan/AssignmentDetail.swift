@@ -132,13 +132,33 @@ struct AssignmentInfo: Codable, Equatable {
 
 struct StationAssignment: Codable, Equatable {
     let stations: [StationAssignmentEntry]
+    /// #23 — partner's first name for the live relay line. Optional/tolerant
+    /// (older payload → nil → "Tu compañero").
+    let partnerFirstName: String?
 }
 
 struct StationAssignmentEntry: Codable, Equatable, Identifiable {
-    var id: String { name }
-    let name: String
-    /// "a" | "b" | "alternate"
+    var id: String { "\(templateSegmentId.map(String.init) ?? "?")-\(name ?? label ?? "?")" }
+    /// Display name (may be nil on a tolerant/legacy payload — fall back to label).
+    let name: String?
+    /// "a" | "b" | "split" | "alternate" (legacy). Who carries the station.
     let assignedTo: String
+    // #23 — the derived dobles reparto (backend resolves it from the coach's
+    // dobles_simulation; see /api/athlete/assignments/[id]/detail). All optional
+    // so an older/individual payload (no reparto) decodes to a plain full list.
+    /// The template_segment this station maps to — the stable key the engine
+    /// uses to annotate its segment.
+    let templateSegmentId: Int?
+    let stationIndex: Int?
+    let label: String?
+    /// The READING athlete's share of the station, 0…1 (partner = 1 − this).
+    /// Backend already flips it to the reader's perspective.
+    let selfShare: Double?
+    /// Explicit reparto note, e.g. "alterna 250m" / "tú 60 / compañero 40".
+    let note: String?
+
+    /// Display label for the station, resilient to a nil name.
+    var displayName: String { name ?? label ?? "Estación" }
 }
 
 struct WorkoutDetail: Codable, Equatable {

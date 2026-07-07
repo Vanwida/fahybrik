@@ -14,6 +14,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
+import { DoblesSimulationEditor } from '@/components/v2/atletas/DoblesSimulationEditor';
 import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
@@ -43,6 +44,7 @@ function PairRow({ pair }: { pair: DoublesPair }) {
   const router = useRouter();
   const [busy, setBusy] = useState<null | 'assign' | 'dissolve'>(null);
   const [error, setError] = useState<string | null>(null);
+  const [simOpen, setSimOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   const bothHavePlan = pair.athlete_a.has_active_plan && pair.athlete_b.has_active_plan;
@@ -111,6 +113,20 @@ function PairRow({ pair }: { pair: DoublesPair }) {
         ) : null}
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Reparto — author the pair's HYROX simulation (who does each station).
+              What the coach saves drives each athlete's sim session (phone + watch). */}
+          <button
+            type="button"
+            onClick={() => setSimOpen(true)}
+            disabled={busy !== null}
+            className={cn(
+              BTN_BASE,
+              'border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
+            )}
+          >
+            <MIcon name="tune" size={15} />
+            Reparto
+          </button>
           <button
             type="button"
             onClick={assign}
@@ -138,6 +154,13 @@ function PairRow({ pair }: { pair: DoublesPair }) {
       </div>
       {error ? (
         <p className="text-[12px] font-medium text-[color:var(--v2-danger)]">{error}</p>
+      ) : null}
+
+      {simOpen ? (
+        <DoblesSimulationEditor
+          athleteId={String(pair.athlete_a.athlete_id)}
+          onClose={() => setSimOpen(false)}
+        />
       ) : null}
     </div>
   );

@@ -27,6 +27,16 @@ export interface PartnerTodayWorkout {
   assignment_id: number;
   workout_name: string | null;
   status: 'scheduled' | 'completed' | 'missed' | 'skipped';
+  // HYROX: the time IS the result. Surface the partner's recorded score so the
+  // panel shows the OUTCOME, not just done/pending. score_time_s for For Time /
+  // RFT / HYROX-sim; score_rounds (+ score_reps) for AMRAP. Null when the format
+  // isn't scored, or there's no execution yet.
+  score_time_s: number | null;
+  score_rounds: number | null;
+  score_reps: number | null;
+  /** True when the partner logged THIS session as a joint "train together" with
+   *  the viewing athlete (partner's execution.partner_athlete_id = the viewer). */
+  trained_together: boolean;
 }
 
 export interface PartnerRecentSession {
@@ -36,6 +46,15 @@ export interface PartnerRecentSession {
   status: 'completed' | 'missed' | 'skipped';
   duration_seconds: number | null;
   perceived_exertion: number | null;
+  // HYROX: the time IS the result — the panel must show the score, not just the
+  // status. Same score semantics as PartnerTodayWorkout; null = unscored / none.
+  score_time_s: number | null;
+  score_rounds: number | null;
+  score_reps: number | null;
+  /** True when the partner logged this session as a joint session with the viewer
+   *  (partner's execution.partner_athlete_id = the viewing athlete). Drives the
+   *  "Entrenasteis juntos" tag. */
+  trained_together: boolean;
 }
 
 export interface PartnerTrainingSnapshot {
@@ -65,6 +84,9 @@ export async function buildPartnerSnapshot(
   if (!pair) return null;
 
   const partnerId = pair.partner_id;
+  // The viewing athlete (normalized to a plain number by the pair resolver). Used
+  // to detect sessions the partner logged AS a joint session with THIS viewer.
+  const viewerId = pair.self_id;
 
   const nameRows = await client<{ full_name: string }[]>`
     select full_name from athletes where id = ${partnerId} limit 1
@@ -79,13 +101,26 @@ export async function buildPartnerSnapshot(
 
   const [todayRows, weekRows, recentRows] = await Promise.all([
     client<
-      { assignment_id: string; workout_name: string | null; status: string }[]
+      {
+        assignment_id: string;
+        workout_name: string | null;
+        status: string;
+        score_time_s: number | null;
+        score_rounds: number | null;
+        score_reps: number | null;
+        trained_together: boolean;
+      }[]
     >`
       select wa.id::text as assignment_id,
              t.name as workout_name,
-             wa.status::text as status
+             wa.status::text as status,
+             we.score_time_s as score_time_s,
+             we.score_rounds as score_rounds,
+             we.score_reps as score_reps,
+             coalesce(we.partner_athlete_id = ${viewerId}, false) as trained_together
       from workout_assignments wa
       left join templates t on t.id = wa.template_id
+      left join workout_executions we on we.assignment_id = wa.id
       where wa.athlete_id = ${partnerId}
         and wa.scheduled_for = ${todayIso}::date
         and wa.partner_visibility = 'shared'
@@ -110,6 +145,10 @@ export async function buildPartnerSnapshot(
         status: string;
         duration_seconds: number | null;
         perceived_exertion: number | null;
+        score_time_s: number | null;
+        score_rounds: number | null;
+        score_reps: number | null;
+        trained_together: boolean;
       }[]
     >`
       select wa.id::text as assignment_id,
@@ -117,7 +156,11 @@ export async function buildPartnerSnapshot(
              t.name as workout_name,
              wa.status::text as status,
              we.total_duration_seconds as duration_seconds,
-             we.perceived_exertion as perceived_exertion
+             we.perceived_exertion as perceived_exertion,
+             we.score_time_s as score_time_s,
+             we.score_rounds as score_rounds,
+             we.score_reps as score_reps,
+             coalesce(we.partner_athlete_id = ${viewerId}, false) as trained_together
       from workout_assignments wa
       left join templates t on t.id = wa.template_id
       left join workout_executions we on we.assignment_id = wa.id
@@ -141,6 +184,10 @@ export async function buildPartnerSnapshot(
           assignment_id: Number(todayRow.assignment_id),
           workout_name: todayRow.workout_name,
           status: todayRow.status as PartnerTodayWorkout['status'],
+          score_time_s: todayRow.score_time_s,
+          score_rounds: todayRow.score_rounds,
+          score_reps: todayRow.score_reps,
+          trained_together: todayRow.trained_together,
         }
       : null,
     week: { completed: weekRow.completed, total: weekRow.total },
@@ -151,6 +198,10 @@ export async function buildPartnerSnapshot(
       status: r.status as PartnerRecentSession['status'],
       duration_seconds: r.duration_seconds,
       perceived_exertion: r.perceived_exertion,
+      score_time_s: r.score_time_s,
+      score_rounds: r.score_rounds,
+      score_reps: r.score_reps,
+      trained_together: r.trained_together,
     })),
   };
 }

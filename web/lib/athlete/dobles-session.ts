@@ -62,6 +62,13 @@ export interface DoblesTrainTogetherSession {
   /** Pre-formatted reference 1RM line, e.g. "SQ 1RM 110". Null if no 1RMs. */
   self_one_rm: string | null;
   partner_one_rm: string | null;
+  /**
+   * The assignment's sharing choice. 'self_only' means the athlete kept this
+   * session private → iOS hides the "Hacerla juntos" joint CTA (the joint-log
+   * endpoint also rejects self_only with 409 session_private as the safety net;
+   * this is the UI gate so the button never shows for a private session).
+   */
+  partner_visibility: 'shared' | 'self_only';
   exercises: DoblesExerciseRow[];
 }
 
@@ -95,6 +102,7 @@ interface AssignmentMeta {
   template_id: string | null;
   template_name: string | null;
   template_format: string | null;
+  partner_visibility: 'shared' | 'self_only';
 }
 
 export interface DoblesSessionInput {
@@ -128,7 +136,8 @@ export async function loadDoblesSession(
     select
       wa.template_id::text  as template_id,
       t.name                as template_name,
-      t.format::text        as template_format
+      t.format::text        as template_format,
+      wa.partner_visibility as partner_visibility
     from workout_assignments wa
     left join templates t on t.id = wa.template_id
     where wa.id = ${assignment_id as unknown as number}
@@ -175,6 +184,7 @@ export async function loadDoblesSession(
     partner_name: input.partner_name,
     self_one_rm: formatOneRmLine(selfBenchmarks),
     partner_one_rm: formatOneRmLine(partnerBenchmarks),
+    partner_visibility: meta.partner_visibility,
     exercises,
   };
 }

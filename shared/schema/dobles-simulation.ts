@@ -120,12 +120,122 @@ export function defaultStationSplits(): DoblesStationSplit[] {
   }));
 }
 
+// =============================================================================
+// EDIT PROVENANCE + ATHLETE (self-centric) EDIT — pair-owned reparto (mig 0099)
+//
+// The reparto is the PAIR's: the coach recommends, but either athlete may adjust
+// it from the app (last-write-wins). Every surface shows WHO last edited it.
+// The athlete edits from THEIR perspective (self / partner / split); the endpoint
+// converts to the A/B-neutral storage via `reader_is_a` — the exact inverse of
+// the read flip in lib/athlete/dobles-simulation.ts.
+// =============================================================================
+
+/** Which side last edited the simulation. */
+export const doblesEditorKind = z.enum(['coach', 'athlete']);
+export type DoblesEditorKind = z.infer<typeof doblesEditorKind>;
+
+/** Provenance shown on every surface ("Propuesta de Pablo" / "Ajustado por Guillem"). */
+export interface DoblesSimulationProvenance {
+  /** null on a legacy row → surfaces fall back to the coach-authored label. */
+  last_edited_by_kind: DoblesEditorKind | null;
+  /** Display name of the last editor (coach or athlete), null when unknown. */
+  last_edited_by_name: string | null;
+  /** ISO timestamp of the last edit (updated_at), null when never saved. */
+  updated_at: string | null;
+}
+
+/** The reading athlete's frame: they do it, the partner does it, or they share. */
+export const doblesCarrier = z.enum(['self', 'partner', 'split']);
+export type DoblesCarrier = z.infer<typeof doblesCarrier>;
+
+const stationIndexField = z
+  .number()
+  .int()
+  .refine((i) => (STATION_INDEX_STATION as readonly number[]).includes(i), {
+    message: 'station_index debe ser una estación HYROX (2,4,…,16)',
+  });
+
+/** One station as the ATHLETE edits it — self-centric (not the A/B storage frame). */
+export const athleteStationSplitSchema = z
+  .object({
+    station_index: stationIndexField,
+    carrier: doblesCarrier,
+    /** The EDITING athlete's share, 0..1. Meaningful when carrier === 'split'. */
+    self_share: z.number().min(0).max(1),
+    // Nullable + optional: the iOS client encodes an absent note as null (JSON
+    // encoders don't omit nil optionals), and an empty note is normalized away.
+    note: z.string().trim().max(120).nullable().optional(),
+  })
+  .strict();
+export type AthleteStationSplit = z.infer<typeof athleteStationSplitSchema>;
+
+/**
+ * Athlete PUT body — the athlete edits the STATION reparto only (self-centric).
+ * The coach's tactical notes (running / roxzone / tactical) are deliberately NOT
+ * in scope for the athlete edit: they are preserved server-side on write, so an
+ * athlete adjusting the split never clobbers the coach's strategy notes.
+ */
+export const athleteSimulationPutSchema = z
+  .object({
+    station_splits: z
+      .array(athleteStationSplitSchema)
+      .length(STATION_INDEX_STATION.length)
+      .refine(
+        (splits) => {
+          const seen = new Set(splits.map((s) => s.station_index));
+          return (
+            seen.size === STATION_INDEX_STATION.length &&
+            STATION_INDEX_STATION.every((i) => seen.has(i))
+          );
+        },
+        { message: 'station_splits debe cubrir las 8 estaciones, una sola vez' },
+      ),
+  })
+  .strict();
+export type AthleteSimulationPutInput = z.infer<typeof athleteSimulationPutSchema>;
+
+/**
+ * Convert one self-centric athlete split to the A/B-neutral STORED split, using
+ * whether the editing athlete is stored as A (`reader_is_a`). Exact inverse of
+ * the read flip: A's stored share is the reader's share when they are A, else its
+ * complement; 'self'/'partner' pin to the full carrier on the correct side.
+ */
+export function athleteSplitToStored(
+  split: AthleteStationSplit,
+  reader_is_a: boolean,
+): DoblesStationSplit {
+  const trimmed = split.note?.trim();
+  const note = trimmed ? { note: trimmed } : {};
+  if (split.carrier === 'self') {
+    return { station_index: split.station_index, assigned_to: reader_is_a ? 'a' : 'b', self_share: reader_is_a ? 1 : 0, ...note };
+  }
+  if (split.carrier === 'partner') {
+    return { station_index: split.station_index, assigned_to: reader_is_a ? 'b' : 'a', self_share: reader_is_a ? 0 : 1, ...note };
+  }
+  // split: the reader's share becomes A's stored share (complement for a B-reader).
+  const aShare = reader_is_a ? split.self_share : 1 - split.self_share;
+  return { station_index: split.station_index, assigned_to: 'split', self_share: aShare, ...note };
+}
+
+/**
+ * The reader-frame carrier for a STORED A-centric split — so the app editor opens
+ * with the right segment selected. Inverse-consistent with athleteSplitToStored.
+ */
+export function storedToReaderCarrier(
+  assigned_to: DoblesAssignedTo,
+  reader_is_a: boolean,
+): DoblesCarrier {
+  if (assigned_to === 'split') return 'split';
+  const readerDoesIt = (assigned_to === 'a' && reader_is_a) || (assigned_to === 'b' && !reader_is_a);
+  return readerDoesIt ? 'self' : 'partner';
+}
+
 /**
  * The coach GET response: the saved simulation OR a prefilled default, plus the
  * static station labels and the two athlete display names so the editor can
  * render without a second round-trip.
  */
-export interface DoblesSimulationCoachResponse {
+export interface DoblesSimulationCoachResponse extends DoblesSimulationProvenance {
   /** True when a row already exists; false when this is the prefilled default. */
   exists: boolean;
   /** Display name for athlete A (the athlete in the route, the "self" side). */
@@ -139,5 +249,5 @@ export interface DoblesSimulationCoachResponse {
   running_note: string | null;
   roxzone_note: string | null;
   tactical_note: string | null;
-  updated_at: string | null;
+  // updated_at + last_edited_by_* come from DoblesSimulationProvenance (extends).
 }

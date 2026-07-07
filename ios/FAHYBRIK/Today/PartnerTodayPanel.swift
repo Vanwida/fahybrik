@@ -128,6 +128,16 @@ struct PartnerTodayPanel: View {
                 .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
+            // "juntos" tag when this was a joint train-together session (0074).
+            if session.isJoint {
+                Text("juntos")
+                    .scaledFont(9, weight: .bold, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.accentText)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Theme.Color.accent.opacity(0.15))
+                    .clipShape(Capsule())
+            }
             Spacer(minLength: 6)
             Text(recentMeta(session))
                 .scaledFont(11, relativeTo: .caption, monospaced: true)
@@ -135,7 +145,9 @@ struct PartnerTodayPanel: View {
                 .lineLimit(1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(session.workoutName ?? "Sesión"), \(dateLabel(session.date)), \(recentMeta(session))")
+        .accessibilityLabel(
+            "\(session.workoutName ?? "Sesión"), \(session.isJoint ? "entrenasteis juntos, " : "")\(dateLabel(session.date)), \(recentMeta(session))"
+        )
     }
 
     private func recentStatusColor(_ status: String) -> Color {
@@ -150,6 +162,10 @@ struct PartnerTodayPanel: View {
     /// duration / RPE only when the backend supplies them (never invented).
     private func recentMeta(_ session: PartnerRecentSession) -> String {
         var parts: [String] = [dateLabel(session.date)]
+        // The headline result first (in HYROX the time IS the result).
+        if let score = session.scoreText {
+            parts.append(score)
+        }
         if let secs = session.durationSeconds, secs > 0 {
             parts.append(durationLabel(secs))
         }

@@ -28,6 +28,7 @@ import { buildAthleteResumen, type AthleteResumen } from '@/lib/dashboard/coach/
 import { buildAthletePlan, type AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import { getAthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
+import { listSessionReportsForAthlete } from '@/lib/coach/session-reports';
 import {
   loadMessages,
   getOrCreateThread,
@@ -80,6 +81,7 @@ export type {
   DerivedZone,
   DerivedObjectiveGroup,
   PerfilTabData,
+  JointSession,
 } from './atleta-detalle-types';
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -225,6 +227,7 @@ export async function loadAthleteDetalle(params: {
     strengthCurrent,
     strengthHistory,
     benchmarks,
+    sessions,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -236,6 +239,7 @@ export async function loadAthleteDetalle(params: {
     loadStrengthMaxes({ coach_id, athlete_id, client }).catch(() => []),
     loadStrengthMaxHistory({ athlete_id, client }).catch(() => []),
     loadBenchmarkHistory({ coach_id, athlete_id, client }).catch(() => []),
+    listSessionReportsForAthlete(BigInt(athlete_id)).catch(() => []),
   ]);
 
   // Group each current 1RM with its full version history (oldest→newest) → the
@@ -290,6 +294,8 @@ export async function loadAthleteDetalle(params: {
     zone_profiles,
     strength_maxes,
     benchmarks,
+    joint_sessions: shell.joint_sessions,
+    sessions,
   };
 }
 

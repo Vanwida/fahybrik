@@ -9,6 +9,8 @@ import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
+import type { JointSession } from '@/lib/dashboard/coach/athlete-profile-shell';
+import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import {
   BENCH_BACK_SQUAT_1RM,
@@ -79,7 +81,7 @@ export interface TestProgressionRow {
 }
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'biometria', 'mensajes'] as const;
+export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'mensajes'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
 
@@ -169,7 +171,19 @@ export interface V2AthleteDetalle {
    *  progression). Empty = no test recorded. READ from athlete_benchmarks — never
    *  derived from in-WOD segment durations. */
   benchmarks: BenchmarkSeries[];
+  /** JOINT "Entrenar juntos" sessions (viewed athlete's result vs the partner's,
+   *  per shared session), newest first. Empty = none. Rendered in the Histórico
+   *  tab as a real side-by-side card. */
+  joint_sessions: JointSession[];
+  /** 1:1 session reports (#14) — this athlete's coaching calls + the sales calls of the
+   *  lead it converted from (follow-the-person). Newest first. Rendered in the Sesiones tab. */
+  sessions: SessionReportView[];
 }
+
+// Re-export so the client tab components import the type from this client-safe
+// module (never from the server-only shell). `export type` is erased at compile,
+// so no server code reaches the client bundle.
+export type { JointSession };
 
 // ── Tests de referencia (Perfil tab, left column) ──────────────────────────────
 export interface ReferenceTest {

@@ -44,10 +44,18 @@ struct PlanStationsSection: View {
 
     private func stationRow(_ station: StationAssignmentEntry) -> some View {
         HStack(spacing: 12) {
-            Text(station.name)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(station.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.foreground)
+                // Explicit reparto note ("alterna 250m" / "tú 60 / compañero 40").
+                if let note = station.note, !note.isEmpty {
+                    Text(note)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             badge(for: station.assignedTo)
         }
         .padding(.horizontal, 12)
@@ -57,7 +65,7 @@ struct PlanStationsSection: View {
     @ViewBuilder
     private func badge(for assignedTo: String) -> some View {
         switch assignedTo {
-        case "alternate":
+        case "split", "alternate":
             tag(text: "Alternáis", color: Theme.Color.warning)
         case myRole:
             tag(text: "Tú haces", color: Theme.Color.ok, filled: true)

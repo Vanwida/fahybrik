@@ -30,7 +30,7 @@ struct DoblesPlanView: View {
     @State private var appear = false
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     /// Partner first name, from the connected-plan payload or the partner link.
@@ -190,7 +190,12 @@ struct DoblesPlanView: View {
         // Quick links to the optional train-together and the joint simulation.
         VStack(spacing: Theme.Spacing.s) {
             NavigationLink {
-                DoblesTrainTogetherView(sessionId: nil, bearer: effectiveBearer)
+                // The real optional-together assignment id from the plan payload
+                // (nil only when there's no optional-together session this week).
+                DoblesTrainTogetherView(
+                    sessionId: plan.trainTogetherSessionId,
+                    bearer: effectiveBearer
+                )
             } label: {
                 DoblesLinkRow(
                     symbol: "figure.strengthtraining.traditional",

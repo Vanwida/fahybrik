@@ -24,8 +24,27 @@ struct DoblesSimulationView: View {
     @State private var loading = true
     @State private var appear = false
 
+    // #23 (pair-owned reparto) — editable station state. The athlete adjusts the
+    // split from THEIR perspective; `baseline` detects unsaved changes.
+    @State private var editStations: [EditStation] = []
+    @State private var baseline: [EditStation] = []
+    @State private var saving = false
+    @State private var saveError: String? = nil
+
+    /// One station as the athlete edits it — self-centric (carrier + own share).
+    private struct EditStation: Identifiable, Equatable {
+        let id: String
+        let stationIndex: Int
+        let label: String
+        var carrier: DoblesCarrier
+        var selfShare: Double
+        var note: String
+    }
+
+    private var isDirty: Bool { editStations != baseline }
+
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     private var selfName: String { simulation?.selfName ?? "Tú" }
@@ -80,9 +99,27 @@ struct DoblesSimulationView: View {
                 }
             }
             simulation = await DoblesService.fetchSimulation(bearer: effectiveBearer)
+            loadEditState(from: simulation)
             loading = false
             withAnimation { appear = true }
         }
+    }
+
+    /// Seed the editable state from the loaded (reader-centric) simulation.
+    private func loadEditState(from sim: DoblesSimulation?) {
+        guard let sim else { editStations = []; baseline = []; return }
+        let stations = sim.stationSplits.map { s in
+            EditStation(
+                id: s.id,
+                stationIndex: s.resolvedStationIndex,
+                label: s.station,
+                carrier: s.resolvedCarrier,
+                selfShare: s.selfShare,
+                note: s.splitNote ?? ""
+            )
+        }
+        editStations = stations
+        baseline = stations
     }
 
     // MARK: - Header
@@ -124,17 +161,39 @@ struct DoblesSimulationView: View {
             // Dot = identity FILL (accent); label = AA-safe TEXT role (accentText).
             legendDot(dotColor: Theme.Color.accent, textColor: Theme.Color.accentText, label: selfName)
             legendDot(dotColor: Theme.Color.partner, textColor: Theme.Color.partner, label: partnerName)
+            Spacer(minLength: 0)
+            if let provenance = provenanceLabel {
+                Text(provenance)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
         }
         .staggerReveal(appear, index: 1)
 
-        // Station splits.
-        if !sim.stationSplits.isEmpty {
+        // Editable station reparto — the athlete adjusts who does each station.
+        if !editStations.isEmpty {
             VStack(spacing: 7) {
-                ForEach(sim.stationSplits) { split in
-                    stationRow(split)
+                ForEach(editStations.indices, id: \.self) { i in
+                    editableStationRow(i)
                 }
             }
             .staggerReveal(appear, index: 2)
+
+            // Save bar — appears only with unsaved changes (pair-style: no approval
+            // flow; the change reaches the partner instantly, provenance is the tell).
+            if isDirty {
+                if let saveError {
+                    Text(saveError)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.Color.danger)
+                }
+                ExpertPrimaryButton(title: saving ? "Guardando…" : "Guardar reparto", height: 48, enabled: !saving) {
+                    Task { await performSave() }
+                }
+                .staggerReveal(appear, index: 3)
+            }
         } else {
             RedesignEmptyState(
                 symbol: "square.split.2x1",
@@ -197,64 +256,139 @@ struct DoblesSimulationView: View {
         .accessibilityLabel(label)
     }
 
-    private func stationRow(_ split: DoblesStationSplit) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(split.station)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.Color.foreground)
-                if let detail = split.detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.Color.faint)
+    // An editable station: who does it (yo / compañero / repartida), the share
+    // when shared, and an optional reparto note. Binds by index into editStations.
+    @ViewBuilder
+    private func editableStationRow(_ index: Int) -> some View {
+        let station = editStations[index]
+        let pct = Int((max(0, min(1, station.selfShare)) * 100).rounded())
+        VStack(alignment: .leading, spacing: 8) {
+            Text(station.label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.foreground)
+
+            Picker("Reparto", selection: Binding(
+                get: { editStations[index].carrier },
+                set: { newValue in
+                    editStations[index].carrier = newValue
+                    // Pin the share to the full carrier so it round-trips honestly.
+                    if newValue == .mine { editStations[index].selfShare = 1 }
+                    else if newValue == .partner { editStations[index].selfShare = 0 }
+                    else if station.selfShare >= 0.999 || station.selfShare <= 0.001 {
+                        editStations[index].selfShare = 0.5
+                    }
                 }
-                if split.flagged {
-                    Image(systemName: "flag.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(Theme.Color.danger)
-                        .accessibilityLabel("punto débil")
-                }
-                Spacer(minLength: Theme.Spacing.s)
-                if let note = split.splitNote, !note.isEmpty {
-                    Text(note)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(splitNoteColor(split.selfShare))
-                        .lineLimit(1)
+            )) {
+                Text(selfName).tag(DoblesCarrier.mine)
+                Text("Repartida").tag(DoblesCarrier.split)
+                Text(partnerName).tag(DoblesCarrier.partner)
+            }
+            .pickerStyle(.segmented)
+
+            if station.carrier == .split {
+                HStack(spacing: 8) {
+                    Text("\(selfName) \(pct)%")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                        .frame(minWidth: 62, alignment: .leading)
+                    Slider(
+                        value: Binding(
+                            get: { editStations[index].selfShare },
+                            // Snap to 5% steps — a coach/athlete never means finer.
+                            set: { editStations[index].selfShare = (($0 * 20).rounded()) / 20 }
+                        ),
+                        in: 0...1
+                    )
+                    .tint(Theme.Color.accent)
+                    Text("\(partnerName) \(100 - pct)%")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.partner)
+                        .frame(minWidth: 62, alignment: .trailing)
                 }
             }
-            DoblesSplitBar(selfShare: split.selfShare)
+
+            TextField("Nota (ej. alterna 250m)", text: Binding(
+                get: { editStations[index].note },
+                set: { editStations[index].note = String($0.prefix(120)) }
+            ))
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.Color.foreground)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Theme.Color.background)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
         .background(Theme.Color.surface)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(split.flagged ? Theme.Color.danger.opacity(0.45) : Theme.Color.hairline, lineWidth: 1)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(stationAccessibility(split))
     }
 
-    /// The split note color follows who carries the larger share — orange when
-    /// self-led, blue when partner-led, muted when an even alternation. Rendered
-    /// as TEXT, so self uses accentText (AA-safe orange on a white canvas).
-    private func splitNoteColor(_ selfShare: Double) -> Color {
-        let pct = Int((max(0, min(1, selfShare)) * 100).rounded())
-        if abs(pct - 50) <= 8 { return Theme.Color.muted }
-        return pct > 50 ? Theme.Color.accentText : Theme.Color.partner
-    }
+    // MARK: - Provenance + save
 
-    private func stationAccessibility(_ split: DoblesStationSplit) -> String {
-        let selfPct = Int((max(0, min(1, split.selfShare)) * 100).rounded())
-        var label = split.station
-        if let d = split.detail, !d.isEmpty { label += " \(d)" }
-        if let n = split.splitNote, !n.isEmpty {
-            label += ", \(n)"
-        } else {
-            label += ", \(selfName) \(selfPct) por ciento, \(partnerName) \(100 - selfPct) por ciento"
+    /// "Propuesta de Pablo" (coach) / "Ajustado por Guillem · hace 2h" (athlete).
+    private var provenanceLabel: String? {
+        guard let sim = simulation, let name = sim.lastEditedByName else { return nil }
+        switch sim.lastEditedByKind {
+        case "coach": return "Propuesta de \(name)"
+        case "athlete":
+            if let rel = relativeTimeES(sim.updatedAt) { return "Ajustado por \(name) · \(rel)" }
+            return "Ajustado por \(name)"
+        default: return nil
         }
-        if split.flagged { label += ", punto débil" }
-        return label
+    }
+
+    /// Compact Spanish relative time from an ISO8601 string ("hace 2h", "ayer").
+    private func relativeTimeES(_ iso: String?) -> String? {
+        guard let iso else { return nil }
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = fmt.date(from: iso) ?? {
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime]; return f.date(from: iso)
+        }()
+        guard let date else { return nil }
+        let mins = max(0, Int(Date().timeIntervalSince(date) / 60))
+        if mins < 1 { return "ahora" }
+        if mins < 60 { return "hace \(mins) min" }
+        let hours = mins / 60
+        if hours < 24 { return "hace \(hours)h" }
+        let days = hours / 24
+        return days == 1 ? "ayer" : "hace \(days) días"
+    }
+
+    /// Build the self-centric PUT body and save. On success the returned DTO
+    /// refreshes the view (provenance now this athlete); on failure the edits stay
+    /// and an inline error shows.
+    private func performSave() async {
+        guard let bearer = effectiveBearer, !saving else { return }
+        saving = true
+        saveError = nil
+        let body = DoblesSimulationEditBody(
+            stationSplits: editStations.map { s in
+                let trimmed = s.note.trimmingCharacters(in: .whitespacesAndNewlines)
+                let share = s.carrier == .split ? s.selfShare : (s.carrier == .mine ? 1 : 0)
+                return DoblesSimulationEditBody.Station(
+                    stationIndex: s.stationIndex,
+                    carrier: s.carrier.rawValue,
+                    selfShare: share,
+                    note: trimmed.isEmpty ? nil : trimmed
+                )
+            }
+        )
+        if let updated = await DoblesService.updateSimulation(body, bearer: bearer) {
+            simulation = updated
+            loadEditState(from: updated)
+        } else {
+            saveError = "No se pudo guardar. Inténtalo de nuevo."
+        }
+        saving = false
     }
 }

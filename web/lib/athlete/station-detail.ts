@@ -94,7 +94,9 @@ type Severity = 'better' | 'slightly_worse' | 'worse';
 // `aliases` are the lowercased label forms the iOS sends ("Sled push", "Row 1km",
 // "Rowing", …) so the route resolves any of them to the same station.
 
-interface StationEntry {
+// Exported (additive): the Dobles station-split resolver reuses this canonical
+// station↔exercise map to attribute each HYROX station to its session segment.
+export interface StationEntry {
   index: number;
   position: number;
   slug: string;
@@ -112,7 +114,7 @@ interface StationEntry {
 // the header text never drifts from the race-plan / overview surfaces.
 const labelFor = (index: number): string => HYROX_STATION_LABELS[index] ?? `Station ${index}`;
 
-const STATION_CATALOGUE: readonly StationEntry[] = [
+export const STATION_CATALOGUE: readonly StationEntry[] = [
   {
     index: STATION_INDEX_STATION[0], // 2
     position: 1,

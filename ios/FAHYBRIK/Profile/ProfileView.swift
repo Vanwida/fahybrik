@@ -18,6 +18,8 @@ struct ProfileView: View {
 
     @State private var sheet: SheetKind? = nil
     @State private var showPartnerInvite: Bool = false
+    @State private var showUnpairConfirm: Bool = false
+    @State private var unpairInProgress: Bool = false
 
     // ── Shared data: read live from the injected AppDataStore (cache-first/SWR) ──
     // Identity, partner, subscription and the coach name come from the store, so
@@ -68,6 +70,14 @@ struct ProfileView: View {
     @State private var healthDenied: Bool = false
     private let healthAvailable: Bool = HKHealthStore.isHealthDataAvailable()
 
+    // Disconnect flow: a single Apple Health toggle drives connect/disconnect.
+    // Toggling OFF confirms first, then tears the sync down; because iOS never lets
+    // an app revoke its own Health READ (nor re-show the permission sheet once
+    // answered), we surface a one-line footnote + an "Abrir Salud" deep link — the
+    // real place to review category permissions is the Salud app, not iOS Ajustes.
+    @State private var showHealthDisconnectConfirm: Bool = false
+    @State private var healthShowRevokeHint: Bool = false
+
     private enum SheetKind: String, Identifiable {
         case methodology
         case coach
@@ -90,6 +100,8 @@ struct ProfileView: View {
 
                         if shouldShowPartnerSection, partner == nil {
                             partnerInviteCard
+                        } else if shouldShowPartnerSection, partner != nil {
+                            unpairRow
                         }
 
                         SectionHeader(title: "Rendimiento")
@@ -145,6 +157,12 @@ struct ProfileView: View {
                 Task { await store.refreshPartner(force: true) }
             }
         }
+        .alert("Deshacer pareja de Dobles", isPresented: $showUnpairConfirm) {
+            Button("Deshacer", role: .destructive) { Task { await performUnpair() } }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Dejaréis de compartir plan y analíticas. Las sesiones que ya hicisteis juntos se conservan. Podéis volver a emparejaros más adelante.")
+        }
         .sheet(isPresented: $showDeleteAccount) {
             if let bearer {
                 DeleteAccountConfirmView(
@@ -161,6 +179,16 @@ struct ProfileView: View {
             EditProfileView(bearer: bearer, identity: identity) { updated in
                 store.setIdentity(updated)
             }
+        }
+        .confirmationDialog(
+            "¿Desconectar Apple Salud?",
+            isPresented: $showHealthDisconnectConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Desconectar", role: .destructive) { disconnectAppleHealth() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Dejaremos de leer y sincronizar tus datos de salud. Podrás volver a conectarlos cuando quieras.")
         }
     }
 
@@ -397,6 +425,43 @@ struct ProfileView: View {
         return isDobles
     }
 
+    /// Un-pair affordance shown to a PAIRED Dobles athlete. Destructive-styled,
+    /// low-emphasis; the confirmation explains that past joint sessions stay.
+    private var unpairRow: some View {
+        Button {
+            Haptics.light()
+            showUnpairConfirm = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "person.2.slash")
+                    .font(.system(size: 13, weight: .semibold))
+                Text(unpairInProgress ? "Deshaciendo…" : "Deshacer pareja de Dobles")
+                    .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
+                Spacer()
+            }
+            .foregroundStyle(Theme.Color.danger)
+            .padding(.vertical, 4)
+        }
+        .disabled(unpairInProgress)
+        .accessibilityLabel("Deshacer pareja de Dobles")
+    }
+
+    /// Calls the athlete self-unlink endpoint (dissolves the pair + clears both
+    /// account axes; past executions conserved), then refreshes the partner slice.
+    private func performUnpair() async {
+        guard let bearer, !unpairInProgress else { return }
+        unpairInProgress = true
+        defer { unpairInProgress = false }
+        do {
+            try await PartnerService.unlink(bearer: bearer)
+            Haptics.success()
+            await store.refreshPartner(force: true)
+        } catch {
+            // Non-fatal: leave the pair visible; a transient failure can be retried.
+            Haptics.error()
+        }
+    }
+
     private var partnerInviteCard: some View {
         CardSurface(padding: 14, leftAccent: true) {
             VStack(alignment: .leading, spacing: 10) {
@@ -503,11 +568,12 @@ struct ProfileView: View {
 
     // MARK: - Apple Health
 
-    /// Three-state row, mirroring the device-row layout but with a trailing
-    /// "Conectar" button instead of a chevron:
-    ///   • unavailable (simulator)  → disabled button, "No disponible…"
-    ///   • available + not connected → "Conectar" button
-    ///   • connected                → "Sincronizando tus datos" + ok badge
+    /// One control, same row: a native Toggle drives connect/disconnect.
+    ///   • unavailable (simulator)  → disabled toggle, "No disponible…"
+    ///   • toggling ON              → request auth + start sync + backfill
+    ///   • toggling OFF             → confirm, then stop sync + reset anchors
+    /// After a disconnect the subtitle carries a one-line revoke footnote — no modal,
+    /// no extra row.
     private var appleHealthRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "heart.text.square")
@@ -522,61 +588,98 @@ struct ProfileView: View {
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(healthSubtitleColor)
                     .lineLimit(2)
+                if showHealthAppLink {
+                    Button {
+                        Haptics.light()
+                        openHealthApp()
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text("Abrir Salud")
+                                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.Color.accentText)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                    .accessibilityLabel("Abrir la app Salud")
+                    .accessibilityHint("Revisa qué categorías tiene permitido leer FAHYBRID")
+                    // iOS only surfaces per-category Health permissions inside the
+                    // Salud app, with no deep link to the app's page — so spell out
+                    // the taps (same guidance Whoop/Strava give in their docs).
+                    Text("En Salud: tu foto → Apps → FAHYBRID → Activar todo")
+                        .scaledFont(10, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(2)
+                }
             }
             Spacer()
             appleHealthTrailing
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Apple Health, \(healthSubtitle)")
+    }
+
+    /// Opens Apple's Salud app so the athlete can review FAHYBRID's per-category
+    /// read permissions — the only place iOS surfaces them (Ajustes never does).
+    private func openHealthApp() {
+        guard let url = URL(string: "x-apple-health://") else { return }
+        UIApplication.shared.open(url)
     }
 
     @ViewBuilder
     private var appleHealthTrailing: some View {
-        if !healthAvailable {
-            connectButton(label: "Conectar", disabled: true)
-        } else if healthConnected {
-            Text("conectado")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(Theme.Color.ok)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Theme.Color.ok.opacity(0.15))
-                .clipShape(Capsule())
-        } else if healthRequesting {
+        if healthRequesting {
             ProgressView().tint(Theme.Color.accentText)
         } else {
-            connectButton(label: "Conectar", disabled: false)
+            Toggle("", isOn: healthToggle)
+                .labelsHidden()
+                .tint(Theme.Color.accent)
+                .disabled(!healthAvailable)
+                .accessibilityLabel("Apple Health")
+                .accessibilityValue(healthConnected ? "conectado" : "desconectado")
+                .accessibilityHint(healthAvailable
+                    ? "Conecta o desconecta la sincronización de tus datos de salud"
+                    : "No disponible en este dispositivo")
         }
     }
 
-    private func connectButton(label: String, disabled: Bool) -> some View {
-        Button {
-            Haptics.light()
-            Task { await connectAppleHealth() }
-        } label: {
-            Text(label)
-                .scaledFont(12, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(disabled ? Theme.Color.muted : Theme.Color.accentOn)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(disabled ? Theme.Color.surfaceElevated : Theme.Color.accent)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .accessibilityLabel("Conectar Apple Health")
-        .accessibilityHint(disabled ? "No disponible en este dispositivo" : "Pide permiso para leer tus datos de salud")
+    /// Connect/disconnect in ONE control. Toggling ON runs the connect flow;
+    /// toggling OFF asks for confirmation first — the toggle stays visually ON
+    /// (get still returns `healthConnected`) until the athlete confirms, so a
+    /// cancel simply leaves it connected.
+    private var healthToggle: Binding<Bool> {
+        Binding(
+            get: { healthConnected },
+            set: { turnOn in
+                Haptics.light()
+                if turnOn {
+                    Task { await connectAppleHealth() }
+                } else {
+                    showHealthDisconnectConfirm = true
+                }
+            }
+        )
     }
 
     private var healthSubtitle: String {
         if !healthAvailable { return "No disponible en este dispositivo" }
-        if healthConnected { return "Sincronizando tus datos" }
+        if healthConnected { return "Sincroniza en segundo plano" }
         if healthRequesting { return "Pidiendo permiso…" }
-        if healthDenied { return "Permiso denegado · actívalo en Ajustes › Salud" }
+        if healthDenied { return "No pudimos activar Apple Salud. Inténtalo de nuevo." }
+        if healthShowRevokeHint {
+            return "Desconectado. Para revocar el acceso por completo, ábrelo en la app Salud."
+        }
         return "Conecta para sincronizar HR, HRV, sueño y peso"
+    }
+
+    /// Whether to surface the "Abrir Salud" link under the row. Shown when connected
+    /// (so an athlete who reconnected but only sees steps can enable the rest of the
+    /// categories) and right after a disconnect (to fully revoke). The Salud app —
+    /// not iOS Ajustes — is where Health category permissions actually live.
+    private var showHealthAppLink: Bool {
+        healthAvailable && (healthConnected || healthShowRevokeHint)
     }
 
     private var healthSubtitleColor: Color {
@@ -612,11 +715,40 @@ struct ProfileView: View {
             bearer: bearer,
             athleteId: AuthState.persistedAthleteId()
         )
-        HealthKitSyncService.shared.start()
+        // When the connect-time backfill finishes uploading every metric, pull
+        // today's readiness fresh so "¿Cómo llegas hoy?" repopulates. Capture the
+        // shared store by reference (never the SwiftUI view / its @Environment) since
+        // this closure outlives the view on the sync singleton.
+        let dataStore = store
+        HealthKitSyncService.shared.onBackfillCompleted = {
+            Task { @MainActor in await dataStore.refreshReadiness(force: true) }
+        }
+        // connect() (not start()) RESETS anchors and re-pulls the full recent window —
+        // so an athlete who granted Health READ permission LATER than the first sync
+        // (e.g. steps-only at first, everything later) recovers their sleep / HRV / RHR
+        // history instead of it being skipped forever. Re-uploads de-dupe server-side.
+        HealthKitSyncService.shared.connect()
         UserDefaults.standard.set(true, forKey: HealthKitConnection.connectedKey)
         healthConnected = true
         healthDenied = false
+        healthShowRevokeHint = false
         showToast("Apple Health conectado")
+    }
+
+    /// Tears down the HealthKit sync and clears the connected flag, so the app stops
+    /// reading. Anchors are kept, so a later reconnect re-runs start() and its
+    /// anchor-delta backfill covers exactly the disconnected gap. HealthKit never
+    /// lets an app revoke its own READ permission, so we surface a one-line footnote
+    /// (healthShowRevokeHint) + an "Abrir Salud" link — no modal, no extra row.
+    @MainActor
+    private func disconnectAppleHealth() {
+        HealthKitSyncService.shared.stop()
+        HealthKitSyncService.shared.onBackfillCompleted = nil
+        UserDefaults.standard.set(false, forKey: HealthKitConnection.connectedKey)
+        healthConnected = false
+        healthDenied = false
+        healthShowRevokeHint = true
+        showToast("Apple Health desconectado")
     }
 
     private func deviceRowContent(

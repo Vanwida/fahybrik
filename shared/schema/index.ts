@@ -27,3 +27,6 @@ export * from './week-adjustment';
 export * from './monthly-block-proposal';
 export * from './weekly-plans';
 export * from './subscriptions';
+export * from './leads';
+export * from './citas';
+export * from './session-reports';

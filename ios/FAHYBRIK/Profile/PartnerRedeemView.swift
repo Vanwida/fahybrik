@@ -109,7 +109,15 @@ struct PartnerRedeemView: View {
             let bodyStr = String(data: body, encoding: .utf8) ?? ""
             switch status {
             case 410:      error = "Esta invitación ha caducado."
-            case 409:      error = "Ya has aceptado una invitación previa."
+            case 409:
+                // Distinguish the honest reasons behind a 409 by the backend code.
+                if bodyStr.contains("user_already_exists") {
+                    error = "Ya tienes una cuenta en FAHYBRID. Pídele a vuestro coach que os empareje como pareja de Dobles."
+                } else if bodyStr.contains("already_paired") {
+                    error = "Ya tienes una pareja de Dobles."
+                } else {
+                    error = "Esta invitación ya se ha usado."
+                }
             case 404:      error = "Invitación no encontrada."
             case 401, 403: error = "No pudimos validar tu identidad de Apple."
             default:       error = "Error \(status). \(bodyStr.prefix(140))"

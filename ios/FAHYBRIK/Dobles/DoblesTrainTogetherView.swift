@@ -36,7 +36,7 @@ struct DoblesTrainTogetherView: View {
     @State private var showSoloWorkout = false
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     private var selfName: String { session?.selfName ?? "Yo" }
@@ -190,10 +190,15 @@ struct DoblesTrainTogetherView: View {
         // real workout flow for THIS athlete's assignment; only the final submit
         // differs (joint endpoint vs solo). Disabled without a resolvable session.
         VStack(spacing: Theme.Spacing.s) {
-            ExpertPrimaryButton(title: "▶ Hacerla juntos", height: 50, enabled: sessionId != nil) {
-                guard sessionId != nil else { return }
-                Haptics.medium()
-                showJointWorkout = true
+            // "Hacerla juntos" only when the session is actually shareable. A
+            // self_only session is private → the joint option is hidden (and the
+            // backend would reject a joint log with 409 as the safety net).
+            if !s.isSelfOnly {
+                ExpertPrimaryButton(title: "▶ Hacerla juntos", height: 50, enabled: sessionId != nil) {
+                    guard sessionId != nil else { return }
+                    Haptics.medium()
+                    showJointWorkout = true
+                }
             }
             Button {
                 guard sessionId != nil else { return }

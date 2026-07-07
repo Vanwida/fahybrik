@@ -11,6 +11,7 @@ import {
   AssignSequenceError,
   type AssignSequenceResult,
 } from './assign-sequence';
+import { linkSubscriptionPartners } from '@/lib/partner/invitations';
 
 // =============================================================================
 // DOUBLES PAIRS — coach-created HYROX Dobles training pair.
@@ -71,6 +72,8 @@ export interface DoublesPair {
 
 interface OwnedAthlete {
   athlete_id: number;
+  /** The user account behind this athlete — the axis we drive users.partner_id on. */
+  user_id: bigint;
   level_id: number | null;
   level_name: string | null;
   training_days_per_week: number | null;
@@ -84,12 +87,14 @@ async function loadOwnedAthlete(
   const rows = await client<
     {
       athlete_id: string;
+      user_id: string;
       level_id: string | null;
       level_name: string | null;
       training_days_per_week: number | null;
     }[]
   >`
     select a.id::text as athlete_id,
+           a.user_id::text as user_id,
            a.level_id::text as level_id,
            al.name as level_name,
            a.training_days_per_week
@@ -108,10 +113,61 @@ async function loadOwnedAthlete(
   }
   return {
     athlete_id: Number(row.athlete_id),
+    user_id: BigInt(row.user_id),
     level_id: row.level_id == null ? null : Number(row.level_id),
     level_name: row.level_name,
     training_days_per_week: row.training_days_per_week,
   };
+}
+
+// ---------------------------------------------------------------------------
+// EJE ÚNICO — account-link cleanup (2 of the 3 axes).
+//
+// The pair (doubles_pairs) is the TRAINING axis; the account link is
+// users.partner_id (0021/0026, at-most-one bidirectional) + the billing mirror
+// subscriptions.partner_user_id. When a pair goes away, BOTH account axes must
+// clear so the invariant "active doubles_pairs ⟺ users.partner_id both ways"
+// holds. This is THE single site for that cleanup — dissolve (coach) and the
+// athlete-self unlink both call it, so the 3-axis teardown lives in ONE place
+// (the caller flips doubles_pairs.status with its own scoping; this clears the
+// other two). workout_executions (joint history) is CONSERVED — never touched.
+// ---------------------------------------------------------------------------
+
+async function clearPairAccountLinks(
+  tx: TransactionClient,
+  userA: bigint,
+  userB: bigint,
+): Promise<void> {
+  await tx`
+    update users set partner_id = null
+    where id in (${userA}, ${userB})
+  `;
+  await tx`
+    update subscriptions set partner_user_id = null, updated_at = now()
+    where user_id in (${userA}, ${userB})
+      and partner_user_id in (${userA}, ${userB})
+  `;
+}
+
+/**
+ * Resolve the two athletes' user_ids (no coach scoping — the pair row already
+ * establishes ownership). Returns null if either athlete row is missing (should
+ * not happen: doubles_pairs FKs athletes on delete cascade).
+ */
+async function resolveAthleteUserIds(
+  tx: TransactionClient,
+  athleteAId: number,
+  athleteBId: number,
+): Promise<{ aUser: bigint; bUser: bigint } | null> {
+  const rows = await tx<{ athlete_id: string; user_id: string }[]>`
+    select id::text as athlete_id, user_id::text as user_id
+    from athletes
+    where id in (${athleteAId}, ${athleteBId})
+  `;
+  const a = rows.find((r) => Number(r.athlete_id) === athleteAId);
+  const b = rows.find((r) => Number(r.athlete_id) === athleteBId);
+  if (!a || !b) return null;
+  return { aUser: BigInt(a.user_id), bUser: BigInt(b.user_id) };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +306,51 @@ export async function createDoublesPair(params: {
          ${shared.level_id}, ${shared.training_days_per_week}, 'active')
       returning id::text
     `;
+
+    // EJE ÚNICO — drive the ACCOUNT axis from the training pair. After the pair
+    // exists, set users.partner_id BOTH ways for the two athletes' user accounts
+    // so "active doubles_pairs ⟺ users.partner_id both ways" holds.
+    const aUser = a.user_id;
+    const bUser = b.user_id;
+
+    // GUARD (before setting): respect users_partner_id_unique (0026, at-most-one
+    // bidirectional). Reject if EITHER user already has a partner_id pointing at a
+    // DIFFERENT user — an idempotent re-link (already pointing at each other) is
+    // fine and falls through to the no-op updates below.
+    const partnerRows = await tx<{ id: string; partner_id: string | null }[]>`
+      select id::text as id, partner_id::text as partner_id
+      from users
+      where id in (${aUser}, ${bUser})
+    `;
+    for (const r of partnerRows) {
+      if (r.partner_id == null) continue;
+      const uid = BigInt(r.id);
+      const currentPartner = BigInt(r.partner_id);
+      const expectedPartner = uid === aUser ? bUser : aUser;
+      if (currentPartner !== expectedPartner) {
+        throw new DoublesPairError(
+          'already_paired',
+          'Uno de los atletas ya está vinculado a otra cuenta de pareja.',
+          409,
+        );
+      }
+    }
+
+    await tx`update users set partner_id = ${bUser} where id = ${aUser}`;
+    await tx`update users set partner_id = ${aUser} where id = ${bUser}`;
+
+    // Mirror the billing link (subscriptions.partner_user_id) when a Dobles sub
+    // exists — best-effort: a billing hiccup must not roll back the pair. No-op
+    // when neither side has an eligible subscription yet (webhook backfills it).
+    try {
+      await linkSubscriptionPartners(tx, aUser, bUser);
+    } catch (err) {
+      console.warn(
+        'createDoublesPair: linkSubscriptionPartners failed (best-effort)',
+        err,
+      );
+    }
+
     return Number(inserted[0]!.id);
   });
 
@@ -262,11 +363,17 @@ export async function createDoublesPair(params: {
 }
 
 // ---------------------------------------------------------------------------
-// dissolveDoublesPair — mark an active pair dissolved (coach-owned).
+// dissolveDoublesPair — mark an active pair dissolved (coach-owned) AND clear
+// the account link, in ONE transaction, so all three axes stay coherent:
+//   1. doubles_pairs.status → 'dissolved'   (training)
+//   2. users.partner_id → null (both sides) (account)  ┐ via clearPairAccountLinks
+//   3. subscriptions.partner_user_id → null (billing)  ┘
 //
-// We do NOT touch either athlete's existing plan/progress: dissolving the pair
-// only ends the coordination; each athlete keeps whatever was already assigned
-// (the same posture as un-pairing in any coaching tool — the work stands).
+// We do NOT touch either athlete's existing plan/progress, nor their
+// workout_executions: dissolving the pair only ends the coordination; each
+// athlete keeps whatever was already assigned and every joint session already
+// logged is CONSERVED (the same posture as un-pairing in any coaching tool —
+// the work, and its shared history, stands).
 // ---------------------------------------------------------------------------
 
 export async function dissolveDoublesPair(params: {
@@ -275,21 +382,122 @@ export async function dissolveDoublesPair(params: {
   client?: Sql;
 }): Promise<void> {
   const client = params.client ?? defaultSql;
-  const rows = await client<{ id: string }[]>`
-    update doubles_pairs
-    set status = 'dissolved', updated_at = now()
-    where id = ${params.pair_id}
-      and coach_id = ${String(params.coach_id)}
-      and status = 'active'
-    returning id::text
-  `;
-  if (rows.length === 0) {
-    throw new DoublesPairError(
-      'pair_not_found',
-      'Pareja activa no encontrada para este coach.',
-      404,
-    );
-  }
+  await client.begin(async (tx) => {
+    const rows = await tx<{ id: string; a: string; b: string }[]>`
+      update doubles_pairs
+      set status = 'dissolved', updated_at = now()
+      where id = ${params.pair_id}
+        and coach_id = ${String(params.coach_id)}
+        and status = 'active'
+      returning id::text as id, athlete_a_id::text as a, athlete_b_id::text as b
+    `;
+    const row = rows[0];
+    if (!row) {
+      throw new DoublesPairError(
+        'pair_not_found',
+        'Pareja activa no encontrada para este coach.',
+        404,
+      );
+    }
+    const users = await resolveAthleteUserIds(tx, Number(row.a), Number(row.b));
+    if (users) {
+      await clearPairAccountLinks(tx, users.aUser, users.bUser);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// unlinkDoublesPairForAthlete — the UNIFIED, athlete-initiated un-pair. Clears
+// all three axes for the CALLER's own pair, in ONE transaction:
+//   1. dissolve the caller's active doubles_pairs (if present)          (training)
+//   2. users.partner_id → null (both sides)                            (account)
+//   3. subscriptions.partner_user_id → null (both sides)               (billing)
+//
+// It resolves the pair via active-membership on either column AND falls back to
+// users.partner_id, so it also heals a lingering account link with no active
+// pair. workout_executions (joint history) is CONSERVED — untouched. Forward
+// pair surfaces stop showing the partner because they resolve through the now
+// absent active pair / cleared partner_id.
+// ---------------------------------------------------------------------------
+
+export interface AthleteUnlinkResult {
+  /** The doubles_pairs row we dissolved, or null when there was no active pair. */
+  dissolved_pair_id: number | null;
+  /** True when we cleared an account link (users.partner_id) on both sides. */
+  cleared_partner: boolean;
+  self_user_id: string;
+  partner_user_id: string | null;
+}
+
+export async function unlinkDoublesPairForAthlete(params: {
+  athlete_id: number | bigint;
+  user_id: number | bigint;
+  client?: Sql;
+}): Promise<AthleteUnlinkResult> {
+  const client = params.client ?? defaultSql;
+  const selfAthleteId = Number(params.athlete_id);
+  const selfUserId = BigInt(params.user_id);
+
+  return await client.begin(async (tx) => {
+    // 1) Dissolve the caller's active pair (either column), row-locked so a
+    //    concurrent op can't double-act.
+    const pairRows = await tx<{ id: string; a: string; b: string }[]>`
+      select id::text as id, athlete_a_id::text as a, athlete_b_id::text as b
+      from doubles_pairs
+      where status = 'active'
+        and (athlete_a_id = ${selfAthleteId} or athlete_b_id = ${selfAthleteId})
+      for update
+    `;
+
+    let dissolvedPairId: number | null = null;
+    let aUser: bigint | null = null;
+    let bUser: bigint | null = null;
+
+    const pair = pairRows[0];
+    if (pair) {
+      await tx`
+        update doubles_pairs set status = 'dissolved', updated_at = now()
+        where id = ${Number(pair.id)}
+      `;
+      dissolvedPairId = Number(pair.id);
+      const users = await resolveAthleteUserIds(tx, Number(pair.a), Number(pair.b));
+      if (users) {
+        aUser = users.aUser;
+        bUser = users.bUser;
+      }
+    }
+
+    // 2) Fall back to the account link when the pair didn't resolve both user
+    //    ids (e.g. a lingering partner_id with no active pair) — clear it too.
+    if (aUser == null || bUser == null) {
+      const urows = await tx<{ partner_id: string | null }[]>`
+        select partner_id::text as partner_id
+        from users
+        where id = ${selfUserId} and deleted_at is null
+        limit 1
+      `;
+      const pid = urows[0]?.partner_id;
+      if (pid) {
+        aUser = selfUserId;
+        bUser = BigInt(pid);
+      }
+    }
+
+    let clearedPartner = false;
+    let partnerUserId: bigint | null = null;
+    if (aUser != null && bUser != null) {
+      await clearPairAccountLinks(tx, aUser, bUser);
+      clearedPartner = true;
+      partnerUserId = aUser === selfUserId ? bUser : aUser;
+    }
+
+    return {
+      dissolved_pair_id: dissolvedPairId,
+      cleared_partner: clearedPartner,
+      self_user_id: selfUserId.toString(),
+      partner_user_id: partnerUserId == null ? null : partnerUserId.toString(),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

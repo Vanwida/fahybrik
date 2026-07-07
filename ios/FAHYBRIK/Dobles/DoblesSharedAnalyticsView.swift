@@ -24,7 +24,7 @@ struct DoblesSharedAnalyticsView: View {
     @State private var appear = false
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     private var partnerName: String {

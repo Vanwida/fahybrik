@@ -40,6 +40,9 @@ export async function GET(
     sql,
     athlete_id: auth.athlete_id,
     assignment_id: parsed.data,
+    // Enables deriving the Dobles station split (reparto) from the reading
+    // athlete's perspective for HYROX-simulation sessions.
+    self_user_id: auth.user_id,
   });
 
   if (!detail) {

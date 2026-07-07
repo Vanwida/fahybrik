@@ -14,18 +14,24 @@ import { adherenceBand, ADHERENCE_BAND_COLOR_VAR } from '@/components/v2/constan
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import {
   buildTestProgression,
+  EM_DASH,
   type StrengthMaxView,
   type BenchmarkSeries,
+  type JointSession,
 } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 export function HistoricoTab({
   plan,
   strengthMaxes,
   benchmarks,
+  jointSessions,
+  athleteName,
 }: {
   plan: AthletePlanPayload | null;
   strengthMaxes: StrengthMaxView[];
   benchmarks: BenchmarkSeries[];
+  jointSessions: JointSession[];
+  athleteName: string;
 }) {
   const allWeeks = plan?.macro.weeks ?? [];
   const phaseAssignments = plan?.macro.phase_assignments ?? [];
@@ -87,6 +93,45 @@ export function HistoricoTab({
             />
           )}
         </Panel>
+
+        {/* Sesiones conjuntas — only when the athlete has logged joint "Entrenar
+            juntos" sessions. In HYROX the time IS the result, so we show both
+            athletes' real scores side by side (partner blank until they log). */}
+        {jointSessions.length > 0 ? (
+          <Panel title="Sesiones conjuntas" bodyClassName="flex flex-col gap-2">
+            {jointSessions.map((s, i) => (
+              <div
+                key={`${s.date}-${i}`}
+                className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-xs font-semibold text-[color:var(--v2-fg)]">
+                    {s.session_name ?? 'Sesión conjunta'}
+                  </span>
+                  <span className="v2-num shrink-0 text-[11px] text-[color:var(--v2-faint)]">
+                    {relativeDate(s.date) ?? s.date}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex min-w-0 flex-col rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface)] px-2.5 py-1.5">
+                    <span className="v2-micro truncate text-[9px]">{athleteName}</span>
+                    <span className="v2-num text-sm font-bold text-[color:var(--v2-fg)]">
+                      {s.self_score ?? EM_DASH}
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 flex-col rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface)] px-2.5 py-1.5">
+                    <span className="v2-micro truncate text-[9px]">
+                      {s.partner_name ?? 'Pareja'}
+                    </span>
+                    <span className="v2-num text-sm font-bold text-[color:var(--v2-fg)]">
+                      {s.partner_score ?? EM_DASH}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Panel>
+        ) : null}
       </div>
 
       {/* RIGHT */}

@@ -20,6 +20,10 @@ import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
 import {
+  resolveDoblesStationSplit,
+  type DoblesStationSplit,
+} from '@/lib/athlete/dobles-station-split';
+import {
   EXERCISE_TO_1RM_BENCHMARK,
   resolveRmLoad,
 } from '@fahybrid/shared/domain/strength';
@@ -56,6 +60,12 @@ export interface AssignmentDetailParams {
   sql: Sql;
   athlete_id: bigint;
   assignment_id: bigint;
+  // The reading athlete's user id. Present on the athlete-facing endpoint (from
+  // the bearer session); enables deriving the Dobles station split (reparto)
+  // from dobles_simulations. Absent on the coach session-detail read → no
+  // reparto is resolved (station_assignment stays null), which is correct: the
+  // reparto is the READING athlete's half, and a coach view has no "self" side.
+  self_user_id?: bigint;
 }
 
 export interface AssignmentDetailResponse {
@@ -73,6 +83,17 @@ export interface AssignmentDetailResponse {
     // render the "shared with partner" badge on the pre-workout brief.
     // 'shared' = visible to partner; 'self_only' = private to this athlete.
     partner_visibility: 'shared' | 'self_only';
+    // Dobles HYROX reparto — the per-station split between the two partners for a
+    // HYROX-simulation session, DERIVED at read from the coach's
+    // dobles_simulations (single source of truth; the workout_assignments column
+    // of the same name is legacy / never written — see migration 0091). Null for
+    // individual athletes, non-simulation sessions, or when no simulation is
+    // authored. iOS runs the omitted stations in full (honest).
+    station_assignment: DoblesStationSplit | null;
+    // Which side of the pair the reading user is ('a' | 'b'), == the
+    // dobles_simulations athlete_a/b orientation. Lets iOS resolve `assigned_to`
+    // / `self_share` deterministically. Null when there's no reparto.
+    my_role: 'a' | 'b' | null;
   };
   workout: AssignmentDetailWorkout | null;
   // The athlete's REAL executed result, when the session has been done. Powers
@@ -395,6 +416,28 @@ export async function loadAssignmentDetail(
     }
   }
 
+  // Dobles HYROX reparto — derived at read from the coach's dobles_simulations.
+  // Only attempted for the athlete-facing read (self_user_id present) and gated
+  // internally on format='hyrox_sim' + a linked partner + an authored simulation;
+  // null in every other case. The segments feed the station↔segment mapping.
+  const stationSplit =
+    params.self_user_id != null
+      ? await resolveDoblesStationSplit({
+          sql,
+          self_user_id: params.self_user_id,
+          self_athlete_id: athlete_id,
+          assignment: {
+            template_format: template?.format ?? null,
+            partner_visibility: assignment.partner_visibility,
+            segments: segments.map((s) => ({
+              id: Number(s.id),
+              exercise_slug: s.exercise_slug,
+              exercise_name: s.exercise_name,
+            })),
+          },
+        })
+      : null;
+
   return buildAssignmentDetail({
     assignment,
     execution,
@@ -403,6 +446,7 @@ export async function loadAssignmentDetail(
     zoneProfiles,
     oneRms,
     executionSegments,
+    stationSplit,
   });
 }
 
@@ -485,8 +529,13 @@ export function buildAssignmentDetail(input: {
   // Per-exercise actuals for the executed view. Default [] keeps the pure builder
   // testable without a DB — a finished session then shows the aggregate alone.
   executionSegments?: SegmentActual[];
+  // Dobles HYROX reparto, pre-resolved by loadAssignmentDetail (needs a DB). The
+  // pure builder just carries it onto the payload. Default null → individual /
+  // non-simulation session with no per-station split.
+  stationSplit?: DoblesStationSplit | null;
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
+  const stationSplit = input.stationSplit ?? null;
   const zoneLookup = buildZoneLookup(input.zoneProfiles ?? []);
   const oneRms = input.oneRms ?? new Map();
 
@@ -504,6 +553,8 @@ export function buildAssignmentDetail(input: {
       completed_at: execution?.ended_at ?? null,
       perceived_exertion: execution?.perceived_exertion ?? null,
       partner_visibility: assignment.partner_visibility,
+      station_assignment: stationSplit,
+      my_role: stationSplit?.my_role ?? null,
     },
     workout: null,
     execution: buildExecutionBlock(assignment.status, execution, input.executionSegments ?? []),

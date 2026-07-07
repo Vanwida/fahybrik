@@ -59,16 +59,14 @@ struct PlanView: View {
     @State private var partner: PartnerInfo? = nil
     @State private var showPartnerPlan = false
 
-    // The day whose session the athlete tapped — drives the Detalle cover.
-    @State private var openAssignmentId: String? = nil
-    @State private var openFallbackTitle: String? = nil
-    @State private var showWorkout = false
+    // The day whose session the athlete tapped — drives the Detalle cover. One
+    // non-optional payload → presented via `.fullScreenCover(item:)` so the id is
+    // never nil when WorkoutContainer builds (root fix for "Sesión / Sin detalle").
+    @State private var workoutLaunch: WorkoutLaunch? = nil
 
     // A FINISHED session the athlete tapped — drives the read-only executed detail
     // cover (what they logged), distinct from the active-workout brief above.
-    @State private var executedAssignmentId: String? = nil
-    @State private var executedFallbackTitle: String? = nil
-    @State private var showExecuted = false
+    @State private var executedLaunch: WorkoutLaunch? = nil
 
     // The session whose technique index (exercise list → ExerciseDetailView) is
     // open. Set from the per-session technique affordance in the week.
@@ -87,7 +85,7 @@ struct PlanView: View {
     @State private var undoConfirmTarget: AthleteWeekDaySession? = nil
 
     private var effectiveBearer: String? {
-        bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        bearer
     }
 
     /// True when the cohort is Dobles (athlete has a paired partner).
@@ -135,6 +133,9 @@ struct PlanView: View {
                     .padding(.top, Theme.Spacing.m)
                     .padding(.bottom, Theme.Spacing.xl)
                 }
+                // Pull-to-refresh: re-pull the week fresh (force bypasses the SWR
+                // staleness window). The peek week fetches directly regardless.
+                .refreshable { await loadPlan(force: true) }
             }
         }
         // A failed move/correction surfaces its reason here (the move already
@@ -162,14 +163,14 @@ struct PlanView: View {
         }
         // Detalle — same path as Today's "Empezar" (presents the prescribed
         // workout for the tapped day's assignment).
-        .fullScreenCover(isPresented: $showWorkout) {
+        .fullScreenCover(item: $workoutLaunch) { launch in
             WorkoutContainer(
-                assignmentId: openAssignmentId,
-                fallbackTitle: openFallbackTitle,
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                onClose: { showWorkout = false },
+                onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
-                    showWorkout = false
+                    workoutLaunch = nil
                     // Reconcile the store (completion ✓ across all tabs), then
                     // re-seed this screen's working copy from it.
                     Task { await store.planMutated(); await loadPlan() }
@@ -179,12 +180,12 @@ struct PlanView: View {
         // Detalle de un entreno HECHO — read-only summary of what the athlete
         // logged (tiempo / score / RPE / splits). Reached by tapping a done/partial
         // session; never the active-workout brief.
-        .fullScreenCover(isPresented: $showExecuted) {
+        .fullScreenCover(item: $executedLaunch) { launch in
             ExecutedWorkoutView(
-                assignmentId: executedAssignmentId ?? "",
-                fallbackTitle: executedFallbackTitle,
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                onClose: { showExecuted = false },
+                onClose: { executedLaunch = nil },
                 // Stale id (404) → re-sync to the authoritative plan so the day
                 // reflects its current wa.id (and this screen's working copy with it).
                 onStale: { Task { await store.planMutated(); await loadPlan() } }
@@ -605,11 +606,65 @@ struct PlanView: View {
         .animation(.easeOut(duration: 0.15), value: dropTargetIso)
     }
 
+    // Dispatch a non-today day: 2+ real sessions expand to one tappable row per
+    // session (mirroring today's expanded card, minus the today highlight), so
+    // every session of every day is openable. Single-session / rest days stay a
+    // single collapsed row, unchanged.
+    @ViewBuilder
+    private func dayRow(_ day: AthleteWeekDay) -> some View {
+        if day.sessions.filter({ !$0.assignmentId.isEmpty }).count > 1 {
+            multiSessionDayRow(day)
+        } else {
+            collapsedDayRow(day)
+        }
+    }
+
+    // A multi-session (non-today) day: the day label heads a stack of per-session
+    // rows — each its own tappable / draggable line carrying its state and the
+    // move/technique/correct affordances. Reuses the SAME `sessionLine` today
+    // renders, so a past/future day opens every session, not just the first.
+    @ViewBuilder
+    private func multiSessionDayRow(_ day: AthleteWeekDay) -> some View {
+        let sessions = day.sessions.filter { !$0.assignmentId.isEmpty }
+        let isTarget = dropTargetIso == day.isoDate
+
+        let card = VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: Theme.Spacing.m) {
+                Text(dayLabelES(day.dayOfWeek))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.Color.faint)
+                    .frame(width: 32, alignment: .leading)
+                Text("\(sessions.count) sesiones")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                Spacer(minLength: 0)
+            }
+            VStack(spacing: 7) {
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { _, session in
+                    sessionLine(session, sourceIso: day.isoDate)
+                }
+            }
+            .padding(.leading, 44)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isTarget ? Theme.Color.accentText.opacity(0.08) : Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                .stroke(isTarget ? Theme.Color.accentText : Theme.Color.hairline,
+                        lineWidth: isTarget ? 2 : 1)
+        )
+
+        dayDropTarget(card, day: day)
+    }
+
     // A collapsed day row: day label (mono) · modality dot · session name ·
     // status glyph. Rest days read muted with no dot; tapping a day with a real
     // session opens its Detalle.
     @ViewBuilder
-    private func dayRow(_ day: AthleteWeekDay) -> some View {
+    private func collapsedDayRow(_ day: AthleteWeekDay) -> some View {
         let primary = day.sessions.first
         let rest = isRest(day)
         // The collapsed row paints the PRIMARY session's state (its own mark); a
@@ -729,7 +784,7 @@ struct PlanView: View {
             } else {
                 VStack(spacing: 7) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { _, session in
-                        todaySessionLine(session)
+                        sessionLine(session, sourceIso: todayIso)
                     }
                 }
                 .padding(.leading, 44)
@@ -762,10 +817,11 @@ struct PlanView: View {
         dayDropTarget(card, day: day)
     }
 
-    // One session line inside today's expanded card: slot badge + name + the
-    // move/technique affordances + status glyph. Each line is its own drag
-    // source (a two-a-day moves one session at a time).
-    private func todaySessionLine(_ session: AthleteWeekDaySession) -> some View {
+    // One session line inside an expanded day card (today OR any multi-session
+    // day): slot badge + name + the move/technique affordances + status glyph.
+    // Each line is its own drag source, rooted at `sourceIso` (a two-a-day moves
+    // one session at a time), and taps route through `tap(_:)` for THIS session.
+    private func sessionLine(_ session: AthleteWeekDaySession, sourceIso: String) -> some View {
         let state = sessionState(session)
         let done = state == .done
         let movable = canMove(session)
@@ -808,7 +864,7 @@ struct PlanView: View {
                 }
                 .buttonStyle(PressScaleStyle()),
                 session: session,
-                sourceIso: todayIso
+                sourceIso: sourceIso
             )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(
@@ -818,7 +874,7 @@ struct PlanView: View {
             .accessibilityAddTraits(.isButton)
 
             if movable {
-                moveMenu(for: session, sourceIso: todayIso)
+                moveMenu(for: session, sourceIso: sourceIso)
             }
             if !session.assignmentId.isEmpty {
                 techniqueButton(for: session)
@@ -868,13 +924,6 @@ struct PlanView: View {
                 }
                 if let session = day.sessions.first, let badge = partnerBadge(for: session) {
                     PartnerBadge(text: badge, compact: true)
-                }
-                // A second session on a non-today day → small "+1" mono hint.
-                let extra = day.sessions.filter { !$0.assignmentId.isEmpty }.count - 1
-                if extra > 0 {
-                    Text("+\(extra)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.Color.faint)
                 }
             }
         }
@@ -1150,9 +1199,7 @@ struct PlanView: View {
 
     private func open(assignmentId: String?, title: String?) {
         guard let assignmentId, !assignmentId.isEmpty else { return }
-        openAssignmentId = assignmentId
-        openFallbackTitle = title
-        showWorkout = true
+        workoutLaunch = WorkoutLaunch(assignmentId: assignmentId, title: title)
     }
 
     /// Tapping a session row routes by STATE: a FINISHED session (done / partial)
@@ -1164,9 +1211,7 @@ struct PlanView: View {
         guard !session.assignmentId.isEmpty else { return }
         switch sessionState(session) {
         case .done, .partial:
-            executedAssignmentId = session.assignmentId
-            executedFallbackTitle = session.title
-            showExecuted = true
+            executedLaunch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
         case .pending, .missed:
             open(assignmentId: session.assignmentId, title: session.title)
         }
@@ -1453,7 +1498,7 @@ struct PlanView: View {
 
     // MARK: - Load
 
-    private func loadPlan() async {
+    private func loadPlan(force: Bool = false) async {
         guard effectiveBearer != nil else {
             loading = false
             loadFailed = true
@@ -1470,7 +1515,8 @@ struct PlanView: View {
                 loadFailed = false
             }
             // SWR: revalidate the current-week + partner slices, then re-seed.
-            await store.loadPlanScreen()
+            // `force` (pull-to-refresh) bypasses the staleness window.
+            await store.loadPlanScreen(force: force)
             // Don't clobber an in-flight optimistic move, and bail if the athlete
             // navigated to the peek while we were loading.
             guard weekOffset == 0, !movePending else { return }

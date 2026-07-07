@@ -17,6 +17,7 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
+import { getActiveDoublesPairForAthlete } from '@/lib/dashboard/coach/doubles-pairs';
 import { captureRouteError } from '@/lib/observability/capture';
 import {
   doblesSimulationPutSchema,
@@ -25,6 +26,7 @@ import {
   DOBLES_STATIONS,
   type DoblesStationSplit,
   type DoblesSimulationCoachResponse,
+  type DoblesEditorKind,
 } from '@fahybrid/shared/schema/dobles-simulation';
 
 export const runtime = 'nodejs';
@@ -42,42 +44,54 @@ interface PairResolution {
 }
 
 /**
- * Resolve the route athlete (A) and their linked Dobles partner (B), scoped to
- * the coach. Returns null when the athlete is not this coach's. `athlete_b_*`
- * is null when the athlete has no linked partner (the coach can still author a
- * draft simulation; it just stores no partner side until paired).
+ * Resolve the route athlete (A) and their Dobles partner (B), scoped to the
+ * coach. Returns null when the athlete is not this coach's. `athlete_b_*` is
+ * null when the athlete has no active TRAINING pair (the coach can still author
+ * a draft simulation; it just stores no partner side until paired).
+ *
+ * EJE ÚNICO: B is resolved via doubles_pairs (the derived training instrument,
+ * 0065), NOT via users.partner_id (the billing link) — the coach authors the
+ * simulation for the pair they actually TRAIN together.
  */
 async function resolvePair(
   athlete_id: number,
   coach_id: bigint,
 ): Promise<PairResolution | null> {
-  const rows = await sql<
-    {
-      a_user_id: string;
-      a_name: string;
-      b_user_id: string | null;
-      b_name: string | null;
-    }[]
-  >`
-    select
-      ua.id::text                              as a_user_id,
-      a.full_name                              as a_name,
-      ub.id::text                              as b_user_id,
-      coalesce(ab.full_name, null)             as b_name
+  const aRows = await sql<{ a_user_id: string; a_name: string }[]>`
+    select ua.id::text as a_user_id, a.full_name as a_name
     from athletes a
     join users ua on ua.id = a.user_id
-    left join users ub on ub.id = ua.partner_id and ub.deleted_at is null
-    left join athletes ab on ab.user_id = ub.id
     where a.id = ${athlete_id} and a.coach_id = ${coach_id}
     limit 1
   `;
-  const row = rows[0];
-  if (!row) return null;
+  const a = aRows[0];
+  if (!a) return null;
+
+  // B = the route athlete's active training partner (doubles_pairs). No active
+  // pair → athlete_b stays null (draft simulation, no partner side yet).
+  const pair = await getActiveDoublesPairForAthlete(athlete_id);
+  let athlete_b_user_id: bigint | null = null;
+  let athlete_b_name: string | null = null;
+  if (pair) {
+    const bRows = await sql<{ b_user_id: string; b_name: string | null }[]>`
+      select ub.id::text as b_user_id, ab.full_name as b_name
+      from athletes ab
+      join users ub on ub.id = ab.user_id and ub.deleted_at is null
+      where ab.id = ${pair.partner_id}
+      limit 1
+    `;
+    const b = bRows[0];
+    if (b) {
+      athlete_b_user_id = BigInt(b.b_user_id);
+      athlete_b_name = b.b_name;
+    }
+  }
+
   return {
-    athlete_a_user_id: BigInt(row.a_user_id),
-    athlete_a_name: row.a_name,
-    athlete_b_user_id: row.b_user_id ? BigInt(row.b_user_id) : null,
-    athlete_b_name: row.b_name,
+    athlete_a_user_id: BigInt(a.a_user_id),
+    athlete_a_name: a.a_name,
+    athlete_b_user_id,
+    athlete_b_name,
   };
 }
 
@@ -88,6 +102,33 @@ interface SimulationRow {
   roxzone_note: string | null;
   tactical_note: string | null;
   updated_at: string;
+  last_edited_by_kind: DoblesEditorKind | null;
+  last_edited_by_user_id: string | null;
+}
+
+/**
+ * The provenance display name from the coach's frame: a coach edit → this coach;
+ * an athlete edit → athlete A or B by matching the stored editor user id. Null
+ * (legacy) → the surface shows the coach-authored default.
+ */
+function provenanceName(
+  kind: DoblesEditorKind | null,
+  editorUserId: string | null,
+  coachName: string,
+  pair: PairResolution,
+): string | null {
+  if (kind === 'coach') return coachName;
+  if (kind === 'athlete' && editorUserId != null) {
+    const id = BigInt(editorUserId);
+    if (id === pair.athlete_a_user_id) return firstNameOf(pair.athlete_a_name);
+    if (pair.athlete_b_user_id != null && id === pair.athlete_b_user_id) return firstNameOf(pair.athlete_b_name);
+  }
+  return null;
+}
+
+function firstNameOf(full: string | null): string | null {
+  const t = full?.trim();
+  return t ? (t.split(/\s+/)[0] ?? null) : null;
 }
 
 /** Attach the static station label to each split for the editor. */
@@ -133,7 +174,9 @@ export async function GET(
           running_note,
           roxzone_note,
           tactical_note,
-          updated_at::text as updated_at
+          updated_at::text as updated_at,
+          last_edited_by_kind,
+          last_edited_by_user_id::text as last_edited_by_user_id
         from dobles_simulations
         where athlete_a_user_id = ${pair.athlete_a_user_id}
           and athlete_b_user_id = ${pair.athlete_b_user_id}
@@ -155,6 +198,13 @@ export async function GET(
           roxzone_note: row.roxzone_note,
           tactical_note: row.tactical_note,
           updated_at: row.updated_at,
+          last_edited_by_kind: row.last_edited_by_kind ?? null,
+          last_edited_by_name: provenanceName(
+            row.last_edited_by_kind,
+            row.last_edited_by_user_id,
+            session.full_name,
+            pair,
+          ),
         }
       : {
           exists: false,
@@ -167,6 +217,8 @@ export async function GET(
           roxzone_note: null,
           tactical_note: null,
           updated_at: null,
+          last_edited_by_kind: null,
+          last_edited_by_name: null,
         };
 
     return jsonOk<DoblesSimulationCoachResponse>(response);
@@ -227,7 +279,9 @@ export async function PUT(
         running_note,
         roxzone_note,
         tactical_note,
-        created_by_coach_id
+        created_by_coach_id,
+        last_edited_by_kind,
+        last_edited_by_user_id
       ) values (
         ${pair.athlete_a_user_id},
         ${pair.athlete_b_user_id},
@@ -236,7 +290,9 @@ export async function PUT(
         ${parsed.data.running_note ?? null},
         ${parsed.data.roxzone_note ?? null},
         ${parsed.data.tactical_note ?? null},
-        ${session.coach_id}
+        ${session.coach_id},
+        ${'coach'},
+        ${session.user_id}
       )
       on conflict (athlete_a_user_id, athlete_b_user_id, coalesce(target_event_id, 0))
       do update set
@@ -245,6 +301,8 @@ export async function PUT(
         roxzone_note   = excluded.roxzone_note,
         tactical_note  = excluded.tactical_note,
         target_event_id = excluded.target_event_id,
+        last_edited_by_kind    = excluded.last_edited_by_kind,
+        last_edited_by_user_id = excluded.last_edited_by_user_id,
         updated_at     = now()
     `;
 
@@ -264,6 +322,8 @@ export async function PUT(
       roxzone_note: parsed.data.roxzone_note ?? null,
       tactical_note: parsed.data.tactical_note ?? null,
       updated_at: new Date().toISOString(),
+      last_edited_by_kind: 'coach',
+      last_edited_by_name: session.full_name,
     };
 
     return jsonOk<DoblesSimulationCoachResponse>(response);

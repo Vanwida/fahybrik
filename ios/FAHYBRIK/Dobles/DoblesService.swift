@@ -43,6 +43,10 @@ struct DoblesConnectedPlan: Codable, Hashable {
     /// Optional free-form coach markers; structured rows above are the source
     /// of truth for what the UI draws.
     let notes: [String]
+    /// The self assignment id the "Entrenar a la vez" screen loads (the first
+    /// optional-together session of the week). Nil when there is none this week,
+    /// so the hub's CTA opens an honest empty state instead of a nil id.
+    let trainTogetherSessionId: String?
 }
 
 /// How a day's session is shared between the two connected athletes. Drives the
@@ -141,6 +145,14 @@ struct DoblesTrainTogetherSession: Codable, Hashable {
     let selfOneRm: String?
     let partnerOneRm: String?
     let exercises: [DoblesExerciseRow]
+    /// Assignment visibility: "shared" | "self_only". When "self_only" the
+    /// session is private and CANNOT be logged jointly — the UI hides the
+    /// "Hacerla juntos" action (the backend also rejects it with 409). Optional
+    /// for backward-safety with an older backend.
+    let partnerVisibility: String?
+
+    /// True when this session is private to the athlete (not shareable as joint).
+    var isSelfOnly: Bool { partnerVisibility == "self_only" }
 }
 
 /// One exercise row in a train-together session, with each athlete's resolved
@@ -172,6 +184,19 @@ struct DoblesSimulation: Codable, Hashable {
     let partnerName: String?
     let coachNote: String?
     let stationSplits: [DoblesStationSplit]
+    // Edit provenance (mig 0099) — the reparto is pair-owned, so the app shows who
+    // last touched it. Optional/tolerant: older cached payloads decode with nil.
+    let lastEditedByKind: String?    // "coach" | "athlete" | nil
+    let lastEditedByName: String?    // "Pablo" / "Guillem" / nil
+    let updatedAt: String?           // ISO8601 / nil
+}
+
+/// The reading athlete's frame for a station — they do it, the partner does it,
+/// or they share. Snake-safe raw values (match the wire carrier).
+enum DoblesCarrier: String, Codable, Hashable {
+    case mine = "self"
+    case partner
+    case split
 }
 
 /// One station's split in the joint simulation. `selfShare` 0…1 is the share
@@ -180,7 +205,13 @@ struct DoblesSimulation: Codable, Hashable {
 /// "alterna 250m" / "Marcos 100%".
 struct DoblesStationSplit: Codable, Identifiable, Hashable {
     let id: String
+    /// Canonical HYROX station index (2,4,…,16). Optional/tolerant for older
+    /// payloads — derived from `id` ("station-2") when absent.
+    let stationIndex: Int?
     let station: String
+    /// The reading athlete's frame (they do it / partner / shared). Optional for
+    /// older payloads; `resolvedCarrier` derives it from `selfShare` when absent.
+    let carrier: DoblesCarrier?
     /// Share of the station the self athlete does, 0…1 (partner = 1 − this).
     let selfShare: Double
     /// Optional volume/units label, e.g. "1000m", "100".
@@ -189,6 +220,22 @@ struct DoblesStationSplit: Codable, Identifiable, Hashable {
     let splitNote: String?
     /// True when the station is a flagged weak spot (deficit border in the mock).
     let flagged: Bool
+
+    /// The station index, derived from `id` ("station-10") when the field is
+    /// absent (older payload). Falls back to 0 only for a malformed id.
+    var resolvedStationIndex: Int {
+        if let stationIndex { return stationIndex }
+        return Int(id.split(separator: "-").last.map(String.init) ?? "") ?? 0
+    }
+
+    /// The carrier, derived from `selfShare` for an older payload with no carrier:
+    /// a full self-share reads as `.mine`, a zero as `.partner`, else `.split`.
+    var resolvedCarrier: DoblesCarrier {
+        if let carrier { return carrier }
+        if selfShare >= 0.999 { return .mine }
+        if selfShare <= 0.001 { return .partner }
+        return .split
+    }
 }
 
 // MARK: - Service
@@ -196,10 +243,25 @@ struct DoblesStationSplit: Codable, Identifiable, Hashable {
 enum DoblesService {
     /// The connected-plan overview (self week + partner read-only week).
     ///
-    /// BACKEND GAP: `GET /api/athlete/dobles/plan` does not exist.
+    /// `GET /api/athlete/dobles/plan` — the self athlete's week alongside a
+    /// read-only view of the partner's week, each day tagged with how the two
+    /// share that session (joint-mandatory sim / optional-together / both-done /
+    /// each-own / rest), plus `trainTogetherSessionId` for the "Entrenar a la
+    /// vez" CTA. Returns nil (→ honest empty state) when there is no bearer or
+    /// no linked partner (backend 404 `no_partner`). Decoding uses APIClient's
+    /// `convertFromSnakeCase`, so the wire stays snake_case.
     static func fetchConnectedPlan(bearer: String?) async -> DoblesConnectedPlan? {
-        // BACKEND GAP: no connected-plan endpoint yet.
-        return nil
+        guard let bearer, !bearer.isEmpty else { return nil }
+        do {
+            return try await APIClient.shared.get(
+                path: "api/athlete/dobles/plan",
+                bearer: bearer
+            )
+        } catch {
+            // Honest empty: no partner / transient error → nil so the view shows
+            // its empty state instead of a fabricated week.
+            return nil
+        }
     }
 
     /// Shared analytics between the two connected athletes.
@@ -278,4 +340,38 @@ enum DoblesService {
             return nil
         }
     }
+
+    /// The athlete ADJUSTS the pair's reparto (mig 0099 — pair-owned strategy).
+    ///
+    /// `PUT /api/athlete/dobles/simulation` — a SELF-centric body (per station:
+    /// self/partner/split + the athlete's share + a note). The backend flips it to
+    /// the A/B-neutral storage and stamps athlete provenance (last-write-wins, no
+    /// approval flow), then returns the fresh reader-centric simulation. Encoded
+    /// with APIClient's `convertToSnakeCase`, so the wire stays snake_case. Returns
+    /// nil on failure (the view keeps the edits + shows an inline error).
+    static func updateSimulation(
+        _ body: DoblesSimulationEditBody,
+        bearer: String?
+    ) async -> DoblesSimulation? {
+        guard let bearer, !bearer.isEmpty else { return nil }
+        return try? await APIClient.shared.put(
+            path: "api/athlete/dobles/simulation",
+            body: body,
+            bearer: bearer
+        )
+    }
+}
+
+/// Self-centric edit body for `PUT /api/athlete/dobles/simulation`. The athlete
+/// edits the STATION reparto only — `carrier` is "self" | "partner" | "split",
+/// `selfShare` is the editing athlete's share, `note` an optional per-station
+/// reparto note. The coach's tactical notes are preserved server-side.
+struct DoblesSimulationEditBody: Encodable {
+    struct Station: Encodable {
+        let stationIndex: Int
+        let carrier: String
+        let selfShare: Double
+        let note: String?
+    }
+    let stationSplits: [Station]
 }

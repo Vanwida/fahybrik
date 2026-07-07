@@ -67,8 +67,35 @@ struct PartnerRecentSession: Codable, Equatable, Identifiable {
     let status: String          // completed | missed | skipped
     let durationSeconds: Int?
     let perceivedExertion: Double?
+    // Result of the session. In HYROX the TIME is the headline result; strength/
+    // metcon report rounds+reps. All optional (a session may carry none).
+    let scoreTimeS: Int?
+    let scoreRounds: Int?
+    let scoreReps: Int?
+    /// True when this session was logged as a JOINT "train together" with the
+    /// viewing athlete (backend reads workout_executions.partner_athlete_id).
+    let trainedTogether: Bool?
 
     var id: Int { assignmentId ?? date.hashValue }
+
+    /// Whether the two trained this session together (nil-safe).
+    var isJoint: Bool { trainedTogether == true }
+
+    /// Pre-formatted headline result: "H:MM:SS" / "M:SS" for a timed HYROX
+    /// result, else "N rondas +M" for an AMRAP, else nil (show duration/RPE).
+    var scoreText: String? {
+        if let s = scoreTimeS, s > 0 {
+            let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+            return h > 0
+                ? String(format: "%d:%02d:%02d", h, m, sec)
+                : String(format: "%d:%02d", m, sec)
+        }
+        if let r = scoreRounds, r > 0 {
+            let reps = (scoreReps ?? 0) > 0 ? " +\(scoreReps!)" : ""
+            return "\(r) rondas\(reps)"
+        }
+        return nil
+    }
 }
 
 struct PartnerEnvelope: Codable, Equatable {

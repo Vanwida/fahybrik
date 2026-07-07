@@ -20,7 +20,7 @@
 
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { loadPartner } from '@/lib/partner/invitations';
+import { loadDoublesTrainingPartner } from '@/lib/athlete/doubles-training-partner';
 import { buildDoblesSharedAnalytics } from '@/lib/athlete/dobles-analytics';
 
 export const runtime = 'nodejs';
@@ -37,16 +37,17 @@ export async function GET(request: Request) {
   const auth = await getAthleteSessionFromBearer(request.headers.get('authorization'));
   if (!auth) return jsonError('unauthorized', 'Athlete bearer token required', 401);
 
-  // Shared analytics require a linked partner (resolved via users.partner_id).
-  const partner = await loadPartner(auth.user_id);
-  if (!partner || partner.athlete_id == null) {
+  // Shared analytics require an active Dobles TRAINING pair (doubles_pairs),
+  // not the billing partner link. Honest-empty (404) when there's no pair.
+  const partner = await loadDoublesTrainingPartner(auth.athlete_id);
+  if (!partner) {
     return jsonError('no_partner', 'No linked partner for this athlete', 404);
   }
 
   const analytics = await buildDoblesSharedAnalytics({
     self_athlete_id: auth.athlete_id,
-    partner_athlete_id: partner.athlete_id,
-    partner_name: firstName(partner.full_name),
+    partner_athlete_id: partner.partner_athlete_id,
+    partner_name: firstName(partner.partner_full_name),
   });
 
   // Neither athlete has an imported race → honest-empty.

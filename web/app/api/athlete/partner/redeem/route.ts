@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { verifyAppleIdToken } from '@/lib/auth/apple';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { audiences, issueSession } from '@/lib/auth/session';
-import { sql } from '@/lib/db';
+import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
+import { sql, type TransactionClient } from '@/lib/db';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import {
@@ -10,60 +11,132 @@ import {
   redeemInvitation,
   type PartnerInvitationRow,
 } from '@/lib/partner/invitations';
+import { createDoublesPair } from '@/lib/dashboard/coach/doubles-pairs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// `apple_identity_token` is now OPTIONAL: an authenticated caller (Bearer
+// athlete session) accepts as themselves and needs no Apple token; an
+// unauthenticated caller still proves identity via Apple Sign-In. Exactly one
+// of {Bearer session, apple_identity_token} must be present — enforced in POST.
 const redeemSchema = z.object({
   token: z.string().min(10).max(200),
-  apple_identity_token: z.string().min(20),
+  apple_identity_token: z.string().min(20).optional(),
   nonce: z.string().min(1).max(256).optional(),
   full_name: z.string().min(1).max(200).optional(),
 });
 
-interface CreatedUser {
+/**
+ * The user who is accepting the invitation, resolved by the accept matrix
+ * below. Always carries a real `athlete_id` so the training surfaces resolve.
+ */
+export interface AcceptingPartnerUser {
   user_id: bigint;
   athlete_id: bigint;
   email: string;
+  onboarded_at: Date | null;
+  /**
+   * true only when this call CREATED a brand-new user (unauthenticated +
+   * Apple identity that matched no existing account). false when we linked a
+   * pre-existing user (existing-Apple or Bearer path).
+   */
+  is_new: boolean;
+}
+
+async function findUserByApple(
+  tx: TransactionClient,
+  appleUserId: string,
+): Promise<{ id: string; email: string } | null> {
+  const rows = await tx<{ id: string; email: string }[]>`
+    select id::text as id, email
+    from users
+    where apple_user_id = ${appleUserId}
+      and deleted_at is null
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+async function findUserByEmail(
+  tx: TransactionClient,
+  email: string,
+): Promise<{ id: string; email: string } | null> {
+  const rows = await tx<{ id: string; email: string }[]>`
+    select id::text as id, email
+    from users
+    where email = ${email}
+      and deleted_at is null
+    limit 1
+  `;
+  return rows[0] ?? null;
 }
 
 /**
- * Creates a brand-new user + athlete row from an Apple identity. Fails closed
- * if any user already exists with this apple_sub OR with this email — we do
- * NOT allow attaching an existing account to a partner invitation because it
- * would create a cross-conflict (an existing user might already have their
- * own subscription / partner / onboarding state).
+ * Return the athlete row for a user, creating a minimal one if a matched
+ * (legacy/partially-onboarded) user somehow has none — the redeem flow must
+ * always hand back an athlete_id so the Dobles training surfaces light up.
  */
-async function createNewPartnerUser(input: {
-  apple_user_id: string;
-  email: string | null;
-  full_name: string | null;
-}): Promise<{ ok: true; user: CreatedUser } | { ok: false; code: 'user_already_exists' }> {
-  return await sql.begin(async (tx) => {
-    const byApple = await tx<{ id: string }[]>`
-      select id::text as id
-      from users
-      where apple_user_id = ${input.apple_user_id}
-        and deleted_at is null
-      limit 1
-    `;
-    if (byApple[0]) {
-      return { ok: false, code: 'user_already_exists' } as const;
+async function ensureAthlete(
+  tx: TransactionClient,
+  userId: bigint,
+  fullName: string | null,
+): Promise<{ athlete_id: bigint; onboarded_at: Date | null }> {
+  const existing = await tx<{ id: string; onboarded_at: Date | null }[]>`
+    select id::text as id, onboarded_at
+    from athletes
+    where user_id = ${userId}
+    limit 1
+  `;
+  if (existing[0]) {
+    return { athlete_id: BigInt(existing[0].id), onboarded_at: existing[0].onboarded_at };
+  }
+  const created = await tx<{ id: string; onboarded_at: Date | null }[]>`
+    insert into athletes (user_id, full_name)
+    values (${userId}, ${fullName?.trim() || 'Athlete'})
+    returning id::text as id, onboarded_at
+  `;
+  const row = created[0];
+  if (!row) throw new Error('partner_redeem_athlete_ensure_failed');
+  return { athlete_id: BigInt(row.id), onboarded_at: row.onboarded_at };
+}
+
+/**
+ * Resolve WHO is accepting from a VERIFIED Apple identity — linking an existing
+ * account when one is found, otherwise creating a fresh one.
+ *
+ * This replaces the old create-only path that hard-409'd a known apple_user_id
+ * OR email. An EXISTING FAHYBRID user can now accept a partner invitation:
+ *   1) existing non-deleted user by apple_user_id → USE it (no 409)
+ *   2) else existing non-deleted user by email     → USE it (no 409)
+ *   3) else                                        → create user + athlete
+ *
+ * The subsequent `redeemInvitation` still guards `accepted_user_already_paired`
+ * (an existing user who is already in a pair is rejected there), so widening
+ * this from "must be new" to "existing-or-new" does not weaken the at-most-one
+ * partner invariant.
+ */
+export async function resolveOrCreatePartnerUser(
+  input: { apple_user_id: string; email: string | null; full_name: string | null },
+  client = sql,
+): Promise<AcceptingPartnerUser> {
+  return await client.begin(async (tx) => {
+    const existing =
+      (await findUserByApple(tx, input.apple_user_id)) ??
+      (input.email ? await findUserByEmail(tx, input.email) : null);
+
+    if (existing) {
+      const athlete = await ensureAthlete(tx, BigInt(existing.id), input.full_name);
+      return {
+        user_id: BigInt(existing.id),
+        athlete_id: athlete.athlete_id,
+        email: existing.email,
+        onboarded_at: athlete.onboarded_at,
+        is_new: false,
+      } satisfies AcceptingPartnerUser;
     }
 
-    if (input.email) {
-      const byEmail = await tx<{ id: string }[]>`
-        select id::text as id
-        from users
-        where email = ${input.email}
-          and deleted_at is null
-        limit 1
-      `;
-      if (byEmail[0]) {
-        return { ok: false, code: 'user_already_exists' } as const;
-      }
-    }
-
+    // No existing account → create a brand-new user + athlete.
     const placeholderEmail =
       input.email ?? `apple-${input.apple_user_id}@privaterelay.appleid.placeholder`;
     const inserted = await tx<{ id: string; email: string }[]>`
@@ -74,24 +147,22 @@ async function createNewPartnerUser(input: {
     const userRow = inserted[0];
     if (!userRow) throw new Error('partner_redeem_user_insert_failed');
 
-    const fullName = input.full_name?.trim() || 'Athlete';
-    const athleteInserted = await tx<{ id: string }[]>`
-      insert into athletes (user_id, full_name)
-      values (${BigInt(userRow.id)}, ${fullName})
-      returning id::text as id
-    `;
-    const athleteRow = athleteInserted[0];
-    if (!athleteRow) throw new Error('partner_redeem_athlete_insert_failed');
-
+    const athlete = await ensureAthlete(tx, BigInt(userRow.id), input.full_name);
     return {
-      ok: true,
-      user: {
-        user_id: BigInt(userRow.id),
-        athlete_id: BigInt(athleteRow.id),
-        email: userRow.email,
-      },
-    } as const;
+      user_id: BigInt(userRow.id),
+      athlete_id: athlete.athlete_id,
+      email: userRow.email,
+      onboarded_at: athlete.onboarded_at,
+      is_new: true,
+    } satisfies AcceptingPartnerUser;
   });
+}
+
+async function loadAthleteOnboardedAt(athleteId: bigint): Promise<Date | null> {
+  const rows = await sql<{ onboarded_at: Date | null }[]>`
+    select onboarded_at from athletes where id = ${athleteId} limit 1
+  `;
+  return rows[0]?.onboarded_at ?? null;
 }
 
 function isInvitationLive(invitation: PartnerInvitationRow): boolean {
@@ -119,7 +190,7 @@ export async function POST(req: Request) {
     return jsonError('invalid_request', 'Invalid request body', 400, parsed.error.flatten());
   }
 
-  // Pre-check invitation before doing Apple verification work.
+  // Pre-check invitation before doing identity work.
   const invitation = await getInvitationByToken(parsed.data.token);
   if (!invitation) {
     return jsonError('token_invalid', 'Invitation not found', 404);
@@ -133,35 +204,59 @@ export async function POST(req: Request) {
     return jsonError(code, `Invitation is ${invitation.status === 'pending' ? 'expired' : invitation.status}`, 410);
   }
 
-  let identity;
-  try {
-    identity = await verifyAppleIdToken({
-      id_token: parsed.data.apple_identity_token,
-      ...(parsed.data.nonce !== undefined ? { expected_nonce: parsed.data.nonce } : {}),
+  // ── ACCEPT MATRIX — resolve WHO is accepting ────────────────────────────────
+  //   authenticated Bearer athlete session   → link the caller (existing, auth'd)
+  //   unauthenticated + Apple → existing user → link that existing user (no 409)
+  //   unauthenticated + Apple → no such user  → create user + athlete, then link
+  // A Bearer session WINS when both are present: the authenticated caller is the
+  // source of truth for who they are, so we never trust an Apple token over it.
+  const bearerSession = await getAthleteSessionFromBearer(req.headers.get('authorization'));
+
+  let accepting: AcceptingPartnerUser;
+  let isPrivateEmail: boolean | null;
+
+  if (bearerSession) {
+    accepting = {
+      user_id: bearerSession.user_id,
+      athlete_id: bearerSession.athlete_id,
+      email: bearerSession.email,
+      onboarded_at: await loadAthleteOnboardedAt(bearerSession.athlete_id),
+      is_new: false,
+    };
+    // No Apple identity on the Bearer path → private-relay status is unknown.
+    isPrivateEmail = null;
+  } else {
+    const appleToken = parsed.data.apple_identity_token;
+    if (!appleToken) {
+      return jsonError(
+        'auth_required',
+        'Provide an athlete Bearer session or apple_identity_token to accept an invitation',
+        401,
+      );
+    }
+    let identity;
+    try {
+      identity = await verifyAppleIdToken({
+        id_token: appleToken,
+        ...(parsed.data.nonce !== undefined ? { expected_nonce: parsed.data.nonce } : {}),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'apple_token_invalid';
+      return jsonError('apple_token_invalid', message, 401);
+    }
+    accepting = await resolveOrCreatePartnerUser({
+      apple_user_id: identity.apple_user_id,
+      email: identity.email,
+      full_name: parsed.data.full_name ?? null,
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'apple_token_invalid';
-    return jsonError('apple_token_invalid', message, 401);
+    isPrivateEmail = identity.is_private_email;
   }
 
-  const created = await createNewPartnerUser({
-    apple_user_id: identity.apple_user_id,
-    email: identity.email,
-    full_name: parsed.data.full_name ?? null,
-  });
-  if (!created.ok) {
-    return jsonError(
-      'user_already_exists',
-      'An account already exists for this Apple ID or email — partner linking is only available for brand-new accounts',
-      409,
-    );
-  }
-
-  const redemption = await redeemInvitation(parsed.data.token, created.user.user_id);
+  const redemption = await redeemInvitation(parsed.data.token, accepting.user_id);
   if (!redemption.ok) {
-    // Note: if redemption fails after user creation (race), the new user
-    // will be left dangling without a partner — acceptable for beta. The
-    // user can be cleaned up by ops if needed.
+    // Note: if redemption fails after a brand-new user was created (race), the
+    // new user is left dangling without a partner — acceptable for beta; ops can
+    // clean it up. An existing/Bearer user is untouched on failure.
     const httpStatus = redemption.error.code === 'token_expired'
       || redemption.error.code === 'token_cancelled'
       || redemption.error.code === 'token_already_used'
@@ -172,10 +267,55 @@ export async function POST(req: Request) {
     return jsonError(redemption.error.code, redemption.error.message, httpStatus);
   }
 
+  // EJE ÚNICO — auto-create the DERIVED training pair (doubles_pairs) so the
+  // athlete training surfaces (which resolve the partner via doubles_pairs, NOT
+  // the billing users.partner_id) light up the moment the accounts link. This is
+  // best-effort and runs OUTSIDE the redeem transaction (already committed): the
+  // billing partner_id link is the essential result; the training pair is
+  // derived. We only form it when BOTH athletes exist and share the same non-null
+  // coach. Any failure (not yet onboarded, no shared coach, already_paired, …) is
+  // swallowed — it must never fail the redeem response.
+  try {
+    const inviterUserId = redemption.result.inviter_user_id;
+    const acceptedUserId = accepting.user_id;
+    const athleteRows = await sql<
+      { user_id: string; athlete_id: string; coach_id: string | null }[]
+    >`
+      select a.user_id::text as user_id, a.id::text as athlete_id, a.coach_id::text as coach_id
+      from athletes a
+      where a.user_id in (${inviterUserId}, ${acceptedUserId})
+    `;
+    const inviter = athleteRows.find((r) => r.user_id === inviterUserId.toString());
+    const accepted = athleteRows.find((r) => r.user_id === acceptedUserId.toString());
+    if (
+      inviter &&
+      accepted &&
+      inviter.coach_id != null &&
+      inviter.coach_id === accepted.coach_id
+    ) {
+      await createDoublesPair({
+        coach_id: BigInt(inviter.coach_id),
+        athlete_a_id: Number(inviter.athlete_id),
+        athlete_b_id: Number(accepted.athlete_id),
+      });
+    } else {
+      console.warn(
+        'partner_redeem: auto training-pair skipped (athlete missing or no shared coach)',
+      );
+    }
+  } catch (err) {
+    // DoublesPairError (already_paired / athlete_not_found / mismatch / …) or any
+    // other failure. The billing link stands; the training pair is derived.
+    console.warn('partner_redeem: auto training-pair failed', err);
+  }
+
+  // Mint a fresh athlete session on EVERY successful accept so the response
+  // shape is uniform and the invitee can act immediately. A Bearer caller simply
+  // receives a fresh token alongside the one they already hold (harmless).
   const userAgent = req.headers.get('user-agent');
   const ip = getClientIp(req);
   const session = await issueSession({
-    user_id: created.user.user_id,
+    user_id: accepting.user_id,
     audience: audiences.athlete,
     ttl_seconds: AUTH_CONFIG.athleteSessionTtlSeconds,
     user_agent: userAgent,
@@ -183,13 +323,13 @@ export async function POST(req: Request) {
   });
 
   return jsonOk({
-    user_id: created.user.user_id.toString(),
-    athlete_id: created.user.athlete_id.toString(),
+    user_id: accepting.user_id.toString(),
+    athlete_id: accepting.athlete_id.toString(),
     partner_user_id: redemption.result.inviter_user_id.toString(),
     session_token: session.token,
     expires_at: session.expires_at.toISOString(),
-    email: created.user.email,
-    is_private_email: identity.is_private_email,
-    onboarded_at: null,
+    email: accepting.email,
+    is_private_email: isPrivateEmail,
+    onboarded_at: accepting.onboarded_at ? accepting.onboarded_at.toISOString() : null,
   });
 }

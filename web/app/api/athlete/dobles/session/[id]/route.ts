@@ -17,7 +17,7 @@ import type { NextResponse } from 'next/server';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
-import { loadPartner } from '@/lib/partner/invitations';
+import { loadDoublesTrainingPartner } from '@/lib/athlete/doubles-training-partner';
 import {
   loadDoblesSession,
   type DoblesTrainTogetherSession,
@@ -50,9 +50,10 @@ export async function GET(
     return jsonError('invalid_request', 'Invalid assignment id', 400);
   }
 
-  // A train-together session requires a linked partner. Honest-empty otherwise.
-  const partner = await loadPartner(auth.user_id);
-  if (!partner || partner.athlete_id == null) {
+  // A train-together session requires an active Dobles TRAINING pair
+  // (doubles_pairs), not the billing partner link. Honest-empty otherwise.
+  const partner = await loadDoublesTrainingPartner(auth.athlete_id);
+  if (!partner) {
     return jsonError('no_partner', 'No linked partner for this athlete', 404);
   }
 
@@ -61,8 +62,8 @@ export async function GET(
     self_athlete_id: auth.athlete_id,
     self_name: firstName(auth.full_name),
     assignment_id: parsed.data,
-    partner_athlete_id: partner.athlete_id,
-    partner_name: firstName(partner.full_name),
+    partner_athlete_id: partner.partner_athlete_id,
+    partner_name: firstName(partner.partner_full_name),
   });
 
   if (!session) {
