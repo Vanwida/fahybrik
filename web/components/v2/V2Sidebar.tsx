@@ -49,17 +49,17 @@ function navLinkClass(active: boolean): string {
 }
 
 /** One nav row — icon (always visible in the collapsed rail) + label (fades in on
- *  expand) + optional unread badge on the Mensajes item. */
+ *  expand) + optional count badge (Mensajes → unread, Leads → new leads). */
 function NavLink({
   item,
   active,
-  unread,
+  badgeCount,
 }: {
   item: V2NavItem;
   active: boolean;
-  unread: number;
+  badgeCount: number;
 }) {
-  const showBadge = item.badge === 'mensajes' && unread > 0;
+  const showBadge = !!item.badge && badgeCount > 0;
   return (
     <Link
       href={item.href}
@@ -74,7 +74,7 @@ function NavLink({
             className="absolute -right-2 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
             style={{ background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }}
           >
-            {unread > 9 ? '9+' : unread}
+            {badgeCount > 9 ? '9+' : badgeCount}
           </span>
         ) : null}
       </span>
@@ -83,8 +83,20 @@ function NavLink({
   );
 }
 
-export function V2Sidebar({ unread_messages = 0 }: { unread_messages?: number }) {
+export function V2Sidebar({
+  unread_messages = 0,
+  leads_nuevo = 0,
+}: {
+  unread_messages?: number;
+  leads_nuevo?: number;
+}) {
   const pathname = usePathname();
+  // Per-badge counts, keyed by the item's `badge` source.
+  const badgeCounts: Record<NonNullable<V2NavItem['badge']>, number> = {
+    mensajes: unread_messages,
+    leads: leads_nuevo,
+  };
+  const badgeFor = (item: V2NavItem) => (item.badge ? badgeCounts[item.badge] : 0);
 
   return (
     <aside
@@ -135,7 +147,7 @@ export function V2Sidebar({ unread_messages = 0 }: { unread_messages?: number })
                   key={item.href}
                   item={item}
                   active={isV2NavActive(pathname, item.href)}
-                  unread={unread_messages}
+                  badgeCount={badgeFor(item)}
                 />
               ))}
             </div>
@@ -148,12 +160,12 @@ export function V2Sidebar({ unread_messages = 0 }: { unread_messages?: number })
         <NavLink
           item={V2_NAV_GUIDE}
           active={isV2NavActive(pathname, V2_NAV_GUIDE.href)}
-          unread={unread_messages}
+          badgeCount={0}
         />
         <NavLink
           item={V2_NAV_SETTINGS}
           active={isV2NavActive(pathname, V2_NAV_SETTINGS.href)}
-          unread={unread_messages}
+          badgeCount={0}
         />
       </div>
     </aside>

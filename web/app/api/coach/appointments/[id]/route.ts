@@ -1,0 +1,105 @@
+// PATCH /api/coach/appointments/[id] — coach acts on an appointment.
+//   Body: { action: aceptar|rechazar|cancelar|completar|no_show, meet_link?, coach_note? }
+//   accept → appointment=aceptada, lead→agendado, meet link via body/adapter, email+.ics.
+//   reject/cancel → email to the lead. Coach-guarded, Zod-validated.
+
+import type { NextResponse } from 'next/server';
+import { appointmentActionInput } from '@fahybrid/shared/schema';
+import { getCoachSession } from '@/lib/auth/coach-session';
+import { jsonError, jsonOk } from '@/lib/api/responses';
+import { actOnAppointment, CitasError, setAppointmentMeetLink, type AppointmentWithLead } from '@/lib/citas/store';
+import { createMeeting } from '@/lib/citas/meeting';
+import { deleteCalendarEvent } from '@/lib/citas/google';
+import {
+  sendAppointmentAccepted,
+  sendAppointmentCancelled,
+  sendAppointmentRejected,
+} from '@/lib/citas/email';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+interface Ctx {
+  params: Promise<{ id: string }>;
+}
+
+function parseId(raw: string): bigint | null {
+  if (!/^\d+$/.test(raw)) return null;
+  try {
+    const n = BigInt(raw);
+    return n > BigInt(0) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
+  const session = await getCoachSession();
+  if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+
+  const { id } = await ctx.params;
+  const apptId = parseId(id);
+  if (apptId == null) return jsonError('invalid_id', 'id inválido', 400);
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonError('invalid_json', 'Body must be valid JSON', 400);
+  }
+  const parsed = appointmentActionInput.safeParse(body);
+  if (!parsed.success) {
+    return jsonError('invalid_request', 'Datos no válidos', 400, parsed.error.flatten());
+  }
+  const { action, meet_link, coach_note } = parsed.data;
+
+  const emailPayload = (a: AppointmentWithLead) => ({
+    id: a.id,
+    requested_start: a.requested_start,
+    duration_minutes: a.duration_minutes,
+    meet_link: a.meet_link,
+    lead_email: a.lead_email,
+    lead_nombre: a.lead_nombre,
+    lead_token: a.lead_token,
+  });
+
+  try {
+    const res = await actOnAppointment({ id: apptId, action, meet_link, coach_note });
+    let a = res.appointment;
+
+    if (res.newStatus === 'aceptada') {
+      // No manually-pasted link → ask the adapter (v1 → null; Google later). Best-effort.
+      if (!a.meet_link) {
+        const m = await createMeeting({
+          appointmentId: a.id,
+          start: new Date(a.requested_start),
+          durationMinutes: a.duration_minutes,
+          leadEmail: a.lead_email,
+          leadName: a.lead_nombre,
+        });
+        if (m.meet_link) {
+          a = await setAppointmentMeetLink({
+            id: apptId,
+            meet_link: m.meet_link,
+            google_event_id: m.event_id ?? null,
+          });
+        }
+      }
+      await sendAppointmentAccepted(emailPayload(a));
+    } else if (res.newStatus === 'rechazada') {
+      await sendAppointmentRejected(emailPayload(a));
+    } else if (res.newStatus === 'cancelada') {
+      // Best-effort: if the meeting was auto-created on Google, delete the calendar
+      // event so a cancelled cita doesn't leave a stray Meet on Alex's calendar.
+      if (a.google_event_id) await deleteCalendarEvent(a.google_event_id).catch(() => {});
+      await sendAppointmentCancelled(emailPayload(a));
+    }
+    // completada / no_show → no lead email.
+
+    return jsonOk({ appointment: a });
+  } catch (err) {
+    if (err instanceof CitasError) return jsonError(err.code, err.message, err.status);
+    console.error('[PATCH /api/coach/appointments/[id]]', err);
+    return jsonError('error', 'No se pudo actualizar la cita', 500);
+  }
+}

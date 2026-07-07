@@ -76,39 +76,71 @@ async function syncUser(data: ClerkUserData): Promise<void> {
   });
 
   await sql.begin(async (tx) => {
-    // Upsert keyed by clerk_user_id. If a row already exists for this email
-    // (e.g. provisioned by another flow before Clerk linked it), adopt it by
-    // matching on email and stamping the clerk_user_id. New rows get a role:
-    // users.role is NOT NULL with no default, so brand-new Clerk signups need a
-    // value — 'athlete' is the safe least-privilege default. Authorization
-    // (admin/coach) is granted via user_roles, never inferred here.
+    // LOOKUP-FIRST, not insert-first (same root as findOrCreateCoachByClerkUser):
+    // a user seeded in the DB before Clerk linked them has a NULL clerk_user_id.
+    // Inserting keyed by clerk_user_id first would collide with that row's email
+    // on users_email_unique — a constraint the `on conflict (clerk_user_id)`
+    // target does NOT cover — and 500 the webhook, which Clerk then retries
+    // forever. So resolve by clerk_user_id, then by email, and only insert a
+    // genuinely-new user. New rows get a role: users.role is NOT NULL with no
+    // default, so brand-new Clerk signups need a value — 'athlete' is the safe
+    // least-privilege default. Authorization (admin/coach) is granted via
+    // user_roles, never inferred here.
     //
     // TODO Fase 3: role/coach/athlete domain-row provisioning for brand-new
     // users (intake flow) — do NOT guess roles or create coach/athlete rows
     // here. This route only guarantees the users row exists + stays in sync.
-    const rows = await tx<{ id: string }[]>`
-      insert into users (clerk_user_id, email, role)
-      values (${clerk_user_id}, ${email}, 'athlete')
-      on conflict (clerk_user_id) where clerk_user_id is not null
-      do update set
-        email = excluded.email,
-        updated_at = now(),
-        deleted_at = null
-      returning id::text as id
+
+    // 1) Already bridged to this Clerk id → keep email in sync, revive.
+    const byClerk = await tx<{ id: string }[]>`
+      select id::text as id from users where clerk_user_id = ${clerk_user_id} limit 1
     `;
-
-    let user_id = rows[0]?.id ?? null;
-
-    // If the conflict target didn't match (no existing clerk_user_id row) but a
-    // row already exists for this email, link it instead of creating a dup.
-    if (!user_id) {
-      const linked = await tx<{ id: string }[]>`
+    let user_id = byClerk[0]?.id ?? null;
+    if (user_id) {
+      await tx`
         update users
-        set clerk_user_id = ${clerk_user_id}, updated_at = now()
-        where email = ${email} and clerk_user_id is null
+        set email = ${email}, updated_at = now(), deleted_at = null
+        where id = ${BigInt(user_id)}
+      `;
+    }
+
+    // 2) Seeded for this email, not yet bridged → adopt (stamp clerk_user_id).
+    //    If the email is already bridged to ANOTHER clerk id, SKIP: it is an
+    //    unresolvable identity conflict, and a webhook must not 500 (Clerk would
+    //    retry indefinitely) nor hijack the owning row.
+    if (!user_id) {
+      const byEmail = await tx<{ id: string; clerk_user_id: string | null }[]>`
+        select id::text as id, clerk_user_id from users where email = ${email} limit 1
+      `;
+      const existing = byEmail[0];
+      if (existing) {
+        if (existing.clerk_user_id && existing.clerk_user_id !== clerk_user_id) {
+          return;
+        }
+        const linked = await tx<{ id: string }[]>`
+          update users
+          set clerk_user_id = ${clerk_user_id}, updated_at = now(), deleted_at = null
+          where id = ${BigInt(existing.id)}
+          returning id::text as id
+        `;
+        user_id = linked[0]?.id ?? null;
+      }
+    }
+
+    // 3) Genuinely new → insert. `on conflict (clerk_user_id)` keeps parallel
+    //    webhook deliveries for the same user race-safe.
+    if (!user_id) {
+      const inserted = await tx<{ id: string }[]>`
+        insert into users (clerk_user_id, email, role)
+        values (${clerk_user_id}, ${email}, 'athlete')
+        on conflict (clerk_user_id) where clerk_user_id is not null
+        do update set
+          email = excluded.email,
+          updated_at = now(),
+          deleted_at = null
         returning id::text as id
       `;
-      user_id = linked[0]?.id ?? null;
+      user_id = inserted[0]?.id ?? null;
     }
 
     if (!user_id) return;

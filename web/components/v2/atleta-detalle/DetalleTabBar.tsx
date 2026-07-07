@@ -15,6 +15,7 @@ const TAB_LABEL: Record<AtletaTab, string> = {
   ritmos: 'Ritmos / Zonas',
   carreras: 'Carreras',
   historico: 'Histórico',
+  sesiones: '1:1',
   biometria: 'Biometría',
   mensajes: 'Mensajes',
 };

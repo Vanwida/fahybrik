@@ -2,6 +2,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { listThreadsForCoach } from '@/lib/dashboard/chat/service';
+import { countNewLeads } from '@/lib/dashboard/coach/leads';
+import { countUpcomingCallsSoon } from '@/lib/citas/store';
 import { V2Shell } from '@/components/v2/V2Shell';
 import { V2ThemeScript } from '@/components/v2/theme/V2ThemeScript';
 import './v2-theme.css';
@@ -37,6 +39,17 @@ export default async function V2Layout({
     unread_messages = 0;
   }
 
+  // Sidebar "Leads" badge = new leads + pending call requests (both need Pablo's
+  // attention in the leads area). Degrades to 0 on failure.
+  let leads_nuevo = 0;
+  try {
+    // Badge = new leads + calls in the next 48h (today/tomorrow), the day's actionables.
+    const [newLeads, callsSoon] = await Promise.all([countNewLeads(), countUpcomingCallsSoon()]);
+    leads_nuevo = newLeads + callsSoon;
+  } catch {
+    leads_nuevo = 0;
+  }
+
   return (
     <>
       <V2ThemeScript />
@@ -45,6 +58,7 @@ export default async function V2Layout({
         coach_email={session.email}
         coach_avatar_url={session.avatar_url}
         unread_messages={unread_messages}
+        leads_nuevo={leads_nuevo}
       >
         {children}
       </V2Shell>

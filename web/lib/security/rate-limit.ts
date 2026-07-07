@@ -126,6 +126,15 @@ export const RATE_LIMITS = {
   exportData: { endpoint: 'export-data', limit: 3, windowSec: 60 * 60 },
   chatSend: { endpoint: 'chat-send', limit: 60, windowSec: 60 },
   devicesRegister: { endpoint: 'devices-register', limit: 30, windowSec: 60 },
+  // Public lead funnel (fahybrid.com/empieza). Draft fires once per email step +
+  // retries; submit fires once at the end. Generous enough for a real visitor,
+  // tight enough to blunt scripted spam (the honeypot handles the rest).
+  leadsDraft: { endpoint: 'leads-draft', limit: 20, windowSec: 60 * 10 },
+  leadsSubmit: { endpoint: 'leads-submit', limit: 8, windowSec: 60 * 10 },
+  // Public appointment booking (token-gated). Reads (slots/context) are cheap; the
+  // booking write is tighter + honeypot-guarded.
+  citasContext: { endpoint: 'citas-context', limit: 40, windowSec: 60 * 10 },
+  citasBook: { endpoint: 'citas-book', limit: 8, windowSec: 60 * 10 },
 } as const;
 
 /**

@@ -3,6 +3,7 @@ import { AUTH_CONFIG } from '@/lib/auth/config';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { AthleteIdParamSchema } from '@/lib/coach/deep-dive-types';
 import { createAthleteInvitation } from '@/lib/athlete/invitations';
+import { inviteDeepLink } from '@/lib/invites/deeplinks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,11 +52,16 @@ export async function POST(
   }
 
   const token = created.result.token;
+  // Universal Link (HTTPS — becomes the app deep link when installed, falls
+  // back to the /invite/[token] web landing otherwise) + the custom-scheme deep
+  // link that opens the app directly for people who already have it.
   const inviteUrl = `${AUTH_CONFIG.appUrl()}/invite/${encodeURIComponent(token)}`;
+  const appDeeplink = inviteDeepLink(token);
 
   return jsonOk(
     {
       invite_url: inviteUrl,
+      app_deeplink: appDeeplink,
       token,
       expires_at: created.result.expires_at.toISOString(),
     },

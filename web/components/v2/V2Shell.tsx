@@ -16,17 +16,19 @@ export function V2Shell({
   coach_email,
   coach_avatar_url,
   unread_messages,
+  leads_nuevo,
   children,
 }: {
   coach_name: string;
   coach_email: string;
   coach_avatar_url: string | null;
   unread_messages: number;
+  leads_nuevo: number;
   children: React.ReactNode;
 }) {
   return (
     <V2ThemeProvider>
-      <V2Sidebar unread_messages={unread_messages} />
+      <V2Sidebar unread_messages={unread_messages} leads_nuevo={leads_nuevo} />
       <div className="flex min-h-[100dvh] min-w-0 flex-col lg:ml-20">
         {/* Top utility bar */}
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-end gap-3 border-b border-[color:var(--v2-border)] bg-[color:color-mix(in_srgb,var(--v2-bg)_85%,transparent)] px-4 backdrop-blur sm:px-6">

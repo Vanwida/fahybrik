@@ -2,7 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { subscriptionPlanType } from '@fahybrid/shared/schema/_primitives';
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
 // Coach-granted "comp" (courtesy / comp'd) athletes.
@@ -30,6 +30,24 @@ export interface CompAthleteResult {
   full_name: string;
   modality: z.infer<typeof subscriptionPlanType>;
   comp: true;
+}
+
+/**
+ * Optional structured profile written onto the athlete row alongside the base
+ * create. Used by the lead alta (#5) to carry the onboarding answers into the
+ * athlete (sex, dob, days/week, level, coach notes). Every field is optional and
+ * only overwrites an existing athlete's value when provided (COALESCE) — the plain
+ * AddAthleteModal path passes none of this and behaves exactly as before.
+ */
+export interface CompAthleteProfile {
+  sex?: 'male' | 'female' | 'other' | null;
+  /** ISO yyyy-mm-dd. */
+  dob?: string | null;
+  training_days_per_week?: number | null;
+  level_id?: number | bigint | null;
+  level_source?: 'algorithm' | 'coach' | 'self_reported' | null;
+  /** Coach-facing intake notes (jsonb) — JSON-scalar values only. */
+  intake_notes_json?: Record<string, string | number | boolean | null> | null;
 }
 
 export type CompAthleteErrorCode = 'email_in_use' | 'athlete_other_coach';
@@ -68,15 +86,26 @@ export class CompAthleteError extends Error {
 export async function createCompAthlete(params: {
   coach_id: number | bigint;
   input: CompAthleteInput;
-  client?: Sql;
+  client?: Sql | TransactionClient;
+  profile?: CompAthleteProfile;
 }): Promise<CompAthleteResult> {
-  const client = params.client ?? defaultSql;
   const { coach_id } = params;
   const email = params.input.email.trim().toLowerCase();
   const full_name = params.input.full_name.trim();
   const modality = params.input.modality;
 
-  return await client.begin(async (tx) => {
+  // Structured profile carry-over (nullable; only set/overwrite when provided).
+  const p = params.profile ?? {};
+  const pSex = p.sex ?? null;
+  const pDob = p.dob ?? null;
+  const pDays = p.training_days_per_week ?? null;
+  const pLevelId = p.level_id != null ? Number(p.level_id) : null;
+  const pLevelSource = p.level_source ?? null;
+  const pNotes = p.intake_notes_json ?? null;
+
+  // Run on the caller's transaction when one is passed (keeps the lead alta atomic),
+  // otherwise open our own. `tx` is a transaction client either way — no nested begin.
+  const run = async (tx: Sql | TransactionClient): Promise<CompAthleteResult> => {
     // 1. user
     const existingUsers = await tx<Array<{ id: string; role: string }>>`
       select id::text as id, role
@@ -127,18 +156,37 @@ export async function createCompAthlete(params: {
           409,
         );
       }
-      // coach_id null or already this coach → (re)assign idempotently.
+      // coach_id null or already this coach → (re)assign idempotently. Profile
+      // fields overwrite only when provided (COALESCE), so re-running the alta
+      // never blanks data the coach already curated.
       const updated = await tx<Array<{ id: string }>>`
-        update athletes
-          set coach_id = ${coach_id}
+        update athletes set
+          coach_id               = ${coach_id},
+          sex                    = coalesce(${pSex}::athlete_sex, sex),
+          dob                    = coalesce(${pDob}::date, dob),
+          training_days_per_week = coalesce(${pDays}, training_days_per_week),
+          level_id               = coalesce(${pLevelId}, level_id),
+          suggested_level_id     = coalesce(${pLevelId}, suggested_level_id),
+          level_source           = coalesce(${pLevelSource}, level_source),
+          intake_notes_json      = coalesce(${pNotes ? tx.json(pNotes) : null}, intake_notes_json)
           where id = ${BigInt(existingAthlete.id)}
         returning id::text as id
       `;
       athleteId = updated[0]!.id;
     } else {
       const inserted = await tx<Array<{ id: string }>>`
-        insert into athletes (user_id, full_name, coach_id)
-        values (${userId}, ${full_name}, ${coach_id})
+        insert into athletes (
+          user_id, full_name, coach_id,
+          sex, dob, training_days_per_week,
+          level_id, suggested_level_id, level_source,
+          intake_notes_json
+        )
+        values (
+          ${userId}, ${full_name}, ${coach_id},
+          ${pSex}::athlete_sex, ${pDob}::date, ${pDays},
+          ${pLevelId}, ${pLevelId}, ${pLevelSource},
+          ${pNotes ? tx.json(pNotes) : tx.json({})}
+        )
         returning id::text as id
       `;
       athleteId = inserted[0]!.id;
@@ -165,5 +213,7 @@ export async function createCompAthlete(params: {
       modality,
       comp: true as const,
     };
-  });
+  };
+
+  return params.client ? run(params.client) : defaultSql.begin(run);
 }

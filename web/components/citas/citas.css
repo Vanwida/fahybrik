@@ -1,0 +1,325 @@
+/* ════════════════════════════════════════════════════════════════════
+   FAHYBRID — Videollamada booking (funnel #2).
+
+   Two consumers, one design language:
+   1. The standalone PUBLIC page /{locale}/cita/{token} — a branded near-black
+      canvas (glow + grain + FAHYBRID wordmark) mirroring the onboarding intro.
+   2. The onboarding FINAL screen — the picker drops straight into `.ob-center`.
+
+   All styles use the GLOBAL brand tokens from globals.css (--accent, --surface,
+   --hairline, --fg, --muted, --r-l, --r-pill, --font-display …) so the picker
+   looks identical whether or not onboarding.css is loaded. Everything is
+   class-prefixed (`.cita-` for the page shell, `.bk-` for the picker) so it can
+   never leak into the rest of the app.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Booking-scoped tokens (single source; derived from the brand). */
+.cita-wrap,
+.bk {
+  --bk-tint: color-mix(in srgb, var(--accent) 10%, transparent);
+  --bk-tint-strong: color-mix(in srgb, var(--accent) 16%, transparent);
+  --bk-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Public page shell ─────────────────────────────────────────────────── */
+.cita-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.cita-wrap * {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Branded ambient glow behind the column, edge to edge (mirrors onboarding). */
+.cita-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 15% 108%, color-mix(in srgb, var(--accent) 16%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 60% at 90% -10%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg) 0%, #060606 100%);
+}
+.cita-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  z-index: 0;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.cita-watermark {
+  display: none;
+  position: absolute;
+  right: -2%;
+  bottom: 4%;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+  font-size: clamp(9rem, 19vw, 19rem);
+  color: var(--fg);
+  opacity: 0.035;
+  white-space: nowrap;
+}
+
+/* Centered content column. */
+.cita-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  max-height: 100dvh;
+  overflow-y: auto;
+  padding: 40px 26px calc(40px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+.cita-panel::-webkit-scrollbar { width: 0; }
+
+.cita-wordmark {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  user-select: none;
+  font-size: clamp(1.7rem, 8vw, 2.1rem);
+  margin-bottom: 26px;
+}
+.cita-wordmark .cita-f { color: var(--accent); }
+
+.cita-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  font-size: clamp(2rem, 9vw, 2.7rem);
+  line-height: 1.03;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+.cita-sub {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.5;
+  max-width: 40ch;
+}
+.cita-panel .bk { margin-top: 26px; }
+
+@media (min-width: 768px) {
+  .cita-panel {
+    max-width: 620px;
+    padding: 56px 40px calc(56px + env(safe-area-inset-bottom));
+  }
+  .cita-wordmark { font-size: clamp(1.9rem, 4vw, 2.3rem); margin-bottom: 30px; }
+  .cita-title { font-size: clamp(2.4rem, 4vw, 3rem); }
+  .cita-sub { font-size: 17px; max-width: 46ch; }
+}
+@media (min-width: 1024px) {
+  .cita-panel { max-width: 680px; padding: 64px 48px; }
+  .cita-watermark { display: block; }
+}
+
+/* ── Onboarding final screen: let it scroll when the picker is present ──────
+   The final screen renders a single `.ob-center` inside a clipped stage; with
+   the picker it can exceed the viewport, so switch to top-aligned scroll. This
+   rule only matches when a `.bk` is inside (i.e. a token was returned); the
+   intro `.ob-center` never contains `.bk`, so it is untouched. */
+.ob-center:has(.bk) {
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+.ob-center:has(.bk)::-webkit-scrollbar { width: 0; }
+.ob-center .bk { margin-top: 22px; }
+
+/* ── Picker ────────────────────────────────────────────────────────────── */
+.bk { width: 100%; }
+
+.bk-loading {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Scrollable list of day groups (capped so it never clips inside .ob-center). */
+.bk-scroll {
+  max-height: min(48vh, 440px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+  padding: 2px 4px;
+}
+.bk-scroll::-webkit-scrollbar { width: 6px; }
+.bk-scroll::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: var(--r-pill);
+}
+
+.bk-day + .bk-day { margin-top: 20px; }
+.bk-day-label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.bk-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bk-chip {
+  appearance: none;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  padding: 10px 15px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: border-color 0.16s var(--bk-ease), background 0.16s var(--bk-ease), transform 0.12s var(--bk-ease);
+}
+.bk-chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.bk-chip:active { transform: scale(0.97); }
+.bk-chip:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--bk-tint);
+}
+
+/* ── Confirm / status / success cards ──────────────────────────────────── */
+.bk-card {
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  border-radius: var(--r-l);
+  padding: 18px;
+}
+.bk-card--accent {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--hairline));
+  background: var(--bk-tint);
+}
+.bk-card-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.bk-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  flex: none;
+}
+.bk-card-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--fg);
+}
+.bk-card-title strong { color: var(--fg); font-weight: 700; }
+.bk-card-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bk-error {
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border-radius: var(--r-l);
+  background: var(--danger-tint, rgba(242, 63, 63, 0.14));
+  color: var(--danger, #f23f3f);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+/* ── Buttons (mirror the onboarding .ob-btn look, token for token) ──────── */
+.bk-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.bk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 22px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-on);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.16s var(--bk-ease), opacity 0.16s var(--bk-ease), transform 0.1s var(--bk-ease);
+}
+.bk-btn:hover { background: var(--accent-press); }
+.bk-btn:active { transform: scale(0.99); }
+.bk-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+.bk-btn[disabled] { opacity: 0.4; pointer-events: none; }
+.bk-btn svg { width: 18px; height: 18px; }
+.bk-btn--ghost {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+  padding: 11px 22px;
+}
+.bk-btn--ghost:hover { background: transparent; color: var(--fg); }
+
+.bk-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  border: 2px solid color-mix(in srgb, var(--accent-on) 40%, transparent);
+  border-top-color: var(--accent-on);
+  animation: bk-spin 0.7s linear infinite;
+}
+@keyframes bk-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-chip, .bk-btn { transition: none !important; }
+  .bk-spinner { animation-duration: 1.4s; }
+}

@@ -44,9 +44,9 @@ export const HERO = {
   // headline rendered as kinetic lines (array = lines):
   headlineLines: ['DEJA DE IMPROVISAR', 'TU HYROX.'],
   sub: 'Tu plan semanal, ajustado a tu nivel, tu material y tu próxima carrera. Tú solo entrenas. Nosotros pensamos por ti.',
-  primaryCta: 'Empieza tu plan',
+  primaryCta: 'Quiero esto',
   secondaryCta: 'Cómo funciona',
-  trust: 'Desde 70€/mes · 30 días de garantía · Disponible en iOS',
+  trust: 'Plan 1:1 con tu entrenador · Disponible en iOS',
 } as const;
 
 export const PROMISE = {
@@ -175,70 +175,6 @@ export const COACH = {
   ],
 } as const;
 
-export const PRICING = {
-  label: 'PRECIOS',
-  heading: 'Un precio. Todo incluido. Cancela cuando quieras.',
-  plans: [
-    {
-      key: 'individual',
-      name: 'Individual',
-      price: '70€',
-      period: '/mes',
-      highlight: false,
-      badge: null,
-      tagline: 'Para el atleta que va en serio.',
-      features: [
-        'Plan 100% personalizado',
-        'Ajustes cada semana',
-        'Análisis de tus carreras',
-        'Habla con tu entrenador',
-        'Vídeos de ejecución',
-      ],
-      cta: 'Empieza',
-    },
-    {
-      key: 'dobles',
-      name: 'Dobles',
-      price: '115€',
-      period: '/mes',
-      highlight: true,
-      badge: 'EL MÁS ELEGIDO',
-      tagline: '57,50€ por persona. Entrenáis juntos sin perder personalización.',
-      features: [
-        'Dos planes 100% personalizados',
-        'Ahorro del 18% frente a dos individuales',
-        'Pensado para entrenar en pareja',
-        'Ajustes semanales para ambos',
-        'Todo lo del plan Individual',
-      ],
-      cta: 'Empezad juntos',
-    },
-    {
-      key: 'pro_elite',
-      name: 'Elite',
-      price: '95€',
-      period: '/mes',
-      highlight: false,
-      badge: null,
-      tagline: 'Para competir en categoría Pro.',
-      features: [
-        'Mayor volumen de entrenamiento',
-        'Análisis de splits avanzado',
-        'Planificación de toda la temporada',
-        'Prioridad en los ajustes de tu plan',
-        'Todo lo del plan Individual',
-      ],
-      cta: 'Empieza',
-    },
-  ],
-  guarantee: '30 días de garantía: si no mejoras, te devolvemos el dinero.',
-  boxNote: {
-    text: '¿Entrenas en uno de nuestros boxes? Tienes precio especial.',
-    cta: 'Habla con nosotros',
-  },
-  microcopy: 'Mínimo 1 mes. Sin permanencia. Cancela cuando quieras.',
-} as const;
-
 export const FAQ = {
   label: 'PREGUNTAS',
   heading: 'Resolvemos tus dudas.',
@@ -261,11 +197,11 @@ export const FAQ = {
     },
     {
       q: '¿Puedo entrenar con mi pareja o un amigo?',
-      a: 'Sí. La modalidad Dobles está pensada para dos, con un solo pago y sin perder personalización.',
+      a: 'Sí. La modalidad Dobles está pensada para dos, sin perder personalización.',
     },
     {
       q: '¿Puedo cancelar?',
-      a: 'Cuando quieras. Mantienes el acceso hasta el final del periodo que ya has pagado.',
+      a: 'Cuando quieras, sin permanencia. Los detalles los ves en tu llamada con Pablo.',
     },
   ],
 } as const;
@@ -273,8 +209,8 @@ export const FAQ = {
 export const FINAL = {
   headlineLines: ['TU PRÓXIMA CARRERA', 'YA TIENE ENTRENADOR.'],
   sub: 'Plan a medida, ajustado cada semana. Da el primer paso hoy.',
-  cta: 'Empieza tu plan',
-  trust: 'Desde 70€/mes · 30 días de garantía · Disponible en iOS',
+  cta: 'Quiero esto',
+  trust: 'Plan 1:1 con tu entrenador · Disponible en iOS',
 } as const;
 
 export const NAV = {
@@ -282,7 +218,6 @@ export const NAV = {
     { label: 'Cómo funciona', href: `#${SECTION_IDS.comoFunciona}` },
     { label: 'Tu entrenador', href: `#${SECTION_IDS.pablo}` },
     { label: 'Entrenamiento', href: `#${SECTION_IDS.metodologia}` },
-    { label: 'Precios', href: `#${SECTION_IDS.precios}` },
   ],
-  cta: 'Empieza tu plan',
+  cta: 'Quiero esto',
 } as const;

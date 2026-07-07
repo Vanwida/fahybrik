@@ -1,0 +1,671 @@
+/* ════════════════════════════════════════════════════════════════════
+   FAHYBRID — Onboarding (public lead funnel /{locale}/empieza).
+   Production styles ported 1:1 from the signed-off mockup
+   (docs/superpowers/plans/onboarding-web-mockup.html). Near-black + Fabrik
+   orange, Archivo heavy-italic display. Everything is scoped under `.ob-wrap`
+   and class-prefixed `ob-` so it can never leak into the rest of the app.
+
+   Brand tokens (--bg, --surface, --fg, --muted, --accent, --hairline,
+   --outline, --r-l, --r-pill, --font-display) come from globals.css. The few
+   tokens the mockup used that globals doesn't expose are DEFINED ONCE here,
+   derived from the brand where possible.
+   ════════════════════════════════════════════════════════════════════ */
+
+.ob-wrap {
+  /* Onboarding-scoped tokens (single source; derived from brand). */
+  --ob-surface-2: var(--surface-elevated);
+  --ob-muted-2: #767676; /* tertiary text — placeholders, hints */
+  --ob-accent-tint: color-mix(in srgb, var(--accent) 10%, transparent);
+  --ob-accent-tint-2: color-mix(in srgb, var(--accent) 16%, transparent);
+  --ob-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Desktop content-column width — the SINGLE measure every element on a screen
+     shares (title, options, inputs, CTA) so they line up on one left edge. */
+  --ob-col: 620px;
+
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.ob-wrap * {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Branded ambient (glow) behind the column, edge to edge. */
+.ob-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* One deliberate, STABLE composition (matches the landing hero): a single warm
+     glow rising from the lower-left + a vertical darkening. No second corner blob. */
+  background:
+    radial-gradient(120% 90% at 12% 100%, color-mix(in srgb, var(--accent) 20%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 82%, #000) 100%);
+}
+.ob-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  z-index: 0;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.ob-app {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  overflow: hidden;
+}
+/* Wider screens: NO floating card (a bordered rounded box reads as an embedded
+   phone app — rejected). The flow sits on the full branded canvas (glow + grain
+   fill the viewport, brand watermark in the surrounding space) as a generous,
+   centered form. Tablet widens the frame; desktop switches to display type, a
+   2-column option grid and vertically-centered content. See the tablet/desktop
+   block at the bottom of this file for the full composition. */
+@media (min-width: 768px) {
+  .ob-app {
+    width: min(760px, 94vw);
+    height: min(900px, 94vh);
+  }
+}
+@media (min-width: 1024px) {
+  .ob-app {
+    width: min(1080px, 92vw);
+    height: min(980px, 96vh);
+  }
+}
+
+/* Brand watermark — a giant faint FAHYBRID filling the canvas beside the centered
+   content (desktop only). Behind .ob-app (z-index 1); coherent with the landing's
+   low-opacity wordmark watermark. */
+.ob-watermark {
+  display: none;
+  position: absolute;
+  /* The compact FH glyph (same asset + treatment as the landing hero), anchored to the
+     RIGHT edge and vertically centred — the SAME fixed spot on every screen (it lives in
+     .ob-wrap, which never animates), clipped off the right. A masked PNG so it recolours
+     to --fg; low opacity so it reads as ambient brand, never competing with the content. */
+  right: -4%;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  height: clamp(15rem, 44vh, 32rem);
+  aspect-ratio: 1200 / 507;
+  background-color: var(--fg);
+  opacity: 0.05;
+  -webkit-mask-image: url("/brand/fh-mark.png");
+  mask-image: url("/brand/fh-mark.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+/* ── Topbar (persistent; only the stage animates) ───────────────────── */
+.ob-topbar {
+  position: relative;
+  z-index: 3;
+  padding: 0;
+  flex: none;
+}
+.ob-progress {
+  height: 3px;
+  width: 100%;
+  background: var(--hairline);
+}
+@media (min-width: 1024px) {
+  .ob-progress { height: 4px; }
+}
+.ob-progressbar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.45s var(--ob-ease);
+  border-radius: 0 3px 3px 0;
+}
+.ob-topbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 2px;
+}
+.ob-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ob-iconbtn:hover {
+  color: var(--fg);
+  background: var(--ob-surface-2);
+}
+.ob-iconbtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+.ob-iconbtn svg {
+  width: 20px;
+  height: 20px;
+}
+/* Keep the slot so the reset button stays right-aligned (mockup parity). */
+.ob-iconbtn.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+.ob-topbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 18px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ob-tick {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--accent);
+  flex: none;
+}
+
+/* ── Stage / screens ────────────────────────────────────────────────── */
+.ob-stage {
+  position: relative;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ob-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  will-change: transform, opacity;
+  animation-duration: 0.34s;
+  animation-timing-function: var(--ob-ease);
+  animation-fill-mode: both;
+}
+.ob-screen[data-phase="enter"][data-dir="fwd"] { animation-name: ob-enter-fwd; }
+.ob-screen[data-phase="enter"][data-dir="back"] { animation-name: ob-enter-back; }
+.ob-screen[data-phase="leave"][data-dir="fwd"] { animation-name: ob-leave-fwd; }
+.ob-screen[data-phase="leave"][data-dir="back"] { animation-name: ob-leave-back; }
+.ob-screen[data-phase="leave"] { pointer-events: none; }
+
+@keyframes ob-enter-fwd {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes ob-enter-back {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes ob-leave-fwd {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-30px); }
+}
+@keyframes ob-leave-back {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(30px); }
+}
+
+.ob-scroll {
+  overflow-y: auto;
+  padding: 14px 22px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.ob-scroll::-webkit-scrollbar { width: 0; }
+.ob-actions {
+  padding: 14px 22px calc(20px + env(safe-area-inset-bottom));
+}
+
+/* ── Typography blocks ──────────────────────────────────────────────── */
+.ob-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 800;
+  font-size: clamp(1.6rem, 7vw, 2rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  margin: 6px 0 0;
+  text-wrap: balance;
+}
+.ob-sub {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 34ch;
+}
+.ob-hint {
+  margin-top: 8px;
+  color: var(--ob-muted-2);
+  font-size: 13px;
+}
+
+/* ── Option cards ───────────────────────────────────────────────────── */
+.ob-opts {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ob-opt {
+  position: relative;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.12s ease;
+}
+.ob-opt:hover { border-color: color-mix(in srgb, var(--accent) 34%, var(--hairline)); }
+.ob-opt:active { transform: scale(0.99); }
+.ob-opt:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ob-accent-tint);
+}
+.ob-mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--outline);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.ob-opt--multi .ob-mark { border-radius: 6px; }
+.ob-mark svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  color: var(--accent-on);
+}
+.ob-label { flex: 1; }
+.ob-opt.is-selected {
+  border-color: var(--accent);
+  background: var(--ob-accent-tint);
+}
+.ob-opt.is-selected .ob-mark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ob-opt.is-selected .ob-mark svg {
+  opacity: 1;
+  transform: scale(1);
+}
+.ob-opts.is-locked .ob-opt { pointer-events: none; }
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+.ob-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 15px 22px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-on);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.16s ease, opacity 0.16s ease, transform 0.1s ease;
+}
+.ob-btn:hover { background: var(--accent-press); }
+.ob-btn:active { transform: scale(0.99); }
+.ob-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+.ob-btn[disabled] { opacity: 0.35; pointer-events: none; }
+.ob-btn svg { width: 18px; height: 18px; }
+.ob-btn--ghost {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+  padding: 12px 22px;
+}
+.ob-btn--ghost:hover { background: transparent; color: var(--fg); }
+.ob-btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ob-error {
+  margin: 0 0 10px;
+  color: var(--danger, #f23f3f);
+  font-size: 13px;
+  text-align: center;
+}
+/* Spinner for the async final submit. */
+.ob-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  border: 2px solid color-mix(in srgb, var(--accent-on) 40%, transparent);
+  border-top-color: var(--accent-on);
+  animation: ob-spin 0.7s linear infinite;
+}
+@keyframes ob-spin { to { transform: rotate(360deg); } }
+
+/* ── Inputs ─────────────────────────────────────────────────────────── */
+.ob-field-wrap { margin-top: 24px; }
+.ob-field {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1.3;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.ob-field::placeholder { color: var(--ob-muted-2); }
+.ob-field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ob-accent-tint);
+}
+textarea.ob-field {
+  min-height: 120px;
+  resize: none;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+.ob-field-label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ob-field-note {
+  margin-top: 10px;
+  color: var(--ob-muted-2);
+  font-size: 13px;
+}
+.ob-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.ob-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* checkbox (RGPD) */
+.ob-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+  cursor: pointer;
+  padding: 14px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+}
+.ob-check input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.ob-check-box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--outline);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.ob-check-box svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  color: var(--accent-on);
+  transition: opacity 0.16s;
+}
+.ob-check input:checked + .ob-check-box { background: var(--accent); border-color: var(--accent); }
+.ob-check input:checked + .ob-check-box svg { opacity: 1; }
+.ob-check input:focus-visible + .ob-check-box {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ob-accent-tint);
+  border-color: var(--accent);
+}
+.ob-check-txt {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.ob-check-txt a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Wordmark / intro / final ───────────────────────────────────────── */
+.ob-wordmark {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  user-select: none;
+}
+.ob-wordmark .ob-f { color: var(--accent); }
+.ob-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px 26px;
+  height: 100%;
+}
+.ob-lead {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  font-size: clamp(2rem, 10vw, 2.9rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+.ob-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--ob-accent-tint);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.ob-echo-email {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.ob-echo-email strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* Intro/final compositional spacing (mirrors the mockup's one-off nudges). */
+.ob-wordmark--intro {
+  font-size: clamp(2.6rem, 13vw, 3.6rem);
+  margin-bottom: 28px;
+}
+.ob-btn--intro { margin-top: 30px; }
+.ob-intro-sub { font-size: 16px; margin-top: 16px; max-width: 30ch; }
+.ob-final-lead { margin-top: 20px; }
+.ob-final-sub { font-size: 16px; margin-top: 16px; max-width: 32ch; }
+
+/* Composite / grouped-field screens. */
+.ob-group { margin-top: 22px; }
+.ob-group + .ob-group { margin-top: 26px; }
+.ob-group .ob-opts { margin-top: 10px; }
+.ob-fields { margin-top: 24px; }
+.ob-datos-group .ob-opts { margin-top: 6px; }
+
+/* Accessible-only helper. */
+.ob-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ══ Tablet / desktop composition ════════════════════════════════════════════
+   Mobile (<768) is unchanged. From 768 up the flow widens and gains air; from
+   1024 it becomes a real desktop layout: display-size question type, a 2-column
+   option grid (only when the question has 4+ options — pure CSS via :has()),
+   wider inputs, and content centered on the branded canvas. */
+@media (min-width: 768px) {
+  .ob-topbar-row { padding: 18px 32px 2px; }
+  .ob-topbar-label { padding: 4px 32px 12px; }
+  /* Single centred content column shared by the body and the actions row, so the
+     title, options, inputs and CTA all sit on the same left edge at the same width. */
+  .ob-scroll { max-width: calc(var(--ob-col) + 80px); margin-inline: auto; padding: 28px 40px 12px; }
+  .ob-actions { max-width: calc(var(--ob-col) + 80px); margin-inline: auto; padding: 16px 40px calc(36px + env(safe-area-inset-bottom)); }
+  .ob-title { font-size: clamp(1.9rem, 4vw, 2.4rem); }
+  .ob-opts { margin-top: 26px; gap: 12px; }
+  /* 2-column grid when a single-select has 4 or more options; equal-height cards. */
+  .ob-opts:has(.ob-opt:nth-child(4)) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+  /* Composite (carrera+cuándo) and datos (sexo, ubicación) multi-group screens: EVERY
+     group gets the same 2-col grid, so two groups on one screen never mismatch (a
+     5-option grid next to 3 full-width rows). */
+  .ob-group .ob-opts,
+  .ob-datos-group .ob-opts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+  .ob-center { padding: 44px 40px; }
+}
+
+@media (min-width: 1024px) {
+  .ob-topbar-row { padding: 24px 48px 4px; }
+  .ob-topbar-label { padding: 6px 48px 0; font-size: 12px; letter-spacing: 0.22em; }
+
+  /* TOP-ANCHORED (not mathematically centred — short screens sink when centred, leaving
+     a big gap between the header and the title). The question block sits in the upper
+     third in the SAME place on every screen, so header and content read connected. The
+     body + CTA share ONE centred column (max-width = --ob-col + padding) → title, options,
+     inputs and the CTA all line up on the same left edge and the CTA spans the column. */
+  .ob-screen { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+  .ob-scroll {
+    overflow-y: auto;
+    width: 100%;
+    max-width: calc(var(--ob-col) + 112px);
+    margin-inline: auto;
+    padding: clamp(52px, 12vh, 132px) 56px 4px;
+  }
+  .ob-actions {
+    width: 100%;
+    max-width: calc(var(--ob-col) + 112px);
+    margin-inline: auto;
+    padding: 24px 56px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .ob-title { font-size: clamp(2.2rem, 2.9vw, 3rem); line-height: 1.04; margin-top: 0; }
+  .ob-sub { font-size: 17px; max-width: 52ch; margin-top: 16px; }
+  .ob-opts { margin-top: 32px; gap: 14px; }
+  .ob-opt { padding: 17px 18px; font-size: 17px; }
+  .ob-field { font-size: 18px; padding: 16px 18px; }
+  .ob-btn { font-size: 17px; padding: 16px 24px; }
+
+  /* Intro / final are display bookends: vertically CENTRED (a hero moment, unlike the
+     top-anchored question screens) but sharing the SAME content column + left edge so the
+     whole flow lines up. */
+  .ob-screen:has(.ob-center) { justify-content: center; }
+  .ob-center { width: 100%; max-width: calc(var(--ob-col) + 112px); margin-inline: auto; padding: 8px 56px; }
+  .ob-lead { font-size: clamp(3rem, 5vw, 4.2rem); }
+  .ob-wordmark--intro { font-size: clamp(3.4rem, 6vw, 4.6rem); margin-bottom: 32px; }
+  .ob-intro-sub, .ob-final-sub { font-size: 18px; max-width: 40ch; }
+  .ob-echo-email { font-size: 16px; }
+
+  .ob-watermark { display: block; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-screen { animation: none !important; }
+  .ob-progressbar { transition: none !important; }
+  .ob-opt, .ob-btn, .ob-mark, .ob-field { transition: none !important; }
+  .ob-spinner { animation-duration: 1.4s; }
+}

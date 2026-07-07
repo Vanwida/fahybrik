@@ -15,7 +15,7 @@
 // SSR-safe: ogl is only ever touched inside useEffect, guarded for no-DOM. Reduced-motion
 // or no-WebGL → the RAF/shader never inits; the CSS fallback carries the look.
 
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { useEffect, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Renderer, Triangle, Program, Mesh, type OGLRenderingContext } from 'ogl';

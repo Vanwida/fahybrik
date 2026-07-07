@@ -20,13 +20,28 @@ import 'server-only';
 
 import { z } from 'zod';
 import { callLlmJsonWithImage, PabloIaLlmError } from '@/lib/dashboard/coach/ai/llm';
-import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
-import type {
-  AssignmentDetailResponse,
-  AssignmentDetailItem,
-} from '@/lib/athlete/assignment-detail';
+import type { AssignmentDetailResponse } from '@/lib/athlete/assignment-detail';
 import type { ExecutionMetricsInput } from '@/lib/sync/record-workout-execution';
+import {
+  CARDIO,
+  CAPTURE_APPS,
+  captureAppSchema,
+  buildPrescriptionContext,
+  buildUserPrompt,
+  SYSTEM_PROMPT,
+} from './workout-vision-context';
+import type {
+  CaptureApp,
+  PrescribedItemContext,
+  PrescribedMeasure,
+  PrescriptionContext,
+} from './workout-vision-context';
+
+// Re-export the "assignment → model inputs" public surface so callers (the
+// vision-result route + future consumers) keep importing it from this module.
+export { CAPTURE_APPS, captureAppSchema, buildPrescriptionContext };
+export type { CaptureApp, PrescribedItemContext, PrescribedMeasure, PrescriptionContext };
 
 // ── Config (env-gated, never hardcoded) ──────────────────────────────────────
 export function getWorkoutVisionModel(): string | null {
@@ -38,21 +53,6 @@ export function isWorkoutVisionConfigured(): boolean {
 }
 
 export { PabloIaLlmError as WorkoutVisionError };
-
-// ── The app the screenshot came from (athlete picks it; drives the prompt hint
-// and the honest provenance stamp). Kept as an open-ish set matched to the spec. ─
-export const CAPTURE_APPS = ['concept2', 'garmin', 'coros', 'strava', 'apple', 'other'] as const;
-export type CaptureApp = (typeof CAPTURE_APPS)[number];
-export const captureAppSchema = z.enum(CAPTURE_APPS);
-
-const APP_LABEL: Record<CaptureApp, string> = {
-  concept2: 'Concept2 PM5',
-  garmin: 'Garmin',
-  coros: 'Coros',
-  strava: 'Strava',
-  apple: 'Apple Fitness / Apple Watch',
-  other: 'otra app de entreno',
-};
 
 // Map the capture app to the canonical `biometric_source` enum the execution
 // model stores. Only true DEVICES map to themselves; everything else is honestly
@@ -90,123 +90,48 @@ function paceUnitForModality(m: Modality): 'per_km' | 'per_500m' {
 // fabricated number. `uncertain` lets the model self-flag fields it isn't sure
 // about even when it guessed a value; we downgrade those to 'review' too.
 const num = z.coerce.number().finite().nonnegative().nullable().default(null);
+const hr = z.coerce.number().finite().min(0).max(260).nullable().default(null);
 const splitSchema = z.object({
   index: z.coerce.number().int().positive().nullable().default(null),
+  // The prescribed item this split maps to ("segment-{id}"), echoed from the
+  // structured prescription we pass in. Null when it maps to no prescribed item.
+  item_uid: z.string().max(60).nullable().default(null),
   time_s: num,
   distance_m: num,
   pace_s: num,
   spm: num,
-  avg_hr: z.coerce.number().finite().min(0).max(260).nullable().default(null),
+  avg_hr: hr,
   power_w: num,
   calories: num,
+});
+// One time-in-zone row (Garmin/Coros/Polar zone table), e.g. "Umbral 17% 11:35".
+const zoneRowSchema = z.object({
+  label: z.string().max(80).nullable().default(null),
+  seconds: num,
+  pct: z.coerce.number().finite().min(0).max(100).nullable().default(null),
 });
 const visionRawSchema = z.object({
   total_time_s: num,
   distance_m: num,
   avg_pace_s: num,
+  // Best/fastest split pace read from a "mejor" tile (same unit as avg pace).
+  best_pace_s: num,
   pace_unit: z.enum(['per_km', 'per_500m', 'per_mile']).nullable().default(null),
-  avg_hr: z.coerce.number().finite().min(0).max(260).nullable().default(null),
-  max_hr: z.coerce.number().finite().min(0).max(260).nullable().default(null),
+  avg_hr: hr,
+  max_hr: hr,
   calories: num,
   avg_spm: num,
   avg_power_w: num,
+  // Training load (Garmin "Carga", etc.) — a unitless device score.
+  training_load: num,
   splits: z.array(splitSchema).max(100).default([]),
+  // Time-in-zone table rows when the screenshot shows one.
+  zones: z.array(zoneRowSchema).max(12).default([]),
   uncertain: z.array(z.string().max(60)).max(40).default([]),
   notes: z.string().max(1000).nullable().default(null),
 });
 type VisionRaw = z.infer<typeof visionRawSchema>;
-
-// ── Prescription context — what the workout ASKED for (drives the prompt) ─────
-export interface PrescriptionContext {
-  primary_modality: Modality;
-  format: string;
-  summary: string;
-  bouts_expected: number | null;
-  items: { modality: Modality | null; text: string; template_segment_id: number }[];
-}
-
-const CARDIO: Modality[] = ['run', 'row', 'ski', 'bike'];
-
-function itemModality(item: AssignmentDetailItem): Modality | null {
-  return item.prescription_json?.modality ?? null;
-}
-
-function itemText(item: AssignmentDetailItem): string {
-  if (item.prescription_json) {
-    const t = prescriptionToText(item.prescription_json).trim();
-    if (t) return `${item.exercise_name}: ${t}`;
-  }
-  return item.exercise_name;
-}
-
-/** Distil the assignment's prescription into the context the prompt needs. */
-export function buildPrescriptionContext(detail: AssignmentDetailResponse): PrescriptionContext {
-  const items = (detail.workout?.blocks ?? []).flatMap((b) => b.items);
-  const ctxItems = items.map((it) => ({
-    modality: itemModality(it),
-    text: itemText(it),
-    template_segment_id: it.template_segment_id,
-  }));
-
-  // Screenshots are cardio-app summaries → prefer a cardio modality as primary.
-  const cardioItem = items.find((it) => {
-    const m = itemModality(it);
-    return m != null && CARDIO.includes(m);
-  });
-  const primaryItem = cardioItem ?? items[0];
-  const primary_modality = (primaryItem ? itemModality(primaryItem) : null) ?? 'other';
-
-  // Best-effort prescribed bout count for the primary line (sets, else rounds).
-  let bouts_expected: number | null = null;
-  const p = primaryItem?.prescription_json;
-  if (p) bouts_expected = p.sets?.length ?? p.rounds ?? null;
-
-  const format = detail.workout?.blocks?.[0]?.format ?? primaryItem?.prescription_json?.scheme ?? '';
-  const summary = ctxItems.map((i) => `- ${i.text}`).join('\n');
-
-  return { primary_modality, format, summary, bouts_expected, items: ctxItems };
-}
-
-// ── Prompt ────────────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = [
-  'Eres un asistente que LEE la captura de pantalla del resumen de un entreno hecho en',
-  'otra app (Concept2 PM5, Garmin, Coros, Strava o Apple) y extrae EXCLUSIVAMENTE los',
-  'números que aparecen visiblemente en la imagen.',
-  '',
-  'REGLAS DE HONESTIDAD (críticas):',
-  '- NO inventes ningún valor. Si un dato no está claramente legible en la imagen,',
-  '  devuélvelo como null y añade su nombre al array "uncertain". Nunca lo estimes.',
-  '- No calcules ni deduzcas valores que no se ven (p.ej. no inventes RPE: las apps',
-  '  no lo muestran).',
-  '- Los tiempos van en SEGUNDOS totales (9:41.2 = 581 s). Los ritmos en segundos por',
-  '  unidad (1:54/500m = 114). Distancias en metros. FC en ppm. Calorías en kcal.',
-  '- Devuelve los splits/series en el orden que aparecen, con su índice.',
-  '',
-  'Responde SOLO con JSON con esta forma exacta (cualquier dato ausente = null):',
-  '{"total_time_s":number|null,"distance_m":number|null,"avg_pace_s":number|null,',
-  '"pace_unit":"per_km"|"per_500m"|"per_mile"|null,"avg_hr":number|null,"max_hr":number|null,',
-  '"calories":number|null,"avg_spm":number|null,"avg_power_w":number|null,',
-  '"splits":[{"index":number,"time_s":number|null,"distance_m":number|null,"pace_s":number|null,',
-  '"spm":number|null,"avg_hr":number|null,"power_w":number|null,"calories":number|null}],',
-  '"uncertain":[string],"notes":string|null}',
-].join('\n');
-
-function buildUserPrompt(ctx: PrescriptionContext, app: CaptureApp | null): string {
-  const native = ctx.primary_modality === 'run' ? '/km' : '/500m';
-  return [
-    app ? `La captura es de: ${APP_LABEL[app]}.` : 'La captura es de una app de entreno.',
-    '',
-    'El entreno PRESCRITO pedía:',
-    ctx.summary || `- (modalidad ${ctx.primary_modality})`,
-    '',
-    `Modalidad principal a medir: ${ctx.primary_modality} (ritmo nativo ${native}).`,
-    ctx.bouts_expected
-      ? `Se esperaban ~${ctx.bouts_expected} series/bloques: busca sus splits.`
-      : 'Busca el tiempo total, la distancia, el ritmo medio y los splits si los hay.',
-    '',
-    'Extrae SOLO lo que veas en la imagen y devuélvelo en el JSON indicado.',
-  ].join('\n');
-}
+export type VisionZoneRow = z.infer<typeof zoneRowSchema>;
 
 // ── Mapping: LLM raw JSON → honesty-wrapped fields + a ready-to-confirm proposal ─
 export interface DetectedMetrics {
@@ -225,6 +150,10 @@ export interface DetectedMetrics {
 export interface DetectedSegment {
   position: number;
   modality: Modality;
+  // The prescribed template_segments.id this segment maps to (resolved from the
+  // model's item_uid, else the sole cardio item for a single-run workout). Null
+  // when it maps to no prescribed item → surfaced as an unmatched lap.
+  template_segment_id: number | null;
   fields: {
     duration_seconds: Field<number>;
     distance_meters: Field<number>;
@@ -240,10 +169,19 @@ export interface WorkoutVisionProposal {
   metrics: DetectedMetrics;
   segments: DetectedSegment[];
   notes: string | null;
-  // The SAME shape recordWorkoutExecution consumes — only DETECTED values are
-  // filled (review/null fields are omitted). The confirm step POSTs this (plus
-  // assignment_id + any athlete edits) to /api/sync/workout-execution.
+  // The SAME shape recordWorkoutExecution consumes — only DETECTED (or
+  // deterministically DERIVED) values are filled (review/null fields are omitted).
+  // The confirm step POSTs this (plus assignment_id + any athlete edits) to
+  // /api/sync/workout-execution.
   proposed_execution: ExecutionMetricsInput;
+  // Interim device extras not yet promoted to first-class stored/analytics
+  // fields. Surfaced so nothing the model read is silently dropped, and folded
+  // into the notes on the confirm payload.
+  // TODO(next layer): promote training_load + time-in-zone to first-class
+  // stored + analytics fields (own columns + running-section cards).
+  training_load: number | null;
+  best_pace_s: number | null;
+  zones: VisionZoneRow[];
   model: string;
 }
 
@@ -261,6 +199,32 @@ function field<T extends number>(
     : { value: null, confidence: 'review', source };
 }
 
+// A duration-only "segment" shorter than this is device noise (the "00:03" ghost
+// some apps emit at the transition between laps), never real work → dropped.
+const MIN_REAL_DURATION_S = 20;
+
+function round(n: number | null): number | null {
+  return n == null ? null : Math.round(n);
+}
+
+// seconds → m:ss (for the interim "Mejor 4:19/km" note).
+function clock(seconds: number): string {
+  const s = Math.round(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Distance = time ÷ pace, deterministically (never by the LLM). Only when both
+// are present and positive; unit picks the multiplier (per_km → 1000, /500m → 500).
+function deriveDistanceMeters(
+  timeS: number | null,
+  paceS: number | null,
+  unit: 'per_km' | 'per_500m',
+): number | null {
+  if (timeS == null || paceS == null || timeS <= 0 || paceS <= 0) return null;
+  const unitMeters = unit === 'per_km' ? 1000 : 500;
+  return Math.round((timeS / paceS) * unitMeters);
+}
+
 export function mapVisionToProposal(args: {
   raw: VisionRaw;
   ctx: PrescriptionContext;
@@ -273,9 +237,26 @@ export function mapVisionToProposal(args: {
   const modality = ctx.primary_modality;
   const nativeUnit = paceUnitForModality(modality === 'other' ? 'run' : modality);
 
+  // uid → prescribed template_segment_id. The SOLE cardio item's id is the
+  // default linkage for an aggregate / untagged split (single-run workouts) so
+  // the confirmed result attaches to its prescription instead of orphaning.
+  const uidToSegId = new Map<string, number>();
+  for (const it of ctx.items) uidToSegId.set(it.uid.trim().toLowerCase(), it.template_segment_id);
+  const cardioItems = ctx.items.filter((i) => i.modality != null && CARDIO.includes(i.modality));
+  const soleCardioSegId = cardioItems.length === 1 ? cardioItems[0]!.template_segment_id : null;
+  const resolveSegId = (itemUid: string | null): number | null => {
+    if (itemUid) {
+      const hit = uidToSegId.get(itemUid.trim().toLowerCase());
+      if (hit != null) return hit;
+    }
+    return soleCardioSegId;
+  };
+
   // If the model reported a pace in a unit that contradicts the modality's native
   // unit, we can't trust the placement → force that pace to 'review'.
   const paceUnitMismatch = raw.pace_unit != null && raw.pace_unit !== nativeUnit;
+
+  let distanceDerived = false;
 
   const metrics: DetectedMetrics = {
     total_duration_seconds: field(
@@ -298,17 +279,39 @@ export function mapVisionToProposal(args: {
     perceived_exertion: { value: null, confidence: 'review', source: 'athlete' },
   };
 
+  // DERIVE the aggregate distance when it wasn't legible but time + pace were, so
+  // analytics (which gate a run on distance_meters>0) still count it. Honest, not
+  // fabricated: it's flagged 'derived' + surfaced amber for the athlete to confirm.
+  if (metrics.distance_meters.value == null) {
+    const d = deriveDistanceMeters(metrics.total_duration_seconds.value, metrics.avg_pace_s.value, nativeUnit);
+    if (d != null) {
+      metrics.distance_meters = { value: d, confidence: 'review', source: 'derived' };
+      distanceDerived = true;
+    }
+  }
+
   const segments: DetectedSegment[] = raw.splits.map((s, i) => {
     const position = (s.index != null ? s.index : i + 1) - 1;
+    const durationField = field(s.time_s != null ? Math.round(s.time_s) : null, 'time_s', uncertain, src);
+    const paceField = paceUnitMismatch
+      ? { value: null, confidence: 'review' as const, source: src }
+      : field(s.pace_s, 'pace_s', uncertain, src);
+    let distanceField = field(s.distance_m, 'distance_m', uncertain, src);
+    if (distanceField.value == null) {
+      const d = deriveDistanceMeters(durationField.value, paceField.value, nativeUnit);
+      if (d != null) {
+        distanceField = { value: d, confidence: 'review', source: 'derived' };
+        distanceDerived = true;
+      }
+    }
     return {
       position: position >= 0 ? position : i,
       modality: modality === 'other' ? 'other' : modality,
+      template_segment_id: resolveSegId(s.item_uid),
       fields: {
-        duration_seconds: field(s.time_s != null ? Math.round(s.time_s) : null, 'time_s', uncertain, src),
-        distance_meters: field(s.distance_m, 'distance_m', uncertain, src),
-        avg_pace_s: paceUnitMismatch
-          ? { value: null, confidence: 'review', source: src }
-          : field(s.pace_s, 'pace_s', uncertain, src),
+        duration_seconds: durationField,
+        distance_meters: distanceField,
+        avg_pace_s: paceField,
         avg_hr: field(round(s.avg_hr), 'avg_hr', uncertain, src),
         avg_power_w: field(s.power_w, 'power_w', uncertain, src),
         stroke_rate_spm: field(s.spm, 'spm', uncertain, src),
@@ -317,18 +320,65 @@ export function mapVisionToProposal(args: {
     };
   });
 
-  const proposed_execution = buildProposedExecution({ metrics, segments, modality, nativeUnit, app, notes: raw.notes });
+  // Interim device extras (best pace, training load) + the derived-distance flag
+  // ride along in the notes so nothing read is dropped and the estimate is honest.
+  const noteParts: string[] = [];
+  if (raw.notes) noteParts.push(raw.notes);
+  if (raw.training_load != null) noteParts.push(`Carga ${Math.round(raw.training_load)}`);
+  if (raw.best_pace_s != null) {
+    noteParts.push(`Mejor ${clock(raw.best_pace_s)}${nativeUnit === 'per_km' ? '/km' : '/500m'}`);
+  }
+  if (distanceDerived) noteParts.push('distancia estimada (tiempo×ritmo)');
+  const notes = noteParts.length ? noteParts.join(' · ') : null;
 
-  return { prescription: ctx, metrics, segments, notes: raw.notes, proposed_execution, model };
+  const zones = raw.zones.filter((z) => z.label != null || z.seconds != null);
+
+  const proposed_execution = buildProposedExecution({
+    metrics,
+    segments,
+    modality,
+    nativeUnit,
+    app,
+    notes,
+    zones,
+    aggregateSegId: soleCardioSegId,
+  });
+
+  return {
+    prescription: ctx,
+    metrics,
+    segments,
+    notes,
+    proposed_execution,
+    training_load: raw.training_load,
+    best_pace_s: raw.best_pace_s != null ? Math.round(raw.best_pace_s) : null,
+    zones,
+    model,
+  };
 }
 
-function round(n: number | null): number | null {
-  return n == null ? null : Math.round(n);
+// Attach the whole effort's time-in-zone rows to a segment's raw_lap_data_json
+// under the `zone_seconds` key (the shape ingestExecutionSegments already stores).
+function attachZones(seg: Record<string, unknown>, zones: VisionZoneRow[]): void {
+  if (zones.length > 0) seg.zone_seconds_json = zones;
 }
 
-// Assemble the ExecutionMetricsInput from ONLY the detected fields. Omitted keys
+// A segment carries real work iff it has distance, reps, or a non-trivial
+// duration. Drops the stray sub-20s duration-only ghost.
+function isRealSegment(seg: Record<string, unknown>): boolean {
+  const dist = seg.distance_meters as number | undefined;
+  const reps = seg.reps_completed as number | undefined;
+  const dur = seg.duration_seconds as number | undefined;
+  if (dist != null && dist > 0) return true;
+  if (reps != null && reps > 0) return true;
+  if (dur != null && dur >= MIN_REAL_DURATION_S) return true;
+  return false;
+}
+
+// Assemble the ExecutionMetricsInput from the mapped fields. Omitted keys
 // (review/null) stay undefined so the confirm step / Zod treat them as "not set",
-// never as a fabricated 0. Pace lands in the modality-native column.
+// never a fabricated 0. Pace lands in the modality-native column; the prescribed
+// linkage rides along as template_segment_id; time-in-zone rows are preserved.
 function buildProposedExecution(args: {
   metrics: DetectedMetrics;
   segments: DetectedSegment[];
@@ -336,15 +386,17 @@ function buildProposedExecution(args: {
   nativeUnit: 'per_km' | 'per_500m';
   app: CaptureApp | null;
   notes: string | null;
+  zones: VisionZoneRow[];
+  aggregateSegId: number | null;
 }): ExecutionMetricsInput {
-  const { metrics, segments, modality, nativeUnit, app, notes } = args;
+  const { metrics, segments, modality, nativeUnit, app, notes, zones, aggregateSegId } = args;
   // The sync layer (normalizeModality) maps any non-canonical modality (functional/
   // core/mobility/other) to 'other'; we pass the prescription modality verbatim.
   const segModality = modality;
 
   const exec: ExecutionMetricsInput = {
     source: appToBiometricSource(app),
-    // Detected only; a missing total stays undefined (never 0).
+    // Detected/derived only; a missing total stays undefined (never 0).
     ...(metrics.total_duration_seconds.value != null
       ? { total_duration_seconds: metrics.total_duration_seconds.value }
       : {}),
@@ -357,6 +409,7 @@ function buildProposedExecution(args: {
     .map((s) => {
       const f = s.fields;
       const seg: Record<string, unknown> = { position: s.position, modality: segModality };
+      if (s.template_segment_id != null) seg.template_segment_id = s.template_segment_id;
       if (f.duration_seconds.value != null) seg.duration_seconds = f.duration_seconds.value;
       if (f.distance_meters.value != null) seg.distance_meters = f.distance_meters.value;
       if (f.avg_pace_s.value != null) seg[paceKey] = f.avg_pace_s.value;
@@ -366,15 +419,19 @@ function buildProposedExecution(args: {
       if (f.calories.value != null) seg.calories = f.calories.value;
       return seg;
     })
-    // Drop segments that carry no measured value at all (pure noise).
-    .filter((seg) => Object.keys(seg).length > 2);
+    // KILL GARBAGE: keep only segments with real measured work (drops the ghost).
+    .filter(isRealSegment);
 
   if (segs.length > 0) {
+    // Zones belong to the whole effort → stash them on the first segment.
+    attachZones(segs[0]!, zones);
     exec.segments = segs as ExecutionMetricsInput['segments'];
   } else {
-    // No per-split detail but we have an aggregate → represent it as ONE segment
-    // so the measured work isn't lost on the confirm path.
+    // No usable per-split detail but we have an aggregate (chart-only path) →
+    // represent it as ONE segment so the measured work isn't lost.
     const agg: Record<string, unknown> = { position: 0, modality: segModality };
+    if (aggregateSegId != null) agg.template_segment_id = aggregateSegId;
+    if (metrics.total_duration_seconds.value != null) agg.duration_seconds = metrics.total_duration_seconds.value;
     if (metrics.distance_meters.value != null) agg.distance_meters = metrics.distance_meters.value;
     if (metrics.avg_pace_s.value != null) agg[paceKey] = metrics.avg_pace_s.value;
     if (metrics.avg_hr.value != null) agg.avg_hr = metrics.avg_hr.value;
@@ -382,7 +439,8 @@ function buildProposedExecution(args: {
     if (metrics.calories.value != null) agg.calories = metrics.calories.value;
     if (metrics.avg_power_w.value != null) agg.avg_power_w = metrics.avg_power_w.value;
     if (metrics.stroke_rate_spm.value != null) agg.stroke_rate_spm = metrics.stroke_rate_spm.value;
-    if (Object.keys(agg).length > 2) {
+    attachZones(agg, zones);
+    if (isRealSegment(agg)) {
       exec.segments = [agg] as ExecutionMetricsInput['segments'];
     }
   }

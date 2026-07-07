@@ -17,7 +17,7 @@
 // body scroll is locked, and aria-expanded reflects state.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV } from '@/lib/landing/content';

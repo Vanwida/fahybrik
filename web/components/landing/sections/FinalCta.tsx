@@ -17,7 +17,7 @@
 // ambient glow, the CTA fill and the focus ring — never as data. The glow + grain
 // sit behind content with aria-hidden and pointer-events-none.
 
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { ArrowRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';

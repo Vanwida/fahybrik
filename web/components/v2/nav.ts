@@ -18,8 +18,8 @@ export interface V2NavItem {
   icon: string;
   /** Which sidebar group this item belongs to. */
   group: V2NavGroup;
-  /** Optional badge source key. */
-  badge?: 'mensajes';
+  /** Optional badge source key (Mensajes → unread count, Leads → new-leads count). */
+  badge?: 'mensajes' | 'leads';
 }
 
 /** Human label for each group header (small uppercase in the rail). */
@@ -36,6 +36,7 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   // Operar — the daily loop.
   { href: '/hoy', label: 'Hoy', icon: 'today', group: 'operar' },
   { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'operar' },
+  { href: '/leads', label: 'Leads', icon: 'person_add', group: 'operar', badge: 'leads' },
   { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'operar', badge: 'mensajes' },
   // Construir el método — the framework first, then the reusable library.
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'construir' },

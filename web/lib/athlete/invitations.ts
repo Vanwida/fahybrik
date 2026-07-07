@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { sql, type Sql } from '@/lib/db';
+import { sql, type Sql, type TransactionClient } from '@/lib/db';
 
 /**
  * Athlete account-claim invitations (coach → athlete).
@@ -35,6 +35,8 @@ export interface AthleteInvitationRow {
   expires_at: Date;
   redeemed_at: Date | null;
   created_at: Date;
+  /** Originating lead (funnel #5 alta), or null for a direct coach add. */
+  lead_id: bigint | null;
 }
 
 interface RawInvitationRow {
@@ -46,6 +48,7 @@ interface RawInvitationRow {
   expires_at: Date;
   redeemed_at: Date | null;
   created_at: Date;
+  lead_id: string | null;
 }
 
 // The secret (token) is intentionally NOT selectable — it lives only as the
@@ -58,7 +61,8 @@ const INVITATION_COLUMNS = `
   status,
   expires_at,
   redeemed_at,
-  created_at
+  created_at,
+  lead_id::text as lead_id
 `;
 
 function rowToInvitation(r: RawInvitationRow): AthleteInvitationRow {
@@ -71,6 +75,7 @@ function rowToInvitation(r: RawInvitationRow): AthleteInvitationRow {
     expires_at: r.expires_at,
     redeemed_at: r.redeemed_at,
     created_at: r.created_at,
+    lead_id: r.lead_id ? BigInt(r.lead_id) : null,
   };
 }
 
@@ -79,10 +84,36 @@ function defaultGenerateToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
+/**
+ * Read-only lookup by plaintext token — mirrors
+ * lib/partner/invitations.ts#getInvitationByToken. Re-hashes the candidate and
+ * matches on token_sha256. Returns the row (status + expires_at) or null.
+ *
+ * Used by the public /invite/[token] landing page to derive its state without
+ * mutating anything (no claim, no Apple identity — redeem happens later in-app).
+ * The secret token is never echoed back.
+ */
+export async function getAthleteInvitationByToken(
+  token: string,
+  client: Sql = sql,
+): Promise<AthleteInvitationRow | null> {
+  const rows = await client<RawInvitationRow[]>`
+    select ${client.unsafe(INVITATION_COLUMNS)}
+    from athlete_invitations
+    where token_sha256 = ${hashToken(token)}
+    limit 1
+  `;
+  const row = rows[0];
+  return row ? rowToInvitation(row) : null;
+}
+
 export interface CreateAthleteInvitationInput {
   athlete_id: bigint;
   coach_id: bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
+  /** Originating lead (funnel #5 alta) — stamped on the invite so redeem can
+   *  convert that lead. Null/omitted for a plain coach add. */
+  lead_id?: bigint | null;
   /** Injectable token generator (tests). */
   generateToken?: () => string;
   /** Injectable clock (tests). */
@@ -120,11 +151,12 @@ export async function createAthleteInvitation(
   | { ok: true; result: CreateAthleteInvitationResult }
   | { ok: false; error: CreateAthleteInvitationError }
 > {
-  const client = input.client ?? sql;
   const generateToken = input.generateToken ?? defaultGenerateToken;
   const nowMs = (input.now ?? Date.now)();
 
-  return await client.begin(async (tx) => {
+  // Run on the caller's transaction when passed (keeps the lead alta atomic), else
+  // open our own. `tx` is a transaction client either way — no nested begin.
+  const run = async (tx: Sql | TransactionClient) => {
     // Ownership + claimability check, locking the athlete's row so a concurrent
     // create can't race past the same checks.
     const athleteRows = await tx<
@@ -172,14 +204,15 @@ export async function createAthleteInvitation(
     const expiresAt = new Date(nowMs + INVITATION_TTL_MS);
     const inserted = await tx<RawInvitationRow[]>`
       insert into athlete_invitations
-        (athlete_id, target_user_id, created_by_coach_id, token_sha256, status, expires_at)
+        (athlete_id, target_user_id, created_by_coach_id, token_sha256, status, expires_at, lead_id)
       values (
         ${input.athlete_id},
         ${BigInt(athlete.user_id)},
         ${input.coach_id},
         ${hashToken(token)},
         'pending',
-        ${expiresAt}
+        ${expiresAt},
+        ${input.lead_id ?? null}
       )
       returning ${tx.unsafe(INVITATION_COLUMNS)}
     `;
@@ -191,7 +224,9 @@ export async function createAthleteInvitation(
       ok: true,
       result: { invitation: rowToInvitation(row), token, expires_at: expiresAt },
     } as const;
-  });
+  };
+
+  return input.client ? run(input.client) : sql.begin(run);
 }
 
 export interface RedeemAthleteInvitationInput {
@@ -354,6 +389,19 @@ export async function redeemAthleteInvitation(
       await tx`
         insert into subscriptions (user_id, plan_type, status, source, current_period_end)
         values (${invitation.target_user_id}, 'individual', 'active', 'comp', null)
+      `;
+    }
+
+    // Funnel #5: if this invite came from a lead alta, close the loop — the lead
+    // becomes `convertido` (a SYSTEM transition, forward-only, unreachable by hand)
+    // and now points at the athlete it produced. Guarded so a re-redeem is a no-op.
+    if (invitation.lead_id != null) {
+      await tx`
+        update leads
+        set status = 'convertido'::lead_status,
+            converted_athlete_id = ${invitation.athlete_id},
+            updated_at = now()
+        where id = ${invitation.lead_id} and status <> 'convertido'
       `;
     }
 

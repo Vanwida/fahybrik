@@ -14,6 +14,7 @@ import { CarrerasTab } from './CarrerasTab';
 import { HistoricoTab } from './HistoricoTab';
 import { BiometriaTab } from './BiometriaTab';
 import { MensajesTab } from './MensajesTab';
+import { SessionReportsBlock } from '@/components/v2/sessions/SessionReportsBlock';
 import { selectPerfilTab, type V2AthleteDetalle, type AtletaTab } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 export function AthleteDetalle({
@@ -53,7 +54,17 @@ export function AthleteDetalle({
             plan={detalle.plan}
             strengthMaxes={detalle.strength_maxes}
             benchmarks={detalle.benchmarks}
+            jointSessions={detalle.joint_sessions}
+            athleteName={header.full_name}
           />
+        ) : tab === 'sesiones' ? (
+          <div className="mx-auto w-full max-w-[880px]">
+            <SessionReportsBlock
+              subject={{ athlete_id: header.athlete_id }}
+              sessions={detalle.sessions}
+              isLead={false}
+            />
+          </div>
         ) : tab === 'biometria' ? (
           <BiometriaTab body={detalle.body} />
         ) : (
