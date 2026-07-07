@@ -15,6 +15,7 @@
 
 import type { Sql } from '@/lib/db';
 import { markAssignmentDoneFromDevice } from './assignment-status';
+import { existsOverlappingExecution } from './execution-time-dedupe';
 import { canonicalizeHealthkitMetric } from './metric-map';
 import type { HKBiometricSampleDTO, HKSyncBatch, HKWorkoutDTO } from './schema';
 
@@ -159,9 +160,34 @@ async function linkExecution(args: {
   const { sql, athlete_id, workout } = args;
   const startedAt = workout.started_at;
   const endedAt = workout.ended_at;
+
+  // Double-transport guard (source_workout_ref). A watchOS session reaches the
+  // backend TWICE: (1) the structured execution relayed watch→iPhone→
+  // /api/sync/workout-execution (carries source_workout_ref = the HKWorkout
+  // UUID), and (2) the raw HKWorkout imported here later. If path 1 already
+  // recorded THIS exact workout, skip the link/flip entirely. Biometric streams,
+  // ingested above, are not duplicated by path 1, so they stay.
+  const alreadyRecorded = await sql<{ id: string }[]>`
+    select id::text from workout_executions
+    where athlete_id = ${athlete_id as unknown as number}
+      and source_workout_ref = ${workout.source_workout_id}
+    limit 1
+  `;
+  if (alreadyRecorded.length > 0) return false;
+
+  // TIME-WINDOW DE-DUPE (core data-integrity guard, shared helper). Complements
+  // the exact-UUID guard above, but keyed on TIME overlap: if the
+  // athlete already has ANY execution whose window intersects this workout's
+  // [started_at, ended_at], the session is already accounted for. Skip the link
+  // AND the assignment-complete flip so a passive wearable import never files a
+  // phantom second execution (or flips a second assignment) for a session a
+  // manual/phone log — or an earlier sync — already recorded.
+  if (await existsOverlappingExecution(sql, athlete_id, startedAt, endedAt)) return false;
+
   // Find the most recent assignment scheduled for the workout's local day
   // (we accept the workout's date directly; timezone normalization happens
-  // upstream).
+  // upstream). Tiebreak on id desc so the pick is deterministic on days with
+  // ≥2 assignments (stable + testable), not order-of-insertion dependent.
   const day = startedAt.slice(0, 10);
   const rows = await sql<{ id: string; existing_source: string | null }[]>`
     select wa.id::text as id,
@@ -170,7 +196,7 @@ async function linkExecution(args: {
     left join workout_executions we on we.assignment_id = wa.id
     where wa.athlete_id = ${athlete_id as unknown as number}
       and wa.scheduled_for = ${day}::date
-    order by wa.scheduled_for desc
+    order by wa.scheduled_for desc, wa.id desc
     limit 1
   `;
   const assign = rows[0];
@@ -195,23 +221,23 @@ async function linkExecution(args: {
     )
     on conflict (assignment_id) do update
       set started_at = case
-            when workout_executions.source = 'garmin' then workout_executions.started_at
+            when workout_executions.source in ('garmin', 'manual') then workout_executions.started_at
             else excluded.started_at
           end,
           ended_at = case
-            when workout_executions.source = 'garmin' then workout_executions.ended_at
+            when workout_executions.source in ('garmin', 'manual') then workout_executions.ended_at
             else excluded.ended_at
           end,
           total_duration_seconds = case
-            when workout_executions.source = 'garmin' then workout_executions.total_duration_seconds
+            when workout_executions.source in ('garmin', 'manual') then workout_executions.total_duration_seconds
             else excluded.total_duration_seconds
           end,
           source = case
-            when workout_executions.source = 'garmin' then workout_executions.source
+            when workout_executions.source in ('garmin', 'manual') then workout_executions.source
             else excluded.source
           end,
           source_workout_ref = case
-            when workout_executions.source = 'garmin' then workout_executions.source_workout_ref
+            when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
             else excluded.source_workout_ref
           end,
           updated_at = now()

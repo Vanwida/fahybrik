@@ -19,6 +19,7 @@
 
 import type { Sql } from '@/lib/db';
 import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
+import { existsOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { deriveLapIntensity, garminActivityToModality } from '@/lib/garmin/lap-mapping';
 
 export type GarminSummary = {
@@ -249,7 +250,20 @@ async function ingestGarminActivity(args: {
     externalId, raw: rawBody, source_workout_id: externalId,
   });
 
+  // TIME-WINDOW DE-DUPE (core data-integrity guard, shared helper — mirrors
+  // HealthKit). If the athlete already has ANY execution whose window intersects
+  // this activity's [started_at, ended_at], the session is already accounted for
+  // (a manual/phone log, or an earlier HK/Garmin sync). Skip the execution link
+  // AND the assignment-complete flip so a passive Garmin import never files a
+  // phantom second execution (or flips a second same-day assignment). The hr
+  // stream above still ingests (deduped independently by external_id).
+  if (await existsOverlappingExecution(sql, athlete_id, startedAt, endedAt)) {
+    return { executionInserted: false, lapsInserted: 0, streamsInserted };
+  }
+
   // Try to map to an assignment for the day; create or override execution.
+  // Tiebreak on id desc so the pick is deterministic on days with >=2
+  // assignments (stable + testable), not order-of-insertion dependent.
   const day = startedAt.slice(0, 10);
   const rows = await sql<{ id: string; existing_source: string | null; existing_ref: string | null }[]>`
     select wa.id::text as id,
@@ -259,7 +273,7 @@ async function ingestGarminActivity(args: {
     left join workout_executions we on we.assignment_id = wa.id
     where wa.athlete_id = ${athlete_id as unknown as number}
       and wa.scheduled_for = ${day}::date
-    order by wa.scheduled_for desc
+    order by wa.scheduled_for desc, wa.id desc
     limit 1
   `;
   let executionInserted = false;
@@ -284,11 +298,26 @@ async function ingestGarminActivity(args: {
         ${externalId}
       )
       on conflict (assignment_id) do update
-        set started_at = excluded.started_at,
-            ended_at = excluded.ended_at,
-            total_duration_seconds = excluded.total_duration_seconds,
-            source = excluded.source,
-            source_workout_ref = excluded.source_workout_ref,
+        set started_at = case
+              when workout_executions.source in ('garmin', 'manual') then workout_executions.started_at
+              else excluded.started_at
+            end,
+            ended_at = case
+              when workout_executions.source in ('garmin', 'manual') then workout_executions.ended_at
+              else excluded.ended_at
+            end,
+            total_duration_seconds = case
+              when workout_executions.source in ('garmin', 'manual') then workout_executions.total_duration_seconds
+              else excluded.total_duration_seconds
+            end,
+            source = case
+              when workout_executions.source in ('garmin', 'manual') then workout_executions.source
+              else excluded.source
+            end,
+            source_workout_ref = case
+              when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
+              else excluded.source_workout_ref
+            end,
             updated_at = now()
     `;
     executionInserted = true;
