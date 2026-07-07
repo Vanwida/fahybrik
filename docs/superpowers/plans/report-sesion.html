@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAHYBRID — Report de la sesión</title>
+<style>
+:root{--bg:#fafaf8;--ink:#1a1a1a;--mut:#6b6b6b;--line:#e7e5e0;--ok:#1a7f47;--orange:#e35a13;--card:#fff;--code:#f3f1ec}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:40px 24px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:27px;font-style:italic;font-weight:800;letter-spacing:-.5px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 30px;font-size:14px}
+h2{font-size:18px;font-weight:700;margin:34px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.lead{color:var(--mut);font-size:13.5px;margin:0 0 14px}
+.row{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.tick{color:var(--ok);font-weight:800;flex:0 0 18px}
+.what{flex:1}
+.what b{font-weight:650}
+.sha{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--mut);background:var(--code);padding:1px 6px;border-radius:5px;white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 18px;margin:0 0 8px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#e7f3ec;color:var(--ok)}
+.pill.tu{background:#fbeede;color:var(--orange)}
+.box{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--orange);border-radius:8px;padding:14px 18px;margin:14px 0}
+.box ul{margin:6px 0 0;padding-left:18px}.box li{margin:5px 0}
+.k{font-size:13px;color:var(--mut)}
+.big{font-size:15px;font-weight:700;color:var(--ink)}
+</style></head>
+<body><div class="wrap">
+<h1>FAHYBRID — Report de la sesión</h1>
+<p class="sub">Todo lo construido, verificado y subido. Estado: <b>todo en <span class="sha">feat/landing</span>, reflejado en el demo</b> (fahybrik-demo.vercel.app) — producción pendiente de tu OK. Build + typecheck verdes.</p>
+
+<h2>1 · Cuentas demo listas para enseñar</h2>
+<p class="lead">Para que tus compañeros lo toquen y den feedback.</p>
+<div class="card">
+<div class="row"><span class="tick">✓</span><span class="what">2 <b>coaches demo</b> + 2 <b>atletas vacíos</b> (sin plan/zonas, para que ellos creen todo desde cero)</span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Login demo web en <b>/es/acceso-demo</b> (Coach Demo 1 / 2)</span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Login demo en la <b>app iOS</b> ("Entrar como atleta demo") — falta solo distribuir por TestFlight</span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Biblioteca de Pablo <b>copiada</b> a cada demo (97 sesiones) — script reutilizable para sembrar coaches reales</span></div>
+</div>
+
+<h2>2 · Biblioteca / contenido de Pablo</h2>
+<p class="lead">La biblioteca es contenido del coach, no del código. Un coach nuevo nace vacío.</p>
+<div class="card">
+<div class="row"><span class="tick">✓</span><span class="what"><b>Tipado por modalidad</b> desde tu Excel (carrera · ergo · fuerza · circuito/WOD · core) — con vatios para ergo, zona/ritmo para carrera <span class="sha">465156b…28b91cd</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Quitados <b>10 bloques fabricados</b> que no estaban en tu Excel → biblioteca = <b>97 = el Excel exacto</b> <span class="sha">cbcceb9</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Biblioteca <b>por-coach</b> (ya no global) — coach nuevo nace vacío <span class="sha">77eb173</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what"><b>Fusión "sesión" + "bloque"</b> en un solo concepto ("Sesión") — se acabó el overengineering <span class="sha">7a205e4</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Editor de sesión: <b>crear y editar</b> con tipado correcto <span class="sha">b4ad68e</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Rescatadas intensidades por grupo/enfoque; <b>lista de 57</b> que solo sabe Pablo (carga/ritmo exacto)</span></div>
+</div>
+
+<h2>3 · Funcionalidades nuevas</h2>
+<p class="lead">Cerrados los huecos del flujo coach↔atleta.</p>
+<div class="card">
+<div class="row"><span class="tick">✓</span><span class="what"><b>Publicar microciclo</b> (borrador→publicado) — el coach suelta el plan al atleta, con gate de vacío <span class="sha">b988b6f</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what"><b>Intake / alta de atleta</b> — pantalla para revisar y activar el alta <span class="sha">70b9ea5</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what"><b>Duplicar semana</b> en el microciclo <span class="sha">d1f5cc7</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what"><b>/hoy</b>: "descargar carga" + la IA muestra <b>por qué</b> saltó el veredicto <span class="sha">7d8a1e8</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what"><b>Ficha del atleta</b>: gráfico de biometría real, objetivos derivados de zonas, adherencia 30d <span class="sha">08f2715</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">App: <b>editar perfil</b> tras el alta <span class="sha">a4e4a11</span> · <b>chat en tiempo real</b> (SSE) <span class="sha">1bde7b4</span> · <b>dobles conjunto</b> <span class="sha">382ad3f</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">La <b>sugerencia semanal de IA</b> cae en tu /hoy como decisión a aprobar <span class="sha">a7ddbea</span></span></div>
+</div>
+
+<h2>4 · Calidad — auditoría + verificación adversarial</h2>
+<p class="lead">El QA lo hago yo. Auditoría de las 4 áreas + workflow adversarial que cazó bugs en mi propio trabajo.</p>
+<div class="card">
+<div class="row"><span class="tick">✓</span><span class="what">Auditoría completa del sistema (coach · atleta · IA · infra) → doc <span class="sha">estado-sistema-que-queda.html</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Verificación adversarial: cazó <b>7 bugs reales</b> (refutó 3 falsos positivos)</span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Arreglado: el <b>cron se saltaba el gate</b> de publicación (borradores privados se auto-publicaban) <span class="sha">1c3ee49</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Arreglado: chat SSE <b>cross-instance</b> real (Postgres LISTEN/NOTIFY) <span class="sha">15fa409</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Borrado <b>código muerto + todo el ATR legacy</b> (template-builder, seed scripts, enum ATR, carga inventada) <span class="sha">584c80e · 4ef24bd</span></span></div>
+<div class="row"><span class="tick">✓</span><span class="what">Re-verificado: 7/7 resueltos, cero regresiones de producto</span></div>
+</div>
+
+<h2>5 · Lo que queda — es de tu lado</h2>
+<div class="box">
+<ul>
+<li><span class="pill tu">TÚ</span> <b>Modelo LLM</b> — elígelo y la IA pasa de heurística a real.</li>
+<li><span class="pill tu">TÚ</span> <b>57 intensidades de Pablo</b> (carga/ritmo exacto) + subir su <b>metodología</b> al RAG.</li>
+<li><span class="pill tu">TÚ</span> <b>TestFlight</b> — aceptar el acuerdo de Apple + una credencial de subida → los compañeros prueban la app.</li>
+<li><span class="pill tu">TÚ</span> <b>Subir a producción</b> — cuando digas (migraciones a la BD de prod + deploy, sin tocar la landing).</li>
+<li><span class="k">🔒 Bloqueado por entidad legal: Garmin / Polar / COROS / Concept2.</span></li>
+</ul>
+</div>
+<p class="k">Migraciones aplicadas al demo en esta sesión: 0063–0075. Nada pusheado a remoto ni a producción — todo vive en <span class="sha">feat/landing</span> + el demo.</p>
+</div></body></html>

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan de Marketing FAHYBRID 2026</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #e8e8e6; min-height: 100vh; padding: 0; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 100; background: #0a0a0a; border-bottom: 1px solid #1e1e1e; padding: 0 24px; display: flex; gap: 0; overflow-x: auto; }
+  .nav-btn { font-family: 'Oswald', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
+  .nav-btn:hover { color: #e8e8e6; }
+  .nav-btn.active { color: #ff6b35; border-bottom-color: #ff6b35; }
+
+  /* SECTIONS */
+  .section { display: none; padding: 48px 24px; max-width: 900px; margin: 0 auto; }
+  .section.active { display: block; }
+
+  /* HEADER */
+  .page-header { margin-bottom: 48px; border-bottom: 1px solid #1e1e1e; padding-bottom: 32px; }
+  .page-eyebrow { font-family: 'Oswald', sans-serif; font-size: 11px; letter-spacing: 0.15em; color: #ff6b35; text-transform: uppercase; margin-bottom: 12px; }
+  .page-title { font-family: 'Oswald', sans-serif; font-size: 42px; font-weight: 700; line-height: 1; color: #fff; margin-bottom: 8px; }
+  .page-title span { color: #ff6b35; }
+  .page-sub { font-size: 14px; color: #555; margin-top: 10px; }
+
+  /* FASE LABEL */
+  .fase-label { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 10px; border-radius: 3px; display: inline-block; margin-bottom: 20px; margin-top: 40px; }
+  .fase-pre { background: #0f6e561a; color: #5dcaa5; border: 1px solid #0f6e5640; }
+  .fase-launch { background: #534ab71a; color: #afa9ec; border: 1px solid #534ab740; }
+  .fase-grow { background: #854f0b1a; color: #fac775; border: 1px solid #854f0b40; }
+  .fase-scale { background: #993c1d1a; color: #f0997b; border: 1px solid #993c1d40; }
+
+  /* WEEK CARDS */
+  .week { border: 1px solid #1e1e1e; border-radius: 2px; margin-bottom: 2px; overflow: hidden; }
+  .week-header { padding: 20px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #111; transition: background 0.15s; user-select: none; }
+  .week-header:hover { background: #161616; }
+  .week-number { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #555; margin-bottom: 4px; }
+  .week-title { font-family: 'Oswald', sans-serif; font-size: 20px; font-weight: 600; color: #fff; }
+  .week-meta { font-size: 12px; color: #555; margin-top: 4px; }
+  .chevron { font-size: 10px; color: #444; transition: transform 0.2s; flex-shrink: 0; margin-left: 16px; }
+  .chevron.open { transform: rotate(180deg); }
+  .week-body { display: none; background: #0d0d0d; border-top: 1px solid #1e1e1e; padding: 24px; }
+  .week-body.open { display: block; }
+  .posts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 600px) { .posts { grid-template-columns: 1fr; } .page-title { font-size: 28px; } .nav-btn { padding: 14px 12px; font-size: 10px; } }
+  .post { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 14px 16px; }
+  .post-channel { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ff6b35; margin-bottom: 8px; }
+  .post-copy { font-size: 13px; line-height: 1.6; color: #c8c8c4; }
+  .post-note { font-size: 11px; color: #444; margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e1e1e; font-style: italic; }
+  .objetivo { font-size: 12px; color: #666; padding: 12px 16px; border-left: 2px solid #ff6b35; background: #ff6b3508; }
+  .objetivo strong { color: #ff6b35; }
+
+  /* VIDEO CARDS */
+  .video-card { border: 1px solid #1e1e1e; border-radius: 2px; margin-bottom: 2px; overflow: hidden; }
+  .video-header { padding: 20px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #111; transition: background 0.15s; user-select: none; }
+  .video-header:hover { background: #161616; }
+  .video-num { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #ff6b35; margin-bottom: 4px; }
+  .video-title { font-family: 'Oswald', sans-serif; font-size: 20px; font-weight: 600; color: #fff; }
+  .video-meta { font-size: 12px; color: #555; margin-top: 4px; }
+  .video-body { display: none; background: #0d0d0d; border-top: 1px solid #1e1e1e; padding: 24px; }
+  .video-body.open { display: block; }
+  .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 600px) { .video-grid { grid-template-columns: 1fr; } }
+  .video-block { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 14px 16px; }
+  .video-block-label { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ff6b35; margin-bottom: 8px; }
+  .video-block-text { font-size: 13px; line-height: 1.6; color: #c8c8c4; }
+  .video-block-note { font-size: 11px; color: #444; margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e1e1e; font-style: italic; }
+  .video-cta { font-size: 12px; color: #666; padding: 12px 16px; border-left: 2px solid #ff6b35; background: #ff6b3508; margin-top: 4px; }
+  .video-cta strong { color: #ff6b35; }
+
+  /* POST ESTATICO */
+  .post-card { border: 1px solid #1e1e1e; border-radius: 2px; margin-bottom: 2px; overflow: hidden; }
+  .post-header { padding: 20px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #111; transition: background 0.15s; user-select: none; }
+  .post-header:hover { background: #161616; }
+  .post-num { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #ff6b35; margin-bottom: 4px; }
+  .post-title-big { font-family: 'Oswald', sans-serif; font-size: 20px; font-weight: 600; color: #fff; }
+  .post-meta { font-size: 12px; color: #555; margin-top: 4px; }
+  .post-body { display: none; background: #0d0d0d; border-top: 1px solid #1e1e1e; padding: 24px; }
+  .post-body.open { display: block; }
+  .slides { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .slide { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .slide-num { font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 700; color: #ff6b3540; flex-shrink: 0; width: 28px; }
+  .slide-content { flex: 1; }
+  .slide-label { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; margin-bottom: 4px; }
+  .slide-text { font-size: 13px; line-height: 1.6; color: #c8c8c4; }
+  .slide.cierre { border-left: 2px solid #ff6b35; }
+  .slide.cierre .slide-num { color: #ff6b35; }
+
+  /* CAPTACION */
+  .flow { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .flow-step { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start; }
+  .flow-num { font-family: 'Oswald', sans-serif; font-size: 28px; font-weight: 700; color: #ff6b3530; flex-shrink: 0; line-height: 1; }
+  .flow-content { flex: 1; }
+  .flow-label { font-family: 'Oswald', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #ff6b35; margin-bottom: 6px; }
+  .flow-text { font-size: 13px; line-height: 1.6; color: #c8c8c4; }
+  .flow-note { font-size: 11px; color: #444; margin-top: 8px; font-style: italic; }
+  .dm-box { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 16px 20px; margin-bottom: 8px; }
+  .dm-label { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ff6b35; margin-bottom: 8px; }
+  .dm-text { font-size: 13px; line-height: 1.6; color: #c8c8c4; font-style: italic; }
+  .dm-note { font-size: 11px; color: #444; margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e1e1e; }
+  .rules { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 16px 20px; margin-top: 16px; }
+  .rules-label { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #ff6b35; margin-bottom: 12px; }
+  .rule { font-size: 13px; line-height: 1.6; color: #c8c8c4; padding: 6px 0; border-bottom: 1px solid #1e1e1e; }
+  .rule:last-child { border-bottom: none; }
+  .rule::before { content: "→ "; color: #ff6b35; }
+
+  /* IDEAS */
+  .ideas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 600px) { .ideas-grid { grid-template-columns: 1fr; } }
+  .idea { background: #141414; border: 1px solid #1e1e1e; border-radius: 2px; padding: 14px 16px; }
+  .idea-label { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; margin-bottom: 6px; }
+  .idea-text { font-size: 13px; line-height: 1.6; color: #c8c8c4; }
+
+  /* FOOTER */
+  .footer { margin-top: 56px; padding: 24px; border-top: 1px solid #1e1e1e; display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-family: 'Oswald', sans-serif; font-size: 14px; letter-spacing: 0.1em; color: #333; }
+  .footer-brand span { color: #ff6b35; }
+  .footer-meta { font-size: 11px; color: #333; }
+
+  .section-intro { font-size: 14px; color: #666; margin-bottom: 32px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showSection('contenido')">Plan de contenido</button>
+  <button class="nav-btn" onclick="showSection('videos')">Videos</button>
+  <button class="nav-btn" onclick="showSection('posts')">Posts estáticos</button>
+  <button class="nav-btn" onclick="showSection('captacion')">Captación automatizada</button>
+  <button class="nav-btn" onclick="showSection('ideas')">Ideas adicionales</button>
+</div>
+
+<!-- SECCIÓN 1: PLAN DE CONTENIDO -->
+<div class="section active" id="contenido">
+  <div class="page-header">
+    <div class="page-eyebrow">Documento interno · Confidencial</div>
+    <div class="page-title">Plan de contenido<br><span>FAHYBRID</span></div>
+    <div class="page-sub">Lanzamiento 2026 · Julio → Noviembre · Objetivo 50–75 atletas</div>
+  </div>
+
+  <div class="fase-label fase-pre">Pre-lanzamiento</div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Semana −2 · ~30 jun – 6 jul</div><div class="week-title">Generando expectativa</div><div class="week-meta">Posts LOADING 10% y 25% · Arrancar la intriga</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG Gerard · Lunes</div><div class="post-copy">Post LOADING 10% — "Something is being built. Not for everyone."</div><div class="post-note">Sin explicar nada. Solo el teaser.</div></div>
+        <div class="post"><div class="post-channel">IG Fabrik · Repost · Lunes</div><div class="post-copy">Pablo repostea el teaser de Gerard. Sin añadir nada.</div><div class="post-note">La comunidad empieza a preguntar qué es.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Jueves</div><div class="post-copy">Post LOADING 25% — "Train hard. Everyone does. Train right. Almost no one."</div><div class="post-note">Primer atisbo del mensaje de marca.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Jueves</div><div class="post-copy">Primera publicación del perfil. Solo el post 25%. Bio activa con link waitlist.</div><div class="post-note">El perfil aparece por primera vez.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> Generar curiosidad. Que la gente pregunte qué es antes de que se lo cuentes.</div>
+    </div>
+  </div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Semana −1 · ~7 – 13 jul</div><div class="week-title">Subiendo la tensión</div><div class="week-meta">Posts LOADING 40%, 60% y 75% · Máxima expectativa</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG Gerard · Lunes</div><div class="post-copy">Post LOADING 40% — "Your plan. Your coach. Your race."</div><div class="post-note">Primera pista de qué es el producto.</div></div>
+        <div class="post"><div class="post-channel">IG Pablo · Martes</div><div class="post-copy">Story: "Algo se viene. Llevamos meses preparando esto." Sin más detalles.</div><div class="post-note">La comunidad de Fabrik entra en la conversación.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Miércoles</div><div class="post-copy">Post LOADING 60% — "Some race alone. Some race together. We built it for both."</div><div class="post-note">Primera mención al plan Dobles sin nombrarlo.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Viernes</div><div class="post-copy">Post LOADING 75% — "Powered by data. Validated by sweat."</div><div class="post-note">Fin de semana con máxima expectativa.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> Que el día del lanzamiento haya gente esperando. Que el 100% sea un evento.</div>
+    </div>
+  </div>
+
+  <div class="fase-label fase-launch">Lanzamiento</div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Semana 0 · ~14 – 20 jul</div><div class="week-title">FAHYBRID. Now live.</div><div class="week-meta">El gran día + historia personal · Los tres perfiles a la vez</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG FAHYBRID · Lunes</div><div class="post-copy">Post LOADING 90% — "Barcelona will only be the beginning."</div><div class="post-note">Último teaser. El 100% llega mañana.</div></div>
+        <div class="post"><div class="post-channel">IG todos · Martes</div><div class="post-copy">Post LOADING 100% — "FAHYBRID. Now live." Gerard + Pablo + FAHYBRID simultáneo.</div><div class="post-note">El mismo post los tres a la vez. Máximo impacto.</div></div>
+        <div class="post"><div class="post-channel">LinkedIn Gerard · Martes</div><div class="post-copy">Historia personal completa — del sled pull en Bilbao al lanzamiento. Con foto de los tres en el box.</div><div class="post-note">El post más importante del año.</div></div>
+        <div class="post"><div class="post-channel">IG Pablo · Jueves</div><div class="post-copy">Video corto a cámara: qué es FAHYBRID y por qué lo ha creado. Sin guion aparente.</div><div class="post-note">Autenticidad total. La comunidad de Fabrik confía en Pablo.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> Primeras altas reales. El embudo activo — formulario, videollamada, alta en 24h.</div>
+    </div>
+  </div>
+
+  <div class="fase-label fase-grow">Tracción orgánica</div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Semana 1 · ~21 – 27 jul</div><div class="week-title">Los primeros atletas hablan</div><div class="week-meta">Prueba social y producto real · Reducir fricción</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG Pablo · Lunes</div><div class="post-copy">Cómo funciona la videollamada de diagnóstico. Pablo explica el proceso en video.</div><div class="post-note">Reduce la fricción para los que dudan.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Miércoles</div><div class="post-copy">Primer testimonio real de un atleta. Reacción espontánea a su primer plan personalizado.</div><div class="post-note">Sin producción. La reacción natural es el contenido.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Jueves</div><div class="post-copy">Story: "Semana 1 dentro. Esto es lo que está pasando." Datos reales de primeros atletas.</div><div class="post-note">Transparencia total genera confianza.</div></div>
+        <div class="post"><div class="post-channel">IG Pablo · Viernes</div><div class="post-copy">Contenido técnico HYROX: el error más común en el sled pull y cómo corregirlo.</div><div class="post-note">Autoridad técnica. Que la gente aprenda algo real.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> Prueba social temprana. Que los que dudan vean que hay atletas reales dentro.</div>
+    </div>
+  </div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Semana 2 · ~28 jul – 3 ago</div><div class="week-title">El plan Dobles entra en juego</div><div class="week-meta">Activar referidos · CAC cero</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG FAHYBRID · Lunes</div><div class="post-copy">"¿Tienes compañero de carrera? Hay un plan para eso." Primera comunicación del plan Dobles.</div><div class="post-note">El diferenciador único. Nadie más lo tiene.</div></div>
+        <div class="post"><div class="post-channel">IG Pablo · Martes</div><div class="post-copy">Por qué entrenar en pareja para HYROX Dobles cambia los resultados. Video técnico.</div><div class="post-note">Contenido técnico que vende el plan sin venderlo.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Jueves</div><div class="post-copy">Story: Gerard entrena para HYROX Barcelona Mixto. Primera mención al objetivo de clasificar al mundial.</div><div class="post-note">El founder como caso de éxito en tiempo real.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Viernes</div><div class="post-copy">Splits reales de un atleta — semana 1 vs semana 2. Progresión visible.</div><div class="post-note">Datos reales son el mejor argumento de venta.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> Activar el boca a boca. Cada atleta Dobles trae a su compañero. CAC cero.</div>
+    </div>
+  </div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Semanas 3 y 4 · ~4 – 17 ago</div><div class="week-title">Autoridad y comunidad</div><div class="week-meta">Serie técnica HYROX + resultados reales</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG Pablo · Semanal</div><div class="post-copy">Serie técnica HYROX: una estación por semana. Ski erg, sled, burpee broad jump. Cómo entrenarla y qué errores evitar.</div><div class="post-note">Contenido evergreen. Posiciona a Pablo como referencia técnica.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Semanal</div><div class="post-copy">Progresión real de atletas semana a semana. Splits mejorando. Sin nombres si prefieren, solo datos.</div><div class="post-note">La prueba social más potente es el progreso real.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Semanal</div><div class="post-copy">Actualización personal del entrenamiento para HYROX Barcelona Mixto. Gerard documenta su proceso.</div><div class="post-note">El founder como atleta genera identificación directa.</div></div>
+        <div class="post"><div class="post-channel">Comunidades HYROX</div><div class="post-copy">Pablo y Gerard activos en grupos de Facebook e Instagram de HYROX Barcelona. Aportando valor, no vendiendo.</div><div class="post-note">Presencia orgánica antes del evento de octubre.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> 25–30 atletas acumulados antes de septiembre.</div>
+    </div>
+  </div>
+
+  <div class="fase-label fase-scale">Escala · HYROX Barcelona</div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Septiembre – Octubre</div><div class="week-title">Cuenta atrás para Barcelona</div><div class="week-meta">Máxima visibilidad · Serie "X semanas para HYROX"</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG todos · Septiembre</div><div class="post-copy">Serie "X semanas para HYROX Barcelona". Atletas FAHYBRID documentan su preparación en tiempo real.</div><div class="post-note">Conecta con todos los que compiten en Barcelona.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Octubre</div><div class="post-copy">Cuenta atrás personal. Gerard y su compañera preparando el Mixto. Entrenamientos, splits, estado físico.</div><div class="post-note">La historia del founder culmina aquí.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Octubre</div><div class="post-copy">"Nuestros atletas corren en Barcelona. ¿Estás tú también?" CTA directa hacia el formulario.</div><div class="post-note">Urgencia real — el evento se acerca.</div></div>
+        <div class="post"><div class="post-channel">LinkedIn Gerard · Octubre</div><div class="post-copy">Post de tracción: X atletas, Y semanas de datos, Z mejoras de splits. Los números hablan solos.</div><div class="post-note">Construir credibilidad para la ronda de inversión.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> 40–50 atletas antes del evento.</div>
+    </div>
+  </div>
+
+  <div class="week">
+    <div class="week-header" onclick="toggle(this)">
+      <div><div class="week-number">Noviembre · El momento</div><div class="week-title">HYROX Barcelona</div><div class="week-meta">Día del evento y semana siguiente · Grabar todo</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="week-body">
+      <div class="posts">
+        <div class="post"><div class="post-channel">IG todos · Día del evento</div><div class="post-copy">Contenido en tiempo real. Stories, atletas FAHYBRID compitiendo, resultados en directo.</div><div class="post-note">Grabar todo. Es el contenido más valioso del año.</div></div>
+        <div class="post"><div class="post-channel">IG Gerard · Día del evento</div><div class="post-copy">Gerard y su compañera en la carrera Mixto 16–24. El resultado se comparte tal cual.</div><div class="post-note">La autenticidad vale más que el resultado perfecto.</div></div>
+        <div class="post"><div class="post-channel">LinkedIn Gerard · Post evento</div><div class="post-copy">El cierre de la historia. Del sled pull de Bilbao a HYROX Barcelona. Datos de la temporada y siguiente capítulo.</div><div class="post-note">El post de inversión — llega fuera del mundo HYROX.</div></div>
+        <div class="post"><div class="post-channel">IG FAHYBRID · Semana post evento</div><div class="post-copy">Resultados de todos los atletas FAHYBRID en Barcelona. Splits, tiempos, mejoras vs temporada anterior.</div><div class="post-note">La prueba de concepto más contundente posible.</div></div>
+      </div>
+      <div class="objetivo"><strong>Objetivo:</strong> 50–75 atletas. Material para pitch inversores. Arrancar expansión fuera de Barcelona.</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-brand">FAH<span>Y</span>BRID · <span style="color:#333">powered by FLEXR</span></div>
+    <div class="footer-meta">Plan de marketing · 2026 · Confidencial</div>
+  </div>
+</div>
+
+<!-- SECCIÓN 2: VIDEOS -->
+<div class="section" id="videos">
+  <div class="page-header">
+    <div class="page-eyebrow">Producción de contenido</div>
+    <div class="page-title">Videos<br><span>FAHYBRID</span></div>
+    <div class="page-sub">Fichas de producción · Grabados en Fabrik · Gerard como atleta</div>
+  </div>
+
+  <div class="video-card">
+    <div class="video-header" onclick="toggleVideo(this)">
+      <div><div class="video-num">Video 01</div><div class="video-title">El EMOM en entrenamiento</div><div class="video-meta">30–45 seg · La app lleva la cuenta, tú solo entrenas</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="video-body">
+      <div class="video-grid">
+        <div class="video-block"><div class="video-block-label">Arranque · 3s</div><div class="video-block-text">Plano detalle de la app — EMOM configurado, timer a punto. Mano de Gerard pulsando inicio.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque entreno · 20s</div><div class="video-block-text">Plano medio de Gerard ejecutando el ejercicio. A los 40s, corte a pantalla: timer sonando con cuenta atrás hacia el cambio de minuto.</div></div>
+        <div class="video-block"><div class="video-block-label">Momento clave · 5s</div><div class="video-block-text">Plano del móvil en el suelo mientras Gerard descansa. Se oye el pitido de la app. Gerard arranca sin mirar, sin tocar nada.</div></div>
+        <div class="video-block"><div class="video-block-label">Cierre · 5s</div><div class="video-block-text">Pantalla final con el resumen del EMOM completado. Texto: "Tú entrenas. La app lleva la cuenta."</div></div>
+        <div class="video-block"><div class="video-block-label">Cómo grabarlo</div><div class="video-block-text">Dos ángulos: frontal plano medio de Gerard entrenando + cenital del móvil en el suelo con timer visible. Montar en paralelo en edición.</div><div class="video-block-note">CapCut o similar. Sin filtros — que parezca un entreno real porque lo es.</div></div>
+        <div class="video-block"><div class="video-block-label">Copy caption</div><div class="video-block-text">"Plan de Pablo. Timer de FAHYBRID. Tú solo entrenas."</div><div class="video-block-note">Texto en pantalla: "EMOM. Cada minuto, la app te avisa. Tú solo entrenas."</div></div>
+      </div>
+      <div class="video-cta"><strong>Valor añadido:</strong> Elimina la necesidad de cronómetro externo. En el momento más exigente del entreno, el atleta no tiene que pensar en nada más.</div>
+    </div>
+  </div>
+
+  <div class="video-card">
+    <div class="video-header" onclick="toggleVideo(this)">
+      <div><div class="video-num">Video 02</div><div class="video-title">El WOD con splits</div><div class="video-meta">45–60 seg · Cada estación medida, sin hacer nada extra</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="video-body">
+      <div class="video-grid">
+        <div class="video-block"><div class="video-block-label">Arranque · 3s</div><div class="video-block-text">Plano detalle de la app — WOD configurado con las estaciones. Gerard pulsa inicio.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque estaciones · 30s</div><div class="video-block-text">Secuencia rápida de 3-4s por estación. Gerard corre → pulsa lap → sled push → pulsa lap → ski erg → pulsa lap → wall balls → pulsa lap. Se oye el sonido de la app en cada lap.</div></div>
+        <div class="video-block"><div class="video-block-label">Momento clave · 10s</div><div class="video-block-text">Gerard termina. Plano de su cara — respiración real, sudor real. Coge el móvil. Plano detalle de los splits apareciendo en pantalla uno a uno.</div></div>
+        <div class="video-block"><div class="video-block-label">Cierre · 5s</div><div class="video-block-text">Zoom suave a los splits en pantalla. Texto: "Cada estación, su tiempo. Sin hacer nada extra."</div></div>
+        <div class="video-block"><div class="video-block-label">Cómo grabarlo</div><div class="video-block-text">Mínimo dos personas grabando — uno sigue a Gerard en movimiento, otro fijo para los momentos de lap y la pantalla final. El sonido del lap es importante — audio del móvil activado.</div><div class="video-block-note">Para la pantalla final de splits, plano detalle limpio con buena luz. Que se lea bien.</div></div>
+        <div class="video-block"><div class="video-block-label">Copy caption</div><div class="video-block-text">"Un WOD. Seis estaciones. Todos los splits. Solo FAHYBRID."</div><div class="video-block-note">Texto en pantalla: "Run. Lap. Sled. Lap. Ski. Lap. Todo medido, sin salir de la app."</div></div>
+      </div>
+      <div class="video-cta"><strong>Valor añadido:</strong> Muestra el diferenciador más tangible del producto. Un dato que antes requería reloj de gama alta, ahora dentro del plan del coach.</div>
+    </div>
+  </div>
+
+  <div class="video-card">
+    <div class="video-header" onclick="toggleVideo(this)">
+      <div><div class="video-num">Video 03</div><div class="video-title">El feedback con el coach</div><div class="video-meta">30–40 seg · Sin WhatsApp, sin emails, todo dentro de la app</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="video-body">
+      <div class="video-grid">
+        <div class="video-block"><div class="video-block-label">Arranque · 5s</div><div class="video-block-text">Gerard acaba de entrenar — todavía sudado, sentado en el box. Plano medio mirando el móvil.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque feedback · 15s</div><div class="video-block-text">Plano detalle de la pantalla. Gerard escribe o graba un audio real en el chat de la app — "el sled pull ha ido mejor pero el ski erg me ha costado más de lo esperado." Se ve el mensaje enviado.</div></div>
+        <div class="video-block"><div class="video-block-label">Momento clave · 10s</div><div class="video-block-text">Corte a Pablo en el box o delante del ordenador — ve el mensaje, escribe la respuesta. Plano detalle de la respuesta apareciendo: ajuste concreto para la semana siguiente.</div></div>
+        <div class="video-block"><div class="video-block-label">Cierre · 5s</div><div class="video-block-text">Plano de Gerard leyendo la respuesta. Texto: "Tu coach te lee. Y te responde."</div></div>
+        <div class="video-block"><div class="video-block-label">Cómo grabarlo</div><div class="video-block-text">El más sencillo de grabar — sin acción física intensa. Usar grabación de pantalla del móvil para los planos de la app. Cámara normal para Gerard y Pablo.</div><div class="video-block-note">Grabar los planos de Pablo en Fabrik — que el fondo sea reconocible.</div></div>
+        <div class="video-block"><div class="video-block-label">Copy caption</div><div class="video-block-text">"Sin WhatsApp. Sin emails. Tu coach está dentro de la app."</div><div class="video-block-note">Texto en pantalla: "Entrenas. Das feedback. Pablo ajusta. Todo en el mismo sitio."</div></div>
+      </div>
+      <div class="video-cta"><strong>Valor añadido:</strong> Demuestra que el coaching es real y continuo, no solo un plan descargable. El atleta nunca está solo.</div>
+    </div>
+  </div>
+
+  <div class="video-card">
+    <div class="video-header" onclick="toggleVideo(this)">
+      <div><div class="video-num">Video 04</div><div class="video-title">El atleta en viaje de trabajo</div><div class="video-meta">45–60 seg · El plan se adapta a ti, no al revés</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="video-body">
+      <div class="video-grid">
+        <div class="video-block"><div class="video-block-label">Arranque · 8s</div><div class="video-block-text">Plano de Gerard en hotel — maleta, traje, portátil. Ambiente de viaje de trabajo. Coge el móvil, abre la app.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque mensaje · 10s</div><div class="video-block-text">Gerard escribe en el chat: "Esta semana estoy de viaje, solo tengo el gimnasio del hotel y poco tiempo." Envía el mensaje.</div></div>
+        <div class="video-block"><div class="video-block-label">Momento clave · 10s</div><div class="video-block-text">Notificación de respuesta de Pablo. Plano detalle del plan readaptado apareciendo — ejercicios de bodyweight, tiempos ajustados, sin material necesario.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque entreno · 15s</div><div class="video-block-text">Gerard en el gimnasio del hotel — ropa deportiva, espacio pequeño, haciendo el plan readaptado. Burpees, sentadillas. Plano detalle de la app con el plan activo.</div></div>
+        <div class="video-block"><div class="video-block-label">Cómo grabarlo</div><div class="video-block-text">Único video que no se graba en Fabrik. Dos bloques: habitación de hotel (5 min de grabación) + gimnasio del hotel o cualquier espacio pequeño.</div><div class="video-block-note">La pantalla con el plan readaptado es el momento clave — asegurar que se lea bien en cámara.</div></div>
+        <div class="video-block"><div class="video-block-label">Copy caption</div><div class="video-block-text">"Da igual dónde estés. Pablo readapta tu plan a tus condiciones. Siempre."</div><div class="video-block-note">Texto en pantalla: "Hotel. Sin material. Plan readaptado en minutos."</div></div>
+      </div>
+      <div class="video-cta"><strong>Valor añadido:</strong> Conecta con el perfil de atleta profesional que viaja — uno de los perfiles más comunes en HYROX. Demuestra flexibilidad real del coaching.</div>
+    </div>
+  </div>
+
+  <div class="video-card">
+    <div class="video-header" onclick="toggleVideo(this)">
+      <div><div class="video-num">Video 05</div><div class="video-title">Los Dobles entrenando juntos</div><div class="video-meta">45–60 seg · Mismo plan, doble motivación</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="video-body">
+      <div class="video-grid">
+        <div class="video-block"><div class="video-block-label">Arranque · 5s</div><div class="video-block-text">Plano de los dos mirando la app juntos — el plan Dobles en pantalla, los dos nombres visibles. Se miran, asienten, arrancan.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque entreno · 30s</div><div class="video-block-text">Secuencia de clips mostrando el entrenamiento en pareja — uno hace sled push mientras el otro anima, los dos en ski erg, uno en wall balls mientras el otro corre. Energía real.</div></div>
+        <div class="video-block"><div class="video-block-label">Momento clave · 10s</div><div class="video-block-text">Al acabar — los dos mirando la app juntos, viendo los splits de cada uno en pantalla. Reacción natural.</div></div>
+        <div class="video-block"><div class="video-block-label">Cierre · 5s</div><div class="video-block-text">Texto en pantalla: "Mismo plan. Doble motivación."</div></div>
+        <div class="video-block"><div class="video-block-label">Cómo grabarlo</div><div class="video-block-text">Necesita un cámara — Pablo o alguien del box. Los planos más potentes son los de apoyo mutuo — uno animando al otro en la estación más dura.</div><div class="video-block-note">Que se vea Fabrik con claridad. No forzar las reacciones — lo real siempre queda mejor.</div></div>
+        <div class="video-block"><div class="video-block-label">Copy caption</div><div class="video-block-text">"HYROX Dobles no se improvisa. Se prepara. Juntos."</div><div class="video-block-note">Texto en pantalla: "Plan Dobles. Entrenáis juntos. Sufrís juntos. Mejoráis juntos."</div></div>
+      </div>
+      <div class="video-cta"><strong>Valor añadido:</strong> El plan Dobles es el diferenciador único de FAHYBRID. Este video lo hace tangible y emocional a la vez.</div>
+    </div>
+  </div>
+
+  <div class="video-card">
+    <div class="video-header" onclick="toggleVideo(this)">
+      <div><div class="video-num">Video 06</div><div class="video-title">Los Dobles a distintas horas</div><div class="video-meta">45–60 seg · No hace falta coincidir para entrenar juntos</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="video-body">
+      <div class="video-grid">
+        <div class="video-block"><div class="video-block-label">Arranque · 5s</div><div class="video-block-text">Texto en pantalla: "Mismo plan. Distintas horas." Plano de Gerard entrenando por la mañana en Fabrik — luz de mañana, box casi vacío.</div></div>
+        <div class="video-block"><div class="video-block-label">Bloque mañana · 10s</div><div class="video-block-text">Gerard termina su entrenamiento. Plano detalle de sus splits en la app.</div></div>
+        <div class="video-block"><div class="video-block-label">Corte + bloque tarde · 12s</div><div class="video-block-text">Texto: "Más tarde." Su compañera llega al box — diferente hora, diferente ambiente. Hace el mismo entrenamiento. Termina. Plano detalle de sus splits.</div></div>
+        <div class="video-block"><div class="video-block-label">Momento clave · 15s</div><div class="video-block-text">Su compañera abre la app y ve los splits de Gerard. Reacción — sonrisa, competitividad sana. Corte a Gerard recibiendo notificación de que ella ha terminado. Ve sus splits.</div></div>
+        <div class="video-block"><div class="video-block-label">Cómo grabarlo</div><div class="video-block-text">El más cinematográfico de los seis. Grabar bloque mañana y tarde el mismo día — la luz natural del box hará el contraste solo. Capturar la reacción a los splits sin avisar en ese momento exacto.</div><div class="video-block-note">Usar grabación de pantalla para los planos de la app con los splits.</div></div>
+        <div class="video-block"><div class="video-block-label">Copy caption</div><div class="video-block-text">"No hace falta coincidir para entrenar juntos. Eso es el plan Dobles."</div><div class="video-block-note">Texto en pantalla: "Él entrena a las 7. Ella a las 19. Los dos ven los resultados del otro."</div></div>
+      </div>
+      <div class="video-cta"><strong>Valor añadido:</strong> Resuelve la objeción más común del plan Dobles — "no siempre podemos entrenar a la misma hora". Lo convierte en una ventaja.</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-brand">FAH<span>Y</span>BRID · <span style="color:#333">powered by FLEXR</span></div>
+    <div class="footer-meta">Plan de marketing · 2026 · Confidencial</div>
+  </div>
+</div>
+
+<!-- SECCIÓN 3: POSTS ESTÁTICOS -->
+<div class="section" id="posts">
+  <div class="page-header">
+    <div class="page-eyebrow">Contenido educativo HYROX</div>
+    <div class="page-title">Posts<br><span>estáticos</span></div>
+    <div class="page-sub">Carruseles y reels de tip · Perfil FAHYBRID · Autoridad técnica + CTA natural</div>
+  </div>
+
+  <div class="post-card">
+    <div class="post-header" onclick="togglePost(this)">
+      <div><div class="post-num">Post 01 · Carrusel 5 slides</div><div class="post-title-big">Nuevas normas en algunos ejercicios</div><div class="post-meta">Formato informativo · Alto valor para cualquier atleta HYROX</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="post-body">
+      <div class="slides">
+        <div class="slide"><div class="slide-num">1</div><div class="slide-content"><div class="slide-label">Titular</div><div class="slide-text">"HYROX ha cambiado las normas. ¿Ya lo sabes?"</div></div></div>
+        <div class="slide"><div class="slide-num">2</div><div class="slide-content"><div class="slide-label">Contenido</div><div class="slide-text">Qué ha cambiado exactamente — norma por norma, ejercicio por ejercicio. Datos reales y oficiales. Sin opinión, solo información.</div></div></div>
+        <div class="slide"><div class="slide-num">3</div><div class="slide-content"><div class="slide-label">Impacto práctico</div><div class="slide-text">Qué significa en la práctica para tu entrenamiento. Si el burpee broad jump ahora requiere X, tu preparación cambia así.</div></div></div>
+        <div class="slide"><div class="slide-num">4</div><div class="slide-content"><div class="slide-label">El error a evitar</div><div class="slide-text">El error más común que comete la gente que no sabe el cambio — y cómo evitarlo en carrera antes de que cueste tiempo.</div></div></div>
+        <div class="slide cierre"><div class="slide-num">5</div><div class="slide-content"><div class="slide-label">Cierre</div><div class="slide-text">"Entrenar sin saber las normas es prepararse para una carrera que ya no existe. En FAHYBRID tu plan siempre está actualizado."</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="post-card">
+    <div class="post-header" onclick="togglePost(this)">
+      <div><div class="post-num">Post 02 · Carrusel 4 slides</div><div class="post-title-big">Nueva forma de clasificar al mundial</div><div class="post-meta">Alto interés · Conecta directamente con la historia de Gerard</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="post-body">
+      <div class="slides">
+        <div class="slide"><div class="slide-num">1</div><div class="slide-content"><div class="slide-label">Titular</div><div class="slide-text">"El sistema de clasificación al mundial HYROX ha cambiado. Esto es lo que necesitas saber."</div></div></div>
+        <div class="slide"><div class="slide-num">2</div><div class="slide-content"><div class="slide-label">Antes vs ahora</div><div class="slide-text">Cómo funcionaba antes vs cómo funciona ahora — comparativa clara y visual. Tiempos de referencia por categoría.</div></div></div>
+        <div class="slide"><div class="slide-num">3</div><div class="slide-content"><div class="slide-label">Datos reales</div><div class="slide-text">Qué categorías tienen más opciones de clasificarse y por qué — con datos reales de la temporada anterior.</div></div></div>
+        <div class="slide cierre"><div class="slide-num">4</div><div class="slide-content"><div class="slide-label">Cierre</div><div class="slide-text">"Clasificarse no es suerte. Es preparación específica. Si tienes el objetivo, nosotros construimos el camino."</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="post-card">
+    <div class="post-header" onclick="togglePost(this)">
+      <div><div class="post-num">Post 03 · Reel 20–30 seg</div><div class="post-title-big">Tips de ejercicios</div><div class="post-meta">Serie semanal · Una estación por semana · Pablo como referencia técnica</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="post-body">
+      <div class="slides">
+        <div class="slide"><div class="slide-num">1</div><div class="slide-content"><div class="slide-label">Arranque · 0–3s</div><div class="slide-text">Texto en pantalla con la pregunta — "¿Por qué se te va el sled pull?"</div></div></div>
+        <div class="slide"><div class="slide-num">2</div><div class="slide-content"><div class="slide-label">Desarrollo · 3–20s</div><div class="slide-text">Pablo demostrando el error más común y la corrección técnica. Sin guion aparente, hablando directo a cámara o mostrando con un atleta.</div></div></div>
+        <div class="slide cierre"><div class="slide-num">3</div><div class="slide-content"><div class="slide-label">Cierre · 20–30s</div><div class="slide-text">"Técnica correcta + plan específico = estación ganada. Eso es lo que trabajamos en FAHYBRID."</div></div></div>
+      </div>
+      <div class="objetivo" style="margin-top:12px"><strong>Nota:</strong> Este formato se repite semanalmente con una estación distinta — ski erg, wall balls, rowing, burpee broad jump. Se convierte en serie y la gente espera el siguiente.</div>
+    </div>
+  </div>
+
+  <div class="post-card">
+    <div class="post-header" onclick="togglePost(this)">
+      <div><div class="post-num">Post 04 · Carrusel 6 slides</div><div class="post-title-big">Estrategias de carrera en solitario</div><div class="post-meta">Contenido de alto valor · Guardan y comparten · Evergreen</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="post-body">
+      <div class="slides">
+        <div class="slide"><div class="slide-num">1</div><div class="slide-content"><div class="slide-label">Titular</div><div class="slide-text">"La mayoría sale demasiado rápido en HYROX. Y lo paga en el km 6."</div></div></div>
+        <div class="slide"><div class="slide-num">2</div><div class="slide-content"><div class="slide-label">El error</div><div class="slide-text">El error más común — salir al ritmo de 10K puro sin tener en cuenta las estaciones que vienen.</div></div></div>
+        <div class="slide"><div class="slide-num">3</div><div class="slide-content"><div class="slide-label">La estrategia</div><div class="slide-text">Pacing óptimo para HYROX individual con datos reales de finishers. Cómo distribuir el esfuerzo entre los 8 tramos de carrera y las 8 estaciones.</div></div></div>
+        <div class="slide"><div class="slide-num">4</div><div class="slide-content"><div class="slide-label">Donde se pierde tiempo</div><div class="slide-text">Las dos estaciones donde más tiempo se pierde estadísticamente — y cómo entrenarlas específicamente para no perder ahí.</div></div></div>
+        <div class="slide"><div class="slide-num">5</div><div class="slide-content"><div class="slide-label">La mentalidad</div><div class="slide-text">Cómo gestionar el momento en que el sled pull o el remo te parte por la mitad. No es solo físico.</div></div></div>
+        <div class="slide cierre"><div class="slide-num">6</div><div class="slide-content"><div class="slide-label">Cierre</div><div class="slide-text">"Una estrategia de carrera no se improvisa el día antes. Se entrena semana a semana. Eso es lo que hace tu plan en FAHYBRID."</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="post-card">
+    <div class="post-header" onclick="togglePost(this)">
+      <div><div class="post-num">Post 05 · Carrusel 6 slides</div><div class="post-title-big">Estrategias de carrera en Dobles</div><div class="post-meta">Diferenciador directo · Conecta con el plan Dobles de FAHYBRID</div></div>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="post-body">
+      <div class="slides">
+        <div class="slide"><div class="slide-num">1</div><div class="slide-content"><div class="slide-label">Titular</div><div class="slide-text">"HYROX Dobles no es hacer la mitad del trabajo. Es el doble de estrategia."</div></div></div>
+        <div class="slide"><div class="slide-num">2</div><div class="slide-content"><div class="slide-label">Distribución</div><div class="slide-text">Cómo funciona la distribución de estaciones en Dobles — qué decide quién hace qué y por qué no es aleatorio.</div></div></div>
+        <div class="slide"><div class="slide-num">3</div><div class="slide-content"><div class="slide-label">Perfiles complementarios</div><div class="slide-text">Si uno es más fuerte en carrera y el otro en fuerza, cómo distribuir para optimizar el tiempo total. Con datos reales de parejas top.</div></div></div>
+        <div class="slide"><div class="slide-num">4</div><div class="slide-content"><div class="slide-label">El error más común</div><div class="slide-text">La pareja que no ha hablado la estrategia antes de salir. Qué pasa en carrera cuando no hay plan acordado.</div></div></div>
+        <div class="slide"><div class="slide-num">5</div><div class="slide-content"><div class="slide-label">Entrenar sin coincidir</div><div class="slide-text">La importancia de sincronizar la preparación aunque no podáis coincidir siempre. Cómo hacerlo con datos compartidos.</div></div></div>
+        <div class="slide cierre"><div class="slide-num">6</div><div class="slide-content"><div class="slide-label">Cierre</div><div class="slide-text">"Una pareja que entrena con el mismo plan llega a meta más rápido. FAHYBRID es el único programa con modalidad Dobles diseñada específicamente para esto."</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-brand">FAH<span>Y</span>BRID · <span style="color:#333">powered by FLEXR</span></div>
+    <div class="footer-meta">Plan de marketing · 2026 · Confidencial</div>
+  </div>
+</div>
+
+<!-- SECCIÓN 4: CAPTACIÓN -->
+<div class="section" id="captacion">
+  <div class="page-header">
+    <div class="page-eyebrow">Sistema de captación</div>
+    <div class="page-title">DMs<br><span>automatizados</span></div>
+    <div class="page-sub">Trigger por comentario → DM automático → Formulario → Calendly → Videollamada con Pablo</div>
+  </div>
+
+  <p class="section-intro">El objetivo es convertir el engagement orgánico en leads cualificados de forma automática, sin que Gerard ni Pablo tengan que gestionar cada contacto manualmente. El flujo suena humano en todo momento — nunca a bot.</p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-content">
+        <div class="flow-label">El post con trigger</div>
+        <div class="flow-text">Un post con CTA clara en el caption. La palabra trigger cambia según el tipo de contenido para que el DM sea relevante a lo que la persona acaba de ver.</div>
+        <div class="flow-note">Ejemplos de triggers: "Escribe SLED en comentarios y te mandamos la guía completa" · "Escribe PLAN y te explicamos cómo funciona FAHYBRID" · "Escribe DOBLES y te contamos cómo funciona el programa en pareja"</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-content">
+        <div class="flow-label">DM automático inmediato</div>
+        <div class="flow-text">La persona comenta la palabra trigger. Recibe inmediatamente un DM automático. Corto, humano, directo — sin lenguaje corporativo.</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-content">
+        <div class="flow-label">Formulario de onboarding</div>
+        <div class="flow-text">El atleta rellena el formulario antes de la llamada — 7 bloques, 2 minutos. Pablo llega a la videollamada sabiendo quién es, cuál es su objetivo y qué nivel tiene.</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">4</div>
+      <div class="flow-content">
+        <div class="flow-label">Calendly</div>
+        <div class="flow-text">Al final del formulario, el atleta recibe el link para reservar su hueco con Pablo directamente. Sin intermediarios, sin esperar respuesta manual.</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">5</div>
+      <div class="flow-content">
+        <div class="flow-label">La videollamada</div>
+        <div class="flow-text">Pablo ya tiene el formulario. No es una llamada de ventas — es una conversación de diagnóstico real. El atleta lo siente como atención personalizada desde el primer minuto. Al final, Pablo propone el plan que encaja y cierra el alta.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px; margin-bottom:12px">
+    <div class="page-eyebrow">Los tres DMs</div>
+  </div>
+
+  <div class="dm-box">
+    <div class="dm-label">DM 1 · Inmediato tras el comentario</div>
+    <div class="dm-text">"Hola, soy Gerard, co-founder de FAHYBRID 👋 Antes de explicarte cómo funciona, nos ayuda mucho saber un poco de ti — tardas 2 minutos. Rellena este formulario y te agendamos una llamada gratuita con Pablo para ver si encajamos: [link formulario]"</div>
+    <div class="dm-note">Tono: primera persona de Gerard, no "el equipo de FAHYBRID". Cercano y directo sin emojis de más.</div>
+  </div>
+
+  <div class="dm-box">
+    <div class="dm-label">DM 2 · 48 horas después si no ha rellenado el formulario</div>
+    <div class="dm-text">"Hola de nuevo 👋 Te escribía por lo del plan HYROX. Entiendo que igual no era el momento — pero si tienes alguna duda antes de rellenar el formulario, aquí estoy. No muerde 😄 [link formulario]"</div>
+    <div class="dm-note">Tono: humano, sin presión, con un punto de humor. No debe parecer un recordatorio de carrito abandonado.</div>
+  </div>
+
+  <div class="dm-box">
+    <div class="dm-label">DM 3 · 5 días después si sigue sin responder · Último contacto</div>
+    <div class="dm-text">"Última vez que te molesto, lo prometo 🙌 Si en algún momento quieres preparar tu próximo HYROX con un plan real, aquí tienes el formulario: [link]. Si no es para ti, sin problema — mucha suerte en carrera de todas formas."</div>
+    <div class="dm-note">El "si no es para ti" paradójicamente genera más respuestas porque elimina la presión. Cierra el ciclo sin dejar mal sabor de boca.</div>
+  </div>
+
+  <div class="rules">
+    <div class="rules-label">Reglas del sistema</div>
+    <div class="rule">Nunca más de 3 contactos automáticos — a partir del tercero sin respuesta, el sistema para.</div>
+    <div class="rule">El tono de los tres mensajes es siempre Gerard en primera persona, nunca "el equipo de FAHYBRID".</div>
+    <div class="rule">Si alguien responde al DM en cualquier momento, la automatización para y se pasa a conversación manual — ese es un lead caliente.</div>
+    <div class="rule">La herramienta de automatización la define Alex. Las opciones más comunes son ManyChat o Instagram Automation nativa.</div>
+    <div class="rule">Calendly integrado al final del formulario para que el atleta reserve directamente sin esperar respuesta manual.</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-brand">FAH<span>Y</span>BRID · <span style="color:#333">powered by FLEXR</span></div>
+    <div class="footer-meta">Plan de marketing · 2026 · Confidencial</div>
+  </div>
+</div>
+
+<!-- SECCIÓN 5: IDEAS ADICIONALES -->
+<div class="section" id="ideas">
+  <div class="page-header">
+    <div class="page-eyebrow">Ideas pendientes de desarrollar</div>
+    <div class="page-title">Ideas<br><span>adicionales</span></div>
+    <div class="page-sub">Sin desarrollar todavía · Para incorporar en fases posteriores</div>
+  </div>
+
+  <div class="ideas-grid">
+    <div class="idea"><div class="idea-label">Video · Producto</div><div class="idea-text">Atleta recibiendo su plan personalizado por primera vez — la reacción real al verlo en la app.</div></div>
+    <div class="idea"><div class="idea-label">Video · Producto</div><div class="idea-text">Comparativa: atleta con PDF/papel vs atleta con FAHYBRID en el mismo entreno.</div></div>
+    <div class="idea"><div class="idea-label">Video · Producto</div><div class="idea-text">La app detecta una semana de mucha carga y Pablo ajusta el plan antes de que el atleta lo pida.</div></div>
+    <div class="idea"><div class="idea-label">Video · Coach</div><div class="idea-text">Pablo explicando por qué ajusta el plan de un atleta específico esa semana — sin revelar datos privados.</div></div>
+    <div class="idea"><div class="idea-label">Video · Coach</div><div class="idea-text">Pablo viendo los splits de un atleta después de una carrera y decidiendo en qué estación trabajar.</div></div>
+    <div class="idea"><div class="idea-label">Video · Coach</div><div class="idea-text">La videollamada de diagnóstico inicial — cómo Pablo conoce al atleta antes de hacer el plan.</div></div>
+    <div class="idea"><div class="idea-label">Video · Comunidad</div><div class="idea-text">Día de carrera — atletas FAHYBRID en HYROX Barcelona compitiendo, con los splits reales en pantalla.</div></div>
+    <div class="idea"><div class="idea-label">Video · Comunidad</div><div class="idea-text">Atleta que mejoró su tiempo en X semanas — antes y después con datos reales de la app.</div></div>
+    <div class="idea"><div class="idea-label">Video · Founder</div><div class="idea-text">Gerard entrenando su propio plan para clasificarse al mundial Mixto 16–24 en HYROX Barcelona.</div></div>
+    <div class="idea"><div class="idea-label">Video · Lifestyle</div><div class="idea-text">Atleta mayor de 40 años que nunca había hecho HYROX y llega a su primera carrera preparado.</div></div>
+    <div class="idea"><div class="idea-label">Post estático</div><div class="idea-text">Análisis de resultados reales de HYROX Barcelona edición anterior — qué separa al top 10% del resto.</div></div>
+    <div class="idea"><div class="idea-label">Post estático</div><div class="idea-text">Guía de nutrición pre-carrera HYROX — qué comer las 48h antes y el día del evento.</div></div>
+    <div class="idea"><div class="idea-label">Post estático</div><div class="idea-text">Las 8 estaciones de HYROX rankeadas por dificultad según datos de finishers — cuáles cuestan más tiempo.</div></div>
+    <div class="idea"><div class="idea-label">Post estático</div><div class="idea-text">Cómo elegir entre HYROX Individual, Dobles o Pro según tu perfil real — con criterios objetivos.</div></div>
+  </div>
+
+  <div class="footer" style="margin-top:40px">
+    <div class="footer-brand">FAH<span>Y</span>BRID · <span style="color:#333">powered by FLEXR</span></div>
+    <div class="footer-meta">Plan de marketing · 2026 · Confidencial</div>
+  </div>
+</div>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+function toggle(header) {
+  const body = header.nextElementSibling;
+  const chevron = header.querySelector('.chevron');
+  body.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+function toggleVideo(header) { toggle(header); }
+function togglePost(header) { toggle(header); }
+</script>
+</body>
+</html>

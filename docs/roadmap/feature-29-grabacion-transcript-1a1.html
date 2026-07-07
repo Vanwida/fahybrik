@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAHYBRID — #29 Grabación + transcript + resumen IA de la 1:1 (spec)</title>
+<style>
+  :root{
+    --bg:#0a0a0a;--panel:#141414;--panel-2:#1b1b1b;--line:#262626;--ink:#f4f4f4;--dim:#9a9a9a;
+    --orange:#F06A2A;--orange-soft:#f0894f;--green:#3ecf6e;--amber:#f0b429;--red:# f0584f;--radius:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;padding:40px 20px 90px;line-height:1.55}
+  .wrap{max-width:900px;margin:0 auto}
+  .brand{font-size:13px;font-weight:800;font-style:italic;letter-spacing:.16em;color:var(--orange);text-transform:uppercase}
+  h1{font-size:30px;font-weight:900;font-style:italic;letter-spacing:-.01em;margin:6px 0 6px}
+  .meta{color:var(--dim);font-size:13px;margin-bottom:26px}
+  .meta strong{color:var(--ink)}
+  h2{font-size:17px;font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:.04em;margin:30px 0 10px;padding-top:20px;border-top:1px solid var(--line)}
+  h3{font-size:14px;font-weight:800;margin:16px 0 6px;color:var(--orange-soft)}
+  p{margin:0 0 10px}
+  ul,ol{margin:0 0 12px 20px}
+  li{margin:4px 0}
+  code{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:10px 0}
+  .lead{font-size:15px;color:var(--ink)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel-2);font-weight:800;white-space:nowrap}
+  .tag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.04em;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);color:var(--dim)}
+  .tag.new{color:#0a0a0a;background:var(--orange);border-color:var(--orange)}
+  .tag.reuse{color:var(--green);border-color:rgba(62,207,110,.4);background:rgba(62,207,110,.08)}
+  .tag.law{color:var(--amber);border-color:rgba(240,180,41,.4);background:rgba(240,180,41,.08)}
+  .decide{background:rgba(240,106,42,.07);border:1px solid rgba(240,106,42,.35);border-radius:12px;padding:14px 16px;margin:10px 0}
+  .decide h3{color:var(--orange);margin-top:0}
+  .flow{counter-reset:step;list-style:none;margin-left:0}
+  .flow li{position:relative;padding:8px 0 8px 40px;border-bottom:1px solid var(--line)}
+  .flow li:last-child{border-bottom:0}
+  .flow li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:8px;background:var(--orange);color:#0a0a0a;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .muted{color:var(--dim);font-size:12.5px}
+  .ok{color:var(--green)} .warn{color:var(--amber)}
+  .kv{font-size:12.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">FAHYBRID · spec técnica</div>
+  <h1>#29 — Grabación + transcript + resumen IA de la videollamada 1:1</h1>
+  <div class="meta">Diseño (build-right) · 7 jul 2026 · autor: agente prod-wiring. <strong>Web tree congelado</strong> — esto es la especificación lista para construir por el agente escritor de web. Fundado en el código real y en fuentes legales oficiales (ver "Verificado" al final).</div>
+
+  <div class="card lead">
+    <strong>En una frase:</strong> a la hora de la cita, un bot se une al Meet, graba ambos lados y devuelve un transcript diarizado; la IA (modelo que elige Alex) rellena el <em>parte 1:1</em> existente (<code>session_reports</code>); Pablo revisa 30&nbsp;s y pulsa "Enviar resumen al lead". <strong>Solo se graba con consentimiento explícito del lead</strong> (dato de salud). La pieza es pequeña: casi todo el circuito ya existe.
+  </div>
+
+  <h2>Lo que YA existe (reutilizar) vs lo NUEVO</h2>
+  <table>
+    <tr><th>Pieza</th><th>Estado</th><th>Dónde</th></tr>
+    <tr><td>Parte 1:1 (<code>session_reports</code>): notes, next_steps, outcome, quoted_price_eur, appointment_id</td><td><span class="tag reuse">REUTILIZAR</span></td><td>mig 0097/0098 · <code>lib/coach/session-reports.ts</code> · UI <code>SessionReportsBlock.tsx</code></td></tr>
+    <tr><td>Email post-llamada al lead + modal que ya pre-rellena desde notes/next_steps (#11)</td><td><span class="tag reuse">REUTILIZAR</span></td><td><code>lib/citas/session-summary-email.ts</code> · route <code>send-summary</code></td></tr>
+    <tr><td>Meet/Calendar adapter — <code>appointments.meet_link</code> + <code>google_event_id</code> (#26)</td><td><span class="tag reuse">REUTILIZAR</span></td><td><code>lib/citas/meeting.ts</code>, <code>google.ts</code></td></tr>
+    <tr><td>Email de cita aceptada al lead (donde va la línea de consentimiento)</td><td><span class="tag reuse">REUTILIZAR</span></td><td><code>lib/citas/email.ts → sendAppointmentAccepted</code></td></tr>
+    <tr><td>Cliente LLM env-driven (NO hardcodear modelo)</td><td><span class="tag reuse">REUTILIZAR</span></td><td><code>lib/dashboard/coach/ai/llm.ts → callPabloIaLlmJson</code></td></tr>
+    <tr><td>Cron infra (Vercel crons)</td><td><span class="tag reuse">REUTILIZAR</span></td><td><code>vercel.json</code></td></tr>
+    <tr><td>Registro de consentimiento de grabación + evidencia</td><td><span class="tag new">NUEVO</span></td><td>tabla <code>recording_consent</code></td></tr>
+    <tr><td>Store de grabación/transcript + estado del bot</td><td><span class="tag new">NUEVO</span></td><td>tabla <code>call_recordings</code></td></tr>
+    <tr><td>Proveedor meeting-bot (Recall.ai) + webhook</td><td><span class="tag new">NUEVO</span></td><td><code>lib/citas/recording/</code> + route webhook + cron dispatch</td></tr>
+    <tr><td>Paso LLM-prefill (transcript → parte borrador)</td><td><span class="tag new">NUEVO</span></td><td><code>lib/coach/session-reports/prefill.ts</code></td></tr>
+    <tr><td>Cron de retención (purga transcript/grabación)</td><td><span class="tag new">NUEVO</span></td><td><code>/api/cron/purge-recordings</code></td></tr>
+  </table>
+
+  <h2>Flujo end-to-end</h2>
+  <ol class="flow">
+    <li><strong>Cita aceptada</strong> → <code>meet_link</code> ya se genera (adapter #26). El email <code>sendAppointmentAccepted</code> incluye la <strong>línea de consentimiento + opt-in</strong> (link "Sí, acepto que se grabe" / "No grabar"). Se registra en <code>recording_consent</code>.</li>
+    <li><strong>Cron dispatch</strong> (cada ~5 min): busca citas que empiezan pronto, con <code>consent=granted</code> y sin bot aún → despacha el bot de Recall.ai al <code>meet_link</code>. Sin consentimiento → no se despacha (la llamada ocurre igual, sin grabar).</li>
+    <li><strong>Consentimiento oral al inicio</strong>: Pablo lee la frase (guion abajo) y el lead confirma "sí" — queda capturado en la propia grabación como evidencia explícita. Si el lead dice no → Pablo detiene (endpoint stop) → se purga.</li>
+    <li><strong>Bot graba</strong> ambos lados; al acabar, webhook <code>bot.done</code> → guardamos transcript diarizado en <code>call_recordings</code>, estado <code>transcript_ready</code>.</li>
+    <li><strong>LLM-prefill</strong>: <code>callPabloIaLlmJson(transcript)</code> → crea/actualiza el parte (<code>session_reports</code>) borrador con <code>notes</code>, <code>next_steps</code>, <code>outcome</code>, <code>quoted_price_eur</code>, marcado <code>ai_prefilled</code>. Si el LLM no está configurado o falla → transcript queda visible y Pablo rellena a mano (degradación limpia).</li>
+    <li><strong>Pablo revisa</strong> en <code>SessionReportsBlock</code> (ya existe): ve el parte pre-rellenado, edita 30&nbsp;s → <strong>"Enviar resumen al lead"</strong> (#11 ya existe).</li>
+    <li><strong>Retención</strong>: cron purga grabación + transcript ≤30 días tras el resumen; el resumen derivado y la prueba de consentimiento siguen su propia política (tabla abajo).</li>
+  </ol>
+
+  <h2>Modelo de datos (aditivo)</h2>
+  <p class="muted">Dos tablas nuevas. Separadas a propósito porque su <strong>retención legal difiere</strong>: la prueba de consentimiento se guarda años; el transcript, días.</p>
+
+  <h3><code>recording_consent</code> — prueba de consentimiento (auditable)</h3>
+  <table>
+    <tr><th>Columna</th><th>Tipo</th><th>Nota</th></tr>
+    <tr><td>id</td><td>bigint id</td><td>PK</td></tr>
+    <tr><td>appointment_id</td><td>bigint FK</td><td>→ appointments</td></tr>
+    <tr><td>lead_id</td><td>bigint FK</td><td>sujeto (para erasure por persona)</td></tr>
+    <tr><td>decision</td><td>enum</td><td><code>granted · declined · withdrawn</code></td></tr>
+    <tr><td>channel</td><td>enum</td><td><code>email_optin · call_start_oral</code> (puede haber 2 filas: email + oral)</td></tr>
+    <tr><td>decided_at</td><td>timestamptz</td><td></td></tr>
+    <tr><td>evidence</td><td>jsonb</td><td>email: ip/ua/opt-in token; oral: referencia al segmento de la grabación. <strong>Sin contenido de salud.</strong></td></tr>
+    <tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+  </table>
+
+  <h3><code>call_recordings</code> — grabación + transcript</h3>
+  <table>
+    <tr><th>Columna</th><th>Tipo</th><th>Nota</th></tr>
+    <tr><td>id</td><td>bigint id</td><td>PK</td></tr>
+    <tr><td>appointment_id</td><td>bigint FK unique</td><td>1 grabación por cita</td></tr>
+    <tr><td>lead_id</td><td>bigint FK</td><td>denormalizado (retención/erasure)</td></tr>
+    <tr><td>provider</td><td>text</td><td><code>recall</code> — agnóstico de proveedor</td></tr>
+    <tr><td>provider_bot_id</td><td>text</td><td>id del bot en el proveedor</td></tr>
+    <tr><td>status</td><td>enum</td><td><code>pending · joining · recording · transcribing · transcript_ready · prefilled · failed · purged</code></td></tr>
+    <tr><td>transcript_text</td><td>text</td><td>diarizado; se BORRA en la purga (nullable)</td></tr>
+    <tr><td>recording_ref</td><td>text</td><td>puntero al media del proveedor (efímero)</td></tr>
+    <tr><td>transcript_ready_at</td><td>timestamptz</td><td></td></tr>
+    <tr><td>session_report_id</td><td>bigint FK</td><td>el parte que generó (nullable)</td></tr>
+    <tr><td>purge_after</td><td>timestamptz</td><td>cuándo purgar (se fija al enviar resumen o T+Ndías)</td></tr>
+    <tr><td>purged_at</td><td>timestamptz</td><td></td></tr>
+    <tr><td>error</td><td>text</td><td>motivo si <code>failed</code></td></tr>
+    <tr><td>created_at / updated_at</td><td>timestamptz</td><td></td></tr>
+  </table>
+  <p class="muted">En <code>session_reports</code>: añadir <code>ai_prefilled boolean default false</code> (marca "borrador de IA, revísame"). Nada más — el resto de campos ya existen.</p>
+
+  <h2>Proveedor del bot — evaluación con costes reales</h2>
+  <p class="muted">Volumen de referencia: 20 y 60 llamadas/mes × 30 min = 10 y 30 horas de grabación/mes.</p>
+  <table>
+    <tr><th>Proveedor</th><th>Coste real</th><th>20 / 60 llamadas/mes</th><th>EU residency</th><th>Notas</th></tr>
+    <tr><td><strong>Recall.ai</strong> (recomendado)</td><td>$0,50/h grabación + $0,15/h transcripción</td><td><strong>$6,50 / $19,50</strong></td><td class="ok">Sí — Frankfurt <code>eu-central-1</code></td><td>Meet nativo, join por URL, webhook <code>bot.done</code>, diarizado, retención configurable (incl. zero-retention), DPA. Entidad US-HQ (posible exposición CLOUD Act pese a hosting EU).</td></tr>
+    <tr><td>Vexa (self-host / cloud)</td><td>$12/mes plano (cloud) o $0,50/h PAYG</td><td>$12 / $12</td><td class="ok">Total si self-host (Apache-2.0)</td><td>Soberanía real (datos no salen de tu infra). Cloud $12 plano = más barato a volumen. 1 bot concurrente en plan base.</td></tr>
+    <tr><td>Attendee (open-source)</td><td>$0,50/h cloud, o self-host</td><td>$5 / $15</td><td class="ok">Total si self-host</td><td>Webhooks estaban en roadmap — confirmar GA.</td></tr>
+    <tr><td>Google Workspace nativo</td><td>~$14/mes (1 asiento Business Standard)</td><td>~$14 / ~$14</td><td class="warn">Requiere tier Enterprise para pin EU</td><td>Sin bot, sin tiempo real, sin webhook "listo", transcripción manual in-call. Mayor esfuerzo. Solo si Pablo ya paga Workspace.</td></tr>
+  </table>
+  <p><strong>Recomendación objetiva:</strong> <span class="ok">Recall.ai (región EU)</span> para v1 — único gestionado que cumple TODOS los requisitos duros con docs confirmados (EU residency, retención configurable, webhook, diarizado, DPA) y coste trivial ($6–20/mes). <strong>Fork de soberanía</strong> → si los datos de salud exigen cero exposición jurisdiccional US, el fallback es <span class="ok">Vexa self-host</span> (Apache-2.0, EU total). <em>Decisión de Alex (abajo).</em></p>
+
+  <h3>Detalle verificado por proveedor <span class="muted">(fetch directo a sus páginas/docs el 7 jul 2026)</span></h3>
+  <table>
+    <tr><th>Dimensión</th><th>Recall.ai</th><th>Vexa</th><th>Attendee</th></tr>
+    <tr><td>Coste por llamada de 30 min</td><td><strong>$0,325</strong> (0,5h × $0,50 grab + $0,15 transcr.)</td><td><strong>$0,25</strong> PAYG · o <strong>$12/mes</strong> plano ilimitado</td><td><strong>$0,25</strong> ($0,50/h, 5h gratis)</td></tr>
+    <tr><td>Cuota mínima mensual</td><td class="ok">No (PAYG). 5h gratis al alta.</td><td>No ($12 plano opcional)</td><td>No (5h gratis)</td></tr>
+    <tr><td>Google Meet con cuenta GRATIS (sin Workspace de pago)</td><td class="ok">Sí — el bot entra solo con el enlace del Meet. Pablo lo <strong>admite con 1 clic</strong> de la sala de espera (doble como checkpoint de consentimiento).</td><td class="ok">Sí (Meet + Teams)</td><td>Sí (según GitHub; no verificable en la página de precios)</td></tr>
+    <tr><td>Nombre propio del bot ("FAHYBRID Notas")</td><td>Sí, param <code>bot_name</code> (1–100). <span class="warn">Ojo: en un bot Google <em>autenticado</em> se muestra el nombre de la cuenta; usar bot anónimo → sale el custom.</span></td><td class="ok">Sí — nombre + avatar + branding por reunión</td><td>No verificable en la página</td></tr>
+    <tr><td>Latencia del transcript</td><td>Tiempo real (streaming) + final al cerrar vía webhook <code>bot.done</code></td><td>Tiempo real sub-segundo (WebSocket), diarizado</td><td>Post-reunión + tiempo real</td></tr>
+    <tr><td>Retención / borrado por API + dónde</td><td class="ok"><code>retention=null</code> (zero-retention), timed (p.ej. 72h) o forever; endpoints <strong>Delete Bot Media / Delete Recording</strong> (borrado permanente). Región <strong>EU Frankfurt</strong>.</td><td class="ok">Datos "nunca salen de tu red" si self-host; GDPR/HIPAA-ready</td><td>Self-host = control total; retención no documentada en la página</td></tr>
+    <tr><td>Webhooks</td><td class="ok">Sí (real-time + bot.done)</td><td class="ok">Sí (+ n8n/Zapier)</td><td class="warn">Estaba en roadmap — confirmar GA</td></tr>
+  </table>
+  <p class="warn"><strong>Gotcha operativo verificado (Recall):</strong> las cuentas creadas tras el 12-jun-2025 retienen la grabación <strong>indefinidamente por defecto</strong>. Hay que fijar <code>recording_config.retention</code> (timed) en CADA bot — si no, se rompe la política de retención RGPD. Va en la implementación, no es opcional.</p>
+
+  <h2>Checklist de Alex — alta del proveedor (2 min, como Resend)</h2>
+  <ol>
+    <li>Crear cuenta en <strong>recall.ai</strong> (plan Pay As You Go — 5h de grabación gratis para probar, sin cuota mínima).</li>
+    <li>Elegir la <strong>región EU (Frankfurt)</strong> al crear el workspace — imprescindible por el dato de salud (RGPD).</li>
+    <li>Generar una <strong>API key</strong> y pasármela por el canal seguro (como la de Resend) → la guardo en <code>~/.openclaw/credentials</code>, nunca en el repo.</li>
+    <li>(Aparte, legal con #19) firmar el <strong>DPA de Recall.ai</strong> y elegir el <strong>modelo LLM</strong> del resumen (por env; yo no lo propongo).</li>
+  </ol>
+  <p class="muted">Con eso, el resto (programar el bot a la hora de la cita, webhook, prefill, retención automática) es código del agente de web sobre la spec de arriba.</p>
+
+  <h2>Legal <span class="tag law">RGPD · dato de salud</span></h2>
+  <p>La llamada contiene <strong>datos de salud (categoría especial, Art. 9)</strong>. Grabar + transcribir (SaaS) + pasar por LLM = tratamiento. Ser parte de la llamada <strong>no exime</strong> del RGPD. Requisitos <strong>objetivos</strong> (no opcionales):</p>
+  <ol>
+    <li><strong>Consentimiento EXPLÍCITO (Art. 9.2.a)</strong> del lead antes de grabar. Es la única base viable (no hay otra excepción del 9.2 para una llamada comercial). Libre, específico, informado, inequívoco, revocable.</li>
+    <li><strong>La grabación es OPCIONAL</strong> — si el lead declina, <strong>la llamada ocurre igual, sin grabar</strong>. (Si no, el consentimiento no es "libre".)</li>
+    <li><strong>Doble captura</strong>: (a) aviso + opt-in en el email de confirmación; (b) <strong>confirmación oral grabada al inicio</strong> de la llamada. La oral cubre el Art. 9.2.a y la carga de la prueba (Art. 7.1) a la vez.</li>
+    <li><strong>DPA (Art. 28)</strong> firmado con el proveedor de grabación <em>y</em> con el LLM; el LLM contractualmente <strong>prohibido de entrenar / uso propio</strong>, idealmente zero-retention.</li>
+    <li><strong>Transferencias (Cap. V)</strong>: mantener el tratamiento en la UE (región EU del proveedor + LLM EU/DPF) evita el problema; si no, SCCs + evaluación de impacto de transferencia.</li>
+    <li><strong>Retención finita</strong> con borrado automático; erasure (Art. 17) cascada a los procesadores.</li>
+    <li><strong>Aviso de privacidad (Art. 13)</strong>: fines, base, procesadores, transferencias, plazos, derechos (incl. retirar consentimiento y reclamar a la AEPD). Va con #19.</li>
+  </ol>
+  <p class="muted"><strong>DPIA (Art. 35):</strong> categoría especial + IA → muy probablemente <em>requerida</em>. Acción de Alex/legal.</p>
+
+  <h3>Retención (borrado automático)</h3>
+  <table>
+    <tr><th>Artefacto</th><th>Plazo propuesto</th><th>Motivo</th></tr>
+    <tr><td>Grabación + transcript completo</td><td>Borrar ≤30 días tras generar el resumen</td><td>Máxima sensibilidad, utilidad agotada al existir el parte (minimización)</td></tr>
+    <tr><td>Resumen derivado (parte)</td><td>6 meses si el lead no convierte; si convierte → pasa a su ficha bajo la base de esa relación</td><td>Limitación de conservación</td></tr>
+    <tr><td>Prueba de consentimiento (solo metadatos)</td><td>5 años (Art. 1964 CC, defensa de reclamaciones)</td><td>Carga de la prueba; sin contenido de salud</td></tr>
+  </table>
+  <p class="muted">Plazos <strong>razonados</strong> (el RGPD no fija número); Alex confirma o ajusta.</p>
+
+  <h3>Requisitos del copy de consentimiento (no es el copy final)</h3>
+  <p><strong>Email de confirmación</strong> debe transmitir: que la llamada se graba + transcribe + IA resume; que capta datos de salud que comparta; quién procesa (SaaS + LLM) y dónde (UE); cuánto se guarda; que es voluntario y la llamada ocurre igual si declina; que puede retirar y pedir borrado; link al aviso de privacidad; opt-in inequívoco (nunca pre-marcado).</p>
+  <p><strong>Frase oral al inicio</strong> (Pablo la dice y espera un "sí" grabado): «Esta llamada se está grabando y transcribiendo, y una IA redacta un resumen. Vas a compartir datos de salud y consientes que los tratemos para esto. Es opcional: podemos seguir sin grabar. Puedes retirarlo y pedir que lo borremos cuando quieras. ¿Consientes que grabemos, sí o no?»</p>
+
+  <h2>LLM-prefill (modelo: lo elige Alex)</h2>
+  <p>Reutiliza <code>callPabloIaLlmJson({system,user})</code> (env-driven: <code>PABLO_IA_MODEL ?? LLM_CHAT_MODEL</code>). <strong>No se propone modelo.</strong> Prompt: transcript diarizado (es-ES) → JSON con <code>notes</code> (lo hablado), <code>next_steps</code>, <code>outcome</code> (enum <code>quiere_empezar·pensandoselo·no_interesado·seguimiento·no_asistio</code>), <code>quoted_price_eur</code> (precio detectado). Se escribe como parte borrador (<code>ai_prefilled=true</code>). Si <code>!isPabloIaLlmConfigured()</code> o error → transcript visible, Pablo rellena a mano (mismo patrón de degradación que ya usa la app).</p>
+
+  <h2>Casos límite cubiertos (stress-test)</h2>
+  <ul>
+    <li>Lead declina en email → no se despacha bot; parte manual.</li>
+    <li>Consintió en email pero dice no al inicio → Pablo detiene; <code>withdrawn</code>; purga.</li>
+    <li>Sin <code>meet_link</code> (Pablo no lo puso) → bot no puede unirse; <code>failed</code>; parte manual.</li>
+    <li>Bot no entra / caída del proveedor → <code>failed</code>; aviso al coach; manual.</li>
+    <li>Transcript OK pero LLM no configurado/error → transcript visible; manual.</li>
+    <li>Sujeto es athlete (seguimiento) no lead → <code>session_reports</code> ya soporta <code>athlete_id</code>; consentimiento igual.</li>
+    <li>Erasure posterior (Art. 17) → purga grabación+transcript+resumen; queda consentimiento=withdrawn.</li>
+    <li>Pablo no revisa el borrador → NO se auto-envía; la purga del transcript corre igual por tiempo.</li>
+    <li>Solape de 2 llamadas (raro, un coach) → Recall concurrente OK; Vexa base = 1 bot (a tener en cuenta si se elige Vexa).</li>
+  </ul>
+
+  <h2>Fuera de alcance v1</h2>
+  <p>Fallback "Grabar llamada" (captura pestaña+mic en el dashboard para llamadas fuera de Meet). El circuito Meet+bot cubre el caso principal; el fallback se añade después si hace falta.</p>
+
+  <div class="decide">
+    <h3>Decisiones para Alex (subjetivo — lo objetivo ya está resuelto arriba)</h3>
+    <ol>
+      <li><strong>Proveedor primario:</strong> ¿Recall.ai (gestionado, EU Frankfurt, $6–20/mes, entidad US-HQ) o Vexa self-host (soberanía EU total, $12/mes + tu VM)? Recomiendo Recall.ai para v1; Vexa si la soberanía del dato de salud pesa más.</li>
+      <li><strong>Plazos de retención:</strong> ¿OK 30 días grabación/transcript · 6 meses resumen sin conversión · 5 años prueba-de-consentimiento? ¿O los ajustas?</li>
+      <li><strong>Fallback browser-capture:</strong> ¿v1 o más adelante? Recomiendo más adelante.</li>
+      <li><strong>Modelo LLM:</strong> lo eliges tú por env (no propongo). Confirmo que reuso el cliente existente.</li>
+      <li><strong>Acción legal (con #19):</strong> firmar DPA con proveedor + LLM, y muy probablemente una DPIA. Esto es tuyo/legal, no código.</li>
+    </ol>
+  </div>
+
+  <h2>Verificado</h2>
+  <ul class="muted">
+    <li>Costes de proveedor: fuentes oficiales citadas (recall.ai/pricing + docs de regiones/retención/webhooks; vexa.ai; attendee; Google Workspace). Números reales, no inventados; incertidumbres marcadas (paridad de precio EU de Recall; webhooks GA de Attendee).</li>
+    <li>Legal: EDPB Guidelines 05/2020 (consentimiento explícito, §4 paras 91–118, incl. consentimiento oral grabado para. 95/109) + Art. 6/7/9/13/17/28/35 RGPD + AEPD + Art. 1964 CC. "Requerido" vs "buena práctica" separado; retención marcada como juicio razonado, no estatutario.</li>
+    <li>Código: <code>session_reports</code> (mig 0097/0098), #11 (<code>session-summary-email.ts</code>), Meet adapter (mig 0096, <code>lib/citas/meeting.ts</code>), cliente LLM (<code>callPabloIaLlmJson</code>, env-driven) — todos verificados existentes. Recording/transcript/consent de grabación: confirmado inexistente (grep de migraciones y código).</li>
+    <li>Modelo LLM: NO propuesto (regla del proyecto). Reutiliza el patrón env existente.</li>
+  </ul>
+</div>
+</body>
+</html>

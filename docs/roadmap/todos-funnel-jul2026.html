@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAHYBRID — To-dos · reunión 7 jul 2026</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #141414;
+    --panel-raised: #1d1d1d;
+    --line: #262626;
+    --ink: #f4f4f4;
+    --dim: #9a9a9a;
+    --orange: #F06A2A;
+    --orange-soft: #f0894f;
+    --green: #3ecf6e;
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header { margin-bottom: 8px; }
+  .brand {
+    font-size: 13px; font-weight: 800; font-style: italic;
+    letter-spacing: 0.16em; color: var(--orange); text-transform: uppercase;
+  }
+  h1 {
+    font-size: 34px; font-weight: 900; font-style: italic;
+    letter-spacing: -0.01em; margin: 6px 0 4px;
+  }
+  .meta { color: var(--dim); font-size: 13px; margin-bottom: 18px; }
+  .meta strong { color: var(--ink); }
+
+  .globalbar {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 18px; margin-bottom: 30px;
+    position: sticky; top: 12px; z-index: 5;
+  }
+  .globalbar .count { font-size: 15px; font-weight: 800; white-space: nowrap; }
+  .track { flex: 1; height: 8px; background: var(--panel-raised); border-radius: 4px; overflow: hidden; }
+  .fill { height: 100%; width: 0%; background: var(--orange); border-radius: 4px; transition: width .25s ease; }
+
+  section { margin-bottom: 34px; }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  h2 {
+    font-size: 19px; font-weight: 900; font-style: italic;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .sec-count { color: var(--dim); font-size: 12.5px; font-weight: 700; }
+  .sec-note { color: var(--dim); font-size: 12.5px; margin: -6px 0 12px; }
+
+  .task {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px;
+    cursor: pointer; transition: border-color .15s ease;
+  }
+  .task:hover { border-color: #3a3a3a; }
+
+  .box {
+    flex: none; width: 22px; height: 22px; margin-top: 1px;
+    border: 2px solid var(--dim); border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s ease;
+  }
+  .box svg { width: 13px; height: 13px; opacity: 0; }
+  .task.done .box { background: var(--green); border-color: var(--green); }
+  .task.done .box svg { opacity: 1; }
+
+  .body { flex: 1; min-width: 0; }
+  .tid {
+    font-size: 11px; font-weight: 800; color: var(--orange);
+    letter-spacing: 0.08em;
+  }
+  .tsub { font-size: 15px; font-weight: 800; margin: 2px 0 3px; }
+  .tdesc { font-size: 13px; color: var(--dim); line-height: 1.45; }
+  .task.done .tsub { text-decoration: line-through; color: var(--dim); }
+  .task.done .tdesc { opacity: .6; }
+
+  .chips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em;
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--panel-raised); color: var(--dim);
+    border: 1px solid var(--line);
+  }
+  .chip.dep { color: var(--orange-soft); }
+
+  .resumen {
+    margin-top: 9px; padding: 9px 11px;
+    background: rgba(62, 207, 110, 0.07);
+    border: 1px solid rgba(62, 207, 110, 0.25);
+    border-radius: 9px;
+    font-size: 12px; color: #b9e8c9; line-height: 1.5;
+  }
+  .resumen b { color: var(--green); }
+  .task.done .resumen { opacity: 1; }
+
+  footer { color: var(--dim); font-size: 12px; margin-top: 40px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">FAHYBRID</div>
+    <h1>To-dos — funnel &amp; ciclo del atleta</h1>
+    <div class="meta">Reunión <strong>Alex · Pablo · Gerard</strong> — 7 julio 2026. Las tarjetas en verde llevan su resumen de lo hecho. <strong>Última actualización: 7 jul · 23:55 — 16 tareas cerradas en el día.</strong></div>
+  </header>
+
+  <div class="globalbar">
+    <div class="count" id="gcount">0 / 0</div>
+    <div class="track"><div class="fill" id="gfill"></div></div>
+  </div>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Funnel de ingreso</h2><span class="sec-count"></span></div>
+    <div class="sec-note">Web → onboarding → cita → llamada (precio) → alta → app. Secuencial: cada paso alimenta al siguiente.</div>
+    <div class="task done" data-id="1">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#1</div>
+        <div class="tsub">Onboarding web del usuario</div>
+        <div class="tdesc">Genera interés y captura los datos para construir su programa (nivel, objetivo, días, historial, carrera). Sin precio en la web — el precio se da en la llamada.</div>
+        <div class="resumen"><b>Hecho · 7 jul.</b> Vivo en fahybrid.com/es/empieza: flujo tap-first con ramas inteligentes, responsive completo (desktop a pantalla llena, móvil intacto). Cada respuesta se guarda en producción columna a columna; con solo dejar el email ya hay lead aunque abandone. Aviso interno con el resumen a hello@ + confirmación al usuario. Landing sin precios, CTA "Quiero esto". Verificado con un lead de prueba real de punta a punta. Falta solo el calendario final (#2).</div>
+      </div>
+    </div>
+    <div class="task done" data-id="2">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#2</div>
+        <div class="tsub">Reserva de videollamada con el coach</div>
+        <div class="tdesc">Google Meet + Google Calendar. Bloques de 30 min máximo. En la llamada se comunica el precio.</div>
+        <div class="resumen"><b>Hecha · 7 jul (refinada).</b> Elegir hueco = <b>cita confirmada al instante</b>: email inmediato con la fecha, el calendario adjunto y el enlace de Meet (creado solo). Sin pasos de aprobación ni esperas. Reserva al final del onboarding o desde el email. Dos personas no pueden coger el mismo hueco (probado). Recordatorio automático 24h antes.</div>
+      </div>
+    </div>
+    <div class="task done" data-id="3">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#3</div>
+        <div class="tsub">Emails para Pablo y Gerard + emails de citas</div>
+        <div class="tdesc">Direcciones @fahybrid.com para ambos y los transaccionales de citas: confirmación, notificación al coach, recordatorio.</div>
+        <div class="resumen"><b>Hecha · 7 jul.</b> Todos los emails salen como <b>FAHYBRID &lt;hello@fahybrid.com&gt;</b> (dominio verificado, Zoho intacto, comprobado con envíos reales). Emails de citas completos: confirmación, aviso al coach, aceptada con calendario adjunto, rechazo/cancelación y <b>recordatorio automático 24h antes</b>. Los buzones propios de Pablo/Gerard quedan para cuando queráis salir de hello@ (decisión: de momento todo ahí).</div>
+      </div>
+    </div>
+    <div class="task done" data-id="4">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#4</div>
+        <div class="tsub">Coach acepta/bloquea llamadas y se genera el enlace</div>
+        <div class="tdesc">Gestión de disponibilidad del coach; al aceptar se genera el Meet y se envía al usuario.</div>
+        <div class="resumen"><b>Hecha · 7 jul (refinada).</b> Pablo ya no aprueba: SUPERVISA. Las reservas llegan confirmadas y le salen como "Próximas llamadas" (botón Unirse al Meet, Cancelar con aviso automático, Completada abre el parte de la llamada). Su horario y días bloqueados: fahybrid.com/es/disponibilidad (sembrado L-V 10-13 y 17-20 como punto de partida).</div>
+      </div>
+    </div>
+    <div class="task done" data-id="5">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#5</div>
+        <div class="tsub">Alta por el coach + email de alta y descarga de la app</div>
+        <div class="tdesc">Tras la llamada, el coach da de alta al usuario; le llega email con enlace de alta y descarga de la app iOS.</div>
+        <div class="resumen"><b>Hecha · 7 jul — EL FUNNEL ESTÁ COMPLETO.</b> "Dar de alta como atleta" vivo en la ficha del lead, con TODOS sus datos del onboarding pre-rellenados (Pablo solo ajusta y confirma). El atleta nace con su perfil ya cargado, recibe el email de acceso, y al reclamar su cuenta el lead pasa a "convertido" enlazado a su ficha. Web → onboarding → lead → cita → llamada → alta → app: círculo cerrado.</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Leads</h2><span class="sec-count"></span></div>
+    <div class="task done" data-id="9">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#9</div>
+        <div class="tsub">Leads en el dashboard — diferenciar lead vs atleta</div>
+        <div class="tdesc">Cada onboarding aparece como LEAD con sus datos y su cita; el alta (#5) lo convierte en atleta. Nunca mezclado con el roster.</div>
+        <div class="resumen"><b>Hecho · 7 jul.</b> Sección "Leads" viva en el dashboard de producción: lista con buscador, filtros y conteos por estado; ficha con contacto, todas las respuestas del onboarding en español y botones de pipeline (contactado → agendado → descartado). Totalmente separado del roster de atletas; "dar de alta" se activará con la #5.</div>
+      </div>
+    </div>
+    <div class="task" data-id="10">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#10</div>
+        <div class="tsub">Nurturing de leads no convertidos</div>
+        <div class="tdesc">Recordatorios automáticos por email, incluso con ofertas, según dónde se atascó el lead (sin cita / sin alta).</div>
+        <div class="chips"><span class="chip dep">tras #3</span><span class="chip dep">tras #9</span></div>
+      </div>
+    </div>
+    <div class="task" data-id="18">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#18</div>
+        <div class="tsub">Cupo máximo de atletas + lista de espera</div>
+        <div class="tdesc">Capacidad limitada de Pablo: cupo, lista de espera visible y aviso al liberarse plaza. La escasez refuerza el premium.</div>
+        <div class="chips"><span class="chip dep">tras #9</span></div>
+      </div>
+    </div>
+    <div class="task" data-id="20">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#20</div>
+        <div class="tsub">Métricas del funnel</div>
+        <div class="tdesc">Conversión visitas → onboarding → cita → llamada → alta, por semana/mes. Sin medir no se mejora.</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Citas &amp; 1:1</h2><span class="sec-count"></span></div>
+    <div class="task done" data-id="11">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#11</div>
+        <div class="tsub">Email post-llamada con el resumen de lo hablado</div>
+        <div class="tdesc">Propuesta, precio y próximos pasos por escrito, con las notas del coach como fuente; junto al enlace de alta.</div>
+        <div class="resumen"><b>Hecha · 7 jul.</b> En el parte de la llamada, botón "Enviar resumen al lead": Pablo ve el email antes (editable sin tocar sus notas), sale desde hello@ con lo hablado y los próximos pasos, y queda sellado como enviado. Pablo nunca escribe un email a mano.</div>
+      </div>
+    </div>
+    <div class="task done" data-id="14">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#14</div>
+        <div class="tsub">Reporting de la sesión 1:1 al dashboard</div>
+        <div class="tdesc">Historial de sesiones 1:1 por persona: fecha, notas, acuerdos, próximos pasos. Nada de lo hablado se pierde.</div>
+        <div class="resumen"><b>Hecha · 7 jul.</b> Al marcar una llamada "Completada" se abre el parte ahí mismo: lo hablado, próximos pasos, resultado (quiere empezar / pensándoselo / no / seguimiento / no asistió) y precio propuesto. Se ve en la ficha del lead y en la pestaña "1:1" del atleta, y el historial sigue a la persona al convertirse. Base lista para la futura grabación con IA (#29).</div>
+      </div>
+    </div>
+    <div class="task" data-id="21">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#21</div>
+        <div class="tsub">Seguimiento recurrente 1:1 con el atleta</div>
+        <div class="tdesc">Revisión mensual/trimestral reutilizando citas y reporting. Retención y servicio premium.</div>
+        <div class="chips"><span class="chip dep">tras #2</span><span class="chip dep">tras #14</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Ciclo de vida del atleta</h2><span class="sec-count"></span></div>
+    <div class="task" data-id="17">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#17</div>
+        <div class="tsub">Onboarding día-1 del atleta en la app</div>
+        <div class="tdesc">Primer login: conectar Apple Health/Garmin, perfil y tests iniciales que calibran el programa.</div>
+        <div class="chips"><span class="chip dep">tras #5</span></div>
+      </div>
+    </div>
+    <div class="task" data-id="13">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#13</div>
+        <div class="tsub">Flujo de bajas y pausas</div>
+        <div class="tdesc">Pausa (lesión/vacaciones: plan congelado sin penalizar adherencia) y baja (acceso, plan, historial). Estados en el roster.</div>
+      </div>
+    </div>
+    <div class="task" data-id="15">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#15</div>
+        <div class="tsub">Seguimiento de pagos</div>
+        <div class="tdesc">Precio por atleta (acordado en la llamada), estado por período, historial y avisos de impago.</div>
+      </div>
+    </div>
+    <div class="task" data-id="16">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#16</div>
+        <div class="tsub">Gestión de lesiones</div>
+        <div class="tdesc">Registro, plan adaptado sin penalizar adherencia, seguimiento hasta la vuelta, historial. Enlaza con pausas y check-in.</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Dobles</h2><span class="sec-count"></span></div>
+    <div class="task done" data-id="6">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#6</div>
+        <div class="tsub">Atleta demo de dobles + visualización para test</div>
+        <div class="tdesc">Pareja demo vinculada a Atleta Demo 1 con datos sembrados para ver todas las pantallas de dobles.</div>
+        <div class="resumen"><b>Hecho · 7 jul.</b> Partner "Guillem Soler" creado y emparejado con Atleta Demo 1: simulación conjunta de 8 estaciones, head-to-head de carreras (1:12:27 vs 1:05:18), semana espejo y una sesión conjunta ejecutada. De paso se descubrió por qué Dobles salía vacío: el hub llamaba a un endpoint que no existía — se construyó, se desplegó a la demo y se verificó en vivo (los 4 endpoints devuelven datos llenos). Para verlo: Run en Xcode → Plan → chip "Dobles · Guillem".</div>
+      </div>
+    </div>
+    <div class="task done" data-id="12">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#12</div>
+        <div class="tsub">Auditar la oferta de dobles y la sesión conjunta</div>
+        <div class="tdesc">Emparejamiento, plan conjunto, registro joint, analíticas compartidas y reloj — contra dato real.</div>
+        <div class="resumen"><b>Hecha · 7 jul.</b> Funciona: plan conjunto, registro honesto, analíticas, enrutado del reloj. Encontrado y ya en arreglo (#22): el emparejamiento real estaba roto para un invitado nuevo (enlace del email sin página detrás), y "Entrenar juntos" guardaba el resultado pero nadie podía verlo (ni el compañero con score, ni el coach). Segunda ola (#23): ejecutar el reparto de estaciones en el motor y pulir la UX de dobles del reloj.</div>
+      </div>
+    </div>
+    <div class="task done" data-id="22">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#22</div>
+        <div class="tsub">Arreglos críticos de dobles</div>
+        <div class="tdesc">Emparejamiento real (enlace + página + app), usuarios existentes pueden aceptar, resultado conjunto visible para compañero y coach, una sola fuente de verdad de pareja, y des-emparejar limpio (sin arrastrar al ex-partner en cobros).</div>
+        <div class="resumen"><b>Hecha · 7 jul, en producción.</b> Emparejarse ya funciona de verdad (enlace del email → página → app, también con cuenta existente); "entrenasteis juntos" se ve con el tiempo de cada uno (compañero y coach); una sola fuente de verdad de pareja; y des-emparejar limpia todo sin arrastrar al ex-compañero en cobros, conservando el histórico. Verificado de punta a punta.</div>
+      </div>
+    </div>
+    <div class="task done" data-id="23">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#23</div>
+        <div class="tsub">Dobles v2: reparto de estaciones + polish</div>
+        <div class="tdesc">Cada atleta ejecuta SU mitad de las estaciones (móvil y reloj), badge "Dobles · con {nombre}" en la muñeca, y el reparto es de la pareja.</div>
+        <div class="resumen"><b>Hecha · 7 jul.</b> El reparto es real y de la pareja: Pablo lo propone desde su botón "Reparto", tú o Guillem lo ajustáis desde la app (con firma de quién lo tocó), y al ejecutar la simulación cada uno ve SU parte — con pantalla de relevo mientras el otro trabaja ("Guillem hace SkiErg · Recupera · Relevo ▸") en móvil y reloj. Lo del compañero jamás cuenta como tuyo. Falta solo tu rebuild en Xcode para verlo. Pendiente menor a futuro: estado/cancelación de invitaciones y copys de error (apuntado).</div>
+      </div>
+    </div>
+    <div class="task done" data-id="24">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#24</div>
+        <div class="tsub">Integridad de datos: doble-conteo vía Apple Health y Garmin</div>
+        <div class="tdesc">Una sesión logueada a mano que también llega desde Garmin/Strava/reloj podía contarse dos veces y marcar la sesión equivocada. Dedupe por ventana temporal + proteger los datos manuales — aplicado a Apple Health Y Garmin.</div>
+        <div class="resumen"><b>Hecha · 7 jul, en producción.</b> Una sesión apuntada a mano que también llega desde el reloj/Garmin/otra app ya no se cuenta dos veces ni marca el entreno equivocado, y los imports automáticos no pisan lo que el atleta registró a mano. Aplicado a Apple Health y Garmin con la misma lógica, verificado contra base de datos real.</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Base</h2><span class="sec-count"></span></div>
+    <div class="task done" data-id="8">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#8</div>
+        <div class="tsub">Usuario coach de Pablo (hello@fahybrid.com de momento)</div>
+        <div class="tdesc">Alta real de Pablo en el dashboard; cuando exista su email propio se migra.</div>
+        <div class="resumen"><b>Hecho · 7 jul.</b> Pablo existe como coach en producción con hello@fahybrid.com y el login está VERIFICADO (registro hecho, cuenta vinculada, dashboard cargando limpio). De regalo: el bug que daba error al primer login de cualquier coach pre-creado quedó arreglado de raíz, y la redirección post-registro ahora lleva al dashboard.</div>
+      </div>
+    </div>
+    <div class="task" data-id="19">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#19</div>
+        <div class="tsub">RGPD y base legal</div>
+        <div class="tdesc">Consentimiento en el onboarding, privacidad y términos. Recordatorio: la entidad legal pendiente bloquea cobros formales y APIs de wearables.</div>
+      </div>
+    </div>
+    <div class="task" data-id="7">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#7</div>
+        <div class="tsub">Mirror mode — verificación final</div>
+        <div class="tdesc">Construido y compilando. Falta: suite de tests + prueba real iPhone+Watch: Entrenar en el móvil → el reloj graba y va al paso, un solo registro.</div>
+      </div>
+    </div>
+    <div class="task" data-id="25">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#25</div>
+        <div class="tsub">Pre-launch: Clerk de producción</div>
+        <div class="tdesc">El login corre sobre una instancia de desarrollo (con límites). Antes del lanzamiento real: instancia live con dominio propio y migración de variables.</div>
+      </div>
+    </div>
+    <div class="task done" data-id="27">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#27</div>
+        <div class="tsub">Arreglar 8 tests históricos rotos</div>
+        <div class="tdesc">Fallaban desde antes de hoy y ensuciaban la señal de todas las suites.</div>
+        <div class="resumen"><b>Hecha · 7 jul.</b> Mentían los tests, no el código: usaban nombres viejos (y fases ATR que el sistema eliminó a propósito). Reescritos para proteger la lógica real. La suite completa queda en verde: 507 tests, 0 fallos.</div>
+      </div>
+    </div>
+    <div class="task done" data-id="26">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#26</div>
+        <div class="tsub">Activar Google Calendar/Meet en las citas</div>
+        <div class="tdesc">Las citas aceptadas crean solas el evento en el calendario con su Meet.</div>
+        <div class="resumen"><b>Hecha · 7 jul, verificada con evento real.</b> Pablo acepta una cita → evento en el calendario FAHYBRID con enlace de Meet e invitación al lead, automático; el enlace va en el email de confirmación; cancelar la cita borra el evento. Permiso permanente (app publicada). Si Google fallara, se puede seguir pegando el enlace a mano.</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-sec>
+    <div class="sec-head"><h2>Siguiente ola</h2><span class="sec-count"></span></div>
+    <div class="task" data-id="28">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#28</div>
+        <div class="tsub">Importador de entrenos (Excel/texto → tipado)</div>
+        <div class="tdesc">Pablo pega su Excel o escribe en su notación → la IA lo convierte al modelo tipado → revisión de 30 seg → a la biblioteca/semana. Aprende su notación con cada corrección. Al arrancar: Alex nombra el modelo de IA.</div>
+      </div>
+    </div>
+    <div class="task" data-id="29">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#29</div>
+        <div class="tsub">Bot de grabación de llamadas — IN-HOUSE</div>
+        <div class="tdesc">El bot entra al Meet de la cita, graba y transcribe EN NUESTRA infra (dirección: RunPod + Whisper self-hosted), y la IA deja el parte de Pablo pre-rellenado. Consentimiento del lead incluido. Spec lista; se hará más adelante.</div>
+      </div>
+    </div>
+    <div class="task" data-id="30">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#30</div>
+        <div class="tsub">Dobles: flecos de invitaciones y copys</div>
+        <div class="tdesc">Estado/cancelación de las invitaciones de pareja visibles para quien invita, y mensajes de error correctos en iOS. Menor.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>FAHYBRID · documento de trabajo interno · 7 jul 2026</footer>
+</div>
+
+<script>
+  const KEY = 'fahybrid.todos.funnel.jul2026';
+  const saved = new Set(JSON.parse(localStorage.getItem(KEY) || '[]'));
+
+  const tasks = document.querySelectorAll('.task');
+  tasks.forEach(t => {
+    if (saved.has(t.dataset.id)) t.classList.add('done');
+    t.addEventListener('click', () => {
+      t.classList.toggle('done');
+      t.classList.contains('done') ? saved.add(t.dataset.id) : saved.delete(t.dataset.id);
+      localStorage.setItem(KEY, JSON.stringify([...saved]));
+      refresh();
+    });
+  });
+
+  function refresh() {
+    const all = document.querySelectorAll('.task');
+    const done = document.querySelectorAll('.task.done');
+    document.getElementById('gcount').textContent = done.length + ' / ' + all.length;
+    document.getElementById('gfill').style.width = (all.length ? (100 * done.length / all.length) : 0) + '%';
+    document.querySelectorAll('[data-sec]').forEach(sec => {
+      const a = sec.querySelectorAll('.task').length;
+      const d = sec.querySelectorAll('.task.done').length;
+      sec.querySelector('.sec-count').textContent = d + ' / ' + a;
+    });
+  }
+  refresh();
+</script>
+</body>
+</html>

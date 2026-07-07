@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAHYBRID — Reporte QA visual</title>
+<style>
+:root{--bg:#fafaf8;--ink:#1a1a1a;--mut:#6b6b6b;--line:#e7e5e0;--ok:#1a7f47;--no:#b4341c;--warn:#b8860b;--orange:#e35a13;--card:#fff;--code:#f3f1ec}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:40px 24px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:27px;font-style:italic;font-weight:800;letter-spacing:-.5px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 26px;font-size:14px}
+h2{font-size:18px;font-weight:700;margin:32px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.lead{color:var(--mut);font-size:13.5px;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px 18px;margin:0 0 10px}
+.row{display:flex;gap:11px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.tick{flex:0 0 16px;font-weight:800}
+.ok{color:var(--ok)}.no{color:var(--no)}.warn{color:var(--warn)}
+.what{flex:1}.what b{font-weight:650}
+.sha{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mut);background:var(--code);padding:1px 6px;border-radius:5px;white-space:nowrap}
+.kpi{display:flex;gap:24px;margin:0 0 8px;flex-wrap:wrap}
+.kpi div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 18px;text-align:center}
+.kpi b{display:block;font-size:24px;font-weight:800}
+.kpi span{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.box{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--orange);border-radius:8px;padding:13px 18px;margin:12px 0}
+.box ul{margin:6px 0 0;padding-left:18px}.box li{margin:5px 0;font-size:14px}
+.k{font-size:12.5px;color:var(--mut)}
+</style></head>
+<body><div class="wrap">
+<h1>FAHYBRID — Reporte QA visual</h1>
+<p class="sub">Recorrido real del dashboard (navegador) y la app iOS (simulador) sobre todo lo construido esta sesión, con capturas. Las superficies se verificaban a nivel código/datos; este pase miró lo que el "verde" no ve.</p>
+
+<div class="kpi">
+<div><b>~28</b><span>problemas vistos</span></div>
+<div><b class="ok">14</b><span>arreglados + subidos</span></div>
+<div><b class="ok">8/9</b><span>fixes web confirmados</span></div>
+<div><b class="ok">6/6</b><span>fixes iOS confirmados</span></div>
+<div><b class="warn">3</b><span>menores pendientes</span></div>
+</div>
+
+<h2>Lo que cazó el QA (y por qué importaba)</h2>
+<p class="lead">El dashboard se ve sólido (editores, periodización, estados vacíos). Los fallos serios eran de DATOS y de la demo, no de layout.</p>
+<div class="card">
+<div class="row"><span class="tick no">●</span><span class="what"><b>Métricas fabricadas</b> — 85% adherencia / readiness en atletas SIN plan ni registros; histórico de tests inventado; ejercicios de fuerza con valores de <b>tiempo</b> en vez de kg. Violaba "no inventar" y rompía la confianza del demo.</span></div>
+<div class="row"><span class="tick no">●</span><span class="what"><b>Demo iOS no enseñable</b> — el build no apuntaba al backend demo (login fallaba), la marca decía <b>FAHYBRIK</b>, y la app salía en parte en inglés.</span></div>
+<div class="row"><span class="tick no">●</span><span class="what"><b>Copy/flujo</b> — check-in mezclaba inglés/español con escalas invertidas, "modalidad" = tier de suscripción, chat con mensajes mal atribuidos, badges de pasos malformados, intake con bienvenida deshonesta, y un error de consola en cada página.</span></div>
+<div class="row"><span class="tick no">●</span><span class="what"><b>Bonus</b> — al arrancar, /biblioteca y /hoy daban 500 (dev server colgado) + 14 celdas JSON corruptas en la BD.</span></div>
+</div>
+
+<h2>Lo que arreglé (commiteado + subido al demo)</h2>
+<div class="card">
+<div class="row"><span class="tick ok">✓</span><span class="what"><b>Métricas honestas</b> — adherencia ahora respaldada por ejecuciones reales y <b>"—" si no hay plan</b> (David Costa 85%→—); histórico lee tests reales (1RM en <b>kg</b>); cohort de 13 personas falsas borrado; antigüedad con una sola fuente. <span class="sha">5143996 · 9cc89be</span></span></div>
+<div class="row"><span class="tick ok">✓</span><span class="what"><b>Demo iOS enseñable</b> — build apunta al backend demo (login OK), marca <b>FAHYBRID</b>, app en español, check-in español + escalas 1=peor→5=mejor, modalidad real, "Puesta a punto". <span class="sha">d4f7c21</span></span></div>
+<div class="row"><span class="tick ok">✓</span><span class="what"><b>Copy/UI web</b> — badge "Paso 4 de 4", sesión singular + carga con rango, intake honesto, <b>chat bien atribuido</b> (se persiste el rol; de paso reparó un trigger roto desde el día 1), y el error de consola eliminado. <span class="sha">babf27a</span></span></div>
+<div class="row"><span class="tick ok">✓</span><span class="what"><b>500 + datos corruptos</b> — parse de plan blindado + 14 celdas JSON re-serializadas. <span class="sha">5402b0b</span></span></div>
+</div>
+
+<h2>Confirmado en el re-QA (a nivel pixel)</h2>
+<p class="lead">Segundo recorrido con capturas para validar los fixes y cazar regresiones. <span class="k">Capturas en docs/superpowers/plans/reqa-shots/</span></p>
+<div class="card">
+<div class="row"><span class="tick ok">✓</span><span class="what"><b>8 de 9 fixes web</b> confirmados (roster/ficha "—" honesto, /hoy sin barras fantasma, histórico honesto, chat alineado, badges, sesión, sin error de consola). El 9º (lifts en kg) no se pudo <i>ver</i> porque ningún atleta demo tiene historial de fuerza — el camino está bien, falta el dato.</span></div>
+<div class="row"><span class="tick ok">✓</span><span class="what"><b>6 de 6 fixes iOS</b> confirmados (build al demo + login, marca FAHYBRID, español, check-in, modalidad, saludo). <b>Cero regresiones.</b></span></div>
+</div>
+
+<h2>Pendiente</h2>
+<div class="box">
+<ul>
+<li><b>3 menores</b> (low): el nombre del atleta demo no aparece en la app; tarjeta "invitar compañero" (Dobles) en perfil Individual; copy "bienvenid<b>o</b>" a una atleta femenina. — <span class="k">los arreglo en un momento si quieres.</span></li>
+<li><b>Decisión tuya (A/B):</b> sembrar <b>un atleta demo con un plan</b> de ejemplo hace enseñable el bucle central de la app (hoy se ve todo vacío-pero-honesto) y de paso se vería el historial de fuerza/tests con datos. <b>A</b> = uno con plan + uno vacío · <b>B</b> = ambos vacíos.</li>
+<li><b>#21</b> — <code>target_block</code> (ATR) sigue vivo en el core de plantillas; migrarlo a agnóstico (grande, lo evalúo cuando digas).</li>
+</ul>
+</div>
+<p class="k">Todo en feat/landing + el demo. Nada pusheado ni en producción.</p>
+</div></body></html>

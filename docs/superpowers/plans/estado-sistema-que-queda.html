@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAHYBRID — Estado del sistema: qué queda</title>
+<style>
+:root{--bg:#fafaf8;--ink:#1a1a1a;--mut:#6b6b6b;--line:#e7e5e0;--ok:#1a7f47;--warn:#b8860b;--no:#b4341c;--orange:#e35a13;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:40px 24px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:26px;font-style:italic;font-weight:800;letter-spacing:-.5px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 28px;font-size:14px}
+h2{font-size:18px;font-weight:700;margin:34px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:0 0 8px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13.5px}
+th{background:#f3f1ec;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}
+tr:last-child td{border-bottom:0}
+.s{font-weight:700;white-space:nowrap}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.no{color:var(--no)}
+.who{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px}
+.yo{background:#e7f3ec;color:var(--ok)}.tu{background:#fbeede;color:var(--orange)}.blk{background:#f0eeea;color:var(--mut)}
+.legend{font-size:12.5px;color:var(--mut);margin:2px 0 22px}
+.legend b{color:var(--ink)}
+.note{font-size:12.5px;color:var(--mut);margin:4px 0 0;font-style:italic}
+.pri{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--orange);border-radius:8px;padding:14px 18px;margin:14px 0}
+.pri ol{margin:6px 0 0;padding-left:20px}.pri li{margin:5px 0}
+</style></head>
+<body><div class="wrap">
+<h1>FAHYBRID — Estado del sistema</h1>
+<p class="sub">Qué está hecho, qué falta, qué mejorar. Auditoría de las 4 áreas, ground truth del código (jun 2026). ✅ funciona · 🟡 parcial/stub · ❌ falta.</p>
+<p class="legend">Quién: <span class="who yo">YO</span> lo cierro sin ti · <span class="who tu">TÚ</span> aportas/decides · <span class="who blk">BLOQUEADO</span> (legal/externo)</p>
+
+<h2>1 · Dashboard del coach</h2>
+<table>
+<tr><th>Pieza</th><th>Estado</th><th>Qué pasa</th><th>Quién</th></tr>
+<tr><td>/hoy (triage + tarjeta IA)</td><td class="s ok">✅</td><td>4 carriles + tiras de decisión (nivel, asignación, microciclo, ajuste IA). Datos reales.</td><td></td></tr>
+<tr><td>Roster /atletas</td><td class="s ok">✅</td><td>Nivel·Estado·Fase·Adherencia·Últ.registro reales.</td><td></td></tr>
+<tr><td>Biblioteca + editor de bloque</td><td class="s ok">✅</td><td>Por-coach, tipada, crear/editar bloque funciona.</td><td></td></tr>
+<tr><td>Periodización (niveles→microciclos)</td><td class="s ok">✅</td><td>Agnóstica, sin ATR.</td><td></td></tr>
+<tr><td>Chat coach↔atleta</td><td class="s ok">✅</td><td>3 columnas, hilos reales.</td><td></td></tr>
+<tr><td><b>Publicar microciclo (borrador→publicado)</b></td><td class="s warn">🟡</td><td><b>Falta el endpoint.</b> El coach edita pero NO puede soltar el plan al atleta. Crítico.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Crear microciclo / sesión nuevos</td><td class="s no">❌</td><td>Rutas no mapeadas (el botón existe, la página no).</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Intake / alta de atleta (UI)</td><td class="s no">❌</td><td>API existe, no hay pantalla V2 para revisar/completar el alta.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Duplicar semana · deload · ajustar fase</td><td class="s warn">🟡</td><td>Botones puestos, endpoints TODO.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Gráfico de biometría</td><td class="s warn">🟡</td><td>Tiles reales; el gráfico es placeholder (sin librería).</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Objetivos derivados (perfil)</td><td class="s warn">🟡</td><td>TODO endpoint (test→objetivos).</td><td><span class="who yo">YO</span></td></tr>
+</table>
+<p class="note">Adherencia: hoy mide solo la semana actual aunque la etiqueta sugiere más — a corregir.</p>
+
+<h2>2 · App del atleta (iOS)</h2>
+<table>
+<tr><th>Pieza</th><th>Estado</th><th>Qué pasa</th><th>Quién</th></tr>
+<tr><td>Core loop: Hoy → registrar entreno → plan → zonas → carreras</td><td class="s ok">✅</td><td>Todo datos reales, cero stubs. Light/dark verificado.</td><td></td></tr>
+<tr><td><b>Editar perfil tras el alta</b></td><td class="s no">🔴</td><td>Read-only — no puede cambiar nombre/peso/objetivo. Estándar en apps de coaching. Mayor gap de retención.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Chat en tiempo real (SSE)</td><td class="s warn">🟡</td><td>Hoy hace polling cada 3s; el backend ya expone SSE, falta consumirlo.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Check-in de readiness (HRV/sueño/ánimo)</td><td class="s warn">🟡</td><td>Backend lo recibe, falta la hoja en la app.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Detalle de estación / splits</td><td class="s warn">🟡</td><td>Falta endpoint + vista (race screens).</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Dobles: registro de sesión conjunta</td><td class="s warn">🟡</td><td>Falta endpoint para loguear a los dos.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Garmin en el perfil</td><td class="s warn">🟡</td><td>Placeholder "próximamente" — bloqueado por la API.</td><td><span class="who blk">BLOQUEADO</span></td></tr>
+</table>
+
+<h2>3 · IA + datos</h2>
+<table>
+<tr><th>Pieza</th><th>Estado</th><th>Qué pasa</th><th>Quién</th></tr>
+<tr><td>IA sugerencia semanal (cron→veredicto→tarjeta /hoy→aplicar)</td><td class="s ok">✅</td><td>Cableada de punta a punta. Con fallback heurístico.</td><td></td></tr>
+<tr><td>IA componer semana (de plantillas / de bloques)</td><td class="s ok">✅</td><td>Modo rápido heurístico + modo IA (elige reales, no inventa).</td><td></td></tr>
+<tr><td>RAG (pgvector + embeddings)</td><td class="s ok">✅</td><td>Infra cableada; lo usa el ajuste semanal.</td><td></td></tr>
+<tr><td>Garmin + HealthKit (ingesta biométrica)</td><td class="s ok">✅</td><td>Reales: dailies, sueño, HRV, VO2max, laps → readiness.</td><td></td></tr>
+<tr><td><b>Modelo LLM</b></td><td class="s no">🔴</td><td>Sin elegir → la IA cae al fallback heurístico. Lo eliges tú.</td><td><span class="who tu">TÚ</span></td></tr>
+<tr><td>Corpus de metodología de Pablo (RAG)</td><td class="s warn">🟡</td><td>Infra lista, corpus VACÍO hasta subir sus documentos.</td><td><span class="who tu">TÚ</span></td></tr>
+<tr><td>"Por qué saltó el veredicto" (explicabilidad)</td><td class="s warn">🟡</td><td>El coach aprueba/rechaza a ciegas; falta el panel del porqué.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Polar / COROS / Amazfit</td><td class="s warn">🟡</td><td>Auth ok, ingesta = no-op (no persiste). Futuro.</td><td><span class="who blk">BLOQUEADO</span></td></tr>
+<tr><td>Concept2 PM5</td><td class="s no">❌</td><td>Sin API pública (Fase 4).</td><td><span class="who blk">BLOQUEADO</span></td></tr>
+</table>
+
+<h2>4 · Infra / producción</h2>
+<table>
+<tr><th>Pieza</th><th>Estado</th><th>Qué pasa</th><th>Quién</th></tr>
+<tr><td>Landing fahybrid.com</td><td class="s ok">✅</td><td>Viva (es la marca real; el doc viejo decía fahybrik.com, desactualizado).</td><td></td></tr>
+<tr><td>Auth coach (magic link) + atleta (Apple)</td><td class="s ok">✅</td><td>Reales, rate-limited.</td><td></td></tr>
+<tr><td>Crons (5)</td><td class="s ok">✅</td><td>Eval semanal, publicación, atención, etc.</td><td></td></tr>
+<tr><td><b>El dashboard nuevo NO está en producción</b></td><td class="s warn">🟡</td><td>Vive en <code>feat/landing</code> (solo demo); <code>main</code> = 3 semanas atrás. Falta merge + deploy.</td><td><span class="who tu">TÚ</span> decides cuándo</td></tr>
+<tr><td>Migraciones en la BD de prod</td><td class="s warn">🟡</td><td>0063–0072 sin aplicar a prod (incluye drops ATR; idempotentes).</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>Stripe en prod</td><td class="s warn">🟡</td><td>Live local; faltan las env en Vercel prod + email/activación post-compra.</td><td><span class="who yo">YO</span>+<span class="who tu">TÚ</span></td></tr>
+<tr><td>demo-login fuera de prod</td><td class="s warn">🟡</td><td>Gateado; redeploy prod sin la env para asegurar.</td><td><span class="who yo">YO</span></td></tr>
+<tr><td>BD prod aislada de dev</td><td class="s warn">🟡</td><td>Cortar rama prod propia en Neon.</td><td><span class="who yo">YO</span></td></tr>
+</table>
+
+<div class="pri">
+<b>Mi recomendación de orden (para "ready")</b>
+<ol>
+<li><b>Cerrar el dashboard del coach</b> (yo): publicar microciclo + crear microciclo/sesión + intake/alta + endpoints sueltos. Sin "publicar", el coach no puede soltar planes — es el más crítico.</li>
+<li><b>App atleta</b> (yo): editar perfil + chat SSE + check-in readiness.</li>
+<li><b>Tú</b>: elegir el modelo LLM (enciende la IA real) · las 57 intensidades de Pablo · subir su metodología al RAG.</li>
+<li><b>Producción</b> (yo, con tu OK): migraciones a prod + merge a main + Stripe env, sin tocar la landing.</li>
+<li><b>TestFlight</b> (tú): aceptar acuerdo Apple + credencial de subida → los compañeros prueban la app.</li>
+<li><b>Bloqueado por legal</b>: Garmin/Polar/COROS/Amazfit/Concept2 — necesitan entidad.</li>
+</ol>
+</div>
+</div></body></html>

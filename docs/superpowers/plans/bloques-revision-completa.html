@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biblioteca de bloques · revisión completa</title>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--ink:#1a1a18;--muted:#6b6b66;--line:#e6e5e1;
+--accent:#e8551f;--warn:#b45309;--warnbg:#fef3c7;--ok:#047857;--okbg:#ecfdf5;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:940px;margin:0 auto;padding:48px 24px 96px;}
+.kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;}
+h1{font-size:30px;margin:6px 0 4px;letter-spacing:-.02em;font-style:italic;}
+.sub{color:var(--muted);margin:0 0 28px;}
+table.sum{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+border-radius:14px;overflow:hidden;margin:0 0 8px;}
+table.sum th,table.sum td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);font-size:14px;}
+table.sum th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:#faf9f6;}
+table.sum td{font-variant-numeric:tabular-nums;}
+table.sum td.ok{color:var(--ok);font-weight:600;}
+table.sum td.warn{color:var(--warn);font-weight:600;}
+table.sum tr:last-child td{border-bottom:none;}
+table.sum tr.tot td{font-weight:700;background:#faf9f6;}
+.sec-h{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);
+font-weight:700;margin:42px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--accent);}
+.sec-h .sec-sub{color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;font-size:13px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.03);}
+.card.flagged{border-color:#f0d9a8;background:linear-gradient(0deg,#fffdf7,#fff);}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:13px;}
+.card-head h3{margin:0;font-size:17px;letter-spacing:-.01em;}
+.card-head .meta{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+.badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;}
+.badge.warn{background:var(--warnbg);color:var(--warn);}
+.badge.ok{background:var(--okbg);color:var(--ok);}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:5px;}
+.orig{margin-bottom:13px;}
+.orig-txt{background:#faf9f6;border:1px solid var(--line);border-radius:10px;padding:9px 12px;
+font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;color:#333;white-space:pre-wrap;}
+.segs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;}
+.seg{font-size:14px;padding:7px 11px;background:#f4f3ef;border-radius:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.seg.noint{background:var(--warnbg);}
+.seg .ex-name{font-weight:600;min-width:120px;}
+.seg .seg-txt{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;}
+.seg .seg-mod{font-size:11px;color:var(--muted);margin-left:auto;text-transform:uppercase;letter-spacing:.05em;}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;}
+.noint-tag{background:#fde68a;color:var(--warn);}
+.gaps{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+border-radius:14px;padding:20px 24px;margin-top:44px;}
+.gaps h2{font-size:18px;margin:0 0 6px;font-style:italic;}
+.gaps p.intro{color:var(--muted);margin:0 0 14px;font-size:13.5px;}
+.gaps ol{margin:0;padding-left:20px;}
+.gaps li{margin-bottom:9px;font-size:14px;}
+.gaps li b{color:var(--ink);}
+footer{margin-top:48px;color:var(--muted);font-size:12px;text-align:center;}
+</style></head>
+<body><div class="wrap">
+<div class="kicker">FAHYBRIK · Biblioteca de bloques</div>
+<h1>Revisión completa del tipado</h1>
+<p class="sub">Texto literal del Excel vs. prescripción tipada (<code>prescription_json</code> → <code>prescriptionToText</code>).
+Las 5 modalidades re-tipadas. Leído de la BD demo (ep-flat-wind) · 26/06/2026 · solo lectura.</p>
+
+<table class="sum">
+<thead><tr><th>Modalidad</th><th>Total</th><th>Tipados OK</th><th>A revisar</th></tr></thead>
+<tbody>
+<tr><td>Carrera</td><td>27</td><td class="ok">21</td><td class="warn">6</td></tr><tr><td>Ergómetro</td><td>13</td><td class="ok">4</td><td class="warn">9</td></tr><tr><td>Fuerza</td><td>13</td><td class="ok">4</td><td class="warn">9</td></tr><tr><td>Circuito/WOD</td><td>4</td><td class="ok">1</td><td class="warn">3</td></tr><tr><td>Core/Movilidad</td><td>0</td><td class="ok">0</td><td class="warn">0</td></tr><tr><td>Mixto</td><td>42</td><td class="ok">3</td><td class="warn">39</td></tr>
+<tr class="tot"><td>TOTAL</td><td>99</td><td class="ok">33</td><td class="warn">66</td></tr>
+</tbody></table>
+
+<div class="sec-h">Carrera · 27 <span class="sec-sub">(21 OK · 6 a revisar)</span></div><article class="card">
+      <header class="card-head"><h3>Treadmill Threshold: 5&#x27; WU → 5x6&#x27; RPE8 – 2&#x27; estático rest</h3><span class="meta">#32 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Treadmill Threshold: 5&#x27; WU → 5x6&#x27; RPE8 – 2&#x27; estático rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">5×6&#x27; @ RPE 8 · r2&#x27;</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Threshold 3 bloques: 3x5&#x27; a 15,5km/h</h3><span class="meta">#33 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Threshold 3 bloques: 3x5&#x27; a 15,5km/h + bloques con sled/burpees a 16-17,5km/h</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">3×5&#x27; @ 3:52/km</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Tempo run: 20&#x27; z2 – 20&#x27; z3 alta – 20&#x27; z2 (+ fuerza)</h3><span class="meta">#34 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Tempo run: 20&#x27; z2 – 20&#x27; z3 alta – 20&#x27; z2 (+ fuerza)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">3×20&#x27; @ Z2/3/2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Run z2 1h20&#x27;</h3><span class="meta">#35 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run z2 1h20&#x27; + Strides: 6x30&#x27;&#x27; progresivos 25→90%</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">80&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Threshold cinta: 4x6&#x27; a 15,5km/h – 1&#x27;15&#x27;&#x27; walking rest</h3><span class="meta">#36 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Threshold cinta: 4x6&#x27; a 15,5km/h – 1&#x27;15&#x27;&#x27; walking rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">4×6&#x27; @ 3:52/km · r75&#x27;&#x27;</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Fartlek: 10&#x27; WU → 5x5&#x27; z4 – 1&#x27; z5</h3><span class="meta">#38 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Fartlek: 10&#x27; WU → 5x5&#x27; z4 – 1&#x27; z5</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">5×5&#x27; @ Z4 · r1&#x27;</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Series cinta Fartlek: 12x1&#x27; z5 – 50&#x27;&#x27; z1-2 (inclinación 1%)</h3><span class="meta">#40 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Series cinta Fartlek: 12x1&#x27; z5 – 50&#x27;&#x27; z1-2 (inclinación 1%)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">12×1&#x27; @ Z5 · r50&#x27;&#x27;</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Threshold cinta: 4x2&#x27;30&#x27;&#x27; a 17km/h – 2&#x27; trote a 11km/h (inclinación 1%)</h3><span class="meta">#43 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Threshold cinta: 4x2&#x27;30&#x27;&#x27; a 17km/h – 2&#x27; trote a 11km/h (inclinación 1%)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">4×2&#x27;30&#x27;&#x27; @ 3:32/km · r2&#x27;</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Tempo run: 10&#x27; z2 – 10&#x27; z4 alternado x3 (z4 a 4&#x27;15/km)</h3><span class="meta">#44 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Tempo run: 10&#x27; z2 – 10&#x27; z4 alternado x3 (z4 a 4&#x27;15/km)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">6×10&#x27; @ Z2/4:15/km/Z2/4:15/km/Z2/4:15/km</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Bench press</h3><span class="meta">#45 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Bench press + Run 1h10&#x27; zona 2</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">Z2</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">70&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Run 1h15&#x27; zona 2</h3><span class="meta">#46 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run 1h15&#x27; zona 2</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">75&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Shoulder press</h3><span class="meta">#47 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Shoulder press + Run 1h15&#x27; zona 2 (no más de 6&#x27;/km)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">Z2</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">75&#x27; @ 6:00/km</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Run 1h10&#x27; zona 2</h3><span class="meta">#48 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run 1h10&#x27; zona 2</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">70&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Run zona 2 – 1h25&#x27;</h3><span class="meta">#49 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run zona 2 – 1h25&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">85&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Run zona 2 – 1h10&#x27;</h3><span class="meta">#50 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run zona 2 – 1h10&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">70&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Run zona 2 – 1h10&#x27;</h3><span class="meta">#51 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run zona 2 – 1h10&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">70&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>4km zona 2 activación pre-competición</h3><span class="meta">#55 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4km zona 2 activación pre-competición</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">4000m @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>4km zona 2 activación pre-competición</h3><span class="meta">#92 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4km zona 2 activación pre-competición</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">4000m @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Threshold cinta 4x2&#x27;30&#x27;&#x27; a 17km/h – reducción de volumen</h3><span class="meta">#93 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Threshold cinta 4x2&#x27;30&#x27;&#x27; a 17km/h – reducción de volumen</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">4×2&#x27;30&#x27;&#x27; @ 3:32/km</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Threshold cinta: 4x3&#x27; a 3&#x27;50/km – 2&#x27; trote</h3><span class="meta">#95 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Threshold cinta: 4x3&#x27; a 3&#x27;50/km – 2&#x27; trote</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">4×3&#x27; @ 3:50/km · r2&#x27;</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Tempo run z2/z4 alternado – última carga de calidad</h3><span class="meta">#96 · Carrera</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Tempo run z2/z4 alternado – última carga de calidad</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Series pista: 2x1200 (1&#x27;45&#x27;&#x27;)</h3><span class="meta">#31 · Carrera</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Series pista: 2x1200 (1&#x27;45&#x27;&#x27;) + 1x1000 (1&#x27;30&#x27;&#x27;) + 2x800 (1&#x27;) + 2x400 (45&#x27;&#x27;)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">1200m/1200m/1000m/800m/800m/400m/400m</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>12 rounds x 400m run – 1&#x27; rest (sub threshold)</h3><span class="meta">#37 · Carrera</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">12 rounds x 400m run – 1&#x27; rest (sub threshold)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">12×400m · r1&#x27;</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>4km easy run</h3><span class="meta">#39 · Carrera</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4km easy run + 5 strides de 30&#x27;&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">4000m</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Series run: 3x1000 (1&#x27;30&#x27;&#x27;)</h3><span class="meta">#41 · Carrera</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Series run: 3x1000 (1&#x27;30&#x27;&#x27;) + 2x800 (1&#x27;15&#x27;&#x27;) + 4x400 (45&#x27;&#x27;)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">1000m/1000m/1000m/800m/800m/400m/400m/400m/400m</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Run pista: 6x400m – 45&#x27;&#x27; rest</h3><span class="meta">#42 · Carrera</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Run pista: 6x400m – 45&#x27;&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">6×400m · r45&#x27;&#x27;</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Activación estaciones race: 3x1&#x27; on/1&#x27; off – sled/farmer/lunge/wall ball/run</h3><span class="meta">#94 · Carrera</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Activación estaciones race: 3x1&#x27; on/1&#x27; off – sled/farmer/lunge/wall ball/run</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">3×1&#x27;</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><div class="sec-h">Ergómetro · 13 <span class="sec-sub">(4 OK · 9 a revisar)</span></div><article class="card">
+      <header class="card-head"><h3>ROW: 5&#x27; WU → 5x3&#x27; RPE8 – 45&#x27;&#x27; rest</h3><span class="meta">#20 · Ergómetro</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">ROW: 5&#x27; WU → 5x3&#x27; RPE8 – 45&#x27;&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Rowing</span><span class="seg-txt">5×3&#x27; @ RPE 8 · r45&#x27;&#x27;</span><span class="seg-mod">Remo</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>SKIERG: 5&#x27; WU → 5x3&#x27; RPE8 – 45&#x27;&#x27; rest</h3><span class="meta">#21 · Ergómetro</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">SKIERG: 5&#x27; WU → 5x3&#x27; RPE8 – 45&#x27;&#x27; rest + Finisher 100 wall balls 9kg</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">SkiErg</span><span class="seg-txt">5×3&#x27; @ RPE 8 · r45&#x27;&#x27;</span><span class="seg-mod">SkiErg</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>ROW: 5&#x27; WU → 5x3&#x27;30&#x27;&#x27; RPE8 – 50&#x27;&#x27; rest (con plyos previos)</h3><span class="meta">#22 · Ergómetro</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">ROW: 5&#x27; WU → 5x3&#x27;30&#x27;&#x27; RPE8 – 50&#x27;&#x27; rest (con plyos previos)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Rowing</span><span class="seg-txt">5×3&#x27;30&#x27;&#x27; @ RPE 8 · r50&#x27;&#x27;</span><span class="seg-mod">Remo</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>SKIERG: 5&#x27; WU → 5x3&#x27;30&#x27;&#x27; RPE8 – 50&#x27;&#x27; rest (con DL</h3><span class="meta">#23 · Ergómetro</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">SKIERG: 5&#x27; WU → 5x3&#x27;30&#x27;&#x27; RPE8 – 50&#x27;&#x27; rest (con DL + Hip thrust)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">SkiErg</span><span class="seg-txt">5×3&#x27;30&#x27;&#x27; @ RPE 8 · r50&#x27;&#x27;</span><span class="seg-mod">SkiErg</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>SKIERG: 5&#x27; WU → 5x4&#x27; – 55&#x27;&#x27; rest (tras pliometría)</h3><span class="meta">#24 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">SKIERG: 5&#x27; WU → 5x4&#x27; – 55&#x27;&#x27; rest (tras pliometría)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">SkiErg</span><span class="seg-txt">5×4&#x27; · r55&#x27;&#x27;</span><span class="seg-mod">SkiErg</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>ROW: 5&#x27; WU → 5x4&#x27; – 55&#x27;&#x27; rest (tras bench press)</h3><span class="meta">#25 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">ROW: 5&#x27; WU → 5x4&#x27; – 55&#x27;&#x27; rest (tras bench press)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Rowing</span><span class="seg-txt">5×4&#x27; · r55&#x27;&#x27;</span><span class="seg-mod">Remo</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>THRESHOLD Skierg-Row: 4r → 1km row</h3><span class="meta">#26 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">THRESHOLD Skierg-Row: 4r → 1km row + 1km ski – 90&#x27;&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Rowing</span><span class="seg-txt">4×1000m · r90&#x27;&#x27;</span><span class="seg-mod">Remo</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">SkiErg</span><span class="seg-txt">4×1000m · r90&#x27;&#x27;</span><span class="seg-mod">SkiErg</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>ROW: 5&#x27; WU → 6x3&#x27; – 1&#x27; rest (tras bench press)</h3><span class="meta">#27 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">ROW: 5&#x27; WU → 6x3&#x27; – 1&#x27; rest (tras bench press)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Rowing</span><span class="seg-txt">6×3&#x27; · r1&#x27;</span><span class="seg-mod">Remo</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>SKIERG: 5&#x27; WU → 6x3&#x27; – 1&#x27; rest (tras squats)</h3><span class="meta">#28 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">SKIERG: 5&#x27; WU → 6x3&#x27; – 1&#x27; rest (tras squats)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">SkiErg</span><span class="seg-txt">6×3&#x27; · r1&#x27;</span><span class="seg-mod">SkiErg</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>SKIERG: 5&#x27; WU → 3x3&#x27; – 45&#x27;&#x27; rest</h3><span class="meta">#29 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">SKIERG: 5&#x27; WU → 3x3&#x27; – 45&#x27;&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">SkiErg</span><span class="seg-txt">3×3&#x27; · r45&#x27;&#x27;</span><span class="seg-mod">SkiErg</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>3r 27-21-15-9 AB</h3><span class="meta">#30 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">3r 27-21-15-9 AB + Skierg – 90&#x27;&#x27; rest BTW rounds</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Assault Bike</span><span class="seg-txt">27/21/15/9 · r90&#x27;&#x27;</span><span class="seg-mod">Bici</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">SkiErg</span><span class="seg-txt">27/21/15/9 · r90&#x27;&#x27;</span><span class="seg-mod">SkiErg</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>10&#x27; bike</h3><span class="meta">#80 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">10&#x27; bike + 10&#x27; row + 15&#x27; cinta ligero + 10&#x27; foam y mobility</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">BikeErg</span><span class="seg-txt">10&#x27;</span><span class="seg-mod">Bici</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Rowing</span><span class="seg-txt">10&#x27;</span><span class="seg-mod">Remo</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Trabajo plio y preventivos de videos en sesiones de z2</h3><span class="meta">#85 · Ergómetro</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Trabajo plio y preventivos de videos en sesiones de z2</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Assault Bike</span><span class="seg-txt">Z2</span><span class="seg-mod">Bici</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><div class="sec-h">Fuerza · 13 <span class="sec-sub">(4 OK · 9 a revisar)</span></div><article class="card">
+      <header class="card-head"><h3>Front squat 5 rounds 10-10-8-8-6 al 65-80%</h3><span class="meta">#1 · Fuerza</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Front squat 5 rounds 10/10/8/8/6 al 65-80%</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Front Squat</span><span class="seg-txt">10/10/8/8/6 @ 65-80% RM</span><span class="seg-mod">Fuerza</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Strict shoulder press 5 rounds 10-8-8-6-4 al 65-85%</h3><span class="meta">#2 · Fuerza</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Strict shoulder press 5 rounds 10/8/8/6/4 al 65-85%</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Overhead Press</span><span class="seg-txt">10/8/8/6/4 @ 65-85% RM</span><span class="seg-mod">Fuerza</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Bench press horizontal 5r 10-8-8-6-6 al 70-85%</h3><span class="meta">#4 · Fuerza</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Bench press horizontal 5r 10-8-8-6-6 al 70-85%</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Bench Press</span><span class="seg-txt">10/8/8/6/6 @ 70-85% RM</span><span class="seg-mod">Fuerza</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>Strict shoulder press 5r 10-8-8-6-4 al 65-85%</h3><span class="meta">#7 · Fuerza</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Strict shoulder press 5r 10/8/8/6/4 al 65-85%</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Overhead Press</span><span class="seg-txt">10/8/8/6/4 @ 65-85% RM</span><span class="seg-mod">Fuerza</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Deadlift 5r 10-10-8-6-4</h3><span class="meta">#3 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Deadlift 5r 10/10/8/6/4 + Hip thrust 5r 10/10/8/8/6</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Deadlift</span><span class="seg-txt">10/10/8/6/4</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Hip Thrust</span><span class="seg-txt">10/10/8/8/6</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Back squat 4r 10-8-8-6</h3><span class="meta">#5 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Back squat 4r 10-8-8-6 + Front squat 4r 8-8-6-4</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Back Squat</span><span class="seg-txt">10/8/8/6</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Front Squat</span><span class="seg-txt">8/8/6/4</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Bench press 5r 10-10-8-6-6</h3><span class="meta">#6 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Bench press 5r 10/10/8/6/6 + Aperturas en polea</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Bench Press</span><span class="seg-txt">10/10/8/6/6</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Cable Fly</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Strict shoulder press 4r</h3><span class="meta">#8 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Strict shoulder press 4r + Elevaciones laterales 4r + Single arm DB press 4r</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Overhead Press</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Lateral Raise</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Bench press 5r 10-10-8-6-6 – Row ergómetro incluido</h3><span class="meta">#9 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Bench press 5r 10/10/8/6/6 – Row ergómetro incluido</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Bench Press</span><span class="seg-txt">10/10/8/6/6</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Shoulder press 5r 10-10-8-8-6</h3><span class="meta">#10 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Shoulder press 5r 10-10-8-8-6</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Overhead Press</span><span class="seg-txt">10/10/8/8/6</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Shoulder press</h3><span class="meta">#11 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Shoulder press + Bench press 3r + Pull ups/Push ups con chaleco 10kg</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Overhead Press</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Bench Press</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>6r Pull ups</h3><span class="meta">#86 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">6r Pull ups + Dips 10-10-8-8-6-4 / 12-10-10-8-8-6 – 2&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Pull-up</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Weighted dip</span><span class="seg-txt">10/10/8/8/6/4 · descanso 2&#x27;</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>4r 8 DB walking lunge 22,5kg</h3><span class="meta">#88 · Fuerza</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4r 8 DB walking lunge 22,5kg + 12 DB goblet squat – 2&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Walking Lunge</span><span class="seg-txt">4×8 @ 22.5 kg</span><span class="seg-mod">Fuerza</span></li><li class="seg noint"><span class="ex-name">Goblet Squat</span><span class="seg-txt">4×12 · descanso 2&#x27;</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><div class="sec-h">Circuito/WOD · 4 <span class="sec-sub">(1 OK · 3 a revisar)</span></div><article class="card">
+      <header class="card-head"><h3>5r Jump back squat 60% – 6 reps – 2&#x27; rest</h3><span class="meta">#19 · Circuito/WOD</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">5r Jump back squat 60% – 6 reps – 2&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Jump Squat</span><span class="seg-txt">5×6 @ 60% RM · r2&#x27;</span><span class="seg-mod">Funcional/WOD</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Bar zercher jump bulgarian squat 12-10-8-8</h3><span class="meta">#13 · Circuito/WOD</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Bar zercher jump bulgarian squat 12/10/8/8 + 20m broad jump – 6&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Zercher Squat Jump</span><span class="seg-txt">12/10/8/8 · r6&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Broad Jump</span><span class="seg-txt">4×20m</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>8r DB Depth Jump to 4 broad jumps 12,5kg – 30&#x27;&#x27; rest</h3><span class="meta">#14 · Circuito/WOD</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">8r DB Depth Jump to 4 broad jumps 12,5kg – 30&#x27;&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Depth Jump</span><span class="seg-txt">8 rondas @ 12.5 kg · r30&#x27;&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>8r DB Depth Jump to 4 broad jumps – 30&#x27;&#x27; rest (antes de Skierg)</h3><span class="meta">#15 · Circuito/WOD</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">8r DB Depth Jump to 4 broad jumps – 30&#x27;&#x27; rest (antes de Skierg)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Depth Jump</span><span class="seg-txt">8 rondas · r30&#x27;&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><div class="sec-h">Mixto · 42 <span class="sec-sub">(3 OK · 39 a revisar)</span></div><article class="card">
+      <header class="card-head"><h3>10&#x27; row z2</h3><span class="meta">#52 · Mixto</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">10&#x27; row z2 + 10&#x27; skierg z2 + 10&#x27; AB z2 + 10&#x27; run z2</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Rowing</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Remo</span></li><li class="seg"><span class="ex-name">SkiErg</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">SkiErg</span></li><li class="seg"><span class="ex-name">Assault Bike</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Bici</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>10&#x27; row z2</h3><span class="meta">#53 · Mixto</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">10&#x27; row z2 + 10&#x27; skierg z2 + 10&#x27; AB z2 + 10&#x27; run z2 + Plio</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Rowing</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Remo</span></li><li class="seg"><span class="ex-name">SkiErg</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">SkiErg</span></li><li class="seg"><span class="ex-name">Assault Bike</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Bici</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card">
+      <header class="card-head"><h3>10&#x27; row z2</h3><span class="meta">#54 · Mixto</span><span class="badge ok">✓ tipado</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">10&#x27; row z2 + 10&#x27; skierg z2 + 10&#x27; run z2 + Plio</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Rowing</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Remo</span></li><li class="seg"><span class="ex-name">SkiErg</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">SkiErg</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">10&#x27; @ Z2</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">Z2</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Front squat 6 series 7-6-6-6-5-5</h3><span class="meta">#12 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Front squat 6 series 7-6-6-6-5-5 + Burpee to plate BTW</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Front Squat</span><span class="seg-txt">7/6/6/6/5/5</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Burpee</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>4r every 2&#x27;: 3 power clean 65-75%</h3><span class="meta">#16 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4r every 2&#x27;: 3 power clean 65-75% + 5 high box jump</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Power Clean</span><span class="seg-txt">4×3 @ 65-75% RM</span><span class="seg-mod">Fuerza</span></li><li class="seg noint"><span class="ex-name">Box Jump</span><span class="seg-txt">4×5</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>10r Front squat 70%</h3><span class="meta">#17 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">10r Front squat 70% + High box jump plio – 2&#x27; rest</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Front Squat</span><span class="seg-txt">70% RM</span><span class="seg-mod">Fuerza</span></li><li class="seg noint"><span class="ex-name">Box Jump</span><span class="seg-txt">10 rondas · r2&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>6r Hang power clean 70%</h3><span class="meta">#18 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">6r Hang power clean 70% + High box jump + 6 TTB BTW</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Hang Power Clean</span><span class="seg-txt">70% RM</span><span class="seg-mod">Fuerza</span></li><li class="seg noint"><span class="ex-name">Box Jump</span><span class="seg-txt">6 rondas</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Toes-to-bar</span><span class="seg-txt">6×6</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Threshold run</h3><span class="meta">#56 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Threshold run + WOD EMOM 16&#x27;: DB snatch/KPU/wall climb/burpee broad jump</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD 5r: 24 wall balls</h3><span class="meta">#57 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD 5r: 24 wall balls + 20m SB lunge + 14cal skierg + 8 devil press – TC55&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD For Time 4r: KB overhead lunge</h3><span class="meta">#58 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD For Time 4r: KB overhead lunge + thrusters + clean + TTB – TC12&#x27; + Finisher 100 lunges</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD 4r: pull ups</h3><span class="meta">#59 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD 4r: pull ups + DB box step + burpee over DB + 12 cal AB – TC13&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD For Time: sled push/skierg</h3><span class="meta">#60 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD For Time: sled push/skierg + sled pull/row + KB lunge + runs + 75 wall balls – TC55&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD 8r: 10cal AB</h3><span class="meta">#61 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD 8r: 10cal AB + 7 burpee box jump + 10 C2B – TC17&#x27; + 110 wall balls finisher</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD For Time: power clean</h3><span class="meta">#62 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD For Time: power clean + DB thrusters + high box jump (pirámide descendente) – TC30&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD AFAP: lunge/run/sled/AB/plio/sit up/SB/skierg/row</h3><span class="meta">#63 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD AFAP: lunge/run/sled/AB/plio/sit up/SB/skierg/row</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>WOD AFAP: burpee BB/sled/SB lunge/AB/plio/farmer/SB carry/skierg/thrusters</h3><span class="meta">#64 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">WOD AFAP: burpee BB/sled/SB lunge/AB/plio/farmer/SB carry/skierg/thrusters</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>METCON: 45&#x27;&#x27; on/15&#x27;&#x27; off x10r sled push 170kg</h3><span class="meta">#65 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">METCON: 45&#x27;&#x27; on/15&#x27;&#x27; off x10r sled push 170kg + For Time sled pull 130kg – TC10-12&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>EMOM 10&#x27; sled push 170kg</h3><span class="meta">#66 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">EMOM 10&#x27; sled push 170kg + For Time sled pull 140kg – TC12&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>HALF SIMULATION DEKA</h3><span class="meta">#67 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">HALF SIMULATION DEKA</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Simulación estaciones: run/burpee DB/lunge SB/row/sit up/sled – 2r c/u</h3><span class="meta">#68 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Simulación estaciones: run/burpee DB/lunge SB/row/sit up/sled – 2r c/u</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>EMOM 16&#x27; run/ski/farmer carry</h3><span class="meta">#69 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">EMOM 16&#x27; run/ski/farmer carry + Bloques run/sit up/sled pull</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>4r sled pull/drag</h3><span class="meta">#70 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4r sled pull/drag + 3r SB lunge + 2r burpee BB + 1r wall balls – TC60&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>EMOM 20&#x27; multi-estación: run/sled/AB/farmer/row/wall ball/skierg/lunge al 100%</h3><span class="meta">#71 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">EMOM 20&#x27; multi-estación: run/sled/AB/farmer/row/wall ball/skierg/lunge al 100%</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>3r sled push+row</h3><span class="meta">#72 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">3r sled push+row + 3r sled pull+skierg + 3r sled+run (ambos) – formato HYROX</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>EMOM 20&#x27; 45&#x27;&#x27; max: run/sled push 220kg/AB/farmer 32kg/row/wall ball/skierg/lunge</h3><span class="meta">#73 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">EMOM 20&#x27; 45&#x27;&#x27; max: run/sled push 220kg/AB/farmer 32kg/row/wall ball/skierg/lunge</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>HYROX SIMULATION completo</h3><span class="meta">#74 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">HYROX SIMULATION completo</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>2r sled push+row</h3><span class="meta">#75 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">2r sled push+row + 2r sled pull+skierg + 2r sled+run (ambos)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>AMRAP 15&#x27; row/run/farmer/sled push/sled pull</h3><span class="meta">#76 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">AMRAP 15&#x27; row/run/farmer/sled push/sled pull + 3r lunge/burpee/skierg</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Estaciones race-specific: burpee BB/sled push 250kg/sled pull/farmer 32kg/lun…</h3><span class="meta">#77 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Estaciones race-specific: burpee BB/sled push 250kg/sled pull/farmer 32kg/lunge/wall ball/run</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>HYROX full stations: skierg 500m/sled push 250kg/sled pull/burpee BB/row 500m…</h3><span class="meta">#78 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">HYROX full stations: skierg 500m/sled push 250kg/sled pull/burpee BB/row 500m/farmer/lunge/wall balls + 1km run BTW</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Side plank 4x40&#x27;&#x27;/20&#x27;&#x27;</h3><span class="meta">#79 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Side plank 4x40&#x27;&#x27;/20&#x27;&#x27; + Lateral plank 6x40&#x27;&#x27;/20&#x27;&#x27; + Turkish get-up 4r</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Side Plank</span><span class="seg-txt">4×40&#x27;&#x27; · r20&#x27;&#x27;</span><span class="seg-mod">Core</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Side Plank</span><span class="seg-txt">6×40&#x27;&#x27; · r20&#x27;&#x27;</span><span class="seg-mod">Core</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Turkish Get-up</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Mobility y foam 40&#x27;</h3><span class="meta">#81 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Mobility y foam 40&#x27;</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>30&#x27; Mobility y foam</h3><span class="meta">#82 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">30&#x27; Mobility y foam</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Side plank</h3><span class="meta">#83 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Side plank + Lateral plank + Turkish get-up – trabajo preventivo completo</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Side Plank</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Core</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Side Plank</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Core</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Turkish Get-up</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>EMOM 10&#x27;: pull ups / push ups alternados</h3><span class="meta">#84 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">EMOM 10&#x27;: pull ups / push ups alternados</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Pull-up</span><span class="seg-txt">EMOM 10&#x27; · alternado con otro ejercicio</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Push-up</span><span class="seg-txt">EMOM 10&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>EMOM 15&#x27;: 20 BW lunges</h3><span class="meta">#87 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">EMOM 15&#x27;: 20 BW lunges + 15 wall balls 6kg + 40&#x27;&#x27; run – AMRAP 10&#x27; race stations + Finisher 125 lunges</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Wall Balls</span><span class="seg-txt">EMOM 15&#x27; · 15×15 @ 6 kg</span><span class="seg-mod">Funcional/WOD</span></li><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">EMOM 15&#x27; · 15×40&#x27;&#x27;</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>10r front squat</h3><span class="meta">#89 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">10r front squat + box jump + AFAP 70 wall balls / 70m SB lunge intercalados</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Front Squat</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Box Jump</span><span class="seg-txt">10 rondas</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Wall Balls</span><span class="seg-txt">For Time · 70</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>4r: 20 reverse lunge 30kg</h3><span class="meta">#90 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">4r: 20 reverse lunge 30kg + sled push + sled drag + 500m run AFAP</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg"><span class="ex-name">Reverse Lunge</span><span class="seg-txt">4×20 @ 30 kg</span><span class="seg-mod">Fuerza</span></li><li class="seg noint"><span class="ex-name">Sled Push</span><span class="seg-txt">4 rondas For Time</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Sled drag (backwards)</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Fuerza</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Run</span><span class="seg-txt">500m</span><span class="seg-mod">Carrera</span><span class="tag noint-tag">sin intensidad</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Mobility y foam 40&#x27; (inicio tapering)</h3><span class="meta">#91 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Mobility y foam 40&#x27; (inicio tapering)</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>HYROX full simulation – último ensayo general</h3><span class="meta">#97 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">HYROX full simulation – último ensayo general</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Test pista 3&#x27;/9&#x27;</h3><span class="meta">#389 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Test de carrera en pista para marcar ritmos base de toda la planificación (ACC). Movilidad + técnica, 15&#x27; easy, 3&#x27; RPE10 (lap), 10&#x27; caminando, 9&#x27; RPE10 (lap), cool down. Almacenar ritmos de ambos tests.</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Hip mobility flow</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Movilidad</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Run Technique Drills</span><span class="seg-txt">5&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">15&#x27; @ RPE 5</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">3&#x27; @ RPE 10</span><span class="seg-mod">Carrera</span></li><li class="seg noint"><span class="ex-name">Walk</span><span class="seg-txt">10&#x27;</span><span class="seg-mod">Otro</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">9&#x27; @ RPE 10</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">15&#x27; @ RPE 3</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article><article class="card flagged">
+      <header class="card-head"><h3>Test pista 30&#x27; (umbral)</h3><span class="meta">#390 · Mixto</span><span class="badge warn">⚠ revisar</span></header>
+      <div class="orig"><div class="lbl">Texto original</div><div class="orig-txt">Test de umbral de 30&#x27; en pista (ACC). Movilidad + técnica, 15&#x27; easy RPE5, 30&#x27; RPE10 (los últimos 20&#x27; valen), cool down RPE4. Almacenar ritmo medio sostenible.</div></div>
+      <div class="typed"><div class="lbl">Tipado</div><ul class="segs"><li class="seg noint"><span class="ex-name">Hip mobility flow</span><span class="seg-txt">(sin tipar)</span><span class="seg-mod">Movilidad</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg noint"><span class="ex-name">Run Technique Drills</span><span class="seg-txt">5&#x27;</span><span class="seg-mod">Funcional/WOD</span><span class="tag noint-tag">sin intensidad</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">15&#x27; @ RPE 5</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">30&#x27; @ RPE 10</span><span class="seg-mod">Carrera</span></li><li class="seg"><span class="ex-name">Run</span><span class="seg-txt">10&#x27; @ RPE 4</span><span class="seg-mod">Carrera</span></li></ul></div>
+    </article>
+
+<div class="gaps">
+<h2>Huecos del modelo a decidir</h2>
+<p class="intro">Carencias reales del modelo de prescripción que afloró el re-tipado de los WOD. Para que Alex decida — no son bugs de datos, son límites de expresividad del modelo.</p>
+<ol>
+<li><b>No existe el esquema <code>circuit</code>.</b> Un circuito (estaciones en rotación) se mapea hoy a <code>rounds</code>; pierde la noción de "rondas de estaciones distintas".</li>
+<li><b>La cadencia de EMOM &gt; 1 minuto no se puede expresar.</b> Un "cada 2'" se renderiza en minutos enteros (<code>rounds</code>); el modelo asume cadencia de 1 minuto.</li>
+<li><b>No hay contenedor multi-componente para un WOD.</b> Los ejercicios de un WOD viven como filas <code>block_exercises</code> separadas; la agrupación por rondas queda implícita, no modelada.</li>
+<li><b>Un movimiento compuesto en una sola fila no se puede partir.</b> Una línea que encierra varios movimientos no se descompone en sus componentes tipados.</li>
+</ol>
+</div>
+
+<footer>FAHYBRIK · generado desde la BD demo ep-flat-wind · 99 bloques de biblioteca</footer>
+</div></body></html>
