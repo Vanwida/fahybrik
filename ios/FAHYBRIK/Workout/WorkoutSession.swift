@@ -202,6 +202,13 @@ final class WorkoutSession {
     /// True when the current segment is the final one in the session.
     var isLastSegment: Bool { currentSegmentIndex >= plan.segments.count - 1 }
 
+    /// #23 — the current station is the PARTNER's half of a HYROX dobles reparto:
+    /// they work, the athlete relays/recovers. Drives the relay screen in the live
+    /// view and the "no work logged for me" advance (`advanceRelay`).
+    var currentSegmentIsPartnerRelay: Bool {
+        currentSegment?.doblesSplit?.role == .partner
+    }
+
     /// The coach block the session is currently in (or parked at, during the gate).
     var currentBlockRegion: WorkoutBlockRegion? {
         plan.blockRegion(containing: currentSegmentIndex)
@@ -221,6 +228,13 @@ final class WorkoutSession {
     /// True while a block is actually running (not on a preview, not finished) —
     /// gates the "Terminar bloque" early-finish action.
     var canEndBlockEarly: Bool { !isAwaitingBlockStart && !isFinished && currentSegment != nil }
+
+    /// True when another block exists AFTER the current one — gates the wrist's
+    /// "Siguiente bloque" early exit (cutting the LAST block short is Terminar).
+    var hasBlockAfterCurrent: Bool {
+        guard let region = currentBlockRegion else { return false }
+        return region.lastIndex + 1 < plan.segments.count
+    }
 
     /// True when the current segment is a running EMOM (past its count-in).
     var isEMOMActive: Bool { currentSegment?.isEMOM == true }
@@ -457,6 +471,25 @@ final class WorkoutSession {
         Haptics.medium()
         let origin = currentSegmentIndex
         closeCurrentSegmentLap()
+        if currentSegmentIndex < plan.segments.count - 1 {
+            currentSegmentIndex += 1
+            enterOrArm(from: origin)
+        } else {
+            finish()
+        }
+    }
+
+    /// #23 — advance past a PARTNER relay station. In HYROX dobles the partner
+    /// works this station while the athlete recovers, so the athlete logs NOTHING:
+    /// we DISCARD any live state and close NO work lap (mirrors jumpTo's "skipped →
+    /// no lap"), so the station never enters this athlete's volume/analytics. The
+    /// relay time still elapses on the session clock. Advances to the next segment
+    /// (or finishes on the last).
+    func advanceRelay() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment != nil else { return }
+        Haptics.medium()
+        let origin = currentSegmentIndex
+        discardCurrentLiveState()
         if currentSegmentIndex < plan.segments.count - 1 {
             currentSegmentIndex += 1
             enterOrArm(from: origin)
@@ -1566,6 +1599,12 @@ final class WorkoutSession {
     /// so the connection strip can show provenance. PM5 passthrough is preferred
     /// only as a fallback: once HealthKit is streaming it stays the source.
     func injectLiveHR(_ bpm: Int, source: HRSource) {
+        // Paused / finished minutes are NOT training data: a rest-HR reading taken
+        // while the athlete paused (or after the session ended) must not enter the
+        // lap's HR aggregation. Objectively correct on both platforms — the phone
+        // pauses the same engine, and the watch now pauses the HK session alongside
+        // it (WatchWorkoutCoordinator.togglePause), so no stream should feed through.
+        guard !isPaused, !isFinished else { return }
         // Don't let an intermittent PM5 strap reading override an active
         // HealthKit/watch stream that's already the chosen source.
         if hrSource == .healthkit && source == .pm5 { liveHRBpm = bpm; lapHRSamples.append(bpm); return }

@@ -85,6 +85,47 @@ struct ZoneTarget: Codable {
 }
 
 // Either a target distance, target reps, or target duration drives completion.
+/// #23 — HYROX dobles reparto for ONE station segment, resolved to the reading
+/// athlete's perspective. `role` decides how the live engine treats it:
+///   .mine    → the athlete does the full station (log normally).
+///   .partner → the PARTNER does it; the athlete relays/recovers — a rest-style
+///              screen ("{partner} hace {station} — recupera"), NOTHING logged
+///              for this athlete (their half never includes the partner's work).
+///   .split   → both share it; the athlete does `selfShare` of the volume + note.
+struct SegmentDoblesSplit: Codable, Equatable {
+    enum Role: String, Codable { case mine, partner, split }
+    let role: Role
+    /// The reading athlete's share, 0…1 (partner = 1 − this). 1 for .mine, 0 for
+    /// .partner, the coach's split for .split.
+    let selfShare: Double
+    /// Explicit reparto note, e.g. "alterna 250m" / "tú 60 / compañero 40".
+    let note: String?
+    /// Station label for the relay/recover screen, e.g. "SkiErg 1km".
+    let stationLabel: String
+    /// Partner's first name for the relay line ("{partnerName} hace SkiErg").
+    /// Nil → the surface falls back to "Tu compañero".
+    let partnerName: String?
+
+    /// One-line reparto reminder for a SHARED station (.split only) — shown dim on
+    /// the active screen (and carried in the mirror `detailLine` / on the wrist) so
+    /// the pact is legible mid-station, when no one remembers what was agreed. Nil
+    /// for .mine (full station, no reminder) and .partner (that gets the relay
+    /// screen instead). Format mirrors the coach's pact, e.g.
+    /// "Tú 60 / Guillem 40 · alterna 250m". No banner — one honest line.
+    var liveSplitLine: String? {
+        guard role == .split else { return nil }
+        let mine = Int((selfShare * 100).rounded())
+        let theirs = max(0, 100 - mine)
+        let trimmedPartner = partnerName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let who = (trimmedPartner?.isEmpty == false) ? trimmedPartner! : "compañero"
+        var line = "Tú \(mine) / \(who) \(theirs)"
+        if let n = note?.trimmingCharacters(in: .whitespacesAndNewlines), !n.isEmpty {
+            line += " · \(n)"
+        }
+        return line
+    }
+}
+
 struct WorkoutSegment: Codable, Identifiable {
     let id: UUID
     let order: Int
@@ -121,6 +162,13 @@ struct WorkoutSegment: Codable, Identifiable {
     /// than only the flattened scalar targets. Optional: legacy/freeform segments
     /// carry only scalars (then the engine falls back to the generic lap).
     let prescription: Prescription?
+
+    /// #23 HYROX dobles reparto: how this STATION segment is split with the
+    /// partner (derived from the coach's simulation; see WorkoutPlan.from). Nil
+    /// for individual sessions, runs, and unmapped stations — those run in full,
+    /// unchanged. `var` with a default so the big init and cached/mirror snapshots
+    /// stay untouched and decode tolerantly.
+    var doblesSplit: SegmentDoblesSplit? = nil
 
     init(
         id: UUID = UUID(),
@@ -717,11 +765,26 @@ struct WorkoutExecutionPayload: Codable {
     /// Per-segment measured execution. Omitted (nil) for sessions with a single
     /// freeform segment and no captured laps; populated for structured workouts.
     let segments: [SegmentExecutionDTO]?
+    /// The `uuid` of the HKWorkout this execution was saved as, when the finish
+    /// happened on the wrist (the watch also writes the workout to HealthKit, which
+    /// the iPhone HealthKitSyncService independently forwards). The backend
+    /// (`workout_executions.source_workout_ref`) uses it to recognize the
+    /// HealthKit-synced copy of the SAME session and not double-count it. `var` with
+    /// a default (not `let`) so it stays in the memberwise init as an OPTIONAL
+    /// argument: the phone's own finish path (which doesn't set it) is unchanged, the
+    /// watch passes the HKWorkout id, and older encoded payloads still decode.
+    var source_workout_ref: String? = nil
 }
 
 // Offline-first sync helper for post-workout summary. Mirrors the CheckinAPI
 // pattern: try the POST, on any failure enqueue for replay through the shared
 // RequestQueue so closing the workout view is never blocked by network.
+//
+// iPhone-only: the watch never talks to the backend directly — it relays a
+// finished execution to the phone (WatchConnectivity), which submits through this
+// exact path. So the networking-backed submitters are compiled out on watchOS
+// (they'd otherwise drag APIClient + RequestQueue onto the wrist for no reason).
+#if !os(watchOS)
 enum WorkoutExecutionAPI {
     static let path = "/api/sync/workout-execution"
 
@@ -735,6 +798,7 @@ enum WorkoutExecutionAPI {
         }
     }
 }
+#endif
 
 // Where a finished execution is submitted. `.solo` → the standard
 // /api/sync/workout-execution path. `.doublesJoint` → the joint Dobles endpoint,
@@ -749,6 +813,8 @@ enum WorkoutLogTarget: Equatable {
 // RequestQueue) but POSTs to the per-assignment joint endpoint so the backend
 // links the partner and shares the result. Reuses WorkoutExecutionPayload —
 // `sessionId` is the athlete's own assignment id (== payload.assignment_id).
+// iPhone-only for the same reason as WorkoutExecutionAPI above.
+#if !os(watchOS)
 enum DoblesExecutionAPI {
     static func path(sessionId: String) -> String {
         let encoded = sessionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sessionId
@@ -766,6 +832,7 @@ enum DoblesExecutionAPI {
         }
     }
 }
+#endif
 
 // Minimal real plan used to run the timer/lap engine when we only know the
 // assignment title. The per-assignment workout BODY (segments, zone targets,
@@ -861,11 +928,58 @@ extension WorkoutPlan {
             blockContext: workout.focus ?? "",
             zoneTargets: [],
             equipment: [],
-            segments: resolvedSegments,
+            // #23 — annotate the station segments with the dobles reparto so the
+            // live engine (phone + watch, shared) runs each athlete's half.
+            segments: applyDoblesSplit(resolvedSegments, assignment: detail.assignment),
             coachNote: workout.coachNote,
             demoVideoUrl: nil,
             warmupChecklist: []
         )
+    }
+
+    // #23 — apply the derived HYROX dobles reparto to the station segments. The
+    // backend emits `station_assignment` (per station: assigned_to + reader-flipped
+    // self_share + note) keyed by template_segment_id, plus my_role. We annotate
+    // each segment whose templateSegmentId matches; everything else (individual
+    // sessions, runs, unmapped stations) is returned untouched → run in full.
+    private static func applyDoblesSplit(
+        _ segments: [WorkoutSegment],
+        assignment: AssignmentInfo
+    ) -> [WorkoutSegment] {
+        guard let sa = assignment.stationAssignment, !sa.stations.isEmpty else { return segments }
+        var byTsid: [Int: StationAssignmentEntry] = [:]
+        for e in sa.stations { if let t = e.templateSegmentId { byTsid[t] = e } }
+        guard !byTsid.isEmpty else { return segments }
+        let mine = assignment.myRole?.lowercased()
+
+        return segments.map { seg in
+            guard let tsid = seg.templateSegmentId, let e = byTsid[tsid] else { return seg }
+            let a = e.assignedTo.lowercased()
+            let role: SegmentDoblesSplit.Role
+            if a == "split" || a == "alternate" {
+                role = .split
+            } else if let mine, a == mine {
+                role = .mine
+            } else if let mine, (a == "a" || a == "b"), a != mine {
+                role = .partner
+            } else if let s = e.selfShare {
+                // Role unknown (no my_role) → infer from the reader-flipped share.
+                role = s >= 0.85 ? .mine : (s <= 0.15 ? .partner : .split)
+            } else {
+                // Ambiguous → treat as partner (never wrongly attribute their work).
+                role = .partner
+            }
+            let share = e.selfShare ?? (role == .mine ? 1 : role == .partner ? 0 : 0.5)
+            var s = seg
+            s.doblesSplit = SegmentDoblesSplit(
+                role: role,
+                selfShare: share,
+                note: e.note,
+                stationLabel: e.label ?? e.displayName,
+                partnerName: sa.partnerFirstName
+            )
+            return s
+        }
     }
 
     private static func segment(from item: WorkoutItem, order: Int, block: WorkoutBlock) -> WorkoutSegment {
@@ -1302,6 +1416,23 @@ extension WorkoutPlan {
                 segments: segments(in: region)
             )
         }
+    }
+}
+
+extension WorkoutPlan {
+    /// The runnable session's principal modality as a backend modality wire string
+    /// ("run" | "row" | "strength" | "other"), read from the main-work block's
+    /// dominant segment kind. Feeds WatchConnectivityiOSService.activityKind so the
+    /// wrist recording (mirror mode) gets the SAME HKWorkout type the watch push
+    /// derives. Falls back to any segment for a title-only / freeform plan.
+    var principalModalityWire: String {
+        let mains = blockRegions.filter { $0.phase.isMainWork }
+        let regions = mains.isEmpty ? blockRegions : mains
+        let pool = regions.flatMap { segments(in: $0) }
+        let candidates = pool.isEmpty ? segments : pool
+        let dominant = Dictionary(grouping: candidates, by: { $0.kind })
+            .max { $0.value.count < $1.value.count }?.key
+        return (dominant ?? segments.first?.kind ?? .reps).modality
     }
 }
 

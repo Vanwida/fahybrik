@@ -28,32 +28,31 @@ import SwiftUI
 // This view owns its own data load (via AppDataStore, cache-first / SWR) and the
 // Empezar / Check-in / target-race sheets.
 struct InicioView: View {
-    /// Session bearer, provided by AppShell. Falls back to the persisted token.
+    /// Live session bearer, provided by AppShell (single source of truth).
     var bearer: String? = nil
     /// Lets the header / anchor / cards route the shell to another tab.
     var onOpenTab: ((AppTab) -> Void)? = nil
 
-    @State private var showWorkout: Bool = false
     @State private var showFreeBuilder: Bool = false
     @State private var showCheckin: Bool = false
+    // Presents the readiness detail sheet from the "¿Cómo llegas hoy?" card.
+    @State private var showReadinessDetail: Bool = false
     // Presents the target-race picker from the empty race anchor.
     @State private var showBuscarCarrera: Bool = false
 
-    // Which of today's sessions "Empezar" launches (the hero's session).
-    @State private var startAssignmentId: String? = nil
-    @State private var startFallbackTitle: String? = nil
+    // Which of today's sessions "Empezar" launches (the hero's session). One
+    // non-optional payload → presented via `.fullScreenCover(item:)` so the id is
+    // never nil when WorkoutContainer builds (root fix for "Sesión / Sin detalle").
+    @State private var workoutLaunch: WorkoutLaunch? = nil
 
     // A FINISHED session tapped from the "Hecho hoy" confirmation — drives the
     // read-only executed detail cover (what was logged), not the active brief.
-    @State private var executedAssignmentId: String? = nil
-    @State private var executedFallbackTitle: String? = nil
-    @State private var showExecuted: Bool = false
+    @State private var executedLaunch: WorkoutLaunch? = nil
 
     // Drives the one orchestrated staggered reveal of the cards on appear.
     @State private var revealed: Bool = false
 
     @State private var checkinPending: Bool = CheckinStore.isPending()
-    @State private var sessionBearer: String? = nil
 
     // Today's all-day step count, read display-local from HealthKit (not the API
     // store — it's device-local). Nil until the first read resolves.
@@ -133,10 +132,10 @@ struct InicioView: View {
         return (env?.isDoublesPair == true) ? env?.partner : nil
     }
 
-    /// Effective bearer: the one AppShell passed, else the persisted token.
-    private var effectiveBearer: String? {
-        sessionBearer ?? bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
-    }
+    /// The live session bearer from AppShell (single source of truth). No
+    /// persisted-token fallback — a dead token is cleared by the 401 recovery, so
+    /// falling back to it would only re-inject a dead session.
+    private var effectiveBearer: String? { bearer }
 
     var body: some View {
         ScrollView {
@@ -184,26 +183,32 @@ struct InicioView: View {
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.xl)
         }
-        .fullScreenCover(isPresented: $showWorkout) {
+        .refreshable {
+            // Pull-to-refresh: pull every slice Inicio paints fresh (bypass the SWR
+            // staleness window with force) + re-read today's device-local steps.
+            await store.loadHome(force: true)
+            stepsReading = await HealthKitStepsReader.todaySteps()
+        }
+        .fullScreenCover(item: $workoutLaunch) { launch in
             // EMPEZAR runs the real prescribed workout via WorkoutContainer.
             WorkoutContainer(
-                assignmentId: startAssignmentId,
-                fallbackTitle: startFallbackTitle,
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                onClose: { showWorkout = false },
+                onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     Task { await store.planMutated() }
                 }
             )
         }
-        .fullScreenCover(isPresented: $showExecuted) {
+        .fullScreenCover(item: $executedLaunch) { launch in
             // Read-only detail of a session already DONE today — what the athlete
             // logged (tiempo / score / RPE / splits), not the active brief.
             ExecutedWorkoutView(
-                assignmentId: executedAssignmentId ?? "",
-                fallbackTitle: executedFallbackTitle,
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                onClose: { showExecuted = false },
+                onClose: { executedLaunch = nil },
                 // Stale id (404) → re-sync to the authoritative plan so today's
                 // "Hecho hoy" rows reflect their current wa.id on re-open.
                 onStale: { Task { await store.planMutated() } }
@@ -239,8 +244,23 @@ struct InicioView: View {
                 Task { await store.planMutated() }
             }
         }
+        .sheet(isPresented: $showReadinessDetail) {
+            // Read the payload LIVE from the store so a check-in made inside the
+            // sheet (which refreshes readiness) updates the rows without reopening.
+            if let readiness = store.readiness.value {
+                ReadinessDetailSheet(
+                    payload: readiness,
+                    hasSessionToday: hasSessionToday,
+                    checkinDone: !checkinPending,
+                    bearer: effectiveBearer,
+                    onCheckinSubmitted: {
+                        checkinPending = false
+                        Task { await store.refreshReadiness(force: true) }
+                    }
+                )
+            }
+        }
         .onAppear {
-            sessionBearer = bearer ?? UserDefaults.standard.string(forKey: "fahybrik.bearer")
             checkinPending = CheckinStore.isPending()
             // SUAVE: auto-open the check-in only the FIRST time per local day.
             if checkinPending && !CheckinStore.hasAutoPresentedToday() {
@@ -254,6 +274,14 @@ struct InicioView: View {
         .task(id: effectiveBearer) {
             store.activate(bearer: effectiveBearer)
             await store.loadHome()
+            // Initial push once the home data has settled. Subsequent re-pushes
+            // (workout completed/partial, day moved/reset, fresh readiness) ride the
+            // single `.onChange(of: watchPushSignature)` below — no per-mutation calls.
+            pushNextWorkoutToWatch()
+        }
+        .onChange(of: watchPushSignature) { _, _ in
+            // The one choke point for re-pushing the wrist: any plan/readiness change
+            // that alters what we'd send flips the signature and re-pushes today.
             pushNextWorkoutToWatch()
         }
         .task {
@@ -533,65 +561,101 @@ struct InicioView: View {
 
     @ViewBuilder
     private var readinessCard: some View {
-        CardSurface(padding: Theme.Spacing.l) {
-            VStack(alignment: .leading, spacing: 14) {
-                LabelText(text: "¿Cómo llegas hoy?")
-                if let score = readinessScore {
-                    HStack(alignment: .center, spacing: 16) {
-                        RecoveryRing(value: score, size: 66, stroke: 7, color: readinessColor(score))
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(readinessInterpretation(score))
-                                .scaledFont(16, weight: .semibold, relativeTo: .headline)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .fixedSize(horizontal: false, vertical: true)
-                            if let delta = readinessDelta {
-                                HStack(spacing: 4) {
-                                    Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                        .font(.system(size: 10, weight: .bold))
-                                    Text("\(abs(delta)) en 7 días")
-                                        .scaledFont(11, weight: .medium, relativeTo: .caption)
-                                }
-                                .foregroundStyle(delta >= 0 ? Theme.Color.ok : Theme.Color.warning)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    if readinessBreakdown != nil {
-                        breakdownChips
-                    }
-                } else if store.readiness.hasLoaded {
-                    // Loaded but no real signal yet (no check-in, no wearable).
-                    Button {
-                        guard checkinPending else { return }
-                        Haptics.light()
-                        showCheckin = true
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Sin datos aún")
-                                .scaledFont(16, weight: .semibold, relativeTo: .headline)
-                                .foregroundStyle(Theme.Color.foreground)
-                            Text(checkinPending
-                                 ? "Haz tu check-in matinal para verlo"
-                                 : "Conecta Apple Salud o haz tu check-in")
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(checkinPending ? Theme.Color.accentText : Theme.Color.muted)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PressScaleStyle())
-                    .disabled(!checkinPending)
-                } else {
-                    // Not yet loaded (rare with cache-first) — stable placeholder.
+        if let score = readinessScore {
+            // A real score → the whole card opens the readiness detail sheet.
+            Button {
+                Haptics.light()
+                showReadinessDetail = true
+            } label: {
+                readinessScoreFace(score: score)
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(readinessAxLabel)
+            .accessibilityHint("Ver el detalle de tu readiness")
+            .accessibilityAddTraits(.isButton)
+        } else if store.readiness.hasLoaded {
+            readinessEmptyFace
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(readinessAxLabel)
+        } else {
+            // Not yet loaded (rare with cache-first) — stable placeholder.
+            CardSurface(padding: Theme.Spacing.l) {
+                VStack(alignment: .leading, spacing: 14) {
+                    LabelText(text: "¿Cómo llegas hoy?")
                     Text("—")
                         .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
                         .foregroundStyle(Theme.Color.faint)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(readinessAxLabel)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(readinessAxLabel)
+    }
+
+    /// The score face — ring + plain read + 7-day delta + the signal mini-chips.
+    /// Identical visuals to before; now the tap target for the detail sheet.
+    private func readinessScoreFace(score: Int) -> some View {
+        CardSurface(padding: Theme.Spacing.l) {
+            VStack(alignment: .leading, spacing: 14) {
+                LabelText(text: "¿Cómo llegas hoy?")
+                HStack(alignment: .center, spacing: 16) {
+                    RecoveryRing(value: score, size: 66, stroke: 7,
+                                 color: ReadinessZone.of(score: score).color)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(ReadinessZone.of(score: score).interpretation)
+                            .scaledFont(16, weight: .semibold, relativeTo: .headline)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let delta = readinessDelta {
+                            HStack(spacing: 4) {
+                                Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                    .font(.system(size: 10, weight: .bold))
+                                Text("\(abs(delta)) en 7 días")
+                                    .scaledFont(11, weight: .medium, relativeTo: .caption)
+                            }
+                            .foregroundStyle(delta >= 0 ? Theme.Color.ok : Theme.Color.warning)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.faint)
+                }
+                if readinessBreakdown != nil {
+                    breakdownChips
+                }
+            }
+        }
+    }
+
+    /// Loaded but no real signal yet (no check-in, no wearable) — the honest
+    /// empty state, which taps into the check-in when one is pending.
+    private var readinessEmptyFace: some View {
+        CardSurface(padding: Theme.Spacing.l) {
+            VStack(alignment: .leading, spacing: 14) {
+                LabelText(text: "¿Cómo llegas hoy?")
+                Button {
+                    guard checkinPending else { return }
+                    Haptics.light()
+                    showCheckin = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Sin datos aún")
+                            .scaledFont(16, weight: .semibold, relativeTo: .headline)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text(readinessEmptySubtitle)
+                            .scaledFont(12, relativeTo: .caption)
+                            .foregroundStyle(checkinPending ? Theme.Color.accentText : Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressScaleStyle())
+                .disabled(!checkinPending)
+            }
+        }
     }
 
     /// The signals that fed the score, each lit when present and dim when not — an
@@ -619,34 +683,40 @@ struct InicioView: View {
         return "Sueño"
     }
 
+    /// Empty-state subtitle for the readiness card, honest across the real states:
+    /// a pending check-in nudges it first (fastest path to a score); otherwise the
+    /// copy depends on whether the athlete ran the Apple Health connect flow —
+    /// "conectado, esperando datos del reloj" vs "aún sin conectar". We never claim
+    /// data is READABLE (HealthKit hides read-authorization), only that the connect
+    /// ran and samples haven't arrived yet.
+    private var readinessEmptySubtitle: String {
+        if checkinPending { return "Haz tu check-in matinal para verlo" }
+        if HealthKitConnection.isConnected {
+            return "Conectado a Apple Salud · esperando datos de sueño y HRV de tu reloj. O haz tu check-in."
+        }
+        return "Conecta Apple Salud o haz tu check-in"
+    }
+
     private var readinessAxLabel: String {
         guard let score = readinessScore else {
             return store.readiness.hasLoaded
-                ? "Readiness sin datos aún. Haz tu check-in"
+                ? "Cómo llegas hoy, sin datos aún. \(readinessEmptySubtitle)"
                 : "Readiness cargando"
         }
-        var label = "Cómo llegas hoy: readiness \(score) de 100, \(readinessInterpretation(score))"
+        var label = "Cómo llegas hoy: readiness \(score) de 100, \(ReadinessZone.of(score: score).interpretation)"
         if let delta = readinessDelta {
             label += ", \(delta >= 0 ? "sube" : "baja") \(abs(delta)) en 7 días"
         }
         return label
     }
 
-    // Buckets MIRROR web/lib/dashboard/constants/readiness.ts (ok ≥67 · caution
-    // 45–66 · low <45) so the athlete's read can't drift from the coach's.
-    private static let readinessOkMin = 67
-    private static let readinessCautionMin = 45
-
-    private func readinessInterpretation(_ score: Int) -> String {
-        if score >= Self.readinessOkMin { return "Recuperado y listo" }
-        if score >= Self.readinessCautionMin { return "Recuperación parcial" }
-        return "Cuerpo cargado"
-    }
-
-    private func readinessColor(_ score: Int) -> Color {
-        if score >= Self.readinessOkMin { return Theme.Color.ok }
-        if score >= Self.readinessCautionMin { return Theme.Color.warning }
-        return Theme.Color.danger
+    /// Whether the plan has at least one session scheduled today (done or not) —
+    /// drives the readiness-sheet guidance ("…llega fuerte a la sesión de hoy").
+    private var hasSessionToday: Bool {
+        guard let resp = planWeek,
+              let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso })
+        else { return false }
+        return today.sessions.contains { !$0.assignmentId.isEmpty }
     }
 
     // MARK: - 3 · Tu progreso · carrera (running leads the proof)
@@ -888,9 +958,7 @@ struct InicioView: View {
                 ctaTitle: "▶ Empezar",
                 isFree: hero.isSelfOrigin,
                 onStart: {
-                    startAssignmentId = hero.assignmentId
-                    startFallbackTitle = hero.title
-                    showWorkout = true
+                    workoutLaunch = WorkoutLaunch(assignmentId: hero.assignmentId, title: hero.title)
                 }
             )
         } else if hasPlan {
@@ -949,9 +1017,7 @@ struct InicioView: View {
         let partial = SessionMarkState.of(status: session.status, assignmentId: session.assignmentId) == .partial
         return Button {
             Haptics.light()
-            executedAssignmentId = session.assignmentId
-            executedFallbackTitle = session.title
-            showExecuted = true
+            executedLaunch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
         } label: {
             HStack(spacing: Theme.Spacing.s) {
                 Circle()
@@ -1291,22 +1357,115 @@ struct InicioView: View {
         }
     }
 
+    // Push TODAY to the watch — never a future day. Snapshots the home's already-
+    // loaded state (session card + readiness); no duplicate network fetch (readiness
+    // from the store, detail from its cache, network only on a cache miss).
+    // `athleteHrMax` is nil — the phone has no athlete-specific HRmax yet, so the
+    // watch defaults to the SAME ceiling the phone's engine uses.
+    //
+    // Three cases, from TODAY's sessions only:
+    //   1. a pending session today → push it, not done.
+    //   2. today's sessions are ALL finished → push the primary one, done + how.
+    //   3. a genuine rest day (no sessions) → push a rest payload (readiness only).
+    // Logout / no plan loaded → CLEAR the wrist (empty context is reserved for this).
     private func pushNextWorkoutToWatch() {
-        WatchConnectivityiOSService.shared.activate()
-        guard let id = heroAssignmentId, let title = heroTitle else {
-            WatchConnectivityiOSService.shared.pushWorkoutForToday(nil)
+        let bearer = effectiveBearer
+        let readiness = store.readiness.value
+
+        // Logout / no data loaded → clear (never leave a stale card on the wrist).
+        guard bearer != nil, planWeek != nil else {
+            Task { await WatchConnectivityiOSService.shared.clearToday() }
             return
         }
-        let slot = heroSlotRaw
-        let payload = WatchWorkoutPayload(
-            id: id,
-            title: title,
-            focus: slot.isEmpty ? nil : slot.uppercased(),
-            duration_minutes: 60,
-            intensity_label: nil,
-            activity_kind: "mixed"
-        )
-        WatchConnectivityiOSService.shared.pushWorkoutForToday(payload)
+
+        if let hero = heroSession {
+            // Case 1 — a pending session today.
+            pushSessionToWatch(hero, isDone: false, doneCompleteness: nil,
+                               readiness: readiness, bearer: bearer)
+        } else if let done = completedTodaySessions.first {
+            // Case 2 — today's sessions are all finished; show the completed primary.
+            let state = SessionMarkState.of(status: done.status, assignmentId: done.assignmentId)
+            pushSessionToWatch(done, isDone: true,
+                               doneCompleteness: state == .partial ? "partial" : "full",
+                               readiness: readiness, bearer: bearer)
+        } else {
+            // Case 3 — a genuine rest day: keep readiness, no session.
+            Task {
+                await WatchConnectivityiOSService.shared.pushToday(
+                    dayKind: WatchDayKind.rest,
+                    assignmentId: nil, title: nil, focus: nil,
+                    estDurationMinutes: nil, intensityLabel: nil, modality: nil,
+                    athleteHrMax: nil, readiness: readiness,
+                    isDone: false, doneCompleteness: nil, isDoubles: false,
+                    partnerFirstName: nil, partnerVisibility: nil, bearer: bearer
+                )
+            }
+        }
+    }
+
+    /// Push one of today's sessions (pending or done) to the watch.
+    private func pushSessionToWatch(
+        _ session: AthleteWeekDaySession,
+        isDone: Bool,
+        doneCompleteness: String?,
+        readiness: DailyReadinessPayload?,
+        bearer: String?
+    ) {
+        let focus = session.slot.isEmpty ? nil : session.slot.uppercased()
+        let isDoubles = watchSessionIsDoubles(session)
+        // #23 — the partner's first name (for the wrist "DOBLES · con {nombre}" badge)
+        // and the session's visibility ride only for a shared/joint dobles session;
+        // a self_only session is individual (isDoubles already false) → no partner.
+        let partnerFirstName = isDoubles ? store.partner.value?.partner?.firstName : nil
+        let partnerVisibility = isDoubles ? session.partnerVisibility : nil
+        Task {
+            await WatchConnectivityiOSService.shared.pushToday(
+                dayKind: WatchDayKind.session,
+                assignmentId: session.assignmentId,
+                title: session.title,
+                focus: focus,
+                estDurationMinutes: session.estDurationMinutes,
+                intensityLabel: nil,
+                modality: session.modality,
+                athleteHrMax: nil,
+                readiness: readiness,
+                isDone: isDone,
+                doneCompleteness: doneCompleteness,
+                isDoubles: isDoubles,
+                partnerFirstName: partnerFirstName,
+                partnerVisibility: partnerVisibility,
+                bearer: bearer
+            )
+        }
+    }
+
+    /// Whether a watch-originated finish of this session should log JOINTLY. The
+    /// wrist has no "por mi cuenta / juntos" choice, so a dobles-pair session always
+    /// logs jointly there. True only when the athlete is in a doubles pair AND this
+    /// session isn't kept private (partner_visibility 'self_only'); the joint endpoint
+    /// requires a linked partner, so a lone athlete never routes to it.
+    private func watchSessionIsDoubles(_ session: AthleteWeekDaySession) -> Bool {
+        guard store.partner.value?.isDoublesPair == true else { return false }
+        return session.partnerVisibility?.lowercased() != "self_only"
+    }
+
+    /// A compact fingerprint of everything the watch push depends on. Drives the
+    /// single `.onChange` re-push (FIX): whenever the pushed content would differ —
+    /// a completed / partial / moved / reset session, a fresh readiness, a flipped
+    /// dobles flag — this string changes and the wrist is re-pushed. One choke point
+    /// so no plan mutation slips through and no redundant push fires.
+    private var watchPushSignature: String {
+        guard effectiveBearer != nil, planWeek != nil else { return "clear" }
+        let r = store.readiness.value
+        let readinessSig = "\(r?.score ?? -1)/\(r?.delta7d ?? -999)/\(WatchConnectivityiOSService.worstDriver(r?.breakdown) ?? "-")"
+        if let h = heroSession {
+            return "s|\(h.assignmentId)|\(h.title)|\(h.modality ?? "-")|\(h.estDurationMinutes ?? -1)|\(watchSessionIsDoubles(h) ? "d" : "-")|pending|\(readinessSig)"
+        }
+        if let d = completedTodaySessions.first {
+            let mark = SessionMarkState.of(status: d.status, assignmentId: d.assignmentId) == .partial ? "p" : "f"
+            return "s|\(d.assignmentId)|\(d.title)|\(d.modality ?? "-")|\(d.estDurationMinutes ?? -1)|\(watchSessionIsDoubles(d) ? "d" : "-")|done-\(mark)|\(readinessSig)"
+        }
+        return "rest|\(readinessSig)"
     }
 
     // MARK: - Hero / PM resolution
@@ -1314,16 +1473,6 @@ struct InicioView: View {
     private var heroSession: AthleteWeekDaySession? { todaySessions.first }
     private var pmSession: AthleteWeekDaySession? {
         todaySessions.count > 1 ? todaySessions[1] : nil
-    }
-
-    private var heroAssignmentId: String? {
-        heroSession?.assignmentId ?? nextWorkout?.assignmentId
-    }
-    private var heroTitle: String? {
-        heroSession?.title ?? nextWorkout?.title
-    }
-    private var heroSlotRaw: String {
-        heroSession?.slot ?? nextWorkout?.slot ?? ""
     }
 
     private func slotFor(_ session: AthleteWeekDaySession) -> SessionSlot {

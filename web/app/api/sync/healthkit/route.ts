@@ -56,6 +56,18 @@ export async function POST(req: Request): Promise<NextResponse> {
         set last_sync_at = now(), updated_at = now()
     `;
 
+    // Persist the device's IANA timezone so readiness windows the day in the
+    // athlete's own zone. Validated by the batch schema; only written when the
+    // device reported one and it actually changed (travel keeps it fresh).
+    if (parsed.data.batch.timezone) {
+      await sql`
+        update athletes
+          set timezone = ${parsed.data.batch.timezone}, updated_at = now()
+        where id = ${auth.athlete_id as unknown as number}
+          and timezone is distinct from ${parsed.data.batch.timezone}
+      `;
+    }
+
     // Fire-and-forget: fresh biometrics can clear no_sync / move HRV signals.
     void recomputeAthlete({ athlete_id: auth.athlete_id }).catch(() => {});
 

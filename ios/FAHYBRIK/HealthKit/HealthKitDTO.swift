@@ -35,6 +35,7 @@ struct HKWorkoutLapDTO: Codable {
 struct HKSyncBatch: Codable {
     let athlete_id: String?
     let sent_at: String
+    let timezone: String?     // IANA id (TimeZone.current.identifier) — buckets readiness by the athlete's local day
     let workouts: [HKWorkoutDTO]
     let samples: [HKBiometricSampleDTO]
 }

@@ -65,7 +65,9 @@ export type MacrocycleStatus = z.infer<typeof macrocycleStatus>;
 export const blockStatus = z.enum(['planned', 'active', 'completed', 'skipped']);
 export type BlockStatus = z.infer<typeof blockStatus>;
 
-export const assignmentStatus = z.enum(['scheduled', 'completed', 'missed', 'skipped']);
+// 'partial' = terminated early but honestly logged (mig 0089); the write path
+// emits it, so the wire contract must accept it or 'partial' rows fail to parse.
+export const assignmentStatus = z.enum(['scheduled', 'completed', 'partial', 'missed', 'skipped']);
 export type AssignmentStatus = z.infer<typeof assignmentStatus>;
 
 export const biometricSource = z.enum([

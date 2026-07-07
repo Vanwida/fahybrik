@@ -2,20 +2,11 @@ import Foundation
 import HealthKit
 
 enum HealthKitPermissions {
-    static let readTypes: Set<HKObjectType> = {
-        var s: Set<HKObjectType> = []
-        s.insert(HKObjectType.workoutType())
-        if let t = HKObjectType.quantityType(forIdentifier: .heartRate) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .restingHeartRate) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .vo2Max) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .stepCount) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .bodyMass) { s.insert(t) }
-        if let t = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { s.insert(t) }
-        if let t = HKObjectType.quantityType(forIdentifier: .runningPower) { s.insert(t) }
-        return s
-    }()
+    /// Authorization reads EXACTLY the set the sync pipeline observes + backfills —
+    /// one source of truth (HealthKitSyncService.readTypes), so the permission sheet
+    /// and the sync can never drift (a type authorized-but-unsynced, or observed-but-
+    /// unauthorized and therefore silently empty).
+    static var readTypes: Set<HKObjectType> { HealthKitSyncService.readTypes }
 
     static let shareTypes: Set<HKSampleType> = {
         var s: Set<HKSampleType> = []

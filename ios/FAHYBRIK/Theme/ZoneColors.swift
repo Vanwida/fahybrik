@@ -9,6 +9,12 @@ enum HRZone: Int, CaseIterable, Codable {
 
     var label: String { "Z\(rawValue)" }
 
+    // The zone COLORS below are iPhone-only: they resolve through the Theme palette,
+    // which is not compiled into the watch target. The watch only ever needs the
+    // zone identity (rawValue / label) + the classifier, so the UI members are
+    // compiled out there rather than dragging the Theme layer onto the wrist.
+    // `HRZone` itself (and `HRZoneClassifier`) stay fully shared.
+    #if !os(watchOS)
     // Adaptive per appearance. DARK = the original asset-catalog hexes (pinned to
     // colors_and_type.css, UNCHANGED). LIGHT = the same hue DARKENED so each zone
     // still reads as a fill/bar (≥3:1) AND as text in a ZBadge over its own 0.15
@@ -41,6 +47,7 @@ enum HRZone: Int, CaseIterable, Codable {
     /// `--z*-tint` CSS vars in `colors_and_type.css`. Derives from `color`, so it
     /// adapts with it (light tint = darkened hue at 0.15 over the light canvas).
     var tint: Color { color.opacity(0.15) }
+    #endif
 }
 
 // %HRmax thresholds — used to derive zone from a live BPM given athlete HRmax.

@@ -49,9 +49,30 @@ export const hkBiometricSampleSchema = z.object({
 });
 export type HKBiometricSampleDTO = z.infer<typeof hkBiometricSampleSchema>;
 
+// IANA timezone id (e.g. 'Europe/Madrid'), validated by whether the runtime's
+// Intl database recognises it — the only correct way to check an IANA id (a regex
+// can't). Persisted to athletes.timezone so readiness windows the day in the
+// athlete's own zone.
+const ianaTimezone = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(
+    (tz) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'invalid IANA timezone' },
+  );
+
 export const hkSyncBatchSchema = z.object({
   athlete_id: z.string().nullish(),
   sent_at: isoDateTime,
+  timezone: ianaTimezone.nullish(),
   workouts: z.array(hkWorkoutSchema).default([]),
   samples: z.array(hkBiometricSampleSchema).default([]),
 });

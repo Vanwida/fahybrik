@@ -39,6 +39,13 @@ export const executionMetricsSchema = z.object({
   source: z
     .enum(['healthkit', 'garmin', 'concept2', 'manual', 'whoop', 'oura', 'polar', 'coros', 'wahoo'])
     .optional(),
+  // The device workout this structured execution corresponds to — the HKWorkout
+  // UUID the watch stamped when it saved the session to HealthKit. Persisted to
+  // workout_executions.source_workout_ref so the passive HealthKit ingest can
+  // recognise the SAME workout arriving via /api/sync/healthkit and NOT re-link
+  // it to a different same-day assignment (the AM-run-marks-PM-done double-count
+  // bug). snake_case wire; nullish for manual logs / older clients that omit it.
+  source_workout_ref: z.string().max(200).nullish(),
   // Session completeness — did the athlete reach the END of the protocol ('full')
   // or TERMINATE early ('partial', the honest "ya no puedo más" save)? Maps 1:1 to
   // the assignment status: full → 'completed', partial → 'partial'. Omitted by the
@@ -99,7 +106,7 @@ export async function recordWorkoutExecution(args: {
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at,
       total_duration_seconds, perceived_exertion, notes,
-      score_time_s, score_rounds, score_reps, source
+      score_time_s, score_rounds, score_reps, source, source_workout_ref
     )
     values (
       ${assignmentId},
@@ -112,7 +119,8 @@ export async function recordWorkoutExecution(args: {
       ${input.score_time_s ?? null},
       ${input.score_rounds ?? null},
       ${input.score_reps ?? null},
-      ${input.source ?? 'healthkit'}::biometric_source
+      ${input.source ?? 'healthkit'}::biometric_source,
+      ${input.source_workout_ref ?? null}
     )
     on conflict (assignment_id) do update set
       perceived_exertion = coalesce(excluded.perceived_exertion, workout_executions.perceived_exertion),
@@ -122,6 +130,7 @@ export async function recordWorkoutExecution(args: {
       score_rounds = coalesce(excluded.score_rounds, workout_executions.score_rounds),
       score_reps = coalesce(excluded.score_reps, workout_executions.score_reps),
       ended_at = coalesce(excluded.ended_at, workout_executions.ended_at),
+      source_workout_ref = coalesce(excluded.source_workout_ref, workout_executions.source_workout_ref),
       updated_at = now()
     returning id::text
   `;
