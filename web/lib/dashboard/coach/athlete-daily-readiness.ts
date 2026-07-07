@@ -14,6 +14,7 @@ export type { ReadinessBreakdown, DailyReadinessSnapshot };
 export function computeAthleteDailyReadiness(params: {
   athlete_id: number | bigint;
   recorded_for: string;
+  timezone?: string;
   client?: Sql;
 }): Promise<DailyReadinessSnapshot | null> {
   return _computeAthleteDailyReadiness({ ...params, client: params.client ?? sql });

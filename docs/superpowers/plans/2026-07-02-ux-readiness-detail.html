@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAHYBRID · UX — Detalle de readiness · mockup para validación</title>
+<style>
+  /* ─────────────────────────── DOC SHELL ───────────────────────────
+     Mismo lenguaje que los pases hermanos en docs/superpowers/plans/*.html:
+     documento claro, tinta, acento naranja Fabrik, titulares bold italic.
+     A DIFERENCIA de los mocks antiguos, el TELÉFONO va en LIGHT MODE porque
+     la app del atleta ya es clara (#F5F4F2). Es un artefacto de DECISIÓN:
+     Alex mira y valida por sensación antes de tocar código. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+    background:#E9E7E3;color:#1A1918;padding:48px 24px 72px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .doc{max-width:1000px;margin:0 auto}
+  .doc h1{font-size:29px;font-weight:800;font-style:italic;letter-spacing:-.5px;margin-bottom:6px}
+  .doc .ctx{color:#6E6A64;font-size:13.5px;margin-bottom:34px;max-width:720px}
+  .doc .ctx b{color:#1A1918}
+
+  /* escenario: teléfono + columna de anotaciones */
+  .stage{display:grid;grid-template-columns:414px minmax(240px,320px);gap:44px;align-items:start;justify-content:center}
+  @media(max-width:840px){.stage{grid-template-columns:1fr;justify-items:center}}
+
+  /* ─────────────────────────── DEVICE ───────────────────────────
+     Tokens LIGHT = espejo de la app del atleta (brief del CEO):
+     sheet #F5F4F2, tarjetas #FFFFFF r16, tinta #1A1918, secundario #6E6A64,
+     acento Fabrik #F06A2A. Zonas: ≥75 verde #3E7C4A · 50–74 oliva #A08519 ·
+     <50 rojo ladrillo #B3402A. El color de zona NUNCA va solo: siempre label. */
+  .device{
+    width:414px;background:#0C0C0D;border-radius:54px;padding:12px;
+    box-shadow:0 40px 90px -36px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.06);
+  }
+  .device *{box-sizing:border-box}
+  .screen{
+    --sheet:#F5F4F2; --card:#FFFFFF; --ink:#1A1918; --sec:#6E6A64;
+    --lbl:#726D65; --hair:rgba(0,0,0,.05); --track:#ECEAE7;
+    --accent:#F06A2A; --ok:#3E7C4A; --oliva:#A08519; --danger:#B3402A;
+    --ok-t:#2E6B3B; --oliva-t:#7A5E0F; --danger-t:#9A3423;
+    --btn:#F0EEEB;
+    position:relative;width:390px;border-radius:44px;overflow:hidden;background:var(--sheet);
+    font-family:inherit;
+  }
+  .num{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+  /* capa detrás: Inicio claro, desenfocado, atenuado por el scrim (sheet iOS) */
+  .behind{position:absolute;inset:0;background:var(--sheet);filter:blur(7px);opacity:.9}
+  .behind .bg-greet{position:absolute;top:60px;left:22px;width:150px;height:26px;border-radius:8px;background:#DED9D2}
+  .behind .bg-kick{position:absolute;top:40px;left:22px;width:78px;height:12px;border-radius:6px;background:#E7E2DB}
+  .behind .bg-card{position:absolute;top:104px;left:16px;right:16px;height:120px;border-radius:20px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .behind .bg-strip{position:absolute;top:104px;left:16px;width:3px;height:120px;background:var(--accent);border-radius:2px}
+  .scrim{position:absolute;inset:0;background:rgba(20,18,16,.34)}
+
+  /* status bar + dynamic island sobre la zona que asoma */
+  .status{position:absolute;top:15px;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 30px;z-index:5;color:#fff}
+  .status .time{font-size:14px;font-weight:700;letter-spacing:.02em}
+  .status .ind{display:flex;gap:6px;align-items:center;font-size:12px;opacity:.95}
+  .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:112px;height:30px;background:#000;border-radius:16px;z-index:6}
+
+  /* ─────────────────────────── SHEET ─────────────────────────── */
+  .sheet{
+    position:relative;z-index:4;margin-top:52px;background:var(--sheet);
+    border-radius:22px 22px 0 0;padding:8px 20px 26px;
+    box-shadow:0 -14px 40px -18px rgba(0,0,0,.28);
+  }
+  .grabber{width:36px;height:5px;border-radius:3px;background:#D9D5CF;margin:0 auto 14px}
+
+  /* cabecera de la sheet */
+  .head{display:flex;align-items:flex-start;gap:12px;margin-bottom:6px}
+  .head .htxt{flex:1;min-width:0}
+  .head .htitle{font-size:20px;font-weight:800;letter-spacing:-.3px;color:var(--ink)}
+  .head .hsub{font-size:13px;color:var(--sec);margin-top:3px}
+  .head .close{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--track);display:flex;align-items:center;justify-content:center;color:var(--sec)}
+  .head .close svg{width:14px;height:14px}
+
+  /* HERO: anillo + estado + guía */
+  .hero{text-align:center;padding:14px 0 6px}
+  .ringwrap{position:relative;width:110px;height:110px;margin:0 auto}
+  .ringwrap svg{display:block;transform:rotate(-90deg)}
+  .ringwrap .rc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ringwrap .rc .sv{font-size:44px;font-weight:800;color:var(--ink);line-height:1}
+  .ringwrap .rc .su{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);margin-top:3px}
+  .hero .state{font-size:17px;font-weight:600;color:var(--ink);margin-top:14px}
+  .hero .guide{font-size:14px;color:var(--sec);max-width:300px;margin:6px auto 0;line-height:1.5}
+
+  /* etiqueta de sección */
+  .seclbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--lbl);display:flex;align-items:center;justify-content:space-between;margin:24px 2px 10px}
+  .seclbl .chip{font-size:11px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--sec);background:var(--btn);padding:3px 9px;border-radius:999px}
+
+  /* tarjeta */
+  .card{background:var(--card);border:1px solid var(--hair);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.035)}
+
+  /* filas de contribuyente */
+  .contrib{padding:2px 16px}
+  .crow{padding:14px 0}
+  .crow + .crow{border-top:1px solid var(--hair)}
+  .crow .ctop{display:flex;align-items:center;gap:11px}
+  .crow .cicon{width:24px;height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .crow .cicon svg{width:20px;height:20px}
+  .crow .cname{font-size:14px;font-weight:600;color:var(--ink)}
+  .crow .cstat{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700}
+  .crow .cstat.z-oliva{color:var(--oliva-t)}
+  .crow .cstat.z-ok{color:var(--ok-t)}
+  .crow .cstat.edit{color:var(--sec);font-weight:600}
+  .crow .cstat .chev{width:13px;height:13px}
+  .crow .cval{font-size:12.5px;color:var(--sec);margin:4px 0 0 35px}
+  .crow .cval .num{color:var(--ink);font-weight:600}
+  .crow .cbar{margin:10px 0 0 35px;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+  .crow .cbar > i{display:block;height:100%;border-radius:3px}
+  .crow .cbar .f-oliva{background:var(--oliva)}
+  .crow .cbar .f-ok{background:var(--ok)}
+
+  /* mini gráfico 7 días */
+  .trend{padding:16px 18px 14px}
+  .bars{display:flex;align-items:flex-end;gap:10px;height:96px;border-bottom:1px solid var(--track)}
+  .bars .bar{width:14px;border-radius:4px 4px 0 0;background:#D9D5CF;position:relative}
+  .bars .bar.today{background:var(--accent)}
+  .bars .bar .tval{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap}
+  .days{display:flex;gap:10px;margin-top:7px}
+  .days .day{width:14px;text-align:center;font-size:10px;color:var(--sec)}
+  .days .day.today{font-weight:700;color:var(--ink)}
+
+  /* CTA */
+  .cta{margin-top:22px;width:100%;height:50px;border-radius:14px;background:var(--btn);
+    color:var(--ink);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+  .cta svg{width:16px;height:16px}
+
+  /* nota pie */
+  .foot{font-size:11px;color:var(--sec);text-align:center;margin-top:16px;line-height:1.5;padding:0 10px}
+
+  /* ─────────────────────────── ANOTACIONES ─────────────────────────── */
+  .notes{padding-top:4px}
+  .notes .nh{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#9a958d;margin-bottom:12px}
+  .anno{list-style:none;padding:0;margin:0}
+  .anno li{position:relative;padding:13px 0 13px 40px;border-bottom:1px solid #dcd8d2}
+  .anno li:last-child{border-bottom:none}
+  .anno .n{position:absolute;left:0;top:13px;width:26px;height:26px;border-radius:8px;background:#1A1918;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .anno .nm{font-weight:800;font-size:13.5px;color:#1A1918;line-height:1.35}
+  .anno .ds{font-size:12.5px;color:#57534d;margin-top:3px;line-height:1.5}
+  .anno .ds code{font-family:'SF Mono',ui-monospace,'Menlo',monospace;font-size:11px;background:#e2ded7;padding:1px 5px;border-radius:4px;color:#4a463f}
+  .anno .ds b{color:#1A1918}
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Detalle de readiness — "¿Cómo llegas hoy?"</h1>
+  <div class="ctx"><b>FAHYBRID · UX</b> — mockup para validación. Sheet que se abre al tocar la tarjeta de score en Inicio. Estándar de mercado (Whoop/Oura): <b>score → qué lo explica → tendencia → acción</b>. Todo estático; light mode, tokens de la app del atleta. 2 jul 2026.</div>
+
+  <div class="stage">
+
+    <!-- ══════════════════════ TELÉFONO ══════════════════════ -->
+    <div class="device">
+      <div class="screen">
+
+        <!-- Inicio detrás, desenfocado + scrim -->
+        <div class="behind">
+          <div class="bg-kick"></div>
+          <div class="bg-greet"></div>
+          <div class="bg-card"></div>
+          <div class="bg-strip"></div>
+        </div>
+        <div class="scrim"></div>
+
+        <!-- chrome del dispositivo -->
+        <div class="island"></div>
+        <div class="status">
+          <span class="time">9:41</span>
+          <span class="ind">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="1" y="1" width="19" height="9" rx="2.5" stroke="currentColor" stroke-opacity=".55"/><rect x="2.5" y="2.5" width="15" height="6" rx="1.3" fill="currentColor"/><rect x="21" y="4" width="1.6" height="3.5" rx=".8" fill="currentColor" fill-opacity=".55"/></svg>
+          </span>
+        </div>
+
+        <!-- SHEET -->
+        <div class="sheet">
+          <div class="grabber"></div>
+
+          <!-- cabecera -->
+          <div class="head">
+            <div class="htxt">
+              <div class="htitle">¿Cómo llegas hoy?</div>
+              <div class="hsub">Jueves 2 jul · calculado con tus datos de anoche</div>
+            </div>
+            <div class="close" aria-label="Cerrar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </div>
+          </div>
+
+          <!-- HERO -->
+          <div class="hero">
+            <div class="ringwrap">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle cx="55" cy="55" r="50" fill="none" stroke="#ECEAE7" stroke-width="10"/>
+                <circle cx="55" cy="55" r="50" fill="none" stroke="#A08519" stroke-width="10"
+                        stroke-linecap="round" pathLength="100" stroke-dasharray="65 100"/>
+              </svg>
+              <div class="rc">
+                <div class="sv num">65</div>
+                <div class="su">sobre 100</div>
+              </div>
+            </div>
+            <div class="state">Recuperación parcial</div>
+            <div class="guide">Puedes con la sesión de hoy — hazla a ritmo controlado y deja el extra para mañana.</div>
+          </div>
+
+          <!-- QUÉ LO EXPLICA -->
+          <div class="seclbl">Qué lo explica</div>
+          <div class="card contrib">
+
+            <div class="crow">
+              <div class="ctop">
+                <span class="cicon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#6E6A64" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 12.8A6.5 6.5 0 1 1 9.2 4.5a5.2 5.2 0 0 0 8.3 8.3Z"/></svg>
+                </span>
+                <span class="cname">Sueño</span>
+                <span class="cstat z-oliva">Algo corto</span>
+              </div>
+              <div class="cval"><span class="num">6,6 h</span> · tu media <span class="num">7,2 h</span></div>
+              <div class="cbar"><i class="f-oliva" style="width:83%"></i></div>
+            </div>
+
+            <div class="crow">
+              <div class="ctop">
+                <span class="cicon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#6E6A64" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h3.5l1.8-5.5 3 12 2.2-8 1.5 4.5H22"/></svg>
+                </span>
+                <span class="cname">HRV</span>
+                <span class="cstat z-oliva">Sobre tu base</span>
+              </div>
+              <div class="cval"><span class="num">47 ms</span> · tu base <span class="num">42 ms</span></div>
+              <div class="cbar"><i class="f-oliva" style="width:64%"></i></div>
+            </div>
+
+            <div class="crow">
+              <div class="ctop">
+                <span class="cicon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#6E6A64" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-6.8-4.2-6.8-9.2A3.4 3.4 0 0 1 12 8.2a3.4 3.4 0 0 1 6.8 2.6C18.8 15.8 12 20 12 20Z"/></svg>
+                </span>
+                <span class="cname">FC en reposo</span>
+                <span class="cstat z-ok">Excelente</span>
+              </div>
+              <div class="cval"><span class="num">51 ppm</span> · tu base <span class="num">53 ppm</span></div>
+              <div class="cbar"><i class="f-ok" style="width:98%"></i></div>
+            </div>
+
+            <div class="crow">
+              <div class="ctop">
+                <span class="cicon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#6E6A64" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4.5" width="12" height="15.5" rx="2.2"/><path d="M9.2 4.5h5.6v2.6H9.2z"/><path d="M8.8 12.4l2 2 3.8-3.8"/></svg>
+                </span>
+                <span class="cname">Check-in</span>
+                <span class="cstat edit">Editable
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+                </span>
+              </div>
+              <div class="cval">Normal · esta mañana</div>
+              <div class="cbar"><i class="f-oliva" style="width:60%"></i></div>
+            </div>
+
+          </div>
+
+          <!-- ÚLTIMOS 7 DÍAS -->
+          <div class="seclbl">Últimos 7 días <span class="chip">&#8722;3 vs tu media</span></div>
+          <div class="card trend">
+            <div class="bars">
+              <div class="bar" style="height:72px"></div>
+              <div class="bar" style="height:68px"></div>
+              <div class="bar" style="height:80px"></div>
+              <div class="bar" style="height:55px"></div>
+              <div class="bar" style="height:71px"></div>
+              <div class="bar" style="height:58px"></div>
+              <div class="bar today" style="height:65px"><span class="tval num">65</span></div>
+            </div>
+            <div class="days">
+              <div class="day">V</div>
+              <div class="day">S</div>
+              <div class="day">D</div>
+              <div class="day">L</div>
+              <div class="day">M</div>
+              <div class="day">X</div>
+              <div class="day today">J</div>
+            </div>
+          </div>
+
+          <!-- CTA -->
+          <div class="cta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            Editar el check-in de hoy
+          </div>
+
+          <div class="foot">Los datos llegan de Apple Salud. El check-in manual también cuenta.</div>
+
+        </div><!-- /sheet -->
+      </div><!-- /screen -->
+    </div><!-- /device -->
+
+    <!-- ══════════════════════ ANOTACIONES ══════════════════════ -->
+    <div class="notes">
+      <div class="nh">Por qué así</div>
+      <ol class="anno">
+        <li><span class="n">1</span>
+          <div class="nm">Sheet, no notificación</div>
+          <div class="ds">El detalle se <b>pide</b> (tocas el score en Inicio), no se empuja. La sheet mantiene el Inicio detrás, atenuado, y se cierra con un gesto — nada de sacar al atleta de contexto con un push.</div>
+        </li>
+        <li><span class="n">2</span>
+          <div class="nm">Guía ligada a la sesión de hoy</div>
+          <div class="ds">La frase bajo el anillo no es genérica: enlaza con el entreno de hoy — <i>"hazla a ritmo controlado"</i>. Cierra el círculo <b>estado ↔ plan</b>, el score deja de ser un número suelto.</div>
+        </li>
+        <li><span class="n">3</span>
+          <div class="nm">Contribuyentes = lo que ya calcula el backend</div>
+          <div class="ds">Los 4 factores son el desglose que <code>athlete-daily-readiness.ts</code> ya devuelve: sueño, HRV, FC en reposo y check-in, cada uno con tu referencia. Cero invención — la barra es su peso, el label su estado.</div>
+        </li>
+        <li><span class="n">4</span>
+          <div class="nm">Tendencia = snapshots ya persistidos</div>
+          <div class="ds">Los 7 días salen de los snapshots de readiness que se guardan cada día. Una sola serie: <b>sin ejes, sin leyenda, sin rejilla</b> — solo la forma y hoy marcado en naranja.</div>
+        </li>
+        <li><span class="n">5</span>
+          <div class="nm">Check-in abre la sheet existente</div>
+          <div class="ds">La fila Check-in es la única accionable (chevron). Abre la sheet de check-in que <b>ya existe</b>; editarlo a mano recalcula el score al instante y pesa igual que los datos de Apple Salud.</div>
+        </li>
+      </ol>
+    </div>
+
+  </div><!-- /stage -->
+</div>
+</body>
+</html>

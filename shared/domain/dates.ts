@@ -60,14 +60,36 @@ export function mondayOfWeek(d: Date): Date {
   return addDays(startOfDayUtc(d), offset);
 }
 
-// Reused formatter — instantiating Intl.DateTimeFormat is comparatively expensive,
-// so build it once. en-CA yields ISO-shaped `YYYY-MM-DD` parts.
-const BOX_DATE_PARTS = new Intl.DateTimeFormat('en-CA', {
-  timeZone: BOX_TIMEZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
+// Reused formatters — instantiating Intl.DateTimeFormat is comparatively expensive,
+// so build one per timezone and memoize. en-CA yields ISO-shaped `YYYY-MM-DD` parts.
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+function dayFormatterFor(tz: string): Intl.DateTimeFormat {
+  let f = dayFormatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    dayFormatters.set(tz, f);
+  }
+  return f;
+}
+
+/** Calendar day (ISO `YYYY-MM-DD`) that the live instant falls on *in `tz`*. */
+export function zonedDayString(instant: Date, tz: string): string {
+  const parts = dayFormatterFor(tz).formatToParts(instant);
+  let y = 0;
+  let mo = 0;
+  let d = 0;
+  for (const p of parts) {
+    if (p.type === 'year') y = Number(p.value);
+    else if (p.type === 'month') mo = Number(p.value);
+    else if (p.type === 'day') d = Number(p.value);
+  }
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 
 /**
  * Resolve a live instant to the calendar day it falls on *in the box timezone*,
@@ -77,16 +99,84 @@ const BOX_DATE_PARTS = new Intl.DateTimeFormat('en-CA', {
  * evening (e.g. 23:30 Europe/Madrid).
  */
 export function startOfDayInBox(instant: Date): Date {
-  const parts = BOX_DATE_PARTS.formatToParts(instant);
+  return parseIsoDate(zonedDayString(instant, BOX_TIMEZONE));
+}
+
+// ---- Zoned wall-clock → UTC instant --------------------------------------------
+//
+// `biometric_streams.recorded_at` is an absolute instant (timestamptz). To ask
+// "which samples fall in last night / today *for this athlete*", the window must be
+// built as absolute UTC instants from wall-clock boundaries in the athlete's IANA
+// timezone — NOT `recorded_at::date = ...`, which buckets by the DB session tz (UTC)
+// and drops last night's sleep (after 22:00 UTC = 00:00 local) and the early-morning
+// resting-HR sample. Whoop/Garmin compute the day in the athlete's own zone; so do we.
+
+const offsetFormatters = new Map<string, Intl.DateTimeFormat>();
+function offsetFormatterFor(tz: string): Intl.DateTimeFormat {
+  let f = offsetFormatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    offsetFormatters.set(tz, f);
+  }
+  return f;
+}
+
+/** Offset in ms east of UTC that `tz` is at the given absolute `instant`. */
+function zoneOffsetMs(instant: Date, tz: string): number {
+  const parts = offsetFormatterFor(tz).formatToParts(instant);
   let y = 0;
   let mo = 0;
   let d = 0;
+  let h = 0;
+  let mi = 0;
+  let s = 0;
   for (const p of parts) {
     if (p.type === 'year') y = Number(p.value);
     else if (p.type === 'month') mo = Number(p.value);
     else if (p.type === 'day') d = Number(p.value);
+    else if (p.type === 'hour') h = Number(p.value);
+    else if (p.type === 'minute') mi = Number(p.value);
+    else if (p.type === 'second') s = Number(p.value);
   }
-  return new Date(Date.UTC(y, mo - 1, d));
+  // Read the tz wall-clock as if it were UTC, then subtract the real instant.
+  // `hour` can format as 24 at midnight in some engines, so wrap it.
+  const asUtc = Date.UTC(y, mo - 1, d, h % 24, mi, s);
+  return asUtc - instant.getTime();
+}
+
+/**
+ * The absolute UTC instant of a wall-clock time in `tz`, expressed relative to a base
+ * calendar day (`baseDay`, a UTC-midnight Date such as `parseIsoDate(recorded_for)`)
+ * plus day/hour/minute offsets. E.g. `zonedWallClockToUtc(day, tz, { days: -1, hours: 18 })`
+ * = "yesterday 18:00 local". Two-pass so a boundary landing inside a DST transition
+ * resolves to the offset actually in effect at the target instant.
+ */
+export function zonedWallClockToUtc(
+  baseDay: Date,
+  tz: string,
+  opts: { days?: number; hours?: number; minutes?: number } = {},
+): Date {
+  const { days = 0, hours = 0, minutes = 0 } = opts;
+  const naiveUtc = Date.UTC(
+    baseDay.getUTCFullYear(),
+    baseDay.getUTCMonth(),
+    baseDay.getUTCDate() + days,
+    hours,
+    minutes,
+    0,
+  );
+  const firstGuess = naiveUtc - zoneOffsetMs(new Date(naiveUtc), tz);
+  const offset = zoneOffsetMs(new Date(firstGuess), tz);
+  return new Date(naiveUtc - offset);
 }
 
 /** Monday (Mon–Sun week) of the box-local week containing the live instant `instant`. */

@@ -1,5 +1,39 @@
 import type { Sql } from 'postgres';
-import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
+import {
+  BOX_TIMEZONE,
+  addDays,
+  isoDateString,
+  parseIsoDate,
+  zonedDayString,
+  zonedWallClockToUtc,
+} from '../dates';
+
+// Until an athlete's device reports its IANA timezone (via the HealthKit sync
+// batch → athletes.timezone), fall back to Fabrik's box timezone. Single-coach
+// launch reality: everyone trains in Barcelona.
+const LAUNCH_FALLBACK_TIMEZONE = BOX_TIMEZONE;
+
+// Overnight signals (sleep, resting HR) belong to the readiness of the day the
+// athlete WAKES. iOS keys a night's `sleep_duration` to wake-day local-midnight and
+// Apple writes the daily resting-HR sample just after local midnight, so a window
+// from the previous evening to the early afternoon captures exactly last night —
+// and nothing from the night before. Wall-clock hours in the athlete's own tz.
+const OVERNIGHT_WINDOW_START_HOUR = 18; // previous local day, 18:00
+const OVERNIGHT_WINDOW_END_HOUR = 14; // this local day, 14:00
+
+// HRV baseline: a trailing 14–60 local-day average. Excluding the most recent 14
+// days keeps an acute HRV dip from dragging down the very baseline it's compared to.
+const HRV_BASE_FROM_DAYS = 60;
+const HRV_BASE_TO_DAYS = 14;
+
+// The sleep duration (hours) that scores a FULL sleep component. Named so the
+// athlete detail sheet can surface it as the reference ("objetivo 8 h") instead
+// of a magic divisor — this is the ONLY sleep reference the model uses (there is
+// no personal sleep average).
+const SLEEP_TARGET_HOURS = 8;
+
+// Span of the athlete readiness trend (today + the prior days) for the sheet.
+const TREND_DAYS = 7;
 
 export type ReadinessBreakdown = {
   sub_score: number | null;
@@ -9,7 +43,19 @@ export type ReadinessBreakdown = {
   sleep_component: number | null;
   rhr_component: number | null;
   recovery_component: number | null;
+  // Raw inputs the athlete detail sheet renders as "value vs reference". Set on
+  // every snapshot written since the readiness-detail feature; OPTIONAL so legacy
+  // rows (which predate them) still decode and the UI simply hides what's absent.
+  // These are the SAME values the compute already reads to score — surfaced, not
+  // recomputed. RHR is scored against a fixed floor, so there is NO personal RHR
+  // baseline to expose; sleep's only reference is the target below (no media).
+  hrv_ms?: number | null; // the day's mean HRV (the "value")
+  hrv_baseline_ms?: number | null; // 14–60d trailing mean (the "reference")
+  rhr_bpm?: number | null; // resting-HR reading (the "value")
+  sleep_target_h?: number | null; // sleep hours that score a full component (the "reference")
 };
+
+export type ReadinessTrendPoint = { recorded_for: string; score: number };
 
 export type DailyReadinessSnapshot = {
   athlete_id: string;
@@ -17,6 +63,10 @@ export type DailyReadinessSnapshot = {
   score: number;
   breakdown: ReadinessBreakdown;
   delta_7d: number | null;
+  // Ascending (oldest→today) score series from persisted snapshots, for the
+  // athlete detail sheet's mini chart. Only attached by `getAthleteReadinessToday`
+  // — undefined on the coach-facing readers.
+  trend?: ReadinessTrendPoint[];
 };
 
 const WEIGHTS = {
@@ -27,14 +77,74 @@ const WEIGHTS = {
   recovery: 0.1,
 } as const;
 
+const EMPTY_BREAKDOWN: ReadinessBreakdown = {
+  sub_score: null,
+  sub_score_weight: WEIGHTS.sub_score,
+  hrv_component: null,
+  sleep_hours: null,
+  sleep_component: null,
+  rhr_component: null,
+  recovery_component: null,
+  hrv_ms: null,
+  hrv_baseline_ms: null,
+  rhr_bpm: null,
+  sleep_target_h: null,
+};
+
+/**
+ * The ONE deserializer for a stored `breakdown_json` — every read of the
+ * snapshot table maps through this so `breakdown` is ALWAYS an object, matching
+ * the shape the fresh-compute path returns (DRY: one canonical form, never a
+ * JSON string). postgres.js parses a proper jsonb object into a JS object, but
+ * legacy rows were double-encoded (a JSON *string* inside jsonb) and read back
+ * as a string — the athlete Inicio card and the coach side-panel both silently
+ * broke on those. Normalize: string → JSON.parse; non-object/garbage → the
+ * canonical empty breakdown. Never throws.
+ */
+function readBreakdown(raw: unknown): ReadinessBreakdown {
+  let value: unknown = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return { ...EMPTY_BREAKDOWN };
+    }
+  }
+  if (value != null && typeof value === 'object') {
+    return value as ReadinessBreakdown;
+  }
+  return { ...EMPTY_BREAKDOWN };
+}
+
+/** The athlete's IANA timezone, or the launch fallback (box tz) when unset. */
+async function loadAthleteTimezone(client: Sql, athlete_id: number | bigint): Promise<string> {
+  const rows = await client<Array<{ timezone: string | null }>>`
+    select timezone from athletes where id = ${athlete_id as number} limit 1
+  `;
+  return rows[0]?.timezone ?? LAUNCH_FALLBACK_TIMEZONE;
+}
+
 export async function computeAthleteDailyReadiness(params: {
   athlete_id: number | bigint;
   recorded_for: string;
+  /** Athlete IANA tz; when omitted it's loaded from athletes.timezone (fallback box tz). */
+  timezone?: string;
   client: Sql;
 }): Promise<DailyReadinessSnapshot | null> {
   const client = params.client;
+  const tz = params.timezone ?? (await loadAthleteTimezone(client, params.athlete_id));
   const day = parseIsoDate(params.recorded_for);
   const weekAgoIso = isoDateString(addDays(day, -7));
+
+  // Biometric windows as absolute UTC instants, bucketed by calendar day in the
+  // athlete's timezone (see dates.ts). Passing Date objects binds them as
+  // timestamptz, so the `recorded_at >= start and < end` comparison is exact.
+  const overnightStart = zonedWallClockToUtc(day, tz, { days: -1, hours: OVERNIGHT_WINDOW_START_HOUR });
+  const overnightEnd = zonedWallClockToUtc(day, tz, { days: 0, hours: OVERNIGHT_WINDOW_END_HOUR });
+  const dayStart = zonedWallClockToUtc(day, tz, { days: 0, hours: 0 });
+  const dayEnd = zonedWallClockToUtc(day, tz, { days: 1, hours: 0 });
+  const hrvBaseFrom = zonedWallClockToUtc(day, tz, { days: -HRV_BASE_FROM_DAYS, hours: 0 });
+  const hrvBaseTo = zonedWallClockToUtc(day, tz, { days: -HRV_BASE_TO_DAYS, hours: 0 });
 
   const checkin = await client<Array<{ sub_score: number }>>`
     select sub_score from daily_checkins
@@ -59,20 +169,20 @@ export async function computeAthleteDailyReadiness(params: {
     select
       (select avg(value_numeric)::float from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'hrv'
-          and recorded_at::date = ${params.recorded_for}::date) as hrv_recent,
+          and recorded_at >= ${dayStart} and recorded_at < ${dayEnd}) as hrv_recent,
       (select avg(value_numeric)::float from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'hrv'
-          and recorded_at >= ${params.recorded_for}::date - interval '60 days'
-          and recorded_at < ${params.recorded_for}::date - interval '14 days') as hrv_base,
+          and recorded_at >= ${hrvBaseFrom} and recorded_at < ${hrvBaseTo}) as hrv_base,
       (select avg(value_numeric)::float / 3600.0 from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'sleep_duration'
-          and recorded_at::date = ${params.recorded_for}::date) as sleep_h,
-      (select avg(value_numeric)::float from biometric_streams
+          and recorded_at >= ${overnightStart} and recorded_at < ${overnightEnd}) as sleep_h,
+      (select value_numeric::float from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'hr_resting'
-          and recorded_at::date = ${params.recorded_for}::date) as rhr,
+          and recorded_at >= ${overnightStart} and recorded_at < ${overnightEnd}
+        order by recorded_at desc limit 1) as rhr,
       (select avg(value_numeric)::float from biometric_streams
-        where athlete_id = ${params.athlete_id as number} and metric_type = 'recovery_score'
-          and recorded_at::date = ${params.recorded_for}::date) as recovery
+        where athlete_id = ${params.athlete_id as number} and metric_type = 'recovery'
+          and recorded_at >= ${dayStart} and recorded_at < ${dayEnd}) as recovery
   `;
   const b = bio[0];
 
@@ -96,7 +206,9 @@ export async function computeAthleteDailyReadiness(params: {
       : null;
 
   const sleepComponent =
-    b?.sleep_h != null ? clampScore(Math.min(100, (b.sleep_h / 8) * 100)) : null;
+    b?.sleep_h != null
+      ? clampScore(Math.min(100, (b.sleep_h / SLEEP_TARGET_HOURS) * 100))
+      : null;
 
   const rhrComponent = b?.rhr != null ? clampScore(100 - Math.max(0, b.rhr - 50) * 2) : null;
 
@@ -111,6 +223,12 @@ export async function computeAthleteDailyReadiness(params: {
     sleep_component: sleepComponent,
     rhr_component: rhrComponent,
     recovery_component: recoveryComponent,
+    // Raw values the detail sheet renders vs their references — the very inputs
+    // scored just above, surfaced (not recomputed).
+    hrv_ms: b?.hrv_recent ?? null,
+    hrv_baseline_ms: b?.hrv_base ?? null,
+    rhr_bpm: b?.rhr ?? null,
+    sleep_target_h: SLEEP_TARGET_HOURS,
   };
   // NOTE: `compliance` is still computed below as a SCORE MODIFIER, but it's no
   // longer carried in the breakdown DTO — adherence-over-7d is a progression
@@ -178,7 +296,8 @@ export async function getLatestReadiness(params: {
   client: Sql;
 }): Promise<DailyReadinessSnapshot | null> {
   const client = params.client;
-  const iso = isoDateString(startOfDayInBox(params.on_date ?? new Date()));
+  const tz = await loadAthleteTimezone(client, params.athlete_id);
+  const iso = zonedDayString(params.on_date ?? new Date(), tz);
   const rows = await client<Array<{ recorded_for: string; score: number; breakdown_json: unknown }>>`
     select
       to_char(recorded_for, 'YYYY-MM-DD') as recorded_for,
@@ -196,6 +315,7 @@ export async function getLatestReadiness(params: {
       return await computeAthleteDailyReadiness({
         athlete_id: params.athlete_id,
         recorded_for: iso,
+        timezone: tz,
         client,
       });
     } catch {
@@ -206,9 +326,88 @@ export async function getLatestReadiness(params: {
     athlete_id: String(params.athlete_id),
     recorded_for: row.recorded_for,
     score: row.score,
-    breakdown: row.breakdown_json as ReadinessBreakdown,
+    breakdown: readBreakdown(row.breakdown_json),
     delta_7d: null,
   };
+}
+
+/**
+ * Ascending (oldest→today) score series for the athlete's last `days` days,
+ * today inclusive, straight from persisted snapshots. Days with no snapshot are
+ * simply absent — an honest series of what was recorded, no gap-filling.
+ */
+export async function getReadinessTrend(params: {
+  athlete_id: number | bigint;
+  /** The athlete-local "today" ISO date (inclusive upper bound). */
+  iso: string;
+  days?: number;
+  client: Sql;
+}): Promise<ReadinessTrendPoint[]> {
+  const days = params.days ?? TREND_DAYS;
+  const fromIso = isoDateString(addDays(parseIsoDate(params.iso), -(days - 1)));
+  const rows = await params.client<Array<{ recorded_for: string; score: number }>>`
+    select to_char(recorded_for, 'YYYY-MM-DD') as recorded_for, score
+    from athlete_daily_readiness_snapshots
+    where athlete_id = ${params.athlete_id as number}
+      and recorded_for >= ${fromIso}::date
+      and recorded_for <= ${params.iso}::date
+    order by recorded_for asc
+  `;
+  return rows.map((r) => ({ recorded_for: r.recorded_for, score: r.score }));
+}
+
+/**
+ * True when a stored breakdown predates the raw-value enrichment (it has no
+ * `sleep_target_h`, which the current compute ALWAYS sets). Used to self-heal
+ * today's snapshot on read so the detail sheet gets its references without a
+ * backfill migration.
+ */
+function isLegacyBreakdown(b: ReadinessBreakdown): boolean {
+  return b.sleep_target_h == null;
+}
+
+/**
+ * The athlete's OWN readiness for today — the SAME snapshot `getLatestReadiness`
+ * returns (so the Inicio card and the detail sheet can never disagree), plus:
+ *   • `trend`  — the last-7-day score series for the sheet's mini chart.
+ *   • enriched raw breakdown values — if today's snapshot predates them it is
+ *     recomputed ONCE (self-healing, today-only, converges after one read) so the
+ *     sheet shows HRV / sleep / RHR values vs their references immediately.
+ * The coach readers keep using `getLatestReadiness` untouched (no trend, no forced
+ * recompute) — this heavier path is the athlete endpoint's alone.
+ */
+export async function getAthleteReadinessToday(params: {
+  athlete_id: number | bigint;
+  on_date?: Date;
+  client: Sql;
+}): Promise<DailyReadinessSnapshot | null> {
+  const client = params.client;
+  const tz = await loadAthleteTimezone(client, params.athlete_id);
+  const iso = zonedDayString(params.on_date ?? new Date(), tz);
+
+  let snap = await getLatestReadiness({
+    athlete_id: params.athlete_id,
+    on_date: params.on_date,
+    client,
+  });
+  // Enrich TODAY's snapshot on read if it predates the raw fields — recompute
+  // once (same formula, today-only), so references appear without a backfill.
+  if (snap && snap.recorded_for === iso && isLegacyBreakdown(snap.breakdown)) {
+    try {
+      const fresh = await computeAthleteDailyReadiness({
+        athlete_id: params.athlete_id,
+        recorded_for: iso,
+        timezone: tz,
+        client,
+      });
+      if (fresh) snap = fresh;
+    } catch {
+      // best-effort — keep the stored snapshot if the recompute fails.
+    }
+  }
+  if (!snap) return null;
+  const trend = await getReadinessTrend({ athlete_id: params.athlete_id, iso, client });
+  return { ...snap, trend };
 }
 
 /**
@@ -230,7 +429,19 @@ export async function getLatestReadinessBatch(params: {
   const out = new Map<string, DailyReadinessSnapshot>();
   const ids = Array.from(new Set(params.athlete_ids.map((x) => Number(x))));
   if (ids.length === 0) return out;
-  const iso = isoDateString(startOfDayInBox(params.on_date ?? new Date()));
+  const now = params.on_date ?? new Date();
+
+  // Per-athlete IANA tz (fallback box tz) so each athlete's "today" and compute
+  // windows use their own calendar day — one query, no N+1.
+  const tzRows = await client<Array<{ id: string; timezone: string | null }>>`
+    select id::text as id, timezone from athletes where id = any(${ids}::bigint[])
+  `;
+  const tzById = new Map<string, string>();
+  for (const r of tzRows) tzById.set(r.id, r.timezone ?? LAUNCH_FALLBACK_TIMEZONE);
+
+  // The snapshot read's future-guard is coarse (a snapshot can only be for a past or
+  // current day), so resolving "today" in the box tz here is fine and keeps it one query.
+  const guardIso = zonedDayString(now, LAUNCH_FALLBACK_TIMEZONE);
 
   const rows = await client<
     Array<{ athlete_id: string; recorded_for: string; score: number; breakdown_json: unknown }>
@@ -242,7 +453,7 @@ export async function getLatestReadinessBatch(params: {
       breakdown_json
     from athlete_daily_readiness_snapshots
     where athlete_id = any(${ids}::bigint[])
-      and recorded_for <= ${iso}::date
+      and recorded_for <= ${guardIso}::date
     order by athlete_id, recorded_for desc
   `;
   for (const r of rows) {
@@ -250,17 +461,19 @@ export async function getLatestReadinessBatch(params: {
       athlete_id: r.athlete_id,
       recorded_for: r.recorded_for,
       score: r.score,
-      breakdown: r.breakdown_json as ReadinessBreakdown,
+      breakdown: readBreakdown(r.breakdown_json),
       delta_7d: null,
     });
   }
 
   for (const id of ids) {
     if (out.has(String(id))) continue;
+    const tz = tzById.get(String(id)) ?? LAUNCH_FALLBACK_TIMEZONE;
     try {
       const snap = await computeAthleteDailyReadiness({
         athlete_id: id,
-        recorded_for: iso,
+        recorded_for: zonedDayString(now, tz),
+        timezone: tz,
         client,
       });
       if (snap) out.set(String(id), snap);

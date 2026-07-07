@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 struct DailyReadinessPayload: Codable {
     let score: Int
@@ -9,6 +9,31 @@ struct DailyReadinessPayload: Codable {
     /// compatibility and for cached payloads from before this field shipped.
     /// Mirrors shared/domain/coach/athlete-daily-readiness.ts `ReadinessBreakdown`.
     let breakdown: ReadinessBreakdown?
+    /// Ascending (oldest→today) 0–100 score series for the detail sheet's mini
+    /// chart. Nil on payloads from before this shipped (and on the coach reader);
+    /// the sheet hides the trend section when it has fewer than two points.
+    let trend: [ReadinessTrendPoint]?
+
+    // The app decodes with a GLOBAL `.convertFromSnakeCase`, which maps the wire
+    // key `delta_7d` → `delta7D` (a letter right after a digit gets capitalized).
+    // The synthesized `delta7d` key never matched that, so the 7-day delta silently
+    // dropped (and the Inicio card's "N en 7 días" pill went quiet). We KEEP the
+    // API field `delta_7d` and pin this coding key to the strategy's converted
+    // spelling; the rest already equal their converted form.
+    private enum CodingKeys: String, CodingKey {
+        case score
+        case recordedFor
+        case delta7d = "delta7D"
+        case breakdown
+        case trend
+    }
+}
+
+/// One day of the readiness trend — the persisted score for a calendar day.
+/// Snake_case wire (`recorded_for`) maps via APIClient's convertFromSnakeCase.
+struct ReadinessTrendPoint: Codable {
+    let recordedFor: String   // yyyy-MM-dd, athlete-local
+    let score: Int
 }
 
 /// The readiness inputs and their normalized component scores (0–100), so Inicio
@@ -30,6 +55,20 @@ struct ReadinessBreakdown: Codable {
     /// Normalized resting-HR component (0–100). Nil with no recent resting HR.
     let rhrComponent: Double?
     let recoveryComponent: Double?
+
+    // Raw inputs the detail sheet renders as "value vs reference". Optional: nil
+    // from snapshots/payloads that predate them, so the sheet hides what's absent.
+    // These are surfaced from the compute, not recomputed — and there is
+    // deliberately NO personal RHR baseline nor sleep media in the model, so the
+    // RHR row shows a value without a reference and sleep's reference is the target.
+    /// The day's mean HRV in ms (the "value" next to `hrvBaselineMs`).
+    let hrvMs: Double?
+    /// The athlete's 14–60d HRV baseline in ms (the "reference").
+    let hrvBaselineMs: Double?
+    /// The resting-HR reading in bpm (the "value"; no personal baseline exists).
+    let rhrBpm: Double?
+    /// The sleep hours that score a full component — the sleep "reference".
+    let sleepTargetH: Double?
 
     /// Whether the morning check-in contributed (the primary signal for athletes
     /// without a connected wearable).
@@ -54,6 +93,66 @@ enum ReadinessService {
             bearer: bearer
         )
         return resp.readiness
+    }
+}
+
+// MARK: - Readiness zone (single source of the athlete-side thresholds)
+//
+// The recovery bucket for a 0–100 readiness score — the ONE place the athlete
+// surfaces derive their thresholds, ring color and plain-language read, so the
+// Inicio card and the detail sheet can never drift. Buckets MIRROR
+// web/lib/dashboard/constants/readiness.ts (ok ≥ 67 · caution 45–66 · low < 45),
+// matching the coach's own bucketing.
+enum ReadinessZone {
+    case high, medium, low
+
+    /// Lower bound of the "recovered" bucket (mirrors READINESS_OK_MIN).
+    static let okMin = 67
+    /// Lower bound of the "partial" bucket (mirrors READINESS_CAUTION_MIN).
+    static let cautionMin = 45
+
+    static func of(score: Int) -> ReadinessZone {
+        if score >= okMin { return .high }
+        if score >= cautionMin { return .medium }
+        return .low
+    }
+
+    /// Ring / accent color for the score (green · amber · red).
+    var color: Color {
+        switch self {
+        case .high:   return Theme.Color.ok
+        case .medium: return Theme.Color.warning
+        case .low:    return Theme.Color.danger
+        }
+    }
+
+    /// One-line body-STATE read (never a training prescription).
+    var interpretation: String {
+        switch self {
+        case .high:   return "Recuperado y listo"
+        case .medium: return "Recuperación parcial"
+        case .low:    return "Cuerpo cargado"
+        }
+    }
+
+    /// Deterministic guidance under the ring — zone × whether the athlete has a
+    /// session scheduled today. Natural Barcelona Spanish; never prescribes beyond
+    /// "apretar / controlado / aflojar".
+    func guidance(hasSessionToday: Bool) -> String {
+        switch (self, hasSessionToday) {
+        case (.high, true):
+            return "Buen día para apretar — llega fuerte a la sesión de hoy."
+        case (.high, false):
+            return "Estás fresco. Si te apetece moverte, hoy es buen día."
+        case (.medium, true):
+            return "Puedes con la sesión de hoy — hazla a ritmo controlado y deja el extra para mañana."
+        case (.medium, false):
+            return "Día de mantener: muévete suave y prioriza dormir esta noche."
+        case (.low, true):
+            return "Hoy toca aflojar: recorta volumen o baja el ritmo. Tu cuerpo pide recuperar."
+        case (.low, false):
+            return "Día de recuperar: descansa, hidrátate y duerme."
+        }
     }
 }
 
