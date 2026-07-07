@@ -1,5 +1,22 @@
 import SwiftUI
 
+/// A prescribed / executed workout launch payload. Presenting the brief (or the
+/// read-only executed detail) via `.fullScreenCover(item:)` bound to this value
+/// makes it STRUCTURALLY impossible to build the cover before the id is set — the
+/// id IS the presentation trigger. This is the root fix for the intermittent
+/// "Sesión / Sin detalle" brief (and the executed-detail 404): the old
+/// `isPresented: $bool` + a SEPARATE optional @State id could evaluate the cover
+/// while that id was still nil, so WorkoutContainer fell into its title-only
+/// `WorkoutPlan.minimal` ad-hoc branch and rendered a content-less "Sesión".
+struct WorkoutLaunch: Identifiable, Equatable {
+    /// The backend workout_assignments.id (as string). Always present for a real
+    /// prescribed / executed launch — that's the whole point of this payload.
+    let assignmentId: String
+    /// Session title from the plan-week summary, shown while the body loads.
+    let title: String?
+    var id: String { assignmentId }
+}
+
 // Hosts pre-brief → active → summary flow. Tab bar is hidden during active
 // per spec ("lock-in mode").
 struct WorkoutContainer: View {
@@ -133,6 +150,10 @@ struct WorkoutContainer: View {
                         let new = WorkoutSession(plan: plan)
                         session = new
                         manualEntry = false
+                        // Mirror mode: remote-start the wrist recording alongside the
+                        // live engine. Non-blocking — the workout runs alone if the
+                        // watch never joins. Manual/capture flows never begin (below).
+                        PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: plan))
                         Haptics.medium()
                         phase = .active
                     },
@@ -161,6 +182,10 @@ struct WorkoutContainer: View {
                     ActiveWorkoutView(
                         session: session,
                         onFinish: {
+                            // Live finish: close the wrist recording (→ one HKWorkout).
+                            // The wrist replies with its UUID while the athlete fills the
+                            // summary; PostWorkoutSummaryView stamps source_workout_ref.
+                            PhoneMirrorService.shared.end(save: true)
                             Haptics.heavy()
                             phase = .summary
                         },
@@ -170,6 +195,8 @@ struct WorkoutContainer: View {
                         // never entered. Clearing the autosaved snapshot leaves no
                         // crash-recovery trace of the discarded run.
                         onExit: {
+                            // Discard: tell the wrist to drop its recording (no HKWorkout).
+                            PhoneMirrorService.shared.end(save: false)
                             Task { await WorkoutStateStore.shared.clear() }
                             onClose()
                         }
@@ -260,6 +287,22 @@ struct WorkoutContainer: View {
         }
     }
 
+    // The wrist recording's activity kind (mirror mode), in the watch vocabulary
+    // ("running" | "strength" | "hyrox" | "mixed"). Reuses the SAME string→kind map
+    // the watch push uses. A dobles session records as HYROX; a free workout carries
+    // its own modality; a prescribed session reads the runnable plan's principal work.
+    private func mirrorActivityKind(for plan: WorkoutPlan) -> String {
+        let modality: String
+        if logTarget == .doublesJoint {
+            modality = "hyrox"
+        } else if let free = freeContext {
+            modality = free.modalityWire
+        } else {
+            modality = plan.principalModalityWire
+        }
+        return WatchConnectivityiOSService.activityKind(from: modality)
+    }
+
     // Load the real workout body. Prefer the on-device cache for an instant brief,
     // then fetch the authoritative detail.
     //
@@ -281,8 +324,11 @@ struct WorkoutContainer: View {
         // brief + the assignment fetch and go straight to the live engine.
         if let free = freeContext {
             loadState = .ready(free.plan, nil)
-            session = WorkoutSession(plan: free.plan)
+            let new = WorkoutSession(plan: free.plan)
+            session = new
             manualEntry = false
+            // Mirror the free workout to the wrist too (records HR + one HKWorkout).
+            PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: free.plan))
             phase = .active
             return
         }

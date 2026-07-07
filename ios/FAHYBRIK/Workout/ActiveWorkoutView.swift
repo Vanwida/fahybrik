@@ -14,6 +14,10 @@ struct ActiveWorkoutView: View {
     /// routes to the post-workout summary that LOGS the result. Exiting via this
     /// closure returns the athlete to a still-pending session.
     let onExit: () -> Void
+    /// #23 — partner first name for the dobles RELAY screen ("{name} hace SkiErg").
+    /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
+    /// the partner identity.
+    var partnerFirstName: String? = nil
 
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
@@ -69,7 +73,14 @@ struct ActiveWorkoutView: View {
             VStack(spacing: 8) {
                 topStrip
                 phaseRail
-                if session.currentBlockIsStructural {
+                if session.currentSegmentIsPartnerRelay {
+                    // #23 — HYROX dobles relay: the PARTNER works this station while
+                    // the athlete recovers (real dobles). Nothing is logged for the
+                    // athlete; "Relevo ▸" advances to their next station.
+                    relaySurface
+                    Spacer(minLength: 0)
+                    relayButton
+                } else if session.currentBlockIsStructural {
                     // Warmup / cooldown: ONE readable checklist, gated behind a
                     // single "hecho" button — never per-exercise navigation/logging.
                     structuralWorkSurface
@@ -92,6 +103,11 @@ struct ActiveWorkoutView: View {
                         )
                     }
                     modalityHUD
+                    // #23 — SHARED-station reminder (.split): one dim line with the
+                    // agreed reparto ("Tú 60 / Guillem 40 · alterna 250m"). The work
+                    // is the athlete's own, so the full HUD stays; this only reminds
+                    // the pact mid-station. Nil (hidden) for .mine and for the relay.
+                    splitReminderLine
                     if session.currentSegmentIsMetcon {
                         RxScaledToggle(session: session)
                     }
@@ -131,7 +147,11 @@ struct ActiveWorkoutView: View {
             wireLiveSources()
             attemptPM5IfNeeded()
             updateRunGPS()
-            liveHR.start(from: session.startedAt)
+            // The wrist streams fresher HR while mirroring — only run the phone's
+            // own sparse HealthKit reader when no watch is recording this session.
+            if !PhoneMirrorService.shared.wristJoined {
+                liveHR.start(from: session.startedAt)
+            }
             // Keep the screen awake during the lock-in workout (no auto-lock
             // mid-EMOM); locked-screen beeps are still covered by background audio.
             UIApplication.shared.isIdleTimerDisabled = true
@@ -152,6 +172,11 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.currentSegmentIndex) { _, _ in
             attemptPM5IfNeeded()
             updateRunGPS()
+        }
+        .onChange(of: PhoneMirrorService.shared.wristJoined) { _, joined in
+            // Hand HR off to the wrist when it joins mid-run; take it back if it drops
+            // so the phone keeps recording HR alone.
+            if joined { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
         }
         .onChange(of: pm5.live.heartRateBpm) { _, bpm in
             // HRM strap can be paired through the PM5; route into session as a
@@ -387,6 +412,15 @@ struct ActiveWorkoutView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ver vídeo de técnica, pausa el cronómetro")
             }
+            // Wrist chip: the Apple Watch is recording this session in step (mirror
+            // mode). Shown only while joined; green so "connected" reads at a glance.
+            if PhoneMirrorService.shared.wristJoined {
+                Image(systemName: "applewatch")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.Color.ok)
+                    .frame(width: 20, height: 28)
+                    .accessibilityLabel("Reloj conectado")
+            }
             MonoText(
                 text: "\(session.currentSegmentIndex + 1)/\(session.plan.segments.count)",
                 size: 11,
@@ -394,6 +428,87 @@ struct ActiveWorkoutView: View {
             )
         }
         .padding(.horizontal, 4)
+    }
+
+    // #23 — HYROX dobles RELAY surface: the partner works this station; the
+    // athlete recovers (status + relay clock + live recovery HR + next-up), and
+    // "Relevo ▸" advances to their own next station. Nothing is logged here.
+    @ViewBuilder
+    private var relaySurface: some View {
+        let station = session.currentSegment?.doblesSplit?.stationLabel
+            ?? session.currentSegment?.title ?? "esta estación"
+        let partner = session.currentSegment?.doblesSplit?.partnerName
+            ?? partnerFirstName ?? "Tu compañero"
+        VStack(spacing: 14) {
+            Spacer(minLength: 4)
+            Text("RELEVO")
+                .font(.system(size: 12, weight: .heavy)).tracking(2.5)
+                .foregroundStyle(Theme.Color.partner)
+            Text("\(partner) hace \(station)")
+                .scaledFont(24, weight: .heavy, relativeTo: .title2, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.center)
+            Text("Recupera")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+            Text(relayTimeString(session.lapElapsedSeconds))
+                .font(.system(size: 56, weight: .heavy, design: .monospaced))
+                .foregroundStyle(Theme.Color.foreground)
+                .padding(.top, 4)
+            if let bpm = session.liveHRBpm {
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.fill").foregroundStyle(Theme.Color.danger)
+                    Text("\(bpm) ppm")
+                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+            }
+            if let next = session.nextSegment?.title {
+                Text("Siguiente: tú — \(next)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.Color.faint)
+                    .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Theme.Spacing.xl)
+    }
+
+    private var relayButton: some View {
+        ExpertPrimaryButton(title: "Relevo ▸", height: 56, enabled: true) {
+            session.advanceRelay()
+        }
+        .padding(.horizontal, Theme.Spacing.xl)
+        .padding(.bottom, Theme.Spacing.l)
+    }
+
+    // #23 — SHARED station (.split) reminder: one dim line with the coach's pact,
+    // built once on SegmentDoblesSplit so the phone, the mirror `detailLine`, and
+    // the wrist all read identically. Hidden (nil) for .mine and .partner.
+    @ViewBuilder
+    private var splitReminderLine: some View {
+        if let line = session.currentSegment?.doblesSplit?.liveSplitLine {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Theme.Color.partner)
+                Text(line)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Reparto de la estación: \(line)")
+        }
+    }
+
+    private func relayTimeString(_ s: Double) -> String {
+        let t = max(0, Int(s))
+        return String(format: "%d:%02d", t / 60, t % 60)
     }
 
     // Modality-aware HUD. An EMOM segment gets the dedicated interval timer

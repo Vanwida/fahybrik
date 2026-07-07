@@ -163,18 +163,25 @@ struct PostWorkoutSummaryView: View {
             onSave()
             return
         }
-        let payload = buildPayload()
-        if let payload {
+        if var payload = buildPayload() {
+            // Mirror mode: if the wrist recorded this session it reported the saved
+            // HKWorkout's UUID — carry it so the backend recognises the HealthKit-
+            // synced copy of the SAME workout and never double-counts. Only when the
+            // payload doesn't already carry a ref (manual/free flows simply get nil).
+            if payload.source_workout_ref == nil {
+                payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
+            }
+            let submitted = payload
             let target = logTarget
             Task {
                 switch target {
                 case .solo:
-                    await WorkoutExecutionAPI.submit(payload, bearer: bearer)
+                    await WorkoutExecutionAPI.submit(submitted, bearer: bearer)
                 case .doublesJoint:
                     // sessionId == this athlete's own assignment id == payload.assignment_id.
                     await DoblesExecutionAPI.submit(
-                        sessionId: payload.assignment_id,
-                        payload,
+                        sessionId: submitted.assignment_id,
+                        submitted,
                         bearer: bearer
                     )
                 }

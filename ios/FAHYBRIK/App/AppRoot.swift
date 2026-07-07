@@ -4,6 +4,8 @@ struct AppRoot: View {
     @State private var auth = AuthState()
     @State private var pendingPartnerToken: String? = nil
     @State private var pendingInviteToken: String? = nil
+    // Outcome message for an authenticated partner-accept attempt (C4).
+    @State private var partnerAcceptMessage: String? = nil
 
     // Cold-start launch splash gate. `@State` on the WindowGroup root view, so it
     // is created once per process and survives background→foreground and all
@@ -17,10 +19,17 @@ struct AppRoot: View {
     @AppStorage(ThemeMode.storageKey) private var themeMode: ThemeMode = .system
 
     private func startHealthKitSync() {
+        // Only sync for athletes who actually connected Apple Health in Perfil.
+        // Without this guard a disconnect wouldn't survive a relaunch — AppRoot
+        // would silently re-register the observers on the next authenticated launch.
+        guard HealthKitConnection.isConnected else { return }
         HealthKitSyncService.shared.configure(
             bearer: auth.bearer,
             athleteId: auth.athleteId
         )
+        // A dead bearer on an upload surfaces the same session recovery as the rest
+        // of the app (clear session → login) instead of re-queuing a doomed request.
+        HealthKitSyncService.shared.onUnauthorized = { auth.handleUnauthorized() }
         HealthKitSyncService.shared.start()
     }
 
@@ -110,6 +119,9 @@ struct AppRoot: View {
         }
         .onAppear {
             auth.bootstrap()
+            // Register the mirrored-session handler early (idempotent) so a wrist
+            // recording started during a workout is never missed. Cheap, no prompt.
+            PhoneMirrorService.shared.prepare()
             if auth.stage == .authenticated {
                 startHealthKitSync()
                 startPush()
@@ -117,6 +129,28 @@ struct AppRoot: View {
         }
         .onOpenURL { url in
             handleDeepLink(url)
+        }
+        // Already-signed-in athlete accepting a Dobles PARTNER invite: confirm,
+        // then link their EXISTING account (redeem by bearer — no re-auth). Never
+        // a silent dead-end.
+        .alert("Emparejar en Dobles", isPresented: authedPartnerTokenBinding) {
+            Button("Emparejar") { Task { await acceptPendingPartnerAuthenticated() } }
+            Button("Ahora no", role: .cancel) { pendingPartnerToken = nil }
+        } message: {
+            Text("Tu compañero/a te ha invitado a entrenar Dobles. ¿Emparejar tu cuenta actual de FAHYBRID?")
+        }
+        // Authenticated user tapping a coach→athlete account-claim link (that flow
+        // creates a NEW account) — explain clearly instead of a silent no-op.
+        .alert("Ya tienes cuenta en FAHYBRID", isPresented: authedInviteTokenBinding) {
+            Button("Entendido", role: .cancel) { pendingInviteToken = nil }
+        } message: {
+            Text("Este enlace de invitación crea una cuenta nueva y tú ya tienes cuenta en FAHYBRID.")
+        }
+        // Outcome of the partner-accept attempt.
+        .alert("Dobles", isPresented: partnerAcceptResultBinding) {
+            Button("OK", role: .cancel) { partnerAcceptMessage = nil }
+        } message: {
+            Text(partnerAcceptMessage ?? "")
         }
         // Drive the entire app (sign-in, onboarding, shell, sheets) from the
         // single persisted appearance preference.
@@ -157,6 +191,7 @@ struct AppRoot: View {
                 )
             case .authenticated:
                 AppShell(onSignOut: { auth.signOut() })
+                    .environment(auth)
             case .unauthenticated:
                 // Unreachable — guarded by the outer switch. Render nothing.
                 EmptyView()
@@ -172,6 +207,54 @@ struct AppRoot: View {
     // by the web app — handler logic below is scheme-agnostic so flipping to
     // Universal Links only requires adding the associated-domains entitlement
     // + AASA file.
+    // Authenticated athlete + a pending PARTNER token → offer to link the
+    // existing account (redeem by bearer). Pending INVITE token (account-claim)
+    // can't link an existing account → explain. Both bindings clear on dismiss.
+    private var authedPartnerTokenBinding: Binding<Bool> {
+        Binding(
+            get: { auth.stage != .unauthenticated && pendingPartnerToken != nil },
+            set: { if !$0 { pendingPartnerToken = nil } }
+        )
+    }
+
+    private var authedInviteTokenBinding: Binding<Bool> {
+        Binding(
+            get: { auth.stage != .unauthenticated && pendingInviteToken != nil },
+            set: { if !$0 { pendingInviteToken = nil } }
+        )
+    }
+
+    private var partnerAcceptResultBinding: Binding<Bool> {
+        Binding(
+            get: { partnerAcceptMessage != nil },
+            set: { if !$0 { partnerAcceptMessage = nil } }
+        )
+    }
+
+    /// Link the authenticated athlete's existing account to the inviter via the
+    /// bearer-redeem path, then report the outcome. Partner-dependent surfaces
+    /// pick up the new pair on their next fetch.
+    private func acceptPendingPartnerAuthenticated() async {
+        guard let token = pendingPartnerToken, let bearer = auth.bearer else { return }
+        pendingPartnerToken = nil
+        do {
+            _ = try await PartnerService.redeemAuthenticated(token: token, bearer: bearer)
+            Haptics.success()
+            partnerAcceptMessage = "¡Listo! Ya estáis emparejados en Dobles."
+        } catch let APIError.http(status, body) {
+            let text = String(data: body, encoding: .utf8) ?? ""
+            if text.contains("already_paired") {
+                partnerAcceptMessage = "Ya tienes una pareja de Dobles."
+            } else if status == 410 {
+                partnerAcceptMessage = "Esta invitación ha caducado."
+            } else {
+                partnerAcceptMessage = "No pudimos emparejar (error \(status))."
+            }
+        } catch {
+            partnerAcceptMessage = "No pudimos emparejar. Inténtalo de nuevo."
+        }
+    }
+
     private func handleDeepLink(_ url: URL) {
         let path = url.path.isEmpty ? url.host ?? "" : url.path
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
