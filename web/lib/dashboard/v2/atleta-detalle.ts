@@ -67,8 +67,11 @@ const ACTIVE_LIFECYCLE: DetalleLifecycle = {
   pause_reason: null,
   paused_since: null,
   planned_return: null,
+  paused_by_name: null,
+  paused_by_kind: null,
   baja_at: null,
   baja_reason: null,
+  baja_by_name: null,
   pending_request: null,
 };
 

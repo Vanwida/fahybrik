@@ -11,6 +11,7 @@ import {
   PAUSE_REASON_LABELS,
   type PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
+import { AuthorStamp } from '@/components/v2/AuthorStamp';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { useLifecycleMutation } from './lifecycle-mutations';
 import { DIALOG_OUTLINE_CLS, DIALOG_PRIMARY_CLS, formatEsDate } from './lifecycle-ui';
@@ -79,10 +80,14 @@ function PausedBanner({
   reason,
   since,
   until,
+  byName,
+  byKind,
 }: {
   reason: PauseReason | null;
   since: string | null;
   until: string | null;
+  byName: string | null;
+  byKind: 'coach' | 'athlete' | null;
 }) {
   const headline = joinParts([
     since ? `En pausa desde el ${formatEsDate(since)}` : 'En pausa',
@@ -97,12 +102,22 @@ function PausedBanner({
         <span className="text-xs text-[color:var(--v2-muted)]">
           Su plan está congelado y estos días no cuentan para la adherencia.
         </span>
+        {/* Authorship sello (#43): quién pausó. Self-hides when unattributed. */}
+        <AuthorStamp kind={byKind ?? 'coach'} name={byName} verb="pausó" at={since} className="mt-1" />
       </div>
     </div>
   );
 }
 
-function BajaBanner({ reason, since }: { reason: PauseReason | null; since: string | null }) {
+function BajaBanner({
+  reason,
+  since,
+  byName,
+}: {
+  reason: PauseReason | null;
+  since: string | null;
+  byName: string | null;
+}) {
   const headline = joinParts([
     since ? `De baja desde el ${formatEsDate(since)}` : 'De baja',
     reason ? PAUSE_REASON_LABELS[reason] : null,
@@ -116,6 +131,8 @@ function BajaBanner({ reason, since }: { reason: PauseReason | null; since: stri
           Plan congelado y facturación cancelada a fin de periodo. El historial se conserva; puedes
           darle de re-alta cuando quiera volver.
         </span>
+        {/* Authorship sello (#43): quién dio de baja. Self-hides when unattributed. */}
+        <AuthorStamp kind="coach" name={byName} verb="dio de baja" at={since} className="mt-1" />
       </div>
     </div>
   );
@@ -146,11 +163,19 @@ export function LifecycleBanner({
         reason={lifecycle.pause_reason}
         since={lifecycle.paused_since}
         until={lifecycle.planned_return}
+        byName={lifecycle.paused_by_name}
+        byKind={lifecycle.paused_by_kind}
       />
     );
   }
   if (lifecycle.status === 'baja') {
-    return <BajaBanner reason={lifecycle.baja_reason} since={lifecycle.baja_at} />;
+    return (
+      <BajaBanner
+        reason={lifecycle.baja_reason}
+        since={lifecycle.baja_at}
+        byName={lifecycle.baja_by_name}
+      />
+    );
   }
   return null;
 }

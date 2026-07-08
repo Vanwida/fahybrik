@@ -23,6 +23,7 @@
 // resume re-anchor seam, the dobles agent fills the baja pair-dissolve seam.
 
 import { sql, type TransactionClient } from '@/lib/db';
+import { recordAudit } from '@/lib/audit/record-edit';
 import { getCapacityState } from '@/lib/coach/capacity';
 import { releaseWaitlistToCapacity } from '@/lib/leads/waitlist';
 import {
@@ -86,12 +87,19 @@ export interface PauseAthleteInput {
   end_date?: string | null;
   requested_by: PauseRequestedBy;
   coach_id?: bigint | null;
+  /** Authorship (#43): the acting user's users.id → athlete_pauses.created_by_user_id
+   *  + the audit trail. null for an athlete-requested pause (kind carries the athlete;
+   *  no user threaded — the sello self-hides). Distinct from coach_id (a coaches.id). */
+  by_user_id?: bigint | null;
 }
 
 export interface BajaAthleteInput {
   athlete_id: bigint;
   reason: PauseReason;
   coach_id?: bigint | null;
+  /** Authorship (#43): the coach's users.id — stamps athletes.last_edited_by + the
+   *  audit trail so the ficha shows who gave the baja. Distinct from coach_id. */
+  by_user_id?: bigint | null;
 }
 
 export interface RequestPauseInput {
@@ -147,9 +155,13 @@ async function applyPauseTx(
     update athletes set lifecycle_status = 'pausado', updated_at = now()
     where id = ${input.athlete_id}
   `;
-  await tx`
+  // Authorship (#43): created_by_user_id = the acting user (coach), created_by_kind =
+  // WHO the pause is on behalf of (= requested_by: 'coach' or 'athlete'). RETURNING the
+  // new id so the audit trail below points at this exact pause, all in one tx.
+  const ins = await tx<{ id: string }[]>`
     insert into athlete_pauses (
-      athlete_id, start_date, end_date, reason, note, requested_by, created_by_coach_id
+      athlete_id, start_date, end_date, reason, note, requested_by,
+      created_by_coach_id, created_by_user_id, created_by_kind
     ) values (
       ${input.athlete_id},
       ${todayIso}::date,
@@ -157,9 +169,19 @@ async function applyPauseTx(
       ${input.reason},
       ${input.note ?? null},
       ${input.requested_by},
-      ${input.coach_id ?? null}
+      ${input.coach_id ?? null},
+      ${input.by_user_id ?? null},
+      ${input.requested_by}
     )
+    returning id::text as id
   `;
+  await recordAudit(tx, {
+    entity_type: 'athlete_pauses',
+    entity_id: BigInt(ins[0]!.id),
+    action: 'create',
+    actor: { kind: input.requested_by, user_id: input.by_user_id ?? null },
+    diff: { reason: input.reason },
+  });
 }
 
 /**
@@ -269,11 +291,25 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
       throw new LifecycleError('invalid_transition', 'El atleta ya está de baja', 409);
     }
 
+    // Authorship (#43): a baja is a coach edit on the athlete — stamp last_edited_by
+    // inline (no extra UPDATE) so the ficha shows who gave the baja, + the audit trail.
     await tx`
       update athletes
-      set lifecycle_status = 'baja', baja_at = now(), baja_reason = ${input.reason}, updated_at = now()
+      set lifecycle_status = 'baja',
+          baja_at = now(),
+          baja_reason = ${input.reason},
+          last_edited_by_user_id = ${input.by_user_id ?? null},
+          last_edited_by_kind = 'coach',
+          updated_at = now()
       where id = ${input.athlete_id}
     `;
+    await recordAudit(tx, {
+      entity_type: 'athletes',
+      entity_id: input.athlete_id,
+      action: 'update',
+      actor: { kind: 'coach', user_id: input.by_user_id ?? null },
+      diff: { lifecycle_status: 'baja', reason: input.reason },
+    });
     await closeCurrentPauseTx(tx, input.athlete_id, todayIso);
 
     // Billing: cancel at period end (do NOT cut access now). Owner-scoped, exactly

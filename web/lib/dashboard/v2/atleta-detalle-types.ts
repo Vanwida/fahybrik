@@ -111,10 +111,17 @@ export interface DetalleLifecycle {
   paused_since: string | null;
   /** ISO YYYY-MM-DD planned return ("vuelve el"), null = indefinite / n/a. */
   planned_return: string | null;
+  /** Authorship of the current pause (#43): who opened it + which actor kind, for the
+   *  "X pausó · hace Y" sello. null when unattributed (historical / athlete-requested). */
+  paused_by_name: string | null;
+  paused_by_kind: 'coach' | 'athlete' | null;
   /** ISO instant the athlete went baja, else null. */
   baja_at: string | null;
   /** Baja reason code, else null. */
   baja_reason: PauseReason | null;
+  /** Authorship of the baja (#43): the coach who gave it, for the "X dio de baja" sello.
+   *  null when unattributed (historical rows before the registry). */
+  baja_by_name: string | null;
   /** A PENDING athlete-initiated pause request awaiting the coach, else null. Only an
    *  activo athlete can have one (the requestPause guard). */
   pending_request: { request_id: string; reason: PauseReason } | null;
