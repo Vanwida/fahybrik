@@ -16,6 +16,7 @@ import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscripti
 import type { AthleteBilling, AthleteInvoice } from '@/lib/coach/billing';
 import type { JointSession } from '@/lib/dashboard/coach/athlete-profile-shell';
 import type { SessionReportView } from '@/lib/coach/session-reports';
+import type { AthleteReviewState } from '@/lib/citas/reviews';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import {
   BENCH_BACK_SQUAT_1RM,
@@ -213,12 +214,17 @@ export interface V2AthleteDetalle {
   /** 1:1 session reports (#14) — this athlete's coaching calls + the sales calls of the
    *  lead it converted from (follow-the-person). Newest first. Rendered in the Sesiones tab. */
   sessions: SessionReportView[];
+  /** Revisiones 1:1 recurrentes (#21): cadencia, última revisión, próxima reservada,
+   *  propuesta pendiente y si toca (due). null si el load degradó. Alimenta el panel al
+   *  frente del tab 1:1. */
+  review: AthleteReviewState | null;
 }
 
 // Re-export so the client tab components import the type from this client-safe
 // module (never from the server-only shell). `export type` is erased at compile,
 // so no server code reaches the client bundle.
 export type { JointSession };
+export type { AthleteReviewState };
 
 // ── Tests de referencia (Perfil tab, left column) ──────────────────────────────
 export interface ReferenceTest {

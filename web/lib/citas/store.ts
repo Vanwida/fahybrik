@@ -269,11 +269,15 @@ export interface UpcomingCall {
   meet_link: string | null;
 }
 
-/** Accepted calls in the next ~48h (today/tomorrow) — folded into the sidebar badge. */
+/** Accepted calls in the next ~48h (today/tomorrow) — folded into the sidebar badge.
+ *  #21: scoped to LEAD intro calls (lead_id not null) so it stays in sync with
+ *  listUpcomingCalls (which inner-joins leads). Athlete 1:1 reviews (lead_id null) are a
+ *  separate surface (the athlete app + the coach ficha), never the sales-call badge. */
 export async function countUpcomingCallsSoon(): Promise<number> {
   const rows = await sql<{ n: number }[]>`
     select count(*)::int as n from appointments
-    where status = 'aceptada' and requested_start >= now() and requested_start < now() + interval '48 hours'
+    where status = 'aceptada' and lead_id is not null
+      and requested_start >= now() and requested_start < now() + interval '48 hours'
   `;
   return rows[0]?.n ?? 0;
 }

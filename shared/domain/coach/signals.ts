@@ -5,6 +5,8 @@
 // layer feeds it `SignalFacts` and the registry of pure `SignalEvaluator`s turns
 // those facts into `SignalResult`s. That purity is what makes the engine
 // unit-testable against Pablo's real cohort without a database.
+
+import type { ReviewCadence } from './reviews';
 //
 // WHY A SEPARATE `SIGNAL_KINDS` FROM `ALERT_KINDS`
 // ------------------------------------------------
@@ -71,6 +73,10 @@ export const SIGNAL_KINDS = [
   // Operational (extracted from inbox.ts listInboxAlerts)
   'billing_at_risk',
   'test_due',
+  // Revisión 1:1 recurrente vencida (#21): el atleta lleva más días que su cadencia
+  // (mensual/trimestral) sin una 1:1 y no tiene una revisión próxima reservada. Silenciada
+  // para atletas pausados/baja (#13) — el batch de recompute filtra lifecycle_status='activo'.
+  'review_1on1_due',
   // ── F7 follow-up — evaluator FLAGGED-OFF, emits nothing until backed ────────
   'video_review_pending',
   'mass_adjustment_pending',
@@ -188,6 +194,15 @@ export interface SignalFacts {
   latest_libre_at: Date | null;
   latest_libre_title: string | null;
   latest_libre_detail: string | null;
+
+  // Revisiones 1:1 recurrentes (#21). Drives review_1on1_due.
+  /** Cadencia de revisión que el coach fijó para el atleta ('ninguna' → no dispara). */
+  review_cadence: ReviewCadence;
+  /** Días desde la última 1:1 (max session_reports.occurred_at con sujeto atleta), con
+   *  fallback al alta del atleta cuando nunca hubo revisión. null solo si falta la referencia. */
+  days_since_last_1on1: number | null;
+  /** Ya hay una revisión próxima reservada (cita futura pendiente|aceptada) → no vence. */
+  has_upcoming_review: boolean;
 }
 
 // ── Result (the per-fired-signal output) ──────────────────────────────────────

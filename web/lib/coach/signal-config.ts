@@ -90,6 +90,12 @@ export const SIGNAL_THRESHOLDS = {
   test_due_days: 35,
   /** An athlete-originated "entreno libre" within this many days → workout_libre. */
   workout_libre_recent_days: 3,
+
+  // ── Revisiones 1:1 recurrentes (#21) ──────────────────────────────────────
+  /** Cadencia mensual: revisión vencida si pasan más de estos días sin 1:1 → review_1on1_due. */
+  review_due_mensual_days: 30,
+  /** Cadencia trimestral: revisión vencida si pasan más de estos días sin 1:1 → review_1on1_due. */
+  review_due_trimestral_days: 90,
 } as const;
 
 export type SignalThresholdKey = keyof typeof SIGNAL_THRESHOLDS;
@@ -117,8 +123,15 @@ export const signalThresholdsSchema = z
     race_completed_recent_days: z.number().int().positive(),
     test_due_days: z.number().int().positive(),
     workout_libre_recent_days: z.number().int().positive(),
+    review_due_mensual_days: z.number().int().positive(),
+    review_due_trimestral_days: z.number().int().positive(),
   })
   .strict()
+  // Trimestral debe ser una ventana MÁS larga que mensual (coherencia de cadencia).
+  .refine((t) => t.review_due_trimestral_days > t.review_due_mensual_days, {
+    message: 'review_due_trimestral_days must be > review_due_mensual_days',
+    path: ['review_due_trimestral_days'],
+  })
   // Warning window must be shorter than (or equal to) the critical one.
   .refine((t) => t.no_sync_warning_hours <= t.no_sync_critical_hours, {
     message: 'no_sync_warning_hours must be <= no_sync_critical_hours',

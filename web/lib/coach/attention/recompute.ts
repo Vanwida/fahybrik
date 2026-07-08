@@ -168,6 +168,14 @@ async function assembleFacts(
     latest_libre_detail: row.latest_libre_title
       ? `${row.latest_libre_title} · no prescrito · suma al plan`
       : null,
+
+    // Revisiones 1:1 (#21). days_since = desde la última 1:1 o, si nunca hubo, desde el
+    // alta del atleta (así una cadencia recién puesta no vence al instante).
+    review_cadence: row.review_cadence as SignalFacts['review_cadence'],
+    days_since_last_1on1: Math.floor(
+      (now.getTime() - (row.last_1on1_at ?? row.athlete_since).getTime()) / 86_400_000,
+    ),
+    has_upcoming_review: row.has_upcoming_review,
   };
 }
 

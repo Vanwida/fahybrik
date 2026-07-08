@@ -19,6 +19,7 @@ import { RendimientoTab } from './RendimientoTab';
 import { PagosTab } from './PagosTab';
 import { MensajesTab } from './MensajesTab';
 import { SessionReportsBlock } from '@/components/v2/sessions/SessionReportsBlock';
+import { ReviewPanel } from './reviews/ReviewPanel';
 import { selectPerfilTab, type V2AthleteDetalle, type AtletaTab } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 export function AthleteDetalle({
@@ -77,7 +78,13 @@ export function AthleteDetalle({
             athleteName={header.full_name}
           />
         ) : tab === 'sesiones' ? (
-          <div className="mx-auto w-full max-w-[880px]">
+          <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4">
+            {/* Revisiones 1:1 (#21): cadencia + estado + proponer/cancelar, encima del histórico. */}
+            <ReviewPanel
+              athleteId={header.athlete_id}
+              athleteName={header.full_name}
+              review={detalle.review}
+            />
             <SessionReportsBlock
               subject={{ athlete_id: header.athlete_id }}
               sessions={detalle.sessions}

@@ -32,6 +32,7 @@ import { loadAthleteLifecycleDetail } from '@/lib/dashboard/coach/athlete-lifecy
 import { LIFECYCLE_STATUS_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import { listSessionReportsForAthlete } from '@/lib/coach/session-reports';
+import { getAthleteReviewState } from '@/lib/citas/reviews';
 import {
   loadMessages,
   getOrCreateThread,
@@ -253,6 +254,7 @@ export async function loadAthleteDetalle(params: {
     sessions,
     billing,
     invoices,
+    review,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -271,6 +273,9 @@ export async function loadAthleteDetalle(params: {
     // null / [] on failure so a billing hiccup never 500s the whole ficha.
     getAthleteBilling(BigInt(athlete_id), client).catch(() => null),
     listAthleteInvoices(BigInt(athlete_id), client).catch(() => []),
+    // Revisiones 1:1 (#21): cadencia + estado (próxima / propuesta / vencida). Degrada a
+    // null si falla, como el resto del fan-out — un fallo aquí nunca 500-ea la ficha.
+    getAthleteReviewState({ athlete_id, coach_id }).catch(() => null),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -332,6 +337,7 @@ export async function loadAthleteDetalle(params: {
     benchmarks,
     joint_sessions: shell.joint_sessions,
     sessions,
+    review,
   };
 }
 

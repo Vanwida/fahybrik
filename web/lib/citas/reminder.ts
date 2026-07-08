@@ -1,7 +1,11 @@
 // T-24h videollamada reminder cron — pure logic, no auth, no HTTP.
 //
 // Runs hourly. Finds ACCEPTED ('aceptada') appointments starting ~24h from now that
-// haven't been reminded yet, and emails each lead once. The window is deliberately
+// haven't been reminded yet, and emails each RECIPIENT once. #21: covers BOTH subjects —
+// a lead intro call (lead_id → leads.email) AND an athlete 1:1 review (athlete_id →
+// its user's email) — via a coalesced recipient, so review appointments are reminded too
+// (no kind filter needed: the recipient join is what generalizes it). The window is
+// deliberately
 // WIDER (23h–25h) than the 1h cron interval so a single missed/late run never drops a
 // reminder — every accepted call is seen by ~2 consecutive runs.
 //
@@ -33,6 +37,8 @@ interface CandidateRow {
   id: string;
   requested_start: Date;
   meet_link: string | null;
+  // Recipient of the reminder — a lead (intro) or an athlete's user (review, #21).
+  // Field names kept as lead_* so sendCitaReminderEmail's input shape is unchanged.
   lead_email: string;
   lead_nombre: string | null;
 }
@@ -74,11 +80,15 @@ export async function sendDueCitaReminders(
 
   const candidates = await client<CandidateRow[]>`
     select a.id::text as id, a.requested_start, a.meet_link,
-           l.email as lead_email, l.nombre as lead_nombre
+           coalesce(l.email, u.email)      as lead_email,
+           coalesce(l.nombre, ath.full_name) as lead_nombre
     from appointments a
-    join leads l on l.id = a.lead_id
+    left join leads l    on l.id = a.lead_id
+    left join athletes ath on ath.id = a.athlete_id
+    left join users u    on u.id = ath.user_id
     where a.status = ${REMINDABLE_STATUS}::appointment_status
       and a.reminder_sent_at is null
+      and coalesce(l.email, u.email) is not null
       and a.requested_start >= ${from.toISOString()}::timestamptz
       and a.requested_start <  ${to.toISOString()}::timestamptz
     order by a.requested_start asc

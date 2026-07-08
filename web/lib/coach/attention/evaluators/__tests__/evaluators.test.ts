@@ -73,6 +73,11 @@ function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     latest_libre_title: null,
     latest_libre_detail: null,
 
+    // Revisiones 1:1 (#21): sin cadencia → review_1on1_due no dispara por defecto.
+    review_cadence: 'ninguna',
+    days_since_last_1on1: null,
+    has_upcoming_review: false,
+
     ...overrides,
   };
 }

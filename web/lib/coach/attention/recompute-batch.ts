@@ -41,6 +41,11 @@ export interface BatchRow {
   // executed session. The detail line is built in JS (assembleFacts), not SQL.
   latest_libre_at: Date | null;
   latest_libre_title: string | null;
+  // Revisiones 1:1 recurrentes (#21) — cadencia + última 1:1 + revisión próxima.
+  review_cadence: string;
+  last_1on1_at: Date | null;
+  athlete_since: Date;
+  has_upcoming_review: boolean;
 }
 
 export async function loadBatch(
@@ -186,6 +191,23 @@ export async function loadBatch(
       join workout_assignments wa on wa.id = we.assignment_id and wa.origin = 'self'
       join templates t on t.id = wa.template_id
       order by we.athlete_id, we.ended_at desc nulls last
+    ),
+    last_1on1 as (
+      -- La última 1:1 con el atleta = el parte de sesión más reciente con sujeto atleta
+      -- (#14). Cualquier 1:1 (seguimiento o no) reinicia el reloj de la cadencia (#21).
+      select sr.athlete_id, max(sr.occurred_at) as ts
+      from session_reports sr
+      where sr.athlete_id is not null and sr.deleted_at is null
+      group by sr.athlete_id
+    ),
+    upcoming_review as (
+      -- ¿Tiene una revisión próxima reservada? (cita futura pendiente|aceptada, kind=
+      -- revision). Si la tiene, la revisión NO está vencida (#21).
+      select distinct ap.athlete_id
+      from appointments ap
+      where ap.athlete_id is not null and ap.kind = 'revision'
+        and ap.status in ('pendiente', 'aceptada')
+        and ap.requested_start >= ${nowIso}::timestamptz
     )
     select
       a.id::text                          as athlete_id,
@@ -224,7 +246,11 @@ export async function loadBatch(
       rr.name                             as latest_race_name,
       rr.id                               as latest_race_id,
       rl.ts                               as latest_libre_at,
-      rl.title                            as latest_libre_title
+      rl.title                            as latest_libre_title,
+      a.review_cadence                    as review_cadence,
+      a.created_at                        as athlete_since,
+      l1.ts                               as last_1on1_at,
+      (ur.athlete_id is not null)         as has_upcoming_review
     from athletes a
     left join hrv_recent   hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
@@ -240,6 +266,8 @@ export async function loadBatch(
     left join last_any_test lat on lat.athlete_id = a.id
     left join recent_race  rr on rr.athlete_id = a.id
     left join recent_libre rl on rl.athlete_id = a.id
+    left join last_1on1    l1 on l1.athlete_id = a.id
+    left join upcoming_review ur on ur.athlete_id = a.id
     where a.coach_id = ${coach_id as number}
       and (${athleteFilter}::bigint is null or a.id = ${athleteFilter}::bigint)
       -- #13: paused/baja athletes are frozen — a paused athlete is DELIBERATELY
