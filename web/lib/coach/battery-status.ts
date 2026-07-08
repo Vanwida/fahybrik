@@ -9,7 +9,6 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { storeResultsSchema } from '@fahybrid/shared/schema/test-battery';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -38,21 +37,26 @@ export async function loadBatteryStatus(
       assignment_id: string;
       scheduled_for: string;
       status: string;
-      calibration: string | null;
-      store_results: unknown;
+      calibration: string;
       label: string;
+      expected_slugs: string[];
     }[]
   >`
     select wa.id::text as assignment_id,
            wa.scheduled_for::text as scheduled_for,
            wa.status::text as status,
-           t.meta_json ->> 'calibration' as calibration,
-           t.meta_json -> 'store_results' as store_results,
-           t.name as label
+           cct.slug as calibration,
+           cct.name as label,
+           coalesce(
+             array_agg(ctr.slug) filter (where ctr.slug is not null),
+             '{}'
+           ) as expected_slugs
     from workout_assignments wa
-    join templates t on t.id = wa.template_id
+    join coach_calibration_tests cct on cct.id = wa.calibration_test_id
+    left join coach_test_results ctr on ctr.test_id = cct.id
     where wa.athlete_id = ${athlete_id}
-      and t.meta_json ? 'calibration'
+      and wa.calibration_test_id is not null
+    group by wa.id, wa.scheduled_for, wa.status, cct.slug, cct.name
     order by wa.scheduled_for asc
   `;
   if (rows.length === 0) return { total: 0, completed: 0, tests: [] };
@@ -67,8 +71,7 @@ export async function loadBatteryStatus(
 
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
-    const parsed = storeResultsSchema.safeParse(r.store_results ?? []);
-    const expected = parsed.success ? parsed.data.map((s) => s.slug) : [];
+    const expected = r.expected_slugs ?? [];
     const result_captured = expected.length > 0 && expected.every((s) => have.has(s));
     return {
       calibration_slug: r.calibration ?? '',

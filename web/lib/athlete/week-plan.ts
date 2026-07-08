@@ -102,16 +102,13 @@ export async function buildAthleteWeekPlan(
       t.name as template_name,
       t.format::text as template_format,
       t.day_position as template_day_position,
-      -- is_test: a session is a TEST when its template STORES measurable results
-      -- (meta_json.store_results is a non-empty array) — i.e. its purpose is to
-      -- measure and feed the athlete's profile/resolver, not to train. This is
-      -- coach-agnostic and data-driven; the methodology group (running, race-sim…)
-      -- does NOT identify a test (a VDOT track test and regular intervals share
-      -- group 4; a HYROX EMOM and the HYROX competition share group 7).
-      (
-        jsonb_typeof(t.meta_json -> 'store_results') = 'array'
-        and jsonb_array_length(t.meta_json -> 'store_results') > 0
-      ) as is_test,
+      -- is_test: a session is a TEST when it was scheduled from a coach calibration
+      -- test — i.e. it carries the calibration_test_id FK (#34). Its purpose is to
+      -- measure and feed the athlete's profile/resolver, not to train. Coach-owned and
+      -- data-driven; the methodology group (running, race-sim…) does NOT identify a test
+      -- (a VDOT track test and regular intervals share group 4; a HYROX EMOM and the
+      -- HYROX competition share group 7).
+      (wa.calibration_test_id is not null) as is_test,
       wa.status::text as status,
       wa.notes,
       wa.partner_visibility as partner_visibility,
