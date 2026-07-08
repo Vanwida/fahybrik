@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { InviteLandingCard } from '@/components/invites/InviteLandingCard';
-import { getAthleteInvitationByToken } from '@/lib/athlete/invitations';
+import { InviteActivateCard } from '@/components/invites/InviteActivateCard';
+import {
+  getAthleteInvitationByToken,
+  getAthleteInviteEmailByToken,
+} from '@/lib/athlete/invitations';
 import { inviteDeepLink } from '@/lib/invites/deeplinks';
 import {
   deriveInviteLandingState,
@@ -68,12 +72,12 @@ export default async function AthleteInvitePage({
     return <InviteLandingCard eyebrow={EYEBROW} headline={copy.headline} body={copy.body} />;
   }
 
+  // Valid, claimable invite → ACTIVATE IN PLACE (email + one-time code), no
+  // dead-end. Prefill the invited email so the athlete sends their code in one
+  // tap; "Abrir en la app" stays as the secondary Apple/iOS path.
+  const invitedEmail = (await getAthleteInviteEmailByToken(token)) ?? '';
+
   return (
-    <InviteLandingCard
-      eyebrow={EYEBROW}
-      headline="Reclama tu cuenta FAHYBRID"
-      body="Tu entrenador ya te ha creado el perfil. Abre FAHYBRID y entra con tu Apple ID para vincular tu cuenta y ver tu plan."
-      openHref={inviteDeepLink(token)}
-    />
+    <InviteActivateCard token={token} invitedEmail={invitedEmail} openHref={inviteDeepLink(token)} />
   );
 }

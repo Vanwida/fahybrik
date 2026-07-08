@@ -15,6 +15,7 @@ vi.mock('@/lib/auth/email-code', () => ({
   consumeEmailLoginCode: vi.fn(),
 }));
 vi.mock('@/lib/auth/users', () => ({ findAthleteByEmail: vi.fn() }));
+vi.mock('@/lib/athlete/invitations', () => ({ redeemAthleteInvitationByEmail: vi.fn() }));
 vi.mock('@/lib/auth/session', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/auth/session')>();
   return { ...actual, issueSession: vi.fn() };
@@ -25,6 +26,7 @@ const { createEmailLoginCode, sendEmailLoginCode, consumeEmailLoginCode } = awai
   '@/lib/auth/email-code'
 );
 const { findAthleteByEmail } = await import('@/lib/auth/users');
+const { redeemAthleteInvitationByEmail } = await import('@/lib/athlete/invitations');
 const { issueSession, audiences } = await import('@/lib/auth/session');
 const { POST: requestPOST } = await import('@/app/api/auth/email/request/route');
 const { POST: verifyPOST } = await import('@/app/api/auth/email/verify/route');
@@ -149,5 +151,65 @@ describe('POST /api/auth/email/verify', () => {
     const res = await verifyPOST(post({ email: 'a@b.com', code: '12' }));
     expect(res.status).toBe(400);
     expect((await res.json()).error.code).toBe('invalid_request');
+  });
+});
+
+describe('POST /api/auth/email/verify — invite activation (invite_token present)', () => {
+  const REDEEMED = {
+    user_id: BigInt(132),
+    athlete_id: BigInt(63),
+    email: 'fabregas.scd@gmail.com',
+    full_name: 'Gerard',
+    onboarded_at: null,
+  };
+
+  it('valid code + matching invite → redeems, activates, mints the session', async () => {
+    vi.mocked(consumeEmailLoginCode).mockResolvedValue({ ok: true, email: 'fabregas.scd@gmail.com' });
+    vi.mocked(redeemAthleteInvitationByEmail).mockResolvedValue({ ok: true, result: REDEEMED });
+
+    const res = await verifyPOST(post({ email: 'fabregas.scd@gmail.com', code: '424242', invite_token: 'invite-tok-123456' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.session_token).toBe('session.jwt.token');
+    expect(body.athlete_id).toBe('63');
+    // Redeemed by the PROVEN email, not the raw request field.
+    expect(vi.mocked(redeemAthleteInvitationByEmail).mock.calls[0][0]).toEqual({
+      token: 'invite-tok-123456',
+      verified_email: 'fabregas.scd@gmail.com',
+    });
+    // Invite path does NOT go through the plain login resolver.
+    expect(findAthleteByEmail).not.toHaveBeenCalled();
+    expect(issueSession).toHaveBeenCalledOnce();
+  });
+
+  it('email does not match the invitation → 409 email_mismatch, no session', async () => {
+    vi.mocked(consumeEmailLoginCode).mockResolvedValue({ ok: true, email: 'someone@else.com' });
+    vi.mocked(redeemAthleteInvitationByEmail).mockResolvedValue({
+      ok: false,
+      error: { code: 'email_mismatch', message: 'x' },
+    });
+    const res = await verifyPOST(post({ email: 'someone@else.com', code: '424242', invite_token: 'invite-tok-123456' }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe('email_mismatch');
+    expect(issueSession).not.toHaveBeenCalled();
+  });
+
+  it('expired invitation → 410 token_expired', async () => {
+    vi.mocked(consumeEmailLoginCode).mockResolvedValue({ ok: true, email: 'a@b.com' });
+    vi.mocked(redeemAthleteInvitationByEmail).mockResolvedValue({
+      ok: false,
+      error: { code: 'token_expired', message: 'x' },
+    });
+    const res = await verifyPOST(post({ email: 'a@b.com', code: '424242', invite_token: 'invite-tok-123456' }));
+    expect(res.status).toBe(410);
+    expect((await res.json()).error.code).toBe('token_expired');
+  });
+
+  it('bad code with an invite_token → 400 invalid_code, never attempts the redeem', async () => {
+    vi.mocked(consumeEmailLoginCode).mockResolvedValue({ ok: false, reason: 'invalid' });
+    const res = await verifyPOST(post({ email: 'a@b.com', code: '000000', invite_token: 'invite-tok-123456' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe('invalid_code');
+    expect(redeemAthleteInvitationByEmail).not.toHaveBeenCalled();
   });
 });
