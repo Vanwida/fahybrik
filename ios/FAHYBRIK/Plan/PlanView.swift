@@ -48,6 +48,11 @@ struct PlanView: View {
     @State private var hasNextWeek: Bool = false
     // The coach who publishes the week — surfaced as the "por {coach}" attribution.
     @State private var coachName: String? = nil
+    // True when the coach has PAUSED this athlete's plan — shows the paused card
+    // INSTEAD of the day list, even when the week still carries sessions (a paused
+    // athlete never sees stale sessions). `pausedSince` drives the "En pausa desde…".
+    @State private var paused: Bool = false
+    @State private var pausedSince: String? = nil
 
     // Weekly-delivery navigation: 0 = this week, 1 = the NEXT-week peek (the one
     // that unlocks Saturday). Bounded to {0, 1} — never arbitrary navigation.
@@ -102,6 +107,11 @@ struct PlanView: View {
             Theme.Color.background.ignoresSafeArea()
             if loading {
                 ProgressView().tint(Theme.Color.accentText)
+            } else if weekOffset == 0 && paused {
+                // The coach paused this athlete: show the paused card, NOT the (now
+                // stale) day list — gated ABOVE the day list so published sessions
+                // never leak through while paused.
+                pausedPlanState
             } else if weekOffset == 0 && !hasAnySession {
                 // No plan at all (current week empty) — the honest no-plan state.
                 emptyPlanState
@@ -1195,6 +1205,66 @@ struct PlanView: View {
         .padding(.horizontal, Theme.Spacing.xxl)
     }
 
+    // MARK: - Paused state (coach put the plan on pause)
+    //
+    // Calm, warm card shown INSTEAD of the day list when the coach paused the
+    // athlete (lesión / vacaciones / parón). No sessions, no error tone — the
+    // progress is safe and the plan resumes when the athlete is ready.
+    private var pausedPlanState: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            Image(systemName: "pause.circle")
+                .font(.system(size: 40))
+                .foregroundStyle(Theme.Color.accentText)
+            Text("Tu plan está en pausa")
+                .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
+                .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.center)
+            Text(pausedBody)
+                .scaledFont(13, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if let since = pausedSinceLabel {
+                Text(since)
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.faint)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.xxl)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Warm body copy. Uses the real coach NAME when the payload carries it (same
+    /// `coachName` the "por {coach}" subtitle uses), never a hardcoded name; falls
+    /// back to "Tu coach" so the sentence always reads.
+    private var pausedBody: String {
+        let coach = coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let who = (coach?.isEmpty == false) ? coach! : "Tu coach"
+        return "\(who) lo ha pausado mientras te recuperas. Retomamos en cuanto estés listo — tu progreso está guardado."
+    }
+
+    /// "En pausa desde el 3 de julio" from the ISO `paused_since`; nil when unset
+    /// or unparseable (never a broken half-sentence).
+    private var pausedSinceLabel: String? {
+        guard let iso = pausedSince, let formatted = formatLongDate(iso) else { return nil }
+        return "En pausa desde el \(formatted)"
+    }
+
+    /// "3 de julio" from an ISO "YYYY-MM-DD"; nil when unparseable. Mirrors the
+    /// app's es_ES DateFormatter convention (see PartnerTodayPanel.dateLabel), with
+    /// a fuller output for the warmer paused copy.
+    private func formatLongDate(_ iso: String) -> String? {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: iso) else { return nil }
+        let out = DateFormatter()
+        out.locale = Locale(identifier: "es_ES")
+        out.dateFormat = "d 'de' MMMM"
+        return out.string(from: date)
+    }
+
     // MARK: - Actions
 
     private func open(assignmentId: String?, title: String?) {
@@ -1549,6 +1619,8 @@ struct PlanView: View {
         focus = resp.week.focus
         hasNextWeek = resp.week.hasNextWeek ?? false
         coachName = resp.coachName
+        paused = resp.week.paused
+        pausedSince = resp.week.pausedSince
     }
 
     /// The NEXT-week peek is a forward navigation (not a tab switch) and isn't

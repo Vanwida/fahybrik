@@ -92,6 +92,10 @@ struct InicioView: View {
     }
     private var hasPlan: Bool { planWeek.map(planExists) ?? false }
     private var todayIsRest: Bool { planWeek.map(isTodayRest) ?? false }
+    /// True when the coach has PAUSED the athlete's plan — the Today hero shows a
+    /// calm "en pausa" state instead of an empty/failed today, and the PM row is
+    /// suppressed so no stale to-do session leaks through.
+    private var isPaused: Bool { planWeek?.week.paused ?? false }
     // The GOAL race the plan peaks for → the Camino anchor. NOT the nearest tune-up
     // (that lives in the Carreras tab); the journey is toward the objective.
     private var targetRace: AthleteNextRace? { planWeek?.targetRace }
@@ -153,7 +157,7 @@ struct InicioView: View {
                 // secondary progress analytics. Hero (to do) → PM → "Hecho hoy" (done).
                 heroSection
                     .staggerReveal(revealed, index: 4)
-                if let pm = pmSession {
+                if let pm = pmSession, !isPaused {
                     SessionCompactRow(
                         slot: slotFor(pm),
                         title: pm.title,
@@ -948,7 +952,9 @@ struct InicioView: View {
 
     @ViewBuilder
     private var heroSection: some View {
-        if let hero = heroSession {
+        if isPaused {
+            pausedTodayCard
+        } else if let hero = heroSession {
             SessionHeroCard(
                 slot: slotFor(hero),
                 kicker: heroKicker(for: hero),
@@ -981,6 +987,33 @@ struct InicioView: View {
             // "plan no publicado" empty state (which would be a lie mid-load).
             loadingCard(label: "Hoy", titleWidth: 150)
         }
+    }
+
+    // Calm "en pausa" card — the Today hero when the coach paused the athlete's
+    // plan. Mirrors restCard's shape; no session to start, no error tone: the
+    // day's message is simply to rest and recover.
+    private var pausedTodayCard: some View {
+        CardSurface(padding: 18) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    VStack(alignment: .leading, spacing: 3) {
+                        LabelText(text: "Hoy")
+                        Text("Estás en pausa")
+                            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
+                    Spacer(minLength: 0)
+                }
+                Text("Tu plan está en pausa. Descansa y recupérate — lo retomamos en cuanto estés listo.")
+                    .scaledFont(13, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - "Hecho hoy" — closed-loop confirmation of today's finished sessions

@@ -84,6 +84,18 @@ struct AthleteWeekPayload: Codable {
     /// True when a NEXT week with published content exists — drives the "Próxima
     /// semana" peek affordance. Nil/false → no next week to preview.
     let hasNextWeek: Bool?
+    /// True when the coach has PAUSED this athlete's plan (lesión / vacaciones /
+    /// parón / otro). The week structure still ships, but the client shows a paused
+    /// state instead of the day list — a paused athlete never sees stale sessions.
+    /// Wire key `paused` maps 1:1 (single word) under APIClient's convertFromSnakeCase.
+    let paused: Bool
+    /// ISO "YYYY-MM-DD" the plan was paused on — surfaced as "En pausa desde…".
+    /// Nil when the backend recorded no start date. Wire `paused_since` → `pausedSince`.
+    let pausedSince: String?
+    /// Pause reason CODE (lesion | vacaciones | paron | otro). Decoded for
+    /// completeness; athlete-facing copy stays generic and never leaks the code.
+    /// Wire `paused_reason` → `pausedReason`.
+    let pausedReason: String?
     let days: [AthleteWeekDay]
 }
 

@@ -35,6 +35,12 @@ struct PartnerInfo: Codable, Equatable {
     var today: PartnerTodayWorkout? = nil
     var week: PartnerWeekProgress? = nil
     var recent: [PartnerRecentSession]? = nil
+
+    /// True when the coach has PAUSED the partner's plan. `var … = nil` (not `let`),
+    /// like the snapshot fields above, so the synthesized Decodable still decodes it
+    /// while the memberwise init keeps a default for the non-snapshot (billing) call
+    /// sites. Wire `partner_paused` maps via APIClient's convertFromSnakeCase.
+    var partnerPaused: Bool? = nil
 }
 
 /// The partner's session scheduled for today, or null when none / private.

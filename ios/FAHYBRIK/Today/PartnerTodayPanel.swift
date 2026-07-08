@@ -62,18 +62,27 @@ struct PartnerTodayPanel: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "Hoy · mismo entreno" when the partner has a session today; otherwise the
-    /// honest Dobles label (no invented "same workout").
+    /// True when the coach has PAUSED the partner's plan (backend `partner_paused`).
+    /// Drives the muted "En pausa" treatment instead of a today status.
+    private var partnerPaused: Bool { partner.partnerPaused == true }
+
+    /// "En pausa" when the partner is paused; "Hoy · mismo entreno" when they have a
+    /// session today; otherwise the honest Dobles label (no invented "same workout").
     private var subtitle: String {
-        partner.today != nil ? "Hoy · mismo entreno" : "Tu pareja de Dobles"
+        if partnerPaused { return "En pausa" }
+        return partner.today != nil ? "Hoy · mismo entreno" : "Tu pareja de Dobles"
     }
 
     // MARK: - Status badge
 
     private struct BadgeSpec { let text: String; let color: Color; let tint: Color }
 
-    /// The pill for today's session status. Nil → no session today (no pill).
+    /// The pill for today's session status. A paused partner shows a muted "En
+    /// pausa" pill instead of a done/pending status. Nil → no session today (no pill).
     private var todayBadge: BadgeSpec? {
+        if partnerPaused {
+            return BadgeSpec(text: "En pausa", color: Theme.Color.muted, tint: Theme.Color.neutralTint)
+        }
         guard let today = partner.today else { return nil }
         switch today.status.lowercased() {
         case "completed":
@@ -187,6 +196,9 @@ struct PartnerTodayPanel: View {
 
     private func nudgeText(trained: Bool) -> String {
         let name = partner.firstName
+        if partnerPaused {
+            return "\(name) está en pausa"
+        }
         if partner.today == nil {
             return "\(name) no tiene sesión hoy"
         }
