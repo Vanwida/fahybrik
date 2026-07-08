@@ -60,7 +60,9 @@ export const altaInputSchema = z
   })
   .superRefine((val, ctx) => {
     const effective = resolveBilling(val.billing, val.agreed_price_eur);
-    if (effective === 'stripe' && !(val.agreed_price_eur && val.agreed_price_eur > 0)) {
+    // El precio solo es obligatorio en el cobro NORMAL. En Fundador el cobro es 0 €
+    // vía el cupón FUNDADOR, así que el precio (de lista) es OPCIONAL.
+    if (effective === 'stripe' && !val.founder && !(val.agreed_price_eur && val.agreed_price_eur > 0)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['agreed_price_eur'],

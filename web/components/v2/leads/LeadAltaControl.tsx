@@ -171,10 +171,12 @@ function AltaModal({
     if (submitting) return;
     setError(null);
 
-    // Billing: cortesía = no cobro; otherwise a positive monthly price is required.
+    // Billing: cortesía = no cobro; fundador = 0 € por Stripe (precio opcional);
+    // cobro normal = precio mensual positivo obligatorio.
     const priceValue = Number(price);
-    if (!cortesia && (!price.trim() || !Number.isFinite(priceValue) || priceValue <= 0)) {
-      setError('Introduce el precio mensual acordado, o marca "Cortesía (sin cobro)".');
+    const priceValid = price.trim() !== '' && Number.isFinite(priceValue) && priceValue > 0;
+    if (!cortesia && !founder && !priceValid) {
+      setError('Introduce el precio mensual, o marca "Cortesía" o "Fundador".');
       return;
     }
 
@@ -194,7 +196,12 @@ function AltaModal({
           notes: notes.trim(),
           ...(cortesia
             ? { billing: 'comp' as const }
-            : { billing: 'stripe' as const, agreed_price_eur: priceValue, founder }),
+            : {
+                billing: 'stripe' as const,
+                founder,
+                // El precio de lista es opcional en Fundador — solo se envía si es válido.
+                ...(priceValid ? { agreed_price_eur: priceValue } : {}),
+              }),
         }),
       });
       const data = (await res.json().catch(() => null)) as
@@ -338,6 +345,13 @@ function AltaModal({
                   Cortesía (sin cobro)
                 </label>
               </div>
+              {stripeConfigured ? (
+                <p className="text-[11px] leading-relaxed text-[color:var(--v2-faint)]">
+                  <b className="text-[color:var(--v2-muted)]">Cortesía</b> = acceso libre, sin Stripe.{' '}
+                  <b className="text-[color:var(--v2-muted)]">Fundador</b> = suscripción real por Stripe
+                  a 0 €.
+                </p>
+              ) : null}
               {!stripeConfigured ? (
                 <p className="flex items-start gap-1.5 text-xs text-[color:var(--v2-warn)]">
                   <MIcon name="info" size={14} className="mt-px shrink-0" />
@@ -350,30 +364,7 @@ function AltaModal({
                 </p>
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="v2-micro">Precio acordado €/mes</span>
-                    <div className="relative w-40">
-                      <input
-                        type="number"
-                        min={1}
-                        step="0.01"
-                        inputMode="decimal"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="p. ej. 90"
-                        className={FIELD_CLS + ' pr-8'}
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
-                        €
-                      </span>
-                    </div>
-                    {pricePrefilled ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
-                        <MIcon name="call" size={13} /> del parte de la llamada
-                      </span>
-                    ) : null}
-                  </label>
-                  <label className="inline-flex items-start gap-2 text-xs font-semibold text-[color:var(--v2-muted)]">
+                  <label className="inline-flex items-start gap-2 text-xs font-semibold text-[color:var(--v2-fg)]">
                     <input
                       type="checkbox"
                       checked={founder}
@@ -381,10 +372,40 @@ function AltaModal({
                       className="mt-0.5 h-4 w-4 accent-[color:var(--v2-accent)]"
                     />
                     <span>
-                      Fundador — sin cobro (aplica el cupón{' '}
-                      <b className="text-[color:var(--v2-fg)]">FUNDADOR</b>: 0 €/mes, sin tarjeta). Se
-                      guarda su precio de lista.
+                      Fundador — suscripción real por Stripe a{' '}
+                      <b className="text-[color:var(--v2-accent)]">0 €/mes</b> (cupón FUNDADOR, sin
+                      tarjeta).
                     </span>
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="v2-micro">
+                      {founder ? 'Precio de lista (opcional)' : 'Precio acordado €/mes'}
+                    </span>
+                    <div className="relative w-40">
+                      <input
+                        type="number"
+                        min={founder ? 0 : 1}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder={founder ? 'opcional' : 'p. ej. 90'}
+                        className={FIELD_CLS + ' pr-8'}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
+                        €
+                      </span>
+                    </div>
+                    {founder ? (
+                      <span className="text-[11px] text-[color:var(--v2-muted)]">
+                        Se cobrará <b className="text-[color:var(--v2-fg)]">0 €</b>. El precio de lista
+                        es opcional (para tu MRR y el día que deje de ser fundador).
+                      </span>
+                    ) : pricePrefilled ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
+                        <MIcon name="call" size={13} /> del parte de la llamada
+                      </span>
+                    ) : null}
                   </label>
                 </div>
               )}
