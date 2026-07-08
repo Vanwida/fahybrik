@@ -1,0 +1,247 @@
+import 'server-only';
+
+// #34 — the ejecución→benchmark BRIDGE. The piece that closes the broken loop:
+// a finished calibration-test session's entered result(s) become ground-truth
+// benchmarks + their calibrations, tagged with real-test provenance, superseding
+// the self-declared/onboarding_auto estimates.
+//
+// It reads the assignment's template `store_results` (the contract) and routes
+// each entered value:
+//   · time-trial (run_5k / row_2k)   → benchmark + DERIVED zone profile
+//   · time-trial baseline (half-sim) → benchmark only (no zone/max)
+//   · load (back_squat_1rm …)        → versioned strength max + benchmark
+// then re-runs the LEVEL suggestion (it reads athlete_benchmarks fresh, so the
+// real 5K/2K/1RM firm up the athlete's level from data, not self-report).
+//
+// Reuses the EXISTING seams (recordTestBenchmark, insertStrengthMaxVersion,
+// deriveZoneProfilesFromBenchmarks + insertZoneProfileVersion, the coach test
+// endpoints' exact pattern) — no new math, no parallel store. Writes run on the
+// pool sequentially (benchmark committed before the zone derivation reads it),
+// mirroring the coach/athlete test-result routes.
+
+import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
+import { recordTestBenchmark } from '@/lib/athlete/record-test-benchmark';
+import { insertStrengthMaxVersion } from '@/lib/strength/strength-max';
+import { loadCoachZonesForUnit, insertZoneProfileVersion } from '@/lib/dashboard/v2/zone-derivation';
+import { computeAndStoreLevelSuggestion } from '@/lib/coach/level-proposal';
+import {
+  athleteBenchmarksFromSlugRows,
+  deriveZoneProfilesFromBenchmarks,
+} from '@fahybrid/shared/domain/methodology';
+import {
+  BENCH_RUN_5K,
+  BENCH_ROW_2K,
+  BENCH_SKI_1K,
+} from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { storeResultsSchema, type StoreResultSpec } from '@fahybrid/shared/schema/test-battery';
+import type { TestSource } from '@fahybrid/shared/domain/athlete/record-test-result';
+
+type ZoneModality = 'run' | 'row' | 'ski';
+const ZONE_ANCHOR_SLUG: Record<ZoneModality, string> = {
+  run: BENCH_RUN_5K,
+  row: BENCH_ROW_2K,
+  ski: BENCH_SKI_1K,
+};
+
+export type BridgeError =
+  | 'assignment_not_found'
+  | 'not_a_test'
+  | 'no_coach'
+  | 'unknown_slug';
+
+export interface RecordBatteryResult {
+  ok: boolean;
+  error?: BridgeError;
+  benchmarks_written: number;
+  zones_derived: Array<{ modality: ZoneModality; threshold_s: number }>;
+  strength_maxes_written: number;
+  level_recomputed: boolean;
+}
+
+/** One entered value for a store_results slug. */
+export interface BatteryEntry {
+  slug: string;
+  value: number;
+}
+
+/**
+ * Record a calibration test session's results and calibrate. Ownership-scoped:
+ * the assignment MUST belong to the athlete. `source` is 'athlete_test' (the
+ * athlete self-entered on finish) or 'coach_test' (the coach entered it) — the
+ * only difference in the loop, and both win over onboarding_auto/self-declared.
+ */
+export async function recordBatteryResults(params: {
+  athlete_id: number;
+  assignment_id: number;
+  entries: BatteryEntry[];
+  source: TestSource;
+  client?: Sql;
+}): Promise<RecordBatteryResult> {
+  const sql = params.client ?? defaultSql;
+  const { athlete_id, assignment_id, entries, source } = params;
+  const out: RecordBatteryResult = {
+    ok: false,
+    benchmarks_written: 0,
+    zones_derived: [],
+    strength_maxes_written: 0,
+    level_recomputed: false,
+  };
+
+  // Load the assignment's template store_results (ownership-scoped) + the coach.
+  const rows = await sql<{ store_results: unknown; coach_id: string | null }[]>`
+    select t.meta_json -> 'store_results' as store_results,
+           a.coach_id::text as coach_id
+    from workout_assignments wa
+    join templates t on t.id = wa.template_id
+    join athletes a on a.id = wa.athlete_id
+    where wa.id = ${assignment_id} and wa.athlete_id = ${athlete_id}
+    limit 1
+  `;
+  if (!rows[0]) return { ...out, error: 'assignment_not_found' };
+
+  const specsParsed = storeResultsSchema.safeParse(rows[0].store_results ?? []);
+  const specs: StoreResultSpec[] = specsParsed.success ? specsParsed.data : [];
+  if (specs.length === 0) return { ...out, error: 'not_a_test' };
+
+  const specBySlug = new Map(specs.map((s) => [s.slug, s]));
+
+  // Validate every entered slug belongs to THIS test's contract.
+  for (const e of entries) {
+    if (!specBySlug.has(e.slug)) return { ...out, error: 'unknown_slug' };
+  }
+
+  const coach_id = rows[0].coach_id ? Number(rows[0].coach_id) : null;
+
+  // 1) Write every benchmark FIRST (committed on the pool), so the zone
+  //    derivation below reads the just-recorded run_5k/row_2k.
+  const zoneModalities = new Set<ZoneModality>();
+  for (const e of entries) {
+    const spec = specBySlug.get(e.slug)!;
+    if (spec.measure === 'load') {
+      await recordTestBenchmark(sql, {
+        kind: 'strength',
+        athlete_id,
+        exercise_slug: spec.slug,
+        one_rm_kg: e.value,
+        source,
+      });
+    } else {
+      // time-trial (run_5k / row_2k / hyrox_half_sim)
+      await recordTestBenchmark(sql, {
+        kind: 'timetrial',
+        athlete_id,
+        exercise_slug: spec.slug,
+        seconds: e.value,
+        source,
+      });
+    }
+    out.benchmarks_written += 1;
+    if (
+      (spec.derives === 'run_zones' || spec.derives === 'row_zones' || spec.derives === 'ski_zones') &&
+      (spec.modality === 'run' || spec.modality === 'row' || spec.modality === 'ski')
+    ) {
+      zoneModalities.add(spec.modality);
+    }
+  }
+
+  // 2) Strength maxes (versioned projection) for each load entry.
+  for (const e of entries) {
+    const spec = specBySlug.get(e.slug)!;
+    if (spec.measure !== 'load') continue;
+    await insertStrengthMaxVersion(
+      {
+        athlete_id,
+        exercise_slug: spec.slug,
+        one_rm_kg: e.value,
+        source,
+        test_weight_kg: null,
+        test_reps: null,
+        one_rm_method: null,
+        needs_review: false,
+      },
+      sql,
+    );
+    out.strength_maxes_written += 1;
+  }
+
+  // 3) Zone profiles from the freshly-written time-trials (coach model needed).
+  if (zoneModalities.size > 0 && coach_id) {
+    out.zones_derived = await deriveAndStoreTestZones({
+      athlete_id,
+      coach_id,
+      source,
+      modalities: zoneModalities,
+      client: sql,
+    });
+  }
+
+  // 4) Re-run the level suggestion — it re-reads athlete_benchmarks, so the real
+  //    5K/2K/1RM now recolocate the athlete's level from data (never overwrites a
+  //    coach-assigned level; safe to re-run).
+  if (coach_id) {
+    try {
+      await computeAndStoreLevelSuggestion(athlete_id, coach_id);
+      out.level_recomputed = true;
+    } catch {
+      // best-effort: the benchmarks + projections above are the contract.
+    }
+  }
+
+  out.ok = true;
+  return out;
+}
+
+/**
+ * Derive + store zone profiles for the given modalities with a REAL-test source
+ * tag (coach_test / athlete_test), reading the athlete's benchmarks (which now
+ * include the just-written time-trials). Mirrors deriveAndStoreOnboardingZones but
+ * (a) uses the chosen source, (b) needs_review=false (a real test is validated),
+ * (c) scopes to the tested modalities, and (d) always writes a new version (a
+ * real test WINS — that is the point), so no unchanged-skip.
+ */
+async function deriveAndStoreTestZones(params: {
+  athlete_id: number;
+  coach_id: number;
+  source: TestSource;
+  modalities: Set<ZoneModality>;
+  client: Sql;
+}): Promise<Array<{ modality: ZoneModality; threshold_s: number }>> {
+  const { athlete_id, coach_id, source, modalities, client } = params;
+  const inserted: Array<{ modality: ZoneModality; threshold_s: number }> = [];
+
+  const benchRows = await client<{ id: string; exercise_slug: string; value: number }[]>`
+    select id::text as id, exercise_slug, value::float8 as value
+    from athlete_benchmarks
+    where athlete_id = ${athlete_id}
+  `;
+  const benchmarks = athleteBenchmarksFromSlugRows(benchRows);
+
+  const [per500m, perKm] = await Promise.all([
+    loadCoachZonesForUnit(client, coach_id, 'per_500m'),
+    loadCoachZonesForUnit(client, coach_id, 'per_km'),
+  ]);
+
+  const derived = deriveZoneProfilesFromBenchmarks(benchmarks, { per_500m: per500m, per_km: perKm });
+  for (const d of derived) {
+    if (!modalities.has(d.modality)) continue;
+    const anchorId =
+      benchRows.find((r) => r.exercise_slug === ZONE_ANCHOR_SLUG[d.modality])?.id ?? null;
+    await insertZoneProfileVersion(
+      {
+        athlete_id,
+        modality: d.modality,
+        threshold_s: d.threshold_s,
+        pace_unit: d.pace_unit,
+        source_test_slug: null,
+        source_benchmark_id: anchorId,
+        zones: d.zones,
+        source,
+        needs_review: false,
+      },
+      client,
+    );
+    inserted.push({ modality: d.modality, threshold_s: d.threshold_s });
+  }
+  return inserted;
+}
