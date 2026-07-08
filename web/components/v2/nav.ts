@@ -44,9 +44,10 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'negocio' },
   { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'negocio' },
   { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
-  // Método — the framework first, then the reusable library.
+  // Método — the framework first, then the reusable library, then the tests.
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
+  { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
 ] as const;
 
 /** Items belonging to a given group, in declaration order. */
