@@ -58,4 +58,20 @@ describe('deriveInviteLandingState', () => {
       deriveInviteLandingState(descriptor({ cancelled: true, expiresAt: PAST }), NOW),
     ).toBe('cancelled');
   });
+
+  it('returns declined when the invitee declined', () => {
+    expect(deriveInviteLandingState(descriptor({ declined: true }), NOW)).toBe('declined');
+  });
+
+  it('prefers declined over an also-past expiry', () => {
+    expect(
+      deriveInviteLandingState(descriptor({ declined: true, expiresAt: PAST }), NOW),
+    ).toBe('declined');
+  });
+
+  it('prefers cancelled over declined when both are set', () => {
+    expect(
+      deriveInviteLandingState(descriptor({ cancelled: true, declined: true }), NOW),
+    ).toBe('cancelled');
+  });
 });

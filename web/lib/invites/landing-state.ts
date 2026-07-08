@@ -8,10 +8,11 @@
  *   1. no invitation row          → 'invalid'
  *   2. already used               → 'used'
  *   3. explicitly cancelled/revoked → 'cancelled'
- *   4. status 'expired' OR past expiry → 'expired'
- *   5. otherwise (pending, live)  → 'valid'
+ *   4. invitee declined           → 'declined'
+ *   5. status 'expired' OR past expiry → 'expired'
+ *   6. otherwise (pending, live)  → 'valid'
  */
-export type InviteLandingState = 'invalid' | 'expired' | 'cancelled' | 'used' | 'valid';
+export type InviteLandingState = 'invalid' | 'expired' | 'cancelled' | 'declined' | 'used' | 'valid';
 
 /**
  * Normalized descriptor so the partner enum
@@ -23,6 +24,11 @@ export interface InviteStatusDescriptor {
   used: boolean;
   /** cancelled (partner) / revoked (athlete). */
   cancelled: boolean;
+  /**
+   * Invitee explicitly declined (partner only; the athlete claim enum has no
+   * equivalent, so it omits this — treated as false).
+   */
+  declined?: boolean;
   /** status column is literally 'expired'. */
   expiredStatus: boolean;
   /** invitation expiry timestamp. */
@@ -36,6 +42,7 @@ export function deriveInviteLandingState(
   if (!descriptor) return 'invalid';
   if (descriptor.used) return 'used';
   if (descriptor.cancelled) return 'cancelled';
+  if (descriptor.declined) return 'declined';
   if (descriptor.expiredStatus || descriptor.expiresAt.getTime() <= now.getTime()) {
     return 'expired';
   }

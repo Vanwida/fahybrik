@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { InviteLandingCard } from '@/components/invites/InviteLandingCard';
+import { PartnerDeclineLink } from '@/components/invites/PartnerDeclineLink';
 import { partnerRedeemDeepLink } from '@/lib/invites/deeplinks';
 import {
   deriveInviteLandingState,
@@ -38,6 +39,10 @@ const TERMINAL_COPY: Record<
     headline: 'Invitación cancelada',
     body: 'Esta invitación se ha cancelado. Si crees que es un error, pídele a tu compañero/a que vuelva a invitarte.',
   },
+  declined: {
+    headline: 'Invitación rechazada',
+    body: 'Ya has rechazado esta invitación. Si cambias de idea, pídele a tu compañero/a que vuelva a invitarte.',
+  },
   used: {
     headline: 'Invitación ya aceptada',
     body: 'Esta invitación ya se ha usado. Si eres tú, abre FAHYBRID y entra con tu cuenta: ya estás emparejado/a.',
@@ -66,6 +71,7 @@ export default async function PartnerRedeemPage({
     invitation && {
       used: invitation.status === 'accepted',
       cancelled: invitation.status === 'cancelled',
+      declined: invitation.status === 'declined',
       expiredStatus: invitation.status === 'expired',
       expiresAt: invitation.expires_at,
     },
@@ -89,6 +95,7 @@ export default async function PartnerRedeemPage({
       headline={headline}
       body="Modalidad Dobles HYROX. Sin pago: tu compañero/a ya cubre la suscripción compartida. Abre FAHYBRID para aceptar y empezar a entrenar juntos."
       openHref={partnerRedeemDeepLink(token as string)}
+      footer={<PartnerDeclineLink token={token as string} />}
     />
   );
 }

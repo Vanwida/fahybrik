@@ -20,7 +20,9 @@ const EYEBROW = 'FAHYBRID';
 
 // Copy for the terminal / invalid states (no open button).
 const TERMINAL_COPY: Record<
-  Exclude<InviteLandingState, 'valid'>,
+  // `declined` is partner-only (an invitee rejecting a Dobles invite); the
+  // coach→athlete claim flow can never reach it, so it is excluded here.
+  Exclude<InviteLandingState, 'valid' | 'declined'>,
   { headline: string; body: string }
 > = {
   invalid: {
@@ -60,7 +62,9 @@ export default async function AthleteInvitePage({
   );
 
   if (state !== 'valid') {
-    const copy = TERMINAL_COPY[state];
+    // `declined` is partner-only and unreachable from the athlete claim flow
+    // (the descriptor never sets it); fall back to `invalid` defensively.
+    const copy = TERMINAL_COPY[state === 'declined' ? 'invalid' : state];
     return <InviteLandingCard eyebrow={EYEBROW} headline={copy.headline} body={copy.body} />;
   }
 

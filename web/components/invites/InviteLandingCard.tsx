@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { APP_STORE_URL } from '@/lib/invites/deeplinks';
 
 /**
@@ -16,6 +17,8 @@ export interface InviteLandingCardProps {
   /** When present, renders the primary open-in-app button pointing here. */
   openHref?: string | null;
   openLabel?: string;
+  /** Optional slot rendered below the actions (e.g. a discreet decline link). */
+  footer?: ReactNode;
 }
 
 export function InviteLandingCard({
@@ -24,6 +27,7 @@ export function InviteLandingCard({
   body,
   openHref = null,
   openLabel = 'Abrir en FAHYBRID',
+  footer,
 }: InviteLandingCardProps) {
   const hasAppStore = APP_STORE_URL.length > 0;
 
@@ -76,6 +80,8 @@ export function InviteLandingCard({
           </a>
         </p>
       )}
+
+      {footer}
     </section>
   );
 }
