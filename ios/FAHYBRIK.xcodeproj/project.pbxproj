@@ -167,6 +167,7 @@
 		CAB6C7FE963C8303FFBEA934 /* PostWorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */; };
 		CC182D52ABF0025FAF48C849 /* ContinuousLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C7A66E3732F43A168C63FE /* ContinuousLiveView.swift */; };
 		CC96994BB776CA915D0B4AD8 /* ReadinessDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA186FC74A18B3CDD7CDDB /* ReadinessDetailSheet.swift */; };
+		CEA271C9C2482C5722EF1437 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97E9DD607F2BB4B375E00CF4 /* Assets.xcassets */; };
 		CF189219BC59E831BD6806A9 /* Chip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C75141ACA472A805D8158 /* Chip.swift */; };
 		CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0805561D5D522F1427F7A0B9 /* RotatingLiveView.swift */; };
 		D1CCE0FB0BEEEA275FC8AAB3 /* DoblesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4075C7EACC5B3ADAD94F5E5 /* DoblesService.swift */; };
@@ -374,6 +375,7 @@
 		956769F6213FB8DED5CFF4C0 /* WatchHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHaptics.swift; sourceTree = "<group>"; };
 		96510F336429A30BA03E22DD /* FoodSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchView.swift; sourceTree = "<group>"; };
 		97736E2A223554D304876154 /* StrengthOneRMStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrengthOneRMStep.swift; sourceTree = "<group>"; };
+		97E9DD607F2BB4B375E00CF4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutContainer.swift; sourceTree = "<group>"; };
 		9A9DD42611097003D4CA70E1 /* WorkoutFormatHUDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutFormatHUDs.swift; sourceTree = "<group>"; };
 		9BF5B05AC472DDB927040C33 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -606,6 +608,7 @@
 			isa = PBXGroup;
 			children = (
 				70ED32CC78F05C59D50A5449 /* Views */,
+				97E9DD607F2BB4B375E00CF4 /* Assets.xcassets */,
 				558495606B0C684F8A6C044C /* FAHYBRIKWatch.entitlements */,
 				F54687C897D7B426D10F534E /* FAHYBRIKWatchApp.swift */,
 				DC5F9E5EE28C600F66A1DEBF /* Generated-Info.plist */,
@@ -1099,6 +1102,7 @@
 			buildConfigurationList = 33B0FBA5CDB005BA461C07E0 /* Build configuration list for PBXNativeTarget "FAHYBRIKWatch" */;
 			buildPhases = (
 				41D36D46877B88906E98F37E /* Sources */,
+				CBD344BC2898768757B9831D /* Resources */,
 				39E0F981625797028C8271B9 /* Frameworks */,
 			);
 			buildRules = (
@@ -1162,6 +1166,14 @@
 				318E0D1B4D465F961F5288FC /* Localizable.strings in Resources */,
 				F973DC2581E6210245922558 /* Preview Assets.xcassets in Resources */,
 				32BAF189A5EB1C7DCD137E6A /* splash-fahybrid.mp4 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CBD344BC2898768757B9831D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CEA271C9C2482C5722EF1437 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
