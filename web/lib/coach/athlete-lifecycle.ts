@@ -97,8 +97,9 @@ export interface BajaAthleteInput {
   athlete_id: bigint;
   reason: PauseReason;
   coach_id?: bigint | null;
-  /** Authorship (#43): the coach's users.id — stamps athletes.last_edited_by + the
-   *  audit trail so the ficha shows who gave the baja. Distinct from coach_id. */
+  /** Authorship (#43): the coach's users.id — stamps athletes.baja_by_* (its own
+   *  lifecycle-author slot, 0118) + the audit trail so the banner shows who gave the
+   *  baja without touching last_edited_by. Distinct from coach_id. */
   by_user_id?: bigint | null;
 }
 
@@ -291,15 +292,17 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
       throw new LifecycleError('invalid_transition', 'El atleta ya está de baja', 409);
     }
 
-    // Authorship (#43): a baja is a coach edit on the athlete — stamp last_edited_by
-    // inline (no extra UPDATE) so the ficha shows who gave the baja, + the audit trail.
+    // Authorship (#43): a baja is a LIFECYCLE event, not a profile edit — stamp its
+    // OWN baja_by_* columns (0118) inline, next to baja_at/baja_reason, so the banner
+    // shows who gave the baja WITHOUT lighting up the header's "editado por". The
+    // audit trail records it too.
     await tx`
       update athletes
       set lifecycle_status = 'baja',
           baja_at = now(),
           baja_reason = ${input.reason},
-          last_edited_by_user_id = ${input.by_user_id ?? null},
-          last_edited_by_kind = 'coach',
+          baja_by_user_id = ${input.by_user_id ?? null},
+          baja_by_kind = 'coach',
           updated_at = now()
       where id = ${input.athlete_id}
     `;

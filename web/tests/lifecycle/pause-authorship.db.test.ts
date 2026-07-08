@@ -92,7 +92,7 @@ describeWithDb('athlete lifecycle authorship (#43, real DB)', () => {
     expect(detail.paused_by_kind).toBe('coach');
   });
 
-  test('baja stamps last_edited on the athlete + an audit row, and the read returns the author', async () => {
+  test('baja stamps baja_by on the athlete (NOT last_edited) + an audit row, and the read returns the author', async () => {
     const fx = await newAthleteWithNamedCoach('Pablo Gallardo');
 
     await bajaAthlete({
@@ -102,13 +102,17 @@ describeWithDb('athlete lifecycle authorship (#43, real DB)', () => {
       by_user_id: BigInt(fx.coachUserId),
     });
 
-    // 1) The athlete row carries the last-edited stamp (the baja actor).
-    const ath = await sql<{ by: string | null; kind: string | null }[]>`
-      select last_edited_by_user_id::text as by, last_edited_by_kind::text as kind
+    // 1) The athlete row carries the baja-author stamp in its OWN column — and the
+    //    profile-edit slot (last_edited_by) is left untouched, so the ficha header's
+    //    "editado por" does NOT light up on a baja.
+    const ath = await sql<{ by: string | null; kind: string | null; edited: string | null }[]>`
+      select baja_by_user_id::text as by, baja_by_kind::text as kind,
+             last_edited_by_user_id::text as edited
       from athletes where id = ${fx.athleteId}
     `;
     expect(BigInt(ath[0]!.by!)).toBe(BigInt(fx.coachUserId));
     expect(ath[0]!.kind).toBe('coach');
+    expect(ath[0]!.edited).toBeNull();
 
     // 2) An audit_log row records the baja (update on the athlete, coach).
     const audit = await sql<{ kind: string | null; by: string | null }[]>`

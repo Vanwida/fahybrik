@@ -93,7 +93,7 @@ export async function loadAthleteLifecycleDetail(params: {
     -- Authorship (#43): the pause opener + the coach who gave the baja (the baja is
     -- the athlete's last edit — athletes.last_edited_by → the actor of the baja).
     left join users pu on pu.id = cp.created_by_user_id
-    left join users bu on bu.id = a.last_edited_by_user_id
+    left join users bu on bu.id = a.baja_by_user_id
     left join lateral (
       -- The PENDING athlete-initiated pause request, if any (at most one per athlete).
       select id, reason
