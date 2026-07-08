@@ -23,8 +23,10 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type { AppointmentStatus } from '@fahybrid/shared/domain/citas/status';
+import type { CitaModality } from '@fahybrid/shared/schema';
 import type { CitaEmailResult } from './email';
 import { sendCitaReminderEmail } from './reminder-email';
+import { getStudioLocation } from './store';
 
 const HOUR_MS = 60 * 60 * 1000;
 // Window edges around the T-24h target. 23h–25h = ±1h so the hourly cron always covers it.
@@ -41,6 +43,8 @@ interface CandidateRow {
   // Field names kept as lead_* so sendCitaReminderEmail's input shape is unchanged.
   lead_email: string;
   lead_nombre: string | null;
+  // #40: video → Meet reminder; presencial → address reminder. Reviews are always 'video'.
+  modality: CitaModality;
 }
 
 export interface SendDueCitaRemindersResult {
@@ -65,6 +69,8 @@ export interface SendDueCitaRemindersParams {
     meet_link: string | null;
     lead_email: string;
     lead_nombre: string | null;
+    modality: CitaModality;
+    location?: { name: string | null; address: string | null } | null;
   }) => Promise<CitaEmailResult>;
 }
 
@@ -79,7 +85,7 @@ export async function sendDueCitaReminders(
   const to = new Date(now.getTime() + WINDOW_MAX_HOURS * HOUR_MS);
 
   const candidates = await client<CandidateRow[]>`
-    select a.id::text as id, a.requested_start, a.meet_link,
+    select a.id::text as id, a.requested_start, a.meet_link, a.modality::text as modality,
            coalesce(l.email, u.email)      as lead_email,
            coalesce(l.nombre, ath.full_name) as lead_nombre
     from appointments a
@@ -93,6 +99,12 @@ export async function sendDueCitaReminders(
       and a.requested_start <  ${to.toISOString()}::timestamptz
     order by a.requested_start asc
   `;
+
+  // #40: the presencial address is coach-global (single-coach) — load it ONCE and reuse for
+  // every presencial reminder in this batch. Null for a video-only batch (or no coach row).
+  const studioLocation = candidates.some((c) => c.modality === 'presencial')
+    ? await getStudioLocation()
+    : null;
 
   let sent = 0;
   let skipped = 0;
@@ -117,6 +129,8 @@ export async function sendDueCitaReminders(
         meet_link: c.meet_link,
         lead_email: c.lead_email,
         lead_nombre: c.lead_nombre,
+        modality: c.modality,
+        location: c.modality === 'presencial' ? studioLocation : null,
       });
     } catch {
       // A thrown error (e.g. Zod on a malformed row) is treated as a failed send.

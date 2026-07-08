@@ -157,6 +157,47 @@
 /* ── Picker ────────────────────────────────────────────────────────────── */
 .bk { width: 100%; }
 
+/* ── Modality toggle (#40): 📹 Videollamada / 📍 Presencial ─────────────────
+   Segmented control on the near-black canvas: a hairline pill track with the
+   active option filled in Fabrik orange. */
+.bk-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+}
+.bk-seg-opt {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 10px 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background 0.16s var(--bk-ease), color 0.16s var(--bk-ease);
+}
+.bk-seg-opt:hover { color: var(--fg); }
+.bk-seg-opt.is-active { background: var(--accent); color: var(--accent-on); }
+.bk-seg-opt.is-active:hover { color: var(--accent-on); }
+.bk-seg-opt:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+.bk-seg-opt[disabled] { cursor: default; opacity: 0.7; }
+.bk-seg-ic { font-size: 15px; line-height: 1; }
+
 .bk-loading {
   color: var(--muted);
   font-size: 15px;
@@ -320,6 +361,6 @@
 @keyframes bk-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .bk-chip, .bk-btn { transition: none !important; }
+  .bk-chip, .bk-btn, .bk-seg-opt { transition: none !important; }
   .bk-spinner { animation-duration: 1.4s; }
 }

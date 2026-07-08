@@ -1,13 +1,19 @@
 'use client';
 
-// FAHYBRID — public videollamada booking picker (funnel #2). Reusable across the
-// standalone public page (/{locale}/cita/{token}) and the onboarding final screen.
+// FAHYBRID — public booking picker (funnel #2). Reusable across the standalone
+// public page (/{locale}/cita/{token}) and the onboarding final screen.
 //
-// The token IS the credential: on mount it fetches the public booking context and
-// then renders exactly one of four honest states — an existing appointment's
-// status, a live slot picker, a booked-confirmation, or the "Pablo te escribirá"
-// fallback (NEVER an empty calendar). All times are Europe/Madrid, formatted for
-// humans with Intl es-ES. Backend contract is fixed; this only reads/writes it.
+// The token IS the credential: on mount it fetches the public booking context
+// and then renders exactly one of four honest states — an existing
+// appointment's status, a live slot picker, a booked-confirmation, or the
+// "Pablo te escribirá" fallback (NEVER an empty calendar). All times are
+// Europe/Madrid, formatted for humans with Intl es-ES. Backend contract is
+// fixed; this only reads/writes it.
+//
+// #40 — the lead first chooses HOW: 📹 Videollamada (Google Meet) or 📍
+// Presencial (en el box). A segmented control at the top drives which schedule's
+// slots are shown; switching re-fetches the context for that modality and the
+// booking POST carries the choice. Copy adapts per modality (link vs address).
 
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowIcon } from '@/components/onboarding/icons';
@@ -21,6 +27,12 @@ type AppointmentStatus =
   | 'cancelada'
   | 'completada'
   | 'no_show';
+
+// How the call happens. Drives which schedule's slots the context returns and
+// which copy the confirmation shows. Default is video (matches the API's
+// no-param default).
+type Modality = 'video' | 'presencial';
+const DEFAULT_MODALITY: Modality = 'video';
 
 interface Appointment {
   id: string;
@@ -57,6 +69,18 @@ interface BookingSlotPickerProps {
   className?: string;
 }
 
+// ── Modality-dependent copy (single source; no strings scattered inline) ──────
+const MEET_CTA = 'Unirme a la videollamada';
+// Shown once a call is booked. video → the Meet link is emailed; presencial →
+// the box address is emailed (there is no Meet link for a presencial session).
+const VIDEO_LINK_NOTE = 'Te hemos enviado el email con el enlace de la videollamada.';
+const ADDRESS_NOTE = 'Te hemos enviado el email con la dirección del box.';
+// Reassurance under the "¿Reservar el …?" confirmation, before they confirm.
+const CONFIRM_NOTE: Record<Modality, string> = {
+  video: 'Reservas y listo — te llega el email con el enlace de la videollamada.',
+  presencial: 'Reservas tu sesión presencial — te llega el email con la dirección del box.',
+};
+
 // ── Time formatting — all human-facing times are Europe/Madrid ────────────────
 const TZ = 'Europe/Madrid';
 const LOCALE = 'es-ES';
@@ -90,17 +114,36 @@ function formatFecha(iso: string): string {
 }
 
 // ── Network (pure — returns data, never touches React state) ──────────────────
-/** GET the public booking context. Returns null on any non-OK / network error. */
-async function fetchBookingContext(token: string): Promise<BookingContext | null> {
+/**
+ * GET the public booking context for a given modality. The returned `slots` are
+ * the bookable slots FOR THAT MODALITY. Returns null on any non-OK / network
+ * error.
+ */
+async function fetchBookingContext(
+  token: string,
+  modality: Modality,
+): Promise<BookingContext | null> {
   try {
-    const res = await fetch(`/api/citas/context/${encodeURIComponent(token)}`, {
-      headers: { Accept: 'application/json' },
-    });
+    const res = await fetch(
+      `/api/citas/context/${encodeURIComponent(token)}?modality=${modality}`,
+      { headers: { Accept: 'application/json' } },
+    );
     if (!res.ok) return null;
     return (await res.json()) as BookingContext;
   } catch {
     return null;
   }
+}
+
+// ── Small shared piece: the "join the call" button (video, with a meet link) ──
+function MeetButton({ href }: { href: string }) {
+  return (
+    <div className="bk-actions">
+      <a className="bk-btn" href={href} target="_blank" rel="noopener noreferrer">
+        {MEET_CTA} <ArrowIcon />
+      </a>
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -111,6 +154,14 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
   const [posting, setPosting] = useState(false);
   const [booked, setBooked] = useState<Appointment | null>(null);
   const [bookError, setBookError] = useState<string | null>(null);
+  // The chosen call type. `switching` is true only while re-fetching after the
+  // lead toggles modality — it keeps the segmented control up and shows an
+  // inline "Cargando huecos…" without dropping to the bare initial-load state.
+  const [modality, setModality] = useState<Modality>(DEFAULT_MODALITY);
+  const [switching, setSwitching] = useState(false);
+  // The appointment/booked objects don't carry modality, so we remember what the
+  // lead chose to word the just-booked confirmation correctly.
+  const [bookedModality, setBookedModality] = useState<Modality>(DEFAULT_MODALITY);
 
   // Apply a fetched context (or an error) to state. Never called synchronously
   // from an effect body — only after an await / from an event handler.
@@ -123,23 +174,38 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
     }
   }, []);
 
-  // Load on mount. Inline async IIFE with setState AFTER the await (the codebase
-  // idiom) so it never triggers a synchronous-setState-in-effect.
+  // Load (and reload) the context. Keyed on the token AND the chosen modality:
+  // toggling modality changes `modality`, which re-runs this to fetch that
+  // schedule's slots. setState happens AFTER the await (the codebase idiom) so
+  // it never triggers a synchronous-setState-in-effect.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const data = await fetchBookingContext(token);
-      if (!cancelled) applyContext(data);
+      const data = await fetchBookingContext(token, modality);
+      if (cancelled) return;
+      applyContext(data);
+      setSwitching(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [token, applyContext]);
+  }, [token, modality, applyContext]);
 
-  // User-triggered retry from the error state.
+  // User-triggered retry from the error state (re-fetches the current modality).
   const retry = async () => {
     setPhase('loading');
-    applyContext(await fetchBookingContext(token));
+    applyContext(await fetchBookingContext(token, modality));
+  };
+
+  // Switch modality → the effect above re-fetches that schedule's slots. We drop
+  // any pending selection/error and flag `switching` so the toggle stays and an
+  // inline loader shows during the refetch.
+  const switchModality = (next: Modality) => {
+    if (next === modality || switching || posting) return;
+    setSelected(null);
+    setBookError(null);
+    setSwitching(true);
+    setModality(next);
   };
 
   const chooseSlot = (slot: Slot) => {
@@ -155,10 +221,11 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
       const res = await fetch('/api/citas/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, start: selected.start, website: '' }),
+        body: JSON.stringify({ token, start: selected.start, website: '', modality }),
       });
       if (res.status === 201) {
         const data = (await res.json()) as { ok: true; appointment: Appointment };
+        setBookedModality(modality);
         setBooked(data.appointment);
         setSelected(null);
         return;
@@ -175,7 +242,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
       setSelected(null);
       setBookError(message);
       // Re-sync availability without a jarring loading flash (picker stays up).
-      applyContext(await fetchBookingContext(token));
+      applyContext(await fetchBookingContext(token, modality));
     } catch {
       setBookError('No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
@@ -184,6 +251,12 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
   };
 
   const rootClass = ['bk', `bk--${variant}`, className].filter(Boolean).join(' ');
+
+  // The modality choice only makes sense while the lead is actually picking a
+  // slot — never once they have a cita (booked / active) or are waitlisted, and
+  // not during the very first load (we don't yet know which of those they're in).
+  const showToggle =
+    phase === 'ready' && !booked && !ctx?.waitlisted && !ctx?.active_appointment;
 
   // ── Render: exactly one honest state ───────────────────────────────────────
   let content: React.ReactNode;
@@ -205,8 +278,16 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         </button>
       </div>
     );
+  } else if (switching) {
+    // Refetching after a modality toggle — the segmented control stays above this.
+    content = (
+      <p className="bk-loading" role="status">
+        Cargando huecos…
+      </p>
+    );
   } else if (booked) {
     // Just booked in this session — auto-accepted, so it's confirmed on the spot.
+    // We know the modality (from state) → word it exactly.
     content = (
       <div className="bk-card bk-card--accent" role="status">
         <span className="bk-card-eyebrow">
@@ -215,14 +296,12 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         <p className="bk-card-title">
           Cita confirmada: <strong>{formatFecha(booked.requested_start)}</strong>.
         </p>
-        {booked.meet_link ? (
-          <div className="bk-actions">
-            <a className="bk-btn" href={booked.meet_link} target="_blank" rel="noopener noreferrer">
-              Unirme a la videollamada <ArrowIcon />
-            </a>
-          </div>
+        {bookedModality === 'presencial' ? (
+          <p className="bk-card-note">{ADDRESS_NOTE}</p>
+        ) : booked.meet_link ? (
+          <MeetButton href={booked.meet_link} />
         ) : (
-          <p className="bk-card-note">Te hemos enviado el email con el enlace de la videollamada.</p>
+          <p className="bk-card-note">{VIDEO_LINK_NOTE}</p>
         )}
       </div>
     );
@@ -244,6 +323,9 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
   } else if (ctx?.active_appointment) {
     const appt = ctx.active_appointment;
     if (appt.status === 'aceptada') {
+      // A returning lead's confirmed cita. We don't know its modality, so we use
+      // the meet_link as the tell: present → video (join button); absent →
+      // presencial, the address is in the email.
       content = (
         <div className="bk-card bk-card--accent">
           <span className="bk-card-eyebrow">
@@ -253,18 +335,9 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
             Cita confirmada para el <strong>{formatFecha(appt.requested_start)}</strong>.
           </p>
           {appt.meet_link ? (
-            <div className="bk-actions">
-              <a
-                className="bk-btn"
-                href={appt.meet_link}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Unirme a la videollamada <ArrowIcon />
-              </a>
-            </div>
+            <MeetButton href={appt.meet_link} />
           ) : (
-            <p className="bk-card-note">El enlace te llegará antes de la cita.</p>
+            <p className="bk-card-note">{ADDRESS_NOTE}</p>
           )}
         </div>
       );
@@ -289,7 +362,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         <p className="bk-card-title">
           ¿Reservar el <strong>{formatFecha(selected.start)}</strong>?
         </p>
-        <p className="bk-card-note">Reservas y listo — te llega el email con el enlace de la videollamada.</p>
+        <p className="bk-card-note">{CONFIRM_NOTE[modality]}</p>
         <div className="bk-actions">
           <button
             type="button"
@@ -353,7 +426,8 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
       </>
     );
   } else {
-    // Honest fallback — no configured availability. Never an empty calendar.
+    // Honest fallback — no configured availability for this modality. Never an
+    // empty calendar. (The lead can still toggle back to the other modality.)
     content = (
       <div className="bk-card">
         <p className="bk-card-title">Pablo te escribirá para cuadrar tu llamada.</p>
@@ -362,7 +436,33 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
     );
   }
 
-  return <div className={rootClass}>{content}</div>;
+  return (
+    <div className={rootClass}>
+      {showToggle ? (
+        <div className="bk-seg" role="group" aria-label="Tipo de cita">
+          {(['video', 'presencial'] as const).map((m) => {
+            const active = modality === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                className={`bk-seg-opt${active ? ' is-active' : ''}`}
+                aria-pressed={active}
+                disabled={switching || posting}
+                onClick={() => switchModality(m)}
+              >
+                <span className="bk-seg-ic" aria-hidden="true">
+                  {m === 'video' ? '📹' : '📍'}
+                </span>
+                {m === 'video' ? 'Videollamada' : 'Presencial'}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {content}
+    </div>
+  );
 }
 
 export default BookingSlotPicker;

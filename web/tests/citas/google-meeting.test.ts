@@ -88,6 +88,7 @@ describe('createMeeting — not connected', () => {
       durationMinutes: 30,
       leadEmail: 'lead@example.com',
       leadName: 'Ana Ruiz',
+      modality: 'video',
     });
 
     expect(result).toEqual({ meet_link: null });
@@ -105,6 +106,7 @@ describe('createMeeting — not connected', () => {
       durationMinutes: 30,
       leadEmail: 'lead@example.com',
       leadName: null,
+      modality: 'video',
     });
 
     expect(result.meet_link).toBeNull();
@@ -122,6 +124,7 @@ describe('createMeeting — connected', () => {
       durationMinutes: 30,
       leadEmail: 'lead@example.com',
       leadName: 'Ana Ruiz',
+      modality: 'video',
     });
 
     // Meet link parsed + event id returned for the cancel-hook.
@@ -172,6 +175,7 @@ describe('createMeeting — connected', () => {
       durationMinutes: 30,
       leadEmail: 'lead@example.com',
       leadName: 'Ana Ruiz',
+      modality: 'video',
     });
 
     expect(result).toEqual({ meet_link: null });

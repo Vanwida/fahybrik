@@ -191,6 +191,36 @@ export async function createCalendarEventWithMeet(
   return { event_id: data.id, meet_link: extractMeetLink(data) };
 }
 
+/**
+ * #40: create a Calendar event WITHOUT a Meet conference but WITH a physical `location`
+ * (presencial cita). Same calendar as the Meet path; no conferenceData / conferenceDataVersion.
+ * Returns the event id (for the cancel-hook delete) and meet_link:null — presencial never
+ * has a Meet link. Mirrors createCalendarEventWithMeet: no sendUpdates (the Resend
+ * confirmation email is the single notification), attendees added silently.
+ */
+export async function createCalendarEventInPerson(
+  input: CreateCalendarEventInput & { location: string },
+): Promise<{ event_id: string; meet_link: null }> {
+  const accessToken = await getAccessToken();
+  const url = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId())}/events`;
+  const body = {
+    summary: input.summary,
+    ...(input.description ? { description: input.description } : {}),
+    location: input.location,
+    start: { dateTime: input.startIso },
+    end: { dateTime: input.endIso },
+    attendees: input.attendeeEmails.map((email) => ({ email })),
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`google calendar event insert failed: ${res.status}`);
+  const data = (await res.json()) as { id: string };
+  return { event_id: data.id, meet_link: null };
+}
+
 function extractMeetLink(data: {
   hangoutLink?: string;
   conferenceData?: { entryPoints?: Array<{ entryPointType?: string; uri?: string }> };

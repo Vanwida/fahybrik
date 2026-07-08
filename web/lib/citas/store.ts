@@ -20,6 +20,7 @@ import {
   type AvailabilityWindow,
   type DaySlots,
 } from '@fahybrid/shared/domain/citas/slots';
+import type { CitaModality } from '@fahybrid/shared/schema';
 
 export class CitasError extends Error {
   constructor(
@@ -33,10 +34,13 @@ export class CitasError extends Error {
 }
 
 // ── Slot computation ─────────────────────────────────────────────────────────────
-async function loadAvailabilityWindows(): Promise<AvailabilityWindow[]> {
+// #40: slots are computed against ONE of the two independent schedules (video |
+// presencial). Only the windows of the requested modality feed the offered slots; the two
+// schedules can overlap freely (a video window and a presencial window at the same hour).
+async function loadAvailabilityWindows(modality: CitaModality): Promise<AvailabilityWindow[]> {
   const rows = await sql<{ weekday: number; start_time: string; end_time: string }[]>`
     select weekday, to_char(start_time, 'HH24:MI') as start_time, to_char(end_time, 'HH24:MI') as end_time
-    from coach_availability where activo
+    from coach_availability where activo and modality = ${modality}::appointment_modality
   `;
   return rows;
 }
@@ -55,10 +59,12 @@ async function loadBusyStartMs(): Promise<Set<number>> {
   return new Set(rows.map((r) => r.start.getTime()));
 }
 
-/** The bookable slots for the next 14 days (empty = no availability → UI fallback). */
-export async function computeSlots(now: Date = new Date()): Promise<DaySlots[]> {
+/** The bookable slots for the next 14 days in the given modality's schedule (empty = no
+ *  availability → UI fallback). Occupancy is AGNOSTIC: busyStartMs is ALL active
+ *  appointments regardless of modality (the coach can't be in two places at once). */
+export async function computeSlots(modality: CitaModality, now: Date = new Date()): Promise<DaySlots[]> {
   const [availability, blockedDates, busyStartMs] = await Promise.all([
-    loadAvailabilityWindows(),
+    loadAvailabilityWindows(modality),
     loadBlockedDates(),
     loadBusyStartMs(),
   ]);
@@ -77,6 +83,8 @@ export interface AppointmentView {
   duration_minutes: number;
   status: AppointmentStatus;
   meet_link: string | null;
+  /** #40: videollamada (Meet) o presencial (en el box). */
+  modality: CitaModality;
 }
 export interface BookingContext {
   lead: BookingLead;
@@ -103,9 +111,10 @@ async function leadByToken(token: string): Promise<LeadBookingRow | null> {
 
 async function activeAppointmentFor(leadId: string): Promise<AppointmentView | null> {
   const rows = await sql<
-    { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null }[]
+    { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null; modality: CitaModality }[]
   >`
-    select id::text as id, requested_start, duration_minutes, status::text as status, meet_link
+    select id::text as id, requested_start, duration_minutes, status::text as status, meet_link,
+           modality::text as modality
     from appointments
     where lead_id = ${Number(leadId)} and status in ('pendiente', 'aceptada')
     order by requested_start asc limit 1
@@ -118,12 +127,18 @@ async function activeAppointmentFor(leadId: string): Promise<AppointmentView | n
         duration_minutes: a.duration_minutes,
         status: a.status,
         meet_link: a.meet_link,
+        modality: a.modality,
       }
     : null;
 }
 
-/** Public booking page data for a token. Throws CitasError(404) on a bad token. */
-export async function getBookingContext(token: string, now: Date = new Date()): Promise<BookingContext> {
+/** Public booking page data for a token. Throws CitasError(404) on a bad token.
+ *  #40: slots are computed for the requested modality's schedule (video | presencial). */
+export async function getBookingContext(
+  token: string,
+  modality: CitaModality,
+  now: Date = new Date(),
+): Promise<BookingContext> {
   const row = await leadByToken(token);
   if (!row) throw new CitasError('not_found', 'Enlace no válido', 404);
   const lead: BookingLead = { id: row.id, nombre: row.nombre, email: row.email };
@@ -131,7 +146,7 @@ export async function getBookingContext(token: string, now: Date = new Date()): 
   const active = await activeAppointmentFor(lead.id);
   // No slots when they already have an active appointment OR they're waitlisted-unreleased
   // (mirrors the existing empty-slots fallback the UI already renders).
-  const slots = active || waitlisted ? [] : await computeSlots(now);
+  const slots = active || waitlisted ? [] : await computeSlots(modality, now);
   return { lead, active_appointment: active, slots, waitlisted };
 }
 
@@ -149,6 +164,9 @@ export interface BookResult {
 export async function bookAppointment(args: {
   token: string;
   startIso: string;
+  /** #40: the modality the lead picked — stored on the appointment and used to re-check the
+   *  slot against that schedule. Occupancy stays agnostic (any active cita blocks the hour). */
+  modality: CitaModality;
   now?: Date;
 }): Promise<BookResult> {
   const now = args.now ?? new Date();
@@ -166,7 +184,7 @@ export async function bookAppointment(args: {
   const startMs = Date.parse(args.startIso);
   if (Number.isNaN(startMs)) throw new CitasError('invalid_slot', 'Hueco no válido', 400);
 
-  const slots = await computeSlots(now);
+  const slots = await computeSlots(args.modality, now);
   if (!isOfferedSlot(slots, startMs)) {
     throw new CitasError('slot_unavailable', 'Ese hueco ya no está disponible', 409);
   }
@@ -194,11 +212,12 @@ export async function bookAppointment(args: {
       }
 
       const rows = await tx<
-        { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null }[]
+        { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null; modality: CitaModality }[]
       >`
-        insert into appointments (lead_id, requested_start, duration_minutes, status)
-        values (${Number(lead.id)}, ${startIso}, 30, 'aceptada')
-        returning id::text as id, requested_start, duration_minutes, status::text as status, meet_link
+        insert into appointments (lead_id, requested_start, duration_minutes, status, modality)
+        values (${Number(lead.id)}, ${startIso}, 30, 'aceptada', ${args.modality}::appointment_modality)
+        returning id::text as id, requested_start, duration_minutes, status::text as status, meet_link,
+                  modality::text as modality
       `;
       const a = rows[0];
 
@@ -216,6 +235,7 @@ export async function bookAppointment(args: {
           duration_minutes: a.duration_minutes,
           status: a.status,
           meet_link: a.meet_link,
+          modality: a.modality,
         },
         lead,
         created: true,
@@ -235,9 +255,10 @@ export async function bookAppointment(args: {
  *  else the most recent. Null when the lead never booked. */
 export async function latestAppointmentForLead(leadId: bigint): Promise<AppointmentView | null> {
   const rows = await sql<
-    { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null }[]
+    { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null; modality: CitaModality }[]
   >`
-    select id::text as id, requested_start, duration_minutes, status::text as status, meet_link
+    select id::text as id, requested_start, duration_minutes, status::text as status, meet_link,
+           modality::text as modality
     from appointments
     where lead_id = ${Number(leadId)}
     order by (status in ('pendiente', 'aceptada')) desc, requested_start desc
@@ -251,6 +272,7 @@ export async function latestAppointmentForLead(leadId: bigint): Promise<Appointm
         duration_minutes: a.duration_minutes,
         status: a.status,
         meet_link: a.meet_link,
+        modality: a.modality,
       }
     : null;
 }
@@ -267,6 +289,8 @@ export interface UpcomingCall {
   requested_start: string;
   duration_minutes: number;
   meet_link: string | null;
+  /** #40: videollamada (Meet) o presencial (en el box). */
+  modality: CitaModality;
 }
 
 /** Accepted calls in the next ~48h (today/tomorrow) — folded into the sidebar badge.
@@ -294,11 +318,12 @@ export async function listUpcomingCalls(): Promise<UpcomingCall[]> {
       requested_start: Date;
       duration_minutes: number;
       meet_link: string | null;
+      modality: CitaModality;
     }[]
   >`
     select a.id::text as id, a.lead_id::text as lead_id, l.nombre as lead_nombre,
            l.email as lead_email, l.token as lead_token,
-           a.requested_start, a.duration_minutes, a.meet_link
+           a.requested_start, a.duration_minutes, a.meet_link, a.modality::text as modality
     from appointments a join leads l on l.id = a.lead_id
     where a.status = 'aceptada' and a.requested_start >= now()
     order by a.requested_start asc
@@ -332,6 +357,7 @@ async function appointmentWithLead(id: bigint): Promise<AppointmentWithLead | nu
       duration_minutes: number;
       status: AppointmentStatus;
       meet_link: string | null;
+      modality: CitaModality;
       coach_note: string | null;
       google_event_id: string | null;
     }[]
@@ -339,7 +365,7 @@ async function appointmentWithLead(id: bigint): Promise<AppointmentWithLead | nu
     select a.id::text as id, a.lead_id::text as lead_id, l.nombre as lead_nombre,
            l.email as lead_email, l.token as lead_token,
            a.requested_start, a.duration_minutes, a.status::text as status, a.meet_link,
-           a.coach_note, a.google_event_id
+           a.modality::text as modality, a.coach_note, a.google_event_id
     from appointments a join leads l on l.id = a.lead_id
     where a.id = ${Number(id)} limit 1
   `;
@@ -355,6 +381,7 @@ async function appointmentWithLead(id: bigint): Promise<AppointmentWithLead | nu
         duration_minutes: a.duration_minutes,
         status: a.status,
         meet_link: a.meet_link,
+        modality: a.modality,
         coach_note: a.coach_note,
         google_event_id: a.google_event_id,
       }
@@ -440,12 +467,40 @@ export async function setAppointmentMeetLink(args: {
   return updated;
 }
 
+/** Persist ONLY the Google Calendar event id (no meet_link) — the presencial path, where a
+ *  calendar event is created with a location but no Meet room. Lets the cancel-hook delete
+ *  the event later. Idempotent (coalesce keeps an existing id if we pass null). */
+export async function setAppointmentGoogleEventId(id: bigint, google_event_id: string): Promise<void> {
+  await sql`
+    update appointments
+      set google_event_id = coalesce(${google_event_id}, google_event_id), updated_at = now()
+    where id = ${Number(id)}
+  `;
+}
+
+/** #40: the presencial location, reused from the coach profile (no new column). Single-coach:
+ *  prefer the coach who has ACTUALLY configured a studio (name or address set) so it reads the
+ *  real one even if other/demo coach rows exist; fall back to the lowest id otherwise. Multi-coach
+ *  adds a coach_id filter here. Null when no coach row exists; name/address individually null when
+ *  the profile field is unset. */
+export async function getStudioLocation(): Promise<{ name: string | null; address: string | null } | null> {
+  const rows = await sql<{ studio_name: string | null; location: string | null }[]>`
+    select studio_name, location from coaches
+    order by (studio_name is not null or location is not null) desc, id asc
+    limit 1
+  `;
+  const c = rows[0];
+  return c ? { name: c.studio_name, address: c.location } : null;
+}
+
 // ── Availability (coach) ─────────────────────────────────────────────────────────
 export interface AvailabilityRow {
   id: string;
   weekday: number;
   start_time: string;
   end_time: string;
+  /** #40: which of the two independent schedules this window belongs to. */
+  modality: CitaModality;
 }
 export interface ExceptionRow {
   id: string;
@@ -456,8 +511,8 @@ export interface ExceptionRow {
 export async function getAvailability(): Promise<{ windows: AvailabilityRow[]; exceptions: ExceptionRow[] }> {
   const windows = await sql<AvailabilityRow[]>`
     select id::text as id, weekday, to_char(start_time, 'HH24:MI') as start_time,
-           to_char(end_time, 'HH24:MI') as end_time
-    from coach_availability where activo order by weekday, start_time
+           to_char(end_time, 'HH24:MI') as end_time, modality::text as modality
+    from coach_availability where activo order by modality, weekday, start_time
   `;
   const exceptions = await sql<{ id: string; fecha: Date; motivo: string | null }[]>`
     select id::text as id, fecha, motivo from coach_availability_exceptions
@@ -473,14 +528,18 @@ export async function getAvailability(): Promise<{ windows: AvailabilityRow[]; e
   };
 }
 
-/** Replace the FULL weekly availability with the given windows (transactional). */
-export async function setAvailability(windows: { weekday: number; start_time: string; end_time: string }[]): Promise<void> {
+/** Replace the FULL weekly availability with the given windows (transactional). Each window
+ *  carries its modality (#40): the two schedules (video | presencial) are stored in the same
+ *  table and can overlap (two rows at the same time, one per modality). */
+export async function setAvailability(
+  windows: { weekday: number; start_time: string; end_time: string; modality: CitaModality }[],
+): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`delete from coach_availability`;
     for (const w of windows) {
       await tx`
-        insert into coach_availability (weekday, start_time, end_time, activo)
-        values (${w.weekday}, ${w.start_time}, ${w.end_time}, true)
+        insert into coach_availability (weekday, start_time, end_time, activo, modality)
+        values (${w.weekday}, ${w.start_time}, ${w.end_time}, true, ${w.modality}::appointment_modality)
       `;
     }
   });

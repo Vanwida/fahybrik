@@ -3,6 +3,7 @@
 // rate-limited. Never exposes the numeric id.
 
 import type { NextResponse } from 'next/server';
+import { citaModality } from '@fahybrid/shared/schema';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { CitasError, getBookingContext } from '@/lib/citas/store';
@@ -22,8 +23,14 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse> {
   const { token } = await ctx.params;
   if (!token || token.length < 10) return jsonError('invalid_token', 'Enlace no válido', 400);
 
+  // #40: ?modality=video|presencial selects which schedule's slots to compute. Default video
+  // (backward-compat with any old client); an invalid value falls back to video, never 400.
+  const modalityParam = new URL(req.url).searchParams.get('modality');
+  const parsedModality = citaModality.safeParse(modalityParam);
+  const modality = parsedModality.success ? parsedModality.data : 'video';
+
   try {
-    const context = await getBookingContext(token);
+    const context = await getBookingContext(token, modality);
     // Only expose the lead's first name publicly (no email/phone/id on this endpoint).
     const first = (context.lead.nombre ?? '').trim().split(/\s+/)[0] ?? '';
     return jsonOk({

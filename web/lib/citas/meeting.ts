@@ -16,7 +16,8 @@
 // is already generic (keys on google_event_id), so it covers both.
 
 import { getGoogleRefreshToken } from './google-tokens';
-import { createCalendarEventWithMeet } from './google';
+import { createCalendarEventWithMeet, createCalendarEventInPerson } from './google';
+import type { CitaModality } from '@fahybrid/shared/schema';
 
 // Fallback co-attendee (coach inbox) if LEADS_NOTIFY_EMAIL isn't set.
 const COACH_NOTIFY_FALLBACK = 'hello@fahybrid.com';
@@ -41,6 +42,10 @@ async function createAttendeeMeeting(args: {
   durationMinutes: number;
   /** Event title, e.g. "Videollamada FAHYBRID · Ana" or "Revisión FAHYBRID · Ana". */
   summary: string;
+  /** #40: video → Calendar event with a Meet room; presencial → event with a location, no Meet. */
+  modality: CitaModality;
+  /** #40: presencial address string (box name + street). Ignored for video. */
+  location?: string | null;
 }): Promise<MeetingResult> {
   // Connected only if a coach completed the one-shot Google connect. Any DB hiccup here
   // must not break the accept/book flow → treat as "not connected".
@@ -50,12 +55,29 @@ async function createAttendeeMeeting(args: {
   } catch {
     return { meet_link: null };
   }
+  // Not connected: no calendar event either way. Presencial still shows its address in the
+  // email (the caller passes the location there regardless of Google).
   if (!refreshToken) return { meet_link: null };
 
   const end = new Date(args.start.getTime() + args.durationMinutes * 60 * 1000);
   const coachNotify = process.env.LEADS_NOTIFY_EMAIL ?? COACH_NOTIFY_FALLBACK;
 
   try {
+    // Presencial: a Calendar event WITH the location and NO Meet — but only if we actually
+    // have an address to put on it. No address → no event, null link (the manual-paste path).
+    if (args.modality === 'presencial') {
+      if (!args.location) return { meet_link: null };
+      const { event_id } = await createCalendarEventInPerson({
+        summary: args.summary,
+        startIso: args.start.toISOString(),
+        endIso: end.toISOString(),
+        attendeeEmails: [args.attendee.email, coachNotify],
+        location: args.location,
+      });
+      // meet_link stays null (presencial); event_id persisted by the caller for the cancel-hook.
+      return { meet_link: null, event_id };
+    }
+
     const { event_id, meet_link } = await createCalendarEventWithMeet({
       summary: args.summary,
       startIso: args.start.toISOString(),
@@ -78,15 +100,27 @@ export interface MeetingRequest {
   durationMinutes: number;
   leadEmail: string;
   leadName: string | null;
+  /** #40: video (Meet) o presencial (evento con location, sin Meet). */
+  modality: CitaModality;
+  /** #40: presencial address string (box name + street). Ignored for video. */
+  location?: string | null;
 }
 
-/** Best-effort meeting link for a LEAD intro appointment. Never throws. */
+/** Best-effort meeting link for a LEAD intro appointment. Never throws. Presencial never
+ *  returns a meet_link (event_id may still be set for the cancel-hook). */
 export async function createMeeting(req: MeetingRequest): Promise<MeetingResult> {
+  const who = req.leadName ?? req.leadEmail;
+  const summary =
+    req.modality === 'presencial'
+      ? `Sesión presencial FAHYBRID · ${who}`
+      : `Videollamada FAHYBRID · ${who}`;
   return createAttendeeMeeting({
     attendee: { email: req.leadEmail, name: req.leadName },
     start: req.start,
     durationMinutes: req.durationMinutes,
-    summary: `Videollamada FAHYBRID · ${req.leadName ?? req.leadEmail}`,
+    summary,
+    modality: req.modality,
+    location: req.location,
   });
 }
 
@@ -99,12 +133,14 @@ export interface ReviewMeetingRequest {
   athleteName: string | null;
 }
 
-/** Best-effort Meet link for an ATHLETE 1:1 review appointment (#21). Never throws. */
+/** Best-effort Meet link for an ATHLETE 1:1 review appointment (#21). Never throws.
+ *  Reviews are video-only (a Meet room), so modality is fixed to 'video'. */
 export async function createReviewMeeting(req: ReviewMeetingRequest): Promise<MeetingResult> {
   return createAttendeeMeeting({
     attendee: { email: req.athleteEmail, name: req.athleteName },
     start: req.start,
     durationMinutes: req.durationMinutes ?? DEFAULT_DURATION_MINUTES,
     summary: `Revisión FAHYBRID · ${req.athleteName ?? req.athleteEmail}`,
+    modality: 'video',
   });
 }

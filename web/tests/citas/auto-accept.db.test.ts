@@ -56,7 +56,7 @@ describeWithDb('auto-accept booking (real DB)', () => {
 
   async function firstOfferedSlotIso(now: Date): Promise<string> {
     // computeSlots already excludes busy/blocked, so every slot in DaySlots.slots is offered.
-    const days = await computeSlots(now);
+    const days = await computeSlots('video', now);
     for (const d of days) {
       if (d.slots.length > 0) return d.slots[0]!.start;
     }
@@ -68,7 +68,7 @@ describeWithDb('auto-accept booking (real DB)', () => {
     const lead = await seedLead();
     const startIso = await firstOfferedSlotIso(now);
 
-    const res = await bookAppointment({ token: lead.token, startIso, now });
+    const res = await bookAppointment({ token: lead.token, startIso, modality: 'video', now });
     expect(res.appointment.status).toBe('aceptada');
 
     const appt = await sql<{ status: string }[]>`select status::text as status from appointments where id = ${Number(res.appointment.id)}`;
@@ -84,8 +84,8 @@ describeWithDb('auto-accept booking (real DB)', () => {
     const startIso = await firstOfferedSlotIso(now);
 
     const results = await Promise.allSettled([
-      bookAppointment({ token: a.token, startIso, now }),
-      bookAppointment({ token: b.token, startIso, now }),
+      bookAppointment({ token: a.token, startIso, modality: 'video', now }),
+      bookAppointment({ token: b.token, startIso, modality: 'video', now }),
     ]);
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled');

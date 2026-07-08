@@ -5,7 +5,7 @@ import type { NextResponse } from 'next/server';
 import { appointmentMeetLinkInput } from '@fahybrid/shared/schema';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { CitasError, setAppointmentMeetLink } from '@/lib/citas/store';
+import { CitasError, setAppointmentMeetLink, getStudioLocation } from '@/lib/citas/store';
 import { sendAppointmentAccepted } from '@/lib/citas/email';
 
 export const runtime = 'nodejs';
@@ -37,6 +37,8 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
     const a = await setAppointmentMeetLink({ id: BigInt(id), meet_link: parsed.data.meet_link });
     // Re-send the confirmation with the fresh link only if the appointment is confirmed.
     if (a.status === 'aceptada') {
+      // #40: presencial → include the box address in the re-sent confirmation.
+      const location = a.modality === 'presencial' ? await getStudioLocation() : null;
       await sendAppointmentAccepted({
         id: a.id,
         requested_start: a.requested_start,
@@ -45,6 +47,8 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
         lead_email: a.lead_email,
         lead_nombre: a.lead_nombre,
         lead_token: a.lead_token,
+        modality: a.modality,
+        location,
       });
     }
     return jsonOk({ appointment: a });

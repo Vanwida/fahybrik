@@ -1,22 +1,32 @@
 'use client';
 
-// AvailabilityEditor — the coach's weekly call windows + blocked dates. Two sections:
-//   · Semanal — per weekday (Monday-first UI; DB weekday is 0=Sun … 6=Sat) a list of
-//     time ranges. "Guardar" PUTs the FULL windows array (server does a full replace).
+// AvailabilityEditor — the coach's weekly windows + address + blocked dates.
+//   · Cupo máximo — the athlete cap (#18).
+//   · Franjas semanales — TWO independent weekly schedules (#40): videollamadas and
+//     presencial. A segmented toggle swaps which schedule you edit; each is a Monday-first
+//     (DB weekday 0=Sun … 6=Sat) list of time ranges. The two can OVERLAP freely (the same
+//     hour in both = the coach can do either); when a slot is booked in either modality that
+//     hour disappears from both (occupancy is agnostic, enforced server-side). One "Guardar"
+//     PUTs the FULL windows array from BOTH schedules, each window tagged with its modality
+//     (server does a full replace).
+//   · Dirección presencial — el nombre del box + la calle (coaches.studio_name / location,
+//     via PATCH /api/coach/profile). Aparece en el email y el .ics del atleta.
 //   · Fechas bloqueadas — upcoming exceptions; add a date / remove one.
-// Weekly windows live in local editable state (many inputs); exceptions render straight
-// off the server props and re-sync via router.refresh after each mutation. Honest empty
-// state when no windows are defined (leads then see the "Pablo te escribirá" fallback).
+// Weekly windows + address live in local editable state; exceptions render straight off the
+// server props and re-sync via router.refresh after each mutation. Honest empty state when no
+// windows are defined (leads then see the "Pablo te escribirá" fallback).
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { CitaActionButton } from '@/components/v2/citas/CitaActionButton';
 import { formatCitaDate } from '@/components/v2/citas/format';
 import type { AvailabilityRow, ExceptionRow } from '@/lib/citas/store';
+import type { CitaModality } from '@fahybrid/shared/schema';
 import { cn } from '@/lib/utils';
 
 interface Range {
@@ -35,16 +45,40 @@ const WEEKDAYS: ReadonlyArray<{ weekday: number; label: string }> = [
   { weekday: 0, label: 'Domingo' },
 ];
 
+// #40: the two independent schedules. Order also fixes how windows are serialized on save.
+const MODALITIES: ReadonlyArray<CitaModality> = ['video', 'presencial'];
+const MODALITY_OPTIONS: ReadonlyArray<{ value: CitaModality; label: string }> = [
+  { value: 'video', label: '📹 Videollamadas' },
+  { value: 'presencial', label: '📍 Presencial' },
+];
+
+// Default box name — a placeholder hint, never forced onto the coach.
+const STUDIO_PLACEHOLDER = 'Fabrik Training Club Barcelona';
+
 const DEFAULT_RANGE: Range = { start: '09:00', end: '10:00' };
 
 const INPUT_CLS =
   'v2-focus h-9 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]';
 
-function groupWindows(windows: AvailabilityRow[]): Record<number, Range[]> {
-  const map: Record<number, Range[]> = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+type WeekSchedule = Record<number, Range[]>;
+
+function emptyWeek(): WeekSchedule {
+  return { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+}
+
+function groupWindows(windows: AvailabilityRow[]): WeekSchedule {
+  const map = emptyWeek();
   for (const w of windows) map[w.weekday].push({ start: w.start_time, end: w.end_time });
   for (let d = 0; d <= 6; d += 1) map[d].sort((a, b) => a.start.localeCompare(b.start));
   return map;
+}
+
+// Split the flat windows list into the two independent weekly schedules (#40).
+function splitByModality(windows: AvailabilityRow[]): Record<CitaModality, WeekSchedule> {
+  return {
+    video: groupWindows(windows.filter((w) => w.modality === 'video')),
+    presencial: groupWindows(windows.filter((w) => w.modality === 'presencial')),
+  };
 }
 
 function isRangeValid(r: Range): boolean {
@@ -127,39 +161,50 @@ export function AvailabilityEditor({
     }
   }
 
-  // ── Weekly windows (editable local state) ────────────────────────────────────
-  const [days, setDays] = useState<Record<number, Range[]>>(() => groupWindows(initialWindows));
+  // ── Weekly windows — two independent schedules (#40) ──────────────────────────
+  const [activeModality, setActiveModality] = useState<CitaModality>('video');
+  const [schedules, setSchedules] = useState<Record<CitaModality, WeekSchedule>>(() =>
+    splitByModality(initialWindows),
+  );
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const hasAnyWindow = WEEKDAYS.some((d) => days[d.weekday].length > 0);
+  const activeDays = schedules[activeModality];
+  // Warning only when BOTH schedules are empty → the lead sees the fallback.
+  const hasAnyWindow = MODALITIES.some((m) => WEEKDAYS.some((d) => schedules[m][d.weekday].length > 0));
 
-  function mutateDay(weekday: number, next: Range[]) {
-    setDays((prev) => ({ ...prev, [weekday]: next }));
+  function mutateDay(modality: CitaModality, weekday: number, next: Range[]) {
+    setSchedules((prev) => ({ ...prev, [modality]: { ...prev[modality], [weekday]: next } }));
     setDirty(true);
     setSaved(false);
   }
 
-  function addRange(weekday: number) {
-    mutateDay(weekday, [...days[weekday], { ...DEFAULT_RANGE }]);
+  function addRange(modality: CitaModality, weekday: number) {
+    mutateDay(modality, weekday, [...schedules[modality][weekday], { ...DEFAULT_RANGE }]);
   }
-  function removeRange(weekday: number, idx: number) {
-    mutateDay(weekday, days[weekday].filter((_, i) => i !== idx));
+  function removeRange(modality: CitaModality, weekday: number, idx: number) {
+    mutateDay(modality, weekday, schedules[modality][weekday].filter((_, i) => i !== idx));
   }
-  function updateRange(weekday: number, idx: number, field: keyof Range, value: string) {
+  function updateRange(modality: CitaModality, weekday: number, idx: number, field: keyof Range, value: string) {
     mutateDay(
+      modality,
       weekday,
-      days[weekday].map((r, i) => (i === idx ? { ...r, [field]: value } : r)),
+      schedules[modality][weekday].map((r, i) => (i === idx ? { ...r, [field]: value } : r)),
     );
   }
 
   async function saveWindows() {
     if (saving) return;
-    const windows: { weekday: number; start_time: string; end_time: string }[] = [];
-    for (const { weekday } of WEEKDAYS) {
-      for (const r of days[weekday]) windows.push({ weekday, start_time: r.start, end_time: r.end });
+    // Full replace: flatten BOTH schedules, each window tagged with its modality.
+    const windows: { weekday: number; start_time: string; end_time: string; modality: CitaModality }[] = [];
+    for (const modality of MODALITIES) {
+      for (const { weekday } of WEEKDAYS) {
+        for (const r of schedules[modality][weekday]) {
+          windows.push({ weekday, start_time: r.start, end_time: r.end, modality });
+        }
+      }
     }
     if (windows.some((w) => !isRangeValid({ start: w.start_time, end: w.end_time }))) {
       setSaveError('Revisa las franjas: la hora de fin debe ser mayor que la de inicio.');
@@ -186,6 +231,85 @@ export function AvailabilityEditor({
     } catch {
       setSaveError('Error de red. Reintenta.');
       setSaving(false);
+    }
+  }
+
+  // ── Dirección presencial (#40) ────────────────────────────────────────────────
+  // studio_name + location live on coaches (same columns the ajustes profile edits); we
+  // load/save them via /api/coach/profile. Fetched client-side on mount so this page's
+  // prop contract stays lean.
+  const [addrLoaded, setAddrLoaded] = useState(false);
+  const [studioName, setStudioName] = useState('');
+  const [location, setLocation] = useState('');
+  const [savedAddr, setSavedAddr] = useState<{ studio_name: string; location: string }>({
+    studio_name: '',
+    location: '',
+  });
+  const [addrSaving, setAddrSaving] = useState(false);
+  const [addrSaved, setAddrSaved] = useState(false);
+  const [addrError, setAddrError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/coach/profile');
+        if (!res.ok) {
+          if (!cancelled) setAddrLoaded(true);
+          return;
+        }
+        const data = (await res.json()) as {
+          profile?: { studio_name: string | null; location: string | null };
+        };
+        if (cancelled) return;
+        const s = data.profile?.studio_name ?? '';
+        const l = data.profile?.location ?? '';
+        setStudioName(s);
+        setLocation(l);
+        setSavedAddr({ studio_name: s, location: l });
+        setAddrLoaded(true);
+      } catch {
+        if (!cancelled) setAddrLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const addrDirty =
+    addrLoaded &&
+    (studioName.trim() !== savedAddr.studio_name.trim() || location.trim() !== savedAddr.location.trim());
+
+  async function saveAddr() {
+    if (addrSaving || !addrLoaded) return;
+    setAddrError(null);
+    setAddrSaving(true);
+    setAddrSaved(false);
+    try {
+      const res = await fetch('/api/coach/profile', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ studio_name: studioName, location }),
+      });
+      if (!res.ok) {
+        setAddrError(await readError(res, 'No se pudo guardar la dirección. Reintenta.'));
+        setAddrSaving(false);
+        return;
+      }
+      const data = (await res.json()) as {
+        profile?: { studio_name: string | null; location: string | null };
+      };
+      const s = data.profile?.studio_name ?? '';
+      const l = data.profile?.location ?? '';
+      setStudioName(s);
+      setLocation(l);
+      setSavedAddr({ studio_name: s, location: l });
+      setAddrSaving(false);
+      setAddrSaved(true);
+    } catch {
+      setAddrError('Error de red. Reintenta.');
+      setAddrSaving(false);
     }
   }
 
@@ -320,7 +444,7 @@ export function AvailabilityEditor({
         ) : null}
       </Card>
 
-      {/* ── Semanal ───────────────────────────────────────────────────────────── */}
+      {/* ── Franjas semanales — dos horarios independientes (#40) ─────────────── */}
       <Card className="flex flex-col gap-4 p-4 lg:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="v2-micro">Franjas semanales</h2>
@@ -342,6 +466,21 @@ export function AvailabilityEditor({
           </div>
         </div>
 
+        {/* Toggle between the two independent schedules */}
+        <div className="flex flex-col gap-2">
+          <SegmentedControl
+            options={MODALITY_OPTIONS}
+            value={activeModality}
+            onChange={setActiveModality}
+            ariaLabel="Horario a editar"
+            className="w-fit"
+          />
+          <p className="text-xs text-[color:var(--v2-muted)]">
+            Dos horarios independientes. Si a la misma hora puedes las dos cosas, ponla en los dos
+            horarios; cuando alguien reserva ese hueco desaparece de ambos.
+          </p>
+        </div>
+
         {!hasAnyWindow ? (
           <div
             className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border px-3.5 py-2.5"
@@ -357,7 +496,7 @@ export function AvailabilityEditor({
 
         <div className="flex flex-col divide-y divide-[color:var(--v2-border)]">
           {WEEKDAYS.map(({ weekday, label }) => {
-            const ranges = days[weekday];
+            const ranges = activeDays[weekday];
             return (
               <div
                 key={weekday}
@@ -378,7 +517,7 @@ export function AvailabilityEditor({
                             type="time"
                             value={r.start}
                             aria-label={`${label} — inicio`}
-                            onChange={(e) => updateRange(weekday, idx, 'start', e.target.value)}
+                            onChange={(e) => updateRange(activeModality, weekday, idx, 'start', e.target.value)}
                             className={cn(INPUT_CLS, 'v2-num w-[7.5rem]', invalid && 'border-[color:var(--v2-danger)]')}
                           />
                           <span className="text-[color:var(--v2-faint)]">–</span>
@@ -386,12 +525,12 @@ export function AvailabilityEditor({
                             type="time"
                             value={r.end}
                             aria-label={`${label} — fin`}
-                            onChange={(e) => updateRange(weekday, idx, 'end', e.target.value)}
+                            onChange={(e) => updateRange(activeModality, weekday, idx, 'end', e.target.value)}
                             className={cn(INPUT_CLS, 'v2-num w-[7.5rem]', invalid && 'border-[color:var(--v2-danger)]')}
                           />
                           <button
                             type="button"
-                            onClick={() => removeRange(weekday, idx)}
+                            onClick={() => removeRange(activeModality, weekday, idx)}
                             aria-label={`Quitar franja de ${label}`}
                             className="v2-focus inline-flex h-9 w-9 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)]"
                           >
@@ -403,7 +542,7 @@ export function AvailabilityEditor({
                   )}
                   <button
                     type="button"
-                    onClick={() => addRange(weekday)}
+                    onClick={() => addRange(activeModality, weekday)}
                     className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-accent)] transition-colors hover:opacity-80"
                   >
                     <MIcon name="add" size={15} />
@@ -418,6 +557,82 @@ export function AvailabilityEditor({
         {saveError ? (
           <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
             {saveError}
+          </p>
+        ) : null}
+      </Card>
+
+      {/* ── Dirección para las sesiones presenciales (#40) ────────────────────── */}
+      <Card className="flex flex-col gap-4 p-4 lg:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="v2-micro">Dirección para las sesiones presenciales</h2>
+            <p className="text-xs text-[color:var(--v2-muted)]">
+              Aparece en el email y el .ics del atleta cuando reserva presencial. Con el nombre del
+              box basta; la calle es opcional.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {addrSaved && !addrDirty ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--v2-ok)]">
+                <MIcon name="check_circle" size={15} filled />
+                Guardado
+              </span>
+            ) : null}
+            <CitaActionButton
+              label="Guardar"
+              icon="save"
+              tone="accent"
+              spinning={addrSaving}
+              disabled={addrSaving || !addrLoaded || !addrDirty}
+              onClick={saveAddr}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="studio-name" className="v2-micro">
+              Nombre del box
+            </label>
+            <input
+              id="studio-name"
+              type="text"
+              maxLength={120}
+              value={studioName}
+              disabled={!addrLoaded}
+              placeholder={STUDIO_PLACEHOLDER}
+              onChange={(e) => {
+                setStudioName(e.target.value);
+                setAddrSaved(false);
+                setAddrError(null);
+              }}
+              className={cn(INPUT_CLS, 'w-full disabled:opacity-50')}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="studio-location" className="v2-micro">
+              Dirección (opcional)
+            </label>
+            <input
+              id="studio-location"
+              type="text"
+              maxLength={120}
+              value={location}
+              disabled={!addrLoaded}
+              placeholder="Calle y número"
+              onChange={(e) => {
+                setLocation(e.target.value);
+                setAddrSaved(false);
+                setAddrError(null);
+              }}
+              className={cn(INPUT_CLS, 'w-full disabled:opacity-50')}
+            />
+          </div>
+        </div>
+
+        {addrError ? (
+          <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
+            {addrError}
           </p>
         ) : null}
       </Card>

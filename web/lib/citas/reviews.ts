@@ -190,7 +190,8 @@ export async function listAthleteReviewSlots(args: {
   const now = args.now ?? new Date();
   const active = await activeReviewFor(args.athlete_id);
   if (active) return [];
-  return computeSlots(now);
+  // #40: reviews are video-only (createReviewMeeting mints a Meet) → the video schedule.
+  return computeSlots('video', now);
 }
 
 // ── bookAthleteReview (atleta) ──────────────────────────────────────────────────
@@ -216,7 +217,8 @@ export async function bookAthleteReview(args: {
   const startMs = Date.parse(args.requested_start);
   if (Number.isNaN(startMs)) throw new CitasError('invalid_slot', 'Hueco no válido', 400);
 
-  const slots = await computeSlots(now);
+  // #40: reviews are video-only (createReviewMeeting mints a Meet) → the video schedule.
+  const slots = await computeSlots('video', now);
   if (!isOfferedSlot(slots, startMs)) {
     throw new CitasError('slot_unavailable', 'Ese hueco ya no está disponible', 409);
   }

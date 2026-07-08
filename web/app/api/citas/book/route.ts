@@ -8,7 +8,13 @@
 import { bookingInput } from '@fahybrid/shared/schema';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
-import { bookAppointment, setAppointmentMeetLink, CitasError } from '@/lib/citas/store';
+import {
+  bookAppointment,
+  setAppointmentMeetLink,
+  setAppointmentGoogleEventId,
+  getStudioLocation,
+  CitasError,
+} from '@/lib/citas/store';
 import { createMeeting } from '@/lib/citas/meeting';
 import { sendBookingInternal, sendAppointmentAccepted } from '@/lib/citas/email';
 
@@ -31,16 +37,22 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return jsonError('invalid_request', 'Datos no válidos', 400, parsed.error.flatten());
   }
-  const { website, token, start } = parsed.data;
+  const { website, token, start, modality } = parsed.data;
   if (website && website.length > 0) return jsonOk({ ok: true }, 200); // honeypot
 
   try {
-    const res = await bookAppointment({ token, startIso: start });
+    const res = await bookAppointment({ token, startIso: start, modality });
     let meetLink = res.appointment.meet_link;
 
-    // Auto-create the Google Meet if connected (best-effort; null keeps the manual-paste
-    // path). Persist the link + event id so the confirmation email carries it and a later
-    // cancel can delete the event.
+    // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
+    const studio = modality === 'presencial' ? await getStudioLocation() : null;
+    const locationStr = studio
+      ? [studio.name, studio.address].filter((s) => s && s.trim()).join(' — ') || null
+      : null;
+
+    // Auto-create the calendar event if connected (best-effort; null keeps the manual path).
+    //   • video      → event WITH Meet → persist meet_link + event_id (email carries the link).
+    //   • presencial → event WITH location, NO Meet → persist only event_id (cancel-hook).
     if (!meetLink) {
       const m = await createMeeting({
         appointmentId: res.appointment.id,
@@ -48,6 +60,8 @@ export async function POST(req: Request) {
         durationMinutes: res.appointment.duration_minutes,
         leadEmail: res.lead.email,
         leadName: res.lead.nombre,
+        modality,
+        location: locationStr,
       });
       if (m.meet_link) {
         await setAppointmentMeetLink({
@@ -56,6 +70,9 @@ export async function POST(req: Request) {
           google_event_id: m.event_id ?? null,
         });
         meetLink = m.meet_link;
+      } else if (m.event_id) {
+        // Presencial: no meet_link, but persist the event id so a cancel can delete it.
+        await setAppointmentGoogleEventId(BigInt(res.appointment.id), m.event_id);
       }
     }
 
@@ -67,8 +84,10 @@ export async function POST(req: Request) {
       lead_email: res.lead.email,
       lead_nombre: res.lead.nombre,
       lead_token: token,
+      modality,
+      location: studio,
     };
-    // Confirmation email (the accepted one: fecha + .ics + Meet) + internal notify. Guarded.
+    // Confirmation email (the accepted one: fecha + .ics + Meet/address) + internal notify. Guarded.
     await Promise.allSettled([sendAppointmentAccepted(appt), sendBookingInternal(appt)]);
     return jsonOk({ ok: true, appointment: { ...res.appointment, meet_link: meetLink } }, 201);
   } catch (err) {

@@ -10,6 +10,7 @@ import { Resend } from 'resend';
 import { z } from 'zod';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { citaModality } from '@fahybrid/shared/schema';
 import type { CitaEmailResult } from './email';
 
 // Brand tokens. Email HTML can't rely on CSS custom properties (mail clients strip
@@ -54,6 +55,13 @@ const reminderInputSchema = z.object({
   // No timezone column on leads today → defaults to Europe/Madrid (BOX_TIMEZONE).
   // Kept as a param so adding a lead tz later is a one-line change in reminder.ts.
   timezone: z.string().optional(),
+  // #40: modality (default video for backward-compat) + the presencial address (coach
+  // profile). Presencial → the reminder shows the box address + a Maps link, not a Meet button.
+  modality: citaModality.default('video'),
+  location: z
+    .object({ name: z.string().nullable(), address: z.string().nullable() })
+    .nullable()
+    .optional(),
 });
 
 export type CitaReminderInput = z.infer<typeof reminderInputSchema>;
@@ -63,7 +71,7 @@ export type CitaReminderInput = z.infer<typeof reminderInputSchema>;
  * Time is rendered in the lead's timezone when provided, else Europe/Madrid.
  */
 export async function sendCitaReminderEmail(input: CitaReminderInput): Promise<CitaEmailResult> {
-  const { requested_start, meet_link, lead_email, lead_nombre, timezone } =
+  const { requested_start, meet_link, lead_email, lead_nombre, timezone, modality, location } =
     reminderInputSchema.parse(input);
   const tz = timezone ?? BOX_TIMEZONE;
   const madrid = tz === BOX_TIMEZONE;
@@ -73,12 +81,33 @@ export async function sendCitaReminderEmail(input: CitaReminderInput): Promise<C
   const hiText = lead_nombre ? `Hola ${lead_nombre.split(' ')[0]},` : 'Hola,';
   const tzNote = madrid ? ' (hora de Madrid)' : '';
 
-  const linkText = meet_link
-    ? `Enlace de la videollamada: ${meet_link}`
-    : 'El enlace de la videollamada te llegará antes de la cita.';
-  const linkHtml = meet_link
-    ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(meet_link)}" style="display:inline-block;padding:12px 20px;background:${BRAND_ORANGE};color:${BRAND_INK};text-decoration:none;border-radius:8px;font-weight:600;">Unirme a la videollamada</a></p>`
-    : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">El enlace de la videollamada te llegará antes de la cita.</p>`;
+  // #40: presencial → address + Maps link; video → Meet button (unchanged).
+  const isPresencial = modality === 'presencial';
+  const noun = isPresencial ? 'sesión presencial' : 'videollamada';
+  const addrParts = [location?.name, location?.address].filter((s): s is string => Boolean(s && s.trim()));
+  const hasAddress = addrParts.length > 0;
+  const addressStr = addrParts.join(' — ');
+  const mapsUrl = hasAddress
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrParts.join(', '))}`
+    : null;
+
+  const detailText = isPresencial
+    ? hasAddress
+      ? `Dónde: ${addressStr}${mapsUrl ? `\nCómo llegar: ${mapsUrl}` : ''}`
+      : 'Pablo te confirmará el sitio antes de la cita.'
+    : meet_link
+      ? `Enlace de la videollamada: ${meet_link}`
+      : 'El enlace de la videollamada te llegará antes de la cita.';
+  const detailHtml = isPresencial
+    ? hasAddress
+      ? `<p style="margin:0 0 6px;line-height:1.6;"><strong>Dónde</strong><br>${escapeHtml(addressStr)}</p>` +
+        (mapsUrl
+          ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(mapsUrl)}" style="display:inline-block;padding:12px 20px;background:${BRAND_ORANGE};color:${BRAND_INK};text-decoration:none;border-radius:8px;font-weight:600;">Cómo llegar</a></p>`
+          : '')
+      : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">Pablo te confirmará el sitio antes de la cita.</p>`
+    : meet_link
+      ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(meet_link)}" style="display:inline-block;padding:12px 20px;background:${BRAND_ORANGE};color:${BRAND_INK};text-decoration:none;border-radius:8px;font-weight:600;">Unirme a la videollamada</a></p>`
+      : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">El enlace de la videollamada te llegará antes de la cita.</p>`;
 
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
@@ -93,16 +122,16 @@ export async function sendCitaReminderEmail(input: CitaReminderInput): Promise<C
   const { error } = await resend.emails.send({
     from: AUTH_CONFIG.resendFromEmail(),
     to: lead_email,
-    subject: `Mañana a las ${time} · tu videollamada con Pablo`,
+    subject: `Mañana a las ${time} · tu ${noun} con Pablo`,
     text:
       `${hiText}\n\n` +
-      `Recordatorio: mañana a las ${time}${tzNote} tienes tu videollamada con Pablo. Dura 30 minutos.\n\n` +
-      `${linkText}\n\n¡Nos vemos!\nEl equipo de FAHYBRID`,
+      `Recordatorio: mañana a las ${time}${tzNote} tienes tu ${noun} con Pablo. Dura 30 minutos.\n\n` +
+      `${detailText}\n\n¡Nos vemos!\nEl equipo de FAHYBRID`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Mañana a las ${escapeHtml(time)}</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Un recordatorio rápido: <strong>mañana a las ${escapeHtml(time)}${escapeHtml(tzNote)}</strong> tienes tu videollamada con Pablo. Dura 30 minutos.</p>
-       ${linkHtml}
+       <p style="margin:0 0 12px;line-height:1.6;">Un recordatorio rápido: <strong>mañana a las ${escapeHtml(time)}${escapeHtml(tzNote)}</strong> tienes tu ${noun} con Pablo. Dura 30 minutos.</p>
+       ${detailHtml}
        <p style="margin:24px 0 0;color:#666;">¡Nos vemos! · El equipo de FAHYBRID</p>`,
     ),
   });

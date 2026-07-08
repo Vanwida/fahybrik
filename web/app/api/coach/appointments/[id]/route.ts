@@ -7,7 +7,14 @@ import type { NextResponse } from 'next/server';
 import { appointmentActionInput } from '@fahybrid/shared/schema';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { actOnAppointment, CitasError, setAppointmentMeetLink, type AppointmentWithLead } from '@/lib/citas/store';
+import {
+  actOnAppointment,
+  CitasError,
+  setAppointmentMeetLink,
+  setAppointmentGoogleEventId,
+  getStudioLocation,
+  type AppointmentWithLead,
+} from '@/lib/citas/store';
 import { createMeeting } from '@/lib/citas/meeting';
 import { deleteCalendarEvent } from '@/lib/citas/google';
 import {
@@ -53,7 +60,10 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
   }
   const { action, meet_link, coach_note } = parsed.data;
 
-  const emailPayload = (a: AppointmentWithLead) => ({
+  const emailPayload = (
+    a: AppointmentWithLead,
+    location?: { name: string | null; address: string | null } | null,
+  ) => ({
     id: a.id,
     requested_start: a.requested_start,
     duration_minutes: a.duration_minutes,
@@ -61,6 +71,8 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     lead_email: a.lead_email,
     lead_nombre: a.lead_nombre,
     lead_token: a.lead_token,
+    modality: a.modality,
+    location: location ?? null,
   });
 
   try {
@@ -68,6 +80,11 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     let a = res.appointment;
 
     if (res.newStatus === 'aceptada') {
+      // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
+      const studio = a.modality === 'presencial' ? await getStudioLocation() : null;
+      const locationStr = studio
+        ? [studio.name, studio.address].filter((s) => s && s.trim()).join(' — ') || null
+        : null;
       // No manually-pasted link → ask the adapter (v1 → null; Google later). Best-effort.
       if (!a.meet_link) {
         const m = await createMeeting({
@@ -76,6 +93,8 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
           durationMinutes: a.duration_minutes,
           leadEmail: a.lead_email,
           leadName: a.lead_nombre,
+          modality: a.modality,
+          location: locationStr,
         });
         if (m.meet_link) {
           a = await setAppointmentMeetLink({
@@ -83,9 +102,13 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
             meet_link: m.meet_link,
             google_event_id: m.event_id ?? null,
           });
+        } else if (m.event_id) {
+          // Presencial: no meet_link, but persist the event id so a cancel can delete it.
+          await setAppointmentGoogleEventId(apptId, m.event_id);
+          a = { ...a, google_event_id: m.event_id };
         }
       }
-      await sendAppointmentAccepted(emailPayload(a));
+      await sendAppointmentAccepted(emailPayload(a, studio));
     } else if (res.newStatus === 'rechazada') {
       await sendAppointmentRejected(emailPayload(a));
     } else if (res.newStatus === 'cancelada') {
