@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
+import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
 import { blockExerciseToItem, type BlockExerciseRow } from './blocks';
 import { cloneTemplateAsInstance } from './template-instance';
 import { getMonthTemplate } from './program-months';
@@ -109,6 +110,14 @@ export async function instantiateMonthFromTemplate(params: {
     throw new InstantiateProgramError('not_found', 'Athlete not found', 404);
   }
 
+  // #34: is this the athlete's FIRST plan? If so, the week-1 calibration battery
+  // is injected after materialization (checked BEFORE the receipt row is written).
+  const priorPlans = await client<{ n: number }[]>`
+    select count(*)::int as n from athlete_month_assignments
+    where athlete_id = ${params.athlete_id as number}
+  `;
+  const isFirstPlan = (priorPlans[0]?.n ?? 0) === 0;
+
   const month = await getMonthTemplate({
     coach_id: params.coach_id,
     id: params.month_template_id,
@@ -171,6 +180,23 @@ export async function instantiateMonthFromTemplate(params: {
     `;
     monthAssignmentId = assignRows[0]!.id;
   });
+
+  // #34: on the athlete's FIRST plan, auto-schedule the week-1 calibration battery
+  // (Fork A: auto + coach override). Best-effort — a battery hiccup must never fail
+  // plan creation; idempotent so a re-materialize never double-injects.
+  if (isFirstPlan && microcycleIds[0]) {
+    try {
+      await scheduleWeek1Calibration({
+        client,
+        coach_id: params.coach_id,
+        athlete_id: params.athlete_id,
+        week1_monday: startMonday,
+        microcycle_id: microcycleIds[0],
+      });
+    } catch {
+      // best-effort; the plan is the contract, the battery is additive.
+    }
+  }
 
   return {
     month_assignment_id: monthAssignmentId,
