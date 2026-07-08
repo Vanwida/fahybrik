@@ -26,6 +26,10 @@
       "types": "./domain/prescription/index.ts",
       "default": "./domain/prescription/index.ts"
     },
+    "./domain/import/notation": {
+      "types": "./domain/import/notation.ts",
+      "default": "./domain/import/notation.ts"
+    },
     "./domain/methodology": {
       "types": "./domain/methodology/index.ts",
       "default": "./domain/methodology/index.ts"
