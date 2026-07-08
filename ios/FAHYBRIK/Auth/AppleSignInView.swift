@@ -12,6 +12,9 @@ struct AppleSignInView: View {
     @State private var error: String?
     @State private var inProgress: Bool = false
     @State private var showDemo: Bool = false
+    /// Shown when Sign in with Apple succeeds at Apple but the backend has no
+    /// membership for this Apple ID (404 no_account) — an organic download.
+    @State private var showNoAccount: Bool = false
 
     var body: some View {
         ZStack {
@@ -48,7 +51,12 @@ struct AppleSignInView: View {
                                 switch apiErr {
                                 case .http(let code, let body):
                                     let bodyStr = String(data: body, encoding: .utf8) ?? ""
-                                    self.error = "HTTP \(code): \(bodyStr.prefix(220))"
+                                    if code == 404, bodyStr.contains("no_account") {
+                                        // Signed in fine, but not a member → funnel.
+                                        showNoAccount = true
+                                    } else {
+                                        self.error = "HTTP \(code): \(bodyStr.prefix(220))"
+                                    }
                                 case .offline:
                                     self.error = "Sin conexión."
                                 case .invalidResponse:
@@ -111,6 +119,60 @@ struct AppleSignInView: View {
             DemoSignInView { bearer, athleteId in
                 showDemo = false
                 onDemoSession?(bearer, athleteId)
+            }
+        }
+        .fullScreenCover(isPresented: $showNoAccount) {
+            NoAccountView { showNoAccount = false }
+        }
+    }
+}
+
+// Shown when someone signs in with Apple but has no membership (backend 404
+// no_account). Honest: their access is activated by the welcome-email link, and
+// non-members can apply for a spot via the funnel. No commerce (Apple 3.1.3(b)).
+struct NoAccountView: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            VStack(spacing: Theme.Spacing.xl) {
+                Spacer()
+
+                Wordmark(size: 32)
+
+                VStack(spacing: Theme.Spacing.m) {
+                    Text("Aún no tienes acceso.")
+                        .font(Theme.Typography.headlineS)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Tu acceso se activa con el enlace de tu email de bienvenida. Ábrelo desde este dispositivo para entrar.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.Color.muted)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+
+                Spacer()
+
+                VStack(spacing: Theme.Spacing.l) {
+                    RequestSpotLink()
+                        .padding(.horizontal, Theme.Spacing.xl)
+
+                    Button {
+                        Haptics.light()
+                        onBack()
+                    } label: {
+                        Text("Volver")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer().frame(height: Theme.Spacing.xl)
             }
         }
     }
