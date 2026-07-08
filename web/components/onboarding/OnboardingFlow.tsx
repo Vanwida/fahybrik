@@ -67,6 +67,11 @@ export function OnboardingFlow({ locale }: { locale: string }) {
   // Booking token minted by the phase-2 submit — lets the lead pick a
   // videollamada slot on the final screen (see FinalScreen / BookingSlotPicker).
   const [bookingToken, setBookingToken] = useState<string | null>(null);
+  // Waitlist outcome (#18): when the coach is at capacity the phase-2 submit
+  // returns waitlisted=true (and no token) → the final screen shows the
+  // exclusive "lista de espera" state with the lead's FIFO position.
+  const [waitlisted, setWaitlisted] = useState(false);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
 
   const historyRef = useRef<string[]>([]);
   const paneKeyRef = useRef(0);
@@ -151,9 +156,13 @@ export function OnboardingFlow({ locale }: { locale: string }) {
       const merged = applyPatch(answers, patch);
       setAnswers(merged);
       // Phase 2: blocking full submit. Advance only on success.
-      const { ok, token } = await submitComplete(buildCompleteBody(merged));
+      const { ok, token, waitlisted: wl, waitlist_position } = await submitComplete(
+        buildCompleteBody(merged),
+      );
       if (ok) {
         if (token) setBookingToken(token);
+        setWaitlisted(wl);
+        setWaitlistPosition(typeof waitlist_position === 'number' ? waitlist_position : null);
         const nx = nextStepId(liveStepId, merged) ?? FINAL_ID;
         historyRef.current.push(liveStepId);
         navigate(nx, 'fwd');
@@ -182,7 +191,9 @@ export function OnboardingFlow({ locale }: { locale: string }) {
 
   let liveAnnounce = '';
   if (liveStepId === FINAL_ID) {
-    liveAnnounce = `Solicitud recibida. Perfecto${nombre ? `, ${nombre}` : ''}.`;
+    liveAnnounce = waitlisted
+      ? 'Estás en la lista de espera. Te avisaremos por email en cuanto se abra una plaza.'
+      : `Solicitud recibida. Perfecto${nombre ? `, ${nombre}` : ''}.`;
   } else if (liveStepId !== INTRO_ID) {
     const q = questionById(liveStepId);
     if (q) liveAnnounce = resolveLeadTitle(q, nombre);
@@ -191,7 +202,15 @@ export function OnboardingFlow({ locale }: { locale: string }) {
   const renderPane = (stepId: string) => {
     if (stepId === INTRO_ID) return <IntroScreen cb={cb} />;
     if (stepId === FINAL_ID)
-      return <FinalScreen nombre={nombre} email={email} bookingToken={bookingToken} />;
+      return (
+        <FinalScreen
+          nombre={nombre}
+          email={email}
+          bookingToken={bookingToken}
+          waitlisted={waitlisted}
+          waitlistPosition={waitlistPosition}
+        />
+      );
     const q = questionById(stepId);
     return q ? <QuestionScreen question={q} answers={answers} nombre={nombre} cb={cb} /> : null;
   };

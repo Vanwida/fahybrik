@@ -72,12 +72,60 @@ async function readError(res: Response, fallback: string): Promise<string> {
 export function AvailabilityEditor({
   initialWindows,
   initialExceptions,
+  initialMaxAthletes,
 }: {
   initialWindows: AvailabilityRow[];
   initialExceptions: ExceptionRow[];
+  /** The coach's athlete cap (#18); null = no limit (waitlist off). */
+  initialMaxAthletes: number | null;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+
+  // ── Cupo máximo de atletas (#18) ─────────────────────────────────────────────
+  // Empty string = sin límite (null). Saved to coaches.max_athletes via /api/coach/capacity.
+  const [cupo, setCupo] = useState<string>(initialMaxAthletes == null ? '' : String(initialMaxAthletes));
+  const [cupoSaving, setCupoSaving] = useState(false);
+  const [cupoSaved, setCupoSaved] = useState(false);
+  const [cupoError, setCupoError] = useState<string | null>(null);
+  const cupoDirty = cupo.trim() !== (initialMaxAthletes == null ? '' : String(initialMaxAthletes));
+
+  async function saveCupo() {
+    if (cupoSaving) return;
+    const trimmed = cupo.trim();
+    let value: number | null;
+    if (trimmed === '') {
+      value = null;
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isInteger(n) || n < 0) {
+        setCupoError('Introduce un número entero de 0 o más, o déjalo vacío para sin límite.');
+        return;
+      }
+      value = n;
+    }
+    setCupoError(null);
+    setCupoSaving(true);
+    setCupoSaved(false);
+    try {
+      const res = await fetch('/api/coach/capacity', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ max_athletes: value }),
+      });
+      if (!res.ok) {
+        setCupoError(await readError(res, 'No se pudo guardar el cupo. Reintenta.'));
+        setCupoSaving(false);
+        return;
+      }
+      setCupoSaving(false);
+      setCupoSaved(true);
+      startTransition(() => router.refresh());
+    } catch {
+      setCupoError('Error de red. Reintenta.');
+      setCupoSaving(false);
+    }
+  }
 
   // ── Weekly windows (editable local state) ────────────────────────────────────
   const [days, setDays] = useState<Record<number, Range[]>>(() => groupWindows(initialWindows));
@@ -209,12 +257,68 @@ export function AvailabilityEditor({
 
       {/* Header */}
       <div className="flex flex-col gap-1.5">
-        <h1 className="v2-display text-3xl sm:text-4xl text-[color:var(--v2-fg)]">Disponibilidad</h1>
+        <h1 className="v2-display text-3xl sm:text-4xl text-[color:var(--v2-fg)]">
+          Disponibilidad y cupo
+        </h1>
         <p className="text-xs text-[color:var(--v2-muted)]">
           Las franjas semanales definen los huecos que el lead puede reservar para la videollamada
           (Europe/Madrid).
         </p>
       </div>
+
+      {/* ── Cupo máximo de atletas (#18) ──────────────────────────────────────── */}
+      <Card className="flex flex-col gap-4 p-4 lg:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="v2-micro">Cupo máximo de atletas</h2>
+          <div className="flex items-center gap-2">
+            {cupoSaved && !cupoDirty ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--v2-ok)]">
+                <MIcon name="check_circle" size={15} filled />
+                Guardado
+              </span>
+            ) : null}
+            <CitaActionButton
+              label="Guardar"
+              icon="save"
+              tone="accent"
+              spinning={cupoSaving}
+              disabled={cupoSaving || !cupoDirty}
+              onClick={saveCupo}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="cupo-max"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={cupo}
+              placeholder="Sin límite"
+              aria-label="Cupo máximo de atletas"
+              onChange={(e) => {
+                setCupo(e.target.value);
+                setCupoSaved(false);
+                setCupoError(null);
+              }}
+              className={cn(INPUT_CLS, 'v2-num w-40')}
+            />
+            <span className="text-sm text-[color:var(--v2-muted)]">atletas</span>
+          </div>
+          <p className="text-xs text-[color:var(--v2-muted)]">
+            Vacío = sin límite. Cuando llegas al cupo, los leads nuevos entran en lista de espera.
+          </p>
+        </div>
+
+        {cupoError ? (
+          <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
+            {cupoError}
+          </p>
+        ) : null}
+      </Card>
 
       {/* ── Semanal ───────────────────────────────────────────────────────────── */}
       <Card className="flex flex-col gap-4 p-4 lg:p-5">

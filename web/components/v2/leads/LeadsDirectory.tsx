@@ -13,8 +13,12 @@ import { Pill } from '@/components/v2/Pill';
 import { SegmentedControl, type SegmentOption } from '@/components/v2/SegmentedControl';
 import { LeadsTable } from '@/components/v2/leads/LeadsTable';
 import { PendingCitasCard } from '@/components/v2/citas/PendingCitasCard';
+import { WaitlistQueueCard } from '@/components/v2/leads/WaitlistQueueCard';
 import type { LeadListItem } from '@/lib/dashboard/coach/leads';
 import type { UpcomingCall } from '@/lib/citas/store';
+import type { CapacityState } from '@/lib/coach/capacity';
+import type { WaitlistEntry } from '@/lib/leads/waitlist';
+import type { PillTone } from '@/components/v2/Pill';
 import {
   LEAD_STATUS_META,
   LEAD_STATUS_ORDER,
@@ -24,16 +28,30 @@ import { cn } from '@/lib/utils';
 
 type StatusFilter = 'todos' | LeadStatus;
 
+/** Capacity chip: green with room, amber on the last plaza, red when full. */
+function capacityTone(cap: CapacityState): PillTone {
+  if (cap.max === null) return 'neutral';
+  if (cap.full) return 'danger';
+  if (cap.slots_available === 1) return 'warn';
+  return 'ok';
+}
+
 export function LeadsDirectory({
   leads,
   counts,
   total,
   upcomingCalls,
+  capacity,
+  waitlist,
 }: {
   leads: LeadListItem[];
   counts: Record<LeadStatus, number>;
   total: number;
   upcomingCalls: UpcomingCall[];
+  /** Live athlete cap vs active (#18). null when the read degraded → chip hidden. */
+  capacity: CapacityState | null;
+  /** Leads on the capacity waitlist, FIFO. Empty → the queue card is not rendered. */
+  waitlist: WaitlistEntry[];
 }) {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
@@ -81,6 +99,9 @@ export function LeadsDirectory({
       {/* ── Citas pendientes ──────────────────────────────────────────────── */}
       {upcomingCalls.length > 0 ? <PendingCitasCard calls={upcomingCalls} /> : null}
 
+      {/* ── Lista de espera (capacidad, #18) ──────────────────────────────── */}
+      {waitlist.length > 0 ? <WaitlistQueueCard entries={waitlist} /> : null}
+
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
@@ -92,6 +113,29 @@ export function LeadsDirectory({
             Prospectos del onboarding web — aún no son atletas.
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Capacity chip leads the cluster — the plaza budget frames the whole funnel. */}
+            {capacity ? (
+              <Pill
+                tone={capacityTone(capacity)}
+                variant="soft"
+                title={
+                  capacity.max === null
+                    ? 'Sin cupo máximo — los leads nunca entran en lista de espera.'
+                    : 'Atletas activos frente al cupo máximo. Al llegar al cupo, los leads nuevos entran en lista de espera.'
+                }
+              >
+                {capacity.max === null ? (
+                  'Sin límite'
+                ) : (
+                  <>
+                    Cupo&nbsp;
+                    <span className="v2-num">
+                      {capacity.active}/{capacity.max}
+                    </span>
+                  </>
+                )}
+              </Pill>
+            ) : null}
             {LEAD_STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => {
               const meta = LEAD_STATUS_META[s];
               return (

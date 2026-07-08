@@ -193,30 +193,42 @@ export function submitDraft(body: Record<string, unknown>): void {
 }
 
 /**
- * Full submit. Resolves `{ ok: true, token }` on success so the caller can both
- * advance to the final screen AND hand the lead their booking token (used to let
- * them pick a videollamada slot right there). `token` is the opaque booking
- * credential minted by the API; absent if the response omitted it.
+ * Full submit. On success resolves the final-screen state the API decided:
+ *   · `token`   — opaque booking credential, so the lead can pick a videollamada
+ *     slot inline. Present ONLY when the coach has room (not waitlisted).
+ *   · `waitlisted` — true when the coach is at capacity (#18): the lead joined the
+ *     waitlist instead of booking, so the final screen shows the waitlist state and
+ *     never a slot picker (a waitlisted response carries no token).
+ *   · `waitlist_position` — the lead's 1-based place in the waitlist (only meaningful
+ *     when `waitlisted`).
  */
 export async function submitComplete(
   body: Record<string, unknown>,
-): Promise<{ ok: boolean; token?: string }> {
+): Promise<{ ok: boolean; token?: string; waitlisted: boolean; waitlist_position?: number }> {
   try {
     const res = await fetch(COMPLETE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) return { ok: false };
+    if (!res.ok) return { ok: false, waitlisted: false };
     let token: string | undefined;
+    let waitlisted = false;
+    let waitlist_position: number | undefined;
     try {
-      const data = (await res.json()) as { token?: unknown };
+      const data = (await res.json()) as {
+        token?: unknown;
+        waitlisted?: unknown;
+        waitlist_position?: unknown;
+      };
       if (typeof data?.token === 'string') token = data.token;
+      if (data?.waitlisted === true) waitlisted = true;
+      if (typeof data?.waitlist_position === 'number') waitlist_position = data.waitlist_position;
     } catch {
       // Success without a parseable body — still advance, just without a token.
     }
-    return { ok: true, token };
+    return { ok: true, token, waitlisted, waitlist_position };
   } catch {
-    return { ok: false };
+    return { ok: false, waitlisted: false };
   }
 }

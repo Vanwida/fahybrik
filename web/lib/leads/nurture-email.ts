@@ -14,34 +14,21 @@ import { Resend } from 'resend';
 import { z } from 'zod';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { NURTURE_TOUCH_TYPES, type NurtureTouchType } from '@fahybrid/shared/domain/leads/nurture';
+import {
+  EMPIEZA_PATH,
+  appBase,
+  brandShell,
+  citaUrl,
+  ctaButton,
+  escapeHtml,
+  unsubscribeFooter,
+  unsubscribeTextLine,
+} from './email-shell';
 
 export interface NurtureEmailResult {
   sent: boolean;
   skipped_reason?: 'resend_not_configured' | 'resend_send_failed' | 'missing_cita_token';
 }
-
-// Public route paths the emails link to (single-locale ES funnel). Kept local to this file.
-const CITA_PATH = '/es/cita/'; // + token
-const EMPIEZA_PATH = '/es/empieza';
-const UNSUBSCRIBE_PAGE_PATH = '/es/no-mas-emails'; // ?token=… → confirm → POST /api/leads/unsubscribe
-
-// Inlined brand palette (mail clients strip CSS custom properties). Mirrors citas emails.
-const BRAND_INK = '#0a0a0a';
-const BRAND_ORANGE = '#F06A2A';
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-const shell = (inner: string) =>
-  `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:${BRAND_INK};background:#fff;">
-     <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${BRAND_ORANGE};">FAHYBRID</p>${inner}
-   </div>`;
 
 type CtaKind = 'cita' | 'empieza';
 
@@ -132,18 +119,10 @@ const nurtureInputSchema = z.object({
 
 export type NurtureEmailInput = z.infer<typeof nurtureInputSchema>;
 
-function appBase(): string {
-  return AUTH_CONFIG.appUrl().replace(/\/$/, '');
-}
-
 function ctaUrl(kind: CtaKind, citaToken: string | null): string | null {
   if (kind === 'empieza') return `${appBase()}${EMPIEZA_PATH}`;
   if (!citaToken) return null; // 'cita' CTA needs the booking token
-  return `${appBase()}${CITA_PATH}${citaToken}`;
-}
-
-function unsubscribeUrl(token: string): string {
-  return `${appBase()}${UNSUBSCRIBE_PAGE_PATH}?token=${encodeURIComponent(token)}`;
+  return citaUrl(citaToken);
 }
 
 /** Sends the nurture email for one candidate touch. Guarded + validated. */
@@ -163,7 +142,6 @@ export async function sendNurtureEmail(input: NurtureEmailInput): Promise<Nurtur
   const firstName = nombre?.trim().split(/\s+/)[0] ?? '';
   const hi = firstName ? `Hola ${firstName},` : 'Hola,';
   const hiHtml = firstName ? `Hola ${escapeHtml(firstName)},` : 'Hola,';
-  const unsub = unsubscribeUrl(unsubscribe_token);
 
   const bodyText = copy.body.join('\n\n');
   const bodyHtml = copy.body
@@ -174,15 +152,15 @@ export async function sendNurtureEmail(input: NurtureEmailInput): Promise<Nurtur
     `${hi}\n\n` +
     `${bodyText}\n${cta}\n\n` +
     `— Pablo · FAHYBRID\n\n` +
-    `Si no quieres más recordatorios, cancela aquí: ${unsub}`;
+    unsubscribeTextLine(unsubscribe_token);
 
-  const html = shell(
+  const html = brandShell(
     `<h1 style="margin:8px 0 14px;font-size:22px;">${escapeHtml(copy.heading)}</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hiHtml}</p>
        ${bodyHtml}
-       <p style="margin:4px 0 20px;"><a href="${escapeHtml(cta)}" style="display:inline-block;padding:12px 20px;background:${BRAND_ORANGE};color:${BRAND_INK};text-decoration:none;border-radius:8px;font-weight:600;">${escapeHtml(copy.ctaLabel)}</a></p>
+       ${ctaButton(cta, copy.ctaLabel)}
        <p style="margin:24px 0 0;color:#666;">— Pablo · FAHYBRID</p>
-       <p style="margin:20px 0 0;font-size:12px;color:#9a9a9a;">Si no quieres más recordatorios, <a href="${escapeHtml(unsub)}" style="color:#9a9a9a;text-decoration:underline;">cancela aquí</a>.</p>`,
+       ${unsubscribeFooter(unsubscribe_token)}`,
   );
 
   const apiKey = AUTH_CONFIG.resendApiKey();

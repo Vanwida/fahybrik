@@ -27,6 +27,16 @@ export const NURTURE_TOUCH_TYPES = [
 export type NurtureTouchType = (typeof NURTURE_TOUCH_TYPES)[number];
 
 /**
+ * A RESERVED lead_nurture_log touch_type that is NOT part of the nurture cadence (#18): the
+ * one-time "se ha liberado tu plaza" waitlist email. It reuses lead_nurture_log's UNIQUE
+ * (lead_id, touch_type) as a claim-before-send idempotency key, but it has no sequence /
+ * anchor / window and is never emitted by the nurture selector — so it deliberately lives
+ * OUTSIDE NurtureTouchType (adding it there would force a fake cadence entry). The release
+ * route (web/app/api/coach/leads/[id]/release-waitlist) claims it before sending.
+ */
+export const WAITLIST_RELEASED_TOUCH = 'waitlist_released' as const;
+
+/**
  * Which lead timestamp a touch's due-date is measured from:
  *   created_at   — row created at email capture (parcial sequence)
  *   submitted_at — full onboarding completed (nuevo sequence)

@@ -5,6 +5,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getAvailability } from '@/lib/citas/store';
+import { getMaxAthletes } from '@/lib/coach/capacity';
 import { AvailabilityEditor } from '@/components/v2/citas/AvailabilityEditor';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,16 @@ export default async function DisponibilidadPage({ params }: { params: Promise<{
   const session = await getCoachSession();
   if (!session) return null;
 
-  const { windows, exceptions } = await getAvailability();
+  const [{ windows, exceptions }, maxAthletes] = await Promise.all([
+    getAvailability(),
+    getMaxAthletes(),
+  ]);
 
-  return <AvailabilityEditor initialWindows={windows} initialExceptions={exceptions} />;
+  return (
+    <AvailabilityEditor
+      initialWindows={windows}
+      initialExceptions={exceptions}
+      initialMaxAthletes={maxAthletes}
+    />
+  );
 }

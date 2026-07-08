@@ -6,6 +6,7 @@
 // the product goes multi-coach. Timezone Europe/Madrid throughout (shared/domain/dates).
 
 import { sql } from '@/lib/db';
+import { isRowWaitlisted } from '@/lib/leads/waitlist';
 import { canTransitionLead, type LeadStatus } from '@fahybrid/shared/domain/leads/status';
 import {
   APPOINTMENT_ACTION_TO_STATUS,
@@ -81,11 +82,21 @@ export interface BookingContext {
   lead: BookingLead;
   active_appointment: AppointmentView | null;
   slots: DaySlots[];
+  /** #18: lead is on the waitlist and not yet released → no slots offered until released. */
+  waitlisted: boolean;
 }
 
-async function leadByToken(token: string): Promise<BookingLead | null> {
-  const rows = await sql<{ id: string; nombre: string | null; email: string }[]>`
-    select id::text as id, nombre, email from leads where token = ${token} limit 1
+// Internal booking row: the public BookingLead plus the two waitlist stamps (#18) the gate
+// reads. Kept private so BookingLead stays the lean public shape.
+interface LeadBookingRow extends BookingLead {
+  waitlisted_at: Date | null;
+  waitlist_released_at: Date | null;
+}
+
+async function leadByToken(token: string): Promise<LeadBookingRow | null> {
+  const rows = await sql<LeadBookingRow[]>`
+    select id::text as id, nombre, email, waitlisted_at, waitlist_released_at
+    from leads where token = ${token} limit 1
   `;
   return rows[0] ?? null;
 }
@@ -113,12 +124,15 @@ async function activeAppointmentFor(leadId: string): Promise<AppointmentView | n
 
 /** Public booking page data for a token. Throws CitasError(404) on a bad token. */
 export async function getBookingContext(token: string, now: Date = new Date()): Promise<BookingContext> {
-  const lead = await leadByToken(token);
-  if (!lead) throw new CitasError('not_found', 'Enlace no válido', 404);
+  const row = await leadByToken(token);
+  if (!row) throw new CitasError('not_found', 'Enlace no válido', 404);
+  const lead: BookingLead = { id: row.id, nombre: row.nombre, email: row.email };
+  const waitlisted = isRowWaitlisted(row); // #18: on the list, not released → hide slots
   const active = await activeAppointmentFor(lead.id);
-  // If they already have an active appointment we don't need to offer slots.
-  const slots = active ? [] : await computeSlots(now);
-  return { lead, active_appointment: active, slots };
+  // No slots when they already have an active appointment OR they're waitlisted-unreleased
+  // (mirrors the existing empty-slots fallback the UI already renders).
+  const slots = active || waitlisted ? [] : await computeSlots(now);
+  return { lead, active_appointment: active, slots, waitlisted };
 }
 
 export interface BookResult {
@@ -138,8 +152,13 @@ export async function bookAppointment(args: {
   now?: Date;
 }): Promise<BookResult> {
   const now = args.now ?? new Date();
-  const lead = await leadByToken(args.token);
-  if (!lead) throw new CitasError('not_found', 'Enlace no válido', 404);
+  const row = await leadByToken(args.token);
+  if (!row) throw new CitasError('not_found', 'Enlace no válido', 404);
+
+  // #18 server-enforced gate: a waitlisted-but-unreleased lead must not be able to book by
+  // replaying this endpoint (the UI hides slots, but the server is the real authority).
+  if (isRowWaitlisted(row)) throw new CitasError('waitlisted', 'Estás en lista de espera', 409);
+  const lead: BookingLead = { id: row.id, nombre: row.nombre, email: row.email };
 
   const existing = await activeAppointmentFor(lead.id);
   if (existing) throw new CitasError('already_booked', 'Ya tienes una cita en curso', 409);

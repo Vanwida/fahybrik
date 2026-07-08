@@ -44,11 +44,43 @@ export function FinalScreen({
   nombre,
   email,
   bookingToken,
+  waitlisted = false,
+  waitlistPosition = null,
 }: {
   nombre: string;
   email: string;
   bookingToken?: string | null;
+  /** #18: coach at capacity → show the exclusive "lista de espera" state (no slots). */
+  waitlisted?: boolean;
+  /** The lead's 1-based place in the waitlist (only shown when `waitlisted`). */
+  waitlistPosition?: number | null;
 }) {
+  // Waitlist state — the group is full. Framed as exclusivity, never rejection: a
+  // small coached group, a saved spot, and an honest "we'll email you by arrival".
+  if (waitlisted) {
+    return (
+      <div className="ob-center">
+        <div className="ob-badge">Lista de espera</div>
+        <h1 className="ob-lead ob-final-lead">Ahora mismo no quedan plazas.</h1>
+        <p className="ob-sub ob-final-sub">
+          Pablo entrena a un grupo reducido para cuidar cada plan al detalle
+          {nombre ? `, ${nombre}` : ''} — y justo ahora está completo. Te hemos guardado sitio en
+          la lista: en cuanto se libere una plaza te avisamos por email, por orden de llegada.
+        </p>
+        {waitlistPosition ? (
+          <p className="ob-echo-email">
+            Eres el <strong>nº {waitlistPosition}</strong> en la lista de espera.
+          </p>
+        ) : null}
+        {email ? (
+          <p className="ob-echo-email">
+            Te hemos enviado un email a <strong>{email}</strong>.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="ob-center">
       <div className="ob-badge">Solicitud recibida</div>

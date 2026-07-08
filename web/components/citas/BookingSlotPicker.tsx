@@ -43,6 +43,10 @@ interface BookingContext {
   nombre: string;
   active_appointment: Appointment | null;
   slots: DaySlots[];
+  // #18: coach at capacity and this lead is on the waitlist (not yet released) →
+  // show the "en lista de espera" state instead of any slots. A released lead
+  // comes back with waitlisted=false → normal booking, no change.
+  waitlisted: boolean;
 }
 
 type LoadPhase = 'loading' | 'ready' | 'error';
@@ -220,6 +224,21 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         ) : (
           <p className="bk-card-note">Te hemos enviado el email con el enlace de la videollamada.</p>
         )}
+      </div>
+    );
+  } else if (ctx?.waitlisted) {
+    // On the waitlist and not yet released — no slots to pick. Same exclusive,
+    // honest framing as the onboarding waitlist screen (scarcity, not rejection).
+    content = (
+      <div className="bk-card">
+        <span className="bk-card-eyebrow">
+          <span className="bk-dot" aria-hidden="true" /> Lista de espera
+        </span>
+        <p className="bk-card-title">Estás en la lista de espera.</p>
+        <p className="bk-card-note">
+          El grupo de Pablo está completo ahora mismo. En cuanto se abra una plaza te avisamos por
+          email, por orden de llegada.
+        </p>
       </div>
     );
   } else if (ctx?.active_appointment) {

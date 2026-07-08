@@ -30,6 +30,7 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse> {
       nombre: first,
       active_appointment: context.active_appointment,
       slots: context.slots,
+      waitlisted: context.waitlisted, // #18: UI shows the "en lista de espera" state instead of slots
     });
   } catch (err) {
     if (err instanceof CitasError) return jsonError(err.code, err.message, err.status);

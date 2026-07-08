@@ -12,6 +12,7 @@ import type { AppointmentStatus } from '@fahybrid/shared/domain/citas/status';
 import type { SessionOutcome } from '@fahybrid/shared/domain/sessions/outcome';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { latestAppointmentForLead, type AppointmentView } from '@/lib/citas/store';
+import { countWaitlist } from '@/lib/leads/waitlist';
 import { buildAltaPrefill, type AltaPrefill } from '@/lib/leads/alta-mapping';
 import { listSessionReportsForLead, type SessionReportView } from '@/lib/coach/session-reports';
 import { LEAD_STATUS_ORDER, type LeadStatus } from './leads-status';
@@ -62,6 +63,8 @@ export interface LeadsListResult {
   leads: LeadListItem[];
   counts: Record<LeadStatus, number>;
   total: number;
+  /** #18: leads actively on the capacity waitlist (nuevo/contactado, not yet released). */
+  en_espera: number;
 }
 
 interface LeadListRow {
@@ -90,8 +93,10 @@ interface LeadListRow {
 export async function listLeadsForCoach(): Promise<LeadsListResult> {
   // ONE query. Two LATERAL joins fold the per-lead appointment + latest report into the
   // row (no N+1). The appointment lateral picks the "most relevant" slot: a FUTURE active
-  // (pendiente|aceptada) slot, soonest first; otherwise the latest slot by time.
-  const rows = await sql<LeadListRow[]>`
+  // (pendiente|aceptada) slot, soonest first; otherwise the latest slot by time. The
+  // waitlist count runs in parallel (#18) — a small separate aggregate, not worth a join.
+  const [rows, en_espera] = await Promise.all([
+    sql<LeadListRow[]>`
     select l.id, l.nombre, l.email, l.telefono, l.status,
            l.objetivo, l.nivel, l.dias_semana, l.ubicacion,
            l.carrera_cual, l.carrera_cuando,
@@ -118,7 +123,9 @@ export async function listLeadsForCoach(): Promise<LeadsListResult> {
       limit 1
     ) sr on true
     order by l.created_at desc
-  `;
+  `,
+    countWaitlist(),
+  ]);
 
   const rankOf = (s: LeadStatus) => {
     const i = LEAD_STATUS_ORDER.indexOf(s);
@@ -176,7 +183,7 @@ export async function listLeadsForCoach(): Promise<LeadsListResult> {
   >;
   for (const l of leads) counts[l.status] += 1;
 
-  return { leads, counts, total: leads.length };
+  return { leads, counts, total: leads.length, en_espera };
 }
 
 // ── Detail ───────────────────────────────────────────────────────────────────────
