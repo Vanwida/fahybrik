@@ -7,6 +7,7 @@ import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { rosterStatus, type RosterStatus } from '@/lib/dashboard/v2/atletas-status';
 import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
+import type { InjuryZone, InjuryStatus } from '@fahybrid/shared/domain/coach/injury-taxonomy';
 
 export interface RosterRow {
   athlete_id: string;
@@ -30,6 +31,9 @@ export interface RosterRow {
   status_detail: string | null;
   /** "Pidió pausa" indicator: the pending-request reason label, null = none pending. */
   pause_request_label: string | null;
+  /** The athlete's open injury (#16) for the at-a-glance badge, null when none. The
+   *  label + tone are derived at render (injuryBadge) so this stays pure data. */
+  injury: { zone: InjuryZone; status: InjuryStatus } | null;
 }
 
 /** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
@@ -64,5 +68,6 @@ export function toRosterRow(a: AthleteRow): RosterRow {
     pause_request_label: a.pause_request_reason
       ? PAUSE_REASON_LABELS[a.pause_request_reason]
       : null,
+    injury: a.injury,
   };
 }

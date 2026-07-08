@@ -15,6 +15,7 @@ import type {
   AthleteLifecycleStatus,
   PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
+import type { InjuryZone, InjuryStatus } from '@fahybrid/shared/domain/coach/injury-taxonomy';
 
 export type { ProgrammingStatus };
 
@@ -77,6 +78,9 @@ export interface AthleteRow {
   /** Reason of a PENDING athlete-initiated pause request (else null = none pending).
    *  Only an activo athlete can have one (the requestPause guard). Surfaces "Pidió pausa". */
   pause_request_reason: PauseReason | null;
+  /** The most relevant OPEN injury (#16) for the roster badge, null when none open.
+   *  activa outranks en_recuperacion; resolved episodes never surface here. */
+  injury: { zone: InjuryZone; status: InjuryStatus } | null;
 }
 
 export async function fetchAthletesForCoach(params: {
@@ -120,6 +124,8 @@ export async function fetchAthletesForCoach(params: {
       lifecycle_status: AthleteLifecycleStatus;
       open_pause_reason: PauseReason | null;
       pause_request_reason: PauseReason | null;
+      injury_zone: InjuryZone | null;
+      injury_status: InjuryStatus | null;
     }>
   >`
     select
@@ -144,7 +150,9 @@ export async function fetchAthletesForCoach(params: {
       la.last_activity_at,
       a.lifecycle_status,
       op.reason as open_pause_reason,
-      pr.reason as pause_request_reason
+      pr.reason as pause_request_reason,
+      inj.zone as injury_zone,
+      inj.status as injury_status
     from athletes a
     left join athlete_levels al on al.id = a.level_id
     left join lateral (
@@ -241,6 +249,15 @@ export async function fetchAthletesForCoach(params: {
       order by created_at desc
       limit 1
     ) pr on true
+    left join lateral (
+      -- #16: the athlete's most relevant OPEN injury → the roster injury badge. activa
+      -- outranks en_recuperacion, then the most recent onset; resolved episodes never
+      -- surface here (they live only in the ficha histórico).
+      select zone, status from injuries
+      where athlete_id = a.id and status in ('activa', 'en_recuperacion')
+      order by (status = 'activa') desc, onset_date desc, id desc
+      limit 1
+    ) inj on true
     where a.coach_id = ${params.coach_id}
       and (${modalityFilter}::text is null or sub.plan_type = ${modalityFilter})
     order by a.full_name asc
@@ -321,6 +338,10 @@ export async function fetchAthletesForCoach(params: {
       lifecycle_status: r.lifecycle_status,
       pause_reason: r.open_pause_reason ?? null,
       pause_request_reason: r.pause_request_reason ?? null,
+      injury:
+        r.injury_zone != null && r.injury_status != null
+          ? { zone: r.injury_zone, status: r.injury_status }
+          : null,
       target_race:
         r.target_race_name != null &&
         r.target_race_priority != null &&

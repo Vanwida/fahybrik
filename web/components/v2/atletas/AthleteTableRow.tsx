@@ -14,6 +14,7 @@ import { AdherenceBar } from '@/components/v2/AdherenceBar';
 import { Pill } from '@/components/v2/Pill';
 import { RosterStatusDot } from '@/components/v2/atletas/RosterStatusDot';
 import { ROSTER_STATUS_META } from '@/lib/dashboard/v2/atletas-status';
+import { injuryBadge } from '@/components/v2/atleta-detalle/injuries/injury-presentation';
 import type { RosterRow } from '@/lib/dashboard/v2/atletas-row';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import { cn } from '@/lib/utils';
@@ -54,10 +55,21 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
         <LevelBadge level={row.level} />
       </div>
 
-      {/* Estado — status badge (+ threaded pause reason), and a "Pidió pausa" chip
-          when the athlete has an open pause request the coach hasn't resolved yet. */}
+      {/* Estado — status badge (+ threaded pause reason), a "Pidió pausa" chip when the
+          athlete has an open pause request, and the #16 injury badge at a glance. */}
       <div className="flex min-w-0 flex-col items-start gap-1">
         <RosterStatusDot status={row.status} detail={row.status_detail} />
+        {row.injury ? (
+          (() => {
+            const badge = injuryBadge(row.injury.zone, row.injury.status);
+            return (
+              <Pill tone={badge.tone} variant="soft" className="max-w-full" title="Lesión registrada">
+                <MIcon name="personal_injury" size={11} />
+                <span className="truncate">{badge.label}</span>
+              </Pill>
+            );
+          })()
+        ) : null}
         {row.pause_request_label ? (
           <Pill tone="warn" variant="soft" className="max-w-full" title="El atleta ha pedido una pausa">
             <MIcon name="pan_tool" size={11} />
