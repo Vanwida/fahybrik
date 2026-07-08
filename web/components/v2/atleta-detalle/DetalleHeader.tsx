@@ -9,6 +9,7 @@
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
+import { AuthorStamp } from '@/components/v2/AuthorStamp';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { StatusDot } from '@/components/v2/StatusDot';
 import { StatTile } from '@/components/v2/StatTile';
@@ -85,6 +86,24 @@ export function DetalleHeader({
               </span>
             ))}
           </div>
+          {/* Authorship sello (#43): who did the alta + last profile edit. Each
+              self-hides when unattributed (historical rows). */}
+          {header.authored.alta_by_name || header.authored.edited_by_name ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <AuthorStamp
+                kind="coach"
+                name={header.authored.alta_by_name}
+                verb="dio de alta"
+                at={header.authored.alta_at}
+              />
+              <AuthorStamp
+                kind="coach"
+                name={header.authored.edited_by_name}
+                verb="editó"
+                at={header.authored.edited_at}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 

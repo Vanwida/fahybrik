@@ -52,6 +52,13 @@ export type AthleteProfileShell = {
   /** Real account/onboarding timestamp (ISO) — the single base for tenure ("alta
    *  hace N"). null when never onboarded. NOT a plan-start proxy. */
   onboarded_at: string | null;
+  /** Alta authorship (#43): the coach who created the athlete + when (ISO), for the
+   *  "Alta por X · hace Y" sello. null when unattributed (historical rows). */
+  alta_by_name: string | null;
+  alta_at: string | null;
+  /** Last profile edit authorship (#43): who + when (ISO). null when never edited. */
+  edited_by_name: string | null;
+  edited_at: string | null;
   /** Modalidad de plan (suscripción más reciente) — null si aún no hay suscripción. */
   modality: AthleteModality | null;
   /** Real level name from athlete_levels.name (e.g. 'N1'–'N5'); null when not assigned. */
@@ -89,6 +96,10 @@ export async function fetchAthleteProfileShell(params: {
       block_week: number | null;
       onboarded_at: Date | null;
       intake_completed_at: Date | null;
+      created_at: Date | null;
+      updated_at: Date | null;
+      alta_by_name: string | null;
+      edited_by_name: string | null;
       modality: string | null;
       partner_athlete_id: string | null;
       partner_full_name: string | null;
@@ -103,11 +114,17 @@ export async function fetchAthleteProfileShell(params: {
       ab.block_week as block_week,
       a.onboarded_at,
       a.intake_completed_at,
+      a.created_at,
+      a.updated_at,
+      cu.full_name as alta_by_name,
+      eu.full_name as edited_by_name,
       sub.plan_type as modality,
       pa.id::text as partner_athlete_id,
       pa.full_name as partner_full_name
     from athletes a
     left join athlete_levels al on al.id = a.level_id
+    left join users cu on cu.id = a.created_by_user_id
+    left join users eu on eu.id = a.last_edited_by_user_id
     left join lateral (
       select s.plan_type
       from subscriptions s
@@ -177,6 +194,12 @@ export async function fetchAthleteProfileShell(params: {
       intake_completed_at: row.intake_completed_at,
     }),
     onboarded_at: row.onboarded_at ? row.onboarded_at.toISOString() : null,
+    alta_by_name: row.alta_by_name,
+    alta_at: row.created_at ? row.created_at.toISOString() : null,
+    edited_by_name: row.edited_by_name,
+    // Only surface an edit time when there is a recorded editor — updated_at is
+    // bumped by triggers for reasons unrelated to a human edit.
+    edited_at: row.edited_by_name && row.updated_at ? row.updated_at.toISOString() : null,
     modality: isAthleteModality(row.modality) ? row.modality : null,
     level_name: row.level_name,
     level_sort: row.level_sort,

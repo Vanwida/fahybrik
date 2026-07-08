@@ -306,6 +306,12 @@ export async function loadAthleteDetalle(params: {
     phase_label: phaseLabel(shell, plan),
     modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
     lifecycle: lifecycleDetail,
+    authored: {
+      alta_by_name: shell.alta_by_name,
+      alta_at: shell.alta_at,
+      edited_by_name: shell.edited_by_name,
+      edited_at: shell.edited_at,
+    },
   };
 
   // Degrade safely: a failed classification load renders the picker in its empty

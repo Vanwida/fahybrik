@@ -135,6 +135,14 @@ export interface DetalleHeader {
   modality_label: string | null;
   /** Lifecycle state (#13) — drives the header actions + the pause/baja/request banner. */
   lifecycle: DetalleLifecycle;
+  /** Authorship sello (#43): who did the alta + last profile edit, and when (ISO).
+   *  Fields are null when unattributed (historical rows before the team registry). */
+  authored: {
+    alta_by_name: string | null;
+    alta_at: string | null;
+    edited_by_name: string | null;
+    edited_at: string | null;
+  };
 }
 
 // ── Stat cluster (the 4 header StatTiles) ──────────────────────────────────────
