@@ -11,7 +11,7 @@ import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
 import { SIGNAL_THRESHOLDS } from './signal-config';
 import type { AlertReason, CohortRow } from '@fahybrid/shared/domain/coach/types';
-import { pauseExclusionSql } from './adherence-pause-filter';
+import { adherenceExclusionSql } from './adherence-pause-filter';
 
 export interface BuildCohortParams {
   coach_id: bigint | number;
@@ -342,7 +342,7 @@ async function computeCompliance(
       and wa.scheduled_for >= ${startIso}::date
       -- #13: EXCLUDE days inside a pause (frozen) from the row source; a whole
       -- paused window ⇒ scheduled 0 ⇒ null, never a punitive 0%.
-      ${pauseExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`)}
+      ${adherenceExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`, client`wa.injury_adaptation`)}
   `;
   const r = rows[0];
   if (!r || r.scheduled === 0) return null;

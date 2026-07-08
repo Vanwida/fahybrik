@@ -42,16 +42,21 @@ type SqlFragment = ReturnType<typeof defaultSql>;
  * to the caller's OWN alias with zero drift. The clause is a no-op for an athlete
  * with no pauses, so active athletes are entirely unaffected.
  */
-export function pauseExclusionSql(
+export function adherenceExclusionSql(
   client: Sql,
   athleteRef: SqlFragment,
   dayRef: SqlFragment,
+  adaptationRef?: SqlFragment,
 ): SqlFragment {
+  // #16 — exclude ONLY injury REST days; a substituted/softened session the athlete
+  // executes still counts (via its execution). Omit adaptationRef → pause-only.
+  const injuryRest = adaptationRef ? client`and ${adaptationRef} is distinct from 'rest'` : client``;
   return client`
     and not exists (
       select 1 from athlete_pauses ap
       where ap.athlete_id = ${athleteRef}
         and ${dayRef} >= ap.start_date
         and ${dayRef} <= coalesce(ap.end_date, current_date)
-    )`;
+    )
+    ${injuryRest}`;
 }

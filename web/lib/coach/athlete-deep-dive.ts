@@ -48,7 +48,7 @@ import type {
   ZoneTimePct,
 } from './deep-dive-types';
 import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
-import { pauseExclusionSql } from '@/lib/coach/adherence-pause-filter';
+import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
@@ -348,7 +348,7 @@ async function loadCompliance(
      and wa.scheduled_for >= w.start
      -- #13: EXCLUDE days inside a pause (frozen) from the join so both counts drop
      -- them together; a whole paused window ⇒ scheduled 0 ⇒ pct null, not 0%.
-     ${pauseExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`)}
+     ${adherenceExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`, client`wa.injury_adaptation`)}
     group by w.w
   `;
 
@@ -530,7 +530,7 @@ async function loadCompliancePct(
       and wa.scheduled_for >= ${startIso}::date
       -- #13: EXCLUDE days inside a pause (frozen) from the row source; a whole
       -- paused window ⇒ scheduled 0 ⇒ null, never a punitive 0%.
-      ${pauseExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`)}
+      ${adherenceExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`, client`wa.injury_adaptation`)}
   `;
   const r = rows[0];
   if (!r || r.scheduled === 0) return null;

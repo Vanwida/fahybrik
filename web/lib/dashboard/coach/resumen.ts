@@ -10,7 +10,7 @@ import { getAthleteProgrammingStatus, type AthleteProgrammingStatus } from './pr
 import { getNextRace, getTargetRace, toRaceSummary } from '@/lib/races/next-race';
 import type { RaceSummary } from '@fahybrid/shared/schema';
 import { getLatestReadiness } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
-import { pauseExclusionSql } from '@/lib/coach/adherence-pause-filter';
+import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
 
 export interface AthleteResumen {
   athlete_id: string;
@@ -126,7 +126,7 @@ export async function buildAthleteResumen(params: {
       -- (week + rolling adherence) shrink numerator + denominator together — must
       -- AGREE with the roster (list.ts). A fully-paused window ⇒ adh_scheduled 0 ⇒
       -- adherencePct null ("—"), never a punitive 0%.
-      ${pauseExclusionSql(client, client`workout_assignments.athlete_id`, client`workout_assignments.scheduled_for`)}
+      ${adherenceExclusionSql(client, client`workout_assignments.athlete_id`, client`workout_assignments.scheduled_for`, client`workout_assignments.injury_adaptation`)}
   `;
 
   const scheduled = complianceRows[0]?.week_scheduled ?? 0;

@@ -8,7 +8,7 @@ import {
 } from '@/lib/dashboard/coach/programming-status';
 import type { RacePriority } from '@fahybrid/shared/schema';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
-import { pauseExclusionSql } from '@/lib/coach/adherence-pause-filter';
+import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
 import { getOrderAlteredByAthlete } from '@/lib/dashboard/v2/order-altered';
 import { getLatestReadinessBatch } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 import type {
@@ -189,7 +189,7 @@ export async function fetchAthletesForCoach(params: {
         -- #13: EXCLUDE days inside a pause (frozen), don't count them as 0%. Wraps
         -- the row source so scheduled + completed shrink together; a whole paused
         -- window ⇒ scheduled 0 ⇒ compliance_pct null ("—"). Shared with the ficha.
-        ${pauseExclusionSql(client, client`x.athlete_id`, client`x.scheduled_for`)}
+        ${adherenceExclusionSql(client, client`x.athlete_id`, client`x.scheduled_for`, client`x.injury_adaptation`)}
     ) wa on true
     left join lateral (
       select plan_type, source
