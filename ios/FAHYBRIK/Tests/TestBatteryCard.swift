@@ -275,7 +275,7 @@ struct TestBatteryInicioSection: View {
         guard let bearer else { return }
         do {
             let detail = try await PlanService.fetchAssignmentDetail(test.assignmentId, bearer: bearer)
-            let specs = detail.assignment.storeResults ?? []
+            let specs = detail.storeResults
             guard !specs.isEmpty else { return }
             captureTarget = CaptureTarget(id: test.assignmentId, specs: specs)
         } catch {

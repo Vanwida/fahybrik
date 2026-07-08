@@ -12,6 +12,19 @@ import Foundation
 struct AssignmentDetail: Codable, Equatable {
     let assignment: AssignmentInfo
     let workout: WorkoutDetail?
+
+    // #34 — the calibration test's result contract, resilient to WHERE the backend
+    // attaches `store_results`: the landed athlete-detail ships it on `assignment`
+    // (an assignment-level property, present even on the executed view), while the
+    // agreed contract also allows it on `workout`. Read BOTH and prefer a non-empty
+    // source so a backend move between the two never silently breaks capture. Empty
+    // ⇒ this is a normal (non-test) session. Consumers use THIS, never the raw
+    // per-object fields.
+    var storeResults: [StoreResultSpec] {
+        if let a = assignment.storeResults, !a.isEmpty { return a }
+        if let w = workout?.storeResults, !w.isEmpty { return w }
+        return []
+    }
     // The athlete's REAL executed result — present once the session is done
     // (completed / partial). Powers the read-only post-workout detail the athlete
     // reaches by tapping a finished session (tiempo / score / RPE / per-segment
@@ -180,6 +193,12 @@ struct WorkoutDetail: Codable, Equatable {
     // one odd block never collapses the entire session into the "sin detalle"
     // empty state. The good blocks still render. See `LossyArray`.
     @LossyArray var blocks: [WorkoutBlock]
+    // #34 — a calibration test's result contract MAY arrive here (workout-level)
+    // instead of on `assignment`; optional so it's absent for both non-test
+    // sessions and the current backend (which ships it on `assignment`). Read via
+    // `AssignmentDetail.storeResults`, which coalesces both locations. Wire
+    // `store_results` → `storeResults` via convertFromSnakeCase.
+    let storeResults: [StoreResultSpec]?
 }
 
 // One RESULT a calibration test promises to produce — what number iOS asks for

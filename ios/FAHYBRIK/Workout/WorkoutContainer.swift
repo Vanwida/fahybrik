@@ -236,7 +236,7 @@ struct WorkoutContainer: View {
                             // the number gets posted to the bridge (and so a caller
                             // whose onCompleted dismisses this cover doesn't cut it
                             // short). A normal session closes as before.
-                            if !(detail?.assignment.storeResults ?? []).isEmpty {
+                            if !(detail?.storeResults ?? []).isEmpty {
                                 phase = .testResult
                             } else {
                                 onCompleted(assignmentId)
@@ -251,7 +251,7 @@ struct WorkoutContainer: View {
                 // way the execution is already recorded; only the calibration is
                 // optional. Then we refresh the caller and close.
                 if let session {
-                    let specs = detail?.assignment.storeResults ?? []
+                    let specs = detail?.storeResults ?? []
                     TestResultCaptureSheet(
                         assignmentId: assignmentId ?? "",
                         specs: specs,
