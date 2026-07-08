@@ -25,9 +25,6 @@ struct InviteLandingView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var error: String? = nil
     @State private var inProgress: Bool = false
-    /// Presents the email-code activation — the universal path for an athlete
-    /// whose Apple ID doesn't match their enrolment email (or who has no Apple).
-    @State private var showEmail: Bool = false
 
     var body: some View {
         ZStack {
@@ -65,27 +62,6 @@ struct InviteLandingView: View {
                 .opacity(inProgress ? 0.6 : 1)
                 .accessibilityLabel("Iniciar sesión con Apple para activar tu invitación")
 
-                // Universal path: activate with email + a one-time code. For an
-                // athlete whose Apple ID ≠ enrolment email, or with no Apple device.
-                Button {
-                    Haptics.light()
-                    showEmail = true
-                } label: {
-                    Text("Activar con mi email")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                                .strokeBorder(Theme.Color.outline, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(PressScaleStyle())
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.xs)
-                .disabled(inProgress)
-
                 if let error {
                     Text(error)
                         .font(Theme.Typography.small)
@@ -100,21 +76,6 @@ struct InviteLandingView: View {
 
                 Spacer().frame(height: Theme.Spacing.xl)
             }
-        }
-        .sheet(isPresented: $showEmail) {
-            EmailSignInView(
-                onAuthenticated: { resp in
-                    showEmail = false
-                    Haptics.success()
-                    auth.acceptAppleResponse(resp)
-                    // Redemption granted active access by construction — mark it
-                    // so the cold gate never flashes on this path.
-                    auth.markAccessActive()
-                    onCompleted()
-                },
-                onClose: { showEmail = false },
-                inviteToken: inviteToken
-            )
         }
     }
 
