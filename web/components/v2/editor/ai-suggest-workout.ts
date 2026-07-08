@@ -7,6 +7,8 @@
 // blocks (ai-blocks-to-editor) for the preview + insert. No schema duplicated here.
 
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
+import { serializeBlockExercises } from '@/lib/dashboard/v2/editor-serialize';
+import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 
 export type SuggestMode = 'fast' | 'slow';
 export type ProgramLevel = 'beginner' | 'intermediate' | 'pro' | 'elite';
@@ -74,4 +76,69 @@ export async function requestSuggestion(input: SuggestWorkoutInput): Promise<AiS
   }
   const body = (await res.json()) as { suggestion: AiSuggestion };
   return body.suggestion;
+}
+
+// ── Opt-in "guardar bloque compuesto en biblioteca" (#33 fork e) ─────────────────
+// A composed (LLM) block is NOT auto-saved — that would pollute Pablo's curated
+// methodology library. The coach opts in per block AND picks the methodology group
+// (1..10), reusing the SAME create-block endpoint + serializer the Biblioteca uses.
+
+export interface MethodologyGroupOption {
+  id: number;
+  name: string;
+}
+
+/** The coach's 10 pedagogical methodology groups (for the save-to-library picker). */
+export async function getMethodologyGroups(): Promise<MethodologyGroupOption[]> {
+  try {
+    const res = await fetch('/api/coach/methodology-groups', { credentials: 'include' });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { groups?: { id: number; name_es: string }[] };
+    return (body.groups ?? []).map((g) => ({ id: g.id, name: g.name_es }));
+  } catch {
+    return [];
+  }
+}
+
+/** Save ONE composed block to the coach's library under a chosen methodology group. */
+export async function saveBlockToLibrary(
+  block: EditorBlock,
+  methodologyGroupId: number,
+): Promise<{ ok: boolean; error: string | null }> {
+  let exercises;
+  try {
+    // EditorBlock satisfies the serializer input — same path the Biblioteca uses.
+    exercises = serializeBlockExercises([block]);
+  } catch {
+    return { ok: false, error: 'El bloque tiene líneas sin ejercicio; no se puede guardar.' };
+  }
+  if (exercises.length === 0) {
+    return { ok: false, error: 'El bloque no tiene ejercicios que guardar.' };
+  }
+  try {
+    const res = await fetch('/api/coach/blocks', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        title: block.title,
+        methodology_group_id: methodologyGroupId,
+        ...(block.format ? { format: block.format } : {}),
+        exercises,
+      }),
+    });
+    if (!res.ok) {
+      let msg = 'No se pudo guardar en biblioteca.';
+      try {
+        const b = (await res.json()) as { error?: { message?: string } };
+        if (b?.error?.message) msg = b.error.message;
+      } catch {
+        /* keep default */
+      }
+      return { ok: false, error: msg };
+    }
+    return { ok: true, error: null };
+  } catch {
+    return { ok: false, error: 'Error de red al guardar en biblioteca.' };
+  }
 }

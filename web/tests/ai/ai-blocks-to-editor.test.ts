@@ -3,6 +3,7 @@ import {
   weekDayPartToEditorBlock,
   weekDayPartsToEditorBlocks,
 } from '@/lib/dashboard/v2/ai-blocks-to-editor';
+import { serializeBlockExercises } from '@/lib/dashboard/v2/editor-serialize';
 import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import type { WeekDayPart, WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
 
@@ -123,6 +124,26 @@ describe('stress-test — 10 HYROX focuses convert to non-empty typed prescripti
       expect(line.length).toBeGreaterThan(0);
       if (re) expect(line).toMatch(re);
     }
+  });
+});
+
+describe('save-to-library (#33 fork e) — an AI block serializes to a valid block payload', () => {
+  it('composed block → block_exercises rows carrying the structured prescription', () => {
+    const [b] = weekDayPartsToEditorBlocks([
+      part('strength_block', 'Empuje', [
+        item('Push Press', { sets: 5, reps: 3, load_pct: 82, rest_seconds: 150 }),
+        item('DB Bench Press', { sets: 3, reps: 10, rpe: 8 }),
+      ]),
+    ]);
+    const exercises = serializeBlockExercises([b!]);
+    expect(exercises).toHaveLength(2); // min 1 → satisfies blockWriteSchema
+    expect(exercises[0]).toMatchObject({
+      exercise_id: 42,
+      block_position: 0,
+      block_format: 'strength_block',
+      block_title: 'Empuje',
+    });
+    expect(exercises[0]!.prescription_json).toBeTruthy();
   });
 });
 

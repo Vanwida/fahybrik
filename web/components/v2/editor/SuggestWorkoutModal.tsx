@@ -18,9 +18,12 @@ import { weekDayPartsToEditorBlocks } from '@/lib/dashboard/v2/ai-blocks-to-edit
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import {
   getLlmConfigured,
+  getMethodologyGroups,
   requestSuggestion,
+  saveBlockToLibrary,
   SuggestWorkoutError,
   type AiSuggestion,
+  type MethodologyGroupOption,
   type ProgramLevel,
   type SuggestMode,
 } from './ai-suggest-workout';
@@ -83,6 +86,7 @@ export function SuggestWorkoutModal({
   const [blocks, setBlocks] = useState<EditorBlock[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [removedItems, setRemovedItems] = useState<Set<string>>(new Set()); // "blockUid:itemUid"
+  const [groups, setGroups] = useState<MethodologyGroupOption[]>([]); // methodology groups for save-to-library
 
   useEffect(() => {
     let live = true;
@@ -123,6 +127,11 @@ export function SuggestWorkoutModal({
       setSelected(new Set(eb.map((b) => b.uid)));
       setRemovedItems(new Set());
       setPhase('proposal');
+      // Composed blocks can be opt-in saved to the library → load the coach's
+      // methodology groups for the per-block group picker (once).
+      if (s.source === 'llm' && groups.length === 0) {
+        void getMethodologyGroups().then(setGroups);
+      }
     } catch (e) {
       setError(e instanceof SuggestWorkoutError ? e.message : 'No se pudo redactar el entreno.');
       setPhase('form');
@@ -202,6 +211,7 @@ export function SuggestWorkoutModal({
               blocks={blocks}
               selected={selected}
               removedItems={removedItems}
+              groups={groups}
               onToggleBlock={(uid) =>
                 setSelected((prev) => {
                   const next = new Set(prev);
@@ -399,6 +409,7 @@ function ProposalBody({
   blocks,
   selected,
   removedItems,
+  groups,
   onToggleBlock,
   onRemoveItem,
 }: {
@@ -406,9 +417,12 @@ function ProposalBody({
   blocks: EditorBlock[];
   selected: Set<string>;
   removedItems: Set<string>;
+  groups: MethodologyGroupOption[];
   onToggleBlock: (uid: string) => void;
   onRemoveItem: (key: string) => void;
 }) {
+  // Only composed blocks can be saved to the library (fast-mode ones already are).
+  const composed = suggestion.source === 'llm';
   const note =
     suggestion.notes ??
     (suggestion.matched_template ? `Plantilla base: ${suggestion.matched_template.name}. Ajusta lo que quieras tras insertar.` : null);
@@ -490,6 +504,15 @@ function ProposalBody({
                   );
                 })
               )}
+              {composed && on ? (
+                <SaveToLibrary
+                  block={{
+                    ...b,
+                    items: b.items.filter((it) => !removedItems.has(`${b.uid}:${it.uid}`)),
+                  }}
+                  groups={groups}
+                />
+              ) : null}
             </div>
           );
         })
@@ -497,6 +520,79 @@ function ProposalBody({
       <p className="mt-1 text-[10.5px] leading-relaxed text-[color:var(--v2-faint)]">
         Se añaden al final de la sesión. Edita cargas, ritmos y descansos en el editor tras insertar.
       </p>
+    </div>
+  );
+}
+
+// Opt-in save of ONE composed block to the coach's library (#33 fork e). Never
+// automatic — the coach must pick the methodology group (1..10), so a drafted block
+// never lands ungrouped in Pablo's curated library. Reuses POST /api/coach/blocks.
+function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: MethodologyGroupOption[] }) {
+  const [groupId, setGroupId] = useState<number | ''>('');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  // Nothing to save once every line was pruned.
+  if (block.items.length === 0) return null;
+
+  async function save() {
+    if (groupId === '' || status === 'saving') return;
+    setStatus('saving');
+    setError(null);
+    const res = await saveBlockToLibrary(block, groupId);
+    if (res.ok) {
+      setStatus('saved');
+    } else {
+      setError(res.error);
+      setStatus('error');
+    }
+  }
+
+  if (status === 'saved') {
+    const name = groups.find((g) => g.id === groupId)?.name ?? 'biblioteca';
+    return (
+      <div className="flex items-center gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2 text-[11px] font-semibold text-[color:var(--v2-ok)]">
+        <MIcon name="check_circle" size={14} /> Guardada en biblioteca · {name}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2">
+      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+        <MIcon name="bookmark_add" size={13} className="text-[color:var(--v2-violet)]" />
+        Guardar en biblioteca
+      </span>
+      <div className="flex items-center gap-2">
+        <select
+          value={groupId}
+          onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : '')}
+          disabled={status === 'saving' || groups.length === 0}
+          aria-label="Grupo de metodología"
+          className="v2-focus h-8 min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-[12px] text-[color:var(--v2-fg)] focus:border-[color:var(--v2-border-strong)] disabled:opacity-50"
+        >
+          <option value="">{groups.length === 0 ? 'Cargando grupos…' : 'Elige grupo…'}</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={groupId === '' || status === 'saving'}
+          className="v2-focus inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-45"
+        >
+          <MIcon
+            name={status === 'saving' ? 'progress_activity' : 'bookmark_add'}
+            size={14}
+            className={status === 'saving' ? 'animate-spin' : undefined}
+          />
+          Guardar
+        </button>
+      </div>
+      {error ? <p className="text-[11px] font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
     </div>
   );
 }
