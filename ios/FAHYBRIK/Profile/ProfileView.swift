@@ -18,6 +18,7 @@ struct ProfileView: View {
 
     @State private var sheet: SheetKind? = nil
     @State private var showPartnerInvite: Bool = false
+    @State private var cancellingInvite: Bool = false
     @State private var showUnpairConfirm: Bool = false
     @State private var unpairInProgress: Bool = false
 
@@ -462,7 +463,34 @@ struct ProfileView: View {
         }
     }
 
+    private var sentInvitation: SentInvitation? { store.partner.value?.sentInvitation }
+
+    /// The unpaired-inviter card. Reflects the live state of the invitation the
+    /// athlete last SENT: pending (with Cancel), expired / declined (with a
+    /// re-invite), or — when there is none, or the last one was cancelled — the
+    /// plain invite CTA.
+    @ViewBuilder
     private var partnerInviteCard: some View {
+        if let inv = sentInvitation, inv.state == .pending {
+            pendingInvitationCard(inv)
+        } else if let inv = sentInvitation, inv.state == .expired {
+            terminalInvitationCard(
+                headline: "La invitación a \(inv.inviteeEmail) caducó",
+                detail: "Puedes volver a invitarle. Tendrá otros 14 días para aceptar.",
+                cta: "Volver a invitar"
+            )
+        } else if let inv = sentInvitation, inv.state == .declined {
+            terminalInvitationCard(
+                headline: "\(inv.inviteeEmail) rechazó la invitación",
+                detail: "Puedes invitar a otra persona a entrenar contigo en Dobles.",
+                cta: "Invitar a otra persona"
+            )
+        } else {
+            inviteCtaCard
+        }
+    }
+
+    private var inviteCtaCard: some View {
         CardSurface(padding: 14, leftAccent: true) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Aún no has añadido a tu compañero/a")
@@ -471,26 +499,84 @@ struct ProfileView: View {
                 Text("Invítale por email para entrenar juntos en Dobles. Tendrá 14 días para aceptar.")
                     .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
+                invitePrimaryButton("Invitar a tu compañero/a")
+                    .padding(.top, 2)
+            }
+        }
+    }
+
+    private func pendingInvitationCard(_ inv: SentInvitation) -> some View {
+        CardSurface(padding: 14, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 10) {
+                LabelText(text: "INVITACIÓN PENDIENTE", color: Theme.Color.accentText)
+                Text("Enviada a \(inv.inviteeEmail)")
+                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text(inv.expiryText.map { "Esperando a que acepte · \($0)." }
+                        ?? "Esperando a que acepte desde su email.")
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
                 Button {
                     Haptics.light()
-                    showPartnerInvite = true
+                    Task { await cancelInvite() }
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Invitar a tu compañero/a")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    }
-                    .foregroundStyle(Theme.Color.accentOn)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Theme.Color.accent)
-                    .clipShape(Capsule())
+                    Text(cancellingInvite ? "Cancelando…" : "Cancelar invitación")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.danger)
                 }
                 .buttonStyle(.plain)
+                .disabled(cancellingInvite)
                 .padding(.top, 2)
             }
         }
+    }
+
+    private func terminalInvitationCard(headline: String, detail: String, cta: String) -> some View {
+        CardSurface(padding: 14, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(headline)
+                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text(detail)
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                invitePrimaryButton(cta)
+                    .padding(.top, 2)
+            }
+        }
+    }
+
+    private func invitePrimaryButton(_ title: String) -> some View {
+        Button {
+            Haptics.light()
+            showPartnerInvite = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 13, weight: .semibold))
+                Text(title)
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+            }
+            .foregroundStyle(Theme.Color.accentOn)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Theme.Color.accent)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func cancelInvite() async {
+        guard let bearer, !cancellingInvite else { return }
+        cancellingInvite = true
+        defer { cancellingInvite = false }
+        do {
+            _ = try await PartnerService.cancelInvite(bearer: bearer)
+            Haptics.light()
+        } catch {
+            // Non-fatal — the refresh below reconciles the card to server truth.
+        }
+        await store.refreshPartner(force: true)
     }
 
     // MARK: - Zones ("Mis zonas")

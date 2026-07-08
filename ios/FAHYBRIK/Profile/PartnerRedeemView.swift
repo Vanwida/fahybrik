@@ -20,6 +20,8 @@ struct PartnerRedeemView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var error: String? = nil
     @State private var inProgress: Bool = false
+    @State private var declining: Bool = false
+    @State private var declined: Bool = false
 
     var body: some View {
         ZStack {
@@ -43,27 +45,54 @@ struct PartnerRedeemView: View {
 
                 Spacer()
 
-                SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    handleApple(result)
-                }
-                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 54)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                .padding(.horizontal, Theme.Spacing.xl)
-                .disabled(inProgress)
-                .opacity(inProgress ? 0.6 : 1)
+                if declined {
+                    VStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 30))
+                            .foregroundStyle(Theme.Color.muted)
+                        Text("Invitación rechazada")
+                            .font(Theme.Typography.headlineS)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Se lo haremos saber a tu compañero/a. Ya puedes cerrar esta pantalla.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.Color.muted)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, Theme.Spacing.xl)
+                    }
+                } else {
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        handleApple(result)
+                    }
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                    .frame(height: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    .padding(.horizontal, Theme.Spacing.xl)
+                    .disabled(inProgress || declining)
+                    .opacity((inProgress || declining) ? 0.6 : 1)
 
-                if let error {
-                    Text(error)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.danger)
-                        .padding(.horizontal, Theme.Spacing.xl)
-                        .multilineTextAlignment(.center)
-                }
-                if inProgress {
-                    ProgressView().tint(Theme.Color.accentText)
+                    Button {
+                        Haptics.light()
+                        Task { await decline() }
+                    } label: {
+                        Text(declining ? "Rechazando…" : "Rechazar invitación")
+                            .font(Theme.Typography.small)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(inProgress || declining)
+
+                    if let error {
+                        Text(error)
+                            .font(Theme.Typography.small)
+                            .foregroundStyle(Theme.Color.danger)
+                            .padding(.horizontal, Theme.Spacing.xl)
+                            .multilineTextAlignment(.center)
+                    }
+                    if inProgress {
+                        ProgressView().tint(Theme.Color.accentText)
+                    }
                 }
 
                 Spacer().frame(height: Theme.Spacing.xl)
@@ -106,24 +135,49 @@ struct PartnerRedeemView: View {
             self.auth.acceptAppleResponse(envelope)
             onCompleted()
         } catch let APIError.http(status, body) {
-            let bodyStr = String(data: body, encoding: .utf8) ?? ""
-            switch status {
-            case 410:      error = "Esta invitación ha caducado."
-            case 409:
-                // Distinguish the honest reasons behind a 409 by the backend code.
-                if bodyStr.contains("user_already_exists") {
-                    error = "Ya tienes una cuenta en FAHYBRID. Pídele a vuestro coach que os empareje como pareja de Dobles."
-                } else if bodyStr.contains("already_paired") {
-                    error = "Ya tienes una pareja de Dobles."
-                } else {
-                    error = "Esta invitación ya se ha usado."
-                }
-            case 404:      error = "Invitación no encontrada."
-            case 401, 403: error = "No pudimos validar tu identidad de Apple."
-            default:       error = "Error \(status). \(bodyStr.prefix(140))"
-            }
+            error = Self.redeemErrorMessage(code: PartnerService.errorCode(from: body), status: status)
         } catch {
             self.error = "No pudimos completar la invitación. Intenta de nuevo."
+        }
+    }
+
+    private func decline() async {
+        declining = true
+        error = nil
+        defer { declining = false }
+        do {
+            try await PartnerService.declineInvite(token: token)
+            Haptics.success()
+            declined = true
+        } catch let APIError.http(status, body) {
+            error = Self.redeemErrorMessage(code: PartnerService.errorCode(from: body), status: status)
+        } catch {
+            self.error = "No pudimos rechazar la invitación. Intenta de nuevo."
+        }
+    }
+
+    /// Maps the backend `error.code` (falling back to HTTP status) to honest
+    /// invitee-facing copy — shared by the accept and decline paths. A 403
+    /// `already_paired` no longer reads as "sesión caducada".
+    private static func redeemErrorMessage(code: String?, status: Int) -> String {
+        switch code {
+        case "token_already_used":           return "Esta invitación ya se ha usado."
+        case "token_cancelled":              return "Tu compañero/a canceló la invitación."
+        case "token_declined":               return "Esta invitación ya fue rechazada."
+        case "token_expired":                return "Esta invitación ha caducado."
+        case "token_invalid":                return "No encontramos esta invitación."
+        case "inviter_already_paired":       return "Tu compañero/a ya tiene una pareja de Dobles."
+        case "accepted_user_already_paired": return "Ya tienes una pareja de Dobles."
+        case "user_already_exists":          return "Ya tienes una cuenta en FAHYBRID. Pídele a vuestro coach que os empareje como pareja de Dobles."
+        case "apple_token_invalid", "auth_required": return "No pudimos validar tu identidad de Apple."
+        default:
+            switch status {
+            case 410:      return "Esta invitación ya no está disponible."
+            case 409:      return "Esta invitación ya se ha usado."
+            case 404:      return "No encontramos esta invitación."
+            case 401, 403: return "No pudimos validar tu identidad de Apple."
+            default:       return "No pudimos completar la invitación. Intenta de nuevo."
+            }
         }
     }
 }

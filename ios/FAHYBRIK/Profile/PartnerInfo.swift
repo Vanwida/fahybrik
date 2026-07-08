@@ -98,6 +98,33 @@ struct PartnerRecentSession: Codable, Equatable, Identifiable {
     }
 }
 
+/// The inviter's own SENT invitation, surfaced on the unpaired envelope so the
+/// invite card can reflect its live state. `status` is "pending" | "expired" |
+/// "cancelled" | "declined" — never "accepted" (an accepted invitation means the
+/// pair exists, so the envelope carries a `partner` instead).
+struct SentInvitation: Codable, Equatable {
+    let status: String
+    let inviteeEmail: String
+    let expiresAt: String
+
+    enum State: String { case pending, expired, cancelled, declined }
+    var state: State { State(rawValue: status) ?? .expired }
+
+    /// Human expiry ("caduca en 12 días" / "caduca hoy") from `expiresAt`, or nil
+    /// when unparseable. Only meaningful while `pending`.
+    var expiryText: String? {
+        let withFrac = ISO8601DateFormatter()
+        withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = withFrac.date(from: expiresAt) ?? ISO8601DateFormatter().date(from: expiresAt) else {
+            return nil
+        }
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
+        if days <= 0 { return "caduca hoy" }
+        if days == 1 { return "caduca mañana" }
+        return "caduca en \(days) días"
+    }
+}
+
 struct PartnerEnvelope: Codable, Equatable {
     /// "doubles_pair" (training pair → snapshot) | "billing_partner" (profile
     /// only) | nil (no partner). The Hoy panel only shows for "doubles_pair".
@@ -107,6 +134,10 @@ struct PartnerEnvelope: Codable, Equatable {
     /// self-modality on this endpoint — kept as a forward-compat field so a
     /// future backend version can populate it without an iOS change.
     let athleteModality: String?
+    /// Present on the unpaired envelope when the athlete has SENT an invitation
+    /// that isn't yet a pairing. Drives the invite card's pending / expired /
+    /// cancelled / declined states. Absent (nil) when they never invited anyone.
+    let sentInvitation: SentInvitation?
 
     /// True when the envelope carries a coach-created training pair — the only
     /// case the Hoy "Tu pareja" panel renders for.

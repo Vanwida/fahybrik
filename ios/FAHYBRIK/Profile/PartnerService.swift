@@ -55,7 +55,7 @@ enum PartnerService {
             if let env = try? decoder.decode(PartnerEnvelope.self, from: data) {
                 return env
             }
-            return PartnerEnvelope(source: nil, partner: nil, athleteModality: nil)
+            return PartnerEnvelope(source: nil, partner: nil, athleteModality: nil, sentInvitation: nil)
         }
     }
 
@@ -116,6 +116,48 @@ enum PartnerService {
             bearer: bearer
         )
     }
+
+    /// `POST /api/athlete/partner/invite/cancel` — the INVITER withdraws their
+    /// pending invitation. Idempotent: `cancelled == false` when there was
+    /// nothing pending to cancel.
+    @discardableResult
+    static func cancelInvite(bearer: String) async throws -> CancelInviteResult {
+        struct Empty: Encodable {}
+        return try await APIClient.shared.post(
+            path: "api/athlete/partner/invite/cancel",
+            body: Empty(),
+            bearer: bearer
+        )
+    }
+
+    /// `POST /api/athlete/partner/decline` — the INVITEE rejects the invitation by
+    /// its token (no session; the token is the authorization). Throws
+    /// `APIError.http` on a terminal/invalid token so the caller can map the
+    /// backend `error.code`.
+    static func declineInvite(token: String) async throws {
+        struct Body: Encodable { let token: String }
+        try await APIClient.shared.postRaw(
+            path: "api/athlete/partner/decline",
+            body: Body(token: token)
+        )
+    }
+
+    /// Extracts the backend `{ error: { code, message } }` code (e.g.
+    /// "inviter_already_paired") from an `APIError.http` body. nil when the body
+    /// is not that shape. Plain decoder — the keys are not snake_case.
+    static func errorCode(from data: Data) -> String? {
+        struct Envelope: Decodable {
+            struct E: Decodable { let code: String }
+            let error: E
+        }
+        return (try? JSONDecoder().decode(Envelope.self, from: data))?.error.code
+    }
+}
+
+/// Result of `POST /api/athlete/partner/invite/cancel`.
+struct CancelInviteResult: Codable, Equatable {
+    let cancelled: Bool
+    let inviteeEmail: String?
 }
 
 /// Minimal decode of the unlink response (all fields optional — we only need to

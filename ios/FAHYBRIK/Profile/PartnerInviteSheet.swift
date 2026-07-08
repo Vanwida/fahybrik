@@ -94,23 +94,50 @@ struct PartnerInviteSheet: View {
     private func successCard(_ result: InvitationResult) -> some View {
         CardSurface(padding: 16, topAccent: true) {
             VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "ENVIADO", color: Theme.Color.ok)
-                Text("Email enviado a \(email)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Tu compañero/a tiene 14 días para aceptar la invitación desde su email.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.Color.muted)
-                Button {
-                    Haptics.light()
-                    dismiss()
-                } label: {
-                    Text("Hecho")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                        .padding(.top, 4)
+                if result.sent {
+                    LabelText(text: "ENVIADO", color: Theme.Color.ok)
+                    Text("Email enviado a \(email)")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("Tu compañero/a tiene 14 días para aceptar la invitación desde su email.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.Color.muted)
+                } else {
+                    // Part (b): the invitation row exists, but Resend did not send.
+                    // Don't claim "enviado" — be honest and offer a retry.
+                    LabelText(text: "INVITACIÓN CREADA", color: Theme.Color.accentText)
+                    Text("No pudimos enviar el email a \(email)")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("La invitación queda activa 14 días. Reintenta el envío en un momento.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.Color.muted)
                 }
-                .buttonStyle(.plain)
+                HStack(spacing: 16) {
+                    if !result.sent {
+                        Button {
+                            Haptics.light()
+                            Task { await send() }
+                        } label: {
+                            Text(sending ? "REENVIANDO…" : "Reintentar envío")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Theme.Color.foreground)
+                                .padding(.top, 4)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(sending)
+                    }
+                    Button {
+                        Haptics.light()
+                        dismiss()
+                    } label: {
+                        Text("Hecho")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Theme.Color.accentText)
+                            .padding(.top, 4)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
@@ -143,12 +170,22 @@ struct PartnerInviteSheet: View {
             sent = result
             onInvited(result)
         } catch let APIError.http(status, body) {
-            let bodyStr = String(data: body, encoding: .utf8) ?? ""
-            switch status {
-            case 409: error = "Ya hay una invitación pendiente para este email."
-            case 422: error = "Email inválido o no aceptado."
-            case 401, 403: error = "Tu sesión ha caducado."
-            default: error = "Error \(status). \(bodyStr.prefix(120))"
+            // Part (c): map the honest backend `error.code` — a 403
+            // `inviter_already_paired` must NOT read "sesión caducada".
+            switch PartnerService.errorCode(from: body) {
+            case "inviter_already_paired": error = "Ya tienes una pareja de Dobles."
+            case "inviter_not_dobles":     error = "Las invitaciones de pareja requieren el plan Dobles."
+            case "invitee_is_self":        error = "No puedes invitarte a ti mismo/a."
+            case "invitee_email_invalid":  error = "Ese email no es válido."
+            case "unauthorized":           error = "Tu sesión ha caducado. Vuelve a entrar."
+            case "rate_limited":           error = "Has enviado muchas invitaciones. Espera un momento."
+            default:
+                switch status {
+                case 429: error = "Has enviado muchas invitaciones. Espera un momento."
+                case 422, 400: error = "Email inválido o no aceptado."
+                case 401: error = "Tu sesión ha caducado. Vuelve a entrar."
+                default: error = "No pudimos enviar la invitación. Intenta de nuevo."
+                }
             }
         } catch {
             self.error = "No pudimos enviar la invitación. Intenta de nuevo."
