@@ -152,6 +152,9 @@ function AltaModal({
   // so start (and lock) on cortesía — the coach never hits a checkout error.
   const [cortesia, setCortesia] = useState(!stripeConfigured);
   const [price, setPrice] = useState(pricePrefilled ? String(prefill.quoted_price_eur) : '');
+  // Plan FUNDADOR: cobro por Stripe con el cupón FUNDADOR (0 €/mes, sin tarjeta);
+  // se guarda igualmente el precio de lista. Solo aplica cuando hay cobro.
+  const [founder, setFounder] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +194,7 @@ function AltaModal({
           notes: notes.trim(),
           ...(cortesia
             ? { billing: 'comp' as const }
-            : { billing: 'stripe' as const, agreed_price_eur: priceValue }),
+            : { billing: 'stripe' as const, agreed_price_eur: priceValue, founder }),
         }),
       });
       const data = (await res.json().catch(() => null)) as
@@ -346,29 +349,44 @@ function AltaModal({
                   Acceso de cortesía: el atleta no paga y no se abre ningún cobro por Stripe.
                 </p>
               ) : (
-                <label className="flex flex-col gap-1.5">
-                  <span className="v2-micro">Precio acordado €/mes</span>
-                  <div className="relative w-40">
+                <div className="flex flex-col gap-2.5">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="v2-micro">Precio acordado €/mes</span>
+                    <div className="relative w-40">
+                      <input
+                        type="number"
+                        min={1}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="p. ej. 90"
+                        className={FIELD_CLS + ' pr-8'}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
+                        €
+                      </span>
+                    </div>
+                    {pricePrefilled ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
+                        <MIcon name="call" size={13} /> del parte de la llamada
+                      </span>
+                    ) : null}
+                  </label>
+                  <label className="inline-flex items-start gap-2 text-xs font-semibold text-[color:var(--v2-muted)]">
                     <input
-                      type="number"
-                      min={1}
-                      step="0.01"
-                      inputMode="decimal"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="p. ej. 90"
-                      className={FIELD_CLS + ' pr-8'}
+                      type="checkbox"
+                      checked={founder}
+                      onChange={(e) => setFounder(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[color:var(--v2-accent)]"
                     />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
-                      €
+                    <span>
+                      Fundador — sin cobro (aplica el cupón{' '}
+                      <b className="text-[color:var(--v2-fg)]">FUNDADOR</b>: 0 €/mes, sin tarjeta). Se
+                      guarda su precio de lista.
                     </span>
-                  </div>
-                  {pricePrefilled ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
-                      <MIcon name="call" size={13} /> del parte de la llamada
-                    </span>
-                  ) : null}
-                </label>
+                  </label>
+                </div>
               )}
             </div>
 

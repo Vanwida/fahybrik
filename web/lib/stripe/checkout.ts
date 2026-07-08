@@ -33,6 +33,14 @@ import { priceIdForPlan, type PlanType } from './prices';
 /** Default product name shown on the Stripe Checkout + invoices. */
 export const ALTA_PRODUCT_NAME = 'FAHYBRID · Entrenamiento personalizado';
 
+/**
+ * Plan FUNDADOR coupon id (100% off, duration=forever — created in Stripe).
+ * A founder alta applies this so the athlete pays 0 and Stripe never asks for a
+ * card, while the real (list) price stays on the subscription for MRR and for the
+ * day the founder discount is lifted.
+ */
+export const FOUNDER_COUPON_ID = 'FUNDADOR';
+
 export type CreateSubscriptionCheckoutAdHocArgs = {
   customer_email: string;
   /** Monthly price in integer cents (money is never a float). */
@@ -43,6 +51,11 @@ export type CreateSubscriptionCheckoutAdHocArgs = {
   metadata: Record<string, string>;
   /** Product name override (defaults to ALTA_PRODUCT_NAME). */
   product_name?: string;
+  /**
+   * Plan FUNDADOR: apply the FOUNDER_COUPON_ID (100%-off-forever) so the total is
+   * 0 € and no payment method is collected. The line item keeps the real price.
+   */
+  founder?: boolean;
 };
 
 export type CreateSubscriptionCheckoutAdHocResult = {
@@ -82,7 +95,7 @@ export async function createSubscriptionCheckoutAdHoc(
   args: CreateSubscriptionCheckoutAdHocArgs,
 ): Promise<CreateSubscriptionCheckoutAdHocResult> {
   const { stripe, config } = getStripeOrThrow();
-  const session = await stripe.checkout.sessions.create({
+  const params: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
     customer_email: args.customer_email,
     line_items: buildAdHocSubscriptionLineItems({
@@ -96,7 +109,16 @@ export async function createSubscriptionCheckoutAdHoc(
     // traceable to the athlete/lead without trusting client state.
     metadata: args.metadata,
     subscription_data: { metadata: args.metadata },
-  });
+  };
+  if (args.founder) {
+    // Plan FUNDADOR: 100%-off-forever coupon → total 0 €, and `if_required` means
+    // Stripe collects NO card. The session still completes and fires
+    // checkout.session.completed, so the pago→acceso webhook loop runs identically
+    // at 0 €. The real price stays on the line item (MRR + de-founding later).
+    params.discounts = [{ coupon: FOUNDER_COUPON_ID }];
+    params.payment_method_collection = 'if_required';
+  }
+  const session = await stripe.checkout.sessions.create(params);
   if (!session.url) {
     throw new Error('stripe_checkout_no_url');
   }

@@ -53,6 +53,10 @@ export const altaInputSchema = z
     agreed_price_eur: z.coerce.number().positive().max(100000).optional(),
     // Explicit billing. Defaults to 'stripe' when a price is given, else 'comp'.
     billing: z.enum(['stripe', 'comp']).optional(),
+    // Plan FUNDADOR: cobro por Stripe pero con el cupón FUNDADOR (100% off, forever)
+    // → 0 € al mes, sin tarjeta. Se sigue exigiendo el precio (el de lista, para
+    // MRR y para el día que deje de ser fundador). Solo aplica al path stripe.
+    founder: z.boolean().optional(),
   })
   .superRefine((val, ctx) => {
     const effective = resolveBilling(val.billing, val.agreed_price_eur);
@@ -164,6 +168,7 @@ async function altaStripe(params: {
 }): Promise<AltaResult> {
   const { lead_id, coach_id, input } = params;
   const amount_cents = Math.round((input.agreed_price_eur ?? 0) * 100);
+  const founder = input.founder ?? false;
 
   // Fail CLEANLY before any DB write when Stripe is not configured — never
   // create a half-athlete on the paid path.
@@ -185,9 +190,11 @@ async function altaStripe(params: {
       customer_email: input.email,
       amount_cents,
       currency: ALTA_CURRENCY,
+      founder,
       metadata: {
         fahybrik_flow: 'athlete_alta',
         fahybrik_lead_id: String(lead_id),
+        ...(founder ? { fahybrik_founder: 'true' } : {}),
       },
     });
   } catch {
