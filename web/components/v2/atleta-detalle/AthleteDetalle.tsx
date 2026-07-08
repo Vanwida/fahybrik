@@ -7,6 +7,7 @@
 
 import { DetalleHeader } from './DetalleHeader';
 import { LifecycleBanner } from './lifecycle/LifecycleBanner';
+import { InjuryPanel } from './injuries/InjuryPanel';
 import { DetalleTabBar } from './DetalleTabBar';
 import { PerfilTab } from './PerfilTab';
 import { PlanTab } from './PlanTab';
@@ -44,11 +45,19 @@ export function AthleteDetalle({
 
       <div className="v2-stagger">
         {tab === 'perfil' ? (
-          <PerfilTab
-            data={selectPerfilTab(detalle)}
-            classification={detalle.classification}
-            athleteId={header.athlete_id}
-          />
+          <div className="flex flex-col gap-4">
+            {/* Salud primero: la lesión es el contexto que condiciona todo el plan (#16). */}
+            <InjuryPanel
+              athleteId={header.athlete_id}
+              lifecycle={header.lifecycle}
+              plan={detalle.plan}
+            />
+            <PerfilTab
+              data={selectPerfilTab(detalle)}
+              classification={detalle.classification}
+              athleteId={header.athlete_id}
+            />
+          </div>
         ) : tab === 'plan' ? (
           <PlanTab plan={detalle.plan} resumen={detalle.resumen} athlete_id={header.athlete_id} />
         ) : tab === 'ritmos' ? (
