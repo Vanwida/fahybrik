@@ -170,6 +170,10 @@ struct InicioView: View {
                 }
                 hechoHoySection
                     .staggerReveal(revealed, index: 6)
+                // Recurring 1:1 review (#21): the coach's proposal / the reserved
+                // session with the coach. Self-loading; renders nothing when neither.
+                ReviewTodayCard(bearer: effectiveBearer, coachName: planWeek?.coachName)
+                    .staggerReveal(revealed, index: 7)
                 progressCard
                     .staggerReveal(revealed, index: 7)
                 freeBanner
