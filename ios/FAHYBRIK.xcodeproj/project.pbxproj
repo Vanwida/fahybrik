@@ -61,6 +61,7 @@
 		32BAF189A5EB1C7DCD137E6A /* splash-fahybrid.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 78D9AD0BB6A68530DAFE65EE /* splash-fahybrid.mp4 */; };
 		32E39D602596E9A178401301 /* MeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CA469657CC4F5CB348FCD9 /* MeService.swift */; };
 		36B2CB151B1C23F7542CC485 /* CarrerasService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1746871F83CAA0B2483927DB /* CarrerasService.swift */; };
+		36E1DC2605584E2D91B03522 /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24621B92CC17784D41A5DEB7 /* AppLinks.swift */; };
 		37208648AF74F8596FED8D3C /* FAHYBRIKWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */; };
 		3878DE57A0686BD929359A6D /* HealthKitStepsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 924AF04A6DEAA100D07D3EE9 /* HealthKitStepsReader.swift */; };
@@ -272,6 +273,7 @@
 		1ED48EFC44FF48D81CC1850A /* NutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionView.swift; sourceTree = "<group>"; };
 		1F1B84CA34CFECB33FF5ECB6 /* RaceStepComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceStepComponents.swift; sourceTree = "<group>"; };
 		22E8C5CC0905BCBC48019522 /* PM5LiveStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5LiveStreamView.swift; sourceTree = "<group>"; };
+		24621B92CC17784D41A5DEB7 /* AppLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLinks.swift; sourceTree = "<group>"; };
 		247CFBC8F79562247FA78B70 /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
 		258773F221C5DCA05BEBE809 /* DataGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataGrid.swift; sourceTree = "<group>"; };
 		26D1DD11BF4485137BD4B1B3 /* HabitsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitsStep.swift; sourceTree = "<group>"; };
@@ -954,6 +956,7 @@
 			isa = PBXGroup;
 			children = (
 				CFB23F7334F5D028FAE86F55 /* AppDataStore.swift */,
+				24621B92CC17784D41A5DEB7 /* AppLinks.swift */,
 				B3E8F007672C98463F4570A9 /* AppRoot.swift */,
 				087517CB7BA486835A805A48 /* AppShell.swift */,
 				4A252932F06A936722323061 /* AuthState.swift */,
@@ -1178,6 +1181,7 @@
 				15DC74D353BFCBB16D88FA9E /* AnalyticsService.swift in Sources */,
 				77677B0B9C204CC55F83F5ED /* AnalyticsView.swift in Sources */,
 				395AF6D21D163CFC54906B7D /* AppDataStore.swift in Sources */,
+				36E1DC2605584E2D91B03522 /* AppLinks.swift in Sources */,
 				E16711BB7C8F02FC5317AC95 /* AppRoot.swift in Sources */,
 				6538BCC26B4637FA0D7AF095 /* AppShell.swift in Sources */,
 				AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */,

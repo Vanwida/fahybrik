@@ -72,6 +72,12 @@ struct AppleSignInView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.xl)
 
+                // Cold-download path: someone who is NOT a member yet → the
+                // membership-application funnel (opens in Safari).
+                RequestSpotLink()
+                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.top, Theme.Spacing.s)
+
                 if let error {
                     Text(error)
                         .font(Theme.Typography.small)

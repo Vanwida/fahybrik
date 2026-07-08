@@ -32,7 +32,7 @@ struct InviteGateView: View {
                         .foregroundStyle(Theme.Color.foreground)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Si tu coach te ha invitado, abre el enlace que te envió o entra con el email que te dio.")
+                    Text("Tu acceso se activa con el enlace de tu email de bienvenida.")
                         .font(.system(size: 15))
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
@@ -47,6 +47,9 @@ struct InviteGateView: View {
                         retrySignIn()
                     }
                     .accessibilityHint("Vuelve a iniciar sesión con Apple")
+
+                    // Not a member yet → the membership-application funnel.
+                    RequestSpotLink()
 
                     SkipLink(title: "Cerrar sesión") {
                         auth.signOut()
