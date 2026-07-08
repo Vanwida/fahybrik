@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionStructureRail } from './SessionStructureRail';
 import { BlockEditor } from './BlockEditor';
 import { AddBlockModal } from './AddBlockModal';
+import { SuggestWorkoutModal } from './SuggestWorkoutModal';
 import { serializeSessionSegments } from '@/lib/dashboard/v2/editor-serialize';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 
@@ -72,6 +73,7 @@ export function SessionEditor({
     model.blocks[0]?.uid ?? null,
   );
   const [addToGroup, setAddToGroup] = useState<StructureGroup | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
 
   const selected = blocks.find((b) => b.uid === selectedUid) ?? null;
@@ -87,6 +89,13 @@ export function SessionEditor({
     setBlocks((prev) => [...prev, placed]);
     setSelectedUid(placed.uid);
     setAddToGroup(null);
+  };
+
+  // "Redactar con IA" (#33) — append the AI-drafted blocks the coach approved.
+  const addBlocks = (newBlocks: EditorBlock[]) => {
+    setBlocks((prev) => [...prev, ...newBlocks]);
+    if (newBlocks[0]) setSelectedUid(newBlocks[0].uid);
+    setAiOpen(false);
   };
 
   const duplicateBlock = (uid: string) => {
@@ -199,21 +208,32 @@ export function SessionEditor({
             ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saveState === 'saving' || !gate.ok}
-          aria-live="polite"
-          title={gate.ok ? undefined : gate.reason ?? undefined}
-          className={
-            saveState === 'error'
-              ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
-              : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
-          }
-        >
-          <MIcon name={SAVE_ICON[saveState]} size={17} />
-          {SAVE_LABEL[saveState]}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAiOpen(true)}
+            title="Pablo IA redacta bloques a partir de un foco"
+            className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-3 text-sm font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+          >
+            <MIcon name="draw" size={16} />
+            <span className="hidden sm:inline">Redactar con IA</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveState === 'saving' || !gate.ok}
+            aria-live="polite"
+            title={gate.ok ? undefined : gate.reason ?? undefined}
+            className={
+              saveState === 'error'
+                ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
+                : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
+            }
+          >
+            <MIcon name={SAVE_ICON[saveState]} size={17} />
+            {SAVE_LABEL[saveState]}
+          </button>
+        </div>
       </div>
 
       {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
@@ -259,6 +279,15 @@ export function SessionEditor({
           destinationGroup={addToGroup}
           onClose={() => setAddToGroup(null)}
           onAdd={addBlock}
+        />
+      ) : null}
+
+      {/* Redactar con IA (#33) — draft blocks from a focus into this session. */}
+      {aiOpen ? (
+        <SuggestWorkoutModal
+          destinationLabel={name || 'Sesión'}
+          onClose={() => setAiOpen(false)}
+          onInsert={addBlocks}
         />
       ) : null}
     </div>

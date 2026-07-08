@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionPartCard } from './SessionPartCard';
 import { CopyDayModal } from './CopyDayModal';
 import { AddBlockModal } from './AddBlockModal';
+import { SuggestWorkoutModal } from './SuggestWorkoutModal';
 import { BlockEditor } from './BlockEditor';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
@@ -86,6 +87,7 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
   // Add-block modal target (which session) + item-edit drawer target + the
   // "añadir ejercicio" picker target (which block gets the picked exercise).
   const [addTo, setAddTo] = useState<{ sessionUid: string } | null>(null);
+  const [aiFor, setAiFor] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
   const [pickingFor, setPickingFor] = useState<{ sessionUid: string; blockUid: string } | null>(
     null,
@@ -153,6 +155,15 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
       prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, block] } : s)),
     );
     setAddTo(null);
+  };
+
+  // "Redactar con IA" (#33) — append the coach-approved AI drafts to the session.
+  // Append, never replace: the existing blocks stay; the coach edits from here.
+  const addBlocksToSession = (sessionUid: string, newBlocks: EditorBlock[]) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, ...newBlocks] } : s)),
+    );
+    setAiFor(null);
   };
 
   const removeBlock = (sessionUid: string, blockUid: string) => {
@@ -310,6 +321,7 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
   const editingSession = editing ? sessions.find((s) => s.uid === editing.sessionUid) : null;
   const editingBlock = editingSession?.blocks.find((b) => b.uid === editing?.blockUid) ?? null;
   const addToSession = addTo ? sessions.find((s) => s.uid === addTo.sessionUid) : null;
+  const aiForSession = aiFor ? sessions.find((s) => s.uid === aiFor.sessionUid) : null;
   const pickingForBlock = pickingFor
     ? sessions
         .find((s) => s.uid === pickingFor.sessionUid)
@@ -422,6 +434,7 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
               onChangeFocus={(focus) => setSessionFocus(session.uid, focus)}
               onSuggestTitle={() => suggestTitle(session)}
               suggesting={suggestingUid === session.uid}
+              onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}
               onAddBlock={() => setAddTo({ sessionUid: session.uid })}
               onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
               onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}
@@ -453,6 +466,15 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
           destinationLabel={`Sesión ${SLOT_LABEL[addToSession.slot]} · ${model.day_label}`}
           onClose={() => setAddTo(null)}
           onAdd={(block) => addBlockToSession(addTo.sessionUid, block)}
+        />
+      ) : null}
+
+      {/* Redactar con IA (#33) — draft this session's blocks from a focus. */}
+      {aiFor && aiForSession ? (
+        <SuggestWorkoutModal
+          destinationLabel={`Sesión ${SLOT_LABEL[aiForSession.slot]} · ${model.day_label}`}
+          onClose={() => setAiFor(null)}
+          onInsert={(newBlocks) => addBlocksToSession(aiFor.sessionUid, newBlocks)}
         />
       ) : null}
 

@@ -23,6 +23,7 @@ export function SessionPartCard({
   onChangeFocus,
   onSuggestTitle,
   suggesting,
+  onSuggestWorkout,
   onAddBlock,
   onEditItem,
   onAddItem,
@@ -34,6 +35,8 @@ export function SessionPartCard({
   onChangeFocus: (focus: string) => void;
   onSuggestTitle: () => void;
   suggesting: boolean;
+  /** Open "Redactar con IA" for this session (#33) — drafts blocks the coach inserts. */
+  onSuggestWorkout: () => void;
   onAddBlock: () => void;
   onEditItem: (blockUid: string, itemUid: string) => void;
   onAddItem: (blockUid: string) => void;
@@ -86,6 +89,17 @@ export function SessionPartCard({
               <span className="hidden sm:inline">{suggesting ? 'Sugiriendo…' : 'Sugerir título'}</span>
             </button>
           ) : null}
+          {/* Redactar con IA (#33) — drafts this session's blocks; always available,
+              most useful on an empty session. */}
+          <button
+            type="button"
+            onClick={onSuggestWorkout}
+            title="Pablo IA redacta los bloques de esta sesión a partir de un foco"
+            className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-[13px] font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+          >
+            <MIcon name="draw" size={16} />
+            <span className="hidden sm:inline">Redactar con IA</span>
+          </button>
         </div>
       </header>
 
