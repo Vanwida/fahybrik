@@ -20,6 +20,7 @@ import { LevelBadge } from '@/components/v2/LevelBadge';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { ReorderRow, RowIconButton } from './ReorderRow';
 import { SidePanel, Field, TextInput, TextArea } from './SidePanel';
+import { showLevelsEmptyState } from './niveles-empty-state';
 import { cn } from '@/lib/utils';
 
 // The default N1–N5 set, restored when a coach has deleted all their levels.
@@ -215,6 +216,9 @@ export function NivelesPanel({
   }, []);
 
   const isEmpty = levels.length === 0;
+  // The empty-state placeholder yields the moment a draft opens, so "Crear mi
+  // primer nivel" has a panel to render into (otherwise the button is dead).
+  const showEmpty = showLevelsEmptyState(levels.length, draft !== null);
 
   return (
     <div>
@@ -250,7 +254,7 @@ export function NivelesPanel({
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
-      {isEmpty ? (
+      {showEmpty ? (
         <EmptyLevels onCreate={() => setDraft(emptyDraft())} onRestore={restoreDefault} restoring={restoring} />
       ) : (
         <div
@@ -315,10 +319,12 @@ export function NivelesPanel({
               </ReorderRow>
             ))}
 
-            <PurposeStrip>
-              Con estos niveles el sistema <b className="text-[color:var(--v2-fg)]">clasifica a cada atleta al alta</b>. Entra en un nivel para{' '}
-              <b className="text-[color:var(--v2-fg)]">ordenar su periodización</b> (su secuencia de microciclos por días/semana). Reordénalos para fijar la progresión de menor a mayor.
-            </PurposeStrip>
+            {levels.length > 0 ? (
+              <PurposeStrip>
+                Con estos niveles el sistema <b className="text-[color:var(--v2-fg)]">clasifica a cada atleta al alta</b>. Entra en un nivel para{' '}
+                <b className="text-[color:var(--v2-fg)]">ordenar su periodización</b> (su secuencia de microciclos por días/semana). Reordénalos para fijar la progresión de menor a mayor.
+              </PurposeStrip>
+            ) : null}
           </div>
 
           {/* side panel (create/edit) */}
