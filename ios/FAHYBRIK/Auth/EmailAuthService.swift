@@ -23,11 +23,25 @@ enum EmailAuthService {
     /// Submit the code. On success the backend mints an athlete session and
     /// returns the same shape the Apple path decodes, so the caller seats it via
     /// the existing `onAuthenticated` → `AuthState.acceptAppleResponse`.
-    static func verifyCode(email: String, code: String) async throws -> AppleAuthResponse {
+    ///
+    /// When `inviteToken` is set (activating from a coach invite link), verify
+    /// also REDEEMS the invitation for the proven email — activating access — so
+    /// the athlete who created their account by email can get in. Absent → a plain
+    /// re-entry login. The optional is omitted from the body when nil (the
+    /// synthesized encoder uses encodeIfPresent), so the server sees pure login.
+    static func verifyCode(
+        email: String,
+        code: String,
+        inviteToken: String? = nil
+    ) async throws -> AppleAuthResponse {
         struct Body: Encodable {
             let email: String
             let code: String
+            let invite_token: String?
         }
-        return try await APIClient.shared.post(path: verifyPath, body: Body(email: email, code: code))
+        return try await APIClient.shared.post(
+            path: verifyPath,
+            body: Body(email: email, code: code, invite_token: inviteToken)
+        )
     }
 }

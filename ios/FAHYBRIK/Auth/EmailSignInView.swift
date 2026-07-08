@@ -11,6 +11,12 @@ struct EmailSignInView: View {
     /// AuthState.acceptAppleResponse, so downstream screens behave identically.
     let onAuthenticated: (AppleAuthResponse) -> Void
     let onClose: () -> Void
+    /// When set, this is an ACTIVATION from a coach invite link: verify also
+    /// REDEEMS the invitation (activates access) for the proven email. Nil → a
+    /// normal re-entry login. Only the copy + the request body differ.
+    var inviteToken: String? = nil
+
+    private var isActivation: Bool { inviteToken != nil }
 
     private enum Phase { case email, code }
     private enum Field { case email, code }
@@ -80,10 +86,12 @@ struct EmailSignInView: View {
     private var emailPhase: some View {
         VStack(spacing: Theme.Spacing.l) {
             VStack(spacing: Theme.Spacing.s) {
-                Text("Entra con tu email")
+                Text(isActivation ? "Activa tu cuenta" : "Entra con tu email")
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Te enviaremos un código de 6 dígitos para entrar.")
+                Text(isActivation
+                     ? "Te enviaremos un código a tu email para activar tu cuenta."
+                     : "Te enviaremos un código de 6 dígitos para entrar.")
                     .font(Theme.Typography.body)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
@@ -142,7 +150,9 @@ struct EmailSignInView: View {
                 .brandFieldStyle()
 
             ExpertPrimaryButton(
-                title: inProgress ? "Entrando…" : "Entrar",
+                title: inProgress
+                    ? (isActivation ? "Activando…" : "Entrando…")
+                    : (isActivation ? "Activar cuenta" : "Entrar"),
                 enabled: code.count == 6 && !inProgress
             ) {
                 verifyCode()
@@ -221,7 +231,11 @@ struct EmailSignInView: View {
         let submitted = code
         Task {
             do {
-                let resp = try await EmailAuthService.verifyCode(email: target, code: submitted)
+                let resp = try await EmailAuthService.verifyCode(
+                    email: target,
+                    code: submitted,
+                    inviteToken: inviteToken
+                )
                 inProgress = false
                 Haptics.success()
                 onAuthenticated(resp)
@@ -229,7 +243,14 @@ struct EmailSignInView: View {
                 inProgress = false
                 Haptics.error()
                 let bodyStr = String(data: body, encoding: .utf8) ?? ""
-                if bodyStr.contains("too_many_attempts") || status == 429 {
+                // Invite-activation errors (only ever returned when inviteToken is set).
+                if bodyStr.contains("email_mismatch") {
+                    error = "Ese email no coincide con el de tu invitación. Usa el email al que te invitó tu entrenador."
+                } else if bodyStr.contains("token_expired") || bodyStr.contains("token_revoked") {
+                    error = "La invitación ya no es válida. Pídele a tu entrenador que te envíe una nueva."
+                } else if bodyStr.contains("token_invalid") {
+                    error = "La invitación no es válida. Comprueba el enlace que te envió tu entrenador."
+                } else if bodyStr.contains("too_many_attempts") || status == 429 {
                     error = "Demasiados intentos. Pide un código nuevo."
                 } else {
                     error = "El código no es válido o ha caducado. Revísalo o pide uno nuevo."
