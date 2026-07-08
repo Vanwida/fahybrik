@@ -128,6 +128,15 @@ struct AssignmentInfo: Codable, Equatable {
     // shim that holds until backend exposes the field explicitly.
     let stationAssignment: StationAssignment?
     let myRole: String?
+    // #34 — the result(s) THIS session must capture when it's a calibration test,
+    // derived server-side from the workout_assignments.calibration_test_id FK. A
+    // non-empty array ⇒ on finish the athlete confirms the measured number(s),
+    // which the ejecución→benchmark bridge records as ground truth. Empty/absent
+    // for a normal (non-test) session; optional so older payloads decode. Lives on
+    // `assignment` (not `workout`) because it's an assignment-level property —
+    // available even from the read-only executed view. Wire `store_results` →
+    // `storeResults` via APIClient's convertFromSnakeCase.
+    let storeResults: [StoreResultSpec]?
 }
 
 struct StationAssignment: Codable, Equatable {
@@ -171,6 +180,34 @@ struct WorkoutDetail: Codable, Equatable {
     // one odd block never collapses the entire session into the "sin detalle"
     // empty state. The good blocks still render. See `LossyArray`.
     @LossyArray var blocks: [WorkoutBlock]
+}
+
+// One RESULT a calibration test promises to produce — what number iOS asks for
+// and in what unit. Mirrors the athlete-detail `AssignmentDetailStoreResult`
+// (web/lib/athlete/assignment-detail.ts), which ships exactly slug/label/measure/
+// unit. `measure`/`unit` are plain strings (not enums) so an unrecognised future
+// value NEVER hard-fails the whole AssignmentDetail decode — the capture sheet
+// maps `measure` to a typed input via `TestMeasure`, defaulting unknowns to a
+// plain numeric entry. `derives`/`modality` are the coach-side calibration
+// intent; the detail endpoint doesn't ship them, so they're OPTIONAL here
+// (present only if a future payload enriches the contract) — never required, or a
+// missing key would fail the decode. Snake_case wire keys convert via the shared
+// decoder.
+struct StoreResultSpec: Codable, Equatable, Identifiable {
+    var id: String { slug }
+    /// Canonical benchmark slug this result produces (run_5k, row_2k, back_squat_1rm…).
+    let slug: String
+    /// What the entered value is IN: seconds | meters | reps | calories | kg.
+    let unit: String
+    /// How the work is measured: time | distance | reps | calories | load.
+    let measure: String
+    /// Athlete-facing label the coach set for this result ("5K", "Sentadilla").
+    let label: String
+    /// The calibration this result drives (run_zones | strength_max | none). Not
+    /// shipped by the detail endpoint today → optional.
+    let derives: String?
+    /// Modality for a zone derivation (run/row/ski); nil for strength/baseline.
+    let modality: String?
 }
 
 struct WorkoutBlock: Codable, Equatable, Identifiable {
