@@ -172,6 +172,65 @@ export async function findAthleteForApple(
   });
 }
 
+/**
+ * Find (NEVER create) the athlete account for a plain email — the passwordless
+ * EMAIL-CODE login path (iOS). This is the email sibling of `findAthleteForApple`
+ * and honours the same find-only contract: LOGIN NEVER PROVISIONS MEMBERSHIP.
+ * An email with no matching account (or one that resolves to a coach with no
+ * athlete row) returns null; the caller turns that into a generic "invalid code"
+ * WITHOUT revealing whether the email exists.
+ *
+ * Resolution:
+ *   1. match the (non-deleted) `users` row by email (users.email is unique).
+ *   2. require a 1:1 `athletes` row for it — a coach-only account is not an
+ *      athlete membership → null.
+ * No apple_user_id linking happens here (email-code carries no Apple identity);
+ * we only stamp last_seen_at on the resolved account, exactly like the Apple path.
+ */
+export async function findAthleteByEmail(email: string): Promise<AppleAuthResult | null> {
+  const normalized = email.toLowerCase();
+  return await sql.begin(async (tx) => {
+    const byEmail = await tx<{
+      id: string;
+      email: string;
+      apple_user_id: string | null;
+      role: UserRow['role'];
+    }[]>`
+      select id::text as id, email, apple_user_id, role
+      from users
+      where email = ${normalized}
+        and deleted_at is null
+      limit 1
+    `;
+    const userRow = byEmail[0];
+    // LOGIN NEVER CREATES. No account for this email → null → generic invalid code.
+    if (!userRow) return null;
+    await tx`update users set last_seen_at = now() where id = ${BigInt(userRow.id)}`;
+
+    const userId = BigInt(userRow.id);
+    const existingAthlete = await tx<{
+      id: string;
+      user_id: string;
+      full_name: string;
+      onboarded_at: Date | null;
+    }[]>`
+      select id::text as id, user_id::text as user_id, full_name, onboarded_at
+      from athletes
+      where user_id = ${userId}
+      limit 1
+    `;
+    // A matched account with no athlete row (e.g. a coach) is not an athlete
+    // membership → treat as no account.
+    const athleteRow = existingAthlete[0];
+    if (!athleteRow) return null;
+
+    return {
+      user: rowToUser(userRow),
+      athlete: rowToAthlete(athleteRow),
+    };
+  });
+}
+
 export interface CoachAuthResult {
   user: UserRow;
   coach: CoachRow;

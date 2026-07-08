@@ -120,6 +120,12 @@ export async function withRateLimit(
 export const RATE_LIMITS = {
   authEmail: { endpoint: 'auth-email', limit: 5, windowSec: 60 },
   appleSignIn: { endpoint: 'apple-signin', limit: 5, windowSec: 60 },
+  // Athlete email-code login (iOS). Request = "send me a code" (throttled per IP
+  // AND per email so neither a scripted flood nor a targeted inbox-bomb gets far);
+  // verify = "here's my code" (throttled per IP; the per-code attempt cap in
+  // email_login_codes is the primary brute-force defense).
+  emailCodeRequest: { endpoint: 'email-code-request', limit: 5, windowSec: 60 * 10 },
+  emailCodeVerify: { endpoint: 'email-code-verify', limit: 10, windowSec: 60 * 10 },
   partnerInvite: { endpoint: 'partner-invite', limit: 10, windowSec: 60 * 60 },
   partnerRedeem: { endpoint: 'partner-redeem', limit: 10, windowSec: 60 },
   aiSuggest: { endpoint: 'ai-suggest', limit: 30, windowSec: 60 * 60 },

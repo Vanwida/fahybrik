@@ -23,6 +23,11 @@ export const AUTH_CONFIG = {
   athleteSessionTtlSeconds: 30 * 24 * 60 * 60,
   coachSessionTtlSeconds: 7 * 24 * 60 * 60,
   magicLinkTtlSeconds: 15 * 60,
+  // Passwordless athlete email-login codes (iOS). Short-lived by design: a
+  // 6-digit code is low-entropy, so a tight TTL + attempt cap + rate limit are
+  // the real defenses.
+  emailLoginCodeTtlSeconds: 10 * 60,
+  emailLoginCodeMaxAttempts: 5,
 
   coachCookieName: 'fahybrik_coach_session',
 } as const;
