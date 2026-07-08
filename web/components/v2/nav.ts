@@ -2,13 +2,14 @@
 // …); the next-intl Link prefixes /es|/en. `badge: 'mensajes'` renders the
 // unread count.
 //
-// The primary nav is split into two GROUPS that mirror the two jobs of the coach:
-//   · "operar"     — the daily loop: watch athletes, accept what the system proposes.
-//   · "construir"  — build the method: the reusable library content.
+// The primary nav is split into three GROUPS that mirror the three hats of the coach:
+//   · "entrenar" — the daily loop with his athletes: triage, roster, messages.
+//   · "negocio"  — running the business: capture leads, get paid, watch the funnel.
+//   · "metodo"   — build the method: periodization framework + reusable library.
 // Ajustes stays pinned to the bottom (see V2_NAV_SETTINGS).
 
-/** The two sidebar groups; `null` = no group header (e.g. pinned Ajustes). */
-export type V2NavGroup = 'operar' | 'construir';
+/** The three sidebar groups; `null` = no group header (e.g. pinned Ajustes). */
+export type V2NavGroup = 'entrenar' | 'negocio' | 'metodo';
 
 export interface V2NavItem {
   /** Locale-relative href, e.g. "/hoy". */
@@ -24,25 +25,28 @@ export interface V2NavItem {
 
 /** Human label for each group header (small uppercase in the rail). */
 export const V2_NAV_GROUP_LABELS: Record<V2NavGroup, string> = {
-  operar: 'Operar',
-  construir: 'Construir el método',
+  entrenar: 'Entrenar',
+  negocio: 'Negocio',
+  metodo: 'Método',
 };
 
 /** Render order of the groups in the sidebar. */
-export const V2_NAV_GROUP_ORDER: readonly V2NavGroup[] = ['operar', 'construir'] as const;
+export const V2_NAV_GROUP_ORDER: readonly V2NavGroup[] = ['entrenar', 'negocio', 'metodo'] as const;
 
 /** Primary nav (top of the sidebar), in render order within each group. */
 export const V2_NAV_ITEMS: readonly V2NavItem[] = [
-  // Operar — the daily loop.
-  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'operar' },
-  { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'operar' },
-  { href: '/leads', label: 'Leads', icon: 'person_add', group: 'operar', badge: 'leads' },
-  { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'operar', badge: 'mensajes' },
-  { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'operar' },
-  { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'operar' },
-  // Construir el método — the framework first, then the reusable library.
-  { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'construir' },
-  { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'construir' },
+  // Entrenar — the daily loop with his athletes.
+  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'entrenar' },
+  { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'entrenar' },
+  { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'entrenar', badge: 'mensajes' },
+  // Negocio — capture leads, get paid, watch the funnel.
+  { href: '/leads', label: 'Leads', icon: 'person_add', group: 'negocio', badge: 'leads' },
+  { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'negocio' },
+  { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'negocio' },
+  { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
+  // Método — the framework first, then the reusable library.
+  { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
+  { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
 ] as const;
 
 /** Items belonging to a given group, in declaration order. */
@@ -56,7 +60,7 @@ export const V2_NAV_GUIDE: V2NavItem = {
   href: '/guia',
   label: 'Guía',
   icon: 'school',
-  group: 'operar',
+  group: 'entrenar',
 };
 
 /** Pinned to the bottom of the sidebar. */
@@ -64,7 +68,7 @@ export const V2_NAV_SETTINGS: V2NavItem = {
   href: '/ajustes',
   label: 'Ajustes',
   icon: 'settings',
-  group: 'operar',
+  group: 'entrenar',
 };
 
 /** Active when the path is the item or a descendant of it. */
