@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAHYBRID · Manual — Rendimiento + Evaluar semana</title>
+<style>
+:root{--bg:#0a0a0a;--panel:#141414;--panel-raised:#1d1d1d;--line:#262626;--ink:#f4f4f4;--dim:#9a9a9a;--faint:#6a6a6a;--orange:#F06A2A;--orange-soft:#f0894f;--green:#3ecf6e;--blue:#58a6dc;--amber:#e8b33e;--radius:14px;--sans:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:radial-gradient(1000px 500px at 85% -10%,rgba(240,106,42,.06),transparent 60%),var(--bg);color:var(--ink);font-family:var(--sans);padding:36px 20px 90px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:860px;margin:0 auto;}
+a.back{color:var(--faint);font-size:12.5px;font-weight:600;text-decoration:none;}a.back:hover{color:var(--orange-soft);}
+.brand{font-size:12px;font-weight:800;font-style:italic;letter-spacing:.16em;color:var(--orange);text-transform:uppercase;margin-top:14px;}
+h1{font-size:32px;font-weight:900;font-style:italic;letter-spacing:-0.02em;margin:6px 0 10px;}
+.auds{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.aud{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--dim);}
+.aud .d{width:8px;height:8px;border-radius:50%;}.aud.coach .d{background:var(--orange);}.aud.atleta .d{background:var(--green);}.aud.interno .d{background:var(--blue);}
+.lede{color:var(--dim);font-size:15px;max-width:66ch;margin-bottom:22px;}.lede b{color:var(--ink);}
+.mockup{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin:6px 0 26px;background:var(--panel);}
+.mockup iframe{width:100%;height:520px;border:0;display:block;background:var(--bg);}
+.mockup .cap{font-size:11px;color:var(--faint);padding:8px 14px;border-top:1px solid var(--line);}
+section{margin-bottom:26px;}
+h2{font-size:14px;font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:.05em;color:var(--orange-soft);margin-bottom:12px;}
+ol.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:11px;}
+ol.steps li{counter-increment:s;display:flex;gap:12px;font-size:14px;color:var(--dim);line-height:1.55;}
+ol.steps li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--panel-raised);border:1px solid var(--line);color:var(--orange);font-size:12px;font-weight:800;display:grid;place-items:center;}
+ol.steps li b{color:var(--ink);}
+ul.rules{list-style:none;display:flex;flex-direction:column;gap:9px;}
+ul.rules li{display:flex;gap:10px;font-size:13.5px;color:var(--dim);line-height:1.55;}
+ul.rules li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-top:8px;}
+ul.rules li b{color:var(--ink);}
+.athlete{background:rgba(62,207,110,.05);border:1px solid rgba(62,207,110,.2);border-radius:var(--radius);padding:14px 16px;font-size:13.5px;color:#c7ecd3;line-height:1.55;}
+.athlete b{color:var(--green);}
+footer{color:var(--faint);font-size:12px;margin-top:40px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← Manual del producto</a>
+  <div class="brand">FAHYBRID · MANUAL</div>
+  <h1>Rendimiento + Evaluar semana</h1>
+  <div class="auds">
+    <span class="aud coach"><span class="d"></span>Lo usa Pablo (coach)</span>
+  </div>
+  <p class="lede">La pestaña <b>Rendimiento</b> dentro de la ficha del atleta, más la acción <b>Evaluar semana</b>. Reúne, sobre el dato real del atleta, toda la lectura de rendimiento —readiness compuesta, polarización, top ejercicios, economía de carrera, umbrales— y la convierte en un <b>veredicto semanal de autorregulación</b> que el coach aprueba o rechaza antes de que toque el plan.</p>
+
+  <section>
+    <h2>Cómo lo usa el coach</h2>
+    <ol class="steps">
+      <li>Abre la pestaña <b>Rendimiento</b> dentro de la ficha del atleta.</li>
+      <li>Lee la lectura de rendimiento: la <b>readiness compuesta</b> (score a 90 días con la contribución de TSB, adherencia, HRV y sesiones), la <b>polarización 80/0/20</b> (4 ventanas + tendencia a 12 semanas), los <b>top ejercicios</b> (mejor / mediana / consistencia por CV% / PRs con sparkline), la <b>economía de carrera</b> (ritmo en Z2), el <b>umbral de lactato</b> y la <b>capacidad anaeróbica</b>.</li>
+      <li>Pulsa <b>«Evaluar semana»</b>: el sistema devuelve un <b>veredicto de autorregulación</b> (semana correcta / requiere ajuste) con los <b>triggers reales</b> que lo motivan (p. ej. «Readiness 38 ▼») y una <b>recomendación</b> —mantener / suavizar / cambiar / día de descanso—, junto al resumen de la semana.</li>
+      <li><b>Aprueba o rechaza</b> el ajuste propuesto. Si lo aprueba, el efecto llega al plan del atleta; si lo rechaza, nada cambia.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Qué ve el atleta</h2>
+    <div class="athlete">El atleta <b>no ve esta pestaña</b>: es una herramienta del coach. Lo que sí llega a su plan es el <b>efecto del ajuste</b> una vez el coach lo aprueba —una semana más suave, un cambio de sesión, un día de descanso—, sin ver el veredicto, los triggers ni los números internos.</div>
+  </section>
+
+  <section>
+    <h2>Reglas del sistema</h2>
+    <ul class="rules">
+      <li>Todo se calcula del <b>dato real del atleta</b>. Nada se rellena con valores por defecto ni con gráficas de ejemplo.</li>
+      <li>Donde aún <b>no hay dato suficiente</b> (p. ej. predicción HYROX, potencia crítica) se muestra un <b>estado vacío honesto</b>, nunca una gráfica inventada.</li>
+      <li>El lenguaje es <b>agnóstico de metodología</b>: no hay ninguna metodología hardcodeada. La lectura describe el trabajo, no impone un método.</li>
+      <li>El veredicto es una <b>propuesta</b>, no una acción automática: nada cambia en el plan hasta que el coach <b>aprueba</b>.</li>
+    </ul>
+  </section>
+
+  <footer>FAHYBRID · Manual del producto · Rendimiento + Evaluar semana · uso interno</footer>
+</div>
+</body>
+</html>

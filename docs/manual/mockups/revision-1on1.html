@@ -1,0 +1,163 @@
+<title>Revisión 1:1 recurrente · FAHYBRID</title>
+<style>
+  :root{
+    --bg:#0a0a0a;--surface:#141317;--surface-2:#1b1a1f;--elevated:#201f25;
+    --border:rgba(255,255,255,.09);--border-strong:rgba(255,255,255,.16);
+    --fg:#f6f5f2;--muted:#a4a29b;--faint:#6d6b64;
+    --accent:#f06a2a;--accent-soft:rgba(240,106,42,.15);
+    --ok:#46c08a;--ok-soft:rgba(70,192,138,.14);
+    --warn:#e8b33e;--warn-soft:rgba(232,179,62,.14);
+    --danger:#e5573f;--danger-soft:rgba(229,87,63,.14);
+    --info:#58a6dc;--info-soft:rgba(88,166,220,.14);
+    --r-s:8px;--r-m:12px;--r-l:16px;--r-pill:999px;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.28);
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(1100px 560px at 82% -10%,rgba(240,106,42,.06),transparent 60%),var(--bg);
+    color:var(--fg);font-family:var(--sans);line-height:1.45;letter-spacing:-0.01em;-webkit-font-smoothing:antialiased;}
+  .num{font-variant-numeric:tabular-nums;}
+  .display{font-style:italic;font-weight:900;letter-spacing:-0.035em;}
+  .micro{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 22px 90px;}
+  h1.title{margin:0;font-size:clamp(28px,4.6vw,44px);line-height:1.0;}
+  .intro{color:var(--muted);font-size:14px;max-width:74ch;margin:10px 0 4px;}
+  .sec{margin-top:38px;}
+  .sec-label{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+  .sec-label .n{width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:800;display:grid;place-items:center;flex:none;}
+  .sec-label h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--shadow);padding:20px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--r-pill);border:1px solid transparent;white-space:nowrap;}
+  .pill.ok{background:var(--ok-soft);color:var(--ok);border-color:rgba(70,192,138,.3);}
+  .pill.warn{background:var(--warn-soft);color:var(--warn);border-color:rgba(232,179,62,.3);}
+  .pill.danger{background:var(--danger-soft);color:var(--danger);border-color:rgba(229,87,63,.3);}
+  .pill.muted{background:var(--surface-2);color:var(--faint);border-color:var(--border);}
+  .pill.accent{background:var(--accent-soft);color:var(--accent);border-color:rgba(240,106,42,.3);}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .btn{font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface-2);color:var(--fg);cursor:pointer;}
+  .btn.accent{background:var(--accent);color:#160a03;border-color:transparent;}
+  .seg{display:inline-flex;padding:3px;gap:2px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-pill);}
+  .seg button{appearance:none;border:0;cursor:pointer;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:var(--r-pill);}
+  .seg button[aria-pressed="true"]{background:var(--fg);color:#111;}
+
+  .grid2{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:820px){.grid2{grid-template-columns:1fr 1fr;align-items:start;}}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 2px;border-top:1px solid rgba(255,255,255,.05);}
+  .row:first-of-type{border-top:0;}
+  .row .m{font-size:13.5px;font-weight:600;}
+  .row .d{font-size:11.5px;color:var(--faint);}
+
+  .attn{display:flex;gap:11px;align-items:center;background:var(--warn-soft);border:1px solid rgba(232,179,62,.3);border-radius:var(--r-m);padding:12px 14px;}
+  .attn .ic{width:34px;height:34px;border-radius:var(--r-s);background:var(--warn-soft);display:grid;place-items:center;color:var(--warn);font-size:18px;flex:none;}
+  .attn .t{font-size:13.5px;font-weight:700;} .attn .s{font-size:12px;color:var(--muted);}
+
+  .phone{width:280px;margin:0 auto;background:#0d0c10;border:1px solid var(--border-strong);border-radius:30px;padding:16px 14px 22px;box-shadow:var(--shadow);}
+  .phone .status{font-size:10px;color:var(--faint);text-align:center;margin-bottom:14px;letter-spacing:.1em;text-transform:uppercase;}
+  .phone h4{margin:0 0 12px;font-size:22px;font-weight:900;font-style:italic;}
+  .pcard{background:var(--surface);border:1px solid rgba(240,106,42,.3);border-radius:var(--r-m);padding:16px;}
+  .pcard .ico{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-size:20px;margin-bottom:10px;}
+  .pcard .pt{font-size:15px;font-weight:800;} .pcard .pd{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5;}
+  .slotgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px;}
+  .slot{font-size:12px;font-weight:700;text-align:center;padding:9px;border-radius:var(--r-s);border:1px solid var(--border);background:var(--surface-2);color:var(--fg);}
+  .slot.sel{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+
+  ul.model{margin:6px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px;}
+  ul.model li{display:flex;gap:10px;font-size:13px;color:var(--muted);line-height:1.5;}
+  ul.model li .k{color:var(--fg);font-weight:700;flex:none;min-width:120px;}
+  .mock-banner{max-width:1000px;margin:26px auto 0;padding:0 22px;font-size:11px;color:var(--faint);text-align:center;}
+</style>
+
+<div class="wrap">
+  <div class="micro" style="color:var(--accent);">FAHYBRID · #21</div>
+  <h1 class="title display">Revisión 1:1 recurrente</h1>
+  <p class="intro">La videollamada no es solo para vender. Una revisión periódica coach-atleta (mensual/trimestral) que reutiliza las citas (#2), el Meet (#26) y el parte 1:1 (#14). Retención y sensación de servicio premium. Datos de ejemplo.</p>
+
+  <!-- 1. FICHA -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">1</span><h2>Ficha del atleta · pestaña 1:1</h2></div>
+    <div class="panel">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        <div>
+          <span class="micro">Cadencia de revisión</span>
+          <div class="seg" style="margin-top:8px;">
+            <button type="button">Ninguna</button>
+            <button type="button" aria-pressed="true">Mensual</button>
+            <button type="button">Trimestral</button>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <span class="pill warn"><span class="dot" style="background:var(--warn)"></span>Toca revisión · última hace 34 días</span>
+          <div style="margin-top:10px;"><button class="btn accent" type="button">Proponer revisión</button></div>
+        </div>
+      </div>
+      <div class="micro" style="margin-bottom:6px;">Historial de sesiones 1:1</div>
+      <div class="row"><div><div class="m">Revisión mensual</div><div class="d">propuesta · esperando que Íker reserve hueco</div></div><span class="pill accent">Propuesta</span></div>
+      <div class="row"><div><div class="m">Revisión mensual · 5 jun</div><div class="d">30 min · "subimos volumen de carrera, molestia rodilla vigilada"</div></div><span class="pill ok">Registrada</span></div>
+      <div class="row"><div><div class="m">Revisión mensual · 3 may</div><div class="d">30 min · "primer bloque cerrado, buena adherencia"</div></div><span class="pill ok">Registrada</span></div>
+    </div>
+  </div>
+
+  <!-- 2. COACH HOY SIGNAL -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">2</span><h2>Aviso al coach en Hoy · reutiliza la señal de atención</h2></div>
+    <div class="panel">
+      <div class="attn">
+        <div class="ic">📅</div>
+        <div style="flex:1;">
+          <div class="t">Revisión 1:1 pendiente · Íker Salas</div>
+          <div class="s">Cadencia mensual · última hace 34 días. Propónle una revisión.</div>
+        </div>
+        <span class="pill warn">Vencida</span>
+      </div>
+      <p style="color:var(--faint);font-size:12px;margin:12px 0 0;">Reutiliza el motor de señales (coach_attention_items) — ya existe una señal <b style="color:var(--muted)">video_review_pending</b> apagada; se enciende con la cadencia como umbral (mensual=30d, trimestral=90d). Se limpia sola al registrar la revisión. Un atleta en pausa (#13) NO dispara la señal.</p>
+    </div>
+  </div>
+
+  <!-- 3. ATHLETE APP -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">3</span><h2>App del atleta · el coach propone, el atleta elige hueco</h2></div>
+    <div class="grid2">
+      <div class="phone">
+        <div class="status">Notificación</div>
+        <h4>Revisión</h4>
+        <div class="pcard">
+          <div class="ico">📅</div>
+          <div class="pt">Pablo propone una revisión</div>
+          <div class="pd">Toca revisar cómo vas. Elige el hueco que mejor te venga para la videollamada.</div>
+          <div class="slotgrid">
+            <span class="slot">mar 8 · 18:00</span>
+            <span class="slot sel">mié 9 · 19:30</span>
+            <span class="slot">jue 10 · 18:30</span>
+            <span class="slot">vie 11 · 17:00</span>
+          </div>
+          <button class="btn accent" type="button" style="width:100%;margin-top:12px;">Reservar hueco</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="micro" style="margin-bottom:10px;">Qué reutiliza</div>
+        <ul class="model" style="gap:11px;">
+          <li><span class="k">Huecos</span><span>el mismo cálculo de disponibilidad de las citas (#2), sin token — el atleta ya está logueado.</span></li>
+          <li><span class="k">Meet</span><span>al reservar, se crea el evento de Google + Meet (#26) y llega el email con el enlace + recordatorio 24h.</span></li>
+          <li><span class="k">Parte 1:1</span><span>tras la llamada, el coach la registra como cualquier sesión 1:1 (#14) — notas, próximos pasos — enlazada a la cita.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODEL -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">✓</span><h2>El modelo, en corto</h2></div>
+    <div class="panel">
+      <ul class="model">
+        <li><span class="k">Cadencia</span><span><b style="color:var(--fg)">ninguna · mensual · trimestral</b> por atleta (columna en athletes, editable en la ficha). Default: mensual (opt-out — coaching 1:1 premium de alto contacto).</span></li>
+        <li><span class="k">Citas → atletas</span><span>appointments hoy es solo de leads; añado <b style="color:var(--fg)">athlete_id</b> nullable + tipo (intro | revisión) + índice activo por atleta. Cero duplicación del motor de huecos.</span></li>
+        <li><span class="k">Proponer</span><span>el coach propone desde la ficha → el atleta recibe aviso in-app + email y <b style="color:var(--fg)">elige su hueco</b> (reusa el slot picker). Auto-acepta → Meet + recordatorio.</span></li>
+        <li><span class="k">Registrar</span><span>reutiliza session_reports.athlete_id (#14) — cero schema nuevo; la revisión queda con notas, enlazada a la cita.</span></li>
+        <li><span class="k">Recordatorio</span><span>señal "revisión vencida" en Hoy (reusa coach_attention_items); umbral = cadencia; se limpia al registrar; pausa (#13) la silencia.</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="mock-banner">Mockup con datos de ejemplo · FAHYBRID · pendiente de validación antes de construir</p>

@@ -1,0 +1,216 @@
+<title>Seguimiento de pagos · FAHYBRID</title>
+<style>
+  :root{
+    --bg:#0a0a0a;--surface:#141317;--surface-2:#1b1a1f;--elevated:#201f25;
+    --border:rgba(255,255,255,.09);--border-strong:rgba(255,255,255,.16);
+    --fg:#f6f5f2;--muted:#a4a29b;--faint:#6d6b64;
+    --accent:#f06a2a;--accent-soft:rgba(240,106,42,.15);
+    --ok:#46c08a;--ok-soft:rgba(70,192,138,.14);
+    --warn:#e8b33e;--warn-soft:rgba(232,179,62,.14);
+    --danger:#e5573f;--danger-soft:rgba(229,87,63,.14);
+    --info:#58a6dc;--info-soft:rgba(88,166,220,.14);
+    --r-s:8px;--r-m:12px;--r-l:16px;--r-pill:999px;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.28);
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(1100px 560px at 82% -10%,rgba(240,106,42,.06),transparent 60%),var(--bg);
+    color:var(--fg);font-family:var(--sans);line-height:1.45;letter-spacing:-0.01em;-webkit-font-smoothing:antialiased;}
+  .num{font-variant-numeric:tabular-nums;}
+  .display{font-style:italic;font-weight:900;letter-spacing:-0.035em;}
+  .micro{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);}
+  .wrap{max-width:1060px;margin:0 auto;padding:40px 22px 90px;}
+  h1.title{margin:0;font-size:clamp(28px,4.6vw,44px);line-height:1.0;}
+  .intro{color:var(--muted);font-size:14px;max-width:74ch;margin:10px 0 4px;}
+  .sec{margin-top:38px;}
+  .sec-label{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+  .sec-label .n{width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:800;display:grid;place-items:center;flex:none;}
+  .sec-label h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--shadow);padding:20px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--r-pill);border:1px solid transparent;white-space:nowrap;}
+  .pill.ok{background:var(--ok-soft);color:var(--ok);border-color:rgba(70,192,138,.3);}
+  .pill.warn{background:var(--warn-soft);color:var(--warn);border-color:rgba(232,179,62,.3);}
+  .pill.danger{background:var(--danger-soft);color:var(--danger);border-color:rgba(229,87,63,.3);}
+  .pill.muted{background:var(--surface-2);color:var(--faint);border-color:var(--border);}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+
+  /* KPI strip */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:15px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:5px;}
+  .kpi .val{font-size:28px;font-weight:800;}
+  .kpi .val.ok{color:var(--ok);} .kpi .val.warn{color:var(--warn);} .kpi .val.danger{color:var(--danger);}
+
+  table.pg{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.pg th{text-align:left;color:var(--faint);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border);}
+  table.pg td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.05);}
+  table.pg tr:last-child td{border-bottom:0;}
+  table.pg .nm{font-weight:650;}
+  table.pg .amt{text-align:right;font-weight:700;}
+  .mark{font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border:1px solid rgba(240,106,42,.3);border-radius:var(--r-pill);padding:5px 11px;cursor:pointer;white-space:nowrap;}
+
+  .grid2{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:820px){.grid2{grid-template-columns:1.05fr 1fr;align-items:start;}}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;}
+  .inp{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 11px;color:var(--fg);font:inherit;font-size:14px;}
+  .inp-row{display:flex;align-items:center;gap:8px;}
+  .prefill{font-size:11.5px;color:var(--ok);margin-top:6px;}
+  .hist{display:flex;flex-direction:column;gap:0;}
+  .hrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 2px;border-top:1px solid rgba(255,255,255,.05);}
+  .hrow:first-child{border-top:0;}
+  .hrow .m{font-size:13px;font-weight:600;}
+  .hrow .d{font-size:11px;color:var(--faint);}
+
+  .fork{display:grid;grid-template-columns:1fr;gap:12px;}
+  @media(min-width:720px){.fork{grid-template-columns:1fr 1fr;}}
+  .opt{border:1px solid var(--border);border-radius:var(--r-m);padding:16px;background:var(--surface-2);}
+  .opt.rec{border-color:rgba(70,192,138,.4);background:var(--ok-soft);}
+  .opt h3{margin:0 0 8px;font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;}
+  .opt ul{margin:0;padding-left:16px;font-size:12.5px;color:var(--muted);line-height:1.6;}
+  .opt .tag{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:var(--r-pill);}
+  .opt.rec .tag{background:var(--ok);color:#08110c;}
+  .opt .tag.alt{background:var(--surface);color:var(--faint);border:1px solid var(--border);}
+
+  .attn{display:flex;gap:11px;align-items:center;background:var(--danger-soft);border:1px solid rgba(229,87,63,.3);border-radius:var(--r-m);padding:12px 14px;}
+  .attn .ic{width:34px;height:34px;border-radius:var(--r-s);background:var(--danger-soft);display:grid;place-items:center;color:var(--danger);font-size:18px;flex:none;}
+  .attn .t{font-size:13.5px;font-weight:700;}
+  .attn .s{font-size:12px;color:var(--muted);}
+
+  .mock-banner{max-width:1060px;margin:26px auto 0;padding:0 22px;font-size:11px;color:var(--faint);text-align:center;}
+</style>
+
+<div class="wrap">
+  <div class="micro" style="color:var(--accent);">FAHYBRID · #15</div>
+  <h1 class="title display">Seguimiento de pagos</h1>
+  <p class="intro">Qué paga cada atleta (precio acordado en la llamada, variable por persona), en qué estado está cada mes, e impagos a la vista. Hoy NO existe ni precio guardado ni registro de pagos — el alta crea atletas gratis y el precio de la llamada se pierde. Esto lo arregla. Datos de ejemplo.</p>
+
+  <!-- THE FORK -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">✓</span><h2>La decisión: cómo se cobra</h2></div>
+    <div class="fork">
+      <div class="opt rec">
+        <h3><span class="tag">Elegido</span> Pasarela (Stripe)</h3>
+        <ul>
+          <li>Decisión de Alex: "somos una empresa seria y vamos a cobrar seriamente".</li>
+          <li>El precio nace en el alta (variable por atleta); Stripe cobra solo cada mes.</li>
+          <li>El PAGO activa el acceso: el webhook confirma el cobro y entrega el enlace de entrada.</li>
+          <li>Estados reales vía webhooks (al día / vencido / cancelado), impagos y MRR automáticos.</li>
+        </ul>
+      </div>
+      <div class="opt">
+        <h3><span class="tag alt">Descartado</span> Registro manual</h3>
+        <ul>
+          <li>El coach marcaría cada mes a mano (transferencia/Bizum).</li>
+          <li>Más simple, pero sin cobro automático ni sensación de empresa seria.</li>
+          <li>Comparte el mismo modelo de datos, así que no se pierde nada al ir por Stripe.</li>
+        </ul>
+      </div>
+    </div>
+    <p style="color:var(--faint);font-size:12px;margin-top:10px;">El resto del mockup ilustra la <b style="color:var(--muted)">sección de Pagos</b> (estados, MRR, impago) — misma UI, ahora con estados reales de Stripe. La cortesía/comp sigue existiendo como excepción sin cobro.</p>
+  </div>
+
+  <!-- 1. PAGOS SECTION -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">1</span><h2>Sección Pagos — el mes de un vistazo</h2></div>
+    <div class="kpis">
+      <div class="kpi"><span class="micro">Esperado julio</span><span class="val num">1.480 €</span></div>
+      <div class="kpi"><span class="micro">Cobrado</span><span class="val ok num">1.090 €</span></div>
+      <div class="kpi"><span class="micro">Pendiente</span><span class="val warn num">300 €</span></div>
+      <div class="kpi"><span class="micro">Vencido</span><span class="val danger num">90 €</span></div>
+    </div>
+    <div class="panel">
+      <table class="pg">
+        <thead><tr><th>Atleta</th><th>Precio/mes</th><th>Julio</th><th style="text-align:right;">Acción</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="nm">Íker Salas</td><td class="num">90 €</td>
+            <td><span class="pill ok"><span class="dot" style="background:var(--ok)"></span>Pagado · 3 jul</span></td>
+            <td style="text-align:right;"><span class="pill muted">recibo</span></td>
+          </tr>
+          <tr>
+            <td class="nm">Nora Vives</td><td class="num">120 €</td>
+            <td><span class="pill warn"><span class="dot" style="background:var(--warn)"></span>Pendiente · vence 10 jul</span></td>
+            <td style="text-align:right;"><span class="mark">Marcar cobrado</span></td>
+          </tr>
+          <tr>
+            <td class="nm">Dídac Roca</td><td class="num">90 €</td>
+            <td><span class="pill danger"><span class="dot" style="background:var(--danger)"></span>Vencido · 5 jul</span></td>
+            <td style="text-align:right;"><span class="mark">Marcar cobrado</span></td>
+          </tr>
+          <tr>
+            <td class="nm">Pau + Guillem <span style="color:var(--faint);font-weight:400;font-size:11px;">· dobles</span></td><td class="num">115 €</td>
+            <td><span class="pill ok"><span class="dot" style="background:var(--ok)"></span>Pagado · 1 jul</span></td>
+            <td style="text-align:right;"><span class="pill muted">recibo</span></td>
+          </tr>
+          <tr>
+            <td class="nm">Marta Coll <span style="color:var(--faint);font-weight:400;font-size:11px;">· en pausa</span></td><td class="num">—</td>
+            <td><span class="pill muted">Sin cobro · en pausa</span></td>
+            <td style="text-align:right;"></td>
+          </tr>
+          <tr>
+            <td class="nm">Leo Prat <span style="color:var(--faint);font-weight:400;font-size:11px;">· cortesía</span></td><td class="num">0 €</td>
+            <td><span class="pill muted">Exento</span></td>
+            <td style="text-align:right;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. FICHA + ALTA -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">2</span><h2>Ficha del atleta + alta (donde nace el precio)</h2></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="micro" style="margin-bottom:12px;">Pestaña "Pagos" de la ficha</div>
+        <div class="inp-row" style="margin-bottom:14px;">
+          <div class="field" style="flex:1;">
+            <label>Precio acordado</label>
+            <div class="inp-row"><input class="inp num" value="120" style="max-width:110px;"><span style="color:var(--muted);font-size:14px;">€ / mes</span></div>
+          </div>
+          <span class="pill ok" style="align-self:flex-end;">Guardar</span>
+        </div>
+        <div class="micro" style="margin:6px 0 8px;">Historial</div>
+        <div class="hist">
+          <div class="hrow"><div><div class="m">Julio 2026</div><div class="d">vence 10 jul</div></div><span class="pill warn">Pendiente</span></div>
+          <div class="hrow"><div><div class="m">Junio 2026</div><div class="d">cobrado 4 jun · transferencia</div></div><span class="pill ok">120 €</span></div>
+          <div class="hrow"><div><div class="m">Mayo 2026</div><div class="d">cobrado 2 may · Bizum</div></div><span class="pill ok">120 €</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="micro" style="margin-bottom:12px;">Alta del lead (#5) — captura el precio</div>
+        <div class="field" style="margin-bottom:6px;">
+          <label>Precio acordado €/mes</label>
+          <div class="inp-row"><input class="inp num" value="120" style="max-width:120px;"><span style="color:var(--muted);font-size:14px;">€ / mes</span></div>
+          <div class="prefill">✓ Pre-rellenado con el precio de la llamada (parte 1:1)</div>
+        </div>
+        <p style="color:var(--muted);font-size:12.5px;line-height:1.55;margin-top:14px;">Hoy el alta pierde el precio acordado en la llamada. Aquí lo arrastramos desde el parte de la sesión (#14) — así el seguimiento de pagos arranca con el número correcto, sin re-teclear.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. IMPAGO ALERT -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">3</span><h2>Impago — ya avisa en Hoy</h2></div>
+    <div class="panel">
+      <div class="attn">
+        <div class="ic">⚠</div>
+        <div style="flex:1;">
+          <div class="t">Cobro en riesgo · Dídac Roca</div>
+          <div class="s">El pago de julio venció el 5 jul y sigue sin cobrarse. Toca para ir a su ficha.</div>
+        </div>
+        <span class="pill danger">Vencido</span>
+      </div>
+      <p style="color:var(--faint);font-size:12px;margin:12px 0 0;">Reutiliza la señal de atención que YA existe (<b style="color:var(--muted)">"Cobro en riesgo"</b>): un pago vencido se cuela en la cola de Hoy como tarjeta crítica, sin construir nada nuevo.</p>
+    </div>
+  </div>
+
+  <!-- MODEL -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">✓</span><h2>El modelo, en corto</h2></div>
+    <div class="panel" style="font-size:13px;color:var(--muted);line-height:1.6;">
+      <b style="color:var(--fg)">Precio acordado</b> por atleta (nace en la llamada, se guarda en el alta, editable). <b style="color:var(--fg)">Registro de pagos</b>: una fila por atleta y mes con estado pagado / pendiente / vencido / exento, importe, método (transferencia · Bizum · efectivo · Stripe · otro) y fecha. Un cron crea la fila del mes para cada atleta activo de pago; el coach la marca cobrada. <b style="color:var(--fg)">Conexiones:</b> #5 alta arrastra el precio de la llamada; #13 pausa congela el cobro (sin fila ese mes), baja lo detiene; dobles = un cobro por pareja (suscripción compartida). Comp/cortesía = exento.
+    </div>
+  </div>
+</div>
+
+<p class="mock-banner">Mockup con datos de ejemplo · FAHYBRID · pendiente de decisión y validación antes de construir</p>

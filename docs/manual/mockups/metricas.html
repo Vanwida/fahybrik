@@ -1,0 +1,501 @@
+<title>Métricas del funnel · FAHYBRID</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141317;
+    --surface-2: #1b1a1f;
+    --elevated: #201f25;
+    --border: rgba(255,255,255,.09);
+    --border-strong: rgba(255,255,255,.16);
+    --fg: #f6f5f2;
+    --muted: #a4a29b;
+    --faint: #6d6b64;
+    --accent: #f06a2a;
+    --accent-soft: rgba(240,106,42,.15);
+    --accent-fg: #ffffff;
+    --ok: #46c08a;      --ok-soft: rgba(70,192,138,.14);
+    --warn: #e8b33e;    --warn-soft: rgba(232,179,62,.14);
+    --danger: #e5573f;  --danger-soft: rgba(229,87,63,.14);
+    --info: #58a6dc;    --info-soft: rgba(88,166,220,.14);
+    --r-s: 8px; --r-m: 12px; --r-l: 16px; --r-pill: 999px;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --maxw: 1180px;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 78% -10%, rgba(240,106,42,.07), transparent 60%),
+      var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+  .display {
+    font-style: italic;
+    font-weight: 900;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .micro {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── Header ─────────────────────────────────────────── */
+  header.page { display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
+  .page-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  h1.title { margin: 0; font-size: clamp(30px, 5vw, 46px); line-height: 1.0; }
+  h1.title .dim { color: var(--faint); font-weight: 900; }
+  .subtitle { margin: 8px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
+
+  .seg {
+    display: inline-flex; padding: 3px; gap: 2px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+  }
+  .seg button {
+    appearance: none; border: 0; cursor: pointer;
+    background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 15px; border-radius: var(--r-pill);
+    letter-spacing: -0.01em; transition: color .15s, background .15s;
+  }
+  .seg button[aria-pressed="true"] { background: var(--fg); color: #111; }
+  .seg button:not([aria-pressed="true"]):hover { color: var(--fg); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ── KPI strip ──────────────────────────────────────── */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-l); padding: 16px 16px 15px;
+    box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 6px;
+  }
+  .kpi .val { font-size: 34px; line-height: 1; }
+  .kpi .val.accent { color: var(--accent); }
+  .kpi .val.ok { color: var(--ok); }
+  .kpi .delta { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .kpi .delta .up { color: var(--ok); }
+  .kpi .delta .down { color: var(--danger); }
+
+  /* ── Section shell ──────────────────────────────────── */
+  .grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-l); box-shadow: var(--shadow-card);
+    padding: 20px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .panel-head h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--faint); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+    padding: 3px 9px; border-radius: var(--r-pill);
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .pill.accent { background: var(--accent-soft); color: var(--accent); border-color: rgba(240,106,42,.3); }
+  .pill.info   { background: var(--info-soft); color: var(--info); border-color: rgba(88,166,220,.3); }
+  .pill.ghost  { background: transparent; color: var(--faint); border-color: var(--border); }
+
+  /* ── Funnel ─────────────────────────────────────────── */
+  .funnel { display: flex; flex-direction: column; gap: 0; }
+  .stage { position: relative; padding: 3px 0; }
+  .stage-row { display: grid; grid-template-columns: 190px 1fr; align-items: center; gap: 16px; }
+  .stage-label { display: flex; flex-direction: column; gap: 2px; }
+  .stage-label .name { font-size: 13.5px; font-weight: 650; color: var(--fg); letter-spacing: -0.01em; }
+  .stage-label .def { font-size: 10.5px; color: var(--faint); }
+  .bar-area { display: flex; align-items: center; gap: 12px; }
+  .bar-track { flex: 1; height: 34px; background: var(--surface-2); border-radius: var(--r-s); overflow: hidden; position: relative; }
+  .bar-fill {
+    height: 100%; border-radius: var(--r-s);
+    background: linear-gradient(90deg, rgba(240,106,42,.85), rgba(240,106,42,.62));
+    display: flex; align-items: center; justify-content: flex-end;
+    min-width: 3px; transition: width .5s ease;
+  }
+  .stage.top .bar-fill { background: linear-gradient(90deg, #f6f5f2, #cfcdc6); }
+  .stage.terminal .bar-fill { background: linear-gradient(90deg, var(--ok), rgba(70,192,138,.7)); }
+  .bar-count { font-size: 18px; font-weight: 800; min-width: 62px; text-align: right; }
+  .bar-count .pct { display: block; font-size: 10.5px; font-weight: 600; color: var(--faint); letter-spacing: 0; }
+
+  .drop {
+    display: grid; grid-template-columns: 190px 1fr; gap: 16px;
+    padding: 2px 0;
+  }
+  .drop-inner { display: flex; align-items: center; gap: 10px; padding-left: 2px; height: 20px; }
+  .drop-line { width: 1px; height: 100%; background: var(--border-strong); margin-left: 8px; }
+  .drop-txt { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .drop-txt .n { color: var(--danger); }
+  .side-exit {
+    font-size: 10.5px; color: var(--faint); font-weight: 600;
+    padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r-pill);
+    background: var(--surface-2);
+  }
+
+  /* ── Trend sparklines ───────────────────────────────── */
+  .spark-list { display: flex; flex-direction: column; gap: 14px; }
+  .spark-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
+  .spark-meta { display: flex; flex-direction: column; gap: 3px; }
+  .spark-meta .lbl { font-size: 12.5px; font-weight: 650; }
+  .spark-meta .sub { font-size: 10.5px; color: var(--faint); }
+  .spark-svg { width: 100%; height: 40px; display: block; }
+  .spark-val { text-align: right; }
+  .spark-val .now { font-size: 20px; font-weight: 800; }
+  .spark-val .trend { font-size: 10.5px; font-weight: 700; }
+  .spark-val .trend.up { color: var(--ok); }
+  .spark-val .trend.down { color: var(--danger); }
+
+  /* ── Segmentation table ─────────────────────────────── */
+  .seg-table-wrap { overflow-x: auto; }
+  table.seg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.seg-table th, table.seg-table td { text-align: right; padding: 9px 10px; white-space: nowrap; }
+  table.seg-table th { color: var(--faint); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  table.seg-table td:first-child, table.seg-table th:first-child { text-align: left; }
+  table.seg-table tbody tr { border-bottom: 1px solid rgba(255,255,255,.05); }
+  table.seg-table tbody tr:last-child { border-bottom: 0; }
+  table.seg-table .obj { font-weight: 650; color: var(--fg); }
+  .conv-cell { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .conv-bar { width: 46px; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .conv-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .conv-pct { min-width: 42px; text-align: right; font-weight: 700; }
+
+  /* ── Notes ──────────────────────────────────────────── */
+  .notes { margin-top: 22px; display: flex; flex-direction: column; gap: 7px; }
+  .note { display: flex; gap: 9px; align-items: flex-start; font-size: 11.5px; color: var(--muted); }
+  .note .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--faint); margin-top: 7px; flex: none; }
+  .note b { color: var(--fg); font-weight: 650; }
+
+  .mock-banner {
+    max-width: var(--maxw); margin: 22px auto 0; padding: 0 24px;
+    font-size: 11px; color: var(--faint); text-align: center; letter-spacing: .02em;
+  }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+    .stage-row, .drop { grid-template-columns: 130px 1fr; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 26px 14px 60px; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .stage-row, .drop { grid-template-columns: 1fr; }
+    .stage-label { flex-direction: row; align-items: baseline; gap: 8px; }
+    .bar-area { margin-top: 6px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <div class="page-top">
+      <div>
+        <h1 class="title display">Métricas del funnel <span class="dim">· 30 d</span></h1>
+        <p class="subtitle">Cohorte de los <b>312 leads</b> que iniciaron el onboarding entre el 8 jun y el 8 jul. Sigue a cada persona por sus etapas — mide dónde se cae el ingreso.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Periodo">
+        <button type="button">7 d</button>
+        <button type="button" aria-pressed="true">30 d</button>
+        <button type="button">90 d</button>
+        <button type="button">Todo</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- KPI strip -->
+  <section class="kpis" aria-label="Indicadores clave">
+    <div class="kpi">
+      <span class="micro">Onboardings</span>
+      <span class="val num">198</span>
+      <span class="delta num"><span class="up">▲ 12%</span> vs. mes previo</span>
+    </div>
+    <div class="kpi">
+      <span class="micro">Citas reservadas</span>
+      <span class="val num">96</span>
+      <span class="delta num"><span class="up">▲ 8%</span> vs. mes previo</span>
+    </div>
+    <div class="kpi">
+      <span class="micro">Llamadas hechas</span>
+      <span class="val num">71</span>
+      <span class="delta num"><span class="down">▼ 4%</span> vs. mes previo</span>
+    </div>
+    <div class="kpi">
+      <span class="micro">Altas</span>
+      <span class="val accent num">31</span>
+      <span class="delta num"><span class="up">▲ 19%</span> vs. mes previo</span>
+    </div>
+    <div class="kpi">
+      <span class="micro">Onboarding → alta</span>
+      <span class="val ok num">15.7%</span>
+      <span class="delta num">31 de 198 completados</span>
+    </div>
+  </section>
+
+  <div class="grid">
+    <!-- FUNNEL -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>El funnel · dónde se cae</h2>
+        <span class="pill ghost">% = conversión desde la etapa anterior</span>
+      </div>
+
+      <div class="funnel">
+
+        <!-- Visitas -->
+        <div class="stage top">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Visitas a la web</span>
+              <span class="def">landing fahybrid.com</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
+              <div class="bar-count num">1.240<span class="pct">100%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="drop">
+          <div></div>
+          <div class="drop-inner"><div class="drop-line"></div><span class="drop-txt num"><span class="n">−75%</span> · 928 no empiezan</span></div>
+        </div>
+
+        <!-- Onboarding iniciado -->
+        <div class="stage">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Onboarding iniciado</span>
+              <span class="def">dejan su email</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:25.2%"></div></div>
+              <div class="bar-count num">312<span class="pct">25%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="drop">
+          <div></div>
+          <div class="drop-inner"><div class="drop-line"></div><span class="drop-txt num"><span class="n">−37%</span> · 114 no terminan el formulario</span></div>
+        </div>
+
+        <!-- Onboarding completado -->
+        <div class="stage">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Onboarding completado</span>
+              <span class="def">formulario entero</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:63.5%"></div></div>
+              <div class="bar-count num">198<span class="pct">63%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="drop">
+          <div></div>
+          <div class="drop-inner"><div class="drop-line"></div><span class="drop-txt num"><span class="n">−52%</span> · 102 no reservan llamada</span> <span class="side-exit num">22 descartados</span></div>
+        </div>
+
+        <!-- Cita reservada -->
+        <div class="stage">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Cita reservada</span>
+              <span class="def">videollamada agendada</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:48.5%"></div></div>
+              <div class="bar-count num">96<span class="pct">48%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="drop">
+          <div></div>
+          <div class="drop-inner"><div class="drop-line"></div><span class="drop-txt num"><span class="n">−26%</span> · 25 no se presentan / cancelan</span> <span class="side-exit num">8 no-show</span></div>
+        </div>
+
+        <!-- Llamada realizada -->
+        <div class="stage">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Llamada realizada</span>
+              <span class="def">parte registrado</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:35.9%"></div></div>
+              <div class="bar-count num">71<span class="pct">36%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="drop">
+          <div></div>
+          <div class="drop-inner"><div class="drop-line"></div><span class="drop-txt num"><span class="n">−38%</span> · 27 no reciben alta</span> <span class="side-exit num">15 se lo piensan</span></div>
+        </div>
+
+        <!-- Alta enviada -->
+        <div class="stage">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Alta enviada</span>
+              <span class="def">invitación a la app</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:22.2%"></div></div>
+              <div class="bar-count num">44<span class="pct">22%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="drop">
+          <div></div>
+          <div class="drop-inner"><div class="drop-line"></div><span class="drop-txt num"><span class="n">−30%</span> · 13 no canjean la invitación</span></div>
+        </div>
+
+        <!-- Alta hecha -->
+        <div class="stage terminal">
+          <div class="stage-row">
+            <div class="stage-label">
+              <span class="name">Se dan de alta</span>
+              <span class="def">atleta activo en la app</span>
+            </div>
+            <div class="bar-area">
+              <div class="bar-track"><div class="bar-fill" style="width:15.6%"></div></div>
+              <div class="bar-count num">31<span class="pct">16%</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+
+      <!-- Trend -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Tendencia · 8 semanas</h2>
+          <span class="pill info">semanal</span>
+        </div>
+        <div class="spark-list">
+
+          <div class="spark-row">
+            <div class="spark-meta">
+              <span class="lbl">Onboardings completados</span>
+              <span class="sub num">semana a semana</span>
+            </div>
+            <svg class="spark-svg" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true" style="grid-column:1 / -1;">
+              <polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                points="0,30 17,26 34,28 51,20 68,22 85,14 102,16 120,9"/>
+              <circle cx="120" cy="9" r="3" fill="var(--accent)"/>
+            </svg>
+            <div class="spark-val" style="grid-row:1;">
+              <span class="now num">54</span>
+              <span class="trend up num">▲ 21%</span>
+            </div>
+          </div>
+
+          <div class="spark-row">
+            <div class="spark-meta">
+              <span class="lbl">Citas reservadas</span>
+              <span class="sub num">semana a semana</span>
+            </div>
+            <svg class="spark-svg" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true" style="grid-column:1 / -1;">
+              <polyline fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                points="0,24 17,22 34,26 51,23 68,18 85,20 102,15 120,17"/>
+              <circle cx="120" cy="17" r="3" fill="var(--info)"/>
+            </svg>
+            <div class="spark-val" style="grid-row:1;">
+              <span class="now num">24</span>
+              <span class="trend down num">▼ 6%</span>
+            </div>
+          </div>
+
+          <div class="spark-row">
+            <div class="spark-meta">
+              <span class="lbl">Altas</span>
+              <span class="sub num">semana a semana</span>
+            </div>
+            <svg class="spark-svg" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true" style="grid-column:1 / -1;">
+              <polyline fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                points="0,32 17,30 34,31 51,27 68,28 85,22 102,24 120,18"/>
+              <circle cx="120" cy="18" r="3" fill="var(--ok)"/>
+            </svg>
+            <div class="spark-val" style="grid-row:1;">
+              <span class="now num">9</span>
+              <span class="trend up num">▲ 13%</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Segmentation -->
+  <section class="panel" style="margin-top:14px;">
+    <div class="panel-head">
+      <h2>Conversión por objetivo · a qué vienen</h2>
+      <span class="pill ghost">alimenta el nurturing (#10)</span>
+    </div>
+    <div class="seg-table-wrap">
+      <table class="seg-table">
+        <thead>
+          <tr>
+            <th scope="col">Objetivo</th>
+            <th scope="col">Onboardings</th>
+            <th scope="col">Citas</th>
+            <th scope="col">Altas</th>
+            <th scope="col">Conversión</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="obj">Su primer HYROX</td>
+            <td class="num">76</td><td class="num">41</td><td class="num">14</td>
+            <td><span class="conv-cell"><span class="conv-bar"><i style="width:79%"></i></span><span class="conv-pct num">18.4%</span></span></td>
+          </tr>
+          <tr>
+            <td class="obj">Mejorar su marca</td>
+            <td class="num">54</td><td class="num">28</td><td class="num">9</td>
+            <td><span class="conv-cell"><span class="conv-bar"><i style="width:71%"></i></span><span class="conv-pct num">16.7%</span></span></td>
+          </tr>
+          <tr>
+            <td class="obj">Podio / competir</td>
+            <td class="num">22</td><td class="num">11</td><td class="num">5</td>
+            <td><span class="conv-cell"><span class="conv-bar"><i style="width:97%"></i></span><span class="conv-pct num">22.7%</span></span></td>
+          </tr>
+          <tr>
+            <td class="obj">Híbrido general</td>
+            <td class="num">38</td><td class="num">14</td><td class="num">3</td>
+            <td><span class="conv-cell"><span class="conv-bar"><i style="width:34%"></i></span><span class="conv-pct num">7.9%</span></span></td>
+          </tr>
+          <tr>
+            <td class="obj">Otro</td>
+            <td class="num">8</td><td class="num">2</td><td class="num">0</td>
+            <td><span class="conv-cell"><span class="conv-bar"><i style="width:0%"></i></span><span class="conv-pct num">0%</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Honest notes -->
+  <div class="notes">
+    <div class="note"><span class="dot"></span><span><b>Visitas</b> empieza a contar desde que se despliega la medición — el histórico no existe, así que las primeras semanas la cifra sube desde cero (todo lo demás sí tiene historia real).</span></div>
+    <div class="note"><span class="dot"></span><span><b>Cohortes recientes</b> aún están madurando: un lead que entró ayer no ha tenido tiempo de reservar ni darse de alta, así que el último tramo del funnel se llena con los días.</span></div>
+    <div class="note"><span class="dot"></span><span><b>Llamada realizada</b> = hay un parte de la sesión registrado (o la cita se marcó completada). Los no-show no cuentan como llamada.</span></div>
+  </div>
+</div>
+
+<p class="mock-banner">Mockup con datos de ejemplo · FAHYBRID · pendiente de validación antes de construir</p>

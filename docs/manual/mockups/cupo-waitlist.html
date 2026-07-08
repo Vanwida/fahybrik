@@ -1,0 +1,189 @@
+<title>Cupo + lista de espera · FAHYBRID</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141317; --surface-2: #1b1a1f; --elevated: #201f25;
+    --border: rgba(255,255,255,.09); --border-strong: rgba(255,255,255,.16);
+    --fg: #f6f5f2; --muted: #a4a29b; --faint: #6d6b64;
+    --accent: #f06a2a; --accent-soft: rgba(240,106,42,.15);
+    --ok: #46c08a; --ok-soft: rgba(70,192,138,.14);
+    --warn: #e8b33e; --warn-soft: rgba(232,179,62,.14);
+    --danger: #e5573f; --danger-soft: rgba(229,87,63,.14);
+    --info: #58a6dc; --info-soft: rgba(88,166,220,.14);
+    --r-s: 8px; --r-m: 12px; --r-l: 16px; --r-pill: 999px;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(1100px 560px at 80% -10%, rgba(240,106,42,.07), transparent 60%), var(--bg);
+    color: var(--fg); font-family: var(--sans); line-height: 1.45; letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+  .display { font-style: italic; font-weight: 900; letter-spacing: -0.035em; text-wrap: balance; }
+  .micro { font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--faint); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+  .lead-note { color: var(--muted); font-size: 13.5px; max-width: 70ch; margin: 6px 0 30px; }
+  h1.title { margin: 0; font-size: clamp(28px, 4.5vw, 42px); line-height: 1.0; }
+  .section-label { margin: 34px 0 12px; display: flex; align-items: center; gap: 10px; }
+  .section-label .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+    font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+  .section-label h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-l); box-shadow: var(--shadow); padding: 20px; }
+  .panel + .panel { margin-top: 14px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: var(--r-pill); border: 1px solid transparent; }
+  .pill.danger { background: var(--danger-soft); color: var(--danger); border-color: rgba(229,87,63,.3); }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); border-color: rgba(70,192,138,.3); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(232,179,62,.3); }
+  .pill.ghost { background: transparent; color: var(--faint); border-color: var(--border); }
+
+  /* Capacity panel */
+  .cap-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .cap-figure { display: flex; align-items: baseline; gap: 8px; }
+  .cap-figure .big { font-size: 40px; font-weight: 800; }
+  .cap-figure .of { font-size: 18px; color: var(--faint); font-weight: 700; }
+  .cap-edit { font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--r-pill); padding: 6px 13px; cursor: pointer; }
+  .cap-bar { height: 12px; background: var(--surface-2); border-radius: var(--r-pill); overflow: hidden; margin: 14px 0 6px; display: flex; }
+  .cap-bar > i { height: 100%; display: block; }
+  .cap-bar > .full { background: linear-gradient(90deg, var(--accent), rgba(240,106,42,.72)); }
+  .cap-sub { font-size: 12.5px; color: var(--muted); }
+  .cap-sub b { color: var(--fg); }
+
+  /* Waitlist queue */
+  .q-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .q-head h3 { margin: 0; font-size: 15px; font-weight: 750; }
+  .q-row { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 14px; padding: 11px 4px; border-top: 1px solid rgba(255,255,255,.06); }
+  .q-row:first-of-type { border-top: 0; }
+  .q-pos { width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border);
+    display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--muted); }
+  .q-row.next .q-pos { background: var(--accent-soft); border-color: rgba(240,106,42,.4); color: var(--accent); }
+  .q-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .q-who .name { font-size: 14px; font-weight: 650; }
+  .q-who .meta { font-size: 11.5px; color: var(--faint); }
+  .q-right { display: flex; align-items: center; gap: 12px; }
+  .q-wait { font-size: 11.5px; color: var(--muted); text-align: right; }
+  .q-btn { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(240,106,42,.32);
+    border-radius: var(--r-pill); padding: 6px 13px; cursor: pointer; white-space: nowrap; }
+  .q-empty { color: var(--faint); font-size: 13px; padding: 8px 4px; }
+  .auto-note { margin-top: 14px; font-size: 11.5px; color: var(--faint); display: flex; gap: 8px; align-items: flex-start; }
+  .auto-note .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ok); margin-top: 6px; flex: none; }
+
+  /* Onboarding full-state */
+  .ob-frame { max-width: 460px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    box-shadow: var(--shadow); padding: 40px 32px; text-align: center; }
+  .ob-badge { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(240,106,42,.3); border-radius: var(--r-pill); padding: 6px 13px; }
+  .ob-frame h2 { font-size: 27px; margin: 18px 0 0; line-height: 1.05; }
+  .ob-frame p { color: var(--muted); font-size: 14.5px; line-height: 1.55; margin: 14px 0 0; }
+  .ob-pos { margin: 22px auto 0; display: inline-flex; align-items: baseline; gap: 8px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--r-m); padding: 12px 20px; }
+  .ob-pos .p { font-size: 30px; font-weight: 800; color: var(--accent); }
+  .ob-pos .l { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .ob-foot { margin-top: 22px; font-size: 12px; color: var(--faint); }
+
+  .two { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 780px) { .two { grid-template-columns: 1.15fr 1fr; align-items: start; } }
+  .mock-banner { max-width: 1120px; margin: 26px auto 0; padding: 0 24px; font-size: 11px; color: var(--faint); text-align: center; }
+</style>
+
+<div class="wrap">
+  <h1 class="title display">Cupo + lista de espera</h1>
+  <p class="lead-note">Pablo trabaja con un grupo reducido. Cuando el cupo está lleno, los leads que terminan el onboarding entran en lista de espera con comunicación honesta — y la escasez refuerza el posicionamiento. Al liberarse una plaza, se avisa al siguiente. Datos de ejemplo.</p>
+
+  <!-- ============ COACH DASHBOARD ============ -->
+  <div class="section-label"><span class="n">1</span><h2>Dashboard del coach · sección Leads</h2></div>
+
+  <div class="two">
+    <!-- Capacity -->
+    <div class="panel">
+      <div class="cap-head">
+        <div>
+          <span class="micro">Plazas activas</span>
+          <div class="cap-figure"><span class="big num">24</span><span class="of">/ 24</span></div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+          <span class="pill danger">● Completo</span>
+          <button class="cap-edit" type="button">Editar cupo</button>
+        </div>
+      </div>
+      <div class="cap-bar"><i class="full" style="width:100%"></i></div>
+      <div class="cap-sub"><b>0 plazas libres</b> · 24 atletas activos · <b>3</b> en lista de espera</div>
+    </div>
+
+    <!-- Quick states preview -->
+    <div class="panel" style="display:flex; flex-direction:column; gap:12px;">
+      <span class="micro">Otros estados del indicador</span>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="pill ok">● 3 libres</span>
+        <span class="cap-sub num">21 / 24 · lista de espera vacía</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="pill warn">● 1 libre</span>
+        <span class="cap-sub num">23 / 24 · 1 en espera</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="pill ghost">Sin límite</span>
+        <span class="cap-sub">cupo sin definir · la lista de espera no se activa</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Waitlist queue -->
+  <div class="panel" style="margin-top:14px;">
+    <div class="q-head">
+      <h3>Lista de espera · 3</h3>
+      <span class="pill ghost">orden de llegada</span>
+    </div>
+
+    <div class="q-row next">
+      <div class="q-pos num">1</div>
+      <div class="q-who">
+        <span class="name">Marcos Vidal</span>
+        <span class="meta">Su primer HYROX · intermedio · Barcelona</span>
+      </div>
+      <div class="q-right">
+        <span class="q-wait num">esperando<br>2 días</span>
+        <button class="q-btn" type="button">Avisar ahora</button>
+      </div>
+    </div>
+    <div class="q-row">
+      <div class="q-pos num">2</div>
+      <div class="q-who">
+        <span class="name">Laura Feng</span>
+        <span class="meta">Mejorar su marca · avanzado · online</span>
+      </div>
+      <div class="q-right">
+        <span class="q-wait num">esperando<br>5 días</span>
+        <button class="q-btn" type="button">Avisar ahora</button>
+      </div>
+    </div>
+    <div class="q-row">
+      <div class="q-pos num">3</div>
+      <div class="q-who">
+        <span class="name">Dídac Roca</span>
+        <span class="meta">Podio / competir · competidor · Barcelona</span>
+      </div>
+      <div class="q-right">
+        <span class="q-wait num">esperando<br>6 días</span>
+        <button class="q-btn" type="button">Avisar ahora</button>
+      </div>
+    </div>
+
+    <div class="auto-note"><span class="dot"></span><span><b style="color:var(--fg)">Automático:</b> cuando una plaza se libera (baja/pausa de un atleta), el sistema avisa al primero de la cola por email con su enlace de reserva. El botón "Avisar ahora" es el override manual del coach para saltarse el orden.</span></div>
+  </div>
+
+  <!-- ============ ONBOARDING ============ -->
+  <div class="section-label"><span class="n">2</span><h2>Onboarding del lead · pantalla final cuando está lleno</h2></div>
+
+  <div class="ob-frame">
+    <span class="ob-badge">Grupo completo</span>
+    <h2 class="display">Ahora mismo no quedan plazas</h2>
+    <p>Pablo entrena a un grupo reducido para dar seguimiento real, y ahora mismo está completo. Te hemos apuntado a la lista de espera — te avisamos por email en cuanto se abra una plaza, por orden de llegada.</p>
+    <div class="ob-pos">
+      <span class="p num">3º</span>
+      <span class="l">en la lista</span>
+    </div>
+    <p class="ob-foot">Tienes tu solicitud guardada. No hace falta que hagas nada más.</p>
+  </div>
+</div>
+
+<p class="mock-banner">Mockup con datos de ejemplo · FAHYBRID · pendiente de validación antes de construir</p>

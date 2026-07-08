@@ -1,0 +1,302 @@
+<title>Bajas y pausas · FAHYBRID</title>
+<style>
+  :root {
+    --bg:#0a0a0a; --surface:#141317; --surface-2:#1b1a1f; --elevated:#201f25;
+    --border:rgba(255,255,255,.09); --border-strong:rgba(255,255,255,.16);
+    --fg:#f6f5f2; --muted:#a4a29b; --faint:#6d6b64;
+    --accent:#f06a2a; --accent-soft:rgba(240,106,42,.15);
+    --ok:#46c08a; --ok-soft:rgba(70,192,138,.14);
+    --warn:#e8b33e; --warn-soft:rgba(232,179,62,.14);
+    --danger:#e5573f; --danger-soft:rgba(229,87,63,.14);
+    --info:#58a6dc; --info-soft:rgba(88,166,220,.14);
+    --r-s:8px; --r-m:12px; --r-l:16px; --r-pill:999px;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(1100px 560px at 82% -10%,rgba(240,106,42,.06),transparent 60%),var(--bg);
+    color:var(--fg);font-family:var(--sans);line-height:1.45;letter-spacing:-0.01em;-webkit-font-smoothing:antialiased;}
+  .num{font-variant-numeric:tabular-nums;}
+  .display{font-style:italic;font-weight:900;letter-spacing:-0.035em;text-wrap:balance;}
+  .micro{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 22px 90px;}
+  h1.title{margin:0;font-size:clamp(28px,4.6vw,44px);line-height:1.0;}
+  .intro{color:var(--muted);font-size:14px;max-width:74ch;margin:10px 0 4px;}
+  .sec{margin-top:40px;}
+  .sec-label{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+  .sec-label .n{width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+    font-size:12.5px;font-weight:800;display:grid;place-items:center;flex:none;}
+  .sec-label h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--shadow);padding:20px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--r-pill);border:1px solid transparent;white-space:nowrap;}
+  .pill.ok{background:var(--ok-soft);color:var(--ok);border-color:rgba(70,192,138,.3);}
+  .pill.warn{background:var(--warn-soft);color:var(--warn);border-color:rgba(232,179,62,.3);}
+  .pill.danger{background:var(--danger-soft);color:var(--danger);border-color:rgba(229,87,63,.3);}
+  .pill.muted{background:var(--surface-2);color:var(--muted);border-color:var(--border);}
+  .pill.info{background:var(--info-soft);color:var(--info);border-color:rgba(88,166,220,.3);}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+
+  /* State machine */
+  .fsm{display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:center;padding:8px 0;}
+  .node{border-radius:var(--r-m);padding:14px 20px;text-align:center;border:1.5px solid;min-width:120px;}
+  .node .st{font-size:16px;font-weight:800;}
+  .node .sub{font-size:11px;color:var(--faint);margin-top:2px;}
+  .node.activo{border-color:rgba(70,192,138,.5);background:var(--ok-soft);}
+  .node.pausa{border-color:rgba(232,179,62,.5);background:var(--warn-soft);}
+  .node.baja{border-color:rgba(229,87,63,.45);background:var(--danger-soft);}
+  .edge{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10.5px;font-weight:600;min-width:74px;}
+  .edge .arw{font-size:18px;color:var(--faint);line-height:1;}
+  .edge.two .arw{letter-spacing:-2px;}
+  .fsm-note{margin-top:14px;font-size:12px;color:var(--faint);text-align:center;}
+
+  /* Roster */
+  table.roster{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.roster th{text-align:left;color:var(--faint);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border);}
+  table.roster td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.05);}
+  table.roster tr:last-child td{border-bottom:0;}
+  .r-name{font-weight:650;}
+  .r-dim{color:var(--faint);font-size:11.5px;}
+  tr.is-paused .r-name,tr.is-baja .r-name{color:var(--muted);}
+  tr.is-baja{opacity:.72;}
+  .r-adh{font-weight:700;}
+  .r-adh.exc{color:var(--faint);font-weight:600;}
+
+  .grid2{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:820px){.grid2{grid-template-columns:1.1fr 1fr;align-items:start;}}
+
+  /* Ficha */
+  .ficha-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .ficha-id{display:flex;align-items:center;gap:12px;}
+  .avatar{width:46px;height:46px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;font-weight:800;color:var(--muted);}
+  .ficha-id .nm{font-size:19px;font-weight:800;}
+  .ficha-id .meta{font-size:12px;color:var(--faint);display:flex;align-items:center;gap:7px;margin-top:2px;}
+  .actions{display:flex;gap:8px;}
+  .btn{font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface-2);color:var(--fg);cursor:pointer;}
+  .btn.warn{color:var(--warn);border-color:rgba(232,179,62,.35);background:var(--warn-soft);}
+  .btn.danger{color:var(--danger);border-color:rgba(229,87,63,.35);background:var(--danger-soft);}
+  .banner{margin-top:16px;border-radius:var(--r-m);padding:13px 15px;font-size:13px;display:flex;gap:10px;align-items:flex-start;}
+  .banner.warn{background:var(--warn-soft);border:1px solid rgba(232,179,62,.3);}
+  .banner.danger{background:var(--danger-soft);border:1px solid rgba(229,87,63,.3);}
+  .banner b{color:var(--fg);}
+  .banner .txt{color:var(--muted);}
+
+  /* Pause dialog */
+  .dialog{max-width:400px;border:1px solid var(--border-strong);border-radius:var(--r-l);background:var(--elevated);padding:22px;box-shadow:var(--shadow);}
+  .dialog h3{margin:0 0 4px;font-size:18px;font-weight:800;}
+  .dialog .d-sub{color:var(--muted);font-size:12.5px;margin-bottom:16px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;}
+  .reasons{display:flex;flex-wrap:wrap;gap:7px;}
+  .reason{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface-2);color:var(--muted);cursor:pointer;}
+  .reason.sel{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+  .inp{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 11px;color:var(--fg);font:inherit;font-size:13px;}
+  .d-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;}
+  .d-hint{font-size:11.5px;color:var(--faint);margin-top:6px;}
+
+  /* iOS app frames */
+  .phones{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;}
+  .phone{width:270px;background:#0d0c10;border:1px solid var(--border-strong);border-radius:30px;padding:16px 14px 22px;box-shadow:var(--shadow);}
+  .phone .status{font-size:10px;color:var(--faint);text-align:center;margin-bottom:14px;letter-spacing:.1em;text-transform:uppercase;}
+  .phone h4{margin:0 0 12px;font-size:22px;font-weight:900;font-style:italic;}
+  .pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:18px 16px;text-align:center;}
+  .pcard .ico{width:44px;height:44px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;font-size:22px;}
+  .pcard.pause .ico{background:var(--warn-soft);}
+  .pcard .pt{font-size:16px;font-weight:800;}
+  .pcard .pd{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.5;}
+  .pcard .meta{margin-top:13px;font-size:11px;color:var(--faint);border-top:1px solid var(--border);padding-top:11px;}
+  .partner-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:14px;margin-top:12px;display:flex;gap:11px;align-items:center;}
+  .partner-card .pa{width:36px;height:36px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-weight:800;color:var(--muted);font-size:13px;}
+  .partner-card .pn{font-size:13.5px;font-weight:700;}
+  .partner-card .ps{font-size:11.5px;color:var(--warn);margin-top:1px;}
+
+  ul.model{margin:6px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px;}
+  ul.model li{display:flex;gap:10px;font-size:13px;color:var(--muted);line-height:1.5;}
+  ul.model li .k{color:var(--fg);font-weight:700;flex:none;min-width:104px;}
+  .mock-banner{max-width:1080px;margin:26px auto 0;padding:0 22px;font-size:11px;color:var(--faint);text-align:center;}
+</style>
+
+<div class="wrap">
+  <div class="micro" style="color:var(--accent);">FAHYBRID · #13</div>
+  <h1 class="title display">Bajas y pausas de atletas</h1>
+  <p class="intro">El ciclo de vida que faltaba. Una <b style="color:var(--fg)">pausa</b> congela el plan sin ensuciar métricas (lesión, vacaciones); una <b style="color:var(--fg)">baja</b> cierra la relación conservando SIEMPRE el historial y libera una plaza del cupo. Todo reversible. Datos de ejemplo.</p>
+
+  <!-- 1. STATE MACHINE -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">1</span><h2>Ciclo de estados</h2></div>
+    <div class="panel">
+      <div class="fsm">
+        <div class="node activo"><div class="st">Activo</div><div class="sub">entrena · cuenta en cupo</div></div>
+        <div class="edge two"><span class="arw">⇄</span><span>pausar / reactivar<br>(coach)</span></div>
+        <div class="node pausa"><div class="st">En pausa</div><div class="sub">plan congelado · fuera de métricas</div></div>
+        <div class="edge"><span class="arw">→</span><span>dar de baja<br>(coach)</span></div>
+        <div class="node baja"><div class="st">Baja</div><div class="sub">libera plaza · historial intacto</div></div>
+        <div class="edge"><span class="arw">⤴</span><span>re-alta<br>(coach)</span></div>
+      </div>
+      <div class="fsm-note">Activo y En pausa pueden ir a Baja. Baja vuelve a Activo con <b style="color:var(--muted)">re-alta</b> (el historial nunca se borró). <b style="color:var(--muted)">Baja ≠ borrado RGPD</b> — eso es #19, destructivo y aparte.</div>
+    </div>
+  </div>
+
+  <!-- 2. ROSTER -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">2</span><h2>Roster del coach — estado visible de un vistazo</h2></div>
+    <div class="panel">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <span class="pill ok"><span class="dot" style="background:var(--ok)"></span>18 activos</span>
+        <span class="pill warn"><span class="dot" style="background:var(--warn)"></span>2 en pausa</span>
+        <span class="pill muted"><span class="dot" style="background:var(--faint)"></span>1 baja</span>
+      </div>
+      <table class="roster">
+        <thead><tr><th>Atleta</th><th>Estado</th><th>Nivel</th><th style="text-align:right;">Adherencia 30d</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="r-name">Íker Salas</div><div class="r-dim">HYROX · 4 días</div></td>
+            <td><span class="pill ok"><span class="dot" style="background:var(--ok)"></span>Activo</span></td>
+            <td>N3</td><td style="text-align:right;"><span class="r-adh num">92%</span></td>
+          </tr>
+          <tr class="is-paused">
+            <td><div class="r-name">Nora Vives</div><div class="r-dim">HYROX · 3 días</div></td>
+            <td><span class="pill warn"><span class="dot" style="background:var(--warn)"></span>En pausa · lesión</span></td>
+            <td>N2</td><td style="text-align:right;"><span class="r-adh exc num">— excluida</span></td>
+          </tr>
+          <tr>
+            <td><div class="r-name">Pau Guerrero</div><div class="r-dim">Dobles · 5 días</div></td>
+            <td><span class="pill ok"><span class="dot" style="background:var(--ok)"></span>Activo</span></td>
+            <td>N4</td><td style="text-align:right;"><span class="r-adh num">78%</span></td>
+          </tr>
+          <tr class="is-paused">
+            <td><div class="r-name">Marta Coll</div><div class="r-dim">HYROX · 4 días</div></td>
+            <td><span class="pill warn"><span class="dot" style="background:var(--warn)"></span>En pausa · vacaciones</span></td>
+            <td>N3</td><td style="text-align:right;"><span class="r-adh exc num">— excluida</span></td>
+          </tr>
+          <tr class="is-baja">
+            <td><div class="r-name">Dídac Amat</div><div class="r-dim">HYROX · 3 días</div></td>
+            <td><span class="pill muted"><span class="dot" style="background:var(--faint)"></span>Baja · 12 jun</span></td>
+            <td>N2</td><td style="text-align:right;"><span class="r-adh exc num">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. FICHA + ACTIONS -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">3</span><h2>Ficha del atleta — acciones y estado pausado</h2></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="ficha-head">
+          <div class="ficha-id">
+            <div class="avatar">NV</div>
+            <div>
+              <div class="nm">Nora Vives</div>
+              <div class="meta"><span class="dot" style="background:var(--warn)"></span> En pausa · HYROX · N2</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn">Reactivar</button>
+            <button class="btn danger">Dar de baja</button>
+          </div>
+        </div>
+        <div class="banner warn">
+          <span class="dot" style="background:var(--warn);margin-top:5px;"></span>
+          <span class="txt"><b>En pausa desde el 8 jul · lesión.</b> El plan está congelado: no se publican semanas nuevas ni se marcan sesiones perdidas. Este periodo <b>no cuenta</b> en la adherencia. Al reactivar, el plan retoma donde iba desde el próximo lunes.</span>
+        </div>
+      </div>
+
+      <!-- Pause dialog -->
+      <div class="dialog">
+        <h3>Pausar a Íker</h3>
+        <div class="d-sub">Congela su plan sin penalizar su adherencia. Reversible cuando quieras.</div>
+        <div class="field">
+          <label>Motivo</label>
+          <div class="reasons">
+            <span class="reason sel">Lesión</span>
+            <span class="reason">Vacaciones</span>
+            <span class="reason">Parón</span>
+            <span class="reason">Otro</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Vuelve el (opcional)</label>
+          <input class="inp" value="— sin fecha, la cierro yo al reactivar" readonly>
+          <div class="d-hint">Si no la sabes, déjala abierta. La cierras al reactivar.</div>
+        </div>
+        <div class="d-actions">
+          <button class="btn">Cancelar</button>
+          <button class="btn warn">Pausar plan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. ATHLETE APP -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">4</span><h2>App del atleta — qué ve en pausa</h2></div>
+    <div class="panel">
+      <div class="phones">
+        <div class="phone">
+          <div class="status">Plan</div>
+          <h4>Tu plan</h4>
+          <div class="pcard pause">
+            <div class="ico">⏸</div>
+            <div class="pt">Tu plan está en pausa</div>
+            <div class="pd">Pablo lo ha pausado mientras te recuperas. Retomamos en cuanto estés listo — tu progreso está guardado.</div>
+            <div class="meta">En pausa desde el 8 jul</div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="status">Hoy</div>
+          <h4>Hoy</h4>
+          <div class="pcard pause">
+            <div class="ico">⏸</div>
+            <div class="pt">Descansa, Nora</div>
+            <div class="pd">Estás en pausa. Sin sesiones hoy — nada que registrar y nada que se pierda.</div>
+          </div>
+          <div style="margin-top:12px;font-size:11.5px;color:var(--faint);text-align:center;">Tu historial y tus marcas siguen ahí, intactos.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. DOBLES EDGE -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">5</span><h2>Dobles — el edge de la pareja</h2></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="micro" style="margin-bottom:10px;">Si uno PAUSA → el par se mantiene</div>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.55;">Siguen siendo pareja. El pausado congela su plan; el activo entrena y ve a su compañero en pausa. Las sesiones conjuntas esperan.</p>
+        <div class="partner-card">
+          <div class="pa">PG</div>
+          <div style="flex:1;">
+            <div class="pn">Pau, tu pareja</div>
+            <div class="ps">⏸ En pausa · vuelve pronto</div>
+          </div>
+          <span class="pill warn">en pausa</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="micro" style="margin-bottom:10px;">Si uno se da de BAJA → se deshace el par</div>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.55;">Se disuelve el vínculo en los <b style="color:var(--fg)">tres ejes</b> (entreno, cuenta, facturación), se avisa al que se queda, y su historial conjunto se conserva. El superviviente sigue con su plan individual.</p>
+        <div class="banner danger" style="margin-top:0;">
+          <span class="dot" style="background:var(--danger);margin-top:5px;"></span>
+          <span class="txt"><b>Facturación compartida (una sola suscripción):</b> darse de baja uno afecta el acceso de ambos. El reparto limpio del cobro lo resuelve <b>#15 pagos</b> — lo dejo señalado, no lo invento.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODEL SUMMARY -->
+  <div class="sec">
+    <div class="sec-label"><span class="n">✓</span><h2>El modelo, en corto</h2></div>
+    <div class="panel">
+      <ul class="model">
+        <li><span class="k">Estado</span><span><b style="color:var(--fg)">activo · pausado · baja</b> en el atleta; una tabla de intervalos de pausa (inicio/fin) da los rangos a excluir de la adherencia.</span></li>
+        <li><span class="k">Pausa congela</span><span>no se revelan semanas nuevas (freno al cron sabatino), no se evalúa cumplimiento (freno al cron lunes), no se marca como perdido ni como inactivo. El periodo se <b style="color:var(--fg)">excluye</b> de la adherencia — no es 0%.</span></li>
+        <li><span class="k">Reactivar</span><span>cierra el intervalo; el plan retoma en la posición del cursor desde el próximo lunes (limpio, sin días caducados).</span></li>
+        <li><span class="k">Baja</span><span>conserva TODO el historial (nunca borra — no es el borrado RGPD), libera plaza → dispara la liberación del cupo (#18), congela la facturación al fin de periodo. Reversible con re-alta.</span></li>
+        <li><span class="k">Dobles</span><span>pausa mantiene el par (compañero "en pausa"); baja disuelve el par en los 3 ejes + avisa al superviviente + conserva historial conjunto.</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="mock-banner">Mockup con datos de ejemplo · FAHYBRID · pendiente de validación antes de construir</p>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAHYBRID — Manual del producto</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --panel:#141414; --panel-raised:#1d1d1d; --line:#262626;
+    --ink:#f4f4f4; --dim:#9a9a9a; --faint:#6a6a6a;
+    --orange:#F06A2A; --orange-soft:#f0894f; --green:#3ecf6e; --blue:#58a6dc; --amber:#e8b33e;
+    --radius:14px;
+    --sans:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:radial-gradient(1200px 600px at 80% -10%,rgba(240,106,42,.07),transparent 60%),var(--bg);
+    color:var(--ink);font-family:var(--sans);padding:44px 20px 90px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  .brand{font-size:13px;font-weight:800;font-style:italic;letter-spacing:.16em;color:var(--orange);text-transform:uppercase;}
+  h1{font-size:38px;font-weight:900;font-style:italic;letter-spacing:-0.02em;margin:6px 0 6px;}
+  .lede{color:var(--dim);font-size:15px;max-width:70ch;}
+  .lede b{color:var(--ink);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 32px;}
+  .aud{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);}
+  .aud .d{width:9px;height:9px;border-radius:50%;}
+  .aud.coach .d{background:var(--orange);} .aud.atleta .d{background:var(--green);} .aud.interno .d{background:var(--blue);}
+
+  section{margin-bottom:34px;}
+  .sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;}
+  h2{font-size:15px;font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:.05em;color:var(--orange-soft);}
+  .sec-sub{color:var(--faint);font-size:12.5px;margin-bottom:14px;}
+
+  .grid{display:grid;grid-template-columns:1fr;gap:12px;}
+  @media(min-width:680px){.grid{grid-template-columns:1fr 1fr;}}
+  a.card{display:block;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px 18px;transition:border-color .15s,transform .15s;}
+  a.card:hover{border-color:#3a3a3a;transform:translateY(-1px);}
+  .card .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;}
+  .card .ttl{font-size:16px;font-weight:800;display:flex;align-items:center;gap:9px;}
+  .card .ico{font-size:18px;}
+  .card .desc{font-size:13px;color:var(--dim);line-height:1.5;}
+  .auds{display:flex;gap:5px;flex-shrink:0;}
+  .auds .d{width:9px;height:9px;border-radius:50%;}
+  .auds .coach{background:var(--orange);} .auds .atleta{background:var(--green);} .auds .interno{background:var(--blue);}
+  .card .foot{margin-top:11px;font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:6px;}
+  .card .foot .mk{color:var(--orange-soft);font-weight:700;}
+
+  .maint{margin-top:20px;background:rgba(62,207,110,.06);border:1px solid rgba(62,207,110,.22);border-radius:var(--radius);
+    padding:14px 16px;font-size:12.5px;color:#b9e8c9;}
+  .maint b{color:var(--green);}
+  footer{color:var(--faint);font-size:12px;margin-top:44px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">FAHYBRID</div>
+  <h1>Manual del producto</h1>
+  <p class="lede">Cómo funciona todo el sistema, pieza a pieza. Para <b>onboardear a Pablo y Gerard</b> y como referencia viva del producto. Cada página explica <b>qué es</b>, <b>cómo lo usa el coach</b>, <b>qué ve el atleta</b> y <b>las reglas del sistema</b>, con su mockup como ilustración.</p>
+
+  <div class="legend">
+    <span class="aud coach"><span class="d"></span>Lo usa Pablo (coach)</span>
+    <span class="aud atleta"><span class="d"></span>Lo ve el atleta</span>
+    <span class="aud interno"><span class="d"></span>Interno / negocio</span>
+  </div>
+
+  <!-- FUNNEL -->
+  <section>
+    <div class="sec-head"><h2>Captación</h2></div>
+    <div class="sec-sub">Del interés a atleta de pago. Cada paso alimenta al siguiente.</div>
+    <div class="grid">
+      <a class="card" href="paginas/funnel.html">
+        <div class="top"><span class="ttl"><span class="ico">🎯</span> Funnel de ingreso</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span><span class="d interno"></span></span></div>
+        <div class="desc">Onboarding web → lead → cita con Meet → alta → pago. Sin precios en la web; el precio se da en la llamada.</div>
+        <div class="foot">▸ <span class="mk">mockup + flujo</span></div>
+      </a>
+      <a class="card" href="paginas/nurturing.html">
+        <div class="top"><span class="ttl"><span class="ico">✉️</span> Nurturing de leads</span><span class="auds"><span class="d interno"></span></span></div>
+        <div class="desc">Recordatorios automáticos por email a los leads que se estancan, con baja RGPD y sin blast.</div>
+        <div class="foot">▸ <span class="mk">reglas</span></div>
+      </a>
+      <a class="card" href="paginas/cupo.html">
+        <div class="top"><span class="ttl"><span class="ico">🎟️</span> Cupo + lista de espera</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span></span></div>
+        <div class="desc">Grupo limitado: cuando está lleno, los leads entran en lista de espera y se avisa al liberarse plaza.</div>
+        <div class="foot">▸ <span class="mk">mockup</span></div>
+      </a>
+      <a class="card" href="paginas/metricas.html">
+        <div class="top"><span class="ttl"><span class="ico">📊</span> Métricas del funnel</span><span class="auds"><span class="d coach"></span><span class="d interno"></span></span></div>
+        <div class="desc">Visitas → onboarding → cita → llamada → alta, con caídas entre etapas y tendencia semanal.</div>
+        <div class="foot">▸ <span class="mk">mockup</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- CICLO DE VIDA -->
+  <section>
+    <div class="sec-head"><h2>Ciclo de vida del atleta</h2></div>
+    <div class="sec-sub">Del alta a la baja, con todo el pulso entre medias.</div>
+    <div class="grid">
+      <a class="card" href="paginas/dia1.html">
+        <div class="top"><span class="ttl"><span class="ico">📲</span> Día-1 del atleta</span><span class="auds"><span class="d atleta"></span></span></div>
+        <div class="desc">Qué ve el atleta el primer día en la app tras el alta: su plan, sin cuestionario repetido.</div>
+        <div class="foot">▸ <span class="mk">mockup</span></div>
+      </a>
+      <a class="card" href="paginas/pagos.html">
+        <div class="top"><span class="ttl"><span class="ico">💶</span> Pagos (Stripe)</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span><span class="d interno"></span></span></div>
+        <div class="desc">Precio en el alta → email con botón de pago → el pago activa el acceso. Estados reales, impagos, cortesía.</div>
+        <div class="foot">▸ <span class="mk">mockup + flujo</span></div>
+      </a>
+      <a class="card" href="paginas/revision.html">
+        <div class="top"><span class="ttl"><span class="ico">📅</span> Revisión 1:1 recurrente</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span></span></div>
+        <div class="desc">Pulso mensual/trimestral: el coach propone, el atleta elige hueco, se graba como sesión 1:1.</div>
+        <div class="foot">▸ <span class="mk">mockup</span></div>
+      </a>
+      <a class="card" href="paginas/pausas-bajas.html">
+        <div class="top"><span class="ttl"><span class="ico">⏸️</span> Pausas y bajas</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span></span></div>
+        <div class="desc">Pausa (congela el plan, no penaliza adherencia) y baja (conserva historial, libera plaza). Reversibles.</div>
+        <div class="foot">▸ <span class="mk">mockup</span></div>
+      </a>
+      <a class="card" href="paginas/lesiones.html">
+        <div class="top"><span class="ttl"><span class="ico">🩹</span> Lesiones</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span></span></div>
+        <div class="desc">Registro de la lesión, adherencia que no penaliza el reposo, y readiness que contextualiza.</div>
+        <div class="foot">▸ <span class="mk">mockup</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ENTRENAMIENTO -->
+  <section>
+    <div class="sec-head"><h2>Entrenamiento</h2></div>
+    <div class="sec-sub">El motor: plan, rendimiento y el modo dobles.</div>
+    <div class="grid">
+      <a class="card" href="paginas/rendimiento.html">
+        <div class="top"><span class="ttl"><span class="ico">📈</span> Rendimiento + Evaluar semana</span><span class="auds"><span class="d coach"></span></span></div>
+        <div class="desc">Readiness compuesta, polarización 80/0/20, top ejercicios, economía de carrera, umbral; y el veredicto semanal de autorregulación.</div>
+        <div class="foot">▸ <span class="mk">flujo</span></div>
+      </a>
+      <a class="card" href="paginas/dobles.html">
+        <div class="top"><span class="ttl"><span class="ico">👯</span> Dobles</span><span class="auds"><span class="d coach"></span><span class="d atleta"></span></span></div>
+        <div class="desc">Emparejamiento real, reparto de estaciones, y el relevo en el motor de entreno (móvil + reloj).</div>
+        <div class="foot">▸ <span class="mk">flujo</span></div>
+      </a>
+    </div>
+  </section>
+
+  <div class="maint">
+    <b>Manual vivo:</b> cada tarea que se cierra añade o actualiza su página aquí (regla de cierre). Ground truth = el Documento Maestro. Los mockups son copias locales autocontenidas en <code>docs/manual/mockups/</code>.
+  </div>
+
+  <footer>FAHYBRID · Manual del producto · dark + naranja de marca · uso interno</footer>
+</div>
+</body>
+</html>

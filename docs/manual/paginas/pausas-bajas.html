@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pausas y bajas · Manual FAHYBRID</title>
+<style>
+:root{--bg:#0a0a0a;--panel:#141414;--panel-raised:#1d1d1d;--line:#262626;--ink:#f4f4f4;--dim:#9a9a9a;--faint:#6a6a6a;--orange:#F06A2A;--orange-soft:#f0894f;--green:#3ecf6e;--blue:#58a6dc;--amber:#e8b33e;--radius:14px;--sans:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:radial-gradient(1000px 500px at 85% -10%,rgba(240,106,42,.06),transparent 60%),var(--bg);color:var(--ink);font-family:var(--sans);padding:36px 20px 90px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:860px;margin:0 auto;}
+a.back{color:var(--faint);font-size:12.5px;font-weight:600;text-decoration:none;}a.back:hover{color:var(--orange-soft);}
+.brand{font-size:12px;font-weight:800;font-style:italic;letter-spacing:.16em;color:var(--orange);text-transform:uppercase;margin-top:14px;}
+h1{font-size:32px;font-weight:900;font-style:italic;letter-spacing:-0.02em;margin:6px 0 10px;}
+.auds{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.aud{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--dim);}
+.aud .d{width:8px;height:8px;border-radius:50%;}.aud.coach .d{background:var(--orange);}.aud.atleta .d{background:var(--green);}.aud.interno .d{background:var(--blue);}
+.lede{color:var(--dim);font-size:15px;max-width:66ch;margin-bottom:22px;}.lede b{color:var(--ink);}
+.mockup{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin:6px 0 26px;background:var(--panel);}
+.mockup iframe{width:100%;height:520px;border:0;display:block;background:var(--bg);}
+.mockup .cap{font-size:11px;color:var(--faint);padding:8px 14px;border-top:1px solid var(--line);}
+section{margin-bottom:26px;}
+h2{font-size:14px;font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:.05em;color:var(--orange-soft);margin-bottom:12px;}
+ol.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:11px;}
+ol.steps li{counter-increment:s;display:flex;gap:12px;font-size:14px;color:var(--dim);line-height:1.55;}
+ol.steps li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--panel-raised);border:1px solid var(--line);color:var(--orange);font-size:12px;font-weight:800;display:grid;place-items:center;}
+ol.steps li b{color:var(--ink);}
+ul.rules{list-style:none;display:flex;flex-direction:column;gap:9px;}
+ul.rules li{display:flex;gap:10px;font-size:13.5px;color:var(--dim);line-height:1.55;}
+ul.rules li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-top:8px;}
+ul.rules li b{color:var(--ink);}
+.athlete{background:rgba(62,207,110,.05);border:1px solid rgba(62,207,110,.2);border-radius:var(--radius);padding:14px 16px;font-size:13.5px;color:#c7ecd3;line-height:1.55;}
+.athlete b{color:var(--green);}
+footer{color:var(--faint);font-size:12px;margin-top:40px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← Manual del producto</a>
+  <div class="brand">FAHYBRID · MANUAL</div>
+  <h1>Pausas y bajas</h1>
+  <div class="auds">
+    <span class="aud coach"><span class="d"></span>Lo usa Pablo (coach)</span>
+    <span class="aud atleta"><span class="d"></span>Lo ve el atleta</span>
+  </div>
+  <p class="lede">El ciclo de vida más allá del alta. Una <b>pausa</b> (lesión, vacaciones) congela el plan sin ensuciar métricas; una <b>baja</b> cierra la relación conservando el historial y liberando plaza. <b>Ambas reversibles.</b></p>
+
+  <div class="mockup">
+    <iframe src="../mockups/bajas-pausas.html" title="Pausas y bajas — ciclo de estados, roster, ficha y app del atleta"></iframe>
+    <div class="cap">Mockup · datos de ejemplo</div>
+  </div>
+
+  <section>
+    <h2>Cómo lo usa el coach</h2>
+    <ol class="steps">
+      <li>Desde la ficha del atleta: <b>Pausar</b> (motivo + fecha de vuelta opcional) o <b>Dar de baja</b>.</li>
+      <li><b>Reactivar</b> cierra la pausa y el plan <b>retoma en el próximo lunes</b>, sin días caducados.</li>
+      <li><b>Re-alta</b> recupera a un atleta de baja: avisa si el cupo está lleno, pero permite hacerlo.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Qué ve el atleta</h2>
+    <div class="athlete">
+      En pausa ve <b>"Tu plan está en pausa"</b> tanto en <b>Plan</b> como en <b>Hoy</b>: nada que registrar y nada que se pierda — su historial y sus marcas siguen intactos. Si entrena en <b>dobles</b>, su compañero lo ve <b>"en pausa"</b>.
+    </div>
+  </section>
+
+  <section>
+    <h2>Reglas del sistema</h2>
+    <ul class="rules">
+      <li>La <b>pausa no penaliza la adherencia</b>: el periodo se <b>excluye</b> del cómputo (no cuenta como 0%) y <b>congela el plan</b> — no genera semanas fallidas.</li>
+      <li>La <b>baja conserva SIEMPRE el historial</b> (no es el borrado RGPD), <b>libera plaza</b> del cupo y <b>cancela la facturación a fin de periodo</b>.</li>
+      <li>En <b>dobles</b>, la pausa <b>mantiene el par</b> y la baja lo <b>disuelve</b> conservando el historial conjunto.</li>
+    </ul>
+  </section>
+
+  <footer>FAHYBRID · Manual del producto · uso interno</footer>
+</div>
+</body>
+</html>
