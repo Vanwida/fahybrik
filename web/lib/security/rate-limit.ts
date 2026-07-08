@@ -135,6 +135,9 @@ export const RATE_LIMITS = {
   // booking write is tighter + honeypot-guarded.
   citasContext: { endpoint: 'citas-context', limit: 40, windowSec: 60 * 10 },
   citasBook: { endpoint: 'citas-book', limit: 8, windowSec: 60 * 10 },
+  // Public RGPD unsubscribe (token-gated, idempotent). Generous — a real person confirms
+  // once — but capped to blunt token enumeration / scripted abuse.
+  leadsUnsubscribe: { endpoint: 'leads-unsubscribe', limit: 20, windowSec: 60 * 10 },
 } as const;
 
 /**
