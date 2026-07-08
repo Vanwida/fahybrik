@@ -36,6 +36,7 @@ import Section26 from './26-pausas-y-bajas';
 import Section27 from './27-lesiones';
 import Section28 from './28-revision-1a1';
 import Section29 from './29-entrenar-en-dobles';
+import Section30 from './30-importador-de-entrenos';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -70,4 +71,5 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'lesiones': Section27,
   'revision-1a1': Section28,
   'entrenar-en-dobles': Section29,
+  'importador-de-entrenos': Section30,
 };

@@ -62,9 +62,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          El lead reserva un hueco de <b>tu disponibilidad</b> y la cita queda{' '}
-          <b>confirmada al instante</b>, con Google Meet automático — cero ida y vuelta de correos.
-          Después de la llamada dejas el <b>parte 1:1</b> y, desde ahí, ya puedes darle de alta.
+          El lead elige <b>videollamada o presencial</b>, reserva un hueco de <b>tu disponibilidad</b>{' '}
+          y la cita queda <b>confirmada al instante</b> — con Google Meet (vídeo) o la dirección de tu
+          box (presencial). Cero ida y vuelta. Después dejas el <b>parte 1:1</b> y ya puedes darle de
+          alta.
         </>
       }
     >
@@ -103,10 +104,12 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>1 · Tú pones los huecos, el lead elige</h3>
       <p>
-        Defines tu disponibilidad de la semana y el sistema la trocea en <b>huecos de 30 minutos</b>{' '}
-        para los próximos 14 días, en <b>hora de Madrid</b>. El lead solo ve los huecos libres; el
-        servidor revalida cada reserva (nunca se fía del navegador) y no deja que nadie tenga dos
-        citas a la vez.
+        Defines tu disponibilidad semanal en <b>dos horarios independientes</b> —videollamadas y
+        presencial, que puedes solapar— y el sistema la trocea en <b>huecos de 30 minutos</b> para los
+        próximos 14 días, en <b>hora de Madrid</b>. El lead elige la modalidad y solo ve los huecos de
+        ESE horario que estén libres. El servidor revalida cada reserva (nunca se fía del navegador) y
+        una reserva bloquea esa hora en los <b>dos</b> horarios — no puedes estar en dos sitios a la
+        vez.
       </p>
 
       <h3>2 · Reservar es confirmar</h3>
@@ -210,6 +213,16 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
+      <DocNote variant="cue" title="Videollamada o presencial">
+        <p>
+          Llevas <b>dos horarios</b>: uno de videollamadas y otro presencial (los pintas por separado
+          y pueden solaparse). El lead elige cómo quiere la sesión y solo ve los huecos de ese tipo. En{' '}
+          <b>vídeo</b> la cita crea el enlace de Meet como siempre; en <b>presencial</b>, en vez de
+          Meet, el email y el <b>.ics</b> llevan la <b>dirección de tu box</b> (la de tu perfil) con
+          enlace a Google Maps. Mismo calendario, misma confirmación al instante.
+        </p>
+      </DocNote>
+
       <MovilBand
         title="Cómo lo reserva tu lead"
         subtitle={
@@ -238,8 +251,41 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <div className="ph-title sm" style={{ marginBottom: '2px' }}>
             Reserva tu videollamada
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '16px' }}>
-            Elige un hueco · hora de Madrid
+          <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '12px' }}>
+            Elige cómo y cuándo · hora de Madrid
+          </div>
+
+          {/* #40: el lead elige modalidad → solo ve los huecos de ese horario */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+            <span
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '7px 0',
+                borderRadius: '9px',
+                background: 'var(--acc)',
+                color: 'var(--accOn)',
+              }}
+            >
+              📹 Videollamada
+            </span>
+            <span
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '7px 0',
+                borderRadius: '9px',
+                background: 'var(--sunken)',
+                color: 'var(--muted)',
+                border: '1px solid var(--hair)',
+              }}
+            >
+              📍 Presencial
+            </span>
           </div>
 
           <div style={DAY_LABEL}>Jueves 10 jul</div>

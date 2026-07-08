@@ -23,7 +23,8 @@ export type GuiaAreaId =
   | 'seguimiento'
   | 'negocio'
   | 'ciclo-vida'
-  | 'dobles';
+  | 'dobles'
+  | 'herramientas';
 
 export interface GuiaArea {
   id: GuiaAreaId;
@@ -56,6 +57,7 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'negocio', label: 'Tu negocio' },
   { id: 'ciclo-vida', label: 'Ciclo de vida' },
   { id: 'dobles', label: 'Dobles' },
+  { id: 'herramientas', label: 'Herramientas' },
 ] as const;
 
 /** The 19 sections, in order. `built` ones have real content today. */
@@ -299,6 +301,15 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'entrenar-en-dobles',
     title: 'Entrenar en dobles',
     blurb: 'Dos atletas, una pareja: sesión conjunta, reparto de estaciones y modo espejo.',
+    built: true,
+  },
+  // ── Herramientas ─────────────────────────────────────────────────────────────
+  {
+    num: 30,
+    area: 'herramientas',
+    slug: 'importador-de-entrenos',
+    title: 'Importar entrenos del Excel',
+    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, con revisión verde/ámbar.',
     built: true,
   },
 ] as const;
