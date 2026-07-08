@@ -8,6 +8,7 @@ import {
   partnerVisibility,
 } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
+import { STORE_RESULT_MEASURES, STORE_RESULT_UNITS } from './test-battery';
 
 // Dobles HYROX station assignment (reparto).
 //
@@ -330,6 +331,17 @@ export const assignmentDetailWorkoutSchema = z.object({
 });
 export type AssignmentDetailWorkout = z.infer<typeof assignmentDetailWorkoutSchema>;
 
+// #34 — one calibration result to capture for a test session (mirrors
+// coach_test_results). `measure`/`unit` drive the iOS capture input + the value's
+// interpretation on POST back.
+export const assignmentDetailStoreResultSchema = z.object({
+  slug: z.string(),
+  label: z.string(),
+  measure: z.enum(STORE_RESULT_MEASURES),
+  unit: z.enum(STORE_RESULT_UNITS),
+});
+export type AssignmentDetailStoreResult = z.infer<typeof assignmentDetailStoreResultSchema>;
+
 export const assignmentDetailResponseSchema = z.object({
   assignment: z.object({
     id: idSchema,
@@ -348,6 +360,12 @@ export const assignmentDetailResponseSchema = z.object({
     // Which side of the pair the reading user is ('a' | 'b'), or null when there
     // is no reparto. Mirrors station_assignment.my_role for direct access.
     my_role: z.enum(['a', 'b']).nullable(),
+    // #34 — the result(s) a CALIBRATION-test session must capture, derived from
+    // coach_test_results via workout_assignments.calibration_test_id. Each entry
+    // says what number to ask for + its unit (measure time→seconds, load→kg,
+    // distance→meters, …). Empty [] for a normal (non-test) session. Defaulted so
+    // older payloads (before #34) still parse.
+    store_results: z.array(assignmentDetailStoreResultSchema).default([]),
   }),
   workout: assignmentDetailWorkoutSchema.nullable(),
 });
