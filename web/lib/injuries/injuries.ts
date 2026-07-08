@@ -159,3 +159,45 @@ export async function injuryAthleteId(injuryId: bigint, client: Sql = sql): Prom
   `;
   return rows[0] ? BigInt(rows[0].athlete_id) : null;
 }
+
+/**
+ * Tag the athlete's scheduled assignments as injury-adapted (#16). This is the
+ * adherence-non-penalty mechanism: 'rest' days are later excluded from the
+ * adherence denominator; 'substituted'/'softened' still count via their
+ * execution. Only the injury's own athlete's assignments are touched.
+ */
+export async function adaptSessions(
+  injuryId: bigint,
+  athleteId: bigint,
+  adaptations: { assignment_id: number; adaptation: string }[],
+  client: Sql = sql,
+): Promise<number> {
+  return await client.begin(async (tx) => {
+    const inj = (await tx<{ id: string }[]>`
+      select id::text as id from injuries where id = ${injuryId} and athlete_id = ${athleteId} limit 1
+    `)[0];
+    if (!inj) throw new InjuryError('not_found', 'Lesión no encontrada', 404);
+    let n = 0;
+    for (const a of adaptations) {
+      const r = await tx`
+        update workout_assignments
+        set injury_id = ${injuryId}, injury_adaptation = ${a.adaptation}, updated_at = now()
+        where id = ${a.assignment_id} and athlete_id = ${athleteId}
+      `;
+      n += r.count;
+    }
+    return n;
+  });
+}
+
+/** True when `coachId` owns `athleteId` — coach-side authorization guard. */
+export async function coachOwnsAthlete(
+  coachId: bigint | number,
+  athleteId: bigint,
+  client: Sql = sql,
+): Promise<boolean> {
+  const rows = await client<{ id: string }[]>`
+    select id::text as id from athletes where id = ${athleteId} and coach_id = ${Number(coachId)} limit 1
+  `;
+  return rows.length > 0;
+}
