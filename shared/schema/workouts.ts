@@ -99,6 +99,19 @@ export const workoutExecutionSchema = z.object({
   // Joint HYROX Dobles link (migration 0074): the partner this execution was
   // logged with, else null (the solo-logging default). bigint FK → idSchema.
   partner_athlete_id: idSchema.nullable(),
+  // Per-GROUP data provenance after a multi-source FUSION (migration 0108, #36).
+  // When a device skeleton and a screenshot→IA capture are fused into ONE
+  // execution these say WHICH source owns each group of fields — the honesty the
+  // coach and the deferred reconciler need. `source` stays the legacy whole-row
+  // provenance (== totals_source for single-source rows). RPE is always the
+  // athlete and segments carry their own per-row `source`, so neither needs a
+  // header column (Fork B: no dead weight). Tolerant/optional so pre-0108 row
+  // shapes and partial constructors keep parsing.
+  totals_source: biometricSource.nullable().optional(),
+  score_source: biometricSource.nullable().optional(),
+  // Every provider that contributed ≥1 value (the fused-state signal: length ≥ 2
+  // ⇒ a genuine fusion). Defaults to [] so older selects still parse.
+  contributing_sources: z.array(biometricSource).optional().default([]),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });
