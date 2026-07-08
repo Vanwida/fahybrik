@@ -268,81 +268,6 @@ export interface RedeemAthleteInvitationError {
 }
 
 /**
- * Shared redeem tail used by BOTH the Apple and email claim paths: mark the
- * invitation redeemed (idempotent — keeps the original redeemed_at), grant REAL
- * persisted access (a comp subscription, iff none active), convert the
- * originating funnel lead, and return the redeemed athlete. The identity-specific
- * guards + binding (apple_user_id for Apple, email match for email) live in each
- * caller BEFORE this runs; here we only apply the effects that are identical for
- * both, so the access-grant / lead-conversion logic can never drift between them.
- */
-async function applyAthleteInvitationRedeem(
-  tx: Sql | TransactionClient,
-  invitation: AthleteInvitationRow,
-  targetEmail: string,
-): Promise<RedeemedAthlete> {
-  await tx`
-    update athlete_invitations
-    set status = 'redeemed', redeemed_at = coalesce(redeemed_at, now())
-    where id = ${invitation.id}
-  `;
-
-  // Grant REAL, persisted access. The invite-only gate is server-side: an
-  // athlete has access iff they have an active `subscriptions` row. Redeeming a
-  // coach invitation mints a comp subscription (source='comp', no billing) so the
-  // athlete survives an app restart instead of being locked back out by
-  // /api/athlete/subscription. Only insert if no active sub exists (idempotent on
-  // re-redeem; never duplicates a paying Stripe sub the athlete may already hold).
-  const activeSubs = await tx<{ id: string }[]>`
-    select id::text as id
-    from subscriptions
-    where user_id = ${invitation.target_user_id}
-      and status = 'active'
-    limit 1
-  `;
-  if (activeSubs.length === 0) {
-    await tx`
-      insert into subscriptions (user_id, plan_type, status, source, current_period_end)
-      values (${invitation.target_user_id}, 'individual', 'active', 'comp', null)
-    `;
-  }
-
-  // Funnel #5: if this invite came from a lead alta, close the loop — the lead
-  // becomes `convertido` (a SYSTEM transition, forward-only, unreachable by hand)
-  // and now points at the athlete it produced. Guarded so a re-redeem is a no-op.
-  if (invitation.lead_id != null) {
-    await tx`
-      update leads
-      set status = 'convertido'::lead_status,
-          converted_athlete_id = ${invitation.athlete_id},
-          updated_at = now()
-      where id = ${invitation.lead_id} and status <> 'convertido'
-    `;
-  }
-
-  const athleteRows = await tx<
-    { id: string; full_name: string; onboarded_at: Date | null }[]
-  >`
-    select id::text as id, full_name, onboarded_at
-    from athletes
-    where id = ${invitation.athlete_id}
-    limit 1
-  `;
-  const athlete = athleteRows[0];
-  if (!athlete) {
-    throw new Error('athlete_invitation_redeem_athlete_missing');
-  }
-
-  return {
-    user_id: invitation.target_user_id,
-    athlete_id: BigInt(athlete.id),
-    email: targetEmail,
-    full_name: athlete.full_name,
-    onboarded_at: athlete.onboarded_at,
-  };
-}
-
-/**
  * Redeem an athlete invitation: bind the verified apple_user_id onto the
  * invitation's target user and mark the invitation redeemed.
  *
@@ -451,126 +376,68 @@ export async function redeemAthleteInvitation(
       where id = ${invitation.target_user_id}
     `;
 
-    const result = await applyAthleteInvitationRedeem(tx, invitation, target.email);
-    return { ok: true, result } as const;
-  });
-}
-
-export interface RedeemAthleteInvitationByEmailInput {
-  token: string;
-  /**
-   * The email the person just PROVED they own via the one-time code
-   * (lib/auth/email-code.ts). This is the identity for the email claim path —
-   * the email sibling of `apple_identity` in the Apple path.
-   */
-  verified_email: string;
-  client?: Sql;
-  /** Injectable clock (tests). */
-  now?: () => number;
-}
-
-export interface RedeemAthleteInvitationByEmailError {
-  code:
-    | 'token_invalid'
-    | 'token_expired'
-    | 'token_revoked'
-    | 'email_mismatch';
-  message: string;
-}
-
-/**
- * Redeem an athlete invitation via the EMAIL claim path — the universal sibling
- * of `redeemAthleteInvitation` (Apple). There is no apple_user_id to bind here;
- * ownership is proven by the one-time code, so the guard is: the email the person
- * proved they own MUST equal the invitation's target-user email. On match we run
- * the SAME finalize (redeemed + comp access + lead conversion) — NEVER touching
- * apple_user_id, so an athlete can claim by email and still add Apple later.
- *
- * Idempotent: because identity is the email match (not a one-shot binding),
- * re-tapping an already-redeemed link for the same email is a success (logs them
- * in), not an error. Row-locked on the invitation so concurrent redeems are safe.
- * revoked/expired/invalid → typed errors; a code for a DIFFERENT email than the
- * invitation → `email_mismatch` (never reveals the invited address).
- */
-export async function redeemAthleteInvitationByEmail(
-  input: RedeemAthleteInvitationByEmailInput,
-): Promise<
-  | { ok: true; result: RedeemedAthlete }
-  | { ok: false; error: RedeemAthleteInvitationByEmailError }
-> {
-  const client = input.client ?? sql;
-  const nowMs = (input.now ?? Date.now)();
-  const verifiedEmail = input.verified_email.toLowerCase();
-
-  return await client.begin(async (tx) => {
-    const invRows = await tx<RawInvitationRow[]>`
-      select ${tx.unsafe(INVITATION_COLUMNS)}
-      from athlete_invitations
-      where token_sha256 = ${hashToken(input.token)}
-      limit 1
-      for update
+    await tx`
+      update athlete_invitations
+      set status = 'redeemed', redeemed_at = now()
+      where id = ${invitation.id}
     `;
-    const raw = invRows[0];
-    if (!raw) {
-      return { ok: false, error: { code: 'token_invalid', message: 'Invitation not found' } } as const;
-    }
-    const invitation = rowToInvitation(raw);
 
-    if (invitation.status === 'revoked') {
-      return { ok: false, error: { code: 'token_revoked', message: 'Invitation was revoked' } } as const;
-    }
-    if (invitation.status === 'expired' || invitation.expires_at.getTime() <= nowMs) {
-      if (invitation.status !== 'expired') {
-        await tx`update athlete_invitations set status = 'expired' where id = ${invitation.id}`;
-      }
-      return { ok: false, error: { code: 'token_expired', message: 'Invitation has expired' } } as const;
-    }
-
-    const targetRows = await tx<{ id: string; email: string }[]>`
-      select id::text as id, email
-      from users
-      where id = ${invitation.target_user_id}
-        and deleted_at is null
+    // Grant REAL, persisted access. The invite-only gate is server-side: an
+    // athlete has access iff they have an active `subscriptions` row. Redeeming
+    // a coach invitation mints a comp subscription (source='comp', no billing),
+    // exactly like createCompAthlete — so the athlete survives an app restart
+    // instead of being locked back out by /api/athlete/subscription. Only
+    // insert if no active sub exists already (idempotent on re-redeem; never
+    // duplicates a paying Stripe sub the athlete may already hold).
+    const activeSubs = await tx<{ id: string }[]>`
+      select id::text as id
+      from subscriptions
+      where user_id = ${invitation.target_user_id}
+        and status = 'active'
       limit 1
     `;
-    const target = targetRows[0];
-    if (!target) {
-      return { ok: false, error: { code: 'token_invalid', message: 'Invitation target no longer exists' } } as const;
+    if (activeSubs.length === 0) {
+      await tx`
+        insert into subscriptions (user_id, plan_type, status, source, current_period_end)
+        values (${invitation.target_user_id}, 'individual', 'active', 'comp', null)
+      `;
     }
 
-    // Identity guard: the proven email must be the account this invite is for.
-    if (target.email.toLowerCase() !== verifiedEmail) {
-      return {
-        ok: false,
-        error: { code: 'email_mismatch', message: 'This code is for a different email than the invitation' },
-      } as const;
+    // Funnel #5: if this invite came from a lead alta, close the loop — the lead
+    // becomes `convertido` (a SYSTEM transition, forward-only, unreachable by hand)
+    // and now points at the athlete it produced. Guarded so a re-redeem is a no-op.
+    if (invitation.lead_id != null) {
+      await tx`
+        update leads
+        set status = 'convertido'::lead_status,
+            converted_athlete_id = ${invitation.athlete_id},
+            updated_at = now()
+        where id = ${invitation.lead_id} and status <> 'convertido'
+      `;
     }
 
-    // pending OR already-redeemed (same email → idempotent) both finalize.
-    const result = await applyAthleteInvitationRedeem(tx, invitation, target.email);
-    return { ok: true, result } as const;
+    const athleteRows = await tx<
+      { id: string; full_name: string; onboarded_at: Date | null }[]
+    >`
+      select id::text as id, full_name, onboarded_at
+      from athletes
+      where id = ${invitation.athlete_id}
+      limit 1
+    `;
+    const athlete = athleteRows[0];
+    if (!athlete) {
+      throw new Error('athlete_invitation_redeem_athlete_missing');
+    }
+
+    return {
+      ok: true,
+      result: {
+        user_id: invitation.target_user_id,
+        athlete_id: BigInt(athlete.id),
+        email: target.email,
+        full_name: athlete.full_name,
+        onboarded_at: athlete.onboarded_at,
+      },
+    } as const;
   });
-}
-
-/**
- * The invited account's email for a still-claimable token — used ONLY to
- * prefill the public activation page's email field so the athlete can send their
- * code in one tap. Returns null for a missing/terminal/expired invitation (the
- * page shows a terminal card in those cases and never prefills). The token is the
- * secret gating this PII; it is never echoed back.
- */
-export async function getAthleteInviteEmailByToken(
-  token: string,
-  client: Sql = sql,
-): Promise<string | null> {
-  const rows = await client<{ email: string }[]>`
-    select u.email as email
-    from athlete_invitations i
-    join users u on u.id = i.target_user_id and u.deleted_at is null
-    where i.token_sha256 = ${hashToken(token)}
-      and i.status = 'pending'
-      and i.expires_at > now()
-    limit 1
-  `;
-  return rows[0]?.email ?? null;
 }
