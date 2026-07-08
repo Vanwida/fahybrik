@@ -46,6 +46,14 @@ export const BENCH_SKI_1K = 'ski_1k';
 export const BENCH_HYROX_OPEN = 'hyrox_open';
 export const BENCH_HYROX_PRO = 'hyrox_pro';
 
+// ── HYROX half-simulation baseline (unit: seconds) ───────────────────────────
+// The week-1 calibration half-sim (#34): a media-distancia simulation, NOT a full
+// race. Kept a SEPARATE slug from hyrox_open/pro on purpose — a half-sim time is
+// not a race time and must never be conflated with one (the level algorithm reads
+// hyrox_open, so a half-sim never inflates the level). It is a performance
+// baseline / projection anchor the coach reads.
+export const BENCH_HYROX_HALF_SIM = 'hyrox_half_sim';
+
 // ── Threshold (test) pace per modality (unit: seconds) ───────────────────────
 // The trained Z4-lower-bound pace recorded as progression evidence EACH time a
 // zone test is logged (coach- or athlete-entered). DISTINCT from the time-trial

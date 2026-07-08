@@ -56,7 +56,21 @@ export interface StrengthTestEvent {
   source: TestSource;
 }
 
-export type TestEvent = ThresholdTestEvent | StrengthTestEvent;
+// A REAL time-trial result (a 5 km run, a 2 km row, a HYROX half-sim) — the case
+// the HONESTY note above anticipates ("until a real 5 km is logged"). UNLIKE a
+// threshold event, this records the time-trial slug itself (run_5k / row_2k /
+// hyrox_half_sim), which is what the level algorithm + the zone derivation read.
+// The #34 week-1 calibration battery is the first producer of these.
+export interface TimeTrialTestEvent {
+  kind: 'timetrial';
+  athlete_id: number;
+  /** A time-trial benchmark slug — already canonical (run_5k, row_2k, hyrox_half_sim…). */
+  exercise_slug: string;
+  seconds: number;
+  source: TestSource;
+}
+
+export type TestEvent = ThresholdTestEvent | StrengthTestEvent | TimeTrialTestEvent;
 
 export interface BenchmarkAppendRow {
   exercise_slug: string;
@@ -73,6 +87,9 @@ export interface BenchmarkAppendRow {
 export function benchmarkForTestEvent(event: TestEvent): BenchmarkAppendRow {
   if (event.kind === 'strength') {
     return { exercise_slug: event.exercise_slug, value: event.one_rm_kg, unit: BENCHMARK_UNIT_KG };
+  }
+  if (event.kind === 'timetrial') {
+    return { exercise_slug: event.exercise_slug, value: event.seconds, unit: BENCHMARK_UNIT_SECONDS };
   }
   return {
     exercise_slug: thresholdBenchmarkSlug(event.modality),
