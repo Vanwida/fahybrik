@@ -7,6 +7,7 @@ import { createCompAthlete, CompAthleteError } from '@/lib/dashboard/coach/comp-
 import { createAthleteInvitation } from '@/lib/athlete/invitations';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { ageToDobIso } from './alta-mapping';
+import { buildFunnelProfile, mapTargetRace } from './funnel-carry';
 import { sendAltaEmail } from './alta-email';
 
 // Alta del lead como atleta (funnel #5) — the coach confirms the pre-filled modal
@@ -75,8 +76,13 @@ export async function altaLeadAsAthlete(params: {
   const tx = await sql
     .begin(async (trx) => {
       // 1) Lock the lead; it must exist and not be in a terminal state.
-      const leadRows = await trx<{ id: string; status: string; email: string }[]>`
-        select id::text as id, status::text as status, email
+      const leadRows = await trx<Array<Record<string, unknown> & { id: string; status: string; email: string }>>`
+        select
+          id::text as id, status::text as status, email,
+          objetivo, material, duracion_sesion, sueno, estres, wearable,
+          flexibilidad_horaria, anos_entrenando,
+          lesion_actual, lesion_zonas, lesiones_pasadas,
+          carrera_mente, carrera_cual, carrera_cuando, categoria_objetivo, sexo
         from leads
         where id = ${Number(lead_id)}
         limit 1
@@ -95,6 +101,10 @@ export async function altaLeadAsAthlete(params: {
       }
 
       // 2) Create the athlete carrying the onboarding data (nested savepoint).
+      // The coach-confirmed modal fields (sex, dob, days, level, modality) win;
+      // the rest of the funnel intake is mapped onto structured columns so the
+      // athlete skips the 19-step iOS onboarding (mark_onboarded → onboarded_at).
+      const funnel = buildFunnelProfile(lead);
       let athlete;
       try {
         athlete = await createCompAthlete({
@@ -111,6 +121,19 @@ export async function altaLeadAsAthlete(params: {
               from_lead_id: lead.id,
               alta_notes: input.notes ?? '',
             },
+            goal_type: funnel.goal_type,
+            facility_type: funnel.facility_type,
+            session_minutes: funnel.session_minutes,
+            sleep_quality: funnel.sleep_quality,
+            stress_level: funnel.stress_level,
+            training_experience_years: funnel.training_experience_years,
+            watch_brand: funnel.watch_brand,
+            watch_model: funnel.watch_model,
+            schedule_flexible: funnel.schedule_flexible,
+            available_from: funnel.available_from,
+            available_to: funnel.available_to,
+            injuries_json: funnel.injuries,
+            mark_onboarded: true,
           },
         });
       } catch (e) {
@@ -118,6 +141,27 @@ export async function altaLeadAsAthlete(params: {
           throw new AltaError(e.code, e.message, e.status);
         }
         throw e;
+      }
+
+      // 2b) Carry the funnel's TARGET race (only when the lead named a known one).
+      // Mirrors the onboarding writer: created_by_coach_id null, priority target,
+      // status planned; idempotent by (athlete, name) so a re-alta never dupes.
+      const targetRace = mapTargetRace(lead);
+      if (targetRace) {
+        await trx`
+          insert into races (
+            athlete_id, created_by_coach_id, name, event_type, format, division,
+            gender_category, priority, race_date, status
+          )
+          select
+            ${BigInt(athlete.id)}, null, ${targetRace.name}, ${targetRace.event_type}::race_event_type,
+            ${targetRace.format}::race_format, ${targetRace.division}::race_division,
+            ${targetRace.gender_category}::race_gender, 'target'::race_priority,
+            ${targetRace.race_date}::date, 'planned'::race_status
+          where not exists (
+            select 1 from races where athlete_id = ${BigInt(athlete.id)} and name = ${targetRace.name}
+          )
+        `;
       }
 
       // 3) Mint the claim invite, stamped with the lead so redeem converts it.

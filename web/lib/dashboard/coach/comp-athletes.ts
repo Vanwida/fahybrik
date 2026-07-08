@@ -48,6 +48,35 @@ export interface CompAthleteProfile {
   level_source?: 'algorithm' | 'coach' | 'self_reported' | null;
   /** Coach-facing intake notes (jsonb) — JSON-scalar values only. */
   intake_notes_json?: Record<string, string | number | boolean | null> | null;
+  // Structured funnel carry (#17, opción B): the web-funnel intake mapped onto the
+  // athlete columns so the athlete skips the 19-step iOS onboarding. All optional,
+  // all COALESCE (only overwrite when provided). Enum-typed columns are cast in SQL.
+  goal_type?: string | null;
+  facility_type?: string | null;
+  session_minutes?: number | null;
+  sleep_quality?: number | null;
+  stress_level?: number | null;
+  training_experience_years?: number | null;
+  watch_brand?: string | null;
+  watch_model?: string | null;
+  schedule_flexible?: boolean | null;
+  available_from?: string | null; // HH:MM
+  available_to?: string | null;
+  injuries_json?: Array<{ area: string; type: string; active: boolean; note?: string }> | null;
+  /**
+   * When true, stamp `onboarded_at` (first-write-wins).
+   *
+   * SEMANTICS: `onboarded_at != null` means "intake capture is COMPLETE" (here,
+   * because the web funnel already collected it — carried above), NOT "the athlete
+   * opened the app". The day-1 first-open flow is gated separately on the client
+   * (AuthState.day1Completed). So a funnel athlete arrives already-captured →
+   * skips the 19-step questionnaire → sees the day-1 orientation once.
+   *
+   * Only the funnel-alta path sets this; the plain AddAthleteModal path leaves it
+   * false → those athletes (no funnel data) still get the questionnaire (the honest
+   * fallback — you can't skip capture when there is nothing to carry).
+   */
+  mark_onboarded?: boolean;
 }
 
 export type CompAthleteErrorCode = 'email_in_use' | 'athlete_other_coach';
@@ -102,6 +131,20 @@ export async function createCompAthlete(params: {
   const pLevelId = p.level_id != null ? Number(p.level_id) : null;
   const pLevelSource = p.level_source ?? null;
   const pNotes = p.intake_notes_json ?? null;
+  // Funnel carry (#17).
+  const pGoal = p.goal_type ?? null;
+  const pFacility = p.facility_type ?? null;
+  const pSessionMin = p.session_minutes ?? null;
+  const pSleep = p.sleep_quality ?? null;
+  const pStress = p.stress_level ?? null;
+  const pExpYears = p.training_experience_years ?? null;
+  const pWatchBrand = p.watch_brand ?? null;
+  const pWatchModel = p.watch_model ?? null;
+  const pFlexible = p.schedule_flexible ?? null;
+  const pFrom = p.available_from ?? null;
+  const pTo = p.available_to ?? null;
+  const pInjuries = p.injuries_json && p.injuries_json.length ? p.injuries_json : null;
+  const pOnboardedAt = p.mark_onboarded ? new Date() : null;
 
   // Run on the caller's transaction when one is passed (keeps the lead alta atomic),
   // otherwise open our own. `tx` is a transaction client either way — no nested begin.
@@ -168,7 +211,20 @@ export async function createCompAthlete(params: {
           level_id               = coalesce(${pLevelId}, level_id),
           suggested_level_id     = coalesce(${pLevelId}, suggested_level_id),
           level_source           = coalesce(${pLevelSource}, level_source),
-          intake_notes_json      = coalesce(${pNotes ? tx.json(pNotes) : null}, intake_notes_json)
+          intake_notes_json      = coalesce(${pNotes ? tx.json(pNotes) : null}, intake_notes_json),
+          goal_type              = coalesce(${pGoal}::onboarding_goal_type, goal_type),
+          facility_type          = coalesce(${pFacility}::facility_type, facility_type),
+          session_minutes        = coalesce(${pSessionMin}, session_minutes),
+          sleep_quality          = coalesce(${pSleep}, sleep_quality),
+          stress_level           = coalesce(${pStress}, stress_level),
+          training_experience_years = coalesce(${pExpYears}, training_experience_years),
+          watch_brand            = coalesce(${pWatchBrand}::device_type, watch_brand),
+          watch_model            = coalesce(${pWatchModel}, watch_model),
+          schedule_flexible      = coalesce(${pFlexible}, schedule_flexible),
+          available_from         = coalesce(${pFrom}::time, available_from),
+          available_to           = coalesce(${pTo}::time, available_to),
+          injuries_json          = coalesce(${pInjuries ? tx.json(pInjuries) : null}::jsonb, injuries_json),
+          onboarded_at           = coalesce(onboarded_at, ${pOnboardedAt}::timestamptz)
           where id = ${BigInt(existingAthlete.id)}
         returning id::text as id
       `;
@@ -179,13 +235,20 @@ export async function createCompAthlete(params: {
           user_id, full_name, coach_id,
           sex, dob, training_days_per_week,
           level_id, suggested_level_id, level_source,
-          intake_notes_json
+          intake_notes_json,
+          goal_type, facility_type, session_minutes, sleep_quality, stress_level,
+          training_experience_years, watch_brand, watch_model,
+          schedule_flexible, available_from, available_to, injuries_json, onboarded_at
         )
         values (
           ${userId}, ${full_name}, ${coach_id},
           ${pSex}::athlete_sex, ${pDob}::date, ${pDays},
           ${pLevelId}, ${pLevelId}, ${pLevelSource},
-          ${pNotes ? tx.json(pNotes) : tx.json({})}
+          ${pNotes ? tx.json(pNotes) : tx.json({})},
+          ${pGoal}::onboarding_goal_type, ${pFacility}::facility_type, ${pSessionMin}, ${pSleep}, ${pStress},
+          ${pExpYears}, ${pWatchBrand}::device_type, ${pWatchModel},
+          ${pFlexible}, ${pFrom}::time, ${pTo}::time,
+          coalesce(${pInjuries ? tx.json(pInjuries) : null}::jsonb, '[]'::jsonb), ${pOnboardedAt}::timestamptz
         )
         returning id::text as id
       `;
