@@ -14,6 +14,7 @@ import { RitmosZonasTab } from './RitmosZonasTab';
 import { CarrerasTab } from './CarrerasTab';
 import { HistoricoTab } from './HistoricoTab';
 import { BiometriaTab } from './BiometriaTab';
+import { RendimientoTab } from './RendimientoTab';
 import { PagosTab } from './PagosTab';
 import { MensajesTab } from './MensajesTab';
 import { SessionReportsBlock } from '@/components/v2/sessions/SessionReportsBlock';
@@ -76,6 +77,8 @@ export function AthleteDetalle({
           </div>
         ) : tab === 'biometria' ? (
           <BiometriaTab body={detalle.body} />
+        ) : tab === 'rendimiento' ? (
+          <RendimientoTab athleteId={header.athlete_id} />
         ) : tab === 'pagos' ? (
           <PagosTab
             billing={detalle.billing}
