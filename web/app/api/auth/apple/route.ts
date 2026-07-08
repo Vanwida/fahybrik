@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { verifyAppleIdToken } from '@/lib/auth/apple';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { audiences, issueSession } from '@/lib/auth/session';
-import { findOrCreateAthleteForApple } from '@/lib/auth/users';
+import { findAthleteForApple } from '@/lib/auth/users';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 
@@ -47,14 +47,16 @@ export async function POST(req: Request) {
     return jsonError('apple_token_invalid', message, 401);
   }
 
-  const result = await findOrCreateAthleteForApple(
-    {
-      apple_user_id: identity.apple_user_id,
-      email: identity.email,
-      email_verified: identity.email_verified,
-    },
-    { full_name: parsed.data.full_name ?? null },
-  );
+  const result = await findAthleteForApple({
+    apple_user_id: identity.apple_user_id,
+    email: identity.email,
+    email_verified: identity.email_verified,
+  });
+  // Login never provisions membership: an unknown Apple ID (organic download)
+  // has no account → 404 no_account. The app routes them to the funnel.
+  if (!result) {
+    return jsonError('no_account', 'No hay ninguna cuenta asociada a este Apple ID.', 404);
+  }
 
   const userAgent = req.headers.get('user-agent');
   const ip = getClientIp(req);

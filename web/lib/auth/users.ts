@@ -74,10 +74,23 @@ function rowToCoach(r: { id: string; user_id: string; full_name: string }): Coac
   return { id: BigInt(r.id), user_id: BigInt(r.user_id), full_name: r.full_name };
 }
 
-export async function findOrCreateAthleteForApple(
+/**
+ * Find (NEVER create) the athlete account for a verified Apple identity — the
+ * LOGIN path. Membership is provisioned ONLY by the coach's alta + invite claim
+ * (redeemAthleteInvitation); a bare Sign in with Apple must never mint an
+ * account (an organic App Store download is sent to the membership funnel).
+ * Resolution, DB-first adoption:
+ *   1. match by apple_user_id → the account.
+ *   2. else, ONLY when Apple asserts the email is verified, match by email and
+ *      link this apple_user_id onto that pre-provisioned account (the athlete the
+ *      coach created by email who signs in directly instead of via the claim link).
+ *   3. neither → null → the route answers 404 no_account.
+ * An unverified email match is skipped (account-takeover guard). A matched user
+ * with no athlete row (e.g. a coach account) also returns null.
+ */
+export async function findAthleteForApple(
   identity: AppleIdentity,
-  hints: AppleProfileHints = {},
-): Promise<AppleAuthResult> {
+): Promise<AppleAuthResult | null> {
   return await sql.begin(async (tx) => {
     const byApple = await tx<{
       id: string;
@@ -129,27 +142,10 @@ export async function findOrCreateAthleteForApple(
       }
     }
 
-    if (!userRow) {
-      const placeholderEmail =
-        identity.email ?? `apple-${identity.apple_user_id}@privaterelay.appleid.placeholder`;
-      const inserted = await tx<{
-        id: string;
-        email: string;
-        apple_user_id: string | null;
-        role: UserRow['role'];
-      }[]>`
-        insert into users (email, apple_user_id, role, last_seen_at)
-        values (${placeholderEmail}, ${identity.apple_user_id}, 'athlete', now())
-        returning id::text as id, email, apple_user_id, role
-      `;
-      userRow = inserted[0];
-    } else {
-      await tx`update users set last_seen_at = now() where id = ${BigInt(userRow.id)}`;
-    }
-
-    if (!userRow) {
-      throw new Error('user_upsert_failed');
-    }
+    // LOGIN NEVER CREATES. No matching account (by apple_user_id or verified
+    // email) → null; the route turns this into 404 no_account → the funnel.
+    if (!userRow) return null;
+    await tx`update users set last_seen_at = now() where id = ${BigInt(userRow.id)}`;
 
     const userId = BigInt(userRow.id);
     const existingAthlete = await tx<{
@@ -164,33 +160,10 @@ export async function findOrCreateAthleteForApple(
       limit 1
     `;
 
-    let athleteRow = existingAthlete[0];
-    if (!athleteRow) {
-      const fullName = hints.full_name?.trim() || 'Athlete';
-      const inserted = await tx<{
-        id: string;
-        user_id: string;
-        full_name: string;
-        onboarded_at: Date | null;
-      }[]>`
-        insert into athletes (user_id, full_name)
-        values (${userId}, ${fullName})
-        returning id::text as id, user_id::text as user_id, full_name, onboarded_at
-      `;
-      athleteRow = inserted[0];
-    }
-
-    if (!athleteRow) {
-      throw new Error('athlete_upsert_failed');
-    }
-
-    // Multi-role RBAC (0041): ensure the athlete role is recorded in
-    // user_roles so the table stays authoritative for new accounts. Idempotent.
-    await tx`
-      insert into user_roles (user_id, role)
-      values (${userId}, 'athlete')
-      on conflict (user_id, role) do nothing
-    `;
+    // A matched account with no athlete row (e.g. a coach account) is not an
+    // athlete membership → treat as no account.
+    const athleteRow = existingAthlete[0];
+    if (!athleteRow) return null;
 
     return {
       user: rowToUser(userRow),
