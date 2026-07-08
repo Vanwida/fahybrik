@@ -11,7 +11,8 @@
 //
 // Explicit columns (repo convention). Arrays → text[]; codes validated upstream by Zod.
 
-import { sql } from '@/lib/db';
+import { sql, type TransactionClient } from '@/lib/db';
+import { recordAudit, type Actor } from '@/lib/audit/record-edit';
 import type { LeadDraftInput, LeadSubmitInput } from '@fahybrid/shared/schema';
 import {
   canReopenLead,
@@ -189,38 +190,77 @@ export class LeadTransitionError extends Error {
 export async function transitionLeadStatus(args: {
   id: bigint;
   to: string;
+  /** Who moved it (#43) — recorded on the transition event + audit trail. */
+  actor: Actor;
 }): Promise<{ id: string; status: LeadStatus }> {
   if (!isCoachSettableLeadStatus(args.to)) {
     throw new LeadTransitionError('invalid_status', 'Estado no válido para el coach', 400);
   }
   const to = args.to; // narrowed to LeadStatus
 
-  const current = await sql<{ status: LeadStatus }[]>`
-    select status::text as status from leads where id = ${Number(args.id)} limit 1
-  `;
-  const row = current[0];
-  if (!row) throw new LeadTransitionError('not_found', 'Lead no encontrado', 404);
+  // One transaction: re-read + guard, advance, and record WHO moved it (the lead
+  // timeline event + last_edited stamp + audit) so the status change and its
+  // provenance commit together.
+  return await sql.begin(async (tx) => {
+    const current = await tx<{ status: LeadStatus }[]>`
+      select status::text as status from leads where id = ${Number(args.id)} limit 1
+    `;
+    const row = current[0];
+    if (!row) throw new LeadTransitionError('not_found', 'Lead no encontrado', 404);
 
-  if (!canTransitionLead(row.status, to)) {
-    throw new LeadTransitionError(
-      'invalid_transition',
-      `El estado del lead no puede pasar de "${row.status}" a "${to}" (solo avanza, nunca retrocede)`,
-      409,
-    );
-  }
+    if (!canTransitionLead(row.status, to)) {
+      throw new LeadTransitionError(
+        'invalid_transition',
+        `El estado del lead no puede pasar de "${row.status}" a "${to}" (solo avanza, nunca retrocede)`,
+        409,
+      );
+    }
 
-  // Optimistic guard: only update if the status is still what we validated against.
-  const updated = await sql<{ id: string; status: LeadStatus }[]>`
-    update leads
-       set status = ${to}::lead_status, updated_at = now()
-     where id = ${Number(args.id)} and status = ${row.status}::lead_status
-    returning id::text as id, status::text as status
-  `;
-  if (!updated[0]) throw new LeadTransitionError('conflict', 'El estado cambió, recarga la página', 409);
-  return updated[0];
+    // Optimistic guard: only update if the status is still what we validated against.
+    const updated = await tx<{ id: string; status: LeadStatus }[]>`
+      update leads
+         set status = ${to}::lead_status,
+             last_edited_by_user_id = ${args.actor.user_id},
+             last_edited_by_kind = ${args.actor.kind},
+             updated_at = now()
+       where id = ${Number(args.id)} and status = ${row.status}::lead_status
+      returning id::text as id, status::text as status
+    `;
+    if (!updated[0]) throw new LeadTransitionError('conflict', 'El estado cambió, recarga la página', 409);
+
+    await recordLeadTransition(tx, {
+      lead_id: args.id,
+      from: row.status,
+      to,
+      actor: args.actor,
+    });
+    return updated[0];
+  });
 
   // SEAM (task #5): the alta flow sets status='convertido' + creates the athlete row in
   // one transaction. That transition is intentionally NOT reachable from this function.
+}
+
+/**
+ * Append a lead transition to the timeline (lead_status_events) + the permanent
+ * audit trail, in the caller's transaction. The ONE place both are written so a
+ * status move can never land without its provenance.
+ */
+async function recordLeadTransition(
+  tx: TransactionClient,
+  params: { lead_id: bigint; from: string | null; to: string; actor: Actor },
+): Promise<void> {
+  await tx`
+    insert into lead_status_events (lead_id, from_status, to_status, changed_by_user_id, changed_by_kind)
+    values (${Number(params.lead_id)}, ${params.from}, ${params.to}, ${params.actor.user_id}, ${params.actor.kind})
+  `;
+  await recordAudit(tx, {
+    entity_type: 'leads',
+    entity_id: params.lead_id,
+    action: 'update',
+    actor: params.actor,
+    diff: { from: params.from, to: params.to },
+  });
 }
 
 /**
@@ -228,20 +268,37 @@ export async function transitionLeadStatus(args: {
  * the no-retreat pipeline above (which forbids every backwards move). Guarded to only ever
  * act on a `descartado` lead so it can't be used to regress a live or converted one.
  */
-export async function reopenLead(args: { id: bigint }): Promise<{ id: string; status: LeadStatus }> {
-  const current = await sql<{ status: LeadStatus }[]>`
-    select status::text as status from leads where id = ${Number(args.id)} limit 1
-  `;
-  const row = current[0];
-  if (!row) throw new LeadTransitionError('not_found', 'Lead no encontrado', 404);
-  if (!canReopenLead(row.status)) {
-    throw new LeadTransitionError('invalid_reopen', 'Solo se puede reabrir un lead descartado', 409);
-  }
-  const updated = await sql<{ id: string; status: LeadStatus }[]>`
-    update leads set status = 'nuevo'::lead_status, updated_at = now()
-    where id = ${Number(args.id)} and status = 'descartado'
-    returning id::text as id, status::text as status
-  `;
-  if (!updated[0]) throw new LeadTransitionError('conflict', 'El estado cambió, recarga la página', 409);
-  return updated[0];
+export async function reopenLead(args: {
+  id: bigint;
+  /** Who reopened it (#43). */
+  actor: Actor;
+}): Promise<{ id: string; status: LeadStatus }> {
+  return await sql.begin(async (tx) => {
+    const current = await tx<{ status: LeadStatus }[]>`
+      select status::text as status from leads where id = ${Number(args.id)} limit 1
+    `;
+    const row = current[0];
+    if (!row) throw new LeadTransitionError('not_found', 'Lead no encontrado', 404);
+    if (!canReopenLead(row.status)) {
+      throw new LeadTransitionError('invalid_reopen', 'Solo se puede reabrir un lead descartado', 409);
+    }
+    const updated = await tx<{ id: string; status: LeadStatus }[]>`
+      update leads
+         set status = 'nuevo'::lead_status,
+             last_edited_by_user_id = ${args.actor.user_id},
+             last_edited_by_kind = ${args.actor.kind},
+             updated_at = now()
+       where id = ${Number(args.id)} and status = 'descartado'
+      returning id::text as id, status::text as status
+    `;
+    if (!updated[0]) throw new LeadTransitionError('conflict', 'El estado cambió, recarga la página', 409);
+
+    await recordLeadTransition(tx, {
+      lead_id: args.id,
+      from: row.status,
+      to: 'nuevo',
+      actor: args.actor,
+    });
+    return updated[0];
+  });
 }

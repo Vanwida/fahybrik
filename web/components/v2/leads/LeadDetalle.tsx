@@ -14,6 +14,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Card } from '@/components/v2/Card';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { AuthorStamp } from '@/components/v2/AuthorStamp';
 import { LeadValue } from '@/components/v2/leads/LeadValue';
 import { LeadStatusControl } from '@/components/v2/leads/LeadStatusControl';
 import { LeadOnboardingSummary } from '@/components/v2/leads/LeadOnboardingSummary';
@@ -184,6 +185,34 @@ export function LeadDetalle({
         isLead
         autoOpenTick={citaCompletedTick}
       />
+
+      {/* ── Historial · quién movió el lead y cuándo (#43) ─────────────────── */}
+      {lead.timeline.length > 0 ? (
+        <Card className="p-4 lg:p-5">
+          <h2 className="v2-micro mb-3">Historial</h2>
+          <ol className="flex flex-col gap-3">
+            {lead.timeline.map((ev, i) => {
+              const toLabel =
+                (LEAD_STATUS_META as Record<string, { label?: string }>)[ev.to_status]?.label ??
+                ev.to_status;
+              return (
+                <li key={`${ev.created_at}-${i}`} className="flex items-start gap-2.5">
+                  <span
+                    aria-hidden
+                    className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--v2-accent)]"
+                  />
+                  <AuthorStamp
+                    kind={ev.changed_by_kind}
+                    name={ev.changed_by_name}
+                    verb={ev.from_status == null ? 'abrió el lead' : `movió a ${toLabel}`}
+                    at={ev.created_at}
+                  />
+                </li>
+              );
+            })}
+          </ol>
+        </Card>
+      ) : null}
 
       {/* ── Contacto + Onboarding summary ─────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">

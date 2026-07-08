@@ -8,6 +8,7 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getLeadDetail } from '@/lib/dashboard/coach/leads';
 import { LeadTransitionError, reopenLead, transitionLeadStatus } from '@/lib/leads/store';
+import { coachActor } from '@/lib/audit/record-edit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,10 +63,11 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     // `nuevo` is not a pipeline transition — the only way to reach it is the explicit
     // human-correction reopen (descartado → nuevo). Everything else is the no-retreat
     // pipeline. Both are validated in web/lib/leads/store.ts.
+    const actor = coachActor(session);
     const lead =
       status === 'nuevo'
-        ? await reopenLead({ id: leadId })
-        : await transitionLeadStatus({ id: leadId, to: status });
+        ? await reopenLead({ id: leadId, actor })
+        : await transitionLeadStatus({ id: leadId, to: status, actor });
     return jsonOk({ lead });
   } catch (err) {
     if (err instanceof LeadTransitionError) return jsonError(err.code, err.message, err.status);
