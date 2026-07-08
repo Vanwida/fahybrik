@@ -65,8 +65,9 @@ describe('importProposalRequestSchema', () => {
     expect(r.success).toBe(true);
   });
   test('rejects a missing variant', () => {
-    const { variant: _drop, ...noVariant } = base;
-    expect(importProposalRequestSchema.safeParse(noVariant).success).toBe(false);
+    expect(
+      importProposalRequestSchema.safeParse({ microcycle_id: 7, range_text: 'de la 1 a la 4' }).success,
+    ).toBe(false);
   });
   test('rejects an unknown variant', () => {
     expect(importProposalRequestSchema.safeParse({ ...base, variant: 'foo' }).success).toBe(false);
@@ -75,8 +76,9 @@ describe('importProposalRequestSchema', () => {
     expect(importProposalRequestSchema.safeParse({ ...base, range_text: '' }).success).toBe(false);
   });
   test('rejects a missing microcycle_id', () => {
-    const { microcycle_id: _drop, ...noMicro } = base;
-    expect(importProposalRequestSchema.safeParse(noMicro).success).toBe(false);
+    expect(
+      importProposalRequestSchema.safeParse({ variant: 'estandar', range_text: 'de la 1 a la 4' }).success,
+    ).toBe(false);
   });
   test('rejects unknown keys (.strict)', () => {
     expect(importProposalRequestSchema.safeParse({ ...base, weeks: [] }).success).toBe(false);

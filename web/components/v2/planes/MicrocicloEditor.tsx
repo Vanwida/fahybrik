@@ -23,6 +23,7 @@ import type { DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MicrocicloV2 } from '@/components/v2/planes/MicrocicloV2';
 import { MicrocicloV1 } from '@/components/v2/planes/MicrocicloV1';
+import { ImportWorkoutsDialog } from '@/components/v2/planes/ImportWorkoutsDialog';
 
 export interface MicroWeek {
   id: string;
@@ -206,6 +207,7 @@ export function MicrocicloEditor({
   dayModel?: DayEditorModel | null;
 }) {
   const [view, setView] = useState<ViewMode>('foco');
+  const [importOpen, setImportOpen] = useState(false);
 
   // DÍA zoom level lives ON the week grid: MicrocicloV2 reflows to master-detail
   // (the open day's column grows into the editor, the rest become a thin rail) —
@@ -220,14 +222,25 @@ export function MicrocicloEditor({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <MicrocicloNameEditor microcycleId={microcycle_id} initialName={name} level={level} />
         {/* The view toggle is a full-week affordance; while a day is open the
-            canvas is locked to the master-detail week calendar. */}
+            canvas is locked to the master-detail week calendar. The "Importar"
+            entry point (#28) lives here too, at the SEMANA level. */}
         {dayModel ? null : (
-          <SegmentedControl
-            options={viewOptions(weeks.length)}
-            value={view}
-            onChange={setView}
-            ariaLabel="Vista del microciclo"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+            >
+              <MIcon name="upload_file" size={16} />
+              Importar del Excel
+            </button>
+            <SegmentedControl
+              options={viewOptions(weeks.length)}
+              value={view}
+              onChange={setView}
+              ariaLabel="Vista del microciclo"
+            />
+          </div>
         )}
       </div>
 
@@ -244,6 +257,20 @@ export function MicrocicloEditor({
           <MicrocicloV1 microcycle_id={microcycle_id} weeks={weeks} />
         )}
       </div>
+
+      {importOpen ? (
+        <ImportWorkoutsDialog
+          microcycleId={microcycle_id}
+          microWeeks={weeks.map((w) => ({
+            id: w.id,
+            index: w.index,
+            label: w.label,
+            session_count: w.session_count,
+          }))}
+          onClose={() => setImportOpen(false)}
+          onDone={() => setImportOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
