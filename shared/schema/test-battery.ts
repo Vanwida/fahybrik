@@ -10,12 +10,24 @@ import { z } from 'zod';
 // One test can promise SEVERAL results (the 1RM battery → squat + deadlift + bench),
 // so this is an array of specs.
 
-/** How the athlete enters the number. */
-export const STORE_RESULT_MEASURES = ['time', 'load'] as const;
+/** How the work of a test result is measured. A coach picks this per result.
+ *  Only `time` and `load` CALIBRATE today (zones / 1RM). `distance`, `reps` and
+ *  `calories` are storable as a baseline (`derives: 'none'`) — deriving zones from a
+ *  distance-covered test or a 1RM from reps needs the segment's fixed parameter and is
+ *  a follow-up on the bridge; the coach UI constrains those to baseline until then. */
+export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load'] as const;
 export type StoreResultMeasure = (typeof STORE_RESULT_MEASURES)[number];
 
+/** The unit the entered value is in. Pairs with `measure`
+ *  (time→seconds, distance→meters, reps→reps, calories→calories, load→kg). */
+export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg'] as const;
+export type StoreResultUnit = (typeof STORE_RESULT_UNITS)[number];
+
 /** The ACTIVE calibration each result drives (level is always re-derived after,
- *  so it is not listed here). 'none' = a stored baseline (e.g. HYROX half-sim). */
+ *  so it is not listed here). 'none' = a stored baseline (e.g. HYROX half-sim, or any
+ *  distance/calorie result until the bridge learns to derive from it). Bike zones are
+ *  intentionally absent — no bike zone model exists yet, so exposing it would be a dead
+ *  option that never calibrates. */
 export const STORE_RESULT_DERIVES = [
   'run_zones',
   'row_zones',
@@ -25,17 +37,27 @@ export const STORE_RESULT_DERIVES = [
 ] as const;
 export type StoreResultDerives = (typeof STORE_RESULT_DERIVES)[number];
 
+/** Measures that currently CALIBRATE (drive a non-`none` derive). The coach UI uses this
+ *  to force `derives: 'none'` for the others, so a coach can never author a test that
+ *  silently fails to calibrate. */
+export const CALIBRATING_MEASURES: readonly StoreResultMeasure[] = ['time', 'load'];
+
 export const storeResultSpecSchema = z.object({
   // The canonical benchmark slug this result produces (run_5k, row_2k,
   // back_squat_1rm, hyrox_half_sim…). Must exist in benchmark-slugs / STRENGTH_LIFT_SLUGS.
   slug: z.string().min(1).max(60),
-  unit: z.enum(['seconds', 'kg', 'reps']),
+  unit: z.enum(STORE_RESULT_UNITS),
   measure: z.enum(STORE_RESULT_MEASURES),
   derives: z.enum(STORE_RESULT_DERIVES),
   // The modality for a zone derivation (run/row/ski). Omitted for strength/baseline.
   modality: z.enum(['run', 'row', 'ski', 'bike', 'strength', 'hyrox']).optional(),
   label: z.string().min(1).max(60),
-});
+})
+  // A coherence guard mirrored in the DB check + coach UI: only time/load may calibrate.
+  .refine((s) => s.derives === 'none' || CALIBRATING_MEASURES.includes(s.measure), {
+    message: 'Solo las medidas de tiempo o peso pueden calibrar (zonas / 1RM); el resto se guarda como baseline.',
+    path: ['derives'],
+  });
 export type StoreResultSpec = z.infer<typeof storeResultSpecSchema>;
 
 export const storeResultsSchema = z.array(storeResultSpecSchema);
