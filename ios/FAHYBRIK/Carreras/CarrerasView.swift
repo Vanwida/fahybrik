@@ -1,19 +1,20 @@
 import SwiftUI
 
-// Carreras tab root — the performance/race hub and HYROX differentiator. It
-// absorbs the old Analíticas/Stats content.
+// Carreras tab root — the athlete's race hub and HYROX differentiator. Races
+// only: future objectives and past results. All training analytics (volume,
+// pace, tendencies) live in the Analíticas tab, not here.
 //
-// Two truth states live side by side, honestly:
-//   • RACE-DERIVED (last race, station benchmarks, per-km pace, evolution,
-//     history) — LIVE from GET /api/athlete/race-context, built from the
-//     athlete's IMPORTED HYROX results. No race yet → honest empty state with an
-//     "Importar carrera" CTA (ImportRaceSheet → POST /race-results/import).
-//   • REAL TRAINING ANALYTICS — the "Rendimiento" section surfaces live volume,
-//     pace and recent executions from StatsService (GET /api/athlete/analytics).
+// Two race sections, honestly:
+//   • PRÓXIMAS — future objectives (countdowns), from GET /api/athlete/races.
+//   • PASADAS — the imported history plus its race-derived analysis (last race,
+//     station benchmarks, per-km pace, evolution) — LIVE from
+//     GET /api/athlete/race-context, built from the athlete's IMPORTED HYROX
+//     results. No race yet → honest empty state with an "Importar carrera" CTA
+//     (ImportRaceSheet → POST /race-results/import).
 //
 // Composes RedesignComponents (BenchmarkBarRow, PaceBarChart) + Atoms
-// (CardSurface, InstrumentReadout, MonoText, LabelText) on Theme tokens. Brand
-// accent is orange; only signed deltas use the semantic ok/warning/danger axis.
+// (CardSurface, MonoText, LabelText) on Theme tokens. Brand accent is orange;
+// only signed deltas use the semantic ok/warning/danger axis.
 struct CarrerasView: View {
     var bearer: String? = nil
 
@@ -49,8 +50,6 @@ struct CarrerasView: View {
     /// PRÓXIMAS — all future objectives (target + secondary/tune-up), the hub's
     /// `upcoming`. The athlete can have several; the server sorts soonest-first.
     private var upcoming: [UpcomingRace] { store.racesHub.value?.upcoming ?? [] }
-    /// RENDIMIENTO — live training analytics.
-    private var analytics: AthleteAnalytics? { store.analytics.value }
 
     // "Cold" = never loaded yet (no memory AND no disk snapshot) AND a first load
     // is in flight — the ONLY case that shows a spinner. With any cached value the
@@ -61,9 +60,6 @@ struct CarrerasView: View {
     private var pastCold: Bool {
         !store.raceOverview.hasLoaded && !store.racesHub.hasLoaded
             && (store.raceOverview.isRevalidating || store.racesHub.isRevalidating)
-    }
-    private var perfCold: Bool {
-        !store.analytics.hasLoaded && store.analytics.isRevalidating
     }
 
     private var effectiveBearer: String? {
@@ -236,9 +232,6 @@ struct CarrerasView: View {
 
                 pastSection
                     .staggerReveal(appear, index: 2)
-
-                performanceSection
-                    .staggerReveal(appear, index: 3)
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.m)
@@ -402,30 +395,6 @@ struct CarrerasView: View {
                     }
                 }
                 .padding(.top, Theme.Spacing.s)
-            }
-        }
-    }
-
-    // MARK: - Performance section (LIVE StatsService data)
-
-    @ViewBuilder
-    private var performanceSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "RENDIMIENTO · TU ENTRENAMIENTO")
-
-            if perfCold {
-                ProgressView()
-                    .tint(Theme.Color.accentText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.l)
-            } else if let analytics, !analytics.isEmpty {
-                CarrerasPerformanceContent(analytics: analytics, bearer: effectiveBearer)
-            } else {
-                RedesignEmptyState(
-                    symbol: "chart.bar.xaxis",
-                    title: "Aún no hay datos de entrenamiento",
-                    message: "Registra entrenamientos de carrera, remo o ergómetro y aquí verás tu volumen, tus ritmos y la progresión sesión a sesión."
-                )
             }
         }
     }
@@ -949,93 +918,6 @@ private struct IAReportCard: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous))
         .accessibilityElement(children: .contain)
-    }
-}
-
-// MARK: - Performance content (LIVE StatsService)
-//
-// The real, shippable analytics surfaced inside Carreras: volume per modality,
-// avg pace, and recent executions. We compose the existing Stats sections so
-// there is ONE source of truth for the analytics layout (StatsView retains the
-// same components); only the screen chrome differs.
-
-private struct CarrerasPerformanceContent: View {
-    let analytics: AthleteAnalytics
-    var bearer: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-            totalDistanceReadout
-
-            // Running deep-dive entry — running is half a HYROX race, so it gets
-            // its own screen. Honest about its own (race-derived) gaps inside.
-            NavigationLink {
-                RunningDeepDiveView(bearer: bearer)
-            } label: {
-                runningEntryRow
-            }
-            .buttonStyle(PressScaleStyle())
-
-            if !analytics.byModalityTotals.isEmpty {
-                StatsVolumeSection(totals: analytics.byModalityTotals)
-            }
-            if !analytics.weekly.isEmpty {
-                StatsPaceSection(totals: analytics.byModalityTotals, weekly: analytics.weekly)
-            }
-            if !analytics.recentExecutions.isEmpty {
-                StatsRecentSection(executions: analytics.recentExecutions)
-            }
-        }
-    }
-
-    private var totalDistanceReadout: some View {
-        let totalMeters = analytics.byModalityTotals.reduce(0) { $0 + $1.distanceMeters }
-        let parts = StatsFormat.distanceParts(totalMeters)
-        return Group {
-            if totalMeters > 0 {
-                CardSurface(topAccent: true, elevated: true) {
-                    InstrumentReadout(
-                        label: "Distancia total",
-                        value: parts.value,
-                        unit: parts.unit,
-                        accent: true,
-                        size: 56
-                    )
-                }
-            }
-        }
-    }
-
-    private var runningEntryRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "figure.run")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Theme.Color.accentText)
-                .frame(width: 30)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Running · análisis completo")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Ritmo umbral, splits por km y zonas")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-        }
-        .padding(.horizontal, 15)
-        .padding(.vertical, 13)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Running, análisis completo")
-        .accessibilityAddTraits(.isButton)
     }
 }
 
