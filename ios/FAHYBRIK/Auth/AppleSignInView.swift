@@ -12,6 +12,9 @@ struct AppleSignInView: View {
     @State private var error: String?
     @State private var inProgress: Bool = false
     @State private var showDemo: Bool = false
+    /// Presents the passwordless email-code login — the universal path for an
+    /// athlete whose Apple ID doesn't match their enrolment email.
+    @State private var showEmail: Bool = false
     /// Shown when Sign in with Apple succeeds at Apple but the backend has no
     /// membership for this Apple ID (404 no_account) — an organic download.
     @State private var showNoAccount: Bool = false
@@ -80,6 +83,26 @@ struct AppleSignInView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.xl)
 
+                // Universal path: email + one-time code. Secondary to Apple, but a
+                // real alternative for an athlete whose Apple ID ≠ enrolment email.
+                Button {
+                    Haptics.light()
+                    showEmail = true
+                } label: {
+                    Text("Entrar con mi email")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                                .strokeBorder(Theme.Color.outline, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PressScaleStyle())
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.xs)
+
                 // Cold-download path: someone who is NOT a member yet → the
                 // membership-application funnel (opens in Safari).
                 RequestSpotLink()
@@ -114,6 +137,15 @@ struct AppleSignInView: View {
 
                 Spacer().frame(height: Theme.Spacing.xl)
             }
+        }
+        .sheet(isPresented: $showEmail) {
+            EmailSignInView(
+                onAuthenticated: { resp in
+                    showEmail = false
+                    onAuthenticated(resp)
+                },
+                onClose: { showEmail = false }
+            )
         }
         .sheet(isPresented: $showDemo) {
             DemoSignInView { bearer, athleteId in
