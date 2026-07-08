@@ -109,6 +109,17 @@ export type Target =
 
 export type TargetKind = Target['kind'];
 
+// A secondary PACE constraint on a line whose PRIMARY target is something else
+// (#28, Fork E: "corre en Z2 pero no más lento de 6'/km" = target hr_zone 2 + a
+// pace cap). Keeps a dual-objective line FULLY typed instead of dropping the cap
+// to a free-text note (Alex's sacred rule: everything typed). `max_s` = slowest
+// allowed (seconds/unit not to exceed); `min_s` = fastest allowed (floor).
+export interface PaceCap {
+  unit: PaceUnit;
+  max_s?: number;
+  min_s?: number;
+}
+
 // Shared refinements for the scalar (value|min|max) targets.
 const hasScalar = (t: { value?: number | undefined; min?: number | undefined; max?: number | undefined }) =>
   t.value !== undefined || t.min !== undefined || t.max !== undefined;
@@ -187,6 +198,22 @@ export const targetSchema: z.ZodType<Target> = targetUnion.superRefine((raw, ctx
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${t.kind} target min must be <= max` });
   }
 }) as unknown as z.ZodType<Target>;
+
+// #28 — the typed secondary pace cap (see PaceCap). Same pace bounds as a pace
+// target; must carry at least one bound, and min_s <= max_s.
+export const paceCapSchema = z
+  .object({
+    unit: paceUnitSchema,
+    max_s: z.number().positive().max(PACE_MAX_S).optional(),
+    min_s: z.number().positive().max(PACE_MAX_S).optional(),
+  })
+  .strict()
+  .refine((c) => c.max_s !== undefined || c.min_s !== undefined, {
+    message: 'pace_cap must carry max_s or min_s',
+  })
+  .refine((c) => c.min_s === undefined || c.max_s === undefined || c.min_s <= c.max_s, {
+    message: 'pace_cap min_s must be <= max_s',
+  });
 
 // ── Load (DEPRECATED back-compat alias) ─────────────────────────────────────
 // `Load` was the strength-only predecessor of `Target`. It is retained ONLY so
@@ -381,6 +408,7 @@ export interface Prescription {
   start?: number; // death_by — starting amount (reps|cal) in round 1
   increment?: number; // death_by — amount added each round
   target?: Target; // block-level intensity (e.g. a steady Z2 ride / @4:00/km tempo)
+  pace_cap?: PaceCap; // #28 — typed secondary pace bound alongside `target`
   hr_zone?: number; // DEPRECATED — use target {kind:'hr_zone'}; lifted on normalize
   note?: string;
 }
@@ -405,6 +433,7 @@ const prescriptionObjectSchema = z
     start: z.number().nonnegative().optional(),
     increment: z.number().nonnegative().optional(),
     target: targetSchema.optional(),
+    pace_cap: paceCapSchema.optional(),
     hr_zone: z.number().int().min(HR_ZONE_MIN).max(HR_ZONE_MAX).optional(), // deprecated alias
     note: z.string().max(2000).optional(),
   })
