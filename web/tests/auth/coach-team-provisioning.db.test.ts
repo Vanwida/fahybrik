@@ -22,7 +22,7 @@ import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 describeWithDb('coach team membership + allowlist door (real DB)', () => {
   const sql = getTestSql();
   const emails: string[] = [];
-  let clubCoachId = 0n;
+  let clubCoachId = BigInt(0);
   // The club fixture lives for the whole suite — kept OUT of the per-test purge
   // (afterEach) so tests 2..n still have a club to join; cleaned in afterAll.
   const clubOwnerEmail = `team-owner-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
@@ -66,7 +66,7 @@ describeWithDb('coach team membership + allowlist door (real DB)', () => {
 
   afterAll(async () => {
     // Tear down the club fixture (kept out of afterEach). FK-safe order.
-    if (clubCoachId > 0n) {
+    if (clubCoachId > BigInt(0)) {
       await sql`delete from coach_members where coach_id = ${clubCoachId}`;
     }
     const ownerIds = (
