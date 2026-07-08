@@ -53,7 +53,7 @@ export async function sendAltaPaymentEmail(
     `<p style="font-size:16px;line-height:1.55;margin:0 0 6px;">Bienvenido/a a FAHYBRID. Tu entrenador ha preparado tu plan personalizado.</p>` +
     `<p style="font-size:16px;line-height:1.55;margin:0 0 16px;">Tu cuota mensual es de <strong>${escapeHtml(priceLabel)}/mes</strong>. Activa tu plan con un pago seguro — se renueva cada mes y puedes cancelar cuando quieras.</p>` +
     ctaButton(url, 'Pagar y activar') +
-    `<p style="margin:8px 0 0;font-size:14px;color:#6f6f6f;">En cuanto confirmemos el pago, te enviamos el enlace para entrar en la app.</p>` +
+    `<p style="margin:8px 0 0;font-size:14px;color:#6f6f6f;">En cuanto confirmemos el pago, descarga la app y entra con tu email.</p>` +
     `<p style="margin:16px 0 0;font-size:13px;color:#9a9a9a;">Si el botón no funciona, copia y pega esta dirección:<br><span style="word-break:break-all;">${escapeHtml(url)}</span></p>`;
 
   const html = brandShell(inner);
@@ -65,7 +65,7 @@ Tu cuota mensual es de ${priceLabel}/mes. Activa tu plan con un pago seguro (se 
 
 ${url}
 
-En cuanto confirmemos el pago, te enviamos el enlace para entrar en la app.`;
+En cuanto confirmemos el pago, descarga la app y entra con tu email.`;
 
   try {
     const resend = new Resend(apiKey);

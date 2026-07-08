@@ -29,7 +29,7 @@ import {
   clearAccessEmailStamp,
 } from './subscriptions';
 import { getStripeOrThrow } from './client';
-import { createAthleteInvitation, buildAthleteInviteUrl } from '@/lib/athlete/invitations';
+import { createAthleteInvitation } from '@/lib/athlete/invitations';
 import { sendAltaEmail } from '@/lib/leads/alta-email';
 
 export type AltaActivationResult =
@@ -118,10 +118,11 @@ export async function activateAltaOnCheckout(args: {
     return { matched: true, access_email_sent: false, reason: 'mint_failed' };
   }
 
+  // Payment confirmed → access is now active. Email the athlete to download the
+  // app and sign in with their email (no web claim link — login is app-only).
   const send = await sendAltaEmail({
     to: athlete.email,
     name: athlete.full_name,
-    inviteUrl: buildAthleteInviteUrl(inv.result.token),
   });
   if (!send.sent) {
     // Only a genuine transient send failure releases the stamp for a Stripe

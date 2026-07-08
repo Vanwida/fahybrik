@@ -141,11 +141,12 @@ async function altaComp(params: {
     createAthleteFromLead(trx, { lead_id, coach_id, input, billing: { kind: 'comp' } }),
   );
 
-  // Email the claim link (post-commit; non-fatal on failure).
+  // Email the athlete: download the app + sign in with their email (post-commit;
+  // non-fatal on failure). Comp access is already active, so there's nothing to
+  // claim on the web — the email points them straight at the app login.
   const email = await sendAltaEmail({
     to: tx.email,
     name: input.full_name,
-    inviteUrl: buildAthleteInviteUrl(tx.token),
   });
 
   return {
