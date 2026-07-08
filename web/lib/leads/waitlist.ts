@@ -8,6 +8,9 @@
 // double-stamps or double-emails.
 
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
+import { getCapacityState } from '@/lib/coach/capacity';
+import { sendWaitlistReleasedEmail } from './waitlist-email';
+import { WAITLIST_RELEASED_TOUCH } from '@fahybrid/shared/domain/leads/nurture';
 
 // Only leads STILL in the top of the pipeline can sit on the waitlist: once the coach
 // advances them (agendado) or archives them (convertido/descartado) they leave the list.
@@ -148,10 +151,11 @@ export interface ReleasedLead extends WaitlistLeadContact {
  *
  * The lead contact is returned whenever the lead is on the waitlist (even if already
  * released) so a retry after a failed email can re-send — the email itself is de-duped via
- * a lead_nurture_log claim in the route. `lead` is null only when the lead was never
- * waitlisted (nothing to release).
+ * a lead_nurture_log claim (see releaseAndNotifyLead). `lead` is null only when the lead was
+ * never waitlisted (nothing to release).
  *
- * // #13 hook: an athlete baja can call this to open the freed plaza to the next in line.
+ * This is the low-level STAMP only. The full stamp+notify path both triggers use is
+ * releaseAndNotifyLead; the recompute-based auto FIFO release is releaseWaitlistToCapacity.
  */
 export async function releaseWaitlistLead(
   leadId: string | number | bigint,
@@ -177,6 +181,114 @@ export async function releaseWaitlistLead(
     released: row.released,
     lead: { token: row.token, email: row.email, nombre: row.nombre, unsubscribe_token: row.unsubscribe_token },
   };
+}
+
+/** Outcome of the shared release+notify path — consumed by the manual override route (mapped
+ *  to HTTP) and the auto FIFO release (counts newly-opened plazas). */
+export interface ReleaseAndNotifyResult {
+  /** false only when the lead was never on the waitlist → nothing to release. */
+  found: boolean;
+  /** true when THIS call stamped waitlist_released_at (false if it was already released). */
+  released: boolean;
+  /** true when the release email is owed→sent (now, or already sent on a prior release). */
+  emailed: boolean;
+}
+
+/**
+ * The FULL release+notify path shared by the manual coach override (the release-waitlist route)
+ * and the automatic FIFO release (releaseWaitlistToCapacity, below) — one source, no duplication:
+ *   1. stamp waitlist_released_at via releaseWaitlistLead (idempotent; the plaza stays open even
+ *      if the email fails — durable release),
+ *   2. claim-before-send the "se ha liberado una plaza" email using lead_nurture_log's UNIQUE
+ *      (lead_id, 'waitlist_released') as the idempotency key, so a replay / concurrent run never
+ *      double-emails; a failed send DELETES the claim so the next attempt re-sends.
+ * Safe to call repeatedly on the same lead.
+ */
+export async function releaseAndNotifyLead(
+  leadId: string | number | bigint,
+): Promise<ReleaseAndNotifyResult> {
+  const { released, lead } = await releaseWaitlistLead(leadId);
+  if (!lead) return { found: false, released: false, emailed: false };
+
+  // Claim-before-send: only the run that WINS the insert sends; a lost claim ⇒ already emailed.
+  const claim = await sql<{ id: string }[]>`
+    insert into lead_nurture_log (lead_id, touch_type)
+    values (${Number(leadId)}, ${WAITLIST_RELEASED_TOUCH})
+    on conflict (lead_id, touch_type) do nothing
+    returning id::text as id
+  `;
+  if (claim.length === 0) return { found: true, released, emailed: true };
+
+  const emailRes = await sendWaitlistReleasedEmail({
+    email: lead.email,
+    nombre: lead.nombre,
+    cita_token: lead.token,
+    unsubscribe_token: lead.unsubscribe_token,
+  });
+
+  if (!emailRes.sent) {
+    // Keep the release stamped; drop the claim so a retry re-sends.
+    await sql`delete from lead_nurture_log where id = ${Number(claim[0]!.id)}`;
+    return { found: true, released, emailed: false };
+  }
+
+  return { found: true, released, emailed: true };
+}
+
+/**
+ * AUTOMATIC FIFO release (#18 hybrid): open exactly as many plazas as are genuinely free and
+ * notify the oldest waiting leads in arrival order. Recompute-based, so it is idempotent and
+ * safe to run repeatedly — a plaza already opened to a not-yet-booked lead HOLDS its slot, so
+ * we never over-release.
+ *
+ *   available = max_athletes − active − released_pending
+ *     • max_athletes    the single coach's cap (null ⇒ uncapped ⇒ waitlist off ⇒ release nothing)
+ *     • active          distinct athletes with an active subscription (getCapacityState — DRY,
+ *                        the exact same active-count query the capacity gate uses)
+ *     • released_pending leads already handed a plaza but not yet booked/converted (still
+ *                        nuevo/contactado with waitlist_released_at set) — they still hold a slot
+ *
+ * When available > 0, release the `available` oldest actively-waiting leads (waitlisted, not yet
+ * released, still nuevo/contactado) via the shared releaseAndNotifyLead path — the same one the
+ * manual button uses. The manual "Liberar plaza" override still jumps the queue on top of this.
+ *
+ * // #13 hook: an athlete baja/pausa (#13, not yet built) calls this on deactivation to pass the
+ * freed plaza to the next in line. It also runs on a cupo increase (api/coach/capacity) and daily
+ * (api/cron/nurture) as a safety net for slots freed by any other means.
+ */
+export async function releaseWaitlistToCapacity(): Promise<{ released: number }> {
+  const [{ active, max }, pendingRows] = await Promise.all([
+    getCapacityState(),
+    sql<{ n: number }[]>`
+      select count(*)::int as n from leads
+      where waitlist_released_at is not null
+        and status in ('nuevo', 'contactado')
+    `,
+  ]);
+  if (max === null) return { released: 0 }; // uncapped → waitlist disabled → nothing to release
+
+  const releasedPending = pendingRows[0]?.n ?? 0;
+  const available = max - active - releasedPending;
+  if (available <= 0) return { released: 0 };
+
+  // Oldest actively-waiting leads first (FIFO), capped at the free-slot count.
+  const waiting = await sql<{ id: string }[]>`
+    select id::text as id from leads
+    where waitlisted_at is not null
+      and waitlist_released_at is null
+      and status in ('nuevo', 'contactado')
+    order by waitlisted_at asc
+    limit ${available}
+  `;
+
+  let released = 0;
+  for (const row of waiting) {
+    // Sequential: sending is a per-lead network call and the batch is tiny (bounded by the free
+    // plazas). `available` is computed once up-front, so releasing here never over-opens.
+    const r = await releaseAndNotifyLead(Number(row.id));
+    if (r.released) released += 1;
+  }
+  return { released };
 }
 
 /**

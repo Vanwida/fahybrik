@@ -11,6 +11,7 @@
 
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { runNurture } from '@/lib/leads/nurture-run';
+import { releaseWaitlistToCapacity } from '@/lib/leads/waitlist';
 import { captureRouteError } from '@/lib/observability/capture';
 
 export const runtime = 'nodejs';
@@ -34,7 +35,20 @@ export async function GET(req: Request): Promise<Response> {
 
   try {
     const result = await runNurture({ dryRun });
-    return jsonOk({ ok: true, ...result });
+
+    // Daily waitlist recompute (auto FIFO release, #18) — shares this daily lead-lifecycle cron.
+    // Safety net for plazas freed by any means (until #13 wires deactivations to it). Skipped on
+    // dryRun (it sends emails); a release failure must not break the nurture run.
+    let waitlist_released = 0;
+    if (!dryRun) {
+      try {
+        ({ released: waitlist_released } = await releaseWaitlistToCapacity());
+      } catch (err) {
+        captureRouteError(err, { route: 'api/cron/nurture.GET.waitlist' });
+      }
+    }
+
+    return jsonOk({ ok: true, ...result, waitlist_released });
   } catch (err) {
     captureRouteError(err, { route: 'api/cron/nurture.GET' });
     return jsonError('internal', 'Lead nurture crashed', 500);

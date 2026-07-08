@@ -41,12 +41,17 @@ interface CandidateRow {
   unsubscribe_token: string;
 }
 
-/** Shared exclusion clause (RGPD opt-out + terminal statuses + idempotency). One source
- *  so it can never drift between branches. Assumes the leads row is aliased `l`. */
+/** Shared exclusion clause (RGPD opt-out + terminal statuses + waitlist gate + idempotency).
+ *  One source so it can never drift between branches. Assumes the leads row is aliased `l`. */
 function notExcluded(client: Sql, touch: NurtureTouchType) {
+  // #18 ↔ #10: an actively-waiting lead (on the waitlist, plaza NOT yet released) cannot book a
+  // call, so the "reserva tu llamada" sequences must not nurture it (that would be a dead-end
+  // CTA). A RELEASED lead CAN book → it keeps its nurture. Hence exclude ONLY the leads that are
+  // waitlisted AND not yet released.
   return client`
     l.no_contactar = false
     and l.status not in ('descartado', 'convertido')
+    and (l.waitlisted_at is null or l.waitlist_released_at is not null)
     and not exists (
       select 1 from lead_nurture_log g where g.lead_id = l.id and g.touch_type = ${touch}
     )`;

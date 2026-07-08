@@ -168,6 +168,12 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
           );
         })}
       </ul>
+
+      {/* Hybrid model (#18): the queue auto-releases in FIFO order; the manual button overrides it. */}
+      <p className="border-t border-[color:var(--v2-border)] px-3 py-2 text-[11px] leading-relaxed text-[color:var(--v2-muted)]">
+        Automático: cuando se libera una plaza avisamos al primero de la cola. «Liberar plaza» se
+        salta el orden.
+      </p>
     </Card>
   );
 }

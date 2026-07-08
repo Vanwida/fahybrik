@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getMaxAthletes, setMaxAthletes } from '@/lib/coach/capacity';
+import { releaseWaitlistToCapacity } from '@/lib/leads/waitlist';
+import { captureRouteError } from '@/lib/observability/capture';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,5 +36,15 @@ export async function POST(req: Request) {
 
   await setMaxAthletes(parsed.data.max_athletes);
   const max_athletes = await getMaxAthletes();
-  return jsonOk({ max_athletes });
+
+  // Raising the cap opens plazas → auto-notify the next in line immediately (FIFO). Defensive:
+  // the cap is already persisted, so a release failure must never fail the cupo save.
+  let released = 0;
+  try {
+    ({ released } = await releaseWaitlistToCapacity());
+  } catch (err) {
+    captureRouteError(err, { route: 'api/coach/capacity.POST', meta: { max_athletes } });
+  }
+
+  return jsonOk({ max_athletes, released });
 }

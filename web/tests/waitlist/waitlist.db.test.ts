@@ -9,6 +9,11 @@
  *   • joinWaitlist stamps waitlisted_at ONCE (idempotent); listWaitlist FIFO order + position;
  *     countWaitlist excludes released and non-nuevo/contactado leads.
  *   • releaseWaitlistLead stamps released_at ONCE (idempotent).
+ *   • releaseWaitlistToCapacity (auto FIFO): releases exactly max−active−released_pending oldest
+ *     waiting leads in order; 0 when uncapped; 0 at/over capacity; a released-pending lead holds
+ *     a slot so we never over-release.
+ *   • the #18↔#10 nurture gate: an actively-waiting lead is excluded from the nurture selector,
+ *     a released one is included.
  *   • isLeadWaitlisted + the bookAppointment gate: a waitlisted-unreleased lead is blocked
  *     (isLeadWaitlisted true, booking throws), and after release it books normally.
  */
@@ -25,7 +30,10 @@ import {
   joinWaitlist,
   listWaitlist,
   releaseWaitlistLead,
+  releaseWaitlistToCapacity,
 } from '@/lib/leads/waitlist';
+import { selectNurtureCandidates } from '@/lib/leads/nurture';
+import { NURTURE_TOUCHES } from '@fahybrid/shared/domain/leads/nurture';
 import { bookAppointment, CitasError } from '@/lib/citas/store';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 
@@ -94,21 +102,36 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     status?: string;
     waitlistedAt?: Date | null;
     releasedAt?: Date | null;
+    submittedAt?: Date | null;
   }): Promise<SeededLead> {
     const rows = await sql<{ id: string; token: string; unsubscribe_token: string }[]>`
       insert into leads (
-        email, nombre, objetivo, nivel, ubicacion, status, source, waitlisted_at, waitlist_released_at
+        email, nombre, objetivo, nivel, ubicacion, status, source,
+        waitlisted_at, waitlist_released_at, submitted_at
       ) values (
         ${email('lead')}, 'WL Lead', 'mejorar_marca', 'intermedio', 'barcelona',
         ${opts.status ?? 'nuevo'}::lead_status, 'onboarding_web',
         ${opts.waitlistedAt ? opts.waitlistedAt.toISOString() : null},
-        ${opts.releasedAt ? opts.releasedAt.toISOString() : null}
+        ${opts.releasedAt ? opts.releasedAt.toISOString() : null},
+        ${opts.submittedAt ? opts.submittedAt.toISOString() : null}
       )
       returning id::text as id, token, unsubscribe_token
     `;
     const id = Number(rows[0]!.id);
     leadIds.push(id);
     return { id, token: rows[0]!.token, unsubscribe_token: rows[0]!.unsubscribe_token };
+  }
+
+  /** Global released-pending count — leads already handed a plaza but still nuevo/contactado
+   *  (they HOLD a slot). Mirrors the released_pending term inside releaseWaitlistToCapacity so
+   *  the auto-release tests can pin `available` relative to the branch baseline. */
+  async function countReleasedPending(): Promise<number> {
+    const rows = await sql<{ n: number }[]>`
+      select count(*)::int as n from leads
+      where waitlist_released_at is not null
+        and status in ('nuevo', 'contactado')
+    `;
+    return rows[0]!.n;
   }
 
   async function leadStamps(
@@ -250,6 +273,93 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     expect(second.lead).not.toBeNull(); // still returns contact so a failed email can retry
     const r2 = (await leadStamps(lead.id)).waitlist_released_at;
     expect(r2).toBe(r1); // stamp unchanged
+  });
+
+  // ── Automatic FIFO release (releaseWaitlistToCapacity) ───────────────────────────────
+  // available = max_athletes − active − released_pending. All assertions are baseline-relative
+  // (active/released_pending measured first) and use far-past waitlisted_at so the seeded leads
+  // lead the GLOBAL FIFO pool — mirroring the existing capacity tests' clean-branch convention.
+  test('releaseWaitlistToCapacity releases (max − active − released_pending) oldest waiting, FIFO', async () => {
+    const { active } = await getCapacityState();
+    const pending = await countReleasedPending();
+    const t = Date.now();
+    const oldest = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 400 * DAY_MS) });
+    const mid = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 399 * DAY_MS) });
+    const newest = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 398 * DAY_MS) });
+
+    await setMaxAthletes(active + pending + 2); // available = max − active − pending = 2
+
+    const res = await releaseWaitlistToCapacity();
+    expect(res.released).toBe(2);
+    // FIFO: the two OLDEST are released; the newest keeps waiting.
+    expect((await leadStamps(oldest.id)).waitlist_released_at).not.toBeNull();
+    expect((await leadStamps(mid.id)).waitlist_released_at).not.toBeNull();
+    expect((await leadStamps(newest.id)).waitlist_released_at).toBeNull();
+  });
+
+  test('releaseWaitlistToCapacity releases nothing when uncapped (max null)', async () => {
+    await seedLead({ status: 'nuevo', waitlistedAt: new Date(Date.now() - DAY_MS) });
+    await setMaxAthletes(null); // waitlist off
+    const res = await releaseWaitlistToCapacity();
+    expect(res.released).toBe(0);
+  });
+
+  test('releaseWaitlistToCapacity releases nothing when already at/over capacity', async () => {
+    const { active } = await getCapacityState();
+    const pending = await countReleasedPending();
+    await seedLead({ status: 'nuevo', waitlistedAt: new Date(Date.now() - DAY_MS) });
+    await setMaxAthletes(active + pending); // available = 0
+    const res = await releaseWaitlistToCapacity();
+    expect(res.released).toBe(0);
+  });
+
+  test('a released-pending lead reduces how many are released (no over-release)', async () => {
+    const { active } = await getCapacityState();
+    const pending = await countReleasedPending();
+    const t = Date.now();
+    // Two actively-waiting leads…
+    const w1 = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 400 * DAY_MS) });
+    const w2 = await seedLead({ status: 'nuevo', waitlistedAt: new Date(t - 399 * DAY_MS) });
+    // …plus one already handed a plaza but not yet booked → it HOLDS a slot.
+    await seedLead({
+      status: 'nuevo',
+      waitlistedAt: new Date(t - 401 * DAY_MS),
+      releasedAt: new Date(t - 200 * DAY_MS),
+    });
+
+    // Cap gives 2 free slots gross, but the held slot eats 1 → only 1 to give.
+    await setMaxAthletes(active + pending + 2);
+
+    const res = await releaseWaitlistToCapacity();
+    expect(res.released).toBe(1); // 2 gross − 1 held = 1
+    expect((await leadStamps(w1.id)).waitlist_released_at).not.toBeNull(); // oldest waiting
+    expect((await leadStamps(w2.id)).waitlist_released_at).toBeNull();
+  });
+
+  // ── #18 ↔ #10 interaction: the nurture selector's waitlist gate ──────────────────────
+  test('nurture selector excludes an actively-waiting lead but includes a released one', async () => {
+    const t1 = NURTURE_TOUCHES.nuevo_t1; // "reserva tu llamada" — anchored on submitted_at
+    const now = new Date();
+    // Place submitted_at safely inside the nuevo_t1 window [+delay, +delay+window).
+    const submittedAt = new Date(now.getTime() - (t1.delayDays + 0.5) * DAY_MS);
+    const waitlistedAt = new Date(now.getTime() - 2 * DAY_MS);
+
+    // (a) waitlisted & NOT released → can't book → excluded from the booking sequence.
+    const waiting = await seedLead({ status: 'nuevo', submittedAt, waitlistedAt, releasedAt: null });
+    // (b) waitlisted but RELEASED → can book → still nurtured.
+    const released = await seedLead({
+      status: 'nuevo',
+      submittedAt,
+      waitlistedAt,
+      releasedAt: new Date(now.getTime() - DAY_MS),
+    });
+    // (c) never waitlisted → control, always nurtured.
+    const control = await seedLead({ status: 'nuevo', submittedAt });
+
+    const ids = (await selectNurtureCandidates(now, sql)).map((c) => c.lead.id);
+    expect(ids).not.toContain(String(waiting.id));
+    expect(ids).toContain(String(released.id));
+    expect(ids).toContain(String(control.id));
   });
 
   // ── Booking gate ────────────────────────────────────────────────────────────────────
