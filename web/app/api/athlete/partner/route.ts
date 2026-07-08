@@ -1,6 +1,6 @@
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { loadPartner } from '@/lib/partner/invitations';
+import { loadPartner, loadSentInvitation } from '@/lib/partner/invitations';
 import { buildPartnerSnapshot } from '@/lib/athlete/partner-snapshot';
 
 export const runtime = 'nodejs';
@@ -55,6 +55,23 @@ export async function GET(req: Request) {
     });
   }
 
-  // 3. No partner of either kind.
-  return jsonOk({ source: null, partner: null }, 404);
+  // 3. No partner of either kind — surface the inviter's sent-invitation state
+  //    (if any) so the inviter's card can reflect pending / expired / cancelled
+  //    / declined and offer Cancel or Re-invite. `accepted` never reaches here
+  //    (an accepted invitation means the pair exists → case 1 or 2 fired).
+  const sent = await loadSentInvitation(session.user_id);
+  return jsonOk(
+    {
+      source: null,
+      partner: null,
+      sent_invitation: sent
+        ? {
+            status: sent.status,
+            invitee_email: sent.invitee_email,
+            expires_at: sent.expires_at.toISOString(),
+          }
+        : null,
+    },
+    404,
+  );
 }

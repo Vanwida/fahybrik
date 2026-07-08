@@ -200,7 +200,9 @@ export async function POST(req: Request) {
       ? 'token_already_used'
       : invitation.status === 'cancelled'
         ? 'token_cancelled'
-        : 'token_expired';
+        : invitation.status === 'declined'
+          ? 'token_declined'
+          : 'token_expired';
     return jsonError(code, `Invitation is ${invitation.status === 'pending' ? 'expired' : invitation.status}`, 410);
   }
 
@@ -259,6 +261,7 @@ export async function POST(req: Request) {
     // clean it up. An existing/Bearer user is untouched on failure.
     const httpStatus = redemption.error.code === 'token_expired'
       || redemption.error.code === 'token_cancelled'
+      || redemption.error.code === 'token_declined'
       || redemption.error.code === 'token_already_used'
       ? 410
       : redemption.error.code === 'token_invalid'

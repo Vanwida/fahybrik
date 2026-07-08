@@ -22,7 +22,7 @@ export interface PartnerInvitationRow {
    * because we no longer store the plaintext — only its hash.
    */
   token: string | null;
-  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled' | 'declined';
   expires_at: Date;
   accepted_at: Date | null;
   accepted_user_id: bigint | null;
@@ -271,6 +271,7 @@ export interface RedeemInvitationError {
     | 'token_expired'
     | 'token_already_used'
     | 'token_cancelled'
+    | 'token_declined'
     | 'inviter_already_paired'
     | 'accepted_user_already_paired';
   message: string;
@@ -358,6 +359,9 @@ export async function redeemInvitation(
 
     if (invitation.status === 'cancelled') {
       return { ok: false, error: { code: 'token_cancelled', message: 'Invitation was cancelled' } } as const;
+    }
+    if (invitation.status === 'declined') {
+      return { ok: false, error: { code: 'token_declined', message: 'Invitation was declined' } } as const;
     }
     if (invitation.status === 'accepted') {
       return { ok: false, error: { code: 'token_already_used', message: 'Invitation was already redeemed' } } as const;
@@ -517,4 +521,132 @@ export async function unlinkPartner(
 
     return { user_id: userId, partner_user_id: partnerUserId };
   });
+}
+
+/**
+ * Inviter-side cancel: flip the inviter's latest PENDING invitation to
+ * 'cancelled'. Returns the cancelled row, or null when there was no pending
+ * invitation to cancel (already accepted/expired/declined/none). Only the
+ * inviter's own pending row is touched — a redeemed pairing is never undone
+ * here (that is {@link unlinkPartner}'s job).
+ */
+export async function cancelInvitation(
+  inviterUserId: bigint,
+  client: Sql = sql,
+): Promise<PartnerInvitationRow | null> {
+  const rows = await client<RawInvitationRow[]>`
+    update partner_invitations
+    set status = 'cancelled'
+    where id = (
+      select id from partner_invitations
+      where inviter_user_id = ${inviterUserId}
+        and status = 'pending'
+      order by created_at desc
+      limit 1
+    )
+    returning ${client.unsafe(INVITATION_COLUMNS)}
+  `;
+  const row = rows[0];
+  return row ? rowToInvitation(row) : null;
+}
+
+export interface DeclineInvitationResult {
+  invitation: PartnerInvitationRow;
+}
+
+export interface DeclineInvitationError {
+  code: 'token_invalid' | 'token_expired' | 'token_already_used' | 'token_cancelled';
+  message: string;
+}
+
+/**
+ * Invitee-side decline: flip a PENDING invitation to 'declined' by its token.
+ * The token is the authorization (the invitee holds it from the deeplink), so
+ * no session is required — mirrors the unauthenticated redeem path. Row is
+ * locked FOR UPDATE so a concurrent redeem/decline can't race. Terminal
+ * statuses are reported honestly so the caller can show the right copy;
+ * declining an already-declined invitation is an idempotent success.
+ */
+export async function declineInvitation(
+  token: string,
+  deps: RedeemInvitationDeps = {},
+): Promise<
+  { ok: true; result: DeclineInvitationResult } | { ok: false; error: DeclineInvitationError }
+> {
+  const client = deps.client ?? sql;
+  return await client.begin(async (tx) => {
+    const invRows = await tx<RawInvitationRow[]>`
+      select ${tx.unsafe(INVITATION_COLUMNS)}
+      from partner_invitations
+      where token_sha256 = ${hashToken(token)}
+      limit 1
+      for update
+    `;
+    const raw = invRows[0];
+    if (!raw) {
+      return { ok: false, error: { code: 'token_invalid', message: 'Invitation not found' } } as const;
+    }
+    const invitation = rowToInvitation(raw);
+    if (invitation.status === 'declined') {
+      return { ok: true, result: { invitation } } as const;
+    }
+    if (invitation.status === 'accepted') {
+      return { ok: false, error: { code: 'token_already_used', message: 'Invitation was already redeemed' } } as const;
+    }
+    if (invitation.status === 'cancelled') {
+      return { ok: false, error: { code: 'token_cancelled', message: 'Invitation was cancelled' } } as const;
+    }
+    if (invitation.status === 'expired' || invitation.expires_at.getTime() <= Date.now()) {
+      return { ok: false, error: { code: 'token_expired', message: 'Invitation has expired' } } as const;
+    }
+    const updated = await tx<RawInvitationRow[]>`
+      update partner_invitations
+      set status = 'declined'
+      where id = ${invitation.id}
+      returning ${tx.unsafe(INVITATION_COLUMNS)}
+    `;
+    const updatedRaw = updated[0];
+    if (!updatedRaw) {
+      throw new Error('partner_invitation_decline_failed');
+    }
+    return { ok: true, result: { invitation: rowToInvitation(updatedRaw) } } as const;
+  });
+}
+
+export interface SentInvitationSummary {
+  status: PartnerInvitationRow['status'];
+  invitee_email: string;
+  expires_at: Date;
+  created_at: Date;
+}
+
+/**
+ * Inviter card: the inviter's most-recent sent invitation, whatever its status.
+ * A pending row past its TTL is surfaced as 'expired' (lazy — the cron flips it
+ * too, but the card must not lie between cron runs). Returns null when the
+ * inviter never sent one. Prefer this only when the inviter has NO partner yet;
+ * a redeemed pairing shows the partner instead.
+ */
+export async function loadSentInvitation(
+  inviterUserId: bigint,
+  client: Sql = sql,
+): Promise<SentInvitationSummary | null> {
+  const rows = await client<RawInvitationRow[]>`
+    select ${client.unsafe(INVITATION_COLUMNS)}
+    from partner_invitations
+    where inviter_user_id = ${inviterUserId}
+    order by created_at desc
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const inv = rowToInvitation(row);
+  const status =
+    inv.status === 'pending' && inv.expires_at.getTime() <= Date.now() ? 'expired' : inv.status;
+  return {
+    status,
+    invitee_email: inv.invitee_email,
+    expires_at: inv.expires_at,
+    created_at: inv.created_at,
+  };
 }
