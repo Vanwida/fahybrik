@@ -317,7 +317,7 @@
     <div class="block obj">
       <h3>Check-in · Pausa #13 · Partes 1:1 #14</h3>
       <ul>
-        <li><b>Check-in:</b> molestia persistente → sugiere crear lesión; lesión activa amortigua el readiness (espejo del −5 de compliance) + fila "zona lesionada" en el desglose.</li>
+        <li><b>Check-in (regla anti-doble-conteo):</b> molestia persistente → SUGIERE crear lesión (enlaza, no duplica). El <code>soreness</code> del check-in (peso 0.35 vía sub_score) YA refleja el dolor que siente el atleta → una lesión activa <b>NO resta un penalizador aparte</b> (sería castigar el mismo dolor dos veces): <b>CONTEXTUALIZA</b> ese soreness — (a) el check-in pregunta por la zona, (b) el desglose muestra una fila de CONTEXTO "zona lesionada · activa" <i>informativa, sin deducción</i>. Regla documentada en el cómputo de readiness al construir.</li>
         <li><b>Pausa #13:</b> lesión larga/severa → <code>reason='lesion'</code> + <code>end_date=retorno_estimado</code>; la lesión enlaza a la pausa. Corta → solo adaptación. Nunca automático.</li>
         <li><b>Partes 1:1 #14:</b> el parte referencia/crea lesión (se habló en la videollamada); el histórico vive junto a la pestaña 1:1.</li>
       </ul>
