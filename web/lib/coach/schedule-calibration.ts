@@ -45,27 +45,33 @@ export async function scheduleWeek1Calibration(params: {
   for (const test of tests) {
     // A test with no workout content yet cannot be scheduled (nothing to run).
     if (!test.template_id) continue;
+    // The coach's enabled occurrences (a test can repeat — re-tests in weeks 1, 6, 12…).
+    const occurrences = test.schedules.filter((s) => s.enabled);
+    if (occurrences.length === 0) continue;
+    // One per-athlete fork of the content, reused across this test's occurrences.
     const clone = await cloneTemplateAsInstance({
       client,
       source_template_id: Number(test.template_id),
       athlete_id,
     });
     if (!clone) continue;
-    // Coach-chosen schedule: week_offset (1-based) + day_of_week (1=Mon…7=Sun).
-    const dayOffset = (test.week_offset - 1) * 7 + (test.day_of_week - 1);
-    const scheduledFor = isoDateString(addDays(params.week1_monday, dayOffset));
-    // Only week-1 tests hang off the passed microcycle; later weeks aren't covered by it.
-    const microcycleId = test.week_offset === 1 ? week1MicrocycleId : null;
-    await client`
-      insert into workout_assignments (
-        athlete_id, microcycle_id, scheduled_for, template_id, template_version,
-        status, notes, calibration_test_id
-      ) values (
-        ${athlete_id}, ${microcycleId}, ${scheduledFor}::date,
-        ${clone.template_id}, ${clone.version}, 'scheduled', 'calibration', ${Number(test.id)}
-      )
-    `;
-    injected += 1;
+    for (const occ of occurrences) {
+      // Coach-chosen schedule: week_offset (1-based) + day_of_week (1=Mon…7=Sun).
+      const dayOffset = (occ.week_offset - 1) * 7 + (occ.day_of_week - 1);
+      const scheduledFor = isoDateString(addDays(params.week1_monday, dayOffset));
+      // Only week-1 occurrences hang off the passed microcycle; later weeks aren't covered.
+      const microcycleId = occ.week_offset === 1 ? week1MicrocycleId : null;
+      await client`
+        insert into workout_assignments (
+          athlete_id, microcycle_id, scheduled_for, template_id, template_version,
+          status, notes, calibration_test_id
+        ) values (
+          ${athlete_id}, ${microcycleId}, ${scheduledFor}::date,
+          ${clone.template_id}, ${clone.version}, 'scheduled', 'calibration', ${Number(test.id)}
+        )
+      `;
+      injected += 1;
+    }
   }
   return injected;
 }

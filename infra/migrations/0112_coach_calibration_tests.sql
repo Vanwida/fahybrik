@@ -2,12 +2,14 @@
 --
 -- #34 — los tests de calibracion pasan de CONSTANTE del sistema (FABRIK_WEEK1_BATTERY)
 -- a CONTENIDO del coach, editable. Cada coach define su bateria: que tests existen, que
--- mide y calibra cada uno, y CUANDO se programan (semana + dia por test — el coach decide
--- el cuando, el sistema no impone semana-1). La constante degrada a set-semilla.
+-- mide y calibra cada uno, y CUANDO se programan. El coach decide el cuando y PUEDE repetir
+-- un mismo test en varias semanas (re-tests semana 1, 6, 12) — por eso la agenda es una
+-- tabla hija (N ocurrencias por test), no columnas simples. La constante degrada a semilla.
 --
 -- Modelo normalizado (columnas explicitas, sin blob JSON — regla del proyecto):
---   coach_calibration_tests  = un test del coach (identidad, contenido via template, agenda)
+--   coach_calibration_tests  = un test del coach (identidad, contenido via template)
 --   coach_test_results       = que produce cada test (1 fila por resultado; el 1RM produce 3)
+--   coach_test_schedule      = cuando se auto-programa (1 fila por semana/dia; repetible)
 -- Y una FK directa en workout_assignments (calibration_test_id) que sustituye al marcador
 -- derivado del blob meta_json.store_results: is_test, el puente y battery-status leen la FK.
 --
@@ -33,22 +35,18 @@ create table if not exists coach_calibration_tests (
   -- El CONTENIDO del entreno (segments). El scheduler clona este template por atleta.
   -- Nullable: un test puede existir en catalogo antes de tener su entreno montado.
   template_id       bigint references templates(id) on delete set null,
-  -- Agenda que el COACH decide: en que semana del plan del atleta y que dia se auto-programa.
-  week_offset       int not null default 1,
-  day_of_week       int not null default 1,
-  -- Si se auto-programa en el alta / primer plan del atleta.
+  -- Si el test esta activo en la bateria (se auto-programa). La agenda concreta vive en
+  -- coach_test_schedule.
   enabled           boolean not null default true,
   sort_order        int not null default 0,
   archived_at       timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
-  constraint coach_calibration_tests_slug_uq unique (coach_id, slug),
-  constraint coach_calibration_tests_dow_chk check (day_of_week between 1 and 7),
-  constraint coach_calibration_tests_week_chk check (week_offset >= 1)
+  constraint coach_calibration_tests_slug_uq unique (coach_id, slug)
 );
 
 comment on table coach_calibration_tests is
-  'Bateria de tests de calibracion del coach (#34). Contenido editable, sembrado con los 4 de FABRIK como punto de partida. El scheduler itera estas filas (no una constante) para auto-programar los tests en el plan del atleta segun week_offset/day_of_week.';
+  'Bateria de tests de calibracion del coach (#34). Contenido editable, sembrado con los 4 de FABRIK como punto de partida. El scheduler itera estas filas (no una constante) y su agenda (coach_test_schedule) para auto-programar los tests en el plan del atleta.';
 
 create index if not exists coach_calibration_tests_coach_idx
   on coach_calibration_tests (coach_id) where archived_at is null;
@@ -80,9 +78,29 @@ create table if not exists coach_test_results (
 );
 
 comment on table coach_test_results is
-  'Resultados que produce un test de calibracion (#34). Un test produce >=1 (la bateria 1RM produce 3). measure/unit/derives son columnas explicitas (antes vivian en meta_json.store_results). time+load calibran zonas/1RM hoy; distance/reps/calories se guardan como baseline (derives=none) hasta que el puente los derive.';
+  'Resultados que produce un test de calibracion (#34). Un test produce >=1 (la bateria 1RM produce 3). measure/unit/derives son columnas explicitas (antes vivian en meta_json.store_results). time+load calibran zonas/1RM hoy; distance/reps/calories se guardan como baseline (derives=none) hasta que el puente los derive (#44).';
 
 create index if not exists coach_test_results_test_idx on coach_test_results (test_id);
+
+-- ── coach_test_schedule: CUANDO se auto-programa cada test (repetible) ─────────────
+-- El coach decide semana + dia; un mismo test puede repetirse (re-tests semana 1/6/12),
+-- de ahi una fila por ocurrencia. week_offset es 1-based en el plan del atleta.
+create table if not exists coach_test_schedule (
+  id            bigint generated always as identity primary key,
+  test_id       bigint not null references coach_calibration_tests(id) on delete cascade,
+  week_offset   int not null default 1,
+  day_of_week   int not null default 1,
+  enabled       boolean not null default true,
+  created_at    timestamptz not null default now(),
+  constraint coach_test_schedule_uq unique (test_id, week_offset, day_of_week),
+  constraint coach_test_schedule_dow_chk check (day_of_week between 1 and 7),
+  constraint coach_test_schedule_week_chk check (week_offset >= 1)
+);
+
+comment on table coach_test_schedule is
+  'Agenda de un test de calibracion (#34): en que semana(s) del plan del atleta y que dia se auto-programa. Una fila por ocurrencia => un mismo test puede repetirse en varias semanas (re-tests). El scheduler itera las ocurrencias habilitadas.';
+
+create index if not exists coach_test_schedule_test_idx on coach_test_schedule (test_id);
 
 -- ── workout_assignments.calibration_test_id: la FK que sustituye al marcador del blob ──
 -- Antes: is_test / el puente / battery-status se derivaban de meta_json.store_results del
@@ -99,10 +117,8 @@ create index if not exists workout_assignments_calibration_test_idx
 
 -- ── BACKFILL 1: tests del coach desde los templates de calibracion sembrados ──────
 -- Cada template de libreria (instance_athlete_id null) con meta_json.calibration => un test.
--- La agenda (semana/dia) no vive en el template: se mapea por slug desde los 4 defaults de
--- FABRIK; cualquier otro cae al default (semana 1, lunes) y el coach lo ajusta.
 insert into coach_calibration_tests
-  (coach_id, slug, name, protocol, format, primary_modality, template_id, week_offset, day_of_week, sort_order)
+  (coach_id, slug, name, protocol, format, primary_modality, template_id, sort_order)
 select
   t.coach_id,
   t.meta_json ->> 'calibration',
@@ -113,10 +129,6 @@ select
     when 'tt_5k' then 'run' when 'tt_2k_row' then 'row'
     when 'one_rm_battery' then 'strength' when 'hyrox_half_sim' then 'hyrox' else null end,
   t.id,
-  1,
-  case t.meta_json ->> 'calibration'
-    when 'one_rm_battery' then 2 when 'tt_5k' then 3
-    when 'tt_2k_row' then 5 when 'hyrox_half_sim' then 6 else 1 end,
   case t.meta_json ->> 'calibration'
     when 'one_rm_battery' then 0 when 'tt_5k' then 1
     when 'tt_2k_row' then 2 when 'hyrox_half_sim' then 3 else 9 end
@@ -125,6 +137,18 @@ where t.meta_json ? 'calibration'
   and t.instance_athlete_id is null
   and t.archived_at is null
 on conflict (coach_id, slug) do nothing;
+
+-- ── BACKFILL 1b: agenda por defecto (semana 1, el dia de cada test de FABRIK) ─────
+insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
+select
+  cct.id,
+  1,
+  case cct.slug
+    when 'one_rm_battery' then 2 when 'tt_5k' then 3
+    when 'tt_2k_row' then 5 when 'hyrox_half_sim' then 6 else 1 end,
+  true
+from coach_calibration_tests cct
+on conflict (test_id, week_offset, day_of_week) do nothing;
 
 -- ── BACKFILL 2: resultados desde meta_json.store_results de cada template ─────────
 insert into coach_test_results (test_id, slug, label, measure, unit, derives, modality, sort_order)
