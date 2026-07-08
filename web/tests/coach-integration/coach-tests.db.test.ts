@@ -216,7 +216,13 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
       assignment_id: BigInt(Number(run.id)),
     });
     expect(detail?.assignment.store_results).toEqual([
-      expect.objectContaining({ slug: 'run_5k', measure: 'time', unit: 'seconds' }),
+      expect.objectContaining({
+        slug: 'run_5k',
+        measure: 'time',
+        unit: 'seconds',
+        derives: 'run_zones',
+        modality: 'run',
+      }),
     ]);
   }, 60000);
 });

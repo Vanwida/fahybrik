@@ -8,7 +8,7 @@ import {
   partnerVisibility,
 } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
-import { STORE_RESULT_MEASURES, STORE_RESULT_UNITS } from './test-battery';
+import { STORE_RESULT_MEASURES, STORE_RESULT_UNITS, STORE_RESULT_DERIVES } from './test-battery';
 
 // Dobles HYROX station assignment (reparto).
 //
@@ -332,13 +332,18 @@ export const assignmentDetailWorkoutSchema = z.object({
 export type AssignmentDetailWorkout = z.infer<typeof assignmentDetailWorkoutSchema>;
 
 // #34 — one calibration result to capture for a test session (mirrors
-// coach_test_results). `measure`/`unit` drive the iOS capture input + the value's
-// interpretation on POST back.
+// coach_test_results / storeResultSpecSchema). `measure`/`unit` drive the iOS
+// capture input + the value's interpretation on POST back; `derives`/`modality`
+// document what it calibrates (routing lives server-side, in the bridge). Kept a
+// dedicated schema (not the refined storeResultSpecSchema) so a null modality from
+// the DB parses cleanly.
 export const assignmentDetailStoreResultSchema = z.object({
   slug: z.string(),
   label: z.string(),
   measure: z.enum(STORE_RESULT_MEASURES),
   unit: z.enum(STORE_RESULT_UNITS),
+  derives: z.enum(STORE_RESULT_DERIVES),
+  modality: z.string().nullable().optional(),
 });
 export type AssignmentDetailStoreResult = z.infer<typeof assignmentDetailStoreResultSchema>;
 

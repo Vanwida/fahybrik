@@ -135,11 +135,14 @@ export interface AssignmentDetailExecution {
 // #34 — one result a calibration-test session must capture. `measure`/`unit` are
 // the coach_test_results columns (time→seconds, load→kg, distance→meters, …); iOS
 // renders the matching input and POSTs the entered value back keyed by `slug`.
+// `derives`/`modality` document what it calibrates (the bridge does the routing).
 export interface AssignmentDetailStoreResult {
   slug: string;
   label: string;
   measure: string;
   unit: string;
+  derives: string;
+  modality: string | null;
 }
 
 export interface AssignmentDetailWorkout {
@@ -348,7 +351,8 @@ export async function loadAssignmentDetail(
   // meta_json). Empty for a normal session (calibration_test_id null).
   const storeResults = assignment.calibration_test_id
     ? await sql<AssignmentDetailStoreResult[]>`
-        select slug, label, measure::text as measure, unit::text as unit
+        select slug, label, measure::text as measure, unit::text as unit,
+               derives::text as derives, modality
         from coach_test_results
         where test_id = ${Number(assignment.calibration_test_id)}
         order by sort_order asc, id asc
