@@ -32,10 +32,13 @@ export default async function InicioPage({ params }: InicioPageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  // Cookieless, PII-free visit count AFTER the response is sent (next/server `after`),
-  // so the DB write never blocks render. Errors are swallowed inside recordVisit.
+  // Cookieless, PII-free visit count. headers() MUST be read here, during the request
+  // scope — calling it inside `after()` throws (the request store is gone post-response).
+  // We capture the materialized headers now and hand them to `after()`, so the DB write
+  // runs after the response ships and never blocks render. Errors swallowed in recordVisit.
+  const requestHeaders = await headers();
   after(async () => {
-    await recordVisit('landing', await headers());
+    await recordVisit('landing', requestHeaders);
   });
 
   return (

@@ -25,9 +25,11 @@ export default async function EmpiezaPage({ params }: EmpiezaPageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  // Cookieless, PII-free visit count AFTER the response (never blocks render).
+  // Cookieless, PII-free visit count. headers() MUST be read in request scope (not inside
+  // `after()`, where the store is gone); we capture it now and write after the response.
+  const requestHeaders = await headers();
   after(async () => {
-    await recordVisit('empieza', await headers());
+    await recordVisit('empieza', requestHeaders);
   });
 
   return <OnboardingFlow locale={locale} />;
