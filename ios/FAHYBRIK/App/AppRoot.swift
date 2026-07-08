@@ -190,8 +190,24 @@ struct AppRoot: View {
                     }
                 )
             case .authenticated:
-                AppShell(onSignOut: { auth.signOut() })
-                    .environment(auth)
+                if auth.day1Completed {
+                    AppShell(onSignOut: { auth.signOut() })
+                        .environment(auth)
+                } else {
+                    // First open after alta/claim — guided day-1 orientation (#17)
+                    // before the shell. Shown once; funnel athletes skip the
+                    // 19-step questionnaire entirely (their data came from alta).
+                    Day1Flow(
+                        bearer: auth.bearer,
+                        startStep: auth.day1Step,
+                        onStepChange: { auth.saveDay1Step($0) },
+                        onFinished: {
+                            auth.finishDay1()
+                            startHealthKitSync()
+                            startPush()
+                        }
+                    )
+                }
             case .unauthenticated:
                 // Unreachable — guarded by the outer switch. Render nothing.
                 EmptyView()

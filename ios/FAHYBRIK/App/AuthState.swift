@@ -13,6 +13,17 @@ final class AuthState {
     var bearer: String? = nil
     var athleteId: String? = nil
 
+    /// Day-1 first-run flow (#17). Per-athlete: false → show the guided day-1
+    /// (welcome + connect Health + tests preview + weekly-loop) once, before the
+    /// shell; true → straight to the app. Funnel athletes arrive already
+    /// onboarded (`onboarded_at` set at alta) but day1Completed=false, so day-1 is
+    /// their first-open orientation. Questionnaire-completers (the no-funnel
+    /// fallback) are marked done in `finishOnboarding()` — they already got a full
+    /// onboarding. Defaults true so we never flash day-1 before a session loads.
+    var day1Completed: Bool = true
+    /// Resume point if the athlete closes the app mid-day-1.
+    var day1Step: Int = 0
+
     /// Invite-only access gate. `nil` = not yet checked (show a loader, never
     /// the app); `true` = no active access → show the invite-only gate;
     /// `false` = active access → let the athlete into the app. We do NOT
@@ -27,6 +38,8 @@ final class AuthState {
     private static let bearerKey = bearerStorageKey
     private static let athleteKey = "fahybrik.athleteId"
     private static let stageKey = "fahybrik.stage"
+    private static func day1Key(_ athleteId: String) -> String { "fahybrik.day1_completed.\(athleteId)" }
+    private static func day1StepKey(_ athleteId: String) -> String { "fahybrik.day1_step.\(athleteId)" }
 
     /// Persisted athleteId for callers that don't hold the AuthState instance
     /// (e.g. ProfileView, which only receives the bearer). Single source of
@@ -46,6 +59,7 @@ final class AuthState {
             default: stage = .unauthenticated
             }
         }
+        loadDay1()
     }
 
     func acceptAppleResponse(_ resp: AppleAuthResponse) {
@@ -54,6 +68,7 @@ final class AuthState {
         stage = (resp.onboarding_complete == true) ? .authenticated : .onboarding
         // Access must be (re)checked for the freshly-authenticated session.
         accessGated = nil
+        loadDay1()
         persist()
     }
 
@@ -69,12 +84,39 @@ final class AuthState {
         self.athleteId = athleteId
         stage = .authenticated
         accessGated = nil
+        loadDay1()
         persist()
     }
 
     func finishOnboarding() {
         stage = .authenticated
+        // A questionnaire-completer (the no-funnel fallback) already got a full
+        // onboarding — skip the day-1 orientation for them.
+        finishDay1()
         persist()
+    }
+
+    /// Load the per-athlete day-1 flags from disk. `bool(forKey:)` returns false
+    /// when unset → an athlete who never saw day-1 gets it once.
+    private func loadDay1() {
+        guard let athleteId else { day1Completed = true; day1Step = 0; return }
+        let d = UserDefaults.standard
+        day1Completed = d.bool(forKey: Self.day1Key(athleteId))
+        day1Step = d.integer(forKey: Self.day1StepKey(athleteId))
+    }
+
+    /// Persist the resume point when the athlete advances a day-1 beat.
+    func saveDay1Step(_ step: Int) {
+        guard let athleteId else { return }
+        day1Step = step
+        UserDefaults.standard.set(step, forKey: Self.day1StepKey(athleteId))
+    }
+
+    /// Mark day-1 done for the current athlete — never shown again.
+    func finishDay1() {
+        day1Completed = true
+        guard let athleteId else { return }
+        UserDefaults.standard.set(true, forKey: Self.day1Key(athleteId))
     }
 
     func signOut() {
