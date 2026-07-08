@@ -6,6 +6,7 @@
 // `detalle` payload; this component is pure composition + the per-tab selectors.
 
 import { DetalleHeader } from './DetalleHeader';
+import { LifecycleBanner } from './lifecycle/LifecycleBanner';
 import { DetalleTabBar } from './DetalleTabBar';
 import { PerfilTab } from './PerfilTab';
 import { PlanTab } from './PlanTab';
@@ -29,6 +30,13 @@ export function AthleteDetalle({
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-6">
       <DetalleHeader header={header} stats={detalle.stats} />
+
+      {/* Lifecycle context (#13): pending pause request / en pausa / de baja. */}
+      <LifecycleBanner
+        athleteId={header.athlete_id}
+        athleteName={header.full_name}
+        lifecycle={header.lifecycle}
+      />
 
       <DetalleTabBar athlete_id={header.athlete_id} active={tab} />
 

@@ -27,6 +27,8 @@ import {
 import { buildAthleteResumen, type AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import { buildAthletePlan, type AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import { getAthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
+import { loadAthleteLifecycleDetail } from '@/lib/dashboard/coach/athlete-lifecycle-detail';
+import { LIFECYCLE_STATUS_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import { listSessionReportsForAthlete } from '@/lib/coach/session-reports';
 import {
@@ -48,6 +50,7 @@ import type { V2Status } from '@/components/v2/StatusDot';
 import {
   EM_DASH,
   type DetalleHeader,
+  type DetalleLifecycle,
   type DetalleStat,
   type DetalleChatMessage,
   type ClasificacionData,
@@ -55,6 +58,17 @@ import {
   type StrengthMaxView,
   type BenchmarkSeries,
 } from './atleta-detalle-types';
+
+/** An athlete with no lifecycle row loaded → treat as plain activo (no banner/actions gap). */
+const ACTIVE_LIFECYCLE: DetalleLifecycle = {
+  status: 'activo',
+  pause_reason: null,
+  paused_since: null,
+  planned_return: null,
+  baja_at: null,
+  baja_reason: null,
+  pending_request: null,
+};
 
 // Re-export the client-safe surface so existing import sites keep working.
 export {
@@ -105,11 +119,18 @@ function phaseLabel(
   return shell?.block_week != null ? `${name} · sem ${shell.block_week}` : name;
 }
 
-/** Account/training status — readiness alarm wins over the plain active state. */
+/** Account/training status — lifecycle (pausa/baja) wins over everything, then the
+ *  readiness alarm over the plain active state. Both paused + baja map to the 'pausa'
+ *  StatusDot (faint), differentiated by the label + the banner under the header. */
 function deriveStatus(
   shell: AthleteProfileShell | null,
   resumen: AthleteResumen | null,
+  lifecycle: DetalleLifecycle,
 ): { status: V2Status; label: string } {
+  if (lifecycle.status === 'pausado')
+    return { status: 'pausa', label: LIFECYCLE_STATUS_LABELS.pausado };
+  if (lifecycle.status === 'baja')
+    return { status: 'pausa', label: LIFECYCLE_STATUS_LABELS.baja };
   if (shell?.intake_pending) return { status: 'alta', label: 'Alta · revisar intake' };
   const r = resumen?.readiness_score ?? shell?.readiness_score ?? null;
   if (r != null && r < 45) return { status: 'atencion', label: 'Atención · fisiología' };
@@ -221,6 +242,7 @@ export async function loadAthleteDetalle(params: {
     plan,
     body,
     subscription,
+    lifecycle,
     chat,
     zone_profiles,
     classification,
@@ -233,6 +255,8 @@ export async function loadAthleteDetalle(params: {
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
     buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
     getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
+    // Lifecycle (#13): state + current pause + baja context + any pending pause request.
+    loadAthleteLifecycleDetail({ athlete_id, client }).catch(() => null),
     loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
     loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
     loadClassification({ coach_id, athlete_id, client }).catch(() => null),
@@ -241,6 +265,8 @@ export async function loadAthleteDetalle(params: {
     loadBenchmarkHistory({ coach_id, athlete_id, client }).catch(() => []),
     listSessionReportsForAthlete(BigInt(athlete_id)).catch(() => []),
   ]);
+
+  const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
 
   // Group each current 1RM with its full version history (oldest→newest) → the
   // client-safe Perfil view. The label is resolved here (server) so the view stays
@@ -257,7 +283,7 @@ export async function loadAthleteDetalle(params: {
       .map((h) => ({ one_rm_kg: h.one_rm_kg, version: h.version, recorded_at: h.recorded_at })),
   }));
 
-  const { status, label } = deriveStatus(shell, resumen);
+  const { status, label } = deriveStatus(shell, resumen, lifecycleDetail);
   const header: DetalleHeader = {
     athlete_id: shell.athlete_id,
     full_name: shell.full_name,
@@ -267,6 +293,7 @@ export async function loadAthleteDetalle(params: {
     tenure_label: tenureLabel(shell.onboarded_at),
     phase_label: phaseLabel(shell, plan),
     modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
+    lifecycle: lifecycleDetail,
   };
 
   // Degrade safely: a failed classification load renders the picker in its empty

@@ -43,6 +43,13 @@ export interface DoublesTrainingPartner {
   partner_user_id: bigint;
   /** The partner athlete's full name (null only if unset on the athlete row). */
   partner_full_name: string | null;
+  /**
+   * #13: the partner is EN PAUSA (athletes.lifecycle_status='pausado'). Plan /
+   * analytics / session surfaces STILL resolve them (the pair stands) but can tag
+   * "en pausa". A partner de BAJA does NOT resolve at all — loadDoublesTrainingPartner
+   * returns null, exactly as for a soft-deleted account.
+   */
+  partner_paused: boolean;
 }
 
 /**
@@ -65,20 +72,24 @@ export async function loadDoublesTrainingPartner(
       partner_athlete_id: string;
       partner_user_id: string;
       partner_full_name: string | null;
+      partner_lifecycle_status: string;
     }[]
   >`
     select
-      a.id::text      as partner_athlete_id,
-      u.id::text      as partner_user_id,
-      a.full_name     as partner_full_name
+      a.id::text               as partner_athlete_id,
+      u.id::text               as partner_user_id,
+      a.full_name              as partner_full_name,
+      a.lifecycle_status::text as partner_lifecycle_status
     from athletes a
     join users u on u.id = a.user_id and u.deleted_at is null
     where a.id = ${pair.partner_id}
+      and a.lifecycle_status <> 'baja'
     limit 1
   `;
   const row = rows[0];
-  // Pair points at an athlete whose user was deleted — treat as no partner
-  // rather than surfacing a half-resolved side.
+  // Pair points at an athlete whose user was deleted OR who is de BAJA — treat as
+  // no partner rather than surfacing a half-resolved / departed side (#13). A PAUSED
+  // partner still resolves here (the pair stands) and is tagged partner_paused.
   if (!row) return null;
 
   return {
@@ -86,5 +97,6 @@ export async function loadDoublesTrainingPartner(
     partner_athlete_id: BigInt(row.partner_athlete_id),
     partner_user_id: BigInt(row.partner_user_id),
     partner_full_name: row.partner_full_name,
+    partner_paused: row.partner_lifecycle_status === 'pausado',
   };
 }

@@ -115,6 +115,10 @@ describe('buildDoblesConnectedPlan', () => {
       focus: null,
       has_next_week: false,
       days,
+      // #13 — lifecycle freeze fields (this fixture models an active athlete's week).
+      paused: false,
+      paused_since: null,
+      paused_reason: null,
     };
   }
 

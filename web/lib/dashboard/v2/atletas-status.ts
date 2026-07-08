@@ -1,24 +1,22 @@
-// v2 ATLETAS — roster status derivation. The roster loader (AthleteRow) does not
-// persist an explicit account state; we derive a single coach-facing status from
-// the real fields it DOES produce (intake_pending, programming_status,
-// alert_severity). One function so the StatusDot, the row tint and the top-bar
-// count chips all agree on what "needs attention" / "new" means.
+// v2 ATLETAS — roster status derivation. We derive a single coach-facing status
+// from the athlete's lifecycle state (#13) plus the real activity fields the loader
+// produces (intake_pending, programming_status, alert_severity). One function so the
+// StatusDot, the row tint and the top-bar count chips all agree.
 //
 // Status → token mapping follows the spec's status color rules:
 //   activa  = ok/green     (clean, training)
 //   atencion= danger/red   (alert_severity present → missed work / readiness)
 //   nuevo   = info/blue     (finished onboarding, coach hasn't reviewed intake)
 //   sin_plan= warn/gold     (no active plan / structurally broken week)
+//   pausa   = warn, muted   (lifecycle_status=pausado — plan frozen, resting)
+//   baja    = faint, muted  (lifecycle_status=baja — left the roster, history kept)
 //
-// There is intentionally NO "pausa" state: the loader surfaces no
-// subscription-paused signal, so fabricating one would be fake data. If a real
-// `subscription.status='paused'` field is later surfaced on the roster row, add
-// a 'pausa' case here (muted token) and a count chip — every consumer updates
-// from this one place. // TODO(model): real account-pause signal.
+// pausa / baja are RESTING states (their plan is frozen), so the row is muted and
+// they win over every activity-derived state — a paused athlete isn't "sin plan".
 
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 
-export type RosterStatus = 'activa' | 'atencion' | 'nuevo' | 'sin_plan';
+export type RosterStatus = 'activa' | 'atencion' | 'nuevo' | 'sin_plan' | 'pausa' | 'baja';
 
 export interface RosterStatusMeta {
   /** Coach-facing label (Spanish). */
@@ -27,6 +25,9 @@ export interface RosterStatusMeta {
   colorVar: string;
   /** Soft token var for an optional row tint (null = no tint). */
   rowTintVar: string | null;
+  /** De-emphasize the whole row (reduced opacity) — the resting lifecycle states
+   *  (pausa / baja) that sit outside the daily triage. */
+  muted?: boolean;
 }
 
 export const ROSTER_STATUS_META: Record<RosterStatus, RosterStatusMeta> = {
@@ -34,6 +35,8 @@ export const ROSTER_STATUS_META: Record<RosterStatus, RosterStatusMeta> = {
   atencion: { label: 'Atención', colorVar: '--v2-danger', rowTintVar: '--v2-danger-soft' },
   nuevo: { label: 'Nuevo', colorVar: '--v2-info', rowTintVar: '--v2-info-soft' },
   sin_plan: { label: 'Sin plan', colorVar: '--v2-warn', rowTintVar: null },
+  pausa: { label: 'En pausa', colorVar: '--v2-warn', rowTintVar: null, muted: true },
+  baja: { label: 'Baja', colorVar: '--v2-faint', rowTintVar: null, muted: true },
 };
 
 /** True when the athlete has no usable plan / a structurally broken week. */
@@ -46,11 +49,14 @@ function hasPlanGap(a: AthleteRow): boolean {
 }
 
 /**
- * Derive the single roster status for an athlete. Priority (most actionable
- * first): a fresh intake to review wins (you can't coach who you haven't set
- * up), then an active alert, then a plan gap, else the athlete is training.
+ * Derive the single roster status for an athlete. Lifecycle (#13) wins first: a
+ * paused / baja athlete reads pausa / baja regardless of activity (their plan is
+ * frozen). Then, among live athletes (most actionable first): a fresh intake to
+ * review, then an active alert, then a plan gap, else training.
  */
 export function rosterStatus(a: AthleteRow): RosterStatus {
+  if (a.lifecycle_status === 'pausado') return 'pausa';
+  if (a.lifecycle_status === 'baja') return 'baja';
   if (a.intake_pending) return 'nuevo';
   if (a.alert_severity != null) return 'atencion';
   if (hasPlanGap(a)) return 'sin_plan';

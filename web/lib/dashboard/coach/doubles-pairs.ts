@@ -501,6 +501,86 @@ export async function unlinkDoublesPairForAthlete(params: {
 }
 
 // ---------------------------------------------------------------------------
+// dissolvePairOnBaja — #13(dobles) BAJA teardown. When an athlete leaves the
+// roster (bajaAthlete → lifecycle_status='baja'), DISSOLVE their active doubles
+// pair across all three axes AND notify the surviving partner — INSIDE the
+// caller's transaction. bajaAthlete runs its own `sql.begin` and passes that tx
+// here (see athlete-lifecycle.ts, the `#13(dobles)` seam), so the state flip and
+// the pair teardown commit or roll back atomically as one unit.
+//
+// This is the BAJA sibling of unlinkDoublesPairForAthlete (athlete self-unlink)
+// and dissolveDoublesPair (coach). It performs the SAME 3-axis teardown, reusing
+// the SAME single-site helper (clearPairAccountLinks) — NO duplication — keyed by
+// the LEAVING athlete (membership on either column):
+//
+//   1. doubles_pairs.status → 'dissolved'              (training)
+//   2. users.partner_id → null (both sides)            (account)   ┐ clearPairAccountLinks
+//   3. subscriptions.partner_user_id → null (both)     (billing)   ┘
+//   4. notify the SURVIVING partner (system / partner_left)
+//
+// Defensive: a no-op when the athlete is NOT in an active pair. History
+// (workout_executions — the joint sessions) is CONSERVED: never touched, so BOTH
+// athletes keep their shared record after the split (same posture as un-pairing).
+//
+// #15: the shared subscription still covers both — the billing split (one sub
+// paying for two) is #15, NOT resolved here. We only unlink the mirror pointer
+// (subscriptions.partner_user_id); who keeps paying / how the plan re-prices is
+// #15's seam.
+// ---------------------------------------------------------------------------
+
+export async function dissolvePairOnBaja(
+  athlete_id: bigint,
+  tx: TransactionClient,
+): Promise<void> {
+  const selfAthleteId = Number(athlete_id);
+
+  // The leaving athlete's active pair (either column), row-locked so a concurrent
+  // teardown can't double-act. Defensive no-op when there is none.
+  const pairRows = await tx<{ id: string; a: string; b: string }[]>`
+    select id::text as id, athlete_a_id::text as a, athlete_b_id::text as b
+    from doubles_pairs
+    where status = 'active'
+      and (athlete_a_id = ${selfAthleteId} or athlete_b_id = ${selfAthleteId})
+    for update
+  `;
+  const pair = pairRows[0];
+  if (!pair) return; // not in an active pair — nothing to dissolve
+
+  // 1) Training axis → dissolved.
+  await tx`
+    update doubles_pairs set status = 'dissolved', updated_at = now()
+    where id = ${Number(pair.id)}
+  `;
+
+  // 2+3) Account + billing axes → cleared BOTH ways via the ONE shared teardown
+  //      helper (same site as coach dissolve + athlete self-unlink). Joint history
+  //      (workout_executions) is CONSERVED — clearPairAccountLinks never touches it.
+  const users = await resolveAthleteUserIds(tx, Number(pair.a), Number(pair.b));
+  if (!users) return; // athlete row vanished (FK cascade) — nothing left to clear
+
+  await clearPairAccountLinks(tx, users.aUser, users.bUser);
+
+  // 4) Notify the SURVIVING partner (the OTHER user) that the pairing ended, using
+  //    the canonical 'system' + kind:'partner_left' contract (same as the account-
+  //    deletion path, lib/athlete/account-deletion.ts) so the iOS inbox renders the
+  //    existing "tu pareja ya no está" copy without introducing a new kind.
+  const leavingUser = selfAthleteId === Number(pair.a) ? users.aUser : users.bUser;
+  const survivingUser = selfAthleteId === Number(pair.a) ? users.bUser : users.aUser;
+  const payload = {
+    kind: 'partner_left',
+    former_partner_user_id: leavingUser.toString(),
+  };
+  await tx`
+    insert into notifications (user_id, type, payload_json)
+    values (
+      ${survivingUser}::bigint,
+      'system'::notification_type,
+      ${JSON.stringify(payload)}::jsonb
+    )
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // assignSequenceToPair — ONE call → materialize the plan for BOTH athletes.
 //
 // Reuses assignSequenceToAthlete verbatim per athlete: since the pair aligned

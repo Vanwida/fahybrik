@@ -8,8 +8,13 @@ import {
 } from '@/lib/dashboard/coach/programming-status';
 import type { RacePriority } from '@fahybrid/shared/schema';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
+import { pauseExclusionSql } from '@/lib/coach/adherence-pause-filter';
 import { getOrderAlteredByAthlete } from '@/lib/dashboard/v2/order-altered';
 import { getLatestReadinessBatch } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
+import type {
+  AthleteLifecycleStatus,
+  PauseReason,
+} from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 
 export type { ProgrammingStatus };
 
@@ -64,6 +69,14 @@ export interface AthleteRow {
    *  NO adherence penalty — purely informational. Single-sourced via
    *  @/lib/dashboard/v2/order-altered (isOrderAltered). False when <2 completions. */
   order_altered: boolean;
+  /** Athlete lifecycle state (#13) — activo | pausado | baja. Drives the roster
+   *  status badge: pausa / baja win over every activity-derived state. */
+  lifecycle_status: AthleteLifecycleStatus;
+  /** Current pause reason when pausado (else null) — threads "En pausa · lesión". */
+  pause_reason: PauseReason | null;
+  /** Reason of a PENDING athlete-initiated pause request (else null = none pending).
+   *  Only an activo athlete can have one (the requestPause guard). Surfaces "Pidió pausa". */
+  pause_request_reason: PauseReason | null;
 }
 
 export async function fetchAthletesForCoach(params: {
@@ -104,6 +117,9 @@ export async function fetchAthletesForCoach(params: {
       onboarded_at: Date | null;
       intake_completed_at: Date | null;
       last_activity_at: Date | null;
+      lifecycle_status: AthleteLifecycleStatus;
+      open_pause_reason: PauseReason | null;
+      pause_request_reason: PauseReason | null;
     }>
   >`
     select
@@ -125,7 +141,10 @@ export async function fetchAthletesForCoach(params: {
       tr.priority::text as target_race_priority,
       tr.race_date_iso as target_race_date,
       tr.days_until as target_race_days_until,
-      la.last_activity_at
+      la.last_activity_at,
+      a.lifecycle_status,
+      op.reason as open_pause_reason,
+      pr.reason as pause_request_reason
     from athletes a
     left join athlete_levels al on al.id = a.level_id
     left join lateral (
@@ -167,6 +186,10 @@ export async function fetchAthletesForCoach(params: {
         -- COACH-PLAN compliance only: a self-origin "entreno libre" (mig 0090)
         -- complements the plan, it must never inflate nor dilute adherence.
         and x.origin = 'coach'
+        -- #13: EXCLUDE days inside a pause (frozen), don't count them as 0%. Wraps
+        -- the row source so scheduled + completed shrink together; a whole paused
+        -- window ⇒ scheduled 0 ⇒ compliance_pct null ("—"). Shared with the ficha.
+        ${pauseExclusionSql(client, client`x.athlete_id`, client`x.scheduled_for`)}
     ) wa on true
     left join lateral (
       select plan_type, source
@@ -201,6 +224,23 @@ export async function fetchAthletesForCoach(params: {
       from workout_executions we
       where we.athlete_id = a.id
     ) la on true
+    left join lateral (
+      -- #13: the CURRENT pause reason when pausado (end_date null = indefinite, or a
+      -- future "vuelve el" date). Mirrors the closeCurrentPauseTx predicate so a
+      -- planned-return pause still threads its motivo into the roster badge.
+      select reason from athlete_pauses
+      where athlete_id = a.id and (end_date is null or end_date > ${raceTodayIso}::date)
+      order by start_date desc
+      limit 1
+    ) op on true
+    left join lateral (
+      -- #13: a PENDING athlete-initiated pause request → the "Pidió pausa" indicator.
+      -- At most one pending per athlete (the requestPause guard + partial unique index).
+      select reason from athlete_pause_requests
+      where athlete_id = a.id and status = 'pending'
+      order by created_at desc
+      limit 1
+    ) pr on true
     where a.coach_id = ${params.coach_id}
       and (${modalityFilter}::text is null or sub.plan_type = ${modalityFilter})
     order by a.full_name asc
@@ -278,6 +318,9 @@ export async function fetchAthletesForCoach(params: {
       }),
       last_activity_at: r.last_activity_at ? r.last_activity_at.toISOString() : null,
       order_altered: orderAlteredMap.get(Number(r.athlete_id)) ?? false,
+      lifecycle_status: r.lifecycle_status,
+      pause_reason: r.open_pause_reason ?? null,
+      pause_request_reason: r.pause_request_reason ?? null,
       target_race:
         r.target_race_name != null &&
         r.target_race_priority != null &&

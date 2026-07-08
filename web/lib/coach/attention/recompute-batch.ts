@@ -242,6 +242,9 @@ export async function loadBatch(
     left join recent_libre rl on rl.athlete_id = a.id
     where a.coach_id = ${coach_id as number}
       and (${athleteFilter}::bigint is null or a.id = ${athleteFilter}::bigint)
+      -- #13: paused/baja athletes are frozen — a paused athlete is DELIBERATELY
+      -- inactive, not at-risk, so they raise no inactivity/missed attention signals.
+      and a.lifecycle_status = 'activo'
     order by a.full_name asc
   `;
 }

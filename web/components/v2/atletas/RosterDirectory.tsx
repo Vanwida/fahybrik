@@ -41,6 +41,8 @@ const STATUS_OPTIONS: ReadonlyArray<DropdownOption<StatusFilter>> = [
   { value: 'atencion', label: 'Atención' },
   { value: 'nuevo', label: 'Nuevo' },
   { value: 'sin_plan', label: 'Sin plan' },
+  { value: 'pausa', label: 'En pausa' },
+  { value: 'baja', label: 'Baja' },
 ];
 
 // Default level options match the N1–N5 seed in migration 0057. Coaches who
@@ -69,12 +71,15 @@ const SORT_OPTIONS: ReadonlyArray<DropdownOption<SortKey>> = [
   { value: 'estado', label: 'estado' },
 ];
 
-// Severity ordering for the "estado" sort — most actionable first.
+// Severity ordering for the "estado" sort — most actionable first, resting
+// lifecycle states (pausa / baja) last.
 const STATUS_SORT_RANK: Record<RosterStatus, number> = {
   atencion: 0,
   nuevo: 1,
   sin_plan: 2,
   activa: 3,
+  pausa: 4,
+  baja: 5,
 };
 
 interface DirectoryRow extends RosterRow {
@@ -118,17 +123,24 @@ export function RosterDirectory({
     ];
   }, [rows]);
 
-  // Real count chips — activos / nuevos / requieren atención (all derived).
+  // Real count chips — all derived. activos / nuevos / atención are the always-on
+  // headline; pausa / baja / piden pausa surface only when present (exceptional states).
   const counts = useMemo(() => {
     let activos = 0;
     let nuevos = 0;
     let atencion = 0;
+    let pausa = 0;
+    let baja = 0;
+    let pidenPausa = 0;
     for (const r of rows) {
       if (r.status === 'nuevo') nuevos += 1;
       else if (r.status === 'atencion') atencion += 1;
+      else if (r.status === 'pausa') pausa += 1;
+      else if (r.status === 'baja') baja += 1;
       if (r.status === 'activa') activos += 1;
+      if (r.pause_request_label) pidenPausa += 1;
     }
-    return { activos, nuevos, atencion };
+    return { activos, nuevos, atencion, pausa, baja, pidenPausa };
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -183,6 +195,21 @@ export function RosterDirectory({
             <Pill tone="danger" variant="soft">
               <span className="v2-num">{counts.atencion}</span>&nbsp;requieren atención
             </Pill>
+            {counts.pidenPausa > 0 ? (
+              <Pill tone="warn" variant="soft">
+                <span className="v2-num">{counts.pidenPausa}</span>&nbsp;piden pausa
+              </Pill>
+            ) : null}
+            {counts.pausa > 0 ? (
+              <Pill tone="warn" variant="soft">
+                <span className="v2-num">{counts.pausa}</span>&nbsp;en pausa
+              </Pill>
+            ) : null}
+            {counts.baja > 0 ? (
+              <Pill tone="neutral" variant="soft">
+                <span className="v2-num">{counts.baja}</span>&nbsp;de baja
+              </Pill>
+            ) : null}
           </div>
         </div>
 

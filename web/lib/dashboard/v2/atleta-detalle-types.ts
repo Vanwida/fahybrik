@@ -5,6 +5,10 @@
 // from here.
 
 import type { V2Status } from '@/components/v2/StatusDot';
+import type {
+  AthleteLifecycleStatus,
+  PauseReason,
+} from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
@@ -91,6 +95,29 @@ export function normalizeAtletaTab(raw: string | undefined): AtletaTab {
     : DEFAULT_ATLETA_TAB;
 }
 
+// ── Lifecycle (#13) — the ficha's pause/baja/re-alta context ─────────────────────
+// The state that drives the header actions + the banner. DISTINCT from billing: it
+// says whether the coach is currently coaching the athlete, independent of Stripe.
+// Single shape shared by the server read (loadAthleteLifecycleDetail) and the client
+// surfaces (LifecycleControl / LifecycleBanner), so it lives in this client-safe module.
+export interface DetalleLifecycle {
+  /** activo | pausado | baja. */
+  status: AthleteLifecycleStatus;
+  /** Open pause reason code when pausado, else null. */
+  pause_reason: PauseReason | null;
+  /** ISO YYYY-MM-DD the current pause started, else null. */
+  paused_since: string | null;
+  /** ISO YYYY-MM-DD planned return ("vuelve el"), null = indefinite / n/a. */
+  planned_return: string | null;
+  /** ISO instant the athlete went baja, else null. */
+  baja_at: string | null;
+  /** Baja reason code, else null. */
+  baja_reason: PauseReason | null;
+  /** A PENDING athlete-initiated pause request awaiting the coach, else null. Only an
+   *  activo athlete can have one (the requestPause guard). */
+  pending_request: { request_id: string; reason: PauseReason } | null;
+}
+
 // ── Header / identity projection ────────────────────────────────────────────────
 export interface DetalleHeader {
   athlete_id: string;
@@ -104,6 +131,8 @@ export interface DetalleHeader {
   /** "Acumulación · sem 4" style current phase label, null when no plan. */
   phase_label: string | null;
   modality_label: string | null;
+  /** Lifecycle state (#13) — drives the header actions + the pause/baja/request banner. */
+  lifecycle: DetalleLifecycle;
 }
 
 // ── Stat cluster (the 4 header StatTiles) ──────────────────────────────────────

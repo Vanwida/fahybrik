@@ -9,25 +9,29 @@ import { cn } from '@/lib/utils';
 
 export function RosterStatusDot({
   status,
+  detail,
   showLabel = true,
   className,
 }: {
   status: RosterStatus;
+  /** Optional qualifier appended after the label, e.g. "Lesión" → "En pausa · Lesión". */
+  detail?: string | null;
   showLabel?: boolean;
   className?: string;
 }) {
   const meta = ROSTER_STATUS_META[status];
+  const label = detail ? `${meta.label} · ${detail}` : meta.label;
   return (
-    <span className={cn('inline-flex items-center gap-1.5', className)}>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5', className)}>
       <span
         aria-hidden
         className="h-2 w-2 shrink-0 rounded-full"
         style={{ background: `var(${meta.colorVar})` }}
       />
       {showLabel ? (
-        <span className="text-xs font-medium text-[color:var(--v2-fg)]">{meta.label}</span>
+        <span className="truncate text-xs font-medium text-[color:var(--v2-fg)]">{label}</span>
       ) : (
-        <span className="sr-only">{meta.label}</span>
+        <span className="sr-only">{label}</span>
       )}
     </span>
   );

@@ -29,6 +29,9 @@ export async function GET(req: Request) {
       partner: {
         athlete_id: snapshot.athlete_id.toString(),
         full_name: snapshot.full_name,
+        // #13: true when the partner is en pausa — iOS renders "tu pareja está en
+        // pausa" on the "Tu pareja" panel instead of hiding/breaking it.
+        partner_paused: snapshot.partner_paused,
         today: snapshot.today,
         week: snapshot.week,
         recent: snapshot.recent,

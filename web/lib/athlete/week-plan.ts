@@ -54,6 +54,14 @@ export interface AthleteWeekPlan {
   focus: string | null;
   has_next_week: boolean;
   days: AthleteWeekDay[];
+  // #13 — lifecycle freeze. `paused` = the athlete is frozen (lifecycle_status !=
+  // 'activo'); the client renders an "en pausa" state instead of an empty/failed
+  // week. We still return the real week structure (no invented sessions) — the flag
+  // just lets the app frame it. `paused_since`/`paused_reason` come from the OPEN
+  // pause (null when none, e.g. baja closed its interval).
+  paused: boolean;
+  paused_since: string | null;
+  paused_reason: string | null;
 }
 
 export async function buildAthleteWeekPlan(
@@ -145,7 +153,7 @@ export async function buildAthleteWeekPlan(
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const [microciclo_name, focus, has_next_week] = await Promise.all([
+  const [microciclo_name, focus, has_next_week, pausedState] = await Promise.all([
     resolveMicrocicloName(microcycleId),
     // Coach-authored "Foco de la semana" — the athlete-facing focus line for
     // THIS week (program_week_templates.focus), resolved through the assignment.
@@ -153,6 +161,8 @@ export async function buildAthleteWeekPlan(
     // Whether the athlete can peek a NEXT week with real, published content
     // (drives the "Próxima semana" affordance). Relative to the returned week.
     hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
+    // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
+    loadPausedState(athlete_id),
   ]);
 
   // C35 — partner_visibility is exposed as-is. The DB filter by athlete_id
@@ -216,6 +226,47 @@ export async function buildAthleteWeekPlan(
     // True when a next week with published content exists (peek affordance).
     has_next_week,
     days,
+    // #13 — the client shows "en pausa" when paused; the week structure is still
+    // returned (no invented sessions), the flag just frames it.
+    paused: pausedState.paused,
+    paused_since: pausedState.paused_since,
+    paused_reason: pausedState.paused_reason,
+  };
+}
+
+/**
+ * #13 — the athlete's lifecycle freeze state for the week payload. `paused` is true
+ * for any non-`activo` lifecycle_status (pausado OR baja — both are frozen). The
+ * `paused_since`/`paused_reason` come from the currently-OPEN pause interval
+ * (end_date null); a baja athlete has no open pause, so those stay null. Reads are
+ * null-safe: a missing athlete simply reads as not paused.
+ */
+async function loadPausedState(
+  athlete_id: number | bigint,
+): Promise<{ paused: boolean; paused_since: string | null; paused_reason: string | null }> {
+  const rows = await sql<
+    Array<{ lifecycle_status: string; paused_since: string | null; paused_reason: string | null }>
+  >`
+    select
+      a.lifecycle_status::text as lifecycle_status,
+      p.start_date::text as paused_since,
+      p.reason as paused_reason
+    from athletes a
+    left join lateral (
+      select start_date, reason from athlete_pauses
+      where athlete_id = a.id and end_date is null
+      order by start_date desc
+      limit 1
+    ) p on true
+    where a.id = ${athlete_id as number}
+    limit 1
+  `;
+  const r = rows[0];
+  const paused = r != null && r.lifecycle_status !== 'activo';
+  return {
+    paused,
+    paused_since: paused ? r!.paused_since : null,
+    paused_reason: paused ? r!.paused_reason : null,
   };
 }
 

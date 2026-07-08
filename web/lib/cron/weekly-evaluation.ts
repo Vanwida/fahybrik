@@ -53,6 +53,9 @@ export async function loadActiveAthletes(params: {
     where ama.start_date <= ${today}::date
       and ama.end_date >= ${today}::date
       and a.coach_id is not null
+      -- #13: paused/baja athletes are frozen — no low-compliance verdict / week
+      -- adjustment proposal for a deliberately-inactive athlete.
+      and a.lifecycle_status = 'activo'
     order by a.id asc
   `;
 }

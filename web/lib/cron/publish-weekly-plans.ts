@@ -51,6 +51,11 @@ export async function runPublishWeeklyPlans(params: {
      where status = 'draft'
        and delivery_mode = ${DELIVERY_MODE.scheduled}
        and week_start = ${weekStart}::date
+       -- #13: paused/baja athletes are frozen — never reveal their next drafted week.
+       and exists (
+         select 1 from athletes a
+         where a.id = weekly_plans.athlete_id and a.lifecycle_status = 'activo'
+       )
     returning athlete_id::text as athlete_id
   `;
 

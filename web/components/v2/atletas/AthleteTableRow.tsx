@@ -11,6 +11,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { AdherenceBar } from '@/components/v2/AdherenceBar';
+import { Pill } from '@/components/v2/Pill';
 import { RosterStatusDot } from '@/components/v2/atletas/RosterStatusDot';
 import { ROSTER_STATUS_META } from '@/lib/dashboard/v2/atletas-status';
 import type { RosterRow } from '@/lib/dashboard/v2/atletas-row';
@@ -28,6 +29,9 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
       className={cn(
         'v2-focus v2-stagger group grid items-center gap-3 border-b border-[color:var(--v2-border)] px-3 py-2.5',
         'transition-colors hover:bg-[color:var(--v2-elevated)]',
+        // Resting lifecycle states (pausa / baja) read de-emphasized; hover restores
+        // full contrast so the row stays legible when the coach focuses it.
+        statusMeta.muted && 'opacity-60 hover:opacity-100',
         GRID_COLS,
       )}
       style={{
@@ -50,9 +54,16 @@ export function AthleteTableRow({ row, index }: { row: RosterRow; index: number 
         <LevelBadge level={row.level} />
       </div>
 
-      {/* Estado */}
-      <div className="min-w-0">
-        <RosterStatusDot status={row.status} />
+      {/* Estado — status badge (+ threaded pause reason), and a "Pidió pausa" chip
+          when the athlete has an open pause request the coach hasn't resolved yet. */}
+      <div className="flex min-w-0 flex-col items-start gap-1">
+        <RosterStatusDot status={row.status} detail={row.status_detail} />
+        {row.pause_request_label ? (
+          <Pill tone="warn" variant="soft" className="max-w-full" title="El atleta ha pedido una pausa">
+            <MIcon name="pan_tool" size={11} />
+            <span className="truncate">Pidió pausa</span>
+          </Pill>
+        ) : null}
       </div>
 
       {/* Fase actual — block span so `truncate` actually clips (an inline span

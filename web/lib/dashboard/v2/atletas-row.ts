@@ -6,6 +6,7 @@
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { rosterStatus, type RosterStatus } from '@/lib/dashboard/v2/atletas-status';
+import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 
 export interface RosterRow {
   athlete_id: string;
@@ -24,6 +25,11 @@ export interface RosterRow {
   level_rank: number;
   /** ISO timestamp of the most recent logged session, null when none. */
   last_activity_at: string | null;
+  /** Reason label appended to a paused badge ("Lesión"), null unless pausado.
+   *  Lets the roster render "En pausa · Lesión" from one derived value. */
+  status_detail: string | null;
+  /** "Pidió pausa" indicator: the pending-request reason label, null = none pending. */
+  pause_request_label: string | null;
 }
 
 /** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
@@ -48,5 +54,15 @@ export function toRosterRow(a: AthleteRow): RosterRow {
     adherence_pct: a.compliance_pct,
     level_rank: a.level_sort,
     last_activity_at: a.last_activity_at,
+    // Reason labels come from shared/domain (single source), resolved here so the
+    // row cell stays pure. Detail only when actually paused; request label only when
+    // an athlete-initiated request is still pending.
+    status_detail:
+      a.lifecycle_status === 'pausado' && a.pause_reason
+        ? PAUSE_REASON_LABELS[a.pause_reason]
+        : null,
+    pause_request_label: a.pause_request_reason
+      ? PAUSE_REASON_LABELS[a.pause_request_reason]
+      : null,
   };
 }

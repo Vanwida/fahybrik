@@ -60,6 +60,15 @@ export interface PartnerRecentSession {
 export interface PartnerTrainingSnapshot {
   athlete_id: number;
   full_name: string;
+  /**
+   * #13: the partner is EN PAUSA (athletes.lifecycle_status='pausado'). The iOS
+   * "Tu pareja" panel keeps showing them, tagged "en pausa", instead of vanishing
+   * or breaking. A partner who is de BAJA (or whose account was soft-deleted, or
+   * whose pair was dissolved) does NOT reach here at all — buildPartnerSnapshot
+   * returns null and the panel hides. So this flag is only ever true|false for a
+   * still-present partner.
+   */
+  partner_paused: boolean;
   /** The partner's session scheduled for today (box tz), or null if none/private. */
   today: PartnerTodayWorkout | null;
   /** This week's shared-session progress (Mon–Sun, box tz). */
@@ -88,11 +97,24 @@ export async function buildPartnerSnapshot(
   // to detect sessions the partner logged AS a joint session with THIS viewer.
   const viewerId = pair.self_id;
 
-  const nameRows = await client<{ full_name: string }[]>`
-    select full_name from athletes where id = ${partnerId} limit 1
+  // Resolve the partner's display fields with the SAME lifecycle/deleted guards as
+  // every other dobles surface (doubles-training-partner.ts:75). The partner is
+  // GONE — panel hides, return null — when their account is soft-deleted
+  // (users.deleted_at) OR they are de BAJA (athletes.lifecycle_status='baja'). The
+  // pair-dissolved case is already handled upstream by getActiveDoublesPairForAthlete
+  // (status='active'). A PAUSED partner (lifecycle_status='pausado') still resolves,
+  // but is TAGGED (partner_paused) so the panel shows "en pausa" rather than break. (#13)
+  const nameRows = await client<{ full_name: string; lifecycle_status: string }[]>`
+    select a.full_name, a.lifecycle_status::text as lifecycle_status
+    from athletes a
+    join users u on u.id = a.user_id and u.deleted_at is null
+    where a.id = ${partnerId}
+      and a.lifecycle_status <> 'baja'
+    limit 1
   `;
-  if (nameRows.length === 0) return null; // partner athlete vanished — hide panel
+  if (nameRows.length === 0) return null; // partner deleted / de baja / vanished — hide panel
   const fullName = nameRows[0]!.full_name;
+  const partnerPaused = nameRows[0]!.lifecycle_status === 'pausado';
 
   const today = startOfDayInBox(new Date());
   const todayIso = isoDateString(today);
@@ -179,6 +201,7 @@ export async function buildPartnerSnapshot(
   return {
     athlete_id: partnerId,
     full_name: fullName,
+    partner_paused: partnerPaused,
     today: todayRow
       ? {
           assignment_id: Number(todayRow.assignment_id),

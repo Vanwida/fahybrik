@@ -2,9 +2,13 @@
 // here is scoped by coach_id — same shape as lib/citas/store.ts and coach_availability.
 // The cap lives on coaches.max_athletes (migration 0102); null = no limit (waitlist off).
 //
-// "Active athletes" = distinct HUMANS with an active subscription right now. A dobles pair
-// shares ONE subscription (user_id + partner_user_id both point at real athletes), so it
-// counts as 2 humans toward the cap — the real coaching load, which is what the cap caps.
+// "Active athletes" = distinct HUMANS the coach is coaching right now: an active
+// subscription AND athletes.lifecycle_status='activo' (#13). The lifecycle gate is what
+// frees a plaza on pause/baja — a paused or baja athlete may still hold an active
+// subscription (billing cancels only at period end), so subscription alone would keep
+// counting them and never open the slot. A dobles pair shares ONE subscription (user_id +
+// partner_user_id both point at real athletes), so it counts as 2 humans toward the cap —
+// the real coaching load, which is what the cap caps.
 
 import { sql } from '@/lib/db';
 
@@ -30,6 +34,7 @@ export async function getCapacityState(): Promise<CapacityState> {
       from athletes a
       join subscriptions s on (s.user_id = a.user_id or s.partner_user_id = a.user_id)
       where s.status = 'active'
+        and a.lifecycle_status = 'activo'
     `,
     sql<{ max_athletes: number | null }[]>`
       select max_athletes from coaches order by id limit 1

@@ -12,6 +12,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { StatusDot } from '@/components/v2/StatusDot';
 import { StatTile } from '@/components/v2/StatTile';
+import { LifecycleControl } from '@/components/v2/atleta-detalle/lifecycle/LifecycleControl';
 import { cn } from '@/lib/utils';
 import { EM_DASH, type DetalleHeader as HeaderData, type DetalleStat } from '@/lib/dashboard/v2/atleta-detalle-types';
 
@@ -113,14 +114,18 @@ export function DetalleHeader({
             );
           })}
         </div>
-        <div className="flex items-center gap-2">
-          <HeaderAction href="/mensajes" icon="forum" label="Mensaje" />
-          <HeaderAction
-            href={`/atletas/${header.athlete_id}?tab=plan`}
-            icon="calendar_month"
-            label="Ver plan"
-            primary
-          />
+        <div className="flex flex-col items-stretch gap-2 lg:items-end">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            <HeaderAction href="/mensajes" icon="forum" label="Mensaje" />
+            <HeaderAction
+              href={`/atletas/${header.athlete_id}?tab=plan`}
+              icon="calendar_month"
+              label="Ver plan"
+              primary
+            />
+          </div>
+          {/* Lifecycle (#13) — pause / baja / re-alta, valid for the current state. */}
+          <LifecycleControl athleteId={header.athlete_id} lifecycle={header.lifecycle} />
         </div>
       </div>
     </div>
