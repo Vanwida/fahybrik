@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#34 · Tests de calibración semana-1 — modelo</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1e; --line:#2a2a2e;
+    --ink:#f5f5f4; --muted:#a1a1aa; --dim:#71717a;
+    --orange:#ff5721; --orange-soft:#ff764b;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --blue:#60a5fa;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:48px 24px 120px}
+  h1{font-size:29px;font-weight:800;font-style:italic;letter-spacing:-.02em;margin:0 0 6px}
+  h1 .n{color:var(--orange)}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 8px}
+  .meta{color:var(--dim);font-size:12.5px;font-family:var(--mono);margin-bottom:34px}
+  h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange-soft);margin:52px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;font-weight:700;margin:24px 0 8px}
+  p{margin:0 0 12px}
+  .muted{color:var(--muted)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);padding:1.5px 6px;border-radius:5px;color:#ffd9c9;white-space:nowrap}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+  .tldr{background:linear-gradient(180deg,#1a120d,#141416);border:1px solid #4a2a17}
+  .tldr b{color:var(--orange-soft)}
+  .rule{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .rule .k{flex:0 0 auto;font-size:18px;line-height:1.3}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .scroll table{margin:0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  td.who{font-family:var(--mono);font-size:12px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .ok{background:rgba(52,211,153,.13);color:var(--green)}
+  .warn{background:rgba(251,191,36,.13);color:var(--amber)}
+  .bad{background:rgba(248,113,113,.13);color:var(--red)}
+  .neu{background:rgba(96,165,250,.13);color:var(--blue)}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--muted);font-family:var(--mono);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0}
+  .flow .arw{color:var(--orange)}
+  .flow .x{color:var(--red);font-weight:700}
+  .brk{border-left:3px solid var(--red);padding:4px 0 4px 14px;margin:14px 0}
+  .brk .nm{font-weight:700;font-size:14.5px}
+  .grid{display:grid;gap:12px}
+  @media(min-width:680px){.grid.s2{grid-template-columns:1fr 1fr}}
+  .src{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .src h4{margin:0 0 8px;font-size:15px;font-weight:700}
+  .src ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+  .src li{margin:4px 0}
+  .fork{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .fork .id{font-family:var(--mono);color:var(--orange);font-weight:700;font-size:13px}
+  .fork h3{margin:2px 0 10px;font-size:17px}
+  .opt{display:flex;gap:10px;padding:9px 0;border-top:1px dashed var(--line)}
+  .opt:first-of-type{border-top:none}
+  .opt .lbl{flex:0 0 130px;font-family:var(--mono);font-size:12.5px;font-weight:700}
+  .opt .lbl.rec{color:var(--green)}
+  .opt .bd{flex:1;font-size:14px;color:var(--muted)}
+  .rec-tag{display:inline-block;background:rgba(52,211,153,.13);color:var(--green);font-family:var(--mono);font-size:10.5px;padding:1px 7px;border-radius:999px;margin-left:6px}
+  .note{font-size:13px;color:var(--dim);font-style:italic;margin-top:10px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:2px 0 14px}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:12.5px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="n">#34</span> — Tests de calibración de la semana 1</h1>
+  <p class="sub">Presentar, AGENDAR y cerrar el bucle de los 4 tests que fijan el punto de partida real del atleta: HYROX half-sim · 5K control · batería 1RM · remo 2K.</p>
+  <p class="meta">FASE DE DISEÑO · read-only · iOS en hold (superficie iOS → cuando el 1.0(3)) · mapeado contra el código real 2026-07-08</p>
+
+  <div class="card tldr">
+    <div class="rule"><span class="k">🔌</span><div><b>El bucle está roto en 3 puntos, no "sin construir":</b> (1) el badge "Test" se deriva de <code>templates.meta_json.store_results</code> pero <u>NADA lo escribe</u> → hoy <code>is_test</code> es SIEMPRE false; (2) ejecutar una sesión de test sincroniza un entreno pero <u>nada lo convierte en benchmark/zona</u> → el atleta tiene que RE-introducir el número a mano en Perfil; (3) <u>no existe ninguna plantilla de test ni nada que las agende</u> en la semana 1 (el stub <code>athlete-benchmark-tests.ts</code> está muerto, importado en 0 sitios).</div></div>
+    <div class="rule"><span class="k">🔑</span><div><b>La palanca:</b> <code>meta_json.store_results</code> ya existe y ya conduce el badge. Si lo llenamos con la ESPECIFICACIÓN del resultado (qué benchmark produce el test, en qué unidad, qué calibra), un solo campo cierra los tres huecos: marca el badge, dice qué extraer al terminar, y conecta la sesión con la zona/marca.</div></div>
+    <div class="rule"><span class="k">🎯</span><div><b>Objetivo cerrado por mí (build-right):</b> la matriz de completitud (cada test = número que produce × dónde aterriza × qué calibra) y el puente ejecución→benchmark. <b>Subjetivo para Alex/Pablo:</b> cuándo se agendan, qué tests aplican a quién, dónde vive la superficie (5 forks).</div></div>
+  </div>
+
+  <h2>1 · Diagnóstico — el bucle roto</h2>
+  <p class="muted">Hoy un test recorre este camino y se corta tres veces:</p>
+  <div class="flow">plantilla de test <span class="x">✗ nadie escribe store_results</span> <span class="arw">→</span> badge "Test" <span class="x">(nunca aparece)</span></div>
+  <div class="flow">sesión de test ejecutada <span class="arw">→</span> workout_execution (tiempo/distancia) <span class="x">✗ no deriva benchmark</span> <span class="arw">→</span> zona/marca <span class="x">(no se calibra)</span></div>
+  <div class="flow">alta del atleta <span class="x">✗ no genera plan</span> <span class="arw">→</span> semana 1 <span class="x">✗ nadie inyecta los 4 tests</span></div>
+  <div class="brk"><span class="nm">Consecuencia real:</span> <span class="muted">el día-1 (#17) PROMETE "tu coach te programará tus tests en la semana 1" y el atleta llega al Plan… donde no hay tests marcados, y aunque ejecutara uno, su número no calibra nada. La promesa no tiene backend detrás. Además existen DOS entradas manuales sueltas (RegisterTestView→zonas, StrengthService→1RM) desconectadas del plan.</span></div>
+
+  <h2>2 · Modelo — la matriz de completitud de los 4 tests</h2>
+  <p class="muted">Cada test de calibración = <b>cómo se mide × qué número(s) produce × dónde aterriza × qué calibra</b>. No es un badge decorativo: es el generador de la verdad-suelo del atleta. Los slugs son los VIVOS (benchmark-slugs.ts como fuente de verdad de resultados; methodology_tests como catálogo de protocolo), no los del stub muerto.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Test (protocolo)</th><th>Medida</th><th>Produce (slug · unidad)</th><th>Aterriza en</th><th>Calibra</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>5K control</b><br><span class="muted" style="font-size:12px">tt_5k</span></td>
+        <td class="muted">5000 m a fondo · tiempo</td>
+        <td class="who">run_5k · seconds</td>
+        <td class="who">athlete_benchmarks + athlete_zone_profiles(run)</td>
+        <td class="muted">umbral de carrera → <b>zonas run</b> (5K/5 + ~10 s/km)</td>
+      </tr>
+      <tr>
+        <td><b>Remo 2K</b><br><span class="muted" style="font-size:12px">tt_2k_row</span></td>
+        <td class="muted">2000 m ergo a fondo · tiempo</td>
+        <td class="who">row_2k · seconds</td>
+        <td class="who">athlete_benchmarks + athlete_zone_profiles(row)</td>
+        <td class="muted">split umbral → <b>zonas row</b> (2K/4 = s/500m)</td>
+      </tr>
+      <tr>
+        <td><b>Batería 1RM</b><br><span class="muted" style="font-size:12px">1rm_battery</span></td>
+        <td class="muted">carga máxima · kg (por levantamiento)</td>
+        <td class="who">back_squat_1rm · deadlift_1rm · bench_press_1rm (+ohp, clean) · kg</td>
+        <td class="who">athlete_strength_maxes (versionado)</td>
+        <td class="muted">resolución <b>%RM → kg</b> en el plan de fuerza (NO zonas de ritmo)</td>
+      </tr>
+      <tr>
+        <td><b>HYROX half-sim</b><br><span class="muted" style="font-size:12px">hyrox_half_sim</span></td>
+        <td class="muted">simulacro a media distancia · tiempo</td>
+        <td class="who">hyrox_half_sim · seconds</td>
+        <td class="who">athlete_benchmarks (baseline)</td>
+        <td class="muted"><b>proyección de carrera</b> / baseline de rendimiento (NO zonas ni maxes)</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="card">
+    <div class="rule"><span class="k">⚠️</span><div><b>Tres matices objetivos que el modelo fija:</b> (a) la <b>batería 1RM es UN protocolo → VARIOS resultados</b> (3-5 slugs de levantamiento), one-to-many; (b) el <b>half-sim tiene su propio slug</b> <code>hyrox_half_sim</code> — un medio simulacro NO es un tiempo de carrera completa <code>hyrox_open</code>, no se confunden; (c) cada resultado lleva <b>procedencia</b> <code>coach_test</code> (lo mete el coach) o <code>athlete_test</code> (lo confirma el atleta) — ambos GANAN al <code>onboarding_auto</code>/autodeclarado (regla de supersesión que ya existe para zonas).</div></div>
+  </div>
+  <div class="card" style="border-color:#2f4a2f">
+    <div class="rule"><span class="k">📊</span><div><b>El 4º objetivo de calibración — el NIVEL del atleta.</b> La batería no solo fija zonas/maxes: los CUATRO tests son EXACTAMENTE los inputs del algoritmo de nivel (<code>suggestLevel</code> lee <code>run_5k · row_2k · hyrox_open · back_squat_1rm</code> con umbrales por sexo → nivel 1-5). Hoy el nivel se estima de lo autodeclarado en el onboarding; al completar la batería, <code>computeAndStoreLevelSuggestion</code> re-corre con datos REALES y firma el nivel. Es el cierre de bucle más fuerte: el número real no solo calibra el ritmo, recoloca al atleta en su liga. Objetivo, ya cableado el algoritmo — falta re-dispararlo al completar el test.</div></div>
+  </div>
+
+  <h2>3 · La palanca — <code>store_results</code> como contrato</h2>
+  <p class="muted">El campo que ya deriva <code>is_test</code> pasa a llevar la especificación del resultado. Un solo sitio, cierra tres huecos:</p>
+  <div class="grid s2">
+    <div class="src">
+      <h4>Hoy</h4>
+      <ul>
+        <li><code>is_test</code> = <code>meta_json.store_results</code> es array no-vacío</li>
+        <li>Nadie lo escribe → siempre false</li>
+        <li>El badge existe pero jamás se pinta</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>Con el contrato</h4>
+      <ul>
+        <li><code>store_results</code> = <span class="muted">[{ slug, unit, measure, calibrates }]</span></li>
+        <li>Marca el badge (no-vacío)</li>
+        <li>Dice QUÉ extraer al terminar la sesión</li>
+        <li>Sobrevive al fork por-atleta (el clon copia meta_json)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4 · El puente ejecución→benchmark (el hueco que más duele)</h2>
+  <p class="muted">Hoy terminar una sesión de test solo sincroniza el entreno. El modelo añade el paso que falta, reusando la filosofía de logging honesto de la app (pre-rellenar del dato medido, el atleta confirma):</p>
+  <div class="flow">terminar sesión de test <span class="arw">→</span> pre-rellenar resultado desde la ejecución <span class="muted">(5K/2K/half-sim: el tiempo; 1RM: entrada manual)</span> <span class="arw">→</span> atleta confirma/ajusta <span class="arw">→</span> recordTestBenchmark + derivación de zona/max <span class="arw">→</span> <span style="color:var(--green)">verdad-suelo</span></div>
+  <div class="card">
+    <div class="rule"><span class="k">♻️</span><div><b>Reusa lo que ya funciona:</b> los endpoints <code>POST /api/athlete/test-result</code> (umbral→zonas) y <code>POST /api/athlete/strength-test</code> (1RM→benchmarks) YA existen y YA hacen la derivación con supersesión correcta. El coach ya tiene sus equivalentes (<code>coach/athletes/[id]/test-result</code> y <code>/strength-test</code>). Lo net-new es CONECTAR el fin de la sesión de test con esos endpoints, guiado por <code>store_results</code>. El half-sim necesita un endpoint nuevo (baseline, no zona ni max).</div></div>
+    <div class="note">Estado importante que el modelo distingue: "sesión hecha" ≠ "resultado capturado". Una sesión de test marcada done sin número queda como <b>resultado pendiente</b> — el badge/la superficie lo reflejan hasta que el número aterriza.</div>
+  </div>
+
+  <h2>5 · Agendado — cómo caen los 4 tests en la semana 1</h2>
+  <p class="muted">Hechos del pipeline: el <b>alta NO genera plan</b>; la primera materialización es un coach action (intake por defecto materializa el primer mes del coach como BORRADOR, o assign-month/assign-sequence). "Semana 1" no es una columna — es el lunes del <b>primer microciclo materializado</b> (<code>min(microcycles.start_date)</code>). Todo assignment pasa por un único materializador (<code>instantiateMonthFromTemplate → insertSlotAssignment</code>) con plantilla forkeada por-atleta.</p>
+  <div class="card">
+    <div class="rule"><span class="k">📅</span><div><b>El modelo:</b> un hook <code>scheduleWeek1Calibration(athlete, primerLunes)</code> inyecta las 4 sesiones de test (plantillas con <code>store_results</code>) en el primer microciclo, idempotente (una vez por atleta). Distribución a lo largo de la semana (no los 4 el mismo día — cada uno es exigente): el half-sim como sesión clave, 5K y 2K en días de calidad distintos, 1RM en día de fuerza. El CUÁNDO se dispara (auto en la primera materialización vs acción explícita del coach) es el Fork A.</div></div>
+
+  <h2>6 · Cerrar el bucle del funnel (autodeclarado → real)</h2>
+  <p class="muted">Hallazgo: las marcas autodeclaradas del funnel (<code>marca_5k/10k/hyrox</code>, <code>fc_maxima</code>) hoy viven SOLO en <code>leads.*</code> y no llegan ni a notas ni a benchmarks del atleta en el alta — la mitad "autodeclarado→notas" está sin implementar. El onboarding iOS SÍ escribe benchmarks <code>notes='onboarding'</code> + zonas <code>onboarding_auto</code> (needs_review).</p>
+  <div class="card">
+    <div class="rule"><span class="k">🔁</span><div><b>El bucle a cerrar:</b> lo autodeclarado es ORIENTATIVO. La superficie de tests muestra "5K declarado 22:00 (orientativo) → haz el test para confirmarlo". Al completar el test real, el benchmark <code>coach_test</code>/<code>athlete_test</code> SUPERSEDE y las zonas re-derivan (la regla real-gana-a-onboarding_auto ya existe). El autodeclarado queda como histórico, deja de conducir.</div></div>
+
+  <h2>7 · Superficie iOS "tus tests" (iOS en hold — diseño ahora)</h2>
+  <p class="muted">Hoy no hay superficie agregada: los tests solo aparecen como pills en el Plan (que nunca se pintan, ver §1) y como preview estático en el día-1 (4 tests hardcoded, sin link). El shell tiene 5 tabs (Inicio · Plan · Analíticas · Carreras · Perfil); Perfil→"Rendimiento" ya hospeda "Mis zonas" y "Mi fuerza".</p>
+  <div class="grid s2">
+    <div class="src">
+      <h4>La lista "Tus tests de calibración"</h4>
+      <ul>
+        <li>Los 4 tests con estado: pendiente / hecho + resultado / resultado pendiente</li>
+        <li>Cada uno lleva a ejecutarlo (sesión del plan) o a registrarlo</li>
+        <li>Al completar: captura del número → benchmark → calibración</li>
+        <li>El día-1 <code>testsStep</code> (hoy sin link) enlaza aquí</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>Reusa</h4>
+      <ul>
+        <li>RegisterTestView (umbral→zonas) y StrengthService (1RM→benchmarks)</li>
+        <li>El lanzador de sesión de PlanView (WorkoutContainer)</li>
+        <li>La sección Perfil→Rendimiento como hogar permanente</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>7b · Qué ve Pablo (lado coach)</h2>
+  <p class="muted">Pregunta del gate: ¿la pestaña Rendimiento (#32) ya lo cubre? Verificado en código: <b>en gran parte SÍ</b>. <code>RendimientoTab.tsx</code> ya renderiza los resultados vía <code>PhysiologyPanels</code> / <code>DiagnosticPanels</code> / <code>ZoneCalculator</code> (zonas, benchmarks, 1RM) leyendo de <code>atleta-detalle.ts</code>. Los NÚMEROS de la batería fluyen a esos paneles sin superficie nueva.</p>
+  <div class="card">
+    <div class="rule"><span class="k">👁️</span><div><b>Lo único net-new en el lado coach:</b> un indicador de ESTADO de la batería ("Calibración semana-1: 3/4 · falta 2K row") en la ficha, para que Pablo vea de un vistazo si el atleta ya se calibró o hay que empujarle — no una vista de resultados nueva (esa ya existe). Encaja como una tira en Rendimiento o un badge en el roster (junto al de lesión #16).</div></div>
+  </div>
+
+  <h2>8 · Stress-test contra casos reales</h2>
+  <div class="legend">
+    <span><span class="pill ok">entra</span> el modelo lo resuelve</span>
+    <span><span class="pill warn">entra c/ build</span> encaja con lo net-new</span>
+    <span><span class="pill bad">rompe hoy</span> el código actual lo hace mal</span>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Caso real</th><th>Esperado</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Coach asigna el primer mes → los 4 tests aparecen marcados en la semana 1</td><td class="muted">badge visible + sesiones agendadas</td><td><span class="pill bad">rompe hoy</span></td></tr>
+      <tr><td>2</td><td>Atleta corre el 5K → al terminar confirma 21:30 → run_5k + zonas run</td><td class="muted">ejecución→benchmark→zona</td><td><span class="pill bad">rompe hoy</span></td></tr>
+      <tr><td>3</td><td>Batería 1RM → introduce 3-5 maxes → strength_maxes</td><td class="muted">un test → varios resultados</td><td><span class="pill warn">entra c/ build</span></td></tr>
+      <tr><td>4</td><td>HYROX half-sim → registra el tiempo → baseline de carrera</td><td class="muted">calibra proyección, NO zonas</td><td><span class="pill warn">entra c/ build</span></td></tr>
+      <tr><td>5</td><td>El atleta lo hizo en el box → el coach mete el resultado</td><td class="muted">coach_test, gana</td><td><span class="pill ok">entra</span> <span class="muted">(endpoints coach existen)</span></td></tr>
+      <tr><td>6</td><td>Declaró 5K 22:00 en el funnel → test da 21:30 → real supersede</td><td class="muted">zonas re-derivan de 21:30</td><td><span class="pill warn">entra c/ build</span> <span class="muted">(supersesión de zonas ya existe)</span></td></tr>
+      <tr><td>7</td><td>El atleta salta el 2K (nunca lo hace)</td><td class="muted">"pendiente"; zonas row en onboarding_auto; coach avisado</td><td><span class="pill warn">entra c/ build</span></td></tr>
+      <tr><td>8</td><td>Los 4 tests repartidos por la semana, no el mismo día</td><td class="muted">distribución en el primer microciclo</td><td><span class="pill warn">entra c/ build</span></td></tr>
+      <tr><td>9</td><td>Atleta puro de resistencia — ¿se le agenda igual la 1RM?</td><td class="muted">batería por perfil (o fija con override)</td><td><span class="pill neu">Fork B</span></td></tr>
+      <tr><td>10</td><td>Re-test en semana 6 (recalibración)</td><td class="muted">nueva versión supersede; el mecanismo generaliza</td><td><span class="pill ok">entra</span> <span class="muted">(benchmarks/zonas ya versionados)</span></td></tr>
+      <tr><td>11</td><td>Ejecuta el test pero no mete el número (solo marca done)</td><td class="muted">"resultado pendiente" aunque la sesión esté hecha</td><td><span class="pill warn">entra c/ build</span></td></tr>
+      <tr><td>12</td><td>Coach aún no ha asignado plan (recién claim del invite)</td><td class="muted">"tu coach programará tus tests" (la promesa del día-1), degrada con gracia</td><td><span class="pill ok">entra</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Los que "rompen hoy" (1, 2) son exactamente el bucle roto del §1. El modelo es completo; 9 es pedagógico (Fork B).</p>
+  <h3>Contra los 3 perfiles del funnel + el que no completa</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Perfil</th><th>Qué pasa con la batería</th><th>Encaja</th></tr></thead>
+    <tbody>
+      <tr><td><b>Novato</b><br><span class="muted" style="font-size:12px">primer HYROX, poca base</span></td><td class="muted">Batería completa igual — es SU punto de partida (el autodeclarado es el más flojo/incierto aquí, el test real es lo que más aporta). El half-sim puede ser duro; el coach puede escalar el protocolo (Fork B/plantilla). Nivel real firma bajo, sin drama.</td><td><span class="pill ok">✓</span></td></tr>
+      <tr><td><b>Avanzado</b><br><span class="muted" style="font-size:12px">busca marca/podio</span></td><td class="muted">La batería confirma/ajusta unas zonas que el autodeclarado ya tenía finas; el valor es la PRECISIÓN (zonas exactas para afinar el plan). Nivel real firma alto. Puede querer añadir tests (ski 1k) — el catálogo lo permite.</td><td><span class="pill ok">✓</span></td></tr>
+      <tr><td><b>Dobles</b><br><span class="muted" style="font-size:12px">entrena en pareja</span></td><td class="muted">La batería es INDIVIDUAL (cada atleta se calibra solo — zonas/maxes/nivel son propios). No hay reparto ni sesión conjunta aquí; el half-sim lo hace cada uno. El resultado alimenta su ficha, no la del compañero. Cero colisión con el modelo de dobles.</td><td><span class="pill ok">✓</span></td></tr>
+      <tr><td><b>No completa la semana 1</b><br><span class="muted" style="font-size:12px">salta 1+ tests</span></td><td class="muted">Los tests no hechos quedan "pendientes"; las zonas de esa modalidad se quedan en <code>onboarding_auto</code> (needs_review) o sin fijar; el nivel usa lo que haya (confidence baja). El indicador de estado (§7b) avisa a Pablo. El bucle NO se rompe — degrada con honestidad y se puede completar tarde (re-dispara la calibración).</td><td><span class="pill ok">✓</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>9 · Mini-mapa — qué se toca</h2>
+  <div class="grid s2">
+    <div class="src">
+      <h4 style="color:var(--green)">Buildable AHORA (web/backend, fuera del hold iOS)</h4>
+      <ul>
+        <li>Contrato <code>store_results</code> = [{slug,unit,measure,calibrates}] + tipos</li>
+        <li>Catálogo real protocolo→resultado (sustituye el stub muerto, alineado a benchmark-slugs vivos)</li>
+        <li>Autoría/seed de 4 plantillas de test (coach-owned, con store_results) — Fork E</li>
+        <li>Hook de agendado semana-1 en la primera materialización — Fork A</li>
+        <li>Endpoint puente al terminar test + endpoint baseline half-sim</li>
+        <li>Funnel: superficiar autodeclarado como orientativo</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4 style="color:var(--amber)">iOS (HOLD → construir con el 1.0(3))</h4>
+      <ul>
+        <li>Lista "Tus tests de calibración" (Perfil→Rendimiento + card en Inicio semana-1 — Fork D)</li>
+        <li>Captura de resultado al terminar la sesión de test (pre-rellenado + confirmar)</li>
+        <li>El día-1 <code>testsStep</code> enlaza a la lista</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="border-color:#4a2a17">
+    <div class="rule"><span class="k">🧭</span><div><b>Reconciliación de slugs (objetivo, lo hago yo):</b> hay 3 vocabularios (stub muerto · methodology_tests · benchmark-slugs). El modelo usa <b>benchmark-slugs.ts como verdad de RESULTADO</b> y <b>methodology_tests como catálogo de PROTOCOLO</b>; el stub <code>athlete-benchmark-tests.ts</code> se reescribe alineado. Sin texto libre.</div></div>
+    <div class="note">Nada de esto toca lib/sync ni ficheros de la sesión de wearables. La superficie iOS respeta el hold del 1.0(3).</div>
+  </div>
+
+  <h2>10 · Forks — lo que decide Alex/Pablo</h2>
+  <p class="muted">La matriz de completitud, el puente ejecución→benchmark y la reconciliación de slugs ya están decididos (objetivo). Esto es lo subjetivo/pedagógico.</p>
+
+  <div class="fork">
+    <span class="id">FORK A · disparo del agendado</span>
+    <h3>¿Cuándo caen los 4 tests en la semana 1?</h3>
+    <div class="opt"><div class="lbl rec">A · auto <span class="rec-tag">recomendado</span></div><div class="bd">Se inyectan solos en la PRIMERA materialización del plan (intake/assign). Cero esfuerzo del coach, cumple la promesa del día-1 "tu coach te programará".</div></div>
+    <div class="opt"><div class="lbl">B · acción del coach</div><div class="bd">Botón explícito "Programar tests de calibración" en la ficha. Más control, pero puede olvidarse y romper la promesa.</div></div>
+    <div class="opt"><div class="lbl">C · auto + override</div><div class="bd">Auto por defecto, el coach puede quitar/mover. Lo mejor de ambos, algo más de trabajo.</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK B · qué tests aplican a quién</span>
+    <h3>¿Batería fija de 4, o subconjunto por perfil?</h3>
+    <div class="opt"><div class="lbl rec">A · fija de 4 <span class="rec-tag">recomendado</span></div><div class="bd">Los 4 a todos (lo que promete el día-1). Simple, coherente. El coach puede quitar uno si aplica el Fork A-C.</div></div>
+    <div class="opt"><div class="lbl">B · por perfil</div><div class="bd">Subconjunto según objetivo (un puro resistencia salta 1RM; un fuerza-first salta half-sim). Más fino, pero es criterio de Pablo — no lo decido yo.</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK C · captura del resultado</span>
+    <h3>¿Dónde introduce el atleta el número del test?</h3>
+    <div class="opt"><div class="lbl rec">A · al terminar la sesión <span class="rec-tag">recomendado</span></div><div class="bd">Paso inline "introduce tu resultado" al finalizar el test (pre-rellenado desde la ejecución). Cierra el bucle en un gesto.</div></div>
+    <div class="opt"><div class="lbl">B · separado</div><div class="bd">Ejecutar la sesión y luego ir a Perfil a meter el número. Menos trabajo, pero el bucle roto persiste (el atleta se olvida).</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK D · dónde vive la superficie</span>
+    <h3>Home de "Tus tests de calibración"</h3>
+    <div class="opt"><div class="lbl rec">A · Perfil + Inicio <span class="rec-tag">recomendado</span></div><div class="bd">Entrada permanente en Perfil→Rendimiento (junto a zonas/fuerza) + card destacada en Inicio durante la semana 1. Visible cuando importa, accesible siempre.</div></div>
+    <div class="opt"><div class="lbl">B · solo Perfil</div><div class="bd">Solo en Rendimiento. Más discreto, menos prominente en la semana clave.</div></div>
+    <div class="opt"><div class="lbl">C · solo Inicio</div><div class="bd">Solo card en el home semana-1. Prominente pero desaparece después.</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK E · propiedad de las plantillas</span>
+    <h3>¿De quién son las 4 plantillas de test?</h3>
+    <div class="opt"><div class="lbl rec">A · coach (seed) <span class="rec-tag">recomendado</span></div><div class="bd">Sembradas para Pablo (coach-owned, como el catálogo de metodología). Encaja con el modelo actual (templates.coach_id NOT NULL); Pablo puede ajustar el protocolo.</div></div>
+    <div class="opt"><div class="lbl">B · app-level</div><div class="bd">Catálogo fijo de app. Necesita un mecanismo de plantilla global nuevo (hoy solo los BLOQUES admiten coach_id NULL). Más infra por poco.</div></div>
+  </div>
+
+  <div class="foot">
+    docs/design/tests-calibracion-semana1-model.html · #34 · fase de diseño · dobles-demo → team-lead<br>
+    Mapeado contra: athlete_benchmarks · athlete_zone_profiles · athlete_strength_maxes · week-plan.ts(is_test) · instantiate-program.ts · methodology_tests · benchmark-slugs.ts · RegisterTestView/ZonesService/StrengthService · Day1Flow.testsStep
+  </div>
+
+</div>
+</body>
+</html>
