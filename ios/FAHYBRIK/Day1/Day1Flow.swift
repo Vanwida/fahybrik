@@ -97,7 +97,7 @@ struct Day1Flow: View {
             Wordmark(size: 18)
             Spacer().frame(height: Theme.Spacing.xl)
             LabelText(text: "BIENVENIDO/A", color: Theme.Color.accentText)
-            Text("Hola,\n\(model.firstName.isEmpty ? "atleta" : model.firstName).")
+            Text(model.firstName.isEmpty ? "Hola." : "Hola,\n\(model.firstName).")
                 .font(Theme.Typography.headlineM)
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.top, 8)
@@ -105,20 +105,22 @@ struct Day1Flow: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, 10)
-            CardSurface(padding: 14, leftAccent: true) {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabelText(text: "TU OBJETIVO")
-                    Text(model.goalLine)
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    if let d = model.daysPerWeek {
-                        Text("\(d) días por semana con Pablo")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.Color.muted)
+            if let goal = model.goalLine {
+                CardSurface(padding: 14, leftAccent: true) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        LabelText(text: "TU OBJETIVO")
+                        Text(goal)
+                            .font(Theme.Typography.headlineS)
+                            .foregroundStyle(Theme.Color.foreground)
+                        if let d = model.daysPerWeek {
+                            Text("\(d) días por semana con Pablo")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Theme.Color.muted)
+                        }
                     }
                 }
+                .padding(.top, 18)
             }
-            .padding(.top, 18)
             Text("Podrás revisar y editar tu perfil cuando quieras desde Ajustes.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.Color.faint)
@@ -178,13 +180,12 @@ struct Day1Flow: View {
             }
             .padding(.top, 18)
             CardSurface(padding: 12) {
-                HStack(spacing: 8) {
-                    Text("Garmin y Concept2 PM5")
-                        .font(.system(size: 12)).foregroundStyle(Theme.Color.muted)
-                    Spacer()
-                    Text("PRÓXIMAMENTE")
-                        .font(.system(size: 10, weight: .bold)).tracking(0.08)
-                        .foregroundStyle(Theme.Color.faint)
+                VStack(spacing: 10) {
+                    deviceRow("Concept2 PM5", "En tus entrenos de remo, ski y bici",
+                              status: "Disponible", available: true)
+                    Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+                    deviceRow("Garmin", "Sincronización automática",
+                              status: "Próximamente", available: false)
                 }
             }
             .padding(.top, 16)
@@ -280,6 +281,24 @@ struct Day1Flow: View {
         HStack(alignment: .top, spacing: 9) {
             Text("›").font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.Color.accent)
             Text(text).font(.system(size: 13)).foregroundStyle(Theme.Color.muted)
+        }
+    }
+
+    // Other integrations, honestly labelled: Concept2 PM5 ships today (paired from a
+    // workout); Garmin auto-sync is not shipped yet. Mirrors ProfileView's device stance.
+    private func deviceRow(_ name: String, _ detail: String, status: String, available: Bool) -> some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.Color.foreground)
+                Text(detail).font(.system(size: 10.5)).foregroundStyle(Theme.Color.muted)
+            }
+            Spacer()
+            Text(status.uppercased())
+                .font(.system(size: 9.5, weight: .bold)).tracking(0.06)
+                .foregroundStyle(available ? Theme.Color.ok : Theme.Color.faint)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background((available ? Theme.Color.ok : Theme.Color.faint).opacity(0.14))
+                .clipShape(Capsule())
         }
     }
 

@@ -7,7 +7,7 @@ import Observation
 @Observable
 final class Day1Model {
     var firstName: String = ""
-    var goalLine: String = "Tu plan con Pablo"
+    var goalLine: String? = nil
     var daysPerWeek: Int? = nil
     var isDobles: Bool = false
     var partnerName: String? = nil
@@ -38,14 +38,16 @@ final class Day1Model {
         return trimmed.split(separator: " ").first.map(String.init) ?? trimmed
     }
 
-    // goal_type (onboarding_goal_type) → an athlete-facing echo line.
-    private static func goalLine(_ code: String?) -> String {
+    // goal_type (onboarding_goal_type) → an athlete-facing echo line. Returns nil
+    // for a null/unmapped goal so the welcome step HIDES the objective block instead
+    // of showing a placeholder — we never invent an objective the athlete didn't give.
+    private static func goalLine(_ code: String?) -> String? {
         switch code {
         case "first_hyrox": return "Completar tu primer HYROX"
         case "improve_hyrox_mark": return "Mejorar tu marca en HYROX"
         case "improve_running": return "Mejorar tu carrera"
         case "complete_fun": return "Entrenar y disfrutar del proceso"
-        default: return "Tu plan con Pablo"
+        default: return nil
         }
     }
 }
