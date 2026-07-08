@@ -49,11 +49,13 @@ export function LeadAltaControl({
   status,
   alta,
   levels,
+  stripeConfigured = false,
 }: {
   leadId: string;
   status: LeadStatus;
   alta: AltaState;
   levels: CoachLevelOption[];
+  stripeConfigured?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -101,7 +103,13 @@ export function LeadAltaControl({
       ) : null}
 
       {open ? (
-        <AltaModal leadId={leadId} prefill={alta.prefill} levels={levels} onClose={() => setOpen(false)} />
+        <AltaModal
+          leadId={leadId}
+          prefill={alta.prefill}
+          levels={levels}
+          stripeConfigured={stripeConfigured}
+          onClose={() => setOpen(false)}
+        />
       ) : null}
     </div>
   );
@@ -111,11 +119,13 @@ function AltaModal({
   leadId,
   prefill,
   levels,
+  stripeConfigured,
   onClose,
 }: {
   leadId: string;
   prefill: AltaPrefill;
   levels: CoachLevelOption[];
+  stripeConfigured: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -138,7 +148,9 @@ function AltaModal({
   // #15 — billing. Default to cobro (stripe); the price pre-fills from the last
   // sales call's quote when there is one. Cortesía toggles off the cobro entirely.
   const pricePrefilled = prefill.quoted_price_eur != null;
-  const [cortesia, setCortesia] = useState(false);
+  // When Stripe billing isn't configured in this env, the cobro path can't run,
+  // so start (and lock) on cortesía — the coach never hits a checkout error.
+  const [cortesia, setCortesia] = useState(!stripeConfigured);
   const [price, setPrice] = useState(pricePrefilled ? String(prefill.quoted_price_eur) : '');
 
   const [submitting, setSubmitting] = useState(false);
@@ -307,16 +319,28 @@ function AltaModal({
             <div className="flex flex-col gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="v2-micro">Cobro</span>
-                <label className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--v2-muted)]">
+                <label
+                  className={
+                    'inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--v2-muted)]' +
+                    (stripeConfigured ? '' : ' cursor-not-allowed opacity-60')
+                  }
+                >
                   <input
                     type="checkbox"
                     checked={cortesia}
+                    disabled={!stripeConfigured}
                     onChange={(e) => setCortesia(e.target.checked)}
                     className="h-4 w-4 accent-[color:var(--v2-accent)]"
                   />
                   Cortesía (sin cobro)
                 </label>
               </div>
+              {!stripeConfigured ? (
+                <p className="flex items-start gap-1.5 text-xs text-[color:var(--v2-warn)]">
+                  <MIcon name="info" size={14} className="mt-px shrink-0" />
+                  El cobro por Stripe está pendiente de configurar. De momento el alta se hace como cortesía; el cobro se activará cuando esté listo.
+                </p>
+              ) : null}
               {cortesia ? (
                 <p className="text-xs text-[color:var(--v2-muted)]">
                   Acceso de cortesía: el atleta no paga y no se abre ningún cobro por Stripe.

@@ -66,7 +66,15 @@ const LINK_CLS =
   'v2-focus break-words text-sm font-medium text-[color:var(--v2-fg)] underline-offset-2 transition-colors hover:text-[color:var(--v2-accent)] hover:underline';
 const VALUE_CLS = 'text-sm text-[color:var(--v2-fg)]';
 
-export function LeadDetalle({ lead, levels }: { lead: LeadDetail; levels: CoachLevelOption[] }) {
+export function LeadDetalle({
+  lead,
+  levels,
+  stripeConfigured = false,
+}: {
+  lead: LeadDetail;
+  levels: CoachLevelOption[];
+  stripeConfigured?: boolean;
+}) {
   const meta = LEAD_STATUS_META[lead.status];
   // Bumped when a cita is marked "Completada" → the Sesiones block opens the parte form
   // in the same gesture (#14 coupling), so lo hablado se registra en caliente.
@@ -159,7 +167,7 @@ export function LeadDetalle({ lead, levels }: { lead: LeadDetail; levels: CoachL
           only flips to `convertido` when the athlete redeems (owned by the alta flow,
           never a manual PATCH here).
         */}
-        <LeadAltaControl leadId={lead.id} status={lead.status} alta={lead.alta} levels={levels} />
+        <LeadAltaControl leadId={lead.id} status={lead.status} alta={lead.alta} levels={levels} stripeConfigured={stripeConfigured} />
       </Card>
 
       {/* ── Cita · videollamada ───────────────────────────────────────────── */}

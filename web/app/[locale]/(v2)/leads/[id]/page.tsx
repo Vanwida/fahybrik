@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getLeadDetail, listCoachLevels } from '@/lib/dashboard/coach/leads';
+import { loadStripeConfig } from '@/lib/stripe';
 import { LeadDetalle } from '@/components/v2/leads/LeadDetalle';
 
 export const dynamic = 'force-dynamic';
@@ -32,5 +33,10 @@ export default async function V2LeadDetailPage({
   ]);
   if (!lead) notFound();
 
-  return <LeadDetalle lead={lead} levels={levels} />;
+  // #15 — is Stripe billing wired in this env? Drives the alta modal's cobro path:
+  // when unconfigured, the paid path is hidden (cortesía only) so the coach never
+  // hits a checkout error instead of a raw 503 on a coach action.
+  const stripeConfigured = loadStripeConfig().ok;
+
+  return <LeadDetalle lead={lead} levels={levels} stripeConfigured={stripeConfigured} />;
 }
