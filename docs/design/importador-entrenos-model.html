@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#28 · Importador de entrenos — modelo</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1e; --line:#2a2a2e;
+    --ink:#f5f5f4; --muted:#a1a1aa; --dim:#71717a;
+    --orange:#ff5721; --orange-soft:#ff764b;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --blue:#60a5fa;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:48px 24px 120px}
+  h1{font-size:29px;font-weight:800;font-style:italic;letter-spacing:-.02em;margin:0 0 6px}
+  h1 .n{color:var(--orange)}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 8px}
+  .meta{color:var(--dim);font-size:12.5px;font-family:var(--mono);margin-bottom:34px}
+  h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange-soft);margin:52px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;font-weight:700;margin:24px 0 8px}
+  p{margin:0 0 12px}
+  .muted{color:var(--muted)}
+  code{font-family:var(--mono);font-size:.85em;background:var(--surface-2);padding:1.5px 6px;border-radius:5px;color:#ffd9c9;white-space:nowrap}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+  .tldr{background:linear-gradient(180deg,#1a120d,#141416);border:1px solid #4a2a17}
+  .tldr b{color:var(--orange-soft)}
+  .rule{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .rule .k{flex:0 0 auto;font-size:18px;line-height:1.3}
+  .pipe{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--muted);font-family:var(--mono);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+  .pipe .step{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink)}
+  .pipe .arw{color:var(--orange);font-weight:700}
+  .pipe .new{border-color:#4a2a17;color:var(--orange-soft)}
+  .grid{display:grid;gap:12px}
+  @media(min-width:680px){.grid.s2{grid-template-columns:1fr 1fr}}
+  .src{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .src h4{margin:0 0 8px;font-size:15px;font-weight:700}
+  .src ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+  .src li{margin:4px 0}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  .scroll table{margin:0}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  td .n{font-family:var(--mono);font-size:12px;color:#ffd9c9;white-space:nowrap}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;font-weight:600}
+  .ok{background:rgba(52,211,153,.13);color:var(--green)}
+  .warn{background:rgba(251,191,36,.13);color:var(--amber)}
+  .bad{background:rgba(248,113,113,.13);color:var(--red)}
+  .neu{background:rgba(96,165,250,.13);color:var(--blue)}
+  .fork{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .fork .id{font-family:var(--mono);color:var(--orange);font-weight:700;font-size:13px}
+  .fork h3{margin:2px 0 10px;font-size:17px}
+  .opt{display:flex;gap:10px;padding:9px 0;border-top:1px dashed var(--line)}
+  .opt:first-of-type{border-top:none}
+  .opt .lbl{flex:0 0 140px;font-family:var(--mono);font-size:12.5px;font-weight:700}
+  .opt .lbl.rec{color:var(--green)}
+  .opt .bd{flex:1;font-size:14px;color:var(--muted)}
+  .rec-tag{display:inline-block;background:rgba(52,211,153,.13);color:var(--green);font-family:var(--mono);font-size:10.5px;padding:1px 7px;border-radius:999px;margin-left:6px}
+  .note{font-size:13px;color:var(--dim);font-style:italic;margin-top:10px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:2px 0 14px}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:12.5px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="n">#28</span> — Importador de entrenos · Excel/texto → prescripción tipada</h1>
+  <p class="sub">El coach pega su Excel o su notación natural; la app lo tipa (cero texto libre), lo marca lo dudoso, y publica a la biblioteca de bloques o a la semana — con revisión obligatoria y aprendizaje de la notación de cada coach.</p>
+  <p class="meta">FASE DE DISEÑO · read-only · TODO coach-side web (sin iOS, sin lib/sync → no gateado por 1.0(3)) · mapeado contra el Excel REAL de Pablo (97 bloques) 2026-07-08</p>
+
+  <div class="card tldr">
+    <div class="rule"><span class="k">🛤️</span><div><b>No es greenfield — es el front de importación masiva sobre raíles que YA existen:</b> (1) la GRAMÁTICA de la notación de Pablo ya está escrita (<code>infra/scripts/parse_blocks_lib.ts</code>: regexes exactas para <code>10/10/8/8/6</code>, <code>65-80%</code>, <code>5x3'30''</code>, <code>z2</code>, <code>4x40''/20''</code>, <code>12 rounds x 400m</code>, km/h→ritmo + mapa de ~90 alias); (2) #33 acaba de construir los raíles IA→bloques tipados→editor→publicar (<code>callPabloIaLlmJson</code> con modelo por env nunca hardcoded, gate Zod, <code>weekDayPartsToEditorBlocks</code>); (3) el patrón de revisión por-campo (<code>detected|review</code>) de workout-vision.</div></div>
+    <div class="rule"><span class="k">🚪</span><div><b>El gate objetivo:</b> nada entra sin pasar <code>prescriptionSchema</code> (<code>.strict()</code>, cero texto libre salvo <code>note</code>/<code>tempo</code>) Y con un <code>exercise_id</code> resuelto. Basura silenciosa rompería analíticas/reloj/IA — por eso NO es importación mágica: la revisión es obligatoria.</div></div>
+    <div class="rule"><span class="k">🧠</span><div><b>Lo net-new de verdad:</b> el motor de parseo tipado (extraer la gramática a un módulo compartido testeado + fallback IA para lo denso), la resolución de ejercicios a escala, y el <b>mapa de sinónimos por coach</b> que aprende de las correcciones. La superficie de revisión = el editor de #33 pre-poblado y con lo dudoso marcado.</div></div>
+  </div>
+
+  <h2>1 · El pipeline</h2>
+  <div class="pipe">
+    <span class="step">pegar Excel/texto</span> <span class="arw">→</span>
+    <span class="step new">PARSE tipado (gramática + IA)</span> <span class="arw">→</span>
+    <span class="step new">resolver ejercicio (alias + sinónimos)</span> <span class="arw">→</span>
+    <span class="step">REVISIÓN (editor #33, dudoso marcado)</span> <span class="arw">→</span>
+    <span class="step">publicar (biblioteca / semana)</span> <span class="arw">→</span>
+    <span class="step new">aprender sinónimos del coach</span>
+  </div>
+  <p class="muted">Cada elemento parseado es una <b>propuesta</b> con confianza por campo (<code>detected|review</code>, como workout-vision): lo detectado con seguridad va verde, lo dudoso ámbar, lo no-mapeado (ejercicio desconocido, WOD denso) rojo → el coach lo resuelve. Nada se guarda hasta confirmar y pasar el gate Zod.</p>
+
+  <h2>2 · El objetivo tipado (lo que el parser DEBE producir)</h2>
+  <p class="muted">El destino es la <code>Prescription</code> canónica que ya existe (<code>shared/domain/prescription</code>): <b>medida × objetivo × modalidad</b>, cero texto libre. El importador no inventa el modelo — lo rellena.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Eje</th><th>Valores tipados</th></tr></thead>
+    <tbody>
+      <tr><td><b>scheme</b> (formato)</td><td class="muted">for_time · amrap · emom · tabata · death_by · intervals · steady · chipper · ladder · rounds · hyrox_sim · sets · warmup · cooldown</td></tr>
+      <tr><td><b>measure</b> (trabajo)</td><td class="muted">reps · distance(m) · duration(s) · calories</td></tr>
+      <tr><td><b>target</b> (intensidad)</td><td class="muted">percent_rm · kg · rpe · rir · bodyweight · pace(/km·/500m) · hr_zone(1-5) · hr_bpm · calories · watts — todos con rango (min/max)</td></tr>
+      <tr><td><b>sets[]</b> (por serie)</td><td class="muted">{measure, target, rest_s, tempo} — pirámides/olas/bouts heterogéneos</td></tr>
+      <tr><td><b>estructura</b></td><td class="muted">rounds · work_s · rest_s · total_s(cap) · start · increment</td></tr>
+      <tr><td><b>modalidad</b></td><td class="muted">run · row · ski · bike · strength · functional · core · mobility · other (intrínseca al ejercicio)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Bloque "mixto" (correr + wall balls) = varios items hermanos con el mismo <code>block_position</code>, cada uno su ejercicio + modalidad + prescripción. NO anidado. Único texto libre permitido: <code>note</code> (≤2000) y <code>tempo</code> ("3-1-1-0").</p>
+
+  <h2>3 · El motor de parseo — híbrido, no IA sola</h2>
+  <div class="grid s2">
+    <div class="src">
+      <h4>Gramática determinista <span class="pill ok">exacta · gratis</span></h4>
+      <ul>
+        <li>Ya existe en <code>parse_blocks_lib.ts</code>: cubre la notación regular de Pablo (fuerza, ergo, series, zonas, core) EXACTO</li>
+        <li>Un regex no alucina un número — un LLM sí</li>
+        <li>Se extrae a un módulo compartido, testeado contra el Excel real</li>
+        <li>Sale como <code>detected</code> (alta confianza)</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>IA de apoyo <span class="pill warn">para lo denso</span></h4>
+      <ul>
+        <li><code>callPabloIaLlmJson</code> (modelo por env, el que elija Alex, nunca hardcoded; gate Zod)</li>
+        <li>Solo donde la gramática no llega: WODs/HYROX-sim densos, exercise-matching difuso, dialectos raros</li>
+        <li>Sale como <code>review</code> (el coach confirma) salvo que se auto-marque seguro</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">La gramática existente ya PUNTEA a <code>needs_review</code> los grupos 6/7/10 (WODs/sims/tapering) sin fabricar estructura — honestidad ya incorporada. El fallback IA los tipa como propuesta que el coach revisa. La primacía del motor es el Fork A.</p>
+
+  <h2>4 · Resolución de ejercicios + sinónimos por coach (net-new)</h2>
+  <p class="muted">El nombre del ejercicio en el texto ("SB lunge", "aperturas en polea") → <code>exercise_id</code> del catálogo. No hay columna de alias en <code>exercises</code>. Cascada: (1) mapa de alias global (~90, ya existe) → (2) match exacto/substring por nombre → (3) IA difusa → (4) si nada: la revisión pide al coach elegir/crear.</p>
+  <div class="card">
+    <div class="rule"><span class="k">📚</span><div><b>El aprendizaje (el "aprende su notación"):</b> cuando el coach resuelve un término no-mapeado, se escribe en un store nuevo <code>coach_exercise_synonyms(coach_id, término_normalizado, exercise_id)</code> (patrón de <code>coach_exercise_overrides</code>). El próximo import de ESE coach resuelve "SB lunge" solo. El mapa global de alias es el punto de partida; el per-coach es lo que se acumula.</div></div>
+  </div>
+
+  <h2>5 · La revisión = el editor de #33 (reuso, no UI paralela)</h2>
+  <p class="muted">El importador produce <code>WeekDayPart[]</code> tipados → <code>weekDayPartsToEditorBlocks</code> (client-safe, de #33) → el editor los muestra como bloques editables. La "pantalla de revisión con lo dudoso marcado" = ese editor, pre-poblado, con los items <code>review</code>/no-resueltos resaltados. El coach corrige ahí (ya conoce el editor) y publica con los seams que #33 ya usa.</p>
+  <div class="card">
+    <div class="rule"><span class="k">⚠️</span><div><b>Único añadido al editor:</b> mostrar la marca <code>needs_review</code> + razón por item (el dato ya existe en <code>block_exercises.needs_review</code> / el <code>ParseResult.review_reasons</code> de <code>parse.ts</code>) y el selector de ejercicio para los no-resueltos. No es una UI nueva; es un realce sobre el editor existente.</div></div>
+  </div>
+
+  <h2>6 · Publicar (reuso de seams existentes)</h2>
+  <div class="grid s2">
+    <div class="src">
+      <h4>Biblioteca de bloques</h4>
+      <ul>
+        <li><code>createBlock(coachId, BlockWrite)</code> / POST <code>/api/coach/blocks</code> (ya existe; #33 lo usa con <code>saveBlockToLibrary</code>)</li>
+        <li>Cada fila del Excel → un bloque tipado</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4>Semana del microciclo</h4>
+      <ul>
+        <li><code>serializeDay</code> / PUT <code>/api/coach/program-weeks/[id]/day</code> (ya existe)</li>
+        <li>Una sesión/día pegado → los bloques del día</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>7 · Stress-test contra el Excel REAL de Pablo</h2>
+  <div class="legend">
+    <span><span class="pill ok">tipa exacto</span> gramática lo clava</span>
+    <span><span class="pill warn">tipa c/ IA + review</span> denso, coach confirma</span>
+    <span><span class="pill neu">edge del modelo</span> decisión de diseño</span>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Notación real (Excel de Pablo)</th><th>Tipado</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td class="n">Front squat 5 rounds 10/10/8/8/6 al 65-80%</td><td class="muted">sets, 5 series {reps, %RM 65-80}, front-squat</td><td><span class="pill ok">exacto</span></td></tr>
+      <tr><td>2</td><td class="n">Deadlift 5r 10/10/8/6/4 + Hip thrust 5r 10/10/8/8/6</td><td class="muted">2 items hermanos, cada uno sus series (split en +)</td><td><span class="pill ok">exacto</span></td></tr>
+      <tr><td>3</td><td class="n">ROW: 5' WU → 5x3' RPE8 – 45'' rest</td><td class="muted">warmup + intervals row: 5×180s, rest 45, RPE 8</td><td><span class="pill ok">exacto</span></td></tr>
+      <tr><td>4</td><td class="n">Series pista: 2x1200(1'45'') + 1x1000(1'30'') + 2x800(1') + 2x400(45'')</td><td class="muted">intervals, bouts heterogéneos → sets[] {distance, rest}</td><td><span class="pill warn">IA + review</span></td></tr>
+      <tr><td>5</td><td class="n">Threshold cinta: 4x6' a 15,5km/h – 1'15'' walking rest</td><td class="muted">intervals 4×360s, target pace (15,5km/h→s/km), rest 75</td><td><span class="pill ok">exacto</span> <span class="muted">(convierte km/h→ritmo)</span></td></tr>
+      <tr><td>6</td><td class="n">Run 1h15' zona 2 (no más de 6'/km)</td><td class="muted">steady 4500s, target hr_zone 2 + tope de ritmo 6'/km</td><td><span class="pill neu">edge · Fork E</span> <span class="muted">(doble objetivo: zona + cap)</span></td></tr>
+      <tr><td>7</td><td class="n">WOD 5r: 24 wall balls + 20m SB lunge + 14cal skierg + 8 devil press – TC55'</td><td class="muted">rounds×5, 4 items (reps/dist/cal/reps), total_s = cap</td><td><span class="pill warn">IA + review</span></td></tr>
+      <tr><td>8</td><td class="n">METCON: 45'' on/15'' off x10r sled push 170kg + For Time sled pull 130kg – TC10-12'</td><td class="muted">multi-formato denso → propuesta IA, coach revisa</td><td><span class="pill warn">IA + review</span></td></tr>
+      <tr><td>9</td><td class="n">Side plank 4x40''/20'' + Turkish get-up 4x4/lado</td><td class="muted">core: work-rest 40/20; TGU 4×4 (/lado = nota)</td><td><span class="pill ok">exacto</span></td></tr>
+      <tr><td>10</td><td class="n">4r 8 DB walking lunge 22,5kg + 12 DB goblet squat – 2' rest</td><td class="muted">4 rounds, 2 items {reps, kg}, rest 120</td><td><span class="pill ok">exacto</span></td></tr>
+      <tr><td>11</td><td class="n">5 rounds Back Squat c/2'30": 10/10/8/8/6 — 60/65/70/70/75% RM</td><td class="muted">= caso 1, DIALECTO 12-sem (c/… = rest, — sep, % RM)</td><td><span class="pill ok">exacto</span> <span class="muted">(2º dialecto)</span></td></tr>
+      <tr><td>12</td><td class="n">Bar zercher jump bulgarian squat 12/10/8/8</td><td class="muted">series ok; ejercicio NO en catálogo → coach elige/crea → sinónimo aprendido</td><td><span class="pill warn">resolver + aprende</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">8/12 tipan exacto con la gramática existente; los densos (4,7,8) van a IA+review honesto; 12 dispara el aprendizaje; 6 es un edge REAL del modelo (línea con zona Y tope de ritmo) → Fork E. El modelo entra sin texto libre en el resultado — lo dudoso se resuelve en revisión, no se inventa.</p>
+
+  <h2>8 · Mini-mapa — qué se toca</h2>
+  <div class="grid s2">
+    <div class="src">
+      <h4 style="color:var(--green)">Reuso (ya existe)</h4>
+      <ul>
+        <li>Gramática de notación (<code>parse_blocks_lib.ts</code>) + mapa de alias (~90)</li>
+        <li>Objetivo tipado + gate (<code>prescriptionSchema</code>, <code>parse.ts</code> legacy→tipado con review)</li>
+        <li>Seam LLM (<code>callPabloIaLlmJson</code>, modelo por env)</li>
+        <li>Editor #33 + <code>weekDayPartsToEditorBlocks</code> + publicar (<code>createBlock</code>, <code>serializeDay</code>)</li>
+        <li>Patrón de confianza por campo (workout-vision)</li>
+      </ul>
+    </div>
+    <div class="src">
+      <h4 style="color:var(--amber)">Net-new</h4>
+      <ul>
+        <li>Extraer la gramática a un módulo compartido tipado + testeado (hoy vive en un script infra)</li>
+        <li>Adaptador Excel-paste → filas (bridge python/openpyxl ya existe para .xlsx; para PASTE, tabla de texto)</li>
+        <li>Endpoint de import → propuesta (WeekDayPart[] + flags), nada guardado</li>
+        <li>Store <code>coach_exercise_synonyms</code> + aprendizaje al publicar</li>
+        <li>Realce del editor: marca needs_review + selector de ejercicio no-resuelto</li>
+        <li>Tests: los 12 casos contra el Excel real</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="border-color:#2f4a2f">
+    <div class="rule"><span class="k">✅</span><div><b>Todo es coach-side web</b> — cero iOS, cero lib/sync, cero wearables. NO gateado por el 1.0(3) ni por "wearables libre". Buildable ya, como la parte web de #34. El LLM del parseo = el que Alex tenga en env (<code>PABLO_IA_MODEL</code>/<code>LLM_CHAT_MODEL</code>); no propongo modelo.</div></div>
+  </div>
+
+  <h2>9 · Forks — lo que decides tú / Alex</h2>
+  <p class="muted">El objetivo (tipado correcto, cero texto libre, honestidad de la revisión, no fabricar) ya está decidido. Esto es lo subjetivo.</p>
+
+  <div class="fork">
+    <span class="id">FORK A · motor de parseo primario</span>
+    <h3>¿Gramática o IA primero?</h3>
+    <div class="opt"><div class="lbl rec">A · gramática + IA fallback <span class="rec-tag">recomendado</span></div><div class="bd">Determinista primero (exacto/gratis en la notación regular de Pablo, ~70%), IA solo para lo denso/ambiguo. Un regex no alucina un número; el LLM sí. La gramática ya existe y ya cubre su notación.</div></div>
+    <div class="opt"><div class="lbl">B · IA primero + validación</div><div class="bd">IA tipa todo, la gramática/Zod valida. Más simple de escribir, pero riesgo de números alucinados en lo que la gramática clava.</div></div>
+    <div class="opt"><div class="lbl">C · IA sola</div><div class="bd">Todo por LLM. Descarta prior art exacto; más caro y menos fiable en dosis.</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK B · granularidad de import v1</span>
+    <h3>¿Qué se importa de una?</h3>
+    <div class="opt"><div class="lbl rec">A · bloque + sesión <span class="rec-tag">recomendado</span></div><div class="bd">Fila Excel → bloque (biblioteca); texto de un día → sesión (editor de día). Cubre los 97 bloques + el editor de día que ya existe.</div></div>
+    <div class="opt"><div class="lbl">B · + semana/macrociclo</div><div class="bd">Pegar semanas/12-sem enteras. Más potente pero el editor de semana múltiple es más superficie; mejor fase 2.</div></div>
+    <div class="opt"><div class="lbl">C · solo bloque</div><div class="bd">Mínimo. Deja fuera el pegar-un-día, que es un caso real frecuente.</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK C · superficie de revisión</span>
+    <h3>¿Editor de #33 o pantalla propia?</h3>
+    <div class="opt"><div class="lbl rec">A · reusar editor #33 <span class="rec-tag">recomendado</span></div><div class="bd">Pre-poblar el editor con lo importado + realzar lo dudoso. El coach ya lo conoce; cero UI paralela; publica con los seams existentes.</div></div>
+    <div class="opt"><div class="lbl">B · pantalla de import propia</div><div class="bd">Una vista dedicada de revisión masiva (tabla). Mejor para revisar MUCHAS filas de golpe, pero es UI nueva y duplica el editor.</div></div>
+    <p class="note">Matiz: para importar 97 bloques de una, una tabla (B) escala mejor que abrir 97 en el editor. Posible híbrido: tabla de revisión masiva → editor por bloque al hacer clic. Lo dejo a tu criterio de UX.</p>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK D · alcance del aprendizaje</span>
+    <h3>¿Qué aprende el mapa por coach?</h3>
+    <div class="opt"><div class="lbl rec">A · sinónimos de ejercicio <span class="rec-tag">recomendado</span></div><div class="bd">término→exercise_id por coach (donde más difieren los coaches). Alto valor, alcance acotado.</div></div>
+    <div class="opt"><div class="lbl">B · + alias de notación/formato</div><div class="bd">También abreviaturas de dosis/formato propias. La gramática ya es estable; menos retorno.</div></div>
+    <div class="opt"><div class="lbl">C · sin aprendizaje v1</div><div class="bd">Solo el mapa global. Cada import re-pregunta lo mismo — rompe la promesa "aprende su notación".</div></div>
+  </div>
+
+  <div class="fork">
+    <span class="id">FORK E · líneas con doble objetivo (caso 6)</span>
+    <h3>"Z2 pero no más de 6'/km" — zona + tope de ritmo</h3>
+    <div class="opt"><div class="lbl rec">A · extender el modelo <span class="rec-tag">leve preferencia</span></div><div class="bd">Objetivo primario (hr_zone 2) + un tope/cap de ritmo tipado como segundo constraint. Más completo, pero toca el schema canónico de prescripción (cross-cutting).</div></div>
+    <div class="opt"><div class="lbl">B · primario + review</div><div class="bd">Tipar el objetivo primario y marcar el 2º como needs_review (el coach decide). No toca el schema; menos completo.</div></div>
+    <p class="note">Es el único edge que roza "objetivo" (completitud del modelo). La FORMA del arreglo (extender vs review) sí es tuya porque el schema de prescripción se usa en todo el sistema.</p>
+  </div>
+
+  <div class="foot">
+    docs/design/importador-entrenos-model.html · #28 · fase de diseño · dobles-demo → team-lead<br>
+    Mapeado contra: shared/domain/prescription · parse_blocks_lib.ts · Grupos_Entrenamiento_HYROX.xlsx (97 bloques) · blocks.ts/createBlock · #33 editor (ai-blocks-to-editor · editor-serialize) · workout-vision · llm.ts · coach_exercise_overrides
+  </div>
+
+</div>
+</body>
+</html>
