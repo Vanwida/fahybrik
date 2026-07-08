@@ -16,6 +16,7 @@ struct Day1Flow: View {
     @State private var model = Day1Model()
     @State private var stepIndex = 0
     @State private var healthRequesting = false
+    @State private var healthError = false
 
     private enum Beat { case welcome, partner, health, tests, loop, done }
 
@@ -97,7 +98,7 @@ struct Day1Flow: View {
             Wordmark(size: 18)
             Spacer().frame(height: Theme.Spacing.xl)
             LabelText(text: "BIENVENIDO/A", color: Theme.Color.accentText)
-            Text(model.firstName.isEmpty ? "Hola." : "Hola,\n\(model.firstName).")
+            Text("Hola,\n\(model.firstName.isEmpty ? "atleta" : model.firstName).")
                 .font(Theme.Typography.headlineM)
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.top, 8)
@@ -192,6 +193,12 @@ struct Day1Flow: View {
             Spacer().frame(height: Theme.Spacing.xl)
             ExpertPrimaryButton(title: healthRequesting ? "CONECTANDO…" : "PERMITIR ACCESO", enabled: !healthRequesting) {
                 Task { await connectHealth() }
+            }
+            if healthError {
+                Text("No pudimos activar Apple Salud en este dispositivo. Puedes continuar y conectarlo más tarde desde Ajustes.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.Color.warning)
+                    .padding(.top, 10)
             }
             Button {
                 advance()
@@ -358,15 +365,22 @@ struct Day1Flow: View {
     private func connectHealth() async {
         guard !healthRequesting else { return }
         healthRequesting = true
+        healthError = false
         defer { healthRequesting = false }
         do {
+            // Presents the system permission sheet (or returns immediately if already
+            // answered). HealthKit never reports READ-grant status, so a successful
+            // return = the sheet was shown → treat as connected, start sync, advance.
             try await HealthKitPermissions.request()
             HealthKitSyncService.shared.configure(bearer: bearer, athleteId: AuthState.persistedAthleteId())
             HealthKitSyncService.shared.connect()
             UserDefaults.standard.set(true, forKey: HealthKitConnection.connectedKey)
+            advance()
         } catch {
-            // HealthKit unavailable / no entitlement — non-blocking; just continue.
+            // HealthKit genuinely unavailable (simulator / unprovisioned build). Do
+            // NOT auto-advance — that made the button look like a silent "Siguiente".
+            // Surface a note; the athlete continues with "Hacerlo después".
+            healthError = true
         }
-        advance()
     }
 }
