@@ -108,6 +108,21 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </div>
       </DashboardMockup>
 
+      <DocNote variant="cue" title="Dos formas de dar de alta">
+        <ul>
+          <li>
+            <span className="k">Agregar atleta</span> (lo de esta sección) — alta de{' '}
+            <b>cortesía</b>: acceso completo e inmediato, <b>sin cobro</b>. Tú generas el enlace y se
+            lo mandas.
+          </li>
+          <li>
+            <span className="k">Dar de alta desde un lead</span> — desde la ficha del lead, tras la
+            videollamada. Ahí fijas el <b>precio acordado</b> y es el <b>pago</b> lo que activa su
+            acceso. Ese camino de cobro vive en la sección <b>«Pagos»</b>.
+          </li>
+        </ul>
+      </DocNote>
+
       <DocNote variant="cue" title="Modalidad: qué eliges y por qué">
         <ul>
           <li>
@@ -175,6 +190,84 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </div>
         </PhoneMockup>
       </MovilBand>
+
+      <MovilBand
+        title="Su primer día en la app"
+        subtitle={
+          <>
+            Nada más activar su cuenta —ya de pago o de cortesía—, el primer arranque es una{' '}
+            <b>bienvenida de ~30 segundos</b>, no un cuestionario: su perfil ya viajó desde el
+            onboarding del funnel, así que aquí solo lo <b>confirma</b> antes de aterrizar en Inicio.
+          </>
+        }
+      >
+        <PhoneMockup
+          caption={
+            <>
+              <b>Su primer día.</b> Le saluda por su nombre y le devuelve el objetivo que puso en el
+              funnel. El perfil ya está cargado: solo confirma. Los números finos los medirán sus{' '}
+              <b>tests de la semana 1</b> — sin formularios.
+            </>
+          }
+        >
+          <div className="ph-hd">
+            <div />
+            <div className="ph-mark">FAHYBRID</div>
+            <div className="avatar">M</div>
+          </div>
+          <div className="kick" style={{ marginTop: '18px' }}>
+            Tu primer día · te damos la bienvenida
+          </div>
+          <div className="ph-title">Hola, Marta</div>
+          <div className="hero" style={{ marginTop: '14px' }}>
+            <div className="row">
+              <span className="hk">Tu objetivo</span>
+            </div>
+            <div className="ht">Completar tu primer HYROX</div>
+            <div className="meta">Lo dijiste al empezar · lo tienes delante desde hoy</div>
+          </div>
+          <div className="logcard">
+            <div className="lh">Tu perfil, ya cargado · confírmalo</div>
+            <div className="field">
+              <span className="fl">Nivel</span>
+              <span className="fv">Intermedio</span>
+            </div>
+            <div className="field">
+              <span className="fl">Días / semana</span>
+              <span className="fv num">4</span>
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <span className="fl">Modalidad</span>
+              <span className="fv">Individual</span>
+            </div>
+          </div>
+          <div className="logcard" style={{ marginBottom: '10px' }}>
+            <div className="lh">Tu punto de partida · semana 1</div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5 }}>
+              HYROX half-sim · 5 km · batería 1RM · remo 2K. Tus tests miden lo preciso — no hace
+              falta que lo teclees.
+            </div>
+          </div>
+          <div className="cta">Confirmar y entrar</div>
+        </PhoneMockup>
+      </MovilBand>
+
+      <DocNote variant="log" title="Sin formularios: su perfil ya viajó desde el funnel; los tests miden lo preciso">
+        <ul>
+          <li>
+            El día-1 no vuelve a preguntar nada del onboarding: nombre, objetivo, nivel y días ya
+            llegaron con el alta. Solo confirma.
+          </li>
+          <li>
+            Conectar Apple Health es <span className="k">saltable</span> y nunca bloquea; si lo deja
+            para luego, sigue con captura manual y lo conecta después desde Perfil.
+          </li>
+          <li>
+            Se muestra <span className="k">una sola vez</span>. Y en <span className="k">Dobles</span>,
+            un paso extra confirma el emparejamiento con su pareja.
+          </li>
+        </ul>
+      </DocNote>
     </DocSection>
   );
 }

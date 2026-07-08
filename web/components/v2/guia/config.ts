@@ -1,11 +1,12 @@
 // ════════════════════════════════════════════════════════════════════════════
 // GUÍA DEL ENTRENADOR — single source of truth for the docs index.
 //
-// The whole guide is registered ONCE here: the 6 áreas and the 19 secciones from
-// the approved prototype. Both the sidebar (components/v2/guia/GuiaSidebar) and
-// the router (app/[locale]/(v2)/guia/[slug]/page.tsx) read from this file — nobody
-// edits the sidebar by hand. A phase-2 agent fills ONE section file; this config
-// already points the sidebar link + the route at it.
+// The whole guide is registered ONCE here: the 9 áreas and the 29 secciones — the
+// 19 del prototipo de método + 10 del negocio, el ciclo de vida del atleta y los
+// dobles (todo lo que se construyó en producción estos días). Both the sidebar
+// (components/v2/guia/GuiaSidebar) and the router (app/[locale]/(v2)/guia/[slug])
+// read from this file — nobody edits the sidebar by hand. Each section fills ONE
+// file in ./sections; this config already points the sidebar link + the route at it.
 //
 // Server- and client-safe: pure data, no component imports. The slug→component
 // wiring lives separately in ./sections/registry.ts so this stays importable from
@@ -19,7 +20,10 @@ export type GuiaAreaId =
   | 'plan'
   | 'asignar'
   | 'dia-a-dia'
-  | 'seguimiento';
+  | 'seguimiento'
+  | 'negocio'
+  | 'ciclo-vida'
+  | 'dobles';
 
 export interface GuiaArea {
   id: GuiaAreaId;
@@ -49,6 +53,9 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'asignar', label: 'Asignar y empezar' },
   { id: 'dia-a-dia', label: 'El día a día' },
   { id: 'seguimiento', label: 'Seguimiento' },
+  { id: 'negocio', label: 'Tu negocio' },
+  { id: 'ciclo-vida', label: 'Ciclo de vida' },
+  { id: 'dobles', label: 'Dobles' },
 ] as const;
 
 /** The 19 sections, in order. `built` ones have real content today. */
@@ -208,7 +215,90 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'seguimiento',
     slug: 'progreso-y-rendimiento',
     title: 'Progreso y rendimiento',
-    blurb: 'La evolución de marcas y tests a lo largo del tiempo.',
+    blurb: 'La evolución de marcas y tests, y la pestaña Rendimiento con «Evaluar semana».',
+    built: true,
+  },
+  // ── Tu negocio ───────────────────────────────────────────────────────────────
+  {
+    num: 20,
+    area: 'negocio',
+    slug: 'leads-tu-embudo',
+    title: 'Leads: tu embudo de entrada',
+    blurb: 'Cada visita que deja su email entra aquí como lead, con su estado y su objetivo.',
+    built: true,
+  },
+  {
+    num: 21,
+    area: 'negocio',
+    slug: 'la-videollamada',
+    title: 'La videollamada con tu lead',
+    blurb: 'Reserva con hueco, Google Meet automático y recordatorios — sin ida y vuelta.',
+    built: true,
+  },
+  {
+    num: 22,
+    area: 'negocio',
+    slug: 'nurturing-de-leads',
+    title: 'Recupera leads fríos',
+    blurb: 'Los leads que se estancan se reenganchan solos por email, sin que muevas un dedo.',
+    built: true,
+  },
+  {
+    num: 23,
+    area: 'negocio',
+    slug: 'cupo-y-lista-de-espera',
+    title: 'Cupo y lista de espera',
+    blurb: 'Tu grupo tiene un tope; cuando se llena, los nuevos esperan turno por orden.',
+    built: true,
+  },
+  {
+    num: 24,
+    area: 'negocio',
+    slug: 'pagos',
+    title: 'Pagos: cobro por Stripe',
+    blurb: 'El precio nace en el alta y el pago activa el acceso. Ves estados reales y tu MRR.',
+    built: true,
+  },
+  {
+    num: 25,
+    area: 'negocio',
+    slug: 'metricas-del-funnel',
+    title: 'Métricas del funnel',
+    blurb: 'De la visita al alta: dónde entra la gente y dónde se cae, semana a semana.',
+    built: true,
+  },
+  // ── Ciclo de vida del atleta ─────────────────────────────────────────────────
+  {
+    num: 26,
+    area: 'ciclo-vida',
+    slug: 'pausas-y-bajas',
+    title: 'Pausas y bajas',
+    blurb: 'Congela el plan sin penalizar la adherencia; da de baja conservando el historial.',
+    built: true,
+  },
+  {
+    num: 27,
+    area: 'ciclo-vida',
+    slug: 'lesiones',
+    title: 'Lesiones',
+    blurb: 'Registra una lesión, adáptale el plan y velo de un vistazo en tu roster.',
+    built: true,
+  },
+  {
+    num: 28,
+    area: 'ciclo-vida',
+    slug: 'revision-1a1',
+    title: 'Revisión 1:1 recurrente',
+    blurb: 'Un repaso periódico con tu atleta: tú propones, él elige hueco, se agenda solo.',
+    built: true,
+  },
+  // ── Dobles ───────────────────────────────────────────────────────────────────
+  {
+    num: 29,
+    area: 'dobles',
+    slug: 'entrenar-en-dobles',
+    title: 'Entrenar en dobles',
+    blurb: 'Dos atletas, una pareja: sesión conjunta, reparto de estaciones y modo espejo.',
     built: true,
   },
 ] as const;

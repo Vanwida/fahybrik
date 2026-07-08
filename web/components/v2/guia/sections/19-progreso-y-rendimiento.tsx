@@ -226,6 +226,144 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
 
+      <h3>3 · La pestaña Rendimiento: el diagnóstico completo</h3>
+      <p>
+        Junto al <b>Histórico</b>, su ficha tiene la pestaña <b>Rendimiento</b>: el diagnóstico
+        entero, que se carga <b>bajo demanda</b> al entrar. Reúne paneles de <b>diagnóstico</b>{' '}
+        —readiness compuesta, polarización 80/0/20, mejores tiempos por ejercicio— y de{' '}
+        <b>fisiología</b> —economía de carrera, umbral de lactato, capacidad anaeróbica, predicción
+        HYROX—. Como en todo el panel, cada sección tiene su estado honesto: si aún no hay datos, lo
+        dice <span className="em">«Sin datos de rendimiento todavía»</span> en vez de dibujar una
+        gráfica vacía.
+      </p>
+
+      <h3>4 · Evaluar semana: el sistema propone, tú decides</h3>
+      <p>
+        Arriba de esa pestaña vive <b>Evaluar semana</b>. El sistema mira la semana anterior y{' '}
+        <b>propone</b> un ajuste con un <b>veredicto</b> (<em className="em">Requiere ajuste</em> /{' '}
+        <em className="em">Semana correcta</em>) y una recomendación —mantener, suavizar, cambiar…—. Y
+        te enseña los <b>disparadores</b> que lo motivan, con sus números reales. Tú <b>apruebas</b> o{' '}
+        <b>rechazas</b>: nada se aplica solo. Si la semana está correcta, se cierra sin tocar el plan.
+      </p>
+
+      {/* Dashboard mockup: Rendimiento — diagnóstico + Evaluar semana (propone / firmas) */}
+      <DashboardMockup url="tu-panel / atletas / marc · rendimiento">
+        <div
+          style={{
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: 'var(--muted)',
+            marginBottom: '10px',
+          }}
+        >
+          Diagnóstico de rendimiento
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {[
+            { v: '71', u: '/100', l: 'Readiness', c: 'var(--ok)' },
+            { v: '4:52', u: '/km', l: 'Economía Z2', c: 'var(--fg)' },
+            { v: '168', u: 'ppm', l: 'FC umbral', c: 'var(--fg)' },
+            { v: '82/0/18', u: '', l: 'Polarización', c: 'var(--fg)' },
+          ].map((t) => (
+            <div
+              key={t.l}
+              style={{
+                flex: 1,
+                background: 'var(--surface)',
+                border: '1px solid var(--hair)',
+                borderRadius: '9px',
+                padding: '10px 11px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
+                <span className="num2" style={{ fontSize: '16px', fontWeight: 800, color: t.c }}>{t.v}</span>
+                {t.u ? (
+                  <span className="num2" style={{ fontSize: '10px', color: 'var(--faint)' }}>{t.u}</span>
+                ) : null}
+              </div>
+              <div
+                style={{
+                  fontSize: '8.5px',
+                  fontWeight: 800,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  color: 'var(--muted)',
+                  marginTop: '4px',
+                }}
+              >
+                {t.l}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--hair)',
+            borderRadius: '11px',
+            padding: '13px 14px',
+          }}
+        >
+          <div className="wk-head" style={{ marginBottom: '10px' }}>
+            <div className="wk-title">
+              Evaluar semana&nbsp; <small>semana del 5 ene</small>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '12px' }}>
+            <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
+              ▲ Requiere ajuste
+            </span>
+            <span className="chip" style={{ color: 'var(--acc)', borderColor: 'var(--acc)' }}>
+              Recomendación · Suavizar
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: '9.5px',
+              fontWeight: 800,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              color: 'var(--muted)',
+              marginBottom: '6px',
+            }}
+          >
+            Disparadores
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+            <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
+              HRV en caída · −12%
+            </span>
+            <span className="chip" style={{ color: 'var(--dng)', borderColor: 'var(--dng)' }}>
+              Sesiones perdidas · 2
+            </span>
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--fg)', lineHeight: 1.5, marginBottom: '12px' }}>
+            Baja el volumen de las series esta semana y mete un rodaje suave; recupera antes de
+            volver a cargar.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <span className="btn">Rechazar</span>
+            <span className="btn pri">Aprobar</span>
+          </div>
+        </div>
+      </DashboardMockup>
+
+      <DocNote variant="cue" title="El sistema propone, tú firmas">
+        <ul>
+          <li>
+            El veredicto llega con sus <span className="k">disparadores</span> a la vista —los números
+            que lo motivan—, nunca como una caja negra.
+          </li>
+          <li>
+            Nada se aplica a tus espaldas: hasta que no pulsas <span className="k">Aprobar</span>, el
+            plan de tu atleta no cambia. Y una semana correcta se resuelve sola, sin tocar nada.
+          </li>
+        </ul>
+      </DocNote>
+
       <p style={{ marginTop: '18px' }}>
         Con esto se cierra el seguimiento entero: <b>cómo llega</b> (readiness), <b>cuánto cumple</b>{' '}
         (adherencia), <b>hacia dónde</b> (carreras) y <b>cuánto mejora</b> (progreso). Cuatro

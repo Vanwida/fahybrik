@@ -115,9 +115,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Sobre las colas aparecen <b>tiras de decisión</b>: un atleta nuevo con su{' '}
         <b>nivel sugerido</b> a confirmar, una <b>asignación sugerida</b> lista para arrancar con un
-        clic, el <b>siguiente microciclo</b> de quien acaba de terminar el suyo, o una propuesta de{' '}
-        <b>ajuste de la semana</b>. El sistema hace el trabajo; tú solo aceptas o ajustas. Nada se
-        aplica a tus espaldas.
+        clic, el <b>siguiente microciclo</b> de quien acaba de terminar el suyo, una propuesta de{' '}
+        <b>ajuste de la semana</b>, o una <b>revisión 1:1</b> que ya toca por cadencia. El sistema
+        hace el trabajo; tú solo aceptas o ajustas. Nada se aplica a tus espaldas.
       </p>
 
       <DocNote variant="log" title="Bandeja vacía = buena señal">

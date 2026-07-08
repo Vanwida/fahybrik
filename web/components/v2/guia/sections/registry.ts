@@ -25,6 +25,17 @@ import Section16 from './16-readiness-y-checkin';
 import Section17 from './17-adherencia-y-constancia';
 import Section18 from './18-carreras-y-objetivos';
 import Section19 from './19-progreso-y-rendimiento';
+// Tu negocio / Ciclo de vida / Dobles — todo lo que se construyó en producción estos días.
+import Section20 from './20-leads-tu-embudo';
+import Section21 from './21-la-videollamada';
+import Section22 from './22-nurturing-de-leads';
+import Section23 from './23-cupo-y-lista-de-espera';
+import Section24 from './24-pagos';
+import Section25 from './25-metricas-del-funnel';
+import Section26 from './26-pausas-y-bajas';
+import Section27 from './27-lesiones';
+import Section28 from './28-revision-1a1';
+import Section29 from './29-entrenar-en-dobles';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -49,4 +60,14 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'adherencia-y-constancia': Section17,
   'carreras-y-objetivos': Section18,
   'progreso-y-rendimiento': Section19,
+  'leads-tu-embudo': Section20,
+  'la-videollamada': Section21,
+  'nurturing-de-leads': Section22,
+  'cupo-y-lista-de-espera': Section23,
+  'pagos': Section24,
+  'metricas-del-funnel': Section25,
+  'pausas-y-bajas': Section26,
+  'lesiones': Section27,
+  'revision-1a1': Section28,
+  'entrenar-en-dobles': Section29,
 };
