@@ -200,10 +200,14 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     expect(strength.ok).toBe(true);
     expect(strength.strength_maxes_written).toBe(3);
 
-    // Battery status: 4 total, ≥1 captured (the 5K result landed).
+    // Battery status: 4 total, ≥1 captured (the 5K result landed), and the run
+    // test's captured time is formatted for the card (1200s ⇒ "20:00").
     const status = await loadBatteryStatus(fx.athleteId, sql);
     expect(status.total).toBe(4);
     expect(status.completed).toBeGreaterThanOrEqual(1);
+    const runStatus = status.tests.find((t) => t.calibration_slug === 'tt_5k')!;
+    expect(runStatus.result_captured).toBe(true);
+    expect(runStatus.result_label).toBe('20:00');
 
     // Assignment detail exposes store_results for the test session.
     const detail = await loadAssignmentDetail({

@@ -20,6 +20,9 @@ export interface CalibrationTestStatus {
   result_captured: boolean;
   /** The session ran but the number was never entered — the actionable nudge. */
   result_pending: boolean;
+  /** The captured value(s) pre-formatted for the card ("22:14", "140 kg",
+   *  "140 kg · 180 kg · 100 kg" for a multi-result battery). Null until captured. */
+  result_label: string | null;
 }
 
 export interface BatteryStatus {
@@ -39,7 +42,9 @@ export async function loadBatteryStatus(
       status: string;
       calibration: string;
       label: string;
-      expected_slugs: string[];
+      // Each expected result's slug + how it's measured, ordered — drives both the
+      // captured check and the formatted result_label.
+      expected_specs: Array<{ slug: string; measure: string }>;
     }[]
   >`
     select wa.id::text as assignment_id,
@@ -48,9 +53,10 @@ export async function loadBatteryStatus(
            cct.slug as calibration,
            cct.name as label,
            coalesce(
-             array_agg(ctr.slug) filter (where ctr.slug is not null),
-             '{}'
-           ) as expected_slugs
+             jsonb_agg(jsonb_build_object('slug', ctr.slug, 'measure', ctr.measure)
+                       order by ctr.sort_order, ctr.id) filter (where ctr.slug is not null),
+             '[]'::jsonb
+           ) as expected_specs
     from workout_assignments wa
     join coach_calibration_tests cct on cct.id = wa.calibration_test_id
     left join coach_test_results ctr on ctr.test_id = cct.id
@@ -61,18 +67,21 @@ export async function loadBatteryStatus(
   `;
   if (rows.length === 0) return { total: 0, completed: 0, tests: [] };
 
-  // The athlete's REAL-test benchmark slugs (coach_test / athlete_test only — the
-  // self-declared/onboarding ones don't count as a captured calibration).
-  const benchRows = await client<{ exercise_slug: string }[]>`
-    select distinct exercise_slug from athlete_benchmarks
+  // The athlete's REAL-test benchmarks (coach_test / athlete_test only — the
+  // self-declared/onboarding ones don't count as a captured calibration), latest
+  // value per slug so the card shows the most recent number.
+  const benchRows = await client<{ exercise_slug: string; value: number }[]>`
+    select distinct on (exercise_slug) exercise_slug, value::float8 as value
+    from athlete_benchmarks
     where athlete_id = ${athlete_id} and notes in ('coach_test', 'athlete_test')
+    order by exercise_slug, recorded_at desc
   `;
-  const have = new Set(benchRows.map((r) => r.exercise_slug));
+  const valueBySlug = new Map(benchRows.map((r) => [r.exercise_slug, r.value]));
 
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
-    const expected = r.expected_slugs ?? [];
-    const result_captured = expected.length > 0 && expected.every((s) => have.has(s));
+    const specs = r.expected_specs ?? [];
+    const result_captured = specs.length > 0 && specs.every((s) => valueBySlug.has(s.slug));
     return {
       calibration_slug: r.calibration ?? '',
       label: r.label,
@@ -81,6 +90,11 @@ export async function loadBatteryStatus(
       session_status: r.status,
       result_captured,
       result_pending: !result_captured && executed.has(r.status),
+      // Pre-formatted captured value(s), joined for a multi-result battery. Null
+      // until every expected result is in — a half-captured battery shows no number.
+      result_label: result_captured
+        ? specs.map((s) => formatCapturedValue(s.measure, valueBySlug.get(s.slug)!)).join(' · ')
+        : null,
     };
   });
 
@@ -89,4 +103,30 @@ export async function loadBatteryStatus(
     completed: tests.filter((t) => t.result_captured).length,
     tests,
   };
+}
+
+// Format a captured benchmark value for the card, by how it's measured. Time is a
+// clock (m:ss, or h:mm:ss past an hour); the rest are the number + a short unit.
+// Numbers drop a trailing ".0" (integers read clean). The stored value's unit
+// always matches the measure (the bridge writes seconds for time, kg for load).
+function formatCapturedValue(measure: string, value: number): string {
+  if (measure === 'time') {
+    const total = Math.max(0, Math.round(value));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+  const n = Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+  switch (measure) {
+    case 'load':
+      return `${n} kg`;
+    case 'distance':
+      return `${n} m`;
+    case 'calories':
+      return `${n} cal`;
+    default: // reps
+      return n;
+  }
 }
