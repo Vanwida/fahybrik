@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
+import { after } from 'next/server';
+import { headers } from 'next/headers';
 import { setRequestLocale } from 'next-intl/server';
+import { recordVisit } from '@/lib/analytics/visits';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 
 // Public lead funnel — /{locale}/empieza. Standalone full-viewport flow, OUTSIDE
@@ -10,6 +13,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Required for server-side visit counting: run the server component on every hit
+// (a cached static page would never re-count). See lib/analytics/visits.ts.
+export const dynamic = 'force-dynamic';
+
 interface EmpiezaPageProps {
   params: Promise<{ locale: string }>;
 }
@@ -17,6 +24,11 @@ interface EmpiezaPageProps {
 export default async function EmpiezaPage({ params }: EmpiezaPageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
+
+  // Cookieless, PII-free visit count AFTER the response (never blocks render).
+  after(async () => {
+    await recordVisit('empieza', await headers());
+  });
 
   return <OnboardingFlow locale={locale} />;
 }

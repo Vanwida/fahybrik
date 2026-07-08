@@ -9,13 +9,14 @@
 // side-exits are computed in ONE aggregate query with `count(*) filter (…)`, so
 // a lead is followed through its stages without N+1.
 //
-// TODO(#20 · visitas): TOP-OF-FUNNEL web visits are NOT tracked. There is no
-// page_views table and no analytics install (deferred — intersects the RGPD work
-// in #19). Until visits are instrumented the funnel starts at "Onboarding
-// iniciado"; the UI shows an honest "pendiente de instrumentar" row for visitas
-// rather than a fabricated number. Do NOT add visit tracking from here.
+// #20 · visitas: TOP-OF-FUNNEL web visits ARE now instrumented — first-party,
+// cookieless, PII-free counting à la Plausible (no page_views table of raw hits;
+// only a daily aggregate). The recorder + reader live in web/lib/analytics/visits.ts
+// (see its header for the RGPD reasoning). We read the totals here and expose them on
+// the snapshot as `visitas`; null while the table is empty (collecting from today).
 
 import { sql } from '@/lib/db';
+import { loadVisitTotals, type VisitTotals } from '@/lib/analytics/visits';
 import type { SessionOutcome } from '@fahybrid/shared/domain/sessions/outcome';
 
 // ── Range ────────────────────────────────────────────────────────────────────────
@@ -86,6 +87,12 @@ export interface FunnelSnapshot {
   stages: FunnelStageCounts;
   side_exits: FunnelSideExits;
   conversions: FunnelConversions;
+  /**
+   * Top-of-funnel web visits in the range (cookieless, PII-free — see
+   * lib/analytics/visits.ts). null while nothing has been collected yet (empty table),
+   * so the UI shows an honest "recogiendo datos" state instead of a fake zero.
+   */
+  visitas: VisitTotals | null;
   /**
    * % change of the headline counts vs the immediately-preceding equal window
    * (e.g. the previous 30 days). null for 'todo' (no prior period). Each value is
@@ -190,7 +197,17 @@ export async function loadFunnelSnapshot(
       ? Promise.resolve(null)
       : cohortCounts(new Date(since.getTime() - RANGE_DAYS[range] * MS_PER_DAY), since);
 
-  const [cur, prior] = await Promise.all([cohortCounts(since, null), priorReq]);
+  const [cur, prior, visitTotals] = await Promise.all([
+    cohortCounts(since, null),
+    priorReq,
+    // Visits degrade to null on their own (e.g. table not yet migrated) without taking
+    // the whole funnel down — same "one dead source degrades its own panel" resilience.
+    loadVisitTotals(since).catch(() => ({ views: 0, visitors: 0, since_date: null }) as VisitTotals),
+  ]);
+
+  // null when nothing collected yet (empty table): honest "recogiendo datos" state.
+  const visitas: VisitTotals | null =
+    visitTotals.views === 0 && visitTotals.since_date === null ? null : visitTotals;
 
   const stages: FunnelStageCounts = {
     iniciado: cur.iniciado,
@@ -230,6 +247,7 @@ export async function loadFunnelSnapshot(
       pensandoselo: cur.pensandoselo,
     },
     conversions,
+    visitas,
     deltas,
   };
 }
@@ -258,6 +276,7 @@ export function emptyFunnelSnapshot(range: MetricsRange, now: Date = new Date())
       convertido: null,
       onboarding_to_alta: null,
     },
+    visitas: null,
     deltas: null,
   };
 }

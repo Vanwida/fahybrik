@@ -3,8 +3,9 @@
 // previous stage, and the drop connectors that name where — and how many — people
 // leave, including the side-exits (descartados / no-show / se lo piensan).
 //
-// VISITAS is rendered as an honest muted row with NO number: top-of-funnel web
-// visits are not instrumented yet (see lib/dashboard/coach/metrics.ts TODO).
+// VISITAS (top of funnel) is now real: cookieless, PII-free web visits (see
+// lib/analytics/visits.ts). Two honest states — a number "desde {fecha}" once data
+// exists, or a "recogiendo datos desde hoy" placeholder while the table is empty.
 
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import { Pill } from '@/components/v2';
@@ -14,7 +15,7 @@ import {
   type FunnelStageKey,
   type FunnelConversions,
 } from '@/lib/dashboard/coach/metrics';
-import { formatCount, formatPct } from './format';
+import { formatCount, formatPct, formatIsoDayShort } from './format';
 
 type Fill = 'base' | 'accent' | 'ok';
 
@@ -137,8 +138,60 @@ function DropRow({
   );
 }
 
+// Top-of-funnel visits row. Two honest states:
+//   • has data → real "views" number + "{n} únicos" sub-figure + "desde {fecha}" disclaimer.
+//   • no data  → dashed placeholder, "recogiendo datos desde hoy" (NOT "pendiente").
+function VisitasRow({ visitas }: { visitas: FunnelSnapshot['visitas'] }) {
+  if (!visitas) {
+    return (
+      <div className={`${ROW_COLS} items-center py-1`}>
+        <div className="flex items-baseline gap-2 sm:flex-col sm:items-start sm:gap-0.5">
+          <span className="text-[13.5px] font-semibold leading-tight text-[color:var(--v2-muted)]">
+            Visitas web
+          </span>
+          <span className="text-[10.5px] text-[color:var(--v2-faint)]">landing fahybrid.com</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-8 flex-1 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)]" />
+          <div className="min-w-[58px] text-right text-[10px] font-semibold uppercase leading-tight tracking-wide text-[color:var(--v2-faint)]">
+            recogiendo
+            <br />
+            datos hoy
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={`${ROW_COLS} items-center py-1`}>
+      <div className="flex items-baseline gap-2 sm:flex-col sm:items-start sm:gap-0.5">
+        <span className="text-[13.5px] font-semibold leading-tight text-[color:var(--v2-fg)]">
+          Visitas web
+        </span>
+        <span className="text-[10.5px] text-[color:var(--v2-faint)]">
+          {visitas.since_date ? `desde ${formatIsoDayShort(visitas.since_date)}` : 'landing fahybrid.com'}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        {/* Visits are the base of the funnel → full-width bar. */}
+        <div className="relative h-8 flex-1 overflow-hidden rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)]">
+          <div className="h-full w-full rounded-[var(--v2-r-s)]" style={{ background: FILL_STYLE.base }} />
+        </div>
+        <div className="min-w-[58px] text-right">
+          <span className="v2-num block text-[18px] font-extrabold leading-none text-[color:var(--v2-fg)]">
+            {formatCount(visitas.views)}
+          </span>
+          <span className="v2-num mt-0.5 block text-[10.5px] font-semibold text-[color:var(--v2-faint)]">
+            {formatCount(visitas.visitors)} únicos
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FunnelChart({ snapshot }: { snapshot: FunnelSnapshot }) {
-  const { stages, conversions, side_exits } = snapshot;
+  const { stages, conversions, side_exits, visitas } = snapshot;
   const base = stages.iniciado;
 
   return (
@@ -151,21 +204,17 @@ export function FunnelChart({ snapshot }: { snapshot: FunnelSnapshot }) {
       }
     >
       <div className="flex flex-col">
-        {/* Visitas — honest, uninstrumented top of funnel (no number). */}
-        <div className={`${ROW_COLS} items-center py-1`}>
-          <div className="flex items-baseline gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-            <span className="text-[13.5px] font-semibold leading-tight text-[color:var(--v2-muted)]">
-              Visitas a la web
-            </span>
-            <span className="text-[10.5px] text-[color:var(--v2-faint)]">landing fahybrid.com</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-8 flex-1 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)]" />
-            <div className="min-w-[58px] text-right text-[10.5px] font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
-              pendiente
-            </div>
-          </div>
-        </div>
+        <VisitasRow visitas={visitas} />
+
+        {/* visita → onboarding drop, ONLY when honest: visits must cover the onboardings
+            (they don't when visits were instrumented after leads already existed). */}
+        {visitas && visitas.views > 0 && visitas.views >= base ? (
+          <DropRow
+            reason="no inician el onboarding"
+            lost={Math.max(0, visitas.views - base)}
+            dropPct={(visitas.views - base) / visitas.views}
+          />
+        ) : null}
 
         {FUNNEL_STAGE_KEYS.map((key, i) => {
           const drop = DROP_META[key];

@@ -61,8 +61,9 @@ export function formatDelta(r: number | null): DeltaView | null {
   };
 }
 
-/** ISO calendar date "2026-06-23" → "23 jun" (Madrid week-start marker). */
-export function formatWeekLabel(iso: string): string {
+/** ISO calendar date "2026-07-08" → "8 jul". Pure — no Date tz drift (used for the
+ *  visits "desde …" disclaimer and week-start markers). */
+export function formatIsoDayShort(iso: string): string {
   const [, m, d] = iso.split('-').map(Number);
   if (!m || !d) return iso;
   return `${d} ${MONTHS_ES[m - 1]}`;

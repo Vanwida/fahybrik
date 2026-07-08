@@ -338,9 +338,10 @@ export function MetricasPanel({ snapshot, outcomes, weekly, by_objetivo }: Funne
       {/* Honest notes */}
       <div className="mt-1 flex flex-col gap-2">
         <Note>
-          <b className="font-semibold text-[color:var(--v2-fg)]">Visitas web · pendiente de instrumentar.</b>{' '}
-          El tráfico de la landing aún no se mide, así que el funnel arranca en “Onboarding
-          iniciado”. Cuando se despliegue la medición, se añade la parte de arriba del embudo.
+          <b className="font-semibold text-[color:var(--v2-fg)]">Visitas web</b> se miden sin
+          cookies ni identificadores: solo un recuento anónimo de páginas vistas y visitantes
+          únicos por día, sin ningún dato personal. El “desde …” marca cuándo empezó la medición,
+          así que compararlo con onboardings solo tiene sentido a partir de esa fecha.
         </Note>
         <Note>
           <b className="font-semibold text-[color:var(--v2-fg)]">Cohortes recientes</b> siguen
