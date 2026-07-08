@@ -13,8 +13,95 @@
 // { fahybrik_user_id, plan_type } so the webhook can map back without trusting
 // client state.
 
+import type Stripe from 'stripe';
 import { getStripeOrThrow } from './client';
 import { priceIdForPlan, type PlanType } from './prices';
+
+// ---------------------------------------------------------------------------
+// Ad-hoc subscription Checkout (#15 — athlete alta)
+//
+// Unlike the tiered checkout above, the athlete-alta price is VARIABLE per
+// athlete: the coach types a euros/mes figure in the alta modal. There is no
+// Stripe Price object — we build a recurring monthly `price_data` on the fly.
+//
+// customer_email (NOT customer): the athlete has no Stripe customer yet, so
+// Checkout creates one from the email at payment time. The webhook maps the
+// resulting session back to our pending subscription by the Checkout session id
+// (stored on subscriptions.checkout_session_id), never by the customer id.
+// ---------------------------------------------------------------------------
+
+/** Default product name shown on the Stripe Checkout + invoices. */
+export const ALTA_PRODUCT_NAME = 'FAHYBRID · Entrenamiento personalizado';
+
+export type CreateSubscriptionCheckoutAdHocArgs = {
+  customer_email: string;
+  /** Monthly price in integer cents (money is never a float). */
+  amount_cents: number;
+  /** ISO 4217 lowercase, e.g. 'eur'. */
+  currency: string;
+  /** Traceability stamped on the Session + the created Subscription. */
+  metadata: Record<string, string>;
+  /** Product name override (defaults to ALTA_PRODUCT_NAME). */
+  product_name?: string;
+};
+
+export type CreateSubscriptionCheckoutAdHocResult = {
+  url: string;
+  session_id: string;
+};
+
+/**
+ * Build the recurring monthly `line_items` for an ad-hoc subscription Checkout.
+ * Extracted (and exported) so it can be unit-tested without hitting Stripe.
+ */
+export function buildAdHocSubscriptionLineItems(args: {
+  amount_cents: number;
+  currency: string;
+  product_name?: string;
+}): Stripe.Checkout.SessionCreateParams.LineItem[] {
+  return [
+    {
+      price_data: {
+        currency: args.currency,
+        unit_amount: args.amount_cents,
+        recurring: { interval: 'month' },
+        product_data: { name: args.product_name ?? ALTA_PRODUCT_NAME },
+      },
+      quantity: 1,
+    },
+  ];
+}
+
+/**
+ * Create an ad-hoc monthly subscription Checkout session for the athlete alta.
+ * Throws StripeNotConfiguredError (via getStripeOrThrow) when Stripe is not
+ * configured — callers gate on loadStripeConfig() FIRST so the PAID alta fails
+ * cleanly before any DB write (no half-athlete).
+ */
+export async function createSubscriptionCheckoutAdHoc(
+  args: CreateSubscriptionCheckoutAdHocArgs,
+): Promise<CreateSubscriptionCheckoutAdHocResult> {
+  const { stripe, config } = getStripeOrThrow();
+  const session = await stripe.checkout.sessions.create({
+    mode: 'subscription',
+    customer_email: args.customer_email,
+    line_items: buildAdHocSubscriptionLineItems({
+      amount_cents: args.amount_cents,
+      currency: args.currency,
+      product_name: args.product_name,
+    }),
+    success_url: config.checkout_success_url,
+    cancel_url: config.checkout_cancel_url,
+    // Stamp both the Session and the Subscription so every downstream object is
+    // traceable to the athlete/lead without trusting client state.
+    metadata: args.metadata,
+    subscription_data: { metadata: args.metadata },
+  });
+  if (!session.url) {
+    throw new Error('stripe_checkout_no_url');
+  }
+  return { url: session.url, session_id: session.id };
+}
 
 export type CreateCheckoutSessionArgs = {
   stripe_customer_id: string;

@@ -1,5 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
+import { AUTH_CONFIG } from '@/lib/auth/config';
+
+/**
+ * Build the public universal-link the athlete taps to claim + download the app.
+ * Single source of truth for the invite URL shape (`${appUrl}/invite/${token}`),
+ * shared by the lead alta (immediate/comp send) and the post-payment webhook.
+ */
+export function buildAthleteInviteUrl(token: string): string {
+  const base = AUTH_CONFIG.appUrl().replace(/\/$/, '');
+  return `${base}/invite/${token}`;
+}
 
 /**
  * Athlete account-claim invitations (coach → athlete).

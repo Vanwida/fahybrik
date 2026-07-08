@@ -331,3 +331,127 @@ export async function getSubscriptionByUserId(
 export function isActive(status: string): boolean {
   return status === 'active' || status === 'trialing';
 }
+
+// ---------------------------------------------------------------------------
+// Athlete alta payment core (#15)
+// ---------------------------------------------------------------------------
+
+export type AltaPendingSubscription = {
+  id: bigint;
+  user_id: bigint;
+};
+
+/**
+ * Map a Stripe Checkout session id back to our PENDING alta subscription. The
+ * webhook keys on this (never the customer id) because Checkout creates the
+ * customer from customer_email at payment time — so at alta time we only know
+ * the session id, which we stamped on the row. Returns null when the session id
+ * belongs to a non-alta (legacy tiered) checkout or an unknown session.
+ */
+export async function findAltaSubscriptionByCheckoutSession(
+  client: Sql,
+  checkout_session_id: string,
+): Promise<AltaPendingSubscription | null> {
+  const rows = await client<{ id: string; user_id: string }[]>`
+    select id::text as id, user_id::text as user_id
+    from subscriptions
+    where checkout_session_id = ${checkout_session_id}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return { id: BigInt(row.id), user_id: BigInt(row.user_id) };
+}
+
+/**
+ * Claim-before-send stamp for the post-payment ACCESS email. Atomic: the single
+ * UPDATE with `access_email_sent_at is null` in the WHERE clause means a
+ * duplicate webhook (Stripe retries) finds the row already stamped and gets 0
+ * rows back — so the caller sends the access email EXACTLY once. Returns true
+ * iff THIS call won the claim (i.e. it must now send the email).
+ */
+export async function claimAccessEmailStamp(
+  client: Sql,
+  subscription_id: bigint,
+): Promise<boolean> {
+  const rows = await client<{ id: string }[]>`
+    update subscriptions
+    set access_email_sent_at = now(), updated_at = now()
+    where id = ${subscription_id}
+      and access_email_sent_at is null
+    returning id::text as id
+  `;
+  return rows.length > 0;
+}
+
+/**
+ * Release the claim so a later Stripe retry can re-send. Called when minting the
+ * invite or sending the access email FAILED after we claimed the stamp — the
+ * atomic claim/clear pair keeps the "exactly once on success" guarantee while
+ * still allowing retries on transient failures.
+ */
+export async function clearAccessEmailStamp(
+  client: Sql,
+  subscription_id: bigint,
+): Promise<void> {
+  await client`
+    update subscriptions
+    set access_email_sent_at = null, updated_at = now()
+    where id = ${subscription_id}
+  `;
+}
+
+export type MirrorInvoiceInput = {
+  subscription_id: bigint;
+  stripe_invoice_id: string;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  period_start: string | null;
+  period_end: string | null;
+  paid_at: string | null;
+};
+
+/**
+ * Upsert a Stripe invoice into the local `athlete_invoices` mirror (Pagos
+ * history). Idempotent: keyed on stripe_invoice_id (unique) so a redelivered
+ * invoice.paid / invoice.payment_failed updates status/paid_at instead of
+ * duplicating a row.
+ */
+export async function upsertAthleteInvoice(
+  client: Sql,
+  input: MirrorInvoiceInput,
+): Promise<void> {
+  await client`
+    insert into athlete_invoices (
+      subscription_id, stripe_invoice_id, amount_cents, currency,
+      status, period_start, period_end, paid_at
+    )
+    values (
+      ${input.subscription_id}, ${input.stripe_invoice_id}, ${input.amount_cents},
+      ${input.currency}, ${input.status}, ${input.period_start}::date,
+      ${input.period_end}::date, ${input.paid_at}::timestamptz
+    )
+    on conflict (stripe_invoice_id) do update set
+      amount_cents = excluded.amount_cents,
+      currency = excluded.currency,
+      status = excluded.status,
+      period_start = excluded.period_start,
+      period_end = excluded.period_end,
+      paid_at = excluded.paid_at
+  `;
+}
+
+/** Resolve our subscription bigint id from a Stripe subscription id. */
+export async function findSubscriptionIdByStripeSubId(
+  client: Sql,
+  stripe_subscription_id: string,
+): Promise<bigint | null> {
+  const rows = await client<{ id: string }[]>`
+    select id::text as id
+    from subscriptions
+    where stripe_subscription_id = ${stripe_subscription_id}
+    limit 1
+  `;
+  return rows[0] ? BigInt(rows[0].id) : null;
+}

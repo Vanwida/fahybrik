@@ -27,6 +27,7 @@ import {
 import { buildAthleteResumen, type AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import { buildAthletePlan, type AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import { getAthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
+import { getAthleteBilling, listAthleteInvoices } from '@/lib/coach/billing';
 import { loadAthleteLifecycleDetail } from '@/lib/dashboard/coach/athlete-lifecycle-detail';
 import { LIFECYCLE_STATUS_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
@@ -250,6 +251,8 @@ export async function loadAthleteDetalle(params: {
     strengthHistory,
     benchmarks,
     sessions,
+    billing,
+    invoices,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -264,6 +267,10 @@ export async function loadAthleteDetalle(params: {
     loadStrengthMaxHistory({ athlete_id, client }).catch(() => []),
     loadBenchmarkHistory({ coach_id, athlete_id, client }).catch(() => []),
     listSessionReportsForAthlete(BigInt(athlete_id)).catch(() => []),
+    // Pagos tab (#15): current billing + mirrored invoice history. Degrade to
+    // null / [] on failure so a billing hiccup never 500s the whole ficha.
+    getAthleteBilling(BigInt(athlete_id), client).catch(() => null),
+    listAthleteInvoices(BigInt(athlete_id), client).catch(() => []),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -317,6 +324,8 @@ export async function loadAthleteDetalle(params: {
     plan,
     body,
     subscription,
+    billing,
+    invoices,
     chat,
     zone_profiles,
     strength_maxes,

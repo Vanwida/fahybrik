@@ -17,6 +17,7 @@ const TAB_LABEL: Record<AtletaTab, string> = {
   historico: 'Histórico',
   sesiones: '1:1',
   biometria: 'Biometría',
+  pagos: 'Pagos',
   mensajes: 'Mensajes',
 };
 

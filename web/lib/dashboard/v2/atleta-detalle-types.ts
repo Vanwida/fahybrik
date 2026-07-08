@@ -13,6 +13,7 @@ import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
+import type { AthleteBilling, AthleteInvoice } from '@/lib/coach/billing';
 import type { JointSession } from '@/lib/dashboard/coach/athlete-profile-shell';
 import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
@@ -85,7 +86,7 @@ export interface TestProgressionRow {
 }
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'mensajes'] as const;
+export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'pagos', 'mensajes'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
 export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
 
@@ -188,6 +189,11 @@ export interface V2AthleteDetalle {
   plan: AthletePlanPayload | null;
   body: BodyPayload | null;
   subscription: AthleteSubscriptionStatus | null;
+  /** Pagos tab (#15): the athlete's current billing (agreed price, status, next
+   *  renewal, comp flag). null = no subscription at all → "Sin cobro configurado". */
+  billing: AthleteBilling | null;
+  /** Pagos tab (#15): mirrored Stripe invoice history, newest first. Empty = none. */
+  invoices: AthleteInvoice[];
   /** Initial chat messages (role-resolved), newest last; null if thread load failed. */
   chat: { thread_id: string; messages: DetalleChatMessage[] } | null;
   /** Current versioned zone profiles per modality (Ritmos/Zonas tab). Empty = no

@@ -25,11 +25,35 @@ export const compAthleteInputSchema = z.object({
 });
 export type CompAthleteInput = z.infer<typeof compAthleteInputSchema>;
 
+/**
+ * How the athlete's subscription is created alongside the account.
+ *
+ *  * comp          — courtesy access, active immediately, NO billing (today's
+ *                    default; source='comp').
+ *  * stripe_pending — a PENDING (status='incomplete', source='stripe') sub
+ *                    carrying the coach-agreed monthly price. It only flips to
+ *                    active when Stripe confirms payment (webhook). Used by the
+ *                    lead-alta PAID path (#15).
+ */
+export type AthleteBillingSpec =
+  | { kind: 'comp' }
+  | {
+      kind: 'stripe_pending';
+      agreed_price_cents: number;
+      currency: string;
+      checkout_session_id: string;
+    };
+
 export interface CompAthleteResult {
   id: string;
+  /** The athlete's user id (needed by the PAID path to link Stripe). */
+  user_id: string;
+  /** The subscription row created/reused for this athlete. */
+  subscription_id: string | null;
   full_name: string;
   modality: z.infer<typeof subscriptionPlanType>;
-  comp: true;
+  /** true = courtesy (comp) access with no billing; false = pending Stripe. */
+  comp: boolean;
 }
 
 /**
@@ -117,11 +141,14 @@ export async function createCompAthlete(params: {
   input: CompAthleteInput;
   client?: Sql | TransactionClient;
   profile?: CompAthleteProfile;
+  /** Billing to attach (default: comp / courtesy). */
+  billing?: AthleteBillingSpec;
 }): Promise<CompAthleteResult> {
   const { coach_id } = params;
   const email = params.input.email.trim().toLowerCase();
   const full_name = params.input.full_name.trim();
   const modality = params.input.modality;
+  const billing: AthleteBillingSpec = params.billing ?? { kind: 'comp' };
 
   // Structured profile carry-over (nullable; only set/overwrite when provided).
   const p = params.profile ?? {};
@@ -255,26 +282,77 @@ export async function createCompAthlete(params: {
       athleteId = inserted[0]!.id;
     }
 
-    // 3. comp subscription — only if no active sub exists for this user.
-    const activeSubs = await tx<Array<{ id: string }>>`
-      select id::text as id
-      from subscriptions
-      where user_id = ${userId}
-        and status = 'active'
-      limit 1
-    `;
-    if (activeSubs.length === 0) {
-      await tx`
-        insert into subscriptions (user_id, plan_type, status, source, current_period_end)
-        values (${userId}, ${modality}, 'active', 'comp', null)
+    // 3. subscription.
+    let subscriptionId: string | null = null;
+    if (billing.kind === 'comp') {
+      // Comp: active courtesy sub — only if no active sub exists for this user.
+      const activeSubs = await tx<Array<{ id: string }>>`
+        select id::text as id
+        from subscriptions
+        where user_id = ${userId}
+          and status = 'active'
+        limit 1
       `;
+      if (activeSubs[0]) {
+        subscriptionId = activeSubs[0].id;
+      } else {
+        const ins = await tx<Array<{ id: string }>>`
+          insert into subscriptions (user_id, plan_type, status, source, current_period_end)
+          values (${userId}, ${modality}, 'active', 'comp', null)
+          returning id::text as id
+        `;
+        subscriptionId = ins[0]!.id;
+      }
+    } else {
+      // Stripe pending (#15): incomplete sub carrying the agreed price + the
+      // Checkout session. Reuse an existing not-yet-paid stripe row (no
+      // stripe_subscription_id) to avoid stacking pending rows on a re-alta.
+      const existing = await tx<Array<{ id: string }>>`
+        select id::text as id
+        from subscriptions
+        where user_id = ${userId}
+          and source = 'stripe'
+          and status = 'incomplete'
+          and stripe_subscription_id is null
+        order by created_at desc
+        limit 1
+      `;
+      if (existing[0]) {
+        const upd = await tx<Array<{ id: string }>>`
+          update subscriptions set
+            plan_type = ${modality},
+            agreed_price_cents = ${billing.agreed_price_cents},
+            currency = ${billing.currency},
+            checkout_session_id = ${billing.checkout_session_id},
+            access_email_sent_at = null,
+            updated_at = now()
+          where id = ${BigInt(existing[0].id)}
+          returning id::text as id
+        `;
+        subscriptionId = upd[0]!.id;
+      } else {
+        const ins = await tx<Array<{ id: string }>>`
+          insert into subscriptions (
+            user_id, plan_type, status, source,
+            agreed_price_cents, currency, checkout_session_id, current_period_end
+          )
+          values (
+            ${userId}, ${modality}, 'incomplete', 'stripe',
+            ${billing.agreed_price_cents}, ${billing.currency}, ${billing.checkout_session_id}, null
+          )
+          returning id::text as id
+        `;
+        subscriptionId = ins[0]!.id;
+      }
     }
 
     return {
       id: athleteId,
+      user_id: userId.toString(),
+      subscription_id: subscriptionId,
       full_name,
       modality,
-      comp: true as const,
+      comp: billing.kind === 'comp',
     };
   };
 

@@ -135,6 +135,11 @@ function AltaModal({
     prefill.modality === 'dobles' ? 'dobles' : 'individual',
   );
   const [notes, setNotes] = useState(prefill.notes);
+  // #15 — billing. Default to cobro (stripe); the price pre-fills from the last
+  // sales call's quote when there is one. Cortesía toggles off the cobro entirely.
+  const pricePrefilled = prefill.quoted_price_eur != null;
+  const [cortesia, setCortesia] = useState(false);
+  const [price, setPrice] = useState(pricePrefilled ? String(prefill.quoted_price_eur) : '');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +155,14 @@ function AltaModal({
     e.preventDefault();
     if (submitting) return;
     setError(null);
+
+    // Billing: cortesía = no cobro; otherwise a positive monthly price is required.
+    const priceValue = Number(price);
+    if (!cortesia && (!price.trim() || !Number.isFinite(priceValue) || priceValue <= 0)) {
+      setError('Introduce el precio mensual acordado, o marca "Cortesía (sin cobro)".');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch(`/api/coach/leads/${leadId}/alta`, {
@@ -164,6 +177,9 @@ function AltaModal({
           level_id: levelId ? Number(levelId) : null,
           modality,
           notes: notes.trim(),
+          ...(cortesia
+            ? { billing: 'comp' as const }
+            : { billing: 'stripe' as const, agreed_price_eur: priceValue }),
         }),
       });
       const data = (await res.json().catch(() => null)) as
@@ -286,6 +302,52 @@ function AltaModal({
                 ))}
               </div>
             </div>
+
+            {/* #15 — cobro: precio acordado €/mes o cortesía (sin cobro). */}
+            <div className="flex flex-col gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="v2-micro">Cobro</span>
+                <label className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--v2-muted)]">
+                  <input
+                    type="checkbox"
+                    checked={cortesia}
+                    onChange={(e) => setCortesia(e.target.checked)}
+                    className="h-4 w-4 accent-[color:var(--v2-accent)]"
+                  />
+                  Cortesía (sin cobro)
+                </label>
+              </div>
+              {cortesia ? (
+                <p className="text-xs text-[color:var(--v2-muted)]">
+                  Acceso de cortesía: el atleta no paga y no se abre ningún cobro por Stripe.
+                </p>
+              ) : (
+                <label className="flex flex-col gap-1.5">
+                  <span className="v2-micro">Precio acordado €/mes</span>
+                  <div className="relative w-40">
+                    <input
+                      type="number"
+                      min={1}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="p. ej. 90"
+                      className={FIELD_CLS + ' pr-8'}
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
+                      €
+                    </span>
+                  </div>
+                  {pricePrefilled ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[color:var(--v2-faint)]">
+                      <MIcon name="call" size={13} /> del parte de la llamada
+                    </span>
+                  ) : null}
+                </label>
+              )}
+            </div>
+
             <label className="flex flex-col gap-1.5">
               <span className="v2-micro">Notas para el coach</span>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className={FIELD_CLS + ' h-auto resize-y py-2 leading-relaxed'} />

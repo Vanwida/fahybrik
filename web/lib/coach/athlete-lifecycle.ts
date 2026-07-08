@@ -25,6 +25,11 @@
 import { sql, type TransactionClient } from '@/lib/db';
 import { getCapacityState } from '@/lib/coach/capacity';
 import { releaseWaitlistToCapacity } from '@/lib/leads/waitlist';
+import {
+  pauseStripeCollection,
+  resumeStripeCollection,
+  cancelStripeAtPeriodEnd,
+} from '@/lib/coach/billing-actions';
 import { reanchorPlanAfterResume } from '@/lib/coach/athlete-lifecycle-plan';
 import { dissolvePairOnBaja } from '@/lib/dashboard/coach/doubles-pairs';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
@@ -188,6 +193,13 @@ export async function pauseAthlete(input: PauseAthleteInput): Promise<LifecycleT
   await sql.begin((tx) => applyPauseTx(tx, input, todayIso));
   // A freed slot passes to the next waiting lead. Post-commit (see file header).
   await releaseWaitlistToCapacity();
+  // #15(billing): pause Stripe collection so a paused athlete is not charged.
+  // POST-COMMIT + guarded — a Stripe failure must never break the pause.
+  try {
+    await pauseStripeCollection(input.athlete_id);
+  } catch {
+    // Swallow: the athlete is paused; billing is reconcilable by the coach.
+  }
   return { status: 'pausado' };
 }
 
@@ -223,6 +235,13 @@ export async function resumeAthlete(input: { athlete_id: bigint }): Promise<Life
     await reanchorPlanAfterResume(input.athlete_id);
   } catch {
     // Swallow: the athlete is active; a failed re-anchor is recoverable by the coach.
+  }
+  // #15(billing): clear the Stripe pause so invoicing resumes. POST-COMMIT +
+  // guarded — a Stripe failure must never break the resume.
+  try {
+    await resumeStripeCollection(input.athlete_id);
+  } catch {
+    // Swallow: the athlete is active; billing is reconcilable by the coach.
   }
   return { status: 'activo' };
 }
@@ -271,6 +290,14 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
     await dissolvePairOnBaja(input.athlete_id, tx);
   });
   await releaseWaitlistToCapacity();
+  // #15(billing): make the local cancel_at_period_end real in Stripe (cancel at
+  // period end — access continues until the paid period elapses). POST-COMMIT +
+  // guarded — a Stripe failure must never break the baja.
+  try {
+    await cancelStripeAtPeriodEnd(input.athlete_id);
+  } catch {
+    // Swallow: the athlete is baja; billing is reconcilable by the coach.
+  }
   return { status: 'baja' };
 }
 
@@ -364,6 +391,7 @@ export async function confirmPauseRequest(input: {
   coach_id: bigint;
 }): Promise<LifecycleTransitionResult> {
   const todayIso = boxTodayIso();
+  let pausedAthleteId: bigint | null = null;
   const result = await sql.begin(async (tx) => {
     const reqRows = await tx<
       { athlete_id: bigint; reason: PauseReason; note: string | null; status: string }[]
@@ -395,9 +423,20 @@ export async function confirmPauseRequest(input: {
       },
       todayIso,
     );
+    pausedAthleteId = req.athlete_id;
     return { status: 'pausado' as const };
   });
   await releaseWaitlistToCapacity();
+  // #15(billing): confirming an athlete-requested pause reaches the SAME pausado
+  // end-state as pauseAthlete, so Stripe collection must pause here too (else a
+  // paused athlete keeps being charged). POST-COMMIT + guarded.
+  if (pausedAthleteId != null) {
+    try {
+      await pauseStripeCollection(pausedAthleteId);
+    } catch {
+      // Swallow: the athlete is paused; billing is reconcilable by the coach.
+    }
+  }
   return result;
 }
 

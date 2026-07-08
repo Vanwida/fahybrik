@@ -8,6 +8,14 @@ const EUR_FMT = new Intl.NumberFormat('es-ES', {
   currency: 'EUR',
   maximumFractionDigits: 0,
 });
+// Money that lives in CENTS (billing / #15): show céntimos only when they are
+// non-zero, so "70 €" stays clean but "79,99 €" keeps its precision.
+const EUR_CENTS_FMT = new Intl.NumberFormat('es-ES', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 
 /** Spanish short month abbreviations (deterministic — avoids Date tz drift). */
 const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -33,6 +41,12 @@ export function formatPct1(r: number | null): string {
 export function formatEur(n: number | null): string {
   if (n == null) return '—';
   return EUR_FMT.format(Math.round(n));
+}
+
+/** Money in integer CENTS → "70 €" / "79,99 €"; null → "—" (billing, #15). */
+export function formatCents(cents: number | null): string {
+  if (cents == null) return '—';
+  return EUR_CENTS_FMT.format(cents / 100);
 }
 
 export interface DeltaView {

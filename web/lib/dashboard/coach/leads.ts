@@ -281,7 +281,11 @@ export async function getLeadDetail(id: bigint): Promise<LeadDetail | null> {
     alta: {
       sent_at: (r.alta_sent_at as Date | null)?.toISOString() ?? null,
       converted_athlete_id: r.converted_athlete_id != null ? String(r.converted_athlete_id) : null,
-      prefill: buildAltaPrefill(r),
+      // #15: pre-fill the alta price from the latest sales call that carries one
+      // (sessions are newest-first, so the first priced report is the latest quote).
+      prefill: buildAltaPrefill(r, {
+        quoted_price_eur: sessions.find((s) => s.quoted_price_eur != null)?.quoted_price_eur ?? null,
+      }),
     },
   };
 }

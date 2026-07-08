@@ -143,10 +143,21 @@ export interface AltaPrefill {
   level_name: string | null;
   modality: AthleteModality;
   notes: string;
+  /** #15 — the price the coach quoted on the last sales call (session_reports.
+   *  quoted_price_eur), in euros. Pre-fills the alta modal's "Precio acordado"
+   *  field. null when no call has a price yet → the coach types it. */
+  quoted_price_eur: number | null;
 }
 
-/** Build the alta-modal pre-fill from a raw `leads` row. */
-export function buildAltaPrefill(row: Record<string, unknown>): AltaPrefill {
+/**
+ * Build the alta-modal pre-fill from a raw `leads` row. `opts.quoted_price_eur`
+ * carries the price from the lead's latest sales call (looked up by the loader,
+ * which has the session reports) so the modal's price field is pre-filled.
+ */
+export function buildAltaPrefill(
+  row: Record<string, unknown>,
+  opts?: { quoted_price_eur?: number | null },
+): AltaPrefill {
   const nombre = (row.nombre as string | null)?.trim() || '';
   return {
     full_name: nombre,
@@ -157,5 +168,6 @@ export function buildAltaPrefill(row: Record<string, unknown>): AltaPrefill {
     level_name: mapLevelName(row.nivel as string | null),
     modality: inferModality(row as { categoria_objetivo?: string | null; dobles_pareja?: string | null }),
     notes: buildCoachNotes(row),
+    quoted_price_eur: opts?.quoted_price_eur ?? null,
   };
 }

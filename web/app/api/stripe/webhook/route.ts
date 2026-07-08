@@ -32,7 +32,10 @@ import {
   verifyWebhook,
   getStripeOrThrow,
   StripeNotConfiguredError,
+  findSubscriptionIdByStripeSubId,
+  upsertAthleteInvoice,
 } from '@/lib/stripe';
+import { activateAltaOnCheckout } from '@/lib/stripe/alta-activation';
 import { handleSubscriptionCancellation } from '@/lib/partner/cascade';
 import { notifyPaymentFailed } from '@/lib/stripe/notifications';
 import { captureRouteError } from '@/lib/observability/capture';
@@ -96,9 +99,16 @@ export async function POST(req: Request): Promise<Response> {
   });
 }
 
-// checkout.session.completed: the payer finished checkout. Retrieve the
-// subscription it created and sync it (status active, period_end, plan).
+// checkout.session.completed: the payer finished checkout.
+//
+// First try the #15 athlete-alta path — it maps the session id → our pending
+// subscription, activates it, and sends the ACCESS (claim) email EXACTLY once
+// (claim-before-send stamp). If the session is not an alta session, fall back to
+// the legacy tiered-checkout sync. Both are idempotent under Stripe retries.
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const activation = await activateAltaOnCheckout({ client: sql, session });
+  if (activation.matched) return;
+
   const subId =
     typeof session.subscription === 'string'
       ? session.subscription
@@ -144,6 +154,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   const { stripe } = getStripeOrThrow();
   const sub = await stripe.subscriptions.retrieve(sub_id);
   await syncSubscription(sub);
+  // Mirror the invoice into the local Pagos history (idempotent on invoice id).
+  await mirrorInvoice(invoice);
 }
 
 async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
@@ -154,10 +166,47 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
   const sub = await stripe.subscriptions.retrieve(sub_id);
   const customer_id = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
   const user_id = await findUserIdByCustomerId(sql, customer_id);
+  // Mirror the failed invoice regardless of whether we can map the customer
+  // (drives "Cobro en riesgo" in the Pagos history).
+  await mirrorInvoice(invoice);
   if (!user_id) return;
   await upsertSubscription({ client: sql, user_id, subscription: sub });
   // Notify the athlete (and their coach) that the payment failed.
   await notifyPaymentFailed({ client: sql, user_id });
+}
+
+// Upsert a Stripe invoice into `athlete_invoices` (Pagos history). No-op when the
+// invoice has no subscription or the subscription isn't tracked locally yet.
+// Idempotent: upsertAthleteInvoice keys on the unique stripe_invoice_id.
+async function mirrorInvoice(invoice: Stripe.Invoice): Promise<void> {
+  const stripe_sub_id = extractSubscriptionId(invoice);
+  if (!stripe_sub_id) return;
+  const subscription_id = await findSubscriptionIdByStripeSubId(sql, stripe_sub_id);
+  if (!subscription_id) return;
+
+  const inv = invoice as unknown as {
+    id?: string | null;
+    amount_paid?: number | null;
+    amount_due?: number | null;
+    total?: number | null;
+    currency?: string | null;
+    status?: string | null;
+    period_start?: number | null;
+    period_end?: number | null;
+    status_transitions?: { paid_at?: number | null } | null;
+  };
+  if (!inv.id) return;
+
+  await upsertAthleteInvoice(sql, {
+    subscription_id,
+    stripe_invoice_id: inv.id,
+    amount_cents: inv.amount_paid ?? inv.amount_due ?? inv.total ?? 0,
+    currency: inv.currency ?? 'eur',
+    status: inv.status ?? 'open',
+    period_start: unixToIsoDate(inv.period_start),
+    period_end: unixToIsoDate(inv.period_end),
+    paid_at: unixToIso(inv.status_transitions?.paid_at ?? null),
+  });
 }
 
 function extractSubscriptionId(invoice: Stripe.Invoice): string | null {
@@ -165,6 +214,18 @@ function extractSubscriptionId(invoice: Stripe.Invoice): string | null {
     .subscription;
   if (!sub) return null;
   return typeof sub === 'string' ? sub : sub.id;
+}
+
+/** Unix seconds → 'YYYY-MM-DD' (date column), or null. */
+function unixToIsoDate(unix: number | null | undefined): string | null {
+  if (unix == null) return null;
+  return new Date(unix * 1000).toISOString().slice(0, 10);
+}
+
+/** Unix seconds → ISO timestamp (timestamptz column), or null. */
+function unixToIso(unix: number | null | undefined): string | null {
+  if (unix == null) return null;
+  return new Date(unix * 1000).toISOString();
 }
 
 function jsonError(status: number, code: string, message: string): Response {

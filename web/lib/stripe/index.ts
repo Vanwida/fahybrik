@@ -19,6 +19,11 @@ export {
 export {
   createCheckoutSession,
   type CreateCheckoutSessionResult,
+  createSubscriptionCheckoutAdHoc,
+  buildAdHocSubscriptionLineItems,
+  ALTA_PRODUCT_NAME,
+  type CreateSubscriptionCheckoutAdHocArgs,
+  type CreateSubscriptionCheckoutAdHocResult,
 } from './checkout';
 export { createPortalSession } from './portal';
 export { verifyWebhook, verifyWebhookAsync } from './webhook';
@@ -30,6 +35,13 @@ export {
   getSubscriptionByUserId,
   isActive,
   mapStripeStatus,
+  findAltaSubscriptionByCheckoutSession,
+  claimAccessEmailStamp,
+  clearAccessEmailStamp,
+  upsertAthleteInvoice,
+  findSubscriptionIdByStripeSubId,
   type SubscriptionRecord,
   type SubscriptionStatusValue,
+  type AltaPendingSubscription,
+  type MirrorInvoiceInput,
 } from './subscriptions';

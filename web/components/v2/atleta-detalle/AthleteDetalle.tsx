@@ -14,6 +14,7 @@ import { RitmosZonasTab } from './RitmosZonasTab';
 import { CarrerasTab } from './CarrerasTab';
 import { HistoricoTab } from './HistoricoTab';
 import { BiometriaTab } from './BiometriaTab';
+import { PagosTab } from './PagosTab';
 import { MensajesTab } from './MensajesTab';
 import { SessionReportsBlock } from '@/components/v2/sessions/SessionReportsBlock';
 import { selectPerfilTab, type V2AthleteDetalle, type AtletaTab } from '@/lib/dashboard/v2/atleta-detalle-types';
@@ -75,6 +76,12 @@ export function AthleteDetalle({
           </div>
         ) : tab === 'biometria' ? (
           <BiometriaTab body={detalle.body} />
+        ) : tab === 'pagos' ? (
+          <PagosTab
+            billing={detalle.billing}
+            invoices={detalle.invoices}
+            athleteId={header.athlete_id}
+          />
         ) : (
           <MensajesTab
             athlete_id={header.athlete_id}

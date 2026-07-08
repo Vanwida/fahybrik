@@ -39,6 +39,7 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/leads', label: 'Leads', icon: 'person_add', group: 'operar', badge: 'leads' },
   { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'operar', badge: 'mensajes' },
   { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'operar' },
+  { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'operar' },
   // Construir el método — the framework first, then the reusable library.
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'construir' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'construir' },
