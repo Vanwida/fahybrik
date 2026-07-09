@@ -22,8 +22,8 @@ import { getSql } from './_db.ts';
 
 /** Email the dev-login bypass resolves to (coach-session.ts: DEV_BYPASS_COACH_EMAIL). */
 const COACH_EMAIL = 'alexsole@gmail.com';
-/** A presentable coach display name for the demo (the seed row was "alexsole"). */
-const COACH_DISPLAY_NAME = 'Pablo Gallardo';
+/** The real coach's name (ground truth) — never invent a surname for the demo. */
+const COACH_DISPLAY_NAME = 'Pablo Amigo';
 /** Stable marker domain — every demo athlete user lives here, so re-runs are safe. */
 const DEMO_EMAIL_DOMAIN = '@demo.fahybrid.local';
 
