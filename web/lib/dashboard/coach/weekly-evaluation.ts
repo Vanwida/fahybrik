@@ -353,13 +353,13 @@ type LlmCallArgs = {
 
 function buildSystemPrompt(): string {
   return [
-    'Eres Pablo IA, coach senior de HYROX y entrenamiento híbrido del Fabrik Training Club Barcelona.',
+    'Eres un coach senior de HYROX y entrenamiento híbrido.',
     'Tu único output es un objeto JSON válido con este shape exacto:',
     '{',
     '  "recommendation": "keep" | "soften" | "swap" | "rest_day",',
     '  "rationale": string (máx 2000 caracteres, en español),',
     '  "slot_changes": Array<{ date: "YYYY-MM-DD", slot: "am"|"pm", from_template_id: string|null, to_template_id: string|null }>,',
-    '  "coach_summary": string (máx 500 caracteres, en español, accionable para Pablo)',
+    '  "coach_summary": string (máx 500 caracteres, en español, accionable para el coach)',
     '}',
     'Reglas:',
     '- Conservador. Si dudas, recomienda "soften", no "swap".',

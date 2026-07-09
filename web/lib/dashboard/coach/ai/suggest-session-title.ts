@@ -119,7 +119,7 @@ async function llmSuggestTitle(args: {
   coach_id: number | bigint;
 }): Promise<string | null> {
   const system = [
-    'Eres Pablo IA, coach de HYROX/hybrid del Fabrik Training Club Barcelona.',
+    'Eres un coach de HYROX y entrenamiento híbrido.',
     'Te paso el contenido de UNA sesión de entrenamiento (sus bloques y ejercicios).',
     'Devuelve SOLO un JSON: { "title": "..." }.',
     'El título es un nombre CORTO en español (máx 6 palabras, máx 120 caracteres)',

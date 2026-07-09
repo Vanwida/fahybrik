@@ -327,7 +327,7 @@ const PRESET_FORMAT_TITLES = WEEK_DAY_PART_PRESETS.map(
 
 async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
   const system = [
-    'Eres Pablo IA, coach de HYROX/hybrid élite del Fabrik Training Club Barcelona.',
+    'Eres un coach de HYROX y entrenamiento híbrido de élite.',
     'Generas UN entreno (varios bloques) en JSON exacto:',
     '{ "blocks": [ { "format", "title", "coach_note"?, "config"?, "exercises": [{ "name", sets?, reps?, distance_meters?, duration_seconds?, load_pct?, rest_seconds?, rpe?, notes? }] } ] }',
     'Reglas:',

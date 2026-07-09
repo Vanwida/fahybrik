@@ -133,7 +133,7 @@ export async function suggestWeekPlan(params: {
   // ---- Slow mode: LLM ordena el catálogo y pone foco día a día -------------
   // C31 — si la request trae athlete_id, cargamos su calendario de box para
   // que el LLM no apile carga del mismo tipo el día que el atleta hace clase
-  // presencial con Pablo.
+  // presencial con su coach.
   const boxClassSchedule = req.athlete_id != null
     ? await loadBoxClassScheduleForAthlete(client, req.athlete_id)
     : null;
@@ -403,7 +403,7 @@ interface LlmOrderArgs {
   client: Sql;
   /**
    * C31 — calendario del box del atleta (días que va a clases presenciales
-   * con Pablo). El LLM lo usa para evitar pisar la carga del box ese día.
+   * con su coach). El LLM lo usa para evitar pisar la carga del box ese día.
    * `null` cuando la semana se genera como plantilla genérica.
    */
   box_class_schedule?: BoxScheduleForPrompt | null;
@@ -495,7 +495,7 @@ async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
   const boxBlock = formatBoxScheduleForPrompt(args.box_class_schedule ?? null);
 
   const systemLines = [
-    'Eres Pablo IA, coach HYROX/hybrid élite — Fabrik Training Club Barcelona.',
+    'Eres un coach de HYROX y entrenamiento híbrido de élite.',
     'Ordenas una SEMANA seleccionando templates EXACTOS del catálogo proporcionado.',
     'JSON exacto: { "days": [{ "day_of_week", "kind": "rest"|"workout", "template_names"?: string[], "focus"?, "notes"? }] }',
     'Reglas:',
@@ -514,7 +514,7 @@ async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
   if (boxBlock) {
     systemLines.push(
       '',
-      '- BOX-CLASS AWARENESS (este atleta entrena con Pablo en clases presenciales).',
+      '- BOX-CLASS AWARENESS (este atleta entrena con su coach en clases presenciales).',
       '  Si el box hace fuerza un día, ese día el plan va Z2 / técnica / recovery — NO añadas más fuerza pesada.',
       '  Si el box hace HYROX/metabolic ese día, el plan va aeróbico ligero o descanso activo — NO dupliques estaciones.',
       '  Misma lógica para running, rowing, intervals.',

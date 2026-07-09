@@ -558,8 +558,8 @@ const GROUP_NAMES_ES: Record<number, string> = {
 
 export async function composeWeekLlm(args: LlmComposeArgs): Promise<ComposeResult> {
   const system = [
-    'Eres Pablo IA, coach HYROX/hybrid élite — Fabrik Training Club Barcelona.',
-    'Compones una SEMANA SELECCIONANDO bloques EXACTOS de la biblioteca de Pablo.',
+    'Eres un coach de HYROX y entrenamiento híbrido de élite.',
+    'Compones una SEMANA SELECCIONANDO bloques EXACTOS de la biblioteca del coach.',
     'NUNCA inventas contenido de entreno: solo eliges block_id que existan en el catálogo dado.',
     'JSON exacto: { "days": [{ "day_of_week", "kind": "rest"|"workout", "blocks"?: [{ "block_id", "modifiers"?: { "intensity_pct"?, "duration_min"?, "rounds"?, "level"? } }], "focus"? }] }',
     'Reglas:',
