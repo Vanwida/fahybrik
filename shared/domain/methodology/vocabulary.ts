@@ -188,7 +188,7 @@ export type RuleScope = z.infer<typeof ruleScope>;
 export const rulePriority = z.enum(['critical', 'high', 'medium', 'low']);
 export type RulePriority = z.infer<typeof rulePriority>;
 
-export const ruleAuthored = z.enum(['pablo', 'ai_suggested', 'system_default']);
+export const ruleAuthored = z.enum(['coach', 'ai_suggested', 'system_default']);
 export type RuleAuthored = z.infer<typeof ruleAuthored>;
 
 // Rule conditions are AND-ed by default; a group {op:'OR'} expresses alternatives
@@ -332,9 +332,9 @@ export const SCOPE_SPECIFICITY: Record<RuleScope, number> = {
   global: 0,
 };
 
-// Authored-source rank (spec §2.8: pablo > ai_suggested / system_default).
+// Authored-source rank (spec §2.8: coach > ai_suggested / system_default).
 export const AUTHORED_RANK: Record<RuleAuthored, number> = {
-  pablo: 2,
+  coach: 2,
   ai_suggested: 1,
   system_default: 1,
 };

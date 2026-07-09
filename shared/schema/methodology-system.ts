@@ -283,7 +283,7 @@ export const methodologyNutritionRuleSchema = z.object({
   hydration: z.boolean().default(false),
   electrolytes: z.boolean().default(false),
   note: z.string().max(400).nullable(),
-  authored: ruleAuthored.default('pablo'),
+  authored: ruleAuthored.default('coach'),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });

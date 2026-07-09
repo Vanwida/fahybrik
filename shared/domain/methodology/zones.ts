@@ -100,7 +100,7 @@ const HR_ZONE_FRACTIONS: Record<HrZone, { lo: number; hi: number }> = {
 // rows are passed. A caller WITH the coach's methodology_zones should pass them
 // in (resolveTarget opts.coachZones) so per-coach edits win. The anchor is the
 // THRESHOLD (the Z4 lower bound = test result), not pace5K/split2K — a test
-// produces the threshold directly. Pablo verified the per_500m bands.
+// produces the threshold directly. The per_500m bands are verified.
 export const STANDARD_ZONES_PER_500M: readonly CoachZone[] = [
   { code: 'Z1', label: 'Recuperación activa', color: '#22C55E', role: 'recovery', sort_order: 1, pace_unit: 'per_500m', low_offset_s: 22, high_offset_s: null },
   { code: 'Z2', label: 'Aeróbico extensivo', color: '#3B82F6', role: 'aerobic_base', sort_order: 2, pace_unit: 'per_500m', low_offset_s: 14, high_offset_s: 21 },
