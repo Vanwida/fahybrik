@@ -38,7 +38,7 @@ export const textSuggestInputSchema = z
 
 export type TextSuggestInput = z.infer<typeof textSuggestInputSchema>;
 
-/** v1: sugerencias heurísticas sin LLM — sustituible por Pablo IA Compose en 1b+. */
+/** v1: sugerencias heurísticas sin LLM — sustituible por Coach IA Compose en 1b+. */
 export function suggestFreeText(input: TextSuggestInput): string[] {
   const exercises = Array.isArray(input.context.exercises)
     ? (input.context.exercises as string[])

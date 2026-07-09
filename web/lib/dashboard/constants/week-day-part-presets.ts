@@ -255,7 +255,7 @@ export const GROUPED_PART_PRESETS: GroupedPresets[] = PART_GROUP_IDS.map((group)
 }));
 
 // Alias retro-compat de ids de preset previos a la taxonomía de 2 clusters, para
-// no romper callers existentes (p.ej. Pablo IA usa 'strength' como bloque
+// no romper callers existentes (p.ej. Coach IA usa 'strength' como bloque
 // principal). Mapea id antiguo → id actual.
 const LEGACY_PRESET_ID_ALIASES: Record<string, string> = {
   strength: 'strength_base',

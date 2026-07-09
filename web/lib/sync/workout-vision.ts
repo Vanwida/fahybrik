@@ -19,7 +19,7 @@
 import 'server-only';
 
 import { z } from 'zod';
-import { callLlmJsonWithImage, PabloIaLlmError } from '@/lib/dashboard/coach/ai/llm';
+import { callLlmJsonWithImage, CoachIaLlmError } from '@/lib/dashboard/coach/ai/llm';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { AssignmentDetailResponse } from '@/lib/athlete/assignment-detail';
 import type { ExecutionMetricsInput } from '@/lib/sync/record-workout-execution';
@@ -52,7 +52,7 @@ export function isWorkoutVisionConfigured(): boolean {
   return getWorkoutVisionModel() != null;
 }
 
-export { PabloIaLlmError as WorkoutVisionError };
+export { CoachIaLlmError as WorkoutVisionError };
 
 // Map the capture app to the canonical `biometric_source` enum the execution
 // model stores. Only true DEVICES map to themselves; everything else is honestly
@@ -458,7 +458,7 @@ export async function extractWorkoutResultFromImage(args: {
   fetchImpl?: typeof fetch;
 }): Promise<WorkoutVisionProposal> {
   const model = getWorkoutVisionModel();
-  if (!model) throw new PabloIaLlmError('unconfigured', 'LLM_VISION_MODEL / LLM_MODEL no configurado');
+  if (!model) throw new CoachIaLlmError('unconfigured', 'LLM_VISION_MODEL / LLM_MODEL no configurado');
 
   const app = args.app ?? null;
   const ctx = buildPrescriptionContext(args.detail);
@@ -475,7 +475,7 @@ export async function extractWorkoutResultFromImage(args: {
 
   const parsed = visionRawSchema.safeParse(rawUnknown);
   if (!parsed.success) {
-    throw new PabloIaLlmError('invalid_json', 'La IA devolvió un resultado con forma inesperada');
+    throw new CoachIaLlmError('invalid_json', 'La IA devolvió un resultado con forma inesperada');
   }
 
   return mapVisionToProposal({ raw: parsed.data, ctx, app, model });

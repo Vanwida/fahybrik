@@ -505,4 +505,4 @@ async function computeHyroxSignal(params: {
 }
 
 /** Alias for plan naming. */
-export const buildPabloIaContextPack = buildAthleteContextPack;
+export const buildCoachIaContextPack = buildAthleteContextPack;

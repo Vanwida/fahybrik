@@ -5,7 +5,7 @@
  * The system MUST degrade to a deterministic heuristic
  * (`buildHeuristicProposal`) when no LLM is configured. We assert that path
  * WITHOUT calling any LLM — by clearing every LLM-config env var so
- * `isPabloIaLlmConfigured()` returns false. The heuristic reads real
+ * `isCoachIaLlmConfigured()` returns false. The heuristic reads real
  * `workout_assignments` + a real recovery template from the DB and persists a
  * real `week_adjustment_proposals` row, which we read back.
  */

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { AthleteContextPack } from './pablo-ia-context';
+import type { AthleteContextPack } from './coach-ia-context';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {

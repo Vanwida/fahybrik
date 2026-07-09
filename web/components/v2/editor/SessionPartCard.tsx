@@ -94,7 +94,7 @@ export function SessionPartCard({
           <button
             type="button"
             onClick={onSuggestWorkout}
-            title="Pablo IA redacta los bloques de esta sesión a partir de un foco"
+            title="Coach IA redacta los bloques de esta sesión a partir de un foco"
             className="v2-focus inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-[13px] font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
           >
             <MIcon name="draw" size={16} />

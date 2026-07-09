@@ -7,7 +7,7 @@ import {
   weekDaySchema,
   type WeekDay,
 } from '@fahybrid/shared/schema/program-templates';
-import { isPabloIaLlmConfigured, callPabloIaLlmJson, PabloIaLlmError } from './llm';
+import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
 import { loadTemplateAsBlocks } from './template-to-blocks';
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
@@ -107,7 +107,7 @@ export async function suggestWeekPlan(params: {
   const trainingDays = computeTrainingDayDistribution(req.days_per_week);
 
   // ---- Fast mode (default) -------------------------------------------------
-  if (req.mode === 'fast' || !isPabloIaLlmConfigured()) {
+  if (req.mode === 'fast' || !isCoachIaLlmConfigured()) {
     const filled = await buildWeekFromLibrary({
       training_days: trainingDays,
       templates: usable,
@@ -117,14 +117,14 @@ export async function suggestWeekPlan(params: {
     });
     return {
       mode: req.mode,
-      source: req.mode === 'slow' && !isPabloIaLlmConfigured() ? 'library_fallback' : 'library',
+      source: req.mode === 'slow' && !isCoachIaLlmConfigured() ? 'library_fallback' : 'library',
       name: req.name ?? defaultWeekName(req.focus),
       focus: req.focus,
       days: filled.days,
       matched_templates: filled.matched,
       rest_days: filled.rest_days,
       notes:
-        req.mode === 'slow' && !isPabloIaLlmConfigured()
+        req.mode === 'slow' && !isCoachIaLlmConfigured()
           ? 'LLM no configurado: semana compuesta desde plantillas del catálogo.'
           : undefined,
     };
@@ -167,9 +167,9 @@ export async function suggestWeekPlan(params: {
       client,
     });
     const notes =
-      err instanceof PabloIaLlmError
-        ? `Pablo IA LLM falló (${err.code}); semana compuesta desde el catálogo.`
-        : 'Pablo IA LLM falló; semana compuesta desde el catálogo.';
+      err instanceof CoachIaLlmError
+        ? `Coach IA LLM falló (${err.code}); semana compuesta desde el catálogo.`
+        : 'Coach IA LLM falló; semana compuesta desde el catálogo.';
     return {
       mode: 'slow',
       source: 'library_fallback',
@@ -352,7 +352,7 @@ function rankTemplatesForWeek(args: BuildArgs): TemplateRow[] {
 
 function defaultWeekName(focus: string): string {
   const head = focus.split(/[.,;]/)[0]!.trim().slice(0, 60);
-  return `Semana · ${head || 'Pablo IA'}`;
+  return `Semana · ${head || 'Coach IA'}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -537,7 +537,7 @@ async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
     tplList,
   ].join('\n');
 
-  const raw = await callPabloIaLlmJson({
+  const raw = await callCoachIaLlmJson({
     system,
     user,
     meta: {
@@ -551,7 +551,7 @@ async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
 
   const parsed = llmWeekSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new PabloIaLlmError('invalid_json', `LLM week schema inválido: ${parsed.error.message}`);
+    throw new CoachIaLlmError('invalid_json', `LLM week schema inválido: ${parsed.error.message}`);
   }
 
   const byName = new Map(args.templates.map((t) => [t.name.trim().toLowerCase(), t]));

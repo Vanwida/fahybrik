@@ -10,11 +10,11 @@ import {
   type BlockUseModifiers,
 } from '@fahybrid/shared/schema/program-templates';
 import type { Block } from '@fahybrid/shared/schema/blocks';
-import { isPabloIaLlmConfigured, callPabloIaLlmJson, PabloIaLlmError } from './llm';
+import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
 import { createPartFromLibraryBlock } from '@/lib/dashboard/programming/block-to-part';
 
 /**
- * Pablo IA — composición de SEMANA a partir de la BIBLIOTECA DE BLOQUES (0037).
+ * Coach IA — composición de SEMANA a partir de la BIBLIOTECA DE BLOQUES (0037).
  *
  * Principio de producto (Documento Maestro): la IA NO genera entrenos de cero —
  * SELECCIONA y ADAPTA bloques existentes de Pablo. Esta es la diferencia con
@@ -233,13 +233,13 @@ export async function suggestWeekFromBlocks(params: {
   const trainingDays = computeTrainingDayDistribution(req.days_per_week);
 
   // ---- Fast mode (or LLM unconfigured) → heurístico determinista -----------
-  if (req.mode === 'fast' || !isPabloIaLlmConfigured()) {
+  if (req.mode === 'fast' || !isCoachIaLlmConfigured()) {
     const built = composeWeekHeuristic({
       blocks: allBlocks,
       training_days: trainingDays,
       level: req.level,
     });
-    const source = req.mode === 'slow' && !isPabloIaLlmConfigured() ? 'library_fallback' : 'library';
+    const source = req.mode === 'slow' && !isCoachIaLlmConfigured() ? 'library_fallback' : 'library';
     return {
       mode: req.mode,
       source,
@@ -281,9 +281,9 @@ export async function suggestWeekFromBlocks(params: {
       level: req.level,
     });
     const failNote =
-      err instanceof PabloIaLlmError
-        ? `Pablo IA LLM falló (${err.code}); semana compuesta desde la biblioteca (heurístico).`
-        : 'Pablo IA LLM falló; semana compuesta desde la biblioteca (heurístico).';
+      err instanceof CoachIaLlmError
+        ? `Coach IA LLM falló (${err.code}); semana compuesta desde la biblioteca (heurístico).`
+        : 'Coach IA LLM falló; semana compuesta desde la biblioteca (heurístico).';
     return {
       mode: 'slow',
       source: 'library_fallback',
@@ -357,7 +357,7 @@ function computeTrainingDayDistribution(days_per_week: number): number[] {
 
 function defaultWeekName(focus: string): string {
   const head = focus.split(/[.,;]/)[0]!.trim().slice(0, 60);
-  return `Semana · ${head || 'Pablo IA'}`;
+  return `Semana · ${head || 'Coach IA'}`;
 }
 
 interface ComposeResult {
@@ -586,7 +586,7 @@ export async function composeWeekLlm(args: LlmComposeArgs): Promise<ComposeResul
     catalog,
   ].join('\n');
 
-  const raw = await callPabloIaLlmJson({
+  const raw = await callCoachIaLlmJson({
     system,
     user,
     meta: { surface: 'suggest_week_blocks', coach_id: args.coach_id, athlete_id: null },
@@ -596,7 +596,7 @@ export async function composeWeekLlm(args: LlmComposeArgs): Promise<ComposeResul
 
   const parsed = llmWeekSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new PabloIaLlmError('invalid_json', `LLM blocks-week schema inválido: ${parsed.error.message}`);
+    throw new CoachIaLlmError('invalid_json', `LLM blocks-week schema inválido: ${parsed.error.message}`);
   }
 
   return materializeLlmWeek(parsed.data, args);

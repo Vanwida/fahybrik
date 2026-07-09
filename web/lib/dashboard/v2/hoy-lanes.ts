@@ -121,7 +121,7 @@ export interface V2HoyData {
    */
   siguiente_microciclo_cards: V2SiguienteMicrocicloCard[];
   /**
-   * Pending weekly-adjustment proposals from Pablo IA (the cron-generated
+   * Pending weekly-adjustment proposals from Coach IA (the cron-generated
    * `week_adjustment_proposals`). Already computed by the inbox loader as
    * `InboxWeekAdjustmentItem` — here we just lift them to their own decision strip.
    */

@@ -1,8 +1,8 @@
 'use client';
 
-// SuggestWorkoutModal (#33) — "Pablo IA redacta el entreno". The coach types the
+// SuggestWorkoutModal (#33) — "Coach IA redacta el entreno". The coach types the
 // FOCUS of a session, picks a mode (Rápido = his library / Completo = the model
-// composes) and Pablo IA drafts blocks. The coach reviews each block with its FULL
+// composes) and Coach IA drafts blocks. The coach reviews each block with its FULL
 // typed prescription (prescriptionToText — never a summary), selects which to keep,
 // can prune individual lines, and inserts them into the session (APPEND, never
 // replace). Origin is always honest (biblioteca / IA / respaldo). "Completo" is
@@ -397,7 +397,7 @@ function ThinkingBody({ mode, focus }: { mode: SuggestMode; focus: string }) {
     <div className="flex flex-col items-center gap-3 py-9 text-center">
       <MIcon name="progress_activity" size={34} className="animate-spin text-[color:var(--v2-accent)]" />
       <span className="text-[13px] font-bold text-[color:var(--v2-fg)]">
-        {mode === 'slow' ? 'Pablo IA compone los bloques' : 'Buscando en tu biblioteca'}
+        {mode === 'slow' ? 'Coach IA compone los bloques' : 'Buscando en tu biblioteca'}
       </span>
       <span className="max-w-[36ch] text-[11.5px] text-[color:var(--v2-muted)]">{focus}</span>
     </div>

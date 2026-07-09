@@ -1,6 +1,6 @@
 'use client';
 
-// Client access to the coach "Pablo IA redacta el entreno" endpoint (#33).
+// Client access to the coach "Coach IA redacta el entreno" endpoint (#33).
 // GET  /api/coach/ai/suggest-workout → { llm_configured } (gates the "Completo" mode).
 // POST /api/coach/ai/suggest-workout { focus, level?, mode, athlete_id? } → { suggestion }.
 // The suggestion's `blocks` are WeekDayPart[]; the caller converts them to editor
@@ -32,7 +32,7 @@ export interface SuggestWorkoutInput {
 
 const ENDPOINT = '/api/coach/ai/suggest-workout';
 
-/** Whether Pablo IA's LLM is configured — drives showing/enabling the "Completo" mode. */
+/** Whether Coach IA's LLM is configured — drives showing/enabling the "Completo" mode. */
 export async function getLlmConfigured(): Promise<boolean> {
   try {
     const res = await fetch(ENDPOINT, { credentials: 'include' });
