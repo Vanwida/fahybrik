@@ -1,13 +1,14 @@
 'use client';
 
-// DayEditor — SCREEN 8 client orchestrator. Hierarchy día › sesión (AM/PM) ›
-// bloque › ítems. A single day column of SessionPartCards. Day header: display
-// "Lunes 12 · ene" + pills (N sesiones · vol ~Xmin) + "＋ añadir sesión" +
-// "Guardar día". "＋ Añadir bloque" opens the AddBlockModal type chooser; the
-// block's exercises are visible inline; "＋ Añadir ejercicio" opens the
-// ExercisePicker directly; clicking a line opens a drawer with the dosis form.
-// Blocks and exercises reorder with ↑/↓. All state is local + structured
-// Prescription; the save persists the structured day.
+// DayEditor — SCREEN 8 client orchestrator. AGNOSTIC: día › sesión (AM/PM) › a
+// FLAT list of coach-named blocks › ítems — no imposed sections. Day header: «←
+// Semana» + ‹ › day nav (embedded canvas) + display title "Lunes 12 · ene" + pills
+// (N sesiones · vol ~Xmin) + "＋ añadir sesión" + "Guardar día". Inside a session,
+// "＋ Añadir bloque" opens an INLINE type picker (no modal); each block has an
+// editable name, a type chip, a drag handle (reorder) and its inline item table;
+// "＋ Añadir ejercicio" opens the ExercisePicker; clicking a line opens the dosis
+// drawer. All state is local + structured Prescription; the save persists the day
+// via PUT /api/coach/program-weeks/{week_id}/day (block order + names included).
 
 import { useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -74,30 +75,30 @@ const SAVE_ICON: Record<SaveState, string> = {
   error: 'error',
 };
 
-/** Day-to-day navigation for the EMBEDDED day view (the microciclo canvas owns the
- *  view-transition nav). Absent → no ‹ ›/← Semana header (e.g. a standalone use). */
-export interface DayNav {
-  /** ← Semana — zoom back out to the full week. */
-  onBack: () => void;
-  /** ‹ — open the previous day of the week (null at the week's first day). */
-  onPrev: (() => void) | null;
-  /** › — open the next day of the week (null at the week's last day). */
-  onNext: (() => void) | null;
-}
-
 // `embedded` = rendered as the DÍA zoom of the microciclo canvas (one editor, two
 // zooms: SEMANA ↔ DÍA). In that mode the day header carries «← Semana» + ‹ › day
-// navigation (wired to the canvas's view-transition nav via `dayNav`) and the body
-// reads as a centered document. Standalone (`embedded` false) keeps the plain
-// "Volver a la semana" link.
+// navigation (wired to the canvas's view-transition soft-nav) and the body reads as
+// a centered document. Standalone (`embedded` false) keeps the plain "Volver a la
+// semana" link. The day-nav is passed as FLAT props (href-based) so the stable
+// soft-nav callback is handed through as-is (never re-wrapped in a render closure).
 export function DayEditor({
   model,
   embedded = false,
-  dayNav,
+  onBackToWeek,
+  onNavigateDay,
+  prevDayHref = null,
+  nextDayHref = null,
 }: {
   model: DayEditorModel;
   embedded?: boolean;
-  dayNav?: DayNav;
+  /** ← Semana — zoom back out to the full week. Presence enables the day header nav. */
+  onBackToWeek?: () => void;
+  /** The canvas soft-nav (View-Transition wrapped) — opens the given day href. */
+  onNavigateDay?: (href: string) => void;
+  /** ‹ — previous day of the week (null / omitted at the week's first day). */
+  prevDayHref?: string | null;
+  /** › — next day of the week (null / omitted at the week's last day). */
+  nextDayHref?: string | null;
 }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
@@ -362,10 +363,10 @@ export function DayEditor({
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          {dayNav ? (
+          {onBackToWeek ? (
             <button
               type="button"
-              onClick={dayNav.onBack}
+              onClick={onBackToWeek}
               className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="arrow_back" size={15} />
@@ -384,11 +385,13 @@ export function DayEditor({
           {/* Day title with ‹ › day navigation (embedded canvas). The arrows step
               across the week's days (Lun→Dom); disabled at the week boundaries. */}
           <div className="flex min-w-0 items-center gap-1.5">
-            {dayNav ? (
+            {onNavigateDay ? (
               <button
                 type="button"
-                onClick={dayNav.onPrev ?? undefined}
-                disabled={!dayNav.onPrev}
+                onClick={() => {
+                  if (prevDayHref) onNavigateDay(prevDayHref);
+                }}
+                disabled={!prevDayHref}
                 aria-label="Día anterior"
                 className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -404,11 +407,13 @@ export function DayEditor({
             >
               {model.day_label}
             </h1>
-            {dayNav ? (
+            {onNavigateDay ? (
               <button
                 type="button"
-                onClick={dayNav.onNext ?? undefined}
-                disabled={!dayNav.onNext}
+                onClick={() => {
+                  if (nextDayHref) onNavigateDay(nextDayHref);
+                }}
+                disabled={!nextDayHref}
                 aria-label="Día siguiente"
                 className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
               >

@@ -13,7 +13,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
-import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
 import {
   deriveWeekModalities,
   weekSessionCount,
@@ -48,20 +47,11 @@ export default async function V2MicrocicloPage({
 
   const coach_id = session.coach_id;
 
-  const [full, groups] = await Promise.all([
-    loadMonthTemplateWithWeeks({ coach_id, month_id: monthId }).catch(() => null),
-    listMethodologyGroups().catch(() => []),
-  ]);
+  const full = await loadMonthTemplateWithWeeks({ coach_id, month_id: monthId }).catch(() => null);
 
   if (!full) {
     return <NotFound description="Este microciclo no existe o no pertenece a tu biblioteca." />;
   }
-
-  // Agnostic group label map (coach data, never hardcoded) — drives the per-block
-  // phase/group tag on the rich day cards.
-  const groupNames: Record<number, string> = Object.fromEntries(
-    groups.map((g) => [g.id, g.name_es]),
-  );
 
   const sorted = full.weeks.slice().sort((a, b) => a.week_index - b.week_index);
 
@@ -103,7 +93,6 @@ export default async function V2MicrocicloPage({
       name={full.month.name}
       level={full.month.level}
       weeks={weeks}
-      groupNames={groupNames}
       dayModel={dayModel}
     />
   );
