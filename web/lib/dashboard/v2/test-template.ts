@@ -75,8 +75,9 @@ export function testTypeFromPrescription(p: Prescription | undefined): TestType 
   return closestTestType(modality, 'distance') ?? TEST_TYPES_BY_SLUG[DEFAULT_TEST_TYPE_SLUG];
 }
 
-/** Build a fresh Test block (default test type) for the editor picker. */
-export function createTestBlock(group: StructureGroup): EditorBlock {
+/** Build a fresh Test block (default test type) for the editor picker. `group` is
+ *  optional — the agnostic day editor omits it (flat list, no imposed sections). */
+export function createTestBlock(group?: StructureGroup): EditorBlock {
   const t = TEST_TYPES_BY_SLUG[DEFAULT_TEST_TYPE_SLUG];
   const now = Date.now();
   const item: EditorItem = {
@@ -90,7 +91,7 @@ export function createTestBlock(group: StructureGroup): EditorBlock {
     title: 'Test',
     format: TEST_BLOCK_FORMAT,
     archetype_id: 'test',
-    group,
+    ...(group ? { group } : {}),
     items: [item],
   };
 }

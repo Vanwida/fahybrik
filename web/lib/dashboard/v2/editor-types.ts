@@ -51,8 +51,15 @@ export interface EditorBlock {
   archetype_id?: import('@/lib/dashboard/v2/archetypes').ArchetypeId;
   /** Methodology group (1..10) when the block came from the library. */
   methodology_group_id?: number | null;
-  /** Structure group the block belongs to (rail heading). */
-  group: StructureGroup;
+  /**
+   * DEPRECATED for the microciclo day editor. The agnostic model is a FLAT list of
+   * blocks the coach names and orders — NOT the imposed Calentamiento/Principal/
+   * Vuelta sections. `group` no longer drives the day editor's render and is not
+   * persisted from it. It stays OPTIONAL because the session LIBRARY editor
+   * (`SessionStructureRail`) and the Excel importer still section by it, and the
+   * server loaders infer it for those surfaces. Absent = agnostic (the default).
+   */
+  group?: StructureGroup;
   /** Library origin, when inserted from the Biblioteca de Bloques. */
   source_block_id?: number | null;
   items: EditorItem[];
