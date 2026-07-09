@@ -11,6 +11,7 @@ export { StatTile, type StatTone } from './StatTile';
 export { ModalityCard } from './ModalityCard';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';
 export { EmptyState } from './EmptyState';
+export { AuthorStamp, type AuthorStampKind, type AuthorStampProps } from './AuthorStamp';
 export {
   MODALITY_META,
   type V2Modality,

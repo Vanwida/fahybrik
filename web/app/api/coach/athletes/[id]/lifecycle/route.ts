@@ -88,6 +88,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
           end_date,
           requested_by: 'coach',
           coach_id,
+          // #43: authorship — the acting coach's users.id (coach_id is a coaches.id).
+          by_user_id: session.user_id,
         });
         return jsonOk(result);
       }
@@ -96,7 +98,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
         return jsonOk(result);
       }
       case 'baja': {
-        const result = await bajaAthlete({ athlete_id: athleteId, reason: reason!, coach_id });
+        const result = await bajaAthlete({
+          athlete_id: athleteId,
+          reason: reason!,
+          coach_id,
+          // #43: authorship — the acting coach's users.id.
+          by_user_id: session.user_id,
+        });
         return jsonOk(result);
       }
       case 're_alta': {

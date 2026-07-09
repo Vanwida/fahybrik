@@ -1,7 +1,8 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { sql } from '../db';
 import { userRoles, type Role } from './roles';
-import { findOrCreateCoachByClerkUser } from './users';
+import { provisionCoachMember } from './users';
+import { approvedCoachTarget } from './allowlist';
 import { DEMO_COACH_EMAILS, isDemoAccessEnabled } from './demo-access';
 import { readDemoCoachCookieToken } from './demo-cookie';
 import { audiences, verifySession } from './session';
@@ -21,7 +22,15 @@ export interface CoachSession {
   user_id: bigint;
   coach_id: bigint;
   email: string;
+  /**
+   * The signed-in PERSON's display name (users.full_name), for attribution
+   * ("editado por Alex"). Falls back to the club/coach row name for a legacy
+   * single-coach whose users.full_name was backfilled from it — so this is
+   * unchanged for existing coaches and is the member's own name for the team.
+   */
   full_name: string;
+  /** The club name (coaches.full_name) — the shared workspace the members share. */
+  club_name: string;
   /** Coach photo URL (coaches.avatar_url); null = render initials. */
   avatar_url: string | null;
   jti: string;
@@ -36,18 +45,53 @@ export interface CoachSession {
 // en local. El coach es el dueño del atleta sembrado (alexsole@gmail.com).
 const DEV_BYPASS_COACH_EMAIL = 'alexsole@gmail.com';
 
-async function coachSessionByEmail(email: string, jti: string): Promise<CoachSession | null> {
-  const rows = await sql<
-    { user_id: string; coach_id: string; email: string; full_name: string; avatar_url: string | null }[]
-  >`
-    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name, c.avatar_url
+// A coach's data is scoped by coach_id (the club). Which humans may act as that
+// club is now decided by `coach_members` (migration 0113), NOT the 1:1
+// coaches.user_id owner link. The resolver therefore prefers the membership
+// coach_id and FALLS BACK to the legacy owner link (c_owned) so any coach whose
+// membership row hasn't been backfilled still resolves during the transition. A
+// user with neither is not a coach → coach_id is null → null session.
+//
+// full_name is the PERSON (users.full_name) for attribution; club_name is the
+// shared coaches.full_name. Single-club today, so `limit 1` on membership is
+// unambiguous (a future multi-club member would need explicit club selection).
+type CoachSessionRow = {
+  user_id: string;
+  coach_id: string | null;
+  email: string;
+  full_name: string;
+  club_name: string;
+  avatar_url: string | null;
+};
+
+async function resolveCoachSession(
+  by: { email: string } | { clerk: string } | { uid: bigint },
+  jti: string,
+): Promise<CoachSession | null> {
+  const predicate =
+    'email' in by
+      ? sql`u.email = ${by.email}`
+      : 'clerk' in by
+        ? sql`u.clerk_user_id = ${by.clerk}`
+        : sql`u.id = ${by.uid}`;
+
+  const rows = await sql<CoachSessionRow[]>`
+    select
+      u.id::text as user_id,
+      coalesce(cm.coach_id, c_owned.id)::text as coach_id,
+      u.email,
+      coalesce(u.full_name, c_member.full_name, c_owned.full_name, '') as full_name,
+      coalesce(c_member.full_name, c_owned.full_name, '') as club_name,
+      coalesce(c_member.avatar_url, c_owned.avatar_url) as avatar_url
     from users u
-    join coaches c on c.user_id = u.id
-    where u.email = ${email} and u.deleted_at is null
+    left join coach_members cm on cm.user_id = u.id and cm.removed_at is null
+    left join coaches c_member on c_member.id = cm.coach_id
+    left join coaches c_owned on c_owned.user_id = u.id
+    where ${predicate} and u.deleted_at is null
     limit 1
   `;
   const row = rows[0];
-  if (!row) return null;
+  if (!row || row.coach_id === null) return null;
   const user_id = BigInt(row.user_id);
   const roles = await userRoles(user_id);
   return {
@@ -55,69 +99,23 @@ async function coachSessionByEmail(email: string, jti: string): Promise<CoachSes
     coach_id: BigInt(row.coach_id),
     email: row.email,
     full_name: row.full_name,
+    club_name: row.club_name,
     avatar_url: row.avatar_url,
     jti,
     roles,
   };
 }
 
-/** Resolve the coach session for a Clerk user id, or null if no coach row yet. */
-async function coachSessionByClerkUserId(
-  clerkUserId: string,
-  jti: string,
-): Promise<CoachSession | null> {
-  const rows = await sql<
-    { user_id: string; coach_id: string; email: string; full_name: string; avatar_url: string | null }[]
-  >`
-    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name, c.avatar_url
-    from users u
-    join coaches c on c.user_id = u.id
-    where u.clerk_user_id = ${clerkUserId} and u.deleted_at is null
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) return null;
-  const user_id = BigInt(row.user_id);
-  const roles = await userRoles(user_id);
-  return {
-    user_id,
-    coach_id: BigInt(row.coach_id),
-    email: row.email,
-    full_name: row.full_name,
-    avatar_url: row.avatar_url,
-    jti,
-    roles,
-  };
-}
+const coachSessionByEmail = (email: string, jti: string) =>
+  resolveCoachSession({ email }, jti);
 
-/** Resolve the coach session for a DB user id, or null if no coach row. */
-async function coachSessionByUserId(
-  userId: bigint,
-  jti: string,
-): Promise<CoachSession | null> {
-  const rows = await sql<
-    { user_id: string; coach_id: string; email: string; full_name: string; avatar_url: string | null }[]
-  >`
-    select u.id::text as user_id, c.id::text as coach_id, u.email, c.full_name, c.avatar_url
-    from users u
-    join coaches c on c.user_id = u.id
-    where u.id = ${userId} and u.deleted_at is null
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) return null;
-  const id = BigInt(row.user_id);
-  const roles = await userRoles(id);
-  return {
-    user_id: id,
-    coach_id: BigInt(row.coach_id),
-    email: row.email,
-    full_name: row.full_name,
-    avatar_url: row.avatar_url,
-    jti,
-    roles,
-  };
-}
+/** Resolve the coach session for a Clerk user id, or null if not a club member. */
+const coachSessionByClerkUserId = (clerkUserId: string, jti: string) =>
+  resolveCoachSession({ clerk: clerkUserId }, jti);
+
+/** Resolve the coach session for a DB user id, or null if not a club member. */
+const coachSessionByUserId = (userId: bigint, jti: string) =>
+  resolveCoachSession({ uid: userId }, jti);
 
 /**
  * DEMO-ONLY coach session. Returns a coach session from the gated demo cookie,
@@ -164,33 +162,40 @@ export async function getCoachSession(): Promise<CoachSession | null> {
 
   const jti = sessionId ?? '';
 
-  // Fast path: the Clerk login already maps to a coach row.
+  // Fast path: the Clerk login is already a member of a club.
   const existing = await coachSessionByClerkUserId(userId, jti);
   if (existing) return existing;
 
-  // Self-serve provisioning: an authenticated Clerk user reached a coach surface
-  // but has no coach row yet (fresh signup; the webhook is optional and may not
-  // have fired). Mint the users + coaches rows on demand from the verified Clerk
-  // identity, then resolve. This is the ONE provisioning path for coaches — DRY
-  // with the magic-link flow (both go through lib/auth/users). Idempotent and
-  // race-safe (see findOrCreateCoachByClerkUser).
+  // No membership yet. The ALLOWLIST is the door (issue #39): the old behaviour
+  // auto-minted a brand-new coach for ANY authenticated Clerk user (so a lead who
+  // signed up could land on a coach dashboard). Now only an approved email gets
+  // in, and it JOINS the existing club named by its allowlist row — provisioning
+  // never mints a stray coach.
   const clerkUser = await currentUser();
-  const email = clerkUser?.primaryEmailAddress?.emailAddress?.trim();
+  const email = clerkUser?.primaryEmailAddress?.emailAddress?.trim().toLowerCase();
   if (!email) {
-    // No verified email on the Clerk session → we cannot satisfy users.email
-    // (NOT NULL). Don't guess; treat as no session so the caller redirects to
-    // sign-in rather than 500ing. (Clerk requires an email to sign up, so this
-    // is effectively unreachable.)
+    // No verified email on the Clerk session → cannot satisfy users.email
+    // (NOT NULL). Treat as no session so the caller redirects to sign-in rather
+    // than 500ing. (Clerk requires an email to sign up, so this is unreachable.)
     return null;
   }
 
-  await findOrCreateCoachByClerkUser({
-    clerk_user_id: userId,
-    email,
-    first_name: clerkUser?.firstName,
-    last_name: clerkUser?.lastName,
-    username: clerkUser?.username,
-  });
+  const target = await approvedCoachTarget(email);
+  if (!target) {
+    // Not on the allowlist → NOT a coach. No session (the caller sends them away).
+    return null;
+  }
+
+  await provisionCoachMember(
+    {
+      clerk_user_id: userId,
+      email,
+      first_name: clerkUser?.firstName,
+      last_name: clerkUser?.lastName,
+      username: clerkUser?.username,
+    },
+    target.coach_id,
+  );
 
   // Re-resolve through the same path so the returned shape (roles, ids) is
   // produced by exactly one query, no special-casing of the just-created row.

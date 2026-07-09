@@ -1,4 +1,4 @@
-import { sql } from '../db';
+import { sql, type TransactionClient } from '../db';
 import { deriveDisplayName } from '../identity/display-name';
 
 export interface UserRow {
@@ -248,12 +248,126 @@ export interface ClerkCoachIdentity {
   username?: string | null;
 }
 
+type ClerkUserSel = {
+  id: string;
+  email: string;
+  apple_user_id: string | null;
+  role: UserRow['role'];
+  clerk_user_id: string | null;
+};
+
 /**
- * Provision (find-or-create) the coach for an AUTHENTICATED Clerk user on
- * demand — the self-serve path. This is what makes the coach dashboard work
- * without the (optional) Clerk webhook: the FIRST time a freshly signed-up
- * Clerk user reaches a coach surface, `getCoachSession` calls this to mint
- * their `users` + `coaches` rows and grant the coach role.
+ * Resolve (or create) the `users` row for a verified Clerk identity, LOOKUP-FIRST
+ * — the shared core of every Clerk-keyed provisioning path (coach self-serve and
+ * allowlisted team-member). Runs inside the caller's transaction so the row and
+ * whatever the caller attaches to it (coach row, or club membership) commit
+ * atomically.
+ *
+ *   1. bridged to this clerk id → revive (clears any soft-delete).
+ *   2. seeded for this email     → ADOPT by stamping clerk_user_id; REFUSE with
+ *      `coach_email_linked_to_other_clerk_user` if the email is already bridged to
+ *      a DIFFERENT id (never silently hijack an account).
+ *   3. neither                   → INSERT fresh (role 'coach'); `on conflict
+ *      (clerk_user_id)` converges two parallel first-hits from the same new login.
+ *
+ * Insert-first is WRONG here: a coach seeded in the DB before their first login
+ * has a NULL clerk_user_id, and a clerk-keyed insert would collide with that row's
+ * email on users_email_unique (a constraint the on-conflict target doesn't cover)
+ * and 500 before ever reaching adoption.
+ *
+ * Also fills `users.full_name` from the derived display name when it is still null
+ * (COALESCE never overwrites a real name), so edits can be attributed to a person.
+ */
+async function upsertClerkUser(
+  tx: TransactionClient,
+  identity: ClerkCoachIdentity,
+  displayName: string,
+): Promise<ClerkUserSel> {
+  const email = identity.email.toLowerCase();
+
+  // 1) Returning user — already bridged to this Clerk id (revive if soft-deleted).
+  const byClerk = await tx<ClerkUserSel[]>`
+    select id::text as id, email, apple_user_id, role, clerk_user_id
+    from users
+    where clerk_user_id = ${identity.clerk_user_id}
+    limit 1
+  `;
+  let userRow: ClerkUserSel | undefined = byClerk[0];
+  if (userRow) {
+    const revived = await tx<ClerkUserSel[]>`
+      update users
+      set last_seen_at = now(), updated_at = now(), deleted_at = null
+      where id = ${BigInt(userRow.id)}
+      returning id::text as id, email, apple_user_id, role, clerk_user_id
+    `;
+    userRow = revived[0];
+  }
+
+  // 2) DB-first alta — a row seeded for this email, not yet bridged to Clerk.
+  //    Adopt it by stamping the clerk_user_id (email is unique → never duplicate).
+  //    If already bridged to a DIFFERENT id, REFUSE rather than hand it over.
+  if (!userRow) {
+    const byEmail = await tx<ClerkUserSel[]>`
+      select id::text as id, email, apple_user_id, role, clerk_user_id
+      from users
+      where email = ${email}
+      limit 1
+    `;
+    const existing = byEmail[0];
+    if (existing) {
+      if (existing.clerk_user_id && existing.clerk_user_id !== identity.clerk_user_id) {
+        throw new Error('coach_email_linked_to_other_clerk_user');
+      }
+      const adopted = await tx<ClerkUserSel[]>`
+        update users
+        set clerk_user_id = ${identity.clerk_user_id},
+            last_seen_at = now(), updated_at = now(), deleted_at = null
+        where id = ${BigInt(existing.id)}
+        returning id::text as id, email, apple_user_id, role, clerk_user_id
+      `;
+      userRow = adopted[0];
+    }
+  }
+
+  // 3) Genuinely new — no bridged row, no seeded email. Insert fresh. role is NOT
+  //    NULL with no default; Clerk-authenticated principals are coaches (authz
+  //    flows through user_roles).
+  if (!userRow) {
+    const inserted = await tx<ClerkUserSel[]>`
+      insert into users (clerk_user_id, email, role, last_seen_at)
+      values (${identity.clerk_user_id}, ${email}, 'coach', now())
+      on conflict (clerk_user_id) where clerk_user_id is not null
+      do update set
+        last_seen_at = now(),
+        updated_at = now(),
+        deleted_at = null
+      returning id::text as id, email, apple_user_id, role, clerk_user_id
+    `;
+    userRow = inserted[0];
+  }
+
+  if (!userRow) {
+    throw new Error('user_provision_failed');
+  }
+
+  // Fill the person's display name once (attribution needs a name for every
+  // user_id). COALESCE keeps an already-set name untouched.
+  if (displayName) {
+    await tx`
+      update users set full_name = coalesce(full_name, ${displayName})
+      where id = ${BigInt(userRow.id)}
+    `;
+  }
+
+  return userRow;
+}
+
+/**
+ * Provision (find-or-create) a coach that OWNS its own `coaches` row, from a
+ * Clerk identity. NOTE: this is no longer the login path — `getCoachSession` now
+ * gates on the allowlist and joins the shared club via `provisionCoachMember`
+ * (issue #39). It is retained for direct/DB-seeded coach creation and pinned by
+ * tests; it mints the `users` + `coaches` rows and grants the coach role.
  *
  * It is the clerk-keyed sibling of `findOrCreateCoachByEmail` (the magic-link
  * path) and mirrors the webhook's `syncUser` semantics so there is ONE
@@ -294,93 +408,10 @@ export async function findOrCreateCoachByClerkUser(
   });
 
   return await sql.begin(async (tx) => {
-    // Coach provisioning is LOOKUP-FIRST, never insert-first. A coach can exist in
-    // the DB before they ever sign in — the official "DB first, Clerk after" alta
-    // path (webhook / allowlist / manual insert) leaves a users row with a NULL
-    // clerk_user_id. If we inserted keyed by clerk_user_id first, that new row's
-    // email would collide with the seeded row on users_email_unique — a constraint
-    // the `on conflict (clerk_user_id)` target does NOT cover — so the statement
-    // throws before ever reaching adoption (a coach seeded first got a 500 on their
-    // first login). So resolve the row by clerk_user_id, then by email, and only
-    // INSERT when neither exists.
-    type UserSel = {
-      id: string;
-      email: string;
-      apple_user_id: string | null;
-      role: UserRow['role'];
-      clerk_user_id: string | null;
-    };
-
-    // 1) Returning user — already bridged to this Clerk id (revive if soft-deleted).
-    const byClerk = await tx<UserSel[]>`
-      select id::text as id, email, apple_user_id, role, clerk_user_id
-      from users
-      where clerk_user_id = ${identity.clerk_user_id}
-      limit 1
-    `;
-    let userRow: UserSel | undefined = byClerk[0];
-    if (userRow) {
-      const revived = await tx<UserSel[]>`
-        update users
-        set last_seen_at = now(), updated_at = now(), deleted_at = null
-        where id = ${BigInt(userRow.id)}
-        returning id::text as id, email, apple_user_id, role, clerk_user_id
-      `;
-      userRow = revived[0];
-    }
-
-    // 2) DB-first alta — a row seeded for this email, not yet bridged to Clerk.
-    //    Adopt it by stamping the clerk_user_id (never insert a duplicate; email is
-    //    unique). If the email is already bridged to a DIFFERENT Clerk id, REFUSE:
-    //    another identity owns this account, and silently rewriting the bridge key
-    //    would hand it over. role is left untouched on an existing row.
-    if (!userRow) {
-      const byEmail = await tx<UserSel[]>`
-        select id::text as id, email, apple_user_id, role, clerk_user_id
-        from users
-        where email = ${email}
-        limit 1
-      `;
-      const existing = byEmail[0];
-      if (existing) {
-        if (existing.clerk_user_id && existing.clerk_user_id !== identity.clerk_user_id) {
-          throw new Error('coach_email_linked_to_other_clerk_user');
-        }
-        const adopted = await tx<UserSel[]>`
-          update users
-          set clerk_user_id = ${identity.clerk_user_id},
-              last_seen_at = now(), updated_at = now(), deleted_at = null
-          where id = ${BigInt(existing.id)}
-          returning id::text as id, email, apple_user_id, role, clerk_user_id
-        `;
-        userRow = adopted[0];
-      }
-    }
-
-    // 3) Genuinely new coach — no bridged row, no seeded email. Insert fresh. The
-    //    `on conflict (clerk_user_id)` keeps two parallel first-hits from the SAME
-    //    new login race-safe (the loser adopts the winner's row). role is NOT NULL
-    //    with no default; self-serve signups are coaches (authz flows via user_roles).
-    if (!userRow) {
-      const inserted = await tx<UserSel[]>`
-        insert into users (clerk_user_id, email, role, last_seen_at)
-        values (${identity.clerk_user_id}, ${email}, 'coach', now())
-        on conflict (clerk_user_id) where clerk_user_id is not null
-        do update set
-          last_seen_at = now(),
-          updated_at = now(),
-          deleted_at = null
-        returning id::text as id, email, apple_user_id, role, clerk_user_id
-      `;
-      userRow = inserted[0];
-    }
-
-    if (!userRow) {
-      throw new Error('user_provision_failed');
-    }
+    const userRow = await upsertClerkUser(tx, identity, display_name);
     const userId = BigInt(userRow.id);
 
-    // 3) Ensure the coach row (1:1). Insert idempotently; on conflict re-select.
+    // Ensure the coach row (1:1). Insert idempotently; on conflict re-select.
     //    Seed full_name from the derived display name when we have one, else a
     //    neutral placeholder the coach edits in Ajustes (the webhook keeps it in
     //    sync if it later fires with a real name).
@@ -493,5 +524,48 @@ export async function findOrCreateCoachByEmail(email: string): Promise<CoachAuth
       user: rowToUser(userRow),
       coach: rowToCoach(coachRow),
     };
+  });
+}
+
+/**
+ * Join an ALLOWLISTED Clerk user to an EXISTING club as a member — the closed-door
+ * replacement for coach autoprovision (#39). This is the ONLY provisioning path the
+ * login flow uses now: `getCoachSession` calls it after `approvedCoachTarget` has
+ * confirmed the email is approved and resolved which club it joins.
+ *
+ * Unlike {@link findOrCreateCoachByClerkUser} it NEVER mints a `coaches` row — the
+ * team is a single shared club, so the member attaches to the given `coachId` via
+ * `coach_members`. Idempotent + race-safe: one transaction, lookup-first user
+ * resolution (shared with the self-serve path), on-conflict membership + role grants.
+ */
+export async function provisionCoachMember(
+  identity: ClerkCoachIdentity,
+  coachId: bigint,
+): Promise<void> {
+  const email = identity.email.toLowerCase();
+  const display_name = deriveDisplayName({
+    first_name: identity.first_name,
+    last_name: identity.last_name,
+    username: identity.username,
+    email,
+  });
+
+  await sql.begin(async (tx) => {
+    const userRow = await upsertClerkUser(tx, identity, display_name);
+    const userId = BigInt(userRow.id);
+
+    // Attach to the existing club. NEVER creates a coaches row.
+    await tx`
+      insert into coach_members (coach_id, user_id, membership_role)
+      values (${coachId}, ${userId}, 'coach')
+      on conflict (coach_id, user_id) do nothing
+    `;
+
+    // Authz: grant the coach role (idempotent; keeps any other role this login holds).
+    await tx`
+      insert into user_roles (user_id, role)
+      values (${userId}, 'coach')
+      on conflict (user_id, role) do nothing
+    `;
   });
 }

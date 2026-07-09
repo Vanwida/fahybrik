@@ -11,6 +11,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/v2/Card';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { AuthorStamp } from '@/components/v2/AuthorStamp';
 import {
   SESSION_OUTCOMES,
   SESSION_OUTCOME_LABEL,
@@ -358,6 +359,24 @@ export function SessionReportsBlock({
                       Resumen enviado · {fmtDate(s.summary_email_sent_at)}
                     </span>
                   ) : null}
+                </div>
+              ) : null}
+              {/* Authorship sello (#43): "parte por X" + "editó Y" on a real edit.
+                  Each self-hides when unattributed (historical rows). */}
+              {s.created_by_name || s.last_edited_by_name ? (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-0.5">
+                  <AuthorStamp
+                    kind="coach"
+                    name={s.created_by_name}
+                    verb="escribió el parte"
+                    at={s.created_at}
+                  />
+                  <AuthorStamp
+                    kind="coach"
+                    name={s.last_edited_by_name}
+                    verb="editó"
+                    at={s.updated_at}
+                  />
                 </div>
               ) : null}
             </li>

@@ -53,6 +53,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
       id: reportId,
       coach_id: session.coach_id,
       input: parsed.data,
+      // #43: authorship — the acting coach's users.id (coach_id is a coaches.id).
+      by_user_id: session.user_id,
     });
     return jsonOk({ report });
   } catch (err) {

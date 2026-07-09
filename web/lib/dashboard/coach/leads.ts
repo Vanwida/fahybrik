@@ -187,6 +187,16 @@ export async function listLeadsForCoach(): Promise<LeadsListResult> {
 }
 
 // ── Detail ───────────────────────────────────────────────────────────────────────
+/** One entry in a lead's transition timeline (#43, lead_status_events). */
+export interface LeadTimelineEvent {
+  from_status: string | null;
+  to_status: string;
+  /** Person who moved it (users.full_name); null for a system/unknown actor. */
+  changed_by_name: string | null;
+  changed_by_kind: 'coach' | 'athlete' | 'ai' | 'system' | 'lead';
+  created_at: string;
+}
+
 export interface LeadDetail {
   id: string;
   nombre: string | null;
@@ -214,6 +224,8 @@ export interface LeadDetail {
   appointment: AppointmentView | null;
   // 1:1 session reports (#14) — history of the coach's call write-ups, newest first.
   sessions: SessionReportView[];
+  // Transition timeline (#43) — who moved this lead through the pipeline, newest first.
+  timeline: LeadTimelineEvent[];
   // Alta (#5): whether the alta invite has been sent, the athlete it converted into
   // (once claimed), and the pre-fill for the alta modal (onboarding → athlete profile).
   alta: {
@@ -239,6 +251,37 @@ export async function listCoachLevels(coach_id: number | bigint): Promise<CoachL
   `;
 }
 
+/** A lead's transition history (#43), newest first, with the changer's name resolved. */
+async function listLeadTimeline(id: bigint): Promise<LeadTimelineEvent[]> {
+  const rows = await sql<
+    Array<{
+      from_status: string | null;
+      to_status: string;
+      changed_by_name: string | null;
+      changed_by_kind: LeadTimelineEvent['changed_by_kind'];
+      created_at: Date;
+    }>
+  >`
+    select
+      e.from_status,
+      e.to_status,
+      u.full_name as changed_by_name,
+      e.changed_by_kind::text as changed_by_kind,
+      e.created_at
+    from lead_status_events e
+    left join users u on u.id = e.changed_by_user_id
+    where e.lead_id = ${Number(id)}
+    order by e.created_at desc, e.id desc
+  `;
+  return rows.map((r) => ({
+    from_status: r.from_status,
+    to_status: r.to_status,
+    changed_by_name: r.changed_by_name,
+    changed_by_kind: r.changed_by_kind,
+    created_at: r.created_at.toISOString(),
+  }));
+}
+
 export async function getLeadDetail(id: bigint): Promise<LeadDetail | null> {
   const rows = await sql<Record<string, unknown>[]>`
     select * from leads where id = ${Number(id)} limit 1
@@ -250,9 +293,10 @@ export async function getLeadDetail(id: bigint): Promise<LeadDetail | null> {
   const submittedAt = r.submitted_at as Date | null;
   const updatedAt = r.updated_at as Date;
   const consentAt = r.consent_at as Date | null;
-  const [appointment, sessions] = await Promise.all([
+  const [appointment, sessions, timeline] = await Promise.all([
     latestAppointmentForLead(id),
     listSessionReportsForLead(id),
+    listLeadTimeline(id),
   ]);
 
   return {
@@ -278,6 +322,7 @@ export async function getLeadDetail(id: bigint): Promise<LeadDetail | null> {
     summary: groupLeadSummary(summarizeLead(r)),
     appointment,
     sessions,
+    timeline,
     alta: {
       sent_at: (r.alta_sent_at as Date | null)?.toISOString() ?? null,
       converted_athlete_id: r.converted_athlete_id != null ? String(r.converted_athlete_id) : null,

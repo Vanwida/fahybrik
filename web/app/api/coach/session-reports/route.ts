@@ -27,7 +27,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const report = await createSessionReport({ coach_id: session.coach_id, input: parsed.data });
+    const report = await createSessionReport({
+      coach_id: session.coach_id,
+      input: parsed.data,
+      // #43: authorship — the acting coach's users.id (coach_id is a coaches.id).
+      by_user_id: session.user_id,
+    });
     return jsonOk({ report }, 201);
   } catch (err) {
     if (err instanceof SessionReportError) return jsonError(err.code, err.message, err.status);
