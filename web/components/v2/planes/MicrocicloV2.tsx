@@ -504,10 +504,7 @@ function WeekFocusInput({
             if (e.key === 'Enter') e.currentTarget.blur();
           }}
           placeholder="p. ej. Acumulación de base aeróbica"
-          // Fill the row (flex-1 + min-w-0), badge sits at the end — matches the
-          // session-title input idiom. `w-full` alone let the flex row shrink the
-          // field to ~1 char; flex-1 makes it robustly full-width.
-          className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]"
+          className="v2-focus w-full max-w-xl rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]"
         />
         <InlineSaveBadge status={status} />
       </div>
@@ -596,6 +593,9 @@ export function MicrocicloV2({
   const [duplicateError, setDuplicateError] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const duplicateWeek = async () => {
     if (!focus || duplicating) return;
     setDuplicating(true);
@@ -632,13 +632,82 @@ export function MicrocicloV2({
   };
 
 
+  // Borrar el microciclo entero. El backend bloquea si está asignado a atletas y
+  // devuelve un mensaje honesto que mostramos tal cual (sin planes huérfanos).
+  const deleteMicrocycle = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/coach/program-months/${microcycle_id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setDeleteError(body?.error?.message ?? 'No se pudo borrar el microciclo.');
+        setDeleting(false);
+        return;
+      }
+      router.push('/periodizacion');
+      router.refresh();
+    } catch {
+      setDeleteError('No se pudo borrar el microciclo. Inténtalo de nuevo.');
+      setDeleting(false);
+    }
+  };
+
+  const deleteControl = confirmDelete ? (
+    <span className="inline-flex items-center gap-2">
+      <span className="text-xs text-[color:var(--v2-muted)]">¿Borrar este microciclo?</span>
+      <button
+        type="button"
+        onClick={deleteMicrocycle}
+        disabled={deleting}
+        className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-2.5 text-xs font-bold text-white transition-colors disabled:opacity-60"
+      >
+        <MIcon name={deleting ? 'progress_activity' : 'delete'} size={15} />
+        {deleting ? 'Borrando…' : 'Sí, borrar'}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setConfirmDelete(false);
+          setDeleteError(null);
+        }}
+        disabled={deleting}
+        className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+      >
+        Cancelar
+      </button>
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setConfirmDelete(true)}
+      title="Borrar este microciclo (no se puede deshacer)"
+      className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-danger,#c0362c)] transition-colors hover:border-[color:var(--v2-danger,#c0362c)]"
+    >
+      <MIcon name="delete" size={15} />
+      Borrar microciclo
+    </button>
+  );
+
   if (weeks.length === 0) {
     return (
-      <EmptyState
-        icon="calendar_view_week"
-        title="Microciclo sin semanas"
-        description="Este microciclo aún no tiene semanas definidas."
-      />
+      <div className="flex flex-col items-center gap-4">
+        <EmptyState
+          icon="calendar_view_week"
+          title="Microciclo sin semanas"
+          description="Este microciclo aún no tiene semanas definidas."
+        />
+        <div className="flex flex-col items-center gap-2">
+          {deleteControl}
+          {deleteError ? (
+            <p className="text-xs text-[color:var(--v2-danger,#c0362c)]">{deleteError}</p>
+          ) : null}
+        </div>
+      </div>
     );
   }
 
@@ -662,6 +731,10 @@ export function MicrocicloV2({
           <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={15} />
           {addingWeek ? 'Añadiendo…' : 'Añadir semana'}
         </button>
+        <span className="ml-auto flex items-center gap-2">{deleteControl}</span>
+        {deleteError ? (
+          <p className="basis-full text-xs text-[color:var(--v2-danger,#c0362c)]">{deleteError}</p>
+        ) : null}
         {/* This is a LIBRARY template (no athlete in scope) — "publishing" a
             microciclo happens per-athlete. Assigning it to an athlete (in draft)
             is the real delivery step; the coach then publishes from the athlete's
