@@ -504,7 +504,10 @@ function WeekFocusInput({
             if (e.key === 'Enter') e.currentTarget.blur();
           }}
           placeholder="p. ej. Acumulación de base aeróbica"
-          className="v2-focus w-full max-w-xl rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]"
+          // Fill the row (flex-1 + min-w-0), badge sits at the end — matches the
+          // session-title input idiom. `w-full` alone let the flex row shrink the
+          // field to ~1 char; flex-1 makes it robustly full-width.
+          className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]"
         />
         <InlineSaveBadge status={status} />
       </div>
