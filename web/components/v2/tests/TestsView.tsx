@@ -3,7 +3,7 @@
 // #34 · TESTS — the coach's calibration battery. A reorderable list of tests with
 // a right side-panel for create/edit and a soft-delete confirm, persisted against
 // /api/coach/tests. Each test: nombre + resultado(s) (what it calibrates) + agenda
-// (which week(s)/day). "Cargar batería de ejemplo" loads the sample defaults (opt-in).
+// (which week(s)/day). "Restaurar batería por defecto" (re)seeds the default battery.
 //
 //   · Create  → POST   /api/coach/tests
 //   · Edit    → PATCH  /api/coach/tests/[id]
@@ -151,7 +151,7 @@ export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest
     [draft],
   );
 
-  // ── Load the sample calibration battery (opt-in) ──────────────────────────
+  // ── Restore the default calibration battery ───────────────────────────────
   const restore = useCallback(async () => {
     setRestoring(true);
     setError(null);
@@ -159,7 +159,7 @@ export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest
       const res = await fetch('/api/coach/tests/restore-defaults', { method: 'POST' });
       const json = (await res.json().catch(() => null)) as { tests?: CoachCalibrationTest[] } | null;
       if (!res.ok || !json?.tests) {
-        setError('No se pudo cargar la batería de ejemplo · Reintenta.');
+        setError('No se pudo restaurar la batería por defecto · Reintenta.');
         return;
       }
       setTests(json.tests);
@@ -311,7 +311,7 @@ function PurposeStrip({ onRestore, restoring }: { onRestore: () => void; restori
         disabled={restoring}
         className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 py-1 text-[11.5px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-50"
       >
-        <MIcon name="restart_alt" size={14} /> {restoring ? 'Cargando…' : 'Cargar batería de ejemplo'}
+        <MIcon name="restart_alt" size={14} /> {restoring ? 'Restaurando…' : 'Restaurar batería por defecto'}
       </button>
     </div>
   );
@@ -337,7 +337,7 @@ function EmptyTests({
       <p className="text-base font-bold text-[color:var(--v2-fg)]">No tienes tests de calibración</p>
       <p className="mx-auto mt-1.5 max-w-[420px] text-[13px] leading-relaxed text-[color:var(--v2-muted)]">
         Sin tests, la primera semana del atleta no fija su punto de partida real: sus zonas y 1RM se
-        quedan en la estimación del onboarding. Carga una batería de ejemplo o crea el tuyo.
+        quedan en la estimación del onboarding. Restaura la batería por defecto o crea el tuyo.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2.5">
         <button
@@ -346,7 +346,7 @@ function EmptyTests({
           disabled={restoring}
           className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
         >
-          <MIcon name="restart_alt" size={16} /> {restoring ? 'Cargando…' : 'Cargar batería de ejemplo'}
+          <MIcon name="restart_alt" size={16} /> {restoring ? 'Restaurando…' : 'Restaurar batería por defecto'}
         </button>
         <button
           type="button"

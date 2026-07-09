@@ -1,7 +1,7 @@
 // v2 · TESTS — "La batería que fija el punto de partida." Server component: loads
 // the coach's calibration tests (coach_calibration_tests + results + agenda) and
 // hands them to the client <TestsView>. A dead loader degrades to an empty battery
-// (the empty state renders "Cargar batería de ejemplo") instead of 500-ing.
+// (the empty state renders "Restaurar batería por defecto") instead of 500-ing.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';

@@ -1,16 +1,16 @@
 import 'server-only';
 
-// #34 — load / restore an EXAMPLE calibration battery for a coach. Materializes the
-// four sample tests (5K control, 2K remo, batería 1RM, HYROX half-sim) from
+// #34 — restore the DEFAULT calibration battery for a coach. Materializes the four
+// standard hybrid tests (5K control, 2K remo, batería 1RM, HYROX half-sim) from
 // DEFAULT_CALIBRATION_BATTERY — the SINGLE source of truth for the WHAT — into the coach's
-// coach_calibration_tests (+ results + schedule + content template). OPT-IN ONLY:
-// invoked exclusively from the "Cargar batería de ejemplo" button. A brand-new coach
-// is born EMPTY — nothing here runs at coach creation/join/startup.
+// coach_calibration_tests (+ results + schedule + content template). Backs the
+// "Restaurar batería por defecto" button: predefined-but-editable defaults the coach
+// keeps, reorders, edits or removes.
 //
 // IDEMPOTENT + non-destructive to CUSTOM tests: it only ever touches the four
-// sample slugs. An existing (even archived) sample is un-archived and refreshed;
+// default slugs. An existing (even archived) default is un-archived and refreshed;
 // its sort_order is preserved (so a coach's reorder survives a restore); its
-// results + default schedule are reset to the sample contract.
+// results + default schedule are reset to the default contract.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -92,7 +92,7 @@ export async function restoreDefaultTests(
         created += 1;
       }
 
-      // Reset results to the sample contract (source of truth).
+      // Reset results to the default contract (source of truth).
       await tx`delete from coach_test_results where test_id = ${testId}`;
       for (let i = 0; i < specs.length; i += 1) {
         const s = specs[i]!;
@@ -102,7 +102,7 @@ export async function restoreDefaultTests(
         `;
       }
 
-      // Reset the schedule to the sample default (week 1, its suggested weekday).
+      // Reset the schedule to the default (week 1, its suggested weekday).
       await tx`delete from coach_test_schedule where test_id = ${testId}`;
       await tx`
         insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
