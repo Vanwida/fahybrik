@@ -19,7 +19,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { idSchema } from '@fahybrid/shared/schema/_primitives';
 import { buildImportProposal, type ImportProposal, type LlmAssist } from './build-proposal';
-import { parseWeekRange } from './range-parse';
+import { parseWeekRange, parseDayDestination } from './range-parse';
 import { readPlanWorkbook, parsePastedText, type ImportedWeek } from './xlsx-reader';
 import { buildLlmAssist } from './llm-assist';
 
@@ -42,13 +42,35 @@ export const importProposalRequestSchema = z
   .object({
     microcycle_id: idSchema,
     variant: importVariantSchema,
-    range_text: z.string().min(1).max(200),
+    /**
+     * Week RANGE for the Excel/canonical flow (whole weeks → container weeks).
+     * Optional: the paste flow targets a single DAY instead (target_weekday).
+     */
+    range_text: z.string().max(200).optional(),
     /** A single day pasted instead of pointing at the xlsx. */
     pasted_text: z.string().max(20_000).optional(),
+    /**
+     * Paste-flow destination: the weekday (1=Lun … 7=Dom) the pasted session goes
+     * into. Primary input is the review UI's day selector; the container week is
+     * chosen there too. Kept explicit so the day is NEVER silently defaulted.
+     */
+    target_weekday: z.number().int().min(1).max(7).optional(),
     /** Base64 of the coach's uploaded workbook (preferred source). */
     xlsx_base64: z.string().min(1).max(80_000_000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((v, ctx) => {
+    // The Excel/canonical flow needs a week range; the paste flow doesn't (it
+    // targets one day). Require the range only when nothing is pasted.
+    const hasPaste = !!v.pasted_text && v.pasted_text.trim().length > 0;
+    if (!hasPaste && (!v.range_text || !v.range_text.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['range_text'],
+        message: 'Indica qué semanas del microciclo quieres importar.',
+      });
+    }
+  });
 
 export type ImportProposalRequest = z.infer<typeof importProposalRequestSchema>;
 
@@ -77,9 +99,9 @@ async function assertMicrocycleOwned(
 }
 
 /**
- * Read the source into `ImportedWeek[]`. Precedence: uploaded xlsx → pasted text →
- * canonical workbook. Pasted text yields ONE day (the reader lifts a leading day
- * name); the coach re-maps the target day/week explicitly at confirm (Fork B).
+ * Read the WEEK-RANGE source into `ImportedWeek[]` (whole weeks). Precedence:
+ * uploaded xlsx → canonical workbook. The paste flow is single-day and handled
+ * separately (`buildPastedDay`), so it never reaches here.
  */
 async function readSource(
   req: ImportProposalRequest,
@@ -102,29 +124,54 @@ async function readSource(
     }
   }
 
-  if (req.pasted_text && req.pasted_text.trim()) {
-    const pasted = parsePastedText(req.pasted_text);
-    const week = weekNums[0] ?? 1;
-    const dow = pasted.day_of_week ?? 1;
-    return [
-      {
-        week,
-        sheet: 'pegado',
-        fell_back: false,
-        days: [
-          {
-            day_of_week: dow,
-            dow: pasted.dow ?? DAY_DISPLAY[dow - 1]!,
-            stimulus: pasted.stimulus,
-            session_text: pasted.session_text,
-          },
-        ],
-      },
-    ];
-  }
-
   // Demo/default convenience: read Pablo's canonical workbook for the range.
   return readPlanWorkbook(CANONICAL_XLSX, req.variant, weekNums);
+}
+
+/**
+ * The PASTE flow's destination weekday (1..7). The review UI's day selector is the
+ * primary source (`target_weekday`); we then tolerate a free-typed hint
+ * ("semana 1 jueves") and, last, a day name the coach put atop the pasted block.
+ * If none resolve we ERROR — the day is never silently defaulted (that was the bug:
+ * a pasted session landed on Monday regardless of intent).
+ */
+function resolvePasteWeekday(req: ImportProposalRequest): number {
+  if (req.target_weekday) return req.target_weekday;
+  if (req.range_text && req.range_text.trim()) {
+    const dest = parseDayDestination(req.range_text);
+    if (!('error' in dest)) return dest.weekday;
+  }
+  const pasted = parsePastedText(req.pasted_text ?? '');
+  if (pasted.day_of_week) return pasted.day_of_week;
+  throw new ImportError(
+    'missing_weekday',
+    'Elige el día de la semana para este entreno pegado.',
+    400,
+  );
+}
+
+/**
+ * Build the single-day proposal input from a pasted session placed on `weekday`.
+ * ONE day only — no fabricated full week, no "Descanso" filler. The container week
+ * is chosen in the review step (Fork B), so `week` here is cosmetic.
+ */
+function buildPastedDay(pasted_text: string, weekday: number): ImportedWeek[] {
+  const pasted = parsePastedText(pasted_text);
+  return [
+    {
+      week: 1,
+      sheet: 'pegado',
+      fell_back: false,
+      days: [
+        {
+          day_of_week: weekday,
+          dow: DAY_DISPLAY[weekday - 1]!,
+          stimulus: pasted.stimulus,
+          session_text: pasted.session_text,
+        },
+      ],
+    },
+  ];
 }
 
 /**
@@ -146,19 +193,26 @@ export async function buildImportProposalFromRequest(params: {
   const req = parsed.data;
   const client = params.client ?? defaultSql;
 
-  const range = parseWeekRange(req.range_text);
-  if ('error' in range) {
-    throw new ImportError('invalid_range', range.error, 400);
-  }
-
   await assertMicrocycleOwned(params.coach_id, req.microcycle_id, client);
 
+  // Two flows: PASTE = a single day placed on a concrete weekday; EXCEL/canonical =
+  // whole weeks over a week range.
   let weeks: ImportedWeek[];
-  try {
-    weeks = await readSource(req, range.weeks);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'No se pudo leer el origen.';
-    throw new ImportError('source_read_failed', message, 422);
+  const isPaste = !!req.pasted_text && req.pasted_text.trim().length > 0;
+  if (isPaste) {
+    const weekday = resolvePasteWeekday(req);
+    weeks = buildPastedDay(req.pasted_text!, weekday);
+  } else {
+    const range = parseWeekRange(req.range_text ?? '');
+    if ('error' in range) {
+      throw new ImportError('invalid_range', range.error, 400);
+    }
+    try {
+      weeks = await readSource(req, range.weeks);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo leer el origen.';
+      throw new ImportError('source_read_failed', message, 422);
+    }
   }
 
   const assist =
