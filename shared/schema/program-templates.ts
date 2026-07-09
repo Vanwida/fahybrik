@@ -16,6 +16,20 @@ export const weekDayBlockSectionSchema = z.enum([
 export type WeekDayBlockSection = z.infer<typeof weekDayBlockSectionSchema>;
 
 /**
+ * Grupo ESTRUCTURAL del bloque dentro de la sesión: calentamiento / principal /
+ * vuelta a la calma. Es el eje que el coach organiza en el editor (las cabeceras
+ * del rail). ORDEN de ejecución = calentamiento → principal → vuelta; el array de
+ * bloques se guarda en ese orden y el atleta lo lee así.
+ *
+ * Aditivo y retro-compatible: los parts legacy no lo llevan y el loader lo DERIVA
+ * del título/formato (inferGroup) al cargar. Cuando el coach lo fija en el editor,
+ * se persiste aquí para que su colocación (p. ej. una vuelta a la calma) sea
+ * DURABLE y no dependa de que el título "suene" a calentamiento/vuelta.
+ */
+export const structureGroupSchema = z.enum(['calentamiento', 'principal', 'vuelta']);
+export type StructureGroup = z.infer<typeof structureGroupSchema>;
+
+/**
  * Configuración de timing/formato a nivel BLOQUE (AMRAP, EMOM, circuito…) y los
  * parámetros del bloque según su grupo metodológico de Pablo (Running, Zona 2,
  * Ergómetros, Fuerza…). Todos opcionales: cada tipo de bloque rellena los suyos.
@@ -84,6 +98,11 @@ export const weekDayPartSchema = z.object({
   // entiendan. Opcional y aditivo: los parts de biblioteca lo derivan del bloque
   // origen y los legacy no lo llevan. El materializador no lo lee.
   methodology_group_id: z.number().int().min(1).max(10).optional(),
+  // Grupo estructural (calentamiento/principal/vuelta). Opcional y aditivo: los
+  // parts legacy no lo llevan y el loader lo deriva del título/formato. El coach
+  // lo fija desde el editor de día y aquí se persiste (colocación durable). El
+  // materializador y el atleta lo ignoran — solo consumen el ORDEN del array.
+  group: structureGroupSchema.optional(),
   config_json: weekDayPartConfigSchema.optional(),
   coach_note: z.string().max(2000).optional(),
   items: z.array(weekDayPartItemSchema).max(24).default([]),
@@ -266,6 +285,9 @@ export const editorBlockInputSchema = z.object({
   title: z.string().min(1).max(120),
   format: templateFormat.nullable().optional(),
   methodology_group_id: z.number().int().min(1).max(10).nullable().optional(),
+  // Grupo estructural elegido por el coach (calentamiento/principal/vuelta). El
+  // serializer lo persiste en slots_json; opcional para callers que no lo envían.
+  group: structureGroupSchema.optional(),
   source_block_id: z.number().int().positive().nullable().optional(),
   items: z.array(editorItemInputSchema).max(24).default([]),
 });

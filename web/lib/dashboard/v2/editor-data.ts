@@ -244,7 +244,9 @@ function mapPart(part: WeekDayPart, index: number): EditorBlock {
     title: part.title,
     format: part.format,
     methodology_group_id: part.methodology_group_id ?? null,
-    group: inferGroup(part.title, part.format),
+    // Prefer the coach's PERSISTED structure group; fall back to the title/format
+    // heuristic only for legacy parts saved before `group` existed.
+    group: part.group ?? inferGroup(part.title, part.format),
     source_block_id: part.source_block_id ?? null,
     items: (part.items ?? []).map((it) => mapItem(it)),
   };

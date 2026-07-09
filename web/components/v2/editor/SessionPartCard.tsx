@@ -6,7 +6,8 @@
 // (BlockItemTable). Each block has a dashed "＋ añadir ejercicio/movimiento/tramo";
 // the block-level "＋ Añadir bloque" opens the type chooser.
 
-import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
+import type { EditorBlock, EditorSession, StructureGroup } from '@/lib/dashboard/v2/editor-types';
+import { STRUCTURE_GROUP_LABEL, STRUCTURE_GROUP_ORDER } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { BlockItemTable } from './BlockItemTable';
@@ -37,7 +38,8 @@ export function SessionPartCard({
   suggesting: boolean;
   /** Open "Redactar con IA" for this session (#33) — drafts blocks the coach inserts. */
   onSuggestWorkout: () => void;
-  onAddBlock: () => void;
+  /** Open the add-block chooser targeting a structure group (calentamiento/principal/vuelta). */
+  onAddBlock: (group: StructureGroup) => void;
   onEditItem: (blockUid: string, itemUid: string) => void;
   onAddItem: (blockUid: string) => void;
   onRemoveBlock: (blockUid: string) => void;
@@ -103,31 +105,42 @@ export function SessionPartCard({
         </div>
       </header>
 
-      {/* Blocks */}
-      <div className="space-y-3 p-4">
-        {session.blocks.map((block, i) => (
-          <BlockCard
-            key={block.uid}
-            block={block}
-            index={i}
-            count={session.blocks.length}
-            onEditItem={(itemUid) => onEditItem(block.uid, itemUid)}
-            onAddItem={() => onAddItem(block.uid)}
-            onRemove={() => onRemoveBlock(block.uid)}
-            onMove={(dir) => onMoveBlock(block.uid, dir)}
-            onMoveItem={(itemUid, dir) => onMoveItem(block.uid, itemUid, dir)}
-          />
-        ))}
+      {/* Blocks — grouped by structure (Calentamiento / Principal / Vuelta a la
+          calma). Each group is always shown with its own "+ Añadir bloque" so the
+          coach can build the warm-up and cool-down, not just the main work. Blocks
+          render top→bottom in execution order (the array is kept group-ordered). */}
+      <div className="space-y-4 p-4">
+        {STRUCTURE_GROUP_ORDER.map((group) => {
+          const groupBlocks = session.blocks.filter((b) => b.group === group);
+          return (
+            <section key={group} className="space-y-2">
+              <h4 className="v2-micro px-0.5">{STRUCTURE_GROUP_LABEL[group]}</h4>
+              {groupBlocks.map((block, i) => (
+                <BlockCard
+                  key={block.uid}
+                  block={block}
+                  index={i}
+                  count={groupBlocks.length}
+                  onEditItem={(itemUid) => onEditItem(block.uid, itemUid)}
+                  onAddItem={() => onAddItem(block.uid)}
+                  onRemove={() => onRemoveBlock(block.uid)}
+                  onMove={(dir) => onMoveBlock(block.uid, dir)}
+                  onMoveItem={(itemUid, dir) => onMoveItem(block.uid, itemUid, dir)}
+                />
+              ))}
 
-        {/* Add-block picker (dashed) → opens SCREEN 9 modal */}
-        <button
-          type="button"
-          onClick={onAddBlock}
-          className="v2-focus flex w-full items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-        >
-          <MIcon name="add" size={16} />
-          Añadir bloque
-        </button>
+              {/* Add-block picker (dashed) → opens the type chooser for THIS group */}
+              <button
+                type="button"
+                onClick={() => onAddBlock(group)}
+                className="v2-focus flex w-full items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              >
+                <MIcon name="add" size={15} />
+                Añadir bloque
+              </button>
+            </section>
+          );
+        })}
       </div>
     </section>
   );

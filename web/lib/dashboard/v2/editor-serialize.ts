@@ -106,6 +106,14 @@ function serializePart(
     // editor block has none (a from-scratch block before a format is chosen).
     format: (block.format ?? original?.format ?? 'strength_block') as WeekDayPart['format'],
     title: block.title,
+    // Persist the coach's structure group (calentamiento/principal/vuelta) so it
+    // survives reload without depending on the title/format heuristic. Falls back
+    // to the original part's group when the input omits it (non-day-editor callers).
+    ...(block.group != null
+      ? { group: block.group }
+      : original?.group != null
+        ? { group: original.group }
+        : {}),
     ...(block.methodology_group_id != null
       ? { methodology_group_id: block.methodology_group_id }
       : original?.methodology_group_id != null
