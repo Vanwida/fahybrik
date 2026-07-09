@@ -225,12 +225,27 @@ struct Day1Flow: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, 10)
-            CardSurface(padding: 4) {
-                VStack(spacing: 0) {
-                    testRow("🏁", "HYROX half-sim", "Simulacro a media distancia")
-                    testRow("🏃", "5K control", "Ritmo umbral de carrera")
-                    testRow("🏋️", "Batería 1RM", "Sentadilla · peso muerto · press")
-                    testRow("🚣", "Remo 2K", "Umbral en ergómetro", last: true)
+            // Point to the real "Tus tests" card on Inicio rather than list a fixed
+            // battery: WHICH tests and HOW MANY are the coach's call (data-driven),
+            // so we don't invent a canned 4-test set here.
+            CardSurface(padding: Theme.Spacing.l) {
+                HStack(spacing: Theme.Spacing.m) {
+                    Text("⏱️")
+                        .font(.system(size: 22))
+                        .frame(width: 44, height: 44)
+                        .background(Theme.Color.surfaceElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        LabelText(text: "Tus tests")
+                        Text("Los verás en Inicio")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Una tarjeta te dice cuántos llevas y cuáles faltan. Los que ponga Pablo — ni más ni menos.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
                 }
             }
             .padding(.top, 16)
@@ -306,26 +321,6 @@ struct Day1Flow: View {
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background((available ? Theme.Color.ok : Theme.Color.faint).opacity(0.14))
                 .clipShape(Capsule())
-        }
-    }
-
-    private func testRow(_ icon: String, _ title: String, _ sub: String, last: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 11) {
-                Text(icon).font(.system(size: 16)).frame(width: 34, height: 34)
-                    .background(Theme.Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.Color.foreground)
-                    Text(sub).font(.system(size: 11)).foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-                Text("TEST").font(.system(size: 9.5, weight: .bold)).tracking(0.06)
-                    .foregroundStyle(Theme.Color.warning)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Theme.Color.warning.opacity(0.14)).clipShape(Capsule())
-            }
-            .padding(.vertical, 10).padding(.horizontal, 10)
-            if !last { Rectangle().fill(Theme.Color.hairline).frame(height: 1).padding(.leading, 55) }
         }
     }
 

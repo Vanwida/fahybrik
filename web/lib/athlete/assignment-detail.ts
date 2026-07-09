@@ -94,6 +94,11 @@ export interface AssignmentDetailResponse {
     // dobles_simulations athlete_a/b orientation. Lets iOS resolve `assigned_to`
     // / `self_share` deterministically. Null when there's no reparto.
     my_role: 'a' | 'b' | null;
+    // #34 — the result(s) this session must CAPTURE when it's a calibration test,
+    // derived from coach_test_results via the workout_assignments.calibration_test_id
+    // FK. Each entry tells iOS what number to ask for and in what unit ("Tiempo 5K"
+    // → seconds; "Sentadilla" → kg). Empty for a normal (non-test) session.
+    store_results: AssignmentDetailStoreResult[];
   };
   workout: AssignmentDetailWorkout | null;
   // The athlete's REAL executed result, when the session has been done. Powers
@@ -125,6 +130,19 @@ export interface AssignmentDetailExecution {
   // Per-exercise actuals (segment_executions) mapped to the prescribed item via
   // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
   segments: SegmentActual[];
+}
+
+// #34 — one result a calibration-test session must capture. `measure`/`unit` are
+// the coach_test_results columns (time→seconds, load→kg, distance→meters, …); iOS
+// renders the matching input and POSTs the entered value back keyed by `slug`.
+// `derives`/`modality` document what it calibrates (the bridge does the routing).
+export interface AssignmentDetailStoreResult {
+  slug: string;
+  label: string;
+  measure: string;
+  unit: string;
+  derives: string;
+  modality: string | null;
 }
 
 export interface AssignmentDetailWorkout {
@@ -305,7 +323,9 @@ export async function loadAssignmentDetail(
   // Widen the row with the athlete's owning coach (athletes.coach_id) — used only
   // by the loader for the per-coach exercise-override merge. The pure builder
   // (buildAssignmentDetail) doesn't read it, so it stays off AssignmentRow.
-  const assignmentRows = await sql<(AssignmentRow & { coach_id: string | null })[]>`
+  const assignmentRows = await sql<
+    (AssignmentRow & { coach_id: string | null; calibration_test_id: string | null })[]
+  >`
     select
       wa.id::text                                    as id,
       wa.athlete_id::text                            as athlete_id,
@@ -315,6 +335,7 @@ export async function loadAssignmentDetail(
       wa.template_id::text                           as template_id,
       wa.template_version                            as template_version,
       wa.partner_visibility                          as partner_visibility,
+      wa.calibration_test_id::text                   as calibration_test_id,
       a.coach_id::text                               as coach_id
     from workout_assignments wa
     join athletes a on a.id = wa.athlete_id
@@ -324,6 +345,19 @@ export async function loadAssignmentDetail(
   `;
   const assignment = assignmentRows[0];
   if (!assignment) return null;
+
+  // #34 — the calibration contract this session must capture, derived from
+  // coach_test_results via the FK (the coach's live contract, not the frozen clone
+  // meta_json). Empty for a normal session (calibration_test_id null).
+  const storeResults = assignment.calibration_test_id
+    ? await sql<AssignmentDetailStoreResult[]>`
+        select slug, label, measure::text as measure, unit::text as unit,
+               derives::text as derives, modality
+        from coach_test_results
+        where test_id = ${Number(assignment.calibration_test_id)}
+        order by sort_order asc, id asc
+      `
+    : [];
 
   // The athlete's coach drives the per-coach exercise-override merge (0085): a
   // segment's cues/video are coalesce(coach override, global default).
@@ -447,6 +481,7 @@ export async function loadAssignmentDetail(
     oneRms,
     executionSegments,
     stationSplit,
+    storeResults,
   });
 }
 
@@ -533,6 +568,9 @@ export function buildAssignmentDetail(input: {
   // pure builder just carries it onto the payload. Default null → individual /
   // non-simulation session with no per-station split.
   stationSplit?: DoblesStationSplit | null;
+  // #34 — the calibration results to capture (from coach_test_results via the FK),
+  // pre-resolved by loadAssignmentDetail. Default [] → a normal, non-test session.
+  storeResults?: AssignmentDetailStoreResult[];
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
   const stationSplit = input.stationSplit ?? null;
@@ -555,6 +593,7 @@ export function buildAssignmentDetail(input: {
       partner_visibility: assignment.partner_visibility,
       station_assignment: stationSplit,
       my_role: stationSplit?.my_role ?? null,
+      store_results: input.storeResults ?? [],
     },
     workout: null,
     execution: buildExecutionBlock(assignment.status, execution, input.executionSegments ?? []),

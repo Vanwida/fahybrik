@@ -9,7 +9,6 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { storeResultsSchema } from '@fahybrid/shared/schema/test-battery';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -21,6 +20,9 @@ export interface CalibrationTestStatus {
   result_captured: boolean;
   /** The session ran but the number was never entered — the actionable nudge. */
   result_pending: boolean;
+  /** The captured value(s) pre-formatted for the card ("22:14", "140 kg",
+   *  "140 kg · 180 kg · 100 kg" for a multi-result battery). Null until captured. */
+  result_label: string | null;
 }
 
 export interface BatteryStatus {
@@ -38,38 +40,48 @@ export async function loadBatteryStatus(
       assignment_id: string;
       scheduled_for: string;
       status: string;
-      calibration: string | null;
-      store_results: unknown;
+      calibration: string;
       label: string;
+      // Each expected result's slug + how it's measured, ordered — drives both the
+      // captured check and the formatted result_label.
+      expected_specs: Array<{ slug: string; measure: string }>;
     }[]
   >`
     select wa.id::text as assignment_id,
            wa.scheduled_for::text as scheduled_for,
            wa.status::text as status,
-           t.meta_json ->> 'calibration' as calibration,
-           t.meta_json -> 'store_results' as store_results,
-           t.name as label
+           cct.slug as calibration,
+           cct.name as label,
+           coalesce(
+             jsonb_agg(jsonb_build_object('slug', ctr.slug, 'measure', ctr.measure)
+                       order by ctr.sort_order, ctr.id) filter (where ctr.slug is not null),
+             '[]'::jsonb
+           ) as expected_specs
     from workout_assignments wa
-    join templates t on t.id = wa.template_id
+    join coach_calibration_tests cct on cct.id = wa.calibration_test_id
+    left join coach_test_results ctr on ctr.test_id = cct.id
     where wa.athlete_id = ${athlete_id}
-      and t.meta_json ? 'calibration'
+      and wa.calibration_test_id is not null
+    group by wa.id, wa.scheduled_for, wa.status, cct.slug, cct.name
     order by wa.scheduled_for asc
   `;
   if (rows.length === 0) return { total: 0, completed: 0, tests: [] };
 
-  // The athlete's REAL-test benchmark slugs (coach_test / athlete_test only — the
-  // self-declared/onboarding ones don't count as a captured calibration).
-  const benchRows = await client<{ exercise_slug: string }[]>`
-    select distinct exercise_slug from athlete_benchmarks
+  // The athlete's REAL-test benchmarks (coach_test / athlete_test only — the
+  // self-declared/onboarding ones don't count as a captured calibration), latest
+  // value per slug so the card shows the most recent number.
+  const benchRows = await client<{ exercise_slug: string; value: number }[]>`
+    select distinct on (exercise_slug) exercise_slug, value::float8 as value
+    from athlete_benchmarks
     where athlete_id = ${athlete_id} and notes in ('coach_test', 'athlete_test')
+    order by exercise_slug, recorded_at desc
   `;
-  const have = new Set(benchRows.map((r) => r.exercise_slug));
+  const valueBySlug = new Map(benchRows.map((r) => [r.exercise_slug, r.value]));
 
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
-    const parsed = storeResultsSchema.safeParse(r.store_results ?? []);
-    const expected = parsed.success ? parsed.data.map((s) => s.slug) : [];
-    const result_captured = expected.length > 0 && expected.every((s) => have.has(s));
+    const specs = r.expected_specs ?? [];
+    const result_captured = specs.length > 0 && specs.every((s) => valueBySlug.has(s.slug));
     return {
       calibration_slug: r.calibration ?? '',
       label: r.label,
@@ -78,6 +90,11 @@ export async function loadBatteryStatus(
       session_status: r.status,
       result_captured,
       result_pending: !result_captured && executed.has(r.status),
+      // Pre-formatted captured value(s), joined for a multi-result battery. Null
+      // until every expected result is in — a half-captured battery shows no number.
+      result_label: result_captured
+        ? specs.map((s) => formatCapturedValue(s.measure, valueBySlug.get(s.slug)!)).join(' · ')
+        : null,
     };
   });
 
@@ -86,4 +103,30 @@ export async function loadBatteryStatus(
     completed: tests.filter((t) => t.result_captured).length,
     tests,
   };
+}
+
+// Format a captured benchmark value for the card, by how it's measured. Time is a
+// clock (m:ss, or h:mm:ss past an hour); the rest are the number + a short unit.
+// Numbers drop a trailing ".0" (integers read clean). The stored value's unit
+// always matches the measure (the bridge writes seconds for time, kg for load).
+function formatCapturedValue(measure: string, value: number): string {
+  if (measure === 'time') {
+    const total = Math.max(0, Math.round(value));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+  const n = Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+  switch (measure) {
+    case 'load':
+      return `${n} kg`;
+    case 'distance':
+      return `${n} m`;
+    case 'calories':
+      return `${n} cal`;
+    default: // reps
+      return n;
+  }
 }

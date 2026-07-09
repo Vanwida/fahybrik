@@ -52,6 +52,10 @@ struct InicioView: View {
     // Drives the one orchestrated staggered reveal of the cards on appear.
     @State private var revealed: Bool = false
 
+    // #34 — bumped to force the calibration battery card to reload (pull-to-refresh
+    // and after a completed session, which may flip a test's state / result).
+    @State private var testBatteryNonce: Int = 0
+
     @State private var checkinPending: Bool = CheckinStore.isPending()
 
     // Today's all-day step count, read display-local from HealthKit (not the API
@@ -170,6 +174,21 @@ struct InicioView: View {
                 }
                 hechoHoySection
                     .staggerReveal(revealed, index: 6)
+                // #34 — the coach's calibration battery (X/N). Self-loading; renders
+                // nothing unless a battery is actually scheduled. Pending tests open
+                // their session (same cover as the hero); a "resultado pendiente"
+                // opens the capture inline.
+                if !isPaused {
+                    TestBatteryInicioSection(
+                        bearer: effectiveBearer,
+                        reloadNonce: testBatteryNonce,
+                        onOpenSession: { assignmentId, title in
+                            Haptics.light()
+                            workoutLaunch = WorkoutLaunch(assignmentId: assignmentId, title: title)
+                        }
+                    )
+                    .staggerReveal(revealed, index: 6)
+                }
                 // Recurring 1:1 review (#21): the coach's proposal / the reserved
                 // session with the coach. Self-loading; renders nothing when neither.
                 ReviewTodayCard(bearer: effectiveBearer, coachName: planWeek?.coachName)
@@ -196,6 +215,7 @@ struct InicioView: View {
             // staleness window with force) + re-read today's device-local steps.
             await store.loadHome(force: true)
             stepsReading = await HealthKitStepsReader.todaySteps()
+            testBatteryNonce += 1
         }
         .fullScreenCover(item: $workoutLaunch) { launch in
             // EMPEZAR runs the real prescribed workout via WorkoutContainer.
@@ -205,6 +225,9 @@ struct InicioView: View {
                 bearer: effectiveBearer,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
+                    // A finished session can flip a calibration test's state / land
+                    // its result — reload the battery card alongside the plan.
+                    testBatteryNonce += 1
                     Task { await store.planMutated() }
                 }
             )

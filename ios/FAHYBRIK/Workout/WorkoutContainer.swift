@@ -47,6 +47,11 @@ struct WorkoutContainer: View {
         case brief
         case active
         case summary
+        // #34 — a calibration TEST session ends here instead of closing: after the
+        // execution is saved, the athlete confirms the measured number(s) (pre-
+        // filled from the run) and we post them to the ejecución→benchmark bridge.
+        // Reached only when the loaded detail carries `store_results`.
+        case testResult
     }
 
     enum LoadState: Equatable {
@@ -225,10 +230,39 @@ struct WorkoutContainer: View {
                                 }
                             }
                             Task { await WorkoutStateStore.shared.clear() }
+                            // #34 — a calibration TEST captures its measured result
+                            // before leaving. The execution is already saved above;
+                            // we defer onCompleted/onClose to the testResult step so
+                            // the number gets posted to the bridge (and so a caller
+                            // whose onCompleted dismisses this cover doesn't cut it
+                            // short). A normal session closes as before.
+                            if !(detail?.storeResults ?? []).isEmpty {
+                                phase = .testResult
+                            } else {
+                                onCompleted(assignmentId)
+                                onClose()
+                            }
+                        }
+                    )
+                }
+            case .testResult:
+                // Present the capture over the finished session, pre-filled from the
+                // execution. onDone fires after a successful save OR a skip — either
+                // way the execution is already recorded; only the calibration is
+                // optional. Then we refresh the caller and close.
+                if let session {
+                    let specs = detail?.storeResults ?? []
+                    TestResultCaptureSheet(
+                        assignmentId: assignmentId ?? "",
+                        specs: specs,
+                        prefill: TestBatteryPrefill.map(session: session, specs: specs),
+                        bearer: bearer,
+                        onDone: {
                             onCompleted(assignmentId)
                             onClose()
                         }
                     )
+                    .toolbar(.hidden, for: .tabBar)
                 }
         }
     }

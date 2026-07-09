@@ -651,7 +651,7 @@ struct PlanView: View {
             }
             VStack(spacing: 7) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { _, session in
-                    sessionLine(session, sourceIso: day.isoDate)
+                    sessionLineWithStake(session, sourceIso: day.isoDate)
                 }
             }
             .padding(.leading, 44)
@@ -794,7 +794,7 @@ struct PlanView: View {
             } else {
                 VStack(spacing: 7) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { _, session in
-                        sessionLine(session, sourceIso: todayIso)
+                        sessionLineWithStake(session, sourceIso: todayIso)
                     }
                 }
                 .padding(.leading, 44)
@@ -889,6 +889,29 @@ struct PlanView: View {
             if !session.assignmentId.isEmpty {
                 techniqueButton(for: session)
                 correctMenu(for: session)
+            }
+        }
+    }
+
+    // #34 — a test session in the plan wears the amber "Test" badge AND, while it's
+    // still pending, a one-line CALIBRATION stake caption: it fixes the athlete's
+    // zones / 1RM / level, so it reads as "do this fresh, it sets your numbers" —
+    // not a normal training day. A done test drops the caption (the stake is
+    // spent). Wraps `sessionLine` so both expanded contexts share it (DRY).
+    @ViewBuilder
+    private func sessionLineWithStake(_ session: AthleteWeekDaySession, sourceIso: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            sessionLine(session, sourceIso: sourceIso)
+            if session.isTestSession, sessionState(session) == .pending {
+                HStack(spacing: 5) {
+                    Image(systemName: "target")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("Calibración · fija tus zonas y tu nivel")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Theme.Color.warning)
+                .accessibilityLabel("Sesión de calibración: fija tus zonas y tu nivel")
             }
         }
     }

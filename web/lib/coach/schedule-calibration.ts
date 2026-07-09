@@ -1,19 +1,17 @@
 import 'server-only';
 
-// #34 — auto-schedule the week-1 calibration battery (Fork A: auto + override).
-//
-// Called once, when an athlete's FIRST plan is materialized: it injects the four
-// calibration tests into week 1 as NORMAL workout_assignments (the coach can then
-// move/remove any, like any session — that's the "override"). The tests point at
-// per-athlete FORKS of the coach's seeded calibration templates, so their
-// meta_json.store_results rides along (badge + bridge). Idempotent and honest: if
-// the athlete already has a calibration session, or the coach hasn't seeded the
-// templates, it injects nothing (the day-1 promise then degrades to "your coach
-// will program them" rather than a fabricated empty session).
+// #34 — auto-programa la batería de calibración DEL COACH cuando se materializa el PRIMER
+// plan del atleta. Data-driven: itera los tests que el coach tiene configurados y habilitados
+// (coach_calibration_tests), NO una constante — el coach decide qué tests y CUÁNDO (semana +
+// día por test). Cada test se inyecta como una workout_assignment normal (el coach puede
+// moverla/quitarla), apuntando a un FORK per-atleta de su template y con calibration_test_id
+// puesto (la FK que el badge is_test / el puente / battery-status leen). Idempotente y honesto:
+// si el atleta ya tiene calibración, o el coach no tiene tests, no inyecta nada (la promesa
+// día-1 degrada a "tu coach los programará" en vez de fabricar sesiones vacías).
 
 import type { Sql } from '@/lib/db';
 import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
-import { FABRIK_WEEK1_BATTERY } from '@fahybrid/shared/domain/coach/test-battery';
+import { listCoachTests } from '@/lib/coach/coach-tests';
 import { addDays, isoDateString } from '@fahybrid/shared/domain/dates';
 
 export async function scheduleWeek1Calibration(params: {
@@ -22,58 +20,58 @@ export async function scheduleWeek1Calibration(params: {
   athlete_id: number | bigint;
   /** The Monday of the athlete's first plan week (the anchor for week_offset:1). */
   week1_monday: Date;
-  /** The microcycle covering that week (the injected assignments hang off it). */
+  /** The microcycle covering week 1 (later-week tests, week_offset>1, hang off no microcycle). */
   microcycle_id: string;
 }): Promise<number> {
   const { client } = params;
   const athlete_id = Number(params.athlete_id);
   const coach_id = Number(params.coach_id);
 
-  // Idempotency: never inject twice — skip if the athlete already has ANY
-  // calibration session (a template carrying meta_json.calibration).
+  // Idempotency: never inject twice — skip if the athlete already has ANY calibration
+  // session (an assignment carrying the calibration FK).
   const existing = await client<{ one: number }[]>`
-    select 1 as one
-    from workout_assignments wa
-    join templates t on t.id = wa.template_id
-    where wa.athlete_id = ${athlete_id}
-      and t.meta_json ? 'calibration'
+    select 1 as one from workout_assignments
+    where athlete_id = ${athlete_id} and calibration_test_id is not null
     limit 1
   `;
   if (existing.length > 0) return 0;
 
-  // The coach's LIBRARY calibration templates (seeded), keyed by the protocol slug
-  // they carry. No seeded templates → inject nothing (honest degradation).
-  const libraryRows = await client<{ id: string; slug: string | null }[]>`
-    select id::text as id, meta_json ->> 'calibration' as slug
-    from templates
-    where coach_id = ${coach_id}
-      and instance_athlete_id is null
-      and archived_at is null
-      and meta_json ? 'calibration'
-  `;
-  if (libraryRows.length === 0) return 0;
-  const bySlug = new Map(libraryRows.filter((r) => r.slug).map((r) => [r.slug as string, r.id]));
+  // The coach's enabled calibration tests (data-driven). None → inject nothing (honest).
+  const tests = await listCoachTests(coach_id, { onlyEnabled: true }, client);
+  if (tests.length === 0) return 0;
 
+  const week1MicrocycleId = Number(params.microcycle_id);
   let injected = 0;
-  for (const p of FABRIK_WEEK1_BATTERY) {
-    const libId = bySlug.get(p.slug);
-    if (!libId) continue;
+  for (const test of tests) {
+    // A test with no workout content yet cannot be scheduled (nothing to run).
+    if (!test.template_id) continue;
+    // The coach's enabled occurrences (a test can repeat — re-tests in weeks 1, 6, 12…).
+    const occurrences = test.schedules.filter((s) => s.enabled);
+    if (occurrences.length === 0) continue;
+    // One per-athlete fork of the content, reused across this test's occurrences.
     const clone = await cloneTemplateAsInstance({
       client,
-      source_template_id: Number(libId),
+      source_template_id: Number(test.template_id),
       athlete_id,
     });
     if (!clone) continue;
-    const scheduledFor = isoDateString(addDays(params.week1_monday, p.day_of_week - 1));
-    await client`
-      insert into workout_assignments (
-        athlete_id, microcycle_id, scheduled_for, template_id, template_version, status, notes
-      ) values (
-        ${athlete_id}, ${Number(params.microcycle_id)}, ${scheduledFor}::date,
-        ${clone.template_id}, ${clone.version}, 'scheduled', 'calibration'
-      )
-    `;
-    injected += 1;
+    for (const occ of occurrences) {
+      // Coach-chosen schedule: week_offset (1-based) + day_of_week (1=Mon…7=Sun).
+      const dayOffset = (occ.week_offset - 1) * 7 + (occ.day_of_week - 1);
+      const scheduledFor = isoDateString(addDays(params.week1_monday, dayOffset));
+      // Only week-1 occurrences hang off the passed microcycle; later weeks aren't covered.
+      const microcycleId = occ.week_offset === 1 ? week1MicrocycleId : null;
+      await client`
+        insert into workout_assignments (
+          athlete_id, microcycle_id, scheduled_for, template_id, template_version,
+          status, notes, calibration_test_id
+        ) values (
+          ${athlete_id}, ${microcycleId}, ${scheduledFor}::date,
+          ${clone.template_id}, ${clone.version}, 'scheduled', 'calibration', ${Number(test.id)}
+        )
+      `;
+      injected += 1;
+    }
   }
   return injected;
 }

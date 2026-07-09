@@ -9,15 +9,22 @@
 // is_test badge, and the ejecución→benchmark bridge. Slugs are the LIVE ones
 // (benchmark-slugs.ts / STRENGTH_LIFT_SLUGS), not the stub's.
 
-import type { StoreResultSpec } from '../../schema/test-battery';
+import type {
+  StoreResultSpec,
+  StoreResultMeasure,
+  StoreResultUnit,
+  StoreResultDerives,
+} from '../../schema/test-battery';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
+  BENCH_SKI_1K,
   BENCH_HYROX_HALF_SIM,
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
   BENCH_BENCH_PRESS_1RM,
 } from './benchmark-slugs';
+import { STRENGTH_LIFTS } from '../strength/exercises';
 
 /** The `template_format` a seed test template uses (subset of the enum). */
 export type CalibrationFormat = 'test' | 'strength_block' | 'hyrox_sim';
@@ -126,6 +133,126 @@ export function storeResultSpecBySlug(slug: string): StoreResultSpec | null {
   for (const p of FABRIK_WEEK1_BATTERY) {
     const s = p.store_results.find((r) => r.slug === slug);
     if (s) return s;
+  }
+  return null;
+}
+
+// =============================================================================
+// CALIBRATION TARGETS — the FIXED catalog of results that actually calibrate.
+//
+// This is the objective-correctness spine of the coach test builder (#34).
+// Calibration is NOT free-form: the ejecución→benchmark bridge + the zone/1RM
+// engine only ever calibrate off a KNOWN slug/modality:
+//   · zones  — the derivation anchors ONLY on run_5k (per_km), row_2k / ski_1k
+//              (per_500m). A "run zones" result on any other slug writes a
+//              benchmark but derives NO profile — a silent failure.
+//   · 1RM    — insertStrengthMaxVersion + the %RM resolver key on the six tracked
+//              STRENGTH_LIFTS. Any other slug never resolves a load.
+// So a coach never picks a raw slug: they pick a TARGET from this catalog, and
+// slug/measure/unit/modality are DERIVED (guaranteed coherent). A result outside
+// the catalog is BASELINE (derives:'none') — a stored number, no calibration.
+// The measures here are exactly `time` and `load`, which is also why the
+// schema-level guard (only time/load may calibrate) holds by construction.
+// =============================================================================
+
+export interface CalibrationTarget {
+  /** Stable key for the coach UI + API (`run_zones`, `back_squat_1rm`). */
+  key: string;
+  /** Coach-facing option label ("Zonas de carrera", "1RM · Sentadilla"). */
+  coach_label: string;
+  /** Default result label the coach can override ("Tiempo 5K", "Sentadilla"). */
+  result_label: string;
+  /** The canonical benchmark slug this target writes (run_5k, back_squat_1rm…). */
+  slug: string;
+  measure: Extract<StoreResultMeasure, 'time' | 'load'>;
+  unit: Extract<StoreResultUnit, 'seconds' | 'kg'>;
+  derives: Exclude<StoreResultDerives, 'none'>;
+  modality: 'run' | 'row' | 'ski' | 'strength';
+}
+
+const ZONE_TARGETS: readonly CalibrationTarget[] = [
+  { key: 'run_zones', coach_label: 'Zonas de carrera', result_label: 'Tiempo 5K', slug: BENCH_RUN_5K, measure: 'time', unit: 'seconds', derives: 'run_zones', modality: 'run' },
+  { key: 'row_zones', coach_label: 'Zonas de remo', result_label: 'Tiempo 2K remo', slug: BENCH_ROW_2K, measure: 'time', unit: 'seconds', derives: 'row_zones', modality: 'row' },
+  { key: 'ski_zones', coach_label: 'Zonas de ski', result_label: 'Tiempo 1K ski', slug: BENCH_SKI_1K, measure: 'time', unit: 'seconds', derives: 'ski_zones', modality: 'ski' },
+];
+
+// The six tracked lifts → a strength_max calibration target each (DRY: reuses
+// STRENGTH_LIFTS, the single source of truth for the tracked 1RM lifts).
+const STRENGTH_TARGETS: readonly CalibrationTarget[] = STRENGTH_LIFTS.map((lift) => ({
+  key: lift.slug,
+  coach_label: `1RM · ${lift.label}`,
+  result_label: lift.label,
+  slug: lift.slug,
+  measure: 'load',
+  unit: 'kg',
+  derives: 'strength_max',
+  modality: 'strength',
+}));
+
+/** Every calibration target the coach can pick, zones first then the lifts. */
+export const CALIBRATION_TARGETS: readonly CalibrationTarget[] = [
+  ...ZONE_TARGETS,
+  ...STRENGTH_TARGETS,
+];
+
+const CALIBRATION_TARGET_BY_KEY: ReadonlyMap<string, CalibrationTarget> = new Map(
+  CALIBRATION_TARGETS.map((t) => [t.key, t]),
+);
+const CALIBRATION_TARGET_BY_SLUG: ReadonlyMap<string, CalibrationTarget> = new Map(
+  CALIBRATION_TARGETS.map((t) => [t.slug, t]),
+);
+
+export function calibrationTargetByKey(key: string): CalibrationTarget | null {
+  return CALIBRATION_TARGET_BY_KEY.get(key) ?? null;
+}
+
+/** Build the full store_results spec for a calibration target + coach label. */
+export function specForCalibrationTarget(
+  target: CalibrationTarget,
+  label?: string | null,
+): StoreResultSpec {
+  return {
+    slug: target.slug,
+    measure: target.measure,
+    unit: target.unit,
+    derives: target.derives,
+    modality: target.modality,
+    label: (label && label.trim()) || target.result_label,
+  };
+}
+
+/** The baseline (non-calibrating) measures a coach may pick for a stored number,
+ *  each with its natural unit. Distance/reps/calories can ONLY be baseline (they
+ *  don't calibrate yet — #44); time also appears here for baseline time results
+ *  (e.g. a HYROX half-sim time that is stored, not used to derive zones). */
+export const BASELINE_MEASURE_UNITS: ReadonlyArray<{
+  measure: StoreResultMeasure;
+  unit: StoreResultUnit;
+  label: string;
+}> = [
+  { measure: 'time', unit: 'seconds', label: 'Tiempo' },
+  { measure: 'distance', unit: 'meters', label: 'Distancia' },
+  { measure: 'reps', unit: 'reps', label: 'Repeticiones' },
+  { measure: 'calories', unit: 'calories', label: 'Calorías' },
+];
+
+/**
+ * OBJECTIVE coherence check for a store_results spec, enforced server-side so a
+ * malformed client can never author a test that silently fails to calibrate.
+ * Returns null when coherent, else a human reason:
+ *   · derives:'none'  → baseline, any measure allowed (nothing to verify).
+ *   · a calibrating derive → the spec MUST match its catalog target EXACTLY
+ *     (slug + measure + unit + modality). This is what guarantees the bridge and
+ *     the zone/1RM engine actually pick it up.
+ */
+export function calibrationCoherenceError(spec: StoreResultSpec): string | null {
+  if (spec.derives === 'none') return null;
+  const target = CALIBRATION_TARGET_BY_SLUG.get(spec.slug);
+  if (!target || target.derives !== spec.derives) {
+    return `El resultado "${spec.label}" no calibra: su medida no está en el catálogo de calibración (zonas de carrera/remo/ski o 1RM de un levantamiento).`;
+  }
+  if (spec.measure !== target.measure || spec.unit !== target.unit || spec.modality !== target.modality) {
+    return `El resultado "${spec.label}" es incoherente con lo que calibra (${target.coach_label}).`;
   }
   return null;
 }
