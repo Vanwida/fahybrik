@@ -8,6 +8,7 @@ import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import type { V2Modality } from '@/components/v2/constants';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import { archetypeForFormat, getArchetype } from '@/lib/dashboard/v2/archetypes';
 
 /** The dominant modality color slug of a block (first item's modality wins). */
 export function blockModalitySlug(block: EditorBlock): V2Modality {
@@ -19,6 +20,17 @@ export function blockModalitySlug(block: EditorBlock): V2Modality {
   if (f.includes('tempo') || f.includes('intervals')) return 'carrera';
   if (f) return 'circuito';
   return 'calentamiento';
+}
+
+/**
+ * The block's TYPE label — the sport-vocabulary chip on a flat day ("Fuerza",
+ * "WOD", "Series"). A freshly created block carries its client `archetype_id`; a
+ * reloaded block re-derives the type from its persisted `format`. Null only when
+ * the block has neither (a bare/unknown block) — the chip is then hidden.
+ */
+export function blockTypeLabel(block: EditorBlock): string | null {
+  if (block.archetype_id) return getArchetype(block.archetype_id).shortName;
+  return archetypeForFormat(block.format)?.shortName ?? null;
 }
 
 /** "N ejercicios · primer ítem resumido" — the block sub-line in the rail. */
