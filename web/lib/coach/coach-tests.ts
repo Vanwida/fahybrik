@@ -1,7 +1,7 @@
 import 'server-only';
 
 // #34 — repositorio de la batería de tests de calibración DEL COACH (coach_calibration_tests
-// + coach_test_results). Sustituye a la constante FABRIK_WEEK1_BATTERY como fuente de verdad:
+// + coach_test_results). Sustituye a la constante DEFAULT_CALIBRATION_BATTERY como fuente de verdad:
 // el coach define qué tests existen, qué mide/calibra cada uno y CUÁNDO se programan. El
 // scheduler, la API y el estado leen de aquí. La constante queda solo como set-semilla.
 

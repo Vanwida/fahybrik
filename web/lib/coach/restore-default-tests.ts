@@ -1,19 +1,20 @@
 import 'server-only';
 
-// #34 — seed / restore the FABRIK default battery for a coach. Materializes the
-// four canonical tests (5K control, 2K remo, batería 1RM, HYROX half-sim) from
-// FABRIK_WEEK1_BATTERY — the SINGLE source of truth for the WHAT — into the coach's
-// coach_calibration_tests (+ results + schedule + content template). Used by the
-// "Restaurar los 4 de FABRIK" button and to give a brand-new coach a battery.
+// #34 — load / restore an EXAMPLE calibration battery for a coach. Materializes the
+// four sample tests (5K control, 2K remo, batería 1RM, HYROX half-sim) from
+// DEFAULT_CALIBRATION_BATTERY — the SINGLE source of truth for the WHAT — into the coach's
+// coach_calibration_tests (+ results + schedule + content template). OPT-IN ONLY:
+// invoked exclusively from the "Cargar batería de ejemplo" button. A brand-new coach
+// is born EMPTY — nothing here runs at coach creation/join/startup.
 //
 // IDEMPOTENT + non-destructive to CUSTOM tests: it only ever touches the four
-// FABRIK slugs. An existing (even archived) default is un-archived and refreshed;
+// sample slugs. An existing (even archived) sample is un-archived and refreshed;
 // its sort_order is preserved (so a coach's reorder survives a restore); its
-// results + default schedule are reset to the FABRIK contract.
+// results + default schedule are reset to the sample contract.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { FABRIK_WEEK1_BATTERY } from '@fahybrid/shared/domain/coach/test-battery';
+import { DEFAULT_CALIBRATION_BATTERY } from '@fahybrid/shared/domain/coach/test-battery';
 import { materializeTestContent } from '@/lib/coach/calibration-content';
 import { listCoachTests, type CoachCalibrationTest } from '@/lib/coach/coach-tests';
 
@@ -31,7 +32,7 @@ export async function restoreDefaultTests(
   let created = 0;
   let restored = 0;
 
-  for (const protocol of FABRIK_WEEK1_BATTERY) {
+  for (const protocol of DEFAULT_CALIBRATION_BATTERY) {
     const specs = [...protocol.store_results];
 
     await client.begin(async (tx) => {
@@ -91,7 +92,7 @@ export async function restoreDefaultTests(
         created += 1;
       }
 
-      // Reset results to the FABRIK contract (source of truth).
+      // Reset results to the sample contract (source of truth).
       await tx`delete from coach_test_results where test_id = ${testId}`;
       for (let i = 0; i < specs.length; i += 1) {
         const s = specs[i]!;
@@ -101,7 +102,7 @@ export async function restoreDefaultTests(
         `;
       }
 
-      // Reset the schedule to the FABRIK default (week 1, its suggested weekday).
+      // Reset the schedule to the sample default (week 1, its suggested weekday).
       await tx`delete from coach_test_schedule where test_id = ${testId}`;
       await tx`
         insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
