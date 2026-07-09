@@ -24,14 +24,13 @@ import { MIcon } from '@/components/ui/MIcon';
 type TableKind = 'calentamiento' | 'fuerza' | 'metcon' | 'carrera';
 
 function tableKindFor(block: EditorBlock): TableKind {
-  const first = block.items[0];
-  const m = first?.prescription.modality;
+  // The table SHAPE follows the block's dominant MODALITY — agnostic, never a
+  // section/group. (`group` no longer participates: the day editor is a flat list.)
+  const m = block.items[0]?.prescription.modality;
   if (m === 'strength') return 'fuerza';
   if (m === 'run') return 'carrera';
   if (m === 'core' || m === 'mobility') return 'calentamiento';
-  // functional / erg / mixed → metcon-style (format + components)
-  const g = block.group;
-  if (g === 'calentamiento') return 'calentamiento';
+  // functional / erg / mixed / unset → metcon-style (format + components)
   return 'metcon';
 }
 
