@@ -6,7 +6,7 @@
    must not bleed into it. A v2 page mounts a single `.v2-root` wrapper carrying
    `data-theme="dark|light"`; all v2 surfaces read these vars and nothing else.
 
-   Both palettes share the SAME Fabrik orange accent (#F06A2A) so the brand reads
+   Both palettes share the SAME brand orange accent (#F06A2A) so the brand reads
    identically in either mode. Dark = near-black surfaces matching the current app.
    Light = warm off-white (NOT pure #fff) with ink text, AA-legible. Fonts reuse the
    families already loaded at the app root (Archivo italic-black display, Geist UI,
@@ -15,9 +15,9 @@
 
 .v2-root {
   /* ── Brand accent — IDENTICAL in both themes (the one constant) ──────────── */
-  --v2-accent: #f06a2a; /* Fabrik orange */
+  --v2-accent: #f06a2a; /* brand orange */
   --v2-accent-press: #d85a20;
-  /* Text/icon color that sits ON an accent fill. Black-on-orange is the Fabrik
+  /* Text/icon color that sits ON an accent fill. Black-on-orange is the brand
      wordmark relationship and clears AA (~6.5:1) in both themes. */
   --v2-accent-fg: #0a0a0a;
 
@@ -182,7 +182,7 @@
   min-height: 100dvh;
 }
 
-/* Italic-black display heading — the Fabrik wordmark voice. */
+/* Italic-black display heading — the brand wordmark voice. */
 .v2-display {
   font-family: var(--v2-font-display);
   font-weight: 900;

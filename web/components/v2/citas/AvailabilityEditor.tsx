@@ -53,7 +53,7 @@ const MODALITY_OPTIONS: ReadonlyArray<{ value: CitaModality; label: string }> = 
 ];
 
 // Default box name — a placeholder hint, never forced onto the coach.
-const STUDIO_PLACEHOLDER = 'Fabrik Training Club Barcelona';
+const STUDIO_PLACEHOLDER = 'Ej: nombre de tu club o estudio';
 
 const DEFAULT_RANGE: Range = { start: '09:00', end: '10:00' };
 

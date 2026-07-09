@@ -5,13 +5,13 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import "./globals.css";
 
-// Clerk UI theming — dark base + Fabrik orange (#F06A2A), coherente con el
+// Clerk UI theming — dark base + brand orange (#F06A2A), coherente con el
 // design system del dashboard. Centralizado aquí para que <SignIn/>, <SignUp/>
 // y <UserButton/> hereden marca sin repetir tokens.
 const clerkAppearance = {
   baseTheme: dark,
   variables: {
-    // Solo sobreescribimos el acento (naranja Fabrik) y el radio. El resto
+    // Solo sobreescribimos el acento (naranja de marca) y el radio. El resto
     // (fondo de tarjeta y colores de texto con contraste) lo pone el baseTheme
     // dark — sobreescribir colorBackground a casi-negro aplastaba el texto.
     colorPrimary: "#F06A2A",

@@ -53,7 +53,7 @@ export function suggestFreeText(input: TextSuggestInput): string[] {
     const hints = [
       [zone, duration].filter(Boolean).join(' · ') || `${base} — principal`,
       `Entreno ${duration ?? ''}`.trim(),
-      exercises.length > 1 ? `${exercises[0]} + ${exercises.length - 1} más` : `${base} Fabrik`,
+      exercises.length > 1 ? `${exercises[0]} + ${exercises.length - 1} más` : base,
     ];
     return [...new Set(hints.map((s) => s.trim()).filter(Boolean))].slice(0, 3);
   }

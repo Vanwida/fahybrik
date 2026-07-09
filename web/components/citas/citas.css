@@ -159,7 +159,7 @@
 
 /* ── Modality toggle (#40): 📹 Videollamada / 📍 Presencial ─────────────────
    Segmented control on the near-black canvas: a hairline pill track with the
-   active option filled in Fabrik orange. */
+   active option filled in brand orange. */
 .bk-seg {
   display: grid;
   grid-template-columns: 1fr 1fr;

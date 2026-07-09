@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════════════════
    FAHYBRID — Onboarding (public lead funnel /{locale}/empieza).
    Production styles ported 1:1 from the signed-off mockup
-   (docs/superpowers/plans/onboarding-web-mockup.html). Near-black + Fabrik
+   (docs/superpowers/plans/onboarding-web-mockup.html). Near-black + brand
    orange, Archivo heavy-italic display. Everything is scoped under `.ob-wrap`
    and class-prefixed `ob-` so it can never leak into the rest of the app.
 
