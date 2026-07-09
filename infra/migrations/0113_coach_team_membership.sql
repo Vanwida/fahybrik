@@ -106,19 +106,23 @@ begin
 
   -- Close the door on everyone else: any previously-approved/pending row that is
   -- NOT one of the three team emails is rejected. Auditable (kept, not deleted).
+  -- TRANSITION: hello@fahybrid.com stays APPROVED so the current login survives
+  -- while the three team mailboxes go live — removing it before they work would
+  -- lock the club out. It is dropped in a one-line follow-up once the three are in.
   update coach_allowlist
   set status = 'rejected', reviewed_at = now()
-  where email not in ('alex@fahybrid.com', 'pablo@fahybrid.com', 'gerard@fahybrid.com')
+  where email not in ('alex@fahybrid.com', 'pablo@fahybrid.com', 'gerard@fahybrid.com', 'hello@fahybrid.com')
     and status <> 'rejected';
 
-  -- The three team logins: approved and pointed at the single club. Seeded now so
-  -- the door is ready before Alex creates the Zoho mailboxes; the users rows are
-  -- minted on their first Clerk login and joined to club_id by the resolver.
+  -- The team logins: approved and pointed at the single club. Seeded now so the
+  -- door is ready; the users rows are minted on first Clerk login and joined to
+  -- club_id by the resolver. hello@ kept approved during the transition (see above).
   insert into coach_allowlist (email, status, coach_id)
   values
     ('alex@fahybrid.com',   'approved', club_id),
     ('pablo@fahybrid.com',  'approved', club_id),
-    ('gerard@fahybrid.com', 'approved', club_id)
+    ('gerard@fahybrid.com', 'approved', club_id),
+    ('hello@fahybrid.com',  'approved', club_id)
   on conflict (email) do update
     set status = 'approved',
         coach_id = excluded.coach_id;
