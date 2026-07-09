@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseWeekRange } from '@/lib/import/range-parse';
+import { parseWeekRange, parseDayDestination } from '@/lib/import/range-parse';
 import { readPlanWorkbook, parsePastedText } from '@/lib/import/xlsx-reader';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -43,6 +43,30 @@ describe('parseWeekRange', () => {
   });
   test('rejects empty input', () => {
     expect(parseWeekRange('')).toHaveProperty('error');
+  });
+});
+
+describe('parseDayDestination (PASTE flow — one day = week + weekday)', () => {
+  test('"semana 1 jueves" → week 1, weekday 4 (the bug: jueves was dropped before)', () =>
+    expect(parseDayDestination('semana 1 jueves')).toEqual({ week: 1, weekday: 4 }));
+  test('"semana 1 día 4" → week 1, weekday 4 (the shape that used to 400)', () =>
+    expect(parseDayDestination('semana 1 día 4')).toEqual({ week: 1, weekday: 4 }));
+  test('"s1 jueves" shorthand → week 1, weekday 4', () =>
+    expect(parseDayDestination('s1 jueves')).toEqual({ week: 1, weekday: 4 }));
+  test('day name first "jueves semana 1" → week 1, weekday 4', () =>
+    expect(parseDayDestination('jueves semana 1')).toEqual({ week: 1, weekday: 4 }));
+  test('accents tolerated "semana 2 miércoles" → weekday 3', () =>
+    expect(parseDayDestination('semana 2 miércoles')).toEqual({ week: 2, weekday: 3 }));
+  test('"domingo" with no week → weekday 7, week null', () =>
+    expect(parseDayDestination('domingo')).toEqual({ week: null, weekday: 7 }));
+  test('no weekday → error the endpoint can 400', () => {
+    expect(parseDayDestination('semana 1')).toHaveProperty('error');
+  });
+  test('out-of-season week → error', () => {
+    expect(parseDayDestination('semana 13 lunes')).toHaveProperty('error');
+  });
+  test('empty input → error', () => {
+    expect(parseDayDestination('')).toHaveProperty('error');
   });
 });
 

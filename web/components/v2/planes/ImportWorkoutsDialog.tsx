@@ -21,6 +21,7 @@ import {
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
 import type { ImportProposal } from '@/lib/import/build-proposal';
+import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { ImportReviewGrid } from './ImportReviewGrid';
 
 type ImportVariant = 'estandar' | 'fuerza' | 'resistencia';
@@ -63,6 +64,10 @@ export function ImportWorkoutsDialog({
   const [xlsxBase64, setXlsxBase64] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [pastedText, setPastedText] = useState('');
+  // Paste-flow destination: ONE concrete day = a container week + a weekday. The
+  // week defaults to the microcycle's first week; the coach adjusts either select.
+  const [pasteWeekId, setPasteWeekId] = useState<string>(microWeeks[0]?.id ?? '');
+  const [pasteWeekday, setPasteWeekday] = useState<number>(1);
 
   const [extracting, setExtracting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -84,31 +89,52 @@ export function ImportWorkoutsDialog({
   };
 
   const canExtract =
-    !extracting && rangeText.trim().length > 0 && (sourceMode !== 'paste' || pastedText.trim().length > 0);
+    !extracting &&
+    (sourceMode === 'paste'
+      ? pastedText.trim().length > 0 && pasteWeekId.length > 0
+      : rangeText.trim().length > 0);
 
   const extract = async () => {
     if (!canExtract) return;
     setExtracting(true);
     setFormError(null);
     try {
+      // PASTE = one day → send the pasted session + its destination weekday (the
+      // container week is applied to the review model below). EXCEL = a week range.
+      const body =
+        sourceMode === 'paste'
+          ? {
+              microcycle_id: Number(microcycleId),
+              variant: 'estandar' as const,
+              pasted_text: pastedText,
+              target_weekday: pasteWeekday,
+            }
+          : {
+              microcycle_id: Number(microcycleId),
+              variant,
+              range_text: rangeText.trim(),
+              ...(xlsxBase64 ? { xlsx_base64: xlsxBase64 } : {}),
+            };
       const res = await fetch('/api/coach/import/proposal', {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          microcycle_id: Number(microcycleId),
-          variant,
-          range_text: rangeText.trim(),
-          ...(sourceMode === 'file' && xlsxBase64 ? { xlsx_base64: xlsxBase64 } : {}),
-          ...(sourceMode === 'paste' && pastedText.trim() ? { pasted_text: pastedText } : {}),
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         setFormError(await readErrorMessage(res, 'No se pudo extraer la propuesta.'));
         return;
       }
       const proposal = (await res.json()) as ImportProposal;
-      setReviewWeeks(buildReviewModel(proposal, microWeeks));
+      const model = buildReviewModel(proposal, microWeeks);
+      // Paste yields one imported "week"; map it onto the container week the coach
+      // picked (default mapping would land it on the first week) and label it to match.
+      if (sourceMode === 'paste' && model[0]) {
+        model[0].target_week_id = pasteWeekId;
+        const mw = microWeeks.find((w) => w.id === pasteWeekId);
+        if (mw) model[0].week = mw.index + 1;
+      }
+      setReviewWeeks(model);
       setConfirmError(null);
       setPhase('review');
     } catch {
@@ -246,43 +272,85 @@ export function ImportWorkoutsDialog({
               </label>
             )}
 
-            {/* Range */}
-            <label className="block space-y-1.5">
-              <span className="v2-micro">¿Qué rango meto en este microciclo?</span>
-              <input
-                type="text"
-                value={rangeText}
-                onChange={(e) => setRangeText(e.target.value)}
-                maxLength={200}
-                placeholder="de la semana 1 a la 4"
-                className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
-              />
-              <p className="v2-micro text-[color:var(--v2-faint)]">
-                Ej.: «solo la semana 1» · «de la 4 a la 9» · «semanas 1, 3 y 5»
-              </p>
-            </label>
-
-            {/* Variant (Fork D) */}
-            <div className="space-y-1.5">
-              <span className="v2-micro">Variante de la hoja</span>
-              <div className="flex flex-wrap gap-1.5">
-                {VARIANTS.map((v) => (
-                  <button
-                    key={v.value}
-                    type="button"
-                    onClick={() => setVariant(v.value)}
-                    className={cn(
-                      'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-[12px] font-semibold transition-colors',
-                      variant === v.value
-                        ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                        : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-                    )}
+            {/* Destination — a single DAY for paste, a WEEK RANGE for Excel. */}
+            {sourceMode === 'paste' ? (
+              <div className="space-y-1.5">
+                <span className="v2-micro">¿En qué día del microciclo lo meto?</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    aria-label="Semana del microciclo"
+                    value={pasteWeekId}
+                    onChange={(e) => setPasteWeekId(e.target.value)}
+                    className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
                   >
-                    {v.label}
-                  </button>
-                ))}
+                    {microWeeks.length === 0 ? (
+                      <option value="">— sin semanas —</option>
+                    ) : (
+                      microWeeks.map((mw) => (
+                        <option key={mw.id} value={mw.id}>
+                          Semana {mw.index + 1}
+                          {mw.label ? ` · ${mw.label}` : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <select
+                    aria-label="Día de la semana"
+                    value={pasteWeekday}
+                    onChange={(e) => setPasteWeekday(Number(e.target.value))}
+                    className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
+                  >
+                    {DAY_LABELS_FULL.map((label, i) => (
+                      <option key={label} value={i + 1}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="v2-micro text-[color:var(--v2-faint)]">
+                  La sesión entra en ese día. El resto de la semana no se toca.
+                </p>
               </div>
-            </div>
+            ) : (
+              <label className="block space-y-1.5">
+                <span className="v2-micro">¿Qué rango meto en este microciclo?</span>
+                <input
+                  type="text"
+                  value={rangeText}
+                  onChange={(e) => setRangeText(e.target.value)}
+                  maxLength={200}
+                  placeholder="de la semana 1 a la 4"
+                  className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
+                />
+                <p className="v2-micro text-[color:var(--v2-faint)]">
+                  Ej.: «solo la semana 1» · «de la 4 a la 9» · «semanas 1, 3 y 5»
+                </p>
+              </label>
+            )}
+
+            {/* Variant (Fork D) — only the Excel sheet has variants; paste has none. */}
+            {sourceMode === 'file' ? (
+              <div className="space-y-1.5">
+                <span className="v2-micro">Variante de la hoja</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {VARIANTS.map((v) => (
+                    <button
+                      key={v.value}
+                      type="button"
+                      onClick={() => setVariant(v.value)}
+                      className={cn(
+                        'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-[12px] font-semibold transition-colors',
+                        variant === v.value
+                          ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                          : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+                      )}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {formError ? (
               <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-danger)]">
