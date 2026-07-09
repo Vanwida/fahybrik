@@ -17,7 +17,9 @@ import type {
   EditorBlock,
   EditorItem,
   EditorSession,
+  StructureGroup,
 } from '@/lib/dashboard/v2/editor-types';
+import { STRUCTURE_GROUP_LABEL, STRUCTURE_GROUP_ORDER } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
@@ -44,6 +46,7 @@ function sessionsToWire(sessions: EditorSession[]) {
       title: b.title,
       format: b.format,
       methodology_group_id: b.methodology_group_id ?? null,
+      group: b.group,
       source_block_id: b.source_block_id ?? null,
       items: b.items.map((it) => ({
         uid: it.uid,
@@ -58,6 +61,37 @@ function sessionsToWire(sessions: EditorSession[]) {
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
 const NEXT_SLOT: Record<number, EditorSession['slot']> = { 0: 'am', 1: 'pm' };
+
+// Execution rank of a structure group (calentamiento → principal → vuelta). The
+// session's blocks array is kept in this order so it doubles as execution order
+// (what the athlete reads) while the editor still renders one section per group.
+const groupRank = (g: StructureGroup): number => STRUCTURE_GROUP_ORDER.indexOf(g);
+
+/**
+ * Insert a block into a session's blocks keeping them ordered by structure group.
+ * A new block lands AFTER the last block whose group runs at/before its own — i.e.
+ * appended within its group, ahead of any later-group blocks. Pure (returns a new
+ * array); within-group insertion order is preserved.
+ */
+function insertInGroupOrder(blocks: EditorBlock[], block: EditorBlock): EditorBlock[] {
+  const rank = groupRank(block.group);
+  // Land after the last block at/before this block's group (0 if none qualify).
+  let insertAt = 0;
+  for (let i = 0; i < blocks.length; i += 1) {
+    if (groupRank(blocks[i]!.group) <= rank) insertAt = i + 1;
+  }
+  const next = blocks.slice();
+  next.splice(insertAt, 0, block);
+  return next;
+}
+
+// Stable-sort a session's blocks into execution order (calentamiento → principal
+// → vuelta). Applied when seeding editor state so a legacy day whose stored array
+// wasn't group-ordered still saves back in the order the athlete reads. Stable →
+// within-group order is untouched (Array.sort is stable since ES2019).
+function sortByGroup(blocks: EditorBlock[]): EditorBlock[] {
+  return blocks.slice().sort((a, b) => groupRank(a.group) - groupRank(b.group));
+}
 
 // Honest save state — no fake timer. The button reflects the real request status.
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -80,13 +114,15 @@ const SAVE_ICON: Record<SaveState, string> = {
 // max-width and the standalone "← Volver" link (the column header owns "back").
 export function DayEditor({ model, embedded = false }: { model: DayEditorModel; embedded?: boolean }) {
   const router = useRouter();
-  const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
+  const [sessions, setSessions] = useState<EditorSession[]>(() =>
+    model.sessions.map((s) => ({ ...s, blocks: sortByGroup(s.blocks) })),
+  );
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [copyOpen, setCopyOpen] = useState(false);
 
   // Add-block modal target (which session) + item-edit drawer target + the
   // "añadir ejercicio" picker target (which block gets the picked exercise).
-  const [addTo, setAddTo] = useState<{ sessionUid: string } | null>(null);
+  const [addTo, setAddTo] = useState<{ sessionUid: string; group: StructureGroup } | null>(null);
   const [aiFor, setAiFor] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
   const [pickingFor, setPickingFor] = useState<{ sessionUid: string; blockUid: string } | null>(
@@ -100,9 +136,6 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
 
   // Honest save gate — a line with no real exercise can NOT be saved (kills A3).
   const gate = saveGateFor(sessions.flatMap((s) => s.blocks));
-
-  const updateSession = (uid: string, next: EditorSession) =>
-    setSessions((prev) => prev.map((s) => (s.uid === uid ? next : s)));
 
   // Workout TITLE (session.focus) — one input near the session header.
   const setSessionFocus = (uid: string, focus: string) =>
@@ -151,17 +184,26 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
   };
 
   const addBlockToSession = (sessionUid: string, block: EditorBlock) => {
+    // Insert in structure-group order so warm-up/main/cool-down stay grouped AND
+    // the array reads as execution order (what the athlete sees).
     setSessions((prev) =>
-      prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, block] } : s)),
+      prev.map((s) =>
+        s.uid === sessionUid ? { ...s, blocks: insertInGroupOrder(s.blocks, block) } : s,
+      ),
     );
     setAddTo(null);
   };
 
   // "Redactar con IA" (#33) — append the coach-approved AI drafts to the session.
   // Append, never replace: the existing blocks stay; the coach edits from here.
+  // Each draft slots into its structure group so the session keeps execution order.
   const addBlocksToSession = (sessionUid: string, newBlocks: EditorBlock[]) => {
     setSessions((prev) =>
-      prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, ...newBlocks] } : s)),
+      prev.map((s) =>
+        s.uid === sessionUid
+          ? { ...s, blocks: newBlocks.reduce(insertInGroupOrder, s.blocks) }
+          : s,
+      ),
     );
     setAiFor(null);
   };
@@ -184,7 +226,9 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     );
   };
 
-  // Reorder a block within its session (↑/↓). Pure index swap, no fake drag.
+  // Reorder a block WITHIN its structure group (↑/↓). The blocks array is kept in
+  // group order, so a same-group neighbor is adjacent; a swap that would cross a
+  // group boundary is a no-op (the group edges disable the arrow anyway).
   const moveBlock = (sessionUid: string, blockUid: string, dir: -1 | 1) => {
     setSessions((prev) =>
       prev.map((s) => {
@@ -192,6 +236,7 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
         const i = s.blocks.findIndex((b) => b.uid === blockUid);
         const j = i + dir;
         if (i < 0 || j < 0 || j >= s.blocks.length) return s;
+        if (s.blocks[j]!.group !== s.blocks[i]!.group) return s;
         const blocks = s.blocks.slice();
         [blocks[i], blocks[j]] = [blocks[j]!, blocks[i]!];
         return { ...s, blocks };
@@ -435,7 +480,7 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
               onSuggestTitle={() => suggestTitle(session)}
               suggesting={suggestingUid === session.uid}
               onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}
-              onAddBlock={() => setAddTo({ sessionUid: session.uid })}
+              onAddBlock={(group) => setAddTo({ sessionUid: session.uid, group })}
               onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
               onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}
               onRemoveBlock={(blockUid) => removeBlock(session.uid, blockUid)}
@@ -463,7 +508,8 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
       {/* Añadir bloque — the type chooser. Picking a type creates the block. */}
       {addTo && addToSession ? (
         <AddBlockModal
-          destinationLabel={`Sesión ${SLOT_LABEL[addToSession.slot]} · ${model.day_label}`}
+          destinationLabel={`${STRUCTURE_GROUP_LABEL[addTo.group]} · Sesión ${SLOT_LABEL[addToSession.slot]} · ${model.day_label}`}
+          destinationGroup={addTo.group}
           onClose={() => setAddTo(null)}
           onAdd={(block) => addBlockToSession(addTo.sessionUid, block)}
         />

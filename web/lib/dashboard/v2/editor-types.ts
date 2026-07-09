@@ -5,10 +5,15 @@
 // domain model, not a scalar fallback.
 
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import type { StructureGroup } from '@fahybrid/shared/schema/program-templates';
 import type { DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 
-/** Coach-facing structural group of a block inside a session (the rail headings). */
-export type StructureGroup = 'calentamiento' | 'principal' | 'vuelta';
+/**
+ * Coach-facing structural group of a block inside a session (the rail headings).
+ * Single source of truth = the shared schema (persisted in slots_json); re-exported
+ * here so the existing editor importers keep resolving it from editor-types.
+ */
+export type { StructureGroup };
 
 export const STRUCTURE_GROUP_LABEL: Record<StructureGroup, string> = {
   calentamiento: 'Calentamiento',
