@@ -565,7 +565,7 @@ function BlockEditorDrawer({
   onAddItem: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm" onClick={onClose}>
       <div
         role="dialog"
         aria-modal

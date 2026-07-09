@@ -66,6 +66,9 @@
   /* Accent tint (orange-washed surface for active / brand fills). */
   --v2-accent-soft: rgba(240, 106, 42, 0.14);
 
+  /* Modal / drawer scrim. On the near-black canvas a solid dim reads fine. */
+  --v2-scrim: rgba(0, 0, 0, 0.6);
+
   /* Semantic — derived from the app's #3FC773 / #F2A52E / #F23F3F / #4D9EEB.
      Dark variants stay close to source (already legible on near-black). */
   --v2-ok: #3fc773;
@@ -122,6 +125,12 @@
   --v2-faint: #9a9089; /* tertiary (AA for large/UI only) */
 
   --v2-accent-soft: rgba(240, 106, 42, 0.12);
+
+  /* Modal / drawer scrim — MUCH lighter than dark: a solid 60% black over the
+     warm off-white canvas read as a harsh black slab (the modal made the editor
+     look "dark"). A soft warm-ink veil + the dialog's own shadow give focus
+     without dimming the surface to black. */
+  --v2-scrim: rgba(28, 25, 23, 0.35);
 
   /* Semantic — DARKENED variants so colored text/icons clear 4.5:1 on the
      light canvas (the dark-mode greens/ambers are too pale on off-white). */
