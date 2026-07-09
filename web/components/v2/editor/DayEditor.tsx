@@ -23,11 +23,11 @@ import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionPartCard } from './SessionPartCard';
 import { CopyDayModal } from './CopyDayModal';
-import { AddBlockModal } from './AddBlockModal';
 import { SuggestWorkoutModal } from './SuggestWorkoutModal';
 import { BlockEditor } from './BlockEditor';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
+import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { defaultCategoryForModality, withPickedExercise } from '@/lib/dashboard/v2/pick-exercise';
 
@@ -74,19 +74,38 @@ const SAVE_ICON: Record<SaveState, string> = {
   error: 'error',
 };
 
-// `embedded` = rendered INSIDE the expanded day-column of the week master-detail
-// grid (the week IS the editor). In that mode the week frame is the surrounding
-// rail of thin day columns, so the editor drops its own week strip, its outer
-// max-width and the standalone "← Volver" link (the column header owns "back").
-export function DayEditor({ model, embedded = false }: { model: DayEditorModel; embedded?: boolean }) {
+/** Day-to-day navigation for the EMBEDDED day view (the microciclo canvas owns the
+ *  view-transition nav). Absent → no ‹ ›/← Semana header (e.g. a standalone use). */
+export interface DayNav {
+  /** ← Semana — zoom back out to the full week. */
+  onBack: () => void;
+  /** ‹ — open the previous day of the week (null at the week's first day). */
+  onPrev: (() => void) | null;
+  /** › — open the next day of the week (null at the week's last day). */
+  onNext: (() => void) | null;
+}
+
+// `embedded` = rendered as the DÍA zoom of the microciclo canvas (one editor, two
+// zooms: SEMANA ↔ DÍA). In that mode the day header carries «← Semana» + ‹ › day
+// navigation (wired to the canvas's view-transition nav via `dayNav`) and the body
+// reads as a centered document. Standalone (`embedded` false) keeps the plain
+// "Volver a la semana" link.
+export function DayEditor({
+  model,
+  embedded = false,
+  dayNav,
+}: {
+  model: DayEditorModel;
+  embedded?: boolean;
+  dayNav?: DayNav;
+}) {
   const router = useRouter();
   const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [copyOpen, setCopyOpen] = useState(false);
 
-  // Add-block modal target (which session) + item-edit drawer target + the
-  // "añadir ejercicio" picker target (which block gets the picked exercise).
-  const [addTo, setAddTo] = useState<{ sessionUid: string } | null>(null);
+  // Item-edit drawer target + the "añadir ejercicio" picker target (which block
+  // gets the picked exercise) + the "Redactar con IA" target session.
   const [aiFor, setAiFor] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
   const [pickingFor, setPickingFor] = useState<{ sessionUid: string; blockUid: string } | null>(
@@ -100,9 +119,6 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
 
   // Honest save gate — a line with no real exercise can NOT be saved (kills A3).
   const gate = saveGateFor(sessions.flatMap((s) => s.blocks));
-
-  const updateSession = (uid: string, next: EditorSession) =>
-    setSessions((prev) => prev.map((s) => (s.uid === uid ? next : s)));
 
   // Workout TITLE (session.focus) — one input near the session header.
   const setSessionFocus = (uid: string, focus: string) =>
@@ -150,11 +166,14 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     ]);
   };
 
-  const addBlockToSession = (sessionUid: string, block: EditorBlock) => {
+  // "＋ Añadir bloque" (inline picker) — the coach picks a TYPE; we build a ready,
+  // pre-seeded block WITHOUT a section (agnostic) and append it. The coach then
+  // names it inline. No modal, no imposed Calentamiento/Principal/Vuelta.
+  const addBlockOfType = (sessionUid: string, archetype: ArchetypeId) => {
+    const block = createBlockFromArchetype(archetype);
     setSessions((prev) =>
       prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, block] } : s)),
     );
-    setAddTo(null);
   };
 
   // "Redactar con IA" (#33) — append the coach-approved AI drafts to the session.
@@ -184,18 +203,29 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     );
   };
 
-  // Reorder a block within its session (↑/↓). Pure index swap, no fake drag.
-  const moveBlock = (sessionUid: string, blockUid: string, dir: -1 | 1) => {
+  // Reorder blocks within a session (drag handle — dnd-kit hands us the new order).
+  const reorderBlocks = (sessionUid: string, orderedUids: string[]) => {
     setSessions((prev) =>
       prev.map((s) => {
         if (s.uid !== sessionUid) return s;
-        const i = s.blocks.findIndex((b) => b.uid === blockUid);
-        const j = i + dir;
-        if (i < 0 || j < 0 || j >= s.blocks.length) return s;
-        const blocks = s.blocks.slice();
-        [blocks[i], blocks[j]] = [blocks[j]!, blocks[i]!];
-        return { ...s, blocks };
+        const byUid = new Map(s.blocks.map((b) => [b.uid, b]));
+        const blocks = orderedUids
+          .map((uid) => byUid.get(uid))
+          .filter((b): b is EditorBlock => b !== undefined);
+        // Only accept a true permutation (never silently drop/add a block here).
+        return blocks.length === s.blocks.length ? { ...s, blocks } : s;
       }),
+    );
+  };
+
+  // Rename a block inline (the coach's label — the athlete reads it on the Plan).
+  const renameBlock = (sessionUid: string, blockUid: string, title: string) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.uid === sessionUid
+          ? { ...s, blocks: s.blocks.map((b) => (b.uid === blockUid ? { ...b, title } : b)) }
+          : s,
+      ),
     );
   };
 
@@ -320,7 +350,6 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
 
   const editingSession = editing ? sessions.find((s) => s.uid === editing.sessionUid) : null;
   const editingBlock = editingSession?.blocks.find((b) => b.uid === editing?.blockUid) ?? null;
-  const addToSession = addTo ? sessions.find((s) => s.uid === addTo.sessionUid) : null;
   const aiForSession = aiFor ? sessions.find((s) => s.uid === aiFor.sessionUid) : null;
   const pickingForBlock = pickingFor
     ? sessions
@@ -333,7 +362,16 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          {!embedded ? (
+          {dayNav ? (
+            <button
+              type="button"
+              onClick={dayNav.onBack}
+              className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="arrow_back" size={15} />
+              Semana
+            </button>
+          ) : !embedded ? (
             <Link
               href={`/microciclos/${model.month_id}`}
               scroll={false}
@@ -343,12 +381,45 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
               Volver a la semana
             </Link>
           ) : null}
-          <h1 className={embedded ? 'v2-display text-2xl sm:text-3xl' : 'v2-display text-3xl sm:text-4xl'}>
-            {model.day_label}
-          </h1>
+          {/* Day title with ‹ › day navigation (embedded canvas). The arrows step
+              across the week's days (Lun→Dom); disabled at the week boundaries. */}
+          <div className="flex min-w-0 items-center gap-1.5">
+            {dayNav ? (
+              <button
+                type="button"
+                onClick={dayNav.onPrev ?? undefined}
+                disabled={!dayNav.onPrev}
+                aria-label="Día anterior"
+                className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <MIcon name="chevron_left" size={18} />
+              </button>
+            ) : null}
+            <h1
+              className={
+                embedded
+                  ? 'v2-display min-w-0 truncate text-2xl sm:text-3xl'
+                  : 'v2-display min-w-0 truncate text-3xl sm:text-4xl'
+              }
+            >
+              {model.day_label}
+            </h1>
+            {dayNav ? (
+              <button
+                type="button"
+                onClick={dayNav.onNext ?? undefined}
+                disabled={!dayNav.onNext}
+                aria-label="Día siguiente"
+                className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <MIcon name="chevron_right" size={18} />
+              </button>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="neutral" variant="soft">
-              <span className="v2-num">{sessions.length}</span>&nbsp;sesiones
+              <span className="v2-num">{sessions.length}</span>&nbsp;
+              {sessions.length === 1 ? 'sesión' : 'sesiones'}
             </Pill>
             {totalMin > 0 ? (
               <Pill tone="info" variant="soft">
@@ -408,8 +479,9 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
         </div>
       ) : null}
 
-      {/* Day body: one sessions column */}
-      <div className="space-y-4">
+      {/* Day body: the sessions, stacked. Reads as a centered document in the
+          embedded canvas (the DÍA zoom), full-width standalone. */}
+      <div className={embedded ? 'mx-auto w-full max-w-[880px] space-y-4' : 'space-y-4'}>
         {sessions.length === 0 ? (
           <EmptyState
             icon="event_available"
@@ -435,11 +507,12 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
               onSuggestTitle={() => suggestTitle(session)}
               suggesting={suggestingUid === session.uid}
               onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}
-              onAddBlock={() => setAddTo({ sessionUid: session.uid })}
+              onAddBlock={(archetype) => addBlockOfType(session.uid, archetype)}
+              onRenameBlock={(blockUid, title) => renameBlock(session.uid, blockUid, title)}
+              onReorderBlocks={(orderedUids) => reorderBlocks(session.uid, orderedUids)}
               onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
               onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}
               onRemoveBlock={(blockUid) => removeBlock(session.uid, blockUid)}
-              onMoveBlock={(blockUid, dir) => moveBlock(session.uid, blockUid, dir)}
               onMoveItem={(blockUid, itemUid, dir) =>
                 moveItem(session.uid, blockUid, itemUid, dir)
               }
@@ -457,15 +530,6 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
           weeks={model.weeks}
           onCopy={copyDayTo}
           onClose={() => setCopyOpen(false)}
-        />
-      ) : null}
-
-      {/* Añadir bloque — the type chooser. Picking a type creates the block. */}
-      {addTo && addToSession ? (
-        <AddBlockModal
-          destinationLabel={`Sesión ${SLOT_LABEL[addToSession.slot]} · ${model.day_label}`}
-          onClose={() => setAddTo(null)}
-          onAdd={(block) => addBlockToSession(addTo.sessionUid, block)}
         />
       ) : null}
 
