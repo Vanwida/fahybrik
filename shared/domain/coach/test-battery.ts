@@ -1,4 +1,4 @@
-// @fahybrid/shared/domain/coach/test-battery — the FABRIK week-1 calibration
+// @fahybrid/shared/domain/coach/test-battery — the default week-1 calibration
 // battery (#34). Single source of truth for the four tests that fix an athlete's
 // REAL point of departure in their first week: 5K control, 2K row, 1RM battery,
 // HYROX half-sim. Replaces the dead `web/lib/coach/athlete-benchmark-tests.ts`

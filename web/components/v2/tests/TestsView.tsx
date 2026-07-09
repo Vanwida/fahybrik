@@ -164,7 +164,7 @@ export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest
       }
       setTests(json.tests);
     } catch {
-      setError('No se pudieron restaurar los tests de FABRIK · Reintenta.');
+      setError('No se pudo restaurar la batería por defecto · Reintenta.');
     } finally {
       setRestoring(false);
     }
