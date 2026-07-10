@@ -76,7 +76,7 @@ AppSettingsPage({
         }),
         Button({ label: connected ? 'Volver a entrar' : 'Entrar', onClick: () => this.verify(props) }),
         this.state.status
-          ? Text({ style: { fontSize: '13px', color: '#E8632A', marginTop: '12px' } }, this.state.status)
+          ? Text({ style: { fontSize: '13px', color: '#111', marginTop: '12px' } }, this.state.status)
           : null,
       ],
     )

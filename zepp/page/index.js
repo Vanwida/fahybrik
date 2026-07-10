@@ -7,7 +7,6 @@ import { BasePage } from '@zeppos/zml/base-page'
 // fracciones del ancho/alto → vale en cualquier Amazfit sin depender de px().
 
 const { width: W, height: H } = getDeviceInfo()
-const ORANGE = 0xe8632a
 const WHITE = 0xffffff
 const MUTED = 0x9a9a9a
 const r = (n) => Math.round(n)
@@ -24,7 +23,7 @@ Page(
         h: r(H * 0.12),
         text: 'HOY',
         text_size: r(H * 0.075),
-        color: ORANGE,
+        color: WHITE,
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
       })
