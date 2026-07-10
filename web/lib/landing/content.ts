@@ -25,7 +25,6 @@ export const SECTION_IDS = {
   metodologia: 'metodologia',
   analitica: 'analitica',
   app: 'app',
-  estaciones: 'estaciones',
   pablo: 'pablo',
   precios: 'precios',
   faq: 'faq',
@@ -103,17 +102,22 @@ export const METHODOLOGY = {
   label: 'TU ENTRENAMIENTO',
   heading: 'Preparado para cada parte de la carrera.',
   sub: 'Running, fuerza, ergómetros, estaciones específicas y simulacros completos. Todo en un plan diseñado para lo que te espera en carrera.',
+  // Each pillar carries a real Fabrik-in-HYROX photo (web/public/landing/*.webp,
+  // dark brand grade, watermark-free) shown as a low-opacity background in its card.
+  // The mapping is by discipline. `image: null` is intentional for the taper pillar:
+  // no photo screams "training" for a recovery/peaking week, so it stays a quiet flat
+  // tint card — a deliberate cool-down note that closes the strip.
   pillars: [
-    { id: 1, name: 'Fuerza', colorVar: '--grp-fuerza-base', body: 'Más fuerte en sled, farmers y wall balls. La base sobre la que se construye todo.' },
-    { id: 2, name: 'Potencia', colorVar: '--grp-fuerza-explosiva-pliometrica', body: 'Explosividad y reactividad para moverte rápido, también cuando llega la fatiga.' },
-    { id: 3, name: 'Ergómetros', colorVar: '--grp-series-ergometros', body: 'Ski, Row y Bike. Vatios que se notan en cada estación de la carrera.' },
-    { id: 4, name: 'Carrera', colorVar: '--grp-series-running', body: 'Ritmo, series y resistencia para aguantar fuerte los 8 km de HYROX.' },
-    { id: 5, name: 'Fondo aeróbico', colorVar: '--grp-zona2-recuperacion', body: 'El motor que sostiene toda la prueba de principio a fin.' },
-    { id: 6, name: 'Intensidad', colorVar: '--grp-wods-metcons', body: 'Aguantar el ritmo bajo presión, igual que el día de la carrera.' },
-    { id: 7, name: 'Simulaciones', colorVar: '--grp-simulaciones-carrera', body: 'Ensaya la carrera entera: estaciones, transiciones y cabeza.' },
-    { id: 8, name: 'Las estaciones', colorVar: '--grp-circuitos-funcionales', body: 'Técnica y aguante en cada uno de los movimientos de HYROX.' },
-    { id: 9, name: 'Movilidad y prevención', colorVar: '--grp-core-movilidad-preventivos', body: 'Llegas entero y sin lesiones a la línea de salida.' },
-    { id: 10, name: 'Puesta a punto', colorVar: '--grp-tapering-activacion', body: 'Afinamos en las semanas clave para que llegues fino a tu carrera.' },
+    { id: 1, name: 'Fuerza', colorVar: '--grp-fuerza-base', image: '/landing/sled-push.webp', body: 'Más fuerte en sled, farmers y wall balls. La base sobre la que se construye todo.' },
+    { id: 2, name: 'Potencia', colorVar: '--grp-fuerza-explosiva-pliometrica', image: '/landing/wall-balls.webp', body: 'Explosividad y reactividad para moverte rápido, también cuando llega la fatiga.' },
+    { id: 3, name: 'Ergómetros', colorVar: '--grp-series-ergometros', image: '/landing/skierg.webp', body: 'Ski, Row y Bike. Vatios que se notan en cada estación de la carrera.' },
+    { id: 4, name: 'Carrera', colorVar: '--grp-series-running', image: '/landing/run.webp', body: 'Ritmo, series y resistencia para aguantar fuerte los 8 km de HYROX.' },
+    { id: 5, name: 'Fondo aeróbico', colorVar: '--grp-zona2-recuperacion', image: '/landing/row.webp', body: 'El motor que sostiene toda la prueba de principio a fin.' },
+    { id: 6, name: 'Intensidad', colorVar: '--grp-wods-metcons', image: '/landing/intensidad.webp', body: 'Aguantar el ritmo bajo presión, igual que el día de la carrera.' },
+    { id: 7, name: 'Simulaciones', colorVar: '--grp-simulaciones-carrera', image: '/landing/simulacion.webp', body: 'Ensaya la carrera entera: estaciones, transiciones y cabeza.' },
+    { id: 8, name: 'Las estaciones', colorVar: '--grp-circuitos-funcionales', image: '/landing/sled-pull.webp', body: 'Técnica y aguante en cada uno de los movimientos de HYROX.' },
+    { id: 9, name: 'Movilidad y prevención', colorVar: '--grp-core-movilidad-preventivos', image: '/landing/movilidad.webp', body: 'Llegas entero y sin lesiones a la línea de salida.' },
+    { id: 10, name: 'Puesta a punto', colorVar: '--grp-tapering-activacion', image: null, body: 'Afinamos en las semanas clave para que llegues fino a tu carrera.' },
   ],
   closingLabel: 'De la salida a la meta',
 } as const;
@@ -134,29 +138,6 @@ export const ANALYTICS = {
     { key: 'wallballs', name: 'Wall Balls', seconds: 312, weak: false },
   ],
   roxzoneLabel: 'RoxZone',
-} as const;
-
-// Real Fabrik-in-HYROX competition photos (web/public/landing/*.webp). Honest gallery,
-// NOT a claim of the full 8-station set — six moments + a closing banner. The numbers
-// are a gallery sequence, not the official HYROX station order. Names are real terms.
-export const STATIONS = {
-  label: 'EN COMPETICIÓN',
-  heading: 'Competimos lo que entrenamos.',
-  sub: 'No es teoría: son las estaciones en las que competimos, y para las que te preparamos cada semana.',
-  items: [
-    { n: '01', name: 'SkiErg', src: '/landing/skierg.webp', alt: 'Atleta de Fabrik en el SkiErg durante una carrera de HYROX' },
-    { n: '02', name: 'Sled Push', src: '/landing/sled-push.webp', alt: 'Atleta de Fabrik empujando el trineo en HYROX' },
-    { n: '03', name: 'Sled Pull', src: '/landing/sled-pull.webp', alt: 'Atleta de Fabrik en el sled pull en HYROX' },
-    { n: '04', name: 'Remo', src: '/landing/row.webp', alt: 'Atleta de Fabrik remando en HYROX' },
-    { n: '05', name: 'Wall Balls', src: '/landing/wall-balls.webp', alt: 'Atleta de Fabrik lanzando el balón en wall balls en HYROX' },
-    { n: '06', name: 'Carrera', src: '/landing/run.webp', alt: 'Atleta de Fabrik corriendo en una carrera de HYROX' },
-  ],
-  banner: {
-    src: '/landing/celebracion.webp',
-    alt: 'Atleta de Fabrik celebrando tras una estación en HYROX París',
-    location: 'HYROX París · Grand Palais',
-    caption: 'De Barcelona a la línea de meta.',
-  },
 } as const;
 
 export const APP = {
