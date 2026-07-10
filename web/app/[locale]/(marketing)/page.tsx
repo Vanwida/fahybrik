@@ -10,6 +10,7 @@ import { HowItWorks } from '@/components/landing/sections/HowItWorks';
 import { Methodology } from '@/components/landing/sections/Methodology';
 import { RaceAnalytics } from '@/components/landing/sections/RaceAnalytics';
 import { AppShowcase } from '@/components/landing/sections/AppShowcase';
+import { Stations } from '@/components/landing/sections/Stations';
 import { Coach } from '@/components/landing/sections/Coach';
 import { Faq } from '@/components/landing/sections/Faq';
 import { FinalCta } from '@/components/landing/sections/FinalCta';
@@ -49,6 +50,7 @@ export default async function InicioPage({ params }: InicioPageProps) {
       <HowItWorks />
       <Methodology />
       <AppShowcase />
+      <Stations />
       <RaceAnalytics />
       <Faq />
       <FinalCta />

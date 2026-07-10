@@ -25,6 +25,7 @@ export const SECTION_IDS = {
   metodologia: 'metodologia',
   analitica: 'analitica',
   app: 'app',
+  estaciones: 'estaciones',
   pablo: 'pablo',
   precios: 'precios',
   faq: 'faq',
@@ -135,6 +136,29 @@ export const ANALYTICS = {
   roxzoneLabel: 'RoxZone',
 } as const;
 
+// Real Fabrik-in-HYROX competition photos (web/public/landing/*.webp). Honest gallery,
+// NOT a claim of the full 8-station set — six moments + a closing banner. The numbers
+// are a gallery sequence, not the official HYROX station order. Names are real terms.
+export const STATIONS = {
+  label: 'EN COMPETICIÓN',
+  heading: 'Competimos lo que entrenamos.',
+  sub: 'No es teoría: son las estaciones en las que competimos, y para las que te preparamos cada semana.',
+  items: [
+    { n: '01', name: 'SkiErg', src: '/landing/skierg.webp', alt: 'Atleta de Fabrik en el SkiErg durante una carrera de HYROX' },
+    { n: '02', name: 'Sled Push', src: '/landing/sled-push.webp', alt: 'Atleta de Fabrik empujando el trineo en HYROX' },
+    { n: '03', name: 'Sled Pull', src: '/landing/sled-pull.webp', alt: 'Atleta de Fabrik en el sled pull en HYROX' },
+    { n: '04', name: 'Remo', src: '/landing/row.webp', alt: 'Atleta de Fabrik remando en HYROX' },
+    { n: '05', name: 'Wall Balls', src: '/landing/wall-balls.webp', alt: 'Atleta de Fabrik lanzando el balón en wall balls en HYROX' },
+    { n: '06', name: 'Carrera', src: '/landing/run.webp', alt: 'Atleta de Fabrik corriendo en una carrera de HYROX' },
+  ],
+  banner: {
+    src: '/landing/celebracion.webp',
+    alt: 'Atleta de Fabrik celebrando tras una estación en HYROX París',
+    location: 'HYROX París · Grand Palais',
+    caption: 'De Barcelona a la línea de meta.',
+  },
+} as const;
+
 export const APP = {
   label: 'LA APP',
   heading: 'Todo tu entrenamiento, en una pantalla.',
@@ -163,6 +187,11 @@ export const COACH = {
   label: 'TU ENTRENADOR',
   heading: 'Tu entrenador es Pablo. Programación 1:1 que se adapta a ti cada semana.',
   body: 'Pablo lleva Fabrik, la mayor comunidad HYROX de Barcelona. Ahora lleva también tu programación 1:1: te conoce, sigue tu progreso y ajusta cada semana hasta que cruces la línea de meta.',
+  // Real portrait — warm b&w, tinted to brand duotono by the Coach component.
+  photo: {
+    src: '/landing/pablo.webp',
+    alt: 'Pablo, entrenador de Fabrik Training Club en Barcelona',
+  },
   // Portrait-plate label.
   plate: {
     title: 'Pablo', // TODO: ¿"Pablo Amigo"? confirmar con Alex
