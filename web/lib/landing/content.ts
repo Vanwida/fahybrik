@@ -102,11 +102,11 @@ export const METHODOLOGY = {
   label: 'TU ENTRENAMIENTO',
   heading: 'Preparado para cada parte de la carrera.',
   sub: 'Running, fuerza, ergómetros, estaciones específicas y simulacros completos. Todo en un plan diseñado para lo que te espera en carrera.',
-  // Each pillar carries a real Fabrik-in-HYROX photo (web/public/landing/*.webp,
-  // dark brand grade, watermark-free) shown as a low-opacity background in its card.
-  // The mapping is by discipline. `image: null` is intentional for the taper pillar:
-  // no photo screams "training" for a recovery/peaking week, so it stays a quiet flat
-  // tint card — a deliberate cool-down note that closes the strip.
+  // Each pillar carries a photo (web/public/landing/*.webp, dark brand grade,
+  // watermark-free) shown as a low-opacity background in its card. The mapping is by
+  // discipline. Most are real Fabrik-in-HYROX moments; the taper pillar uses a calm
+  // pre-race shot (a runner lacing up on a dark road at night) as its quiet, low-effort
+  // counterpoint — the cool-down note that closes the strip.
   pillars: [
     { id: 1, name: 'Fuerza', colorVar: '--grp-fuerza-base', image: '/landing/sled-push.webp', body: 'Más fuerte en sled, farmers y wall balls. La base sobre la que se construye todo.' },
     { id: 2, name: 'Potencia', colorVar: '--grp-fuerza-explosiva-pliometrica', image: '/landing/wall-balls.webp', body: 'Explosividad y reactividad para moverte rápido, también cuando llega la fatiga.' },
@@ -117,7 +117,7 @@ export const METHODOLOGY = {
     { id: 7, name: 'Simulaciones', colorVar: '--grp-simulaciones-carrera', image: '/landing/simulacion.webp', body: 'Ensaya la carrera entera: estaciones, transiciones y cabeza.' },
     { id: 8, name: 'Las estaciones', colorVar: '--grp-circuitos-funcionales', image: '/landing/sled-pull.webp', body: 'Técnica y aguante en cada uno de los movimientos de HYROX.' },
     { id: 9, name: 'Movilidad y prevención', colorVar: '--grp-core-movilidad-preventivos', image: '/landing/movilidad.webp', body: 'Llegas entero y sin lesiones a la línea de salida.' },
-    { id: 10, name: 'Puesta a punto', colorVar: '--grp-tapering-activacion', image: null, body: 'Afinamos en las semanas clave para que llegues fino a tu carrera.' },
+    { id: 10, name: 'Puesta a punto', colorVar: '--grp-tapering-activacion', image: '/landing/puesta-a-punto.webp', body: 'Afinamos en las semanas clave para que llegues fino a tu carrera.' },
   ],
   closingLabel: 'De la salida a la meta',
 } as const;
