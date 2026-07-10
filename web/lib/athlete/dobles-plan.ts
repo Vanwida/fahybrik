@@ -220,5 +220,7 @@ function emptyDay(reference: AthleteWeekDay): AthleteWeekDay {
     iso_date: reference.iso_date,
     sessions: [],
     is_rest: true,
+    kind: 'rest',
+    recovery_suggestions: [],
   };
 }

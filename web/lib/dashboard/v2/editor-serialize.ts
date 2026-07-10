@@ -30,7 +30,9 @@ import type {
   EditorBlockInput,
   EditorItemInput,
   EditorSessionInput,
+  RecoverySuggestion,
   WeekDay,
+  WeekDayKind,
   WeekDayPart,
   WeekDayPartItem,
   WeekSession,
@@ -149,7 +151,11 @@ function serializeSession(
 
   const next: WeekSession = {
     ...(original ?? {}),
-    kind: 'workout',
+    // A session that EXISTS is a workout — deliberate REST is a DAY-level kind
+    // (WeekDay.kind), not a phantom rest session. We no longer hardcode 'workout';
+    // we preserve the original session's kind (faithful round-trip) and default to
+    // 'workout' for a brand-new session. The day's rest is set in `serializeDay`.
+    kind: original?.kind ?? 'workout',
     template_id: original?.template_id ?? null,
     blocks,
   };
@@ -169,15 +175,48 @@ function serializeSession(
 export function serializeDay(params: {
   day_of_week: number;
   sessions: EditorSessionInput[];
+  /**
+   * Tipo del día elegido por el coach (workout | rest). Cuando es 'rest' se
+   * persiste en el WeekDay (con sesiones vacías) → DESCANSO deliberado, distinto
+   * de un día vacío. Opcional: los callers que no lo envían (importador, copia de
+   * día) derivan el kind de la presencia de sesiones.
+   */
+  kind?: WeekDayKind;
+  /**
+   * Sugerencias de recuperación (oferta blanda) — SOLO se persisten en un día de
+   * descanso. Entrada del coach: enviar una lista la fija, `[]` la limpia, omitir
+   * (undefined) conserva las del día original. Se descartan si el día es de entreno.
+   */
+  recovery_suggestions?: RecoverySuggestion[];
   original: WeekDay;
 }): WeekDay {
-  const { day_of_week, sessions, original } = params;
+  const { day_of_week, sessions, kind, recovery_suggestions, original } = params;
 
-  return {
-    ...original,
-    day_of_week,
-    sessions: sessions.map((s, i) => serializeSession(s, original.sessions[i])),
-  };
+  const nextSessions = sessions.map((s, i) => serializeSession(s, original.sessions[i]));
+
+  // Day kind: la elección explícita del coach manda; si no, se DERIVA — cualquier
+  // sesión ⇒ 'workout'; ninguna ⇒ se conserva el kind original (un día que sigue
+  // en descanso), con fallback 'workout'.
+  const resolvedKind: WeekDayKind =
+    kind ?? (nextSessions.length > 0 ? 'workout' : (original.kind ?? 'workout'));
+
+  const next: WeekDay = { ...original, day_of_week, sessions: nextSessions };
+  if (resolvedKind === 'rest') {
+    // Sólo persistimos 'rest' (la señal que carga la semántica); un día 'workout'
+    // se deriva de sus sesiones.
+    next.kind = 'rest';
+    // Recuperación: oferta blanda SOLO en días de descanso. Input del coach manda
+    // (lista = fija, `[]` = limpia); omitido = conserva la del día original.
+    const recovery = recovery_suggestions ?? original.recovery_suggestions;
+    if (recovery && recovery.length > 0) next.recovery_suggestions = recovery;
+    else delete next.recovery_suggestions;
+  } else {
+    // Día de entreno: BORRAMOS cualquier kind/recuperación obsoletos (p. ej. un día
+    // que pasa de descanso a entreno) — la recuperación es un concepto solo-descanso.
+    delete next.kind;
+    delete next.recovery_suggestions;
+  }
+  return next;
 }
 
 // ── Day clone (copiar día → día) ─────────────────────────────────────────────

@@ -49,7 +49,7 @@ export async function PUT(
   if (!parsed.success) {
     return jsonError('invalid_payload', parsed.error.message, 400);
   }
-  const { day_of_week, sessions } = parsed.data;
+  const { day_of_week, sessions, kind, recovery_suggestions } = parsed.data;
 
   try {
     const week = await getWeekTemplate({ coach_id: session.coach_id, id: weekId });
@@ -59,7 +59,13 @@ export async function PUT(
     const originalDay: WeekDay =
       days.find((d) => d.day_of_week === day_of_week) ?? { day_of_week, sessions: [] };
 
-    const nextDay = serializeDay({ day_of_week, sessions, original: originalDay });
+    const nextDay = serializeDay({
+      day_of_week,
+      sessions,
+      kind,
+      recovery_suggestions,
+      original: originalDay,
+    });
     const nextDays = mergeDayIntoDays(days, nextDay);
 
     // Pass week-level fields through unchanged; only slots_json changes here.

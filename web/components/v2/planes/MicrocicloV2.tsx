@@ -197,6 +197,15 @@ function DayColumn({
               {day.focus}
             </span>
           ) : null}
+          {day.has_recovery ? (
+            <span
+              className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-semibold"
+              style={{ color: 'var(--v2-ok)' }}
+            >
+              <MIcon name="spa" size={11} />
+              Recuperación
+            </span>
+          ) : null}
         </Link>
       </div>
     );

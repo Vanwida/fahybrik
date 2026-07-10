@@ -4,6 +4,62 @@ import { prescriptionSchema } from '../domain/prescription';
 
 export const weekSlotKindSchema = z.enum(['rest', 'workout']);
 
+/**
+ * KIND de un DÍA de la semana (día TIPADO). Un día es `workout` (lleva ≥1 sesión
+ * de entreno) o `rest` (DESCANSO deliberado: sin sesiones, pero INTENCIONAL —
+ * distinto de un día vacío aún sin autorizar). Vive en `slots_json` → aditivo,
+ * SIN migración.
+ *
+ * EXTENSIBLE por diseño: los tipos de día futuros (`test` de calibración,
+ * `competition`) extenderán este enum. NO implementados aún — no añadir miembros
+ * hasta construirlos (día tipado #47).
+ */
+export const weekDayKindSchema = z.enum(['workout', 'rest']);
+export type WeekDayKind = z.infer<typeof weekDayKindSchema>;
+
+/**
+ * Actividad de RECUPERACIÓN — oferta blanda del coach para un día de DESCANSO.
+ * NO es un entreno: no cuenta para adherencia, NO lleva intensidad/carga/RPE/
+ * series (eso es una prescripción, aquí vetado). Es un HINT de qué hacer para
+ * recuperar. Enum TIPADO (no texto libre) que cubre la categoría completa —
+ * cardio suave, tejido blando, movilidad, respiración y termoterapia — con
+ * `other` (+ `note`) para el long tail.
+ *
+ * DRY: verificado que NO existía catálogo reutilizable. El enum `modality` (mig
+ * 0053: run/row/ski/bike/strength/functional/core/mobility/other) es la modalidad
+ * de ENTRENO de un ejercicio — otro concepto — y no tiene los valores de
+ * recuperación (walk, foam_roll, breathing, easy_swim, sauna…).
+ */
+export const recoveryActivitySchema = z.enum([
+  'mobility', // movilidad
+  'stretching', // estiramientos
+  'yoga',
+  'walk', // paseo / caminar
+  'easy_run', // trote / rodaje muy suave (recuperación activa)
+  'easy_ride', // bici suave
+  'easy_swim', // nado suave
+  'foam_roll', // foam roller / liberación miofascial
+  'massage', // masaje / automasaje
+  'breathing', // respiración / relajación
+  'sauna', // sauna / calor
+  'cold_therapy', // frío / baño de contraste / crioterapia
+  'other', // otra recuperación (detalle en `note`)
+]);
+export type RecoveryActivity = z.infer<typeof recoveryActivitySchema>;
+
+/**
+ * Una sugerencia de recuperación: QUÉ actividad + (opcional) cuántos minutos +
+ * (opcional) nota aclaratoria del coach ("cuádriceps e isquios", "ritmo cómodo").
+ * Sin intensidad/carga/RPE — oferta blanda, NO prescripción. `duration_min` es un
+ * hint, no un objetivo medido.
+ */
+export const recoverySuggestionSchema = z.object({
+  activity: recoveryActivitySchema,
+  duration_min: z.number().int().min(1).max(240).optional(),
+  note: z.string().max(300).optional(),
+});
+export type RecoverySuggestion = z.infer<typeof recoverySuggestionSchema>;
+
 export const weekDayBlockSectionSchema = z.enum([
   'warmup',
   'mobility',
@@ -157,6 +213,25 @@ export type WeekSession = z.infer<typeof weekSessionSchema>;
 
 export const weekDaySchema = z.object({
   day_of_week: z.number().int().min(1).max(7),
+  /**
+   * Tipo del día (workout | rest). OPCIONAL y aditivo: los días legacy no lo
+   * llevan y su tipo se DERIVA de la presencia de sesiones de entreno. Cuando el
+   * coach marca un día como DESCANSO deliberado, se persiste 'rest' aquí (con
+   * `sessions: []`), lo que distingue un descanso INTENCIONAL de un día vacío sin
+   * autorizar. El materializador no crea asignación para un día sin sesiones de
+   * entreno; el remap por disponibilidad reordena los días de entreno por atleta,
+   * así que este 'rest' es una señal de AUTORÍA del coach (canonical Mon-Sun),
+   * no el descanso final del atleta (ése sale de SU disponibilidad).
+   */
+  kind: weekDayKindSchema.optional(),
+  /**
+   * Sugerencias de RECUPERACIÓN (oferta blanda del coach) para un día de DESCANSO.
+   * Solo tiene sentido cuando el día es kind='rest': el write-path (serializeDay)
+   * las descarta en días de entreno y el read-path del atleta solo las expone en
+   * días de descanso. Opcional y aditivo (sin migración). NO es un entreno — no
+   * cuenta adherencia, sin intensidad/carga.
+   */
+  recovery_suggestions: z.array(recoverySuggestionSchema).max(8).optional(),
   /** 0 = rest day. 1-N entrenos. Típico: 1-2. */
   sessions: z.array(weekSessionSchema).max(6),
   /** Foco a nivel día (una sesión puede tener focus propio adicional). */
@@ -190,6 +265,13 @@ export function normalizeWeekDay(input: unknown): z.infer<typeof weekDaySchema> 
   if (Array.isArray(raw.sessions)) {
     return {
       day_of_week: Number(raw.day_of_week ?? 1),
+      // Carry the day KIND through (aditivo): a 'rest' day must survive the
+      // round-trip, else the deliberate-rest signal is lost on every load/save.
+      kind: raw.kind === 'rest' || raw.kind === 'workout' ? (raw.kind as WeekDayKind) : undefined,
+      // Carry recovery suggestions through (aditivo, solo días de descanso).
+      recovery_suggestions: Array.isArray(raw.recovery_suggestions)
+        ? (raw.recovery_suggestions as z.infer<typeof recoverySuggestionSchema>[])
+        : undefined,
       sessions: raw.sessions as z.infer<typeof weekSessionSchema>[],
       focus: (raw.focus as string | undefined) ?? undefined,
       notes:
@@ -306,6 +388,15 @@ export type EditorSessionInput = z.infer<typeof editorSessionInputSchema>;
 
 export const dayEditorSaveSchema = z.object({
   day_of_week: z.number().int().min(1).max(7),
+  // Tipo del día. 'rest' = el coach marcó DESCANSO deliberado (se persiste con
+  // `sessions` vacías, distinto de un día vacío); ausente/'workout' = día de
+  // entreno (el kind se deriva de las sesiones). Opcional y aditivo para clientes
+  // (importador, copia de día) que aún no lo envían.
+  kind: weekDayKindSchema.optional(),
+  // Sugerencias de recuperación (oferta blanda) del coach para un día de DESCANSO.
+  // Validadas server-side; solo se persisten si el día es kind='rest' (serializeDay
+  // las descarta en días de entreno). Opcional/aditivo. Enviar `[]` las limpia.
+  recovery_suggestions: z.array(recoverySuggestionSchema).max(8).optional(),
   sessions: z.array(editorSessionInputSchema).max(6),
 });
 export type DayEditorSave = z.infer<typeof dayEditorSaveSchema>;

@@ -264,6 +264,12 @@ export async function instantiateWeekIntoMicrocycle(params: {
   // Step 5/6 intake — place sessions only on the athlete's `program` days and
   // softly honour their preferred day-TYPE layout. No availability declared →
   // remap is a no-op (template lands on its authored weekdays).
+  //
+  // #47 REPARTO A FUTURAS — este es EL punto de enganche: leemos la disponibilidad
+  // FRESCA del atleta en cada materialización. Si el atleta edita su horario
+  // (PATCH /api/athlete/availability), el cambio se aplica automáticamente a las
+  // semanas que se materialicen a partir de ese momento. Las semanas ya
+  // materializadas NO se re-reparten (sus filas workout_assignments quedan fijas).
   const prefs = await loadAthleteSchedulePrefs(params.client, params.athlete_id);
   const placedDays = remapWeekDaysToAvailability({
     days: slots.days,
