@@ -72,17 +72,17 @@ export function Hero() {
       aria-labelledby="hero-headline"
       className="relative flex min-h-[100svh] w-full flex-col overflow-hidden scroll-mt-20 bg-[color:var(--bg)] md:scroll-mt-24"
     >
-      {/* LAYER 1 — the race photograph (LCP). On narrow screens the frame biases LEFT
-          (object-[25%…]) so the two runners — who sit in the left ~15-48% of the shot —
-          stay in view behind the headline instead of being cropped off; desktop recentres. */}
+      {/* LAYER 1 — the race photograph (LCP). The athlete is CENTRED in this Paris shot,
+          so the frame biases RIGHT to seat him on the right of the viewport and keep the
+          text column clear on the left; on mobile it favours his face + chest FAHYBRID logo. */}
       <Image
-        src="/landing/hero-berlin.webp"
-        alt="Dos atletas de Fabrik corriendo en HYROX Berlín"
+        src="/landing/hero-paris.webp"
+        alt="Atleta de Fabrik tras cruzar la meta en HYROX París, con el logo de FAHYBRID Program en el pecho, mirando al cielo"
         fill
         priority
         quality={80}
         sizes="100vw"
-        className="object-cover object-[25%_30%] lg:object-[center_30%]"
+        className="object-cover object-[55%_18%] lg:object-[68%_22%]"
       />
 
       {/* LAYER 2 — scrims + grain. No orange glow. */}

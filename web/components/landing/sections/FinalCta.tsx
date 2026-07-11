@@ -31,14 +31,14 @@ export function FinalCta() {
       aria-labelledby={HEADING_ID}
       className="relative isolate flex min-h-[92svh] w-full flex-col items-center justify-center overflow-hidden bg-[color:var(--bg)] px-6 py-32 text-center md:py-44"
     >
-      {/* Closing photograph (lazy — below the fold). object-position frames the face +
-          chest so the FAHYBRID Program kit reads. */}
+      {/* Closing photograph (lazy — below the fold). object-position frames the two
+          runners' faces under the headline. */}
       <Image
         src={FINAL.photo.src}
         alt={FINAL.photo.alt}
         fill
         sizes="100vw"
-        className="-z-20 object-cover object-[center_22%]"
+        className="-z-20 object-cover object-[center_30%]"
       />
 
       {/* Uniform darken so the centered text holds over any part of the frame. */}

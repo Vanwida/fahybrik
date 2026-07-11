@@ -274,10 +274,10 @@ export const FINAL = {
   sub: 'Plan a medida, ajustado cada semana. Da el primer paso hoy.',
   cta: 'Solicita tu plaza',
   trust: 'Plazas limitadas · Primera llamada sin compromiso',
-  // Full-bleed closing photo — already graded to the brand duotono.
+  // Full-bleed closing photo — already graded to the brand warm duotono.
   photo: {
-    src: '/landing/meta-paris.webp',
-    alt: 'Atleta de Fabrik tras cruzar la meta en HYROX París, con el logo de FAHYBRID Program en el pecho',
+    src: '/landing/meta-berlin.webp',
+    alt: 'Dos atletas de Fabrik corriendo en HYROX Berlín',
   },
 } as const;
 
