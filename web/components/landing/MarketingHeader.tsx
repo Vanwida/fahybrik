@@ -17,6 +17,7 @@
 // body scroll is locked, and aria-expanded reflects state.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from '@/i18n/navigation';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -119,14 +120,18 @@ export function MarketingHeader() {
         </button>
       </div>
 
-      {/* Mobile overlay menu */}
-      {menuOpen ? (
+      {/* Mobile overlay menu — PORTALED to <body>: iOS Safari treats a fixed
+          element inside the fixed header (blur/transition) as positioned BY the
+          header, so the backdrop only painted the 64px header box and the links
+          spilled transparent over the hero. Outside the header, inset-0 is the
+          real viewport in every engine. z-[60] also clears the sticky CTA. */}
+      {menuOpen && typeof document !== 'undefined' ? createPortal(
         <div
           ref={overlayRef}
           role="dialog"
           aria-modal="true"
           aria-label="Menú de navegación"
-          className="fixed inset-0 z-50 flex flex-col bg-[color:var(--bg)] md:hidden"
+          className="fixed inset-0 z-[60] flex flex-col bg-[color:var(--bg)] md:hidden"
         >
           <div className="flex h-16 items-center justify-between px-6">
             <FahybridMark className="h-7" color="var(--accent)" />
@@ -162,7 +167,8 @@ export function MarketingHeader() {
               {NAV.cta}
             </Link>
           </nav>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </header>
   );
