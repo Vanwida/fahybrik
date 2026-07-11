@@ -8,6 +8,7 @@
 import { DetalleHeader } from './DetalleHeader';
 import { LifecycleBanner } from './lifecycle/LifecycleBanner';
 import { InjuryPanel } from './injuries/InjuryPanel';
+import { TrainingDaysCard } from './TrainingDaysCard';
 import { DetalleTabBar } from './DetalleTabBar';
 import { PerfilTab } from './PerfilTab';
 import { PlanTab } from './PlanTab';
@@ -41,6 +42,9 @@ export function AthleteDetalle({
         athleteName={header.full_name}
         lifecycle={header.lifecycle}
       />
+
+      {/* Días reales del atleta (#47): contexto permanente, fuera de los tabs. */}
+      <TrainingDaysCard data={detalle.training_days} />
 
       <DetalleTabBar athlete_id={header.athlete_id} active={tab} />
 

@@ -3,7 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { buildAthleteContextPack } from './pablo-ia-context';
+import { buildAthleteContextPack } from './coach-ia-context';
 import { proposeFirstMonthForIntake } from './intake-month-proposal';
 import { instantiateMonthFromTemplate } from './instantiate-program';
 

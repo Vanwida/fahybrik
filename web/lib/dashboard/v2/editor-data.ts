@@ -219,6 +219,11 @@ export async function loadDayEditorModel(params: {
     week_name: week.name ?? `Semana ${weekPos + 1}`,
     day_of_week: dayOfWeek,
     day_label: WEEKDAY_NAMES[dayOfWeek - 1] ?? `Día ${dayOfWeek}`,
+    // Tipo del día enfocado: 'rest' explícito (descanso deliberado) o 'workout'
+    // (día con sesiones o vacío en modo autoría). Single source = WeekDay.kind.
+    kind: day.kind ?? 'workout',
+    // Sugerencias de recuperación del día (oferta blanda); [] salvo día de descanso.
+    recovery_suggestions: day.recovery_suggestions ?? [],
     sessions,
     week_days,
     week_day_base,
@@ -244,7 +249,9 @@ function mapPart(part: WeekDayPart, index: number): EditorBlock {
     title: part.title,
     format: part.format,
     methodology_group_id: part.methodology_group_id ?? null,
-    group: inferGroup(part.title, part.format),
+    // Prefer the coach's PERSISTED structure group; fall back to the title/format
+    // heuristic only for legacy parts saved before `group` existed.
+    group: part.group ?? inferGroup(part.title, part.format),
     source_block_id: part.source_block_id ?? null,
     items: (part.items ?? []).map((it) => mapItem(it)),
   };

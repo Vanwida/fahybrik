@@ -1,13 +1,14 @@
 'use client';
 
-// DayEditor — SCREEN 8 client orchestrator. Hierarchy día › sesión (AM/PM) ›
-// bloque › ítems. A single day column of SessionPartCards. Day header: display
-// "Lunes 12 · ene" + pills (N sesiones · vol ~Xmin) + "＋ añadir sesión" +
-// "Guardar día". "＋ Añadir bloque" opens the AddBlockModal type chooser; the
-// block's exercises are visible inline; "＋ Añadir ejercicio" opens the
-// ExercisePicker directly; clicking a line opens a drawer with the dosis form.
-// Blocks and exercises reorder with ↑/↓. All state is local + structured
-// Prescription; the save persists the structured day.
+// DayEditor — SCREEN 8 client orchestrator. AGNOSTIC: día › sesión (AM/PM) › a
+// FLAT list of coach-named blocks › ítems — no imposed sections. Day header: «←
+// Semana» + ‹ › day nav (embedded canvas) + display title "Lunes 12 · ene" + pills
+// (N sesiones · vol ~Xmin) + "＋ añadir sesión" + "Guardar día". Inside a session,
+// "＋ Añadir bloque" opens an INLINE type picker (no modal); each block has an
+// editable name, a type chip, a drag handle (reorder) and its inline item table;
+// "＋ Añadir ejercicio" opens the ExercisePicker; clicking a line opens the dosis
+// drawer. All state is local + structured Prescription; the save persists the day
+// via PUT /api/coach/program-weeks/{week_id}/day (block order + names included).
 
 import { useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -18,16 +19,18 @@ import type {
   EditorItem,
   EditorSession,
 } from '@/lib/dashboard/v2/editor-types';
+import type { RecoverySuggestion, WeekDayKind } from '@fahybrid/shared/schema/program-templates';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { RestDayPanel } from './RestDayPanel';
 import { SessionPartCard } from './SessionPartCard';
 import { CopyDayModal } from './CopyDayModal';
-import { AddBlockModal } from './AddBlockModal';
 import { SuggestWorkoutModal } from './SuggestWorkoutModal';
 import { BlockEditor } from './BlockEditor';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
+import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { defaultCategoryForModality, withPickedExercise } from '@/lib/dashboard/v2/pick-exercise';
 
@@ -56,6 +59,16 @@ function sessionsToWire(sessions: EditorSession[]) {
   }));
 }
 
+// Wire shape for a rest day's recovery suggestions — drops empty duration/note so
+// the payload carries only meaningful data (server re-validates via Zod).
+function recoveryToWire(recovery: RecoverySuggestion[]) {
+  return recovery.map((r) => ({
+    activity: r.activity,
+    ...(r.duration_min ? { duration_min: r.duration_min } : {}),
+    ...(r.note && r.note.trim() ? { note: r.note.trim() } : {}),
+  }));
+}
+
 const SLOT_LABEL: Record<EditorSession['slot'], string> = { am: 'AM', pm: 'PM', extra: 'Extra' };
 const NEXT_SLOT: Record<number, EditorSession['slot']> = { 0: 'am', 1: 'pm' };
 
@@ -74,19 +87,44 @@ const SAVE_ICON: Record<SaveState, string> = {
   error: 'error',
 };
 
-// `embedded` = rendered INSIDE the expanded day-column of the week master-detail
-// grid (the week IS the editor). In that mode the week frame is the surrounding
-// rail of thin day columns, so the editor drops its own week strip, its outer
-// max-width and the standalone "← Volver" link (the column header owns "back").
-export function DayEditor({ model, embedded = false }: { model: DayEditorModel; embedded?: boolean }) {
+// `embedded` = rendered as the DÍA zoom of the microciclo canvas (one editor, two
+// zooms: SEMANA ↔ DÍA). In that mode the day header carries «← Semana» + ‹ › day
+// navigation (wired to the canvas's view-transition soft-nav) and the body reads as
+// a centered document. Standalone (`embedded` false) keeps the plain "Volver a la
+// semana" link. The day-nav is passed as FLAT props (href-based) so the stable
+// soft-nav callback is handed through as-is (never re-wrapped in a render closure).
+export function DayEditor({
+  model,
+  embedded = false,
+  onBackToWeek,
+  onNavigateDay,
+  prevDayHref = null,
+  nextDayHref = null,
+}: {
+  model: DayEditorModel;
+  embedded?: boolean;
+  /** ← Semana — zoom back out to the full week. Presence enables the day header nav. */
+  onBackToWeek?: () => void;
+  /** The canvas soft-nav (View-Transition wrapped) — opens the given day href. */
+  onNavigateDay?: (href: string) => void;
+  /** ‹ — previous day of the week (null / omitted at the week's first day). */
+  prevDayHref?: string | null;
+  /** › — next day of the week (null / omitted at the week's last day). */
+  nextDayHref?: string | null;
+}) {
   const router = useRouter();
   const [sessions, setSessions] = useState<EditorSession[]>(model.sessions);
+  // Día TIPADO (#47): workout | rest. The toggle switches it; sessions/recovery are
+  // kept in state across a toggle (no data loss mid-edit) and only the ACTIVE kind's
+  // payload is sent on save (a rest day persists sessions:[] + its recovery).
+  const [dayKind, setDayKind] = useState<WeekDayKind>(model.kind);
+  const [recovery, setRecovery] = useState<RecoverySuggestion[]>(model.recovery_suggestions);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [copyOpen, setCopyOpen] = useState(false);
+  const isRest = dayKind === 'rest';
 
-  // Add-block modal target (which session) + item-edit drawer target + the
-  // "añadir ejercicio" picker target (which block gets the picked exercise).
-  const [addTo, setAddTo] = useState<{ sessionUid: string } | null>(null);
+  // Item-edit drawer target + the "añadir ejercicio" picker target (which block
+  // gets the picked exercise) + the "Redactar con IA" target session.
   const [aiFor, setAiFor] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
   const [pickingFor, setPickingFor] = useState<{ sessionUid: string; blockUid: string } | null>(
@@ -100,9 +138,9 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
 
   // Honest save gate — a line with no real exercise can NOT be saved (kills A3).
   const gate = saveGateFor(sessions.flatMap((s) => s.blocks));
-
-  const updateSession = (uid: string, next: EditorSession) =>
-    setSessions((prev) => prev.map((s) => (s.uid === uid ? next : s)));
+  // A rest day has no exercise lines to gate — it's always saveable. Only a workout
+  // day must pass the incomplete-line gate.
+  const canSave = isRest || gate.ok;
 
   // Workout TITLE (session.focus) — one input near the session header.
   const setSessionFocus = (uid: string, focus: string) =>
@@ -150,11 +188,14 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     ]);
   };
 
-  const addBlockToSession = (sessionUid: string, block: EditorBlock) => {
+  // "＋ Añadir bloque" (inline picker) — the coach picks a TYPE; we build a ready,
+  // pre-seeded block WITHOUT a section (agnostic) and append it. The coach then
+  // names it inline. No modal, no imposed Calentamiento/Principal/Vuelta.
+  const addBlockOfType = (sessionUid: string, archetype: ArchetypeId) => {
+    const block = createBlockFromArchetype(archetype);
     setSessions((prev) =>
       prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, block] } : s)),
     );
-    setAddTo(null);
   };
 
   // "Redactar con IA" (#33) — append the coach-approved AI drafts to the session.
@@ -184,18 +225,29 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     );
   };
 
-  // Reorder a block within its session (↑/↓). Pure index swap, no fake drag.
-  const moveBlock = (sessionUid: string, blockUid: string, dir: -1 | 1) => {
+  // Reorder blocks within a session (drag handle — dnd-kit hands us the new order).
+  const reorderBlocks = (sessionUid: string, orderedUids: string[]) => {
     setSessions((prev) =>
       prev.map((s) => {
         if (s.uid !== sessionUid) return s;
-        const i = s.blocks.findIndex((b) => b.uid === blockUid);
-        const j = i + dir;
-        if (i < 0 || j < 0 || j >= s.blocks.length) return s;
-        const blocks = s.blocks.slice();
-        [blocks[i], blocks[j]] = [blocks[j]!, blocks[i]!];
-        return { ...s, blocks };
+        const byUid = new Map(s.blocks.map((b) => [b.uid, b]));
+        const blocks = orderedUids
+          .map((uid) => byUid.get(uid))
+          .filter((b): b is EditorBlock => b !== undefined);
+        // Only accept a true permutation (never silently drop/add a block here).
+        return blocks.length === s.blocks.length ? { ...s, blocks } : s;
       }),
+    );
+  };
+
+  // Rename a block inline (the coach's label — the athlete reads it on the Plan).
+  const renameBlock = (sessionUid: string, blockUid: string, title: string) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.uid === sessionUid
+          ? { ...s, blocks: s.blocks.map((b) => (b.uid === blockUid ? { ...b, title } : b)) }
+          : s,
+      ),
     );
   };
 
@@ -253,9 +305,24 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     setPickingFor(null);
   };
 
+  // Switching to Descanso hides the workout editor — close any open workout-only
+  // overlay so a hidden session's drawer/modal can't linger over the rest panel.
+  const changeKind = (next: WeekDayKind) => {
+    setDayKind(next);
+    if (next === 'rest') {
+      // Cierra los overlays workout-only al pasar a descanso. El editor nuevo no
+      // tiene AddBlockModal (bloques inline por arquetipo), así que no hay `addTo`.
+      setAiFor(null);
+      setEditing(null);
+      setPickingFor(null);
+      setCopyOpen(false);
+    }
+  };
+
   const handleSave = async () => {
-    // Never attempt a save that would persist incomplete lines (A3).
-    if (!gate.ok) {
+    // Never attempt a save that would persist incomplete lines (A3). A rest day has
+    // no lines, so canSave is true for it regardless of the (hidden) workout draft.
+    if (!canSave) {
       setSaveState('error');
       return;
     }
@@ -263,14 +330,18 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
     try {
       // Serialize-on-the-server: send the edited day; the route loads the full
       // week, merges this day (preserving the others + block-level config) and
-      // upserts. `slot` is omitted intentionally — it is positional.
+      // upserts. `slot` is omitted intentionally — it is positional. A rest day
+      // sends sessions:[] + its recovery suggestions; a workout day sends its
+      // sessions (serializeDay drops any stale recovery on the workout side).
       const res = await fetch(`/api/coach/program-weeks/${model.week_id}/day`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           day_of_week: model.day_of_week,
-          sessions: sessionsToWire(sessions),
+          kind: dayKind,
+          sessions: isRest ? [] : sessionsToWire(sessions),
+          ...(isRest ? { recovery_suggestions: recoveryToWire(recovery) } : {}),
         }),
       });
       if (!res.ok) throw new Error(`save failed (${res.status})`);
@@ -320,7 +391,6 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
 
   const editingSession = editing ? sessions.find((s) => s.uid === editing.sessionUid) : null;
   const editingBlock = editingSession?.blocks.find((b) => b.uid === editing?.blockUid) ?? null;
-  const addToSession = addTo ? sessions.find((s) => s.uid === addTo.sessionUid) : null;
   const aiForSession = aiFor ? sessions.find((s) => s.uid === aiFor.sessionUid) : null;
   const pickingForBlock = pickingFor
     ? sessions
@@ -333,7 +403,16 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
       {/* Day header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          {!embedded ? (
+          {onBackToWeek ? (
+            <button
+              type="button"
+              onClick={onBackToWeek}
+              className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="arrow_back" size={15} />
+              Semana
+            </button>
+          ) : !embedded ? (
             <Link
               href={`/microciclos/${model.month_id}`}
               scroll={false}
@@ -343,51 +422,108 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
               Volver a la semana
             </Link>
           ) : null}
-          <h1 className={embedded ? 'v2-display text-2xl sm:text-3xl' : 'v2-display text-3xl sm:text-4xl'}>
-            {model.day_label}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <Pill tone="neutral" variant="soft">
-              <span className="v2-num">{sessions.length}</span>&nbsp;sesiones
-            </Pill>
-            {totalMin > 0 ? (
-              <Pill tone="info" variant="soft">
-                vol&nbsp;~<span className="v2-num">{totalMin}</span>&nbsp;min
-              </Pill>
+          {/* Day title with ‹ › day navigation (embedded canvas). The arrows step
+              across the week's days (Lun→Dom); disabled at the week boundaries. */}
+          <div className="flex min-w-0 items-center gap-1.5">
+            {onNavigateDay ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (prevDayHref) onNavigateDay(prevDayHref);
+                }}
+                disabled={!prevDayHref}
+                aria-label="Día anterior"
+                className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <MIcon name="chevron_left" size={18} />
+              </button>
+            ) : null}
+            <h1
+              className={
+                embedded
+                  ? 'v2-display min-w-0 truncate text-2xl sm:text-3xl'
+                  : 'v2-display min-w-0 truncate text-3xl sm:text-4xl'
+              }
+            >
+              {model.day_label}
+            </h1>
+            {onNavigateDay ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (nextDayHref) onNavigateDay(nextDayHref);
+                }}
+                disabled={!nextDayHref}
+                aria-label="Día siguiente"
+                className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <MIcon name="chevron_right" size={18} />
+              </button>
             ) : null}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isRest ? (
+              <>
+                <Pill tone="neutral" variant="soft">Descanso</Pill>
+                {recovery.length > 0 ? (
+                  <Pill tone="neutral" variant="soft">
+                    <span className="v2-num">{recovery.length}</span>&nbsp;
+                    {recovery.length === 1 ? 'sugerencia' : 'sugerencias'}
+                  </Pill>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Pill tone="neutral" variant="soft">
+                  <span className="v2-num">{sessions.length}</span>&nbsp;
+                  {sessions.length === 1 ? 'sesión' : 'sesiones'}
+                </Pill>
+                {totalMin > 0 ? (
+                  <Pill tone="info" variant="soft">
+                    vol&nbsp;~<span className="v2-num">{totalMin}</span>&nbsp;min
+                  </Pill>
+                ) : null}
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={addSession}
-            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-          >
-            <MIcon name="add" size={16} />
-            Añadir sesión
-          </button>
-          {sessions.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setCopyOpen(true)}
-              disabled={!gate.ok}
-              title={
-                gate.ok
-                  ? 'Copia este día a otro día de la semana'
-                  : 'Completa las líneas sin ejercicio antes de copiar'
-              }
-              className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
-            >
-              <MIcon name="content_copy" size={16} />
-              Copiar día a…
-            </button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* Entreno / Descanso — el día tipado (#47). */}
+          <DayKindToggle kind={dayKind} onChange={changeKind} />
+          {!isRest ? (
+            <>
+              <button
+                type="button"
+                onClick={addSession}
+                className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+              >
+                <MIcon name="add" size={16} />
+                Añadir sesión
+              </button>
+              {sessions.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setCopyOpen(true)}
+                  disabled={!gate.ok}
+                  title={
+                    gate.ok
+                      ? 'Copia este día a otro día de la semana'
+                      : 'Completa las líneas sin ejercicio antes de copiar'
+                  }
+                  className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
+                >
+                  <MIcon name="content_copy" size={16} />
+                  Copiar día a…
+                </button>
+              ) : null}
+            </>
           ) : null}
           <button
             type="button"
             onClick={handleSave}
-            disabled={saveState === 'saving' || !gate.ok}
+            disabled={saveState === 'saving' || !canSave}
             aria-live="polite"
-            title={gate.ok ? undefined : gate.reason ?? undefined}
+            title={canSave ? undefined : gate.reason ?? undefined}
             className={
               saveState === 'error'
                 ? 'v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger,#c0362c)] px-4 text-sm font-bold text-white transition-colors'
@@ -400,21 +536,25 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
         </div>
       </div>
 
-      {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
-      {!gate.ok ? (
+      {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. Only a
+          workout day has lines to gate; a rest day is always saveable. */}
+      {!isRest && !gate.ok ? (
         <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-[13px] text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>
       ) : null}
 
-      {/* Day body: one sessions column */}
-      <div className="space-y-4">
-        {sessions.length === 0 ? (
+      {/* Day body: the DESCANSO recovery panel, or the workout sessions — stacked,
+          centered document in the embedded canvas (DÍA zoom), full-width standalone. */}
+      <div className={embedded ? 'mx-auto w-full max-w-[880px] space-y-4' : 'space-y-4'}>
+        {isRest ? (
+          <RestDayPanel recovery={recovery} onChange={setRecovery} />
+        ) : sessions.length === 0 ? (
           <EmptyState
             icon="event_available"
-            title="Día de descanso"
-            description="No hay sesiones planificadas. Añade una sesión AM o PM para empezar."
+            title="Sin sesiones aún"
+            description="Este día es de entreno pero no tiene sesiones. Añade una, o márcalo como Descanso arriba."
             action={
               <button
                 type="button"
@@ -435,11 +575,12 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
               onSuggestTitle={() => suggestTitle(session)}
               suggesting={suggestingUid === session.uid}
               onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}
-              onAddBlock={() => setAddTo({ sessionUid: session.uid })}
+              onAddBlock={(archetype) => addBlockOfType(session.uid, archetype)}
+              onRenameBlock={(blockUid, title) => renameBlock(session.uid, blockUid, title)}
+              onReorderBlocks={(orderedUids) => reorderBlocks(session.uid, orderedUids)}
               onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
               onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}
               onRemoveBlock={(blockUid) => removeBlock(session.uid, blockUid)}
-              onMoveBlock={(blockUid, dir) => moveBlock(session.uid, blockUid, dir)}
               onMoveItem={(blockUid, itemUid, dir) =>
                 moveItem(session.uid, blockUid, itemUid, dir)
               }
@@ -457,15 +598,6 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
           weeks={model.weeks}
           onCopy={copyDayTo}
           onClose={() => setCopyOpen(false)}
-        />
-      ) : null}
-
-      {/* Añadir bloque — the type chooser. Picking a type creates the block. */}
-      {addTo && addToSession ? (
-        <AddBlockModal
-          destinationLabel={`Sesión ${SLOT_LABEL[addToSession.slot]} · ${model.day_label}`}
-          onClose={() => setAddTo(null)}
-          onAdd={(block) => addBlockToSession(addTo.sessionUid, block)}
         />
       ) : null}
 
@@ -502,6 +634,58 @@ export function DayEditor({ model, embedded = false }: { model: DayEditorModel; 
           }
         />
       ) : null}
+    </div>
+  );
+}
+
+// Entreno / Descanso segment toggle (#47) — the day's kind. 'workout' active =
+// accent (the primary state); 'rest' active = a neutral elevated fill + moon, so it
+// never reads like the orange primary action. Both are always visible to flip.
+function DayKindToggle({
+  kind,
+  onChange,
+}: {
+  kind: WeekDayKind;
+  onChange: (kind: WeekDayKind) => void;
+}) {
+  const base =
+    'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors';
+  return (
+    <div
+      role="group"
+      aria-label="Tipo del día"
+      className="inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-0.5"
+    >
+      <button
+        type="button"
+        onClick={() => onChange('workout')}
+        aria-pressed={kind === 'workout'}
+        className={
+          kind === 'workout'
+            ? `${base} bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]`
+            : `${base} text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]`
+        }
+      >
+        Entreno
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('rest')}
+        aria-pressed={kind === 'rest'}
+        className={
+          kind === 'rest'
+            ? `${base} text-[color:var(--v2-fg)]`
+            : `${base} text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]`
+        }
+        style={
+          kind === 'rest'
+            ? { background: 'color-mix(in srgb, var(--v2-fg) 12%, transparent)' }
+            : undefined
+        }
+      >
+        <MIcon name="bedtime" size={14} />
+        Descanso
+      </button>
     </div>
   );
 }

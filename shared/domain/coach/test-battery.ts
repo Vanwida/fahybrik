@@ -1,4 +1,4 @@
-// @fahybrid/shared/domain/coach/test-battery — the FABRIK week-1 calibration
+// @fahybrid/shared/domain/coach/test-battery — the default week-1 calibration
 // battery (#34). Single source of truth for the four tests that fix an athlete's
 // REAL point of departure in their first week: 5K control, 2K row, 1RM battery,
 // HYROX half-sim. Replaces the dead `web/lib/coach/athlete-benchmark-tests.ts`
@@ -54,7 +54,7 @@ export const CALIBRATION_META_KEY = 'calibration' as const;
 
 // The default v1 battery (Fork B: fixed 4 — the day-1 promise). Coach can
 // remove/move any as a normal plan session.
-export const FABRIK_WEEK1_BATTERY: readonly CalibrationTestProtocol[] = [
+export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
   {
     slug: 'tt_5k',
     label: '5K control',
@@ -130,7 +130,7 @@ export const FABRIK_WEEK1_BATTERY: readonly CalibrationTestProtocol[] = [
 
 /** Every store_results spec flattened, keyed by slug (the bridge's routing table). */
 export function storeResultSpecBySlug(slug: string): StoreResultSpec | null {
-  for (const p of FABRIK_WEEK1_BATTERY) {
+  for (const p of DEFAULT_CALIBRATION_BATTERY) {
     const s = p.store_results.find((r) => r.slug === slug);
     if (s) return s;
   }

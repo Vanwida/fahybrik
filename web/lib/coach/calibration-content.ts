@@ -10,7 +10,7 @@ import 'server-only';
 // test's result contract — one segment per result, anchored on the exercise that
 // matches the result's modality/benchmark — exactly as the infra seed does. Tests
 // are therefore runnable + schedulable from the moment they are created; the four
-// FABRIK defaults come out with correct content.
+// default tests come out with correct content.
 //
 // This module is the SINGLE web-side source for that materialization + the
 // meta_json mirror; both create/edit (write-coach-test.ts) and restore-defaults

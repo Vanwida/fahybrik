@@ -11,6 +11,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/v2/Card';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';
+import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,7 +76,7 @@ export default async function V2AjustesPage({
                   Periodización y fases
                 </span>
                 <span className="text-xs text-[color:var(--v2-muted)]">
-                  Define las fases y principios que alimentan a Pablo IA.
+                  Define las fases y principios que alimentan a Coach IA.
                 </span>
               </div>
               <MIcon
@@ -86,6 +87,12 @@ export default async function V2AjustesPage({
               />
             </Link>
           </Card>
+        </section>
+
+        {/* ── Cuenta ─────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="v2-micro mb-2">Cuenta</h2>
+          <LogoutButton />
         </section>
       </div>
     </div>

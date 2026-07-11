@@ -55,7 +55,7 @@ export interface TestType {
   amount: number;
 }
 
-// Ordered by family (ergo first — the calculator Pablo approved is the ergo one),
+// Ordered by family (ergo first — the default calculator is the ergo one),
 // then run. Each row is a complete objective spec; the form reads it, never asks.
 export const TEST_TYPES: TestType[] = [
   {
@@ -109,7 +109,7 @@ export const TEST_TYPES_BY_SLUG: Record<string, TestType> = Object.fromEntries(
   TEST_TYPES.map((t) => [t.slug, t]),
 );
 
-/** The default test type a fresh Test block starts on (the ergo one Pablo uses). */
+/** The default test type a fresh Test block starts on (the ergo one). */
 export const DEFAULT_TEST_TYPE_SLUG = 'row_2k';
 
 export function getTestType(slug: string | null | undefined): TestType | null {

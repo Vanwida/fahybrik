@@ -62,7 +62,7 @@ function uid(prefix: string): string {
 }
 
 /** Optional LLM second pass for a review line (Fork A). Injected so the module
- *  is testable without a model; the endpoint wires the real callPabloIaLlmJson. */
+ *  is testable without a model; the endpoint wires the real callCoachIaLlmJson. */
 export type LlmAssist = (text: string) => Promise<ParsedLine[] | null>;
 
 /** The block's format label = the dominant scheme among its items. */

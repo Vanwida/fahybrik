@@ -4,7 +4,7 @@ import { setCoachSessionCookie } from './coach-session';
 import { audiences, issueSession } from './session';
 import { findOrCreateCoachByEmail } from './users';
 
-const DEFAULT_DEMO_EMAIL = 'pablo@fabrik.training';
+const DEFAULT_DEMO_EMAIL = 'coach@demo.fahybrid.app';
 
 /**
  * Demo sign-in (no email). OPT-IN only: disabled unless COACH_DEMO_LOGIN is

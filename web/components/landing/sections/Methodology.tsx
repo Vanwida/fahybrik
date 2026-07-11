@@ -18,6 +18,7 @@
 // query matches and tears it down on resize across the breakpoint (re-measuring so we
 // never hold a stale width). Coexists with Lenis via the SmoothScroll provider.
 
+import Image from 'next/image';
 import { useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
@@ -43,56 +44,109 @@ function PillarCard({ pillar, index }: { pillar: Pillar; index: number }) {
   const tintVar = `var(${pillar.colorVar}-tint)`;
   const number = String(index + 1).padStart(2, '0');
   const total = String(pillars.length).padStart(2, '0');
+  const hasPhoto = Boolean(pillar.image);
 
   return (
     <article
       className={cn(
         // min-w drives the horizontal track width; snap-start makes the fallback
-        // strip land cleanly on each card.
-        'group/card relative flex min-w-[78vw] snap-start flex-col justify-between overflow-hidden',
+        // strip land cleanly on each card. `isolate` contains the photo blend layers
+        // so they never bleed onto the page behind the card.
+        // Mobile/tablet (snap mode): FIXED width so the body wraps inside the card
+        // instead of stretching the card to the text's intrinsic width (which
+        // overflowed the viewport). At lg the pin takes over → reset to min-w-[360px].
+        'group/card relative isolate flex w-[80vw] max-w-[420px] snap-start flex-col justify-between overflow-hidden',
         'min-h-[19rem] rounded-[var(--r-l)] border border-[color:var(--hairline)]',
-        'p-7 sm:min-w-[64vw] md:min-h-[21rem] md:p-8 lg:min-w-[360px]',
+        'p-7 sm:w-[62vw] md:min-h-[21rem] md:p-8 lg:w-auto lg:max-w-none lg:min-w-[360px]',
       )}
       style={{
         // The pillar's tint washed over --surface gives each card its own quiet
         // identity while staying dark-theme-correct (tint is the color at ~0.14 alpha).
+        // On photo cards this is the dark base the low-opacity image sits on; on the
+        // taper card (no photo) it stays the full flat tint.
         backgroundColor: `color-mix(in oklab, ${tintVar} 60%, var(--surface))`,
       }}
     >
+      {/* PHOTO BACKGROUND — a real Fabrik-in-HYROX moment for this capacity, held at low
+          opacity over the dark card so it reads as a moody texture and never fights the
+          text. Three layers below the content keep it legible (WCAG AA): the photo, a
+          pillar-color wash mixed INTO it (soft-light — identity, not a flat block), and a
+          scrim that darkens the top (index) and goes solid --surface at the bottom (name
+          + body), leaving the middle band for the photo. */}
+      {pillar.image && (
+        <>
+          <Image
+            src={pillar.image}
+            alt=""
+            aria-hidden="true"
+            fill
+            sizes="(max-width: 640px) 78vw, (max-width: 1024px) 64vw, 360px"
+            className="pointer-events-none absolute inset-0 -z-10 select-none object-cover opacity-[0.36]"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 mix-blend-soft-light"
+            style={{ backgroundColor: `color-mix(in oklab, ${colorVar} 45%, transparent)` }}
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{
+              background:
+                'linear-gradient(to bottom, color-mix(in oklab, var(--surface) 58%, transparent) 0%, transparent 24%, transparent 48%, color-mix(in oklab, var(--surface) 74%, transparent) 68%, var(--surface) 86%)',
+            }}
+          />
+        </>
+      )}
+
       {/* Top hairline in the pillar color — a thin signature stripe. */}
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-px opacity-50"
+        className="absolute inset-x-0 top-0 z-0 h-px opacity-60"
         style={{ backgroundColor: colorVar }}
       />
       {/* Left accent bar — color is reinforcement, never the only signal. */}
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-[3px]"
+        className="absolute inset-y-0 left-0 z-0 w-[3px]"
         style={{ backgroundColor: colorVar }}
       />
-      {/* Large ghosted numeral, set well back — color identity, decorative. */}
+      {/* Large ghosted numeral, set well back — color identity, decorative. Over a photo
+          it embosses a touch stronger so it still reads through the darker zones. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-2 -bottom-6 z-0 select-none font-display text-[9rem] leading-none font-black italic tabular-nums opacity-[0.08] md:text-[11rem]"
+        className={cn(
+          'pointer-events-none absolute -right-2 -bottom-6 z-0 select-none font-display text-[9rem] leading-none font-black italic tabular-nums md:text-[11rem]',
+          hasPhoto ? 'opacity-[0.12]' : 'opacity-[0.08]',
+        )}
         style={{ color: colorVar }}
       >
         {number}
       </span>
 
-      {/* Top row: a color dot + the readable index. */}
+      {/* Top row: a color dot + the readable index. Over a photo the index goes white and
+          picks up a soft shadow so it stays crisp against the (lighter) top of the image;
+          flat cards keep the muted counter. */}
       <div className="relative z-10 flex items-center justify-between gap-4">
         <span
           aria-hidden="true"
           className="h-2.5 w-2.5 rounded-full"
           style={{ backgroundColor: colorVar }}
         />
-        <span className="font-mono text-[11px] tracking-[0.18em] text-[color:var(--muted)]">
+        <span
+          className={cn(
+            'font-mono text-[11px] tracking-[0.18em]',
+            hasPhoto
+              ? 'text-[color:var(--fg)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]'
+              : 'text-[color:var(--muted)]',
+          )}
+        >
           {number} / {total}
         </span>
       </div>
 
-      {/* Bottom: the pillar name leads, benefit below. */}
+      {/* Bottom: the pillar name leads, benefit below. Both sit over the solid bottom of
+          the scrim, so contrast holds (name ~white on --surface, body --muted on --surface). */}
       <div className="relative z-10">
         <h3 className="font-display text-[clamp(1.6rem,3vw,2.1rem)] leading-[1.05] font-black italic text-[color:var(--fg)]">
           {pillar.name}

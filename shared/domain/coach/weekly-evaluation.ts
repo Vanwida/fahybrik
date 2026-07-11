@@ -6,7 +6,7 @@ import {
   parseIsoDate,
   startOfDayInBox,
 } from '../dates';
-import { buildAthleteContextPack, type AthleteContextPack } from './pablo-ia-context';
+import { buildAthleteContextPack, type AthleteContextPack } from './coach-ia-context';
 import {
   evaluateWeeklyVerdictFromContext,
   type WeeklyVerdict,

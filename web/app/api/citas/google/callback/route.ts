@@ -53,7 +53,7 @@ export async function GET(request: Request): Promise<Response> {
   return page('ok', 'Conectado ✓ — ya puedes cerrar esta pestaña.');
 }
 
-// ── On-brand, self-contained result page (FAHYBRID: black + Fabrik orange) ──────────
+// ── On-brand, self-contained result page (FAHYBRID: black + brand orange) ──────────
 const ACCENT = '#F06A2A';
 const BG = '#0A0A0A';
 

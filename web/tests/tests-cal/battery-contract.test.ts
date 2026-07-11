@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  FABRIK_WEEK1_BATTERY,
+  DEFAULT_CALIBRATION_BATTERY,
   storeResultSpecBySlug,
 } from '@fahybrid/shared/domain/coach/test-battery';
 import {
@@ -19,23 +19,23 @@ import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
 // #34 — the calibration battery CONTRACT (pure, no DB). Pins that the catalog is
 // complete and coherent so the seed + badge + bridge all agree.
 
-describe('FABRIK_WEEK1_BATTERY catalog', () => {
+describe('DEFAULT_CALIBRATION_BATTERY catalog', () => {
   it('is the fixed 4 (Fork B), all anchored to week 1, on distinct days', () => {
-    expect(FABRIK_WEEK1_BATTERY).toHaveLength(4);
-    expect(FABRIK_WEEK1_BATTERY.every((p) => p.week_offset === 1)).toBe(true);
-    const days = FABRIK_WEEK1_BATTERY.map((p) => p.day_of_week);
+    expect(DEFAULT_CALIBRATION_BATTERY).toHaveLength(4);
+    expect(DEFAULT_CALIBRATION_BATTERY.every((p) => p.week_offset === 1)).toBe(true);
+    const days = DEFAULT_CALIBRATION_BATTERY.map((p) => p.day_of_week);
     expect(new Set(days).size).toBe(4); // spread, never piled on one day
   });
 
   it('every protocol store_results validates against the contract schema', () => {
-    for (const p of FABRIK_WEEK1_BATTERY) {
+    for (const p of DEFAULT_CALIBRATION_BATTERY) {
       expect(p.store_results.length).toBeGreaterThan(0); // ⇒ is_test = true
       expect(storeResultsSchema.safeParse(p.store_results).success).toBe(true);
     }
   });
 
   it('uses the LIVE slugs (not the dead stub vocabulary)', () => {
-    const all = FABRIK_WEEK1_BATTERY.flatMap((p) => p.store_results.map((s) => s.slug));
+    const all = DEFAULT_CALIBRATION_BATTERY.flatMap((p) => p.store_results.map((s) => s.slug));
     expect(all).toContain(BENCH_RUN_5K);
     expect(all).toContain(BENCH_ROW_2K);
     expect(all).toContain(BENCH_HYROX_HALF_SIM);
@@ -46,7 +46,7 @@ describe('FABRIK_WEEK1_BATTERY catalog', () => {
   });
 
   it('the 1RM battery is one protocol → several load results; strength slugs are canonical lifts', () => {
-    const battery = FABRIK_WEEK1_BATTERY.find((p) => p.primary_modality === 'strength')!;
+    const battery = DEFAULT_CALIBRATION_BATTERY.find((p) => p.primary_modality === 'strength')!;
     expect(battery.store_results.length).toBeGreaterThanOrEqual(3);
     for (const s of battery.store_results) {
       expect(s.measure).toBe('load');

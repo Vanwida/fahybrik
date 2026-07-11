@@ -9,6 +9,7 @@ import type {
   AthleteLifecycleStatus,
   PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
+import type { WeekdayKey } from '@fahybrid/shared/domain/coach/intake-availability';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
@@ -195,12 +196,44 @@ export interface ClasificacionData {
   days_band: { min: number; max: number };
 }
 
+// ── Días de entreno · reales (#47) — the athlete's OWN declared weekly pattern ──
+// Read from athletes.availability_json ({mon..sun -> program|other_activity|rest},
+// Step 5 onboarding / iOS "Mis días"). Distinct from ClasificacionData's plain
+// training_days_per_week (the coach's declared TARGET count): this resolves WHICH
+// days, from the athlete's own input. Always visible in the ficha (permanent
+// context, independent of the active tab) — read-only for the coach.
+export interface TrainingDayCell {
+  key: WeekdayKey;
+  /** Short label, e.g. "Lun". */
+  label: string;
+  /** Full label for a11y/tooltips, e.g. "Lunes". */
+  full_label: string;
+  /** True = the athlete marked this day `program` (a real training day). */
+  trains: boolean;
+}
+
+export interface TrainingDaysData {
+  /** Always 7 cells, Monday→Sunday. */
+  days: TrainingDayCell[];
+  /** Program-day count when the athlete declared availability, else the coach's
+   *  plain training_days_per_week as a fallback. Null when neither exists. */
+  training_days_per_week: number | null;
+  /** True when the athlete has actually declared per-day availability. False →
+   *  `days` carries no real signal (every cell `trains: false`) and the card
+   *  renders an honest empty state instead of guessing which days from the
+   *  plain count (Step 5 is skippable; the column defaults to '{}'). */
+  has_availability: boolean;
+}
+
 // ── The unified payload the page passes to the client ──────────────────────────
 export interface V2AthleteDetalle {
   header: DetalleHeader;
   stats: DetalleStat[];
   /** Nivel + días/semana — the assignment classification (Perfil tab). */
   classification: ClasificacionData;
+  /** Días de entreno reales (#47) — the athlete's own declared weekly pattern.
+   *  Always visible in the ficha header zone, independent of the active tab. */
+  training_days: TrainingDaysData;
   resumen: AthleteResumen | null;
   plan: AthletePlanPayload | null;
   body: BodyPayload | null;

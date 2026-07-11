@@ -34,7 +34,14 @@ function session(
 }
 
 function day(dow: number, iso: string, sessions: AthleteWeekDaySession[]): AthleteWeekDay {
-  return { day_of_week: dow, iso_date: iso, sessions, is_rest: sessions.length === 0 };
+  return {
+    day_of_week: dow,
+    iso_date: iso,
+    sessions,
+    is_rest: sessions.length === 0,
+    kind: sessions.length > 0 ? 'workout' : 'rest',
+    recovery_suggestions: [],
+  };
 }
 
 const ISO = '2026-07-06';

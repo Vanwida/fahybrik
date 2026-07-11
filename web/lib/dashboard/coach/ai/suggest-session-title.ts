@@ -2,7 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { modalitySchema, type Modality } from '@fahybrid/shared/domain/prescription';
-import { isPabloIaLlmConfigured, callPabloIaLlmJson, PabloIaLlmError } from './llm';
+import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
 
 // suggest-session-title — derive a short Spanish workout TITLE for a day's session
 // (the coach- and athlete-facing "Entreno de pierna" / "Series" / "Carrera
@@ -99,7 +99,7 @@ export async function suggestSessionTitle(params: {
   const { blocks } = parsed.data;
 
   // LLM available → ask for a short title. Any failure degrades to the fallback.
-  if (isPabloIaLlmConfigured()) {
+  if (isCoachIaLlmConfigured()) {
     try {
       const title = await llmSuggestTitle({ blocks, coach_id: params.coach_id });
       if (title) return { title: clampTitle(title), source: 'ai' };
@@ -119,7 +119,7 @@ async function llmSuggestTitle(args: {
   coach_id: number | bigint;
 }): Promise<string | null> {
   const system = [
-    'Eres Pablo IA, coach de HYROX/hybrid del Fabrik Training Club Barcelona.',
+    'Eres un coach de HYROX y entrenamiento híbrido.',
     'Te paso el contenido de UNA sesión de entrenamiento (sus bloques y ejercicios).',
     'Devuelve SOLO un JSON: { "title": "..." }.',
     'El título es un nombre CORTO en español (máx 6 palabras, máx 120 caracteres)',
@@ -130,7 +130,7 @@ async function llmSuggestTitle(args: {
 
   const user = ['Contenido de la sesión:', describeBlocks(args.blocks)].join('\n');
 
-  const raw = await callPabloIaLlmJson({
+  const raw = await callCoachIaLlmJson({
     system,
     user,
     temperature: 0.4,
@@ -140,7 +140,7 @@ async function llmSuggestTitle(args: {
 
   const parsed = llmTitleSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new PabloIaLlmError('invalid_json', `LLM title schema inválido: ${parsed.error.message}`);
+    throw new CoachIaLlmError('invalid_json', `LLM title schema inválido: ${parsed.error.message}`);
   }
   const title = parsed.data.title.trim();
   return title.length > 0 ? title : null;

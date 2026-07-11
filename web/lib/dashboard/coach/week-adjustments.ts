@@ -10,7 +10,7 @@ import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
-import type { AthleteContextPack } from '@fahybrid/shared/domain/coach/pablo-ia-context';
+import type { AthleteContextPack } from '@fahybrid/shared/domain/coach/coach-ia-context';
 
 export type PendingAdjustment = {
   id: string;

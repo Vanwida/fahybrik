@@ -5,10 +5,21 @@
 // domain model, not a scalar fallback.
 
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import {
+  recoveryActivitySchema,
+  type RecoveryActivity,
+  type RecoverySuggestion,
+  type StructureGroup,
+  type WeekDayKind,
+} from '@fahybrid/shared/schema/program-templates';
 import type { DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 
-/** Coach-facing structural group of a block inside a session (the rail headings). */
-export type StructureGroup = 'calentamiento' | 'principal' | 'vuelta';
+/**
+ * Coach-facing structural group of a block inside a session (the rail headings).
+ * Single source of truth = the shared schema (persisted in slots_json); re-exported
+ * here so the existing editor importers keep resolving it from editor-types.
+ */
+export type { StructureGroup };
 
 export const STRUCTURE_GROUP_LABEL: Record<StructureGroup, string> = {
   calentamiento: 'Calentamiento',
@@ -21,6 +32,29 @@ export const STRUCTURE_GROUP_ORDER: StructureGroup[] = [
   'principal',
   'vuelta',
 ];
+
+/**
+ * Recovery-activity vocabulary for the rest-day editor (#47). ORDER is the shared
+ * schema's enum order (single source); LABEL is the coach/athlete-facing Spanish
+ * name per activity. Recovery is a SOFT offer — not a session, no intensity.
+ */
+export const RECOVERY_ACTIVITY_ORDER: readonly RecoveryActivity[] = recoveryActivitySchema.options;
+
+export const RECOVERY_ACTIVITY_LABEL: Record<RecoveryActivity, string> = {
+  mobility: 'Movilidad',
+  stretching: 'Estiramientos',
+  yoga: 'Yoga',
+  walk: 'Caminar',
+  easy_run: 'Trote suave',
+  easy_ride: 'Bici suave',
+  easy_swim: 'Nado suave',
+  foam_roll: 'Foam roller',
+  massage: 'Masaje',
+  breathing: 'Respiración',
+  sauna: 'Sauna',
+  cold_therapy: 'Frío / contraste',
+  other: 'Otra',
+};
 
 /** One editable exercise/movement line inside a block. */
 export interface EditorItem {
@@ -46,8 +80,15 @@ export interface EditorBlock {
   archetype_id?: import('@/lib/dashboard/v2/archetypes').ArchetypeId;
   /** Methodology group (1..10) when the block came from the library. */
   methodology_group_id?: number | null;
-  /** Structure group the block belongs to (rail heading). */
-  group: StructureGroup;
+  /**
+   * DEPRECATED for the microciclo day editor. The agnostic model is a FLAT list of
+   * blocks the coach names and orders — NOT the imposed Calentamiento/Principal/
+   * Vuelta sections. `group` no longer drives the day editor's render and is not
+   * persisted from it. It stays OPTIONAL because the session LIBRARY editor
+   * (`SessionStructureRail`) and the Excel importer still section by it, and the
+   * server loaders infer it for those surfaces. Absent = agnostic (the default).
+   */
+  group?: StructureGroup;
   /** Library origin, when inserted from the Biblioteca de Bloques. */
   source_block_id?: number | null;
   items: EditorItem[];
@@ -102,6 +143,19 @@ export interface DayEditorModel {
   /** Day index 1..7 (Lunes..Domingo) — the [idx] route param. */
   day_of_week: number;
   day_label: string; // "Lunes 12 · ene"
+  /**
+   * Tipo del día enfocado (workout | rest). 'rest' cuando el coach lo marcó como
+   * DESCANSO deliberado; un día vacío sin marcar carga como 'workout' (modo
+   * autoría). El toggle de descanso del editor lee/escribe este campo. Extensible
+   * a 'test'|'competition' (no implementado).
+   */
+  kind: WeekDayKind;
+  /**
+   * Sugerencias de RECUPERACIÓN (oferta blanda) cuando el día es de descanso.
+   * Vacío en días de entreno. El editor las muestra/edita en un día kind='rest'
+   * y las reenvía en el save (dayEditorSaveSchema.recovery_suggestions).
+   */
+  recovery_suggestions: RecoverySuggestion[];
   sessions: EditorSession[];
   /**
    * The WHOLE focused week's 7 days (Mon→Sun) summarised for the WEEK CONTEXT

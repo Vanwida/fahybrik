@@ -1,5 +1,5 @@
-// Pablo's real methodology defaults (spec §4). These are the values the form
-// is PRE-FILLED with — every one carries a "default Pablo · confirma" badge in
+// The coach's methodology defaults (spec §4). These are the values the form
+// is PRE-FILLED with — every one carries a "default del coach · confirma" badge in
 // the UI. Source citations from the spec are kept inline so the trust signal is
 // auditable. MOCK/LOCAL for now: structured to swap for an API fetch later
 // (the shape mirrors the persistence tables in spec §5).
@@ -240,7 +240,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-rpe-redflag',
     'high',
-    'pablo',
+    'coach',
     [{ metric: 'rpe_live', operator: op('>'), value: 8, unit: '0-10', window: 'session' }],
     [{ verb: 'scale_load', paramsLabel: '−5 a −10% carga' }],
     'seed #1 — "RPE>8 en serie 2 → bajar carga 5-10%"',
@@ -248,7 +248,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-rpe-squat',
     'high',
-    'pablo',
+    'coach',
     [{ metric: 'rpe_live', operator: op('>='), value: 8, unit: '0-10', window: 'session' }],
     [{ verb: 'set_load_pct_rm', paramsLabel: 'fijar 73% RM' }],
     'seed — "RPE≥8 en squat → bajar a 73% RM"',
@@ -256,7 +256,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-rpe-accessory',
     'medium',
-    'pablo',
+    'coach',
     [{ metric: 'rpe_live', operator: op('>'), value: 6, unit: '0-10', window: 'session' }],
     [{ verb: 'cut_sets', paramsLabel: 'cortar a 3×4' }],
     'seed #6 — "RPE>6 en serie 1 de accesorio → 3×4"',
@@ -264,7 +264,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-pace-drift',
     'high',
-    'pablo',
+    'coach',
     [
       {
         metric: 'pace_drift_intra',
@@ -280,7 +280,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-pace-consistency',
     'medium',
-    'pablo',
+    'coach',
     [{ metric: 'pace_consistency', operator: op('>'), value: 5, unit: 's/km', window: 'session' }],
     [{ verb: 'cut_reps', paramsLabel: 'cortar a 4' }],
     'seed #3 — "consistencia de ritmo >5 s/km → cortar a 4 reps"',
@@ -288,7 +288,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-hr-ceiling',
     'high',
-    'pablo',
+    'coach',
     [
       { metric: 'hr_zone_current', operator: op('>='), value: 3, unit: 'zona 1-5' },
       { metric: 'hr_above_ceiling_duration', operator: op('>'), value: 120, unit: 's' },
@@ -299,7 +299,7 @@ export const INTRA_SESSION_RULES_DEFAULT: RuleVM[] = [
   intra(
     'intra-time-in-zone',
     'medium',
-    'pablo',
+    'coach',
     [{ metric: 'time_in_zone_pct', operator: op('<'), value: 80, unit: '%', window: 'session' }],
     [{ verb: 'lower_next_week', paramsLabel: 'ritmo +10 s/km' }],
     'seed #2 — "tiempo en Z2 <80% → bajar ritmo +10 s/km la semana que viene"',

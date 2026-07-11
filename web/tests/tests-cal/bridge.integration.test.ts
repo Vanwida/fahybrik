@@ -14,7 +14,7 @@
  */
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
-import { FABRIK_WEEK1_BATTERY } from '@fahybrid/shared/domain/coach/test-battery';
+import { DEFAULT_CALIBRATION_BATTERY } from '@fahybrid/shared/domain/coach/test-battery';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
@@ -54,7 +54,7 @@ async function makeCalibrationAssignment(
   protocolSlug: string,
   microcycleId: number,
 ): Promise<number> {
-  const p = FABRIK_WEEK1_BATTERY.find((x) => x.slug === protocolSlug)!;
+  const p = DEFAULT_CALIBRATION_BATTERY.find((x) => x.slug === protocolSlug)!;
   const rows = await fx.sql<Array<{ id: string }>>`
     insert into templates (coach_id, name, format, target_block, version, meta_json)
     values (

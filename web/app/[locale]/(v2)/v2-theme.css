@@ -6,7 +6,7 @@
    must not bleed into it. A v2 page mounts a single `.v2-root` wrapper carrying
    `data-theme="dark|light"`; all v2 surfaces read these vars and nothing else.
 
-   Both palettes share the SAME Fabrik orange accent (#F06A2A) so the brand reads
+   Both palettes share the SAME brand orange accent (#F06A2A) so the brand reads
    identically in either mode. Dark = near-black surfaces matching the current app.
    Light = warm off-white (NOT pure #fff) with ink text, AA-legible. Fonts reuse the
    families already loaded at the app root (Archivo italic-black display, Geist UI,
@@ -15,9 +15,9 @@
 
 .v2-root {
   /* ── Brand accent — IDENTICAL in both themes (the one constant) ──────────── */
-  --v2-accent: #f06a2a; /* Fabrik orange */
+  --v2-accent: #f06a2a; /* "naranja" — color de marca HEREDADO (en retirada; no usar en superficies nuevas) */
   --v2-accent-press: #d85a20;
-  /* Text/icon color that sits ON an accent fill. Black-on-orange is the Fabrik
+  /* Text/icon color that sits ON an accent fill. Black-on-orange is the brand
      wordmark relationship and clears AA (~6.5:1) in both themes. */
   --v2-accent-fg: #0a0a0a;
 
@@ -65,6 +65,9 @@
 
   /* Accent tint (orange-washed surface for active / brand fills). */
   --v2-accent-soft: rgba(240, 106, 42, 0.14);
+
+  /* Modal / drawer scrim. On the near-black canvas a solid dim reads fine. */
+  --v2-scrim: rgba(0, 0, 0, 0.6);
 
   /* Semantic — derived from the app's #3FC773 / #F2A52E / #F23F3F / #4D9EEB.
      Dark variants stay close to source (already legible on near-black). */
@@ -122,6 +125,12 @@
   --v2-faint: #9a9089; /* tertiary (AA for large/UI only) */
 
   --v2-accent-soft: rgba(240, 106, 42, 0.12);
+
+  /* Modal / drawer scrim — MUCH lighter than dark: a solid 60% black over the
+     warm off-white canvas read as a harsh black slab (the modal made the editor
+     look "dark"). A soft warm-ink veil + the dialog's own shadow give focus
+     without dimming the surface to black. */
+  --v2-scrim: rgba(28, 25, 23, 0.35);
 
   /* Semantic — DARKENED variants so colored text/icons clear 4.5:1 on the
      light canvas (the dark-mode greens/ambers are too pale on off-white). */
@@ -182,7 +191,7 @@
   min-height: 100dvh;
 }
 
-/* Italic-black display heading — the Fabrik wordmark voice. */
+/* Italic-black display heading — the brand wordmark voice. */
 .v2-display {
   font-family: var(--v2-font-display);
   font-weight: 900;

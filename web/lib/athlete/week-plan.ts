@@ -12,6 +12,7 @@
 // no assignment.
 // =============================================================================
 
+import { z } from 'zod';
 import {
   addDays,
   isoDateString,
@@ -19,6 +20,11 @@ import {
   parseIsoDate,
   startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import {
+  recoverySuggestionSchema,
+  type RecoverySuggestion,
+  type WeekDayKind,
+} from '@fahybrid/shared/schema/program-templates';
 import { sql } from '@/lib/db';
 
 export interface AthleteWeekDaySession {
@@ -44,6 +50,25 @@ export interface AthleteWeekDay {
   iso_date: string;
   sessions: AthleteWeekDaySession[];
   is_rest: boolean;
+  /**
+   * Día TIPADO (workout | rest) para que iOS/coach lo distingan sin re-derivar del
+   * conteo de sesiones. Se deriva de la MATERIALIZACIÓN: un día con ≥1 sesión
+   * asignada es 'workout'; sin asignaciones es 'rest'. Post-materialización, para
+   * el atleta "vacío" y "descanso" coinciden — sus días de descanso salen de SU
+   * disponibilidad (availability_json), no de la plantilla — así que rest = sin
+   * sesiones. Extensible a 'test'|'competition' en el futuro (no implementado;
+   * `is_test` ya viaja por sesión). `is_rest` se mantiene por retro-compatibilidad.
+   */
+  kind: WeekDayKind;
+  /**
+   * Sugerencias de RECUPERACIÓN (oferta blanda del coach) para un día de descanso.
+   * Vacío en días de entreno y en descansos sin sugerencias. El coach las autora
+   * por weekday canónico en la plantilla; aquí se exponen en el día de descanso del
+   * atleta del MISMO weekday (los descansos del atleta salen de su disponibilidad,
+   * así que el match es por weekday — si no coincide, se degrada a vacío, nunca se
+   * inventa). NO es un entreno: no cuenta adherencia, sin intensidad/carga.
+   */
+  recovery_suggestions: RecoverySuggestion[];
 }
 
 export interface AthleteWeekPlan {
@@ -150,17 +175,19 @@ export async function buildAthleteWeekPlan(
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const [microciclo_name, focus, has_next_week, pausedState] = await Promise.all([
+  const [microciclo_name, weekMeta, has_next_week, pausedState] = await Promise.all([
     resolveMicrocicloName(microcycleId),
-    // Coach-authored "Foco de la semana" — the athlete-facing focus line for
-    // THIS week (program_week_templates.focus), resolved through the assignment.
-    resolveWeekFocus(microcycleId),
+    // Coach-authored week meta from the source week template, resolved through the
+    // assignment in ONE query: the athlete-facing "Foco de la semana"
+    // (program_week_templates.focus) AND the per-rest-day recovery suggestions (#47).
+    resolveWeekTemplateMeta(microcycleId),
     // Whether the athlete can peek a NEXT week with real, published content
     // (drives the "Próxima semana" affordance). Relative to the returned week.
     hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
     // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
     loadPausedState(athlete_id),
   ]);
+  const focus = weekMeta.focus;
 
   // C35 — partner_visibility is exposed as-is. The DB filter by athlete_id
   // already isolates each user's sessions, so the only rows here belong to
@@ -209,6 +236,15 @@ export async function buildAthleteWeekPlan(
         };
       }),
       is_rest: daySessions.length === 0,
+      // Día TIPADO (#47): sin asignaciones ⇒ 'rest', si no 'workout'. Para el
+      // atleta, un día sin sesiones ES descanso (sus días libres salen de su
+      // disponibilidad), así que rest = ausencia de sesiones.
+      kind: (daySessions.length > 0 ? 'workout' : 'rest') as WeekDayKind,
+      // Recuperación (oferta blanda): solo en días de descanso, tomada de la
+      // plantilla por weekday canónico. Vacío si el día es de entreno o no hay
+      // sugerencias para ese weekday.
+      recovery_suggestions:
+        daySessions.length === 0 ? (weekMeta.recoveryByDow.get(dow) ?? []) : [],
     };
   });
 
@@ -267,21 +303,33 @@ async function loadPausedState(
   };
 }
 
+type WeekTemplateMeta = {
+  /** Athlete-facing "Foco de la semana" (program_week_templates.focus), or null. */
+  focus: string | null;
+  /**
+   * Recovery suggestions keyed by the template's CANONICAL weekday (1=Mon..7=Sun).
+   * Only rest days that carry suggestions appear. The athlete read-path attaches
+   * these to its rest day of the SAME weekday (honest weekday match — no invention).
+   */
+  recoveryByDow: Map<number, RecoverySuggestion[]>;
+};
+
 /**
- * Resolve THIS week's athlete-facing focus = the coach's `program_week_templates.focus`
- * for the week template that materialized into this microcycle. The materializer
- * pushes one microcycle per week in position order into
- * `athlete_month_assignments.microcycle_ids[]`, so the microcycle's 1-based index
- * in that array is the week's position within the month. We pick the Nth week
- * template by `program_month_weeks.position` (OFFSET N-1) to stay agnostic of
- * whether positions are 0- or 1-based. Null when the microcycle isn't part of a
- * month assignment (free-planned week) or the week has no focus — the athlete
- * then simply sees no focus line, never an invented one.
+ * Resolve THIS week's coach-authored meta = the `program_week_templates` row that
+ * materialized into this microcycle: its athlete-facing `focus` line AND its
+ * per-rest-day recovery suggestions, in ONE query. The materializer pushes one
+ * microcycle per week in position order into `athlete_month_assignments.microcycle_ids[]`,
+ * so the microcycle's 1-based index there is the week's position within the month.
+ * We pick the Nth week template by `program_month_weeks.position` (OFFSET N-1) to
+ * stay agnostic of whether positions are 0- or 1-based. Empty (focus null, empty
+ * map) when the microcycle isn't part of a month assignment (free-planned week) —
+ * the athlete then sees no focus/recovery, never invented ones.
  */
-async function resolveWeekFocus(microcycleId: string | null): Promise<string | null> {
-  if (!microcycleId) return null;
-  const rows = await sql<Array<{ focus: string | null }>>`
-    select w.focus
+async function resolveWeekTemplateMeta(microcycleId: string | null): Promise<WeekTemplateMeta> {
+  const empty: WeekTemplateMeta = { focus: null, recoveryByDow: new Map() };
+  if (!microcycleId) return empty;
+  const rows = await sql<Array<{ focus: string | null; slots_json: unknown }>>`
+    select w.focus, w.slots_json
     from athlete_month_assignments ama
     join lateral (
       select pmw.week_template_id
@@ -295,8 +343,34 @@ async function resolveWeekFocus(microcycleId: string | null): Promise<string | n
     where ${microcycleId}::bigint = any(ama.microcycle_ids)
     limit 1
   `;
-  const focus = rows[0]?.focus?.trim();
-  return focus ? focus : null;
+  const row = rows[0];
+  if (!row) return empty;
+  const focus = row.focus?.trim();
+  return {
+    focus: focus ? focus : null,
+    recoveryByDow: extractRecoveryByDow(row.slots_json),
+  };
+}
+
+/**
+ * Extract a map dow → recovery suggestions from a week template's slots_json. Only
+ * days that actually carry suggestions land in the map; each list is validated
+ * (recoverySuggestionSchema) so a malformed stored shape degrades to nothing, never
+ * a fabricated hint. Recovery is a rest-day-only concept (the write path enforces
+ * it), so we simply read whatever suggestions a day carries.
+ */
+function extractRecoveryByDow(slotsJson: unknown): Map<number, RecoverySuggestion[]> {
+  const out = new Map<number, RecoverySuggestion[]>();
+  const days = (slotsJson as { days?: unknown[] } | null)?.days;
+  if (!Array.isArray(days)) return out;
+  for (const d of days) {
+    const day = d as { day_of_week?: unknown; recovery_suggestions?: unknown };
+    const dow = Number(day.day_of_week);
+    if (!Number.isInteger(dow) || dow < 1 || dow > 7) continue;
+    const parsed = z.array(recoverySuggestionSchema).safeParse(day.recovery_suggestions);
+    if (parsed.success && parsed.data.length > 0) out.set(dow, parsed.data);
+  }
+  return out;
 }
 
 /**

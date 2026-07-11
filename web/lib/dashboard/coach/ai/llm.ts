@@ -3,10 +3,10 @@ import 'server-only';
 import { recordLlmInvocation } from '@/lib/observability/llm-cost';
 
 /**
- * Pablo IA LLM wiring — compartido por suggest-workout y suggest-week.
+ * Coach IA LLM wiring — compartido por suggest-workout y suggest-week.
  *
  * Brain rule: NEVER hardcode model/provider. Alex picks via env.
- * Si no hay env → isPabloIaLlmConfigured() devuelve false → fallback heurístico
+ * Si no hay env → isCoachIaLlmConfigured() devuelve false → fallback heurístico
  * (no LLM-impostor: siempre seleccionamos templates reales del catálogo).
  *
  * Wire genérico OpenRouter-compatible (fetch directo, sin SDKs extra).
@@ -14,22 +14,22 @@ import { recordLlmInvocation } from '@/lib/observability/llm-cost';
  * unifique, ese módulo importará desde aquí.
  */
 
-export function isPabloIaLlmConfigured(): boolean {
-  const model = process.env.PABLO_IA_MODEL?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
+export function isCoachIaLlmConfigured(): boolean {
+  const model = (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
   const key =
-    process.env.PABLO_IA_API_KEY?.trim() ??
+    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
     process.env.LLM_API_KEY?.trim() ??
     process.env.OPENROUTER_API_KEY?.trim();
   return Boolean(model && key);
 }
 
-export class PabloIaLlmError extends Error {
+export class CoachIaLlmError extends Error {
   constructor(
     public readonly code: 'unconfigured' | 'http' | 'empty' | 'invalid_json',
     message: string,
   ) {
     super(message);
-    this.name = 'PabloIaLlmError';
+    this.name = 'CoachIaLlmError';
   }
 }
 
@@ -49,17 +49,17 @@ interface CallArgs {
   };
 }
 
-export async function callPabloIaLlmJson(args: CallArgs): Promise<unknown> {
-  if (!isPabloIaLlmConfigured()) {
-    throw new PabloIaLlmError('unconfigured', 'Pablo IA LLM no configurado');
+export async function callCoachIaLlmJson(args: CallArgs): Promise<unknown> {
+  if (!isCoachIaLlmConfigured()) {
+    throw new CoachIaLlmError('unconfigured', 'Coach IA LLM no configurado');
   }
 
-  const provider = (process.env.PABLO_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
+  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
-  const model = (process.env.PABLO_IA_MODEL ?? process.env.LLM_CHAT_MODEL)!.trim();
+  const model = ((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL) ?? process.env.LLM_CHAT_MODEL)!.trim();
   const apiKey = (
-    process.env.PABLO_IA_API_KEY ??
+    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY
   )!.trim();
@@ -99,9 +99,9 @@ export async function callPabloIaLlmJson(args: CallArgs): Promise<unknown> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new PabloIaLlmError(
+    throw new CoachIaLlmError(
       'http',
-      `Pablo IA LLM request failed (${res.status}): ${text || res.statusText}`,
+      `Coach IA LLM request failed (${res.status}): ${text || res.statusText}`,
     );
   }
   const json = (await res.json()) as {
@@ -125,7 +125,7 @@ export async function callPabloIaLlmJson(args: CallArgs): Promise<unknown> {
   }
 
   const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new PabloIaLlmError('empty', 'Pablo IA LLM response empty');
+  if (!content) throw new CoachIaLlmError('empty', 'Coach IA LLM response empty');
 
   return parseJsonLenient(content);
 }
@@ -137,7 +137,7 @@ export async function callPabloIaLlmJson(args: CallArgs): Promise<unknown> {
 // another app's summary). The MODEL is passed in by the caller (read from env,
 // NEVER hardcoded) so a single multimodal model (text+image) serves it.
 //
-// Provider/base/key resolution mirrors callPabloIaLlmJson exactly (OpenRouter by
+// Provider/base/key resolution mirrors callCoachIaLlmJson exactly (OpenRouter by
 // default: LLM_BASE_URL + OPENROUTER_API_KEY). `fetchImpl` is injectable for tests.
 export async function callLlmJsonWithImage(args: {
   model: string;
@@ -155,16 +155,16 @@ export async function callLlmJsonWithImage(args: {
   fetchImpl?: typeof fetch;
 }): Promise<unknown> {
   const fetchImpl = args.fetchImpl ?? fetch;
-  const provider = (process.env.PABLO_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
+  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
   const apiKey = (
-    process.env.PABLO_IA_API_KEY ??
+    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY ??
     ''
   ).trim();
-  if (!apiKey) throw new PabloIaLlmError('unconfigured', 'LLM API key no configurada');
+  if (!apiKey) throw new CoachIaLlmError('unconfigured', 'LLM API key no configurada');
 
   const baseUrl =
     process.env.LLM_BASE_URL?.trim() ??
@@ -208,7 +208,7 @@ export async function callLlmJsonWithImage(args: {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new PabloIaLlmError(
+    throw new CoachIaLlmError(
       'http',
       `LLM vision request failed (${res.status}): ${text || res.statusText}`,
     );
@@ -234,7 +234,7 @@ export async function callLlmJsonWithImage(args: {
   }
 
   const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new PabloIaLlmError('empty', 'LLM vision response empty');
+  if (!content) throw new CoachIaLlmError('empty', 'LLM vision response empty');
 
   return parseJsonLenient(content);
 }
@@ -273,5 +273,5 @@ export function parseJsonLenient(content: string): unknown {
     if (obj !== null) return obj;
   }
 
-  throw new PabloIaLlmError('invalid_json', 'Pablo IA LLM JSON inválido');
+  throw new CoachIaLlmError('invalid_json', 'Coach IA LLM JSON inválido');
 }

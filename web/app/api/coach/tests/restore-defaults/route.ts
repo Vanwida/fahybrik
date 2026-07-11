@@ -5,8 +5,8 @@ import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// POST /api/coach/tests/restore-defaults — (re)seed the four FABRIK default tests
-// for this coach from FABRIK_WEEK1_BATTERY. Idempotent; never touches custom tests.
+// POST /api/coach/tests/restore-defaults — (re)seed the four default calibration tests
+// for this coach from DEFAULT_CALIBRATION_BATTERY. Idempotent; never touches custom tests.
 // Returns { created, restored, tests }.
 export async function POST() {
   const session = await getCoachSession();

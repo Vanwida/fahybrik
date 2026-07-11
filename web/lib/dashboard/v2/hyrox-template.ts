@@ -265,14 +265,15 @@ export function inferVariant(items: EditorItem[]): HyroxVariant | null {
 // ── Block factory ────────────────────────────────────────────────────────────
 const DEFAULT_VARIANT: HyroxVariant = 'open';
 
-/** Build a ready, pre-seeded "Simulación HYROX" block (16 ordered items). */
-export function createHyroxSimBlock(group: StructureGroup): EditorBlock {
+/** Build a ready, pre-seeded "Simulación HYROX" block (16 ordered items). `group`
+ *  is optional — the agnostic day editor omits it (flat list, no imposed sections). */
+export function createHyroxSimBlock(group?: StructureGroup): EditorBlock {
   return {
     uid: `hyrox-sim-${Date.now()}`,
     title: 'Simulación HYROX',
     format: 'hyrox_sim',
     archetype_id: 'hyrox_sim',
-    group,
+    ...(group ? { group } : {}),
     items: buildHyroxItems(DEFAULT_VARIANT),
   };
 }

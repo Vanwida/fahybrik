@@ -14,7 +14,7 @@ import {
   type WeeklyEvaluationResult,
   type WeeklyVerdict,
 } from '@fahybrid/shared/domain/coach/weekly-evaluation';
-import { type AthleteContextPack } from './pablo-ia-context';
+import { type AthleteContextPack } from './coach-ia-context';
 import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
@@ -114,7 +114,7 @@ export async function proposeWeekAdjustment(params: {
       slot_changes: [],
       coach_summary: evaluation.context_pack.summary,
     });
-  } else if (isPabloIaLlmConfigured()) {
+  } else if (isCoachIaLlmConfigured()) {
     try {
       proposal = await buildLlmProposal({
         coach_id: params.coach_id,
@@ -125,7 +125,7 @@ export async function proposeWeekAdjustment(params: {
       });
     } catch (err) {
       console.warn(
-        '[propose-week-adjustment] Pablo IA LLM failed, fallback to heuristic:',
+        '[propose-week-adjustment] Coach IA LLM failed, fallback to heuristic:',
         err instanceof Error ? err.message : err,
       );
       proposal = await buildHeuristicProposal({
@@ -237,7 +237,7 @@ async function buildHeuristicProposal(params: {
 
   return weekAdjustmentProposalJsonSchema.parse({
     recommendation: slotChanges.length > 0 ? 'soften' : 'keep',
-    rationale: `Pablo IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
+    rationale: `Coach IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
     slot_changes: slotChanges,
     coach_summary: slotChanges.length
       ? 'Va mal — suavizar primera sesión dura de la semana.'
@@ -247,15 +247,15 @@ async function buildHeuristicProposal(params: {
 
 // --------------------------------------------------------------------------
 // LLM wiring — Brain rule: NEVER hardcode model/provider. Alex picks via env.
-// Si no hay env → isPabloIaLlmConfigured() devuelve false → fallback heurístico.
+// Si no hay env → isCoachIaLlmConfigured() devuelve false → fallback heurístico.
 // Wire genérico OpenRouter-compatible (fetch directo, sin SDKs extra).
 // --------------------------------------------------------------------------
 
-function isPabloIaLlmConfigured(): boolean {
+function isCoachIaLlmConfigured(): boolean {
   const model =
-    process.env.PABLO_IA_MODEL?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
+    (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
   const key =
-    process.env.PABLO_IA_API_KEY?.trim() ??
+    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
     process.env.LLM_API_KEY?.trim() ??
     process.env.OPENROUTER_API_KEY?.trim();
   return Boolean(model && key);
@@ -326,7 +326,7 @@ async function buildLlmProposal(params: {
   // Cuando se unifiquen, importar retrieveRelevant aquí también.
   const rag_snippets: string[] = [];
 
-  const raw = await callPabloIaLlm({
+  const raw = await callCoachIaLlm({
     context_pack: params.context_pack,
     rag_snippets,
     base_week: baseWeek,
@@ -353,13 +353,13 @@ type LlmCallArgs = {
 
 function buildSystemPrompt(): string {
   return [
-    'Eres Pablo IA, coach senior de HYROX y entrenamiento híbrido del Fabrik Training Club Barcelona.',
+    'Eres un coach senior de HYROX y entrenamiento híbrido.',
     'Tu único output es un objeto JSON válido con este shape exacto:',
     '{',
     '  "recommendation": "keep" | "soften" | "swap" | "rest_day",',
     '  "rationale": string (máx 2000 caracteres, en español),',
     '  "slot_changes": Array<{ date: "YYYY-MM-DD", slot: "am"|"pm", from_template_id: string|null, to_template_id: string|null }>,',
-    '  "coach_summary": string (máx 500 caracteres, en español, accionable para Pablo)',
+    '  "coach_summary": string (máx 500 caracteres, en español, accionable para el coach)',
     '}',
     'Reglas:',
     '- Conservador. Si dudas, recomienda "soften", no "swap".',
@@ -383,13 +383,13 @@ function buildUserPrompt(args: LlmCallArgs): string {
   );
 }
 
-async function callPabloIaLlm(args: LlmCallArgs): Promise<unknown> {
-  const provider = (process.env.PABLO_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
+async function callCoachIaLlm(args: LlmCallArgs): Promise<unknown> {
+  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
-  const model = (process.env.PABLO_IA_MODEL ?? process.env.LLM_CHAT_MODEL)!.trim();
+  const model = ((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL) ?? process.env.LLM_CHAT_MODEL)!.trim();
   const apiKey = (
-    process.env.PABLO_IA_API_KEY ??
+    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY
   )!.trim();
@@ -429,7 +429,7 @@ async function callPabloIaLlm(args: LlmCallArgs): Promise<unknown> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Pablo IA LLM request failed (${res.status}): ${text || res.statusText}`);
+    throw new Error(`Coach IA LLM request failed (${res.status}): ${text || res.statusText}`);
   }
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
@@ -452,6 +452,6 @@ async function callPabloIaLlm(args: LlmCallArgs): Promise<unknown> {
   }
 
   const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Pablo IA LLM response empty');
+  if (!content) throw new Error('Coach IA LLM response empty');
   return JSON.parse(content);
 }

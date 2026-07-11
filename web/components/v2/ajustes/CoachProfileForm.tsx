@@ -232,7 +232,7 @@ export function CoachProfileForm({ initial }: { initial: CoachProfile }) {
             type="text"
             value={form.studio_name}
             maxLength={COACH_PROFILE_LIMITS.studio}
-            placeholder="Fabrik Training Club Barcelona"
+            placeholder="Ej: nombre de tu club o estudio"
             onChange={(e) => set('studio_name', e.target.value)}
             className={FIELD}
           />

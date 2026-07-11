@@ -12,7 +12,7 @@
 // a TriageCard and a roster row paint the same signal identically (SPEC §9
 // "color + icono + label" — never color alone, WCAG 1.4.1).
 //
-// HARD RULE (SPEC §6/§9): the Fabrik orange `--accent` is brand/selection only
+// HARD RULE (SPEC §6/§9): the brand orange `--accent` is brand/selection only
 // and is NEVER a status tier. Status uses the green/amber/red/blue/grey scale.
 //
 // Icons are Material Symbols name strings (the dashboard's icon system — see

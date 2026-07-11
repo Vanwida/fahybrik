@@ -1,6 +1,6 @@
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { isPabloIaLlmConfigured } from '@/lib/dashboard/coach/ai/llm';
+import { isCoachIaLlmConfigured } from '@/lib/dashboard/coach/ai/llm';
 import { SuggestWeekError, suggestWeekPlan } from '@/lib/dashboard/coach/ai/suggest-week';
 
 export const runtime = 'nodejs';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 180;
 
 export async function GET() {
-  return jsonOk({ llm_configured: isPabloIaLlmConfigured() });
+  return jsonOk({ llm_configured: isCoachIaLlmConfigured() });
 }
 
 export async function POST(request: Request) {

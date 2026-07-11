@@ -3,7 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { type AthleteContextPack } from './pablo-ia-context';
+import { type AthleteContextPack } from './coach-ia-context';
 import { evaluateAthleteWeek } from './weekly-evaluation';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { chatCompletion, isChatConfigured } from './ai-chat';
@@ -41,23 +41,23 @@ export class WeekAdjustmentError extends Error {
 // --------------------------------------------------------------------------
 //
 // Two-tier config:
-//   1) PABLO_IA_MODEL  → optional override SOLO para esta tarea (semana adapt)
+//   1) COACH_IA_MODEL (o PABLO_IA_MODEL, fallback) → optional override SOLO para esta tarea (semana adapt)
 //   2) Fallback: LLM_CHAT_MODEL + LLM_API_KEY (shared OpenRouter wiring,
 //      same as ai-chat). Reusamos chatCompletion() en lugar de duplicar fetch.
 //
 // Si nada está configurado o la llamada falla → fallback heurístico
 // (comportamiento actual, cero regresión).
 
-function isPabloIaLlmConfigured(): boolean {
-  // Si Alex puso PABLO_IA_MODEL + alguna API key específica → ready.
-  const hasPabloOverride =
-    Boolean(process.env.PABLO_IA_MODEL?.trim()) &&
+function isCoachIaLlmConfigured(): boolean {
+  // Si Alex puso COACH_IA_MODEL (o PABLO_IA_MODEL) + alguna API key específica → ready.
+  const hasCoachIaOverride =
+    Boolean((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim()) &&
     Boolean(
-      process.env.PABLO_IA_API_KEY?.trim() ??
+      (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
         process.env.LLM_API_KEY?.trim() ??
         process.env.OPENROUTER_API_KEY?.trim(),
     );
-  if (hasPabloOverride) return true;
+  if (hasCoachIaOverride) return true;
   // Si no, reutiliza el chat estándar.
   return isChatConfigured();
 }
@@ -112,7 +112,7 @@ async function retrieveMethodologySnippets(params: {
       .join(' ');
     const chunks = await retrieveRelevant({
       coach_id: BigInt(params.coach_id as number),
-      query: query || 'ajuste semanal HYROX metodología Pablo',
+      query: query || 'ajuste semanal HYROX metodología del coach',
       top_k: params.top_k ?? 2,
     });
     return chunks.map((c) => c.content.slice(0, 600));
@@ -176,13 +176,13 @@ type LlmCallArgs = {
 
 function buildSystemPrompt(): string {
   return [
-    'Eres Pablo IA, coach senior de HYROX y entrenamiento híbrido del Fabrik Training Club Barcelona.',
+    'Eres un coach senior de HYROX y entrenamiento híbrido.',
     'Tu único output es un objeto JSON válido con este shape exacto:',
     '{',
     '  "recommendation": "keep" | "soften" | "swap" | "rest_day",',
     '  "rationale": string (máx 2000 caracteres, en español),',
     '  "slot_changes": Array<{ date: "YYYY-MM-DD", slot: "am"|"pm", from_template_id: string|null, to_template_id: string|null }>,',
-    '  "coach_summary": string (máx 500 caracteres, en español, accionable para Pablo)',
+    '  "coach_summary": string (máx 500 caracteres, en español, accionable para el coach)',
     '}',
     'Reglas:',
     '- Conservador. Si dudas, recomienda "soften", no "swap".',
@@ -206,13 +206,13 @@ function buildUserPrompt(args: LlmCallArgs): string {
   );
 }
 
-async function callPabloIaLlm(args: LlmCallArgs): Promise<WeekAdjustmentProposalJson> {
-  // Override puntual de modelo para Pablo IA si Alex lo setea. Si no,
+async function callCoachIaLlm(args: LlmCallArgs): Promise<WeekAdjustmentProposalJson> {
+  // Override puntual de modelo para la IA del coach si Alex lo setea. Si no,
   // chatCompletion() lee LLM_CHAT_MODEL del entorno (estándar del repo).
   const prevModel = process.env.LLM_CHAT_MODEL;
   const prevKey = process.env.LLM_API_KEY;
-  const override = process.env.PABLO_IA_MODEL?.trim();
-  const overrideKey = process.env.PABLO_IA_API_KEY?.trim();
+  const override = (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim();
+  const overrideKey = (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim();
   try {
     if (override) process.env.LLM_CHAT_MODEL = override;
     if (overrideKey) process.env.LLM_API_KEY = overrideKey;
@@ -296,7 +296,7 @@ export async function proposeWeekAdjustment(params: {
       slot_changes: [],
       coach_summary: evaluation.context_pack.summary,
     } satisfies WeekAdjustmentProposalJson;
-  } else if (isPabloIaLlmConfigured()) {
+  } else if (isCoachIaLlmConfigured()) {
     // Va mal + LLM disponible → intento LLM, fallback heurístico si falla.
     try {
       const [ragSnippets, baseWeek, alternatives] = await Promise.all([
@@ -312,7 +312,7 @@ export async function proposeWeekAdjustment(params: {
         }),
         loadAlternativeTemplates({ coach_id: params.coach_id, client, limit: 10 }),
       ]);
-      proposal = await callPabloIaLlm({
+      proposal = await callCoachIaLlm({
         context_pack: evaluation.context_pack,
         rag_snippets: ragSnippets,
         base_week: baseWeek,
@@ -322,7 +322,7 @@ export async function proposeWeekAdjustment(params: {
       });
     } catch (err) {
       console.warn(
-        '[propose-week-adjustment] Pablo IA LLM failed, fallback to heuristic:',
+        '[propose-week-adjustment] Coach IA LLM failed, fallback to heuristic:',
         err instanceof Error ? err.message : err,
       );
       proposal = await buildHeuristicProposal({
@@ -455,7 +455,7 @@ async function buildHeuristicProposal(params: {
 
   return weekAdjustmentProposalJsonSchema.parse({
     recommendation: slotChanges.length > 0 ? 'soften' : 'keep',
-    rationale: `Pablo IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
+    rationale: `Coach IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
     slot_changes: slotChanges,
     coach_summary: slotChanges.length
       ? 'Va mal — suavizar primera sesión dura de la semana.'

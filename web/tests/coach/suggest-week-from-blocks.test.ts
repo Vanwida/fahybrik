@@ -1,5 +1,5 @@
 /**
- * Pablo IA — composición de semana desde la BIBLIOTECA DE BLOQUES (0037).
+ * Coach IA — composición de semana desde la BIBLIOTECA DE BLOQUES (0037).
  *
  * Dos capas:
  *   1) Funciones puras (sin DB): el heurístico determinista compone día/semana

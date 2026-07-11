@@ -1,22 +1,17 @@
-'use client';
+// FinalCta — the closing, full-bleed section (#empieza). A bookend to the hero, now on
+// a real photograph: an athlete just past the finish at HYROX Paris, wearing the
+// FAHYBRID Program kit. The image is already graded to the brand duotono, so it needs
+// no accent overlay — only scrims to seal it into the page and settle the centered copy.
+//
+// It's below the fold, so the photo is LAZY (no priority) — the opposite of the hero.
+//
+// Full-bleed by design: it does NOT use the <Section> padding primitive. It owns its own
+// near-full-height, centered layout so the close reads dramatic.
+//
+// Motion: only the KineticHeadline (reduced-motion-safe) and the Reveal wrappers. The
+// scrims + grain are static CSS, aria-hidden and pointer-events-none. No orange glow.
 
-// FinalCta — the closing, full-bleed section (#empieza). A bookend to the hero:
-// near-black bg with a faint warm orange glow + subtle film grain, a giant FAHYBRID
-// watermark behind, and a centered kinetic headline → big primary CTA.
-//
-// Full-bleed by design: it does NOT use the <Section> padding primitive (which caps
-// width + sets its own vertical rhythm). It owns its own near-full-height layout so
-// the close reads dramatic. Width-capped inner is handled locally.
-//
-// Motion: only the KineticHeadline (already reduced-motion-safe — it no-ops the
-// transform when prefers-reduced-motion is set) and the Reveal wrappers (same). The
-// orange glow, grain and watermark are static CSS — nothing bespoke to guard. No
-// top-level gsap/lenis/ogl; the only animated children are the client primitives.
-//
-// COLOR CONTRACT: orange (--accent) appears ONLY as the brand watermark tint, the
-// ambient glow, the CTA fill and the focus ring — never as data. The glow + grain
-// sit behind content with aria-hidden and pointer-events-none.
-
+import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import { ArrowRight } from 'lucide-react';
 
@@ -25,7 +20,7 @@ import { FINAL, SECTION_IDS } from '@/lib/landing/content';
 import { CHOOSE_PLAN_HREF } from '@/lib/landing/cta';
 import { KineticHeadline } from '@/components/landing/primitives/KineticHeadline';
 import { Reveal } from '@/components/landing/primitives/Reveal';
-import { FahybridMark } from '@/components/landing/FahybridMark';
+import { TrustLine } from '@/components/landing/TrustLine';
 
 const HEADING_ID = `${SECTION_IDS.empieza}-heading`;
 
@@ -34,38 +29,32 @@ export function FinalCta() {
     <section
       id={SECTION_IDS.empieza}
       aria-labelledby={HEADING_ID}
-      className="relative isolate flex min-h-[88vh] w-full flex-col items-center justify-center overflow-hidden bg-[color:var(--bg)] px-6 py-32 text-center md:py-44"
+      className="relative isolate flex min-h-[92svh] w-full flex-col items-center justify-center overflow-hidden bg-[color:var(--bg)] px-6 py-32 text-center md:py-44"
     >
-      {/* Ambient warm glow — radial orange bloom rising from the lower-centre. */}
+      {/* Closing photograph (lazy — below the fold). object-position frames the two
+          runners' faces under the headline. */}
+      <Image
+        src={FINAL.photo.src}
+        alt={FINAL.photo.alt}
+        fill
+        sizes="100vw"
+        className="-z-20 object-cover object-[center_30%]"
+      />
+
+      {/* Uniform darken so the centered text holds over any part of the frame. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-black/45" />
+
+      {/* Top + bottom scrims → solid --bg, sealing the bookend into the page. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(60% 55% at 50% 78%, color-mix(in oklab, var(--accent) 22%, transparent) 0%, transparent 70%)',
+            'linear-gradient(180deg, var(--bg) 0%, transparent 24%, transparent 76%, var(--bg) 100%)',
         }}
       />
 
-      {/* Hairline-thin top edge so the bookend visually seals off the page. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-px bg-[color:var(--hairline)]"
-      />
-
-      {/* Giant FAHYBRID watermark, very low opacity, behind everything. The mark
-          carries its own role="img"+aria-label, so it's wrapped in an aria-hidden,
-          presentational span to keep it out of the accessibility tree here. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
-      >
-        <FahybridMark
-          color="var(--accent)"
-          className="h-[clamp(7rem,28vw,18rem)] opacity-[0.04]"
-        />
-      </span>
-
-      {/* Film grain overlay — subtle, above the glow but below text. */}
+      {/* Film grain — subtle, above the scrims but below text. */}
       <div
         aria-hidden="true"
         className="landing-grain pointer-events-none absolute inset-0 -z-10 opacity-50"
@@ -77,11 +66,11 @@ export function FinalCta() {
           trigger="scroll"
           id={HEADING_ID}
           lines={[...FINAL.headlineLines]}
-          className="text-[clamp(2.2rem,7vw,5.5rem)] text-balance"
+          className="text-[clamp(2.4rem,7vw,5.5rem)] uppercase text-balance"
         />
 
         <Reveal delay={0.1} className="mt-7 max-w-[34rem]">
-          <p className="text-base leading-relaxed text-[color:var(--muted)] md:text-lg">
+          <p className="text-base leading-relaxed text-[color:var(--fg)]/85 md:text-lg">
             {FINAL.sub}
           </p>
         </Reveal>
@@ -105,7 +94,10 @@ export function FinalCta() {
         </Reveal>
 
         <Reveal delay={0.24} className="mt-6">
-          <p className="text-xs text-[color:var(--muted)]">{FINAL.trust}</p>
+          <TrustLine
+            text={FINAL.trust}
+            className="font-mono text-[11px] tracking-[0.14em] text-[color:var(--fg)]/70"
+          />
         </Reveal>
       </div>
     </section>

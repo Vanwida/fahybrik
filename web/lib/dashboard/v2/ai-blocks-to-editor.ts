@@ -52,7 +52,8 @@ export function weekDayPartToEditorBlock(part: WeekDayPart, index = 0): EditorBl
     title: part.title,
     format: part.format,
     methodology_group_id: part.methodology_group_id ?? null,
-    group: inferGroup(part.title, part.format),
+    // Prefer a persisted structure group; infer from title/format otherwise.
+    group: part.group ?? inferGroup(part.title, part.format),
     source_block_id: part.source_block_id ?? null,
     items: (part.items ?? []).map(toEditorItem),
   };
