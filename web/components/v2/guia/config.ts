@@ -309,7 +309,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'herramientas',
     slug: 'importador-de-entrenos',
     title: 'Importar entrenos del Excel',
-    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, con revisión verde/ámbar.',
+    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, y tú eliges qué días entran.',
     built: true,
   },
   {

@@ -15,6 +15,7 @@ import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 
 const TONE_COPY: Record<ReturnType<typeof dayTone>, { label: string; className: string }> = {
   rest: { label: 'Descanso', className: 'text-[color:var(--v2-faint)]' },
+  skipped: { label: 'No se importa', className: 'text-[color:var(--v2-faint)] line-through' },
   ok: { label: 'Tipado', className: 'text-[color:var(--v2-ok)]' },
   review: { label: 'Revisar', className: 'text-[color:var(--v2-warn)]' },
   unresolved: { label: 'Falta ejercicio', className: 'text-[color:var(--v2-danger)]' },
@@ -24,12 +25,15 @@ export function ImportDayReviewDrawer({
   day,
   dayLabel,
   onChangeSession,
+  onChangeIncluded,
   onClose,
 }: {
   day: ReviewDay;
   /** e.g. "Semana 1 · Martes". */
   dayLabel: string;
   onChangeSession: (session: EditorSession) => void;
+  /** Toggle whether this day gets imported at all. */
+  onChangeIncluded: (included: boolean) => void;
   onClose: () => void;
 }) {
   const session = day.session;
@@ -70,6 +74,20 @@ export function ImportDayReviewDrawer({
                 <span className="text-[color:var(--v2-faint)]">Estímulo · </span>
                 {day.stimulus}
               </p>
+            ) : null}
+            {session ? (
+              <button
+                type="button"
+                onClick={() => onChangeIncluded(!day.included)}
+                className={`v2-focus mt-2 inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  day.included
+                    ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
+                    : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]'
+                }`}
+              >
+                <MIcon name={day.included ? 'do_not_disturb_on' : 'add_circle'} size={13} />
+                {day.included ? 'No importar este día' : 'Importar este día'}
+              </button>
             ) : null}
           </div>
           <button

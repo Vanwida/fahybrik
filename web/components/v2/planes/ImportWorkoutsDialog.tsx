@@ -6,9 +6,11 @@
 //             the variant selector (Estándar / Foco fuerza / Foco resistencia,
 //             Fork D) → "Extraer y revisar" POSTs /proposal (saves nothing).
 //   · REVIEW — the weeks×days grid (ImportReviewGrid) where the coach fixes the
-//             amber/red days and maps each imported week to a container week, then
-//             "Confirmar" POSTs /confirm (the only write). Nothing untyped or
-//             unresolved is ever sent — the grid gates the confirm button.
+//             amber/red days, maps each imported week to a container week and
+//             picks WHAT gets imported (per-day / per-week exclusion), then
+//             "Confirmar" POSTs /confirm (the only write). Nothing untyped,
+//             unresolved or excluded is ever sent — the grid gates the confirm
+//             button and buildConfirmBody drops the excluded days/weeks.
 
 import { useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
@@ -189,7 +191,7 @@ export function ImportWorkoutsDialog({
             <h2 className="v2-display text-xl">Importar entrenos</h2>
             <p className="v2-micro mt-0.5">
               {isReview
-                ? 'Revisa antes de guardar — nada entra sin ejercicio del catálogo'
+                ? 'Revisa y elige qué entra — nada se guarda sin ejercicio del catálogo'
                 : 'Del Excel de tu metodología a este microciclo, tipado'}
             </p>
           </div>

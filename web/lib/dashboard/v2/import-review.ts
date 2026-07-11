@@ -28,6 +28,9 @@ export interface ReviewDay {
   /** Editable in the drawer; null = rest / empty (nothing to write). */
   session: EditorSession | null;
   flags: ProposalFlag[];
+  /** Coach's selection — false = leave this day out of the import (not written,
+   *  not counted, its unresolved lines stop blocking confirm). Rest days ignore it. */
+  included: boolean;
 }
 
 export interface ReviewWeek {
@@ -37,11 +40,13 @@ export interface ReviewWeek {
   fell_back: boolean;
   /** Fork B — the container week template this imported week writes into. */
   target_week_id: string | null;
+  /** Coach's selection — false = leave the WHOLE week out (no mapping required). */
+  included: boolean;
   days: ReviewDay[];
 }
 
 /** A day's honest tone for the grid. */
-export type DayTone = 'rest' | 'ok' | 'review' | 'unresolved';
+export type DayTone = 'rest' | 'skipped' | 'ok' | 'review' | 'unresolved';
 
 function fromProposalDay(d: ProposalDay): ReviewDay {
   return {
@@ -50,6 +55,7 @@ function fromProposalDay(d: ProposalDay): ReviewDay {
     stimulus: d.stimulus,
     session: d.session ? structuredClone(d.session) : null,
     flags: d.flags,
+    included: true,
   };
 }
 
@@ -59,6 +65,7 @@ function fromProposalWeek(w: ProposalWeek, defaultTarget: string | null): Review
     sheet: w.sheet,
     fell_back: w.fell_back,
     target_week_id: defaultTarget,
+    included: true,
     days: w.days.map(fromProposalDay),
   };
 }
@@ -88,32 +95,55 @@ function sessionUnresolvedCount(session: EditorSession | null): number {
   return n;
 }
 
-/** The day's tone: rest → grey, any unresolved exercise → red, any review-
- *  confidence line → amber, else green. Recomputed from the LIVE session so
- *  resolving an exercise turns a day green in place. */
-export function dayTone(day: ReviewDay): DayTone {
+/** True when this day would actually be written on confirm. */
+function dayWrites(week: ReviewWeek, day: ReviewDay): boolean {
+  return week.included && day.included && !!day.session;
+}
+
+/** The day's tone: rest → grey, excluded (day or its whole week) → skipped, any
+ *  unresolved exercise → red, any review-confidence line → amber, else green.
+ *  Recomputed from the LIVE session so resolving an exercise turns a day green
+ *  in place. */
+export function dayTone(day: ReviewDay, weekIncluded = true): DayTone {
   if (!day.session) return 'rest';
+  if (!weekIncluded || !day.included) return 'skipped';
   if (sessionUnresolvedCount(day.session) > 0) return 'unresolved';
   if (day.flags.some((f) => f.confidence === 'review')) return 'review';
   return 'ok';
 }
 
-/** Total unresolved-exercise lines across the whole review (the confirm gate). */
+/** Total unresolved-exercise lines across the INCLUDED days (the confirm gate).
+ *  Excluding a day/week removes its unresolved lines from the count — one odd
+ *  exercise never blocks importing the rest. */
 export function totalUnresolved(weeks: ReviewWeek[]): number {
   return weeks.reduce(
-    (acc, w) => acc + w.days.reduce((a, d) => a + sessionUnresolvedCount(d.session), 0),
+    (acc, w) =>
+      acc +
+      w.days.reduce(
+        (a, d) => a + (dayWrites(w, d) ? sessionUnresolvedCount(d.session) : 0),
+        0,
+      ),
     0,
   );
 }
 
-/** Every non-rest day that would be written (for the "N días" readout). */
+/** Every non-rest INCLUDED day that would be written (for the "N días" readout). */
 export function totalWritableDays(weeks: ReviewWeek[]): number {
-  return weeks.reduce((acc, w) => acc + w.days.filter((d) => d.session).length, 0);
+  return weeks.reduce((acc, w) => acc + w.days.filter((d) => dayWrites(w, d)).length, 0);
 }
 
-/** Weeks that still lack a container-week mapping (blocks confirm). */
+/** Non-rest days the coach chose to leave out (day excluded, or its week). */
+export function totalExcludedDays(weeks: ReviewWeek[]): number {
+  return weeks.reduce(
+    (acc, w) => acc + w.days.filter((d) => d.session && !dayWrites(w, d)).length,
+    0,
+  );
+}
+
+/** INCLUDED weeks that still lack a container-week mapping (blocks confirm).
+ *  An excluded week needs no destination. */
 export function unmappedWeekCount(weeks: ReviewWeek[]): number {
-  return weeks.filter((w) => w.days.some((d) => d.session) && !w.target_week_id).length;
+  return weeks.filter((w) => w.days.some((d) => dayWrites(w, d)) && !w.target_week_id).length;
 }
 
 // ── Wire builders ─────────────────────────────────────────────────────────────
@@ -165,21 +195,22 @@ export interface ConfirmBody {
 }
 
 /**
- * Build the CONFIRM request. Only non-rest days with a mapped target week are
- * included. Synonyms are reconstructed from the ORIGINAL flags: a token that was
- * unresolved and now points at an exercise is learned (deduped by normalized-ish
- * term+id pair). Rest days and unmapped weeks are silently skipped here — the
- * caller gates on `unmappedWeekCount`/`totalUnresolved` before enabling confirm.
+ * Build the CONFIRM request. Only INCLUDED non-rest days of INCLUDED weeks with a
+ * mapped target week are sent. Synonyms are reconstructed from the ORIGINAL flags:
+ * a token that was unresolved and now points at an exercise is learned (deduped by
+ * normalized-ish term+id pair) — an excluded day teaches nothing. Rest days,
+ * excluded days/weeks and unmapped weeks are silently skipped here — the caller
+ * gates on `unmappedWeekCount`/`totalUnresolved` before enabling confirm.
  */
 export function buildConfirmBody(microcycleId: string, weeks: ReviewWeek[]): ConfirmBody {
   const out: ConfirmBody = { microcycle_id: Number(microcycleId), weeks: [], synonyms: [] };
   const seen = new Set<string>();
 
   for (const w of weeks) {
-    if (!w.target_week_id) continue;
+    if (!w.included || !w.target_week_id) continue;
     const target = Number(w.target_week_id);
     for (const d of w.days) {
-      if (!d.session) continue;
+      if (!d.session || !d.included) continue;
       out.weeks.push({
         target_week_template_id: target,
         day_of_week: d.day_of_week,

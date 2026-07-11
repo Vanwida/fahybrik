@@ -8,14 +8,15 @@
 import { DocSection, QCWTriad, DocFlow, DocNote, DashboardMockup } from '../doc';
 import type { GuiaSection } from '../config';
 
-// ── Estado de revisión (verde/ámbar/rojo) — misma paleta que el resto de la app.
-//    Un solo componente para la rejilla y para las filas «crudo → tipado» (DRY).
-type ReviewState = 'tipado' | 'revisar' | 'ejercicio' | 'resolver';
+// ── Estado de revisión (verde/ámbar/rojo/gris) — misma paleta que el resto de la
+//    app. Un solo componente para la rejilla y las filas «crudo → tipado» (DRY).
+type ReviewState = 'tipado' | 'revisar' | 'ejercicio' | 'resolver' | 'fuera';
 const REVIEW: Record<ReviewState, { label: string; fg: string; bg: string }> = {
   tipado: { label: 'Tipado', fg: 'var(--v2-ok)', bg: 'var(--v2-ok-soft)' },
   revisar: { label: 'Revisar', fg: 'var(--v2-warn)', bg: 'var(--v2-warn-soft)' },
   ejercicio: { label: 'Ejercicio?', fg: 'var(--v2-danger)', bg: 'var(--v2-danger-soft)' },
   resolver: { label: 'Resolver', fg: 'var(--v2-danger)', bg: 'var(--v2-danger-soft)' },
+  fuera: { label: 'No entra', fg: 'var(--muted)', bg: 'var(--sunken)' },
 };
 
 function Tag({ state }: { state: ReviewState }) {
@@ -55,7 +56,20 @@ function ReviewCell({
     <div className="col">
       {color ? <span className="topbar" style={{ background: color }} /> : null}
       <div className="cd">{day}</div>
-      {title ? <div className="ch">{title}</div> : <div className="rest">Descanso</div>}
+      {title ? (
+        <div
+          className="ch"
+          style={
+            state === 'fuera'
+              ? { textDecoration: 'line-through', color: 'var(--faint)' }
+              : undefined
+          }
+        >
+          {title}
+        </div>
+      ) : (
+        <div className="rest">Descanso</div>
+      )}
       {state ? (
         <span style={{ position: 'absolute', bottom: '6px', left: '7px' }}>
           <Tag state={state} />
@@ -86,12 +100,13 @@ const microHead = {
   margin: '20px 0 10px',
 } as const;
 
-// La semana de revisión: casi todo tipado, un Fartlek a revisar y un WOD con un
-// ejercicio fuera de catálogo. Este es el protagonista de la sección.
+// La semana de revisión: casi todo tipado, un Fartlek a revisar, un WOD con un
+// ejercicio fuera de catálogo y un miércoles que el coach deja fuera del import.
+// Este es el protagonista de la sección.
 const REVIEW_WEEK: { day: string; title?: string; state?: Exclude<ReviewState, 'resolver'> }[] = [
   { day: 'LUN', title: 'Fuerza inf.', state: 'tipado' },
   { day: 'MAR', title: 'Ergo interv.', state: 'tipado' },
-  { day: 'MIÉ', title: 'Fuerza sup.', state: 'tipado' },
+  { day: 'MIÉ', title: 'Fuerza sup.', state: 'fuera' },
   { day: 'JUE', title: 'Fartlek', state: 'revisar' },
   { day: 'VIE', title: 'Largo Z2', state: 'tipado' },
   { day: 'SÁB', title: 'WOD denso', state: 'ejercicio' },
@@ -118,7 +133,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           { label: 'Creas el microciclo con sus semanas vacías' },
           { label: '＋ Importar del Excel: subes el .xlsx y señalas rango + variante' },
           { label: 'La IA lee SOLO ese rango y lo tipa → revisión verde/ámbar/rojo' },
-          { label: 'Confirmas y entra en el microciclo' },
+          { label: 'Eliges qué entra: dejas fuera el día o la semana que no quieras' },
+          { label: 'Confirmas los días elegidos y entran en el microciclo' },
         ]}
       />
 
@@ -134,7 +150,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             Creas el microciclo vacío, pulsas <b>Importar del Excel</b>, dices el rango en tu idioma
             (<em className="em">«de la semana 1 a la 4»</em>) y la <b>variante</b>. La IA lo tipa; tú
-            revisas lo <b>verde/ámbar/rojo</b> y confirmas.
+            revisas lo <b>verde/ámbar/rojo</b>, <b>eliges qué días entran</b> y confirmas.
           </>
         }
         porque={
@@ -167,8 +183,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · La IA lo tipa, tú revisas</h3>
       <p>
         Los <b>números</b> los saca una <b>gramática determinista</b> primero: los mismos patrones de
-        tu notación —<code>10/10/8/8/6</code>, <code>60–75% RM</code>, <code>5×3'</code>,{' '}
-        <code>z2</code>, <code>c/2'30"</code>— con reglas exactas, no un modelo (un patrón no se
+        tu notación —<code>10/10/8/8/6</code>, <code>60–75% RM</code>, <code>5×3&apos;</code>,{' '}
+        <code>z2</code>, <code>c/2&apos;30&quot;</code>— con reglas exactas, no un modelo (un patrón no se
         inventa una cifra). La IA solo entra a apoyar en lo <b>denso o ambiguo</b> (un WOD, una
         simulación HYROX). El resultado es una <b>rejilla de la semana</b> con un estado por día:{' '}
         <b>verde = tipado</b> (se guarda tal cual), <b>ámbar = revisar</b> (propuesto, míralo) y{' '}
@@ -187,7 +203,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             <span className="chip" style={{ color: 'var(--acc)', borderColor: 'var(--acc)' }}>
               Semana 1–4 · Estándar
             </span>
-            <span className="btn pri">Confirmar y meter en el microciclo</span>
+            <span className="btn pri">Confirmar 5 días</span>
           </div>
         </div>
 
@@ -195,6 +211,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <LegendDot color="var(--v2-ok)" label="Tipado · se guarda tal cual" />
           <LegendDot color="var(--v2-warn)" label="Revisar" />
           <LegendDot color="var(--v2-danger)" label="Ejercicio fuera de catálogo" />
+          <LegendDot color="var(--muted)" label="No entra · lo dejas fuera" />
         </div>
 
         {/* Rejilla de la semana — 7 días, estado por día */}
@@ -252,7 +269,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               overflowWrap: 'anywhere',
             }}
           >
-            FUERZA — 5 rounds Back Squat c/2'30": 10/10/8/8/6 — 60/65/70/70/75% RM
+            FUERZA — 5 rounds Back Squat c/2&apos;30&quot;: 10/10/8/8/6 — 60/65/70/70/75% RM
           </div>
           <div style={{ textAlign: 'center', color: 'var(--acc)', fontSize: '13px', fontWeight: 800, margin: '5px 0' }}>
             ↓
@@ -357,12 +374,29 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <li>
             Al confirmar, <b>cada línea</b> pasa el mismo esquema tipado que valida cualquier entreno
             que guardas a mano (<code>.strict</code>). Si algo no es un ejercicio real de tu catálogo,
-            no se guarda: lo resuelves antes.
+            no se guarda: lo resuelves antes <b>o dejas ese día fuera</b>.
           </li>
         </ul>
       </DocNote>
 
-      <h3>3 · Aprende tu notación</h3>
+      <h3>3 · Tú eliges qué entra</h3>
+      <p>
+        No es todo o nada: cada día de la rejilla tiene un control para <b>dejarlo fuera</b>, y en
+        la cabecera de cada semana puedes quitar <b>la semana entera</b> de una vez. Lo que dejas
+        fuera se ve en gris y tachado —<b>«no entra»</b>— y no se guarda nada de ese día: ni la
+        sesión ni lo que el importador hubiera aprendido de ella. El botón te dice siempre lo que va
+        a pasar —<b>«Confirmar 5 días»</b>— y te avisa de cuántos se quedan fuera.
+      </p>
+
+      <DocNote variant="cue" title="Un rojo no te bloquea el resto">
+        <p>
+          Si un día trae algo raro que no quieres resolver ahora, <b>déjalo fuera y confirma el
+          resto</b> — un ejercicio sin catálogo nunca te secuestra los demás días. Y una semana que
+          dejas fuera <b>tampoco te pide destino</b>: se salta entera.
+        </p>
+      </DocNote>
+
+      <h3>4 · Aprende tu notación</h3>
       <p>
         Cuando resuelves un ejercicio fuera de catálogo, esa decisión se <b>guarda en tu mapa de
         sinónimos</b> (por entrenador): el próximo import que traiga la misma abreviatura lo{' '}
