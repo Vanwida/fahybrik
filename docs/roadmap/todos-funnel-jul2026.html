@@ -386,12 +386,13 @@
 
   <section data-sec>
     <div class="sec-head"><h2>Siguiente ola</h2><span class="sec-count"></span></div>
-    <div class="task" data-id="28">
+    <div class="task done" data-id="28">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#28</div>
         <div class="tsub">Importador de entrenos (Excel/texto → tipado)</div>
-        <div class="tdesc">Pablo pega su Excel o escribe en su notación → la IA lo convierte al modelo tipado → revisión de 30 seg → a la biblioteca/semana. <b>Estado: el motor de conversión ya está construido y verificado</b> (notación, Excel, sinónimos); faltan los endpoints y la pantalla de revisión del coach. Al retomar: Alex nombra el modelo de IA.</div>
+        <div class="tdesc">Pablo pega su Excel o escribe en su notación → conversión al modelo tipado → revisión → a la semana del microciclo. Aprende su notación con cada corrección.</div>
+        <div class="resumen"><b>Hecha · 11 jul, en demo y prod.</b> Estaba más avanzada de lo apuntado (UI y endpoints ya existían); la pasada de hoy la dejó fina: (1) auditoría contra el Excel COMPLETO de Pablo (22 hojas, 325 líneas) destapó ~18% de tipado silenciosamente FALSO — strides de 30'' convertidos en 30 minutos, calentamientos RPE 3-4 convertidos en sets de fuerza, escaleras y bloques multi-ergómetro perdiendo tramos — y la gramática se arregló de raíz: ahora tipa el 80% con cero números inventados (lo denso cae a revisión honesta para el paso IA). (2) Lo que pedías: en la revisión ya se elige QUÉ entra — excluir días o semanas enteras, y un día con un ejercicio rojo ya no bloquea importar el resto. Verificado en vivo (desktop y móvil) y con 194 tests, incluida BD real.</div>
       </div>
     </div>
     <div class="task" data-id="29">
