@@ -18,7 +18,7 @@ import type { DrillDownResult, ResolvedPeriod } from './core';
 import { runningDrill, bestEffortDrill } from './drills/running';
 import { ergoDrill } from './drills/ergo';
 import { strengthDrill, strengthVolumeDrill, strengthExerciseDrill } from './drills/strength';
-import { hyroxRaceDrill, hyroxScoresDrill } from './drills/hyrox';
+import { hyroxRaceDrill, hyroxScoresDrill, hyroxTransferDrill } from './drills/hyrox';
 import { recoveryDrill } from './drills/recovery';
 
 export async function buildDrillDown(
@@ -47,6 +47,8 @@ export async function buildDrillDown(
       return hyroxRaceDrill(client, athleteId, params, period);
     case 'hyrox.scores':
       return hyroxScoresDrill(client, athleteId, period);
+    case 'hyrox.transfer':
+      return hyroxTransferDrill(client, athleteId, period);
     case 'recovery.metric':
       return recoveryDrill(client, athleteId, params, period);
     default:

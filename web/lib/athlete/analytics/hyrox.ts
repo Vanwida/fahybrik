@@ -17,6 +17,12 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import {
+  buildRaceTransfer,
+  transferDeltaPctStr,
+  transferTierLabel,
+  transferValueStr,
+} from '../race-transfer';
+import {
   type AnalyticsCard,
   type AnalyticsSection,
   type CardRow,
@@ -148,6 +154,9 @@ export async function buildHyroxSection(
       availability_note: 'Se deriva de percentil + decay + fuerza. Llega con el dataset del campo.',
     }),
   );
+
+  // ── D2 · Entreno → carrera (el CRUCE, cross-modality) ──────────────────────
+  cards.push(await buildRaceTransferCard(client, athleteId));
 
   // ── E · Historial de carreras (REAL) ───────────────────────────────────────
   const historyRows = races
@@ -306,4 +315,70 @@ function formatLabel(format: string): string {
   if (format === 'doubles') return 'Dobles';
   if (format === 'relay') return 'Relevos';
   return format;
+}
+
+// ── Entreno → carrera · el CRUCE ─────────────────────────────────────────────
+// The differentiator: per station + the run, the athlete's TRAINED level next to
+// what they DID in a singles race, and how much they lose (transfer delta). Gated
+// honestly when there's no singles race to compare against.
+async function buildRaceTransferCard(client: Sql, athleteId: number): Promise<AnalyticsCard> {
+  const transfer = await buildRaceTransfer({ athlete_id: athleteId }, client);
+
+  if (transfer.availability !== 'ok') {
+    const note =
+      transfer.availability === 'only_doubles'
+        ? 'Solo tienes carreras de dobles: los splits son del equipo. Cruzamos tu entreno con tu próxima carrera individual.'
+        : 'Importa una carrera individual (singles) con splits y cruzamos tu entreno con cada estación.';
+    return card({
+      id: 'race_transfer',
+      title_es: 'Entreno → carrera',
+      availability: 'needs_logging',
+      availability_note: note,
+    });
+  }
+
+  // The weakest transfer (biggest positive delta) is the headline weak link.
+  const weakest = transfer.stations
+    .filter((s) => s.transfer_delta_pct != null && s.transfer_delta_pct > 0)
+    .sort((a, b) => (b.transfer_delta_pct ?? 0) - (a.transfer_delta_pct ?? 0))[0];
+
+  const rows: CardRow[] = transfer.stations.map((s) => {
+    // s.unit is the station's canonical unit (== trained.unit whenever present).
+    const trainedStr = s.trained.value_s != null ? transferValueStr(s.trained.value_s, s.unit) : null;
+    const raceStr = s.race_seconds != null ? transferValueStr(s.race_seconds, s.unit) : null;
+    const deltaStrPct = transferDeltaPctStr(s.transfer_delta_pct);
+    // sub: the evidence tier + the two compared numbers (entrenado vs carrera).
+    const parts = [transferTierLabel(s.trained.tier)];
+    if (trainedStr) parts.push(`entreno ${trainedStr}`);
+    if (raceStr) parts.push(`carrera ${raceStr}`);
+    return {
+      id: s.slug,
+      label: s.label,
+      value: deltaStrPct ?? (s.trained.tier === 'sin_datos' ? 'sin datos' : '—'),
+      sub: parts.join(' · '),
+      accent: weakest != null && s.slug === weakest.slug,
+      drill: null,
+    };
+  });
+
+  const dataCount = transfer.stations.filter((s) => s.transfer_delta_pct != null).length;
+
+  return card({
+    id: 'race_transfer',
+    title_es: 'Entreno → carrera',
+    availability: 'real',
+    availability_note: null,
+    primary:
+      weakest != null
+        ? { value: weakest.label, unit: `${transferDeltaPctStr(weakest.transfer_delta_pct)} vs tu entreno`, side: null }
+        : null,
+    rows,
+    meaning_es:
+      'Tu nivel entrenado (observado o estimado por tus zonas) frente a lo que hiciste en carrera. ' +
+      'En positivo = pierdes tiempo respecto a tu entreno; ahí está el margen de transferencia.',
+    drill:
+      dataCount > 0
+        ? { kind: 'hyrox.transfer', params: {}, count: dataCount, label_es: `${dataCount} cruces estación a estación` }
+        : null,
+  });
 }

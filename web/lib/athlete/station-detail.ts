@@ -36,6 +36,9 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import { HYROX_STATION_LABELS, STATION_INDEX_STATION } from '@fahybrid/shared/schema';
+// race-transfer.ts imports STATION_CATALOGUE from here; the cycle is safe (each
+// side uses the imported binding only inside function bodies, never at eval time).
+import { buildRaceTransfer, stationTransferEvidence, type StationTransferEvidenceDTO } from './race-transfer';
 
 // ── Wire contract (matches iOS StationDetail) ───────────────────────────────
 
@@ -77,6 +80,8 @@ export interface StationDetailDTO {
   trend: StationTrendPointDTO[];
   sub_metrics: StationSubMetricDTO[];
   training: TrainingLinkDTO[];
+  /** Training × race cross for this station; null when nothing to cross yet. iOS-safe (whitelisted CodingKeys). */
+  race_transfer: StationTransferEvidenceDTO | null;
   ia_recommendation: string | null;
   ia_objective: string | null;
 }
@@ -395,6 +400,11 @@ export async function buildStationDetail(
     modality: GROUP_MODALITY_OVERRIDE[g.id] ?? station.modality,
   }));
 
+  // race_transfer — TRAINED level vs competed split (same engine as the card).
+  const transfer = await buildRaceTransfer({ athlete_id: athleteId }, client);
+  const crossEntry = transfer.stations.find((s) => s.index === station.index) ?? null;
+  const race_transfer: StationTransferEvidenceDTO | null = crossEntry ? stationTransferEvidence(crossEntry) : null;
+
   // Honest-empty: no recorded observations for this station.
   if (observations.length === 0) {
     return {
@@ -410,6 +420,7 @@ export async function buildStationDetail(
       trend: [],
       sub_metrics: [],
       training,
+      race_transfer,
       ia_recommendation: null,
       ia_objective: null,
     };
@@ -480,6 +491,7 @@ export async function buildStationDetail(
     trend,
     sub_metrics,
     training,
+    race_transfer,
     ia_recommendation: null,
     ia_objective: null,
   };

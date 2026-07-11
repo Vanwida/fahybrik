@@ -8,6 +8,12 @@ import type { Sql } from '@/lib/db';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { HYROX_STATION_LABELS } from '@fahybrid/shared/schema';
 import {
+  buildRaceTransfer,
+  transferDeltaPctStr,
+  transferTierLabel,
+  transferValueStr,
+} from '../../race-transfer';
+import {
   type DrillDownResult,
   type ResolvedPeriod,
   type SourceSession,
@@ -87,6 +93,56 @@ export async function hyroxRaceDrill(
     ],
     sessions,
     source_table: 'races',
+    period,
+  };
+}
+
+// ── HYROX transfer — the training × race cross, station by station ───────────
+export async function hyroxTransferDrill(
+  client: Sql,
+  athleteId: number,
+  period: ResolvedPeriod,
+): Promise<DrillDownResult> {
+  const transfer = await buildRaceTransfer({ athlete_id: athleteId }, client);
+  const sessions: SourceSession[] = transfer.stations.map((s) => {
+    const unit = s.unit; // canonical station unit (== trained.unit when present)
+    const trainedStr = s.trained.value_s != null ? transferValueStr(s.trained.value_s, unit) : null;
+    const raceStr = s.race_seconds != null ? transferValueStr(s.race_seconds, unit) : null;
+    // Detail: the evidence tier + (for observado) the fresh/fatigued split.
+    const bits = [transferTierLabel(s.trained.tier)];
+    if (s.trained.contexto) {
+      const fresco = s.trained.contexto.fresco_s != null ? transferValueStr(s.trained.contexto.fresco_s, unit) : null;
+      const fatigado = s.trained.contexto.fatigado_s != null ? transferValueStr(s.trained.contexto.fatigado_s, unit) : null;
+      if (fresco) bits.push(`fresco ${fresco}`);
+      if (fatigado) bits.push(`fatigado ${fatigado}`);
+    }
+    if (raceStr) bits.push(`carrera ${raceStr}`);
+    return {
+      id: s.slug,
+      date: s.race_date,
+      title_es: s.label,
+      detail_es: bits.join(' · '),
+      value: transferDeltaPctStr(s.transfer_delta_pct) ?? trainedStr,
+      value_label: null,
+    };
+  });
+
+  const withDelta = transfer.stations.filter((s) => s.transfer_delta_pct != null).length;
+  return {
+    kind: 'hyrox.transfer',
+    title_es: 'Entreno → carrera',
+    subtitle_es: [dayMonthEs(transfer.race_date), transfer.race_name].filter(Boolean).join(' · ') || null,
+    summary: [
+      { id: 'crosses', value: String(withDelta), label: 'cruces', accent: false },
+      {
+        id: 'stations',
+        value: String(transfer.stations.length),
+        label: 'estaciones + carrera',
+        accent: false,
+      },
+    ],
+    sessions,
+    source_table: 'segment_executions · races',
     period,
   };
 }
