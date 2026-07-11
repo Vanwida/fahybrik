@@ -184,12 +184,15 @@ export const WORKOUT_FORMAT_KEYS = Object.keys(WORKOUT_FORMATS) as WorkoutFormat
 //   circuit        → rounds  (a circuit is rounds of stations)
 //   test           → for_time (a benchmark test is a fixed effort scored by time)
 //   interval       → intervals (the old singular spelling of the same format)
+//   simulation     → hyrox_sim (older free-text label for a HYROX simulation;
+//                    still seen in template_segments.block_format)
 export const LEGACY_FORMAT_ALIASES: Readonly<Record<string, WorkoutFormat>> = {
   strength_block: 'sets',
   tempo: 'steady',
   circuit: 'rounds',
   test: 'for_time',
   interval: 'intervals',
+  simulation: 'hyrox_sim',
 };
 
 // The legacy values that still exist as `template_format` ENUM members in the DB
