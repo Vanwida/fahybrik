@@ -137,6 +137,16 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         reordena la progresión — sin tocar nada del lado del atleta.
       </p>
 
+      <DocNote variant="cue" title="Duplicar una variante como punto de partida">
+        <p>
+          ¿Ya tienes montado <b>Nivel 3 · 5 días</b> y quieres el de <b>6 días</b>? En esa celda,{' '}
+          <span className="k">Duplicar a…</span> copia la secuencia entera —todos sus microciclos— al
+          nivel y los días que elijas. La copia es <b>independiente</b>: ajústala (añade el día extra,
+          cambia lo que haga falta) sin tocar el original. Solo se duplica sobre una celda{' '}
+          <b>vacía</b>.
+        </p>
+      </DocNote>
+
       <DocNote variant="log" title="Agnóstico de principio a fin">
         <p>
           La app no trae «las fases» de serie ni asume tres. Lee las que tú creas y las muestra en

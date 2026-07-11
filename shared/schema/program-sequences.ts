@@ -102,3 +102,16 @@ export const programSequenceSaveSchema = z
     },
   );
 export type ProgramSequenceSave = z.infer<typeof programSequenceSaveSchema>;
+
+// ---------------------------------------------------------------------------
+// CELL COPY PAYLOAD — duplicate a whole matrix cell into another (level × days).
+// The SOURCE cell is the route coordinate; the body carries only the TARGET.
+// days_per_week reuses `sequenceDaysPerWeek` (3-6 band) — the DB CHECK constraint
+// forbids anything outside it, so the target selector can never offer an invalid
+// cadence. Coach scope + the "target must be empty" guard are server-side.
+// ---------------------------------------------------------------------------
+export const programSequenceDuplicateSchema = z.object({
+  target_level_id: idSchema,
+  target_days_per_week: sequenceDaysPerWeek,
+});
+export type ProgramSequenceDuplicate = z.infer<typeof programSequenceDuplicateSchema>;
