@@ -24,6 +24,7 @@ export const SECTION_IDS = {
   comoFunciona: 'como-funciona',
   metodologia: 'metodologia',
   analitica: 'analitica',
+  dobles: 'dobles',
   app: 'app',
   pablo: 'pablo',
   precios: 'precios',
@@ -244,6 +245,30 @@ export const FAQ = {
   ],
 } as const;
 
+// HYROX Dobles — the social hook. A real product mode: one coordinated plan for two,
+// stations split by each athlete's strengths, and a partner invite. Mirror of COACH in
+// the UI (split flipped to the other side). CTA reuses the single primary label.
+export const DOBLES = {
+  label: 'HYROX DOBLES',
+  // Explicit line break (array) so the display heading always breaks after the question,
+  // never mid-clause — SectionHeading accepts string[] as explicit lines.
+  heading: ['¿Vais a dobles?', 'Entrenad a dobles.'],
+  body: 'En dobles corréis los 8 km juntos y os repartís las estaciones. Vuestro plan va igual: un programa coordinado para los dos, con las estaciones repartidas según los puntos fuertes de cada uno.',
+  items: [
+    { n: '01', title: 'Un plan para los dos', body: 'Coordinado semana a semana: mismo entrenador, mismo objetivo, misma carrera.' },
+    { n: '02', title: 'Estaciones repartidas', body: 'El reparto sigue lo que se le da bien a cada uno. Como el día de la carrera.' },
+    { n: '03', title: 'Invita a tu compañero', body: 'Uno solicita la plaza y el otro recibe la invitación. Y a entrenar.' },
+  ],
+  cta: 'Solicita tu plaza',
+  note: 'Individual o dobles: lo decidís en la primera llamada.',
+  photo: {
+    src: '/landing/dobles.webp',
+    alt: 'Pareja de dobles de Fabrik en HYROX: uno rema y su compañero espera su relevo',
+  },
+  // Generic athlete plate over the photo (project rule: no named athletes in captions).
+  plateCaption: 'ATLETAS DE FABRIK · HYROX',
+} as const;
+
 export const FINAL = {
   headlineLines: ['TU PRÓXIMA CARRERA', 'YA TIENE ENTRENADOR.'],
   sub: 'Plan a medida, ajustado cada semana. Da el primer paso hoy.',
@@ -261,6 +286,7 @@ export const NAV = {
     { label: 'Cómo funciona', href: `#${SECTION_IDS.comoFunciona}` },
     { label: 'Tu entrenador', href: `#${SECTION_IDS.pablo}` },
     { label: 'Entrenamiento', href: `#${SECTION_IDS.metodologia}` },
+    { label: 'Dobles', href: `#${SECTION_IDS.dobles}` },
   ],
   cta: 'Solicita tu plaza',
 } as const;

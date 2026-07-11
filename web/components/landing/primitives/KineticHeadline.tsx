@@ -82,7 +82,9 @@ export function KineticHeadline({
     >
       {lines.map((line, i) => (
         // overflow-hidden clips the rising inner span; the inner span is the moving part.
-        <span key={i} className="block overflow-hidden pb-[0.04em]">
+        // pr-[0.08em] gives the italic overhang of a line's last glyph room inside the clip
+        // box so it never gets sheared at the right edge (left-aligned start is unaffected).
+        <span key={i} className="block overflow-hidden pb-[0.04em] pr-[0.08em]">
           <span
             data-kinetic-line
             className={cn('block', i === accentLineIndex && 'text-[color:var(--accent)]')}
