@@ -50,6 +50,17 @@ export function Faq() {
             </li>
           ))}
         </ul>
+
+        {/* Direct line for anything the accordion didn't answer. */}
+        <p className="mt-10 font-mono text-[12px] tracking-[0.06em] text-[color:var(--muted)]">
+          {FAQ.contact.lead}{' '}
+          <a
+            href={`mailto:${FAQ.contact.email}`}
+            className="text-[color:var(--fg)] underline-offset-4 transition-colors hover:text-[color:var(--accent)] focus-visible:text-[color:var(--accent)] focus-visible:outline-none"
+          >
+            {FAQ.contact.email}
+          </a>
+        </p>
       </Reveal>
     </Section>
   );

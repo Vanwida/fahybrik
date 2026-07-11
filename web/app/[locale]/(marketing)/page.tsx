@@ -14,9 +14,37 @@ import { Coach } from '@/components/landing/sections/Coach';
 import { Faq } from '@/components/landing/sections/Faq';
 import { FinalCta } from '@/components/landing/sections/FinalCta';
 
+// One source for the page title / description / share image (reused by OG + Twitter).
+const PAGE_TITLE = 'FAHYBRID — Entrenamiento HYROX y DEKA personalizado';
+const PAGE_DESCRIPTION = HERO.sub;
+const OG_IMAGE = '/landing/og.jpg';
+
 export const metadata: Metadata = {
-  title: 'FAHYBRID — Entrenamiento HYROX y DEKA personalizado',
-  description: HERO.sub,
+  metadataBase: new URL('https://fahybrid.com'),
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
+  openGraph: {
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    url: '/',
+    siteName: 'FAHYBRID',
+    locale: 'es_ES',
+    type: 'website',
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: 'FAHYBRID — entrenamiento HYROX personalizado',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    images: [OG_IMAGE],
+  },
 };
 
 // Required for server-side visit counting: force-dynamic makes the server component run

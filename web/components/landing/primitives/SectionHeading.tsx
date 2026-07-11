@@ -35,10 +35,10 @@ export function SectionHeading({
       id={id}
       trigger="scroll"
       lines={lines}
-      // The standardized section-heading recipe — single source of truth.
-      // Size is a touch tighter than the Hero h1 (which stays bespoke-big).
+      // The standardized section-heading recipe — single source of truth. Brand-scale
+      // display type; still a step below the Hero h1 (which stays bespoke-big).
       className={cn(
-        'tracking-tight leading-[0.98] text-[clamp(1.9rem,4.6vw,3.25rem)]',
+        'tracking-tight leading-[0.98] text-[clamp(2.4rem,5vw,4.25rem)]',
         align === 'center' && 'text-center',
         className,
       )}

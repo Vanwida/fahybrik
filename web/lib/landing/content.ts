@@ -41,13 +41,35 @@ export const SOCIAL = {
 
 export const HERO = {
   eyebrow: 'ENTRENAMIENTO PERSONAL · HYROX & DEKA',
-  // headline rendered as kinetic lines (array = lines):
-  headlineLines: ['DEJA DE IMPROVISAR', 'TU HYROX.'],
+  // headline rendered as kinetic lines (array = lines). Three short lines so the
+  // display type reads at brand scale over the hero photo; the Hero renders the
+  // last line in accent (see accentLineIndex on <KineticHeadline>).
+  headlineLines: ['DEJA DE', 'IMPROVISAR', 'TU HYROX.'],
   sub: 'Tu plan semanal, ajustado a tu nivel, tu material y tu próxima carrera. Tú solo entrenas. Nosotros pensamos por ti.',
-  primaryCta: 'Quiero esto',
+  // Funnel vocabulary: plazas limitadas → solicitud → llamada. UN solo CTA en toda la
+  // página (mismo literal en hero, nav, final y sticky). Coincide con la entrada de iOS.
+  primaryCta: 'Solicita tu plaza',
   secondaryCta: 'Cómo funciona',
-  trust: 'Plan 1:1 con tu entrenador · Disponible en iOS',
+  trust: 'Plan 1:1 con tu entrenador · Primera llamada sin compromiso',
 } as const;
+
+// Hero → resto transition: a marquee band of the real HYROX stations. Pure content,
+// zero claims. Kept SEPARATE from ANALYTICS.stations on purpose: this is the canonical
+// list of the 8 competition movements + RoxZone with their official names ("Sandbag
+// Lunges" plural, and RoxZone included), whereas ANALYTICS.stations are compact chart
+// labels for a splits demo ("Sandbag Lunge", no RoxZone). Deriving one from the other
+// would need a fragile singular/plural + append mapping for no real DRY win.
+export const STATIONS_STRIP = [
+  'SkiErg',
+  'Sled Push',
+  'Sled Pull',
+  'Burpee Broad Jump',
+  'Row',
+  'Farmers Carry',
+  'Sandbag Lunges',
+  'Wall Balls',
+  'RoxZone',
+] as const;
 
 export const PROMISE = {
   label: 'POR QUÉ FAHYBRID',
@@ -161,13 +183,15 @@ export const APP = {
       body: 'Historial, cargas y splits. Ves de dónde vienes y a dónde vas.',
     },
   ],
+  // Mono caption under the phone mock.
+  screenCaption: 'TU SEMANA EN LA APP',
   platformNote: 'En iOS. Android, en camino.',
 } as const;
 
 export const COACH = {
   label: 'TU ENTRENADOR',
-  heading: 'Tu entrenador es Pablo. Programación 1:1 que se adapta a ti cada semana.',
-  body: 'Pablo lleva Fabrik, la mayor comunidad HYROX de Barcelona. Ahora lleva también tu programación 1:1: te conoce, sigue tu progreso y ajusta cada semana hasta que cruces la línea de meta.',
+  heading: 'Detrás de tu plan hay una persona.',
+  body: 'Se llama Pablo. Lleva Fabrik, la mayor comunidad HYROX de Barcelona, y ahora lleva también tu programación 1:1: te conoce, sigue tu progreso y ajusta tu plan cada semana hasta que cruces la meta.',
   // Real portrait — warm b&w, tinted to brand duotono by the Coach component.
   photo: {
     src: '/landing/pablo.webp',
@@ -175,19 +199,23 @@ export const COACH = {
   },
   // Portrait-plate label.
   plate: {
-    title: 'Pablo', // TODO: ¿"Pablo Amigo"? confirmar con Alex
+    title: 'Pablo Amigo', // ground truth: coaches.full_name
     place: 'Fabrik Training Club · Barcelona', // boxes: Mallorca 337 + Pg. Sant Joan 157
   },
+  // countUp: solo el número puro cuenta 0→valor al entrar en viewport (los otros dos
+  // no son enteros contables: '2' se deja quieto por decisión, '#1' es un ranking).
   stats: [
     { value: '2', unit: 'boxes en Barcelona' },
-    { value: '+250', unit: 'atletas entrenados' }, // TODO: número real
+    { value: '+250', unit: 'atletas entrenados', countUp: true }, // TODO: número real
     { value: '#1', unit: 'comunidad HYROX de la ciudad' }, // TODO: verificar
   ],
 } as const;
 
 export const FAQ = {
   label: 'PREGUNTAS',
-  heading: 'Resolvemos tus dudas.',
+  heading: 'Lo que querrás saber.',
+  // Below the accordion: a direct line to a real inbox.
+  contact: { lead: '¿Otra duda? Escríbenos:', email: 'hello@fahybrid.com' },
   items: [
     {
       q: '¿Quién hace mi plan?',
@@ -219,8 +247,13 @@ export const FAQ = {
 export const FINAL = {
   headlineLines: ['TU PRÓXIMA CARRERA', 'YA TIENE ENTRENADOR.'],
   sub: 'Plan a medida, ajustado cada semana. Da el primer paso hoy.',
-  cta: 'Quiero esto',
-  trust: 'Plan 1:1 con tu entrenador · Disponible en iOS',
+  cta: 'Solicita tu plaza',
+  trust: 'Plazas limitadas · Primera llamada sin compromiso',
+  // Full-bleed closing photo — already graded to the brand duotono.
+  photo: {
+    src: '/landing/meta-paris.webp',
+    alt: 'Atleta de Fabrik tras cruzar la meta en HYROX París, con el logo de FAHYBRID Program en el pecho',
+  },
 } as const;
 
 export const NAV = {
@@ -229,5 +262,8 @@ export const NAV = {
     { label: 'Tu entrenador', href: `#${SECTION_IDS.pablo}` },
     { label: 'Entrenamiento', href: `#${SECTION_IDS.metodologia}` },
   ],
-  cta: 'Quiero esto',
+  cta: 'Solicita tu plaza',
 } as const;
+
+// Mobile-only sticky CTA bar (shown after the hero, hidden over the final CTA).
+export const STICKY_CTA = { note: 'Plan 1:1 con Pablo', cta: 'Solicita tu plaza' } as const;

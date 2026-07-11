@@ -14,7 +14,7 @@
 //     client when motion is allowed.
 //   - the line is decorative (aria-hidden); the ordered list carries the real sequence.
 
-import { useLayoutEffect, useRef } from 'react';
+import { Fragment, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,28 @@ import { HOW } from '@/lib/landing/content';
 import { Section } from '@/components/landing/primitives/Section';
 import { SectionHeading } from '@/components/landing/primitives/SectionHeading';
 import { Reveal } from '@/components/landing/primitives/Reveal';
+
+// The one timeframe we lift into accent wherever a step body mentions it — the "under
+// 72h" promise. Data-driven (highlight the token wherever it appears) rather than
+// hard-coding which step index carries it.
+const HIGHLIGHT_TOKEN = '72h';
+
+/** Render a step body, lifting HIGHLIGHT_TOKEN into brand accent where it occurs. */
+function StepBody({ text }: { text: string }) {
+  const parts = text.split(HIGHLIGHT_TOKEN);
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {part}
+          {i < parts.length - 1 ? (
+            <span className="font-medium text-[color:var(--accent)]">{HIGHLIGHT_TOKEN}</span>
+          ) : null}
+        </Fragment>
+      ))}
+    </>
+  );
+}
 
 export function HowItWorks() {
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -124,16 +146,21 @@ export function HowItWorks() {
                   <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent)]" />
                 </span>
 
-                <span className="block font-display italic font-black leading-none text-[clamp(2.5rem,6vw,4rem)] text-[color:var(--muted)]">
+                {/* Ghost step numeral — decorative texture; the <ol> carries the real
+                    sequence, so it's aria-hidden. */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-0 top-0 z-0 select-none font-display text-[clamp(3.5rem,7vw,6rem)] font-black italic leading-none text-[color:var(--fg)] opacity-[0.07] md:top-8"
+                >
                   {step.n}
                 </span>
 
-                <h3 className="mt-4 font-display italic font-black tracking-tight text-[color:var(--fg)] text-[clamp(1.125rem,2vw,1.375rem)]">
+                <h3 className="relative z-10 mt-2 font-display italic font-black tracking-tight text-[color:var(--fg)] text-[clamp(1.375rem,2.4vw,1.75rem)] md:mt-0">
                   {step.title}
                 </h3>
 
-                <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--muted)] md:max-w-[26ch]">
-                  {step.body}
+                <p className="relative z-10 mt-3 text-[15px] leading-relaxed text-[color:var(--muted)] md:max-w-[26ch]">
+                  <StepBody text={step.body} />
                 </p>
               </li>
             ))}

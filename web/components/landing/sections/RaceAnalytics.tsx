@@ -7,16 +7,16 @@
 // 0 → full, staggered.
 //
 // ENCODING (the legend mirrors this exactly):
-//   • Solid neutral bar (--z2)  = current race split for that station.
-//   • Solid amber bar (--warning) + "foco IA" chip = a `weak` station the IA turns
-//     into the focus of the next block. On those, an improvement delta vs the
-//     previous race is shown in --ok (e.g. "−7s").
-//   • Dashed ghost bar          = the previous race split, drawn a hair longer
-//     behind the current bar to imply race-over-race improvement.
+//   • Solid white bar (--fg)      = current race split for that station.
+//   • Solid orange bar (--accent) + "a mejorar" chip = a `weak` station that becomes
+//     the focus of the next block. On those, an improvement delta vs the previous race
+//     is shown in muted grey (e.g. "−7s").
+//   • Dashed ghost bar            = the previous race split, drawn a hair longer behind
+//     the current bar to imply race-over-race improvement.
 //
-// DATA-VIZ COLORS ONLY: neutral bars use --z2, weak bars use --warning, the
-// improvement delta uses --ok, the ghost uses --muted. Orange (--accent) is
-// reserved for brand/CTA and is never used here.
+// BRAND COLORS ONLY: current bars are white (--fg), the focus bars + chip are brand
+// orange (--accent), the ghost + improvement delta are muted grey (--muted). No blue,
+// no green, no amber — the old data-viz zone/status hues are deliberately not used here.
 //
 // SSR-safe: gsap only runs inside useLayoutEffect, guarded for no-DOM, inside a
 // gsap.context that is reverted on cleanup. Reduced-motion → bars render at their
@@ -113,14 +113,14 @@ export function RaceAnalytics() {
           <span className="inline-flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="h-2.5 w-4 rounded-[var(--r-s)] bg-[color:var(--z2)]"
+              className="h-2.5 w-4 rounded-[var(--r-s)] bg-[color:var(--fg)]"
             />
             Carrera actual
           </span>
           <span className="inline-flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="h-2.5 w-4 rounded-[var(--r-s)] bg-[color:var(--warning)]"
+              className="h-2.5 w-4 rounded-[var(--r-s)] bg-[color:var(--accent)]"
             />
             Punto débil
           </span>
@@ -138,7 +138,7 @@ export function RaceAnalytics() {
             const widthPct = (station.seconds / maxSeconds) * 100;
             const prevSeconds = station.seconds * PREV_RACE_FACTOR;
             const prevWidthPct = Math.min((prevSeconds / maxSeconds) * 100, 100);
-            const barColorVar = station.weak ? 'var(--warning)' : 'var(--z2)';
+            const barColorVar = station.weak ? 'var(--accent)' : 'var(--fg)';
             const splitLabel = formatSplit(station.seconds);
 
             return (
@@ -149,10 +149,10 @@ export function RaceAnalytics() {
                   </p>
                   {station.weak ? (
                     <span
-                      className="mt-1 inline-flex max-w-full items-center rounded-[var(--r-pill)] px-2 py-0.5 text-[10px] font-medium leading-tight tracking-wide text-[color:var(--warning)]"
+                      className="mt-1 inline-flex max-w-full items-center rounded-[var(--r-pill)] px-2 py-0.5 text-[10px] font-medium leading-tight tracking-wide text-[color:var(--accent)]"
                       style={{
                         backgroundColor:
-                          'color-mix(in srgb, var(--warning) 14%, transparent)',
+                          'color-mix(in srgb, var(--accent) 14%, transparent)',
                       }}
                     >
                       a mejorar
@@ -186,7 +186,7 @@ export function RaceAnalytics() {
                   {/* Improvement vs previous race — only on the weak (focus) stations. */}
                   {station.weak ? (
                     <span
-                      className="shrink-0 font-mono text-[12px] tabular-nums text-[color:var(--ok)] md:text-[13px]"
+                      className="shrink-0 font-mono text-[12px] tabular-nums text-[color:var(--muted)] md:text-[13px]"
                       aria-label={`${station.name}: ${formatImprovement(station.seconds, prevSeconds)} respecto a la carrera anterior`}
                     >
                       {formatImprovement(station.seconds, prevSeconds)}
@@ -209,7 +209,7 @@ export function RaceAnalytics() {
             separate metric we don't have demo data for yet. */}
         <div className="mt-6 flex items-center justify-between gap-4 border-t border-[color:var(--hairline)] pt-5">
           <span className="inline-flex items-center gap-2 text-[13px] text-[color:var(--muted)]">
-            <Clock aria-hidden="true" className="size-3.5 stroke-[1.5] text-[color:var(--z3)]" />
+            <Clock aria-hidden="true" className="size-3.5 stroke-[1.5] text-[color:var(--muted)]" />
             Tiempo total en estaciones
           </span>
           <span className="font-mono text-[13px] tabular-nums text-[color:var(--fg)] md:text-sm">
@@ -224,7 +224,7 @@ export function RaceAnalytics() {
         <p className="mt-7 max-w-[60ch] text-[13px] leading-relaxed text-[color:var(--muted)] md:text-sm">
           Cada semana trabajamos tus puntos débiles. Carrera tras carrera, los splits que
           hoy están en{' '}
-          <span className="text-[color:var(--warning)]">ámbar</span> se acercan al resto —
+          <span className="text-[color:var(--accent)]">naranja</span> se acercan al resto —
           y ver ese progreso, tiempo a tiempo, es lo que engancha.
         </p>
       </Reveal>

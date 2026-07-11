@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { SmoothScroll } from '@/components/landing/primitives/SmoothScroll';
 import { MarketingHeader } from '@/components/landing/MarketingHeader';
 import { MarketingFooter } from '@/components/landing/MarketingFooter';
+import { StickyCta } from '@/components/landing/StickyCta';
 import '../../../components/landing/landing.css';
 
 interface MarketingLayoutProps {
@@ -23,6 +24,7 @@ export default async function MarketingLayout({
         <MarketingHeader />
         <main>{children}</main>
         <MarketingFooter />
+        <StickyCta />
       </SmoothScroll>
     </div>
   );
