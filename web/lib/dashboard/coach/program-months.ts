@@ -14,6 +14,7 @@ import {
   duplicateMonthTemplate as _duplicateMonthTemplate,
   updateMonthTemplate as _updateMonthTemplate,
   deleteMonthTemplate as _deleteMonthTemplate,
+  cloneWeekTemplateRow,
   type ProgramMonthCreate,
   type ProgramMonthScratch,
   type MonthTemplateWeekFull,
@@ -297,25 +298,10 @@ export async function duplicateWeekIntoMonth(params: {
     }
     newPosition = srcPosition + 1;
 
-    const cloned = await tx<Array<{ id: string }>>`
-      insert into program_week_templates (
-        coach_id, name, level_id, focus, coach_notes, slots_json
-      )
-      select
-        coach_id,
-        name || ' (copia)',
-        level_id,
-        focus,
-        coach_notes,
-        slots_json
-      from program_week_templates
-      where id = ${week_id} and coach_id = ${coach_id}
-      returning id::text
-    `;
-    if (!cloned[0]) {
-      throw new ProgramMonthError('not_found', 'Semana no encontrada', 404);
-    }
-    newWeekId = cloned[0].id;
+    // Canonical week clone (shared): copies ALL content columns incl. slots_json
+    // verbatim, athlete_profile and week_number — one source of truth, so this
+    // path can never drift from the month/cell copy column list.
+    newWeekId = await cloneWeekTemplateRow({ tx, coach_id, week_id, nameSuffix: ' (copia)' });
 
     const toShift = await tx<Array<{ position: number }>>`
       select position from program_month_weeks

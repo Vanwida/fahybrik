@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres';
+import type { Sql, TransactionSql } from 'postgres';
 import { z } from 'zod';
 import {
   programMonthUpsertSchema,
@@ -223,22 +223,146 @@ export async function upsertMonthTemplate(params: {
   return monthId;
 }
 
+/**
+ * Canonical clone of ONE `program_week_templates` row into a NEW row of the same
+ * coach, inside transaction `tx`. SINGLE SOURCE of the week-clone column list for
+ * EVERY duplication path (duplicate a week inside a microciclo, deep-clone a whole
+ * microciclo, copy a matrix cell) so no path silently drops a column.
+ *
+ * Pure clone: `slots_json` copied VERBATIM via insert…select (an independent jsonb
+ * document, never a shared ref); `exercise_id`, `level_id`, `athlete_profile` and
+ * `week_number` preserved; NO dates, NO load/%RM adjustment. `nameSuffix` is
+ * concatenated to the name ('' = identical name).
+ *
+ * Content columns = every column that is NOT the identity `id` / `created_at` /
+ * `updated_at`, per the live schema (infra/migrations 0014 → 0015 → 0044 → 0063 →
+ * 0064): coach_id, name, level_id, focus, coach_notes, athlete_profile,
+ * week_number, slots_json.
+ */
+export async function cloneWeekTemplateRow(params: {
+  tx: TransactionSql;
+  coach_id: number | bigint;
+  week_id: number | bigint;
+  nameSuffix?: string;
+}): Promise<string> {
+  const { tx } = params;
+  const coach_id = Number(params.coach_id);
+  const week_id = Number(params.week_id);
+  const suffix = params.nameSuffix ?? '';
+  const cloned = await tx<Array<{ id: string }>>`
+    insert into program_week_templates (
+      coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json
+    )
+    select
+      coach_id,
+      name || ${suffix},
+      level_id,
+      focus,
+      coach_notes,
+      athlete_profile,
+      week_number,
+      slots_json
+    from program_week_templates
+    where id = ${week_id} and coach_id = ${coach_id}
+    returning id::text
+  `;
+  if (!cloned[0]) {
+    throw new ProgramMonthError('not_found', 'Semana no encontrada', 404);
+  }
+  return cloned[0].id;
+}
+
+/**
+ * Deep-clones ONE microciclo (`program_month_templates`) inside transaction `tx`:
+ * a NEW month row + a fresh clone of EVERY source week (via `cloneWeekTemplateRow`)
+ * + junction rows (`program_month_weeks`) preserving positions. The clones are
+ * fully independent documents — editing a cloned week NEVER mutates the source.
+ *
+ * `nameSuffix` is concatenated to the month name (week names stay identical).
+ * `levelIdOverride`, when provided, sets the clone's `level_id` (the cell copy uses
+ * it to retarget the microciclo to another `athlete_level`); otherwise the source
+ * `level_id` is preserved. Source ownership is enforced here (coach-scoped select).
+ */
+export async function cloneMonthTemplateDeep(params: {
+  tx: TransactionSql;
+  coach_id: number | bigint;
+  source_month_id: number | bigint;
+  nameSuffix?: string;
+  levelIdOverride?: number | bigint;
+}): Promise<string> {
+  const { tx } = params;
+  const coach_id = Number(params.coach_id);
+  const source_month_id = Number(params.source_month_id);
+  const suffix = params.nameSuffix ?? '';
+
+  const srcRows = await tx<Array<{ name: string; level_id: string | null }>>`
+    select name, level_id::text
+    from program_month_templates
+    where id = ${source_month_id} and coach_id = ${coach_id}
+    limit 1
+  `;
+  const src = srcRows[0];
+  if (!src) throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
+
+  const targetLevelId =
+    params.levelIdOverride !== undefined
+      ? Number(params.levelIdOverride)
+      : src.level_id !== null
+        ? Number(src.level_id)
+        : null;
+
+  // Source weeks in position order — each becomes a NEW, independent row.
+  const weeks = await tx<Array<{ week_template_id: string; position: number }>>`
+    select mw.week_template_id::text, mw.position
+    from program_month_weeks mw
+    join program_week_templates w on w.id = mw.week_template_id
+    where mw.month_template_id = ${source_month_id} and w.coach_id = ${coach_id}
+    order by mw.position
+  `;
+
+  const monthRows = await tx<Array<{ id: string }>>`
+    insert into program_month_templates (coach_id, name, level_id)
+    values (${coach_id}, ${`${src.name}${suffix}`}, ${targetLevelId})
+    returning id::text
+  `;
+  const newMonthId = monthRows[0]!.id;
+
+  for (const wk of weeks) {
+    const clonedWeekId = await cloneWeekTemplateRow({
+      tx,
+      coach_id,
+      week_id: Number(wk.week_template_id),
+    });
+    await tx`
+      insert into program_month_weeks (month_template_id, week_template_id, position)
+      values (${Number(newMonthId)}, ${Number(clonedWeekId)}, ${wk.position})
+    `;
+  }
+
+  return newMonthId;
+}
+
+/**
+ * Duplicates a microciclo as an INDEPENDENT DEEP COPY: a new month named
+ * `${src.name} (copia)` whose weeks are fresh clones of the source weeks (content
+ * verbatim, positions preserved). Editing the copy NEVER mutates the original.
+ * Source `level_id` is preserved. One transaction. Coach ownership enforced.
+ */
 export async function duplicateMonthTemplate(params: {
   coach_id: number | bigint;
   id: number | bigint;
   client: Sql;
 }): Promise<string> {
-  const src = await getMonthTemplate(params);
-  if (!src) throw new ProgramMonthError('not_found', 'Month template not found', 404);
-
-  return upsertMonthTemplate({
-    coach_id: params.coach_id,
-    payload: {
-      name: `${src.name} (copia)`,
-      week_template_ids: src.weeks.map((w) => w.week_template_id),
-    },
-    client: params.client,
+  let newMonthId = '';
+  await params.client.begin(async (tx) => {
+    newMonthId = await cloneMonthTemplateDeep({
+      tx,
+      coach_id: params.coach_id,
+      source_month_id: params.id,
+      nameSuffix: ' (copia)',
+    });
   });
+  return newMonthId;
 }
 
 /**
