@@ -16,7 +16,6 @@
 
 -- Migrar filas existentes al nuevo valor
 update methodology_rules set authored = 'coach' where authored = 'pablo';
-update methodology_nutrition set authored = 'coach' where authored = 'pablo';
 
 -- methodology_rules: swap del CHECK (no tiene default a nivel DB)
 alter table methodology_rules drop constraint if exists methodology_rules_authored_chk;
@@ -24,9 +23,7 @@ alter table methodology_rules
   add constraint methodology_rules_authored_chk
   check (authored in ('coach', 'ai_suggested', 'system_default'));
 
--- methodology_nutrition: swap del CHECK + default -> 'coach'
-alter table methodology_nutrition drop constraint if exists methodology_nutrition_authored_chk;
-alter table methodology_nutrition
-  add constraint methodology_nutrition_authored_chk
-  check (authored in ('coach', 'ai_suggested', 'system_default'));
-alter table methodology_nutrition alter column authored set default 'coach';
+-- NOTA: methodology_nutrition NO existe todavia en ningun entorno (ninguna
+-- migracion la crea). Cuando se cree, nacera con el CHECK/default 'coach' desde su
+-- propia migracion. No la referenciamos aqui: el runner corta por ';' y no admite
+-- un DO $$ guard, y tocar una tabla inexistente rompe la transaccion entera.
