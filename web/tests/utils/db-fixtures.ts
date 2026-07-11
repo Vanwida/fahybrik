@@ -264,17 +264,23 @@ export async function makeMonthTemplate(params: {
   return bundle;
 }
 
-/** Insert an exercise, auto-registered for teardown. */
+/** Insert an exercise, auto-registered for teardown. `category`/`modality`
+ *  default to 'strength' (exercises.modality is NOT NULL since 0053); pass them
+ *  to seed a specific modality (e.g. 'functional' for a WOD movement). */
 export async function makeExercise(params: {
   fx: Fixture;
   name?: string;
+  slug?: string;
+  category?: string;
+  modality?: string;
 }): Promise<number> {
-  const slug = uniq('ex');
-  // exercises.modality is NOT NULL (0053+); mirror the 'strength' category default
-  // so the fixture insert satisfies the live constraint (drift the fixture predated).
+  const slug = params.slug ?? uniq('ex');
   const rows = await params.fx.sql<Array<{ id: string }>>`
     insert into exercises (slug, name, category, modality)
-    values (${slug}, ${params.name ?? slug}, 'strength'::exercise_category, 'strength')
+    values (
+      ${slug}, ${params.name ?? slug},
+      ${params.category ?? 'strength'}::exercise_category, ${params.modality ?? 'strength'}
+    )
     returning id::text
   `;
   const id = Number(rows[0]!.id);

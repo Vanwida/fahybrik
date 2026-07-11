@@ -154,6 +154,29 @@ export function coachExerciseColumns(client: Client) {
 }
 
 /**
+ * The catalog display ORDER shared by every exercise picker (the coach GET
+ * /api/exercises and the athlete GET /api/athlete/exercises): category priority
+ * (hyrox stations first … other last), then name. Single-sourced so the two
+ * pickers never drift. Requires the exercises alias `e` in scope; use as
+ * `order by ${exerciseCatalogOrder(sql)}`.
+ */
+export function exerciseCatalogOrder(client: Client) {
+  return client`
+    case e.category
+      when 'hyrox_station' then 0
+      when 'strength' then 1
+      when 'cardio' then 2
+      when 'skill' then 3
+      when 'plyometric' then 4
+      when 'core' then 5
+      when 'mobility' then 6
+      else 7
+    end,
+    e.name asc
+  `;
+}
+
+/**
  * Load a single exercise for a coach (global fields + their raw override). Used
  * as the PATCH response so the editor reflects exactly what was just saved. Null
  * when the exercise doesn't exist.

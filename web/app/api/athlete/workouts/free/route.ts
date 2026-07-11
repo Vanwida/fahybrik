@@ -4,39 +4,41 @@ import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { executionMetricsSchema } from '@/lib/sync/record-workout-execution';
-import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
+import { createFreeWorkout, FreeWorkoutError } from '@/lib/athlete/create-free-workout';
 import {
-  createFreeWorkout,
-  FreeWorkoutError,
-  FREE_WORKOUT_MODALITY_SLUGS,
-} from '@/lib/athlete/create-free-workout';
+  validateFreeWorkout,
+  FREE_WORKOUT_MODALITIES,
+  type FreeWorkoutModality,
+} from '@/lib/athlete/free-workout-validate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST /api/athlete/workouts/free — the athlete saves their OWN ("entreno libre /
-// no prescrito") workout. The body carries the chosen modality + the structured
-// prescription it built + the execution metrics; the server persists it as a
-// self-origin assignment through the existing path (see create-free-workout.ts).
+// no prescrito") workout. The body branches on modality:
+//   • MEASURED (row|ski|bike|run): one top-level `prescription` (a measured scheme).
+//   • strength: `items[]` — N exercises, each a 'sets' set-table prescription.
+//   • functional: `items[]` — N exercises sharing ONE metcon scheme (a WOD).
+// The structured validation (schemes, per-set measures, item counts) lives in the
+// DB-free `validateFreeWorkout` helper; the exercise resolution + persistence in
+// create-free-workout.ts. Execution metrics are merged in unchanged.
 
-// The MEASURED schemes a free workout may use — the four modalities are measured
-// disciplines, so only measured-format schemes are accepted. Each is also a
-// valid `templates.format` enum value (shared catalog), so it maps 1:1.
-const MEASURED_SCHEMES = ['intervals', 'steady', 'emom', 'amrap', 'for_time', 'rounds'] as const;
+const itemSchema = z.object({
+  exercise_id: z.number().int().positive(),
+  // Validated by validateFreeWorkout (the typed domain parser).
+  prescription: z.unknown(),
+});
 
 const freeWorkoutBodySchema = z
   .object({
     title: z.string().trim().min(1).max(80),
     modality: z.enum(
-      Object.keys(FREE_WORKOUT_MODALITY_SLUGS) as [
-        keyof typeof FREE_WORKOUT_MODALITY_SLUGS,
-        ...Array<keyof typeof FREE_WORKOUT_MODALITY_SLUGS>,
-      ],
+      FREE_WORKOUT_MODALITIES as unknown as [FreeWorkoutModality, ...FreeWorkoutModality[]],
     ),
-    // Validated separately via safeParsePrescription (the typed domain parser).
-    prescription: z.unknown(),
-    // Optional client hint; the authoritative scheme is read from the prescription.
-    format: z.string().optional(),
+    // Required for the MEASURED modalities; ignored for strength/functional.
+    prescription: z.unknown().optional(),
+    // Required for strength/functional (order = execution order); ignored otherwise.
+    items: z.array(itemSchema).optional(),
   })
   .merge(executionMetricsSchema);
 
@@ -58,22 +60,17 @@ export async function POST(request: Request) {
   }
   const body = parsed.data;
 
-  // Validate the prescription with the typed domain parser (no free text).
-  const pres = safeParsePrescription(body.prescription);
-  if (!pres.success) {
-    return jsonError('invalid_prescription', 'Invalid prescription', 422, pres.error.flatten());
+  // Structured branch validation (schemes, per-set measures, item counts) — the
+  // single, DB-free source of the free-workout rules.
+  const validation = validateFreeWorkout({
+    modality: body.modality,
+    prescription: body.prescription,
+    ...(body.items !== undefined ? { items: body.items } : {}),
+  });
+  if (!validation.ok) {
+    return jsonError(validation.code, validation.message, 422, validation.details);
   }
-  const prescription = pres.data;
-  const scheme = prescription.scheme;
-
-  // The scheme must be a MEASURED format (which is also a valid templates.format).
-  if (!(MEASURED_SCHEMES as readonly string[]).includes(scheme)) {
-    return jsonError(
-      'invalid_format',
-      `Unsupported scheme for a free workout: '${scheme}'`,
-      422,
-    );
-  }
+  const plan = validation.plan;
 
   // A libre workout still needs a coach to surface to (the workout_libre signal).
   const coachRows = await sql<Array<{ coach_id: string | null }>>`
@@ -85,21 +82,23 @@ export async function POST(request: Request) {
   }
   const coachId = Number(coachIdStr);
 
-  // Execution metrics only (strips title/modality/prescription/format — the
-  // metrics schema is non-strict, so re-parsing the validated body keeps exactly
-  // the recorder's fields, single-sourced from executionMetricsSchema).
+  // Execution metrics only (strips title/modality/prescription/items — the metrics
+  // schema is non-strict, so re-parsing the validated body keeps exactly the
+  // recorder's fields, single-sourced from executionMetricsSchema).
   const metrics = executionMetricsSchema.parse(body);
 
+  const base = { athleteId, coachId, title: body.title, scheme: plan.scheme, metrics };
+
   try {
-    const result = await createFreeWorkout({
-      athleteId,
-      coachId,
-      title: body.title,
-      modality: body.modality,
-      scheme,
-      prescriptionJson: prescription,
-      metrics,
-    });
+    const result = await createFreeWorkout(
+      plan.kind === 'measured'
+        ? { ...base, kind: 'measured', modality: plan.modality, prescription: plan.prescription }
+        : {
+            ...base,
+            kind: 'items',
+            items: plan.items.map((it) => ({ exerciseId: it.exercise_id, prescription: it.prescription })),
+          },
+    );
 
     return jsonOk({
       saved: true,
