@@ -312,6 +312,14 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, con revisión verde/ámbar.',
     built: true,
   },
+  {
+    num: 31,
+    area: 'herramientas',
+    slug: 'objetivo-y-prediccion',
+    title: 'Objetivo y predicción',
+    blurb: 'El tiempo meta repartido en los 10 tramos de HYROX: presupuesto, predicho y el hueco.',
+    built: true,
+  },
 ] as const;
 
 /** The first section is served at the bare /guia route (no trailing slug). */
