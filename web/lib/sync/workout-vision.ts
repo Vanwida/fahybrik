@@ -37,6 +37,11 @@ import type {
   PrescribedMeasure,
   PrescriptionContext,
 } from './workout-vision-context';
+import {
+  matchVisionSegments,
+  type DetectedSegmentForMatch,
+  type PrescribedSegmentForMatch,
+} from '@/lib/athlete/vision-segment-match';
 
 // Re-export the "assignment → model inputs" public surface so callers (the
 // vision-result route + future consumers) keep importing it from this module.
@@ -93,8 +98,9 @@ const num = z.coerce.number().finite().nonnegative().nullable().default(null);
 const hr = z.coerce.number().finite().min(0).max(260).nullable().default(null);
 const splitSchema = z.object({
   index: z.coerce.number().int().positive().nullable().default(null),
-  // The prescribed item this split maps to ("segment-{id}"), echoed from the
-  // structured prescription we pass in. Null when it maps to no prescribed item.
+  // The prescribed item the model THINKS this split maps to, echoed from the
+  // context we pass in. Retained as provenance only — linkage is now resolved
+  // deterministically server-side (vision-segment-match), not from this hint.
   item_uid: z.string().max(60).nullable().default(null),
   time_s: num,
   distance_m: num,
@@ -150,9 +156,10 @@ export interface DetectedMetrics {
 export interface DetectedSegment {
   position: number;
   modality: Modality;
-  // The prescribed template_segments.id this segment maps to (resolved from the
-  // model's item_uid, else the sole cardio item for a single-run workout). Null
-  // when it maps to no prescribed item → surfaced as an unmatched lap.
+  // The prescribed template_segments.id this segment maps to, resolved by the
+  // deterministic matcher (modality + relative order + expected-measure
+  // tolerance — vision-segment-match). Null when no honest match exists →
+  // surfaced as an unmatched lap (better unlinked than misattributed).
   template_segment_id: number | null;
   fields: {
     duration_seconds: Field<number>;
@@ -174,6 +181,11 @@ export interface WorkoutVisionProposal {
   // The confirm step POSTs this (plus assignment_id + any athlete edits) to
   // /api/sync/workout-execution.
   proposed_execution: ExecutionMetricsInput;
+  // The prescribed link for the AGGREGATE (chart-only) path: when a screenshot
+  // shows totals but no per-split table, there are no `segments` to carry a link,
+  // so the client attaches this to its single collapsed segment. Null unless the
+  // prescription has exactly one cardio item to attribute the whole effort to.
+  aggregate_template_segment_id: number | null;
   // Interim device extras not yet promoted to first-class stored/analytics
   // fields. Surfaced so nothing the model read is silently dropped, and folded
   // into the notes on the confirm payload.
@@ -237,20 +249,12 @@ export function mapVisionToProposal(args: {
   const modality = ctx.primary_modality;
   const nativeUnit = paceUnitForModality(modality === 'other' ? 'run' : modality);
 
-  // uid → prescribed template_segment_id. The SOLE cardio item's id is the
-  // default linkage for an aggregate / untagged split (single-run workouts) so
-  // the confirmed result attaches to its prescription instead of orphaning.
-  const uidToSegId = new Map<string, number>();
-  for (const it of ctx.items) uidToSegId.set(it.uid.trim().toLowerCase(), it.template_segment_id);
+  // The SOLE cardio item's id is the linkage for the AGGREGATE (chart-only) path:
+  // when there are no per-split rows, the whole effort attaches to its single
+  // prescription instead of orphaning. Per-split linkage is resolved below by the
+  // deterministic matcher (modality + order + measure), NOT the LLM's item_uid.
   const cardioItems = ctx.items.filter((i) => i.modality != null && CARDIO.includes(i.modality));
   const soleCardioSegId = cardioItems.length === 1 ? cardioItems[0]!.template_segment_id : null;
-  const resolveSegId = (itemUid: string | null): number | null => {
-    if (itemUid) {
-      const hit = uidToSegId.get(itemUid.trim().toLowerCase());
-      if (hit != null) return hit;
-    }
-    return soleCardioSegId;
-  };
 
   // If the model reported a pace in a unit that contradicts the modality's native
   // unit, we can't trust the placement → force that pace to 'review'.
@@ -307,7 +311,8 @@ export function mapVisionToProposal(args: {
     return {
       position: position >= 0 ? position : i,
       modality: modality === 'other' ? 'other' : modality,
-      template_segment_id: resolveSegId(s.item_uid),
+      // Filled by the deterministic matcher below (null until then).
+      template_segment_id: null,
       fields: {
         duration_seconds: durationField,
         distance_meters: distanceField,
@@ -319,6 +324,34 @@ export function mapVisionToProposal(args: {
       },
     };
   });
+
+  // ── Deterministic prescription linkage (server-side, honest) ────────────────
+  // Match each REAL detected split to a prescribed template_segment by modality
+  // + relative order + expected-measure tolerance (see vision-segment-match).
+  // Ghost / no-work splits never anchor a link, and they're excluded from the
+  // count so a stray transition ghost can't break an otherwise-clean 1:1 match.
+  const realMask = segments.map((seg) => detectedHasWork(seg));
+  const detForMatch: DetectedSegmentForMatch[] = segments
+    .filter((_, i) => realMask[i])
+    .map((seg) => ({
+      modality: seg.modality,
+      distance_meters: seg.fields.distance_meters.value,
+      duration_seconds: seg.fields.duration_seconds.value,
+      calories: seg.fields.calories.value,
+    }));
+  const prescForMatch: PrescribedSegmentForMatch[] = ctx.items.map((it) => ({
+    template_segment_id: it.template_segment_id,
+    modality: it.modality,
+    measure_kind: it.measure,
+    measure_value: it.measure_value,
+  }));
+  const matchedIds = matchVisionSegments(detForMatch, prescForMatch);
+  let matchIdx = 0;
+  for (let i = 0; i < segments.length; i++) {
+    if (!realMask[i]) continue;
+    segments[i]!.template_segment_id = matchedIds[matchIdx] ?? null;
+    matchIdx += 1;
+  }
 
   // Interim device extras (best pace, training load) + the derived-distance flag
   // ride along in the notes so nothing read is dropped and the estimate is honest.
@@ -350,11 +383,23 @@ export function mapVisionToProposal(args: {
     segments,
     notes,
     proposed_execution,
+    aggregate_template_segment_id: soleCardioSegId,
     training_load: raw.training_load,
     best_pace_s: raw.best_pace_s != null ? Math.round(raw.best_pace_s) : null,
     zones,
     model,
   };
+}
+
+// A DETECTED split carries real work iff it has positive distance or a
+// non-trivial duration (a cardio split has no reps). Mirrors isRealSegment's
+// intent on the mapped shape so the matcher's count logic ignores ghosts.
+function detectedHasWork(seg: DetectedSegment): boolean {
+  const dist = seg.fields.distance_meters.value;
+  const dur = seg.fields.duration_seconds.value;
+  if (dist != null && dist > 0) return true;
+  if (dur != null && dur >= MIN_REAL_DURATION_S) return true;
+  return false;
 }
 
 // Attach the whole effort's time-in-zone rows to a segment's raw_lap_data_json

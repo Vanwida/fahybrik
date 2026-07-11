@@ -84,6 +84,10 @@ struct VisionSegmentFields: Decodable {
 struct VisionSegment: Decodable, Identifiable {
     let position: Int
     let modality: String
+    // The prescribed block this split links to (server-resolved). Threaded back
+    // on confirm so the execution inherits its exercise + prescription context
+    // instead of degrading to 'session'. Null = no honest match (unmatched lap).
+    let templateSegmentId: Int?
     let fields: VisionSegmentFields
     var id: Int { position }
 }
@@ -100,6 +104,10 @@ struct WorkoutVisionProposal: Decodable {
     let metrics: VisionMetrics
     let segments: [VisionSegment]
     let notes: String?
+    // The prescribed link for the AGGREGATE (chart-only) path: when the capture
+    // has totals but no per-split table, `segments` is empty, so this carries the
+    // single-cardio-item link the collapsed segment attaches to. Null otherwise.
+    let aggregateTemplateSegmentId: Int?
     let model: String
     // `proposed_execution` (in the response) is intentionally not decoded: we
     // REBUILD the confirm payload from the athlete's reviewed/edited state below,
@@ -116,6 +124,9 @@ struct WorkoutVisionProposal: Decodable {
 struct CaptureSegmentDTO: Encodable {
     let position: Int
     let modality: String
+    // The prescribed block link (nil → key omitted by encodeIfPresent, so the
+    // Zod `template_segment_id` optional sees `undefined`, never a null).
+    let template_segment_id: Int?
     let duration_seconds: Int?
     let distance_meters: Double?
     let avg_pace_s_per_500m: Double?
@@ -234,6 +245,8 @@ struct EditableSegment: Identifiable {
     let id: Int
     let position: Int
     let modality: String
+    // Prescribed link carried through the review UI unchanged (not athlete-edited).
+    let templateSegmentId: Int?
     var time: EditableField
     var pace: EditableField
     // Detected-only passthrough — preserved on confirm, not edited in the splits UI.
@@ -262,6 +275,8 @@ final class CaptureReviewModel: ObservableObject {
     let paceUnit: String                    // "per_km" | "per_500m"
     let modality: String                    // primary modality wire (run/row/…)
     let summary: String
+    // Prescribed link for the aggregate-only path (no per-split segments).
+    let aggregateTemplateSegmentId: Int?
 
     var paceUnitLabel: String { paceUnit == "per_km" ? "/km" : "/500m" }
     var isErgPace: Bool { paceUnit == "per_500m" }
@@ -282,11 +297,13 @@ final class CaptureReviewModel: ObservableObject {
         paceUnit = m.paceUnit
         modality = proposal.prescription.primaryModality
         summary = proposal.prescription.summary
+        aggregateTemplateSegmentId = proposal.aggregateTemplateSegmentId
         segments = proposal.segments.map { s in
             EditableSegment(
                 id: s.position,
                 position: s.position,
                 modality: s.modality,
+                templateSegmentId: s.templateSegmentId,
                 time: .from(s.fields.durationSeconds),
                 pace: .from(s.fields.avgPaceS),
                 distanceMeters: s.fields.distanceMeters.value,
@@ -352,6 +369,7 @@ final class CaptureReviewModel: ObservableObject {
                 return CaptureSegmentDTO(
                     position: s.position,
                     modality: s.modality,
+                    template_segment_id: s.templateSegmentId,
                     duration_seconds: s.time.value.map { Int($0.rounded()) },
                     distance_meters: s.distanceMeters,
                     avg_pace_s_per_500m: pc.p500,
@@ -370,6 +388,7 @@ final class CaptureReviewModel: ObservableObject {
         let agg = CaptureSegmentDTO(
             position: 0,
             modality: modality,
+            template_segment_id: aggregateTemplateSegmentId,
             duration_seconds: nil,
             distance_meters: distance.value,
             avg_pace_s_per_500m: pc.p500,

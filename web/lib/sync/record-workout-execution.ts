@@ -91,13 +91,18 @@ export async function recordWorkoutExecution(args: {
 
   if (!Number.isFinite(assignmentId)) return { ok: false, reason: 'invalid_assignment' };
 
-  const owned = await sql<Array<{ id: string }>>`
-    select wa.id::text
+  // Fetch the session's format alongside the ownership check — it is the effort
+  // CONTEXT fallback (migration 0120) for segments that carry no template link.
+  // LEFT JOIN so ownership never depends on the template still existing.
+  const owned = await sql<Array<{ id: string; session_format: string | null }>>`
+    select wa.id::text, t.format::text as session_format
     from workout_assignments wa
+    left join templates t on t.id = wa.template_id
     where wa.id = ${assignmentId} and wa.athlete_id = ${athleteId}
     limit 1
   `;
   if (!owned[0]) return { ok: false, reason: 'not_found' };
+  const sessionFormat = owned[0].session_format;
 
   const startedAt = input.started_at ?? new Date().toISOString();
   const endedAt = input.ended_at ?? new Date().toISOString();
@@ -143,6 +148,7 @@ export async function recordWorkoutExecution(args: {
       executionId,
       executionStartedAt: startedAt,
       segments: input.segments,
+      sessionFormat,
     });
   }
 
