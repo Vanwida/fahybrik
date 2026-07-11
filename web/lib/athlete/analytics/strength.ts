@@ -1,10 +1,14 @@
-// ANALYTICS · Section 3 — FUERZA. REAL schema (athlete_strength_maxes, mig 0076,
-// VERSIONED per athlete×lift) but usually a thin log → headline 'needs_logging'.
-// Cards:
-//   • 1RM por lift            — current 1RM (highest version) per lift + delta + progression series (drill)
+// ANALYTICS · Section 3 — FUERZA. Two data sources, both honest:
+//   1. athlete_strength_maxes (mig 0076) — the VERSIONED 1RM TESTS (this file).
+//   2. set_executions (mig 0088) — the PER-SET WORK actually logged, read via
+//      strength-work.ts (volume / progression / adherence / effort).
+// Cards, in order:
+//   • 1RM por lift            — current 1RM per lift + delta + progression (drill)
+//   • volumen / progresión / … — the per-set work half (strength-work.ts)
 //   • lifts que mueven tu HYROX — the HYROX-relevant lifts, honest "—" when untested
 //
-// Honest: an untested lift shows "—" (an invitation to test), never a fake zero.
+// Honest: an untested lift shows "—" (an invitation to test), never a fake zero;
+// an unlogged work half shows a gate, never fabricated volume.
 
 import 'server-only';
 
@@ -18,6 +22,7 @@ import {
   card,
   num,
 } from './core';
+import { buildStrengthWorkCards } from './strength-work';
 
 const MIN_BAR = 0.4;
 
@@ -111,6 +116,10 @@ export async function buildStrengthSection(
     );
   }
 
+  // ── CARDS: the per-set WORK half (volume / progression / adherence / effort) ─
+  const work = await buildStrengthWorkCards(client, athleteId, period);
+  cards.push(...work.cards);
+
   // ── CARD: lifts que mueven tu HYROX (honest "—" for untested) ──────────────
   cards.push(
     card({
@@ -133,5 +142,8 @@ export async function buildStrengthSection(
     }),
   );
 
-  return { section: 'strength', title_es: 'Fuerza', availability: 'needs_logging', period, cards };
+  // Section-level tag: 'real' once there is logged work OR a tested 1RM; else the
+  // honest "needs_logging" so the tab header invites the first entry.
+  const availability = work.hasData || rows.length > 0 ? 'real' : 'needs_logging';
+  return { section: 'strength', title_es: 'Fuerza', availability, period, cards };
 }
