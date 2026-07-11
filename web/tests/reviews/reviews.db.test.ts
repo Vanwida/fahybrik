@@ -65,7 +65,7 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
 
   /** Offered slot start ISOs (already excludes busy/blocked). */
   async function offeredSlots(now: Date): Promise<string[]> {
-    const days = await computeSlots(now);
+    const days = await computeSlots('video', now);
     return days.flatMap((d) => d.slots.map((s) => s.start));
   }
 

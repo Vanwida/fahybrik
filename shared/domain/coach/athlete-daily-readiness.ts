@@ -387,7 +387,7 @@ export async function getAthleteReadinessToday(params: {
 
   let snap = await getLatestReadiness({
     athlete_id: params.athlete_id,
-    on_date: params.on_date,
+    ...(params.on_date ? { on_date: params.on_date } : {}),
     client,
   });
   // Enrich TODAY's snapshot on read if it predates the raw fields — recompute

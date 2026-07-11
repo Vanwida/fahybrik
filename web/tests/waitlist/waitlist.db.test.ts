@@ -370,11 +370,11 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
 
     // The server gate fires BEFORE slot computation, so no availability seeding is needed.
     const startIso = new Date(Date.now() + 2 * DAY_MS).toISOString();
-    await expect(bookAppointment({ token: lead.token, startIso })).rejects.toMatchObject({
+    await expect(bookAppointment({ token: lead.token, startIso, modality: 'video' })).rejects.toMatchObject({
       code: 'waitlisted',
     });
     // Confirm it's a CitasError with the 409 status.
-    await bookAppointment({ token: lead.token, startIso }).catch((err) => {
+    await bookAppointment({ token: lead.token, startIso, modality: 'video' }).catch((err) => {
       expect(err).toBeInstanceOf(CitasError);
       expect((err as CitasError).status).toBe(409);
     });
