@@ -639,13 +639,30 @@ private struct SetRowView: View {
         .padding(.top, 2)
     }
 
-    // Prescribed work, or the logged actual once confirmed.
+    // Prescribed work, or the logged actual once confirmed. A rep set shows its
+    // reps (the athlete edits them live); a duration/distance set has no rep
+    // dimension, so it reads the prescribed measure from the segment prescription
+    // ("0:30", "50 m") instead of a bare dash.
     private var workLine: String {
-        let reps = rec.confirmed ? (rec.repsActual ?? rec.repsPrescribed) : rec.repsPrescribed
         let load = rec.confirmed ? (rec.loadActualKg ?? rec.loadPrescribedKg) : rec.loadPrescribedKg
-        var s = reps.map { "\($0)" } ?? "—"
+        var s: String
+        if rec.repsPrescribed != nil || rec.repsActual != nil {
+            let reps = rec.confirmed ? (rec.repsActual ?? rec.repsPrescribed) : rec.repsPrescribed
+            s = reps.map { "\($0)" } ?? "—"
+        } else {
+            s = prescribedMeasureWork ?? "—"
+        }
         if let kg = load { s += " × \(kgString(kg)) kg" }
         return s
+    }
+
+    // The prescribed measure work for a non-rep set (timed hold / carry), pulled
+    // from this set's prescription by index. Nil for rep sets (handled above) or
+    // when no prescription is attached.
+    private var prescribedMeasureWork: String? {
+        guard let sets = session.currentSegment?.prescription?.sets,
+              sets.indices.contains(index) else { return nil }
+        return PrescriptionRenderer.measureWork(sets[index].measure)
     }
 
     private var subLine: String? {

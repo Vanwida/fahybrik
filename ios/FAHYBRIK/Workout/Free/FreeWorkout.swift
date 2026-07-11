@@ -347,6 +347,7 @@ final class FreeWorkoutDraft {
             title: resolvedTitle,
             modalityWire: modality.wire,
             prescription: prescription,
+            items: nil,
             plan: plan
         )
     }
@@ -467,26 +468,39 @@ final class FreeWorkoutDraft {
 //
 // Packaged once by the builder and threaded through `WorkoutContainer` (free mode)
 // into `PostWorkoutSummaryView`, which builds the `FreeWorkoutPayload` from the
-// engine's measured metrics + these three free-only fields.
+// engine's measured metrics + these free-only fields.
+//
+// The MEASURED path (row/run/ski/bike) carries a single top-level `prescription`
+// and no `items`. The FUERZA / FUNCIONAL path carries `items` (one built exercise/
+// movement each) and no top-level `prescription` — mirroring the free-save contract
+// where exactly one of the two is present.
 struct FreeWorkoutContext {
     let title: String
-    let modalityWire: String          // "row"|"run"|"ski"|"bike"
-    let prescription: Prescription
+    let modalityWire: String                    // "row"|"run"|"ski"|"bike"|"strength"|"functional"
+    let prescription: Prescription?             // measured path only
+    let items: [FreeWorkoutItemPayload]?        // fuerza / funcional only
     let plan: WorkoutPlan
 }
 
 // MARK: - FreeWorkoutPayload — the FROZEN free-save contract
 //
 // POST /api/athlete/workouts/free (bearer = athlete). Adds title/modality/
-// prescription to the SAME execution fields the prescribed path sends (RPE,
-// durations, scores, segments). Property names are explicit snake_case — the
-// `.convertToSnakeCase` encoder leaves them unchanged, and converts the nested
+// prescription (measured) OR title/modality/items (fuerza·funcional) to the SAME
+// execution fields the prescribed path sends (RPE, durations, scores, segments).
+// Property names are explicit snake_case — the `.convertToSnakeCase` encoder leaves
+// them unchanged (including `exercise_id` inside each item), and converts the nested
 // `Prescription`'s camelCase keys (workS→work_s, restS→rest_s, valueS→value_s) to
 // the canonical wire shape.
+//
+// Exactly ONE of `prescription` / `items` is present: the measured path sends the
+// top-level `prescription` (items nil); fuerza·funcional send `items` (1..12, in
+// execution order) with `prescription` omitted. Both are Optional so the encoder
+// drops whichever is nil.
 struct FreeWorkoutPayload: Codable {
     let title: String
     let modality: String
-    let prescription: Prescription
+    let prescription: Prescription?
+    let items: [FreeWorkoutItemPayload]?
     let perceived_exertion: Int?
     let total_duration_seconds: Int?
     let notes: String?

@@ -18,12 +18,18 @@ struct FreeWorkoutBuilderView: View {
     @State private var draft = FreeWorkoutDraft()
     @State private var step: Step = .modality
     @State private var running: FreeWorkoutContext? = nil
+    /// Which builder track the athlete is on. The MEASURED wizard (row/run/ski/bike)
+    /// lives here; FUERZA / FUNCIONAL hand off to their own list builders, which
+    /// return a `FreeWorkoutContext` that runs through the SAME engine below.
+    @State private var track: Track = .measured
 
     enum Step: Int, CaseIterable { case modality, format, bouts }
+    enum Track { case measured, strength, functional }
 
     var body: some View {
         if let ctx = running {
-            // P5 — run it through the existing engine; save via the free path.
+            // P5 — run it through the existing engine; save via the free path. Shared
+            // by all three tracks, so there's ONE place that hosts WorkoutContainer.
             WorkoutContainer(
                 assignmentId: nil,
                 fallbackTitle: ctx.title,
@@ -33,7 +39,22 @@ struct FreeWorkoutBuilderView: View {
                 onCompleted: { _ in onCompleted(); onClose() }
             )
         } else {
-            builder
+            switch track {
+            case .measured:
+                builder
+            case .strength:
+                FreeStrengthBuilderView(
+                    bearer: bearer,
+                    onBack: { track = .measured },
+                    onStart: { running = $0 }
+                )
+            case .functional:
+                FreeFunctionalBuilderView(
+                    bearer: bearer,
+                    onBack: { track = .measured },
+                    onStart: { running = $0 }
+                )
+            }
         }
     }
 
@@ -131,12 +152,16 @@ struct FreeWorkoutBuilderView: View {
                         advance(to: .format)
                     }
                 }
-                // Out of scope this pass — honest disabled tiles (need a catalog
-                // exercise picker), never a dead tile that fabricates a workout.
+                // Catalog-driven tracks: hand off to their own list builders (pick
+                // movements + configure), which run through the SAME engine on start.
                 FreeBuilderTile(icon: "dumbbell.fill", title: "Fuerza",
-                                subtitle: nil, selected: false, disabledNote: "Próximamente") {}
+                                subtitle: "Series y carga", selected: false, disabledNote: nil) {
+                    advanceTrack(.strength)
+                }
                 FreeBuilderTile(icon: "figure.cross.training", title: "Funcional",
-                                subtitle: nil, selected: false, disabledNote: "Próximamente") {}
+                                subtitle: "WOD · For Time, AMRAP…", selected: false, disabledNote: nil) {
+                    advanceTrack(.functional)
+                }
             }
         }
     }
@@ -318,6 +343,11 @@ struct FreeWorkoutBuilderView: View {
     private func advance(to next: Step) {
         Haptics.light()
         withAnimation(.easeInOut(duration: 0.2)) { step = next }
+    }
+
+    private func advanceTrack(_ next: Track) {
+        Haptics.light()
+        withAnimation(.easeInOut(duration: 0.2)) { track = next }
     }
 
     private func back() {
