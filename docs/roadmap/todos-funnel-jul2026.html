@@ -112,7 +112,7 @@
   <header>
     <div class="brand">FAHYBRID</div>
     <h1>To-dos — funnel &amp; ciclo del atleta</h1>
-    <div class="meta">Reunión <strong>Alex · Pablo · Gerard</strong> — 7 julio 2026. Las tarjetas en verde llevan su resumen de lo hecho. <strong>Última actualización: 7 jul · 23:55 — 16 tareas cerradas en el día.</strong></div>
+    <div class="meta">Reunión <strong>Alex · Pablo · Gerard</strong> — 7 julio 2026. Las tarjetas en verde llevan su resumen de lo hecho. <strong>Última actualización: 11 jul — panel al día con la ola del 8–11 jul (#13 #15 #16 #21 #30 #33 #40 #47 #49 cerradas).</strong></div>
   </header>
 
   <div class="globalbar">
@@ -230,13 +230,13 @@
         <div class="resumen"><b>Hecha · 7 jul.</b> Al marcar una llamada "Completada" se abre el parte ahí mismo: lo hablado, próximos pasos, resultado (quiere empezar / pensándoselo / no / seguimiento / no asistió) y precio propuesto. Se ve en la ficha del lead y en la pestaña "1:1" del atleta, y el historial sigue a la persona al convertirse. Base lista para la futura grabación con IA (#29).</div>
       </div>
     </div>
-    <div class="task" data-id="21">
+    <div class="task done" data-id="21">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#21</div>
         <div class="tsub">Seguimiento recurrente 1:1 con el atleta</div>
         <div class="tdesc">Revisión mensual/trimestral reutilizando citas y reporting. Retención y servicio premium.</div>
-        <div class="chips"><span class="chip dep">tras #2</span><span class="chip dep">tras #14</span></div>
+        <div class="resumen"><b>Hecha · 8 jul, en producción.</b> Revisión recurrente construida sobre las citas y el reporting existentes; salió con la ola del 8 jul junto a métricas, nurturing, cupo, bajas y pagos.</div>
       </div>
     </div>
   </section>
@@ -248,32 +248,34 @@
       <div class="body">
         <div class="tid">#17</div>
         <div class="tsub">Onboarding día-1 del atleta en la app</div>
-        <div class="tdesc">Primer login: conectar Apple Health/Garmin, perfil y tests iniciales que calibran el programa.</div>
-        <div class="chips"><span class="chip dep">tras #5</span></div>
+        <div class="tdesc">Primer login: conectar Apple Health/Garmin, perfil y tests iniciales que calibran el programa. <b>Estado: construido en ramas</b> (volcado onboarding→perfil en web + pantallas día-1 en iOS); falta integrarlo y desplegarlo.</div>
       </div>
     </div>
-    <div class="task" data-id="13">
+    <div class="task done" data-id="13">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#13</div>
         <div class="tsub">Flujo de bajas y pausas</div>
         <div class="tdesc">Pausa (lesión/vacaciones: plan congelado sin penalizar adherencia) y baja (acceso, plan, historial). Estados en el roster.</div>
+        <div class="resumen"><b>Hecha · 8 jul, en producción.</b> Pausa y baja con sus estados visibles en el roster; salió con la ola del 8 jul.</div>
       </div>
     </div>
-    <div class="task" data-id="15">
+    <div class="task done" data-id="15">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#15</div>
         <div class="tsub">Seguimiento de pagos</div>
         <div class="tdesc">Precio por atleta (acordado en la llamada), estado por período, historial y avisos de impago.</div>
+        <div class="resumen"><b>Hecha · 9 jul, Stripe en LIVE.</b> Cobros por Stripe con el plan FUNDADOR (cupón 100% para fundadores = 0€), webhook propio y estado por atleta. Guardarraíl acordado: ningún cobro real &gt;0€ sale sin tu OK.</div>
       </div>
     </div>
-    <div class="task" data-id="16">
+    <div class="task done" data-id="16">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#16</div>
         <div class="tsub">Gestión de lesiones</div>
         <div class="tdesc">Registro, plan adaptado sin penalizar adherencia, seguimiento hasta la vuelta, historial. Enlaza con pausas y check-in.</div>
+        <div class="resumen"><b>Hecha · 9 jul, en prod y demo.</b> Panel de lesiones en la ficha del atleta (registro, seguimiento, historial) y badge de estado en el roster para que Pablo lo vea de un vistazo.</div>
       </div>
     </div>
   </section>
@@ -389,7 +391,7 @@
       <div class="body">
         <div class="tid">#28</div>
         <div class="tsub">Importador de entrenos (Excel/texto → tipado)</div>
-        <div class="tdesc">Pablo pega su Excel o escribe en su notación → la IA lo convierte al modelo tipado → revisión de 30 seg → a la biblioteca/semana. Aprende su notación con cada corrección. Al arrancar: Alex nombra el modelo de IA.</div>
+        <div class="tdesc">Pablo pega su Excel o escribe en su notación → la IA lo convierte al modelo tipado → revisión de 30 seg → a la biblioteca/semana. <b>Estado: el motor de conversión ya está construido y verificado</b> (notación, Excel, sinónimos); faltan los endpoints y la pantalla de revisión del coach. Al retomar: Alex nombra el modelo de IA.</div>
       </div>
     </div>
     <div class="task" data-id="29">
@@ -400,12 +402,13 @@
         <div class="tdesc">El bot entra al Meet de la cita, graba y transcribe EN NUESTRA infra (dirección: RunPod + Whisper self-hosted), y la IA deja el parte de Pablo pre-rellenado. Consentimiento del lead incluido. Spec lista; se hará más adelante.</div>
       </div>
     </div>
-    <div class="task" data-id="30">
+    <div class="task done" data-id="30">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#30</div>
         <div class="tsub">Dobles: flecos de invitaciones y copys</div>
         <div class="tdesc">Estado/cancelación de las invitaciones de pareja visibles para quien invita, y mensajes de error correctos en iOS. Menor.</div>
+        <div class="resumen"><b>Hecha · 9 jul, en demo y producción.</b> Quien invita ve el estado de su invitación y puede cancelarla; el invitado puede rechazar (landing "No me interesa" incluida) y los copys de error quedaron correctos.</div>
       </div>
     </div>
     <div class="task" data-id="32">
@@ -416,17 +419,99 @@
         <div class="tdesc">El motor ya existe (readiness compuesta, polarización, top ejercicios, economía de carrera, autorregulación semanal) — falta solo la pantalla en la ficha del atleta. Salió de ordenar el almacén (#31).</div>
       </div>
     </div>
-    <div class="task" data-id="33">
+    <div class="task done" data-id="33">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#33</div>
         <div class="tsub">IA redacta el entreno (editor del coach)</div>
         <div class="tdesc">Pablo describe el foco y la IA propone los bloques (de su biblioteca o compuestos) — el motor ya existe, falta la pantalla. Familia del importador #28.</div>
+        <div class="resumen"><b>Hecha · 9 jul, en el dashboard.</b> Pablo describe el foco en el editor y la IA le propone los bloques listos para ajustar y guardar; desplegado en prod y demo.</div>
       </div>
     </div>
   </section>
 
-  <footer>FAHYBRID · documento de trabajo interno · 7 jul 2026</footer>
+  <section data-sec>
+    <div class="sec-head"><h2>Ola 8–11 jul (post-reunión)</h2><span class="sec-count"></span></div>
+    <div class="sec-note">Lo que entró después de la reunión. Casi todo el iOS nuevo está construido pero espera un build a TestFlight (#50) para verse en tu iPhone.</div>
+    <div class="task done" data-id="49">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#49</div>
+        <div class="tsub">Circuito analítico: contexto del esfuerzo, cruce entreno×carrera y objetivo</div>
+        <div class="tdesc">Auditoría de "¿las analíticas están conectadas de verdad?" → 3 fases construidas en cadena.</div>
+        <div class="resumen"><b>Hecho · 11 jul, en demo y prod.</b> (1) Cada esfuerzo guarda su contexto: remo suelto ≠ series ≠ dentro de una sim con fatiga. (2) Cruce entreno×carrera con niveles honestos por estación (el eslabón débil real del Atleta Demo 1: Row +34%). (3) Objetivo por rangos (Sub-60/70/80/90…), predicción por estación y el gap board "Camino al objetivo" + predicho-vs-real tras cada carrera. Se ve entrando como Atleta Demo 1; en tu iPhone, tras el build (#50).</div>
+      </div>
+    </div>
+    <div class="task done" data-id="47">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#47</div>
+        <div class="tsub">Días de entreno + reparto del plan</div>
+        <div class="tdesc">Día tipado entreno/descanso + recuperación + horario del atleta + reparto semanal.</div>
+        <div class="resumen"><b>Hecha · 10 jul, en prod y demo (parte web).</b> Las pantallas iOS están construidas y esperan el build (#50).</div>
+      </div>
+    </div>
+    <div class="task done" data-id="40">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#40</div>
+        <div class="tsub">Citas: videollamada vs presencial</div>
+        <div class="tdesc">Dos horarios independientes que pueden solapar; la ocupación es agnóstica al tipo de cita.</div>
+        <div class="resumen"><b>Hecha · salió con el deploy del 11 jul.</b> Pablo gestiona horario de videollamada y horario presencial por separado, y una cita ocupa el hueco sea del tipo que sea.</div>
+      </div>
+    </div>
+    <div class="task" data-id="34">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#34</div>
+        <div class="tsub">Tests de calibración de semana-1</div>
+        <div class="tdesc">La parte web está viva y verificada (resultados → benchmark → auto-programación de los tests). <b>Falta:</b> la pantalla iOS, que espera el build (#50).</div>
+      </div>
+    </div>
+    <div class="task" data-id="36">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#36</div>
+        <div class="tsub">Garmin sin SDK — fusión multi-fuente</div>
+        <div class="tdesc">Fase 1 viva (fusión de la misma sesión llegando por varios canales). <b>Faltan:</b> Fases 2-3.</div>
+      </div>
+    </div>
+    <div class="task" data-id="48">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#48</div>
+        <div class="tsub">App para Amazfit (Zepp OS)</div>
+        <div class="tdesc">v1 construida: enseña el entreno de hoy con login y API real (+ modo demo para el simulador). <b>Falta:</b> probarla en un reloj físico y decidir el envío a la tienda de Zepp.</div>
+      </div>
+    </div>
+    <div class="task" data-id="50">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#50</div>
+        <div class="tsub">Nuevo build de iOS a TestFlight</div>
+        <div class="tdesc">Todo el iOS de esta ola está en ramas, no en tu móvil: objetivo/predicción (#49), calibración (#34), días/reparto (#47). Un solo build lo desbloquea todo. Mientras tanto se puede ver corriendo la app desde Xcode y entrando como Atleta Demo 1.</div>
+      </div>
+    </div>
+    <div class="task" data-id="51">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#51</div>
+        <div class="tsub">Vídeo del hero de la landing</div>
+        <div class="tdesc">La landing rediseñada está viva con foto real; el vídeo del hero espera tus clips.</div>
+        <div class="chips"><span class="chip dep">espera tus clips (Grok)</span></div>
+      </div>
+    </div>
+    <div class="task" data-id="52">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#52</div>
+        <div class="tsub">Respaldar las promesas de la landing</div>
+        <div class="tdesc">La landing aún promete dos cosas sin mecanismo detrás: "puntos débiles → el plan se adapta" y Strava. O se construyen o se ajusta el copy antes del lanzamiento.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>FAHYBRID · documento de trabajo interno · actualizado 11 jul 2026</footer>
 </div>
 
 <script>
