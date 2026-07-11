@@ -1,4 +1,4 @@
-import type { AthleteContextPack } from './pablo-ia-context';
+import type { AthleteContextPack } from './coach-ia-context';
 
 export type WeeklyVerdict = 'ok' | 'needs_adjustment';
 

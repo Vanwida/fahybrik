@@ -85,7 +85,7 @@ function compare(a: MatchedAction, b: MatchedAction): { winner: MatchedAction; r
   const cb = SCOPE_SPECIFICITY[b.rule.scope];
   if (ca !== cb) return { winner: ca > cb ? a : b, reason: 'scope' };
 
-  // §2.8 Pablo > IA at equal priority/scope
+  // §2.8 coach > IA at equal priority/scope
   const aa = AUTHORED_RANK[a.rule.source.authored];
   const ab = AUTHORED_RANK[b.rule.source.authored];
   if (aa !== ab) return { winner: aa > ab ? a : b, reason: 'authored' };

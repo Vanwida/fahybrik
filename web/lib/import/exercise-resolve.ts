@@ -39,6 +39,8 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'front squat': 'front-squat',
   'back squat': 'back-squat',
   'deadlift': 'deadlift',
+  'rdl': 'romanian-deadlift',
+  'romanian deadlift': 'romanian-deadlift',
   'bench press': 'bench-press',
   'bench press horizontal': 'bench-press',
   'strict shoulder press': 'overhead-press',
@@ -76,6 +78,8 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'assault bike': 'assault-bike',
   'bike': 'bike-erg',
   'run': 'run',
+  'carrera': 'run',
+  'correr': 'run',
   // hyrox stations
   'wall balls': 'hyrox-wall-balls',
   'wall ball': 'hyrox-wall-balls',

@@ -21,8 +21,10 @@ struct FijarObjetivoView: View {
     @State private var division: String = "open"
     @State private var gender: String = "men"
 
-    // Optional goal time (h:mm:ss → goalTimeSeconds). Off by default → nil.
-    @State private var goalEnabled = false
+    // Objetivo por rangos → goalTimeSeconds. Nothing chosen by default → nil (the
+    // race can be fixed with no goal, exactly as before). A preset maps to its
+    // seconds; "Acabarla bien" → nil; the exact wheels are the fallback.
+    @State private var goalChoice: GoalChoice? = nil
     @State private var goalHours = 1
     @State private var goalMinutes = 0
     @State private var goalSeconds = 0
@@ -31,9 +33,15 @@ struct FijarObjetivoView: View {
     @State private var errorText: String? = nil
 
     private var goalTotalSeconds: Int? {
-        guard goalEnabled else { return nil }
-        let total = goalHours * 3600 + goalMinutes * 60 + goalSeconds
-        return total > 0 ? total : nil
+        switch goalChoice {
+        case .preset(let preset):
+            return preset.seconds
+        case .exact:
+            let total = goalHours * 3600 + goalMinutes * 60 + goalSeconds
+            return total > 0 ? total : nil
+        case .finish, .none:
+            return nil
+        }
     }
 
     var body: some View {
@@ -120,39 +128,66 @@ struct FijarObjetivoView: View {
         }
     }
 
-    // MARK: - Goal time (optional)
+    // MARK: - Objetivo por rangos (Pantalla A)
+    //
+    // How athletes actually talk (sub-60/70/80/90 or "acabarla bien"), with the
+    // exact h:mm:ss wheels demoted to a secondary "tiempo exacto" fallback. Every
+    // choice resolves to the SAME goalTimeSeconds field — zero server change.
 
     private var goalTimeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle(isOn: $goalEnabled.animation(.easeInOut(duration: 0.18))) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Tiempo objetivo")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Opcional — para enfocar el plan")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.Color.muted)
-                }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("¿A qué vas?")
+                    .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("Tu plan y tu analítica se enfocan en esto.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.Color.muted)
             }
-            .tint(Theme.Color.accent)
 
-            if goalEnabled {
-                HStack(spacing: 8) {
-                    wheel(value: $goalHours, range: 0...5, unit: "h")
-                    wheel(value: $goalMinutes, range: 0...59, unit: "min")
-                    wheel(value: $goalSeconds, range: 0...59, unit: "s")
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity)
-                .background(Theme.Color.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.hairline, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            GoalPresetGrid(choice: $goalChoice)
+
+            GoalPresetChip(
+                title: "Acabarla bien",
+                descriptor: "primera carrera · sin reloj",
+                selected: goalChoice == .finish
+            ) {
+                goalChoice = .finish
             }
+
+            if case .exact = goalChoice {
+                exactWheels
+            } else {
+                GoalExactLink {
+                    withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
+                }
+            }
+
+            Text("El objetivo se traduce en tiempos por estación según cómo reparten la carrera los atletas reales de tu división — no un promedio inventado.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Theme.Color.faint)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// The exact h:mm:ss wheels — the fallback revealed by "Prefiero un tiempo
+    /// exacto…". Preserved from the original goal input, now demoted below the
+    /// range presets.
+    private var exactWheels: some View {
+        HStack(spacing: 8) {
+            wheel(value: $goalHours, range: 0...5, unit: "h")
+            wheel(value: $goalMinutes, range: 0...59, unit: "min")
+            wheel(value: $goalSeconds, range: 0...59, unit: "s")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Theme.Color.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
     }
 
     private func wheel(value: Binding<Int>, range: ClosedRange<Int>, unit: String) -> some View {

@@ -68,5 +68,7 @@ describeWithDb('#28 import orchestrator — real xlsx → typed proposal (real D
     expect(squat!.prescription.scheme).toBe('sets');
     expect(Array.isArray(squat!.prescription.sets)).toBe(true);
     expect(squat!.exercise_id).not.toBeNull(); // resolved via alias/name to the catalog
-  });
+    // Real workbook read (python bridge) + one resolveExercise round-trip per
+    // typed item over a remote Neon branch — the 5s default is too tight.
+  }, 30000);
 });

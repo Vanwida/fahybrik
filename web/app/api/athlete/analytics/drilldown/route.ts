@@ -22,7 +22,10 @@ const KNOWN_KINDS = [
   'running.best_effort',
   'ergo.split',
   'strength.lift',
+  'strength.volume',
+  'strength.exercise',
   'hyrox.race',
+  'hyrox.scores',
   'recovery.metric',
 ] as const;
 const kindSchema = z.enum(KNOWN_KINDS);
@@ -30,7 +33,7 @@ const periodSchema = z.enum(['7d', 'month', 'year', 'custom']);
 const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // Whitelisted drill params (everything else is ignored). Short, safe strings.
-const PARAM_KEYS = ['type', 'zone', 'distance', 'modality', 'slug', 'race_id', 'metric'] as const;
+const PARAM_KEYS = ['type', 'zone', 'distance', 'modality', 'slug', 'race_id', 'metric', 'exercise_id'] as const;
 
 export async function GET(request: Request) {
   const auth = await getAthleteSessionFromBearer(request.headers.get('authorization'));

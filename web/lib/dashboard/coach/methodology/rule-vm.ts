@@ -23,7 +23,7 @@ export type RulePriority = 'critical' | 'high' | 'medium' | 'low';
 
 export type TriggerPhase = 'pre_session' | 'intra_session' | 'cross_session' | 'selection';
 
-export type RuleAuthored = 'pablo' | 'ai_suggested' | 'system_default';
+export type RuleAuthored = 'coach' | 'ai_suggested' | 'system_default';
 
 export type RuleScope = 'set' | 'exercise' | 'session' | 'day' | 'week' | 'block' | 'global';
 

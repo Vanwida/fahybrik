@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateWeeklyVerdictFromContext } from '@/lib/coach/weekly-verdict-rules';
-import type { AthleteContextPack } from '@/lib/coach/pablo-ia-context';
+import type { AthleteContextPack } from '@/lib/coach/coach-ia-context';
 
 function basePack(overrides: Partial<AthleteContextPack> = {}): AthleteContextPack {
   return {

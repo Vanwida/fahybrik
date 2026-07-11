@@ -123,9 +123,9 @@
   --scrim:            rgba(0, 0, 0, 0.55);
 
   /* ----- brand accent (single) ----- */
-  --accent:           #F06A2A;            /* Fabrik orange */
+  --accent:           #F06A2A;            /* brand orange */
   --accent-press:     #D85A20;
-  --accent-on:        #0A0A0A;            /* label color on orange fill — black-on-orange (Fabrik wordmark, AA ~6.5:1) */
+  --accent-on:        #0A0A0A;            /* label color on orange fill — black-on-orange (brand wordmark, AA ~6.5:1) */
 
   /* ----- semantic ----- */
   --ok:               #3FC773;
@@ -241,7 +241,7 @@
    Imported from the standalone coach app on merge. These tokens and
    utility classes back the dashboard surfaces under /[locale]/(app).
    Token VALUES converge with the canonical brand tokens above (same
-   #0A0A0A canvas, same Fabrik orange accent, same HR zones) — this
+   #0A0A0A canvas, same brand orange accent, same HR zones) — this
    block only ADDS dashboard-specific surfaces, the named type scale,
    the Material Symbols icon font, and component utility classes. It
    never overrides the public/auth tokens or the shadcn mappings. */
@@ -545,7 +545,7 @@
 
 /* ════════════════════════════════════════════════════════════════════
    "INSTRUMENTO ATLÉTICO" — reusable instrument primitives.
-   Concept2 PM5 readout × Whoop × Fabrik. ADDITIVE only — these classes
+   Concept2 PM5 readout × Whoop. ADDITIVE only — these classes
    extend the dashboard surface vocabulary above. Tokens are the source
    of truth (no inline hex): near-black depth + single orange accent +
    mono tabular numbers as the signature. Owned by globals.css; safe to
@@ -576,7 +576,7 @@
    The signature element: a big MONO tabular number with a tracked-
    uppercase micro-label beneath. The number never jitters (tabular-nums)
    and lines up like a hardware monitor. `--accent` variant lights the
-   hero metric in Fabrik orange; default stays --fg for AA at small sizes.
+   hero metric in brand orange; default stays --fg for AA at small sizes.
    Compose: <div class="metric-readout"><span class="metric-readout__value">…</span>
             <span class="metric-readout__label">…</span></div> */
 .metric-readout {

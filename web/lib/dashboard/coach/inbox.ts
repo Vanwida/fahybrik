@@ -221,7 +221,7 @@ export async function loadCoachInbox(params: {
       week_start: p.week_start,
       title: RECOMMENDATION_TITLE[p.proposal.recommendation] ?? 'Ajuste semanal',
       summary:
-        p.coach_summary ?? p.proposal.rationale ?? 'Propuesta de Pablo IA pendiente de revisión.',
+        p.coach_summary ?? p.proposal.rationale ?? 'Propuesta de Coach IA pendiente de revisión.',
       diff_rows,
       extra_change_count: Math.max(0, changes.length - MAX_DIFF_ROWS),
       triggers,

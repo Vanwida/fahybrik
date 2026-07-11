@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
     ],
+    // Next 16 requires every next/image `quality` to be whitelisted (default [75]).
+    // The landing hero ships at quality 80 for the LCP photo.
+    qualities: [75, 80],
   },
   // pdfjs-dist + mammoth ship Node-only assets (fonts/cmaps, fs access) — keep
   // them external so the bundler doesn't try to inline them.

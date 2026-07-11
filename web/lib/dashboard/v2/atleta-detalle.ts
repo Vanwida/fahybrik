@@ -48,6 +48,12 @@ import {
   SEQUENCE_DAYS_MIN,
   SEQUENCE_DAYS_MAX,
 } from '@fahybrid/shared/schema/program-sequences';
+import {
+  parseAvailability,
+  deriveTrainingDaysPerWeek,
+  WEEKDAY_KEYS,
+} from '@fahybrid/shared/domain/coach/intake-availability';
+import { DAY_LABELS, DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import type { V2Status } from '@/components/v2/StatusDot';
 import {
   EM_DASH,
@@ -56,6 +62,7 @@ import {
   type DetalleStat,
   type DetalleChatMessage,
   type ClasificacionData,
+  type TrainingDaysData,
   type V2AthleteDetalle,
   type StrengthMaxView,
   type BenchmarkSeries,
@@ -75,6 +82,19 @@ const ACTIVE_LIFECYCLE: DetalleLifecycle = {
   pending_request: null,
 };
 
+/** No declared availability (or a failed load) → honest empty state; no day is
+ *  ever invented as a real training day. */
+const EMPTY_TRAINING_DAYS: TrainingDaysData = {
+  days: WEEKDAY_KEYS.map((key, i) => ({
+    key,
+    label: DAY_LABELS[i]!,
+    full_label: DAY_LABELS_FULL[i]!,
+    trains: false,
+  })),
+  training_days_per_week: null,
+  has_availability: false,
+};
+
 // Re-export the client-safe surface so existing import sites keep working.
 export {
   ATLETA_TABS,
@@ -91,6 +111,8 @@ export type {
   DetalleChatMessage,
   ClasificacionData,
   ClasificacionLevelOption,
+  TrainingDaysData,
+  TrainingDayCell,
   V2AthleteDetalle,
   StrengthMaxView,
   BenchmarkSeries,
@@ -228,6 +250,48 @@ export async function loadClassification(params: {
   };
 }
 
+/**
+ * Loads the athlete's REAL weekly training pattern (#47) from their own declared
+ * `availability_json` ({mon..sun -> program|other_activity|rest}, Step 5
+ * onboarding / iOS "Mis días" — mig 0047). Distinct from ClasificacionData's
+ * training_days_per_week (the coach's plain declared TARGET): this resolves
+ * WHICH days, from the athlete's own input, not just how many. The summary count
+ * falls back to the coach's declared value only when the athlete hasn't marked
+ * any day yet — the per-day grid itself never guesses.
+ */
+async function loadTrainingDays(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  client: Sql;
+}): Promise<TrainingDaysData> {
+  const { coach_id, athlete_id, client } = params;
+
+  const rows = await client<
+    Array<{ availability_json: unknown; training_days_per_week: number | null }>
+  >`
+    select availability_json, training_days_per_week
+    from athletes
+    where id = ${athlete_id} and coach_id = ${coach_id}
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return EMPTY_TRAINING_DAYS;
+
+  const availability = parseAvailability(row.availability_json);
+  const declaredDays = deriveTrainingDaysPerWeek(availability);
+
+  return {
+    days: WEEKDAY_KEYS.map((key, i) => ({
+      key,
+      label: DAY_LABELS[i]!,
+      full_label: DAY_LABELS_FULL[i]!,
+      trains: availability[key] === 'program',
+    })),
+    training_days_per_week: declaredDays ?? row.training_days_per_week,
+    has_availability: declaredDays != null,
+  };
+}
+
 // ── Main orchestrator ───────────────────────────────────────────────────────────
 export async function loadAthleteDetalle(params: {
   coach_id: number | bigint;
@@ -251,6 +315,7 @@ export async function loadAthleteDetalle(params: {
     chat,
     zone_profiles,
     classification,
+    trainingDays,
     strengthCurrent,
     strengthHistory,
     benchmarks,
@@ -268,6 +333,7 @@ export async function loadAthleteDetalle(params: {
     loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
     loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
     loadClassification({ coach_id, athlete_id, client }).catch(() => null),
+    loadTrainingDays({ coach_id, athlete_id, client }).catch(() => EMPTY_TRAINING_DAYS),
     loadStrengthMaxes({ coach_id, athlete_id, client }).catch(() => []),
     loadStrengthMaxHistory({ athlete_id, client }).catch(() => []),
     loadBenchmarkHistory({ coach_id, athlete_id, client }).catch(() => []),
@@ -334,6 +400,7 @@ export async function loadAthleteDetalle(params: {
     header,
     stats: buildStats(resumen, body),
     classification: safeClassification,
+    training_days: trainingDays,
     resumen,
     plan,
     body,

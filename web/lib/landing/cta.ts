@@ -2,7 +2,7 @@
 //
 // THE FUNNEL (no prices on the web)
 // ---------------------------------
-// The landing sells; every primary CTA ("Quiero esto") leads to the onboarding at
+// The landing sells; every primary CTA ("Solicita tu plaza") leads to the onboarding at
 // /{locale}/empieza. The athlete tells us who they are there; the price is given
 // later, in a video call with Pablo. No pricing lives anywhere on the web.
 //

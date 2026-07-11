@@ -23,6 +23,8 @@ interface KineticHeadlineProps {
   /** 'load' animates on mount (hero); 'scroll' animates on scroll-enter. */
   trigger?: 'load' | 'scroll';
   id?: string;
+  /** Optional line index rendered in brand accent (e.g. the Hero's last line). */
+  accentLineIndex?: number;
 }
 
 export function KineticHeadline({
@@ -31,6 +33,7 @@ export function KineticHeadline({
   as: Tag = 'h2',
   trigger = 'scroll',
   id,
+  accentLineIndex,
 }: KineticHeadlineProps) {
   const ref = useRef<HTMLHeadingElement>(null);
 
@@ -71,14 +74,21 @@ export function KineticHeadline({
       ref={ref}
       id={id}
       className={cn(
-        'font-display italic font-black leading-[0.95] tracking-tight text-[color:var(--fg)]',
+        // tracking-[-0.02em]: brand display gets slight negative tracking (single source
+        // for hero h1, all section h2s and the FinalCta h2 — they all route through here).
+        'font-display italic font-black leading-[0.95] tracking-[-0.02em] text-[color:var(--fg)]',
         className,
       )}
     >
       {lines.map((line, i) => (
         // overflow-hidden clips the rising inner span; the inner span is the moving part.
-        <span key={i} className="block overflow-hidden pb-[0.04em]">
-          <span data-kinetic-line className="block">
+        // pr-[0.08em] gives the italic overhang of a line's last glyph room inside the clip
+        // box so it never gets sheared at the right edge (left-aligned start is unaffected).
+        <span key={i} className="block overflow-hidden pb-[0.04em] pr-[0.08em]">
+          <span
+            data-kinetic-line
+            className={cn('block', i === accentLineIndex && 'text-[color:var(--accent)]')}
+          >
             {line}
           </span>
         </span>

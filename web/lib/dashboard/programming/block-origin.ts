@@ -5,7 +5,7 @@ import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
  * ambiguo). Un bloque insertado desde la Biblioteca de Pablo lleva
  * `source_block_id`; cualquier otro (formato a medida con ejercicios del
  * catálogo) es "a medida". No hay un tercer estado persistido: los bloques que
- * propone Pablo IA desde la biblioteca también llevan `source_block_id` y se
+ * propone Coach IA desde la biblioteca también llevan `source_block_id` y se
  * muestran como de biblioteca (referencian bloques reales de Pablo).
  */
 export type BlockOrigin = 'library' | 'custom';

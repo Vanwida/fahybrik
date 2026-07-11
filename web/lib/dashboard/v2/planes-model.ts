@@ -102,6 +102,12 @@ export interface DayModalityInfo {
    * "Descanso" card from the dashed add-affordance in the editor.
    */
   is_rest: boolean;
+  /**
+   * True when a REST day carries ≥1 recovery suggestion (oferta blanda del coach).
+   * Drives the subtle "recuperación ofrecida" mark on the week strip. Always false
+   * on workout/empty days (recovery is a rest-only concept — #47).
+   */
+  has_recovery: boolean;
   /** Day-level focus label, when the coach set one on the day itself. */
   focus: string | null;
   /** Per-session content preview (focus + blocks) for the rich day card. */
@@ -192,9 +198,13 @@ export function deriveDayModality(day: WeekDay): DayModalityInfo {
     session_count,
     block_count,
     item_count,
-    // Rest only when there's no workout but the coach DID place a rest session
-    // (or a day-level focus marking intent). Fully empty day → not "rest".
-    is_rest: session_count === 0 && (has_rest_session || !!day.focus),
+    // Rest only when there's no workout AND the coach signalled deliberate rest:
+    // the explicit day-level `kind: 'rest'` (first-class #47) OR the legacy signals
+    // (a phantom rest session / a day-level focus). A fully empty day → NOT "rest"
+    // (renders the dashed add-affordance, not the "Descanso" card).
+    is_rest: session_count === 0 && (day.kind === 'rest' || has_rest_session || !!day.focus),
+    // Recuperación ofrecida: solo cuenta en un día sin entreno (rest-only).
+    has_recovery: session_count === 0 && (day.recovery_suggestions?.length ?? 0) > 0,
     focus: day.focus ?? null,
     sessions,
   };
@@ -217,6 +227,7 @@ export function deriveWeekModalities(slots: WeekSlots): DayModalityInfo[] {
         block_count: 0,
         item_count: 0,
         is_rest: false,
+        has_recovery: false,
         focus: null,
         sessions: [],
       });

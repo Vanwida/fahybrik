@@ -50,6 +50,14 @@
       "types": "./domain/strength/index.ts",
       "default": "./domain/strength/index.ts"
     },
+    "./domain/race-transfer": {
+      "types": "./domain/race-transfer/index.ts",
+      "default": "./domain/race-transfer/index.ts"
+    },
+    "./domain/goal-gap": {
+      "types": "./domain/goal-gap/index.ts",
+      "default": "./domain/goal-gap/index.ts"
+    },
     "./domain/athlete/*": {
       "types": "./domain/athlete/*.ts",
       "default": "./domain/athlete/*.ts"

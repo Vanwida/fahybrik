@@ -5,6 +5,7 @@ import type {
   ProgramSequenceItem,
   ProgramSequenceSave,
 } from '@fahybrid/shared/schema/program-sequences';
+import { cloneMonthTemplateDeep } from '@fahybrid/shared/domain/coach/program-months';
 
 // =============================================================================
 // Program sequences server core (migration 0059).
@@ -257,6 +258,123 @@ export async function saveCoachSequence(
     coachId,
     payload.level_id as number | bigint,
     payload.days_per_week,
+    client,
+  );
+  // Non-null by construction (we just upserted it).
+  return saved!;
+}
+
+// =============================================================================
+// duplicateSequenceCell — copy a WHOLE matrix cell into another (level × days).
+//
+// The coach flow: "I have Nivel 3 · 5 días done; build Nivel 3 · 6 días FROM it."
+// In ONE transaction we DEEP-CLONE every microciclo of the source cell (each with
+// its own independent weeks/slots_json — see cloneMonthTemplateDeep), RETARGET the
+// clones to the destination level, upsert the target cell's program_sequences row
+// (copying the source's end_policy + progression config), and write the clones as
+// the target cell's ordered items (positions 1..N in source order).
+//
+// V1 guard: the target cell must be EMPTY or nonexistent (no merge semantics) — a
+// filled target is rejected honestly. Editing the copy afterwards never touches the
+// original because every microciclo/week is a fresh row. Strictly coach-scoped.
+// =============================================================================
+export async function duplicateSequenceCell(
+  coachId: number | bigint,
+  source: { level_id: number | bigint; days_per_week: number },
+  target: { level_id: number | bigint; days_per_week: number },
+  client: Sql = defaultSql,
+): Promise<ProgramSequence> {
+  if (!(await tablesExist(client))) {
+    throw new SaveSequenceError(
+      'table_absent',
+      'Las secuencias aún no están disponibles (migración 0059 sin aplicar).',
+    );
+  }
+  const coach = String(coachId);
+
+  // Source cell must exist, be owned by this coach, and carry ≥1 microciclo.
+  const src = await getCoachSequenceCell(coachId, source.level_id, source.days_per_week, client);
+  if (!src || src.items.length === 0) {
+    throw new SaveSequenceError(
+      'source_empty',
+      'La secuencia de origen no tiene microciclos que copiar.',
+    );
+  }
+
+  // Target level must belong to this coach (also gives us its name for the guard).
+  const targetLevelId = String(target.level_id);
+  const ownedLevel = await client<{ id: string; name: string }[]>`
+    select id::text, name from athlete_levels
+    where id = ${targetLevelId} and coach_id = ${coach}
+    limit 1
+  `;
+  if (!ownedLevel[0]) {
+    throw new SaveSequenceError('invalid_level', 'El nivel de destino no pertenece a este coach.');
+  }
+
+  // V1 guard: never merge into a filled cell — self-copy (same coordinate) is
+  // rejected here too, since the source cell has items.
+  const targetExisting = await getCoachSequenceCell(
+    coachId,
+    target.level_id,
+    target.days_per_week,
+    client,
+  );
+  if (targetExisting && targetExisting.items.length > 0) {
+    throw new SaveSequenceError(
+      'target_occupied',
+      `${ownedLevel[0].name} · ${target.days_per_week} días ya tiene contenido.`,
+    );
+  }
+
+  await client.begin(async (tx) => {
+    // Deep-clone each source microciclo, retargeted to the destination level,
+    // preserving order. Each clone owns its weeks/slots_json (never a shared ref).
+    const clonedMonthIds: string[] = [];
+    for (const item of src.items) {
+      const newMonthId = await cloneMonthTemplateDeep({
+        tx,
+        coach_id: coachId,
+        source_month_id: item.month_template_id,
+        nameSuffix: ' (copia)',
+        levelIdOverride: target.level_id,
+      });
+      clonedMonthIds.push(newMonthId);
+    }
+
+    // Upsert the target cell, copying the source cell's end/progression config.
+    const seqRows = await tx<{ id: string }[]>`
+      insert into program_sequences
+        (coach_id, level_id, days_per_week, end_policy,
+         progression_pct, progression_applies_to)
+      values (
+        ${coach}, ${targetLevelId}, ${target.days_per_week}, ${src.end_policy},
+        ${src.progression_pct}, ${src.progression_applies_to}
+      )
+      on conflict (coach_id, level_id, days_per_week) do update set
+        end_policy = excluded.end_policy,
+        progression_pct = excluded.progression_pct,
+        progression_applies_to = excluded.progression_applies_to,
+        updated_at = now()
+      returning id::text
+    `;
+    const sequenceId = seqRows[0]!.id;
+
+    // Target was empty/nonexistent (guarded) — clear any 0-item remnant, then
+    // append the clones in order (contiguous positions 1..N).
+    await tx`delete from program_sequence_items where sequence_id = ${sequenceId}`;
+    for (let i = 0; i < clonedMonthIds.length; i++) {
+      await tx`
+        insert into program_sequence_items (sequence_id, position, month_template_id)
+        values (${sequenceId}, ${i + 1}, ${clonedMonthIds[i]!})
+      `;
+    }
+  });
+
+  const saved = await getCoachSequenceCell(
+    coachId,
+    target.level_id,
+    target.days_per_week,
     client,
   );
   // Non-null by construction (we just upserted it).

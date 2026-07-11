@@ -1,0 +1,23 @@
+// @fahybrid/shared/domain/goal-gap — the GOAL label (pure).
+//
+// HYROX goals are spoken in whole minutes ("sub-60", "sub-75", "sub-59"). ANY
+// whole-minute goal reads "Sub-<minutes>" — a 3540 goal is a sub-59 attempt, not
+// a "59:00" — and only a non-round value (e.g. 3512) shows the exact clock
+// (H:MM:SS over an hour, else M:SS).
+
+/** Seconds → exact clock string: "1:15:00" over an hour, else "58:30". */
+export function exactTimeLabel(totalS: number): string {
+  const t = Math.max(0, Math.round(totalS));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** "Sub-75" (any whole-minute goal), else the exact clock. */
+export function goalLabel(totalS: number): string {
+  const t = Math.round(totalS);
+  if (t > 0 && t % 60 === 0) return `Sub-${t / 60}`;
+  return exactTimeLabel(t);
+}

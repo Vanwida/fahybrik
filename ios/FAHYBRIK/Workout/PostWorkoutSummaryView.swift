@@ -261,15 +261,21 @@ struct PostWorkoutSummaryView: View {
         )
     }
 
-    // Free workout: the SAME execution metrics + the three free-only carriers
-    // (title/modality/prescription). PM5 is not live, so the provenance is
-    // 'manual' per the free-save contract (the generic/manual live HUD ran it).
+    // Free workout: the SAME execution metrics + the free-only carriers. The
+    // measured path carries a top-level `prescription`; fuerza·funcional carry
+    // `items` (built exercises/movements) with `prescription` omitted — exactly one
+    // is present, mirroring `FreeWorkoutContext`. PM5 is not live, so the provenance
+    // is 'manual' per the free-save contract (the generic/manual live HUD ran it).
+    // The per-segment execution DTOs (strength per-set `sets[]`; the folded WOD lap +
+    // its score) come from `executionCore()` unchanged — the same laps the prescribed
+    // path records, so nothing forks.
     private func buildFreePayload(_ free: FreeWorkoutContext) -> FreeWorkoutPayload {
         let c = executionCore()
         return FreeWorkoutPayload(
             title: free.title,
             modality: free.modalityWire,
             prescription: free.prescription,
+            items: free.items,
             perceived_exertion: rpe,
             total_duration_seconds: c.totalDuration,
             notes: c.notes,

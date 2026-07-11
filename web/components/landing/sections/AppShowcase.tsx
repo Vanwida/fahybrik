@@ -12,16 +12,12 @@
 import { useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import { Calendar, MessageCircle, Activity, LineChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EASE, prefersReducedMotion } from '@/lib/landing/motion';
 import { APP } from '@/lib/landing/content';
 import { Section } from '@/components/landing/primitives/Section';
 import { SectionHeading } from '@/components/landing/primitives/SectionHeading';
 import { Reveal } from '@/components/landing/primitives/Reveal';
-
-// Thin icons paired to APP.features, in order. lucide-react, never Sparkles.
-const FEATURE_ICONS = [Calendar, MessageCircle, Activity, LineChart] as const;
 
 // Parallax travel: the phone drifts a few percent of its own height across the
 // scroll range. Kept small for premium restraint.
@@ -84,28 +80,30 @@ export function AppShowcase() {
         <div>
           <SectionHeading id="app-heading">{APP.heading}</SectionHeading>
 
-          <Reveal as="ul" stagger className="mt-10 space-y-7">
-            {APP.features.map((feature, i) => {
-              const Icon = FEATURE_ICONS[i] ?? Activity;
-              return (
-                <li key={feature.title} className="flex gap-4">
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-[color:var(--hairline)] bg-[color:var(--surface)] text-[color:var(--fg)]"
-                  >
-                    <Icon className="size-[18px]" strokeWidth={1.5} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-[color:var(--fg)]">
-                      {feature.title}
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-[color:var(--muted)]">
-                      {feature.body}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
+          {/* Numbered rows — mono accent index + display title + body, hairline
+              between. No icon boxes (that read as generic SaaS). */}
+          <Reveal as="ul" stagger className="mt-10 border-t border-[color:var(--hairline)]">
+            {APP.features.map((feature, i) => (
+              <li
+                key={feature.title}
+                className="flex gap-5 border-b border-[color:var(--hairline)] py-6"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-1.5 shrink-0 font-mono text-[13px] tabular-nums tracking-[0.1em] text-[color:var(--accent)]"
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="font-display text-[clamp(1.25rem,2vw,1.375rem)] font-black italic leading-tight text-[color:var(--fg)]">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-[color:var(--muted)]">
+                    {feature.body}
+                  </p>
+                </div>
+              </li>
+            ))}
           </Reveal>
 
           <Reveal>
@@ -113,11 +111,14 @@ export function AppShowcase() {
           </Reveal>
         </div>
 
-        {/* Right: CSS-built iPhone mockup */}
-        <Reveal className="flex justify-center lg:justify-end">
+        {/* Right: CSS-built iPhone mockup + mono caption. */}
+        <Reveal className="flex flex-col items-center gap-5 lg:items-end">
           <div ref={phoneRef} className="will-change-transform">
             <PhoneMock />
           </div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[color:var(--muted)]">
+            {APP.screenCaption}
+          </p>
         </Reveal>
       </div>
     </Section>

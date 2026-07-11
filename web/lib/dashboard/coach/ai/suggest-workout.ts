@@ -14,7 +14,7 @@ import {
   defaultConfigForPartFormat,
 } from '@/lib/dashboard/constants/week-day-part-presets';
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
-import { isPabloIaLlmConfigured, callPabloIaLlmJson, PabloIaLlmError } from './llm';
+import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
 import { loadTemplateAsBlocks } from './template-to-blocks';
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ export async function suggestWorkout(params: {
   }
 
   // ---- Slow mode: LLM compone bloques nuevos --------------------------------
-  if (!isPabloIaLlmConfigured()) {
+  if (!isCoachIaLlmConfigured()) {
     // Fallback automático a modo fast.
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
@@ -146,9 +146,9 @@ export async function suggestWorkout(params: {
       client,
     });
     const notes =
-      err instanceof PabloIaLlmError
-        ? `Pablo IA LLM falló (${err.code}); se cayó a plantilla del catálogo.`
-        : 'Pablo IA LLM falló; se cayó a plantilla del catálogo.';
+      err instanceof CoachIaLlmError
+        ? `Coach IA LLM falló (${err.code}); se cayó a plantilla del catálogo.`
+        : 'Coach IA LLM falló; se cayó a plantilla del catálogo.';
     if (!tpl) {
       return {
         mode: 'slow',
@@ -327,7 +327,7 @@ const PRESET_FORMAT_TITLES = WEEK_DAY_PART_PRESETS.map(
 
 async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
   const system = [
-    'Eres Pablo IA, coach de HYROX/hybrid élite del Fabrik Training Club Barcelona.',
+    'Eres un coach de HYROX y entrenamiento híbrido de élite.',
     'Generas UN entreno (varios bloques) en JSON exacto:',
     '{ "blocks": [ { "format", "title", "coach_note"?, "config"?, "exercises": [{ "name", sets?, reps?, distance_meters?, duration_seconds?, load_pct?, rest_seconds?, rpe?, notes? }] } ] }',
     'Reglas:',
@@ -348,7 +348,7 @@ async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
     exerciseList,
   ].join('\n');
 
-  const raw = await callPabloIaLlmJson({
+  const raw = await callCoachIaLlmJson({
     system,
     user,
     temperature: 0.35,
@@ -362,7 +362,7 @@ async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
 
   const parsed = llmWorkoutSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new PabloIaLlmError('invalid_json', `LLM workout schema inválido: ${parsed.error.message}`);
+    throw new CoachIaLlmError('invalid_json', `LLM workout schema inválido: ${parsed.error.message}`);
   }
 
   const byName = new Map(args.exercises.map((e) => [normalize(e.name), e]));

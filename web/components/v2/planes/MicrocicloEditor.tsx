@@ -194,15 +194,12 @@ export function MicrocicloEditor({
   name,
   level,
   weeks,
-  groupNames,
   dayModel,
 }: {
   microcycle_id: string;
   name: string;
   level: string;
   weeks: MicroWeek[];
-  /** methodology_group_id → coach label (agnostic; for the per-block group tag). */
-  groupNames: Record<number, string>;
   /** DÍA zoom level: present iff `?dia=N` resolved to a real day server-side. */
   dayModel?: DayEditorModel | null;
 }) {
@@ -250,7 +247,6 @@ export function MicrocicloEditor({
             microcycle_id={microcycle_id}
             name={name}
             weeks={weeks}
-            groupNames={groupNames}
             dayModel={dayModel}
           />
         ) : (

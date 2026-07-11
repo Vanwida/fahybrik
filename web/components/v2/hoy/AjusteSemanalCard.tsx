@@ -1,6 +1,6 @@
 'use client';
 
-// AjusteSemanalCard — a pending weekly-adjustment proposal from Pablo IA, surfaced
+// AjusteSemanalCard — a pending weekly-adjustment proposal from Coach IA, surfaced
 // as a decision card above the 4-lane board (sibling of NivelSugeridoCard /
 // AsignacionSugeridaCard). The proposals are cron-generated and stored in
 // week_adjustment_proposals; the inbox loader already computes them — this only

@@ -57,6 +57,8 @@ export interface Archetype {
   id: ArchetypeId;
   /** Coach-facing name (sport vocabulary, Spanish). */
   name: string;
+  /** Compact type label for the block chip on a flat day (e.g. "Fuerza", "WOD"). */
+  shortName: string;
   /** One-line "para qué sirve" shown on the picker card. */
   purpose: string;
   /** Material Symbols icon name (no Sparkles / AI clichés). */
@@ -84,6 +86,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'steady_run',
     name: 'Carrera continua / Z2',
+    shortName: 'Carrera',
     purpose: 'Rodaje o tempo. Duración o distancia @ zona / RPE.',
     icon: 'directions_run',
     modalitySlug: 'carrera',
@@ -95,6 +98,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'intervals',
     name: 'Series / Intervalos',
+    shortName: 'Series',
     purpose: 'Run o ergo. N × (distancia | tiempo) @ ritmo | RPE + descanso.',
     icon: 'repeat',
     modalitySlug: 'carrera',
@@ -106,6 +110,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'strength',
     name: 'Fuerza',
+    shortName: 'Fuerza',
     purpose: 'Ejercicio + tabla de series: reps × %RM/kg × descanso × tempo.',
     icon: 'fitness_center',
     modalitySlug: 'fuerza',
@@ -117,6 +122,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'hyrox_sim',
     name: 'Simulación HYROX',
+    shortName: 'HYROX',
     purpose: 'Plantilla de carrera: 8 × 1 km + las 8 estaciones en orden + cargas Open/Pro.',
     icon: 'sports_score',
     modalitySlug: 'circuito',
@@ -128,6 +134,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'circuit_core',
     name: 'Circuito / Core',
+    shortName: 'Circuito',
     purpose: 'Mezcla de movimientos por reps o tiempo. Carga ligera / bodyweight.',
     icon: 'grid_view',
     modalitySlug: 'circuito',
@@ -139,6 +146,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'wod_metcon',
     name: 'WOD / Metcon',
+    shortName: 'WOD',
     purpose: 'For Time o AMRAP. Lista de componentes (movimiento + dosis) + cap.',
     icon: 'timer',
     modalitySlug: 'circuito',
@@ -150,6 +158,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'power_emom',
     name: 'Fuerza-potencia / EMOM',
+    shortName: 'EMOM',
     purpose: 'Rondas o EMOM con ventana de trabajo + %RM / bodyweight.',
     icon: 'bolt',
     modalitySlug: 'fuerza',
@@ -161,6 +170,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'test',
     name: 'Test',
+    shortName: 'Test',
     purpose: 'Elige el tipo (remo/ski 2k · carrera 3′/9′/30′) @ RPE 10. Almacena ritmo → alimenta el plan.',
     icon: 'speed',
     modalitySlug: 'ergo',
@@ -172,6 +182,7 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: 'activation',
     name: 'Activación / Tapering',
+    shortName: 'Activación',
     purpose: 'Volúmenes bajos, strides, movilidad. Para descarga o pre-competición.',
     icon: 'self_improvement',
     modalitySlug: 'calentamiento',
@@ -339,9 +350,12 @@ export function patternForBlock(
 // archetype's tailored form: the right format, a default title, and an item
 // (single-item patterns) or one starter component (components pattern) carrying
 // the seeded valid Prescription. No empty toggles — a ready form.
+// `group` is OPTIONAL: the agnostic microciclo day editor creates blocks WITHOUT a
+// section (a flat, coach-named list). The session LIBRARY editor still passes one
+// so its rail can section by it. Omitted → the block carries no `group`.
 export function createBlockFromArchetype(
   id: ArchetypeId,
-  group: StructureGroup,
+  group?: StructureGroup,
 ): EditorBlock {
   // Simulación HYROX has a dedicated, ordered race template (16 pre-seeded legs
   // with real exercise_ids + standard loads) — not the generic single-item seed.
@@ -366,7 +380,7 @@ export function createBlockFromArchetype(
     title: archetype.defaultTitle,
     format: archetype.format,
     archetype_id: id,
-    group,
+    ...(group ? { group } : {}),
     items: [item],
   };
 }

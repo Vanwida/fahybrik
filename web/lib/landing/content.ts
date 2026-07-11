@@ -24,6 +24,7 @@ export const SECTION_IDS = {
   comoFunciona: 'como-funciona',
   metodologia: 'metodologia',
   analitica: 'analitica',
+  dobles: 'dobles',
   app: 'app',
   pablo: 'pablo',
   precios: 'precios',
@@ -41,13 +42,35 @@ export const SOCIAL = {
 
 export const HERO = {
   eyebrow: 'ENTRENAMIENTO PERSONAL · HYROX & DEKA',
-  // headline rendered as kinetic lines (array = lines):
-  headlineLines: ['DEJA DE IMPROVISAR', 'TU HYROX.'],
+  // headline rendered as kinetic lines (array = lines). Three short lines so the
+  // display type reads at brand scale over the hero photo; the Hero renders the
+  // last line in accent (see accentLineIndex on <KineticHeadline>).
+  headlineLines: ['DEJA DE', 'IMPROVISAR', 'TU HYROX.'],
   sub: 'Tu plan semanal, ajustado a tu nivel, tu material y tu próxima carrera. Tú solo entrenas. Nosotros pensamos por ti.',
-  primaryCta: 'Quiero esto',
+  // Funnel vocabulary: plazas limitadas → solicitud → llamada. UN solo CTA en toda la
+  // página (mismo literal en hero, nav, final y sticky). Coincide con la entrada de iOS.
+  primaryCta: 'Solicita tu plaza',
   secondaryCta: 'Cómo funciona',
-  trust: 'Plan 1:1 con tu entrenador · Disponible en iOS',
+  trust: 'Plan 1:1 con tu entrenador · Primera llamada sin compromiso',
 } as const;
+
+// Hero → resto transition: a marquee band of the real HYROX stations. Pure content,
+// zero claims. Kept SEPARATE from ANALYTICS.stations on purpose: this is the canonical
+// list of the 8 competition movements + RoxZone with their official names ("Sandbag
+// Lunges" plural, and RoxZone included), whereas ANALYTICS.stations are compact chart
+// labels for a splits demo ("Sandbag Lunge", no RoxZone). Deriving one from the other
+// would need a fragile singular/plural + append mapping for no real DRY win.
+export const STATIONS_STRIP = [
+  'SkiErg',
+  'Sled Push',
+  'Sled Pull',
+  'Burpee Broad Jump',
+  'Row',
+  'Farmers Carry',
+  'Sandbag Lunges',
+  'Wall Balls',
+  'RoxZone',
+] as const;
 
 export const PROMISE = {
   label: 'POR QUÉ FAHYBRID',
@@ -102,17 +125,22 @@ export const METHODOLOGY = {
   label: 'TU ENTRENAMIENTO',
   heading: 'Preparado para cada parte de la carrera.',
   sub: 'Running, fuerza, ergómetros, estaciones específicas y simulacros completos. Todo en un plan diseñado para lo que te espera en carrera.',
+  // Each pillar carries a photo (web/public/landing/*.webp, dark brand grade,
+  // watermark-free) shown as a low-opacity background in its card. The mapping is by
+  // discipline. Most are real Fabrik-in-HYROX moments; the taper pillar uses a calm
+  // pre-race shot (a runner lacing up on a dark road at night) as its quiet, low-effort
+  // counterpoint — the cool-down note that closes the strip.
   pillars: [
-    { id: 1, name: 'Fuerza', colorVar: '--grp-fuerza-base', body: 'Más fuerte en sled, farmers y wall balls. La base sobre la que se construye todo.' },
-    { id: 2, name: 'Potencia', colorVar: '--grp-fuerza-explosiva-pliometrica', body: 'Explosividad y reactividad para moverte rápido, también cuando llega la fatiga.' },
-    { id: 3, name: 'Ergómetros', colorVar: '--grp-series-ergometros', body: 'Ski, Row y Bike. Vatios que se notan en cada estación de la carrera.' },
-    { id: 4, name: 'Carrera', colorVar: '--grp-series-running', body: 'Ritmo, series y resistencia para aguantar fuerte los 8 km de HYROX.' },
-    { id: 5, name: 'Fondo aeróbico', colorVar: '--grp-zona2-recuperacion', body: 'El motor que sostiene toda la prueba de principio a fin.' },
-    { id: 6, name: 'Intensidad', colorVar: '--grp-wods-metcons', body: 'Aguantar el ritmo bajo presión, igual que el día de la carrera.' },
-    { id: 7, name: 'Simulaciones', colorVar: '--grp-simulaciones-carrera', body: 'Ensaya la carrera entera: estaciones, transiciones y cabeza.' },
-    { id: 8, name: 'Las estaciones', colorVar: '--grp-circuitos-funcionales', body: 'Técnica y aguante en cada uno de los movimientos de HYROX.' },
-    { id: 9, name: 'Movilidad y prevención', colorVar: '--grp-core-movilidad-preventivos', body: 'Llegas entero y sin lesiones a la línea de salida.' },
-    { id: 10, name: 'Puesta a punto', colorVar: '--grp-tapering-activacion', body: 'Afinamos en las semanas clave para que llegues fino a tu carrera.' },
+    { id: 1, name: 'Fuerza', colorVar: '--grp-fuerza-base', image: '/landing/sled-push.webp', body: 'Más fuerte en sled, farmers y wall balls. La base sobre la que se construye todo.' },
+    { id: 2, name: 'Potencia', colorVar: '--grp-fuerza-explosiva-pliometrica', image: '/landing/wall-balls.webp', body: 'Explosividad y reactividad para moverte rápido, también cuando llega la fatiga.' },
+    { id: 3, name: 'Ergómetros', colorVar: '--grp-series-ergometros', image: '/landing/skierg.webp', body: 'Ski, Row y Bike. Vatios que se notan en cada estación de la carrera.' },
+    { id: 4, name: 'Carrera', colorVar: '--grp-series-running', image: '/landing/run.webp', body: 'Ritmo, series y resistencia para aguantar fuerte los 8 km de HYROX.' },
+    { id: 5, name: 'Fondo aeróbico', colorVar: '--grp-zona2-recuperacion', image: '/landing/row.webp', body: 'El motor que sostiene toda la prueba de principio a fin.' },
+    { id: 6, name: 'Intensidad', colorVar: '--grp-wods-metcons', image: '/landing/intensidad.webp', body: 'Aguantar el ritmo bajo presión, igual que el día de la carrera.' },
+    { id: 7, name: 'Simulaciones', colorVar: '--grp-simulaciones-carrera', image: '/landing/simulacion.webp', body: 'Ensaya la carrera entera: estaciones, transiciones y cabeza.' },
+    { id: 8, name: 'Las estaciones', colorVar: '--grp-circuitos-funcionales', image: '/landing/sled-pull.webp', body: 'Técnica y aguante en cada uno de los movimientos de HYROX.' },
+    { id: 9, name: 'Movilidad y prevención', colorVar: '--grp-core-movilidad-preventivos', image: '/landing/movilidad.webp', body: 'Llegas entero y sin lesiones a la línea de salida.' },
+    { id: 10, name: 'Puesta a punto', colorVar: '--grp-tapering-activacion', image: '/landing/puesta-a-punto.webp', body: 'Afinamos en las semanas clave para que llegues fino a tu carrera.' },
   ],
   closingLabel: 'De la salida a la meta',
 } as const;
@@ -156,28 +184,39 @@ export const APP = {
       body: 'Historial, cargas y splits. Ves de dónde vienes y a dónde vas.',
     },
   ],
+  // Mono caption under the phone mock.
+  screenCaption: 'TU SEMANA EN LA APP',
   platformNote: 'En iOS. Android, en camino.',
 } as const;
 
 export const COACH = {
   label: 'TU ENTRENADOR',
-  heading: 'Tu entrenador es Pablo. Programación 1:1 que se adapta a ti cada semana.',
-  body: 'Pablo lleva Fabrik, la mayor comunidad HYROX de Barcelona. Ahora lleva también tu programación 1:1: te conoce, sigue tu progreso y ajusta cada semana hasta que cruces la línea de meta.',
+  heading: 'Detrás de tu plan hay una persona.',
+  body: 'Se llama Pablo. Lleva Fabrik, la mayor comunidad HYROX de Barcelona, y ahora lleva también tu programación 1:1: te conoce, sigue tu progreso y ajusta tu plan cada semana hasta que cruces la meta.',
+  // Real portrait — warm b&w, tinted to brand duotono by the Coach component.
+  photo: {
+    src: '/landing/pablo.webp',
+    alt: 'Pablo, entrenador de Fabrik Training Club en Barcelona',
+  },
   // Portrait-plate label.
   plate: {
-    title: 'Pablo', // TODO: ¿"Pablo Amigo"? confirmar con Alex
+    title: 'Pablo Amigo', // ground truth: coaches.full_name
     place: 'Fabrik Training Club · Barcelona', // boxes: Mallorca 337 + Pg. Sant Joan 157
   },
+  // countUp: solo el número puro cuenta 0→valor al entrar en viewport (los otros dos
+  // no son enteros contables: '2' se deja quieto por decisión, '#1' es un ranking).
   stats: [
     { value: '2', unit: 'boxes en Barcelona' },
-    { value: '+250', unit: 'atletas entrenados' }, // TODO: número real
+    { value: '+250', unit: 'atletas entrenados', countUp: true }, // TODO: número real
     { value: '#1', unit: 'comunidad HYROX de la ciudad' }, // TODO: verificar
   ],
 } as const;
 
 export const FAQ = {
   label: 'PREGUNTAS',
-  heading: 'Resolvemos tus dudas.',
+  heading: 'Lo que querrás saber.',
+  // Below the accordion: a direct line to a real inbox.
+  contact: { lead: '¿Otra duda? Escríbenos:', email: 'hello@fahybrid.com' },
   items: [
     {
       q: '¿Quién hace mi plan?',
@@ -206,11 +245,40 @@ export const FAQ = {
   ],
 } as const;
 
+// HYROX Dobles — the social hook. A real product mode: one coordinated plan for two,
+// stations split by each athlete's strengths, and a partner invite. Mirror of COACH in
+// the UI (split flipped to the other side). CTA reuses the single primary label.
+export const DOBLES = {
+  label: 'HYROX DOBLES',
+  // Explicit line break (array) so the display heading always breaks after the question,
+  // never mid-clause — SectionHeading accepts string[] as explicit lines.
+  heading: ['¿Vais a dobles?', 'Entrenad a dobles.'],
+  body: 'En dobles corréis los 8 km juntos y os repartís las estaciones. Vuestro plan va igual: un programa coordinado para los dos, con las estaciones repartidas según los puntos fuertes de cada uno.',
+  items: [
+    { n: '01', title: 'Un plan para los dos', body: 'Coordinado semana a semana: mismo entrenador, mismo objetivo, misma carrera.' },
+    { n: '02', title: 'Estaciones repartidas', body: 'El reparto sigue lo que se le da bien a cada uno. Como el día de la carrera.' },
+    { n: '03', title: 'Invita a tu compañero', body: 'Uno solicita la plaza y el otro recibe la invitación. Y a entrenar.' },
+  ],
+  cta: 'Solicita tu plaza',
+  note: 'Individual o dobles: lo decidís en la primera llamada.',
+  photo: {
+    src: '/landing/dobles.webp',
+    alt: 'Pareja de dobles de Fabrik en HYROX: uno rema y su compañero espera su relevo',
+  },
+  // Generic athlete plate over the photo (project rule: no named athletes in captions).
+  plateCaption: 'ATLETAS DE FABRIK · HYROX',
+} as const;
+
 export const FINAL = {
   headlineLines: ['TU PRÓXIMA CARRERA', 'YA TIENE ENTRENADOR.'],
   sub: 'Plan a medida, ajustado cada semana. Da el primer paso hoy.',
-  cta: 'Quiero esto',
-  trust: 'Plan 1:1 con tu entrenador · Disponible en iOS',
+  cta: 'Solicita tu plaza',
+  trust: 'Plazas limitadas · Primera llamada sin compromiso',
+  // Full-bleed closing photo — already graded to the brand warm duotono.
+  photo: {
+    src: '/landing/meta-berlin.webp',
+    alt: 'Dos atletas de Fabrik corriendo en HYROX Berlín',
+  },
 } as const;
 
 export const NAV = {
@@ -218,6 +286,10 @@ export const NAV = {
     { label: 'Cómo funciona', href: `#${SECTION_IDS.comoFunciona}` },
     { label: 'Tu entrenador', href: `#${SECTION_IDS.pablo}` },
     { label: 'Entrenamiento', href: `#${SECTION_IDS.metodologia}` },
+    { label: 'Dobles', href: `#${SECTION_IDS.dobles}` },
   ],
-  cta: 'Quiero esto',
+  cta: 'Solicita tu plaza',
 } as const;
+
+// Mobile-only sticky CTA bar (shown after the hero, hidden over the final CTA).
+export const STICKY_CTA = { note: 'Plan 1:1 con Pablo', cta: 'Solicita tu plaza' } as const;

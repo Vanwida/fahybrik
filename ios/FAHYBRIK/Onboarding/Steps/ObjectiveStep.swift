@@ -117,6 +117,10 @@ struct ObjectiveStep: View {
 struct AEventManualForm: View {
     @Bindable var state: OnboardingState
 
+    /// Range vs exact selection for the "Tiempo objetivo" goal kind. Kept local —
+    /// the resolved seconds live in `state.goalTimeSeconds` (the submitted field).
+    @State private var goalChoice: GoalChoice? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             VStack(spacing: 0) {
@@ -148,11 +152,42 @@ struct AEventManualForm: View {
                             state.goalKind = (state.goalKind == g) ? nil : g
                         }
                     }
-                    if state.goalKind == .time {
-                        TimeHourMinSecRow(label: "Tiempo objetivo", seconds: $state.goalTimeSeconds)
-                    }
                 }
                 .brandSurface()
+
+                if state.goalKind == .time {
+                    goalTimeInput
+                }
+            }
+        }
+    }
+
+    // Range presets (sub-60…sub-90) for the "Tiempo objetivo" kind, with the
+    // exact h:mm:ss field as the "tiempo exacto" fallback. Both write the SAME
+    // `state.goalTimeSeconds` field the snapshot submits.
+    private var goalTimeInput: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            GoalPresetGrid(choice: $goalChoice)
+
+            if case .exact = goalChoice {
+                VStack(spacing: 0) {
+                    TimeHourMinSecRow(label: "Tiempo objetivo", seconds: $state.goalTimeSeconds)
+                }
+                .brandSurface()
+            } else {
+                GoalExactLink {
+                    withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
+                }
+            }
+        }
+        .onChange(of: goalChoice) { _, new in
+            if case .preset(let preset) = new { state.goalTimeSeconds = preset.seconds }
+        }
+        .onAppear {
+            // Re-entering the step: pre-select the rung a stored time matches, else
+            // fall to the exact field when a non-rung time already exists.
+            if goalChoice == nil, let secs = state.goalTimeSeconds {
+                goalChoice = GoalPreset.matching(secs).map { .preset($0) } ?? .exact
             }
         }
     }

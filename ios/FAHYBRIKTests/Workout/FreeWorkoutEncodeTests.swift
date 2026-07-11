@@ -87,7 +87,7 @@ final class FreeWorkoutEncodeTests: XCTestCase {
     func testFreePayloadCarriesFreeFieldsAndMetrics() throws {
         let ctx = try XCTUnwrap(draftRow5x500().buildContext())
         let payload = FreeWorkoutPayload(
-            title: ctx.title, modality: ctx.modalityWire, prescription: ctx.prescription,
+            title: ctx.title, modality: ctx.modalityWire, prescription: ctx.prescription, items: ctx.items,
             perceived_exertion: 8, total_duration_seconds: 581, notes: nil, source: "manual",
             score_time_s: 581, score_rounds: nil, score_reps: nil, completeness: "full",
             started_at: "2026-06-30T10:00:00Z", ended_at: "2026-06-30T10:09:41Z", segments: nil
@@ -104,6 +104,149 @@ final class FreeWorkoutEncodeTests: XCTestCase {
         XCTAssertEqual(json["title"] as? String, "Remo · 5×500m")
         let nested = try XCTUnwrap(json["prescription"] as? [String: Any])
         XCTAssertEqual(nested["scheme"] as? String, "intervals")
+        // Measured path carries a top-level prescription, NEVER items.
+        XCTAssertNil(json["items"])
+    }
+
+    // MARK: - Fuerza (strength) — items[] with per-set scheme "sets"
+
+    private func strengthExercise() -> FreeExercise {
+        FreeExercise(id: 42, name: "Sentadilla trasera", slug: "back-squat", category: "strength", modality: nil)
+    }
+
+    // A 4×5 back squat @ 20 kg → items[0] with scheme "sets", 4 sets, each a reps
+    // measure + kg target + rest, and the wire key `exercise_id` (snake_case).
+    func testStrengthBuildsItemsWithSetsScheme() throws {
+        let d = FreeStrengthDraft()
+        d.add(strengthExercise())
+        var item = d.items[0]
+        item.series = 4
+        item.measure = .reps
+        item.reps = 5
+        item.loadKind = .kg
+        item.kgUnits = 8            // 8 × 2.5 = 20 kg
+        item.restSeconds = 90
+        d.items[0] = item
+
+        let ctx = try XCTUnwrap(d.buildContext())
+        XCTAssertEqual(ctx.modalityWire, "strength")
+        XCTAssertNil(ctx.prescription)      // strength omits the top-level prescription
+        let items = try XCTUnwrap(ctx.items)
+        XCTAssertEqual(items.count, 1)
+
+        let payload = FreeWorkoutPayload(
+            title: ctx.title, modality: ctx.modalityWire, prescription: ctx.prescription, items: ctx.items,
+            perceived_exertion: 7, total_duration_seconds: 600, notes: nil, source: "manual",
+            score_time_s: nil, score_rounds: nil, score_reps: nil, completeness: "full",
+            started_at: "2026-06-30T10:00:00Z", ended_at: "2026-06-30T10:10:00Z", segments: nil
+        )
+        let data = try makeEncoder().encode(payload)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["modality"] as? String, "strength")
+        XCTAssertNil(json["prescription"])                       // omitted for strength
+        let wireItems = try XCTUnwrap(json["items"] as? [[String: Any]])
+        XCTAssertEqual(wireItems.count, 1)
+        XCTAssertEqual(wireItems[0]["exercise_id"] as? Int, 42)  // snake_case key
+        let p = try XCTUnwrap(wireItems[0]["prescription"] as? [String: Any])
+        XCTAssertEqual(p["scheme"] as? String, "sets")
+        XCTAssertEqual(p["modality"] as? String, "strength")
+        let sets = try XCTUnwrap(p["sets"] as? [[String: Any]])
+        XCTAssertEqual(sets.count, 4)
+        let s0 = sets[0]
+        XCTAssertEqual(s0["rest_s"] as? Int, 90)
+        let measure = try XCTUnwrap(s0["measure"] as? [String: Any])
+        XCTAssertEqual(measure["kind"] as? String, "reps")
+        XCTAssertEqual((measure["value"] as? NSNumber)?.intValue, 5)
+        let target = try XCTUnwrap(s0["target"] as? [String: Any])
+        XCTAssertEqual(target["kind"] as? String, "kg")
+        XCTAssertEqual((target["value"] as? NSNumber)?.doubleValue, 20)
+    }
+
+    // Bodyweight timed hold: measure "duration", target "bodyweight" (no kg).
+    func testStrengthBodyweightDurationEncodes() throws {
+        let d = FreeStrengthDraft()
+        d.add(FreeExercise(id: 7, name: "Plancha", slug: "plank", category: "core", modality: nil))
+        var item = d.items[0]
+        item.series = 3
+        item.measure = .time
+        item.seconds = 30
+        item.loadKind = .bodyweight
+        d.items[0] = item
+
+        let items = try XCTUnwrap(d.buildItems())
+        let data = try makeEncoder().encode(items)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let p = try XCTUnwrap(json[0]["prescription"] as? [String: Any])
+        let sets = try XCTUnwrap(p["sets"] as? [[String: Any]])
+        XCTAssertEqual(sets.count, 3)
+        let measure = try XCTUnwrap(sets[0]["measure"] as? [String: Any])
+        XCTAssertEqual(measure["kind"] as? String, "duration")
+        XCTAssertEqual((measure["seconds"] as? NSNumber)?.intValue, 30)
+        let target = try XCTUnwrap(sets[0]["target"] as? [String: Any])
+        XCTAssertEqual(target["kind"] as? String, "bodyweight")
+    }
+
+    // MARK: - Funcional (WOD) — shared scheme + identical block params on every item
+
+    // AMRAP 10:00 of thrusters + pull-ups → 2 items sharing scheme "amrap" and the
+    // SAME total_s on every item, each with one set carrying the movement dose.
+    func testFunctionalAmrapSharesSchemeAndBlockParams() throws {
+        let d = FreeFunctionalDraft()
+        d.selectFormat(.amrap)
+        d.windowSeconds = 600
+        d.add(FreeExercise(id: 11, name: "Thruster", slug: "thruster", category: "functional", modality: nil))
+        d.add(FreeExercise(id: 12, name: "Dominadas", slug: "pull-up", category: "functional", modality: nil))
+        var m0 = d.movements[0]; m0.dose = .reps; m0.reps = 15; d.movements[0] = m0
+        var m1 = d.movements[1]; m1.dose = .reps; m1.reps = 12; d.movements[1] = m1
+
+        let ctx = try XCTUnwrap(d.buildContext())
+        XCTAssertEqual(ctx.modalityWire, "functional")
+        XCTAssertNil(ctx.prescription)
+        // The runnable plan folds into ONE conditioning segment (score by scheme).
+        XCTAssertEqual(ctx.plan.segments.count, 1)
+        XCTAssertEqual(ctx.plan.format, .amrap)
+
+        let items = try XCTUnwrap(ctx.items)
+        let data = try makeEncoder().encode(items)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        XCTAssertEqual(json.count, 2)
+        XCTAssertEqual(json[0]["exercise_id"] as? Int, 11)
+        XCTAssertEqual(json[1]["exercise_id"] as? Int, 12)
+        for entry in json {
+            let p = try XCTUnwrap(entry["prescription"] as? [String: Any])
+            XCTAssertEqual(p["scheme"] as? String, "amrap")
+            XCTAssertEqual(p["total_s"] as? Int, 600)      // identical block param
+            XCTAssertNil(p["rounds"])
+            let sets = try XCTUnwrap(p["sets"] as? [[String: Any]])
+            XCTAssertEqual(sets.count, 1)                   // one dose per movement
+        }
+        let firstDose = try XCTUnwrap(((json[0]["prescription"] as? [String: Any])?["sets"] as? [[String: Any]])?[0]["measure"] as? [String: Any])
+        XCTAssertEqual(firstDose["kind"] as? String, "reps")
+        XCTAssertEqual((firstDose["value"] as? NSNumber)?.intValue, 15)
+    }
+
+    // For Time rounds → every item carries the same rounds and the chosen scheme;
+    // the folded plan is time-scored (drives the summary's "Tiempo final").
+    func testFunctionalForTimeStructuralConsistency() throws {
+        let d = FreeFunctionalDraft()
+        d.selectFormat(.forTime)
+        d.rounds = 3
+        d.capSeconds = 0                 // sin límite → total_s omitted
+        d.add(FreeExercise(id: 21, name: "Burpees", slug: "burpee", category: "functional", modality: nil))
+        d.add(FreeExercise(id: 22, name: "Box jumps", slug: "box-jump", category: "functional", modality: nil))
+
+        let ctx = try XCTUnwrap(d.buildContext())
+        XCTAssertEqual(ctx.plan.format, .forTime)
+        let items = try XCTUnwrap(ctx.items)
+        let data = try makeEncoder().encode(items)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        for entry in json {
+            let p = try XCTUnwrap(entry["prescription"] as? [String: Any])
+            XCTAssertEqual(p["scheme"] as? String, "for_time")
+            XCTAssertEqual(p["rounds"] as? Int, 3)
+            XCTAssertNil(p["total_s"])   // no cap → omitted
+        }
     }
 
     // EMOM + steady build runnable, valid prescriptions (engine routing inputs).

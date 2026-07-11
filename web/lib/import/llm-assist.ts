@@ -3,7 +3,7 @@ import 'server-only';
 // #28 — the LLM SECOND PASS for the importer (Fork A: grammar first, IA only for
 // the dense). The grammar (`parseNotationCell`) types everything it can prove and
 // marks the rest `confidence:'review'`. This module wires the REAL model seam
-// (`callPabloIaLlmJson`, whose model comes from env — NEVER hardcoded) as the
+// (`callCoachIaLlmJson`, whose model comes from env — NEVER hardcoded) as the
 // `LlmAssist` the orchestrator injects, and Zod-GATES the model's output to typed
 // `ParsedLine[]` via the SAME `prescriptionSchema` the grammar uses. Anything the
 // model returns that is not a schema-valid prescription is DROPPED (returns null),
@@ -23,8 +23,8 @@ import {
 import type { ParsedLine } from '@fahybrid/shared/domain/import/notation';
 import type { LlmAssist } from './build-proposal';
 import {
-  callPabloIaLlmJson,
-  isPabloIaLlmConfigured,
+  callCoachIaLlmJson,
+  isCoachIaLlmConfigured,
 } from '@/lib/dashboard/coach/ai/llm';
 
 // One decomposed line the model proposes. `prescription` goes through the exact
@@ -73,12 +73,12 @@ function buildSystemPrompt(): string {
  * bad JSON, schema miss) resolves to `null` so the honest review line survives.
  */
 export function buildLlmAssist(coach_id: number | bigint): LlmAssist | undefined {
-  if (!isPabloIaLlmConfigured()) return undefined;
+  if (!isCoachIaLlmConfigured()) return undefined;
 
   const system = buildSystemPrompt();
   return async (text: string): Promise<ParsedLine[] | null> => {
     try {
-      const raw = await callPabloIaLlmJson({
+      const raw = await callCoachIaLlmJson({
         system,
         user: `Línea densa a tipar:\n${text}`,
         temperature: 0.1,

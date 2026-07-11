@@ -42,6 +42,8 @@ import {
   type RacePartner,
 } from '@fahybrid/shared/schema';
 import { z } from 'zod';
+import { buildRaceTransfer } from './race-transfer';
+import { ERG_PACE_UNIT_METERS, ERG_RACE_SPLIT_METERS } from '@fahybrid/shared/domain/race-transfer';
 
 // ── Wire contract (matches iOS CarrerasOverview) ────────────────────────────
 
@@ -420,17 +422,37 @@ export async function buildCarrerasOverview(
   const last_race = toSummary(latest, importRows[1]?.result_time_seconds ?? null);
 
   // ── station_benchmarks: the latest race's 8 stations, in canonical order ────
+  // `delta` is now the PERSONAL transfer signal: this station's race split vs the
+  // athlete's own TRAINED level (observed practice or the zone-profile estimate),
+  // expressed in the same full-split seconds as `time`. Null when the athlete has
+  // no trained evidence for the station (honest — never a fabricated reference).
+  // The rank-derived fraction + severity stay as the field-relative reading.
+  const transfer = await buildRaceTransfer({ athlete_id: athleteId }, client);
+  // index → trained level (native unit); erg values are per-500m, so ×2 to reach
+  // the full 1 km split that `time` shows.
+  const trainedFullByIndex = new Map<number, number>();
+  const ERG_SPLIT_FACTOR = ERG_RACE_SPLIT_METERS / ERG_PACE_UNIT_METERS; // = 2
+  for (const s of transfer.stations) {
+    if (s.trained.value_s == null || s.trained.unit == null) continue;
+    const full = s.trained.unit === 'per_500m' ? s.trained.value_s * ERG_SPLIT_FACTOR : s.trained.value_s;
+    trainedFullByIndex.set(s.index, full);
+  }
+
   const latestStationSplits = parseStationSplits(latest.station_splits_json);
-  const station_benchmarks: StationBenchmarkDTO[] = latestStationSplits.map((st) => ({
-    id: `station_${st.index}`,
-    station: HYROX_STATION_LABELS[st.index] ?? `Estación ${st.index}`,
-    time: timeStr(st.seconds),
-    // No division-benchmark dataset exists (0054 stores ranks, not reference
-    // times) — the comparative is the rank, surfaced via fraction + severity.
-    delta: null,
-    fraction: stationFraction(st.rank, latest.field_size),
-    severity: stationSeverity(st.rank, latest.field_size),
-  }));
+  const station_benchmarks: StationBenchmarkDTO[] = latestStationSplits.map((st) => {
+    const trainedFull = trainedFullByIndex.get(st.index);
+    // delta = race split − trained level (positive = slower in the race than trained).
+    const delta =
+      st.seconds != null && trainedFull != null ? signedDeltaStr(st.seconds - trainedFull) : null;
+    return {
+      id: `station_${st.index}`,
+      station: HYROX_STATION_LABELS[st.index] ?? `Estación ${st.index}`,
+      time: timeStr(st.seconds),
+      delta,
+      fraction: stationFraction(st.rank, latest.field_size),
+      severity: stationSeverity(st.rank, latest.field_size),
+    };
+  });
 
   // ── running_splits: the latest race's 8×1 km laps ───────────────────────────
   const runLaps = parseRunSplits(latest.run_splits_json);

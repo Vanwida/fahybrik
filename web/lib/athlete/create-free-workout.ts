@@ -1,13 +1,17 @@
 import 'server-only';
 
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, type Sql } from '@/lib/db';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
-import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import {
   recordWorkoutExecution,
   type ExecutionMetricsInput,
 } from '@/lib/sync/record-workout-execution';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
+import {
+  FREE_WORKOUT_MODALITY_SLUGS,
+  type MeasuredModality,
+} from '@/lib/athlete/free-workout-validate';
 
 // ENTRENO LIBRE — persist an athlete's OWN ("no prescrito") workout.
 //
@@ -18,9 +22,18 @@ import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 //      null`, reusing the mig-0083 per-athlete-instance mechanism). The template's
 //      self-origin provenance lives in `meta_json.origin` ('self'): the templates
 //      table carries no `origin` column — origin is a property of the ASSIGNMENT
-//      (mig 0090), which is the single source every reader keys off.
-//   2. a `template_segments` row — the canonical modality exercise (by slug) +
-//      the validated Prescription in `prescription_json`.
+//      (mig 0090), which is the single source every reader keys off. `format` is
+//      the workout's scheme (a measured scheme | 'sets' | the shared metcon).
+//   2. N `template_segments` rows in EXECUTION ORDER (position 1..N), one per
+//      exercise line, each carrying its validated Prescription in
+//      `prescription_json`. Two segment shapes feed this uniformly:
+//        · MEASURED (row|ski|bike|run): exactly ONE segment — the canonical
+//          modality exercise resolved BY SLUG, prescription persisted verbatim.
+//        · ITEM-built (strength|functional): N segments — one per `items[]`
+//          exercise (resolved by id). The exercise is the single source of truth
+//          for modality (mig 0053), so the server OVERRIDES each prescription's
+//          modality with the exercise's before persisting — prescription_json can
+//          never drift from its exercise.
 //   3. a `workout_assignments` row — `origin = 'self'`, scheduled for today (box
 //      tz), no microcycle (it is not part of the coach's periodization).
 //   4. the EXISTING shared recorder (`recordWorkoutExecution`) writes the
@@ -32,17 +45,10 @@ import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 // segment_executions.template_segment_id must reference a real segment, and every
 // analytics/coach reader joins assignments→templates. Keeping the invariant = zero
 // reader breakage.
-
-/** The four MEASURED modalities a free workout can target → their canonical
- *  exercise SLUG (the single source resolved to an exercise_id at save time). */
-export const FREE_WORKOUT_MODALITY_SLUGS = {
-  row: 'row',
-  ski: 'ski-erg',
-  bike: 'bike-erg',
-  run: 'run',
-} as const;
-
-export type FreeWorkoutModality = keyof typeof FREE_WORKOUT_MODALITY_SLUGS;
+//
+// The modality vocabulary + the pre-DB structured validation live in
+// free-workout-validate.ts (DB-free, unit-tested); this module owns the exercise
+// resolution + the persistence.
 
 /** Provenance marker stored on the instance template's `meta_json` (the templates
  *  table has no origin column — see header). The functional origin lives on the
@@ -60,42 +66,60 @@ export class FreeWorkoutError extends Error {
   }
 }
 
-export async function createFreeWorkout(args: {
+/** The persisted-shape prescription (a plain JSON object). */
+type JsonParam = Parameters<typeof defaultSql.json>[0];
+
+/** Serialize a prescription to a plain JSON object once (defends against any
+ *  bigint / non-serializable value reaching the jsonb column), per the same
+ *  pattern the template writers use. */
+function toJson(value: unknown): JsonParam {
+  return JSON.parse(JSON.stringify(value)) as JsonParam;
+}
+
+/** An ordered segment to persist: an exercise_id + the prescription JSON. */
+interface ResolvedSegment {
+  exerciseId: number;
+  prescriptionForDb: JsonParam;
+}
+
+/** The measured-single-segment input (canonical exercise resolved by slug). */
+interface MeasuredInput {
+  kind: 'measured';
+  modality: MeasuredModality;
+  /** The validated, typed Prescription (persisted verbatim into prescription_json). */
+  prescription: Prescription;
+}
+
+/** The item-built input (N exercises resolved by id, modality overridden). */
+interface ItemsInput {
+  kind: 'items';
+  items: Array<{ exerciseId: number; prescription: Prescription }>;
+}
+
+export type CreateFreeWorkoutInput = {
   athleteId: number;
   coachId: number;
   title: string;
-  modality: FreeWorkoutModality;
-  /** The prescription scheme — already validated as a measured templates.format. */
+  /** The `templates.format` to persist — an already-validated scheme. */
   scheme: string;
-  /** The validated, typed Prescription (persisted verbatim into prescription_json). */
-  prescriptionJson: Prescription;
   metrics: ExecutionMetricsInput;
-}): Promise<{ assignment_id: string; execution_id: string }> {
-  const { athleteId, coachId, title, modality, scheme, prescriptionJson, metrics } = args;
+  /** Injectable client so a test can run against an ephemeral branch; the route
+   *  omits it and the module pool is used. */
+  sql?: Sql;
+} & (MeasuredInput | ItemsInput);
 
-  const slug = FREE_WORKOUT_MODALITY_SLUGS[modality];
+export async function createFreeWorkout(
+  input: CreateFreeWorkoutInput,
+): Promise<{ assignment_id: string; execution_id: string }> {
+  const { athleteId, coachId, title, scheme, metrics } = input;
+  const db = input.sql ?? defaultSql;
   const scheduledFor = isoDateString(startOfDayInBox(new Date()));
 
-  // Resolve the canonical modality exercise BY SLUG (single source).
-  const exRows = await defaultSql<Array<{ id: string }>>`
-    select id::text as id from exercises where slug = ${slug} limit 1
-  `;
-  const exerciseId = exRows[0]?.id;
-  if (!exerciseId) {
-    throw new FreeWorkoutError(
-      'exercise_not_found',
-      `No exercise found for modality '${modality}' (slug '${slug}')`,
-    );
-  }
+  // Resolve the ordered segment list (exercise ids validated; modality coherence
+  // applied for item-built workouts) BEFORE opening the transaction.
+  const segments = await resolveSegments(db, input);
 
-  // Serialize the prescription to a plain JSON object once (defends against any
-  // bigint / non-serializable value reaching the jsonb column), per the same
-  // pattern the template writers use.
-  const prescriptionForDb = JSON.parse(JSON.stringify(prescriptionJson)) as Parameters<
-    typeof defaultSql.json
-  >[0];
-
-  const ids = await defaultSql.begin(async (tx) => {
+  const ids = await db.begin(async (tx) => {
     // 1. Instance template (OUT of the coach library via instance_athlete_id).
     const tplRows = await tx<Array<{ id: string }>>`
       insert into templates (
@@ -110,17 +134,22 @@ export async function createFreeWorkout(args: {
     `;
     const templateId = Number(tplRows[0]!.id);
 
-    // 2. The single modality segment carrying the structured prescription.
-    await tx`
-      insert into template_segments (
-        template_id, position, exercise_id, params_json,
-        block_position, block_format, block_title, prescription_json
-      )
-      values (
-        ${templateId}, 1, ${Number(exerciseId)}, '{}'::jsonb,
-        1, ${scheme}, ${title}, ${tx.json(prescriptionForDb)}
-      )
-    `;
+    // 2. The ordered segments (position 1..N) carrying each structured prescription.
+    //    One block (block_position 1) titled with the workout — a free workout is
+    //    one coherent block, whether it's one measured line or N item lines.
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i]!;
+      await tx`
+        insert into template_segments (
+          template_id, position, exercise_id, params_json,
+          block_position, block_format, block_title, prescription_json
+        )
+        values (
+          ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
+          1, ${scheme}, ${title}, ${tx.json(seg.prescriptionForDb)}
+        )
+      `;
+    }
 
     // 3. Self-origin assignment for today (status defaults to 'scheduled'; the
     //    recorder flips it to completed/partial in step 4). No microcycle — a
@@ -157,7 +186,53 @@ export async function createFreeWorkout(args: {
   // workout_libre signal. This awaited, post-commit pass computes against
   // committed data so the coach's "entreno libre" card appears immediately.
   // Best-effort: never throws into the caller.
-  await recomputeAthlete({ athlete_id: athleteId }).catch(() => {});
+  await recomputeAthlete({ athlete_id: athleteId, client: db }).catch(() => {});
 
   return ids;
+}
+
+/**
+ * Resolve the ordered `template_segments` to persist. MEASURED → the one canonical
+ * exercise by slug (prescription verbatim). ITEM-built → each `items[]` exercise
+ * by id, with the modality COHERENCE override (mig 0053): the exercise is the
+ * single source of truth for modality, so the persisted prescription's modality is
+ * set to the exercise's (when it has one). Throws `exercise_not_found` for any
+ * unknown slug/id.
+ */
+async function resolveSegments(db: Sql, input: CreateFreeWorkoutInput): Promise<ResolvedSegment[]> {
+  if (input.kind === 'measured') {
+    const slug = FREE_WORKOUT_MODALITY_SLUGS[input.modality];
+    const exRows = await db<Array<{ id: string }>>`
+      select id::text as id from exercises where slug = ${slug} limit 1
+    `;
+    const exerciseId = exRows[0]?.id;
+    if (!exerciseId) {
+      throw new FreeWorkoutError(
+        'exercise_not_found',
+        `No exercise found for modality '${input.modality}' (slug '${slug}')`,
+      );
+    }
+    return [{ exerciseId: Number(exerciseId), prescriptionForDb: toJson(input.prescription) }];
+  }
+
+  // ITEM-built: fetch every referenced exercise in ONE query (id + modality).
+  const ids = input.items.map((it) => it.exerciseId);
+  const rows = await db<Array<{ id: string; modality: string | null }>>`
+    select id::text as id, modality from exercises where id = any(${ids}::bigint[])
+  `;
+  const modalityById = new Map<number, string | null>();
+  for (const r of rows) modalityById.set(Number(r.id), r.modality);
+
+  return input.items.map((it) => {
+    if (!modalityById.has(it.exerciseId)) {
+      throw new FreeWorkoutError('exercise_not_found', `No exercise found for id ${it.exerciseId}`);
+    }
+    // COHERENCE (mig 0053): the exercise is the single source of truth for
+    // modality — override the prescription's modality so it can never drift.
+    const exModality = modalityById.get(it.exerciseId) ?? null;
+    const prescription: Prescription = exModality
+      ? { ...it.prescription, modality: exModality as Modality }
+      : it.prescription;
+    return { exerciseId: it.exerciseId, prescriptionForDb: toJson(prescription) };
+  });
 }

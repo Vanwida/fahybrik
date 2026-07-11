@@ -24,6 +24,7 @@ import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { SEQUENCE_DAYS_OPTIONS } from './secuencias/days';
 import { SequenceCell, type SequenceCellPreview } from './secuencias/SequenceCell';
 import { SequenceEditor } from './secuencias/SequenceEditor';
+import { DuplicarCeldaModal } from './secuencias/DuplicarCeldaModal';
 
 export function LevelDetailPanel({
   level,
@@ -38,6 +39,8 @@ export function LevelDetailPanel({
   // this level's row, but usageById needs the full set to spot shared microciclos.
   const [cells, setCells] = useState<Record<string, V2Sequence>>(secuencias.cells);
   const [openDays, setOpenDays] = useState<number | null>(null);
+  // The días of THIS level's cell being copied elsewhere ("Duplicar a…"), or null.
+  const [dupDays, setDupDays] = useState<number | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
 
   const microById = useMemo(
@@ -87,6 +90,11 @@ export function LevelDetailPanel({
   const onSaved = useCallback(async () => {
     await refetch();
     setOpenDays(null);
+  }, [refetch]);
+
+  const onDuplicated = useCallback(async () => {
+    await refetch();
+    setDupDays(null);
   }, [refetch]);
 
   // Preview for a filled cell: count + total weeks + per-item sparkline.
@@ -226,6 +234,7 @@ export function LevelDetailPanel({
               days={days}
               filled={!!preview}
               onClick={() => setOpenDays(days)}
+              onDuplicate={preview ? () => setDupDays(days) : undefined}
             >
               <SequenceCell
                 preview={preview}
@@ -249,6 +258,16 @@ export function LevelDetailPanel({
           sus días y recorre la secuencia automáticamente.
         </span>
       </div>
+
+      {dupDays != null ? (
+        <DuplicarCeldaModal
+          source={{ levelId: level.id, levelName: level.name, days: dupDays }}
+          levels={secuencias.levels}
+          cells={cells}
+          onClose={() => setDupDays(null)}
+          onDone={() => void onDuplicated()}
+        />
+      ) : null}
     </div>
   );
 }
@@ -259,30 +278,47 @@ function DaysVariantCard({
   days,
   filled,
   onClick,
+  onDuplicate,
   children,
 }: {
   days: number;
   filled: boolean;
   onClick: () => void;
+  /** Present only for a FILLED cell — opens "Duplicar a…". */
+  onDuplicate?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-baseline gap-1">
           <b className="v2-num text-[15px] font-bold text-[color:var(--v2-fg)]">{days}</b>
           <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[color:var(--v2-muted)]">
             días/sem
           </span>
         </span>
-        <button
-          type="button"
-          onClick={onClick}
-          className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
-        >
-          {filled ? 'Editar' : 'Montar'}
-          <MIcon name="arrow_forward" size={13} />
-        </button>
+        <div className="flex items-center gap-1">
+          {onDuplicate ? (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              aria-label={`Duplicar la secuencia de ${days} días a otra celda`}
+              title="Duplica esta secuencia entera a otro nivel o nº de días"
+              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="content_copy" size={13} />
+              Duplicar a…
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClick}
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-[11px] font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+          >
+            {filled ? 'Editar' : 'Montar'}
+            <MIcon name="arrow_forward" size={13} />
+          </button>
+        </div>
       </div>
       {children}
     </div>

@@ -309,7 +309,15 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'herramientas',
     slug: 'importador-de-entrenos',
     title: 'Importar entrenos del Excel',
-    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, con revisión verde/ámbar.',
+    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, y tú eliges qué días entran.',
+    built: true,
+  },
+  {
+    num: 31,
+    area: 'herramientas',
+    slug: 'objetivo-y-prediccion',
+    title: 'Objetivo y predicción',
+    blurb: 'El tiempo meta repartido en los 10 tramos de HYROX: presupuesto, predicho y el hueco.',
     built: true,
   },
 ] as const;

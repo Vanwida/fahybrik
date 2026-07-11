@@ -178,7 +178,7 @@ export function HoyBoard({
           ending — one-click walk to the next step / repeat / level up) ── */}
       <SiguienteMicrocicloStrip cards={data.siguiente_microciclo_cards} />
 
-      {/* ── Ajuste de semana strip (pending Pablo IA week-adjustment proposals —
+      {/* ── Ajuste de semana strip (pending Coach IA week-adjustment proposals —
           accept applies the slot changes, ignore rejects them) ── */}
       <AjusteSemanalStrip cards={data.week_adjustment_cards} />
 

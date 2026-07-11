@@ -334,6 +334,9 @@ struct CarrerasView: View {
                             onRemove: { objectiveToRemove = race }
                         )
                     }
+                    // Camino al objetivo (Pantalla B) — sits right under the
+                    // countdowns, the natural next question: "¿y cuánto me falta?".
+                    caminoEntry
                 }
             } else {
                 VStack(spacing: Theme.Spacing.l) {
@@ -349,6 +352,53 @@ struct CarrerasView: View {
                 .padding(.top, Theme.Spacing.s)
             }
         }
+    }
+
+    // MARK: - Camino al objetivo (Pantalla B entry)
+    //
+    // The doorway to the gap board, placed under the objectives so it reads as the
+    // next question after the countdown. Accent-tinted to stand out from the
+    // neutral race cards; the board itself fetches live + handles its own states.
+
+    private var caminoEntry: some View {
+        NavigationLink {
+            CaminoObjetivoView(bearer: effectiveBearer)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.Color.accent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Camino al objetivo")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("Tu nivel de hoy contra lo que pide tu meta, estación a estación.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Color.accent.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.accent.opacity(0.28), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Camino al objetivo. Tu nivel de hoy contra lo que pide tu meta, estación a estación.")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - PASADAS · history + race-derived analytics (honest empty state)
@@ -641,6 +691,9 @@ private struct CarrerasRaceContent: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             if let race = overview.last_race {
                 LastRaceCard(race: race)
+                // Predicho vs real (Pantalla C) — self-hiding: renders only when a
+                // prior prediction snapshot exists for this race.
+                PredichoVsRealView(raceId: race.id, bearer: bearer)
             }
             if let report = overview.ia_report {
                 IAReportCard(report: report)

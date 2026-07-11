@@ -53,8 +53,15 @@ describe('parseNotationCell — required real patterns', () => {
   });
 
   test('erg interval: rounds + work + rest + RPE (S1 Martes ROW)', () => {
-    const [row, ...rest] = parseNotationCell(`ROW: 5' WU → 5x3' RPE8 – 45'' rest`);
+    // TWO bouts, not one: the old parser silently DROPPED the 5' warm-up (the
+    // class-4 fusion bug). Faithful typing emits the warm-up AND the intervals,
+    // both inheriting the leading "ROW:" label/modality.
+    const [wu, row, ...rest] = parseNotationCell(`ROW: 5' WU → 5x3' RPE8 – 45'' rest`);
     expect(rest).toHaveLength(0);
+    expect(wu!.confidence).toBe('detected');
+    expect(wu!.prescription.scheme).toBe('warmup');
+    expect(wu!.prescription.total_s).toBe(300);
+    expect(wu!.prescription.modality).toBe('row');
     expect(row!.confidence).toBe('detected');
     expect(row!.exercise_token).toBe('ROW');
     expect(row!.prescription.scheme).toBe('intervals');
@@ -149,19 +156,25 @@ For time 3 rounds: 25m sled push 170kg + 500m ski
 Finisher 75 wall ball 9kg`;
 
 describe('parseNotationCell — full real Capa-2 cells', () => {
-  test('S1 Martes: header/connector dropped, continuation joined → 3 detected', () => {
+  test('S1 Martes: header/connector dropped, continuation joined → 4 detected', () => {
     const lines = parseNotationCell(S1_MARTES);
-    expect(lines).toHaveLength(3);
+    // 4, not 3: "ROW 5' warm up + 5x3' …" is TWO bouts (the warm-up used to be
+    // silently dropped — the class-4 fusion bug).
+    expect(lines).toHaveLength(4);
     expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
     // The two-physical-line Back Squat is stitched back into one prescription.
     const squat = lines[0]!;
     expect(squat.exercise_token).toBe('Back Squat');
     expect(squat.prescription.sets).toHaveLength(5);
-    // The chained "ROW … + 5x3'" is an erg interval, not a strength combo.
-    const rowLine = lines.find((l) => l.exercise_token === 'ROW')!;
-    expect(rowLine.prescription.scheme).toBe('intervals');
+    // The chained "ROW … + 5x3'" is an erg interval, not a strength combo…
+    const rowLine = lines.find((l) => l.prescription.scheme === 'intervals')!;
+    expect(rowLine.exercise_token).toBe('ROW');
     expect(rowLine.prescription.modality).toBe('row');
     expect(rowLine.prescription.rounds).toBe(5);
+    // …and its 5' warm-up is typed as its own row bout, not dropped.
+    const wuLine = lines.find((l) => l.prescription.scheme === 'warmup')!;
+    expect(wuLine.prescription.total_s).toBe(300);
+    expect(wuLine.prescription.modality).toBe('row');
   });
 
   test('S2 Sábado: two clean strength lines detected, plyo superset → review', () => {

@@ -15,9 +15,17 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
+import {
+  buildRaceTransfer,
+  transferDeltaPctStr,
+  transferTierLabel,
+  transferValueStr,
+} from '../race-transfer';
 import {
   type AnalyticsCard,
   type AnalyticsSection,
+  type CardRow,
   type ResolvedPeriod,
   card,
   clockStr,
@@ -147,6 +155,9 @@ export async function buildHyroxSection(
     }),
   );
 
+  // ── D2 · Entreno → carrera (el CRUCE, cross-modality) ──────────────────────
+  cards.push(await buildRaceTransferCard(client, athleteId));
+
   // ── E · Historial de carreras (REAL) ───────────────────────────────────────
   const historyRows = races
     .filter((r) => r.result_time_seconds != null)
@@ -173,7 +184,130 @@ export async function buildHyroxSection(
     }),
   );
 
-  return { section: 'hyrox', title_es: 'HYROX', availability: withSplits.length ? 'real' : 'needs_logging', period, cards };
+  // ── F · Simulaciones y metcons (REAL scores) ───────────────────────────────
+  // Training sessions scored by TIME (For Time / HYROX sim / …) or ROUNDS+reps
+  // (AMRAP / Tabata) — workout_executions.score_* (mig 0069). Unlike the races
+  // above these ARE training, so they honour the period window.
+  cards.push(await buildScoresCard(client, athleteId, period));
+
+  const hasScores = cards.some((c) => c.id === 'sim_scores' && c.availability === 'real');
+  return {
+    section: 'hyrox',
+    title_es: 'HYROX',
+    availability: withSplits.length || hasScores ? 'real' : 'needs_logging',
+    period,
+    cards,
+  };
+}
+
+// ── Scored training sessions (sim / metcon) ──────────────────────────────────
+interface ScoreRow {
+  execution_id: string;
+  day: string | null;
+  score_time_s: number | null;
+  score_rounds: number | null;
+  score_reps: number | null;
+  template_name: string;
+  format: string;
+}
+
+// ES labels for the scored formats (English lives in the format catalog).
+export const SCORE_FORMAT_ES: Record<string, string> = {
+  for_time: 'Por tiempo',
+  amrap: 'AMRAP',
+  emom: 'EMOM',
+  tabata: 'Tabata',
+  chipper: 'Chipper',
+  ladder: 'Ladder',
+  rounds: 'Rondas',
+  hyrox_sim: 'Simulación HYROX',
+};
+
+/** A scored session's headline: a time, or rounds (+ partial reps). Structural
+ *  param so the drill-down can reuse it without the full row. */
+export function scoreValue(r: { score_time_s: number | null; score_rounds: number | null; score_reps: number | null }): string | null {
+  if (r.score_time_s != null) return clockStr(r.score_time_s);
+  if (r.score_rounds != null) {
+    const reps = r.score_reps != null && r.score_reps > 0 ? ` + ${r.score_reps}` : '';
+    return `${r.score_rounds} rondas${reps}`;
+  }
+  return null;
+}
+
+async function buildScoresCard(
+  client: Sql,
+  athleteId: number,
+  period: ResolvedPeriod,
+): Promise<AnalyticsCard> {
+  const scored = await client<ScoreRow[]>`
+    select
+      we.id::text as execution_id,
+      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      we.score_time_s, we.score_rounds, we.score_reps,
+      t.name as template_name, t.format::text as format
+    from workout_executions we
+    join workout_assignments wa on wa.id = we.assignment_id
+    join templates t on t.id = wa.template_id
+    where we.athlete_id = ${athleteId}
+      and (we.score_time_s is not null or we.score_rounds is not null)
+      and coalesce(we.ended_at, we.started_at) >= ${period.start_iso}::timestamptz
+      and coalesce(we.ended_at, we.started_at) <= ${period.end_iso}::timestamptz
+    order by we.started_at desc, we.id desc
+  `;
+
+  if (scored.length === 0) {
+    return card({
+      id: 'sim_scores',
+      title_es: 'Simulaciones y metcons',
+      availability: 'needs_logging',
+      availability_note: 'Puntúa una simulación HYROX o un metcon (por tiempo o rondas) para ver tu historial.',
+    });
+  }
+
+  // Best HYROX simulation is an ALL-TIME PR (a sim is a sim, comparable across
+  // dates), separate from the period-windowed history below.
+  const simBestRows = await client<Array<{ best: number | null }>>`
+    select min(we.score_time_s) as best
+    from workout_executions we
+    join workout_assignments wa on wa.id = we.assignment_id
+    join templates t on t.id = wa.template_id
+    where we.athlete_id = ${athleteId}
+      and we.score_time_s is not null
+      and t.format::text in ('hyrox_sim', 'simulation')
+  `;
+  const simBest = simBestRows[0]?.best ?? null;
+
+  const rows: CardRow[] = [];
+  if (simBest != null) {
+    rows.push({
+      id: 'best_sim',
+      label: 'Mejor simulación',
+      value: clockStr(simBest),
+      sub: 'ensayo completo · histórico',
+      accent: true,
+      drill: null,
+    });
+  }
+  for (const r of scored) {
+    const fmt = normalizeFormat(r.format);
+    rows.push({
+      id: r.execution_id,
+      label: r.template_name,
+      value: scoreValue(r),
+      sub: [fmt ? SCORE_FORMAT_ES[fmt] ?? fmt : null, dayMonthEs(r.day)].filter(Boolean).join(' · ') || null,
+      accent: false,
+      drill: null,
+    });
+  }
+
+  return card({
+    id: 'sim_scores',
+    title_es: 'Simulaciones y metcons',
+    availability: 'real',
+    rows,
+    drill: { kind: 'hyrox.scores', params: {}, count: scored.length, label_es: `${scored.length} sesiones puntuadas` },
+    meaning_es: 'Sesiones cronometradas o por rondas. Una simulación completa es tu mejor referencia de forma HYROX.',
+  });
 }
 
 function formatLabel(format: string): string {
@@ -181,4 +315,70 @@ function formatLabel(format: string): string {
   if (format === 'doubles') return 'Dobles';
   if (format === 'relay') return 'Relevos';
   return format;
+}
+
+// ── Entreno → carrera · el CRUCE ─────────────────────────────────────────────
+// The differentiator: per station + the run, the athlete's TRAINED level next to
+// what they DID in a singles race, and how much they lose (transfer delta). Gated
+// honestly when there's no singles race to compare against.
+async function buildRaceTransferCard(client: Sql, athleteId: number): Promise<AnalyticsCard> {
+  const transfer = await buildRaceTransfer({ athlete_id: athleteId }, client);
+
+  if (transfer.availability !== 'ok') {
+    const note =
+      transfer.availability === 'only_doubles'
+        ? 'Solo tienes carreras de dobles: los splits son del equipo. Cruzamos tu entreno con tu próxima carrera individual.'
+        : 'Importa una carrera individual (singles) con splits y cruzamos tu entreno con cada estación.';
+    return card({
+      id: 'race_transfer',
+      title_es: 'Entreno → carrera',
+      availability: 'needs_logging',
+      availability_note: note,
+    });
+  }
+
+  // The weakest transfer (biggest positive delta) is the headline weak link.
+  const weakest = transfer.stations
+    .filter((s) => s.transfer_delta_pct != null && s.transfer_delta_pct > 0)
+    .sort((a, b) => (b.transfer_delta_pct ?? 0) - (a.transfer_delta_pct ?? 0))[0];
+
+  const rows: CardRow[] = transfer.stations.map((s) => {
+    // s.unit is the station's canonical unit (== trained.unit whenever present).
+    const trainedStr = s.trained.value_s != null ? transferValueStr(s.trained.value_s, s.unit) : null;
+    const raceStr = s.race_seconds != null ? transferValueStr(s.race_seconds, s.unit) : null;
+    const deltaStrPct = transferDeltaPctStr(s.transfer_delta_pct);
+    // sub: the evidence tier + the two compared numbers (entrenado vs carrera).
+    const parts = [transferTierLabel(s.trained.tier)];
+    if (trainedStr) parts.push(`entreno ${trainedStr}`);
+    if (raceStr) parts.push(`carrera ${raceStr}`);
+    return {
+      id: s.slug,
+      label: s.label,
+      value: deltaStrPct ?? (s.trained.tier === 'sin_datos' ? 'sin datos' : '—'),
+      sub: parts.join(' · '),
+      accent: weakest != null && s.slug === weakest.slug,
+      drill: null,
+    };
+  });
+
+  const dataCount = transfer.stations.filter((s) => s.transfer_delta_pct != null).length;
+
+  return card({
+    id: 'race_transfer',
+    title_es: 'Entreno → carrera',
+    availability: 'real',
+    availability_note: null,
+    primary:
+      weakest != null
+        ? { value: weakest.label, unit: `${transferDeltaPctStr(weakest.transfer_delta_pct)} vs tu entreno`, side: null }
+        : null,
+    rows,
+    meaning_es:
+      'Tu nivel entrenado (observado o estimado por tus zonas) frente a lo que hiciste en carrera. ' +
+      'En positivo = pierdes tiempo respecto a tu entreno; ahí está el margen de transferencia.',
+    drill:
+      dataCount > 0
+        ? { kind: 'hyrox.transfer', params: {}, count: dataCount, label_es: `${dataCount} cruces estación a estación` }
+        : null,
+  });
 }

@@ -5,6 +5,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import {
   coachExerciseColumns,
+  exerciseCatalogOrder,
   joinCoachOverride,
   type CoachExerciseRow,
 } from '@/lib/exercises/coach-override';
@@ -48,18 +49,7 @@ export async function GET(req: Request) {
       and (${term}::text is null
            or lower(e.name) like ${term}::text
            or lower(e.slug) like ${term}::text)
-    order by
-      case e.category
-        when 'hyrox_station' then 0
-        when 'strength' then 1
-        when 'cardio' then 2
-        when 'skill' then 3
-        when 'plyometric' then 4
-        when 'core' then 5
-        when 'mobility' then 6
-        else 7
-      end,
-      e.name asc
+    order by ${exerciseCatalogOrder(sql)}
     limit ${limit}
   `;
 

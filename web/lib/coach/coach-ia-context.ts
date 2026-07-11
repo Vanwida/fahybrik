@@ -6,7 +6,7 @@ import {
   buildAthleteContextPack as _buildAthleteContextPack,
   type AthleteContextPack,
   type ProgressionVerdict,
-} from '@fahybrid/shared/domain/coach/pablo-ia-context';
+} from '@fahybrid/shared/domain/coach/coach-ia-context';
 
 export type { AthleteContextPack, ProgressionVerdict };
 
@@ -19,4 +19,4 @@ export function buildAthleteContextPack(params: {
 }
 
 /** Alias for plan naming. */
-export const buildPabloIaContextPack = buildAthleteContextPack;
+export const buildCoachIaContextPack = buildAthleteContextPack;

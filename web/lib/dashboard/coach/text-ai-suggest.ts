@@ -38,7 +38,7 @@ export const textSuggestInputSchema = z
 
 export type TextSuggestInput = z.infer<typeof textSuggestInputSchema>;
 
-/** v1: sugerencias heurísticas sin LLM — sustituible por Pablo IA Compose en 1b+. */
+/** v1: sugerencias heurísticas sin LLM — sustituible por Coach IA Compose en 1b+. */
 export function suggestFreeText(input: TextSuggestInput): string[] {
   const exercises = Array.isArray(input.context.exercises)
     ? (input.context.exercises as string[])
@@ -53,7 +53,7 @@ export function suggestFreeText(input: TextSuggestInput): string[] {
     const hints = [
       [zone, duration].filter(Boolean).join(' · ') || `${base} — principal`,
       `Entreno ${duration ?? ''}`.trim(),
-      exercises.length > 1 ? `${exercises[0]} + ${exercises.length - 1} más` : `${base} Fabrik`,
+      exercises.length > 1 ? `${exercises[0]} + ${exercises.length - 1} más` : base,
     ];
     return [...new Set(hints.map((s) => s.trim()).filter(Boolean))].slice(0, 3);
   }

@@ -64,6 +64,29 @@ describe('importProposalRequestSchema', () => {
     const r = importProposalRequestSchema.safeParse({ ...base, pasted_text: 'Martes\n5 rounds Back Squat' });
     expect(r.success).toBe(true);
   });
+  test('paste flow: valid WITHOUT a week range, targeting a weekday', () => {
+    const r = importProposalRequestSchema.safeParse({
+      microcycle_id: 7,
+      variant: 'estandar',
+      pasted_text: 'A) EMOM 15\n1) 4 Power clean',
+      target_weekday: 4,
+    });
+    expect(r.success).toBe(true);
+  });
+  test('rejects a target_weekday out of 1..7', () => {
+    const r = importProposalRequestSchema.safeParse({
+      microcycle_id: 7,
+      variant: 'estandar',
+      pasted_text: 'A) EMOM 15',
+      target_weekday: 8,
+    });
+    expect(r.success).toBe(false);
+  });
+  test('rejects the Excel flow with no range and no paste', () => {
+    expect(
+      importProposalRequestSchema.safeParse({ microcycle_id: 7, variant: 'estandar' }).success,
+    ).toBe(false);
+  });
   test('rejects a missing variant', () => {
     expect(
       importProposalRequestSchema.safeParse({ microcycle_id: 7, range_text: 'de la 1 a la 4' }).success,

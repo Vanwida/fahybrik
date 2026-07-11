@@ -46,6 +46,10 @@ export interface PrescribedItemContext {
   uid: string;
   modality: Modality | null;
   measure: PrescribedMeasure | null;
+  // The prescribed magnitude in the measure's native unit (meters | seconds |
+  // reps | kcal). Feeds the deterministic screenshot→prescription matcher — the
+  // prompt itself only needs the human-readable `text`.
+  measure_value: number | null;
   // A short target token the model can reason with: 'pace' | 'zone' | 'RPE' |
   // 'RIR' | '%RM' | 'kg' | 'cal' | 'W' | 'ppm' | null.
   target: string | null;
@@ -76,21 +80,26 @@ function itemText(item: AssignmentDetailItem): string {
   return item.exercise_name;
 }
 
-// The unit of WORK the line measures → the model's `measure` axis.
-function itemMeasure(p: Prescription | null): PrescribedMeasure | null {
-  if (!p) return null;
+// The unit of WORK the line measures → the model's `measure` axis, plus the
+// prescribed magnitude in its native unit (meters | seconds | reps | kcal) for
+// the deterministic matcher. Resolved in one pass over the canonical Measure.
+function itemMeasureKV(p: Prescription | null): {
+  measure: PrescribedMeasure | null;
+  value: number | null;
+} {
+  if (!p) return { measure: null, value: null };
   const m = (p.sets ?? []).map(setMeasure).find((x) => x != null);
   switch (m?.kind) {
     case 'reps':
-      return 'reps';
+      return { measure: 'reps', value: m.value };
     case 'distance':
-      return 'distance';
+      return { measure: 'distance', value: m.meters };
     case 'duration':
-      return 'time';
+      return { measure: 'time', value: m.seconds };
     case 'calories':
-      return 'cals';
+      return { measure: 'cals', value: m.value };
     default:
-      return null;
+      return { measure: null, value: null };
   }
 }
 
@@ -143,10 +152,12 @@ export function buildPrescriptionContext(detail: AssignmentDetailResponse): Pres
   const items = (detail.workout?.blocks ?? []).flatMap((b) => b.items);
   const ctxItems: PrescribedItemContext[] = items.map((it) => {
     const p = it.prescription_json ?? null;
+    const mkv = itemMeasureKV(p);
     return {
       uid: it.uid,
       modality: itemModality(it),
-      measure: itemMeasure(p),
+      measure: mkv.measure,
+      measure_value: mkv.value,
       target: itemTarget(p),
       reps: itemReps(p),
       rest_s: itemRestS(p),
