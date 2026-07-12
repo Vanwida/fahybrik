@@ -18,8 +18,13 @@ import { MIN_COHORT_RACES, type BudgetSource, type CohortRace, type OwnRace, typ
  * segments' own proportions, so the fractions always sum to exactly 1 and the
  * budget always closes — even when a race's stored total drifts from its splits.
  * Order follows `segments`; a station reads its split by station_index.
+ *
+ * Exported so the DOUBLES budget (shared/domain/dobles-gap) decomposes a pair's
+ * goal by the SAME normalization instead of duplicating it — the only difference
+ * there is which race supplies the fractions (a doubles cohort / doubles own race
+ * / a singles reference), never the math.
  */
-function raceFractions(
+export function raceFractions(
   segments: SegmentDef[],
   race: { run_total_s: number; station_s: Record<number, number>; roxzone_s: number },
 ): number[] {
