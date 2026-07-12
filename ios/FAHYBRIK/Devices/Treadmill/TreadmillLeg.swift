@@ -44,6 +44,12 @@ enum TreadmillLegResolver {
             } else if let w = segment.formatWorkSeconds, w > 0 {
                 goal = .time(seconds: w)
             } else {
+                // LIMITATION (#61 structure): a HETEROGENEOUS pyramid (1200/1000/800)
+                // has no scalar per-bout measure — the web drops `distance_meters`
+                // for unequal bouts and nobody reads `sets[bout].measure` yet. So the
+                // bout degrades to `.open`: unowned (manual "Terminar tramo ahora" or
+                // the session's own close), no distance bar, no invented data. Reading
+                // per-bout measures arrives with the athlete `structure` wire (#61).
                 goal = .open
             }
             // Only DISTANCE work bouts need us to drive the advance; a timed bout is
@@ -73,17 +79,12 @@ enum TreadmillLegResolver {
 /// segment counts as one leg (the session's own segment granularity). Matches the
 /// approved mockup ("Tramo 3 de 13" for a 6×800 session).
 enum WorkoutLegCount {
-    /// Number of work bouts in a run series. Uses `rounds`, FALLING BACK to the
-    /// `sets` array length — ~40% of real interval prescriptions are legacy
-    /// pyramids (1200/1000/800) that carry no `rounds`, only one `sets` entry per
-    /// bout. Never rely on `rounds` alone or those collapse to a single leg.
-    static func boutCount(_ s: WorkoutSegment) -> Int {
-        max(1, s.formatRounds ?? s.prescription?.sets?.count ?? 1)
-    }
-
     static func legs(in s: WorkoutSegment) -> Int {
         guard TreadmillLegResolver.isRunSeries(s) else { return 1 }
-        return boutCount(s) * (s.formatRestSeconds != nil ? 2 : 1)   // work + recovery per round
+        // Bout count = `formatRounds`, the single source of truth: it already falls
+        // back to `sets.count` for legacy sets-only interval pyramids (see
+        // WorkoutSegment.formatRounds). work (+ recovery) per bout.
+        return max(1, s.formatRounds ?? 1) * (s.formatRestSeconds != nil ? 2 : 1)
     }
 
     static func total(_ segments: [WorkoutSegment]) -> Int {

@@ -81,15 +81,39 @@ final class TreadmillLegTests: XCTestCase {
     }
 
     func testLegCountFallsBackToSetsForLegacyPyramid() {
-        // 1200/1000/800: no `rounds`, one `sets` entry per bout, scalar distance
-        // dropped (heterogeneous) — must count 3 bouts, not collapse to 1.
+        // 1200/1000/800: no `rounds`, one `sets` entry per bout — bout count must
+        // come from `sets`, not collapse to 1.
         let pyramid = pyramidSeries([1200, 1000, 800], restS: 90)
-        XCTAssertNil(pyramid.formatRounds)
-        XCTAssertEqual(pyramid.prescription?.sets?.count, 3)
-        XCTAssertEqual(WorkoutLegCount.boutCount(pyramid), 3)   // rounds ?? sets.count
-        XCTAssertEqual(WorkoutLegCount.legs(in: pyramid), 6)    // 3 bouts × (work + recovery)
+        // Single-source fix: `formatRounds` itself falls back to sets.count for intervals.
+        XCTAssertEqual(pyramid.formatRounds, 3)
+        XCTAssertEqual(WorkoutLegCount.legs(in: pyramid), 6)   // 3 bouts × (work + recovery)
         // Round 2's work bout = 5th global leg: r0w r0r r1w r1r r2w.
         XCTAssertEqual(WorkoutLegCount.current([pyramid], index: 0, rotRoundIndex: 2, isWork: true), 5)
+    }
+
+    func testStrengthSegmentRoundsUnaffectedBySetsFallback() {
+        // Non-regression: a STRENGTH segment carries `sets` (its work sets) but no
+        // `rounds`. The sets→bouts fallback is intervals-ONLY, so formatRounds must
+        // stay nil here — sets are movements/work sets, never a round count.
+        let sets = [PrescriptionSet(measure: .reps(5), target: .kg(value: 100, min: nil, max: nil),
+                                    modality: .strength, restS: 120, tempo: nil, note: nil)]
+        let strength = WorkoutSegment(order: 1, title: "Sentadilla", kind: .strength,
+                                      prescription: Prescription(scheme: .sets, modality: .strength,
+                                                                 sets: sets, rounds: nil, workS: nil,
+                                                                 restS: nil, totalS: nil, target: nil,
+                                                                 note: nil, start: nil, increment: nil))
+        XCTAssertNil(strength.formatRounds)
+    }
+
+    func testHeterogeneousPyramidBoutDegradesToManual() {
+        // (#61 seam) A heterogeneous pyramid bout has no per-bout measure yet — the
+        // scalar distance is dropped and sets[i] isn't read — so the work leg resolves
+        // to `.open`: we don't own its auto-advance (manual "Terminar tramo ahora"),
+        // and the HUD shows no distance bar rather than a broken one or invented data.
+        let pyramid = pyramidSeries([1200, 1000, 800], restS: 90)
+        let work = TreadmillLegResolver.leg(for: pyramid, isWork: true)
+        XCTAssertEqual(work.goal, .open)
+        XCTAssertFalse(work.ownsAutoAdvance)
     }
 
     // MARK: - Fixtures

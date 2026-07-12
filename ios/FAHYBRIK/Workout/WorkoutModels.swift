@@ -545,9 +545,18 @@ extension WorkoutSegment {
 
     /// Rounds / minutes the format runs (For Time scheme rounds, Tabata rounds,
     /// Rounds circuits). Nil when not prescribed.
+    ///
+    /// Legacy interval pyramids (1200/1000/800) ship NO `rounds`; their `sets`
+    /// array IS the bout list — one entry per bout — so the bout count is
+    /// `sets.count`. This fallback is scoped to `.intervals` ONLY: for every other
+    /// scheme `sets` are the MOVEMENTS in a round (a For Time / Chipper list), so
+    /// conflating `sets.count` with the round count there would be wrong. ~40% of
+    /// real running intervals are this sets-only legacy shape; #61's `structure`
+    /// wire will carry the count explicitly for new authoring.
     var formatRounds: Int? {
-        guard let r = prescription?.rounds, r > 0 else { return nil }
-        return r
+        if let r = prescription?.rounds, r > 0 { return r }
+        if prescription?.scheme == .intervals, let n = prescription?.sets?.count, n > 0 { return n }
+        return nil
     }
 
     /// Work-window length — Tabata work, interval bout, Death By minute. Defaults

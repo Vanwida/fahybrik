@@ -133,6 +133,30 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         m.teardown()
     }
 
+    // MARK: - Sets-only pyramid runs ALL bouts via the session
+
+    func testSetsOnlyPyramidRunsAllBoutsViaSession() {
+        // 1200/1000/800 legacy pyramid: no `rounds`, 3 `sets`. The formatRounds
+        // single-source fix makes the session count 3 bouts (was 1) so it advances
+        // through ALL of them instead of closing the series after the first.
+        let s = pyramidSession([1200, 1000, 800])
+        XCTAssertTrue(s.isCondCountIn)
+        s.primaryAdvance()                          // skip the 3-2-1 count-in
+        XCTAssertFalse(s.isCondCountIn)
+        XCTAssertEqual(s.rotTotalRounds, 3)         // the fix: sets.count, not 0/1
+        let (m, _) = makeModel(s)
+
+        m.endLegNow()                               // bout 0 done
+        XCTAssertEqual(s.rotRoundIndex, 1)          // pre-fix this closed the whole series
+        XCTAssertFalse(s.isFinished)
+        m.endLegNow()                               // bout 1 done
+        XCTAssertEqual(s.rotRoundIndex, 2)
+        XCTAssertFalse(s.isFinished)
+        m.endLegNow()                               // bout 2 (last) done → series closes
+        XCTAssertTrue(s.isFinished)
+        m.teardown()
+    }
+
     // MARK: - Fixtures
 
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {
@@ -170,6 +194,23 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         s.start()        // arms the block (isAwaitingBlockStart = true) + schedules the timer
         s.beginBlock()   // clears the gate → startConditioning (count-in, rotRoundIndex 0)
         s.stop()         // kill the timer; conditioning state is preserved
+        return s
+    }
+
+    private func pyramidSession(_ distancesM: [Double]) -> WorkoutSession {
+        // Legacy heterogeneous pyramid: no rounds, one distance PrescriptionSet per
+        // bout, no scalar targetDistanceMeters (the web drops it for unequal bouts).
+        let sets = distancesM.map { d in
+            PrescriptionSet(measure: .distance(meters: d), target: nil, modality: .run,
+                            restS: nil, tempo: nil, note: nil)
+        }
+        let rx = Prescription(scheme: .intervals, modality: .run, sets: sets, rounds: nil,
+                              workS: nil, restS: nil, totalS: nil, target: nil,
+                              note: nil, start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Pirámide", kind: .running,
+                                 blockTitle: "Series", blockPosition: 1, prescription: rx)
+        let s = WorkoutSession(plan: plan([seg], format: .intervals))
+        s.start(); s.beginBlock(); s.stop()
         return s
     }
 
