@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
+import { flattenSegments } from '@fahybrid/shared/domain/prescription';
 
 const SQ_1RM = EXERCISE_TO_1RM_BENCHMARK['back-squat']!; // 'back_squat_1rm'
 
@@ -721,5 +722,92 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(item.params_json.distance_meters).toBe(500);
     expect(item.prescription_json).not.toBeNull();
     expect(result.execution!.completeness).toBe('completed');
+  });
+
+  // ── #61 — the athlete wire emits the STRUCTURED running grammar per run block ──
+  const runSegRow = (prescription_json: unknown, id = '80') => ({
+    id, position: 0, block_position: 0, block_format: null, block_title: null,
+    params_json: {}, prescription_json, notes: null,
+    exercise_id: '960', exercise_name: 'Run', exercise_slug: 'run',
+    exercise_category: 'cardio', exercise_video_url: null, exercise_cues: null,
+  });
+  const emittedStructure = (segRow: unknown, zoneProfiles?: unknown[]) =>
+    buildAssignmentDetail({
+      assignment: baseAssignment, execution: null, template: baseTemplate,
+      segments: [segRow as never],
+      ...(zoneProfiles ? { zoneProfiles: zoneProfiles as never } : {}),
+    }).workout!.blocks[0]!.items[0]!.prescription_json!.structure;
+
+  it('#61 · a sets-only pyramid seeds a structure with 3 DISTINCT measures', () => {
+    // The real shape that motivated the ola: no `rounds`, one distance set per bout,
+    // heterogeneous distances the legacy scalar path drops. legacyToStructure keeps
+    // all three, per bout.
+    const structure = emittedStructure(runSegRow({
+      scheme: 'interval', modality: 'run',
+      sets: [1200, 1000, 800].map((m) => ({ measure: { kind: 'distance', meters: m } })),
+    }));
+    expect(structure).toBeDefined();
+    const works = flattenSegments(structure!).filter((s) => s.kind === 'work');
+    expect(works.map((w) => w.measure)).toEqual([
+      { type: 'distance', m: 1200 },
+      { type: 'distance', m: 1000 },
+      { type: 'distance', m: 800 },
+    ]);
+  });
+
+  it('#61 · each zone bout carries the athlete RESOLVED pace band (same source as resolved_intensity)', () => {
+    const structure = emittedStructure(
+      runSegRow({ scheme: 'steady', modality: 'run', total_s: 1200, target: { kind: 'hr_zone', value: 4 } }),
+      [runProfile(240)],
+    )!;
+    const work = flattenSegments(structure).find((s) => s.kind === 'work')!;
+    expect(work.target).toEqual({ type: 'pace_zone', zone: 4 }); // run zone → pace zone
+    expect(work.resolved).toBeDefined();
+    expect(work.resolved!.zone_label).toBe('Z4');
+    expect(work.resolved!.range_label).toBe('4:00–4:14/km');
+    expect(work.resolved!.fast_s).toBe(240);
+    expect(work.resolved!.slow_s).toBe(254);
+    expect(work.resolved!.pace_unit).toBe('per_km');
+  });
+
+  it('#61 · with NO tested profile the structure emits without a fabricated band', () => {
+    const structure = emittedStructure(
+      runSegRow({ scheme: 'steady', modality: 'run', total_s: 1200, target: { kind: 'hr_zone', value: 4 } }),
+    )!;
+    const work = flattenSegments(structure).find((s) => s.kind === 'work')!;
+    expect(work.target).toEqual({ type: 'pace_zone', zone: 4 });
+    expect(work.resolved).toBeUndefined(); // zone label alone, never an invented pace
+  });
+
+  it('#61 · a STORED structure is emitted + enriched, not re-derived', () => {
+    // The stored structure carries an incline the legacy flatten cannot express — so
+    // seeing it on the wire proves the STORED tree was used (not legacyToStructure).
+    const structure = emittedStructure(
+      runSegRow({
+        scheme: 'intervals', modality: 'run',
+        structure: [{
+          role: 'main',
+          elements: [{ kind: 'work', measure: { type: 'distance', m: 400 }, target: { type: 'pace_zone', zone: 4 }, incline_pct: 8 }],
+        }],
+      }),
+      [runProfile(240)],
+    )!;
+    const work = flattenSegments(structure)[0]!;
+    expect(work.incline_pct).toBe(8);          // stored tree preserved
+    expect(work.resolved!.fast_s).toBe(240);   // and enriched per athlete
+  });
+
+  it('#61 · a non-run (strength) block emits NO structure', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment, execution: null, template: baseTemplate,
+      segments: [{
+        id: '82', position: 0, block_position: 0, block_format: null, block_title: null,
+        params_json: {}, notes: null,
+        prescription_json: { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 5 }, target: { kind: 'kg', value: 100 } }] },
+        exercise_id: '962', exercise_name: 'Back Squat', exercise_slug: 'back-squat',
+        exercise_category: 'strength', exercise_video_url: null, exercise_cues: null,
+      }],
+    });
+    expect(result.workout!.blocks[0]!.items[0]!.prescription_json!.structure).toBeUndefined();
   });
 });

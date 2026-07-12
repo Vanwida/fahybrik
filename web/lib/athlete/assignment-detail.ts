@@ -5,8 +5,14 @@ import {
   safeParsePrescription,
   prescriptionTarget,
   setTarget,
+  legacyToStructure,
+  isRepeat,
   type Prescription,
   type Target,
+  type RunStructure,
+  type Segment as RunSegment,
+  type Element as RunElement,
+  type SegmentTarget,
 } from '@fahybrid/shared/domain/prescription';
 import {
   resolvePaceBandFromZones,
@@ -771,6 +777,15 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
   const modality = (prescription as { modality?: string } | null)?.modality;
   const category = displayCategoryForModality(modality) ?? seg.exercise_category;
 
+  // #61 — for a run block, emit the STRUCTURED grammar (stored or seeded from the
+  // legacy shape) with each zone bout enriched by the athlete's resolved band, so
+  // the app executes it natively. Additive: the legacy scalar fields still ride
+  // along, so a legacy client is unaffected.
+  const isRun = modality === 'run' || category === 'running';
+  const wireStructure = runWireStructure(prescription, isRun, zoneLookup);
+  const emittedPrescription: Prescription | null =
+    wireStructure && prescription ? { ...prescription, structure: wireStructure } : prescription;
+
   return {
     uid: `segment-${seg.id}`,
     template_segment_id: Number(seg.id),
@@ -781,7 +796,7 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
     exercise_video_url: seg.exercise_video_url,
     cues: seg.exercise_cues,
     params_json: normalizeParams(source),
-    prescription_json: prescription,
+    prescription_json: emittedPrescription,
     resolved_intensity: resolveIntensityForItem(prescription, modality, zoneLookup),
     resolved_load: resolveLoadForItem(prescription, seg.exercise_slug, oneRms),
     notes: seg.notes,
@@ -867,6 +882,67 @@ function resolveIntensityForItem(
     pace_unit: band.pace_unit,
     needs_review: profile.needs_review,
   };
+}
+
+// ── #61 · structured-run wire enrichment ─────────────────────────────────────
+// The athlete wire ships the STRUCTURED running grammar per run block so the app
+// executes it natively (per-bout distance / target / incline). We emit the STORED
+// `structure` when the coach authored one, else seed it from the legacy scalar
+// prescription via `legacyToStructure` (a uniform / pyramid series, a steady bout)
+// when it converts — non-convertible run blocks stay legacy-only. Each zone-target
+// segment is then enriched with the athlete's RESOLVED pace band, reusing the SAME
+// zone machinery as `resolveIntensityForItem`, so the per-bout objetivo the athlete
+// EXECUTES matches the item-level band they already SEE.
+
+// Resolve ONE structure segment's zone target to the athlete's pace band. Null for
+// a pace/rpe/null target (no zone to resolve) or an un-tested athlete — the segment
+// then carries no band and the app shows the zone label, never a fabricated pace.
+function resolveSegmentBand(
+  target: SegmentTarget | null,
+  profile: { bands: ResolvedZone[]; needs_review: boolean } | undefined,
+): ResolvedIntensity | null {
+  if (!target || (target.type !== 'pace_zone' && target.type !== 'hr_zone')) return null;
+  if (!profile || profile.bands.length === 0) return null;
+  // Structure is run-only → the band is always per-km (mirrors resolveIntensityForItem).
+  const band = resolvePaceBandFromZones(profile.bands, { value: target.zone }, 'per_km');
+  if (!band) return null;
+  const zone_label =
+    band.zone_codes.length > 1 ? band.zone_codes.join('–') : (band.zone_codes[0] ?? '');
+  return {
+    zone_label,
+    range_label: formatResolvedPaceBand(band),
+    fast_s: band.fast_s,
+    slow_s: band.slow_s,
+    pace_unit: band.pace_unit,
+    needs_review: profile.needs_review,
+  };
+}
+
+// The athlete-wire structure for a run block (stored, else legacyToStructure), with
+// each zone segment enriched with the resolved band. Null for non-run / non-
+// convertible blocks (they stay legacy-only on the wire).
+function runWireStructure(
+  prescription: Prescription | null,
+  isRun: boolean,
+  zoneLookup: ZoneLookup,
+): RunStructure | null {
+  // `structure` is a RUNNING concept (pace per km, inclinación) — run blocks only.
+  // `legacyToStructure`'s scheme-driven steady path does NOT itself reject a non-run
+  // modality, so gating on run-ness here is what keeps an erg steady out.
+  if (!prescription || !isRun) return null;
+  const structure = prescription.structure ?? legacyToStructure(prescription);
+  if (!structure || structure.length === 0) return null;
+
+  const profile = zoneLookup.run;
+  if (!profile) return structure; // no tested profile → the raw structure, no bands
+
+  const enrichSeg = (seg: RunSegment): RunSegment => {
+    const resolved = resolveSegmentBand(seg.target, profile);
+    return resolved ? { ...seg, resolved } : seg;
+  };
+  const enrichEls = (els: RunElement[]): RunElement[] =>
+    els.map((el) => (isRepeat(el) ? { ...el, elements: enrichEls(el.elements) } : enrichSeg(el)));
+  return structure.map((phase) => ({ ...phase, elements: enrichEls(phase.elements) }));
 }
 
 // The representative intensity target for a line: the block-level target, else
