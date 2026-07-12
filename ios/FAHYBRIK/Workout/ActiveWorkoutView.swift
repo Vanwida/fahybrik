@@ -35,6 +35,11 @@ struct ActiveWorkoutView: View {
     @State private var showOutdoor: Bool = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
+    // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
+    // modal appears it bumps this, so a stale chain (pause→resume→pause within a
+    // second) sees a mismatch and stops. Without it two asyncAfter chains overlapped
+    // and double-fired togglePause → the session silently stuck paused.
+    @State private var autoResumeGeneration: Int = 0
     @State private var showPM5Sheet: Bool = false
     @State private var showSegmentVideo: Bool = false
     // True when opening the technique video actively paused the clock, so we know
@@ -218,6 +223,11 @@ struct ActiveWorkoutView: View {
             session.stop()
             runGPS.stop()
             liveHR.stop()
+            // AUDIT-5 — close the PM5 GATT link on workout teardown (like GPS/HR above),
+            // so live erg notifications don't keep draining the battery after the session.
+            // Safe no-op when nothing is connected. Erg segments never open the run-only
+            // full-screen covers, so this fires on a real teardown, not a sub-sheet.
+            pm5.disconnect()
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .task { await pollPartnerLive() }
@@ -1140,19 +1150,22 @@ struct ActiveWorkoutView: View {
         }
         .transition(.opacity)
         .onAppear {
-            countdownAutoResume()
+            // AUDIT-4 — a fresh chain; any previous one is invalidated by the bump.
+            autoResumeGeneration += 1
+            countdownAutoResume(generation: autoResumeGeneration)
         }
     }
 
-    private func countdownAutoResume() {
+    private func countdownAutoResume(generation: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            guard showPauseConfirm else { return }
+            // Stop if the modal closed OR a newer chain superseded this one.
+            guard showPauseConfirm, generation == autoResumeGeneration else { return }
             if pauseAutoResume <= 1 {
                 session.togglePause()
                 showPauseConfirm = false
             } else {
                 pauseAutoResume -= 1
-                countdownAutoResume()
+                countdownAutoResume(generation: generation)
             }
         }
     }
