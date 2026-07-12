@@ -17,6 +17,7 @@ import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { ingestExecutionSegments, segmentInputSchema } from '@/lib/sync/ingest-execution-segments';
+import { polylinePointCount } from '@/lib/sync/polyline';
 import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 import { detectExecutionRunningPRs } from '@/lib/sync/running-prs';
@@ -65,6 +66,10 @@ export const executionMetricsSchema = z.object({
   pain_note: z.string().max(500).nullish(),
   started_at: z.string().datetime().optional(),
   ended_at: z.string().datetime().optional(),
+  // The outdoor run's GPS trace (#64) as a Google ENCODED POLYLINE (precision 5).
+  // Stored verbatim in workout_routes (server derives point_count); the 200 KB cap
+  // matches the column CHECK and covers even a long run. Omitted for indoor sessions.
+  route_polyline: z.string().max(200_000).optional(),
   // Optional per-segment detail from iOS on workout finish. Upserted by
   // (execution_id, position) so the sync stays idempotent.
   segments: z.array(segmentInputSchema).max(200).optional(),
@@ -165,6 +170,19 @@ export async function recordWorkoutExecution(args: {
     returning id::text
   `;
   const executionId = Number(execRows[0]?.id);
+
+  // The outdoor run's GPS route (#64) — one per execution (UNIQUE), upserted so a
+  // re-sync replaces rather than duplicates. Additive: an indoor session omits it and
+  // no row is written. point_count is derived here (the wire ships only the polyline).
+  if (Number.isFinite(executionId) && input.route_polyline && input.route_polyline.length > 0) {
+    await sql`
+      insert into workout_routes (execution_id, polyline, point_count)
+      values (${executionId}, ${input.route_polyline}, ${polylinePointCount(input.route_polyline)})
+      on conflict (execution_id) do update set
+        polyline = excluded.polyline,
+        point_count = excluded.point_count
+    `;
+  }
 
   let segmentsSaved = 0;
   if (Number.isFinite(executionId) && input.segments && input.segments.length > 0) {

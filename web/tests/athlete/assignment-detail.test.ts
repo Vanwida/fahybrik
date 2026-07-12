@@ -392,6 +392,26 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(result.assignment.perceived_exertion).toBe(7);
   });
 
+  it('surfaces the outdoor route polyline from the execution row (#64), null when absent', () => {
+    const polyline = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+    const withRoute = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00+00:00', perceived_exertion: 7, route_polyline: polyline },
+      template: baseTemplate,
+      segments: [],
+    });
+    const rp: string | null = withRoute.execution!.route_polyline; // type pinned string | null
+    expect(rp).toBe(polyline);
+
+    const noRoute = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00+00:00', perceived_exertion: 7 },
+      template: baseTemplate,
+      segments: [],
+    });
+    expect(noRoute.execution!.route_polyline).toBeNull(); // absent → null, never fabricated
+  });
+
   // ── G1 — zone target resolved to an absolute pace band ────────────────────
   // A run zone profile: threshold 4:00/km (240s); the standard per_km offsets
   // give Z4 = +[0,14] → 4:00–4:14, Z2 = +[28,42] → 4:28–4:42, Z1 = +44 open.
