@@ -50,6 +50,10 @@ struct PostWorkoutSummaryView: View {
     /// Set (non-empty) when the sync response reports running records → the
     /// celebration overlays the summary until dismissed, THEN we close.
     @State private var celebrationRecords: [PersonalRecord] = []
+    /// One-shot guard: true once the summary has closed (normally, or because the
+    /// athlete tapped to leave during the save wait). Stops the still-pending sync
+    /// response from closing again or celebrating over a dismissed view.
+    @State private var didFinish: Bool = false
     /// Rendered share image of THIS summary (no PR badge — records are unknown
     /// until save). Re-rendered on appear and when the RPE changes.
     @State private var summaryShareURL: URL? = nil
@@ -170,15 +174,17 @@ struct PostWorkoutSummaryView: View {
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
+            // Stays tappable WHILE saving: on a slow response the athlete is never
+            // trapped — tapping "GUARDANDO…" closes now. The sync keeps running
+            // offline-first (RequestQueue); only this celebration is skipped.
             ExpertPrimaryButton(
                 title: isSaving ? "GUARDANDO…" : "GUARDAR",
                 height: 46,
-                action: handleSave
+                action: { isSaving ? closeNow() : handleSave() }
             )
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.m)
                 .padding(.top, Theme.Spacing.s)
-                .disabled(isSaving)
         }
         .background(Theme.Color.background.ignoresSafeArea())
     }
@@ -253,6 +259,9 @@ struct PostWorkoutSummaryView: View {
             let response = await Self.firstValue(
                 of: responseTask, timeout: Self.prCelebrationLookupTimeout
             )
+            // The athlete may have tapped to leave while we waited — if so, don't
+            // reopen or celebrate over a view that's already gone.
+            guard !didFinish else { return }
             let records = response?.personalRecords ?? []
             if records.isEmpty {
                 finishAfterSave(records: [])
@@ -264,9 +273,17 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Close the summary, requesting an App Store review only when the pure gate
+    // Leave during the save wait: don't wait for the response — the sync keeps
+    // running offline-first, we just skip the celebration this time.
+    private func closeNow() {
+        finishAfterSave(records: [])
+    }
+
+    // Close the summary ONCE, requesting an App Store review only when the pure gate
     // allows it — a genuine beaten PR (not a first mark) is a standalone good moment.
     private func finishAfterSave(records: [PersonalRecord]) {
+        guard !didFinish else { return }
+        didFinish = true
         maybeRequestReview(afterGenuinePR: records.contains { !$0.isFirstMark })
         onSave()
     }
