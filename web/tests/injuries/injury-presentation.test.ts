@@ -137,7 +137,12 @@ describe('formatInjuryDate — date-only never shifts a day across timezones', (
 
 describe('sinceOnset — human "desde hace…"', () => {
   it('today → desde hoy', () => {
-    const today = new Date().toISOString().slice(0, 10);
+    // Build "today" in LOCAL time to match daysUntil's date-only semantics —
+    // toISOString() is UTC and reads as yesterday between 00:00 and 02:00 Madrid.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate(),
+    ).padStart(2, '0')}`;
     expect(sinceOnset(today)).toBe('desde hoy');
   });
   it('null → null', () => {
