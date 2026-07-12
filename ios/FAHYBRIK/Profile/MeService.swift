@@ -9,7 +9,9 @@ import Foundation
 
 struct AthleteIdentity: Codable {
     let id: String
-    let fullName: String
+    /// AUDIT-B3 — a null/absent full_name degrades to "" (the greeting falls back)
+    /// instead of throwing the whole /auth/me identity.
+    @DefaultEmptyString var fullName: String
     let dob: String?
     let sex: String?
     let heightCm: Double?

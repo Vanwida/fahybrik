@@ -436,6 +436,7 @@ private struct AmountEntry: View {
                 .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(system == "plus" ? "Aumentar" : "Disminuir")   // AUDIT-B7
     }
 }
 
@@ -491,5 +492,6 @@ private struct TimeEntry: View {
                 .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(system == "plus" ? "Aumentar" : "Disminuir")   // AUDIT-B7
     }
 }

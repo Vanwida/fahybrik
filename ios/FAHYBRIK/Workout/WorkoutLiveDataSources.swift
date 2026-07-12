@@ -167,6 +167,9 @@ final class LiveHeartRateProvider {
     /// reveals READ authorization, so this is best-effort: if no wearable is
     /// writing HR, no samples arrive and the HUD simply shows "—" (no fabrication).
     func start(from startDate: Date) {
+        // AUDIT-6 — idempotent: a second start (e.g. the wrist dropping mid-run) must
+        // tear down the previous anchored query first, never leak a second one.
+        stop()
         guard HKHealthStore.isHealthDataAvailable(), let hrType else { return }
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: nil, options: .strictStartDate)
         let q = HKAnchoredObjectQuery(

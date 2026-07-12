@@ -94,8 +94,9 @@ struct ImportedRace: Codable, Hashable, Identifiable {
     let format: String
     /// "open" | "pro" | "elite".
     let division: String
-    /// "men" | "women" | "mixed".
-    let gender_category: String
+    /// "men" | "women" | "mixed". AUDIT-B3 — null degrades to "" so the ROW survives
+    /// (the tab doesn't blank on one malformed import).
+    @DefaultEmptyString var gender_category: String
     /// Team bracket for doubles/relay (NOT the athlete's true age); nullable.
     let age_group: String?
     /// Finish time in seconds. Optional: an expired objective surfaced in the
@@ -107,8 +108,8 @@ struct ImportedRace: Codable, Hashable, Identifiable {
     let best_run_lap_seconds: Int?
     let overall_rank: Int?
     let age_group_rank: Int?
-    /// Up to 8 run laps (seconds), ordered run 1..8.
-    let run_splits: [Int]
+    /// Up to 8 run laps (seconds), ordered run 1..8. AUDIT-B3 — null/absent → [].
+    @LossyArray var run_splits: [Int]
     /// Up to 8 station splits (canonical index).
     let station_splits: [ImportedStationSplit]
     /// Teammates for doubles/relay; [] for singles.

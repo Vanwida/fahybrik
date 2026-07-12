@@ -44,6 +44,10 @@ import Section33 from './33-cumplimiento-por-serie';
 import Section34 from './34-correr-en-cinta';
 import Section35 from './35-correr-al-aire-libre';
 import Section36 from './36-al-acabar-el-entreno';
+// Dobles en directo + historial del atleta — la tanda "wow" (dobles en vivo, relevo
+// dirigido, cierre juntos + el calendario del atleta).
+import Section37 from './37-dobles-en-vivo-y-juntos';
+import Section38 from './38-historial-del-atleta';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -85,4 +89,6 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'correr-en-cinta': Section34,
   'correr-al-aire-libre': Section35,
   'al-acabar-el-entreno': Section36,
+  'dobles-en-vivo-y-juntos': Section37,
+  'historial-del-atleta': Section38,
 };

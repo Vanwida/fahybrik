@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 // GUÍA DEL ENTRENADOR — single source of truth for the docs index.
 //
-// The whole guide is registered ONCE here: the 11 áreas and the 36 secciones — el
+// The whole guide is registered ONCE here: the 11 áreas and the 38 secciones — el
 // método, el negocio, el ciclo de vida del atleta, los dobles y la carrera (todo
 // lo que se construyó en producción estos días). Both the sidebar
 // (components/v2/guia/GuiaSidebar) and the router (app/[locale]/(v2)/guia/[slug])
@@ -62,7 +62,7 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'carrera', label: 'Carrera' },
 ] as const;
 
-/** The 36 sections, in order. `built` ones have real content today. */
+/** The 38 sections, in order. `built` ones have real content today. */
 export const GUIA_SECTIONS: readonly GuiaSection[] = [
   // ── Empezar ───────────────────────────────────────────────────────────────
   {
@@ -222,6 +222,14 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     blurb: 'La evolución de marcas y tests, y la pestaña Rendimiento con «Evaluar semana».',
     built: true,
   },
+  {
+    num: 38,
+    area: 'seguimiento',
+    slug: 'historial-del-atleta',
+    title: 'Historial del atleta',
+    blurb: 'El calendario del atleta en su app: cada día abre la sesión entera, con tiempos reales, splits y ruta.',
+    built: true,
+  },
   // ── Tu negocio ───────────────────────────────────────────────────────────────
   {
     num: 20,
@@ -303,6 +311,14 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'entrenar-en-dobles',
     title: 'Entrenar en dobles',
     blurb: 'Dos atletas, una pareja: sesión conjunta, reparto de estaciones y modo espejo.',
+    built: true,
+  },
+  {
+    num: 37,
+    area: 'dobles',
+    slug: 'dobles-en-vivo-y-juntos',
+    title: 'Dobles en pareja: en vivo y juntos',
+    blurb: 'Uno entrena y el otro lo ve en vivo, el relevo dirigido en la simulación, y el resumen juntos al acabar.',
     built: true,
   },
   // ── Herramientas ─────────────────────────────────────────────────────────────

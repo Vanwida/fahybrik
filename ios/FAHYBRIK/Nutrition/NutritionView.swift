@@ -226,6 +226,7 @@ struct NutritionView: View {
         case .manual:  return "square.and.pencil"
         case .barcode: return "barcode"
         case .photo:   return "camera"
+        case .unknown: return "circle"   // AUDIT-B2 — a future source still renders a row
         }
     }
 

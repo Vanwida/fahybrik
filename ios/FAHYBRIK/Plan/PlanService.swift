@@ -97,7 +97,9 @@ struct AthleteWeekPayload: Codable {
     /// parón / otro). The week structure still ships, but the client shows a paused
     /// state instead of the day list — a paused athlete never sees stale sessions.
     /// Wire key `paused` maps 1:1 (single word) under APIClient's convertFromSnakeCase.
-    let paused: Bool
+    /// AUDIT-B3 — a null/absent `paused` degrades to false (not paused) instead of
+    /// throwing the whole week.
+    @DefaultFalse var paused: Bool
     /// ISO "YYYY-MM-DD" the plan was paused on — surfaced as "En pausa desde…".
     /// Nil when the backend recorded no start date. Wire `paused_since` → `pausedSince`.
     let pausedSince: String?

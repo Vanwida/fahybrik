@@ -62,12 +62,12 @@ struct WorkoutShareData: Equatable {
         let run = aggregate(["run"])
         if run.dist > 0 {
             let secPerKm = run.time / (run.dist / 1000)
-            return "\(formatPace(secPerKm)) /km"
+            return "\(StatsFormat.pace(secPerKm)) /km"
         }
         let erg = aggregate(["row", "ski", "bike"])
         if erg.dist > 0 {
             let secPer500 = erg.time / (erg.dist / 500)
-            return "\(formatPace(secPer500)) /500m"
+            return "\(StatsFormat.pace(secPer500)) /500m"
         }
         return nil
     }
@@ -92,11 +92,6 @@ struct WorkoutShareData: Equatable {
         return order.compactMap { kind in records.first { $0.kind == kind } }.first
     }
 
-    /// Pace as "m:ss" (no leading-zero minute), e.g. "4:35".
-    static func formatPace(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
-        return String(format: "%d:%02d", total / 60, total % 60)
-    }
 }
 
 // MARK: - Gold accents (celebration only)

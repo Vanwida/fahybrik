@@ -16,6 +16,10 @@ final class WorkoutSession {
     let plan: WorkoutPlan
     let athleteHRMax: Int
     let startedAt: Date
+    /// AUDIT-1 — the backend assignment this session logs to, stamped onto the
+    /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
+    /// container after creation; nil for ad-hoc / free sessions.
+    var assignmentId: String? = nil
 
     var currentSegmentIndex: Int = 0
     var elapsedSeconds: Double = 0
@@ -441,6 +445,9 @@ final class WorkoutSession {
     }
 
     func start() {
+        // AUDIT-3 — (re)enable persistence for this workout; a previous session may
+        // have closed the store on finish/discard.
+        Task { await WorkoutStateStore.shared.open() }
         guard timer == nil else { return }
         lastTick = Date()
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -691,9 +698,18 @@ final class WorkoutSession {
         AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
         #endif
         stop()
-        Task { [snapshot = persistedSnapshot()] in
-            await WorkoutStateStore.shared.save(snapshot)
-        }
+        // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
+        // never be re-offered as "recuperar entreno en curso", and the latch stops a
+        // late autosave Task from re-creating the snapshot after this.
+        Task { await WorkoutStateStore.shared.close() }
+    }
+
+    /// AUDIT-3 — abandon (clean exit, nothing recorded): stop the engine, then close
+    /// persistence. Ordered through the store's latch so a late autosave can never
+    /// resurrect the discarded session.
+    func discardAndClose() {
+        stop()
+        Task { await WorkoutStateStore.shared.close() }
     }
 
     // MARK: - Segment entry / EMOM lifecycle
@@ -2011,7 +2027,8 @@ final class WorkoutSession {
             laps: laps,
             repsByCurrentSegment: repsCurrentSegment,
             isPaused: isPaused,
-            savedAt: Date()
+            savedAt: Date(),
+            assignmentId: assignmentId
         )
     }
 

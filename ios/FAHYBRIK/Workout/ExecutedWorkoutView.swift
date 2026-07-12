@@ -343,9 +343,8 @@ struct ExecutedWorkoutView: View {
         // detail painted — only drop to the error state when there's nothing to
         // show — and surface + log the concrete reason instead of a blank message.
         if let lastError {
-            #if DEBUG
-            print("[ExecutedWorkoutView] load failed for assignment \(assignmentId): \(Self.describe(lastError))")
-            #endif
+            // AUDIT-B6 — the concrete reason surfaces in the UI (failureReason below);
+            // no console print (was DEBUG-only, removed per the no-print rule).
             // STALE ID (404): the assignment no longer resolves — the plan moved
             // server-side, so the id carried from the week payload is dead. Drop
             // its cached body and ask the presenter to re-sync to the authoritative

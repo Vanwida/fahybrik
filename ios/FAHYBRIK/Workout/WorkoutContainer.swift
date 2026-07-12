@@ -141,7 +141,10 @@ struct WorkoutContainer: View {
             // offer to recover an unrelated prescribed snapshot over it.
             if freeContext == nil,
                let saved = await WorkoutStateStore.shared.load(),
-               !saved.plan.id.uuidString.isEmpty {
+               // AUDIT-1/2 — offer ONLY for the same assignment, fresh (<6h) and not a
+               // finished/discarded snapshot (those are cleared on close). An older
+               // snapshot with no assignment is discarded, never guessed.
+               WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: assignmentId) {
                 crashRecoveryPrompt = saved
             }
             await loadPlan()
@@ -158,6 +161,7 @@ struct WorkoutContainer: View {
                     connections: .current,
                     onStart: {
                         let new = WorkoutSession(plan: plan)
+                        new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
                         session = new
                         manualEntry = false
                         // Mirror mode: remote-start the wrist recording alongside the
@@ -221,7 +225,9 @@ struct WorkoutContainer: View {
                             PhoneMirrorService.shared.end(save: false)
                             // #56 — one "ha salido" beat so the partner's strip reflects it.
                             DoblesLivePresence.shared.leave()
-                            Task { await WorkoutStateStore.shared.clear() }
+                            // AUDIT-3 — stop the engine + latch-close persistence in order,
+                            // so a late autosave Task can't resurrect the abandoned run.
+                            session.discardAndClose()
                             onClose()
                         },
                         athleteAge: athleteAge,
@@ -441,6 +447,7 @@ struct WorkoutContainer: View {
                     }
                     PrimaryButton(title: "Recuperar") {
                         let recovered = WorkoutSession(plan: saved.plan, startedAt: saved.startedAt)
+                        recovered.assignmentId = saved.assignmentId   // AUDIT-1 — the gate ensured it matches
                         recovered.currentSegmentIndex = saved.currentSegmentIndex
                         recovered.elapsedSeconds = saved.elapsedSeconds
                         recovered.lapElapsedSeconds = saved.lapElapsedSeconds

@@ -112,13 +112,14 @@ struct RunningSplit: Codable, Identifiable, Hashable {
 struct CarrerasOverview: Codable, Hashable {
     let last_race: RaceResultSummary?
     let ia_report: RaceIAReport?
-    let station_benchmarks: [StationBenchmark]
-    let running_splits: [RunningSplit]
+    // AUDIT-B3 — a malformed row is dropped, not the whole Carreras hub.
+    @LossyArray var station_benchmarks: [StationBenchmark]
+    @LossyArray var running_splits: [RunningSplit]
     /// Optional final-pace-drop callout for the per-km chart, e.g.
     /// "Caída de ritmo en los últimos 2 km (+18s/km)".
     let pace_drop_note: String?
     /// History of prior races (most recent first), for the list at the bottom.
-    let history: [RaceResultSummary]
+    @LossyArray var history: [RaceResultSummary]   // AUDIT-B3 — drop a bad row, not the list
 
     // `.convertFromSnakeCase` rewrites each multi-word wire key (last_race →
     // lastRace, …) before matching; the snake_case property's default CodingKey
@@ -592,14 +593,14 @@ struct RunningAnalysis: Codable, Hashable {
     let volume_7d_km: String?
     /// run_5k benchmark history (oldest→newest) — the Inicio 5 km trend. Empty
     /// when the athlete has no 5 km test on file.
-    let five_k_trend: [FiveKTrendPoint]
+    @LossyArray var five_k_trend: [FiveKTrendPoint]   // AUDIT-B3 — drop a bad row, not the analysis
     /// The most recent race's 8×1 km splits (per-km pace bars).
-    let splits: [RunningSplit]
+    @LossyArray var splits: [RunningSplit]
     /// Optional final-pace-drop callout, e.g. "+18s/km final".
     let split_drop_note: String?
-    let pace_zones: [RunningPaceZone]
-    let progression: [RunningProgressionPoint]
-    let training: [TrainingLink]
+    @LossyArray var pace_zones: [RunningPaceZone]
+    @LossyArray var progression: [RunningProgressionPoint]
+    @LossyArray var training: [TrainingLink]
 
     // The APIClient decoder uses `.convertFromSnakeCase`, which rewrites each
     // wire key to camelCase BEFORE matching the CodingKey. Multi-word snake_case

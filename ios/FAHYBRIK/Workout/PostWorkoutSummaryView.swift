@@ -228,7 +228,7 @@ struct PostWorkoutSummaryView: View {
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
-        let bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
         // This workout happened — count it toward the review-prompt tenure gate,
         // even when the network is offline (#59).
         ReviewPromptStore.shared.recordWorkoutSaved()
@@ -282,15 +282,21 @@ struct PostWorkoutSummaryView: View {
             // When the partner has already logged too, the joint card is the closing
             // moment (it also surfaces PR chips); otherwise fall through to the solo
             // PR/close flow. A no-partner / network miss simply closes as normal.
-            if target == .doublesJoint,
-               let summary = await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer),
-               let jd = JointShareData.from(dto: summary, title: session.plan.name,
-                                            date: Date(), partnerFallback: nil) {
-                guard !didFinish else { return }
-                pendingJointRecords = records
-                isSaving = false
-                withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
-                return
+            if target == .doublesJoint {
+                // Bound the joint-summary fetch to the SAME 6 s budget as the PR response
+                // so a slow/hanging endpoint never traps the athlete on the summary; a
+                // timeout resumes nil and we close normally (the joint card can still
+                // arrive later via the Dobles view).
+                let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
+                if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
+                   let jd = JointShareData.from(dto: summary, title: session.plan.name,
+                                                date: Date(), partnerFallback: nil) {
+                    guard !didFinish else { return }
+                    pendingJointRecords = records
+                    isSaving = false
+                    withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
+                    return
+                }
             }
             if records.isEmpty {
                 finishAfterSave(records: [])
@@ -348,11 +354,11 @@ struct PostWorkoutSummaryView: View {
     // Await whichever finishes first — the response or a timeout — WITHOUT blocking
     // on the (possibly slow) submit: a timeout resumes with nil while the submit
     // keeps running to completion in the background. Resume is guarded exactly once.
-    private static func firstValue(
-        of task: Task<WorkoutExecutionResponse?, Never>,
+    private static func firstValue<T>(
+        of task: Task<T?, Never>,
         timeout: TimeInterval
-    ) async -> WorkoutExecutionResponse? {
-        await withCheckedContinuation { continuation in
+    ) async -> T? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
             let once = ResumeOnce()
             Task {
                 let value = await task.value

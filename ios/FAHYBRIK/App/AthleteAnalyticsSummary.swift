@@ -86,9 +86,10 @@ struct ExecutionSegment: Codable, Identifiable {
 
 /// Top-level analytics envelope.
 struct AthleteAnalytics: Codable {
-    let byModalityTotals: [ModalityTotals]
-    let weekly: [WeeklyVolume]
-    let recentExecutions: [RecentExecution]
+    // AUDIT-B3 — a malformed row is dropped, not the whole analytics tab.
+    @LossyArray var byModalityTotals: [ModalityTotals]
+    @LossyArray var weekly: [WeeklyVolume]
+    @LossyArray var recentExecutions: [RecentExecution]
 
     /// True when there is genuinely nothing to show — drives the empty state.
     var isEmpty: Bool {
