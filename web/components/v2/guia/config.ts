@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 // GUÍA DEL ENTRENADOR — single source of truth for the docs index.
 //
-// The whole guide is registered ONCE here: the 11 áreas and the 34 secciones — el
+// The whole guide is registered ONCE here: the 11 áreas and the 36 secciones — el
 // método, el negocio, el ciclo de vida del atleta, los dobles y la carrera (todo
 // lo que se construyó en producción estos días). Both the sidebar
 // (components/v2/guia/GuiaSidebar) and the router (app/[locale]/(v2)/guia/[slug])
@@ -62,7 +62,7 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'carrera', label: 'Carrera' },
 ] as const;
 
-/** The 34 sections, in order. `built` ones have real content today. */
+/** The 36 sections, in order. `built` ones have real content today. */
 export const GUIA_SECTIONS: readonly GuiaSection[] = [
   // ── Empezar ───────────────────────────────────────────────────────────────
   {
@@ -345,6 +345,22 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'correr-en-cinta',
     title: 'Correr en cinta',
     blurb: 'El atleta enlaza la app a una cinta compatible y corre con ritmo en vivo contra tu objetivo.',
+    built: true,
+  },
+  {
+    num: 35,
+    area: 'carrera',
+    slug: 'correr-al-aire-libre',
+    title: 'Correr al aire libre, en vivo',
+    blurb: 'GPS con mapa y traza, ritmo contra objetivo, auto-pausa, Isla Dinámica, avisos de voz y la muñeca.',
+    built: true,
+  },
+  {
+    num: 36,
+    area: 'carrera',
+    slug: 'al-acabar-el-entreno',
+    title: 'Al acabar el entreno',
+    blurb: 'Récords corriendo con tarjeta compartible, y el feedback que te llega: cómo ha ido y una molestia.',
     built: true,
   },
 ] as const;
