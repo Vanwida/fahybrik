@@ -152,6 +152,58 @@ final class DoblesTurnTests: XCTestCase {
         XCTAssertNil(PhoneMirrorService.shared.buildFrame(from: s).dobles)
     }
 
+    // MARK: - Honest logging: a split station is prescribed/primed/recorded by the PACT
+
+    func testPrescribedRepsForLogSplitIsShareNotTotal() {
+        XCTAssertEqual(station("Wall Balls", reps: 100, role: .split, share: 0.6).prescribedRepsForLog, 60)
+    }
+
+    func testPrescribedRepsForLogMineIsFullTotal() {
+        XCTAssertEqual(station("Wall Balls", reps: 100, role: .mine, share: 1.0).prescribedRepsForLog, 100)
+    }
+
+    func testPrescribedRepsForLogSplitWithoutNumericRepsIsNil() {
+        // A distance/time station (no numeric reps) never fabricates a count.
+        XCTAssertNil(station("SkiErg", reps: nil, role: .split, share: 0.5).prescribedRepsForLog)
+    }
+
+    func testPrescribedRepsForLogNonDoblesUnchanged() {
+        let seg = WorkoutSegment(order: 1, title: "Thrusters", kind: .reps, targetReps: 40)
+        XCTAssertEqual(seg.prescribedRepsForLog, 40)   // individual work: the full target
+    }
+
+    @MainActor
+    func testPrimingSplitStationUsesPactReps() {
+        let s = session([station("Wall Balls", reps: 100, role: .split, share: 0.6)])
+        s.primeRepsIfNeeded()
+        XCTAssertEqual(s.repsCurrentSegment, 60)       // the athlete's half, not 100
+    }
+
+    @MainActor
+    func testPrimingMineStationUsesFullTotal() {
+        let s = session([station("Wall Balls", reps: 100, role: .mine, share: 1.0)])
+        s.primeRepsIfNeeded()
+        XCTAssertEqual(s.repsCurrentSegment, 100)      // they do the whole station
+    }
+
+    @MainActor
+    func testSplitStationRecordsPactAsDoneNotScaled() {
+        // End-to-end: enter the station (primes 60), close its lap unedited. The
+        // record must read prescribed 60 · actual 60 · "done" — not "escalado".
+        let s = session([
+            station("Wall Balls", reps: 100, role: .split, share: 0.6, order: 1),
+            WorkoutSegment(order: 2, title: "Run", kind: .running, targetDistanceMeters: 1000),
+        ])
+        s.start()          // arms the freeform block
+        s.beginBlock()     // enter the station → primes 60
+        s.primaryAdvance() // close the station lap, advance to the run
+        s.stop()
+        let lap = s.laps.first { $0.segmentId == s.plan.segments[0].id }
+        XCTAssertEqual(lap?.repsPrescribed, 60)
+        XCTAssertEqual(lap?.repsCompleted, 60)
+        XCTAssertEqual(lap?.repsStatus, "done")
+    }
+
     @MainActor
     func testStructuralKeyFlipsOnTurnHandoff() {
         // Station 1 (partner relay) → station 2 (mine): the key must flip so a fresh

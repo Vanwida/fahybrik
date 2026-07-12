@@ -439,8 +439,20 @@ extension WorkoutSegment {
 extension WorkoutSegment {
     /// Prescribed reps to LOG against (the scalar target), nil for open-score /
     /// target-less work. A real 0 is never prescribed.
+    ///
+    /// #23/#56 — a SHARED dobles station (`.split`) is prescribed, primed AND recorded
+    /// against the athlete's PACT: their half of the volume (`repSplit.mine`), NOT the
+    /// full station. So the default (unedited) log reads prescribed 60 · actual 60 ·
+    /// "hecho", never "prescribed 100 · did 60 · escalado" — the coach's signal stays
+    /// honest. A `.mine` station is the whole total (they do it entire); a `.partner`
+    /// station never logs (the relay discards, `advanceRelay`) so its value is moot.
+    /// This is the SINGLE source read by the priming, the lap record's `repsPrescribed`,
+    /// the rep HUD and the wrist set-table — fix once, no twin.
     var prescribedRepsForLog: Int? {
         guard let r = targetReps, r > 0 else { return nil }
+        if let split = doblesSplit, split.role == .split, let mine = split.repSplit(total: r)?.mine {
+            return mine > 0 ? mine : nil
+        }
         return r
     }
 

@@ -251,6 +251,11 @@ targets:
       - path: FAHYBRIK/Plan/PrescriptionRenderer.swift
       - path: FAHYBRIK/Theme/ZoneColors.swift
       - path: FAHYBRIK/Workout/WorkoutModels.swift
+      # #56 — the pure dobles-turn projection (rep reparto + turn derivation). Pure
+      # Foundation; shared into the watch because WorkoutModels' prescribedRepsForLog
+      # reads repSplit() to log a split station against the pact (SetTableLiveView reads
+      # it on the wrist). The SwiftUI hero (DoblesTurnHero) stays iOS-only.
+      - path: FAHYBRIK/Workout/DoblesTurn.swift
       - path: FAHYBRIK/Workout/WorkoutSession.swift
       # Shared count-down formatter (#68 micro-fix) — the wrist WatchFormat.countdown
       # delegates here so it rounds like the iPhone (mirror countdown parity).
