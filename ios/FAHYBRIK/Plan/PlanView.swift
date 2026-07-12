@@ -178,6 +178,7 @@ struct PlanView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
+                athleteAge: store.identity.value?.age,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     workoutLaunch = nil

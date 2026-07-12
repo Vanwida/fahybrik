@@ -155,6 +155,9 @@ struct RunLiveHUD: View {
     /// GPS availability so the HUD shows a live covered-pace hero when phone GPS
     /// is feeding distance, or a manual distance stepper when it isn't.
     var gpsActive: Bool = false
+    /// Opens the live treadmill HUD (#60). Offered on every run leg; the treadmill
+    /// screen itself handles the "no compatible treadmill found" case honestly.
+    var onTapTreadmill: (() -> Void)? = nil
 
     @State private var manualDistance: Double?
 
@@ -222,6 +225,32 @@ struct RunLiveHUD: View {
                         color: (session.currentSegment?.targetZone ?? session.liveZone)?.color ?? Theme.Color.foreground
                     )
                 }
+            }
+
+            // Live treadmill (#60): connect over Bluetooth (FTMS) for real pace vs
+            // objetivo, speed/incline, and per-leg distance. Offered on every run;
+            // the manual stepper below stays as the fallback with no compatible belt.
+            if let onTapTreadmill {
+                Button(action: { Haptics.medium(); onTapTreadmill() }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "figure.run")
+                            .font(.system(size: 13, weight: .heavy))
+                        Text("CORRER EN CINTA")
+                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                            .tracking(0.8)
+                    }
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Theme.Color.surfaceElevated)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                            .stroke(Theme.Color.accentText.opacity(0.5), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel("Correr en cinta con Bluetooth")
             }
 
             // No GPS → the athlete logs the distance they covered so the segment

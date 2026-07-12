@@ -18,7 +18,12 @@ struct ActiveWorkoutView: View {
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
     var partnerFirstName: String? = nil
+    /// #60 — athlete age (from the cached identity) for the ESTIMATED HR zone in
+    /// the treadmill HUD (220−age). Nil when unknown → the HUD shows HR without a
+    /// zone rather than inventing one. No real HR threshold exists in the product.
+    var athleteAge: Int? = nil
 
+    @State private var showTreadmill: Bool = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     @State private var showPM5Sheet: Bool = false
@@ -198,6 +203,9 @@ struct ActiveWorkoutView: View {
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
+        }
+        .fullScreenCover(isPresented: $showTreadmill) {
+            TreadmillHUDView(session: session, athleteAge: athleteAge)
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
@@ -529,7 +537,8 @@ struct ActiveWorkoutView: View {
             case .rowOrSki:
                 ErgLiveHUD(session: session, pm5: pm5)
             case .running:
-                RunLiveHUD(session: session, gpsActive: gpsActive)
+                RunLiveHUD(session: session, gpsActive: gpsActive,
+                           onTapTreadmill: { showTreadmill = true })
             case .strength, .reps, .sled, .none:
                 StrengthLiveHUD(session: session)
             }
