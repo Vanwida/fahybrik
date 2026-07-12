@@ -963,7 +963,7 @@ struct ProfileView: View {
             profileRow(
                 icon: "exclamationmark.bubble",
                 title: "Enviar sugerencia o error",
-                subtitle: "Cuéntanos qué mejorar o reporta un fallo. Le llega a tu coach.",
+                subtitle: "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo, no a tu coach.",
                 action: { sheet = .feedback }
             )
         }

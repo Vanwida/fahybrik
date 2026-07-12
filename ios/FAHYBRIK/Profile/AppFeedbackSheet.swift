@@ -1,9 +1,10 @@
 import SwiftUI
 
-// MARK: - #59 · App feedback (suggestion / bug) → coach inbox
+// MARK: - #59 · App feedback (suggestion / bug) → product-team inbox
 //
 // A sober sheet the athlete opens from Perfil to send a suggestion or report a
-// problem. Posts to /api/athlete/app-feedback with the app version + the screen
+// problem. This goes to the PRODUCT TEAM, not the coach (unlike the #58 workout
+// feedback). Posts to /api/athlete/app-feedback with the app version + the screen
 // it was sent from. A "Algo falla" report also opens the 24h no-review window so
 // we never ask for an App Store rating right after someone hit a bug.
 
@@ -77,7 +78,7 @@ enum AppFeedbackAPI {
 
 struct AppFeedbackSheet: View {
     let bearer: String?
-    /// The screen the sheet was opened from (e.g. "perfil"), carried to the coach.
+    /// The screen the sheet was opened from (e.g. "perfil"), carried to the product team.
     var screen: String? = "perfil"
 
     @Environment(\.dismiss) private var dismiss
@@ -111,7 +112,7 @@ struct AppFeedbackSheet: View {
                 Text("Cuéntanos")
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Tu sugerencia o el fallo llega directo a tu coach.")
+                Text("Tu sugerencia o el fallo nos llega directamente al equipo, no a tu coach.")
                     .scaledFont(13, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
             }
@@ -199,7 +200,7 @@ struct AppFeedbackSheet: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .multilineTextAlignment(.center)
                 Text(kind == .bug
-                     ? "Tu coach revisa lo que falla. Si hace falta, te escribirá."
+                     ? "El equipo lo revisa cuanto antes. Gracias por avisar."
                      : "Leemos cada sugerencia. Gracias por ayudarnos a mejorar.")
                     .scaledFont(13, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.muted)
