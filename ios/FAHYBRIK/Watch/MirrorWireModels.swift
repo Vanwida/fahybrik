@@ -94,6 +94,27 @@ struct MirrorStateFrame: Codable, Equatable {
     let targetZone: Int?
     /// Rest overlay countdown, seconds. Present ⇒ the wrist shows the rest banner.
     let restRemaining: Double?
+    /// #56 — the current HYROX dobles station's TURN (whose station + the rep reparto),
+    /// or nil for individual work. Present ⇒ the wrist shows the turn hero and fires the
+    /// double "entras tú" haptic when it flips from the partner's relay back to the
+    /// athlete. OPTIONAL and ADDITIVE: an older watch simply ignores it (the existing
+    /// lineTitle/detailLine still carry the relay for it); an older phone omits it → nil.
+    /// `var` with a default so the existing `MirrorStateFrame(...)` construction (which
+    /// doesn't pass it) and older encoded frames keep decoding.
+    var dobles: MirrorDoblesTurn? = nil
+}
+
+/// Phone → watch: the current dobles station's turn, resolved for the reading athlete
+/// (a wire projection of `DoblesTurn`). `role` is "mine" | "partner" | "split";
+/// `selfReps`/`partnerReps` are nil for a time/distance station (never fabricated).
+struct MirrorDoblesTurn: Codable, Equatable {
+    let role: String
+    let station: String
+    let selfReps: Int?
+    let partnerReps: Int?
+    let partnerName: String?
+    /// 0…100 self-share for the wrist's split legend.
+    let selfSharePct: Int
 }
 
 /// Phone → watch: close the recording. `save` false = the athlete exited without

@@ -106,4 +106,13 @@ enum WatchHaptics {
     static func warning()    { WKInterfaceDevice.current().play(.notification) }
     static func start()      { WKInterfaceDevice.current().play(.start) }
     static func stop()       { WKInterfaceDevice.current().play(.stop) }
+
+    /// #56 — "entras tú": the partner's relay just handed the station back. A DOUBLE
+    /// notification tap so it's unmistakable on the wrist mid-effort (distinct from the
+    /// single-tap cues), the two beats ~220ms apart.
+    static func relayHandoff() {
+        let device = WKInterfaceDevice.current()
+        device.play(.notification)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { device.play(.notification) }
+    }
 }

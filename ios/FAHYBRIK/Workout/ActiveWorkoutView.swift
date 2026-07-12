@@ -71,6 +71,12 @@ struct ActiveWorkoutView: View {
         guard let seg = session.currentSegment, seg.blockTitle != nil else { return nil }
         return seg.blockPhase.displayName
     }
+    // #56 — the current station's dobles turn (mine / partner / split), or nil for
+    // individual work. Drives the turn hero; `nextDoblesTurn` the "Después:" preview.
+    private var currentDoblesTurn: DoblesTurn? { session.currentSegment?.doblesTurn }
+    private var nextDoblesTurn: DoblesTurn? {
+        session.plan.segments.nextDoblesTurn(after: session.currentSegmentIndex)
+    }
 
     var body: some View {
         ZStack {
@@ -116,12 +122,15 @@ struct ActiveWorkoutView: View {
                             onTap: { requestJump(to: $0) }
                         )
                     }
+                    // #56 — DOBLES turn hero (mine / split): whose station this is,
+                    // the rep reparto + bicolor bar and the "Después:" preview, above
+                    // the work HUD. Carries the coach's pact (replacing the old dim
+                    // split line); nil (hidden) for individual work and the relay.
+                    if let turn = currentDoblesTurn {
+                        DoblesTurnHero(turn: turn, next: nextDoblesTurn,
+                                       compact: true, partnerFallback: partnerFirstName)
+                    }
                     modalityHUD
-                    // #23 — SHARED-station reminder (.split): one dim line with the
-                    // agreed reparto ("Tú 60 / Guillem 40 · alterna 250m"). The work
-                    // is the athlete's own, so the full HUD stays; this only reminds
-                    // the pact mid-station. Nil (hidden) for .mine and for the relay.
-                    splitReminderLine
                     if session.currentSegmentIsMetcon {
                         RxScaledToggle(session: session)
                     }
@@ -461,31 +470,24 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal, 4)
     }
 
-    // #23 — HYROX dobles RELAY surface: the partner works this station; the
-    // athlete recovers (status + relay clock + live recovery HR + next-up), and
-    // "Relevo ▸" advances to their own next station. Nothing is logged here.
+    // #23 · #56 — HYROX dobles RELAY surface: the partner works this station while the
+    // athlete recovers. The turn HERO names the partner (blue), the station and the reps
+    // they carry, plus the "Después: tú" preview; below it the recovery clock + live HR.
+    // "Relevo ▸" advances to the athlete's own next station. Nothing is logged here.
     @ViewBuilder
     private var relaySurface: some View {
-        let station = session.currentSegment?.doblesSplit?.stationLabel
-            ?? session.currentSegment?.title ?? "esta estación"
-        let partner = session.currentSegment?.doblesSplit?.partnerName
-            ?? partnerFirstName ?? "Tu compañero"
-        VStack(spacing: 14) {
-            Spacer(minLength: 4)
-            Text("RELEVO")
-                .font(.system(size: 12, weight: .heavy)).tracking(2.5)
-                .foregroundStyle(Theme.Color.partner)
-            Text("\(partner) hace \(station)")
-                .scaledFont(24, weight: .heavy, relativeTo: .title2, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
+        VStack(spacing: 16) {
+            if let turn = currentDoblesTurn {
+                DoblesTurnHero(turn: turn, next: nextDoblesTurn,
+                               compact: false, partnerFallback: partnerFirstName)
+            }
             Text("Recupera")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.Color.muted)
+                .padding(.top, 2)
             Text(relayTimeString(session.lapElapsedSeconds))
-                .font(.system(size: 56, weight: .heavy, design: .monospaced))
+                .font(.system(size: 52, weight: .heavy, design: .monospaced))
                 .foregroundStyle(Theme.Color.foreground)
-                .padding(.top, 4)
             if let bpm = session.liveHRBpm {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.fill").foregroundStyle(Theme.Color.danger)
@@ -494,15 +496,9 @@ struct ActiveWorkoutView: View {
                         .foregroundStyle(Theme.Color.foreground)
                 }
             }
-            if let next = session.nextSegment?.title {
-                Text("Siguiente: tú — \(next)")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.Color.faint)
-                    .padding(.top, 2)
-            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.xl)
+        .padding(.horizontal, Theme.Spacing.m)
     }
 
     private var relayButton: some View {
@@ -511,30 +507,6 @@ struct ActiveWorkoutView: View {
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.bottom, Theme.Spacing.l)
-    }
-
-    // #23 — SHARED station (.split) reminder: one dim line with the coach's pact,
-    // built once on SegmentDoblesSplit so the phone, the mirror `detailLine`, and
-    // the wrist all read identically. Hidden (nil) for .mine and .partner.
-    @ViewBuilder
-    private var splitReminderLine: some View {
-        if let line = session.currentSegment?.doblesSplit?.liveSplitLine {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.left.arrow.right")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Theme.Color.partner)
-                Text(line)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 4)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Reparto de la estación: \(line)")
-        }
     }
 
     private func relayTimeString(_ s: Double) -> String {

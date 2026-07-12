@@ -199,6 +199,11 @@ final class PhoneMirrorService {
         switch kind {
         case MirrorWire.CommandKind.advance:
             if session.isAwaitingBlockStart { session.beginBlock() }
+            // #56 — a wrist advance on the PARTNER's relay station must route to
+            // advanceRelay() (the same path the phone's "Relevo ▸" uses): it logs NO
+            // lap for the athlete. Falling through to primaryAdvance() → lap() would
+            // record the partner's station as the athlete's work and corrupt volume.
+            else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
             else if session.currentBlockIsStructural { session.completeStructuralBlock() }
             else { session.primaryAdvance() }
         case MirrorWire.CommandKind.pause:
@@ -253,6 +258,21 @@ final class PhoneMirrorService {
             detailLine = relay ? "Recupera — siguiente: tú" : (splitLine ?? seg?.previewWorkLine)
         }
 
+        // #56 — the current dobles turn (mine/partner/split + rep reparto), so the
+        // wrist can render the turn hero AND fire the "entras tú" haptic on the flip
+        // back from the partner's relay. Reuses the SAME DoblesTurn the phone hero
+        // reads (seg.doblesTurn) — one projection, never a second interpretation.
+        let dobles: MirrorDoblesTurn? = seg?.doblesTurn.map { t in
+            MirrorDoblesTurn(
+                role: t.who.rawValue,
+                station: t.station,
+                selfReps: t.selfReps,
+                partnerReps: t.partnerReps,
+                partnerName: t.partnerName,
+                selfSharePct: t.selfSharePct
+            )
+        }
+
         return MirrorStateFrame(
             phase: phase,
             blockTitle: session.currentBlockRegion?.title,
@@ -263,7 +283,8 @@ final class PhoneMirrorService {
             lapElapsed: session.lapElapsedSeconds,
             countdownRemaining: countdown(session),
             targetZone: seg?.targetZone?.rawValue,
-            restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil
+            restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil,
+            dobles: dobles
         )
     }
 
@@ -295,7 +316,11 @@ final class PhoneMirrorService {
          f.progressText ?? "",
          f.targetZone.map(String.init) ?? "",
          f.countdownRemaining != nil ? "cd" : "",
-         f.restRemaining != nil ? "rest" : ""
+         f.restRemaining != nil ? "rest" : "",
+         // #56 — the dobles turn (role + station) is structural: a station handoff
+         // (partner → mine) flips the key so a fresh frame is resent the instant the
+         // turn changes, driving the wrist's "entras tú" haptic on the very next tick.
+         f.dobles.map { "\($0.role):\($0.station)" } ?? ""
         ].joined(separator: "|")
     }
 
