@@ -28,6 +28,10 @@
 // machinery in ../methodology/segment-resolve.ts.
 
 import { z } from 'zod';
+// TYPE-ONLY import (erased at build → no runtime cycle with schema, which depends
+// on this module). `resolved` is a per-athlete READ enrichment attached by the
+// athlete wire — see the field note on `Segment`.
+import type { ResolvedIntensity } from '../../schema/workouts';
 
 // ── Bounds (named, not magic) ────────────────────────────────────────────────
 const MIN_PHASES = 1;
@@ -88,6 +92,13 @@ export interface Segment {
   incline_pct?: number; // 0..15 — cinta / cuesta
   cadence_spm?: number; // 120..220 — optional cadence guide
   recovery_mode?: RecoveryMode; // recovery only; `parado` ⇒ duration measure
+  // WIRE-READ ENRICHMENT (never authored, never persisted): the athlete wire
+  // (assignment-detail) attaches the ABSOLUTE pace band the backend resolved for a
+  // `pace_zone`/`hr_zone` target from the athlete's zone profile — the SAME source
+  // as the item-level `resolved_intensity`, so the two never drift. Undefined for a
+  // pace/rpe/null target, an un-tested athlete, or the stored/authored grammar. The
+  // strict schema never sees it (enrichment happens AFTER parse); iOS decodes it.
+  resolved?: ResolvedIntensity;
 }
 
 // ── Repeat — a "Repetir ×N" wrapping a sub-sequence (max nesting depth 2) ──────

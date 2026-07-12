@@ -39,6 +39,43 @@ struct Prescription: Codable, Equatable {
     /// and every non-`death_by` scheme, still decode.
     let start: Int?
     let increment: Int?
+    /// The STRUCTURED running grammar (#61) — a phased tree of work/recovery
+    /// segments with per-bout measure/target/incline/cadence (see RunStructure.swift).
+    /// ADDITIVE to the wire: a block that carries `structure` ALSO carries the flat
+    /// legacy fields above, so the scalar path is always the floor. `var` with a
+    /// default so every existing `Prescription(...)` call-site (folds + tests) keeps
+    /// compiling and cached snapshots without it still decode. Decoded TOLERANTLY
+    /// (see the extension) — a malformed structure degrades to nil, never failing
+    /// the whole item.
+    var structure: RunStructure? = nil
+}
+
+// Custom decode kept in an EXTENSION so the compiler still synthesizes the
+// memberwise init (all the folds + tests build the Prescription directly) and the
+// Encodable conformance. The ONLY reason to hand-roll the decode is TOLERANCE for
+// `structure`: it is parsed with `try?` so a truncated / future-shaped structure
+// degrades to nil and the legacy flatten stays the floor, instead of failing the
+// whole assignment item. Every other field decodes exactly as the synthesized
+// version would (optionals via decodeIfPresent, `scheme` via its tolerant init).
+extension Prescription {
+    enum CodingKeys: String, CodingKey {
+        case scheme, modality, sets, rounds, workS, restS, totalS, target, note, start, increment, structure
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        scheme = try c.decode(PrescriptionScheme.self, forKey: .scheme)
+        modality = try c.decodeIfPresent(PrescriptionModality.self, forKey: .modality)
+        sets = try c.decodeIfPresent([PrescriptionSet].self, forKey: .sets)
+        rounds = try c.decodeIfPresent(Int.self, forKey: .rounds)
+        workS = try c.decodeIfPresent(Int.self, forKey: .workS)
+        restS = try c.decodeIfPresent(Int.self, forKey: .restS)
+        totalS = try c.decodeIfPresent(Int.self, forKey: .totalS)
+        target = try c.decodeIfPresent(Target.self, forKey: .target)
+        note = try c.decodeIfPresent(String.self, forKey: .note)
+        start = try c.decodeIfPresent(Int.self, forKey: .start)
+        increment = try c.decodeIfPresent(Int.self, forKey: .increment)
+        structure = try? c.decodeIfPresent(RunStructure.self, forKey: .structure)
+    }
 }
 
 // MARK: - Scheme — the SINGLE unified workout-format enum

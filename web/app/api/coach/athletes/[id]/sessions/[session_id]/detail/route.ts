@@ -5,6 +5,7 @@ import { sql } from '@/lib/db';
 import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
+import { buildRunCompliance } from '@/lib/dashboard/coach/run-compliance';
 import { loadSegmentActuals } from '@/lib/dashboard/coach/session-actuals';
 import {
   formatExecutionScore,
@@ -119,6 +120,10 @@ export async function GET(
         }
       : null,
     segment_actuals: segmentActuals,
+    // Per-tramo running compliance (prescribed band vs executed) — computed from
+    // the same assembled blocks + actuals, so verdicts share the coach payload's
+    // single source of truth.
+    run_compliance: buildRunCompliance(detail.workout, segmentActuals),
   };
 
   return jsonOk({ session: payload });

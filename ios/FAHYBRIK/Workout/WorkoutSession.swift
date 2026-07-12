@@ -128,6 +128,28 @@ final class WorkoutSession {
     private(set) var rotRepsByRound: [Int] = []
     var deathByFailed: Bool = false
 
+    // MARK: - Structured-run engine (#61) — the native leg cursor
+    //
+    // A folded run block that carries a `structure` (WorkoutSegment.hasRunStructure)
+    // is driven by a FLAT leg cursor over its expanded leg list — one work/recovery
+    // bout at a time, each with its OWN measure/target/incline/cadence — instead of
+    // the binary work/rest rotating machine (which cannot express a heterogeneous
+    // pyramid, a distance recovery, a work-only progression or phase legs). SELF-
+    // CONTAINED and parallel to the EMOM / conditioning engines; fires ONLY while
+    // `hasRunStructure`, so a legacy run keeps the rotating path byte-for-byte.
+    // Recording stays AGGREGATE (one lap per folded block) — the cursor drives
+    // DISPLAY + AUTO-CLOSE, never a per-bout record.
+    //
+    // COMPLETION per leg (surfaced explicitly in the HUD): a TIME leg auto-rolls on
+    // the session clock; a DISTANCE leg auto-closes on the treadmill (the belt owns
+    // it), else closes MANUALLY ("Tramo hecho") — there is no live phone GPS yet
+    // (#64), so a distance leg without a belt is never left waiting on nothing.
+    var runLegIndex: Int = 0                  // 0-based cursor into the expanded leg list
+    var runCountInRemaining: Double = 0       // 3-2-1 pre-roll; 0 once the first leg runs
+    var runLegRemaining: Double = 0           // count-DOWN within a TIME leg (0 for a distance leg)
+    private var runLegStartElapsed: Double = 0    // lapElapsedSeconds at the current leg's GO
+    private var runStructureSegmentIndex: Int? = nil  // which segment owns the cursor
+
     /// Captured final score for the PRINCIPAL conditioning block, set on its close
     /// and read by the post-workout summary to PRE-FILL the result (the athlete
     /// never re-enters what the live timer already counted). Format-aware: time for
@@ -157,6 +179,13 @@ final class WorkoutSession {
     // (a live GPS instantaneous pace is too noisy to average meaningfully here).
     private var lapGpsDistanceMeters: Double? = nil
     private var lapHadGPS: Bool = false
+
+    // Per-segment treadmill INCLINE aggregation (#62). Summed from the belt's live
+    // grade over the current run segment (across all its structured legs); averaged
+    // on close into the ONE segment lap. Stays nil when no belt fed the segment —
+    // never a fabricated grade. Cadence has no on-device source (see LapRecord).
+    private var lapInclineSum: Double = 0
+    private var lapInclineCount: Int = 0
 
     private var timer: Timer?
     private var lastTick: Date = Date()
@@ -246,6 +275,43 @@ final class WorkoutSession {
 
     /// True while the conditioning 3-2-1 count-in is on screen.
     var isCondCountIn: Bool { condCountInRemaining > 0 }
+
+    // MARK: Structured-run accessors (read by the run / interval / treadmill HUDs)
+
+    /// The expanded legs of the CURRENT structured run segment, or nil (legacy path).
+    var currentRunLegs: [RunLeg]? { currentSegment?.runStructureLegs }
+
+    /// True while the current segment is driven by the structured-run engine.
+    var isRunStructureActive: Bool { currentSegment?.hasRunStructure == true }
+
+    /// The current leg, or nil when not structured / the cursor is out of range.
+    var currentRunLeg: RunLeg? {
+        guard let legs = currentRunLegs, runLegIndex >= 0, runLegIndex < legs.count else { return nil }
+        return legs[runLegIndex]
+    }
+
+    /// True while the structured-run 3-2-1 count-in is on screen.
+    var isRunCountIn: Bool { runCountInRemaining > 0 }
+
+    /// 1-based "Tramo N de M" WITHIN the current structured run segment.
+    var runLegNumber: Int { Swift.min(runLegTotal, runLegIndex + 1) }
+    var runLegTotal: Int { Swift.max(1, currentRunLegs?.count ?? 1) }
+
+    /// True when the current leg is a WORK bout (false = a recovery). Defaults to
+    /// work for a legacy/absent leg so callers never mis-flag a rest.
+    var isRunLegWork: Bool { currentRunLeg?.isWork ?? true }
+
+    /// Elapsed seconds in the current leg since its GO (the count-in excluded).
+    var runLegElapsed: Double { Swift.max(0, lapElapsedSeconds - runLegStartElapsed) }
+
+    /// True when the current structured leg is DISTANCE-measured — so the app-only
+    /// HUD can pick the honest close affordance (belt auto-close when a treadmill is
+    /// live, else manual "Tramo hecho"; a TIME leg auto-rolls on the clock). Kept
+    /// treadmill-agnostic here because the shared engine also compiles on the watch.
+    var currentRunLegIsDistance: Bool {
+        guard let leg = currentRunLeg else { return false }
+        return leg.distanceMeters != nil
+    }
 
     /// Format clock time since GO (the count-in excluded), in seconds — the base
     /// for the FIXED count-up / count-down and the CONTINUOUS countdown.
@@ -454,7 +520,9 @@ final class WorkoutSession {
     /// segment's lap and advances — the classic manual lap, unchanged.
     func primaryAdvance() {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
-        if seg.isEMOM {
+        if seg.hasRunStructure {
+            runStructurePrimary()
+        } else if seg.isEMOM {
             if emomCountInRemaining > 0 { skipCountIn(); return }
             advanceEMOMInterval(auto: false)
         } else if seg.isConditioningTimer {
@@ -516,6 +584,7 @@ final class WorkoutSession {
         let origin = currentSegmentIndex
         clearEMOMState()
         clearConditioning()
+        clearRunStructure()
         currentSegmentIndex -= 1
         reopenCurrentSegment()
         // Stepping back into an EARLIER block lands on that block's preview (the
@@ -534,6 +603,7 @@ final class WorkoutSession {
         let origin = currentSegmentIndex
         clearEMOMState()
         clearConditioning()
+        clearRunStructure()
         if index > currentSegmentIndex {
             closeCurrentSegmentLap()
             currentSegmentIndex = index
@@ -564,6 +634,7 @@ final class WorkoutSession {
         captureConditioningScore()
         clearEMOMState()
         clearConditioning()
+        clearRunStructure()
         // Close the in-flight segment so the final segment is never dropped from
         // the execution record (finish can be reached via the last lap auto-finish,
         // "Terminar bloque", or "Terminar y guardar" mid-session). lap() will have
@@ -610,6 +681,7 @@ final class WorkoutSession {
     private func armBlock() {
         clearEMOMState()
         clearConditioning()
+        clearRunStructure()
         // A new block resets the block-scoped Rx/Scaled choice; priming re-defaults
         // it to "rx" for a metcon block (nil otherwise).
         rxScaled = nil
@@ -651,6 +723,7 @@ final class WorkoutSession {
         captureConditioningScore()
         clearEMOMState()
         clearConditioning()
+        clearRunStructure()
         // A structural warmup/cooldown closes as ONE completion, never a partial
         // per-exercise lap.
         if currentBlockIsStructural {
@@ -679,15 +752,25 @@ final class WorkoutSession {
         primeRepsIfNeeded()
         primeSetsIfNeeded()
         primeRxScaledIfNeeded()
-        if currentSegment?.isEMOM == true {
+        // A structured run takes precedence over the rotating/steady conditioning
+        // engine even though its folded scheme (.intervals / .steady) reads as a
+        // conditioning timer — the leg cursor, not the rotating machine, drives it.
+        if currentSegment?.hasRunStructure == true {
+            clearEMOMState()
             clearConditioning()
+            startRunStructure()
+        } else if currentSegment?.isEMOM == true {
+            clearConditioning()
+            clearRunStructure()
             startEMOM()
         } else if currentSegment?.isConditioningTimer == true {
             clearEMOMState()
+            clearRunStructure()
             startConditioning()
         } else {
             clearEMOMState()
             clearConditioning()
+            clearRunStructure()
         }
     }
 
@@ -1095,6 +1178,135 @@ final class WorkoutSession {
         }
     }
 
+    // MARK: - Structured-run engine (non-EMOM, non-conditioning)
+    //
+    // Drives a folded run block that carries a `structure` (#61): a FLAT leg cursor
+    // over the expanded leg list, one work/recovery bout at a time. Self-contained
+    // and parallel to the EMOM / conditioning engines (which it never touches) — a
+    // 3-2-1 count-in, then, per leg, a TIME countdown (auto-roll) or a DISTANCE leg
+    // that waits for the belt / a manual "Tramo hecho". Reuses `closeCurrentSegmentLap`
+    // for the ONE aggregate lap, exactly like the other engines.
+
+    private func startRunStructure() {
+        guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { clearRunStructure(); return }
+        runStructureSegmentIndex = currentSegmentIndex
+        runLegIndex = 0
+        runCountInRemaining = Self.countInSeconds
+        primeRunLeg()
+        WorkoutAudio.shared.activate()
+        WorkoutAudio.shared.playTick()   // opening "3" of the 3-2-1 count-in
+    }
+
+    private func clearRunStructure() {
+        if runStructureSegmentIndex != nil { WorkoutAudio.shared.deactivate() }
+        runStructureSegmentIndex = nil
+        runCountInRemaining = 0
+        runLegIndex = 0
+        runLegRemaining = 0
+        runLegStartElapsed = 0
+    }
+
+    /// Set the current leg's GO baseline + its countdown (a TIME leg counts down; a
+    /// DISTANCE leg has no clock countdown — the belt / manual close ends it).
+    private func primeRunLeg() {
+        runLegStartElapsed = lapElapsedSeconds
+        runLegRemaining = currentRunLeg?.durationSeconds.map(Double.init) ?? 0
+    }
+
+    private func skipRunCountIn() {
+        runCountInRemaining = 0
+        runLegStartElapsed = lapElapsedSeconds
+        WorkoutAudio.shared.playGo()
+        Haptics.medium()
+    }
+
+    // The bottom primary button for a structured run ("Tramo hecho" / "Saltar
+    // descanso"): skip the count-in, else advance the current leg.
+    private func runStructurePrimary() {
+        if runCountInRemaining > 0 { skipRunCountIn(); return }
+        advanceRunLeg(auto: false)
+    }
+
+    // Advance to the next leg, or close the block on the last one. `auto` = the leg's
+    // own TIME countdown rolled over (or the belt auto-closed via primaryAdvance);
+    // otherwise the athlete tapped through.
+    private func advanceRunLeg(auto: Bool) {
+        guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { return }
+        // FORWARD SEAM (team note #1): the per-leg MEASURED split (covered distance /
+        // duration / pace) is available here at the leg boundary — kept AGGREGATE for
+        // now (one lap per block), left open for per-tramo persistence to converge
+        // with the treadmill phase-3 `measured` model. Nothing recorded per-bout yet.
+        let next = runLegIndex + 1
+        if next >= legs.count {
+            WorkoutAudio.shared.playFinish()
+            Haptics.success()
+            closeRunStructureAndAdvance()
+            return
+        }
+        let kindChanged = legs[next].kind != legs[runLegIndex].kind
+        runLegIndex = next
+        primeRunLeg()
+        if kindChanged {
+            WorkoutAudio.shared.playMovementChange()   // work↔recovery transition tone
+            Haptics.heavy()
+        } else {
+            WorkoutAudio.shared.playIntervalStart()
+            Haptics.medium()
+        }
+    }
+
+    // Close the run segment's single aggregate lap (reusing the standard close path)
+    // and advance to the next segment, or finish — mirrors closeConditioningAndAdvance.
+    private func closeRunStructureAndAdvance() {
+        let wasLast = isLastSegment
+        let origin = currentSegmentIndex
+        clearRunStructure()
+        closeCurrentSegmentLap()
+        if wasLast {
+            finish()
+        } else {
+            currentSegmentIndex += 1
+            enterOrArm(from: origin)
+        }
+    }
+
+    // Drives the structured-run count-in + the current TIME leg's countdown off the
+    // 0.25s tick. A DISTANCE leg (runLegRemaining == 0) never auto-rolls here — it
+    // waits for the belt (TreadmillHUDModel → primaryAdvance) or a manual "Tramo
+    // hecho". Parallel to tickEMOM / tickConditioning.
+    private func tickRunStructure(dt: Double) {
+        // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
+        if runCountInRemaining > 0 {
+            let before = runCountInRemaining
+            runCountInRemaining = Swift.max(0, before - dt)
+            if before.rounded(.up) != runCountInRemaining.rounded(.up) {
+                if runCountInRemaining <= 0 {
+                    runLegStartElapsed = lapElapsedSeconds   // GO — the leg clock starts now
+                    WorkoutAudio.shared.playGo()
+                    Haptics.medium()
+                } else {
+                    WorkoutAudio.shared.playTick()
+                    Haptics.light()
+                }
+            }
+            return
+        }
+        // TIME leg: count down, tick the final 3s, auto-roll at zero. A DISTANCE leg
+        // has no countdown → nothing to tick.
+        guard runLegRemaining > 0 else { return }
+        let before = runLegRemaining
+        let after = before - dt
+        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+            WorkoutAudio.shared.playTick()
+            Haptics.light()
+        }
+        if after <= 0 {
+            advanceRunLeg(auto: true)
+        } else {
+            runLegRemaining = after
+        }
+    }
+
     // Reset the in-progress live state WITHOUT recording a lap — used when the
     // current segment is abandoned to step / jump backward.
     private func discardCurrentLiveState() {
@@ -1259,6 +1471,10 @@ final class WorkoutSession {
         if let rz = reopen?.zoneSecondsByZone { for (k, v) in rz { mergedZone[k, default: 0] += v } }
         let mergedDistance = distance ?? reopen?.distanceCoveredMeters
         let mergedCalories = ergCalories ?? reopen?.calories
+        // Segment AVERAGE treadmill incline (#62): the mean of the belt readings fed
+        // this segment, else the reopened lap's stored value; nil when no belt fed it.
+        let avgIncline: Double? = lapInclineCount > 0 ? lapInclineSum / Double(lapInclineCount) : nil
+        let mergedIncline = avgIncline ?? reopen?.inclinePct
 
         // Source precedence: the most specific real measurement wins. Device
         // movement data (pm5 / gps) > athlete manual entry > HR-only wearable.
@@ -1300,7 +1516,9 @@ final class WorkoutSession {
             isStructural: false,
             rxScaled: lapRxScaled,
             scaledNote: lapScaledNote,
-            sets: setRecordsOut
+            sets: setRecordsOut,
+            inclinePct: mergedIncline,
+            runCadenceSpm: nil   // no on-device running-cadence source yet (see LapRecord)
         )
         laps.append(lap)
         reopenedLap = nil
@@ -1326,6 +1544,8 @@ final class WorkoutSession {
         manualRunDistanceMeters = nil
         lapGpsDistanceMeters = nil
         lapHadGPS = false
+        lapInclineSum = 0
+        lapInclineCount = 0
     }
 
     /// Pre-fills the manual load field for the current strength/sled segment from
@@ -1623,6 +1843,17 @@ final class WorkoutSession {
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
     }
 
+    /// Feeds one treadmill INCLINE reading (%) into the current run segment's average
+    /// (#62). Called from the treadmill HUD's telemetry so the session stays the
+    /// single owner of per-segment capture (mirrors `sampleErg` / `sampleRunGPS`). A
+    /// flat belt (0%) is a real reading and counts; ignored off a run segment or
+    /// while paused. Averaged into the ONE segment lap on close; nil when never fed.
+    func sampleTreadmillIncline(_ inclinePct: Double) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running else { return }
+        lapInclineSum += inclinePct
+        lapInclineCount += 1
+    }
+
     /// Live covered distance for the current run segment for HUD display
     /// (GPS sum when available, else the athlete's manual entry).
     var liveRunDistanceMeters: Double? {
@@ -1646,7 +1877,8 @@ final class WorkoutSession {
             lapZoneAccumSec[zone.rawValue, default: 0] += dt
         }
 
-        if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
+        if currentSegment?.hasRunStructure == true { tickRunStructure(dt: dt) }
+        else if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
         else if currentSegment?.isConditioningTimer == true { tickConditioning(dt: dt) }
 
         // Per-set rest countdown: tick the final 3s, soft cue at zero.

@@ -16,8 +16,15 @@
 
 import { useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
-import { Pill } from '@/components/v2/Pill';
+import { Pill, type PillTone } from '@/components/v2/Pill';
+import { ADHERENCE_BAND_COLOR_VAR, adherenceBand } from '@/components/v2/constants';
 import { prescriptionToText, formatDuration } from '@fahybrid/shared/domain/prescription';
+import {
+  RUN_COMPLIANCE_LABEL,
+  RUN_COMPLIANCE_TIER,
+  type RunComplianceSummary,
+  type RunComplianceVerdict,
+} from '@fahybrid/shared/domain/adherence';
 import type {
   AssignmentDetailItem,
   AssignmentDetailParamsJson,
@@ -94,6 +101,55 @@ const STATUS_META: Record<
   skipped: { label: 'Saltada', tone: 'neutral' },
 };
 
+// Verdict tier → Pill tone. 'dentro' green, both out-of-band amber (a coaching
+// signal, not a failure); 'sin_dato' renders no chip (atenuado — see VerdictPill).
+const VERDICT_TONE: Record<'success' | 'warning' | 'neutral', PillTone> = {
+  success: 'ok',
+  warning: 'warn',
+  neutral: 'neutral',
+};
+
+// The per-tramo compliance chip. Nothing for 'sin_dato' — a tramo with no objetivo
+// or no captured signal shows no verdict rather than a fabricated one.
+function VerdictPill({ verdict }: { verdict: RunComplianceVerdict }) {
+  if (verdict === 'sin_dato') return null;
+  return (
+    <Pill tone={VERDICT_TONE[RUN_COMPLIANCE_TIER[verdict]]} variant="soft">
+      {RUN_COMPLIANCE_LABEL[verdict]}
+    </Pill>
+  );
+}
+
+// Session headline: % of evaluable run tramos that landed in band, coloured by the
+// shared adherence thresholds. Null pct (no evaluable pace data) states so honestly.
+function ComplianceSummaryTile({ summary }: { summary: RunComplianceSummary }) {
+  const pct = summary.pct_dentro;
+  const colorVar = pct != null ? ADHERENCE_BAND_COLOR_VAR[adherenceBand(pct)] : '--v2-muted';
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3.5 py-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="v2-micro">Cumplimiento por tramo</span>
+        {pct != null ? (
+          <span className="text-xs text-[color:var(--v2-muted)]">
+            {summary.dentro} de {summary.evaluable} tramos en banda
+            {summary.fuera_rapido > 0 ? ` · ${summary.fuera_rapido} más rápido` : ''}
+            {summary.fuera_lento > 0 ? ` · ${summary.fuera_lento} más lento` : ''}
+          </span>
+        ) : (
+          <span className="text-xs text-[color:var(--v2-muted)]">Sin datos de ritmo suficientes</span>
+        )}
+      </div>
+      {pct != null ? (
+        <span className="v2-num text-2xl font-bold leading-none" style={{ color: `var(${colorVar})` }}>
+          {pct}%
+        </span>
+      ) : (
+        <MIcon name="do_not_disturb_on" size={20} className="shrink-0 text-[color:var(--v2-faint)]" />
+      )}
+    </div>
+  );
+}
+
 function HechoChips({ tokens }: { tokens: string[] }) {
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -155,6 +211,14 @@ export function SessionDetailDrawer({
   }
   const hasAnyActual = (detail?.segment_actuals.length ?? 0) > 0;
   const isCompleted = detail?.status === 'completed' || detail?.execution != null;
+
+  // Per-tramo running-compliance verdicts, keyed to each logged lap (`uid#position`).
+  const verdictByLap = new Map<string, RunComplianceVerdict>();
+  for (const t of detail?.run_compliance?.tramos ?? []) {
+    if (t.position != null) verdictByLap.set(`${t.item_uid}#${t.position}`, t.verdict);
+  }
+  const complianceSummary = detail?.run_compliance?.summary;
+  const showCompliance = (complianceSummary?.total ?? 0) > 0;
 
   const title = detail
     ? detail.display_title ?? detail.workout?.name ?? 'Entreno'
@@ -228,6 +292,11 @@ export function SessionDetailDrawer({
             </div>
           ) : (
             <div className="flex flex-col gap-4">
+              {/* Running compliance — % of run tramos hit in band (#66) */}
+              {showCompliance && complianceSummary ? (
+                <ComplianceSummaryTile summary={complianceSummary} />
+              ) : null}
+
               {/* Athlete notes */}
               {detail.execution?.athlete_notes ? (
                 <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
@@ -274,13 +343,20 @@ export function SessionDetailDrawer({
                               <span className="v2-micro shrink-0 w-[58px]">Prescrito</span>
                               <span className="v2-num text-xs text-[color:var(--v2-muted)]">
                                 {prescritoLine(item)}
+                                {item.resolved_intensity ? (
+                                  <span className="text-[color:var(--v2-faint)]">
+                                    {' · '}
+                                    {item.resolved_intensity.range_label}
+                                  </span>
+                                ) : null}
                               </span>
                             </div>
                             {actuals.length > 0 ? (
                               actuals.map((a) => {
                                 const tokens = actualTokens(a);
+                                const verdict = verdictByLap.get(`${item.uid}#${a.position}`);
                                 return (
-                                  <div key={a.position} className="flex items-baseline gap-2">
+                                  <div key={a.position} className="flex flex-wrap items-center gap-2">
                                     <span className="v2-micro shrink-0 w-[58px] text-[color:var(--v2-ok)]">
                                       Hecho
                                     </span>
@@ -291,6 +367,7 @@ export function SessionDetailDrawer({
                                         registrado sin métricas
                                       </span>
                                     )}
+                                    {verdict ? <VerdictPill verdict={verdict} /> : null}
                                   </div>
                                 );
                               })

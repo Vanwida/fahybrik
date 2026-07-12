@@ -29,6 +29,7 @@ import { AdvancedHatch } from './AdvancedHatch';
 import { AthletePreviewLine } from './AthletePreviewLine';
 import { SteadyForm } from './archetype-forms/SteadyForm';
 import { IntervalsForm } from './archetype-forms/IntervalsForm';
+import { RunStructureForm } from './archetype-forms/run-structure/RunStructureForm';
 import { SetsTableForm } from './archetype-forms/SetsTableForm';
 import { ComponentsForm } from './archetype-forms/ComponentsForm';
 import { SimulacionHyroxForm } from './archetype-forms/SimulacionHyroxForm';
@@ -62,6 +63,10 @@ export function ArchetypeBlockForm({
   // zone calculator in the athlete profile, not an inline resolved line.
   const isTest = pattern === 'test';
   const firstItem: EditorItem | undefined = block.items[0];
+  // A RUNNING intervals block gets the full structured-run builder (#61); ergo
+  // intervals keep the simple IntervalsForm. The structure builder is self-
+  // contained — no scalar "advanced hatch" (it would clobber `structure`).
+  const isRunStructure = pattern === 'intervals' && firstItem?.prescription.modality === 'run';
 
   const setFirstItem = (patch: Partial<EditorItem>) => {
     if (!firstItem) return;
@@ -99,7 +104,11 @@ export function ArchetypeBlockForm({
       {pattern === 'steady' && firstItem ? (
         <SteadyForm value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : pattern === 'intervals' && firstItem ? (
-        <IntervalsForm value={firstItem.prescription} onChange={setFirstPrescription} />
+        isRunStructure ? (
+          <RunStructureForm value={firstItem.prescription} onChange={setFirstPrescription} />
+        ) : (
+          <IntervalsForm value={firstItem.prescription} onChange={setFirstPrescription} />
+        )
       ) : pattern === 'sets_table' && firstItem ? (
         <SetsTableForm value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : pattern === 'components' ? (
@@ -119,8 +128,9 @@ export function ArchetypeBlockForm({
         />
       ) : null}
 
-      {/* Advanced escape hatch — full axes for the rare override (single-item, not Test) */}
-      {!isMultiItem && !isTest && firstItem ? (
+      {/* Advanced escape hatch — full axes for the rare override (single-item, not
+          Test, not the structured run: its scalar board would drop `structure`). */}
+      {!isMultiItem && !isTest && !isRunStructure && firstItem ? (
         <AdvancedHatch value={firstItem.prescription} onChange={setFirstPrescription} />
       ) : null}
     </div>

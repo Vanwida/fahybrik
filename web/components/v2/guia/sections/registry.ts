@@ -38,6 +38,10 @@ import Section28 from './28-revision-1a1';
 import Section29 from './29-entrenar-en-dobles';
 import Section30 from './30-importador-de-entrenos';
 import Section31 from './31-objetivo-y-prediccion';
+// Carrera — el editor de carrera, el cumplimiento por tramo y el modo cinta.
+import Section32 from './32-editor-de-carrera';
+import Section33 from './33-cumplimiento-por-serie';
+import Section34 from './34-correr-en-cinta';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -74,4 +78,7 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'entrenar-en-dobles': Section29,
   'importador-de-entrenos': Section30,
   'objetivo-y-prediccion': Section31,
+  'editor-de-carrera': Section32,
+  'cumplimiento-por-serie': Section33,
+  'correr-en-cinta': Section34,
 };

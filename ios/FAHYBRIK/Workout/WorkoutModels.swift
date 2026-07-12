@@ -545,9 +545,18 @@ extension WorkoutSegment {
 
     /// Rounds / minutes the format runs (For Time scheme rounds, Tabata rounds,
     /// Rounds circuits). Nil when not prescribed.
+    ///
+    /// Legacy interval pyramids (1200/1000/800) ship NO `rounds`; their `sets`
+    /// array IS the bout list — one entry per bout — so the bout count is
+    /// `sets.count`. This fallback is scoped to `.intervals` ONLY: for every other
+    /// scheme `sets` are the MOVEMENTS in a round (a For Time / Chipper list), so
+    /// conflating `sets.count` with the round count there would be wrong. ~40% of
+    /// real running intervals are this sets-only legacy shape; #61's `structure`
+    /// wire will carry the count explicitly for new authoring.
     var formatRounds: Int? {
-        guard let r = prescription?.rounds, r > 0 else { return nil }
-        return r
+        if let r = prescription?.rounds, r > 0 { return r }
+        if prescription?.scheme == .intervals, let n = prescription?.sets?.count, n > 0 { return n }
+        return nil
     }
 
     /// Work-window length — Tabata work, interval bout, Death By minute. Defaults
@@ -657,6 +666,19 @@ struct LapRecord: Codable, Identifiable {
     var scaledNote: String? = nil
     /// Per-set strength detail (a 5×5 / pyramid); nil for single-set / non-strength.
     var sets: [SetRecord]? = nil
+
+    // MARK: Run device averages (#62)
+    /// AVERAGE incline (%) over the segment, folded from the treadmill telemetry
+    /// (`TreadmillHUDModel` → `session.sampleTreadmillIncline`). nil when no belt fed
+    /// the segment — never a fabricated 0. Defaulted so cached snapshots still decode.
+    var inclinePct: Double? = nil
+    /// AVERAGE running cadence (steps/min) over the segment. Stays nil on iOS today:
+    /// the FTMS treadmill reports NO running cadence and there is no foot-pod /
+    /// HealthKit running-cadence source in the app, so we never fabricate it — the
+    /// value arrives through the web vision / HealthKit paths (#62), which already
+    /// accept `run_cadence_spm`. The field exists so the wire is ready when a real
+    /// on-device source lands.
+    var runCadenceSpm: Int? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -720,6 +742,13 @@ struct SegmentExecutionDTO: Codable {
     let rx_scaled: String?           // "rx" | "scaled"
     let scaled_note: String?
     let sets: [SetExecutionDTO]?
+
+    // Run device averages (#62, mig 0124). `incline_pct` is the segment's average
+    // treadmill grade; `run_cadence_spm` the average running cadence. Both optional
+    // and range-gated server-side (ingest-execution-segments.ts). iOS sends incline
+    // when a belt fed the segment; cadence stays null (no on-device source yet).
+    var incline_pct: Double? = nil
+    var run_cadence_spm: Int? = nil
 }
 
 // Per-set strength execution on the wire. Explicit snake_case keys (the encoder's

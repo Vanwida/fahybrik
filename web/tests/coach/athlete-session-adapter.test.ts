@@ -92,6 +92,10 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
     },
     execution: null,
     segment_actuals: [],
+    run_compliance: {
+      summary: { total: 0, evaluable: 0, dentro: 0, fuera_rapido: 0, fuera_lento: 0, sin_dato: 0, pct_dentro: null },
+      tramos: [],
+    },
     ...overrides,
   };
 }

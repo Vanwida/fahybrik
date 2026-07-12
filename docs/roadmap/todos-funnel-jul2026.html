@@ -579,20 +579,22 @@
         <div class="resumen"><b>Construida e instalada en tu iPhone · 12 jul. Falta SOLO tu prueba física con la Titanium (2 min).</b> Al abrir un tramo de correr (continua O series): "Correr en cinta" → HUD en vivo con ritmo vs objetivo (verde/rojo), pulso (difusión Bluetooth del reloj o banda; Apple Watch entra solo) y zona estimada por edad, velocidad/inclinación/distancia. Los tramos se cierran SOLOS al cumplir su distancia o tiempo y encadenan la recuperación; "Terminar ahora" solo para cortar antes. La primera conexión incluye diagnóstico compartible: si tu cinta no hablara FTMS, ahí lo veremos. Para probar sin cinta: en el simulador hay modo demo. Pendiente (fase 3): guardar los reales de cada tramo en la ejecución.</div>
       </div>
     </div>
-    <div class="task" data-id="61">
+    <div class="task done" data-id="61">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#61</div>
         <div class="tsub">Prescripción de carrera COMPLETA (running ola 1)</div>
-        <div class="tdesc">Lo que hoy el coach NO puede expresar: recuperación activa ("200 m al trote Z1"), progresivos (ritmo que cambia por tramos), series anidadas 3×(4×400), fartlek, zona de ritmo como selector explícito y estructura calentamiento/principal/vuelta — con sus HUDs de ejecución. Del mapa de huecos del running (12 jul).</div>
+        <div class="tdesc">Lo que el coach no podía expresar: recuperación activa, progresivos, series anidadas, fartlek, zona de ritmo explícita y estructura calentamiento/principal/vuelta.</div>
+        <div class="resumen"><b>Hecha · 12 jul, en prod y demo.</b> El editor prescribe carrera al nivel de una app dedicada: fases, tramos trabajo/recuperación por metros o tiempo (recuperación al trote/caminando/parado), "Repetir ×N" con anidadas 3×(4×400), objetivo por ritmo exacto/banda · zona de ritmo · zona FC · RPE en banda, inclinación y cadencia, y arquetipos Series·Progresivo·Fartlek·Cuestas·Pirámide. Y la app lo EJECUTA nativo (motor de tramos nuevo; los bloques antiguos convierten sin pérdida — 401 de 416 reales verificadas). De paso cayó un bug serio preexistente: las series tipo pirámide se cerraban tras el PRIMER tramo.</div>
       </div>
     </div>
-    <div class="task" data-id="62">
+    <div class="task done" data-id="62">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#62</div>
         <div class="tsub">Cuestas/inclinación y cadencia de punta a punta (running ola 1)</div>
-        <div class="tdesc">Hoy no existen en ninguna capa: ni prescribir pendiente, ni capturarla, ni analizarla (la cinta #60 la enseña en vivo pero no la guarda); la cadencia de carrera tampoco se guarda. Prescripción + captura (migración) + analíticas.</div>
+        <div class="tdesc">Antes no existían en ninguna capa; ahora: prescripción (en #61), captura y analíticas.</div>
+        <div class="resumen"><b>Hecha · 12 jul, en prod y demo.</b> La inclinación se prescribe por tramo, la cinta la captura en vivo y su promedio queda guardado por segmento; en el detalle de la sesión salen chips "N% incl." y "cad. N" cuando hay dato (nunca ceros falsos). Tendencia semanal de cadencia en Analíticas. La cadencia llega por captura de pantalla/Apple Health (la cinta no la emite — sin inventos).</div>
       </div>
     </div>
     <div class="task" data-id="63">
@@ -619,12 +621,13 @@
         <div class="tdesc">El momento al acabar: card con splits, gráficas de calidad, PRs con su celebración, y compartible. Tenemos las analíticas; falta el momento.</div>
       </div>
     </div>
-    <div class="task" data-id="66">
+    <div class="task done" data-id="66">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#66</div>
         <div class="tsub">Cumplimiento por serie para el coach (running ola 1)</div>
-        <div class="tdesc">Lo que el coach revisa después: ¿pegó los ritmos/zonas de CADA serie? Los datos por tramo ya se guardan; falta la vista prescrito-vs-hecho serie a serie.</div>
+        <div class="tdesc">Lo que el coach revisa después: ¿pegó los ritmos/zonas de CADA serie?</div>
+        <div class="resumen"><b>Hecha · 12 jul, en prod y demo.</b> En el detalle de sesión: tramo a tramo, prescrito vs hecho con veredicto (En banda / Más rápido / Más lento / Sin datos) y % de la sesión. El veredicto usa la MISMA banda que vio el atleta en su móvil; el ámbar es señal, no fallo. Verificado con datos reales: el Atleta Demo 1 corrió sus 6×1000 de banda 4:09–4:13 todos a ~4:02 → "Más rápido", 17%.</div>
       </div>
     </div>
     <div class="task" data-id="67">

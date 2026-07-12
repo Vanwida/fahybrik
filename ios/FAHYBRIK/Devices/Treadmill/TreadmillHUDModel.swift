@@ -131,13 +131,22 @@ final class TreadmillHUDModel {
 
     var currentSegment: WorkoutSegment? { session.currentSegment }
     var isSeries: Bool { currentSegment.map(TreadmillLegResolver.isRunSeries) ?? false }
-    var isWorkPhase: Bool { session.rotPhase == .work }
-    var isCountIn: Bool { session.isCondCountIn }
-    var countInRemaining: Int { Int(session.condCountInRemaining.rounded(.up)) }
+    /// True when the current segment runs the STRUCTURED leg cursor (#61) — the leg
+    /// identity, count-in and clocks then come from the session's run-leg engine
+    /// (not the rotating machine), so each bout reads its OWN measure/target/incline.
+    var isStructured: Bool { currentSegment?.hasRunStructure ?? false }
+    var isWorkPhase: Bool { isStructured ? session.isRunLegWork : (session.rotPhase == .work) }
+    var isCountIn: Bool { isStructured ? session.isRunCountIn : session.isCondCountIn }
+    var countInRemaining: Int {
+        Int((isStructured ? session.runCountInRemaining : session.condCountInRemaining).rounded(.up))
+    }
 
     var currentLeg: TreadmillLeg {
         guard let seg = currentSegment else {
             return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
+        }
+        if isStructured {
+            return TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex)
         }
         return TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
     }
@@ -145,9 +154,19 @@ final class TreadmillHUDModel {
     var isRecovery: Bool { currentLeg.isRecovery }
     var runTarget: RunTarget { currentLeg.target }
 
+    /// PRESCRIBED inclinación / cadencia for the CURRENT structured leg (#61), shown
+    /// as a sober reference so the athlete can match the belt. Nil for a legacy leg
+    /// or when the coach set none.
+    var prescribedInclinePct: Double? { isStructured ? session.currentRunLeg?.inclinePct : nil }
+    var prescribedCadenceSpm: Int? { isStructured ? session.currentRunLeg?.cadenceSpm : nil }
+
     var legNumber: Int {
-        WorkoutLegCount.current(session.plan.segments, index: session.currentSegmentIndex,
-                                rotRoundIndex: session.rotRoundIndex, isWork: isWorkPhase)
+        if isStructured {
+            return WorkoutLegCount.current(session.plan.segments, index: session.currentSegmentIndex,
+                                           structureLegIndex: session.runLegIndex)
+        }
+        return WorkoutLegCount.current(session.plan.segments, index: session.currentSegmentIndex,
+                                       rotRoundIndex: session.rotRoundIndex, isWork: isWorkPhase)
     }
     var legTotal: Int { WorkoutLegCount.total(session.plan.segments) }
 
@@ -195,13 +214,17 @@ final class TreadmillHUDModel {
     /// segment start even if the HUD opened mid-run, and it's pause-correct); for a
     /// series bout there is no per-bout session clock, so we use our own wall clock
     /// measured from the bout opening.
-    var legElapsedEffective: Double { isSeries ? legElapsedS : session.lapElapsedSeconds }
+    var legElapsedEffective: Double {
+        if isStructured { return session.runLegElapsed }   // the session's per-leg clock
+        return isSeries ? legElapsedS : session.lapElapsedSeconds
+    }
 
     /// Remaining seconds for a TIME leg. The session owns interval time/recovery
     /// countdowns (read its clock); we own a continuous-run time cap (target −
     /// elapsed). Nil for non-time goals.
     var legTimeRemaining: Double? {
         guard case let .time(target) = currentLeg.goal else { return nil }
+        if isStructured { return max(0, session.runLegRemaining) }
         if isSeries { return max(0, session.rotPhaseRemaining) }
         return max(0, Double(target) - legElapsedEffective)
     }
@@ -265,7 +288,12 @@ final class TreadmillHUDModel {
     private func accumulateAverages(from sample: TreadmillSample) {
         guard !paused else { return }
         if let v = sample.speedKmh { speedSum += v; speedCount += 1 }
-        if let v = sample.inclinePct { inclineSum += v; inclineCount += 1 }
+        if let v = sample.inclinePct {
+            inclineSum += v; inclineCount += 1
+            // Feed the belt grade into the SESSION so it averages incline over the
+            // whole segment (across structured legs) into the ONE segment lap (#62).
+            session.sampleTreadmillIncline(v)
+        }
         if let v = currentBpm { bpmSum += v; bpmCount += 1 }
     }
 
@@ -286,6 +314,7 @@ final class TreadmillHUDModel {
 
     private func legKey() -> String {
         let seg = session.currentSegmentIndex
+        if isStructured { return "\(seg)#struct#\(session.runLegIndex)" }
         guard isSeries else { return "\(seg)#single" }
         return "\(seg)#\(session.rotRoundIndex)#\(isWorkPhase ? "w" : "r")"
     }

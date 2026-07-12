@@ -504,6 +504,14 @@ struct ExecutedWorkoutView: View {
         } else if let p = a.avgPaceSPerKm, p > 0 {
             t.append("\(PrescriptionRenderer.formatPace(Int(p)))/km")
         }
+        // Average incline / cadence over the segment (#62). Shown only when the
+        // source (treadmill / wearable) actually reported them — never a fake 0.
+        if let inc = a.inclinePct, inc > 0 {
+            t.append(inc == inc.rounded() ? "\(Int(inc))% incl." : String(format: "%.1f%% incl.", inc))
+        }
+        if let cad = a.runCadenceSpm, cad > 0 {
+            t.append("cad. \(cad)")
+        }
         if a.repsCompleted == nil, a.distanceMeters == nil, let dur = a.durationSeconds, dur > 0 {
             t.append(WorkoutSession.formatElapsed(Double(dur)))
         }

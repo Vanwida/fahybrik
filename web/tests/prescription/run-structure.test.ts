@@ -263,6 +263,11 @@ describe('#61 · legacyToStructure ingests real legacy run shapes', () => {
       expectWorks: 5,
     },
     {
+      name: 'representative single set + rounds (4×80m @ RPE7, block rest 60)',
+      legacy: parsePrescription({ scheme: 'interval', modality: 'run', rounds: 4, rest_s: 60, sets: [{ target: { kind: 'rpe', value: 7 }, measure: { kind: 'distance', meters: 80 } }] }),
+      expectWorks: 4,
+    },
+    {
       name: 'steady Z2 4200s (hr_zone → pace_zone)',
       legacy: parsePrescription({ scheme: 'steady', modality: 'run', sets: [{ target: { kind: 'hr_zone', value: 2 }, measure: { kind: 'duration', seconds: 4200 } }] }),
       expectWorks: 1,
@@ -320,7 +325,9 @@ describe('#61 · structureToLegacy flatten for the installed iOS app', () => {
     const flat = structureToLegacy(s);
     expect(flat.scheme).toBe('intervals');
     expect(flat.rounds).toBe(12); // 3×4 total work bouts
-    expect(flat.sets).toEqual([{ measure: { kind: 'distance', meters: 400 } }]); // first work
+    // first work as a representative distance set, with the first rest attached so
+    // the scalar summary surfaces it for the installed iOS app.
+    expect(flat.sets).toEqual([{ measure: { kind: 'distance', meters: 400 }, rest_s: 60 }]);
     expect(flat.rest_s).toBe(60); // first duration recovery
     expect(flat.target).toEqual({ kind: 'hr_zone', value: 4 }); // pace_zone → legacy zone channel
   });

@@ -40,6 +40,10 @@ export interface SegmentActual {
   avg_hr: number | null;
   max_hr: number | null;
   calories: number | null;
+  /** AVERAGE running metrics over the segment (#62, mig 0124). Null when the
+   * source (treadmill / wearable) reported none — never fabricated. */
+  incline_pct: number | null;
+  run_cadence_spm: number | null;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
@@ -60,6 +64,8 @@ export interface SegmentActualRow {
   avg_hr: number | null;
   max_hr: number | null;
   calories: string | number | null;
+  incline_pct: string | number | null;   // numeric(4,1) → string from pg
+  run_cadence_spm: number | null;         // integer
 }
 
 const MODALITY_SET = new Set<string>(SEGMENT_MODALITIES);
@@ -100,6 +106,8 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     avg_hr: r.avg_hr ?? null,
     max_hr: r.max_hr ?? null,
     calories: num(r.calories),
+    incline_pct: num(r.incline_pct),
+    run_cadence_spm: r.run_cadence_spm ?? null,
   }));
 }
 
@@ -121,7 +129,9 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       stroke_rate_spm           as stroke_rate_spm,
       avg_hr                    as avg_hr,
       max_hr                    as max_hr,
-      calories                  as calories
+      calories                  as calories,
+      incline_pct               as incline_pct,
+      run_cadence_spm           as run_cadence_spm
     from segment_executions
     where execution_id = ${executionId}
     order by position asc, id asc

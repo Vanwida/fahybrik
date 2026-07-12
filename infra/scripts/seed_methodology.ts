@@ -7,7 +7,7 @@
  * cites its origin (seed #N from seed_day_paired_templates, example-templates §,
  * coach_notes, or master doc §). Items marked [confirmar con Pablo] in §7 are
  * seeded as `authored:'system_default'` so the dashboard surfaces them for
- * confirmation; everything Pablo authored is `authored:'pablo'`.
+ * confirmation; everything the coach authored is `authored:'coach'`.
  *
  * EMBEDDINGS ARE STUBBED. No embedding provider is wired in this environment
  * (LLM_EMBEDDING_MODEL / LLM_API_KEY unset). The synthesis writes chunks with
@@ -354,13 +354,13 @@ const NUTRITION: Array<{
   ppkg: number | null; pabs: number | null; ratio: string | null; tmin: number | null;
   hyd: boolean; elec: boolean; note: string | null; authored: string;
 }> = [
-  { moment: 'pre_endurance', cpkg: 1.0, clo: 40, chi: 60, ppkg: null, pabs: null, ratio: null, tmin: -75, hyd: true, elec: false, note: 'Carbohidratos 60-90min antes + hidratación.', authored: 'pablo' },
-  { moment: 'post_glycogen', cpkg: 1.0, clo: null, chi: null, ppkg: 0.3, pabs: null, ratio: null, tmin: 30, hyd: false, elec: false, note: 'Recarga de glucógeno <30min.', authored: 'pablo' },
-  { moment: 'post_strength', cpkg: null, clo: null, chi: null, ppkg: null, pabs: 30, ratio: null, tmin: 30, hyd: false, elec: false, note: 'Proteína 30g + carbohidratos.', authored: 'pablo' },
-  { moment: 'post_threshold', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: '3:1', tmin: 30, hyd: false, elec: false, note: 'Ratio carb:proteína 3:1 <30min.', authored: 'pablo' },
-  { moment: 'between_am_pm_strength_endurance', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: 360, hyd: true, elec: false, note: 'Strength AM → endurance PM 6h+: recargar antes de la PM.', authored: 'pablo' },
-  { moment: 'between_am_pm_pm_recovery', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: null, hyd: false, elec: false, note: 'PM de recuperación: carbohidratos ligeros.', authored: 'pablo' },
-  { moment: 'post_recovery_evening', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: null, hyd: false, elec: false, note: 'Carbohidratos + proteína + magnesio por la noche.', authored: 'pablo' },
+  { moment: 'pre_endurance', cpkg: 1.0, clo: 40, chi: 60, ppkg: null, pabs: null, ratio: null, tmin: -75, hyd: true, elec: false, note: 'Carbohidratos 60-90min antes + hidratación.', authored: 'coach' },
+  { moment: 'post_glycogen', cpkg: 1.0, clo: null, chi: null, ppkg: 0.3, pabs: null, ratio: null, tmin: 30, hyd: false, elec: false, note: 'Recarga de glucógeno <30min.', authored: 'coach' },
+  { moment: 'post_strength', cpkg: null, clo: null, chi: null, ppkg: null, pabs: 30, ratio: null, tmin: 30, hyd: false, elec: false, note: 'Proteína 30g + carbohidratos.', authored: 'coach' },
+  { moment: 'post_threshold', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: '3:1', tmin: 30, hyd: false, elec: false, note: 'Ratio carb:proteína 3:1 <30min.', authored: 'coach' },
+  { moment: 'between_am_pm_strength_endurance', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: 360, hyd: true, elec: false, note: 'Strength AM → endurance PM 6h+: recargar antes de la PM.', authored: 'coach' },
+  { moment: 'between_am_pm_pm_recovery', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: null, hyd: false, elec: false, note: 'PM de recuperación: carbohidratos ligeros.', authored: 'coach' },
+  { moment: 'post_recovery_evening', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: null, hyd: false, elec: false, note: 'Carbohidratos + proteína + magnesio por la noche.', authored: 'coach' },
   { moment: 'race_morning', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: -150, hyd: true, elec: false, note: 'Carbohidratos altos, baja grasa/fibra, 2-3h antes. [estándar de mercado, confirmar]', authored: 'system_default' },
   { moment: 'intra_race', cpkg: null, clo: null, chi: null, ppkg: null, pabs: null, ratio: null, tmin: null, hyd: false, elec: true, note: 'Electrolitos si la carrera supera ~70min. [estándar de mercado, confirmar]', authored: 'system_default' },
 ];
@@ -381,7 +381,7 @@ async function seedNutrition(sql: Sql, coachId: string): Promise<void> {
 async function seedRules(sql: Sql, coachId: string): Promise<void> {
   // Clear this coach's seeded rules first so re-running reflects edits to the
   // rule set without leaving stale rows (rules have no natural unique key).
-  await sql`delete from methodology_rules where coach_id = ${coachId}::bigint and authored in ('pablo','system_default')`;
+  await sql`delete from methodology_rules where coach_id = ${coachId}::bigint and authored in ('coach','system_default')`;
   for (const r of PABLO_DEFAULT_RULES) {
     // Validate every field server-side before write (project rule). coach_id is
     // SQL-cast (string → bigint) so it is omitted from the zod row validation;
