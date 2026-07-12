@@ -26,7 +26,7 @@
 // discussion). structureToLegacy maps BOTH pace_zone and hr_zone back to the single
 // legacy `hr_zone` channel so the old app + resolver behave exactly as before.
 
-import type { Measure, Prescription, Target } from './types';
+import type { Measure, Prescription, PrescriptionSet, Target } from './types';
 import { prescriptionTarget, setMeasure, setTarget } from './types';
 import {
   type Element,
@@ -136,6 +136,26 @@ function recoveryFromRestSeconds(rest_s: number): Segment {
   return { kind: 'recovery', measure: { type: 'duration', s: Math.round(rest_s) }, target: null, recovery_mode: 'parado' };
 }
 
+// One "bout" (a work + its optional recovery) from a legacy set. Rest is the set's
+// own rest_s, else the `fallbackRest` (block-level rest, for the representative
+// single-set convention). Returns null when the set can't be represented.
+function boutFromSet(
+  s: PrescriptionSet,
+  blockTarget: SegmentTarget | null,
+  fallbackRest: number | undefined,
+): Element[] | null {
+  if (s.note) return null; // a per-set note can't be represented → keep legacy form
+  if (s.modality && s.modality !== 'run') return null; // mixed-modality block, not a pure run
+  const measure = legacyMeasureToSegment(setMeasure(s));
+  if (!measure) return null; // a set with no measure → cannot be a valid work segment
+  const setT = legacyTargetToSegment(setTarget(s));
+  if (!setT.ok) return null;
+  const bout: Element[] = [{ kind: 'work', measure, target: setT.target ?? blockTarget }];
+  const rest = s.rest_s ?? fallbackRest;
+  if (rest !== undefined && rest > 0) bout.push(recoveryFromRestSeconds(rest));
+  return bout;
+}
+
 // Build the ordered elements of the `main` phase, or null if not representable.
 function buildMainElements(p: Prescription): Element[] | null {
   const blockT = legacyTargetToSegment(prescriptionTarget(p));
@@ -144,18 +164,19 @@ function buildMainElements(p: Prescription): Element[] | null {
 
   // Path A — explicit per-set sequence (pyramids, alternancia, uniform series).
   if (p.sets && p.sets.length > 0) {
+    // Convention: ONE representative set + `rounds` N = N identical bouts (how the
+    // editor stores a uniform DISTANCE series; rest lives at block level).
+    if (p.sets.length === 1 && (p.rounds ?? 1) > 1) {
+      const times = p.rounds!;
+      if (times > MAX_REPEAT_TIMES) return null;
+      const bout = boutFromSet(p.sets[0]!, blockTarget, p.rest_s);
+      if (!bout) return null;
+      return times >= 2 ? [{ times, elements: bout }] : bout;
+    }
     const bouts: Element[][] = [];
     for (const s of p.sets) {
-      if (s.note) return null; // a per-set note can't be represented → keep legacy form
-      if (s.modality && s.modality !== 'run') return null; // mixed-modality block, not a pure run
-      const measure = legacyMeasureToSegment(setMeasure(s));
-      if (!measure) return null; // a set with no measure → cannot be a valid work segment
-      const setT = legacyTargetToSegment(setTarget(s));
-      if (!setT.ok) return null;
-      const target = setT.target ?? blockTarget;
-      const work: Segment = { kind: 'work', measure, target };
-      const bout: Element[] = [work];
-      if (s.rest_s !== undefined && s.rest_s > 0) bout.push(recoveryFromRestSeconds(s.rest_s));
+      const bout = boutFromSet(s, blockTarget, undefined);
+      if (!bout) return null;
       bouts.push(bout);
     }
     return foldBouts(bouts);
@@ -220,14 +241,22 @@ function segmentTargetToLegacy(t: SegmentTarget | null): Target | undefined {
 }
 
 // Put the first work's measure onto the right legacy field for the flatten scheme.
-function applyFlattenMeasure(out: Partial<Prescription>, m: SegmentMeasure, scheme: 'steady' | 'intervals'): void {
+// `restS` (intervals only) is attached to the representative distance SET so the
+// scalar summary (prescriptionToParams, which reads per-set rest for a set-bearing
+// block) surfaces the rest for the installed iOS app.
+function applyFlattenMeasure(
+  out: Partial<Prescription>,
+  m: SegmentMeasure,
+  scheme: 'steady' | 'intervals',
+  restS?: number,
+): void {
   if (m.type === 'duration') {
     if (scheme === 'steady') out.total_s = m.s;
     else out.work_s = m.s;
   } else {
     // distance has no native scheme field — carry it on a single representative
     // set, exactly as the steady/intervals forms already store distance work.
-    out.sets = [{ measure: { kind: 'distance', meters: m.m } }];
+    out.sets = [{ measure: { kind: 'distance', meters: m.m }, ...(restS !== undefined ? { rest_s: restS } : {}) }];
   }
 }
 
@@ -253,9 +282,10 @@ export function structureToLegacy(structure: RunStructure): Partial<Prescription
   if (works.length > 1) {
     out.scheme = 'intervals';
     out.rounds = works.length; // nested/heterogeneous → TOTAL work bouts
-    applyFlattenMeasure(out, firstWork.measure, 'intervals');
     const firstRest = flat.find((seg) => seg.kind === 'recovery' && seg.measure.type === 'duration');
-    if (firstRest && firstRest.measure.type === 'duration') out.rest_s = firstRest.measure.s;
+    const restS = firstRest && firstRest.measure.type === 'duration' ? firstRest.measure.s : undefined;
+    applyFlattenMeasure(out, firstWork.measure, 'intervals', restS);
+    if (restS !== undefined) out.rest_s = restS;
     if (target) out.target = target;
   } else {
     out.scheme = 'steady';

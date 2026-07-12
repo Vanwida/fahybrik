@@ -13,7 +13,7 @@
 
 import type { Measure, Prescription, Target } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
-import { isErgModality } from '@/lib/programming/prescription-model';
+import { isCardioModality, isErgModality } from '@/lib/programming/prescription-model';
 import {
   ClockCell,
   DistanceCell,
@@ -27,17 +27,20 @@ type Mode = 'duration' | 'distance';
 // Vatios is offered ONLY on erg surfaces (row/ski/bike); a run/mobility block has no power.
 type ObjectiveKind = 'hr_zone' | 'pace' | 'watts' | 'rpe';
 
-const OBJECTIVE_OPTIONS_BASE: { value: ObjectiveKind; label: string }[] = [
-  { value: 'hr_zone', label: 'Zona' },
-  { value: 'pace', label: 'Ritmo' },
-  { value: 'rpe', label: 'RPE' },
-];
-const OBJECTIVE_OPTIONS_ERG: { value: ObjectiveKind; label: string }[] = [
-  { value: 'hr_zone', label: 'Zona' },
-  { value: 'pace', label: 'Ritmo' },
-  { value: 'watts', label: 'Vatios' },
-  { value: 'rpe', label: 'RPE' },
-];
+// The zone objective is stored as `hr_zone` (the single zone channel the athlete
+// resolver reads). On a PACING modality (run/ergo) that zone resolves to a PACE
+// band, so we label it "Zona ritmo" — explicit, per #61. On a non-pacing block it
+// stays "Zona FC" (a heart-rate zone). Same storage, honest label.
+function objectiveOptionsFor(modality: Prescription['modality']): { value: ObjectiveKind; label: string }[] {
+  const zoneLabel = isCardioModality(modality) ? 'Zona ritmo' : 'Zona FC';
+  const base: { value: ObjectiveKind; label: string }[] = [
+    { value: 'hr_zone', label: zoneLabel },
+    { value: 'pace', label: 'Ritmo' },
+  ];
+  if (isErgModality(modality)) base.push({ value: 'watts', label: 'Vatios' });
+  base.push({ value: 'rpe', label: 'RPE' });
+  return base;
+}
 
 const DEFAULT_DURATION_S = 1800; // 30' rodaje
 const DEFAULT_DISTANCE_M = 5000; // 5 km
@@ -75,9 +78,7 @@ export function SteadyForm({
     value.target?.kind === 'watts'
       ? value.target.kind
       : 'hr_zone';
-  const objectiveOptions = isErgModality(value.modality)
-    ? OBJECTIVE_OPTIONS_ERG
-    : OBJECTIVE_OPTIONS_BASE;
+  const objectiveOptions = objectiveOptionsFor(value.modality);
 
   const setMode = (next: Mode) => {
     if (next === mode) return;
