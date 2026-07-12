@@ -738,3 +738,146 @@ struct SteadyLiveHUD: View {
             ?? "—:—"
     }
 }
+
+// MARK: - Structured run (#61)
+
+/// The live face of a folded run block that carries a `structure`: the flat leg
+/// cursor rendered one work/recovery bout at a time, each with its OWN measure,
+/// objetivo (the server-resolved pace band) and prescribed inclinación / cadencia.
+/// A TIME leg counts DOWN and auto-rolls; a DISTANCE leg shows live covered pace vs
+/// target and is closed by the belt (auto) or "TRAMO HECHO" (manual — there is no
+/// live phone GPS yet, so a distance leg without a belt is never left waiting).
+/// Reuses the shared FORMAT atoms so it reads with the same instrument voice as the
+/// other timers; the LEGACY rotating HUDs stay untouched.
+struct StructuredRunLiveHUD: View {
+    let session: WorkoutSession
+
+    private var leg: RunLeg? { session.currentRunLeg }
+    private var isCountIn: Bool { session.isRunCountIn }
+    private var isWork: Bool { session.isRunLegWork }
+    private var isTimed: Bool { leg?.isTimed ?? false }
+    private var urgent: Bool {
+        !isCountIn && isTimed && session.runLegRemaining > 0
+            && session.runLegRemaining <= WorkoutSession.emomUrgentThreshold
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if !isCountIn { WorkRestBanner(phase: isWork ? .work : .rest) }
+            clock
+            workCard
+            if let guide = guideLine {
+                Text(guide)
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(maxWidth: .infinity)
+            }
+            MetricRow3(cells: [
+                ("Total", WorkoutSession.formatElapsed(session.elapsedSeconds), "", Theme.Color.foreground),
+                ("Tramo", "\(session.runLegNumber)/\(session.runLegTotal)", "", Theme.Color.foreground),
+                hrCell(session)
+            ])
+        }
+    }
+
+    @ViewBuilder
+    private var clock: some View {
+        if isCountIn {
+            FormatClockHero(caption: "Prepárate",
+                            value: "\(Int(session.runCountInRemaining.rounded(.up)))",
+                            color: Theme.Color.accentText)
+        } else if isTimed {
+            // TIME leg — count DOWN; the session's clock auto-rolls it at zero.
+            FormatClockHero(
+                caption: legCaption,
+                captionColor: Theme.Color.accentText,
+                value: WorkoutSession.formatElapsed(max(0, session.runLegRemaining)),
+                color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
+                urgent: urgent
+            )
+        } else {
+            // DISTANCE / open leg — live covered pace vs the objetivo band; closed by
+            // the belt or a manual "TRAMO HECHO".
+            VStack(spacing: 8) {
+                FormatClockHero(
+                    caption: legCaption,
+                    captionColor: Theme.Color.accentText,
+                    value: paceValue, sub: "/km",
+                    color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
+                )
+                if isWork, let objetivo = leg?.objetivoLabel {
+                    HStack(spacing: 4) {
+                        Text("objetivo").font(.system(size: 10)).foregroundStyle(Theme.Color.faint)
+                        Text(objetivo)
+                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    private var workCard: some View {
+        RotatingWorkCard(
+            label: isWork ? "Este tramo" : "Recuperación",
+            movement: session.currentSegment?.primaryMovement ?? "Correr",
+            work: legWork,
+            detail: isWork ? leg?.objetivoLabel : recoveryModeLabel,
+            next: nextLegLabel
+        )
+    }
+
+    private var legCaption: String {
+        isWork ? "Tramo \(session.runLegNumber) / \(session.runLegTotal)"
+               : "Descanso · tramo \(session.runLegNumber) / \(session.runLegTotal)"
+    }
+
+    private var paceValue: String {
+        if let p = session.liveCoveredPaceSecPerKm { return TimeMinSecRow.format(p) }
+        if case let .pace(t) = (leg?.runTarget ?? .none), let s = t.single ?? t.fastS { return TimeMinSecRow.format(s) }
+        return "—:—"
+    }
+
+    /// The leg's OWN measure ("800 m" / "3:00"), the per-bout value the scalar path
+    /// could not carry for a heterogeneous pyramid.
+    private var legWork: String? {
+        guard let leg else { return nil }
+        if let m = leg.distanceMeters { return PrescriptionRenderer.formatDistance(Double(m)) }
+        if let s = leg.durationSeconds { return WorkoutSession.formatElapsed(Double(s)) }
+        return nil
+    }
+
+    /// PRESCRIBED inclinación / cadencia — a sober reference line, shown only when
+    /// the coach set them.
+    private var guideLine: String? {
+        guard let leg else { return nil }
+        var parts: [String] = []
+        if let inc = leg.inclinePct, inc > 0 {
+            parts.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
+        }
+        if let cad = leg.cadenceSpm { parts.append("Cadencia \(cad) ppm") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var recoveryModeLabel: String? {
+        switch leg?.recoveryMode {
+        case .trote:   return "trote suave"
+        case .caminar: return "caminando"
+        case .parado:  return "parado"
+        case .none:    return nil
+        }
+    }
+
+    private var nextLegLabel: String? {
+        guard let legs = session.currentRunLegs else { return nil }
+        let i = session.runLegIndex + 1
+        guard i < legs.count else { return session.isLastSegment ? nil : "Siguiente bloque" }
+        let n = legs[i]
+        let measure: String = n.distanceMeters.flatMap { PrescriptionRenderer.formatDistance(Double($0)) }
+            ?? n.durationSeconds.map { WorkoutSession.formatElapsed(Double($0)) }
+            ?? ""
+        return n.isWork ? "Serie \(measure)".trimmingCharacters(in: .whitespaces)
+                        : "Descanso \(measure)".trimmingCharacters(in: .whitespaces)
+    }
+}

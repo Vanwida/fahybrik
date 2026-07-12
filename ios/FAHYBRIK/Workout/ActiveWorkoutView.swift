@@ -58,7 +58,8 @@ struct ActiveWorkoutView: View {
     // IntervalsLiveHUD, so it needs its own "Correr en cinta" CTA here.
     private var isRunSeriesSegment: Bool {
         guard let s = session.currentSegment else { return false }
-        return TreadmillLegResolver.isRunSeries(s)
+        // A structured run (#61) is a leg sequence on the belt too — offer the CTA.
+        return TreadmillLegResolver.isRunSeries(s) || s.hasRunStructure
     }
     private var gpsActive: Bool {
         runGPS.status == .active || runGPS.status == .authorized
@@ -536,7 +537,11 @@ struct ActiveWorkoutView: View {
     // of state (session + pm5).
     @ViewBuilder
     private var modalityHUD: some View {
-        if session.currentSegment?.isEMOM == true {
+        if session.isRunStructureActive {
+            // #61 — a folded run that carries a `structure` runs the native leg
+            // cursor (per-bout distance/target/incline), not the rotating machine.
+            StructuredRunLiveHUD(session: session)
+        } else if session.currentSegment?.isEMOM == true {
             EmomLiveHUD(session: session)
         } else if session.currentSegment?.isConditioningTimer == true {
             // Conditioning formats route by SCHEME to their dedicated timer (the
@@ -725,6 +730,14 @@ struct ActiveWorkoutView: View {
                 ? "VUELTA A LA CALMA HECHA"
                 : "CALENTAMIENTO HECHO"
         }
+        // #61 structured run: skip the count-in, then advance the leg cursor. A WORK
+        // leg is closed by "TRAMO HECHO" (the honest manual/belt affordance — a
+        // distance leg without a belt has no live GPS yet), a recovery by skipping it.
+        if session.isRunStructureActive {
+            if session.isRunCountIn { return "SALTAR" }
+            if session.isLastSegment && session.runLegNumber >= session.runLegTotal { return "TERMINAR" }
+            return session.isRunLegWork ? "TRAMO HECHO" : "SALTAR DESCANSO"
+        }
         if session.currentSegment?.isEMOM == true {
             // During the post-Empezar 3-2-1, the button SKIPS the count-in.
             if session.emomCountInRemaining > 0 { return "SALTAR" }
@@ -795,6 +808,11 @@ struct ActiveWorkoutView: View {
     // The rotating work/rest wash colour, or nil for non-rotating / count-in / EMOM
     // (EMOM has its own face). Tabata + Intervals flip orange (work) ↔ blue (rest).
     private var rotatingFlipColor: Color? {
+        // #61 structured run: the wash flips with the LEG kind, off the leg cursor.
+        if session.isRunStructureActive {
+            guard !session.isRunCountIn else { return nil }
+            return session.isRunLegWork ? Theme.Color.accent : Theme.Color.info
+        }
         guard session.condCountInRemaining <= 0 else { return nil }
         switch session.currentSegment?.formatScheme {
         case .tabata, .intervals:

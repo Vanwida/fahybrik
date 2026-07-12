@@ -123,10 +123,31 @@ struct TreadmillHUDView: View {
                 hrAndZoneRow
                 metricsRow
                 goalSection
+                guideReference
             }
             .padding(.bottom, 4)
         }
         .safeAreaInset(edge: .bottom) { controls }
+    }
+
+    /// PRESCRIBED inclinación / cadencia for a structured leg (#61) — a sober
+    /// reference so the athlete can match the belt. Hidden when the coach set none.
+    @ViewBuilder
+    private var guideReference: some View {
+        let parts: [String] = {
+            var p: [String] = []
+            if let inc = model.prescribedInclinePct, inc > 0 {
+                p.append(inc == inc.rounded() ? "Inclinación \(Int(inc))%" : String(format: "Inclinación %.1f%%", inc))
+            }
+            if let cad = model.prescribedCadenceSpm { p.append("Cadencia \(cad) ppm") }
+            return p
+        }()
+        if !parts.isEmpty {
+            Text(parts.joined(separator: " · "))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+        }
     }
 
     private var legHeader: some View {

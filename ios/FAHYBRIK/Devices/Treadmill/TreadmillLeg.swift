@@ -27,6 +27,30 @@ enum TreadmillLegResolver {
         s.isConditioningTimer && s.formatScheme == .intervals && s.kind == .running
     }
 
+    /// True when this segment is driven by the structured-run leg cursor (#61); it
+    /// supersedes the scalar `isRunSeries` path (per-bout measure/target/incline).
+    static func hasStructure(_ s: WorkoutSegment) -> Bool { s.hasRunStructure }
+
+    /// The treadmill leg for a STRUCTURED run segment, resolved from the expanded
+    /// leg list at `legIndex` — the per-bout measure / target / incline the scalar
+    /// path could not carry. This fills BOTH documented seams: a heterogeneous
+    /// pyramid work bout reads its OWN distance (no `.open` degrade), and a distance
+    /// recovery ("trota 200m") resolves to `.distance` + `ownsAutoAdvance` so the
+    /// belt closes it exactly like a work bout. A TIME leg (work or rest) stays
+    /// session-clock-owned; an open/unknown leg is manual-only.
+    static func leg(for segment: WorkoutSegment, structureLegIndex legIndex: Int) -> TreadmillLeg {
+        guard let legs = segment.runStructureLegs, legIndex >= 0, legIndex < legs.count else {
+            return leg(for: segment, isWork: true)   // defensive: fall back to the scalar path
+        }
+        let l = legs[legIndex]
+        let goal = l.goal
+        let ownsDistance: Bool = { if case .distance = goal { return true }; return false }()
+        return TreadmillLeg(phase: l.isRecovery ? .recovery : .work,
+                            goal: goal,
+                            target: l.isRecovery ? .none : l.runTarget,
+                            ownsAutoAdvance: ownsDistance)
+    }
+
     /// The current leg. For a continuous run, `isWork` is ignored. For a series:
     /// a WORK bout (distance → the player owns the close; time → the session's
     /// clock owns it) or a RECOVERY countdown (session-owned).
@@ -80,6 +104,10 @@ enum TreadmillLegResolver {
 /// approved mockup ("Tramo 3 de 13" for a 6×800 session).
 enum WorkoutLegCount {
     static func legs(in s: WorkoutSegment) -> Int {
+        // A STRUCTURED run carries the EXACT leg list (#61): the expanded count is
+        // the single source of truth — heterogeneous bouts, distance recoveries and
+        // phase legs all count as themselves, not `formatRounds × stride`.
+        if let legs = s.runStructureLegs { return legs.count }
         guard TreadmillLegResolver.isRunSeries(s) else { return 1 }
         // Bout count = `formatRounds`, the single source of truth: it already falls
         // back to `sets.count` for legacy sets-only interval pyramids (see
@@ -91,16 +119,28 @@ enum WorkoutLegCount {
         segments.reduce(0) { $0 + legs(in: $1) }
     }
 
-    /// 1-based global leg number for the live position.
+    /// 1-based global leg number for the live position (LEGACY series / continuous).
     static func current(_ segments: [WorkoutSegment], index: Int,
                         rotRoundIndex: Int, isWork: Bool) -> Int {
         guard index >= 0, index < segments.count else { return 1 }
-        let before = segments.prefix(index).reduce(0) { $0 + legs(in: $1) }
+        let before = legsBefore(segments, index)
         var within = 0
         if TreadmillLegResolver.isRunSeries(segments[index]) {
             let stride = segments[index].formatRestSeconds != nil ? 2 : 1
             within = rotRoundIndex * stride + (isWork ? 0 : 1)
         }
         return before + within + 1
+    }
+
+    /// 1-based global leg number for a STRUCTURED run — the flat leg cursor already
+    /// IS the within-segment offset, so no work/rest stride maths.
+    static func current(_ segments: [WorkoutSegment], index: Int, structureLegIndex: Int) -> Int {
+        guard index >= 0, index < segments.count else { return 1 }
+        let within = max(0, min(structureLegIndex, legs(in: segments[index]) - 1))
+        return legsBefore(segments, index) + within + 1
+    }
+
+    private static func legsBefore(_ segments: [WorkoutSegment], _ index: Int) -> Int {
+        segments.prefix(index).reduce(0) { $0 + legs(in: $1) }
     }
 }
