@@ -87,11 +87,14 @@ const GROUP_ZONE2 = 5;
 //    present in every seeded catalog). Resolved to ids at runtime so the seed is
 //    portable across DBs; a missing slug hard-fails loudly. ─────────────────────
 const SLUGS = {
-  bike: 'bike-z2-endurance',
-  runEasy: 'run-z2-long',
-  runIntervals: 'run-threshold-intervals',
-  row: 'row-z2-long',
-  ski: 'ski-erg-z2-long',
+  // Cardio rows are the plain modality exercises — the Z2/interval dose lives in
+  // the typed prescription, not the slug (verified against the real 79-row prod
+  // catalog: no per-dose cardio slugs exist there).
+  bike: 'bike-erg',
+  runEasy: 'run',
+  runIntervals: 'run',
+  row: 'row',
+  ski: 'ski-erg',
   hipFlow: 'mobility-hip-flow-15min',
   foamRoll: 'foam-roll-lower-15min',
   lunges: 'hyrox-sandbag-lunges',
