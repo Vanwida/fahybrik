@@ -133,7 +133,10 @@ struct SubscriptionView: View {
         }
     }
 
-    // Inactive / no subscription → point to the web. NO in-app checkout.
+    // Inactive / no subscription → an HONEST plain notice. AUDIT-B8c (steering 3.1.1):
+    // NO external link, URL or CTA to an out-of-app purchase/management flow here. The
+    // Stripe Customer Portal stays available ONLY for an ACTIVE subscription
+    // (manageButton — managing an existing subscription, defensible under 3.1.3(b)).
     @ViewBuilder
     private func inactiveNotice(_ info: SubscriptionInfo) -> some View {
         CardSurface(padding: 14) {
@@ -141,14 +144,11 @@ struct SubscriptionView: View {
                 Text("Tu suscripción no está activa")
                     .font(Theme.Typography.bodyEmph)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Gestiona tu plan desde \(SubscriptionService.accountWebHost) para recuperar el acceso completo.")
+                Text("Tu plan se gestiona desde la web de FAHYBRID. Cuando esté activo, aquí verás tu acceso completo.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        }
-        SecondaryButton(title: "Ir a \(SubscriptionService.accountWebHost)") {
-            safari = SafariURL(url: SubscriptionService.accountWebURL)
         }
     }
 

@@ -2054,7 +2054,7 @@
 				PRODUCT_NAME = FAHYBRIKWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -2086,7 +2086,7 @@
 				PRODUCT_NAME = FAHYBRIK;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -2253,7 +2253,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -2358,7 +2358,7 @@
 				PRODUCT_NAME = FAHYBRIKWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
