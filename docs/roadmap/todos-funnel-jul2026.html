@@ -554,20 +554,22 @@
         <div class="tdesc">Que el día de la sim o la carrera cada uno vea SUS estaciones en la muñeca (quién lleva qué y a qué %). Hoy el reloj solo sabe que la sesión es dobles y con quién. Apple Watch primero; Zepp después.</div>
       </div>
     </div>
-    <div class="task" data-id="58">
+    <div class="task done" data-id="58">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#58</div>
         <div class="tsub">Feedback del atleta sobre los entrenos</div>
-        <div class="tdesc">Que el atleta pueda decirle al coach cómo le fue el entreno (sensaciones, dureza, comentario) y que eso le llegue al coach junto a los datos — cerrando el círculo atleta→coach→plan. Revisar primero qué captura ya la ejecución (RPE, notas) para no duplicar.</div>
+        <div class="tdesc">El atleta le dice al coach cómo le fue, junto a los datos.</div>
+        <div class="resumen"><b>Hecha · 12 jul.</b> Al guardar un entreno prescrito (donde ya estaba el RPE): "Fácil de más / Como debía / Duro de más" + molestia física (zona + nota). Le llega al coach en la actividad del día, el deep-dive y el detalle de sesión — y una molestia dispara la señal "Vigilar" automáticamente.</div>
       </div>
     </div>
-    <div class="task" data-id="59">
+    <div class="task done" data-id="59">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#59</div>
         <div class="tsub">Feedback sobre la app (para nosotros)</div>
-        <div class="tdesc">Dos mecanismos, lo estándar del mercado: (1) pop-up de valoración cada cierto tiempo ("¿qué tal la app?", con las reglas de no ser pesado) y (2) botón permanente en el perfil para enviar sugerencias o reportar un error. Circuito distinto del #58: esto nos llega a nosotros, no al coach.</div>
+        <div class="tdesc">Sugerencias y errores del atleta hacia nosotros, no hacia el coach.</div>
+        <div class="resumen"><b>Hecha · 12 jul.</b> Perfil → "Enviar sugerencia o error" (se guarda en nuestra BD + aviso por email a hello@) y valoración nativa de la App Store con reglas anti-pesadez: solo tras un momento bueno (un récord real o 3 semanas de uso), máximo una vez cada 6 meses, nunca justo después de reportar un fallo.</div>
       </div>
     </div>
     <div class="task" data-id="60">
@@ -597,28 +599,31 @@
         <div class="resumen"><b>Hecha · 12 jul, en prod y demo.</b> La inclinación se prescribe por tramo, la cinta la captura en vivo y su promedio queda guardado por segmento; en el detalle de la sesión salen chips "N% incl." y "cad. N" cuando hay dato (nunca ceros falsos). Tendencia semanal de cadencia en Analíticas. La cadencia llega por captura de pantalla/Apple Health (la cinta no la emite — sin inventos).</div>
       </div>
     </div>
-    <div class="task" data-id="63">
+    <div class="task done" data-id="63">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#63</div>
         <div class="tsub">Audio coaching en vivo (running ola 2)</div>
-        <div class="tdesc">Voz por los auriculares durante el entreno: entras/sales de serie, aviso si te sales del ritmo o la zona, splits cantados. La mayor diferencia percibida entre una app seria y un tracker.</div>
+        <div class="tdesc">La app te habla mientras corres.</div>
+        <div class="resumen"><b>Hecha · 12 jul.</b> "Tramo 3 de 13: 800 metros, ritmo 4:25 a 4:35" · "Vas 15 segundos rápido" (con anti-pesadez: nunca insiste) · splits por km cantados · "10 segundos" antes del cambio. Baja la música solo mientras habla. Toggle "Avisos de voz" en el perfil. Funciona en cinta y outdoor.</div>
       </div>
     </div>
-    <div class="task" data-id="64">
+    <div class="task done" data-id="64">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#64</div>
         <div class="tsub">Correr outdoor EN VIVO (running ola 2)</div>
-        <div class="tdesc">GPS en directo con mapa, auto-pausa, avance automático de tramos también en calle, y Live Activity/Dynamic Island en la pantalla del iPhone. Hoy el outdoor solo se registra a posteriori.</div>
+        <div class="tdesc">GPS en directo con mapa, auto-pausa y tramos que se cierran solos también en la calle.</div>
+        <div class="resumen"><b>Hecha · 12 jul.</b> "Correr fuera": mapa con tu traza en vivo, ritmo GPS vs objetivo, auto-pausa en el semáforo (nunca dentro de un intervalo cronometrado), tramos por distancia cerrándose solos, Live Activity en la pantalla bloqueada y Dynamic Island, y la ruta guardada con el entreno (mini-mapa al acabar y en el histórico). Pendiente de probar con GPS real en la calle — el simulador no corre.</div>
       </div>
     </div>
-    <div class="task" data-id="65">
+    <div class="task done" data-id="65">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#65</div>
         <div class="tsub">Resumen post-entreno premium (running ola 2)</div>
-        <div class="tdesc">El momento al acabar: card con splits, gráficas de calidad, PRs con su celebración, y compartible. Tenemos las analíticas; falta el momento.</div>
+        <div class="tdesc">El momento al acabar: récords celebrados y card compartible.</div>
+        <div class="resumen"><b>Hecha · 12 jul.</b> Al guardar, si has batido tu 1k/3k/5k corriendo, celebración con medalla ("21:48 · 14 segundos menos que tu mejor marca") + card compartible de imagen con tus números — sin logos por delante. Los récords se detectan de lo corrido de verdad (el test de 5k es calibración, cosa aparte). El resumen de siempre (RPE, zonas, tramos) intacto debajo.</div>
       </div>
     </div>
     <div class="task done" data-id="66">
@@ -630,20 +635,22 @@
         <div class="resumen"><b>Hecha · 12 jul, en prod y demo.</b> En el detalle de sesión: tramo a tramo, prescrito vs hecho con veredicto (En banda / Más rápido / Más lento / Sin datos) y % de la sesión. El veredicto usa la MISMA banda que vio el atleta en su móvil; el ámbar es señal, no fallo. Verificado con datos reales: el Atleta Demo 1 corrió sus 6×1000 de banda 4:09–4:13 todos a ~4:02 → "Más rápido", 17%.</div>
       </div>
     </div>
-    <div class="task" data-id="67">
+    <div class="task done" data-id="67">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#67</div>
         <div class="tsub">Carga de entrenamiento: forma/fatiga (running ola 2)</div>
-        <div class="tdesc">Modelo de carga aguda vs crónica (estilo fitness/fatiga/forma) sobre nuestros datos, agnóstico a metodología. Volumen y PRs ya existen; el contexto de progresión no.</div>
+        <div class="tdesc">El contexto de progresión que faltaba, en palabras llanas.</div>
+        <div class="resumen"><b>Hecha · 12 jul, en prod y demo.</b> Dos cards nuevas en Recuperación: "Forma" (¿fresco, en equilibrio, en carga, fatiga alta?) y "Carga semanal" (subiendo/bajando/estable) — el mismo motor científico que ya usaba el coach, ahora visible para el atleta, sin siglas. Con pocos datos de esfuerzo, lo dice honesto en vez de inventar.</div>
       </div>
     </div>
-    <div class="task" data-id="68">
+    <div class="task done" data-id="68">
       <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="body">
         <div class="tid">#68</div>
         <div class="tsub">Objetivos por tramo en el reloj (running ola 2)</div>
-        <div class="tdesc">Que la serie se corra desde la muñeca con su objetivo de ritmo/zona por tramo: primero nuestra app de Apple Watch (ya existe la base); Garmin vía Connect IQ después (su API oficial sigue pausada).</div>
+        <div class="tdesc">La serie se corre desde la muñeca, sin sacar el móvil.</div>
+        <div class="resumen"><b>Hecha · 12 jul (Apple Watch).</b> "TRAMO 3 DE 13 · 800 m", ritmo vs banda con háptica al salirte, barra de progreso, siguiente tramo — y los tramos por distancia se cierran solos aunque estés en otra página del reloj. De paso cayó el desfase de 1 segundo entre reloj y móvil que cazaste en la foto (redondeaban distinto). Garmin vía Connect IQ queda para más adelante.</div>
       </div>
     </div>
   </section>
