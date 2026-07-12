@@ -28,6 +28,7 @@ import {
   buildDoblesConnectedPlan,
   type DoblesConnectedPlanDTO,
 } from '@/lib/athlete/dobles-plan';
+import { computeDoublesStreak, loadLastJoint } from '@/lib/athlete/dobles-streak';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,14 +57,23 @@ export async function GET(
 
   // Both athletes' current week from the shared resolver. The training pair
   // always references an existing athlete row, so the partner week resolves.
-  const selfWeek = await buildAthleteWeekPlan(auth.athlete_id, 0);
-  const partnerWeek = await buildAthleteWeekPlan(partner.partner_athlete_id, 0);
+  // The pair-rhythm block comes from the shared streak lib (self-athlete-keyed).
+  const [selfWeek, partnerWeek, counts, last_joint] = await Promise.all([
+    buildAthleteWeekPlan(auth.athlete_id, 0),
+    buildAthleteWeekPlan(partner.partner_athlete_id, 0),
+    computeDoublesStreak({ athleteId: auth.athlete_id }),
+    loadLastJoint({
+      athleteId: auth.athlete_id,
+      partnerAthleteId: partner.partner_athlete_id,
+    }),
+  ]);
 
   const plan = buildDoblesConnectedPlan({
     selfWeek,
     partnerWeek,
     self_name: firstName(auth.full_name),
     partner_name: firstName(partner.partner_full_name),
+    streak: { ...counts, last_joint },
   });
 
   return jsonOk(plan);
