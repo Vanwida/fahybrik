@@ -202,58 +202,6 @@ struct SessionCompactRow: View {
 
 // MARK: - AM/PM switcher
 
-/// Two-segment AM/PM selector with an active underline in the active segment's
-/// modality color. Used in the day-detail screen to flip between sessions.
-struct AMPMSwitcher: View {
-    @Binding var selection: SessionSlot
-    /// Per-slot (label, modality color) so each tab underlines in its own color.
-    let amLabel: String
-    let amModality: String?
-    let pmLabel: String
-    let pmModality: String?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            segment(.am, label: amLabel, modality: amModality)
-            segment(.pm, label: pmLabel, modality: pmModality)
-        }
-    }
-
-    private func segment(_ slot: SessionSlot, label: String, modality: String?) -> some View {
-        let active = selection == slot
-        let color = Theme.Modality.color(modality)
-        return Button {
-            guard !active else { return }
-            Haptics.light()
-            withAnimation(.easeInOut(duration: 0.18)) { selection = slot }
-        } label: {
-            VStack(spacing: 3) {
-                Text("\(slot.label) · \(label)")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(active ? Theme.Color.foreground : Theme.Color.muted)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .padding(.vertical, 11)
-                Rectangle()
-                    .fill(active ? color : Color.clear)
-                    .frame(height: 3)
-            }
-            .frame(maxWidth: .infinity)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("\(slot == .am ? "Mañana" : "Tarde"), \(label)")
-        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
-    }
-}
-
-// MARK: - RPE selector
-
 /// Discrete RPE picker 6–10 (the handoff's range). Selected value fills orange
 /// with `accentOn` text; mono digits. One value active at a time.
 struct RPESelector: View {
@@ -389,56 +337,6 @@ struct PaceBarChart: View {
 
 // MARK: - Publish notice row
 
-/// The orange-tint "coach published your week" row from Inicio: a tinted
-/// surface with a coach avatar, message, and a "Ver ›" CTA.
-struct PublishNoticeRow: View {
-    /// Coach initial(s) for the avatar, e.g. "P".
-    let coachInitial: String
-    let text: String
-    var ctaTitle: String = "Ver"
-    let onTap: () -> Void
-
-    var body: some View {
-        Button {
-            Haptics.light()
-            onTap()
-        } label: {
-            HStack(spacing: 12) {
-                CoachAvatar(initials: coachInitial, size: 32)
-                Text(text)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 2) {
-                    Text(ctaTitle)
-                        .font(.system(size: 13, weight: .bold))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                // "Ver ›" is text + a small glyph → text-safe accent (orange
-                // fails AA on the pale tint in light; accentText == orange on dark).
-                .foregroundStyle(Theme.Color.accentText)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Theme.Color.accent.opacity(0.10))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(0.30), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(text)
-        .accessibilityHint("Toca para ver")
-        .accessibilityAddTraits(.isButton)
-    }
-}
-
-// MARK: - Coach avatar
-
 /// A circular avatar showing an initial over the chip surface. Used by the
 /// publish notice, coach note row, and chat header. Falls back to a person
 /// glyph when `initials` is empty.
@@ -527,53 +425,6 @@ private struct DiagonalHatch: Shape {
 }
 
 // MARK: - Chat bubble
-
-/// A chat message bubble. Received = surface fill + hairline border (left
-/// aligned); sent = orange fill with `accentOn` text (right aligned).
-/// Asymmetric corner radii give the "tail" feel of the handoff.
-struct ChatBubble: View {
-    let text: String
-    let isMine: Bool
-    /// Optional timestamp shown under the bubble, mono + muted.
-    var timestamp: String? = nil
-
-    private var bubbleShape: UnevenRoundedRectangle {
-        // Flatten the bottom corner on the sender's side for the tail.
-        UnevenRoundedRectangle(
-            topLeadingRadius: 16,
-            bottomLeadingRadius: isMine ? 16 : 4,
-            bottomTrailingRadius: isMine ? 4 : 16,
-            topTrailingRadius: 16,
-            style: .continuous
-        )
-    }
-
-    var body: some View {
-        HStack {
-            if isMine { Spacer(minLength: 40) }
-            VStack(alignment: isMine ? .trailing : .leading, spacing: 4) {
-                Text(text)
-                    .font(.system(size: 14))
-                    .foregroundStyle(isMine ? Theme.Color.accentOn : Theme.Color.foreground)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(isMine ? Theme.Color.accent : Theme.Color.surface)
-                    .overlay {
-                        if !isMine {
-                            bubbleShape.stroke(Theme.Color.hairline, lineWidth: 1)
-                        }
-                    }
-                    .clipShape(bubbleShape)
-                if let timestamp {
-                    MonoText(text: timestamp, size: 10, weight: .medium, color: Theme.Color.faint)
-                }
-            }
-            if !isMine { Spacer(minLength: 40) }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(isMine ? "Yo" : "Coach"): \(text)")
-    }
-}
 
 // MARK: - Dismissable sheet chrome
 //
