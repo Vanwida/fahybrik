@@ -34,6 +34,7 @@
 
 import { z } from 'zod';
 import { normalizeFormat, WORKOUT_FORMAT_KEYS, type WorkoutFormat } from './format';
+import { runStructureSchema, type RunStructure } from './run-structure';
 
 // ── Bounds (named, not magic) ───────────────────────────────────────────────
 const RPE_MIN = 0; // a set can be prescribed at RPE 0 only as a floor; 1-10 is the live range
@@ -410,6 +411,12 @@ export interface Prescription {
   target?: Target; // block-level intensity (e.g. a steady Z2 ride / @4:00/km tempo)
   pace_cap?: PaceCap; // #28 — typed secondary pace bound alongside `target`
   hr_zone?: number; // DEPRECATED — use target {kind:'hr_zone'}; lifted on normalize
+  // #61 — the STRUCTURED running workout (phased warmup/main/cooldown sequence of
+  // segments with nested repeats). ADDITIVE: when present, the legacy fields above
+  // (scheme/rounds/work_s/rest_s/sets/total_s/target) are ALSO emitted as a
+  // best-effort flatten (run-structure-convert.ts) so the installed iOS app keeps
+  // decoding. Running only; see run-structure.ts.
+  structure?: RunStructure;
   note?: string;
 }
 
@@ -435,6 +442,7 @@ const prescriptionObjectSchema = z
     target: targetSchema.optional(),
     pace_cap: paceCapSchema.optional(),
     hr_zone: z.number().int().min(HR_ZONE_MIN).max(HR_ZONE_MAX).optional(), // deprecated alias
+    structure: runStructureSchema.optional(), // #61 — structured running workout
     note: z.string().max(2000).optional(),
   })
   .strict();

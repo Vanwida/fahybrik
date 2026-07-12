@@ -14,6 +14,7 @@
 // segment_executions.modality, which analytics group by).
 
 import type { Modality } from '@fahybrid/shared/domain/prescription';
+import { sanitizeRunCadenceSpm } from '@/lib/sync/ingest-execution-segments';
 
 // Garmin Health Activity API `activityType` enum → canonical Modality.
 // Garmin sends UPPER_SNAKE values (e.g. RUNNING, INDOOR_ROWING, CYCLING).
@@ -55,17 +56,24 @@ export function garminActivityToModality(
 
 // Per-modality intensity derived from a single lap. Distances are metres,
 // durations seconds. We compute:
-//   - run modality   → avg_pace_s_per_km
+//   - run modality   → avg_pace_s_per_km + run_cadence_spm (steps/min, gated)
 //   - row/ski/bike   → avg_pace_s_per_500m
 //   - any erg        → avg_power_w (if the lap carries power)
-//   - row/ski        → stroke_rate_spm (if the lap carries it)
+//   - row/ski/bike   → stroke_rate_spm (erg strokes/min, bike rpm — if present)
 // All optional; a field stays null when its source signal is missing or the
 // modality doesn't use it. Pace requires positive distance AND duration.
+//
+// CADENCE vs STROKE RATE (mig 0124): running cadence is steps/min and belongs in
+// `run_cadence_spm`; erg stroke rate / bike rpm belongs in `stroke_rate_spm`.
+// They are DIFFERENT physical quantities, so the caller passes each in its own
+// slot and this mapper keeps them apart by modality — a run's cadence never
+// lands in the erg stroke column.
 export type LapIntensity = {
   avg_pace_s_per_km: number | null;
   avg_pace_s_per_500m: number | null;
   avg_power_w: number | null;
   stroke_rate_spm: number | null;
+  run_cadence_spm: number | null;
 };
 
 const ERG_MODALITIES: ReadonlySet<Modality> = new Set<Modality>(['row', 'ski', 'bike']);
@@ -75,13 +83,17 @@ export function deriveLapIntensity(args: {
   distance_meters: number | null | undefined;
   duration_seconds: number | null | undefined;
   power_w?: number | null;
+  /** Erg strokes/min (row/ski) or bike rpm. NOT running cadence. */
   stroke_rate_spm?: number | null;
+  /** Running steps/min. Only stored for the run modality; range-gated to null. */
+  run_cadence_spm?: number | null;
 }): LapIntensity {
   const out: LapIntensity = {
     avg_pace_s_per_km: null,
     avg_pace_s_per_500m: null,
     avg_power_w: null,
     stroke_rate_spm: null,
+    run_cadence_spm: null,
   };
   const dist = num(args.distance_meters);
   const dur = num(args.duration_seconds);
@@ -95,8 +107,15 @@ export function deriveLapIntensity(args: {
   }
   const power = num(args.power_w);
   if (power != null && power >= 0) out.avg_power_w = round1(power);
-  const spm = num(args.stroke_rate_spm);
-  if (spm != null && spm >= 0) out.stroke_rate_spm = round1(spm);
+  // Erg stroke rate / bike rpm — only on erg modalities (never a run).
+  if (args.modality && ERG_MODALITIES.has(args.modality)) {
+    const spm = num(args.stroke_rate_spm);
+    if (spm != null && spm >= 0) out.stroke_rate_spm = round1(spm);
+  }
+  // Running cadence — only on the run modality, gated to the physiological band.
+  if (args.modality === 'run') {
+    out.run_cadence_spm = sanitizeRunCadenceSpm(args.run_cadence_spm);
+  }
   return out;
 }
 

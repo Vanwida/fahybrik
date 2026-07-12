@@ -25,6 +25,35 @@ export { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus };
 export const SEGMENT_MODALITIES = ['run', 'row', 'ski', 'bike', 'strength', 'other'] as const;
 export type SegmentModality = (typeof SEGMENT_MODALITIES)[number];
 
+// Physiological bands for the two running signals (mig 0124), mirroring the DB
+// CHECK constraints. The ingest layer range-gates device values to these bands
+// BEFORE insert so a stray reading (a walking break's cadence, a glitch) can
+// never make the CHECK reject a whole segment row — it lands as an honest null.
+export const RUN_CADENCE_MIN_SPM = 100; // below this is walking, not a run cadence
+export const RUN_CADENCE_MAX_SPM = 250; // generous sprint ceiling
+export const INCLINE_MAX_PCT = 30; // treadmill tops ~15; headroom for steep trail
+
+/**
+ * Gate a raw running cadence (steps/min) to the stored band, rounding to the
+ * integer column. Out-of-band or non-finite → null (honest "unknown", never a
+ * clamped fabrication). Shared by every ingest channel (iOS / vision / Garmin).
+ */
+export function sanitizeRunCadenceSpm(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  const r = Math.round(v);
+  return r >= RUN_CADENCE_MIN_SPM && r <= RUN_CADENCE_MAX_SPM ? r : null;
+}
+
+/**
+ * Gate a raw incline/grade percent to the stored band [0, INCLINE_MAX_PCT],
+ * rounding to one decimal (the numeric(4,1) column). Out-of-band → null.
+ */
+export function sanitizeInclinePct(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  const r = Math.round(v * 10) / 10;
+  return r >= 0 && r <= INCLINE_MAX_PCT ? r : null;
+}
+
 /** Normalise a free-ish modality string from the client to the canonical set. */
 export function normalizeModality(raw: string | null | undefined): SegmentModality {
   if (!raw) return 'other';
@@ -104,6 +133,12 @@ export const segmentInputSchema = z.object({
   avg_pace_s_per_km: z.number().nonnegative().optional(),
   avg_power_w: z.number().nonnegative().optional(),
   stroke_rate_spm: z.number().nonnegative().optional(),
+  // Running-native signals (mig 0124). run_cadence_spm = steps/min (a step is NOT
+  // an erg stroke → its own column, never stroke_rate_spm); incline_pct = average
+  // treadmill/uphill grade %. Both range-gated server-side (see sanitize*), so an
+  // out-of-band device value lands as null instead of tripping the DB CHECK.
+  run_cadence_spm: z.number().nonnegative().optional(),
+  incline_pct: z.number().nonnegative().optional(),
   avg_hr: z.number().int().min(30).max(260).optional(),
   max_hr: z.number().int().min(30).max(260).optional(),
   calories: z.number().nonnegative().optional(),
@@ -296,6 +331,7 @@ export async function ingestExecutionSegments(args: {
         started_at, ended_at,
         modality, distance_meters,
         avg_pace_s_per_500m, avg_pace_s_per_km, avg_power_w, stroke_rate_spm,
+        run_cadence_spm, incline_pct,
         avg_hr, max_hr, calories, reps_completed, weight_used_kg,
         reps_prescribed, reps_status, reps_confirmed, is_structural, rx_scaled, scaled_note,
         raw_lap_data_json, source,
@@ -312,6 +348,8 @@ export async function ingestExecutionSegments(args: {
         ${seg.avg_pace_s_per_km ?? null},
         ${seg.avg_power_w ?? null},
         ${seg.stroke_rate_spm ?? null},
+        ${sanitizeRunCadenceSpm(seg.run_cadence_spm)},
+        ${sanitizeInclinePct(seg.incline_pct)},
         ${seg.avg_hr ?? null},
         ${seg.max_hr ?? null},
         ${seg.calories ?? null},
@@ -341,6 +379,8 @@ export async function ingestExecutionSegments(args: {
         avg_pace_s_per_km   = coalesce(excluded.avg_pace_s_per_km, segment_executions.avg_pace_s_per_km),
         avg_power_w         = coalesce(excluded.avg_power_w, segment_executions.avg_power_w),
         stroke_rate_spm     = coalesce(excluded.stroke_rate_spm, segment_executions.stroke_rate_spm),
+        run_cadence_spm     = coalesce(excluded.run_cadence_spm, segment_executions.run_cadence_spm),
+        incline_pct         = coalesce(excluded.incline_pct, segment_executions.incline_pct),
         avg_hr              = coalesce(excluded.avg_hr, segment_executions.avg_hr),
         max_hr              = coalesce(excluded.max_hr, segment_executions.max_hr),
         calories            = coalesce(excluded.calories, segment_executions.calories),

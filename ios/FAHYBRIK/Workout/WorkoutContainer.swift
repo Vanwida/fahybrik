@@ -42,6 +42,11 @@ struct WorkoutContainer: View {
     /// (title/modality/prescription + the engine's metrics) instead of the
     /// prescribed `/api/sync/workout-execution`. Nil = the unchanged prescribed path.
     var freeContext: FreeWorkoutContext? = nil
+    /// #60 — athlete age (from the cached identity) forwarded to the live treadmill
+    /// HUD for the ESTIMATED HR zone (220−age). Nil when unknown. Explicit param
+    /// because the AppDataStore environment does not cross the fullScreenCover this
+    /// container is presented inside (same reason `bearer` is passed explicitly).
+    var athleteAge: Int? = nil
 
     enum Phase: Equatable {
         case brief
@@ -204,7 +209,8 @@ struct WorkoutContainer: View {
                             PhoneMirrorService.shared.end(save: false)
                             Task { await WorkoutStateStore.shared.clear() }
                             onClose()
-                        }
+                        },
+                        athleteAge: athleteAge
                     )
                     .toolbar(.hidden, for: .tabBar)
                 }

@@ -223,6 +223,7 @@ struct InicioView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
+                athleteAge: store.identity.value?.age,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     // A finished session can flip a calibration test's state / land

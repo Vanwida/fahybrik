@@ -129,7 +129,7 @@ targets:
         NSCameraUsageDescription: "FAHYBRID usa la cámara para que fotografíes el resumen de otra app (Garmin, Coros, Concept2…) y la IA rellene tu resultado."
         NSHealthShareUsageDescription: "FAHYBRID lee workouts, HR, HRV, sueño y peso de Apple Health para tu plan de entrenamiento."
         NSHealthUpdateUsageDescription: "FAHYBRID guarda los entrenos que registras en la app en Apple Health."
-        NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu Concept2 para registrar potencia y SPM con precisión durante row y ski erg."
+        NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu cinta y con tu Concept2 para leer ritmo, velocidad e inclinación en vivo, y con tu reloj o banda para tu pulso durante el entreno."
         NSLocationWhenInUseUsageDescription: "FAHYBRID usa el GPS durante tus carreras para medir distancia y ritmo. Si no lo activas, puedes introducir la distancia a mano."
     settings:
       # Per-configuration runtime environment. Referenced by the Info.plist keys

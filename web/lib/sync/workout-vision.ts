@@ -106,6 +106,10 @@ const splitSchema = z.object({
   distance_m: num,
   pace_s: num,
   spm: num,
+  // Treadmill/uphill grade % for this split, when the app shows it (mig 0124).
+  // Usually absent on outdoor summaries → null; the plumbing is ready for the
+  // treadmill screenshots that do surface it. We never invent it.
+  incline_pct: num,
   avg_hr: hr,
   power_w: num,
   calories: num,
@@ -127,6 +131,8 @@ const visionRawSchema = z.object({
   max_hr: hr,
   calories: num,
   avg_spm: num,
+  // Average treadmill/uphill grade % for the whole effort (aggregate path).
+  avg_incline_pct: num,
   avg_power_w: num,
   // Training load (Garmin "Carga", etc.) — a unitless device score.
   training_load: num,
@@ -150,6 +156,11 @@ export interface DetectedMetrics {
   calories: Field<number>;
   avg_power_w: Field<number>;
   stroke_rate_spm: Field<number>;
+  // Running-native (mig 0124). For a RUN capture the device "spm" IS cadence, so
+  // it is surfaced here (and routed to run_cadence_spm on confirm) instead of the
+  // erg stroke column; incline is the treadmill/uphill grade % when legible.
+  run_cadence_spm: Field<number>;
+  incline_pct: Field<number>;
   // Screenshots never contain RPE → always 'review' for the athlete to add.
   perceived_exertion: Field<number>;
 }
@@ -168,6 +179,8 @@ export interface DetectedSegment {
     avg_hr: Field<number>;
     avg_power_w: Field<number>;
     stroke_rate_spm: Field<number>;
+    run_cadence_spm: Field<number>;
+    incline_pct: Field<number>;
     calories: Field<number>;
   };
 }
@@ -248,6 +261,11 @@ export function mapVisionToProposal(args: {
   const src = app ?? 'image';
   const modality = ctx.primary_modality;
   const nativeUnit = paceUnitForModality(modality === 'other' ? 'run' : modality);
+  // For a RUN, the device's "spm" is CADENCE (steps/min) → run_cadence_spm; for an
+  // erg it is stroke rate → stroke_rate_spm. Route the same detected number to the
+  // semantically-correct column so it can never be mislabelled downstream.
+  const isRun = modality === 'run';
+  const reviewField: Field<number> = { value: null, confidence: 'review', source: src };
 
   // The SOLE cardio item's id is the linkage for the AGGREGATE (chart-only) path:
   // when there are no per-split rows, the whole effort attaches to its single
@@ -278,7 +296,9 @@ export function mapVisionToProposal(args: {
     max_hr: field(round(raw.max_hr), 'max_hr', uncertain, src),
     calories: field(raw.calories, 'calories', uncertain, src),
     avg_power_w: field(raw.avg_power_w, 'avg_power_w', uncertain, src),
-    stroke_rate_spm: field(raw.avg_spm, 'avg_spm', uncertain, src),
+    stroke_rate_spm: isRun ? reviewField : field(raw.avg_spm, 'avg_spm', uncertain, src),
+    run_cadence_spm: isRun ? field(raw.avg_spm, 'avg_spm', uncertain, src) : reviewField,
+    incline_pct: field(raw.avg_incline_pct, 'avg_incline_pct', uncertain, src),
     // RPE is never in a screenshot — the athlete adds it on review.
     perceived_exertion: { value: null, confidence: 'review', source: 'athlete' },
   };
@@ -319,7 +339,10 @@ export function mapVisionToProposal(args: {
         avg_pace_s: paceField,
         avg_hr: field(round(s.avg_hr), 'avg_hr', uncertain, src),
         avg_power_w: field(s.power_w, 'power_w', uncertain, src),
-        stroke_rate_spm: field(s.spm, 'spm', uncertain, src),
+        // spm → cadence on a run, stroke rate on an erg (same routing as totals).
+        stroke_rate_spm: isRun ? reviewField : field(s.spm, 'spm', uncertain, src),
+        run_cadence_spm: isRun ? field(s.spm, 'spm', uncertain, src) : reviewField,
+        incline_pct: field(s.incline_pct, 'incline_pct', uncertain, src),
         calories: field(s.calories, 'calories', uncertain, src),
       },
     };
@@ -461,6 +484,8 @@ function buildProposedExecution(args: {
       if (f.avg_hr.value != null) seg.avg_hr = f.avg_hr.value;
       if (f.avg_power_w.value != null) seg.avg_power_w = f.avg_power_w.value;
       if (f.stroke_rate_spm.value != null) seg.stroke_rate_spm = f.stroke_rate_spm.value;
+      if (f.run_cadence_spm.value != null) seg.run_cadence_spm = f.run_cadence_spm.value;
+      if (f.incline_pct.value != null) seg.incline_pct = f.incline_pct.value;
       if (f.calories.value != null) seg.calories = f.calories.value;
       return seg;
     })
@@ -484,6 +509,8 @@ function buildProposedExecution(args: {
     if (metrics.calories.value != null) agg.calories = metrics.calories.value;
     if (metrics.avg_power_w.value != null) agg.avg_power_w = metrics.avg_power_w.value;
     if (metrics.stroke_rate_spm.value != null) agg.stroke_rate_spm = metrics.stroke_rate_spm.value;
+    if (metrics.run_cadence_spm.value != null) agg.run_cadence_spm = metrics.run_cadence_spm.value;
+    if (metrics.incline_pct.value != null) agg.incline_pct = metrics.incline_pct.value;
     attachZones(agg, zones);
     if (isRealSegment(agg)) {
       exec.segments = [agg] as ExecutionMetricsInput['segments'];

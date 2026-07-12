@@ -129,6 +129,45 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     void fx;
   });
 
+  test('round-trips run_cadence_spm + incline_pct with pinned types and honest NULLs (mig 0124)', async () => {
+    const { executionId } = await seedExecution();
+
+    const segments: SegmentInput[] = [
+      // A run leg with both new running signals in range.
+      { position: 0, modality: 'run', distance_meters: 1000, avg_pace_s_per_km: 240, run_cadence_spm: 178, incline_pct: 6 },
+      // A run leg with NEITHER signal → both must read back NULL (never a 0).
+      { position: 1, modality: 'run', distance_meters: 1000, avg_pace_s_per_km: 250 },
+      // Out-of-band values are gated to NULL by ingest, so the CHECK never trips.
+      { position: 2, modality: 'run', distance_meters: 1000, avg_pace_s_per_km: 260, run_cadence_spm: 80, incline_pct: 45 },
+    ];
+
+    const written = await ingestExecutionSegments({ sql, executionId, executionStartedAt: START, segments });
+    expect(written).toBe(3);
+
+    const rows = await sql<
+      Array<{ position: number; run_cadence_spm: number | null; incline_pct: string | null }>
+    >`
+      select position, run_cadence_spm, incline_pct::text as incline_pct
+      from segment_executions
+      where execution_id = ${executionId}
+      order by position
+    `;
+    expect(rows).toHaveLength(3);
+
+    // In-range values persist with the RIGHT types (integer → number; numeric → text).
+    expect(rows[0]!.run_cadence_spm).toBe(178);
+    expect(typeof rows[0]!.run_cadence_spm).toBe('number');
+    expect(Number(rows[0]!.incline_pct)).toBe(6);
+
+    // Absent signals are honest NULL, never a fabricated 0.
+    expect(rows[1]!.run_cadence_spm).toBeNull();
+    expect(rows[1]!.incline_pct).toBeNull();
+
+    // Out-of-band → gated to NULL (row still inserted, CHECK not violated).
+    expect(rows[2]!.run_cadence_spm).toBeNull();
+    expect(rows[2]!.incline_pct).toBeNull();
+  });
+
   test('is idempotent on (execution_id, position): re-send updates in place, no duplicates', async () => {
     const { executionId } = await seedExecution();
 
