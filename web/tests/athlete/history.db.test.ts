@@ -152,7 +152,7 @@ describeWithDb('athlete history by month (real DB)', () => {
         durationS: 2400,
       });
 
-      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05');
+      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05', sql);
       expect(res.month).toBe('2026-05');
 
       const byDate = new Map(res.days.map((d) => [d.date, d]));
@@ -197,7 +197,7 @@ describeWithDb('athlete history by month (real DB)', () => {
     async () => {
       const fx = await makeCoachAndAthlete(sql);
       cleanups.push(fx.cleanup);
-      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05');
+      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05', sql);
       expect(res).toEqual({ month: '2026-05', days: [] });
     },
     DB_TEST_TIMEOUT_MS,
@@ -224,7 +224,7 @@ describeWithDb('athlete history by month (real DB)', () => {
         createdAt: '2026-05-20T09:00:00Z',
       });
 
-      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05');
+      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05', sql);
       const day = res.days.find((d) => d.date === sched);
       expect(day).toBeDefined();
       expect(day!.is_rest).toBe(false);

@@ -34,7 +34,8 @@ import {
   mondayOfWeek,
   parseIsoDate,
 } from '@fahybrid/shared/domain/dates';
-import { sql } from '@/lib/db';
+import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
 
 export interface AthleteHistorySession {
   assignment_id: string;
@@ -82,11 +83,14 @@ interface ExecRow {
 
 /**
  * Build one month of the athlete's history. `month` MUST be a validated `YYYY-MM`
- * (the route enforces the regex). Days are natural-calendar, box-local.
+ * (the route enforces the regex). Days are natural-calendar, box-local. Takes an
+ * injectable `client` (defaults to the prod pool) so the real-DB tests exercise the
+ * exact SQL against a Neon branch.
  */
 export async function buildAthleteHistoryMonth(
   athlete_id: number | bigint,
   month: string,
+  client: Sql = defaultSql,
 ): Promise<AthleteHistoryMonth> {
   const [year, mon] = month.split('-').map(Number);
   const monthStart = parseIsoDate(`${month}-01`);
@@ -106,7 +110,7 @@ export async function buildAthleteHistoryMonth(
     // Completed executions in the month, dated by the box-local day the work was
     // done on (started_at, falling back to the row's created_at when a legacy sync
     // left started_at null). Gated on the assignment's DONE status.
-    sql<ExecRow[]>`
+    client<ExecRow[]>`
       select
         (coalesce(we.started_at, we.created_at) at time zone ${BOX_TIMEZONE})::date::text as done_date,
         we.assignment_id::text                     as assignment_id,
@@ -131,7 +135,7 @@ export async function buildAthleteHistoryMonth(
     // are planned (workout) vs scheduled rest. Mirrors week-plan.ts's publish gate:
     // a week the coach saved as DRAFT is not yet the athlete's plan, so its
     // assignments don't count toward planned-ness.
-    sql<Array<{ sched_date: string }>>`
+    client<Array<{ sched_date: string }>>`
       select distinct to_char(wa.scheduled_for, 'YYYY-MM-DD') as sched_date
       from workout_assignments wa
       where wa.athlete_id = ${athlete_id as number}
