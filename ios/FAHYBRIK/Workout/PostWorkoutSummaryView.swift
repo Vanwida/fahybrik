@@ -228,7 +228,7 @@ struct PostWorkoutSummaryView: View {
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
-        let bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
         // This workout happened — count it toward the review-prompt tenure gate,
         // even when the network is offline (#59).
         ReviewPromptStore.shared.recordWorkoutSaved()

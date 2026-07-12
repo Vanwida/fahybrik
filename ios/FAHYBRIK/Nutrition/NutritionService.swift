@@ -22,7 +22,7 @@ final class NutritionService: ObservableObject {
     @Published private(set) var lastError: String? = nil
 
     private var bearer: String? {
-        UserDefaults.standard.string(forKey: "fahybrik.bearer")
+        KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
     }
 
     private static let dateFmt: DateFormatter = {

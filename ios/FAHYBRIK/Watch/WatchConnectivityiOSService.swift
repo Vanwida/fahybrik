@@ -231,7 +231,7 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
               let payload = try? WatchWire.decoder.decode(WorkoutExecutionPayload.self, from: envelope.payloadJson)
         else { return false }
 
-        let bearer = UserDefaults.standard.string(forKey: AuthState.bearerStorageKey)
+        let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
 
         // Fork solo vs dobles-joint exactly like the phone's own finish
         // (PostWorkoutSummaryView.handleSave): a dobles-pair session logs against

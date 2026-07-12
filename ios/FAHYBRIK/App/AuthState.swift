@@ -31,11 +31,8 @@ final class AuthState {
     /// launch / sign-in so a lapsed athlete gets gated again.
     var accessGated: Bool? = nil
 
-    /// Single source of truth for the persisted-bearer UserDefaults key, so
-    /// callers that seed a session bearer from disk (e.g. AppShell) never drift
-    /// from where AuthState writes it.
-    static let bearerStorageKey = "fahybrik.bearer"
-    private static let bearerKey = bearerStorageKey
+    /// AUDIT-B1 — the bearer now lives in the Keychain (KeychainTokenStore); callers that
+    /// need it read `KeychainTokenStore.shared.read()`, never UserDefaults.
     private static let athleteKey = "fahybrik.athleteId"
     private static let stageKey = "fahybrik.stage"
     private static func day1Key(_ athleteId: String) -> String { "fahybrik.day1_completed.\(athleteId)" }
@@ -50,7 +47,10 @@ final class AuthState {
 
     func bootstrap() {
         let d = UserDefaults.standard
-        bearer = d.string(forKey: Self.bearerKey)
+        // AUDIT-B1 — move any legacy UserDefaults bearer into the Keychain (transparent,
+        // one-time) and read the session token from the Keychain.
+        KeychainTokenStore.shared.migrateFromUserDefaults()
+        bearer = KeychainTokenStore.shared.read()
         athleteId = d.string(forKey: Self.athleteKey)
         if let raw = d.string(forKey: Self.stageKey) {
             switch raw {
@@ -175,8 +175,9 @@ final class AuthState {
 
     private func persist() {
         let d = UserDefaults.standard
-        if let bearer { d.set(bearer, forKey: Self.bearerKey) }
-        else { d.removeObject(forKey: Self.bearerKey) }
+        // AUDIT-B1 — the bearer is stored in the Keychain, not UserDefaults.
+        if let bearer { KeychainTokenStore.shared.save(bearer) }
+        else { KeychainTokenStore.shared.delete() }
         if let athleteId { d.set(athleteId, forKey: Self.athleteKey) }
         else { d.removeObject(forKey: Self.athleteKey) }
         let raw: String = {
