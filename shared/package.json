@@ -58,6 +58,10 @@
       "types": "./domain/goal-gap/index.ts",
       "default": "./domain/goal-gap/index.ts"
     },
+    "./domain/dobles-gap": {
+      "types": "./domain/dobles-gap/index.ts",
+      "default": "./domain/dobles-gap/index.ts"
+    },
     "./domain/athlete/*": {
       "types": "./domain/athlete/*.ts",
       "default": "./domain/athlete/*.ts"

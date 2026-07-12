@@ -31,9 +31,14 @@ import {
   type CanonicalDoblesPair,
 } from '@/lib/athlete/dobles-simulation-edit';
 import { athleteSimulationPutSchema } from '@fahybrid/shared/schema/dobles-simulation';
+import { resolveCoachTips } from '@/lib/coach/guidance';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// The athlete simulation payload + the coach's editable "consejos" for the
+// simulation context (system defaults until the coach authors their own).
+type DoblesSimulationWithTips = DoblesSimulationDTO & { coach_tips: string[] };
 
 /** The reading athlete's own + partner's user id + name, from the canonical pair. */
 function readerSides(pair: CanonicalDoblesPair): {
@@ -49,7 +54,7 @@ function readerSides(pair: CanonicalDoblesPair): {
 
 export async function GET(
   request: Request,
-): Promise<NextResponse<DoblesSimulationDTO | ApiError>> {
+): Promise<NextResponse<DoblesSimulationWithTips | ApiError>> {
   const auth = await getAthleteSessionFromBearer(
     request.headers.get('authorization'),
   );
@@ -66,20 +71,23 @@ export async function GET(
   }
 
   const sides = readerSides(pair);
-  const simulation = await loadDoblesSimulation({
-    self_user_id: sides.self_user_id,
-    partner_user_id: sides.partner_user_id,
-    self_name: sides.self_name,
-    partner_name: sides.partner_name,
-    coach_name: pair.coach_name,
-  });
+  const [simulation, coach_tips] = await Promise.all([
+    loadDoblesSimulation({
+      self_user_id: sides.self_user_id,
+      partner_user_id: sides.partner_user_id,
+      self_name: sides.self_name,
+      partner_name: sides.partner_name,
+      coach_name: pair.coach_name,
+    }),
+    resolveCoachTips(pair.coach_id, 'sim_doubles'),
+  ]);
 
   // Partner linked but nobody has authored a simulation → honest-empty.
   if (!simulation) {
     return jsonError('no_simulation', 'No simulation authored yet', 404);
   }
 
-  return jsonOk(simulation);
+  return jsonOk({ ...simulation, coach_tips });
 }
 
 // PUT — the ATHLETE adjusts the pair's reparto (mig 0099). Self-centric body
@@ -89,7 +97,7 @@ export async function GET(
 // reflected in BOTH athletes' assignment-detail reparto (station_assignment).
 export async function PUT(
   request: Request,
-): Promise<NextResponse<DoblesSimulationDTO | ApiError>> {
+): Promise<NextResponse<DoblesSimulationWithTips | ApiError>> {
   const auth = await getAthleteSessionFromBearer(
     request.headers.get('authorization'),
   );
@@ -123,15 +131,18 @@ export async function PUT(
   // Return the fresh, reader-centric DTO (+ provenance now = this athlete) so the
   // app updates in place without a second round-trip.
   const sides = readerSides(pair);
-  const simulation = await loadDoblesSimulation({
-    self_user_id: sides.self_user_id,
-    partner_user_id: sides.partner_user_id,
-    self_name: sides.self_name,
-    partner_name: sides.partner_name,
-    coach_name: pair.coach_name,
-  });
+  const [simulation, coach_tips] = await Promise.all([
+    loadDoblesSimulation({
+      self_user_id: sides.self_user_id,
+      partner_user_id: sides.partner_user_id,
+      self_name: sides.self_name,
+      partner_name: sides.partner_name,
+      coach_name: pair.coach_name,
+    }),
+    resolveCoachTips(pair.coach_id, 'sim_doubles'),
+  ]);
   if (!simulation) {
     return jsonError('internal', 'No se pudo cargar la simulación', 500);
   }
-  return jsonOk(simulation);
+  return jsonOk({ ...simulation, coach_tips });
 }

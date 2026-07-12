@@ -37,6 +37,12 @@ struct RaceDetailView: View {
 
     private var effectiveBearer: String? { bearer }
 
+    /// A doubles race gets the pair-scoped predicho (DoblesRaceGapSection) instead
+    /// of the individual goal-gap: predicho conjunto + reparto editable + consejos.
+    /// The endpoint is race-scoped (not target-scoped), so this holds for a target
+    /// OR a secondary doubles race — the section itself gates on `availability`.
+    private var isDoubles: Bool { race.format?.lowercased() == "doubles" }
+
     var body: some View {
         ZStack {
             Theme.Color.background
@@ -55,12 +61,13 @@ struct RaceDetailView: View {
         }
         .navigationBarHidden(true)
         .task(id: effectiveBearer) {
-            // Only the target race has a goal-gap to fetch; the other variants
-            // render immediately from the race object.
-            if isTargetRace {
-                await loadGap()
-            } else {
+            // A doubles race self-fetches inside DoblesRaceGapSection; only the
+            // individual target race has a goal-gap to fetch here. Everything else
+            // renders immediately from the race object.
+            if isDoubles || !isTargetRace {
                 loadingGap = false
+            } else {
+                await loadGap()
             }
         }
     }
@@ -105,7 +112,9 @@ struct RaceDetailView: View {
             if let goal = goalChipText {
                 chip(icon: "stopwatch", text: "Objetivo \(goal)", fg: Theme.Color.accentText, bg: Theme.Color.accent.opacity(0.12))
             }
-            if let fmt = AthleteNextRace.formatLabel(race.format) {
+            // For a doubles race the section draws the richer "DOBLES · CON X"
+            // accent chip, so we drop the neutral format chip here (no duplicate).
+            if !isDoubles, let fmt = AthleteNextRace.formatLabel(race.format) {
                 chip(icon: nil, text: fmt, fg: Theme.Color.neutral, bg: Theme.Color.neutralTint)
             }
         }
@@ -137,7 +146,11 @@ struct RaceDetailView: View {
 
     @ViewBuilder
     private var content: some View {
-        if isTargetRace {
+        if isDoubles {
+            // Pair-scoped predicho + reparto editable + consejos del coach. Fetches
+            // GET /api/athlete/dobles/race-gap and routes on its own availability.
+            DoblesRaceGapSection(raceId: String(race.raceId), bearer: effectiveBearer)
+        } else if isTargetRace {
             targetContent
         } else {
             secondaryContent
@@ -368,7 +381,7 @@ struct RaceDetailView: View {
     }
 
     private var hasChips: Bool {
-        goalChipText != nil || AthleteNextRace.formatLabel(race.format) != nil
+        goalChipText != nil || (!isDoubles && AthleteNextRace.formatLabel(race.format) != nil)
     }
 
     private var headerAccessibilityLabel: String {

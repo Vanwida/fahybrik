@@ -513,6 +513,106 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
 
+      <h3>4 · La carrera de dobles: predicho contra meta, tramo a tramo</h3>
+      <p>
+        Cuando la carrera objetivo es de dobles y el atleta tiene <b>pareja activa</b>, el mismo
+        camino al objetivo se convierte en un <b>board de pareja</b>: el predicho total de los dos
+        contra la meta, tramo a tramo, con el mismo origen honesto de cada cifra —<b>observado</b>,{' '}
+        <b>estimado</b> o <b>sin datos</b>—. La diferencia es que cada tramo dice además{' '}
+        <em className="em">quién lo hace</em>. En las dos carreras y en la <b>RoxZone</b> van siempre{' '}
+        <b>juntos</b>: manda el más lento, porque ahí no hay reparto que valga. En las 8 estaciones
+        manda el <b>reparto</b> que fijasteis — uno de los dos entero, o <b>repartida</b> entre
+        ambos según su share. Un tramo sin datos de ninguno de los dos se queda en{' '}
+        <b>sin datos</b>, nunca en un número inventado para cuadrar el total.
+      </p>
+
+      <h3>5 · Los consejos de dobles son tuyos</h3>
+      <p>
+        Debajo del board (y de la simulación conjunta) el atleta lee unos <b>consejos</b> que son
+        tuyos: los editas desde <b>Atletas → Dobles</b>, en dos bloques separados — uno para el{' '}
+        <b>día de carrera</b>, otro para la <b>simulación</b> —, hasta ocho frases por bloque.
+        Mientras no los toques, la pareja ve un <b>default con sentido</b> (ritmo, roles del relevo,
+        repasar el reparto la víspera), nunca una pantalla vacía. En cuanto editas uno, ese pasa a
+        ser el que ve tu pareja — el otro bloque sigue con su propio default hasta que también lo
+        edites.
+      </p>
+
+      <MovilBand
+        title="El board de carrera, en su móvil"
+        subtitle={
+          <>
+            Con la meta puesta en la carrera de dobles, la pareja ve su <b>predicho contra meta</b>{' '}
+            y quién hace cada tramo — <b>juntos</b>, <b>repartida</b> o, si toca, <b>sin datos</b>{' '}
+            todavía.
+          </>
+        }
+      >
+        <PhoneMockup
+          caption={
+            <>
+              <b>El board de carrera.</b> Arriba, el predicho de la pareja contra la meta; abajo,
+              cada tramo con quién lo hace.
+            </>
+          }
+        >
+          <div className="ph-hd">
+            <div />
+            <div className="ph-mark" style={{ fontSize: '13px' }}>
+              Camino a meta · Dobles
+            </div>
+            <div />
+          </div>
+
+          <div
+            className="logcard"
+            style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}
+          >
+            <div>
+              <div className="lh">Predicho pareja</div>
+              <div className="num" style={{ fontSize: '22px', fontWeight: 800, color: 'var(--fg)' }}>
+                1:04:10
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="lh">Hueco vs meta</div>
+              <div className="num" style={{ fontSize: '22px', fontWeight: 800, color: 'var(--dng)' }}>
+                +4:10
+              </div>
+            </div>
+          </div>
+
+          <div className="logcard" style={{ marginBottom: '10px' }}>
+            <div className="lh">Por tramo</div>
+            <StationRow hue={MOD.carrera} station="Carrera 1 · 1 km" who="Juntos · manda el más lento" />
+            <StationRow hue={MOD.fuerza} station="Sled Push 50 m" who="42% Marc · 58% Laia" />
+            <StationRow
+              hue={MOD.circuito}
+              station="Wall Balls ×100"
+              who="Sin datos"
+              whoColor="var(--faint)"
+            />
+          </div>
+
+          <div className="cta">Ver el reparto completo</div>
+        </PhoneMockup>
+      </MovilBand>
+
+      <DocNote variant="log" title="Sin datos, nunca inventado">
+        <p>
+          Si a la pareja le falta historial en un tramo —propio o del compañero— el board lo dice
+          tal cual: <b>sin datos</b>. El total mantiene ese tramo en su presupuesto en vez de
+          rellenarlo con un número que no existe.
+        </p>
+      </DocNote>
+
+      <DocNote variant="cue" title="Ponle un objetivo a la carrera de dobles">
+        <p>
+          El board solo aparece con la carrera objetivo <b>marcada como meta</b> y la pareja{' '}
+          <b>activa</b>. En cuanto la pongas, la pareja ve su reparto contra meta en minutos — sin
+          ella, no hay contra qué medir.
+        </p>
+      </DocNote>
+
       <p style={{ marginTop: '18px' }}>
         Dobles no es «dos planes a la vez»: es <b>una pareja</b> que entrena junta, con el reparto
         compartido y la carga de cada uno intacta. Tú los ves como un equipo; el sistema sigue

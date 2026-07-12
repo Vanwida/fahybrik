@@ -20,34 +20,38 @@ import SwiftUI
 // than taking the payload down. Brand accent is orange as a STATE, never a row's
 // identity (the label carries that).
 
-// MARK: - Board (pure presentation)
+// MARK: - Shared bar visual language (tier fills + geometry + legend)
+//
+// One source of truth for the gap-board bar look, shared by the individual goal
+// board (GoalGapBoard) AND the Dobles pair board (DoblesRaceGapView) so the two
+// surfaces can never drift: same per-tier fill opacity, same track height, same
+// green/red/ink legend, same `GapTrack`.
 
-struct GoalGapBoard: View {
-    let gap: GoalGap
+/// Per-tier fill opacities + the track geometry — one source of truth so the
+/// legend swatches and the bars can never drift apart.
+enum GoalGapVis {
+    static let fillObservado: Double = 1.0   // real efforts → solid
+    static let fillEstimado: Double = 0.45   // threshold pace → translucent
+    static let fillUnknown: Double = 0.70     // a tier we haven't shipped copy for
+    static let trackHeight: CGFloat = 14
 
-    /// Per-tier fill opacities + the track geometry — one source of truth so the
-    /// legend swatches and the bars can never drift apart.
-    private enum Vis {
-        static let fillObservado: Double = 1.0   // real efforts → solid
-        static let fillEstimado: Double = 0.45   // threshold pace → translucent
-        static let fillUnknown: Double = 0.70     // a tier we haven't shipped copy for
-        static let trackHeight: CGFloat = 14
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            legend
-            VStack(alignment: .leading, spacing: 13) {
-                ForEach(gap.segments) { segment in
-                    segmentRow(segment)
-                }
-            }
-            footer
+    /// Evidence tier → bar fill opacity. Unknown tiers stay visible (0.70) rather
+    /// than vanishing — honest degradation.
+    static func fillOpacity(tier: String) -> Double {
+        switch tier.lowercased() {
+        case "observado": return fillObservado
+        case "estimado":  return fillEstimado
+        default:          return fillUnknown
         }
     }
+}
 
-    // Green = at/under budget · red tail = the excess · ink dashed = objetivo.
-    private var legend: some View {
+/// Green = at/under budget · red tail = the excess · ink dashed = objetivo. The
+/// board legend, shared so both gap surfaces read the bars the same way.
+struct GoalGapLegend: View {
+    private enum LegendSwatch { case fill(Color), dashed }
+
+    var body: some View {
         HStack(spacing: 14) {
             legendKey(swatch: .fill(Theme.Color.ok), text: "dentro")
             legendKey(swatch: .fill(Theme.Color.danger), text: "te pasas")
@@ -55,8 +59,6 @@ struct GoalGapBoard: View {
         }
         .accessibilityHidden(true)
     }
-
-    private enum LegendSwatch { case fill(Color), dashed }
 
     private func legendKey(swatch: LegendSwatch, text: String) -> some View {
         HStack(spacing: 5) {
@@ -75,6 +77,24 @@ struct GoalGapBoard: View {
                 .foregroundStyle(Theme.Color.muted)
         }
     }
+}
+
+// MARK: - Board (pure presentation)
+
+struct GoalGapBoard: View {
+    let gap: GoalGap
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            GoalGapLegend()
+            VStack(alignment: .leading, spacing: 13) {
+                ForEach(gap.segments) { segment in
+                    segmentRow(segment)
+                }
+            }
+            footer
+        }
+    }
 
     // MARK: - Segment rows
 
@@ -89,14 +109,9 @@ struct GoalGapBoard: View {
         }
     }
 
-    /// Tier → bar fill opacity. Unknown tiers stay visible (0.70) rather than
-    /// echoing a raw token or vanishing — honest degradation.
+    /// Tier → bar fill opacity (shared with the Dobles board via GoalGapVis).
     private func fillOpacity(_ segment: GoalGapSegment) -> Double {
-        switch segment.tier.lowercased() {
-        case "observado": return Vis.fillObservado
-        case "estimado":  return Vis.fillEstimado
-        default:          return Vis.fillUnknown
-        }
+        GoalGapVis.fillOpacity(tier: segment.tier)
     }
 
     // A run leg / work station: name · (delta + predicted time) · the bar with a
@@ -120,7 +135,7 @@ struct GoalGapBoard: View {
                 budget: segment.budgetS,
                 fillOpacity: fillOpacity(segment)
             )
-            .frame(height: Vis.trackHeight)
+            .frame(height: GoalGapVis.trackHeight)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(rowAccessibilityLabel(segment))
@@ -170,7 +185,7 @@ struct GoalGapBoard: View {
                     .foregroundStyle(Theme.Color.muted)
             }
             GapTrack(predicted: nil, budget: segment.budgetS, fillOpacity: 0)
-                .frame(height: Vis.trackHeight)
+                .frame(height: GoalGapVis.trackHeight)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(segment.labelEs), sin datos todavía. Registra una práctica de estación y aparece aquí.")
@@ -218,7 +233,7 @@ struct GoalGapBoard: View {
 /// LARGER of predicted/budget so a 31-minute run and a 3-minute station each read
 /// within their own row. A `sin_datos` segment (predicted nil, opacity 0) draws
 /// no fill — just the empty track and, if it has a budget, the tick.
-private struct GapTrack: View {
+struct GapTrack: View {
     /// Over budget must ALWAYS show some red: the accent "earned" stretch is clamped
     /// to leave at least this much danger tail, so a slight overage (predicted only
     /// just past the tick) never vanishes under the accent painted on top.

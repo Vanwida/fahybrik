@@ -189,6 +189,13 @@ struct DoblesSimulation: Codable, Hashable {
     let lastEditedByKind: String?    // "coach" | "athlete" | nil
     let lastEditedByName: String?    // "Pablo" / "Guillem" / nil
     let updatedAt: String?           // ISO8601 / nil
+    /// Consejos del coach antes de la simulación (wire `coach_tips`). Optional →
+    /// decodeIfPresent (default [] vía `coachTipsList`), así un payload viejo sin
+    /// el campo sigue decodificando.
+    let coachTips: [String]?
+
+    /// Non-nil accessor for the coach tips (empty when absent).
+    var coachTipsList: [String] { coachTips ?? [] }
 }
 
 /// The reading athlete's frame for a station — they do it, the partner does it,

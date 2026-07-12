@@ -442,6 +442,11 @@ private struct UpcomingRaceCard: View {
     /// as primary rather than orphaned.
     private var isPrimary: Bool { (race.priority?.lowercased() ?? "target") == "target" }
 
+    /// A doubles race — surfaced as a small accent chip so the list is scannable
+    /// (only when the DTO carries `format`). The category line drops its format
+    /// token when this is set, so "Dobles" isn't shown twice.
+    private var isDoubles: Bool { race.format?.lowercased() == "doubles" }
+
     var body: some View {
         // The whole card is one way in: tap → RaceDetailView (predicho + camino for
         // the target, an honest promote card otherwise). Its rare actions still live
@@ -480,6 +485,7 @@ private struct UpcomingRaceCard: View {
     private var eyebrowRow: some View {
         HStack(spacing: 8) {
             priorityBadge
+            if isDoubles { doublesBadge }
             Spacer(minLength: 8)
             // Discreet ⋯ for the card's rare actions. Same item set as the
             // long-press .contextMenu (see actionsMenu) — double discoverability.
@@ -527,6 +533,25 @@ private struct UpcomingRaceCard: View {
         isPrimary
             ? "Eliminar carrera"
             : "Hacer objetivo principal o eliminar carrera"
+    }
+
+    /// Small accent "DOBLES" chip for a doubles race (person-pair glyph), so the
+    /// modality reads at a glance in the list.
+    private var doublesBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "person.2.fill")
+                .font(.system(size: 9, weight: .bold))
+            Text("Dobles")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.4)
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(Theme.Color.accentText)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Theme.Color.accent.opacity(0.12))
+        .clipShape(Capsule())
+        .accessibilityLabel("Dobles")
     }
 
     /// The role badge: accent "Objetivo principal" for the target, a neutral
@@ -615,8 +640,10 @@ private struct UpcomingRaceCard: View {
     // MARK: Derived copy (reuses AthleteNextRace helpers + the shared date fmt)
 
     private var categoryLine: String? {
+        // Drop the format token for a doubles race — the DOBLES eyebrow chip
+        // already carries it, so the line reads "Open · Mixto", not "Dobles · …".
         let parts = [
-            AthleteNextRace.formatLabel(race.format),
+            isDoubles ? nil : AthleteNextRace.formatLabel(race.format),
             AthleteNextRace.divisionLabel(race.division),
             AthleteNextRace.genderLabel(race.genderCategory),
         ].compactMap { $0 }

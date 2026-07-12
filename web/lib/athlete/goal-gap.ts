@@ -86,7 +86,12 @@ export function segmentLabels(): Map<string, string> {
 
 // ── DB row parsing ────────────────────────────────────────────────────────────
 
-interface RaceSplitRow {
+// The parsing helpers below (RaceSplitRow, toNum, runTotal, parseStationMap,
+// toCohortRace, fetchOwnRace) are EXPORTED and reused verbatim by the doubles
+// gap loader (web/lib/athlete/dobles-gap.ts): the row→segment-seconds mapping and
+// the "is this race complete" test are format-agnostic, so the doubles reads
+// share them and only vary the SQL filter (format='doubles').
+export interface RaceSplitRow {
   division: string;
   gender: string;
   run_total_seconds: number | null;
@@ -96,14 +101,14 @@ interface RaceSplitRow {
   result_time_seconds: number | null;
 }
 
-function toNum(v: unknown): number | null {
+export function toNum(v: unknown): number | null {
   if (v == null) return null;
   const n = typeof v === 'string' ? Number(v) : (v as number);
   return Number.isFinite(n) ? n : null;
 }
 
 /** Run total: the stored column, else the sum of the 8 run laps. Null when neither. */
-function runTotal(runTotalCol: number | null, runSplitsJson: unknown): number | null {
+export function runTotal(runTotalCol: number | null, runSplitsJson: unknown): number | null {
   if (runTotalCol != null && runTotalCol > 0) return runTotalCol;
   if (!Array.isArray(runSplitsJson)) return null;
   const laps = runSplitsJson.map((n) => toNum(n)).filter((n): n is number => n != null && n > 0);
@@ -112,7 +117,7 @@ function runTotal(runTotalCol: number | null, runSplitsJson: unknown): number | 
 }
 
 /** station_splits_json → { station_index: seconds|null }. */
-function parseStationMap(raw: unknown): Record<number, number | null> {
+export function parseStationMap(raw: unknown): Record<number, number | null> {
   const out: Record<number, number | null> = {};
   if (!Array.isArray(raw)) return out;
   for (const s of raw) {
@@ -125,7 +130,7 @@ function parseStationMap(raw: unknown): Record<number, number | null> {
 }
 
 /** A race row is a COMPLETE cohort sample when all 10 segments are present + > 0. */
-function toCohortRace(row: RaceSplitRow): CohortRace | null {
+export function toCohortRace(row: RaceSplitRow): CohortRace | null {
   const run = runTotal(row.run_total_seconds, row.run_splits_json);
   const rox = row.roxzone_seconds;
   const result = row.result_time_seconds;
@@ -191,7 +196,7 @@ interface OwnRaceRow {
 }
 
 /** The athlete's latest singles race (the same one the CROSS reads). */
-async function fetchOwnRace(athleteId: number, todayIso: string, client: Sql): Promise<OwnRace | null> {
+export async function fetchOwnRace(athleteId: number, todayIso: string, client: Sql): Promise<OwnRace | null> {
   const rows = await client<OwnRaceRow[]>`
     select
       id::int as id,
