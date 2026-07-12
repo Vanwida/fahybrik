@@ -8,7 +8,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type { AnalyticsSection, ResolvedPeriod, SectionKey } from './core';
 import { buildRunningSection } from './running';
-import { buildErgoSection } from './ergo';
+import { buildErgoSection, type ErgKey } from './ergo';
 import { buildStrengthSection } from './strength';
 import { buildHyroxSection } from './hyrox';
 import { buildRecoverySection } from './recovery';
@@ -20,7 +20,7 @@ export function isSectionKey(v: string): v is SectionKey {
 }
 
 export async function buildAnalyticsSection(
-  args: { athlete_id: number | bigint; section: SectionKey; period: ResolvedPeriod },
+  args: { athlete_id: number | bigint; section: SectionKey; period: ResolvedPeriod; erg?: ErgKey },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const a = { athlete_id: args.athlete_id, period: args.period };
@@ -28,7 +28,7 @@ export async function buildAnalyticsSection(
     case 'running':
       return buildRunningSection(a, client);
     case 'ergo':
-      return buildErgoSection(a, client);
+      return buildErgoSection({ ...a, erg: args.erg }, client);
     case 'strength':
       return buildStrengthSection(a, client);
     case 'hyrox':
@@ -40,6 +40,7 @@ export async function buildAnalyticsSection(
 
 export { buildDrillDown } from './drilldown';
 export { resolvePeriod } from './core';
+export type { ErgKey } from './ergo';
 export type {
   AnalyticsSection,
   AnalyticsCard,

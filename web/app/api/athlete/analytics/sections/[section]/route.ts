@@ -16,6 +16,9 @@ export const dynamic = 'force-dynamic';
 // can't measure yet is null with its tag, never a fabricated number.
 const periodSchema = z.enum(['7d', 'month', 'year', 'custom']);
 const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// Ergo-only scope: which erg the section is built for (default 'row'). Ignored by
+// every other section.
+const ergSchema = z.enum(['row', 'ski', 'bike']);
 
 export async function GET(request: Request, ctx: { params: Promise<{ section: string }> }) {
   const auth = await getAthleteSessionFromBearer(request.headers.get('authorization'));
@@ -47,6 +50,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ section: st
   }
 
   const period = resolvePeriod({ key: periodKey.data, from, to });
-  const result = await buildAnalyticsSection({ athlete_id: auth.athlete_id, section, period });
+  // Optional erg scope for the ergo section (default 'row' inside the builder).
+  const ergParsed = ergSchema.safeParse(url.searchParams.get('erg'));
+  const erg = ergParsed.success ? ergParsed.data : undefined;
+  const result = await buildAnalyticsSection({ athlete_id: auth.athlete_id, section, period, erg });
   return jsonOk(result);
 }
