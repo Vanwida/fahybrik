@@ -40,6 +40,10 @@ function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     unread_message_age_min: null,
     readiness_score: null,
 
+    discomfort_area: null,
+    discomfort_at: null,
+    discomfort_note: null,
+
     programming_status: 'ok',
     programming_label: null,
     programming_detail: null,
@@ -216,6 +220,38 @@ describe('rpe_high', () => {
 
   it('does NOT fire at 8', () => {
     notFired('rpe_high', baseFacts({ rpe_yesterday: 8 }));
+  });
+});
+
+describe('discomfort_reported', () => {
+  it('fires warning for a recent report, area in label + note in detail', () => {
+    const at = new Date(NOW.getTime() - 2 * 86_400_000); // 2d ago
+    const r = fired('discomfort_reported', baseFacts({
+      discomfort_area: 'rodilla',
+      discomfort_at: at,
+      discomfort_note: 'pinchazo bajando escaleras',
+    }));
+    expect(r.severity).toBe('warning');
+    expect(r.value).toBe(2);
+    expect(r.baseline).toBe(SIGNAL_THRESHOLDS.discomfort_recent_days);
+    expect(r.label).toBe('Molestia · Rodilla');
+    expect(r.detail).toBe('pinchazo bajando escaleras');
+    expect(r.dedupe_key).toBe(`discomfort_reported:${ATHLETE_ID}`);
+  });
+
+  it('falls back to a default detail when there is no note', () => {
+    const r = fired('discomfort_reported', baseFacts({ discomfort_area: 'otra', discomfort_at: NOW }));
+    expect(r.label).toBe('Molestia · Otra zona');
+    expect(r.detail).toBe('reportada en una sesión');
+  });
+
+  it('does NOT fire when the report is older than the window', () => {
+    const old = new Date(NOW.getTime() - 20 * 86_400_000); // 20d ago > 10d threshold
+    notFired('discomfort_reported', baseFacts({ discomfort_area: 'tobillo', discomfort_at: old }));
+  });
+
+  it('does NOT fire when there is no discomfort area', () => {
+    notFired('discomfort_reported', baseFacts({ discomfort_area: null, discomfort_at: NOW }));
   });
 });
 

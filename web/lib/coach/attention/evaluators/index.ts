@@ -19,6 +19,7 @@ import {
   noSyncEvaluator,
   missedSessionsEvaluator,
   rpeHighEvaluator,
+  discomfortReportedEvaluator,
   checkinSkippedEvaluator,
   messageUnansweredEvaluator,
 } from './biometric';
@@ -49,6 +50,7 @@ const BACKED_EVALUATORS: SignalEvaluator[] = [
   noSyncEvaluator,
   missedSessionsEvaluator,
   rpeHighEvaluator,
+  discomfortReportedEvaluator,
   checkinSkippedEvaluator,
   messageUnansweredEvaluator,
   readinessLowEvaluator,

@@ -166,6 +166,12 @@ export interface RecentSession {
   rpe: number | null;
   status: 'completed' | 'missed' | 'in_progress' | 'scheduled';
   is_pr: boolean;
+  /** Structured feedback (#58): calibration verdict vs the plan's intent, null when unanswered. */
+  perceived_difficulty: 'too_easy' | 'as_expected' | 'too_hard' | null;
+  /** Body area the athlete flagged as hurting (generic token), null when nothing hurt. */
+  pain_area: string | null;
+  /** Optional free-text detail on the discomfort, null when none. */
+  pain_note: string | null;
 }
 
 export interface RecentDay {

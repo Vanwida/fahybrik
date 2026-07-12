@@ -19,6 +19,10 @@ export interface BatchRow {
   last_sync_at: Date | null;
   missed_sessions_7d: number;
   rpe_yesterday: number | null;
+  // Structured session feedback (#58): most recent reported body-area discomfort.
+  latest_pain_area: string | null;
+  latest_pain_at: Date | null;
+  latest_pain_note: string | null;
   last_checkin_at: Date | null;
   unread_message_age_min: number | null;
   a_event_iso: string | null;
@@ -97,6 +101,22 @@ export async function loadBatch(
         and coalesce(we.ended_at, we.started_at, we.created_at)
               <  ${todayIso}::date
       group by we.athlete_id
+    ),
+    recent_pain as (
+      -- #58: the athlete's most recent finished session that flagged a body-area
+      -- discomfort. Scan bound to a recent window (matches the other CTEs' inline
+      -- windowing); the discomfortReported evaluator applies the precise
+      -- discomfort_recent_days cut on the report time. Newest per athlete wins.
+      select distinct on (we.athlete_id)
+        we.athlete_id,
+        we.pain_area as area,
+        we.pain_note as note,
+        coalesce(we.ended_at, we.started_at, we.created_at) as at
+      from workout_executions we
+      where we.pain_area is not null
+        and coalesce(we.ended_at, we.started_at, we.created_at)
+              >= ${nowIso}::timestamptz - interval '30 days'
+      order by we.athlete_id, coalesce(we.ended_at, we.started_at, we.created_at) desc
     ),
     last_checkin as (
       select dc.athlete_id, max(dc.recorded_at) as ts
@@ -218,6 +238,9 @@ export async function loadBatch(
       ls.ts                               as last_sync_at,
       coalesce(m7.n, 0)                   as missed_sessions_7d,
       ry.v                                as rpe_yesterday,
+      rp.area                             as latest_pain_area,
+      rp.at                               as latest_pain_at,
+      rp.note                             as latest_pain_note,
       lc.ts                               as last_checkin_at,
       um.age_min                          as unread_message_age_min,
       ae.iso                              as a_event_iso,
@@ -257,6 +280,7 @@ export async function loadBatch(
     left join last_sync    ls on ls.athlete_id = a.id
     left join missed_7d    m7 on m7.athlete_id = a.id
     left join rpe_yest     ry on ry.athlete_id = a.id
+    left join recent_pain  rp on rp.athlete_id = a.id
     left join last_checkin lc on lc.athlete_id = a.id
     left join a_events     ae on ae.athlete_id = a.id
     left join unread_msgs  um on um.athlete_id = a.id

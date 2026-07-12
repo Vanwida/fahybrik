@@ -66,6 +66,12 @@ export interface ActivitySession {
   age_label: string;
   /** Whether the coach has already reacted (always false until reactions ship). */
   reacted: boolean;
+  /** Structured feedback (#58): the athlete's calibration verdict, null when unanswered. */
+  perceived_difficulty: 'too_easy' | 'as_expected' | 'too_hard' | null;
+  /** Body area the athlete flagged as hurting (generic token), null when nothing hurt. */
+  pain_area: string | null;
+  /** Optional free-text detail on the discomfort, null when none. */
+  pain_note: string | null;
 }
 
 export interface ActivityToday {
@@ -96,6 +102,9 @@ type ActivityRow = {
   format: string | null;
   total_duration_seconds: number | null;
   perceived_exertion: number | null;
+  perceived_difficulty: 'too_easy' | 'as_expected' | 'too_hard' | null;
+  pain_area: string | null;
+  pain_note: string | null;
   logged_at: string | null;
 };
 
@@ -134,6 +143,9 @@ export async function loadActivityToday(params: {
         t.format::text as format,
         we.total_duration_seconds,
         we.perceived_exertion,
+        we.perceived_difficulty,
+        we.pain_area,
+        we.pain_note,
         coalesce(we.ended_at, we.started_at, we.created_at)::text as logged_at
       from workout_executions we
       join workout_assignments wa on wa.id = we.assignment_id
@@ -158,6 +170,9 @@ export async function loadActivityToday(params: {
     age_label: r.logged_at ? formatRelative(r.logged_at) : '',
     // FLAGGED GAP: no reactions table yet → never "already reacted".
     reacted: false,
+    perceived_difficulty: r.perceived_difficulty,
+    pain_area: r.pain_area,
+    pain_note: r.pain_note,
   }));
 
   return {

@@ -132,6 +132,10 @@ async function assembleFacts(
     unread_message_age_min,
     readiness_score: readiness?.score ?? null,
 
+    discomfort_area: row.latest_pain_area,
+    discomfort_at: row.latest_pain_at,
+    discomfort_note: row.latest_pain_note,
+
     programming_status: programming.status,
     programming_label: programming.label ?? null,
     programming_detail: programming.detail ?? null,
