@@ -64,6 +64,7 @@ interface RunSegRow {
   distance_meters: string | null;
   pace_s_per_km: string | null;
   avg_hr: number | null;
+  cadence_spm: number | null; // integer steps/min (mig 0124); null when uncaptured
   scheme: string | null;
   is_compromised: boolean;
 }
@@ -137,6 +138,7 @@ export async function buildRunningSection(
           else null end
       )::text as pace_s_per_km,
       se.avg_hr,
+      se.run_cadence_spm as cadence_spm,
       ts.prescription_json->>'scheme' as scheme,
       exists (
         select 1 from segment_executions sib
@@ -163,6 +165,7 @@ export async function buildRunningSection(
       dist: numOrNull(s.distance_meters) ?? 0,
       pace: numOrNull(s.pace_s_per_km),
       hr: s.avg_hr,
+      cadence: s.cadence_spm != null ? Number(s.cadence_spm) : null,
       scheme: normalizeFormat(s.scheme ?? undefined) ?? null,
       compromised: s.is_compromised,
     }))
@@ -253,6 +256,9 @@ export async function buildRunningSection(
 
   // ── CARD: Tendencia de ritmo ───────────────────────────────────────────────
   cards.push(buildPaceTrend(paced));
+
+  // ── CARD: Tendencia de cadencia (gated a que haya cadencia registrada) ──────
+  cards.push(buildCadenceTrend(paced));
 
   // ── CARD: Comprometida vs pura ─────────────────────────────────────────────
   cards.push(buildCompromised(paced));
@@ -501,6 +507,53 @@ function buildPaceTrend(paced: Array<{ day: string; dist: number; pace: number |
     series_kind: 'line',
     series_axis: seriesAxis(series),
     meaning_es: 'Ritmo medio ponderado por semana. Bajando = motor mejorando.',
+  });
+}
+
+// ── Cadence trend (weekly distance-weighted average cadence) ─────────────────
+// Steps/min, averaged per ISO week and weighted by distance (a longer leg should
+// dominate the week's number — the same weighting the pace trend uses). Only run
+// segments that actually carry a cadence contribute; a week with none is dropped.
+// Taller bar = higher cadence. Gated to 'needs_logging' until any run has cadence,
+// so it never shows a fabricated number on an athlete who's never logged one.
+function buildCadenceTrend(
+  paced: Array<{ day: string; dist: number; cadence: number | null }>,
+): AnalyticsCard {
+  const byWeek = new Map<string, { meters: number; weighted: number }>();
+  for (const s of paced) {
+    if (s.cadence == null || s.dist <= 0) continue;
+    const wk = isoWeekStart(s.day);
+    const e = byWeek.get(wk) ?? { meters: 0, weighted: 0 };
+    e.meters += s.dist;
+    e.weighted += s.cadence * s.dist;
+    byWeek.set(wk, e);
+  }
+  const ordered = [...byWeek.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .filter(([, e]) => e.meters > 0)
+    .slice(-PACE_TREND_WEEKS)
+    .map(([wk, e]) => ({ wk, cadence: e.weighted / e.meters }));
+  const highest = Math.max(1, ...ordered.map((o) => o.cadence));
+  const series: CardSeriesPoint[] = ordered.map((o, i) => ({
+    id: o.wk,
+    height: Math.max(MIN_BAR, Math.min(1, o.cadence / highest)),
+    display: `${Math.round(o.cadence)} spm`,
+    current: i === ordered.length - 1,
+    label: o.wk,
+  }));
+  const latest = ordered.length ? ordered[ordered.length - 1]!.cadence : null;
+  return card({
+    id: 'cadence_trend',
+    title_es: 'Tendencia de cadencia',
+    availability: series.length ? 'real' : 'needs_logging',
+    availability_note: series.length
+      ? null
+      : 'Llega en cuanto registres carreras con cadencia (reloj o captura).',
+    primary: latest != null ? { value: `${Math.round(latest)}`, unit: 'spm', side: null } : null,
+    series,
+    series_kind: 'line',
+    series_axis: seriesAxis(series),
+    meaning_es: 'Cadencia media por semana (pasos/min). Subir suele indicar una zancada más económica.',
   });
 }
 

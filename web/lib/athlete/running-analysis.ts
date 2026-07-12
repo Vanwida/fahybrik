@@ -29,6 +29,11 @@ export interface RunningSplitDTO {
   pace: string | null;
   height: number;
   severity: 'better' | 'slightly_worse' | 'worse';
+  /** Average running cadence over this split (steps/min, mig 0124), or null when
+   *  the segment carries no cadence (older logs, manual entry, no wearable). */
+  cadence_spm: number | null;
+  /** Average treadmill/uphill grade % over this split, or null when uncaptured. */
+  incline_pct: number | null;
 }
 
 export interface RunningPaceZoneDTO {
@@ -348,7 +353,12 @@ export async function buildRunningAnalysis(
 
   if (lastExecId != null) {
     const splitRows = await client<
-      Array<{ position: number; pace_s_per_km: string | null }>
+      Array<{
+        position: number;
+        pace_s_per_km: string | null;
+        cadence_spm: number | null;
+        incline_pct: string | null;
+      }>
     >`
       select
         se.position,
@@ -361,7 +371,9 @@ export async function buildRunningAnalysis(
                  / (se.distance_meters::float / 1000.0)
             else null
           end
-        ) as pace_s_per_km
+        ) as pace_s_per_km,
+        se.run_cadence_spm as cadence_spm,
+        se.incline_pct::text as incline_pct
       from segment_executions se
       left join template_segments ts on ts.id = se.template_segment_id
       left join exercises ex on ex.id = ts.exercise_id
@@ -371,8 +383,16 @@ export async function buildRunningAnalysis(
     `;
 
     const paced = splitRows
-      .map((r) => ({ position: r.position, pace: r.pace_s_per_km != null ? num(r.pace_s_per_km) : null }))
-      .filter((r): r is { position: number; pace: number } => r.pace != null && r.pace > 0);
+      .map((r) => ({
+        position: r.position,
+        pace: r.pace_s_per_km != null ? num(r.pace_s_per_km) : null,
+        cadence: r.cadence_spm != null ? Number(r.cadence_spm) : null,
+        incline: r.incline_pct != null ? num(r.incline_pct) : null,
+      }))
+      .filter(
+        (r): r is { position: number; pace: number; cadence: number | null; incline: number | null } =>
+          r.pace != null && r.pace > 0,
+      );
 
     if (paced.length > 0) {
       const best = Math.min(...paced.map((p) => p.pace));
@@ -384,6 +404,8 @@ export async function buildRunningAnalysis(
         pace: paceStr(p.pace),
         height: worst > 0 ? Math.max(0.15, Math.min(1, p.pace / worst)) : 0.5,
         severity: severityVsBest(p.pace, best),
+        cadence_spm: p.cadence,
+        incline_pct: p.incline,
       }));
 
       // Final-drift note: compare the second-half average pace to the first-half.
