@@ -232,10 +232,14 @@ describeWithDb('entreno libre — createFreeWorkout + exercise catalog (real DB)
     const all = await loadAthleteExerciseCatalog(sql, { coachId: fx.coachId, limit: 500 });
     expect(all.length).toBeGreaterThan(0);
 
+    // Wire contract: id is NUMERIC (iOS decodes `id: Int`; a `::text` id here
+    // broke the picker decode on-device — never mask this with Number() again).
+    expect(all.every((r) => typeof r.id === 'number')).toBe(true);
+
     // Search narrows to the single matching slug and exposes its modality.
     const filtered = await loadAthleteExerciseCatalog(sql, { coachId: fx.coachId, search: slugA, limit: 500 });
     expect(filtered).toHaveLength(1);
-    expect(Number(filtered[0]!.id)).toBe(alpha);
+    expect(filtered[0]!.id).toBe(alpha);
     expect(filtered[0]!.modality).toBe('strength');
     expect(filtered[0]!.slug).toBe(slugA);
 
