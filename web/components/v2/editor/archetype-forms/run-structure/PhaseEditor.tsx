@@ -14,6 +14,7 @@ import { SegmentRow, type RowHandlers } from './SegmentRow';
 import {
   appendInto,
   canAddRepeatInto,
+  canRemoveAt,
   defaultRecoverySegment,
   defaultRepeat,
   defaultWorkSegment,
@@ -55,7 +56,10 @@ function makeHandlers(elements: Element[], onChange: (next: Element[]) => void):
       if (mode === 'parado' && s?.measure.type === 'distance') patch.measure = { type: 'duration', s: 60 };
       onChange(updateSegment(elements, path, patch));
     },
-    remove: (path) => onChange(removeAt(elements, path)),
+    remove: (path) => {
+      if (!canRemoveAt(elements, path)) return; // never empty a phase / repeat
+      onChange(removeAt(elements, path));
+    },
     move: (path, dir) => onChange(moveAt(elements, path, dir)),
     wrap: (path) => onChange(wrapInRepeat(elements, path)),
     unwrap: (path) => onChange(unwrapRepeat(elements, path)),
@@ -78,21 +82,32 @@ export function PhaseEditor({ elements, onChange }: { elements: Element[]; onCha
 }
 
 function ElementList({ elements, basePath, handlers }: { elements: Element[]; basePath: number[]; handlers: Handlers }) {
+  const canRemove = elements.length > 1; // never let a container go empty
   return (
     <div className="space-y-2">
       {elements.map((el, i) => {
         const path = [...basePath, i];
         return isRepeat(el) ? (
-          <RepeatBlock key={i} repeat={el} path={path} handlers={handlers} />
+          <RepeatBlock key={i} repeat={el} path={path} handlers={handlers} canRemove={canRemove} />
         ) : (
-          <SegmentRow key={i} segment={el} path={path} handlers={handlers} />
+          <SegmentRow key={i} segment={el} path={path} handlers={handlers} canRemove={canRemove} />
         );
       })}
     </div>
   );
 }
 
-function RepeatBlock({ repeat, path, handlers }: { repeat: Extract<Element, { times: number }>; path: number[]; handlers: Handlers }) {
+function RepeatBlock({
+  repeat,
+  path,
+  handlers,
+  canRemove,
+}: {
+  repeat: Extract<Element, { times: number }>;
+  path: number[];
+  handlers: Handlers;
+  canRemove: boolean;
+}) {
   return (
     <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent-soft)] bg-[color:var(--v2-accent-soft)]/30 p-2">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -113,7 +128,7 @@ function RepeatBlock({ repeat, path, handlers }: { repeat: Extract<Element, { ti
           <IconBtn icon="arrow_upward" label="Subir" onClick={() => handlers.move(path, -1)} />
           <IconBtn icon="arrow_downward" label="Bajar" onClick={() => handlers.move(path, 1)} />
           <IconBtn icon="unfold_more" label="Deshacer repetición" onClick={() => handlers.unwrap(path)} />
-          <IconBtn icon="delete" label="Eliminar" onClick={() => handlers.remove(path)} />
+          <IconBtn icon="delete" label="Eliminar" disabled={!canRemove} onClick={() => handlers.remove(path)} />
         </div>
       </div>
       <div className="border-l-2 border-[color:var(--v2-accent-soft)] pl-2">
@@ -151,14 +166,18 @@ function AddButton({ icon, label, onClick }: { icon: string; label: string; onCl
   );
 }
 
-function IconBtn({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+function IconBtn({ icon, label, onClick, disabled }: { icon: string; label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      disabled={disabled}
       onClick={onClick}
-      className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-3)] hover:text-[color:var(--v2-fg)]"
+      className={cn(
+        'v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors',
+        disabled ? 'opacity-30' : 'hover:bg-[color:var(--v2-surface-3)] hover:text-[color:var(--v2-fg)]',
+      )}
     >
       <MIcon name={icon} size={15} />
     </button>

@@ -17,6 +17,7 @@ import {
 import {
   appendInto,
   canAddRepeatInto,
+  canRemoveAt,
   canWrapInRepeat,
   defaultRecoverySegment,
   defaultRepeat,
@@ -54,6 +55,16 @@ describe('#61 editor · add / remove / move', () => {
     const moved = moveAt(els, [0], 1);
     expect((moved[0] as Segment).kind).toBe('recovery');
     expect((moved[1] as Segment).kind).toBe('work');
+  });
+
+  test('a container can never be emptied (last element is not removable)', () => {
+    const one = [defaultWorkSegment()];
+    expect(canRemoveAt(one, [0])).toBe(false); // last one in the phase → not removable
+    const two = [defaultWorkSegment(), defaultRecoverySegment()];
+    expect(canRemoveAt(two, [0])).toBe(true);
+    // inside a repeat with a single child
+    const withRepeat: Element[] = [defaultRepeat()]; // repeat has 1 work
+    expect(canRemoveAt(withRepeat, [0, 0])).toBe(false); // the repeat's only child
   });
 
   test('add work into a repeat container', () => {

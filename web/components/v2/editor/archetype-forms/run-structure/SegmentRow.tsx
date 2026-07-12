@@ -53,10 +53,12 @@ export function SegmentRow({
   segment,
   path,
   handlers,
+  canRemove = true,
 }: {
   segment: Segment;
   path: number[];
   handlers: RowHandlers;
+  canRemove?: boolean;
 }) {
   const isWork = segment.kind === 'work';
   return (
@@ -87,7 +89,7 @@ export function SegmentRow({
           <IconBtn icon="arrow_upward" label="Subir" onClick={() => handlers.move(path, -1)} />
           <IconBtn icon="arrow_downward" label="Bajar" onClick={() => handlers.move(path, 1)} />
           <IconBtn icon="repeat" label="Repetir este segmento" disabled={!canWrapInRepeat(path)} onClick={() => handlers.wrap(path)} />
-          <IconBtn icon="delete" label="Eliminar" onClick={() => handlers.remove(path)} />
+          <IconBtn icon="delete" label="Eliminar" disabled={!canRemove} onClick={() => handlers.remove(path)} />
         </div>
       </div>
 

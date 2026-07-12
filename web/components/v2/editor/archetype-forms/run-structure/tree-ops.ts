@@ -8,6 +8,7 @@ import {
   isRepeat,
   type Element,
   type Phase,
+  type Repeat,
   type Segment,
   type SegmentTarget,
 } from '@fahybrid/shared/domain/prescription';
@@ -103,6 +104,17 @@ export function removeAt(elements: Element[], path: number[]): Element[] {
   const parent = path.slice(0, -1);
   const idx = path[path.length - 1]!;
   return mapContainer(elements, parent, (arr) => arr.filter((_, i) => i !== idx));
+}
+
+/**
+ * Whether the element at `path` can be removed WITHOUT emptying its container. A
+ * phase or a Repeat must keep ≥ 1 element (schema `.min(1)`); to clear the last
+ * one you remove the whole Repeat / close the whole phase instead.
+ */
+export function canRemoveAt(elements: Element[], path: number[]): boolean {
+  const parent = path.slice(0, -1);
+  const container = parent.length === 0 ? elements : (elementAt(elements, parent) as Repeat | undefined)?.elements;
+  return (container?.length ?? 0) > 1;
 }
 
 /** Move the element at `path` up (-1) or down (+1) among its siblings. */
