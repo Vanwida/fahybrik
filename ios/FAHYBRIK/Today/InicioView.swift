@@ -1294,31 +1294,64 @@ struct InicioView: View {
         return f
     }()
 
-    // MARK: - 6 · Proyección (puerta honesta)
+    // MARK: - 6 · Proyección (state-aware: sim programada ↔ invitación)
     //
-    // Where a finish-time projection would live. The model doesn't exist yet
-    // (deep-dive-performance.ts returns null), so instead of fabricating a number we
-    // show an honest, dashed "locked" placeholder inviting a HYROX simulation — the
-    // path that WILL unlock it. No fake projection, and no dead button (there's no
-    // simulation flow to route to yet), just the honest invitation.
+    // A finish-time PREDICTION already exists (goal-gap Fase 3 shipped), so this
+    // card no longer "locks" a missing model — it points at the one thing that
+    // SHARPENS the prediction: a HYROX simulation. Two states, both derived from
+    // data already on device (planWeek days + todayIso):
+    //   • SCHEDULED — the coach put a hyrox_sim on the plan (a week session carries
+    //     format='hyrox_sim', still pending): name the day, solid hairline, calendar
+    //     icon. No CTA — the Plan tab already holds the session.
+    //   • OPEN — no sim on the horizon: the honest invitation to run one, in the
+    //     dashed "locked" placeholder.
+    // Non-tappable in both states: there's still no in-app flow to route to.
+
+    /// One of the two projection states, derived from the week payload.
+    private enum ProjectionState {
+        case scheduled(isoDate: String, isToday: Bool)
+        case open
+    }
+
+    /// The FIRST still-to-do HYROX simulation on today or a later day of the week,
+    /// else `.open`. `.pending` only — a done/partial/missed (incl. 'skipped') sim
+    /// has already happened (or won't), so it must never read as "programada".
+    private var projectionState: ProjectionState {
+        guard let resp = planWeek else { return .open }
+        let todayIso = resp.week.todayIso
+        let upcoming = resp.week.days
+            .filter { $0.isoDate >= todayIso }
+            .sorted { $0.isoDate < $1.isoDate }
+        for day in upcoming {
+            let hasSim = day.sessions.contains {
+                $0.isHyroxSim
+                    && SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId) == .pending
+            }
+            if hasSim {
+                return .scheduled(isoDate: day.isoDate, isToday: day.isoDate == todayIso)
+            }
+        }
+        return .open
+    }
 
     private var projectionGate: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        let state = projectionState
+        return VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
                         .fill(Theme.Color.accent.opacity(0.14))
-                    Image(systemName: "lock.fill")
+                    Image(systemName: projectionIcon(state))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Theme.Color.accentText)
                 }
                 .frame(width: 24, height: 24)
-                Text("¿Llegas a tu objetivo?")
+                Text(projectionTitle(state))
                     .scaledFont(13, weight: .heavy, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                 Spacer(minLength: 0)
             }
-            Text(projectionGateCopy)
+            Text(projectionCopy(state))
                 .scaledFont(12, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1326,23 +1359,80 @@ struct InicioView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .strokeBorder(
-                    Theme.Color.hairlineStrong,
-                    style: StrokeStyle(lineWidth: 1, dash: [5, 4])
-                )
-        )
+        .overlay(projectionBorder(state))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("¿Llegas a tu objetivo? \(projectionGateCopy)")
+        .accessibilityLabel(projectionAxLabel(state))
     }
 
-    /// Honest gate copy — names the goal time when one is set, generic otherwise.
-    private var projectionGateCopy: String {
-        if let race = targetRace, let goal = goalPlain(race) {
-            return "Haz una simulación de HYROX y veremos si tu ritmo proyectado baja de \(goal)."
+    private func projectionIcon(_ state: ProjectionState) -> String {
+        switch state {
+        case .scheduled: return "calendar"
+        case .open:      return "lock.fill"
         }
-        return "Haz una simulación de HYROX para ver si llegas a tu objetivo."
+    }
+
+    private func projectionTitle(_ state: ProjectionState) -> String {
+        switch state {
+        case let .scheduled(_, isToday): return isToday ? "Simulación hoy" : "Simulación programada"
+        case .open:                      return "¿Llegas a tu objetivo?"
+        }
+    }
+
+    /// Scheduled → solid hairline (an on-the-calendar fact); open → dashed "locked"
+    /// placeholder (the honest invitation still to unlock a sharper predicho).
+    @ViewBuilder
+    private func projectionBorder(_ state: ProjectionState) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+        switch state {
+        case .scheduled:
+            shape.strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1)
+        case .open:
+            shape.strokeBorder(Theme.Color.hairlineStrong, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+    }
+
+    /// State copy. Scheduled names the day in natural Spanish; open keeps the honest
+    /// invitation — a predicho EXISTS now, a sim only SHARPENS it (names the goal
+    /// time when one is set).
+    private func projectionCopy(_ state: ProjectionState) -> String {
+        switch state {
+        case let .scheduled(iso, isToday):
+            return isToday
+                ? "Hoy toca simulación de HYROX — de ahí sale tu predicho más fiable."
+                : "El \(simDayLabel(forIso: iso)) tienes simulación de HYROX — ahí afinamos tu predicho."
+        case .open:
+            if let race = targetRace, let goal = goalPlain(race) {
+                return "Haz una simulación de HYROX para afinar tu predicho y ver si bajas de \(goal)."
+            }
+            return "Haz una simulación de HYROX para afinar tu predicho de carrera."
+        }
+    }
+
+    /// VoiceOver: title + copy. Skips the extra period when the title already ends
+    /// in punctuation ("¿…objetivo?"), so it never reads "objetivo?. Haz…".
+    private func projectionAxLabel(_ state: ProjectionState) -> String {
+        let title = projectionTitle(state)
+        let sep = (title.hasSuffix("?") || title.hasSuffix(".")) ? " " : ". "
+        return title + sep + projectionCopy(state)
+    }
+
+    /// "jueves 16" — lowercase weekday + day-of-month for the mid-sentence sim date
+    /// ("El jueves 16 tienes…"). Fixed format + Gregorian calendar + one fixed zone
+    /// on both parse and format, so the weekday never shifts across a boundary.
+    private func simDayLabel(forIso iso: String) -> String {
+        let zone = TimeZone(identifier: "UTC")
+        let parse = DateFormatter()
+        parse.locale = Locale(identifier: "en_US_POSIX")
+        parse.calendar = Calendar(identifier: .gregorian)
+        parse.timeZone = zone
+        parse.dateFormat = "yyyy-MM-dd"
+        guard let date = parse.date(from: iso) else { return "próximo día" }
+        let out = DateFormatter()
+        out.locale = Locale(identifier: "es_ES")
+        out.calendar = Calendar(identifier: .gregorian)
+        out.timeZone = zone
+        out.dateFormat = "EEEE d"
+        return out.string(from: date)
     }
 
     // MARK: - Loading placeholder

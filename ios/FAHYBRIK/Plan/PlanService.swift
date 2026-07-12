@@ -29,10 +29,15 @@ struct AthleteWeekDaySession: Codable, Identifiable {
     /// the athlete built and logged). Drives the "Libre" chip. Defaults to "coach"
     /// when the backend omits it (back-compat with older payloads).
     let origin: String?
+    /// Raw template format (amrap/emom/hyrox_sim/…) — the server has always sent
+    /// it; decoded so Inicio can detect a SCHEDULED HYROX simulation ("el jueves
+    /// tienes simulación"). Nil on older payloads / formatless templates.
+    let format: String?
 
     enum CodingKeys: String, CodingKey {
         case assignmentId, slot, title, modality, status, partnerVisibility
         case estDurationMinutes, blocksCount, shortPrescription, isTest, origin
+        case format
     }
 
     init(from decoder: Decoder) throws {
@@ -48,7 +53,11 @@ struct AthleteWeekDaySession: Codable, Identifiable {
         shortPrescription = try c.decodeIfPresent(String.self, forKey: .shortPrescription)
         isTest = try c.decodeIfPresent(Bool.self, forKey: .isTest)
         origin = try c.decodeIfPresent(String.self, forKey: .origin)
+        format = try c.decodeIfPresent(String.self, forKey: .format)
     }
+
+    /// A scheduled HYROX simulation (drives the Inicio projection banner).
+    var isHyroxSim: Bool { format == "hyrox_sim" }
 
     /// Whether to render the test badge — true only when the backend says so.
     var isTestSession: Bool { isTest ?? false }
