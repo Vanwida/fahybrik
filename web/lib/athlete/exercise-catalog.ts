@@ -15,8 +15,12 @@ import {
 // (coachId null) gets the base global catalog. An injectable `Sql` keeps it
 // testable against an ephemeral Neon branch.
 
-/** The minimal picker shape the athlete app needs (a subset of the catalog row). */
-export type AthleteExercise = Pick<CatalogExercise, 'id' | 'name' | 'slug' | 'category' | 'modality'>;
+/** The minimal picker shape the athlete app needs (a subset of the catalog row).
+ *  `id` is NUMERIC on this wire: iOS decodes `id: Int` (and POSTs it back as
+ *  `items[].exercise_id`), while the coach catalog keeps its `::text` ids. */
+export type AthleteExercise = Pick<CatalogExercise, 'name' | 'slug' | 'category' | 'modality'> & {
+  id: number;
+};
 
 export interface AthleteExerciseQuery {
   /** The athlete's coach (scopes overrides); null → base global catalog. */
@@ -48,7 +52,7 @@ export async function loadAthleteExerciseCatalog(
   `;
 
   return rows.map((r) => ({
-    id: r.id,
+    id: Number(r.id),
     name: r.name,
     slug: r.slug,
     category: r.category,

@@ -3,13 +3,15 @@ import SwiftUI
 // "Camino al objetivo" — the gap board (pure presentation). One row per race
 // segment: your level TODAY against what the objective asks, segment by segment.
 //
-// Visual language (approved mockup):
-//   • The bar is your PREDICTED time; the dashed tick is the objective's budget.
-//   • Fill OPACITY encodes the evidence tier — solid accent = `observado`
-//     (from real efforts), 45% accent = `estimado` (from your threshold pace),
-//     empty + italic "sin datos" = `sin_datos` (nothing logged yet).
-//   • The signed delta reads accent (orange) when you're OVER budget and green
-//     when UNDER — coherent with Predicho-vs-real's per-station delta.
+// Visual language (rev. 2 — Alex: "está todo naranja, el objetivo de otro color"):
+//   • The bar is your PREDICTED time; the dashed INK tick is the objective's
+//     budget — deliberately NOT an accent color so it reads against any fill.
+//   • Fill color is SEMANTIC: green (ok) when the segment is at/under budget;
+//     over budget = accent up to the tick + a DANGER (red) tail for the excess,
+//     so an all-over day reads as "how much red", not a wall of orange.
+//   • Fill OPACITY still encodes the evidence tier — solid = `observado`,
+//     45% = `estimado`, empty + italic "sin datos" = nothing logged yet.
+//   • The signed delta matches the tail: danger when over, green when under.
 //
 // The board renders ONLY the segments (legend · rows · footer). The hero total
 // ("Predicho hoy") lives in `RaceDetailView` above it, so the number the athlete
@@ -44,27 +46,27 @@ struct GoalGapBoard: View {
         }
     }
 
-    // Solid accent = observado · translucent accent = estimado · dashed = objetivo.
+    // Green = at/under budget · red tail = the excess · ink dashed = objetivo.
     private var legend: some View {
         HStack(spacing: 14) {
-            legendKey(swatch: .fill(Vis.fillObservado), text: "observado")
-            legendKey(swatch: .fill(Vis.fillEstimado), text: "estimado")
+            legendKey(swatch: .fill(Theme.Color.ok), text: "dentro")
+            legendKey(swatch: .fill(Theme.Color.danger), text: "te pasas")
             legendKey(swatch: .dashed, text: "objetivo")
         }
         .accessibilityHidden(true)
     }
 
-    private enum LegendSwatch { case fill(Double), dashed }
+    private enum LegendSwatch { case fill(Color), dashed }
 
     private func legendKey(swatch: LegendSwatch, text: String) -> some View {
         HStack(spacing: 5) {
             Group {
                 switch swatch {
-                case let .fill(opacity):
-                    RoundedRectangle(cornerRadius: 2).fill(Theme.Color.accent.opacity(opacity))
+                case let .fill(color):
+                    RoundedRectangle(cornerRadius: 2).fill(color)
                 case .dashed:
                     RoundedRectangle(cornerRadius: 2)
-                        .stroke(Theme.Color.muted, style: StrokeStyle(lineWidth: 1.5, dash: [2, 2]))
+                        .stroke(Theme.Color.foreground, style: StrokeStyle(lineWidth: 1.5, dash: [2, 2]))
                 }
             }
             .frame(width: 14, height: 8)
@@ -124,15 +126,16 @@ struct GoalGapBoard: View {
         .accessibilityLabel(rowAccessibilityLabel(segment))
     }
 
-    /// Signed segment delta: accent (orange) when over budget, green when under,
-    /// nothing at exactly on-budget (or absent). Real minus (U+2212) via the
-    /// shared formatter so it matches every other signed delta in the app.
+    /// Signed segment delta: danger (red) when over budget — matching the bar's
+    /// excess tail — green when under, nothing at exactly on-budget (or absent).
+    /// Real minus (U+2212) via the shared formatter so it matches every other
+    /// signed delta in the app.
     @ViewBuilder
     private func deltaText(_ deltaS: Int?) -> some View {
         if let deltaS, deltaS != 0 {
             Text(GoalGapFormat.signedDuration(deltaS))
                 .font(.system(size: 11.5, weight: .semibold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(deltaS > 0 ? Theme.Color.accentText : Theme.Color.ok)
+                .foregroundStyle(deltaS > 0 ? Theme.Color.danger : Theme.Color.ok)
         }
     }
 
@@ -176,7 +179,7 @@ struct GoalGapBoard: View {
     // MARK: - Footer
 
     private var footer: some View {
-        Text("La barra es tu predicho de hoy; la marca punteada, lo que pide tu objetivo. «Observado» sale de esfuerzos reales; «estimado», de tu ritmo umbral.")
+        Text("La barra es tu predicho de hoy; la marca punteada, lo que pide tu objetivo, y el tramo rojo, lo que hoy te sobra. Sólido = observado en esfuerzos reales; translúcido = estimado por tu ritmo umbral.")
             .font(.system(size: 11.5))
             .foregroundStyle(Theme.Color.faint)
             .fixedSize(horizontal: false, vertical: true)
@@ -207,13 +210,20 @@ struct GoalGapBoard: View {
 
 // MARK: - Gap track (tier-opacity fill + dashed budget tick)
 
-/// The per-segment bar: an accent fill whose OPACITY encodes the evidence tier,
-/// on a sunken track, with a dashed vertical tick at the objective's budget. Both
-/// are scaled to the LARGER of predicted/budget so a 31-minute run and a 3-minute
-/// station each read within their own row (never on one impossible shared scale).
-/// A `sin_datos` segment (predicted nil, opacity 0) draws no fill — just the empty
-/// track and, if it has a budget, the tick.
+/// The per-segment bar, SEMANTIC by state (rev. 2): at/under budget → one green
+/// fill (you're inside the objective); over budget → accent fill up to the tick
+/// plus a DANGER tail for the excess, so "how over am I" is literally the amount
+/// of red. Fill OPACITY still encodes the evidence tier. The dashed tick is INK
+/// (foreground) — the objective must contrast against every fill. Scaled to the
+/// LARGER of predicted/budget so a 31-minute run and a 3-minute station each read
+/// within their own row. A `sin_datos` segment (predicted nil, opacity 0) draws
+/// no fill — just the empty track and, if it has a budget, the tick.
 private struct GapTrack: View {
+    /// Over budget must ALWAYS show some red: the accent "earned" stretch is clamped
+    /// to leave at least this much danger tail, so a slight overage (predicted only
+    /// just past the tick) never vanishes under the accent painted on top.
+    private static let minOverageTail: CGFloat = 6
+
     let predicted: Int?
     let budget: Int?
     let fillOpacity: Double
@@ -231,15 +241,36 @@ private struct GapTrack: View {
                     .fill(Theme.Color.surfaceSunken)
                 if let predicted, maxVal > 0, fillOpacity > 0 {
                     let fillFrac = Double(predicted) / Double(maxVal)
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Theme.Color.accent.opacity(fillOpacity))
-                        .frame(width: max(6, w * CGFloat(fillFrac)))
+                    let fillWidth = max(6, w * CGFloat(fillFrac))
+                    if let budget, predicted > budget {
+                        // Over budget: the excess tail first (full predicted width,
+                        // danger), then the earned stretch up to the tick (accent)
+                        // painted on top — the red that remains IS the overage. The
+                        // accent is clamped to leave at least `minOverageTail`, so a
+                        // slight overage keeps a visible red tail (never inverted /
+                        // never negative — `max(0,…)` guards a degenerate track).
+                        let earned = max(6, w * CGFloat(targetFrac ?? 0))
+                        let accentWidth = min(earned, max(0, fillWidth - Self.minOverageTail))
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Theme.Color.danger.opacity(fillOpacity))
+                            .frame(width: fillWidth)
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Theme.Color.accent.opacity(fillOpacity))
+                            .frame(width: accentWidth)
+                    } else {
+                        // At or under budget: the whole segment is inside the
+                        // objective → green, headroom stays sunken.
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Theme.Color.ok.opacity(fillOpacity))
+                            .frame(width: fillWidth)
+                    }
                 }
                 if let targetFrac {
                     // 20pt tall over a 14pt track → the ZStack centers it with a
-                    // symmetric 3pt overhang top and bottom (the mockup's tick).
+                    // symmetric 3pt overhang top and bottom. Ink, not muted: the
+                    // objective mark must survive on top of any fill color.
                     VLine()
-                        .stroke(Theme.Color.muted, style: StrokeStyle(lineWidth: 2, dash: [3, 2]))
+                        .stroke(Theme.Color.foreground, style: StrokeStyle(lineWidth: 2, dash: [3, 2]))
                         .frame(width: 2, height: 20)
                         .offset(x: w * CGFloat(targetFrac) - 1)
                 }
