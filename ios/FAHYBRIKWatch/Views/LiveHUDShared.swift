@@ -13,13 +13,11 @@ enum WatchFormat {
     /// the watch and phone read time identically.
     static func clock(_ seconds: Double) -> String { WorkoutSession.formatElapsed(seconds) }
 
-    /// Count-DOWN readout. Under a minute reads ":34" (the mockup's interval style);
-    /// a minute or more reads mm:ss. Never negative.
-    static func countdown(_ seconds: Double) -> String {
-        let s = max(0, Int(seconds.rounded(.up)))
-        if s < 60 { return String(format: ":%02d", s) }
-        return WorkoutSession.formatElapsed(Double(s))
-    }
+    /// STANDALONE count-DOWN readout (CEIL) — the watch is the sole display, so it
+    /// shows the whole second in lock-step with the engine's audio ticks (count-in,
+    /// interval, rest, tramo). The MIRROR path rounds instead (matches the phone) via
+    /// `CountdownFormat.mirrored`, called directly from MirrorHUDView.
+    static func countdown(_ seconds: Double) -> String { CountdownFormat.standalone(seconds) }
 
     /// Pace seconds → "m:ss" (e.g. 278 → "4:38"). Nil-safe caller shows a dash.
     static func pace(_ secondsPerUnit: Int) -> String {

@@ -42,6 +42,8 @@ import Section31 from './31-objetivo-y-prediccion';
 import Section32 from './32-editor-de-carrera';
 import Section33 from './33-cumplimiento-por-serie';
 import Section34 from './34-correr-en-cinta';
+import Section35 from './35-correr-al-aire-libre';
+import Section36 from './36-al-acabar-el-entreno';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -81,4 +83,6 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'editor-de-carrera': Section32,
   'cumplimiento-por-serie': Section33,
   'correr-en-cinta': Section34,
+  'correr-al-aire-libre': Section35,
+  'al-acabar-el-entreno': Section36,
 };

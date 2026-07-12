@@ -49,6 +49,10 @@ export const SIGNAL_KINDS = [
   'no_sync',
   'missed_sessions',
   'rpe_high',
+  // Athlete flagged a body area that hurt on a recent finished session (#58). The
+  // earliest, cheapest injury signal — surfaced so the coach can adapt before a
+  // niggle becomes an injury.
+  'discomfort_reported',
   'checkin_skipped',
   'message_unanswered',
   'readiness_low',
@@ -136,6 +140,16 @@ export interface SignalFacts {
   unread_message_age_min: number | null;
   /** Latest daily readiness score (0–100), or null if uncomputed. */
   readiness_score: number | null;
+
+  // Structured session feedback (#58). The athlete's most recent reported body-area
+  // discomfort — a generic area token, when it was reported, and any note. Absent
+  // (null) is the common case. Drives discomfort_reported.
+  /** Body area flagged as hurting on the most recent report (generic token), or null. */
+  discomfort_area: string | null;
+  /** When that discomfort was reported (the execution's ended_at), or null. */
+  discomfort_at: Date | null;
+  /** Optional free-text detail on the discomfort, or null. */
+  discomfort_note: string | null;
 
   // ATR / programming
   /** Programming health from getAthleteProgrammingStatus. */

@@ -948,6 +948,9 @@ async function loadRecentDays(
       duration_seconds: number | null;
       rpe: number | null;
       status: string;
+      perceived_difficulty: 'too_easy' | 'as_expected' | 'too_hard' | null;
+      pain_area: string | null;
+      pain_note: string | null;
     }>
   >`
     select
@@ -956,7 +959,10 @@ async function loadRecentDays(
       coalesce(t.name, 'Sesión') as title,
       we.total_duration_seconds as duration_seconds,
       we.perceived_exertion::float as rpe,
-      coalesce(wa.status, 'completed')::text as status
+      coalesce(wa.status, 'completed')::text as status,
+      we.perceived_difficulty as perceived_difficulty,
+      we.pain_area as pain_area,
+      we.pain_note as pain_note
     from workout_executions we
     left join workout_assignments wa on wa.id = we.assignment_id
     left join templates t on t.id = wa.template_id
@@ -978,6 +984,9 @@ async function loadRecentDays(
       rpe: r.rpe ?? null,
       status: (r.status as RecentSession['status']) ?? 'completed',
       is_pr: false,
+      perceived_difficulty: r.perceived_difficulty,
+      pain_area: r.pain_area,
+      pain_note: r.pain_note,
     });
     byDay.set(dayKey, arr);
   }

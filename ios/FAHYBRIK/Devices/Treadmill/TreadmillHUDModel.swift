@@ -268,6 +268,24 @@ final class TreadmillHUDModel {
             legElapsedS = max(0, Date().timeIntervalSince(legStartedAt) - pausedAccum)
         }
         maybeAutoAdvance()
+        feedAudioCoach()
+    }
+
+    /// Feed the live audio coach (#63) the two treadmill-only signals it can't get
+    /// from the session: the live pace vs the leg's pace objective, and covered
+    /// distance for km splits on a continuous run. Observe-only — the coach decides
+    /// whether (and what) to speak; the hysteresis / split rules live in its engine.
+    private func feedAudioCoach() {
+        guard !paused, !isCountIn, !session.isAwaitingBlockStart else { return }
+        if !isRecovery, case .pace = runTarget, let pace = livePaceSecPerKm {
+            AudioCoach.shared.paceUpdate(status: runTarget.paceStatus(currentSecPerKm: pace),
+                                         deltaSec: runTarget.paceDeviationSecPerKm(currentSecPerKm: pace))
+        }
+        // Km splits are a CONTINUOUS-run concept; a series / structured run announces
+        // per tramo instead, so it never gets a competing split.
+        if !isStructured, !isSeries, !isRecovery {
+            AudioCoach.shared.distanceUpdate(distanceM: legDistanceM, elapsedS: legElapsedEffective)
+        }
     }
 
     private func updateLegDistance(from sample: TreadmillSample) {
@@ -325,6 +343,11 @@ final class TreadmillHUDModel {
         snapshotLeg(activeLegKey)
         activeLegKey = key
         resetLegState()
+        // A new continuous-run leg → restart the coach's km-split cursor so splits
+        // count from THIS leg's distance, not cumulatively across the workout (#63).
+        if !isStructured, !isSeries, !currentLeg.isRecovery {
+            AudioCoach.shared.enterContinuousRun()
+        }
     }
 
     private func resetLegState() {

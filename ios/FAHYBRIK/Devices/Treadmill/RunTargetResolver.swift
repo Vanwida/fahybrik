@@ -1,12 +1,15 @@
 import Foundation
 
-// Pure domain layer for the treadmill run HUD: what the coach prescribed for the
-// current run leg, and whether the athlete's live effort is inside it. No UI, no
-// devices — resolved from a WorkoutSegment, fully unit-testable.
+// Treadmill-BOUND half of the run pace domain: the belt math and the scalar
+// resolvers that read a `WorkoutSegment`. The pure, cross-platform core — the
+// `PaceTarget` / `TargetStatus` / `RunTarget` / `SegmentGoal` types, their judging
+// and the seconds→m:ss `TreadmillMath.clock` — lives in FAHYBRIK/Plan/RunPaceModel.swift
+// so the Apple Watch structured-run HUD shares it (#68). This file only ADDS the
+// device-bound extensions, so both targets compile from the same type declarations.
 
-// MARK: - Pace math
+// MARK: - Pace / distance math (belt-derived — app-only)
 
-enum TreadmillMath {
+extension TreadmillMath {
     /// Belt speed (km/h) → running pace in whole seconds per km. Returns nil when
     /// the belt is effectively stopped (`< minMovingSpeedKmh`): pace is undefined
     /// at a standstill and must render as "—", never a divide-by-zero.
@@ -21,68 +24,11 @@ enum TreadmillMath {
         guard dt > 0, speedKmh > 0 else { return meters }
         return meters + (speedKmh / 3.6) * dt
     }
-
-    /// Format whole seconds as m:ss (pace / clock). Kept here so the pure layer
-    /// has no SwiftUI dependency.
-    static func clock(_ seconds: Int) -> String {
-        let s = max(0, seconds)
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
 }
 
-// MARK: - Target
+// MARK: - RunTarget.resolve(from: WorkoutSegment) — the scalar treadmill path
 
-/// A pace objective in seconds-per-KILOMETER. Carries the coach's prescription
-/// as given: a single point (`single`) and/or a band (`fastS`..`slowS`, where
-/// `fastS` is the faster/smaller sec/km). A single point is judged within a ±
-/// tolerance; a band is judged strictly.
-struct PaceTarget: Equatable {
-    var single: Int?
-    var fastS: Int?
-    var slowS: Int?
-
-    var hasBand: Bool { fastS != nil || slowS != nil }
-
-    /// Human objetivo string (the "/km" unit is added by the caller).
-    var label: String {
-        if let f = fastS, let s = slowS { return "\(TreadmillMath.clock(f))–\(TreadmillMath.clock(s))" }
-        if let f = fastS { return "≥ \(TreadmillMath.clock(f))" }
-        if let s = slowS { return "≤ \(TreadmillMath.clock(s))" }
-        if let single { return TreadmillMath.clock(single) }
-        return "—"
-    }
-
-    func status(currentSecPerKm pace: Int?) -> TargetStatus {
-        guard let pace, pace > 0 else { return .unknown }
-        if hasBand {
-            if let f = fastS, pace < f { return .tooFast }
-            if let s = slowS, pace > s { return .tooSlow }
-            return .inTarget
-        }
-        guard let single else { return .unknown }
-        let tol = TreadmillConstants.singlePaceToleranceSecPerKm
-        if pace < single - tol { return .tooFast }
-        if pace > single + tol { return .tooSlow }
-        return .inTarget
-    }
-}
-
-/// Whether the athlete's current effort sits inside the prescribed objective.
-enum TargetStatus: Equatable {
-    case inTarget
-    case tooFast   // harder/faster than prescribed (pace below fast bound, or HR above target zone)
-    case tooSlow   // easier/slower than prescribed
-    case unknown   // no measurable value yet, or nothing evaluable to judge against
-}
-
-/// The evaluable objective of a RUN leg. A run is judged on PACE when the coach
-/// set a pace/band; else on HR ZONE when the coach set a zone; else there is
-/// nothing to judge (guidance only).
-enum RunTarget: Equatable {
-    case pace(PaceTarget)
-    case zone(HRZone)
-    case none
-
+extension RunTarget {
     /// Resolve from a segment. Prefers the STRUCTURED `prescription.target` (the
     /// only place a pace band lives), normalizing any unit (/500m, /mile) to
     /// seconds-per-km; falls back to the flattened scalar pace, then scalar zone.
@@ -107,32 +53,6 @@ enum RunTarget: Equatable {
         return .none
     }
 
-    /// Live pace (sec/km) → status against a pace target. `.unknown` for a
-    /// non-pace target or a missing/stopped pace.
-    func paceStatus(currentSecPerKm pace: Int?) -> TargetStatus {
-        guard case let .pace(t) = self else { return .unknown }
-        return t.status(currentSecPerKm: pace)
-    }
-
-    /// Live HR zone → status against a zone target. `.unknown` for a non-zone
-    /// target or when no zone is available (no HR, or no age for the estimate).
-    func zoneStatus(currentZone zone: HRZone?) -> TargetStatus {
-        guard case let .zone(target) = self else { return .unknown }
-        guard let zone else { return .unknown }
-        if zone.rawValue < target.rawValue { return .tooSlow }
-        if zone.rawValue > target.rawValue { return .tooFast }
-        return .inTarget
-    }
-
-    /// The objetivo shown near the hero, or nil when there's nothing to hit.
-    var objetivoLabel: String? {
-        switch self {
-        case let .pace(t): return "\(t.label) /km"
-        case let .zone(z): return z.label
-        case .none:        return nil
-        }
-    }
-
     // /500m and /mile → /km. Runs read /km; the erg /500m form is doubled, a
     // mile is 1.609344 km.
     private static func perKm(_ seconds: Int, _ unit: PaceUnit) -> Int {
@@ -149,41 +69,13 @@ enum RunTarget: Equatable {
     }
 }
 
-// MARK: - Work measure / completion
+// MARK: - SegmentGoal.resolve(from: WorkoutSegment) — the scalar treadmill path
 
-/// How the current run leg completes: a fixed distance, a fixed time, or open
-/// (no measurable goal — the athlete ends it manually).
-enum SegmentGoal: Equatable {
-    case distance(meters: Double)
-    case time(seconds: Int)
-    case open
-
+extension SegmentGoal {
     static func resolve(from segment: WorkoutSegment) -> SegmentGoal {
         if let d = segment.targetDistanceMeters, d > 0 { return .distance(meters: d) }
         if let t = segment.targetDurationSeconds, t > 0 { return .time(seconds: t) }
         return .open
-    }
-
-    /// Progress fraction 0...1 given covered distance (m) and elapsed time (s).
-    func fraction(distanceM: Double, elapsedS: Double) -> Double {
-        switch self {
-        case let .distance(target):
-            guard target > 0 else { return 0 }
-            return min(1, max(0, distanceM / target))
-        case let .time(target):
-            guard target > 0 else { return 0 }
-            return min(1, max(0, elapsedS / Double(target)))
-        case .open:
-            return 0
-        }
-    }
-
-    func isComplete(distanceM: Double, elapsedS: Double) -> Bool {
-        switch self {
-        case let .distance(target): return target > 0 && distanceM >= target
-        case let .time(target):     return target > 0 && elapsedS >= Double(target)
-        case .open:                 return false
-        }
     }
 }
 

@@ -54,6 +54,9 @@ export const SIGNAL_THRESHOLDS = {
   missed_sessions_min: 2,
   /** Yesterday's RPE at or above this → rpe_high (Vigilar). */
   rpe_high_min: 9,
+  /** A reported body-area discomfort within this many days → discomfort_reported
+   *  (Vigilar). Auto-clears after the window if it doesn't recur (#58). */
+  discomfort_recent_days: 10,
   /** Unanswered athlete message older than this many hours → message_unanswered (Vigilar). */
   message_unanswered_hours: 12,
   /** No daily check-in for more than this many hours → checkin_skipped (Vigilar). */
@@ -109,6 +112,7 @@ export const signalThresholdsSchema = z
     no_sync_warning_hours: z.number().int().positive(),
     missed_sessions_min: z.number().int().positive(),
     rpe_high_min: z.number().min(0).max(10),
+    discomfort_recent_days: z.number().int().positive(),
     message_unanswered_hours: z.number().positive(),
     checkin_skipped_hours: z.number().positive(),
     intake_critical_hours: z.number().positive(),

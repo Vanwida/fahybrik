@@ -172,55 +172,55 @@ const MARC_RECENT: RecentDay[] = [
     iso_date: '2026-05-08',
     label: 'HOY',
     sessions: [
-      { slot: 'AM', title: 'Strength upper body',       duration_seconds: 52 * 60,       rpe: 7,   status: 'completed', is_pr: false },
-      { slot: 'PM', title: 'Threshold intervals 4×1km', duration_seconds: 50 * 60,       rpe: 8.5, status: 'completed', is_pr: false },
+      { slot: 'AM', title: 'Strength upper body',       duration_seconds: 52 * 60,       rpe: 7,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
+      { slot: 'PM', title: 'Threshold intervals 4×1km', duration_seconds: 50 * 60,       rpe: 8.5, status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
   {
     iso_date: '2026-05-07',
     label: 'AYER',
     sessions: [
-      { slot: 'AM', title: 'Z2 long run 90min',          duration_seconds: 90 * 60,       rpe: 5,   status: 'completed', is_pr: false },
-      { slot: 'PM', title: 'Skill + mobility (banded)',  duration_seconds: 35 * 60,       rpe: 4,   status: 'completed', is_pr: false },
+      { slot: 'AM', title: 'Z2 long run 90min',          duration_seconds: 90 * 60,       rpe: 5,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
+      { slot: 'PM', title: 'Skill + mobility (banded)',  duration_seconds: 35 * 60,       rpe: 4,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
   {
     iso_date: '2026-05-06',
     label: '−2d',
     sessions: [
-      { slot: 'AM', title: 'Lower body strength',         duration_seconds: 58 * 60,       rpe: 7,   status: 'completed', is_pr: false },
-      { slot: 'PM', title: 'HYROX simulation half',       duration_seconds: 47 * 60 + 23,  rpe: 8,   status: 'completed', is_pr: true },
+      { slot: 'AM', title: 'Lower body strength',         duration_seconds: 58 * 60,       rpe: 7,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
+      { slot: 'PM', title: 'HYROX simulation half',       duration_seconds: 47 * 60 + 23,  rpe: 8,   status: 'completed', is_pr: true, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
   {
     iso_date: '2026-05-05',
     label: '−3d',
     sessions: [
-      { slot: 'AM', title: 'Tempo run 30min Z3',          duration_seconds: 32 * 60,       rpe: 7,   status: 'completed', is_pr: false },
-      { slot: 'PM', title: 'Recovery + drills',           duration_seconds: 25 * 60,       rpe: 3,   status: 'completed', is_pr: false },
+      { slot: 'AM', title: 'Tempo run 30min Z3',          duration_seconds: 32 * 60,       rpe: 7,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
+      { slot: 'PM', title: 'Recovery + drills',           duration_seconds: 25 * 60,       rpe: 3,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
   {
     iso_date: '2026-05-04',
     label: '−4d',
     sessions: [
-      { slot: 'SOLO', title: 'Rest / mobility',           duration_seconds: 20 * 60,       rpe: 2,   status: 'completed', is_pr: false },
+      { slot: 'SOLO', title: 'Rest / mobility',           duration_seconds: 20 * 60,       rpe: 2,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
   {
     iso_date: '2026-05-03',
     label: '−5d',
     sessions: [
-      { slot: 'AM', title: 'Strength full body',          duration_seconds: 65 * 60,       rpe: 8,   status: 'completed', is_pr: false },
-      { slot: 'PM', title: 'VO2max intervals 5×3min',     duration_seconds: 42 * 60,       rpe: 9,   status: 'completed', is_pr: false },
+      { slot: 'AM', title: 'Strength full body',          duration_seconds: 65 * 60,       rpe: 8,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
+      { slot: 'PM', title: 'VO2max intervals 5×3min',     duration_seconds: 42 * 60,       rpe: 9,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
   {
     iso_date: '2026-05-02',
     label: '−6d',
     sessions: [
-      { slot: 'AM', title: 'Strides + skill',             duration_seconds: 35 * 60,       rpe: 5,   status: 'completed', is_pr: false },
-      { slot: 'PM', title: 'Sled accumulation block',     duration_seconds: 48 * 60,       rpe: 7,   status: 'completed', is_pr: false },
+      { slot: 'AM', title: 'Strides + skill',             duration_seconds: 35 * 60,       rpe: 5,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
+      { slot: 'PM', title: 'Sled accumulation block',     duration_seconds: 48 * 60,       rpe: 7,   status: 'completed', is_pr: false, perceived_difficulty: null, pain_area: null, pain_note: null },
     ],
   },
 ];

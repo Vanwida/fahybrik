@@ -24,12 +24,24 @@ final class WorkoutSession {
     var laps: [LapRecord] = []
     var repsCurrentSegment: Int = 0
     var isPaused: Bool = false
+    /// AUTO-pause (outdoor GPS #64) currently holds the session — distinct from a
+    /// manual pause. Kept separate from `isPaused` so the two can never be confused:
+    /// only an auto-pause is auto-resumed on movement, and any MANUAL action clears
+    /// it (the athlete's own pause/resume always wins). Invariant: true ⇒ isPaused.
+    var autoPaused: Bool = false
     var isFinished: Bool = false
     /// Set by `finish(completeness:)` — whether the session ran to the natural end
     /// (`.full` → 'completed') or was terminated early via "Terminar y guardar" /
     /// "Terminar bloque" (`.partial` → 'partial'). Read by the post-workout summary
     /// when building the execution payload. Never fabricates a fake completion.
     var completeness: WorkoutCompleteness = .full
+
+    /// The outdoor run's GPS trace (#64) as an encoded polyline, written by the
+    /// OutdoorRunHUDModel on teardown and read by the post-workout summary to ship it
+    /// in the execution payload + draw the run's mini-map. Session-scoped (not per
+    /// segment): the outdoor HUD seeds from it on open so re-opening continues the
+    /// same trace. nil when the run was never outdoors (no fabricated route).
+    var capturedRoutePolyline: String? = nil
 
     // MARK: - Honest rep / strength / WOD logging (FASE 2 · PASO 2)
     //
@@ -442,6 +454,9 @@ final class WorkoutSession {
         // re-arm a block mid-session.
         if !hasArmedInitial {
             hasArmedInitial = true
+            #if os(iOS)
+            AudioCoach.shared.beginWorkout()   // fresh voice-coaching state for this workout (#63, iOS-only)
+            #endif
             if emomSegmentIndex == nil { armBlock() }
         }
     }
@@ -454,12 +469,37 @@ final class WorkoutSession {
 
     func togglePause() {
         Haptics.medium()
+        // A MANUAL action always wins over auto-pause: pausing by hand makes it a
+        // manual hold (never auto-resumed), and resuming by hand clears any
+        // auto-pause that was holding the clock.
+        autoPaused = false
         if isPaused {
             isPaused = false
             lastTick = Date()
         } else {
             isPaused = true
         }
+    }
+
+    /// Engage AUTO-pause (outdoor GPS #64): the athlete stopped moving, so freeze the
+    /// clock exactly like a manual pause — `elapsedSeconds` then measures MOVING time
+    /// and the covered pace stays honest — while remembering that WE paused, so
+    /// resumed movement can lift it. No-op when already paused / finished / parked on
+    /// a block preview. The caller owns the haptic + the non-modal "Auto-pausa" banner.
+    func autoPause() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
+        isPaused = true
+        autoPaused = true
+    }
+
+    /// Resume from an AUTO-pause when movement returns. ONLY lifts a pause WE set — a
+    /// manual pause (autoPaused == false) is the athlete's own hold and is never
+    /// touched. Resets the tick baseline so the clock can't jump by the stopped span.
+    func autoResume() {
+        guard isPaused, autoPaused, !isFinished else { return }
+        isPaused = false
+        autoPaused = false
+        lastTick = Date()
     }
 
     /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete
@@ -645,6 +685,11 @@ final class WorkoutSession {
             closeCurrentSegmentLap()
         }
         isFinished = true
+        // Voice the total time BEFORE stop() tears the tone session down — the coach
+        // holds the session active for the cue and releases it when the cue ends (#63).
+        #if os(iOS)
+        AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
+        #endif
         stop()
         Task { [snapshot = persistedSnapshot()] in
             await WorkoutStateStore.shared.save(snapshot)
@@ -1218,6 +1263,9 @@ final class WorkoutSession {
         runLegStartElapsed = lapElapsedSeconds
         WorkoutAudio.shared.playGo()
         Haptics.medium()
+        #if os(iOS)
+        AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
+        #endif
     }
 
     // The bottom primary button for a structured run ("Tramo hecho" / "Saltar
@@ -1253,6 +1301,9 @@ final class WorkoutSession {
             WorkoutAudio.shared.playIntervalStart()
             Haptics.medium()
         }
+        #if os(iOS)
+        AudioCoach.shared.announceRunLeg(in: self)   // voice the new tramo / recovery (#63, iOS-only)
+        #endif
     }
 
     // Close the run segment's single aggregate lap (reusing the standard close path)
@@ -1284,6 +1335,9 @@ final class WorkoutSession {
                     runLegStartElapsed = lapElapsedSeconds   // GO — the leg clock starts now
                     WorkoutAudio.shared.playGo()
                     Haptics.medium()
+                    #if os(iOS)
+                    AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
+                    #endif
                 } else {
                     WorkoutAudio.shared.playTick()
                     Haptics.light()
@@ -1300,6 +1354,9 @@ final class WorkoutSession {
             WorkoutAudio.shared.playTick()
             Haptics.light()
         }
+        #if os(iOS)
+        AudioCoach.shared.runLegTimeRemaining(after, in: self)   // once-per-leg "10 segundos" (#63, iOS-only)
+        #endif
         if after <= 0 {
             advanceRunLeg(auto: true)
         } else {

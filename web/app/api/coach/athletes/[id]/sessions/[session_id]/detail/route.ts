@@ -75,9 +75,13 @@ export async function GET(
       score_time_s: number | null;
       score_rounds: number | null;
       score_reps: number | null;
+      perceived_difficulty: 'too_easy' | 'as_expected' | 'too_hard' | null;
+      pain_area: string | null;
+      pain_note: string | null;
     }>
   >`
-    select id, total_duration_seconds, notes, score_time_s, score_rounds, score_reps
+    select id, total_duration_seconds, notes, score_time_s, score_rounds, score_reps,
+           perceived_difficulty, pain_area, pain_note
     from workout_executions
     where assignment_id = ${Number(parsedSession.data.session_id)}
     limit 1
@@ -117,6 +121,9 @@ export async function GET(
                 score_reps: executionRow.score_reps,
               })
             : null,
+          perceived_difficulty: executionRow?.perceived_difficulty ?? null,
+          pain_area: executionRow?.pain_area ?? null,
+          pain_note: executionRow?.pain_note ?? null,
         }
       : null,
     segment_actuals: segmentActuals,

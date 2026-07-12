@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 // Expert variant of the Post-Workout Summary.
 // Mirrors docs/design/fahybrik-design-system/project/athlete_app/workout.jsx
@@ -38,6 +39,33 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreRounds: Int? = nil
     @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
+
+    // MARK: #58 — structured feedback to the coach (prescribed sessions only)
+    @State private var difficulty: PerceivedDifficulty? = nil
+    @State private var painExpanded: Bool = false
+    @State private var painArea: PainArea? = nil
+    @State private var painNote: String = ""
+
+    // MARK: #65 — PR celebration + shareable card
+    /// Set (non-empty) when the sync response reports running records → the
+    /// celebration overlays the summary until dismissed, THEN we close.
+    @State private var celebrationRecords: [PersonalRecord] = []
+    /// One-shot guard: true once the summary has closed (normally, or because the
+    /// athlete tapped to leave during the save wait). Stops the still-pending sync
+    /// response from closing again or celebrating over a dismissed view.
+    @State private var didFinish: Bool = false
+    /// Rendered share image of THIS summary (no PR badge — records are unknown
+    /// until save). Re-rendered on appear and when the RPE changes.
+    @State private var summaryShareURL: URL? = nil
+
+    /// SwiftUI review-request action (#59). Fired only through `maybeRequestReview`,
+    /// which consults the pure `ReviewGate` first.
+    @Environment(\.requestReview) private var requestReview
+
+    /// How long to wait for the sync response before closing anyway. A slow/failing
+    /// API must never trap the athlete in the summary — the sync still replays via
+    /// RequestQueue; we just skip the celebration this time.
+    private static let prCelebrationLookupTimeout: TimeInterval = 6
 
     // MANUAL FALLBACK (no wearable). Optional session HR the athlete enters when
     // no strap fed the workout; injected onto every lap that lacks measured HR so
@@ -84,10 +112,27 @@ struct PostWorkoutSummaryView: View {
     }
 
     var body: some View {
+        ZStack {
+            summaryContent
+            if !celebrationRecords.isEmpty {
+                PRCelebrationView(
+                    records: celebrationRecords,
+                    shareData: celebrationShareData,
+                    onDone: dismissCelebration
+                )
+            }
+        }
+        .onAppear { seedCapturedScore(); renderSummaryCard() }
+        .onChange(of: rpe) { _, _ in renderSummaryCard() }
+    }
+
+    private var summaryContent: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     tightHeader
+                    // #64 — an outdoor run's GPS route, right under the headline time.
+                    if hasRoute { routeMapCard }
                     // Manual ("Ya lo hice") entry: no measured laps exist, so the
                     // device-derived sections (zones, HR, per-segment splits) are
                     // hidden — they'd collect data with nowhere to persist. The
@@ -113,24 +158,37 @@ struct PostWorkoutSummaryView: View {
                         scoreCard
                     }
                     rpeCard
+                    // #58 — "Cómo ha ido" feedback to the coach. Only for a
+                    // prescribed session: a free workout has no coach prescription
+                    // to judge "fácil/duro" against, and the free endpoint doesn't
+                    // carry these fields.
+                    if freeContext == nil {
+                        SessionFeedbackCard(
+                            difficulty: $difficulty,
+                            painExpanded: $painExpanded,
+                            painArea: $painArea,
+                            painNote: $painNote
+                        )
+                    }
                     notesCard
                 }
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
+            // Stays tappable WHILE saving: on a slow response the athlete is never
+            // trapped — tapping "GUARDANDO…" closes now. The sync keeps running
+            // offline-first (RequestQueue); only this celebration is skipped.
             ExpertPrimaryButton(
                 title: isSaving ? "GUARDANDO…" : "GUARDAR",
                 height: 46,
-                action: handleSave
+                action: { isSaving ? closeNow() : handleSave() }
             )
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.m)
                 .padding(.top, Theme.Spacing.s)
-                .disabled(isSaving)
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        .onAppear { seedCapturedScore() }
     }
 
     // Pre-fill the result from what the live timer already counted (the athlete
@@ -149,45 +207,146 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Fire-and-forget the sync (RequestQueue handles retry on failure), then
-    // close. Closing is never blocked on a successful network round-trip per
-    // élite-UX brief: a slow API must not trap the athlete in the summary.
+    // Save the execution. Free / ad-hoc sessions fire-and-forget and close at once.
+    // A prescribed session briefly awaits the sync response (bounded by
+    // `prCelebrationLookupTimeout`) so a running PR can be celebrated before we
+    // close — but a slow/failing API never traps the athlete: on timeout we close
+    // and the sync still replays via RequestQueue.
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
         let bearer = UserDefaults.standard.string(forKey: "fahybrik.bearer")
-        // FREE MODE: route to the free-save contract instead of the prescribed sync.
+        // This workout happened — count it toward the review-prompt tenure gate,
+        // even when the network is offline (#59).
+        ReviewPromptStore.shared.recordWorkoutSaved()
+
+        // FREE MODE: route to the free-save contract. No coach-prescription feedback
+        // and no PR celebration — the free endpoint carries neither.
         if let free = freeContext {
             let payload = buildFreePayload(free)
             Task { await FreeWorkoutAPI.submit(payload, bearer: bearer) }
-            onSave()
+            finishAfterSave(records: [])
             return
         }
-        if var payload = buildPayload() {
-            // Mirror mode: if the wrist recorded this session it reported the saved
-            // HKWorkout's UUID — carry it so the backend recognises the HealthKit-
-            // synced copy of the SAME workout and never double-counts. Only when the
-            // payload doesn't already carry a ref (manual/free flows simply get nil).
-            if payload.source_workout_ref == nil {
-                payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
-            }
-            let submitted = payload
-            let target = logTarget
-            Task {
+
+        // Ad-hoc session with no assignment: nothing to sync — close as before.
+        guard var payload = buildPayload() else {
+            finishAfterSave(records: [])
+            return
+        }
+        // Mirror mode: if the wrist recorded this session it reported the saved
+        // HKWorkout's UUID — carry it so the backend recognises the HealthKit-synced
+        // copy of the SAME workout and never double-counts. Only when the payload
+        // doesn't already carry a ref (manual flows simply get nil).
+        if payload.source_workout_ref == nil {
+            payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
+        }
+        let submitted = payload
+        let target = logTarget
+        Task { @MainActor in
+            // The submit runs to completion on its own (enqueues on failure); we
+            // only bound how long we WAIT for its response before closing, so a slow
+            // API never traps the athlete here.
+            let responseTask = Task { () -> WorkoutExecutionResponse? in
                 switch target {
                 case .solo:
-                    await WorkoutExecutionAPI.submit(submitted, bearer: bearer)
+                    return await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
                 case .doublesJoint:
                     // sessionId == this athlete's own assignment id == payload.assignment_id.
-                    await DoblesExecutionAPI.submit(
-                        sessionId: submitted.assignment_id,
-                        submitted,
-                        bearer: bearer
+                    return await DoblesExecutionAPI.submitReturning(
+                        sessionId: submitted.assignment_id, submitted, bearer: bearer
                     )
                 }
             }
+            let response = await Self.firstValue(
+                of: responseTask, timeout: Self.prCelebrationLookupTimeout
+            )
+            // The athlete may have tapped to leave while we waited — if so, don't
+            // reopen or celebrate over a view that's already gone.
+            guard !didFinish else { return }
+            let records = response?.personalRecords ?? []
+            if records.isEmpty {
+                finishAfterSave(records: [])
+            } else {
+                // Celebrate first; closing is deferred to the celebration dismiss.
+                withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
+                isSaving = false
+            }
         }
+    }
+
+    // Leave during the save wait: don't wait for the response — the sync keeps
+    // running offline-first, we just skip the celebration this time.
+    private func closeNow() {
+        finishAfterSave(records: [])
+    }
+
+    // Close the summary ONCE, requesting an App Store review only when the pure gate
+    // allows it — a genuine beaten PR (not a first mark) is a standalone good moment.
+    private func finishAfterSave(records: [PersonalRecord]) {
+        guard !didFinish else { return }
+        didFinish = true
+        maybeRequestReview(afterGenuinePR: records.contains { !$0.isFirstMark })
         onSave()
+    }
+
+    private func dismissCelebration() {
+        let records = celebrationRecords
+        celebrationRecords = []
+        finishAfterSave(records: records)
+    }
+
+    private func maybeRequestReview(afterGenuinePR: Bool) {
+        let store = ReviewPromptStore.shared
+        guard ReviewGate.shouldRequest(
+            now: Date(),
+            firstUseAt: store.firstUseAt,
+            workoutsSaved: store.workoutsSaved,
+            lastRequestedAt: store.lastRequestedAt,
+            lastBugReportAt: store.lastBugReportAt,
+            afterGenuinePR: afterGenuinePR
+        ) else { return }
+        store.recordReviewRequested()
+        requestReview()
+    }
+
+    // Await whichever finishes first — the response or a timeout — WITHOUT blocking
+    // on the (possibly slow) submit: a timeout resumes with nil while the submit
+    // keeps running to completion in the background. Resume is guarded exactly once.
+    private static func firstValue(
+        of task: Task<WorkoutExecutionResponse?, Never>,
+        timeout: TimeInterval
+    ) async -> WorkoutExecutionResponse? {
+        await withCheckedContinuation { continuation in
+            let once = ResumeOnce()
+            Task {
+                let value = await task.value
+                if once.claim() { continuation.resume(returning: value) }
+            }
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                if once.claim() { continuation.resume(returning: nil) }
+            }
+        }
+    }
+
+    // Render the summary's share card (no PR badge — records are unknown pre-save).
+    @MainActor
+    private func renderSummaryCard() {
+        let data = WorkoutShareData.from(
+            session: session, totalSeconds: executionCore().totalDuration, rpe: rpe, records: []
+        )
+        summaryShareURL = WorkoutShareRenderer.pngURL(for: data)
+    }
+
+    // Share data for the celebration card (with the PR badge).
+    private var celebrationShareData: WorkoutShareData {
+        WorkoutShareData.from(
+            session: session,
+            totalSeconds: executionCore().totalDuration,
+            rpe: rpe,
+            records: celebrationRecords
+        )
     }
 
     // The execution metrics SHARED by the prescribed and the free save paths —
@@ -240,6 +399,24 @@ struct PostWorkoutSummaryView: View {
         )
     }
 
+    // #64 — the outdoor run's captured trace (nil / <2 points = not outdoors).
+    private var hasRoute: Bool {
+        guard let poly = session.capturedRoutePolyline else { return false }
+        return PolylineCodec.pointCount(poly) >= 2
+    }
+
+    private var routeMapCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: "Tu recorrido", size: 11)
+            RouteMiniMap(polyline: session.capturedRoutePolyline ?? "")
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func buildPayload() -> WorkoutExecutionPayload? {
         guard let assignmentId, !assignmentId.isEmpty else { return nil }
         let c = executionCore()
@@ -257,8 +434,26 @@ struct PostWorkoutSummaryView: View {
             completeness: c.completeness,
             started_at: c.startedAtISO,
             ended_at: c.endedAtISO,
-            segments: c.segments
+            segments: c.segments,
+            // #64 — the outdoor run's GPS trace, persisted to workout_routes.
+            route_polyline: session.capturedRoutePolyline,
+            // #58 — optional structured feedback, in the SAME POST.
+            perceived_difficulty: difficulty?.rawValue,
+            pain_area: feedbackPainAreaWire,
+            pain_note: feedbackPainNoteWire
         )
+    }
+
+    // Pain fields are only sent when the athlete opened the "Molestia física"
+    // section (collapsed = not reported). The note is trimmed and clamped to the
+    // backend limit; empty → omitted.
+    private var feedbackPainAreaWire: String? {
+        painExpanded ? painArea?.rawValue : nil
+    }
+    private var feedbackPainNoteWire: String? {
+        guard painExpanded else { return nil }
+        let trimmed = painNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : String(trimmed.prefix(PainArea.maxNoteLength))
     }
 
     // Free workout: the SAME execution metrics + the free-only carriers. The
@@ -395,6 +590,15 @@ struct PostWorkoutSummaryView: View {
                 HeroNumber(text: WorkoutSession.formatElapsed(session.elapsedSeconds), size: 36)
             }
             Spacer()
+            if let summaryShareURL {
+                ShareLink(item: summaryShareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                }
+                .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
+                .accessibilityLabel("Compartir entreno")
+            }
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
@@ -678,5 +882,20 @@ struct PostWorkoutSummaryView: View {
                     .accessibilityLabel("Notas del entreno")
             }
         }
+    }
+}
+
+// A one-shot claim guard so a continuation raced between two tasks (the response
+// and the timeout) resumes exactly once. Internally synchronized → safe to share.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var claimed = false
+    /// True for the FIRST caller only; every later caller gets false.
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if claimed { return false }
+        claimed = true
+        return true
     }
 }

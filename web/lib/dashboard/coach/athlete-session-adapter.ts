@@ -50,6 +50,13 @@ export interface CoachSessionDetail {
     /** Metcon/HYROX headline result, pre-formatted ("42:15", "5 rondas + 8 reps").
      *  Null for non-scored formats or when the athlete didn't record a score. */
     score_label: string | null;
+    /** Structured session feedback (#58): calibration verdict vs the plan's intent
+     *  ('too_easy' | 'as_expected' | 'too_hard'), null when the athlete didn't answer. */
+    perceived_difficulty: 'too_easy' | 'as_expected' | 'too_hard' | null;
+    /** Body area the athlete flagged as hurting (generic token), null when nothing hurt. */
+    pain_area: string | null;
+    /** Optional free-text detail on the discomfort, null when none. */
+    pain_note: string | null;
   } | null;
   /** Per-exercise actuals the athlete logged (segment_executions), mapped to the
    *  prescribed item via `item_uid`. Empty when the session has no granular log

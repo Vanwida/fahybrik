@@ -20,6 +20,7 @@ import {
   card,
   seriesAxis,
 } from './core';
+import { buildLoadCards } from './load';
 
 const MIN_DAYS = 4;
 const MIN_BAR = 0.1;
@@ -130,6 +131,13 @@ export async function buildRecoverySection(
       }),
     );
   }
+
+  // ── CARDS: Forma (frescura) + Carga semanal — INTERNAL load from the RPE
+  // engine (shared/domain/training-load), the SAME engine the coach reads.
+  // Placed just before the ACWR card so the three load readings sit together;
+  // note the sources differ — these two are internal perceived load (RPE), the
+  // ACWR below is external HealthKit workout volume. See load.ts.
+  cards.push(...(await buildLoadCards({ athlete_id: athleteId, period }, client)));
 
   // ── CARD: carga aguda vs crónica (ACWR) from training_load ─────────────────
   cards.push(await buildAcwr(client, athleteId, period));

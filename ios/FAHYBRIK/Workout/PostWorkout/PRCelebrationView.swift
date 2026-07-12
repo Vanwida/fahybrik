@@ -1,0 +1,337 @@
+import SwiftUI
+
+// MARK: - #65 · Post-workout premium: PR celebration + shareable card
+//
+// When the sync response reports one or more running personal records, the
+// summary overlays this celebration before closing. The copy is ALWAYS
+// unambiguous — it's the athlete's fastest RUN of the distance (or their first
+// mark), never a test. The card is deliberately a dark, gold-accented spotlight
+// regardless of the app theme (a celebration is a night-coded moment), and it can
+// be shared as an image. A share affordance also lives on the summary itself.
+
+// MARK: Share data (pure, testable)
+//
+// The honest snapshot the share card renders. Built from the finished session
+// (plus the RPE and any records) — every field is real or omitted; nothing is
+// invented. Pure value type so the render can be smoke-tested without a session.
+struct WorkoutShareData: Equatable {
+    struct Zone: Equatable { let label: String; let pct: Int }
+
+    let title: String
+    let timeText: String
+    let paceText: String?        // "4:35 /km" · "1:52 /500m" — nil when unmeasured
+    let dominantZone: Zone?      // nil when no zone data
+    let rpe: Int?
+    let prDistanceLabel: String? // "5 km" — the biggest record; nil when none
+
+    var isPR: Bool { prDistanceLabel != nil }
+
+    /// Build from a finished session. `totalSeconds` is the honest session total
+    /// the summary already computed (the live clock, or the hand-entered time);
+    /// pace + dominant zone are derived from the measured laps and stay nil when
+    /// there is nothing real to show.
+    @MainActor
+    static func from(
+        session: WorkoutSession,
+        totalSeconds: Int?,
+        rpe: Int?,
+        records: [PersonalRecord]
+    ) -> WorkoutShareData {
+        WorkoutShareData(
+            title: session.plan.name,
+            timeText: WorkoutSession.formatElapsed(Double(totalSeconds ?? Int(session.elapsedSeconds.rounded()))),
+            paceText: averagePace(from: session.laps),
+            dominantZone: dominantZone(from: session.laps),
+            rpe: rpe,
+            prDistanceLabel: biggestRecord(records)?.kind.distanceLabel
+        )
+    }
+
+    // Distance-weighted average pace of the dominant discipline: running first
+    // (/km), else the erg (/500m). Nil when no measured distance exists.
+    private static func averagePace(from laps: [LapRecord]) -> String? {
+        func aggregate(_ modalities: Set<String>) -> (dist: Double, time: Double) {
+            laps.filter { modalities.contains($0.modality) }
+                .reduce(into: (dist: 0.0, time: 0.0)) { acc, lap in
+                    if let d = lap.distanceCoveredMeters, d > 0 {
+                        acc.dist += d
+                        acc.time += lap.durationSeconds
+                    }
+                }
+        }
+        let run = aggregate(["run"])
+        if run.dist > 0 {
+            let secPerKm = run.time / (run.dist / 1000)
+            return "\(formatPace(secPerKm)) /km"
+        }
+        let erg = aggregate(["row", "ski", "bike"])
+        if erg.dist > 0 {
+            let secPer500 = erg.time / (erg.dist / 500)
+            return "\(formatPace(secPer500)) /500m"
+        }
+        return nil
+    }
+
+    // The zone the athlete spent the most time in, as label + percentage. Mirrors
+    // the summary's zone distribution. Nil when no zone seconds were recorded.
+    private static func dominantZone(from laps: [LapRecord]) -> Zone? {
+        var byZone: [Int: Double] = [:]
+        for lap in laps {
+            for (z, secs) in lap.zoneSecondsByZone { byZone[z, default: 0] += secs }
+        }
+        let total = byZone.values.reduce(0, +)
+        guard total > 0, let top = byZone.max(by: { $0.value < $1.value }) else { return nil }
+        let pct = Int((top.value / total * 100).rounded())
+        let label = HRZone(rawValue: top.key)?.label ?? "Z\(top.key)"
+        return Zone(label: label, pct: pct)
+    }
+
+    // The longest-distance record (5k > 3k > 1k) — it drives the PR badge.
+    private static func biggestRecord(_ records: [PersonalRecord]) -> PersonalRecord? {
+        let order: [PRKind] = [.run5k, .run3k, .run1k]
+        return order.compactMap { kind in records.first { $0.kind == kind } }.first
+    }
+
+    /// Pace as "m:ss" (no leading-zero minute), e.g. "4:35".
+    static func formatPace(_ seconds: Double) -> String {
+        let total = Int(seconds.rounded())
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+// MARK: - Gold accents (celebration only)
+
+private enum Gold {
+    static let bright = Color(red: 0.93, green: 0.79, blue: 0.42)
+    static let deep = Color(red: 0.78, green: 0.60, blue: 0.24)
+    static var gradient: LinearGradient {
+        LinearGradient(colors: [bright, deep], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+// MARK: - Celebration overlay
+
+struct PRCelebrationView: View {
+    let records: [PersonalRecord]
+    let shareData: WorkoutShareData
+    let onDone: () -> Void
+
+    @State private var shareURL: URL? = nil
+    @State private var appear = false
+
+    private var isPlural: Bool { records.count > 1 }
+
+    var body: some View {
+        ZStack {
+            // Dark spotlight scrim — dismiss on tap outside the panel.
+            Color.black.opacity(0.94)
+                .ignoresSafeArea()
+                .onTapGesture { onDone() }
+
+            VStack(spacing: Theme.Spacing.l) {
+                medal
+                VStack(spacing: 4) {
+                    Text(isPlural ? "¡Nuevos récords!" : "¡Nuevo récord!")
+                        .font(.system(size: 26, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("Récord personal")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(Theme.Tracking.dataLabel)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Gold.bright)
+                }
+
+                VStack(spacing: 10) {
+                    ForEach(Array(records.enumerated()), id: \.offset) { _, record in
+                        recordRow(record)
+                    }
+                }
+
+                actions
+            }
+            .padding(Theme.Spacing.xl)
+            .frame(maxWidth: 360)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
+                    .fill(Theme.Color.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
+                            .stroke(Gold.deep.opacity(0.5), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, Theme.Spacing.xl)
+            .scaleEffect(appear ? 1 : 0.92)
+            .opacity(appear ? 1 : 0)
+        }
+        // A celebration is a night-coded moment: force the dark palette so the gold
+        // reads even when the app is in light mode.
+        .environment(\.colorScheme, .dark)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appear = true }
+            Haptics.success()
+        }
+        .task { shareURL = WorkoutShareRenderer.pngURL(for: shareData) }
+    }
+
+    private var medal: some View {
+        ZStack {
+            Circle().fill(Gold.gradient)
+                .frame(width: 76, height: 76)
+                .shadow(color: Gold.deep.opacity(0.5), radius: 16, y: 6)
+            Text("PR")
+                .font(.system(size: 26, weight: .heavy, design: .default).italic())
+                .foregroundStyle(Color.black.opacity(0.72))
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func recordRow(_ record: PersonalRecord) -> some View {
+        VStack(spacing: 4) {
+            Text(record.headline)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+                .multilineTextAlignment(.center)
+            Text(record.formattedValue)
+                .font(.system(size: 44, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.foreground)
+            if let delta = record.deltaLine {
+                Text(delta)
+                    .font(.system(size: 12))
+                    .foregroundStyle(record.isFirstMark ? Theme.Color.muted : Gold.bright)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var actions: some View {
+        VStack(spacing: Theme.Spacing.s) {
+            if let shareURL {
+                ShareLink(item: shareURL) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Compartir")
+                    }
+                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
+                    .tracking(0.5)
+                    .foregroundStyle(Color.black.opacity(0.78))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Gold.gradient)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                }
+                .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
+            }
+            Button(action: { Haptics.light(); onDone() }) {
+                Text("Seguir")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+// MARK: - Shareable card
+
+/// The dark, big-number card exported when the athlete shares a session. Honest:
+/// it shows only what exists (a PR badge, pace and zone all appear only when real).
+/// Fixed point size; rendered at 3× by `WorkoutShareRenderer` for a crisp export.
+struct WorkoutShareCard: View {
+    let data: WorkoutShareData
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Wordmark(size: 20)
+                Spacer()
+                if let pr = data.prDistanceLabel {
+                    HStack(spacing: 5) {
+                        Image(systemName: "trophy.fill").font(.system(size: 11, weight: .bold))
+                        Text("PR · \(pr)")
+                            .font(.system(size: 12, weight: .heavy, design: .default).italic())
+                    }
+                    .foregroundStyle(Color.black.opacity(0.78))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Gold.gradient)
+                    .clipShape(Capsule())
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Text(data.title)
+                .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                .foregroundStyle(Theme.Color.foreground)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+                .padding(.bottom, 6)
+
+            Text(data.timeText)
+                .font(.system(size: 84, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.foreground)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+
+            HStack(spacing: 20) {
+                if let pace = data.paceText { shareStat("RITMO", pace) }
+                if let zone = data.dominantZone { shareStat("ZONA", "\(zone.label) · \(zone.pct)%") }
+                if let rpe = data.rpe { shareStat("RPE", "\(rpe)") }
+            }
+            .padding(.top, 12)
+
+            Spacer(minLength: 0)
+
+            Text("fahybrid.com")
+                .font(.system(size: 12, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(Theme.Color.faint)
+        }
+        .padding(28)
+        .frame(width: 360, height: 450, alignment: .leading)
+        .background(Theme.Color.background)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Theme.Color.accent).frame(height: 4)
+        }
+    }
+
+    private func shareStat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(Theme.Tracking.dataLabel)
+                .foregroundStyle(Theme.Color.muted)
+            Text(value)
+                .font(.system(size: 17, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.accentText)
+        }
+    }
+}
+
+// MARK: - Renderer
+
+enum WorkoutShareRenderer {
+    /// Render the share card to a temp PNG and return its URL for ShareLink. The
+    /// card is forced dark so the exported image is the brand instrument look
+    /// regardless of the athlete's current theme. Nil if rendering fails (the
+    /// caller then simply hides the share affordance).
+    @MainActor
+    static func pngURL(for data: WorkoutShareData) -> URL? {
+        let card = WorkoutShareCard(data: data).environment(\.colorScheme, .dark)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 3
+        guard let image = renderer.uiImage, let png = image.pngData() else { return nil }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("fahybrid-entreno-\(UUID().uuidString).png")
+        do {
+            try png.write(to: url, options: [.atomic])
+            return url
+        } catch {
+            return nil
+        }
+    }
+}

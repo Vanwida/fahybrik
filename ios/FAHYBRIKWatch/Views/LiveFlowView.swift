@@ -12,6 +12,9 @@ import SwiftUI
 // crown free for load and match the Apple Workout paging model.
 struct LiveFlowView: View {
     let session: WorkoutSession
+    // #68 — the structured-run driver lives on the coordinator (workout lifetime); the
+    // tramo screen reads it. Pulled from the environment so paging never recreates it.
+    @Environment(WatchWorkoutCoordinator.self) private var coordinator
 
     // 0 = map · 1 = live (default) · 2 = pause/finish. Swipe-left from live lands
     // on pause/finish; swipe-right on the map.
@@ -61,6 +64,12 @@ struct LiveFlowView: View {
         // the SAME engine flags as the phone (currentSegmentIsPartnerRelay / advanceRelay).
         if session.currentSegmentIsPartnerRelay {
             RelayLiveView(session: session)
+        } else if session.isRunStructureActive, let driver = coordinator.runLegDriver {
+            // #68 — a folded run block carrying a `structure` runs the tramo HUD (the
+            // athlete runs the series from the wrist), regardless of its folded scheme
+            // (.intervals / .steady). Falls through to the scalar presentation only if
+            // the driver is somehow absent (never during an active session).
+            StructuredRunLiveView(session: session, driver: driver)
         } else if let presentation {
             switch presentation {
             case .rotating:   RotatingLiveView(session: session)

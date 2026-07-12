@@ -115,6 +115,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     assignment_id: result.assignment_id,
     execution_id: result.execution_id,
     segments_saved: result.segments_saved,
+    prs: result.prs,
     partner_athlete_id: String(partnerAthleteId),
   });
 }

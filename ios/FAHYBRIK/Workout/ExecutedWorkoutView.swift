@@ -112,6 +112,10 @@ struct ExecutedWorkoutView: View {
             VStack(alignment: .leading, spacing: 10) {
                 headerCard
                 aggregateTiles
+                // #64 — the outdoor run's route, when this session was run outside.
+                if let route = execution?.routePolyline, PolylineCodec.pointCount(route) >= 2 {
+                    routeMapCard(route)
+                }
                 if let segments = perSegmentRows, !segments.isEmpty {
                     segmentsTable(segments)
                 }
@@ -123,6 +127,19 @@ struct ExecutedWorkoutView: View {
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.bottom, Theme.Spacing.xxl)
         }
+    }
+
+    // #64 — the executed outdoor run's route, decoded from the stored polyline.
+    private func routeMapCard(_ polyline: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: "Tu recorrido", size: 11)
+            RouteMiniMap(polyline: polyline)
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Header (big time + completeness mark + score)

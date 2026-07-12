@@ -25,6 +25,11 @@ final class WorkoutAudio {
     private let player = AVAudioPlayerNode()
     private let sampleRate: Double = 44_100
     private var isActive = false
+    /// True while the voice coach (#63) is speaking. When set, other audio is DUCKED
+    /// and the shared session is held active even if the tone engine tears down, so a
+    /// cue is never cut mid-sentence. Kept here because WorkoutAudio is the single
+    /// owner of the shared `AVAudioSession` category.
+    private var voiceActive = false
 
     // Pre-rendered cue buffers (built lazily on first activation).
     private var beepBuffer: AVAudioPCMBuffer?       // top-of-interval "on the minute"
@@ -56,8 +61,9 @@ final class WorkoutAudio {
         do {
             let session = AVAudioSession.sharedInstance()
             // `.playback` → plays through the silent switch; `.mixWithOthers` →
-            // overlays the cue on the athlete's music instead of pausing it.
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            // overlays the cue on the athlete's music instead of pausing it (plus
+            // `.duckOthers` while a voice cue is speaking — see applySessionCategory).
+            applySessionCategory()
             try session.setActive(true)
 
             if engine.attachedNodes.contains(player) == false {
@@ -73,13 +79,43 @@ final class WorkoutAudio {
         }
     }
 
-    /// Stop the audio path and release the session. Idempotent.
+    /// Stop the audio path and release the session. Idempotent. Does NOT release the
+    /// session while a voice cue is speaking (`voiceActive`) — the coach will release
+    /// it when it finishes.
     func deactivate() {
         guard isActive else { return }
         isActive = false
         if player.isPlaying { player.stop() }
         engine.stop()
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        if !voiceActive {
+            try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        }
+    }
+
+    // MARK: Voice ducking (#63) — VoiceAudioSession
+
+    /// Duck other audio + hold the session active while a voice cue speaks; un-duck
+    /// and release (unless the tone engine still needs it) when it ends. The single
+    /// place the shared category is set, so tones and voice never fight over it.
+    func setVoiceActive(_ active: Bool) {
+        guard voiceActive != active else { return }
+        voiceActive = active
+        applySessionCategory()
+        let session = AVAudioSession.sharedInstance()
+        if active {
+            try? session.setActive(true)
+        } else if !isActive {
+            try? session.setActive(false, options: [.notifyOthersOnDeactivation])
+        }
+    }
+
+    /// Apply `.playback` + `.mixWithOthers`, adding `.duckOthers` only while a voice
+    /// cue is speaking so the athlete's music dips under the coach and restores after.
+    private func applySessionCategory() {
+        let options: AVAudioSession.CategoryOptions = voiceActive
+            ? [.mixWithOthers, .duckOthers]
+            : [.mixWithOthers]
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: options)
     }
 
     // MARK: Cues
@@ -164,3 +200,11 @@ final class WorkoutAudio {
         }
     }
 }
+
+// Voice coaching (#63) is iOS-only (treadmill / TTS live on the phone); the watch
+// shares this file for tones but has no `VoiceAudioSession` protocol. The ducking
+// methods on WorkoutAudio stay unconditional (plain AVAudioSession) — only the
+// conformance is gated so the watch target still compiles.
+#if os(iOS)
+extension WorkoutAudio: VoiceAudioSession {}
+#endif

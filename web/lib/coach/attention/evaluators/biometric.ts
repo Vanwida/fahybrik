@@ -119,6 +119,52 @@ export const rpeHighEvaluator: SignalEvaluator = {
   },
 };
 
+/** Generic body-area token (#58) → display label (tokens are already Spanish). */
+const PAIN_AREA_LABEL: Record<string, string> = {
+  rodilla: 'Rodilla',
+  tobillo: 'Tobillo',
+  cadera: 'Cadera',
+  espalda: 'Espalda',
+  hombro: 'Hombro',
+  otra: 'Otra zona',
+};
+
+/** Max chars of the athlete's pain note shown on the card (it is a one-line chip). */
+const PAIN_NOTE_MAX = 80;
+
+export const discomfortReportedEvaluator: SignalEvaluator = {
+  kind: 'discomfort_reported',
+  default_severity: 'warning',
+  enabled: true,
+  evaluate(facts, thresholds, now): SignalResult | null {
+    const area = facts.discomfort_area;
+    const at = facts.discomfort_at;
+    if (area == null || at == null) return null;
+    const days = hoursBetween(at, now) / 24;
+    // Only a RECENT report warrants attention; older ones auto-clear (no card).
+    if (days > thresholds.discomfort_recent_days) return null;
+    const areaLabel = PAIN_AREA_LABEL[area] ?? 'Molestia';
+    const note = facts.discomfort_note?.trim();
+    const detail =
+      note && note.length > 0
+        ? note.length > PAIN_NOTE_MAX
+          ? `${note.slice(0, PAIN_NOTE_MAX - 1)}…`
+          : note
+        : 'reportada en una sesión';
+    return {
+      kind: 'discomfort_reported',
+      fires: true,
+      severity: 'warning',
+      value: Math.max(0, Math.round(days)),
+      baseline: thresholds.discomfort_recent_days,
+      trend: null,
+      label: `Molestia · ${areaLabel}`,
+      detail,
+      dedupe_key: dedupeKey('discomfort_reported', facts.athlete_id),
+    };
+  },
+};
+
 export const checkinSkippedEvaluator: SignalEvaluator = {
   kind: 'checkin_skipped',
   default_severity: 'warning',

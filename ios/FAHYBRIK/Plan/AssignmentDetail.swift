@@ -53,12 +53,15 @@ struct ExecutionSummary: Codable, Equatable {
     /// one odd segment never collapses the whole detail. Empty when only the
     /// aggregate was logged — the view then shows time/score alone (no fabrication).
     let segments: [SegmentActualDTO]
+    /// The outdoor run's GPS trace (#64) as an encoded polyline, or nil when the
+    /// session was not outdoors — drives the executed-detail mini-map.
+    let routePolyline: String?
 
     var isPartial: Bool { completeness == "partial" }
 
     enum CodingKeys: String, CodingKey {
         case executionId, totalDurationSeconds, perceivedExertion, scoreLabel
-        case notes, endedAt, source, completeness, segments
+        case notes, endedAt, source, completeness, segments, routePolyline
     }
 
     // Tolerant decode (mirrors AthleteWeekDaySession): EVERY field is optional or
@@ -82,6 +85,7 @@ struct ExecutionSummary: Codable, Equatable {
         // Element-wise lossy (LossyArray) AND key-optional: a missing key → [],
         // one undecodable segment → dropped, never fatal.
         segments = (try c.decodeIfPresent(LossyArray<SegmentActualDTO>.self, forKey: .segments))?.wrappedValue ?? []
+        routePolyline = try c.decodeIfPresent(String.self, forKey: .routePolyline)
     }
 }
 

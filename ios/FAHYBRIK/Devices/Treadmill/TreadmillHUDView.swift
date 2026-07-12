@@ -10,6 +10,9 @@ struct TreadmillHUDView: View {
     @State private var model: TreadmillHUDModel
     @State private var showDiagnostics = false
     @Environment(\.dismiss) private var dismiss
+    /// Quick "Avisos de voz" (#63) toggle — shares the key with ProfileView, so the
+    /// athlete can mute/unmute the coach without leaving the run.
+    @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
     init(session: WorkoutSession, athleteAge: Int?) {
         _model = State(initialValue: TreadmillHUDModel(session: session, athleteAge: athleteAge))
@@ -66,6 +69,16 @@ struct TreadmillHUDView: View {
             DeviceChip(icon: "figure.run", text: cintaChipText, link: model.treadmillLink)
             DeviceChip(icon: "heart.fill", text: pulseChipText, link: model.effectiveHRLink)
             Spacer(minLength: 0)
+            Button(action: { Haptics.light(); voiceCoachEnabled.toggle(); if !voiceCoachEnabled { AudioCoach.shared.stopSpeaking() } }) {
+                Image(systemName: voiceCoachEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundStyle(voiceCoachEnabled ? Theme.Color.accentText : Theme.Color.muted)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.Color.surface)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel(voiceCoachEnabled ? "Silenciar avisos de voz" : "Activar avisos de voz")
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .heavy))

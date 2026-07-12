@@ -133,6 +133,9 @@ export interface AssignmentDetailExecution {
   // Honest finish state, derived from the assignment status: 'completed' (ran to
   // the end → green ✓) or 'partial' (terminated early → amber ½).
   completeness: 'completed' | 'partial';
+  // The outdoor run's GPS trace (#64) as an encoded polyline, or null when the
+  // session was not outdoors — drives the athlete's executed-detail mini-map.
+  route_polyline: string | null;
   // Per-exercise actuals (segment_executions) mapped to the prescribed item via
   // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
   segments: SegmentActual[];
@@ -286,6 +289,8 @@ interface ExecutionRow {
   score_reps?: number | null;
   notes?: string | null;
   source?: string | null;
+  // #64 — the outdoor GPS trace (encoded polyline), joined from workout_routes.
+  route_polyline?: string | null;
 }
 
 interface TemplateRow {
@@ -388,17 +393,19 @@ export async function loadAssignmentDetail(
   // read-only athlete summary renders real numbers, not just completed_at + RPE.
   const executionRows = await sql<ExecutionRow[]>`
     select
-      id::text                as execution_id,
-      ended_at::text          as ended_at,
-      perceived_exertion      as perceived_exertion,
-      total_duration_seconds  as total_duration_seconds,
-      score_time_s            as score_time_s,
-      score_rounds            as score_rounds,
-      score_reps              as score_reps,
-      notes                   as notes,
-      source::text            as source
-    from workout_executions
-    where assignment_id = ${assignment_id as unknown as number}
+      we.id::text                as execution_id,
+      we.ended_at::text          as ended_at,
+      we.perceived_exertion      as perceived_exertion,
+      we.total_duration_seconds  as total_duration_seconds,
+      we.score_time_s            as score_time_s,
+      we.score_rounds            as score_rounds,
+      we.score_reps              as score_reps,
+      we.notes                   as notes,
+      we.source::text            as source,
+      wr.polyline                as route_polyline
+    from workout_executions we
+    left join workout_routes wr on wr.execution_id = we.id
+    where we.assignment_id = ${assignment_id as unknown as number}
     limit 1
   `;
   const execution = executionRows[0] ?? null;
@@ -548,6 +555,7 @@ function buildExecutionBlock(
     ended_at: execution?.ended_at ?? null,
     source: execution?.source ?? null,
     completeness: status === 'partial' ? 'partial' : 'completed',
+    route_polyline: execution?.route_polyline ?? null,
     segments,
   };
 }

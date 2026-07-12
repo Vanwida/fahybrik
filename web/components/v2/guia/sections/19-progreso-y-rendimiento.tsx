@@ -64,6 +64,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         a vigilar —caídas de VFC, pulso en reposo al alza— te lo avisa, para que el progreso no se
         convierta en sobrecarga.
       </p>
+      <p>
+        Esa misma carga la ve tu atleta en su móvil, en dos lecturas honestas y sin tecnicismos:{' '}
+        <b>Forma</b> —si llega fresco o cargado, la frescura que resulta de cruzar la condición que ha
+        construido con la fatiga reciente— y <b>Carga semanal</b> —cuánto ha entrenado cada semana
+        según duración y esfuerzo (RPE)—. Es el <em className="em">mismo motor de carga</em> que tú
+        lees; si aún no anota el esfuerzo de sus entrenos, se lo decimos en claro en vez de inventar
+        una cifra.
+      </p>
 
       <DocNote variant="log" title="Sin datos, lo decimos; no lo rellenamos">
         <p>
