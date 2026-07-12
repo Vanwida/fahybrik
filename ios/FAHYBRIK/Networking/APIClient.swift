@@ -60,6 +60,25 @@ actor APIClient {
         return dec
     }
 
+    // AUDIT-B4 — the ONE network round-trip: sends the request and maps a connectivity
+    // URLError to `APIError.offline` (previously never thrown, so the offline `catch`
+    // arms in EmailSignInView / ExecutedWorkoutView were dead). Every verb goes through
+    // here, so the offline signal is uniform.
+    private func perform(_ req: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        do {
+            let (data, resp) = try await session.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+            return (data, http)
+        } catch let error as URLError where Self.offlineCodes.contains(error.code) {
+            throw APIError.offline
+        }
+    }
+
+    private static let offlineCodes: Set<URLError.Code> = [
+        .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed,
+        .timedOut, .cannotConnectToHost, .cannotFindHost,
+    ]
+
     func post<TBody: Encodable, TResp: Decodable>(
         path: String,
         body: TBody,
@@ -71,8 +90,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         req.httpBody = try encoder.encode(body)
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }
@@ -107,8 +125,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         req.httpBody = try encoder.encode(body)
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }
@@ -133,8 +150,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         req.httpBody = try encoder.encode(body)
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }
@@ -157,8 +173,7 @@ actor APIClient {
         req.addValue("application/json", forHTTPHeaderField: "Accept")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }
@@ -181,8 +196,7 @@ actor APIClient {
         req.addValue("application/json", forHTTPHeaderField: "Accept")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }
@@ -233,8 +247,7 @@ actor APIClient {
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         req.httpBody = body
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }
@@ -260,8 +273,7 @@ actor APIClient {
             req.httpBody = try encoder.encode(body)
         }
 
-        let (data, resp) = try await session.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let (data, http) = try await perform(req)
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(http.statusCode, data)
         }

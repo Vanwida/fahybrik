@@ -1035,11 +1035,46 @@ struct InicioView: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
+        } else if store.planWeek.loadFailed {
+            // AUDIT-B5 — a fresh install that couldn't load (offline / server) with NO
+            // cache: an honest error + retry, never a skeleton that spins forever.
+            homeLoadErrorCard
         } else {
             // Cold start, week not loaded yet — skeleton instead of the
             // "plan no publicado" empty state (which would be a lie mid-load).
             loadingCard(label: "Hoy", titleWidth: 150)
         }
+    }
+
+    // AUDIT-B5 — shown only on a fresh install whose first load failed with no cache.
+    private var homeLoadErrorCard: some View {
+        CardSurface(padding: 18) {
+            VStack(alignment: .leading, spacing: 10) {
+                LabelText(text: "Hoy")
+                Text("No pudimos cargar tu día")
+                    .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("Revisa tu conexión e inténtalo de nuevo.")
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.muted)
+                Button {
+                    Haptics.light()
+                    Task { await store.loadHome(force: true) }
+                } label: {
+                    Text("Reintentar")
+                        .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
+                        .foregroundStyle(Theme.Color.accentOn)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(Theme.Color.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No pudimos cargar tu día. Reintentar.")
     }
 
     // Calm "en pausa" card — the Today hero when the coach paused the athlete's

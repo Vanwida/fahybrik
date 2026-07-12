@@ -21,6 +21,10 @@ struct Slice<Value: Codable>: Codable {
     private(set) var value: Value?
     private(set) var loadedAt: Date?
     var isRevalidating: Bool = false
+    /// AUDIT-B5 — the last revalidation FAILED and there is NO cached value to fall back
+    /// on (a fresh install offline / a decode break). Lets a view show an honest error +
+    /// retry instead of a permanent blank. Not persisted; cleared on the next success.
+    var loadFailed: Bool = false
 
     /// Whether a successful load has ever completed (distinguishes "never
     /// fetched" from "fetched, legitimately empty" — e.g. no readiness yet).
@@ -463,6 +467,7 @@ final class AppDataStore {
             var done = get()
             done.setLoaded(value)
             done.isRevalidating = false
+            done.loadFailed = false            // AUDIT-B5 — a good load clears any error state
             set(done)
             persist()
         } catch {
@@ -470,13 +475,18 @@ final class AppDataStore {
             // SWR: keep the last good value; just clear the in-flight flag.
             var done = get()
             done.isRevalidating = false
-            set(done)
             // A 401 = the bearer is dead. Do NOT treat it as a transient blip and
             // keep stale cache on screen forever: surface it so the app clears the
             // session and routes to login. Every OTHER error (offline, 5xx, decode)
             // keeps the last good value — offline-first, unchanged.
             if case APIError.http(401, _) = error {
+                set(done)
                 onUnauthorized?()
+            } else {
+                // AUDIT-B5 — with a cached value we stay silent (offline-first); with
+                // NONE (fresh install) mark the honest error state so a view can retry.
+                if !done.hasLoaded { done.loadFailed = true }
+                set(done)
             }
         }
     }
