@@ -234,12 +234,18 @@ struct DoblesSimulationView: View {
             .staggerReveal(appear, index: 3)
         }
 
+        // Coach tips before the sim — shared card with the race-gap surface, fed
+        // by the payload's `coach_tips` (hidden when empty). Coach name is the real
+        // agnostic name already resolved above (never hardcoded).
+        DoblesCoachTipsCard(title: "Antes de la sim", coachName: coachName, tips: sim.coachTipsList)
+            .staggerReveal(appear, index: 4)
+
         // Start CTA.
         ExpertPrimaryButton(title: "▶ Empezar simulación juntos", height: 52) {
             // BACKEND GAP: starting a joint simulation (live, both athletes
             // against the shared station plan) is not wired — no start endpoint.
         }
-        .staggerReveal(appear, index: 4)
+        .staggerReveal(appear, index: 5)
     }
 
     // MARK: - Pieces
@@ -261,7 +267,6 @@ struct DoblesSimulationView: View {
     @ViewBuilder
     private func editableStationRow(_ index: Int) -> some View {
         let station = editStations[index]
-        let pct = Int((max(0, min(1, station.selfShare)) * 100).rounded())
         VStack(alignment: .leading, spacing: 8) {
             Text(station.label)
                 .font(.system(size: 13, weight: .semibold))
@@ -286,25 +291,13 @@ struct DoblesSimulationView: View {
             .pickerStyle(.segmented)
 
             if station.carrier == .split {
-                HStack(spacing: 8) {
-                    Text("\(selfName) \(pct)%")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                        .frame(minWidth: 62, alignment: .leading)
-                    Slider(
-                        value: Binding(
-                            get: { editStations[index].selfShare },
-                            // Snap to 5% steps — a coach/athlete never means finer.
-                            set: { editStations[index].selfShare = (($0 * 20).rounded()) / 20 }
-                        ),
-                        in: 0...1
-                    )
-                    .tint(Theme.Color.accent)
-                    Text("\(partnerName) \(100 - pct)%")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.partner)
-                        .frame(minWidth: 62, alignment: .trailing)
-                }
+                // Shared slider (also used by the race-gap reparto editor) — one
+                // component so the 5%-step reparto can't drift between surfaces.
+                DoblesShareSlider(
+                    selfName: selfName,
+                    partnerName: partnerName,
+                    selfShare: $editStations[index].selfShare
+                )
             }
 
             TextField("Nota (ej. alterna 250m)", text: Binding(
