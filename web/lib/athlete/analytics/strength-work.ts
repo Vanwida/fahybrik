@@ -52,6 +52,7 @@ interface StrengthSetRow {
   exercise_id: string | null;
   exercise_name: string | null;
   execution_id: string;
+  assignment_id: string;
   day: string; // YYYY-MM-DD
 }
 
@@ -66,6 +67,7 @@ interface WorkSet {
   exerciseId: string | null;
   exerciseName: string | null;
   executionId: string;
+  assignmentId: string;
   day: string;
   week: string;
 }
@@ -124,6 +126,7 @@ async function loadStrengthSets(
       se.exercise_id::text        as exercise_id,
       ex.name                     as exercise_name,
       we.id::text                 as execution_id,
+      we.assignment_id::text      as assignment_id,
       to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day
     from set_executions st
     join segment_executions se on se.id = st.segment_execution_id
@@ -148,6 +151,7 @@ async function loadStrengthSets(
     exerciseId: r.exercise_id,
     exerciseName: r.exercise_name,
     executionId: r.execution_id,
+    assignmentId: r.assignment_id,
     day: r.day,
     week: isoWeekStart(r.day),
   }));

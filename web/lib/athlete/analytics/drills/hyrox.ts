@@ -155,6 +155,7 @@ export async function hyroxScoresDrill(
 ): Promise<DrillDownResult> {
   const rows = await client<Array<{
     execution_id: string;
+    assignment_id: string;
     day: string | null;
     score_time_s: number | null;
     score_rounds: number | null;
@@ -164,6 +165,7 @@ export async function hyroxScoresDrill(
   }>>`
     select
       we.id::text as execution_id,
+      we.assignment_id::text as assignment_id,
       to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
       we.score_time_s, we.score_rounds, we.score_reps,
       t.name as template_name, t.format::text as format
@@ -185,6 +187,7 @@ export async function hyroxScoresDrill(
       detail_es: fmt ? SCORE_FORMAT_ES[fmt] ?? fmt : null,
       value: scoreValue(r),
       value_label: null,
+      assignment_id: r.assignment_id,
     };
   });
   const bestSim = rows

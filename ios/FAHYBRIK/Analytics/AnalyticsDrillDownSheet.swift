@@ -23,6 +23,8 @@ struct AnalyticsDrillDownSheet: View {
     @State private var result: DrillDownResult? = nil
     @State private var isLoading = true
     @State private var failed = false
+    // #27 — a source row that carries an assignment_id opens the existing executed detail.
+    @State private var executedTarget: WorkoutLaunch? = nil
 
     var body: some View {
         NavigationStack {
@@ -40,6 +42,14 @@ struct AnalyticsDrillDownSheet: View {
             }
         }
         .task { await load() }
+        .fullScreenCover(item: $executedTarget) { launch in
+            ExecutedWorkoutView(
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
+                bearer: bearer,
+                onClose: { executedTarget = nil }
+            )
+        }
     }
 
     @ViewBuilder
@@ -123,7 +133,11 @@ struct AnalyticsDrillDownSheet: View {
                     VStack(spacing: 0) {
                         ForEach(Array(r.sessions.enumerated()), id: \.element.id) { idx, s in
                             if idx > 0 { Hairline() }
-                            SessionRow(session: s)
+                            // A row with a real assignment opens its executed detail;
+                            // a test / race / undated row stays non-navigable.
+                            SessionRow(session: s, onTap: s.assignment_id.map { id in
+                                { executedTarget = WorkoutLaunch(assignmentId: id, title: s.title_es) }
+                            })
                         }
                     }
                 }
@@ -154,8 +168,23 @@ struct AnalyticsDrillDownSheet: View {
 
 private struct SessionRow: View {
     let session: SourceSession
+    /// #27 — present when the row resolves to a real executed session → tap opens it.
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
+        if let onTap {
+            Button(action: { Haptics.light(); onTap() }) { rowContent }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(axLabel + ", ver detalle")
+        } else {
+            rowContent
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(axLabel)
+        }
+    }
+
+    private var rowContent: some View {
         HStack(alignment: .center, spacing: 11) {
             // Date stamp (day number + month).
             VStack(spacing: 1) {
@@ -197,10 +226,15 @@ private struct SessionRow: View {
                         .foregroundStyle(Theme.Color.faint)
                 }
             }
+            // Affordance only when the row is navigable.
+            if onTap != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.Color.faint)
+            }
         }
         .padding(.vertical, 11)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(axLabel)
+        .contentShape(Rectangle())
     }
 
     // Date parsing → "24" + "jun". Undated import → "—".

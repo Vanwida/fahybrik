@@ -48,6 +48,30 @@ struct DoblesShareSlider: View {
     }
 }
 
+// MARK: - Live pulse dot (#56)
+
+/// A small filled dot that gently pulses to read as "EN VIVO" on the dobles-live strip
+/// and the "únete en vivo" banner. `active=false` (a paused partner) holds it steady.
+struct LivePulseDot: View {
+    var color: Color
+    var active: Bool = true
+    var size: CGFloat = 7
+
+    @State private var pulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .scaleEffect(active && pulsing ? 1.35 : 1)
+            .opacity(active && pulsing ? 0.55 : 1)
+            .animation(active ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default,
+                       value: pulsing)
+            .onAppear { if active { pulsing = true } }
+            .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Coach tips card ("Antes de … · De tu coach")
 
 /// Los consejos del coach antes de la prueba, como card con viñetas. Título

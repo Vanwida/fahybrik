@@ -164,6 +164,10 @@ struct WorkoutContainer: View {
                         // live engine. Non-blocking — the workout runs alone if the
                         // watch never joins. Manual/capture flows never begin (below).
                         PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: plan))
+                        // #56 — dobles en vivo: emit presence so the training partner's
+                        // phone sees this session live. Self-gates (no pair / private →
+                        // stops); a no-op for an ad-hoc session (no numeric assignment).
+                        DoblesLivePresence.shared.begin(session: new, assignmentId: assignmentId, bearer: bearer)
                         Haptics.medium()
                         phase = .active
                     },
@@ -196,6 +200,14 @@ struct WorkoutContainer: View {
                             // The wrist replies with its UUID while the athlete fills the
                             // summary; PostWorkoutSummaryView stamps source_workout_ref.
                             PhoneMirrorService.shared.end(save: true)
+                            // #56 — one final "ha terminado" beat: the headline time (the
+                            // captured score for a timed format, else the duration); RPE is
+                            // not known until the summary, so null here.
+                            DoblesLivePresence.shared.finish(
+                                finalTimeS: session.capturedScoreTimeSeconds
+                                    ?? Int(session.elapsedSeconds.rounded()),
+                                finalRpe: nil
+                            )
                             Haptics.heavy()
                             phase = .summary
                         },
@@ -207,10 +219,13 @@ struct WorkoutContainer: View {
                         onExit: {
                             // Discard: tell the wrist to drop its recording (no HKWorkout).
                             PhoneMirrorService.shared.end(save: false)
+                            // #56 — one "ha salido" beat so the partner's strip reflects it.
+                            DoblesLivePresence.shared.leave()
                             Task { await WorkoutStateStore.shared.clear() }
                             onClose()
                         },
-                        athleteAge: athleteAge
+                        athleteAge: athleteAge,
+                        bearer: bearer
                     )
                     .toolbar(.hidden, for: .tabBar)
                 }

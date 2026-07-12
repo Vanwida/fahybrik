@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createEmailLoginCode, sendEmailLoginCode } from '@/lib/auth/email-code';
+import { reviewAccessGate } from '@/lib/auth/review-access';
 import { findAthleteByEmail } from '@/lib/auth/users';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
@@ -47,6 +48,16 @@ export async function POST(req: Request) {
     ...RATE_LIMITS.emailCodeRequest,
   });
   if (!rlEmail.allowed) return rateLimitResponse(rlEmail);
+
+  // App Store review access (env-gated; invisible when unset). The reviewer has no
+  // real mailbox, so for the review email we answer the SAME generic 200 WITHOUT
+  // issuing/sending a one-time code: the fixed code (checked at /verify) is its only
+  // credential, and skipping issuance avoids racing that fixed code. This changes
+  // nothing for any other email or when the gate is not configured.
+  const gate = reviewAccessGate();
+  if (gate && email === gate.email) {
+    return jsonOk({ ok: true });
+  }
 
   // Find-only: only issue + send a code when a member account exists. Non-members
   // fall through to the same generic response (no code, no email, no leak).

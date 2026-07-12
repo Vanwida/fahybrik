@@ -199,6 +199,11 @@ final class PhoneMirrorService {
         switch kind {
         case MirrorWire.CommandKind.advance:
             if session.isAwaitingBlockStart { session.beginBlock() }
+            // #56 — a wrist advance on the PARTNER's relay station must route to
+            // advanceRelay() (the same path the phone's "Relevo ▸" uses): it logs NO
+            // lap for the athlete. Falling through to primaryAdvance() → lap() would
+            // record the partner's station as the athlete's work and corrupt volume.
+            else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
             else if session.currentBlockIsStructural { session.completeStructuralBlock() }
             else { session.primaryAdvance() }
         case MirrorWire.CommandKind.pause:
@@ -253,17 +258,33 @@ final class PhoneMirrorService {
             detailLine = relay ? "Recupera — siguiente: tú" : (splitLine ?? seg?.previewWorkLine)
         }
 
+        // #56 — the current dobles turn (mine/partner/split + rep reparto), so the
+        // wrist can render the turn hero AND fire the "entras tú" haptic on the flip
+        // back from the partner's relay. Reuses the SAME DoblesTurn the phone hero
+        // reads (seg.doblesTurn) — one projection, never a second interpretation.
+        let dobles: MirrorDoblesTurn? = seg?.doblesTurn.map { t in
+            MirrorDoblesTurn(
+                role: t.who.rawValue,
+                station: t.station,
+                selfReps: t.selfReps,
+                partnerReps: t.partnerReps,
+                partnerName: t.partnerName,
+                selfSharePct: t.selfSharePct
+            )
+        }
+
         return MirrorStateFrame(
             phase: phase,
             blockTitle: session.currentBlockRegion?.title,
             lineTitle: lineTitle,
             detailLine: detailLine,
-            progressText: progressText(session),
+            progressText: session.liveProgressText,
             sessionElapsed: session.elapsedSeconds,
             lapElapsed: session.lapElapsedSeconds,
             countdownRemaining: countdown(session),
             targetZone: seg?.targetZone?.rawValue,
-            restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil
+            restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil,
+            dobles: dobles
         )
     }
 
@@ -295,41 +316,12 @@ final class PhoneMirrorService {
          f.progressText ?? "",
          f.targetZone.map(String.init) ?? "",
          f.countdownRemaining != nil ? "cd" : "",
-         f.restRemaining != nil ? "rest" : ""
+         f.restRemaining != nil ? "rest" : "",
+         // #56 — the dobles turn (role + station) is structural: a station handoff
+         // (partner → mine) flips the key so a fresh frame is resent the instant the
+         // turn changes, driving the wrist's "entras tú" haptic on the very next tick.
+         f.dobles.map { "\($0.role):\($0.station)" } ?? ""
         ].joined(separator: "|")
-    }
-
-    // Round/set progress within the current format, mirroring what the live HUD
-    // shows. Nil when the format has no meaningful progress counter.
-    private func progressText(_ session: WorkoutSession) -> String? {
-        // A structured run counts TRAMOS off the leg cursor (mirror of the phone HUD),
-        // NOT the rotating machine — whose rotRoundIndex stays frozen at 0 here, which
-        // is exactly why the wrist read a stuck "RONDA 1/3" before this branch.
-        if session.isRunStructureActive {
-            return "TRAMO \(session.runLegNumber)/\(session.runLegTotal)"
-        }
-        let seg = session.currentSegment
-        if seg?.isEMOM == true, let plan = seg?.emomPlan {
-            return "RONDA \(min(session.emomIntervalIndex + 1, plan.intervalCount))/\(plan.intervalCount)"
-        }
-        if session.isConditioningActive, let scheme = seg?.formatScheme {
-            switch scheme.presentation {
-            case .rotating:
-                let total = session.rotTotalRounds
-                if total > 0 { return "RONDA \(min(session.rotRoundIndex + 1, total))/\(total)" }
-            case .fixed:
-                if scheme == .amrap { return "\(session.fixedRoundsDone) rondas" }
-                let total = session.fixedListTotal
-                if total > 1 { return "\(session.fixedRoundsDone)/\(total)" }
-            default:
-                break
-            }
-        }
-        if seg?.usesMultiSetStrength == true, !session.setRecords.isEmpty {
-            let done = session.setRecords.filter { $0.confirmed }.count
-            return "SERIE \(min(done + 1, session.setRecords.count))/\(session.setRecords.count)"
-        }
-        return nil
     }
 
     // The active format countdown (count-in, EMOM interval, AMRAP/steady window, or

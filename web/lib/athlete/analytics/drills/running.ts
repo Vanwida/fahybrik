@@ -22,6 +22,7 @@ import { classifyZone, type ZoneBand } from '../running';
 // ── Running (volume / type / zone) — one execution = one session ─────────────
 interface RunExecAgg {
   execution_id: string;
+  assignment_id: string;
   day: string;
   meters: number;
   paceWeighted: number;
@@ -37,6 +38,7 @@ async function loadRunExecutions(
 ): Promise<RunExecAgg[]> {
   const rows = await client<Array<{
     execution_id: string;
+    assignment_id: string;
     day: string;
     distance_meters: string | null;
     pace_s_per_km: string | null;
@@ -45,6 +47,7 @@ async function loadRunExecutions(
   }>>`
     select
       we.id::text as execution_id,
+      we.assignment_id::text as assignment_id,
       to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
       se.distance_meters::text as distance_meters,
       coalesce(
@@ -73,6 +76,7 @@ async function loadRunExecutions(
     if (dist <= 0) continue;
     const e = byExec.get(r.execution_id) ?? {
       execution_id: r.execution_id,
+      assignment_id: r.assignment_id,
       day: r.day,
       meters: 0,
       paceWeighted: 0,
@@ -129,6 +133,7 @@ export async function runningDrill(
         detail_es: [kmStr(e.meters), hr != null ? `FC ${hr}` : null].filter(Boolean).join(' · ') || null,
         value: pace != null ? `${paceStr(pace)} /km` : null,
         value_label: null,
+        assignment_id: e.assignment_id,
       };
     });
 
@@ -212,8 +217,9 @@ export async function bestEffortDrill(
   const lo = distance === 3000 ? 2700 : 800;
   const hi = distance === 3000 ? 3300 : 1200;
   if (distance === 3000) {
-    const rows = await client<Array<{ execution_id: string; day: string; dist: string; dur: string }>>`
+    const rows = await client<Array<{ execution_id: string; assignment_id: string; day: string; dist: string; dur: string }>>`
       select we.id::text as execution_id,
+        we.assignment_id::text as assignment_id,
         to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
         sum(se.distance_meters)::text as dist,
         sum(extract(epoch from (se.ended_at - se.started_at)))::text as dur
@@ -234,13 +240,15 @@ export async function bestEffortDrill(
       detail_es: kmStr(num(r.dist)),
       value: clockStr(num(r.dur)),
       value_label: i === 0 ? 'mejor' : null,
+      assignment_id: r.assignment_id,
     }));
     return finishEffort('Mejor 3 km', rows.length, sessions, period, 'segment_executions');
   }
 
   // 1k
-  const rows = await client<Array<{ execution_id: string; day: string; pace: string; dist: string }>>`
+  const rows = await client<Array<{ execution_id: string; assignment_id: string; day: string; pace: string; dist: string }>>`
     select we.id::text as execution_id,
+      we.assignment_id::text as assignment_id,
       to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
       coalesce(se.avg_pace_s_per_km::float, extract(epoch from (se.ended_at - se.started_at))::float / (se.distance_meters::float/1000.0))::text as pace,
       se.distance_meters::text as dist
@@ -261,6 +269,7 @@ export async function bestEffortDrill(
     detail_es: kmStr(num(r.dist)),
     value: `${paceStr(num(r.pace))} /km`,
     value_label: i === 0 ? 'mejor' : null,
+    assignment_id: r.assignment_id,
   }));
   return finishEffort('Mejor 1 km', rows.length, sessions, period, 'segment_executions');
 }

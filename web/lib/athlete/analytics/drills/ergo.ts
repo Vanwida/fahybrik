@@ -21,8 +21,9 @@ export async function ergoDrill(
   period: ResolvedPeriod,
 ): Promise<DrillDownResult> {
   const modality = params.modality ?? 'row';
-  const rows = await client<Array<{ day: string; pace: string | null; power: string | null; spm: string | null; dist: string | null; id: string }>>`
+  const rows = await client<Array<{ day: string; pace: string | null; power: string | null; spm: string | null; dist: string | null; id: string; assignment_id: string }>>`
     select se.id::text as id,
+      we.assignment_id::text as assignment_id,
       to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
       se.avg_pace_s_per_500m::text as pace,
       se.avg_power_w::text as power,
@@ -49,6 +50,7 @@ export async function ergoDrill(
     detail_es: [numOrNull(r.power) != null ? `${Math.round(num(r.power))} w` : null, numOrNull(r.spm) != null ? `${Math.round(num(r.spm))} spm` : null].filter(Boolean).join(' · ') || null,
     value: numOrNull(r.pace) != null ? `${paceStr(num(r.pace))} /500m` : null,
     value_label: i === 0 ? 'mejor' : null,
+    assignment_id: r.assignment_id,
   }));
   const best = rows.length ? Math.min(...rows.filter((r) => numOrNull(r.pace) != null).map((r) => num(r.pace))) : null;
   return {

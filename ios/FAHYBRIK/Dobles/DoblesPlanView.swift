@@ -28,6 +28,9 @@ struct DoblesPlanView: View {
     /// Which week the toggle shows: self vs partner (read-only).
     @State private var showingPartner = false
     @State private var appear = false
+    // #56 — the partner's live presence (one fetch on appear) → the "únete en vivo"
+    // banner. Informational here (this read-only plan has no start-session flow).
+    @State private var partnerLive: PartnerLiveStatus? = nil
 
     private var effectiveBearer: String? {
         bearer
@@ -49,6 +52,13 @@ struct DoblesPlanView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header
                         .staggerReveal(appear, index: 0)
+
+                    // #56 — the partner training right now. Informational here (no CTA):
+                    // the athlete starts their session from Inicio / Plan, not this view.
+                    DoblesLiveBanner(
+                        state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: false)
+                    )
+                    .staggerReveal(appear, index: 1)
 
                     if loading {
                         ProgressView()
@@ -97,6 +107,10 @@ struct DoblesPlanView: View {
             plan = await DoblesService.fetchConnectedPlan(bearer: effectiveBearer)
             loading = false
             withAnimation { appear = true }
+            // #56 — the partner's live presence (only when a partner link exists).
+            if partner != nil, case .ok(let p) = await DoblesLiveClient.fetch(bearer: effectiveBearer) {
+                partnerLive = p
+            }
         }
     }
 
@@ -144,6 +158,11 @@ struct DoblesPlanView: View {
 
     @ViewBuilder
     private func content(_ plan: DoblesConnectedPlan) -> some View {
+        // #28 — pair-rhythm streak up top (only when there's real joint history).
+        if let streak = plan.streak, streak.hasHistory {
+            DoblesStreakSection(streak: streak, partnerName: partnerFirstName)
+                .staggerReveal(appear, index: 1)
+        }
         // Mi plan / Plan de {partner} 👁 toggle.
         DoblesPlanToggle(
             showingPartner: $showingPartner,

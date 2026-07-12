@@ -32,6 +32,9 @@ import type {
   AthleteWeekDaySession,
   AthleteWeekPlan,
 } from '@/lib/athlete/week-plan';
+// Type-only (erased at build) — the streak block is computed by the route via the
+// DB lib and threaded through this pure mapper so the DTO stays whole.
+import type { DoublesStreakBlock } from '@/lib/athlete/dobles-streak';
 
 // ── Wire contract (matches iOS DoblesConnectedPlan / DoblesPlanDay, snake_case) ──
 
@@ -75,6 +78,13 @@ export interface DoblesConnectedPlanDTO {
    * remains this week (the CTA then stays disabled honestly).
    */
   train_together_session_id: string | null;
+  /**
+   * Pair-rhythm signals (#56 wow): joint sessions this month, the consecutive-
+   * weeks streak, and the most recent joint with both times. Additive — an older
+   * iOS build that doesn't decode it simply ignores the key. Computed by the route
+   * (lib/athlete/dobles-streak) and passed in; this mapper stays pure.
+   */
+  streak: DoublesStreakBlock;
 }
 
 // Mon..Sun (buildAthleteWeekPlan day_of_week is 1..7 = Mon..Sun) → ES 3-letter.
@@ -202,6 +212,8 @@ export interface DoblesConnectedPlanInput {
   self_name: string | null;
   /** Partner's first name (title + each-own sub-lines on self_days). */
   partner_name: string | null;
+  /** Pair-rhythm block, computed by the route (DB) and threaded through. */
+  streak: DoublesStreakBlock;
 }
 
 /**
@@ -212,7 +224,7 @@ export interface DoblesConnectedPlanInput {
 export function buildDoblesConnectedPlan(
   input: DoblesConnectedPlanInput,
 ): DoblesConnectedPlanDTO {
-  const { selfWeek, partnerWeek, self_name, partner_name } = input;
+  const { selfWeek, partnerWeek, self_name, partner_name, streak } = input;
 
   const selfDays = selfWeek.days.map((d, i) =>
     classifyDay(d, partnerWeek.days[i] ?? emptyDay(d), partner_name),
@@ -240,6 +252,7 @@ export function buildDoblesConnectedPlan(
     partner_days: partnerDays,
     notes: [],
     train_together_session_id: selectTrainTogetherId(trainTogetherCandidates, selfWeek.today_iso),
+    streak,
   };
 }
 

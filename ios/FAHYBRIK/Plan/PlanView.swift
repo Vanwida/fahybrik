@@ -63,6 +63,8 @@ struct PlanView: View {
     @State private var showChat = false
     @State private var partner: PartnerInfo? = nil
     @State private var showPartnerPlan = false
+    // #27 — historial (calendario mensual → detalle de sesión).
+    @State private var showHistory = false
 
     // The day whose session the athlete tapped — drives the Detalle cover. One
     // non-optional payload → presented via `.fullScreenCover(item:)` so the id is
@@ -212,6 +214,10 @@ struct PlanView: View {
         .fullScreenCover(isPresented: $showPartnerPlan) {
             DoblesPlanView(bearer: effectiveBearer)
         }
+        // #27 — historial mensual; tap día/fila → ExecutedWorkoutView (reutilizado).
+        .fullScreenCover(isPresented: $showHistory) {
+            HistoryView(bearer: effectiveBearer, onClose: { showHistory = false })
+        }
         // Technique index for the tapped session — its exercises, each opening
         // the technique detail. Distinct from Detalle (the execution flow).
         .sheet(item: $techniqueTarget) { session in
@@ -254,9 +260,25 @@ struct PlanView: View {
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel("Modalidad Dobles con \(partner.firstName). Ver su plan")
             }
+            historyButton
             chatButton
         }
         .frame(minHeight: 36)
+    }
+
+    // #27 — opens the monthly history calendar.
+    private var historyButton: some View {
+        Button {
+            Haptics.light()
+            showHistory = true
+        } label: {
+            Image(systemName: "calendar")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 40, height: 36)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Historial de entrenos")
     }
 
     private var chatButton: some View {

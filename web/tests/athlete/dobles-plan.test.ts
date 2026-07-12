@@ -115,6 +115,10 @@ describe('classifyDay', () => {
 });
 
 describe('buildDoblesConnectedPlan', () => {
+  // The streak block is a DB-computed input threaded through the pure mapper;
+  // these mapping tests don't exercise it, so pass an inert block.
+  const EMPTY_STREAK = { joint_this_month: 0, weeks_streak: 0, last_joint: null };
+
   function weekFrom(days: AthleteWeekDay[], microciclo: string | null = 'Acumulación 2'): AthleteWeekPlan {
     return {
       week_start: '2026-07-06',
@@ -151,6 +155,7 @@ describe('buildDoblesConnectedPlan', () => {
       partnerWeek: weekFrom(partnerDays),
       self_name: 'Atleta',
       partner_name: 'Guillem',
+      streak: EMPTY_STREAK,
     });
 
     expect(plan.self_days).toHaveLength(2);
@@ -180,6 +185,7 @@ describe('buildDoblesConnectedPlan', () => {
       partnerWeek: weekFrom(partnerDays),
       self_name: 'Atleta',
       partner_name: 'Guillem',
+      streak: EMPTY_STREAK,
     });
 
     expect(plan.train_together_session_id).toBe('671');
@@ -197,6 +203,7 @@ describe('buildDoblesConnectedPlan', () => {
       partnerWeek: weekFrom(partnerDays, null),
       self_name: 'Atleta',
       partner_name: 'Guillem',
+      streak: EMPTY_STREAK,
     });
     expect(plan.partner_plan_visible).toBe(false);
     expect(plan.week_label).toBeNull();

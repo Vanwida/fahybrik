@@ -32,7 +32,14 @@ struct MirrorHUDView: View {
             } else if phase == MirrorWire.Phase.countIn {
                 countInContent
             } else {
-                activeContent
+                // #56 — a HYROX dobles station renders the TURN hero (whose station +
+                // the rep reparto) in place of the generic work line; individual work
+                // keeps the standard active glance.
+                if let dobles = frame?.dobles {
+                    doblesContent(dobles)
+                } else {
+                    activeContent
+                }
                 if phase == MirrorWire.Phase.paused {
                     pausedOverlay
                 } else if let rest = frame?.restRemaining {
@@ -48,6 +55,14 @@ struct MirrorHUDView: View {
                   Date().timeIntervalSince(lastZoneHapticAt) >= WatchTheme.zoneExitHapticThrottle else { return }
             lastZoneHapticAt = Date()
             WatchHaptics.warning()
+        }
+        // #56 — "entras tú": the station flipped from the partner's relay back to the
+        // athlete (partner → mine/split). Fire the double handoff haptic so a resting
+        // athlete knows to go, even without looking at the wrist.
+        .onChange(of: frame?.dobles?.role) { old, new in
+            guard phase == MirrorWire.Phase.active,
+                  old == "partner", new == "mine" || new == "split" else { return }
+            WatchHaptics.relayHandoff()
         }
     }
 
@@ -117,6 +132,74 @@ struct MirrorHUDView: View {
             }
         } bottom: {
             advanceButton
+        }
+    }
+
+    // MARK: - Dobles turn (#56)
+    //
+    // The wrist glance for a HYROX dobles station: whose turn it is (orange = you, blue
+    // = the partner), the station, the rep reparto and — for the partner's relay — a
+    // "Recupera" cue. Same clock + HR + advance idiom as activeContent so it never reads
+    // like a different mode. Every value is frame-pushed (MirrorDoblesTurn); nothing
+    // fabricated. The button reads "Relevo ▸" on the partner's relay.
+    private func doblesContent(_ d: MirrorDoblesTurn) -> some View {
+        let isPartner = d.role == "partner"
+        let accent = isPartner ? WatchTheme.zoneBlue : WatchTheme.orange
+        return LiveScaffold(status: frame?.blockTitle) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                VStack(spacing: 5) {
+                    Text(doblesHeading(d))
+                        .font(.system(size: 12, weight: .heavy).italic())
+                        .tracking(1.2)
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(d.station)
+                        .font(.system(size: 17, weight: .heavy))
+                        .foregroundStyle(WatchTheme.ink)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                    if let reps = doblesRepsLine(d) {
+                        Text(reps)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(isPartner ? WatchTheme.dim : accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    GiantNumber(text: heroClock(context.date), size: 44)
+                    hrZoneRow
+                }
+            }
+        } bottom: {
+            advanceButton
+        }
+    }
+
+    private func doblesPartner(_ d: MirrorDoblesTurn) -> String {
+        let n = d.partnerName?.trimmingCharacters(in: .whitespaces)
+        return (n?.isEmpty == false) ? n! : "compañero"
+    }
+
+    private func doblesHeading(_ d: MirrorDoblesTurn) -> String {
+        switch d.role {
+        case "partner": return "AHORA · \(doblesPartner(d).uppercased())"
+        case "split":   return "RELEVO CON \(doblesPartner(d).uppercased())"
+        default:        return "TE TOCA A TI"
+        }
+    }
+
+    private func doblesRepsLine(_ d: MirrorDoblesTurn) -> String? {
+        switch d.role {
+        case "partner":
+            return "Recupera"
+        case "split":
+            if let mine = d.selfReps, let theirs = d.partnerReps {
+                return "Tú \(mine) · \(doblesPartner(d)) \(theirs)"
+            }
+            return "Tú \(d.selfSharePct)%"
+        default:   // mine
+            return d.selfReps.map { "Completa · \($0) reps" } ?? "Estación completa"
         }
     }
 
@@ -214,9 +297,16 @@ struct MirrorHUDView: View {
     // MARK: - Advance button
 
     private var advanceButton: some View {
-        BigTapButton(title: phase == MirrorWire.Phase.gate ? "Empezar ▸" : "Siguiente ▸") {
+        BigTapButton(title: advanceTitle) {
             controller.sendCommand(MirrorWire.CommandKind.advance)
         }
+    }
+
+    private var advanceTitle: String {
+        if phase == MirrorWire.Phase.gate { return "Empezar ▸" }
+        // #56 — the partner's relay station advances the athlete's OWN next station.
+        if frame?.dobles?.role == "partner" { return "Relevo ▸" }
+        return "Siguiente ▸"
     }
 
     // MARK: - Controls page
