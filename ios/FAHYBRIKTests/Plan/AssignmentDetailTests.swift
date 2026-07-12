@@ -706,6 +706,39 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(seg.avgHr, 151)
     }
 
+    // #62 — a run segment carries AVERAGE incline / cadence; a segment WITHOUT them
+    // (older snapshot / non-treadmill run) decodes with nil (never a fabricated 0).
+    func test_decode_segmentActual_inclineAndCadence() throws {
+        let json = """
+        {
+          "assignment": { "id": "646", "athlete_id": "70", "scheduled_for": "2026-06-30", "status": "completed" },
+          "workout": null,
+          "execution": {
+            "execution_id": "117", "total_duration_seconds": 1800, "perceived_exertion": 6,
+            "score_label": null, "notes": null, "ended_at": "2026-06-30 16:30:00+00",
+            "source": "manual", "completeness": "completed",
+            "segments": [
+              { "position": 1, "item_uid": "segment-10", "modality": "run", "duration_seconds": 900,
+                "reps_completed": null, "weight_used_kg": null, "distance_meters": 3000,
+                "avg_pace_s_per_500m": null, "avg_pace_s_per_km": 300, "avg_power_w": null,
+                "stroke_rate_spm": null, "avg_hr": 158, "max_hr": 168, "calories": 210,
+                "incline_pct": 2.5, "run_cadence_spm": 178 },
+              { "position": 2, "item_uid": "segment-11", "modality": "run", "duration_seconds": 600,
+                "reps_completed": null, "weight_used_kg": null, "distance_meters": 2000,
+                "avg_pace_s_per_500m": null, "avg_pace_s_per_km": 300, "avg_power_w": null,
+                "stroke_rate_spm": null, "avg_hr": 150, "max_hr": 160, "calories": 140 }
+            ]
+          }
+        }
+        """
+        let detail = try decode(json)
+        let segs = try XCTUnwrap(detail.execution?.segments)
+        XCTAssertEqual(segs[0].inclinePct, 2.5)
+        XCTAssertEqual(segs[0].runCadenceSpm, 178)
+        XCTAssertNil(segs[1].inclinePct)        // omitted → nil, not 0
+        XCTAssertNil(segs[1].runCadenceSpm)
+    }
+
     // DEFENSIVE: a leaner / older `execution` payload that OMITS `completeness`
     // and `segments` must still decode — never throw `keyNotFound` and collapse the
     // whole detail into "No pudimos cargar". Completeness defaults to "completed",

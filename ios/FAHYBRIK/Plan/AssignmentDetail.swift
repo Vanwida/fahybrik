@@ -105,6 +105,11 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     let avgHr: Int?
     let maxHr: Int?
     let calories: Double?
+    /// AVERAGE running incline (%) / cadence (steps/min) over the segment (#62, mig
+    /// 0124). Optional so older cached snapshots still decode; nil when the source
+    /// reported none (the detail then shows no incline/cadence chip — never a 0).
+    let inclinePct: Double?
+    let runCadenceSpm: Int?
 
     // `.convertFromSnakeCase` capitalizes the digit→letter boundary, so the wire
     // key `avg_pace_s_per_500m` converts to `avgPaceSPer500M` (capital M) — which
@@ -117,6 +122,7 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
         case weightUsedKg, distanceMeters
         case avgPaceSPer500m = "avgPaceSPer500M"
         case avgPaceSPerKm, avgPowerW, strokeRateSpm, avgHr, maxHr, calories
+        case inclinePct, runCadenceSpm
     }
 }
 
