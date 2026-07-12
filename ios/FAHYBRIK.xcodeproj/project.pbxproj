@@ -48,6 +48,7 @@
 		1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E68E01FF6A98B96974A052 /* RequestQueue.swift */; };
 		1DE3332AB4229A3A62DFC3AA /* WatchPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB1A4598C8B61A292DE32327 /* WatchPlanModel.swift */; };
 		1E22451CDA0BC486FEFF0A32 /* DeleteAccountConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A07618BFBE2D893F8EC219B /* DeleteAccountConfirmView.swift */; };
+		1F32CFBDFDE27AA0E80A72EE /* TreadmillLeg.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA2821C401431E7819EDC31 /* TreadmillLeg.swift */; };
 		20803734DCE6D5DF4A678709 /* WatchWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DF50B3378F9840436FA233 /* WatchWireModels.swift */; };
 		2185010977DF56D6DFB80B7A /* DoblesSimulationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A6C4BA3E755124FD8F6AA7 /* DoblesSimulationView.swift */; };
 		21AAA64304D69A2FFB40C8CD /* AssignmentDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4E8BEE42722165C9313280 /* AssignmentDetailTests.swift */; };
@@ -71,6 +72,7 @@
 		36B2CB151B1C23F7542CC485 /* CarrerasService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1746871F83CAA0B2483927DB /* CarrerasService.swift */; };
 		36E1DC2605584E2D91B03522 /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24621B92CC17784D41A5DEB7 /* AppLinks.swift */; };
 		37208648AF74F8596FED8D3C /* FAHYBRIKWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3819AE4EC9ACDAACA9DF7247 /* TreadmillLegTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8BB6388AB0DEB9CC3B15EF /* TreadmillLegTests.swift */; };
 		38302C6000AB7E685D0B744A /* WorkoutContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */; };
 		3878DE57A0686BD929359A6D /* HealthKitStepsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 924AF04A6DEAA100D07D3EE9 /* HealthKitStepsReader.swift */; };
 		3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7977DBCE8367B9C75CC6D124 /* PlanView.swift */; };
@@ -373,6 +375,7 @@
 		56FCA093BE6E12C2F92078F1 /* ZonesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesService.swift; sourceTree = "<group>"; };
 		59549DD32CB054A2BCC770F6 /* PartnerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerService.swift; sourceTree = "<group>"; };
 		5ABF59F238D4FB4A53CCDD05 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		5B8BB6388AB0DEB9CC3B15EF /* TreadmillLegTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TreadmillLegTests.swift; sourceTree = "<group>"; };
 		5B92D0681E6B06A7010D234A /* ChatHeaderButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHeaderButton.swift; sourceTree = "<group>"; };
 		5C21B6769B4B2148CE65F68A /* SplitsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitsView.swift; sourceTree = "<group>"; };
 		5D9ABACDF3287674F039ADFE /* GoalsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsStep.swift; sourceTree = "<group>"; };
@@ -428,6 +431,7 @@
 		87FB0D2E8521767F63EAC70B /* TestResultCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestResultCaptureSheet.swift; sourceTree = "<group>"; };
 		88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLiveDataSources.swift; sourceTree = "<group>"; };
 		8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdStep.swift; sourceTree = "<group>"; };
+		8BA2821C401431E7819EDC31 /* TreadmillLeg.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TreadmillLeg.swift; sourceTree = "<group>"; };
 		8E25499DD3ECFE3EBCD1718F /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		9120CB1234A2DD3E8B1AE0DC /* ImportRaceLinkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRaceLinkSheet.swift; sourceTree = "<group>"; };
 		92301D3099895B625F52E562 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -611,6 +615,7 @@
 				4D85A34EA8188155EBDD7251 /* HeartRateParserTests.swift */,
 				6B396DC5D6E94DD252549932 /* RunTargetResolverTests.swift */,
 				47A7850B9DFFF58B14D529A2 /* MockDeviceProfileTests.swift */,
+				5B8BB6388AB0DEB9CC3B15EF /* TreadmillLegTests.swift */,
 			);
 			name = Devices;
 			path = Devices;
@@ -886,6 +891,7 @@
 				70C1BE022805491C3A92E0DE /* TreadmillHUDModel.swift */,
 				D2B2DF06471735941D664533 /* TreadmillHUDComponents.swift */,
 				96C1DB2BF0DC149112D72696 /* TreadmillHUDView.swift */,
+				8BA2821C401431E7819EDC31 /* TreadmillLeg.swift */,
 			);
 			name = Treadmill;
 			path = Treadmill;
@@ -1518,6 +1524,7 @@
 				403ADCA5741167E3D6FC341A /* TreadmillHUDModel.swift in Sources */,
 				C83F196B135A35943E48FC59 /* TreadmillHUDComponents.swift in Sources */,
 				6FB30EE6083C33B96F72DC11 /* TreadmillHUDView.swift in Sources */,
+				1F32CFBDFDE27AA0E80A72EE /* TreadmillLeg.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1579,6 +1586,7 @@
 				2860EF65D1812CBA4B140A3A /* HeartRateParserTests.swift in Sources */,
 				B3ED2C73542D2EF32CA57AD0 /* RunTargetResolverTests.swift in Sources */,
 				2CA92E777F3648F760A5E409 /* MockDeviceProfileTests.swift in Sources */,
+				3819AE4EC9ACDAACA9DF7247 /* TreadmillLegTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -2,11 +2,10 @@ import SwiftUI
 import UIKit
 
 // Full-screen live HUD for running on a Bluetooth (FTMS) treadmill. Presented as
-// a cover from RunLiveHUD when the athlete taps "Correr en cinta"; reuses the
-// workout's own segment progression (`primaryAdvance`) via the model. While the
-// treadmill isn't connected it shows an honest scan/connecting state with a
-// shareable diagnostic; once live it shows pace-vs-objetivo, pulse + zone,
-// belt metrics, and the leg's distance/time progress.
+// a cover from a run leg (continuous OR an interval series). Traverses the leg
+// structure with AUTOMATIC advancement — a distance work bout closes itself when
+// the belt reaches the target and chains into the recovery/next bout; the manual
+// button is only an override. Reuses the workout's own progression via the model.
 struct TreadmillHUDView: View {
     @State private var model: TreadmillHUDModel
     @State private var showDiagnostics = false
@@ -21,10 +20,12 @@ struct TreadmillHUDView: View {
             Theme.Color.background.ignoresSafeArea().instrumentCanvas()
             VStack(spacing: Theme.Spacing.m) {
                 header
-                if model.treadmillLink.isLive {
-                    liveHUD
-                } else {
+                if !model.treadmillLink.isLive {
                     connectingState
+                } else if model.isCountIn {
+                    countInState
+                } else {
+                    liveHUD
                 }
             }
             .padding(.horizontal, Theme.Spacing.m)
@@ -33,27 +34,28 @@ struct TreadmillHUDView: View {
         }
         .onAppear {
             model.start()
-            // The workout screen underneath already holds the display awake for
-            // the whole session; ensure it here and let ActiveWorkoutView restore
-            // it when the workout ends (turning it off now would wake-lock off
-            // mid-run).
+            // The workout screen underneath already holds the display awake for the
+            // whole session; ensure it here and let ActiveWorkoutView restore it when
+            // the workout ends (turning it off now would wake-lock off mid-run).
             UIApplication.shared.isIdleTimerDisabled = true
         }
         .onDisappear { model.teardown() }
-        .onChange(of: model.session.currentSegmentIndex) { _, _ in
-            // The leg advanced. Stay on the HUD (belt keeps its connection) if the
-            // next leg is also a run; otherwise hand back to the standard HUD.
-            if model.session.currentSegment?.kind == .running {
-                model.handleSegmentChange()
-            } else {
-                dismiss()
-            }
-        }
-        .onChange(of: model.session.isFinished) { _, finished in
-            if finished { dismiss() }
-        }
+        .onChange(of: model.session.currentSegmentIndex) { _, _ in dismissIfLeftRun() }
+        .onChange(of: model.session.isFinished) { _, finished in if finished { dismiss() } }
+        .onChange(of: model.session.isAwaitingBlockStart) { _, awaiting in if awaiting { dismiss() } }
         .sheet(isPresented: $showDiagnostics) {
             if let text = model.diagnosticsText { ShareSheet(items: [text]) }
+        }
+    }
+
+    private func dismissIfLeftRun() {
+        // The session left the run work (a non-run block, block preview, or the end)
+        // → hand back to the standard HUD. A series stays on ONE segment index, and
+        // a chain of run legs keeps the belt connected, so those don't dismiss.
+        if model.session.currentSegment?.kind != .running
+            || model.session.isFinished
+            || model.session.isAwaitingBlockStart {
+            dismiss()
         }
     }
 
@@ -94,6 +96,23 @@ struct TreadmillHUDView: View {
         return "Pulso · —"
     }
 
+    // MARK: - Count-in
+
+    private var countInState: some View {
+        VStack(spacing: Theme.Spacing.l) {
+            Spacer()
+            LabelText(text: "Prepárate", size: 12)
+            Text("\(max(0, model.countInRemaining))")
+                .font(.system(size: 96, weight: .heavy, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.accentText)
+            Text("Empieza la serie")
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.Color.muted)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     // MARK: - Live HUD
 
     private var liveHUD: some View {
@@ -112,15 +131,15 @@ struct TreadmillHUDView: View {
 
     private var legHeader: some View {
         VStack(spacing: 4) {
-            Text("Tramo \(model.tramoIndex) de \(model.tramoCount)")
+            Text("Tramo \(model.legNumber) de \(model.legTotal)")
                 .font(.system(size: 12, weight: .heavy, design: .default).italic())
                 .tracking(0.6)
                 .foregroundStyle(Theme.Color.accentText)
-            Text(model.segment?.title ?? "Correr")
+            Text(legTitle)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
-            if let prescription = prescriptionLine {
+            if !model.isRecovery, let prescription = prescriptionLine {
                 Text(prescription)
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
@@ -130,7 +149,45 @@ struct TreadmillHUDView: View {
         .padding(.top, 2)
     }
 
+    private var legTitle: String {
+        if model.isRecovery { return "Recuperación" }
+        return model.currentSegment?.title ?? "Correr"
+    }
+
+    @ViewBuilder
     private var heroCard: some View {
+        if model.isRecovery {
+            recoveryHero
+        } else {
+            paceHero
+        }
+    }
+
+    private var recoveryHero: some View {
+        CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
+            VStack(spacing: 8) {
+                LabelText(text: "Recuperación", size: 10)
+                Text(TreadmillMath.clock(Int((model.legTimeRemaining ?? 0).rounded())))
+                    .font(Theme.Typography.readoutHero)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                if model.progressFraction > 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Theme.Color.surface)
+                            Capsule().fill(Theme.Color.accent)
+                                .frame(width: max(0, geo.size.width * model.progressFraction))
+                        }
+                    }
+                    .frame(height: 6)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var paceHero: some View {
         let status = model.heroStatus
         return CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 6) {
@@ -202,56 +259,62 @@ struct TreadmillHUDView: View {
         return LazyVGrid(columns: cols, spacing: 8) {
             ExpertCell(label: "Velocidad", value: speedString, unit: "km/h")
             ExpertCell(label: "Inclinación", value: inclineString, unit: "%")
-            ExpertCell(label: "Tiempo", value: TreadmillMath.clock(Int(model.segmentElapsedS)), unit: "")
+            ExpertCell(label: "Tiempo", value: TreadmillMath.clock(Int(model.legElapsedEffective)), unit: "")
         }
     }
 
     @ViewBuilder
     private var goalSection: some View {
-        switch model.goal {
-        case let .distance(target):
-            GoalProgress(
-                caption: "Distancia del tramo",
-                primary: distString(model.segmentDistanceM),
-                secondary: distString(target),
-                fraction: model.progressFraction,
-                complete: model.isComplete
-            )
-        case let .time(target):
-            GoalProgress(
-                caption: "Tiempo del tramo",
-                primary: TreadmillMath.clock(max(0, target - Int(model.segmentElapsedS))),
-                secondary: TreadmillMath.clock(target),
-                fraction: model.progressFraction,
-                complete: model.isComplete
-            )
-        case .open:
-            EmptyView()
+        if !model.isRecovery {
+            switch model.currentLeg.goal {
+            case let .distance(target):
+                GoalProgress(
+                    caption: "Distancia del tramo",
+                    primary: distString(model.legDistanceM),
+                    secondary: distString(target),
+                    fraction: model.progressFraction,
+                    complete: model.isComplete
+                )
+            case let .time(target):
+                GoalProgress(
+                    caption: "Tiempo del tramo",
+                    primary: TreadmillMath.clock(Int((model.legTimeRemaining ?? Double(target)).rounded())),
+                    secondary: TreadmillMath.clock(target),
+                    fraction: model.progressFraction,
+                    complete: model.isComplete
+                )
+            case .open:
+                EmptyView()
+            }
         }
     }
 
     private var controls: some View {
+        // Advancement is automatic — these are manual controls, so both read as
+        // neutral (the workout drives itself; PAUSE freezes it, TERMINAR overrides).
         HStack(spacing: 8) {
-            Button(action: { model.togglePause() }) {
-                Text(model.paused ? "REANUDAR" : "PAUSA")
-                    .font(.system(size: 18, weight: .heavy, design: .default).italic())
-                    .tracking(1)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 128)
-                    .frame(height: 72)
-                    .background(Theme.Color.surfaceElevated)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            }
-            .buttonStyle(PressScaleStyle())
-            ExpertPrimaryButton(title: model.session.isLastSegment ? "TERMINAR" : "FIN DEL TRAMO",
-                                height: 72) {
-                model.finishSegment()
-            }
+            neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
+            neutralButton("TERMINAR AHORA") { model.endLegNow() }
         }
         .padding(.top, 4)
-        .background(Theme.Color.background.opacity(0.01))
+    }
+
+    private func neutralButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 17, weight: .heavy, design: .default).italic())
+                .tracking(0.8)
+                .foregroundStyle(Theme.Color.foreground)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity)
+                .frame(height: 66)
+                .background(Theme.Color.surfaceElevated)
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
     }
 
     // MARK: - Connecting / scan state
@@ -297,18 +360,18 @@ struct TreadmillHUDView: View {
     }
     private var connectTitle: String {
         switch model.treadmillLink {
-        case .reconnecting:         return "Reconectando con la cinta…"
-        case .unavailable:          return "No encuentro ninguna cinta"
-        case .failed:               return "No se pudo conectar"
-        default:                    return "Buscando tu cinta…"
+        case .reconnecting:  return "Reconectando con la cinta…"
+        case .unavailable:   return "No encuentro ninguna cinta"
+        case .failed:        return "No se pudo conectar"
+        default:             return "Buscando tu cinta…"
         }
     }
     private var connectSubtitle: String {
         switch model.treadmillLink {
-        case .unavailable:  return "Comprueba que el Bluetooth de la cinta está activado y que estás cerca."
+        case .unavailable:   return "Comprueba que el Bluetooth de la cinta está activado y que estás cerca."
         case .failed(let m): return m
-        case .reconnecting: return "La conexión se cortó. Sigue corriendo, la recuperamos sola."
-        default:            return "Enciende el Bluetooth de la cinta y acércate a ella."
+        case .reconnecting:  return "La conexión se cortó. Sigue corriendo, la recuperamos sola."
+        default:             return "Enciende el Bluetooth de la cinta y acércate a ella."
         }
     }
 
@@ -320,13 +383,12 @@ struct TreadmillHUDView: View {
     private var heroCaption: String {
         switch model.runTarget {
         case .zone: return "Ritmo · objetivo por zona"
-        case .pace: return "Ritmo"
-        case .none: return "Ritmo"
+        default:    return "Ritmo"
         }
     }
     private var prescriptionLine: String? {
         var parts: [String] = []
-        switch model.goal {
+        switch model.currentLeg.goal {
         case let .distance(m): parts.append(distString(m))
         case let .time(s):     parts.append(TreadmillMath.clock(s))
         case .open:            break

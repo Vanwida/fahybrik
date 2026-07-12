@@ -4,14 +4,23 @@ import Observation
 // The live brain of the treadmill HUD. Owns the two device sources (real BLE on
 // device, deterministic mocks in the simulator), merges their telemetry, and
 // exposes typed live values the view renders. It reads the WorkoutSession for the
-// current leg's prescription and drives the SAME progression the rest of the
+// current LEG's prescription and drives the SAME progression the rest of the
 // workout uses (`primaryAdvance`) — it invents no new segment logic.
 //
-// Per-segment MEASURED values are kept in memory (`measured`) so a later phase
-// can persist the real treadmill work into the execution record; this phase does
-// not persist anything.
+// A "leg" unifies the two shapes (see TreadmillLeg): a whole continuous-run
+// segment, OR one work/recovery bout of an interval SERIES (folded into one
+// `.intervals` segment the session advances internally). Advancement is AUTOMATIC
+// by default:
+//   • legs we OWN (continuous runs, distance work bouts) auto-close when the
+//     belt distance / elapsed reaches the goal → we call `primaryAdvance()`.
+//   • legs the SESSION owns (interval TIME bouts, recovery countdowns) roll on the
+//     session's own clock; we only display them and detect the change.
+// The manual button is an OVERRIDE ("Terminar tramo ahora").
+//
+// Per-leg MEASURED values are kept in memory (`measured`) as the seam for a later
+// persistence phase; this phase persists nothing.
 
-/// What the treadmill actually measured for one run leg — held in memory only.
+/// What the treadmill measured for one leg — held in memory only.
 struct TreadmillLegMeasurement: Equatable {
     var distanceM: Double
     var elapsedS: Double
@@ -28,15 +37,14 @@ final class TreadmillHUDModel {
     private(set) var latest = TreadmillSample()
     private(set) var bleBpm: Int?
 
-    // Per-segment live accumulation (observed).
-    private(set) var segmentDistanceM: Double = 0
-    private(set) var segmentElapsedS: Double = 0
+    // Per-leg live accumulation (observed).
+    private(set) var legDistanceM: Double = 0
+    private(set) var legElapsedS: Double = 0
     private(set) var isComplete = false
     private(set) var paused = false
 
-    /// Measured work per segment index — the in-memory seam for the persistence
-    /// phase. Never written to disk here.
-    private(set) var measured: [Int: TreadmillLegMeasurement] = [:]
+    /// Measured work per leg key — the in-memory seam for the persistence phase.
+    private(set) var measured: [String: TreadmillLegMeasurement] = [:]
 
     let session: WorkoutSession
     let athleteAge: Int?
@@ -44,11 +52,12 @@ final class TreadmillHUDModel {
     private let treadmill: TreadmillDataSource
     private let hr: HeartRateSource
 
-    // Segment timing (wall-clock, pause-aware).
-    private var segmentStartedAt = Date()
+    // Leg identity + timing (wall-clock, pause-aware).
+    private var activeLegKey = ""
+    private var autoAdvancedLegKey: String?
+    private var legStartedAt = Date()
     private var pausedAccum: TimeInterval = 0
     private var pauseStartedAt: Date?
-    private var activeSegmentIndex = 0
 
     // Distance derivation + running averages for the measurement snapshot.
     private var distanceBaselineM: Double?
@@ -79,8 +88,8 @@ final class TreadmillHUDModel {
     // MARK: - Lifecycle
 
     func start() {
-        activeSegmentIndex = session.currentSegmentIndex
-        resetSegmentState()
+        activeLegKey = legKey()
+        resetLegState()
         treadmill.onLink = { [weak self] in self?.treadmillLink = $0 }
         treadmill.onSample = { [weak self] in self?.ingest($0) }
         hr.onLink = { [weak self] in self?.hrLink = $0 }
@@ -93,21 +102,10 @@ final class TreadmillHUDModel {
     }
 
     func teardown() {
-        // Capture the leg in progress so its measured work stays in memory for the
-        // persistence phase, even if the HUD closes without advancing.
-        snapshotActiveSegment()
+        snapshotLeg(activeLegKey)   // keep the leg in progress in memory for phase 3
         displayTimer?.invalidate(); displayTimer = nil
         treadmill.stop()
         hr.stop()
-    }
-
-    /// Reconnect-free segment change: the view calls this when the session advances
-    /// to a new leg while the HUD stays up (consecutive run legs keep the belt
-    /// connected). Snapshots the finished leg, then arms the next.
-    func handleSegmentChange() {
-        snapshotActiveSegment()
-        activeSegmentIndex = session.currentSegmentIndex
-        resetSegmentState()
     }
 
     func togglePause() {
@@ -121,51 +119,70 @@ final class TreadmillHUDModel {
         session.togglePause()
     }
 
-    /// End this leg — the SAME advance the rest of the workout uses.
-    func finishSegment() {
+    /// Manual OVERRIDE — end this leg now (cut a leg short, or close an "open" leg
+    /// like "hasta recuperar"). Same advance the automatic path and the rest of the
+    /// workout use.
+    func endLegNow() {
         Haptics.medium()
         session.primaryAdvance()
     }
 
-    // MARK: - Live derived values (read by the view)
+    // MARK: - Leg context (read by the view)
 
-    var segment: WorkoutSegment? { session.currentSegment }
-    var tramoIndex: Int { session.currentSegmentIndex + 1 }
-    var tramoCount: Int { session.plan.segments.count }
+    var currentSegment: WorkoutSegment? { session.currentSegment }
+    var isSeries: Bool { currentSegment.map(TreadmillLegResolver.isRunSeries) ?? false }
+    var isWorkPhase: Bool { session.rotPhase == .work }
+    var isCountIn: Bool { session.isCondCountIn }
+    var countInRemaining: Int { Int(session.condCountInRemaining.rounded(.up)) }
 
-    var runTarget: RunTarget { segment.map { RunTarget.resolve(from: $0) } ?? .none }
-    var goal: SegmentGoal { segment.map { SegmentGoal.resolve(from: $0) } ?? .open }
+    var currentLeg: TreadmillLeg {
+        guard let seg = currentSegment else {
+            return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
+        }
+        return TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
+    }
+
+    var isRecovery: Bool { currentLeg.isRecovery }
+    var runTarget: RunTarget { currentLeg.target }
+
+    var legNumber: Int {
+        WorkoutLegCount.current(session.plan.segments, index: session.currentSegmentIndex,
+                                rotRoundIndex: session.rotRoundIndex, isWork: isWorkPhase)
+    }
+    var legTotal: Int { WorkoutLegCount.total(session.plan.segments) }
+
+    // MARK: - Live derived values
 
     var livePaceSecPerKm: Int? {
         guard let kmh = latest.speedKmh else { return nil }
         return TreadmillMath.paceSecPerKm(fromSpeedKmh: kmh)
     }
 
-    /// Preferred HR: the BLE strap when it's live, else the watch/HealthKit stream
-    /// the workout already receives (so Apple Watch works with no extra plumbing).
+    /// Preferred HR: the BLE strap when live, else the watch/HealthKit stream the
+    /// workout already receives (Apple Watch works with no extra plumbing).
     var currentBpm: Int? {
         if hrLink.isLive, let b = bleBpm { return b }
         return session.liveHRBpm ?? bleBpm
     }
 
-    /// The HR link as the chip should read it: the BLE strap when live, else the
-    /// watch/HealthKit stream the workout already receives (shown as "reloj").
     var effectiveHRLink: DeviceLink {
         if hrLink.isLive { return hrLink }
         if session.liveHRBpm != nil { return .connected(name: "reloj") }
         return hrLink
     }
 
-    /// Estimated zone (220−age). Nil without an age or without HR — the HUD then
-    /// hides the zone rather than inventing one. Always shown as "estimada".
+    /// Estimated zone (220−age). Nil without an age or HR — the HUD then hides the
+    /// zone rather than inventing one. Always shown as "estimada".
     var liveZone: HRZone? {
         guard let bpm = currentBpm else { return nil }
         return EstimatedHRZone.zone(forBpm: bpm, age: athleteAge)
     }
     var zoneIsEstimated: Bool { true }
 
-    /// Judgment for the hero: pace targets judge on pace, zone targets on HR zone.
+    /// Hero judgment: pace targets judge on pace, zone targets on HR zone,
+    /// recovery / no-target has nothing to judge.
     var heroStatus: TargetStatus {
+        if isRecovery { return .unknown }
         switch runTarget {
         case .pace: return runTarget.paceStatus(currentSecPerKm: livePaceSecPerKm)
         case .zone: return runTarget.zoneStatus(currentZone: liveZone)
@@ -173,15 +190,41 @@ final class TreadmillHUDModel {
         }
     }
 
+    /// Effective elapsed for the current leg's goal + the "Tiempo" readout. For a
+    /// continuous run we trust the session's own segment clock (it counts from the
+    /// segment start even if the HUD opened mid-run, and it's pause-correct); for a
+    /// series bout there is no per-bout session clock, so we use our own wall clock
+    /// measured from the bout opening.
+    var legElapsedEffective: Double { isSeries ? legElapsedS : session.lapElapsedSeconds }
+
+    /// Remaining seconds for a TIME leg. The session owns interval time/recovery
+    /// countdowns (read its clock); we own a continuous-run time cap (target −
+    /// elapsed). Nil for non-time goals.
+    var legTimeRemaining: Double? {
+        guard case let .time(target) = currentLeg.goal else { return nil }
+        if isSeries { return max(0, session.rotPhaseRemaining) }
+        return max(0, Double(target) - legElapsedEffective)
+    }
+
     var progressFraction: Double {
-        goal.fraction(distanceM: segmentDistanceM, elapsedS: segmentElapsedS)
+        switch currentLeg.goal {
+        case let .distance(target):
+            return target > 0 ? min(1, max(0, legDistanceM / target)) : 0
+        case let .time(target):
+            guard target > 0 else { return 0 }
+            let remaining = legTimeRemaining ?? Double(target)
+            return min(1, max(0, 1 - remaining / Double(target)))
+        case .open:
+            return 0
+        }
     }
 
     var diagnosticsText: String? { treadmill.diagnosticsText() }
 
-    // MARK: - Ingestion
+    // MARK: - Ingestion & ticking
 
     private func ingest(_ sample: TreadmillSample) {
+        syncLeg()
         var merged = latest
         if let v = sample.speedKmh { merged.speedKmh = v }
         if let v = sample.inclinePct { merged.inclinePct = v }
@@ -191,22 +234,30 @@ final class TreadmillHUDModel {
         merged.lastUpdate = sample.lastUpdate
         latest = merged
 
-        updateSegmentDistance(from: merged)
+        updateLegDistance(from: merged)
         accumulateAverages(from: merged)
-        evaluateCompletion()
+        maybeAutoAdvance()
     }
 
-    private func updateSegmentDistance(from sample: TreadmillSample) {
+    private func tick() {
+        syncLeg()
+        if !paused {
+            legElapsedS = max(0, Date().timeIntervalSince(legStartedAt) - pausedAccum)
+        }
+        maybeAutoAdvance()
+    }
+
+    private func updateLegDistance(from sample: TreadmillSample) {
         guard !paused else { lastSampleAt = sample.lastUpdate; return }
         if let total = sample.totalDistanceM {
-            // Prefer the machine's own odometer, zeroed at this leg's first sample.
+            // Prefer the machine's odometer, zeroed at this leg's first sample so
+            // any overshoot from a prior leg is discarded (each leg counts from the
+            // reading at which it opens).
             if distanceBaselineM == nil { distanceBaselineM = total }
-            segmentDistanceM = max(segmentDistanceM, total - (distanceBaselineM ?? total))
+            legDistanceM = max(legDistanceM, total - (distanceBaselineM ?? total))
         } else if let kmh = sample.speedKmh {
-            // No odometer → integrate speed over the real gap between samples.
             let dt = lastSampleAt.map { sample.lastUpdate.timeIntervalSince($0) } ?? 0
-            segmentDistanceM = TreadmillMath.advanceDistance(segmentDistanceM, speedKmh: kmh,
-                                                             dt: min(dt, 5))
+            legDistanceM = TreadmillMath.advanceDistance(legDistanceM, speedKmh: kmh, dt: min(dt, 5))
         }
         lastSampleAt = sample.lastUpdate
     }
@@ -218,31 +269,42 @@ final class TreadmillHUDModel {
         if let v = currentBpm { bpmSum += v; bpmCount += 1 }
     }
 
-    private func tick() {
-        if !paused {
-            segmentElapsedS = max(0, Date().timeIntervalSince(segmentStartedAt) - pausedAccum)
-        }
-        evaluateCompletion()
+    /// Drive the advance ONLY for legs we own; the session rolls the rest on its
+    /// own clock. Fires once per leg.
+    private func maybeAutoAdvance() {
+        guard !paused, !isCountIn, !session.isAwaitingBlockStart else { return }
+        let leg = currentLeg
+        guard leg.ownsAutoAdvance, autoAdvancedLegKey != activeLegKey else { return }
+        guard leg.goal.isComplete(distanceM: legDistanceM, elapsedS: legElapsedEffective) else { return }
+        isComplete = true
+        Haptics.success()
+        autoAdvancedLegKey = activeLegKey
+        session.primaryAdvance()   // segment for a continuous run, bout for a series
     }
 
-    private func evaluateCompletion() {
-        guard !isComplete else { return }
-        if goal.isComplete(distanceM: segmentDistanceM, elapsedS: segmentElapsedS) {
-            isComplete = true
-            Haptics.success()
-        }
+    // MARK: - Leg state
+
+    private func legKey() -> String {
+        let seg = session.currentSegmentIndex
+        guard isSeries else { return "\(seg)#single" }
+        return "\(seg)#\(session.rotRoundIndex)#\(isWorkPhase ? "w" : "r")"
     }
 
-    // MARK: - Segment state
+    private func syncLeg() {
+        let key = legKey()
+        guard key != activeLegKey else { return }
+        snapshotLeg(activeLegKey)
+        activeLegKey = key
+        resetLegState()
+    }
 
-    private func resetSegmentState() {
-        segmentDistanceM = 0
-        segmentElapsedS = 0
+    private func resetLegState() {
+        legDistanceM = 0
+        legElapsedS = 0
         isComplete = false
-        paused = false
-        segmentStartedAt = Date()
+        legStartedAt = Date()
         pausedAccum = 0
-        pauseStartedAt = nil
+        pauseStartedAt = paused ? Date() : nil
         distanceBaselineM = nil
         lastSampleAt = nil
         speedSum = 0; speedCount = 0
@@ -250,10 +312,11 @@ final class TreadmillHUDModel {
         bpmSum = 0; bpmCount = 0
     }
 
-    private func snapshotActiveSegment() {
-        measured[activeSegmentIndex] = TreadmillLegMeasurement(
-            distanceM: segmentDistanceM,
-            elapsedS: segmentElapsedS,
+    private func snapshotLeg(_ key: String) {
+        guard !key.isEmpty else { return }
+        measured[key] = TreadmillLegMeasurement(
+            distanceM: legDistanceM,
+            elapsedS: legElapsedS,
             avgSpeedKmh: speedCount > 0 ? speedSum / Double(speedCount) : nil,
             avgInclinePct: inclineCount > 0 ? inclineSum / Double(inclineCount) : nil,
             avgBpm: bpmCount > 0 ? bpmSum / bpmCount : nil

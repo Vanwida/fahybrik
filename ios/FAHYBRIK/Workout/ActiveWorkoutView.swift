@@ -53,6 +53,13 @@ struct ActiveWorkoutView: View {
     private var isRunSegment: Bool {
         session.currentSegment?.kind == .running
     }
+    // #60 — a RUN interval series (folded `.intervals` segment). The plain-run
+    // treadmill entry lives inside RunLiveHUD, but a series routes to
+    // IntervalsLiveHUD, so it needs its own "Correr en cinta" CTA here.
+    private var isRunSeriesSegment: Bool {
+        guard let s = session.currentSegment else { return false }
+        return TreadmillLegResolver.isRunSeries(s)
+    }
     private var gpsActive: Bool {
         runGPS.status == .active || runGPS.status == .authorized
     }
@@ -119,6 +126,9 @@ struct ActiveWorkoutView: View {
                     Spacer(minLength: 0)
                     if isErgSegment && !pm5.isConnected {
                         connectPM5CTA
+                    }
+                    if isRunSeriesSegment {
+                        TreadmillEntryButton(action: { showTreadmill = true })
                     }
                     nextSegmentChip
                     bottomControls
