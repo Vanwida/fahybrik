@@ -110,7 +110,11 @@ final class WatchWorkoutCoordinator {
     /// Only a SESSION day starts — a rest day never reaches here (its brief has no
     /// button), and the guard makes that structural (the DEBUG autostart seam too).
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
-        guard phase == .idle, payload.dayKind == WatchDayKind.session else { return }
+        // Symmetric guard with MirrorSessionController.start (which yields to a live
+        // standalone session): a mirror recording driven by the phone must equally
+        // block a second, standalone engine here — the only path to a duplicate run.
+        guard phase == .idle, MirrorSessionController.shared.state == .idle,
+              payload.dayKind == WatchDayKind.session else { return }
         let engine = WorkoutSession(
             plan: runnablePlan(payload: payload, detail: detail),
             athleteHRMax: payload.athleteHrMax ?? Self.defaultHRMax
@@ -124,7 +128,9 @@ final class WatchWorkoutCoordinator {
     /// block on start (as the phone does), so the athlete reconfirms with the clock at
     /// the recovered elapsed.
     func resume(from snapshot: PersistedWorkoutState, payload: WatchTodayPayload) {
-        guard phase == .idle else { return }
+        // Same symmetric guard as start: never resume a standalone engine while the
+        // phone is driving a mirror recording (the reverse of MirrorSessionController).
+        guard phase == .idle, MirrorSessionController.shared.state == .idle else { return }
         let engine = WorkoutSession(
             plan: snapshot.plan,
             athleteHRMax: payload.athleteHrMax ?? Self.defaultHRMax,

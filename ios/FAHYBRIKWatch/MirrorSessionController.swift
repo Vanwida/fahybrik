@@ -154,7 +154,9 @@ final class MirrorSessionController: NSObject {
         switch phase {
         case MirrorWire.Phase.paused:
             if !hkPaused { session?.pause(); hkPaused = true }
-        case MirrorWire.Phase.active, MirrorWire.Phase.gate:
+        case MirrorWire.Phase.active, MirrorWire.Phase.gate, MirrorWire.Phase.countIn:
+            // The count-in is live recording (the athlete is about to move) — resume
+            // the HK session like active/gate, never leave it paused into a tramo.
             if hkPaused { session?.resume(); hkPaused = false }
         default:
             break                       // finished → handled by the end handshake
