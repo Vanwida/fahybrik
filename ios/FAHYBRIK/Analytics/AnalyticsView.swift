@@ -21,6 +21,9 @@ struct AnalyticsView: View {
 
     @State private var section: AnalyticsSectionKey = .running
     @State private var period: AnalyticsPeriod = .default
+    /// Which ergometer the Ergo section is scoped to. Persisted so the last pick
+    /// sticks across launches; only meaningful while `section == .ergo`.
+    @AppStorage("fahybrik.analytics.erg") private var erg: ErgScope = .row
     @State private var drillTarget: DrillTarget? = nil
     @State private var showCustomPicker = false
     @State private var revealed = false
@@ -30,7 +33,10 @@ struct AnalyticsView: View {
         bearer
     }
 
-    private var slice: Slice<AnalyticsSection> { store.analyticsSection(section, period: period) }
+    /// The erg scope to send / cache by — only the Ergo section carries one.
+    private var scopedErg: ErgScope? { section == .ergo ? erg : nil }
+
+    private var slice: Slice<AnalyticsSection> { store.analyticsSection(section, period: period, erg: scopedErg) }
     private var currentSection: AnalyticsSection? { slice.value }
 
     var body: some View {
@@ -39,6 +45,7 @@ struct AnalyticsView: View {
                 header
                 sectionNav
                 periodSelector
+                if section == .ergo { ergSelector }
                 cards
             }
             .padding(.horizontal, Theme.Spacing.xl)
@@ -48,7 +55,7 @@ struct AnalyticsView: View {
         .refreshable {
             // Pull-to-refresh: re-pull the active section×period fresh (force
             // bypasses the SWR staleness window).
-            await store.refreshAnalyticsSection(section, period: period, force: true)
+            await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
         }
         .sheet(item: $drillTarget) { target in
             AnalyticsDrillDownSheet(target: target, bearer: effectiveBearer)
@@ -67,13 +74,13 @@ struct AnalyticsView: View {
         // a warm slice renders instantly; this just refreshes it (throttled + SWR).
         .task(id: refreshKey) {
             store.activate(bearer: effectiveBearer)
-            await store.refreshAnalyticsSection(section, period: period)
+            await store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
         }
     }
 
-    /// Composite identity that drives the revalidation task.
+    /// Composite identity that drives the revalidation task (erg only for Ergo).
     private var refreshKey: String {
-        "\(effectiveBearer ?? "nil")|\(section.rawValue)|\(period.cacheSuffix)"
+        "\(effectiveBearer ?? "nil")|\(section.rawValue)|\(period.cacheSuffix)|\(scopedErg?.rawValue ?? "")"
     }
 
     // MARK: - Header
@@ -151,6 +158,40 @@ struct AnalyticsView: View {
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel("Periodo \(key.label)")
+                .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
+            }
+        }
+        .padding(3)
+        .background(Theme.Color.surfaceSunken)
+        .overlay(Capsule().stroke(Theme.Color.hairline, lineWidth: 1))
+        .clipShape(Capsule())
+    }
+
+    // MARK: - Ergo scope selector (Remo · SkiErg · BikeErg)
+    //
+    // Same segmented style as the period selector; scopes the Ergo section to one
+    // machine so every metric names it (never a bare "ergo"). Switching refetches
+    // that erg (cache is keyed per erg, so an already-seen one renders instantly).
+
+    private var ergSelector: some View {
+        HStack(spacing: 4) {
+            ForEach(ErgScope.allCases) { scope in
+                let active = scope == erg
+                Button {
+                    guard !active else { return }
+                    Haptics.light()
+                    withAnimation(.easeInOut(duration: 0.16)) { erg = scope }
+                } label: {
+                    Text(scope.label)
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(active ? Theme.Color.accent : Color.clear)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel("Ergo \(scope.label)")
                 .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
             }
         }

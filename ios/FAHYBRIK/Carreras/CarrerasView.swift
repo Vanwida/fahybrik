@@ -51,6 +51,14 @@ struct CarrerasView: View {
     /// `upcoming`. The athlete can have several; the server sorts soonest-first.
     private var upcoming: [UpcomingRace] { store.racesHub.value?.upcoming ?? [] }
 
+    /// The soonest target — the race the goal-gap endpoint is scoped to, and the
+    /// only card that opens the full "predicho hoy + camino" detail. First race
+    /// whose priority is 'target' (absent priority defaults to 'target', matching
+    /// the create path), since the server returns them soonest-first.
+    private var targetRaceId: Int? {
+        upcoming.first { ($0.priority?.lowercased() ?? "target") == "target" }?.raceId
+    }
+
     // "Cold" = never loaded yet (no memory AND no disk snapshot) AND a first load
     // is in flight — the ONLY case that shows a spinner. With any cached value the
     // section renders instantly and revalidates silently underneath.
@@ -330,13 +338,12 @@ struct CarrerasView: View {
                     ForEach(upcoming) { race in
                         UpcomingRaceCard(
                             race: race,
+                            isTargetRace: race.raceId == targetRaceId,
+                            bearer: effectiveBearer,
                             onMakePrimary: { Task { await makePrimary(race) } },
                             onRemove: { objectiveToRemove = race }
                         )
                     }
-                    // Camino al objetivo (Pantalla B) — sits right under the
-                    // countdowns, the natural next question: "¿y cuánto me falta?".
-                    caminoEntry
                 }
             } else {
                 VStack(spacing: Theme.Spacing.l) {
@@ -352,53 +359,6 @@ struct CarrerasView: View {
                 .padding(.top, Theme.Spacing.s)
             }
         }
-    }
-
-    // MARK: - Camino al objetivo (Pantalla B entry)
-    //
-    // The doorway to the gap board, placed under the objectives so it reads as the
-    // next question after the countdown. Accent-tinted to stand out from the
-    // neutral race cards; the board itself fetches live + handles its own states.
-
-    private var caminoEntry: some View {
-        NavigationLink {
-            CaminoObjetivoView(bearer: effectiveBearer)
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(width: 40, height: 40)
-                    .background(Theme.Color.accent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Camino al objetivo")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu nivel de hoy contra lo que pide tu meta, estación a estación.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.accent.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(0.28), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Camino al objetivo. Tu nivel de hoy contra lo que pide tu meta, estación a estación.")
-        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - PASADAS · history + race-derived analytics (honest empty state)
@@ -466,6 +426,11 @@ struct CarrerasView: View {
 
 private struct UpcomingRaceCard: View {
     let race: UpcomingRace
+    /// True when this is the soonest target — the card that opens the full detail
+    /// (predicho hoy + camino). Computed once by CarrerasView (single source).
+    let isTargetRace: Bool
+    /// Session token, forwarded to the detail's goal-gap fetch.
+    var bearer: String?
     /// Promote this race to the PRIMARY objective (the hub owns the POST + refresh).
     /// Shown only on non-primary cards.
     let onMakePrimary: () -> Void
@@ -478,23 +443,36 @@ private struct UpcomingRaceCard: View {
     private var isPrimary: Bool { (race.priority?.lowercased() ?? "target") == "target" }
 
     var body: some View {
-        // A container (not a button): its rare actions live behind a ⋯ Menu in the
-        // eyebrow and the long-press .contextMenu, keeping the face clean. The
-        // primary card carries the orange top accent so the goal race reads as the
-        // anchor at a glance.
-        CardSurface(
-            padding: 16,
-            topAccent: isPrimary,
-            elevated: true,
-            backgroundImage: BrandImagery.raceCardBackground(for: String(race.raceId))
-        ) {
-            VStack(alignment: .leading, spacing: 11) {
-                eyebrowRow
-                infoBlock
+        // The whole card is one way in: tap → RaceDetailView (predicho + camino for
+        // the target, an honest promote card otherwise). Its rare actions still live
+        // behind the eyebrow ⋯ Menu and the long-press .contextMenu, keeping the
+        // face clean. `.buttonStyle(.plain)` keeps the card visuals (no link tint)
+        // and lets the nested ⋯ Menu open without triggering navigation. The primary
+        // card carries the orange top accent so the goal race reads as the anchor.
+        NavigationLink {
+            RaceDetailView(
+                race: race,
+                isTargetRace: isTargetRace,
+                bearer: bearer,
+                onMakePrimary: onMakePrimary
+            )
+        } label: {
+            CardSurface(
+                padding: 16,
+                topAccent: isPrimary,
+                elevated: true,
+                backgroundImage: BrandImagery.raceCardBackground(for: String(race.raceId))
+            ) {
+                VStack(alignment: .leading, spacing: 11) {
+                    eyebrowRow
+                    infoBlock
+                }
             }
         }
+        .buttonStyle(.plain)
         .contextMenu { actionsMenu }
         .accessibilityElement(children: .contain)
+        .accessibilityHint("Toca para ver el detalle y tu predicho de hoy")
     }
 
     // MARK: Rows
@@ -620,14 +598,14 @@ private struct UpcomingRaceCard: View {
 
     @ViewBuilder
     private var countdownRow: some View {
-        if let days = race.daysUntil {
+        if let days = race.countdownDays {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(max(0, days))")
+                Text("\(days)")
                     .font(.system(size: 30, weight: .heavy, design: .monospaced).monospacedDigit())
                     .foregroundStyle(Theme.Color.accentText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Text(days == 1 ? "día" : "días")
+                Text(UpcomingRace.dayUnit(days))
                     .scaledFont(13, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
             }
@@ -666,9 +644,8 @@ private struct UpcomingRaceCard: View {
 
     private var infoAccessibilityLabel: String {
         var parts: [String] = [isPrimary ? "Objetivo principal" : secondaryBadgeLabel, race.name]
-        if let days = race.daysUntil {
-            let d = max(0, days)
-            parts.append("faltan \(d) \(d == 1 ? "día" : "días")")
+        if let days = race.countdownDays {
+            parts.append("faltan \(days) \(UpcomingRace.dayUnit(days))")
         }
         if let category = categoryLine { parts.append(category) }
         if let meta = locationDateLine { parts.append(meta) }

@@ -165,6 +165,16 @@ struct UpcomingRace: Codable, Identifiable, Hashable {
     var id: Int { raceId }
 }
 
+extension UpcomingRace {
+    /// `max(0, daysUntil)` — the countdown never goes negative on or after race
+    /// day. Nil when the wire carries no `daysUntil`.
+    var countdownDays: Int? { daysUntil.map { max(0, $0) } }
+
+    /// "día" / "días" for a day count — ONE source so every countdown surface
+    /// (the PRÓXIMAS card, the race-detail eyebrow, VoiceOver) pluralizes alike.
+    static func dayUnit(_ days: Int) -> String { days == 1 ? "día" : "días" }
+}
+
 /// `GET /api/athlete/races` envelope — the unified hub: future objectives
 /// (`upcoming`) + the athlete's past results (`past`, the same shape the rich
 /// history already decodes). The hub is the source of truth for both lists.

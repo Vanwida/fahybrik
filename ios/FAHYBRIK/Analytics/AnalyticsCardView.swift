@@ -34,7 +34,7 @@ struct AnalyticsCardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 cardLabel
                 if let primary = card.primary { PrimaryBlock(primary: primary) }
-                if !card.series.isEmpty { SeriesBars(points: card.series) }
+                if !card.series.isEmpty { seriesChart }
                 if !card.rows.isEmpty { rowsBlock }
                 if !card.zones.isEmpty { zonesBlock }
                 if let meaning = card.meaning_es, !meaning.isEmpty { MeaningNote(text: meaning) }
@@ -47,6 +47,27 @@ struct AnalyticsCardView: View {
                 if let drill = card.drill { ProvenanceChip(drill: drill) { onDrill(drill) } }
             }
         }
+    }
+
+    // MARK: - Series chart (line for trends/progressions, bars for volume)
+
+    @ViewBuilder
+    private var seriesChart: some View {
+        switch card.chartKind {
+        case .line:
+            LineSeriesChart(points: card.series, axis: card.series_axis, axLabel: chartAxLabel)
+        case .bars:
+            BarSeriesChart(points: card.series, axLabel: chartAxLabel)
+        }
+    }
+
+    /// "Tendencia SkiErg, último valor 1:52 por 500 metros" — the card's own copy
+    /// already spells the unit, so we surface the title + the latest point value.
+    private var chartAxLabel: String {
+        if let last = card.series.last?.display {
+            return "\(card.title_es), último valor \(last)"
+        }
+        return card.title_es
     }
 
     // MARK: - Card label row (title + availability tag)
@@ -208,35 +229,6 @@ private struct PrimaryBlock: View {
     }
 }
 
-// MARK: - Series bars (taller = bigger magnitude; current accented)
-
-private struct SeriesBars: View {
-    let points: [CardSeriesPoint]
-    private let maxHeight: CGFloat = 46
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .bottom, spacing: 5) {
-                ForEach(points) { p in
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(p.current ? Theme.Color.accent : Theme.Color.accent.opacity(0.35))
-                        .frame(height: max(3, maxHeight * CGFloat(min(1, max(0, p.height)))))
-                        .frame(maxWidth: .infinity)
-                        .frame(maxHeight: maxHeight, alignment: .bottom)
-                }
-            }
-            .frame(height: maxHeight, alignment: .bottom)
-            if let last = points.last, let display = last.display {
-                Text(display)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.Color.faint)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 // MARK: - Metric row (label + sub left, value right; tappable when it drills)
 
 private struct MetricRow: View {
@@ -332,13 +324,17 @@ private struct ZoneDistribution: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Stacked share bar.
+            // Stacked share bar — 2px gaps between segments so the zones read as
+            // distinct bands, not one fused block. The available width is reduced
+            // by the total gap so the segments still sum to the full bar.
             GeometryReader { geo in
-                HStack(spacing: 0) {
+                let gap: CGFloat = 2
+                let available = max(0, geo.size.width - gap * CGFloat(max(0, zones.count - 1)))
+                HStack(spacing: gap) {
                     ForEach(zones) { z in
-                        Rectangle()
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .fill(AnalyticsColor.zone(z.color, code: z.code))
-                            .frame(width: geo.size.width * CGFloat((z.pct ?? 0) / 100))
+                            .frame(width: available * CGFloat((z.pct ?? 0) / 100))
                     }
                 }
             }

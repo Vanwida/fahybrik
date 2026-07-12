@@ -72,6 +72,24 @@ enum AnalyticsSectionKey: String, Codable, CaseIterable, Identifiable, Hashable 
     }
 }
 
+/// Which ergometer the Ergo section is scoped to. Drives the segmented control
+/// (Remo · SkiErg · BikeErg) above the cards and the `erg=` query param, and is
+/// persisted so the athlete's last pick sticks. NEVER a bare "ergo": every ergo
+/// metric names its machine.
+enum ErgScope: String, Codable, CaseIterable, Identifiable, Hashable {
+    case row, ski, bike
+    var id: String { rawValue }
+
+    /// Segmented-control label + the machine name that scopes every ergo metric.
+    var label: String {
+        switch self {
+        case .row:  return "Remo"
+        case .ski:  return "SkiErg"
+        case .bike: return "BikeErg"
+        }
+    }
+}
+
 enum AnalyticsPeriodKey: String, Codable, CaseIterable, Hashable {
     case sevenD = "7d"
     case month
@@ -169,6 +187,19 @@ struct CardSeriesPoint: Codable, Hashable, Identifiable {
     let label: String?
 }
 
+/// Line-chart y-axis end labels — the REAL formatted values at the series'
+/// lowest (bottom) and highest (top) plotted points. Both come from an actual
+/// point's `display`, never fabricated.
+struct CardSeriesAxis: Codable, Hashable {
+    let min_display: String
+    let max_display: String
+
+    enum CodingKeys: String, CodingKey {
+        case min_display = "minDisplay"
+        case max_display = "maxDisplay"
+    }
+}
+
 struct CardZone: Codable, Hashable, Identifiable {
     let code: String
     let label: String
@@ -201,6 +232,12 @@ struct AnalyticsCard: Codable, Hashable, Identifiable {
     let primary: CardPrimary?
     let rows: [CardRow]
     let series: [CardSeriesPoint]
+    /// "line" | "bars" — how the series renders. Optional so pre-redesign cached
+    /// payloads still decode; `chartKind` falls back by card id when absent.
+    let series_kind: String?
+    /// Line-chart y-axis end labels (real values). Nil when the server can't
+    /// supply both extremes, or on a bar card.
+    let series_axis: CardSeriesAxis?
     let zones: [CardZone]
     let meaning_es: String?
     let drill: DrillRef?
@@ -210,9 +247,28 @@ struct AnalyticsCard: Codable, Hashable, Identifiable {
         case title_es = "titleEs"
         case availability
         case availability_note = "availabilityNote"
-        case primary, rows, series, zones
+        case primary, rows, series
+        case series_kind = "seriesKind"
+        case series_axis = "seriesAxis"
+        case zones
         case meaning_es = "meaningEs"
         case drill
+    }
+}
+
+// MARK: - Series chart routing
+
+/// Which renderer draws a card's series. Server-driven via `series_kind`, with a
+/// defensive fallback by card id for payloads cached before the field existed.
+enum SeriesChartKind { case line, bars }
+
+extension AnalyticsCard {
+    var chartKind: SeriesChartKind {
+        switch series_kind {
+        case "bars": return .bars
+        case "line": return .line
+        default:     return id.contains("volume") ? .bars : .line
+        }
     }
 }
 

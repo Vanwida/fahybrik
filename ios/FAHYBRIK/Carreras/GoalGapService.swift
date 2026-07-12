@@ -123,7 +123,7 @@ struct PredictionReview: Codable, Hashable {
     let actualTotalS: Int?
     let accuracyPct: Double?
     let accuracyLabelEs: String?
-    let rows: [PredictionReviewRow]
+    let segments: [PredictionReviewRow]
     let insightEs: String?
     let raceName: String?
     let raceDate: String?
@@ -132,7 +132,7 @@ struct PredictionReview: Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case availability, predictedTotalS, actualTotalS, accuracyPct
-        case accuracyLabelEs, rows, insightEs, raceName, raceDate
+        case accuracyLabelEs, segments, insightEs, raceName, raceDate
     }
 
     init(from decoder: Decoder) throws {
@@ -145,7 +145,7 @@ struct PredictionReview: Codable, Hashable {
         insightEs = try? c.decodeIfPresent(String.self, forKey: .insightEs)
         raceName = try? c.decodeIfPresent(String.self, forKey: .raceName)
         raceDate = try? c.decodeIfPresent(String.self, forKey: .raceDate)
-        rows = (try? c.decodeIfPresent(LossyArray<PredictionReviewRow>.self, forKey: .rows))?
+        segments = (try? c.decodeIfPresent(LossyArray<PredictionReviewRow>.self, forKey: .segments))?
             .wrappedValue ?? []
     }
 }
