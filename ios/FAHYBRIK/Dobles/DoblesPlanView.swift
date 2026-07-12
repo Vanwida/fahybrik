@@ -392,8 +392,8 @@ private struct DoblesPlanDayRow: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.Color.accentText)
             }
-        case .rest:
-            EmptyView()
+        case .rest, .unknown:
+            EmptyView()   // AUDIT-B2 — an unknown togetherness shows no badge
         }
     }
 
@@ -405,7 +405,7 @@ private struct DoblesPlanDayRow: View {
         case .optionalTogether: parts.append("opcional juntos")
         case .eachOwn: parts.append("cada uno por su cuenta")
         case .jointMandatory: parts.append("simulación conjunta obligatoria")
-        case .rest: break
+        case .rest, .unknown: break
         }
         return parts.joined(separator: ", ")
     }

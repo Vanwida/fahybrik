@@ -18,6 +18,14 @@ enum FoodSource: String, Codable {
     case manual = "manual"   // user-entered custom
     case barcode = "barcode" // EAN/UPC scan → barcode lookup
     case photo = "photo"     // photo + AI vision estimate
+    /// AUDIT-B2 — a source this build doesn't know (a new backend value) decodes here
+    /// instead of throwing and blanking the day log. We only ever ENCODE the real cases.
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FoodSource(rawValue: raw) ?? .unknown
+    }
 }
 
 // MARK: - Wire: create entry

@@ -65,6 +65,14 @@ enum DoblesTogetherness: String, Codable, Hashable {
     case jointMandatory = "joint_mandatory"
     /// A rest day for this athlete.
     case rest = "rest"
+    /// AUDIT-B2 — an unrecognized future value decodes here (no badge) instead of
+    /// throwing and blanking the whole connected-plan tab.
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = DoblesTogetherness(rawValue: raw) ?? .unknown
+    }
 }
 
 /// One day of a connected plan. `dayLabel` is a localized 3-letter day code
@@ -207,6 +215,13 @@ enum DoblesCarrier: String, Codable, Hashable {
     case mine = "self"
     case partner
     case split
+    /// AUDIT-B2 — an unrecognized future carrier decodes here instead of throwing.
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = DoblesCarrier(rawValue: raw) ?? .unknown
+    }
 }
 
 /// One station's split in the joint simulation. `selfShare` 0…1 is the share
