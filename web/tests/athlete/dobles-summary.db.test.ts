@@ -1,13 +1,16 @@
 /**
  * Real-DB coverage for the Dobles joint-summary + pair-streak (#56 wow). No SQL
- * mocked (Neon branch); only the athlete bearer is stubbed so the GET handler runs
- * as a seeded athlete. Covers:
- *   • GET /api/athlete/dobles/joint-summary — both sides present (times/RPE/tonnage/
- *     pr_count), the partner side honest-null when they haven't logged, not_joint
- *     when the caller's execution carries no partner link, no_partner / 401 / 400.
- *   • the shared streak lib — joint_this_month + weeks_streak over consecutive weeks,
- *     the zero case, and loadLastJoint with the partner's same-day time.
+ * mocked (Neon branch). The DB-backed cases drive the INJECTABLE builders
+ * (buildJointSummary / computeDoublesStreak / loadLastJoint) with the test branch
+ * client threaded in — the route is a thin composition root that just wires auth +
+ * the query id onto buildJointSummary, so its DB-free guards (401 / 400) are the
+ * only bits tested through the handler. Covers:
+ *   • buildJointSummary — both sides present (times/RPE/tonnage/pr_count), the
+ *     partner side honest-null, not_joint (no partner link), no_partner (no pair).
+ *   • computeDoublesStreak / loadLastJoint — month + consecutive-weeks counts, the
+ *     zero case, the latest joint with the partner's same-day time.
  *   • consecutiveWeeksStreak — the pure streak walk (always runs, no DB).
+ *   • route guards — 401 (no bearer) and 400 (bad id) short-circuit before any DB.
  *
  * WRITE, do NOT run here (TCP egress blocked; Alex runs the suite against a branch).
  */
@@ -18,12 +21,13 @@ import {
   consecutiveWeeksStreak,
   loadLastJoint,
 } from '@/lib/athlete/dobles-streak';
-import { addDays, isoDateString, mondayOfWeekInBox } from '@fahybrid/shared/domain/dates';
+import { buildJointSummary } from '@/lib/athlete/dobles-joint-summary';
+import { addDays, isoDateString, mondayOfWeekInBox, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeTemplate, type Fixture } from '../utils/db-fixtures';
 
-// The athlete bearer the route reads — swapped per test. Only athlete_id + full_name
-// are consumed by the handler.
+// The athlete bearer the route guards read — swapped per test. Only the DB-free
+// 401/400 paths exercise the handler, so the DB tests never depend on this.
 let session: { athlete_id: bigint; full_name: string | null } | null = null;
 vi.mock('@/lib/auth/athlete-session', () => ({
   getAthleteSessionFromBearer: async () => session,
@@ -35,20 +39,6 @@ function summaryRequest(assignmentId: number | string | null): Request {
   const base = 'http://localhost/api/athlete/dobles/joint-summary';
   const url = assignmentId === null ? base : `${base}?assignment_id=${assignmentId}`;
   return new Request(url, { headers: { authorization: 'Bearer test' } });
-}
-
-interface JointSide {
-  name: string | null;
-  total_time_s: number | null;
-  rpe: number | null;
-  pr_count: number;
-  tonnage_kg: number | null;
-}
-interface JointSummaryBody {
-  self: JointSide;
-  partner: JointSide | null;
-  joint_this_month: number;
-  weeks_streak: number;
 }
 
 // ── Pure streak walk — deterministic, no DB (always runs) ────────────────────
@@ -71,6 +61,23 @@ describe('consecutiveWeeksStreak (pure)', () => {
   });
 });
 
+// ── Route guards — DB-free short-circuits through the handler ─────────────────
+describe('joint-summary route guards (no DB)', () => {
+  afterEach(() => {
+    session = null;
+    vi.clearAllMocks();
+  });
+  it('401 without a bearer', async () => {
+    session = null;
+    expect((await GET(summaryRequest(1))).status).toBe(401);
+  });
+  it('400 with a missing / invalid assignment id', async () => {
+    session = { athlete_id: BigInt(1), full_name: 'X' };
+    expect((await GET(summaryRequest(null))).status).toBe(400);
+    expect((await GET(summaryRequest('abc'))).status).toBe(400);
+  });
+});
+
 describeWithDb('dobles joint-summary + streak (real DB)', () => {
   const sql = getTestSql();
   let fx: Fixture;
@@ -80,8 +87,11 @@ describeWithDb('dobles joint-summary + streak (real DB)', () => {
   let userB = 0;
   let pairId = 0;
   let templateId = 0;
+  // Madrid "today" — buildJointSummary computes the streak with the real clock, so
+  // the both-sides / partner-null cases date their executions relative to today
+  // (a fixed date could land in a different ISO week and skew weeks_streak).
+  let todayIso = '';
 
-  /** A completed assignment for `athleteId` on `dateIso`, sharing the template. */
   async function assignment(athleteId: number, dateIso: string): Promise<number> {
     const rows = await sql<Array<{ id: string }>>`
       insert into workout_assignments (athlete_id, scheduled_for, template_id, template_version, status)
@@ -131,6 +141,7 @@ describeWithDb('dobles joint-summary + streak (real DB)', () => {
 
   beforeAll(async () => {
     await sql`select 1 as ok`;
+    todayIso = isoDateString(startOfDayInBox(new Date()));
     fx = await makeCoachAndAthlete(sql);
     coachId = fx.coachId;
     athleteA = fx.athleteId;
@@ -158,11 +169,8 @@ describeWithDb('dobles joint-summary + streak (real DB)', () => {
   });
 
   afterEach(async () => {
-    // Executions cascade their segments; assignments are independent. Reset both
-    // for a clean slate between tests (the pair + athletes persist).
     await sql`delete from workout_executions where athlete_id in (${athleteA}, ${athleteB})`;
     await sql`delete from workout_assignments where athlete_id in (${athleteA}, ${athleteB})`;
-    session = null;
   });
 
   afterAll(async () => {
@@ -173,84 +181,90 @@ describeWithDb('dobles joint-summary + streak (real DB)', () => {
     await closeTestSql();
   });
 
-  it('both sides present — real times/RPE, tonnage from strength, a first-ever PR', async () => {
-    const day = '2026-07-15T12:00:00Z';
-    const aAssign = await assignment(athleteA, '2026-07-15');
+  it('buildJointSummary: both sides present — times/RPE, tonnage, a first-ever PR', async () => {
+    const startedAt = `${todayIso}T12:00:00Z`;
+    const aAssign = await assignment(athleteA, todayIso);
     const aExec = await execution({
-      athleteId: athleteA, assignmentId: aAssign, startedAt: day,
+      athleteId: athleteA, assignmentId: aAssign, startedAt,
       partnerId: athleteB, totalSeconds: 1700, rpe: 7,
     });
     await strengthSegment(aExec, 100, 5, 0); // 500 kg moved
     await runSegment(aExec, 1000, 240, 1); // first-ever 1k mark → 1 PR
 
-    const bAssign = await assignment(athleteB, '2026-07-15');
+    const bAssign = await assignment(athleteB, todayIso);
     await execution({
-      athleteId: athleteB, assignmentId: bAssign, startedAt: day,
+      athleteId: athleteB, assignmentId: bAssign, startedAt,
       partnerId: athleteA, totalSeconds: 1800, rpe: 8,
     });
 
-    session = { athlete_id: BigInt(athleteA), full_name: 'Ana Atleta' };
-    const res = await GET(summaryRequest(aAssign));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as JointSummaryBody;
+    const res = await buildJointSummary(
+      { selfAthleteId: BigInt(athleteA), fullName: 'Ana Atleta', assignmentId: aAssign },
+      sql,
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const b = res.dto;
 
-    expect(body.self.name).toBe('Ana');
-    expect(body.self.total_time_s).toBe(1700);
-    expect(body.self.rpe).toBe(7);
-    expect(body.self.tonnage_kg).toBe(500);
-    expect(body.self.pr_count).toBe(1);
+    expect(b.self.name).toBe('Ana');
+    expect(b.self.total_time_s).toBe(1700);
+    expect(b.self.rpe).toBe(7);
+    expect(b.self.tonnage_kg).toBe(500);
+    expect(b.self.pr_count).toBe(1);
 
-    expect(body.partner).not.toBeNull();
-    expect(body.partner!.name).toBe('Berta');
-    expect(body.partner!.total_time_s).toBe(1800);
-    expect(body.partner!.rpe).toBe(8);
-    expect(body.partner!.tonnage_kg).toBeNull(); // partner logged no strength load
-    expect(body.partner!.pr_count).toBe(0);
+    expect(b.partner).not.toBeNull();
+    expect(b.partner!.name).toBe('Berta');
+    expect(b.partner!.total_time_s).toBe(1800);
+    expect(b.partner!.rpe).toBe(8);
+    expect(b.partner!.tonnage_kg).toBeNull(); // partner logged no strength load
+    expect(b.partner!.pr_count).toBe(0);
 
-    expect(body.joint_this_month).toBe(1);
-    expect(body.weeks_streak).toBe(1);
+    expect(b.joint_this_month).toBe(1);
+    expect(b.weeks_streak).toBe(1);
   });
 
-  it('partner side is honest-null when the partner has not logged their join', async () => {
-    const aAssign = await assignment(athleteA, '2026-07-15');
+  it('buildJointSummary: partner side honest-null when the partner has not logged', async () => {
+    const aAssign = await assignment(athleteA, todayIso);
     await execution({
-      athleteId: athleteA, assignmentId: aAssign, startedAt: '2026-07-15T12:00:00Z',
+      athleteId: athleteA, assignmentId: aAssign, startedAt: `${todayIso}T12:00:00Z`,
       partnerId: athleteB, totalSeconds: 1650, rpe: 6,
     });
 
-    session = { athlete_id: BigInt(athleteA), full_name: 'Ana Atleta' };
-    const res = await GET(summaryRequest(aAssign));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as JointSummaryBody;
-
-    expect(body.self.total_time_s).toBe(1650);
-    expect(body.partner).toBeNull();
-    expect(body.joint_this_month).toBe(1);
+    const res = await buildJointSummary(
+      { selfAthleteId: BigInt(athleteA), fullName: 'Ana Atleta', assignmentId: aAssign },
+      sql,
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.dto.self.total_time_s).toBe(1650);
+    expect(res.dto.partner).toBeNull();
+    expect(res.dto.joint_this_month).toBe(1);
+    expect(res.dto.weeks_streak).toBe(1);
   });
 
-  it('404 not_joint when the execution carries no partner link (logged solo)', async () => {
-    const aAssign = await assignment(athleteA, '2026-07-15');
+  it('buildJointSummary: not_joint when the execution carries no partner link (solo)', async () => {
+    const aAssign = await assignment(athleteA, todayIso);
     await execution({
-      athleteId: athleteA, assignmentId: aAssign, startedAt: '2026-07-15T12:00:00Z',
+      athleteId: athleteA, assignmentId: aAssign, startedAt: `${todayIso}T12:00:00Z`,
       partnerId: null, totalSeconds: 1500,
     });
 
-    session = { athlete_id: BigInt(athleteA), full_name: 'Ana Atleta' };
-    const res = await GET(summaryRequest(aAssign));
-    expect(res.status).toBe(404);
-    const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe('not_joint');
+    const res = await buildJointSummary(
+      { selfAthleteId: BigInt(athleteA), fullName: 'Ana Atleta', assignmentId: aAssign },
+      sql,
+    );
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.reason).toBe('not_joint');
   });
 
-  it('404 no_partner for an athlete without an active pair; 401 / 400 guards', async () => {
-    session = { athlete_id: BigInt(2_000_000_000), full_name: 'Sin Pareja' };
-    expect((await GET(summaryRequest(1))).status).toBe(404);
-
-    session = null;
-    expect((await GET(summaryRequest(1))).status).toBe(401);
-
-    session = { athlete_id: BigInt(athleteA), full_name: 'Ana Atleta' };
-    expect((await GET(summaryRequest(null))).status).toBe(400);
+  it('buildJointSummary: no_partner for an athlete without an active pair', async () => {
+    const res = await buildJointSummary(
+      { selfAthleteId: BigInt(2_000_000_000), fullName: 'Sin Pareja', assignmentId: 1 },
+      sql,
+    );
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.reason).toBe('no_partner');
   });
 
   it('computeDoublesStreak: two joints, consecutive weeks → month 2, streak 2', async () => {
