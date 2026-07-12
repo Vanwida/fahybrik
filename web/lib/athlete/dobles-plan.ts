@@ -69,9 +69,10 @@ export interface DoblesConnectedPlanDTO {
   /** Optional free-form coach markers; the structured days drive the UI. */
   notes: string[];
   /**
-   * The self assignment id the "Entrenar a la vez" screen loads — the first
-   * optional-together session of the self week (identical shared plan). Null
-   * when there is none this week (the CTA then stays disabled honestly).
+   * The self assignment id the "Entrenar a la vez" screen loads — the
+   * EARLIEST optional-together session at or after today (today first, else
+   * the next pending one). Never a day that's already passed. Null when none
+   * remains this week (the CTA then stays disabled honestly).
    */
   train_together_session_id: string | null;
 }
@@ -168,9 +169,29 @@ function weekIsShared(week: AthleteWeekPlan): boolean {
   return week.days.some((d) => d.sessions.some((s) => s.partner_visibility === 'shared'));
 }
 
-/** First optional-together self assignment id (the train-together CTA target). */
-function firstTrainTogetherId(selfDays: DoblesPlanDayDTO[]): string | null {
-  const day = selfDays.find((d) => d.togetherness === 'optional_together');
+/** One self day's shape as seen by the train-together selector. */
+export interface TrainTogetherCandidate {
+  id: string;
+  iso_date: string;
+  togetherness: DoblesTogetherness;
+}
+
+/**
+ * The self assignment id for the "Entrenar a la vez" CTA: the EARLIEST
+ * optional-together day at or after `todayIso` (today first, else the next
+ * pending one) — never a day that's already passed. `todayIso` must come from
+ * the same resolved week (AthleteWeekPlan.today_iso), the Madrid "today"
+ * buildAthleteWeekPlan already computed; no timezone logic duplicated here.
+ * Pure and testable in isolation. Null when no optional-together day remains
+ * this week (the CTA then stays disabled honestly).
+ */
+export function selectTrainTogetherId(
+  candidates: TrainTogetherCandidate[],
+  todayIso: string,
+): string | null {
+  const day = candidates.find(
+    (d) => d.togetherness === 'optional_together' && d.iso_date >= todayIso,
+  );
   return day ? day.id : null;
 }
 
@@ -200,6 +221,15 @@ export function buildDoblesConnectedPlan(
     classifyDay(d, selfWeek.days[i] ?? emptyDay(d), self_name),
   );
 
+  // selfWeek.days and selfDays align 1:1 by index (both built from the same
+  // Mon–Sun map above) — zip them to pair each DTO's togetherness with its
+  // real iso_date (the DTO itself doesn't carry it) for the selector.
+  const trainTogetherCandidates: TrainTogetherCandidate[] = selfWeek.days.map((d, i) => ({
+    id: selfDays[i].id,
+    iso_date: d.iso_date,
+    togetherness: selfDays[i].togetherness,
+  }));
+
   return {
     partner_name,
     partner_plan_visible: weekIsShared(partnerWeek),
@@ -209,7 +239,7 @@ export function buildDoblesConnectedPlan(
     self_days: selfDays,
     partner_days: partnerDays,
     notes: [],
-    train_together_session_id: firstTrainTogetherId(selfDays),
+    train_together_session_id: selectTrainTogetherId(trainTogetherCandidates, selfWeek.today_iso),
   };
 }
 
