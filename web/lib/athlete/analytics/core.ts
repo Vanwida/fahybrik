@@ -197,6 +197,12 @@ export interface SourceSession {
   /** Headline figure for the row (pace/time). */
   value: string | null;
   value_label: string | null;
+  // The workout_assignment this row belongs to, when the drill's rows come from an
+  // execution (workout_executions.assignment_id is NOT NULL, so it always resolves
+  // there). Lets the client open the existing session detail from a drill row.
+  // Absent/null for drills whose rows are NOT execution-backed — a 5k benchmark
+  // test, the 1RM history, race segments, transfer stations, recovery readings.
+  assignment_id?: string | null;
 }
 
 export interface DrillDownResult {

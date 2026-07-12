@@ -61,9 +61,9 @@ export async function strengthVolumeDrill(
   period: ResolvedPeriod,
 ): Promise<DrillDownResult> {
   const sets = await loadStrengthSets(client, athleteId, period);
-  const byExec = new Map<string, { day: string; kg: number; sets: number; exercises: Set<string> }>();
+  const byExec = new Map<string, { day: string; assignmentId: string; kg: number; sets: number; exercises: Set<string> }>();
   for (const s of sets) {
-    const e = byExec.get(s.executionId) ?? { day: s.day, kg: 0, sets: 0, exercises: new Set<string>() };
+    const e = byExec.get(s.executionId) ?? { day: s.day, assignmentId: s.assignmentId, kg: 0, sets: 0, exercises: new Set<string>() };
     e.sets += 1;
     if (s.load != null && s.load > 0 && s.reps != null) e.kg += s.load * s.reps;
     if (s.exerciseName) e.exercises.add(s.exerciseName);
@@ -80,6 +80,7 @@ export async function strengthVolumeDrill(
         detail_es: `${e.sets} series · ${e.exercises.size} ${e.exercises.size === 1 ? 'ejercicio' : 'ejercicios'}`,
         value: `${t.value} ${t.unit}`,
         value_label: null,
+        assignment_id: e.assignmentId,
       };
     });
   const totalKg = [...byExec.values()].reduce((a, e) => a + e.kg, 0);
@@ -130,6 +131,7 @@ export async function strengthExerciseDrill(
       detail_es: 'mejor serie',
       value: setLabel(e.set),
       value_label: best != null && e.set.executionId === best.set.executionId ? 'mejor' : null,
+      assignment_id: e.set.assignmentId,
     }));
   return {
     kind: 'strength.exercise',
