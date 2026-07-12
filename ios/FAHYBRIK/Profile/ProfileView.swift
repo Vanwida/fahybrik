@@ -15,6 +15,9 @@ struct ProfileView: View {
     // AppRoot reads to drive `.preferredColorScheme`, so changing it here re-themes
     // the whole app instantly and survives relaunches.
     @AppStorage(ThemeMode.storageKey) private var themeMode: ThemeMode = .system
+    /// "Avisos de voz" (#63) — the live running voice coach. ON by default; the same
+    /// key backs the quick speaker toggle on the run HUD.
+    @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
     @State private var sheet: SheetKind? = nil
     @State private var showPartnerInvite: Bool = false
@@ -108,6 +111,9 @@ struct ProfileView: View {
                         SectionHeader(title: "Rendimiento")
                         zonesCard
                         strengthCard
+
+                        SectionHeader(title: "Entreno")
+                        audioCoachCard
 
                         SectionHeader(title: "Dispositivos")
                         devicesCard
@@ -875,6 +881,38 @@ struct ProfileView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle), \(statusText)")
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Audio coaching (#63)
+
+    /// "Avisos de voz" — the live running voice coach (tramos, ritmo, parciales).
+    /// ON by default; the same @AppStorage key backs the run-HUD speaker button.
+    private var audioCoachCard: some View {
+        CardSurface(padding: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Avisos de voz")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("En carrera: cambios de tramo, ritmo y parciales por kilómetro.")
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Toggle("", isOn: $voiceCoachEnabled)
+                    .labelsHidden()
+                    .tint(Theme.Color.accent)
+                    .accessibilityLabel("Avisos de voz")
+                    .accessibilityValue(voiceCoachEnabled ? "activados" : "desactivados")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+        }
     }
 
     // MARK: - Appearance

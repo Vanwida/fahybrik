@@ -65,6 +65,20 @@ struct PaceTarget: Equatable {
         if pace > single + tol { return .tooSlow }
         return .inTarget
     }
+
+    /// How far (sec/km, magnitude) the live pace sits OUTSIDE the objective — the
+    /// number spoken in "Vas 15 segundos rápido" (#63). Distance to the nearest bound
+    /// for a band, to the point for a single. 0 when inside; nil when unmeasurable.
+    func deviationSecPerKm(currentSecPerKm pace: Int?) -> Int? {
+        guard let pace, pace > 0 else { return nil }
+        if hasBand {
+            if let f = fastS, pace < f { return f - pace }
+            if let s = slowS, pace > s { return pace - s }
+            return 0
+        }
+        guard let single else { return nil }
+        return abs(pace - single)
+    }
 }
 
 /// Whether the athlete's current effort sits inside the prescribed objective.
@@ -112,6 +126,13 @@ enum RunTarget: Equatable {
     func paceStatus(currentSecPerKm pace: Int?) -> TargetStatus {
         guard case let .pace(t) = self else { return .unknown }
         return t.status(currentSecPerKm: pace)
+    }
+
+    /// Magnitude (sec/km) the live pace sits outside a PACE target — for the spoken
+    /// pace nudge (#63). Nil for a non-pace target or an unmeasurable pace.
+    func paceDeviationSecPerKm(currentSecPerKm pace: Int?) -> Int? {
+        guard case let .pace(t) = self else { return nil }
+        return t.deviationSecPerKm(currentSecPerKm: pace)
     }
 
     /// Live HR zone → status against a zone target. `.unknown` for a non-zone

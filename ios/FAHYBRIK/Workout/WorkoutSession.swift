@@ -442,6 +442,9 @@ final class WorkoutSession {
         // re-arm a block mid-session.
         if !hasArmedInitial {
             hasArmedInitial = true
+            #if os(iOS)
+            AudioCoach.shared.beginWorkout()   // fresh voice-coaching state for this workout (#63, iOS-only)
+            #endif
             if emomSegmentIndex == nil { armBlock() }
         }
     }
@@ -645,6 +648,11 @@ final class WorkoutSession {
             closeCurrentSegmentLap()
         }
         isFinished = true
+        // Voice the total time BEFORE stop() tears the tone session down — the coach
+        // holds the session active for the cue and releases it when the cue ends (#63).
+        #if os(iOS)
+        AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
+        #endif
         stop()
         Task { [snapshot = persistedSnapshot()] in
             await WorkoutStateStore.shared.save(snapshot)
@@ -1218,6 +1226,9 @@ final class WorkoutSession {
         runLegStartElapsed = lapElapsedSeconds
         WorkoutAudio.shared.playGo()
         Haptics.medium()
+        #if os(iOS)
+        AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
+        #endif
     }
 
     // The bottom primary button for a structured run ("Tramo hecho" / "Saltar
@@ -1253,6 +1264,9 @@ final class WorkoutSession {
             WorkoutAudio.shared.playIntervalStart()
             Haptics.medium()
         }
+        #if os(iOS)
+        AudioCoach.shared.announceRunLeg(in: self)   // voice the new tramo / recovery (#63, iOS-only)
+        #endif
     }
 
     // Close the run segment's single aggregate lap (reusing the standard close path)
@@ -1284,6 +1298,9 @@ final class WorkoutSession {
                     runLegStartElapsed = lapElapsedSeconds   // GO — the leg clock starts now
                     WorkoutAudio.shared.playGo()
                     Haptics.medium()
+                    #if os(iOS)
+                    AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
+                    #endif
                 } else {
                     WorkoutAudio.shared.playTick()
                     Haptics.light()
@@ -1300,6 +1317,9 @@ final class WorkoutSession {
             WorkoutAudio.shared.playTick()
             Haptics.light()
         }
+        #if os(iOS)
+        AudioCoach.shared.runLegTimeRemaining(after, in: self)   // once-per-leg "10 segundos" (#63, iOS-only)
+        #endif
         if after <= 0 {
             advanceRunLeg(auto: true)
         } else {

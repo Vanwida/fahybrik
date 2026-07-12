@@ -19,6 +19,8 @@ import { sql as defaultSql } from '@/lib/db';
 import { ingestExecutionSegments, segmentInputSchema } from '@/lib/sync/ingest-execution-segments';
 import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
+import { detectExecutionRunningPRs } from '@/lib/sync/running-prs';
+import type { RunningPR } from '@fahybrid/shared/domain/running/best-efforts';
 
 // The measured outcome of a session, WITHOUT the assignment id (the solo route
 // carries it in the body; the joint route takes it from the URL path). Shared so
@@ -53,6 +55,14 @@ export const executionMetricsSchema = z.object({
   // preserving prior behaviour. This is the writer mig 0089 deliberately deferred:
   // 'partial' is NEVER a fabricated 'completed'.
   completeness: z.enum(['full', 'partial']).optional(),
+  // Structured post-workout feedback (mig 0125). All additive/optional so the
+  // installed app that never sends them keeps writing NULLs.
+  //   · perceived_difficulty — calibration verdict vs what the plan intended.
+  //   · pain_area / pain_note — earliest injury signal: a body area that hurt +
+  //     an optional detail. Generic vocabulary (no brand/coach names).
+  perceived_difficulty: z.enum(['too_easy', 'as_expected', 'too_hard']).optional(),
+  pain_area: z.enum(['rodilla', 'tobillo', 'cadera', 'espalda', 'hombro', 'otra']).nullish(),
+  pain_note: z.string().max(500).nullish(),
   started_at: z.string().datetime().optional(),
   ended_at: z.string().datetime().optional(),
   // Optional per-segment detail from iOS on workout finish. Upserted by
@@ -69,7 +79,15 @@ export type ExecutionMetricsInput = z.infer<typeof executionMetricsSchema>;
 
 export type RecordExecutionResult =
   | { ok: false; reason: 'invalid_assignment' | 'not_found' }
-  | { ok: true; assignment_id: string; execution_id: string; segments_saved: number };
+  | {
+      ok: true;
+      assignment_id: string;
+      execution_id: string;
+      segments_saved: number;
+      // Running records this session set (1k/3k/5k). Empty when the session had
+      // no eligible run effort. Additive — older clients simply ignore it.
+      prs: RunningPR[];
+    };
 
 /**
  * Upsert the workout_executions row for an athlete's assignment, ingest any
@@ -111,7 +129,8 @@ export async function recordWorkoutExecution(args: {
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at,
       total_duration_seconds, perceived_exertion, notes,
-      score_time_s, score_rounds, score_reps, source, source_workout_ref
+      score_time_s, score_rounds, score_reps, source, source_workout_ref,
+      perceived_difficulty, pain_area, pain_note
     )
     values (
       ${assignmentId},
@@ -125,7 +144,10 @@ export async function recordWorkoutExecution(args: {
       ${input.score_rounds ?? null},
       ${input.score_reps ?? null},
       ${input.source ?? 'healthkit'}::biometric_source,
-      ${input.source_workout_ref ?? null}
+      ${input.source_workout_ref ?? null},
+      ${input.perceived_difficulty ?? null},
+      ${input.pain_area ?? null},
+      ${input.pain_note ?? null}
     )
     on conflict (assignment_id) do update set
       perceived_exertion = coalesce(excluded.perceived_exertion, workout_executions.perceived_exertion),
@@ -136,6 +158,9 @@ export async function recordWorkoutExecution(args: {
       score_reps = coalesce(excluded.score_reps, workout_executions.score_reps),
       ended_at = coalesce(excluded.ended_at, workout_executions.ended_at),
       source_workout_ref = coalesce(excluded.source_workout_ref, workout_executions.source_workout_ref),
+      perceived_difficulty = coalesce(excluded.perceived_difficulty, workout_executions.perceived_difficulty),
+      pain_area = coalesce(excluded.pain_area, workout_executions.pain_area),
+      pain_note = coalesce(excluded.pain_note, workout_executions.pain_note),
       updated_at = now()
     returning id::text
   `;
@@ -163,10 +188,18 @@ export async function recordWorkoutExecution(args: {
   // throws into the sync response.
   void recomputeAthlete({ athlete_id: athleteId }).catch(() => {});
 
+  // Running records this session set (1k/3k/5k). Computed on the SAME client so
+  // the just-ingested segments are visible; never throws into the sync response.
+  let prs: RunningPR[] = [];
+  if (Number.isFinite(executionId)) {
+    prs = await detectExecutionRunningPRs({ sql, athleteId, executionId }).catch(() => []);
+  }
+
   return {
     ok: true,
     assignment_id: String(assignmentId),
     execution_id: String(executionId),
     segments_saved: segmentsSaved,
+    prs,
   };
 }
