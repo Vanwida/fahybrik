@@ -29,6 +29,8 @@ struct MirrorHUDView: View {
                 savingOverlay
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
+            } else if phase == MirrorWire.Phase.countIn {
+                countInContent
             } else {
                 activeContent
                 if phase == MirrorWire.Phase.paused {
@@ -62,6 +64,27 @@ struct MirrorHUDView: View {
             }
         } bottom: {
             advanceButton
+        }
+    }
+
+    // The structured-run 3-2-1 pre-roll, rendered like the standalone view
+    // (StructuredRunLiveView.countIn): "Prepárate" + a CEIL count-in re-based locally,
+    // with the first tramo (frame.lineTitle) as the "luego" preview. No bottom button —
+    // the count-in isn't skippable from the mirrored wrist (matches standalone).
+    private var countInContent: some View {
+        LiveScaffold(status: frame?.blockTitle) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                VStack(spacing: 6) {
+                    WatchLabel(text: "Prepárate")
+                    GiantNumber(text: countInText(context.date), size: 84, color: WatchTheme.orange)
+                    if let next = frame?.lineTitle {
+                        Text(next)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(WatchTheme.dim)
+                            .padding(.top, 1)
+                    }
+                }
+            }
         }
     }
 
@@ -278,11 +301,21 @@ struct MirrorHUDView: View {
     private var phase: String? { controller.frame?.phase }
     private var targetZone: HRZone? { frame?.targetZone.flatMap { HRZone(rawValue: $0) } }
 
-    /// Seconds accrued since the last frame while the phase is active (the clock is
-    /// frozen on a gate / pause / rest-that-isn't-active).
+    /// Seconds accrued since the last frame while the clock is running — the active
+    /// live clock AND the count-in count-down (both re-based locally between frames);
+    /// frozen on a gate / pause / rest-that-isn't-active.
     private func sinceFrame(_ now: Date) -> Double {
-        guard let at = controller.frameReceivedAt, phase == MirrorWire.Phase.active else { return 0 }
+        guard let at = controller.frameReceivedAt,
+              phase == MirrorWire.Phase.active || phase == MirrorWire.Phase.countIn else { return 0 }
         return max(0, now.timeIntervalSince(at))
+    }
+
+    /// The count-in 3-2-1, re-based locally between frames. CEIL (the wrist's OWN
+    /// count-in style, in lock-step with the engine's audio ticks) — NOT the mirrored
+    /// round the live clock uses, because this is the pre-roll, not a duplicated clock.
+    private func countInText(_ now: Date) -> String {
+        guard let cd = frame?.countdownRemaining else { return WatchFormat.countdown(0) }
+        return CountdownFormat.standalone(max(0, cd - sinceFrame(now)))
     }
 
     /// The hero clock: a re-based countdown when the phone shows one, else a re-based

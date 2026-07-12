@@ -47,9 +47,12 @@ enum MirrorWire {
         static let resume = "resume"
     }
 
-    /// Frame phases (MirrorStateFrame.phase).
+    /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in
+    /// the existing `phase` string, never a new field — an older decoder that doesn't
+    /// know it just renders its default (active) branch, so no wire re-version needed.
     enum Phase {
         static let gate = "gate"          // parked on a block preview (Empezar)
+        static let countIn = "countIn"    // structured-run 3-2-1 pre-roll (Prepárate)
         static let active = "active"
         static let paused = "paused"
         static let finished = "finished"
@@ -84,7 +87,8 @@ struct MirrorStateFrame: Codable, Equatable {
     let sessionElapsed: Double
     /// Current lap/segment clock, seconds.
     let lapElapsed: Double
-    /// Format countdown when the phone shows one (AMRAP/steady remaining), seconds.
+    /// Format countdown when the phone shows one (AMRAP/steady remaining, a structured
+    /// TIME tramo's remaining, or the 3-2-1 pre-roll while phase == countIn), seconds.
     let countdownRemaining: Double?
     /// Target HR zone 1...5 → wrist zone bar + out-of-zone haptic (local HR).
     let targetZone: Int?
