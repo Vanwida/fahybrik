@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00BC690AC011F266A8AF1026 /* DoblesLiveBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D904EE038E0FDF9C4F160FEA /* DoblesLiveBanner.swift */; };
 		00EDA03F2AD29DEB2D23A125 /* FreeWorkoutBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5C36A8715EB1872AD521DC /* FreeWorkoutBuilderView.swift */; };
 		00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */; };
 		01D3271B066FB3CDED234346 /* ReadinessGlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F10ED5AE777292AA63A3454 /* ReadinessGlanceView.swift */; };
@@ -26,6 +27,7 @@
 		094EC46434DAE21BF1AD4EB9 /* DeleteAccountConfirmTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C71AFC5FA674300627A2E0 /* DeleteAccountConfirmTests.swift */; };
 		0A160AE1CDFF9776ADE9C1DF /* RecoveryStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559E6897CF90CAC7A6A1F6A0 /* RecoveryStep.swift */; };
 		0A16A2252EE89E3A39ABB547 /* PushManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABFEAC01A09364AC98373031 /* PushManager.swift */; };
+		0A47012186ECD797C9984FED /* DoblesLiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */; };
 		0B1FD64FEF8A3224A1CBACC9 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92301D3099895B625F52E562 /* ChatView.swift */; };
 		0BC4CB79B20EEBAC971122F1 /* FoodScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF52F661AB1368C35F9E7999 /* FoodScannerView.swift */; };
 		0CEF4E5347591EAC8CA8E054 /* WorkoutAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */; };
@@ -50,9 +52,11 @@
 		1AF0FB50DD64E10F76FAD391 /* PostWorkoutFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5F4CB42B4E4B39DA7C94CA /* PostWorkoutFeedbackTests.swift */; };
 		1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E68E01FF6A98B96974A052 /* RequestQueue.swift */; };
 		1BED5612C4EE966809ED0BA4 /* RunAutoPauseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C73436A9BBEE97504B5DF9AB /* RunAutoPauseTests.swift */; };
+		1C531582881A3B62C414DEEE /* DoblesLivePresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A48A43ECA058D95A167103FC /* DoblesLivePresence.swift */; };
 		1DE3332AB4229A3A62DFC3AA /* WatchPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB1A4598C8B61A292DE32327 /* WatchPlanModel.swift */; };
 		1E22451CDA0BC486FEFF0A32 /* DeleteAccountConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A07618BFBE2D893F8EC219B /* DeleteAccountConfirmView.swift */; };
 		1E77CA59D198D406C4B2E26E /* RunStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223D8A039706AD9E6CDF9433 /* RunStructure.swift */; };
+		1FD06B8536543C32108D05F5 /* DoblesLiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F291F224069354D3B2B0D0 /* DoblesLiveModels.swift */; };
 		1FD9960B51E97FC39281323D /* DoblesRaceGapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675CE3D3C7F77BFC9592B2EE /* DoblesRaceGapView.swift */; };
 		20803734DCE6D5DF4A678709 /* WatchWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DF50B3378F9840436FA233 /* WatchWireModels.swift */; };
 		2185010977DF56D6DFB80B7A /* DoblesSimulationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A6C4BA3E755124FD8F6AA7 /* DoblesSimulationView.swift */; };
@@ -107,6 +111,7 @@
 		4AB10A0ADFC4D88F15C1727B /* PartnerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59549DD32CB054A2BCC770F6 /* PartnerService.swift */; };
 		4B02E985167FE08605FA5F61 /* TestBatteryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F136091EC792152070D9DC67 /* TestBatteryCard.swift */; };
 		4C60E04E38C5EAC3C82B008B /* SessionExercisesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C3F5652E7B0EA4C1290C977 /* SessionExercisesSheet.swift */; };
+		4CCB4099781DA08CDBC7FF58 /* DoblesLiveStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262C422F955BA0E6DA89F19 /* DoblesLiveStrip.swift */; };
 		4CEE6DD1410F0AA511699962 /* FreeExercisePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03B25EFFA504298A215B50AA /* FreeExercisePickerView.swift */; };
 		4DB2635ADEFABE694C8A79A0 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FEDB6AF066E215592457AE /* RootView.swift */; };
 		4DDBF28E6F26CD954719D627 /* PM5Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4A6030590FD922EB603075 /* PM5Constants.swift */; };
@@ -185,6 +190,7 @@
 		97D1F25B482F592F3FC6A292 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F945E9395294CCBFBEA591EA /* WatchConnectivityService.swift */; };
 		98268CC10A1E9970008EC9EF /* PhoneMirrorRunStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 019DC3A76A9C68C6DD1A2FCD /* PhoneMirrorRunStructureTests.swift */; };
 		9C04B407927F20600A478F71 /* RunLegProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE92063058308435DC37F74 /* RunLegProgressTests.swift */; };
+		9C14B56B598D69788291422C /* WorkoutSessionLiveDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2831F769AEEBFB1AA04CD24 /* WorkoutSessionLiveDescriptor.swift */; };
 		9C19BF0261F51200733F1BB1 /* DataGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258773F221C5DCA05BEBE809 /* DataGrid.swift */; };
 		9C904732E95B8BC0B8CBAA8F /* AnalyticsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B749A0DBEF6E0B4D8DC6AF31 /* AnalyticsModels.swift */; };
 		9CD312B46C63246E5EC96B36 /* AssignmentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C0C622AB4411D866FA012C /* AssignmentDetail.swift */; };
@@ -440,6 +446,7 @@
 		3E64E0DF983C7270FAF2C83E /* StructuredRunLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredRunLiveView.swift; sourceTree = "<group>"; };
 		3ECB10E750AEF2622E5CA05B /* YouTubeEmbedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeEmbedView.swift; sourceTree = "<group>"; };
 		402132036A5D8D6B3AF95944 /* MirrorSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorSessionController.swift; sourceTree = "<group>"; };
+		40F291F224069354D3B2B0D0 /* DoblesLiveModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveModels.swift; sourceTree = "<group>"; };
 		41EB05553A86CA68BFC2CE3D /* ImportedRaceHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedRaceHistory.swift; sourceTree = "<group>"; };
 		428A259778E7CF4834F40CE0 /* RunLegDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLegDisplay.swift; sourceTree = "<group>"; };
 		42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
@@ -554,6 +561,7 @@
 		A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeStep.swift; sourceTree = "<group>"; };
 		A37A2F68108ABCB54CAD45E6 /* FreeStrengthBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeStrengthBuilder.swift; sourceTree = "<group>"; };
 		A3C7E1CB418D53ABD8B86F5C /* RunCueEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCueEngine.swift; sourceTree = "<group>"; };
+		A48A43ECA058D95A167103FC /* DoblesLivePresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLivePresence.swift; sourceTree = "<group>"; };
 		A4D65ADEFCDB677C9B03B055 /* FreeExerciseCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeExerciseCatalog.swift; sourceTree = "<group>"; };
 		A5A47F3B4D9352A06DFF181D /* DoblesTurnHero.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesTurnHero.swift; sourceTree = "<group>"; };
 		A643EE9451F449FBBBE29AB1 /* NutritionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionService.swift; sourceTree = "<group>"; };
@@ -576,6 +584,7 @@
 		B1D4062C5F3F6CF199EABAB2 /* ObjectiveStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectiveStep.swift; sourceTree = "<group>"; };
 		B1ED83DDDB3C18387B7E3780 /* PolylineCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylineCodecTests.swift; sourceTree = "<group>"; };
 		B20208738EAA72C5507897FC /* RunLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveActivityWidget.swift; sourceTree = "<group>"; };
+		B262C422F955BA0E6DA89F19 /* DoblesLiveStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveStrip.swift; sourceTree = "<group>"; };
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
 		B4CADF45330757D85B5D383A /* RunTargetResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolverTests.swift; sourceTree = "<group>"; };
 		B59EF5B0ACBF02169ABBCFD1 /* RunTargetResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolver.swift; sourceTree = "<group>"; };
@@ -621,6 +630,7 @@
 		D29A8C5E23DEB4C1716A1C29 /* BlockGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockGateView.swift; sourceTree = "<group>"; };
 		D30DD108695370C84CD8FFAB /* BlockPreviewGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPreviewGate.swift; sourceTree = "<group>"; };
 		D3302CBCD91530DF2423E668 /* TreadmillSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillSources.swift; sourceTree = "<group>"; };
+		D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveTests.swift; sourceTree = "<group>"; };
 		D3907778855FC5CE14AEBAA2 /* SessionFeedbackCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFeedbackCard.swift; sourceTree = "<group>"; };
 		D3DF50B3378F9840436FA233 /* WatchWireModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWireModels.swift; sourceTree = "<group>"; };
 		D4B374887D269B8F4FF6654E /* OutdoorRunHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutdoorRunHUDView.swift; sourceTree = "<group>"; };
@@ -628,6 +638,7 @@
 		D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInView.swift; sourceTree = "<group>"; };
 		D86DF203777D3C5363727298 /* StepShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepShell.swift; sourceTree = "<group>"; };
 		D8F879CB1CB83714926BFB4E /* FAHYBRIK.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FAHYBRIK.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D904EE038E0FDF9C4F160FEA /* DoblesLiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveBanner.swift; sourceTree = "<group>"; };
 		D97A61118C7BFE1C854713F5 /* HealthKitDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitDTO.swift; sourceTree = "<group>"; };
 		D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthleticBackgroundStep.swift; sourceTree = "<group>"; };
 		DB1A4598C8B61A292DE32327 /* WatchPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPlanModel.swift; sourceTree = "<group>"; };
@@ -640,6 +651,7 @@
 		DE3A7AC481E0E10D85BAFE73 /* TreadmillHUDComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillHUDComponents.swift; sourceTree = "<group>"; };
 		DF5FF39EA2B78DE9BD86B0A7 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 		DFE92063058308435DC37F74 /* RunLegProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLegProgressTests.swift; sourceTree = "<group>"; };
+		E2831F769AEEBFB1AA04CD24 /* WorkoutSessionLiveDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionLiveDescriptor.swift; sourceTree = "<group>"; };
 		E2EE83EF9DB5A439E0F56FCC /* Scale1to5Picker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scale1to5Picker.swift; sourceTree = "<group>"; };
 		E3B9F63D884A87D10ED4735A /* FijarObjetivoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FijarObjetivoView.swift; sourceTree = "<group>"; };
 		E46EA36D8F153A96F0826B91 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -803,6 +815,7 @@
 				AE26ECEC308BA27BE287E5A6 /* WorkoutLiveHUDs.swift */,
 				31E936C5A62B14E7E0D1C41E /* WorkoutModels.swift */,
 				6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */,
+				E2831F769AEEBFB1AA04CD24 /* WorkoutSessionLiveDescriptor.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -1146,6 +1159,7 @@
 		A2AE9E7BA0D8A63B0FD07273 /* Dobles */ = {
 			isa = PBXGroup;
 			children = (
+				D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */,
 				A12A56769ECDC19E3A27146E /* DoblesRaceGapTests.swift */,
 			);
 			path = Dobles;
@@ -1226,6 +1240,10 @@
 		CE85BF4A6B1B8F37D5882091 /* Dobles */ = {
 			isa = PBXGroup;
 			children = (
+				D904EE038E0FDF9C4F160FEA /* DoblesLiveBanner.swift */,
+				40F291F224069354D3B2B0D0 /* DoblesLiveModels.swift */,
+				A48A43ECA058D95A167103FC /* DoblesLivePresence.swift */,
+				B262C422F955BA0E6DA89F19 /* DoblesLiveStrip.swift */,
 				71FFFB6CDD421AC16CF45DEF /* DoblesPlanView.swift */,
 				0D292F906D96EAA1BF114698 /* DoblesRaceGap.swift */,
 				675CE3D3C7F77BFC9592B2EE /* DoblesRaceGapView.swift */,
@@ -1627,6 +1645,10 @@
 				07FF6AFE31C74856A422D922 /* DemoSignInView.swift in Sources */,
 				C0C4BF9ABFABEEA9379070D9 /* DeviceDiagnostics.swift in Sources */,
 				064CD3E85096AB9E9729189C /* DevicesStep.swift in Sources */,
+				00BC690AC011F266A8AF1026 /* DoblesLiveBanner.swift in Sources */,
+				1FD06B8536543C32108D05F5 /* DoblesLiveModels.swift in Sources */,
+				1C531582881A3B62C414DEEE /* DoblesLivePresence.swift in Sources */,
+				4CCB4099781DA08CDBC7FF58 /* DoblesLiveStrip.swift in Sources */,
 				AED8329DA32A7589C456BA98 /* DoblesPlanView.swift in Sources */,
 				3155D728A410A225BC99AEC9 /* DoblesRaceGap.swift in Sources */,
 				1FD9960B51E97FC39281323D /* DoblesRaceGapView.swift in Sources */,
@@ -1792,6 +1814,7 @@
 				C151C3D00F11EA5A60F3F3E7 /* WorkoutLiveHUDs.swift in Sources */,
 				C949CFF5A2856DA6B0B6E5EB /* WorkoutModels.swift in Sources */,
 				41E920DF478C0ACD2515ED76 /* WorkoutSession.swift in Sources */,
+				9C14B56B598D69788291422C /* WorkoutSessionLiveDescriptor.swift in Sources */,
 				EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */,
 				161B43BE72F64914405F658B /* YouTubeEmbedView.swift in Sources */,
 				93F19F72C6C6B5896B1C09FD /* ZoneColors.swift in Sources */,
@@ -1867,6 +1890,7 @@
 				A88508D1DAC5971013657983 /* CoachSpeechTests.swift in Sources */,
 				74E8BBD67305FD89985632AB /* CountdownFormatTests.swift in Sources */,
 				094EC46434DAE21BF1AD4EB9 /* DeleteAccountConfirmTests.swift in Sources */,
+				0A47012186ECD797C9984FED /* DoblesLiveTests.swift in Sources */,
 				C65CF4FAD6FA954D539828A9 /* DoblesRaceGapTests.swift in Sources */,
 				BA93B5DEE762F343B1D53162 /* DoblesTurnTests.swift in Sources */,
 				55F658B967472472F5C9F3D5 /* FTMSTreadmillParserTests.swift in Sources */,

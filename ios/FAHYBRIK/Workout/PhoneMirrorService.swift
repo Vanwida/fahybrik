@@ -278,7 +278,7 @@ final class PhoneMirrorService {
             blockTitle: session.currentBlockRegion?.title,
             lineTitle: lineTitle,
             detailLine: detailLine,
-            progressText: progressText(session),
+            progressText: session.liveProgressText,
             sessionElapsed: session.elapsedSeconds,
             lapElapsed: session.lapElapsedSeconds,
             countdownRemaining: countdown(session),
@@ -322,39 +322,6 @@ final class PhoneMirrorService {
          // turn changes, driving the wrist's "entras tú" haptic on the very next tick.
          f.dobles.map { "\($0.role):\($0.station)" } ?? ""
         ].joined(separator: "|")
-    }
-
-    // Round/set progress within the current format, mirroring what the live HUD
-    // shows. Nil when the format has no meaningful progress counter.
-    private func progressText(_ session: WorkoutSession) -> String? {
-        // A structured run counts TRAMOS off the leg cursor (mirror of the phone HUD),
-        // NOT the rotating machine — whose rotRoundIndex stays frozen at 0 here, which
-        // is exactly why the wrist read a stuck "RONDA 1/3" before this branch.
-        if session.isRunStructureActive {
-            return "TRAMO \(session.runLegNumber)/\(session.runLegTotal)"
-        }
-        let seg = session.currentSegment
-        if seg?.isEMOM == true, let plan = seg?.emomPlan {
-            return "RONDA \(min(session.emomIntervalIndex + 1, plan.intervalCount))/\(plan.intervalCount)"
-        }
-        if session.isConditioningActive, let scheme = seg?.formatScheme {
-            switch scheme.presentation {
-            case .rotating:
-                let total = session.rotTotalRounds
-                if total > 0 { return "RONDA \(min(session.rotRoundIndex + 1, total))/\(total)" }
-            case .fixed:
-                if scheme == .amrap { return "\(session.fixedRoundsDone) rondas" }
-                let total = session.fixedListTotal
-                if total > 1 { return "\(session.fixedRoundsDone)/\(total)" }
-            default:
-                break
-            }
-        }
-        if seg?.usesMultiSetStrength == true, !session.setRecords.isEmpty {
-            let done = session.setRecords.filter { $0.confirmed }.count
-            return "SERIE \(min(done + 1, session.setRecords.count))/\(session.setRecords.count)"
-        }
-        return nil
     }
 
     // The active format countdown (count-in, EMOM interval, AMRAP/steady window, or

@@ -22,6 +22,14 @@ struct ActiveWorkoutView: View {
     /// the treadmill HUD (220−age). Nil when unknown → the HUD shows HR without a
     /// zone rather than inventing one. No real HR threshold exists in the product.
     var athleteAge: Int? = nil
+    /// #56 — athlete bearer, used to poll the training partner's live presence for the
+    /// dobles strip. Nil (ad-hoc / no auth) → the strip never shows.
+    var bearer: String? = nil
+
+    // #56 — the training partner's live presence (polled ~every 5 s while visible) and
+    // the strip's collapse state (remembered for the session).
+    @State private var partnerLive: PartnerLiveStatus? = nil
+    @State private var partnerStripCollapsed: Bool = false
 
     @State private var showTreadmill: Bool = false
     @State private var showOutdoor: Bool = false
@@ -78,6 +86,24 @@ struct ActiveWorkoutView: View {
         session.plan.segments.nextDoblesTurn(after: session.currentSegmentIndex)
     }
 
+    // #56 — poll the partner's live presence every ~5 s WHILE THIS VIEW IS VISIBLE (the
+    // .task cancels on disappear). Stops permanently on `noPair` (a solo athlete makes
+    // one request, then silence); a transient failure keeps the last snapshot.
+    private func pollPartnerLive() async {
+        guard bearer != nil else { return }
+        var hasPair = true
+        while !Task.isCancelled && hasPair {
+            switch await DoblesLiveClient.fetch(bearer: bearer) {
+            case .ok(let p): partnerLive = p
+            case .noPair:    hasPair = false; partnerLive = nil
+            case .failed:    break
+            }
+            if hasPair {
+                try? await Task.sleep(for: .seconds(DoblesLive.heartbeatIntervalS))
+            }
+        }
+    }
+
     var body: some View {
         ZStack {
             Theme.Color.background
@@ -93,6 +119,11 @@ struct ActiveWorkoutView: View {
             VStack(spacing: 8) {
                 topStrip
                 phaseRail
+                // #56 — the training partner's live strip (Peloton-style). Hidden when
+                // there's no pair / no presence; collapsible so the athlete's own work
+                // stays the focus. Above the HUD, never over the controls.
+                DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
+                                collapsed: $partnerStripCollapsed)
                 if session.currentSegmentIsPartnerRelay {
                     // #23 — HYROX dobles relay: the PARTNER works this station while
                     // the athlete recovers (real dobles). Nothing is logged for the
@@ -189,6 +220,7 @@ struct ActiveWorkoutView: View {
             liveHR.stop()
             UIApplication.shared.isIdleTimerDisabled = false
         }
+        .task { await pollPartnerLive() }
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()

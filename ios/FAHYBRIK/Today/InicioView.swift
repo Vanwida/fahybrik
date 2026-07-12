@@ -48,6 +48,9 @@ struct InicioView: View {
     // A FINISHED session tapped from the "Hecho hoy" confirmation — drives the
     // read-only executed detail cover (what was logged), not the active brief.
     @State private var executedLaunch: WorkoutLaunch? = nil
+    // #56 — the training partner's live presence (one fetch on appear, only for a
+    // doubles pair) → the "únete en vivo" banner.
+    @State private var partnerLive: PartnerLiveStatus? = nil
 
     // Drives the one orchestrated staggered reveal of the cards on appear.
     @State private var revealed: Bool = false
@@ -145,6 +148,10 @@ struct InicioView: View {
     /// falling back to it would only re-inject a dead session.
     private var effectiveBearer: String? { bearer }
 
+    /// #56 — the athlete can start a session of their own today (the "únete en vivo"
+    /// CTA target = the hero's session). False on a rest / paused day.
+    private var canStartToday: Bool { heroSession != nil && !isPaused }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
@@ -161,6 +168,18 @@ struct InicioView: View {
                 // secondary progress analytics. Hero (to do) → PM → "Hecho hoy" (done).
                 heroSection
                     .staggerReveal(revealed, index: 4)
+                // #56 — "únete en vivo": the training partner is working out right now.
+                // CTA opens the athlete's own session (same as the hero) when they have
+                // one today; informational otherwise. Hidden when no partner is live.
+                DoblesLiveBanner(
+                    state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: canStartToday),
+                    onJoin: canStartToday ? {
+                        if let hero = heroSession {
+                            workoutLaunch = WorkoutLaunch(assignmentId: hero.assignmentId, title: hero.title)
+                        }
+                    } : nil
+                )
+                .staggerReveal(revealed, index: 4)
                 if let pm = pmSession, !isPaused {
                     SessionCompactRow(
                         slot: slotFor(pm),
@@ -310,6 +329,12 @@ struct InicioView: View {
             // (workout completed/partial, day moved/reset, fresh readiness) ride the
             // single `.onChange(of: watchPushSignature)` below — no per-mutation calls.
             pushNextWorkoutToWatch()
+            // #56 — one fetch of the partner's live presence, only for a doubles pair
+            // (avoids the call for solo athletes). Errors → the banner just stays hidden.
+            if store.partner.value?.isDoublesPair == true,
+               case .ok(let p) = await DoblesLiveClient.fetch(bearer: effectiveBearer) {
+                partnerLive = p
+            }
         }
         .onChange(of: watchPushSignature) { _, _ in
             // The one choke point for re-pushing the wrist: any plan/readiness change
