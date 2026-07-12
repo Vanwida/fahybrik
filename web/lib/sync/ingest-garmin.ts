@@ -349,23 +349,27 @@ async function ingestGarminActivity(args: {
             ? new Date(((lap.startTimeInSeconds ?? 0) + lap.timerDurationInSeconds) * 1000).toISOString()
             : lapStart;
           const modality = garminActivityToModality(lap.activityType) ?? activityModality;
-          const strokeRate =
-            lap.averageStrokeRateInStrokesPerMinute ??
-            lap.averageRunCadenceInStepsPerMinute ??
-            lap.averageBikeCadenceInRoundsPerMinute;
+          // Route the two SPM-style signals to their OWN columns (mig 0124): erg
+          // stroke rate / bike rpm → stroke_rate_spm; running cadence (steps/min)
+          // → run_cadence_spm. A step is not a stroke, so they must not share a
+          // column (the old code funnelled run cadence into stroke_rate_spm, where
+          // the running analytics never saw it).
+          const ergStrokeRate =
+            lap.averageStrokeRateInStrokesPerMinute ?? lap.averageBikeCadenceInRoundsPerMinute;
           const intensity = deriveLapIntensity({
             modality,
             distance_meters: lap.totalDistanceInMeters,
             duration_seconds: lap.timerDurationInSeconds,
             power_w: lap.averagePowerInWatts,
-            stroke_rate_spm: strokeRate,
+            stroke_rate_spm: modality === 'run' ? null : ergStrokeRate,
+            run_cadence_spm: lap.averageRunCadenceInStepsPerMinute,
           });
           await sql`
             insert into segment_executions (
               execution_id, position, started_at, ended_at,
               distance_meters, avg_hr, max_hr,
               modality, avg_pace_s_per_km, avg_pace_s_per_500m,
-              avg_power_w, stroke_rate_spm, source,
+              avg_power_w, stroke_rate_spm, run_cadence_spm, source,
               raw_lap_data_json
             ) values (
               ${exec_id}::bigint,
@@ -380,6 +384,7 @@ async function ingestGarminActivity(args: {
               ${intensity.avg_pace_s_per_500m},
               ${intensity.avg_power_w},
               ${intensity.stroke_rate_spm},
+              ${intensity.run_cadence_spm},
               'garmin',
               ${JSON.stringify(lap)}::jsonb
             )
