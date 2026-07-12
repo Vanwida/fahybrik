@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════════════════════
 // GUÍA DEL ENTRENADOR — single source of truth for the docs index.
 //
-// The whole guide is registered ONCE here: the 9 áreas and the 29 secciones — the
-// 19 del prototipo de método + 10 del negocio, el ciclo de vida del atleta y los
-// dobles (todo lo que se construyó en producción estos días). Both the sidebar
+// The whole guide is registered ONCE here: the 11 áreas and the 34 secciones — el
+// método, el negocio, el ciclo de vida del atleta, los dobles y la carrera (todo
+// lo que se construyó en producción estos días). Both the sidebar
 // (components/v2/guia/GuiaSidebar) and the router (app/[locale]/(v2)/guia/[slug])
 // read from this file — nobody edits the sidebar by hand. Each section fills ONE
 // file in ./sections; this config already points the sidebar link + the route at it.
@@ -24,7 +24,8 @@ export type GuiaAreaId =
   | 'negocio'
   | 'ciclo-vida'
   | 'dobles'
-  | 'herramientas';
+  | 'herramientas'
+  | 'carrera';
 
 export interface GuiaArea {
   id: GuiaAreaId;
@@ -58,9 +59,10 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'ciclo-vida', label: 'Ciclo de vida' },
   { id: 'dobles', label: 'Dobles' },
   { id: 'herramientas', label: 'Herramientas' },
+  { id: 'carrera', label: 'Carrera' },
 ] as const;
 
-/** The 19 sections, in order. `built` ones have real content today. */
+/** The 34 sections, in order. `built` ones have real content today. */
 export const GUIA_SECTIONS: readonly GuiaSection[] = [
   // ── Empezar ───────────────────────────────────────────────────────────────
   {
@@ -318,6 +320,31 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'objetivo-y-prediccion',
     title: 'Objetivo y predicción',
     blurb: 'El tiempo meta repartido en los 10 tramos de HYROX: presupuesto, predicho y el hueco.',
+    built: true,
+  },
+  // ── Carrera ──────────────────────────────────────────────────────────────────
+  {
+    num: 32,
+    area: 'carrera',
+    slug: 'editor-de-carrera',
+    title: 'Editor de carrera',
+    blurb: 'Prescribe el rodaje por fases, tramo a tramo, con «Repetir ×N» y un objetivo tipado.',
+    built: true,
+  },
+  {
+    num: 33,
+    area: 'carrera',
+    slug: 'cumplimiento-por-serie',
+    title: 'Cumplimiento por serie',
+    blurb: 'En la sesión ejecutada, cada tramo prescrito contra hecho con su veredicto y el % en banda.',
+    built: true,
+  },
+  {
+    num: 34,
+    area: 'carrera',
+    slug: 'correr-en-cinta',
+    title: 'Correr en cinta',
+    blurb: 'El atleta enlaza la app a una cinta compatible y corre con ritmo en vivo contra tu objetivo.',
     built: true,
   },
 ] as const;

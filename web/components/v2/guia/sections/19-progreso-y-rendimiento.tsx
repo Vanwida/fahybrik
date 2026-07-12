@@ -236,6 +236,12 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         dice <span className="em">«Sin datos de rendimiento todavía»</span> en vez de dibujar una
         gráfica vacía.
       </p>
+      <p>
+        Cuando la carrera llega con más señal —del reloj o de la cinta— el diagnóstico la aprovecha:
+        la <b>cadencia media</b> aparece en el detalle de cada tramo, con su <b>tendencia semanal</b>{' '}
+        (más barra, más cadencia), y la <b>inclinación</b> se ve <b>tramo a tramo</b>. Mientras no
+        haya cadencia registrada, el panel lo dice en claro en vez de dibujar una barra vacía.
+      </p>
 
       <h3>4 · Evaluar semana: el sistema propone, tú decides</h3>
       <p>
