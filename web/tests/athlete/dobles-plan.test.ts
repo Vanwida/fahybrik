@@ -12,6 +12,8 @@ import type {
 import {
   buildDoblesConnectedPlan,
   classifyDay,
+  selectTrainTogetherId,
+  type TrainTogetherCandidate,
 } from '@/lib/athlete/dobles-plan';
 
 function session(
@@ -129,7 +131,7 @@ describe('buildDoblesConnectedPlan', () => {
     };
   }
 
-  test('aligns days, picks first optional_together as train-together id, reads label', () => {
+  test('aligns days, reads label; a PAST optional_together (Mon, today=Tue) is never the train-together id', () => {
     const selfDays = [
       day(1, '2026-07-06', [session({ assignment_id: '668', template_id: '564' })]),
       day(2, '2026-07-07', [
@@ -142,6 +144,8 @@ describe('buildDoblesConnectedPlan', () => {
         session({ assignment_id: '801', template_id: '565', status: 'completed' }),
       ]),
     ];
+    // weekFrom's today_iso is '2026-07-07' (Tue) — day 1 (Mon, optional_together)
+    // already passed, and day 2 (today) is both_done, not optional_together.
     const plan = buildDoblesConnectedPlan({
       selfWeek: weekFrom(selfDays),
       partnerWeek: weekFrom(partnerDays),
@@ -153,11 +157,32 @@ describe('buildDoblesConnectedPlan', () => {
     expect(plan.partner_days).toHaveLength(2);
     expect(plan.self_days[0].togetherness).toBe('optional_together');
     expect(plan.self_days[1].togetherness).toBe('both_done');
-    expect(plan.train_together_session_id).toBe('668');
+    expect(plan.train_together_session_id).toBeNull();
     expect(plan.partner_plan_visible).toBe(true);
     expect(plan.week_label).toBe('Acumulación 2');
     expect(plan.partner_name).toBe('Guillem');
     expect(plan.notes).toEqual([]);
+  });
+
+  test('picks TODAY\'s optional_together session as the train-together id', () => {
+    const selfDays = [
+      day(1, '2026-07-06', [session({ assignment_id: '668', template_id: '564' })]),
+      day(2, '2026-07-07', [session({ assignment_id: '671', template_id: '567' })]),
+    ];
+    const partnerDays = [
+      day(1, '2026-07-06', [session({ assignment_id: '800', template_id: '564' })]),
+      day(2, '2026-07-07', [session({ assignment_id: '901', template_id: '567' })]),
+    ];
+    // today_iso is '2026-07-07' (Tue) — both Mon and Tue are optional_together,
+    // but the CTA must land on TODAY's, not the earlier (already-passed) Monday.
+    const plan = buildDoblesConnectedPlan({
+      selfWeek: weekFrom(selfDays),
+      partnerWeek: weekFrom(partnerDays),
+      self_name: 'Atleta',
+      partner_name: 'Guillem',
+    });
+
+    expect(plan.train_together_session_id).toBe('671');
   });
 
   test('partner_plan_visible false when partner has no shared session', () => {
@@ -176,5 +201,47 @@ describe('buildDoblesConnectedPlan', () => {
     expect(plan.partner_plan_visible).toBe(false);
     expect(plan.week_label).toBeNull();
     expect(plan.train_together_session_id).toBeNull(); // self is each_own (partner self_only)
+  });
+});
+
+describe('selectTrainTogetherId', () => {
+  const TODAY = '2026-07-07'; // Tue
+
+  function candidate(
+    iso_date: string,
+    togetherness: TrainTogetherCandidate['togetherness'],
+    id = iso_date,
+  ): TrainTogetherCandidate {
+    return { id, iso_date, togetherness };
+  }
+
+  test('today is optional_together → picks today', () => {
+    const days = [
+      candidate('2026-07-06', 'optional_together'), // yesterday (past)
+      candidate('2026-07-07', 'optional_together'), // today
+      candidate('2026-07-08', 'each_own'),
+    ];
+    expect(selectTrainTogetherId(days, TODAY)).toBe('2026-07-07');
+  });
+
+  test('today is rest, a future optional_together exists → picks the next one', () => {
+    const days = [
+      candidate('2026-07-06', 'optional_together'), // yesterday (past)
+      candidate('2026-07-07', 'rest'), // today
+      candidate('2026-07-08', 'each_own'),
+      candidate('2026-07-09', 'optional_together'), // next pending
+      candidate('2026-07-10', 'optional_together'), // also future, but later
+    ];
+    expect(selectTrainTogetherId(days, TODAY)).toBe('2026-07-09');
+  });
+
+  test('only PAST optional_together sessions remain → null (never a stale link)', () => {
+    const days = [
+      candidate('2026-07-05', 'optional_together'),
+      candidate('2026-07-06', 'optional_together'),
+      candidate('2026-07-07', 'both_done'), // today
+      candidate('2026-07-08', 'rest'),
+    ];
+    expect(selectTrainTogetherId(days, TODAY)).toBeNull();
   });
 });
