@@ -87,7 +87,15 @@ export interface DoblesSegmentResult {
   slug: string;
   label_es: string;
   kind: SegmentKind;
-  /** Canonical station index (2..16) for a station; null for run / roxzone. */
+  /**
+   * The station's identifier — for a station it is the CANONICAL HYROX store
+   * index (2,4,…,16), the SAME value carried by
+   * dobles_simulations.station_splits[].station_index and expected by the athlete
+   * simulation PUT. It is NOT a fresh 1..8 position: the app treats it as opaque
+   * and echoes it straight back when editing a station's reparto from the race
+   * board, so the round-trip lands on the right station with no remapping. Null
+   * for run / roxzone.
+   */
   station_index: number | null;
   carrier: DoblesSegmentCarrier;
   /** Reader's share (self→1, partner→0, split→share); null for run / roxzone. */

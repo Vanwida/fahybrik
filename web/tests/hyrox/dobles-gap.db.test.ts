@@ -14,6 +14,7 @@
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { buildDoblesRaceGap } from '@/lib/athlete/dobles-gap';
 import { getCoachGuidance, resolveCoachTips, upsertCoachGuidance } from '@/lib/coach/guidance';
+import { resolveCanonicalDoblesPair, upsertAthleteSimulation } from '@/lib/athlete/dobles-simulation-edit';
 import { mirrorDoublesGoalToPartner } from '@/lib/races/target-race-write';
 import { DEFAULT_COACH_TIPS } from '@fahybrid/shared/domain/coach-guidance';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
@@ -186,6 +187,56 @@ describeWithDb('dobles-gap (real DB)', () => {
     const st2 = board.segments.find((s) => s.station_index === 2)!;
     expect(st2.carrier).toBe('self');
     expect(st2.self_share).toBe(1);
+  });
+
+  test('station_index round-trips: the PUT with the race-gap index edits the right station', async () => {
+    const RACE = {
+      race_id: 999999,
+      name: 'HYROX Test Dobles',
+      race_date: '2026-09-26',
+      division: 'open',
+      gender_category: 'men',
+      goal_time_seconds: GOAL,
+    };
+    const pair = await resolveCanonicalDoblesPair(BigInt(athleteA), BigInt(userA), sql);
+    expect(pair).not.toBeNull();
+
+    const board1 = await buildDoblesRaceGap(
+      { self_athlete_id: BigInt(athleteA), self_user_id: BigInt(userA), race: RACE },
+      sql,
+    );
+    const stations1 = board1.segments.filter((s) => s.kind === 'station');
+    expect(stations1).toHaveLength(8);
+
+    // Flip ONE station to a distinctive split share, KEYED BY THE station_index
+    // race-gap emitted (the athlete PUT is fed that opaque id verbatim). The other
+    // 7 go to an even split so we can prove the edit landed on the right station.
+    const targetIdx = stations1[0]!.station_index!;
+    const NEW_SHARE = 0.25;
+    const station_splits = stations1.map((s) => ({
+      station_index: s.station_index!, // the id race-gap emitted, echoed back untouched
+      carrier: 'split' as const,
+      self_share: s.station_index === targetIdx ? NEW_SHARE : 0.5,
+    }));
+
+    await upsertAthleteSimulation({
+      pair: pair!,
+      editor_user_id: BigInt(userA),
+      input: { station_splits },
+      client: sql,
+    });
+
+    const board2 = await buildDoblesRaceGap(
+      { self_athlete_id: BigInt(athleteA), self_user_id: BigInt(userA), race: RACE },
+      sql,
+    );
+    const edited = board2.segments.find((s) => s.station_index === targetIdx)!;
+    expect(edited.carrier).toBe('split');
+    expect(edited.self_share).toBe(NEW_SHARE);
+    // A DIFFERENT station stayed at the even split → the edit hit exactly the
+    // station whose index race-gap emitted, with no 1..8 remapping in between.
+    const other = board2.segments.find((s) => s.kind === 'station' && s.station_index !== targetIdx)!;
+    expect(other.self_share).toBe(0.5);
   });
 
   test('coach guidance: defaults until authored, then the coach edit wins', async () => {

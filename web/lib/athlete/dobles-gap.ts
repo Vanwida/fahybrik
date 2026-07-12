@@ -66,6 +66,13 @@ export interface DoblesRaceGapSegmentDTO {
   key: string;
   label_es: string;
   kind: SegmentKind;
+  /**
+   * Station identifier = the CANONICAL HYROX store index (2,4,…,16), the SAME id
+   * used by dobles_simulations.station_splits[].station_index and by the athlete
+   * PUT /api/athlete/dobles/simulation. NOT a 1..8 position — iOS echoes it back
+   * verbatim when editing a station from the race board, so the reparto edit
+   * round-trips onto the right station with zero remapping. Null for run/roxzone.
+   */
   station_index: number | null;
   carrier: 'together' | 'self' | 'partner' | 'split';
   self_share: number | null;
