@@ -215,6 +215,9 @@ targets:
       - path: FAHYBRIK/Watch/WatchWireModels.swift
       - path: FAHYBRIK/Watch/MirrorWireModels.swift
       - path: FAHYBRIK/Plan/Prescription.swift
+      # Prescription.swift references RunStructure (the #61 structured-run grammar),
+      # so its definition must compile into the watch target too.
+      - path: FAHYBRIK/Plan/RunStructure.swift
       - path: FAHYBRIK/Plan/AssignmentDetail.swift
       - path: FAHYBRIK/Plan/PrescriptionRenderer.swift
       - path: FAHYBRIK/Theme/ZoneColors.swift

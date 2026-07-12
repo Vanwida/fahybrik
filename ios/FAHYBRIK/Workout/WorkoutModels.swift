@@ -803,6 +803,17 @@ struct WorkoutExecutionPayload: Codable {
     /// argument: the phone's own finish path (which doesn't set it) is unchanged, the
     /// watch passes the HKWorkout id, and older encoded payloads still decode.
     var source_workout_ref: String? = nil
+
+    // MARK: Structured session feedback (#58)
+    //
+    // Optional feedback the athlete adds on the summary, in the SAME POST. All
+    // `var` with a default so the watch relay / older payloads keep building.
+    /// How the session felt vs the prescription: "too_easy"|"as_expected"|"too_hard".
+    var perceived_difficulty: String? = nil
+    /// Body area of a physical niggle: "rodilla"|"tobillo"|"cadera"|"espalda"|"hombro"|"otra".
+    var pain_area: String? = nil
+    /// Short free note on the niggle (≤500 chars).
+    var pain_note: String? = nil
 }
 
 // Offline-first sync helper for post-workout summary. Mirrors the CheckinAPI
@@ -818,12 +829,28 @@ enum WorkoutExecutionAPI {
     static let path = "/api/sync/workout-execution"
 
     static func submit(_ payload: WorkoutExecutionPayload, bearer: String?) async {
+        _ = await submitReturning(payload, bearer: bearer)
+    }
+
+    /// Submit and decode the response (which carries any running `prs` set this
+    /// session, #65). Returns nil — WITHOUT celebrating — when the response can't
+    /// be read, and preserves the offline-first replay on a network/HTTP failure.
+    static func submitReturning(
+        _ payload: WorkoutExecutionPayload,
+        bearer: String?
+    ) async -> WorkoutExecutionResponse? {
         do {
-            try await APIClient.shared.postRaw(path: path, body: payload, bearer: bearer)
+            return try await APIClient.shared.post(path: path, body: payload, bearer: bearer)
+        } catch APIError.decoding {
+            // 2xx but an unexpected body: the execution WAS saved — never replay
+            // (that would double-count), just skip the celebration.
+            return nil
         } catch {
+            // Network / HTTP failure — enqueue for offline replay (unchanged).
             if let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
             }
+            return nil
         }
     }
 }
@@ -851,13 +878,26 @@ enum DoblesExecutionAPI {
     }
 
     static func submit(sessionId: String, _ payload: WorkoutExecutionPayload, bearer: String?) async {
+        _ = await submitReturning(sessionId: sessionId, payload, bearer: bearer)
+    }
+
+    /// Joint submit that also decodes the `prs` set this session (#65). Same
+    /// response-read/offline-replay contract as `WorkoutExecutionAPI.submitReturning`.
+    static func submitReturning(
+        sessionId: String,
+        _ payload: WorkoutExecutionPayload,
+        bearer: String?
+    ) async -> WorkoutExecutionResponse? {
         let p = path(sessionId: sessionId)
         do {
-            try await APIClient.shared.postRaw(path: p, body: payload, bearer: bearer)
+            return try await APIClient.shared.post(path: p, body: payload, bearer: bearer)
+        } catch APIError.decoding {
+            return nil
         } catch {
             if let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
             }
+            return nil
         }
     }
 }

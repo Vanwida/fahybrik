@@ -87,6 +87,7 @@ struct ProfileView: View {
         case coach
         case privacy
         case terms
+        case feedback
         var id: String { rawValue }
     }
 
@@ -123,6 +124,9 @@ struct ProfileView: View {
 
                         SectionHeader(title: "Metodología")
                         methodologyCard
+
+                        SectionHeader(title: "Ayuda")
+                        feedbackCard
 
                         SectionHeader(title: "Legal")
                         legalCard
@@ -952,6 +956,19 @@ struct ProfileView: View {
         }
     }
 
+    // MARK: - Ayuda (#59 · app feedback)
+
+    private var feedbackCard: some View {
+        CardSurface(padding: 0) {
+            profileRow(
+                icon: "exclamationmark.bubble",
+                title: "Enviar sugerencia o error",
+                subtitle: "Cuéntanos qué mejorar o reporta un fallo. Le llega a tu coach.",
+                action: { sheet = .feedback }
+            )
+        }
+    }
+
     // MARK: - Legal
 
     private var legalCard: some View {
@@ -1145,6 +1162,7 @@ struct ProfileView: View {
         case .coach:       CoachSheet(coachName: coachName)
         case .privacy:     LegalSheet(title: "Política de privacidad", bodyText: LegalCopy.privacy)
         case .terms:       LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms)
+        case .feedback:    AppFeedbackSheet(bearer: bearer)
         }
     }
 }
