@@ -371,7 +371,11 @@ struct PostWorkoutSummaryView: View {
                     is_structural: lap.isStructural,
                     rx_scaled: lap.rxScaled,
                     scaled_note: lap.scaledNote,
-                    sets: setDTOs
+                    sets: setDTOs,
+                    // Segment average incline (from the belt) / cadence (nil — no
+                    // on-device source yet); the backend range-gates both (#62).
+                    incline_pct: lap.inclinePct,
+                    run_cadence_spm: lap.runCadenceSpm
                 )
             }
     }

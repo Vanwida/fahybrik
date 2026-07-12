@@ -288,7 +288,12 @@ final class TreadmillHUDModel {
     private func accumulateAverages(from sample: TreadmillSample) {
         guard !paused else { return }
         if let v = sample.speedKmh { speedSum += v; speedCount += 1 }
-        if let v = sample.inclinePct { inclineSum += v; inclineCount += 1 }
+        if let v = sample.inclinePct {
+            inclineSum += v; inclineCount += 1
+            // Feed the belt grade into the SESSION so it averages incline over the
+            // whole segment (across structured legs) into the ONE segment lap (#62).
+            session.sampleTreadmillIncline(v)
+        }
         if let v = currentBpm { bpmSum += v; bpmCount += 1 }
     }
 

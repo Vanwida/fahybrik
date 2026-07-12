@@ -180,6 +180,13 @@ final class WorkoutSession {
     private var lapGpsDistanceMeters: Double? = nil
     private var lapHadGPS: Bool = false
 
+    // Per-segment treadmill INCLINE aggregation (#62). Summed from the belt's live
+    // grade over the current run segment (across all its structured legs); averaged
+    // on close into the ONE segment lap. Stays nil when no belt fed the segment —
+    // never a fabricated grade. Cadence has no on-device source (see LapRecord).
+    private var lapInclineSum: Double = 0
+    private var lapInclineCount: Int = 0
+
     private var timer: Timer?
     private var lastTick: Date = Date()
     private var autoSaveTicker: Int = 0
@@ -1464,6 +1471,10 @@ final class WorkoutSession {
         if let rz = reopen?.zoneSecondsByZone { for (k, v) in rz { mergedZone[k, default: 0] += v } }
         let mergedDistance = distance ?? reopen?.distanceCoveredMeters
         let mergedCalories = ergCalories ?? reopen?.calories
+        // Segment AVERAGE treadmill incline (#62): the mean of the belt readings fed
+        // this segment, else the reopened lap's stored value; nil when no belt fed it.
+        let avgIncline: Double? = lapInclineCount > 0 ? lapInclineSum / Double(lapInclineCount) : nil
+        let mergedIncline = avgIncline ?? reopen?.inclinePct
 
         // Source precedence: the most specific real measurement wins. Device
         // movement data (pm5 / gps) > athlete manual entry > HR-only wearable.
@@ -1505,7 +1516,9 @@ final class WorkoutSession {
             isStructural: false,
             rxScaled: lapRxScaled,
             scaledNote: lapScaledNote,
-            sets: setRecordsOut
+            sets: setRecordsOut,
+            inclinePct: mergedIncline,
+            runCadenceSpm: nil   // no on-device running-cadence source yet (see LapRecord)
         )
         laps.append(lap)
         reopenedLap = nil
@@ -1531,6 +1544,8 @@ final class WorkoutSession {
         manualRunDistanceMeters = nil
         lapGpsDistanceMeters = nil
         lapHadGPS = false
+        lapInclineSum = 0
+        lapInclineCount = 0
     }
 
     /// Pre-fills the manual load field for the current strength/sled segment from
@@ -1826,6 +1841,17 @@ final class WorkoutSession {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running, deltaMeters > 0 else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
+    }
+
+    /// Feeds one treadmill INCLINE reading (%) into the current run segment's average
+    /// (#62). Called from the treadmill HUD's telemetry so the session stays the
+    /// single owner of per-segment capture (mirrors `sampleErg` / `sampleRunGPS`). A
+    /// flat belt (0%) is a real reading and counts; ignored off a run segment or
+    /// while paused. Averaged into the ONE segment lap on close; nil when never fed.
+    func sampleTreadmillIncline(_ inclinePct: Double) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running else { return }
+        lapInclineSum += inclinePct
+        lapInclineCount += 1
     }
 
     /// Live covered distance for the current run segment for HUD display

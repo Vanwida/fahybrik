@@ -160,6 +160,37 @@ final class StructuredRunEngineTests: XCTestCase {
         XCTAssertTrue(s.isCondCountIn)     // legacy still runs the conditioning engine
     }
 
+    // MARK: - #62 · treadmill incline folds into the ONE segment lap
+
+    func testTreadmillInclineAveragesIntoSegmentLap() {
+        let s = structuredSession([main([work(.distance(m: 1000))])])
+        s.primaryAdvance()                     // skip the count-in
+        s.sampleTreadmillIncline(2.0)          // belt grade readings over the segment
+        s.sampleTreadmillIncline(4.0)
+        s.primaryAdvance()                     // last leg done → close the segment lap
+        let lap = try! XCTUnwrap(s.laps.last)
+        XCTAssertEqual(try XCTUnwrap(lap.inclinePct), 3.0, accuracy: 0.001)  // mean(2, 4)
+        XCTAssertNil(lap.runCadenceSpm)        // no on-device cadence source → stays nil
+    }
+
+    func testNoTreadmillLeavesInclineNil() {
+        let s = structuredSession([main([work(.distance(m: 1000))])])
+        s.primaryAdvance()                     // skip count-in
+        s.primaryAdvance()                     // close with NO belt readings
+        XCTAssertNil(s.laps.last?.inclinePct)  // never a fabricated 0
+    }
+
+    func testInclineIgnoredOffRunSegmentAndWhilePaused() {
+        let s = structuredSession([main([work(.distance(m: 1000))])])
+        s.primaryAdvance()                     // skip count-in
+        s.sampleTreadmillIncline(6.0)
+        s.togglePause()
+        s.sampleTreadmillIncline(100.0)        // paused → must NOT count
+        s.togglePause()
+        s.primaryAdvance()                     // close
+        XCTAssertEqual(try XCTUnwrap(s.laps.last?.inclinePct), 6.0, accuracy: 0.001)
+    }
+
     // MARK: - Fixtures
 
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {
