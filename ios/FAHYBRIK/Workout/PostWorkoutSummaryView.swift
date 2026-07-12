@@ -58,6 +58,14 @@ struct PostWorkoutSummaryView: View {
     /// until save). Re-rendered on appear and when the RPE changes.
     @State private var summaryShareURL: URL? = nil
 
+    // MARK: #28 — joint side-by-side (dobles)
+    /// Set after a .doublesJoint close when the partner has ALSO logged their side →
+    /// the joint card overlays the summary (its "Seguir" closes). Nil otherwise.
+    @State private var jointData: JointShareData? = nil
+    /// PRs from this save, held while the joint card is up so the review gate still
+    /// sees a genuine PR when it closes (the joint card supersedes the gold overlay).
+    @State private var pendingJointRecords: [PersonalRecord] = []
+
     /// SwiftUI review-request action (#59). Fired only through `maybeRequestReview`,
     /// which consults the pure `ReviewGate` first.
     @Environment(\.requestReview) private var requestReview
@@ -120,6 +128,11 @@ struct PostWorkoutSummaryView: View {
                     shareData: celebrationShareData,
                     onDone: dismissCelebration
                 )
+            }
+            // #28 — the joint side-by-side (only when the partner has logged too). It
+            // supersedes the gold PR overlay for a joint close, so the two never stack.
+            if let jointData {
+                DoblesJointSummaryView(data: jointData, onDone: dismissJoint)
             }
         }
         .onAppear { seedCapturedScore(); renderSummaryCard() }
@@ -265,6 +278,20 @@ struct PostWorkoutSummaryView: View {
             // reopen or celebrate over a view that's already gone.
             guard !didFinish else { return }
             let records = response?.personalRecords ?? []
+            // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
+            // When the partner has already logged too, the joint card is the closing
+            // moment (it also surfaces PR chips); otherwise fall through to the solo
+            // PR/close flow. A no-partner / network miss simply closes as normal.
+            if target == .doublesJoint,
+               let summary = await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer),
+               let jd = JointShareData.from(dto: summary, title: session.plan.name,
+                                            date: Date(), partnerFallback: nil) {
+                guard !didFinish else { return }
+                pendingJointRecords = records
+                isSaving = false
+                withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
+                return
+            }
             if records.isEmpty {
                 finishAfterSave(records: [])
             } else {
@@ -273,6 +300,14 @@ struct PostWorkoutSummaryView: View {
                 isSaving = false
             }
         }
+    }
+
+    // #28 — the joint card's "Seguir": close, still passing any PRs to the review gate.
+    private func dismissJoint() {
+        let records = pendingJointRecords
+        pendingJointRecords = []
+        jointData = nil
+        finishAfterSave(records: records)
     }
 
     // Leave during the save wait: don't wait for the response — the sync keeps

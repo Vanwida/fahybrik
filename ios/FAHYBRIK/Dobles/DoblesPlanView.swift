@@ -158,6 +158,11 @@ struct DoblesPlanView: View {
 
     @ViewBuilder
     private func content(_ plan: DoblesConnectedPlan) -> some View {
+        // #28 — pair-rhythm streak up top (only when there's real joint history).
+        if let streak = plan.streak, streak.hasHistory {
+            DoblesStreakSection(streak: streak, partnerName: partnerFirstName)
+                .staggerReveal(appear, index: 1)
+        }
         // Mi plan / Plan de {partner} 👁 toggle.
         DoblesPlanToggle(
             showingPartner: $showingPartner,

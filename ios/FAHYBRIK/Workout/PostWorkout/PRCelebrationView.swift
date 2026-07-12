@@ -315,18 +315,23 @@ struct WorkoutShareCard: View {
 // MARK: - Renderer
 
 enum WorkoutShareRenderer {
-    /// Render the share card to a temp PNG and return its URL for ShareLink. The
-    /// card is forced dark so the exported image is the brand instrument look
-    /// regardless of the athlete's current theme. Nil if rendering fails (the
-    /// caller then simply hides the share affordance).
+    /// Render the solo session card to a temp PNG for ShareLink (forced dark, 3×).
+    /// Nil if rendering fails (the caller then hides the share affordance).
     @MainActor
     static func pngURL(for data: WorkoutShareData) -> URL? {
-        let card = WorkoutShareCard(data: data).environment(\.colorScheme, .dark)
-        let renderer = ImageRenderer(content: card)
+        render(WorkoutShareCard(data: data).environment(\.colorScheme, .dark), name: "fahybrid-entreno")
+    }
+
+    /// The shared render+write core — ANY share card (solo #65, joint #28) exports
+    /// through this ONE ImageRenderer path, so the export settings can't drift.
+    /// Internal so the joint-card overload (DoblesJointSummaryView) reuses it.
+    @MainActor
+    static func render<V: View>(_ view: V, name: String) -> URL? {
+        let renderer = ImageRenderer(content: view)
         renderer.scale = 3
         guard let image = renderer.uiImage, let png = image.pngData() else { return nil }
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("fahybrid-entreno-\(UUID().uuidString).png")
+            .appendingPathComponent("\(name)-\(UUID().uuidString).png")
         do {
             try png.write(to: url, options: [.atomic])
             return url

@@ -47,6 +47,9 @@ struct DoblesConnectedPlan: Codable, Hashable {
     /// optional-together session of the week). Nil when there is none this week,
     /// so the hub's CTA opens an honest empty state instead of a nil id.
     let trainTogetherSessionId: String?
+    /// #28 — pair-rhythm block (joint counts + last joint). ADDITIVE + optional: an
+    /// older server omits it → nil → the Dobles plan paints no streak section.
+    let streak: DoblesStreakBlock?
 }
 
 /// How a day's session is shared between the two connected athletes. Drives the
