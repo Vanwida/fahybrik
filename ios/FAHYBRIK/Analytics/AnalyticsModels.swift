@@ -296,6 +296,12 @@ struct SourceSession: Codable, Hashable, Identifiable {
     let detail_es: String?
     let value: String?
     let value_label: String?
+    /// #27 — the workout_assignments.id this row came from, when it resolves to a real
+    /// executed session (drills read it off workout_executions). Present → the row taps
+    /// into the existing ExecutedWorkoutView; nil → the row is not navigable (a test /
+    /// race / undated import with no assignment). Optional + additive: the field was
+    /// added to the payload without breaking older clients.
+    let assignment_id: String?
 
     enum CodingKeys: String, CodingKey {
         case id, date
@@ -303,6 +309,7 @@ struct SourceSession: Codable, Hashable, Identifiable {
         case detail_es = "detailEs"
         case value
         case value_label = "valueLabel"
+        case assignment_id = "assignmentId"
     }
 }
 
