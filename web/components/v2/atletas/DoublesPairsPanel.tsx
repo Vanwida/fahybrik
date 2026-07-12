@@ -14,6 +14,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
+import { CoachGuidanceEditor } from '@/components/v2/atletas/CoachGuidanceEditor';
 import { DoblesSimulationEditor } from '@/components/v2/atletas/DoblesSimulationEditor';
 import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
@@ -309,6 +310,7 @@ export function DoublesPairsPanel({
   athletes: AthleteRow[];
 }) {
   const [linkOpen, setLinkOpen] = useState(false);
+  const [guidanceOpen, setGuidanceOpen] = useState(false);
 
   // Athletes already in an active pair can't be picked again.
   const pairedIds = useMemo(() => {
@@ -335,17 +337,32 @@ export function DoublesPairsPanel({
             <span className="text-[color:var(--v2-muted)]"> · {pairs.length}</span>
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={() => setLinkOpen(true)}
-          className={cn(
-            BTN_BASE,
-            'border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
-          )}
-        >
-          <MIcon name="link" size={15} />
-          Vincular pareja
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Consejos — coach-global tactical tips for the doubles race board +
+              simulation. Not per-pair, so it lives here in the panel header. */}
+          <button
+            type="button"
+            onClick={() => setGuidanceOpen(true)}
+            className={cn(
+              BTN_BASE,
+              'border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
+            )}
+          >
+            <MIcon name="tips_and_updates" size={15} />
+            Consejos de dobles
+          </button>
+          <button
+            type="button"
+            onClick={() => setLinkOpen(true)}
+            className={cn(
+              BTN_BASE,
+              'border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
+            )}
+          >
+            <MIcon name="link" size={15} />
+            Vincular pareja
+          </button>
+        </div>
       </div>
 
       {pairs.length === 0 ? (
@@ -363,6 +380,8 @@ export function DoublesPairsPanel({
       {linkOpen ? (
         <LinkPairModal candidates={candidates} onClose={() => setLinkOpen(false)} />
       ) : null}
+
+      {guidanceOpen ? <CoachGuidanceEditor onClose={() => setGuidanceOpen(false)} /> : null}
     </section>
   );
 }
