@@ -164,7 +164,8 @@ struct MirrorHUDView: View {
                     Spacer(minLength: 0)
                     WatchLabel(text: "Vuelve en", color: WatchTheme.zoneGreen.opacity(0.85))
                     GiantNumber(
-                        text: WatchFormat.countdown(max(0, base - sinceFrame(context.date))),
+                        // MIRROR of the phone's rest clock → round like the phone (#68).
+                        text: CountdownFormat.mirrored(max(0, base - sinceFrame(context.date))),
                         size: 80,
                         color: WatchTheme.zoneGreen
                     )
@@ -289,7 +290,8 @@ struct MirrorHUDView: View {
     private func heroClock(_ now: Date) -> String {
         guard let f = frame else { return WatchFormat.clock(0) }
         if let countdown = f.countdownRemaining {
-            return WatchFormat.countdown(max(0, countdown - sinceFrame(now)))
+            // MIRROR of the phone's countdown → round like the phone (#68).
+            return CountdownFormat.mirrored(max(0, countdown - sinceFrame(now)))
         }
         return WatchFormat.clock(f.lapElapsed + sinceFrame(now))
     }
