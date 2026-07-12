@@ -26,6 +26,20 @@
 // A "PR" is emitted only when the session actually CONTAINS an eligible effort
 // (honesty) AND either the athlete has no prior mark for that distance (first
 // mark → prev null) or the session strictly beats the prior best (faster).
+//
+// COHERENCE NOTE — 5k here is SEGMENTS, the analytics 5k card is a TEST (follow-up owned)
+// -------------------------------------------------------------------------------------
+// `run_5k` here is the athlete's fastest 5 km actually RUN (from segments) — what
+// an athlete means by "mi 5k más rápido". It DIFFERS from the analytics best-5k
+// card (`running.ts::buildBestEfforts`), which shows the latest run_5k *test*
+// benchmark (a calibration number, a different concept). best_1k / best_3k DO
+// agree (both segment-based); only 5k diverges today. Two consequences:
+//   (a) COPY: any surface rendering a run_5k PR must be unambiguous that it is the
+//       fastest 5 km RUN ("tu 5 km más rápido corrido"), never "tu test de 5k".
+//   (b) FOLLOW-UP (owned by team-lead, not this module): running.ts will show the
+//       best 5 km CORRIDO from segments, with the test 5k as a separate line — so
+//       the two 5k numbers stop reading as a contradiction. Until then the
+//       divergence is intentional and documented, not silent.
 
 export const RUN_PR_KINDS = ['run_1k', 'run_3k', 'run_5k'] as const;
 export type RunPrKind = (typeof RUN_PR_KINDS)[number];
