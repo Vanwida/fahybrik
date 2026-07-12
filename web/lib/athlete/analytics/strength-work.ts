@@ -26,7 +26,9 @@ import {
   type DrillRef,
   type ResolvedPeriod,
   card,
+  isoWeekStart,
   numOrNull,
+  seriesAxis,
 } from './core';
 
 // A working set only needs enough logged RPE to make a trend honest; below this
@@ -84,14 +86,6 @@ function setLabel(s: { load: number | null; reps: number | null }): string | nul
   if (s.reps == null) return null;
   if (s.load != null && s.load > 0) return `${kg(s.load)} kg × ${s.reps}`;
   return `${s.reps} reps`;
-}
-
-/** Monday (ISO) of the week containing a YYYY-MM-DD day, in UTC. */
-function isoWeekStart(isoDay: string): string {
-  const d = new Date(`${isoDay}T00:00:00.000Z`);
-  const dow = (d.getUTCDay() + 6) % 7; // Mon = 0
-  d.setUTCDate(d.getUTCDate() - dow);
-  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -240,6 +234,7 @@ function buildVolumeCard(sets: WorkSet[], period: ResolvedPeriod): AnalyticsCard
       side: { value: String(sessions.size), label: 'sesiones' },
     },
     series,
+    series_kind: 'bars',
     rows: [
       { id: 'total', label: `Total ${period.label_es}`, value: `${hero.value} ${hero.unit}`, sub: 'carga × reps', accent: true, drill: null },
       { id: 'sessions', label: 'Sesiones de fuerza', value: String(sessions.size), sub: `${sets.length} series`, accent: false, drill: null },
@@ -333,6 +328,8 @@ function buildProgressionCard(sets: WorkSet[]): AnalyticsCard {
     availability_note: hero.weeks.size >= 2 ? null : 'Una sola semana: entrénalo más para ver la curva.',
     primary: { value: currentBest, unit: null, side: null },
     series,
+    series_kind: 'line',
+    series_axis: seriesAxis(series),
     drill: drill('strength.exercise', { exercise_id: hero.exerciseId }, hero.sessions.size, `${hero.sessions.size} sesiones · mejor serie`),
     meaning_es: hero.loaded
       ? 'Mejor serie de cada semana (por 1RM estimado, Epley). Subiendo = más fuerte.'
@@ -454,6 +451,8 @@ function buildEffortCard(sets: WorkSet[]): AnalyticsCard {
     title_es: 'Esfuerzo · RPE / RIR',
     availability: 'real',
     series,
+    series_kind: 'line',
+    series_axis: seriesAxis(series),
     rows: [
       { id: 'rpe', label: 'RPE medio', value: avgRpe != null ? `${kg(avgRpe)}/10` : null, sub: `${rpeSets.length} series`, accent: true, drill: null },
       { id: 'rir', label: 'RIR medio', value: avgRir != null ? `${kg(avgRir)}` : null, sub: rirSets.length ? `${rirSets.length} series` : 'sin registro', accent: false, drill: null },

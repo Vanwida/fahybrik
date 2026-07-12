@@ -21,6 +21,7 @@ import {
   type ResolvedPeriod,
   card,
   num,
+  seriesAxis,
 } from './core';
 import { buildStrengthWorkCards } from './strength-work';
 
@@ -102,6 +103,8 @@ export async function buildStrengthSection(
           side: delta != null ? { value: `${delta >= 0 ? '+' : ''}${kg(delta)}`, label: 'vs test ant.' } : null,
         },
         series,
+        series_kind: 'line',
+        series_axis: seriesAxis(series),
         drill: { kind: 'strength.lift', params: { slug: hero.slug }, count: hist.length, label_es: `${hist.length} tests · fecha · método` },
       }),
     );

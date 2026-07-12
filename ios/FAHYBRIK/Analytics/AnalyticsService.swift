@@ -16,12 +16,14 @@ enum AnalyticsService {
     static func fetchSection(
         _ section: AnalyticsSectionKey,
         period: AnalyticsPeriod,
+        erg: ErgScope? = nil,
         bearer: String
     ) async throws -> AnalyticsSection {
-        try await APIClient.shared.get(
-            path: "api/athlete/analytics/sections/\(section.rawValue)?\(period.query)",
-            bearer: bearer
-        )
+        // `erg` scopes the ergo section (Remo · SkiErg · BikeErg); ignored by the
+        // server for every other section, so it's harmless to omit elsewhere.
+        var path = "api/athlete/analytics/sections/\(section.rawValue)?\(period.query)"
+        if let erg { path += "&erg=\(erg.rawValue)" }
+        return try await APIClient.shared.get(path: path, bearer: bearer)
     }
 
     /// The source rows behind a tapped aggregate. Re-sends the card's DrillRef

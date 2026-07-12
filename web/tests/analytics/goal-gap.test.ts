@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  accuracyLabel,
   computeBudget,
   computeGoalGap,
   computePredictionReview,
@@ -270,6 +271,8 @@ describe('computePredictionReview', () => {
     expect(res.segments.map((s) => s.slug)).toEqual(['run', 'hyrox-sled-push', 'hyrox-wall-balls']);
     // accuracy = 100 - |3600-3700|/3700*100 = 100 - 2.7 ≈ 97.
     expect(res.accuracy_pct).toBe(97);
+    // 97 ≥ 97 → the top precision tier travels with the accuracy.
+    expect(res.accuracy_label_es).toBe('clavado');
     // worst positive delta = sled push (+40) → insight names it.
     expect(res.insight_es).toBe('El Sled push perdió 0:40 más de lo previsto.');
   });
@@ -293,6 +296,20 @@ describe('computePredictionReview', () => {
     });
     expect(res.segments).toHaveLength(0);
     expect(res.insight_es).toBe('Sin segmentos comparables entre la predicción y la carrera.');
+  });
+});
+
+// ── accuracyLabel ─────────────────────────────────────────────────────────────
+describe('accuracyLabel', () => {
+  it('maps accuracy_pct to the precision tier, boundaries inclusive', () => {
+    expect(accuracyLabel(100)).toBe('clavado');
+    expect(accuracyLabel(97)).toBe('clavado');
+    expect(accuracyLabel(96)).toBe('muy afinado');
+    expect(accuracyLabel(93)).toBe('muy afinado');
+    expect(accuracyLabel(92)).toBe('afinando');
+    expect(accuracyLabel(85)).toBe('afinando');
+    expect(accuracyLabel(84)).toBe('aún lejos');
+    expect(accuracyLabel(0)).toBe('aún lejos');
   });
 });
 

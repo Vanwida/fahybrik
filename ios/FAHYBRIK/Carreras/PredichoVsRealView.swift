@@ -109,7 +109,7 @@ struct PredictionReviewCard: View {
     private var table: some View {
         VStack(spacing: 0) {
             headerRow
-            ForEach(review.rows) { row in
+            ForEach(review.segments) { row in
                 Rectangle().fill(Theme.Color.hairline).frame(height: 1)
                 dataRow(row)
             }
@@ -260,7 +260,7 @@ extension PredictionReview {
           "accuracy_label_es": "afinando",
           "race_name": "Simulación HYROX",
           "race_date": "2026-08-24",
-          "rows": [
+          "segments": [
             { "slug": "run", "label_es": "Carrera · 8 km", "predicted_s": 1890, "actual_s": 1872, "delta_s": -18 },
             { "slug": "ski", "label_es": "SkiErg", "predicted_s": 232, "actual_s": 238, "delta_s": 6 },
             { "slug": "sled_push", "label_es": "Sled Push", "predicted_s": 174, "actual_s": 191, "delta_s": 17 },

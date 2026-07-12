@@ -165,6 +165,14 @@ export interface AnalyticsCard {
   } | null;
   rows: CardRow[];
   series: CardSeriesPoint[];
+  /** How the series renders in the app: a trend/progression 'line' (with an area
+   *  fill + emphasized endpoint) or a volume 'bars'. Null when there is no series
+   *  (or for pre-series_kind cached payloads — the client falls back by card id). */
+  series_kind: 'line' | 'bars' | null;
+  /** Line-chart y-axis end labels — the REAL formatted values at the series'
+   *  lowest (bottom) and highest (top) plotted points. Never fabricated: both come
+   *  from an actual point's `display`. Null when a series can't yield both. */
+  series_axis: { min_display: string; max_display: string } | null;
   zones: CardZone[];
   meaning_es: string | null;
   drill: DrillRef | null;
@@ -210,11 +218,35 @@ export function card(partial: Partial<AnalyticsCard> & Pick<AnalyticsCard, 'id' 
     primary: null,
     rows: [],
     series: [],
+    series_kind: null,
+    series_axis: null,
     zones: [],
     meaning_es: null,
     drill: null,
     ...partial,
   };
+}
+
+/**
+ * Derive a line chart's y-axis end labels from a built series: the REAL formatted
+ * value at the lowest plotted point (bottom) and at the highest (top). Never
+ * fabricates — both strings come straight from a point's `display`. Returns null
+ * when the series has <2 points or either extreme lacks a display, so the client
+ * simply omits y labels. Kept here so every section derives axis labels the same
+ * way, from the SAME heights already normalized into the series.
+ */
+export function seriesAxis(
+  points: CardSeriesPoint[],
+): { min_display: string; max_display: string } | null {
+  if (points.length < 2) return null;
+  let lo = points[0]!;
+  let hi = points[0]!;
+  for (const p of points) {
+    if (p.height < lo.height) lo = p;
+    if (p.height > hi.height) hi = p;
+  }
+  if (lo.display == null || hi.display == null) return null;
+  return { min_display: lo.display, max_display: hi.display };
 }
 
 // ── Formatting helpers (single source for number→string) ─────────────────────
@@ -258,6 +290,15 @@ export function deltaStr(sec: number): string {
   const sign = sec < 0 ? '−' : sec > 0 ? '+' : '';
   const abs = Math.abs(Math.round(sec));
   return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
+}
+
+/** Monday (ISO, UTC) of the week containing a YYYY-MM-DD day. Single source for
+ *  the weekly-bucket key every section's volume/trend series share. */
+export function isoWeekStart(isoDay: string): string {
+  const d = new Date(`${isoDay}T00:00:00.000Z`);
+  const dow = (d.getUTCDay() + 6) % 7; // Mon = 0
+  d.setUTCDate(d.getUTCDate() - dow);
+  return d.toISOString().slice(0, 10);
 }
 
 export const MONTHS_ES = [

@@ -32,16 +32,25 @@ export interface PredictionReviewDTO {
   predicted_total_s: number | null;
   actual_total_s: number | null;
   accuracy_pct: number | null;
+  /** Spanish precision label for accuracy_pct ('clavado' … 'aún lejos'). */
+  accuracy_label_es: string | null;
   segments: PredictionReviewSegmentDTO[];
   insight_es: string | null;
+  /** The reviewed event's display name (race name, or the session title). */
+  race_name: string | null;
+  /** The reviewed event's ISO day (YYYY-MM-DD). */
+  race_date: string | null;
 }
 
 const EMPTY: Omit<PredictionReviewDTO, 'availability'> = {
   predicted_total_s: null,
   actual_total_s: null,
   accuracy_pct: null,
+  accuracy_label_es: null,
   segments: [],
   insight_es: null,
+  race_name: null,
+  race_date: null,
 };
 
 // ── The real event splits ─────────────────────────────────────────────────────
@@ -49,6 +58,8 @@ const EMPTY: Omit<PredictionReviewDTO, 'availability'> = {
 interface ActualSplits {
   /** ISO day of the event (the snapshot must predate it). */
   event_date_iso: string;
+  /** Display name of the event (the race name, or the session title). */
+  event_name: string | null;
   /** Real seconds per segment slug (run + stations + roxzone where recorded). */
   by_slug: Record<string, number | null>;
   /** The real finish total. */
@@ -65,6 +76,7 @@ function toNum(v: unknown): number | null {
 async function raceActuals(athleteId: number, raceId: number, client: Sql): Promise<ActualSplits | null> {
   const rows = await client<
     Array<{
+      name: string | null;
       race_date: string | null;
       run_total_seconds: number | null;
       run_splits_json: unknown;
@@ -74,6 +86,7 @@ async function raceActuals(athleteId: number, raceId: number, client: Sql): Prom
     }>
   >`
     select
+      name,
       to_char(race_date, 'YYYY-MM-DD') as race_date,
       run_total_seconds, run_splits_json, station_splits_json, roxzone_seconds, result_time_seconds
     from races
@@ -108,17 +121,21 @@ async function raceActuals(athleteId: number, raceId: number, client: Sql): Prom
 
   const total = row.result_time_seconds;
   if (total == null || total <= 0) return null;
-  return { event_date_iso: row.race_date, by_slug, total_s: total };
+  return { event_date_iso: row.race_date, event_name: row.name, by_slug, total_s: total };
 }
 
 /** Actuals from a hyrox_sim execution: run = summed run segments, ski/row by
  *  modality, the 6 functional stations by exercise station position, roxzone left
  *  unrecorded (not derivable from a session). */
 async function executionActuals(athleteId: number, executionId: number, client: Sql): Promise<ActualSplits | null> {
-  const execRows = await client<Array<{ started_at: string; total_duration_seconds: number | null }>>`
-    select started_at::text as started_at, total_duration_seconds
-    from workout_executions
-    where id = ${executionId} and athlete_id = ${athleteId}
+  const execRows = await client<
+    Array<{ started_at: string; total_duration_seconds: number | null; session_name: string | null }>
+  >`
+    select we.started_at::text as started_at, we.total_duration_seconds, t.name as session_name
+    from workout_executions we
+    join workout_assignments wa on wa.id = we.assignment_id
+    join templates t on t.id = wa.template_id
+    where we.id = ${executionId} and we.athlete_id = ${athleteId}
     limit 1
   `;
   const exec = execRows[0];
@@ -160,7 +177,7 @@ async function executionActuals(athleteId: number, executionId: number, client: 
   const by_slug: Record<string, number | null> = { ...acc };
   const total = exec.total_duration_seconds ?? Object.values(acc).reduce((a, b) => a + b, 0);
   if (total <= 0) return null;
-  return { event_date_iso: eventDateIso, by_slug, total_s: total };
+  return { event_date_iso: eventDateIso, event_name: exec.session_name, by_slug, total_s: total };
 }
 
 // ── Snapshot ──────────────────────────────────────────────────────────────────
@@ -243,7 +260,10 @@ export async function buildPredictionReview(
     predicted_total_s: review.predicted_total_s,
     actual_total_s: review.actual_total_s,
     accuracy_pct: review.accuracy_pct,
+    accuracy_label_es: review.accuracy_label_es,
     segments: review.segments,
     insight_es: review.insight_es,
+    race_name: actuals.event_name,
+    race_date: actuals.event_date_iso,
   };
 }

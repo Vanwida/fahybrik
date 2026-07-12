@@ -26,11 +26,13 @@ import {
   type DrillRef,
   type ResolvedPeriod,
   card,
+  isoWeekStart,
   kmStr,
   num,
   numOrNull,
   paceStr,
   deltaStr,
+  seriesAxis,
 } from './core';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -205,6 +207,8 @@ export async function buildRunningSection(
         ? { value: paceStr(latest5k.seconds), unit: null, side: fiveKDelta != null ? { value: deltaStr(fiveKDelta), label: 'vs 1º test' } : null }
         : null,
       series: fiveKSeries,
+      series_kind: 'line',
+      series_axis: seriesAxis(fiveKSeries),
       drill: fiveK.length ? drill('running.best_effort', { distance: '5000' }, fiveK.length, `${fiveK.length} tests · con fecha`) : null,
     }),
   );
@@ -225,6 +229,7 @@ export async function buildRunningSection(
         side: { value: String(sessionDays.size), label: 'sesiones' },
       },
       series: weekBuckets,
+      series_kind: 'bars',
       rows: [
         { id: 'total', label: `Total ${period.label_es}`, value: kmStr(totalMeters), sub: null, accent: true, drill: null },
         { id: 'sessions', label: 'Sesiones', value: String(sessionDays.size), sub: null, accent: false, drill: null },
@@ -277,13 +282,6 @@ function bucketWeeklyVolume(paced: Array<{ day: string; dist: number }>): CardSe
     current: i === ordered.length - 1,
     label: wk,
   }));
-}
-
-function isoWeekStart(isoDay: string): string {
-  const d = new Date(`${isoDay}T00:00:00.000Z`);
-  const dow = (d.getUTCDay() + 6) % 7; // Mon=0
-  d.setUTCDate(d.getUTCDate() - dow);
-  return d.toISOString().slice(0, 10);
 }
 
 // ── Best efforts ─────────────────────────────────────────────────────────────
@@ -500,6 +498,8 @@ function buildPaceTrend(paced: Array<{ day: string; dist: number; pace: number |
     title_es: 'Tendencia de ritmo',
     availability: series.length ? 'real' : 'needs_logging',
     series,
+    series_kind: 'line',
+    series_axis: seriesAxis(series),
     meaning_es: 'Ritmo medio ponderado por semana. Bajando = motor mejorando.',
   });
 }

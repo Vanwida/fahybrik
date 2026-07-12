@@ -18,6 +18,7 @@ import {
   type CardSeriesPoint,
   type ResolvedPeriod,
   card,
+  seriesAxis,
 } from './core';
 
 const MIN_DAYS = 4;
@@ -122,6 +123,8 @@ export async function buildRecoverySection(
           side: baseline != null ? { value: `${cfg.round(baseline)}`, label: `media ${period.label_es}` } : null,
         },
         series,
+        series_kind: 'line',
+        series_axis: seriesAxis(series),
         meaning_es: dir === 'mejora' ? 'Tendencia al alza: vas mejorando.' : dir === 'baja' ? 'Tendencia a la baja: vigila la recuperación.' : 'Como tendencia, no número diario.',
         drill: { kind: 'recovery.metric', params: { metric: cfg.metric_type }, count: raw.length, label_es: `${raw.length} días con dato` },
       }),

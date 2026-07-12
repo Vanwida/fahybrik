@@ -392,15 +392,18 @@ final class AppDataStore {
 
     // MARK: ANALÍTICAS section cache (one slice per section × period)
 
-    /// Stable cache key for a (section, period) pair.
-    private func analyticsKey(_ section: AnalyticsSectionKey, _ period: AnalyticsPeriod) -> String {
-        "\(section.rawValue):\(period.cacheSuffix)"
+    /// Stable cache key for a (section, period[, erg]) tuple. The ergo section is
+    /// cached PER erg (Remo · SkiErg · BikeErg) so flipping the segmented control
+    /// never serves another erg's warm slice; every other section passes erg = nil.
+    private func analyticsKey(_ section: AnalyticsSectionKey, _ period: AnalyticsPeriod, _ erg: ErgScope? = nil) -> String {
+        let ergPart = erg.map { ":\($0.rawValue)" } ?? ""
+        return "\(section.rawValue):\(period.cacheSuffix)\(ergPart)"
     }
 
-    /// The cache-first slice for a (section, period). Returns an empty slice the
-    /// first time so the view renders a cold-load skeleton, not a stale value.
-    func analyticsSection(_ section: AnalyticsSectionKey, period: AnalyticsPeriod) -> Slice<AnalyticsSection> {
-        analyticsSections[analyticsKey(section, period)] ?? Slice<AnalyticsSection>()
+    /// The cache-first slice for a (section, period[, erg]). Returns an empty slice
+    /// the first time so the view renders a cold-load skeleton, not a stale value.
+    func analyticsSection(_ section: AnalyticsSectionKey, period: AnalyticsPeriod, erg: ErgScope? = nil) -> Slice<AnalyticsSection> {
+        analyticsSections[analyticsKey(section, period, erg)] ?? Slice<AnalyticsSection>()
     }
 
     /// Revalidate one section×period through the shared SWR engine: serve the warm
@@ -409,15 +412,16 @@ final class AppDataStore {
     func refreshAnalyticsSection(
         _ section: AnalyticsSectionKey,
         period: AnalyticsPeriod,
+        erg: ErgScope? = nil,
         force: Bool = false
     ) async {
-        let key = analyticsKey(section, period)
+        let key = analyticsKey(section, period, erg)
         await revalidate(
             get: { self.analyticsSections[key] ?? Slice<AnalyticsSection>() },
             set: { self.analyticsSections[key] = $0 },
             force: force
         ) { bearer in
-            try await AnalyticsService.fetchSection(section, period: period, bearer: bearer)
+            try await AnalyticsService.fetchSection(section, period: period, erg: erg, bearer: bearer)
         }
     }
 

@@ -6,6 +6,8 @@
 // compared (never a fabricated pairing). The insight is a DETERMINISTIC template
 // off the worst positive delta — no LLM.
 
+import { accuracyLabel } from './label';
+
 /** One segment of the frozen snapshot (subset of the stored segments_json). */
 export interface SnapshotSegment {
   slug: string;
@@ -37,6 +39,8 @@ export interface PredictionReviewResult {
   actual_total_s: number;
   /** 100 − |predicted − actual| / actual × 100, clamped to [0,100], rounded. */
   accuracy_pct: number;
+  /** Spanish precision label derived from accuracy_pct ('clavado' … 'aún lejos'). */
+  accuracy_label_es: string;
   segments: ReviewSegment[];
   insight_es: string;
 }
@@ -85,6 +89,7 @@ export function computePredictionReview(input: PredictionReviewInput): Predictio
     predicted_total_s: Math.round(input.predicted_total_s),
     actual_total_s: Math.round(input.actual_total_s),
     accuracy_pct,
+    accuracy_label_es: accuracyLabel(accuracy_pct),
     segments,
     insight_es: buildInsight(segments),
   };
