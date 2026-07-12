@@ -159,14 +159,15 @@ struct PredictionReviewCard: View {
             .frame(width: numColumn, alignment: .trailing)
     }
 
-    /// Δ = actual − predicted: green when faster than predicted, orange when
-    /// slower, muted at zero. Never a fabricated value when the delta is absent.
+    /// Δ = actual − predicted: green when faster than predicted, danger (red)
+    /// when slower — same semantics as the gap board's per-segment delta — muted
+    /// at zero. Never a fabricated value when the delta is absent.
     private func deltaCell(_ deltaS: Int?) -> some View {
         let text = deltaS.map { GoalGapFormat.signedDuration($0) } ?? "—"
         let color: Color = {
             guard let deltaS else { return Theme.Color.muted }
             if deltaS < 0 { return Theme.Color.ok }
-            if deltaS > 0 { return Theme.Color.accentText }
+            if deltaS > 0 { return Theme.Color.danger }
             return Theme.Color.muted
         }()
         return Text(text)
