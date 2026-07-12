@@ -43,6 +43,10 @@ export interface CanonicalDoblesPair {
   a_name: string | null;
   b_user_id: bigint;
   b_name: string | null;
+  /** The two athletes' ids (not just their user ids) — the doubles gap loader
+   *  needs the PARTNER athlete id to build their solo predictions. */
+  a_athlete_id: bigint;
+  b_athlete_id: bigint;
   coach_id: bigint;
   coach_name: string | null;
   /** Whether the REQUESTING athlete is stored as A (drives the self→A flip). */
@@ -66,6 +70,8 @@ export async function resolveCanonicalDoblesPair(
       a_name: string | null;
       b_user_id: string;
       b_name: string | null;
+      a_athlete_id: string;
+      b_athlete_id: string;
       coach_id: string;
       coach_name: string | null;
     }[]
@@ -75,6 +81,8 @@ export async function resolveCanonicalDoblesPair(
       aa.full_name       as a_name,
       ub.id::text        as b_user_id,
       ab.full_name       as b_name,
+      aa.id::text        as a_athlete_id,
+      ab.id::text        as b_athlete_id,
       c.id::text         as coach_id,
       c.full_name        as coach_name
     from doubles_pairs dp
@@ -95,6 +103,8 @@ export async function resolveCanonicalDoblesPair(
     a_name: firstName(row.a_name),
     b_user_id: BigInt(row.b_user_id),
     b_name: firstName(row.b_name),
+    a_athlete_id: BigInt(row.a_athlete_id),
+    b_athlete_id: BigInt(row.b_athlete_id),
     coach_id: BigInt(row.coach_id),
     coach_name: firstName(row.coach_name),
     reader_is_a: BigInt(row.a_user_id) === self_user_id,
