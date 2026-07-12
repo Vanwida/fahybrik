@@ -135,10 +135,15 @@ export interface PartnerLiveStatus {
 }
 
 /**
- * The partner's current presence, or `{ partner: null }` when there is no row or it
- * has expired (older than PRESENCE_MAX_AGE_HOURS — filtered in SQL so a stale row
- * reads as absent). A phase='finished' row within the window is still returned so
- * the client can show "ha terminado — 47:12".
+ * The partner's current presence, or `{ partner: null }` when there is no row, it has
+ * expired (older than PRESENCE_MAX_AGE_HOURS), OR its session is now PRIVATE — all
+ * three collapse to the same absent state, filtered in SQL. The visibility re-check
+ * (join to workout_assignments.partner_visibility='shared') is the reader-side twin
+ * of the POST gate: if the athlete flips the session to 'self_only' MID-broadcast, a
+ * row written while it was shared must stop being readable immediately, not linger
+ * the full 6 h — flipping to private is an explicit privacy decision, so we honor it
+ * on read too. A phase='finished' row within the window is still returned so the
+ * client can show "ha terminado — 47:12".
  */
 export async function loadPartnerLiveStatus(
   params: { partnerAthleteId: number; partnerName: string },
@@ -158,18 +163,20 @@ export async function loadPartnerLiveStatus(
     }[]
   >`
     select
-      phase,
-      workout_title,
-      block_name,
-      progress_text,
-      elapsed_s,
-      hr_bpm,
-      final_time_s,
-      final_rpe::float8 as final_rpe,
-      extract(epoch from now() - updated_at)::int as age_s
-    from dobles_live_status
-    where athlete_id = ${params.partnerAthleteId}
-      and updated_at > now() - make_interval(hours => ${PRESENCE_MAX_AGE_HOURS}::int)
+      s.phase,
+      s.workout_title,
+      s.block_name,
+      s.progress_text,
+      s.elapsed_s,
+      s.hr_bpm,
+      s.final_time_s,
+      s.final_rpe::float8 as final_rpe,
+      extract(epoch from now() - s.updated_at)::int as age_s
+    from dobles_live_status s
+    join workout_assignments wa on wa.id = s.assignment_id
+    where s.athlete_id = ${params.partnerAthleteId}
+      and s.updated_at > now() - make_interval(hours => ${PRESENCE_MAX_AGE_HOURS}::int)
+      and wa.partner_visibility = 'shared'
     limit 1
   `;
   const row = rows[0];

@@ -332,6 +332,48 @@ describeWithDb('dobles live presence — heartbeat + partner status (real DB)', 
   );
 
   test(
+    'reader — a session flipped to self_only mid-broadcast reads as { partner: null }',
+    async () => {
+      const { b, templateId } = await setup();
+      // B broadcasts while the session is SHARED — the row is written and readable.
+      const bAssignmentId = await insertAssignment(b.athleteId, templateId, 'shared');
+      await saveDoblesLiveStatus(
+        {
+          athleteId: b.athleteId,
+          input: {
+            assignment_id: bAssignmentId,
+            phase: 'active',
+            workout_title: 'El entreno de hoy',
+            block_name: 'Remo ergo',
+            elapsed_s: 120,
+            hr_bpm: 160,
+          },
+        },
+        sql,
+      );
+      const before = await loadPartnerLiveStatus(
+        { partnerAthleteId: b.athleteId, partnerName: 'Marta' },
+        sql,
+      );
+      expect(before.partner).not.toBeNull();
+
+      // B flips the SAME session to private mid-broadcast. The already-written row
+      // must stop being readable at once (explicit privacy decision), not linger 6 h.
+      await sql`
+        update workout_assignments set partner_visibility = 'self_only'
+        where id = ${bAssignmentId}
+      `;
+
+      const after = await loadPartnerLiveStatus(
+        { partnerAthleteId: b.athleteId, partnerName: 'Marta' },
+        sql,
+      );
+      expect(after.partner).toBeNull();
+    },
+    DB_TEST_TIMEOUT_MS,
+  );
+
+  test(
     'no pair — a partnerless athlete resolves null (drives 404 no_partner)',
     async () => {
       const fx = await makeCoachAndAthlete(sql);

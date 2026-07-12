@@ -14,10 +14,12 @@
 -- without bound. The durable record of the session is still workout_executions;
 -- this table is only the transient "where are you right now" channel.
 --
--- PRIVACY: a presence row exists ONLY for a SHARED session. The writer
--- (app/api/athlete/dobles/live) refuses to emit for a 'self_only' assignment, so a
--- private session never reaches this table. The reader shows the PARTNER's row and
--- treats anything older than 6 h as gone (the app was closed long ago).
+-- PRIVACY: a presence row is only WRITTEN for a SHARED session — the writer
+-- (app/api/athlete/dobles/live) refuses to emit for a 'self_only' assignment. The
+-- READER additionally re-checks the session's CURRENT visibility, so an athlete who
+-- flips their session to private mid-broadcast is hidden AT ONCE rather than staying
+-- readable for 6 h. The reader also treats a row older than 6 h as gone (the app was
+-- closed long ago).
 --
 -- WHAT
 -- ----
