@@ -21,3 +21,24 @@ export function goalLabel(totalS: number): string {
   if (t > 0 && t % 60 === 0) return `Sub-${t / 60}`;
   return exactTimeLabel(t);
 }
+
+// ── Precision label (predicted vs real) ───────────────────────────────────────
+//
+// The single-sentence read on how well the prediction held, keyed on accuracy_pct
+// (0–100, higher = the prediction landed closer). Rendered mid-phrase after the
+// percent — "Predicción a 98% — clavado" — so the copy is lowercase.
+
+/** Accuracy tiers, highest first; `min` is the inclusive lower bound (percent). */
+const ACCURACY_TIERS: ReadonlyArray<{ min: number; label: string }> = [
+  { min: 97, label: 'clavado' },
+  { min: 93, label: 'muy afinado' },
+  { min: 85, label: 'afinando' },
+];
+/** Below the lowest tier — the prediction still has a way to go. */
+const ACCURACY_TIER_FLOOR = 'aún lejos';
+
+/** accuracy_pct (0–100) → its Spanish precision label. */
+export function accuracyLabel(accuracyPct: number): string {
+  for (const t of ACCURACY_TIERS) if (accuracyPct >= t.min) return t.label;
+  return ACCURACY_TIER_FLOOR;
+}

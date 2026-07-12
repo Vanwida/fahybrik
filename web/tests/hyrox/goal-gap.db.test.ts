@@ -155,6 +155,15 @@ describeWithDb('goal-gap (real DB)', () => {
     expect(review.predicted_total_s).toBe(3680);
     // accuracy = 100 - |3680-3600|/3600*100 = 100 - 2.2 ≈ 98.
     expect(review.accuracy_pct).toBe(98);
+    // 98 ≥ 97 → the top precision tier, derived deterministically from accuracy_pct.
+    expect(review.accuracy_label_es).toBe('clavado');
+
+    // Event context surfaced for the card subtitle: the race name + its ISO day.
+    expect(review.race_name).toBe('HYROX Pasada');
+    const [expected] = await sql<Array<{ d: string }>>`
+      select to_char((current_date - 30), 'YYYY-MM-DD') as d
+    `;
+    expect(review.race_date).toBe(expected!.d);
 
     // Only segments with both a predicted and a real split are compared (ski-erg
     // was sin_datos → excluded).
