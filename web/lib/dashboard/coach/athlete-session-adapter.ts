@@ -27,6 +27,7 @@ import type {
   AssignmentDetailWorkout,
 } from '@/lib/athlete/assignment-detail';
 import type { PlanSessionStatus } from '@/lib/dashboard/coach/athlete-plan';
+import type { RunComplianceResult } from '@/lib/dashboard/coach/run-compliance';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 
 /** Payload of the coach session-detail endpoint (drawer host fetches this). */
@@ -55,6 +56,10 @@ export interface CoachSessionDetail {
    *  (old session / athlete logged only the aggregate) — the UI then shows the
    *  prescription with no "hecho" line, never a fabricated number. */
   segment_actuals: SegmentActual[];
+  /** Per-tramo running-compliance verdicts (prescribed band vs executed pace/HR)
+   *  + the session aggregate (% of evaluable run tramos in band). Empty tramos /
+   *  null pct when the session has no evaluable run work (#66). */
+  run_compliance: RunComplianceResult;
 }
 
 /**
