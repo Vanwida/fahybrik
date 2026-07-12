@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type {
   EventType,
@@ -95,6 +95,49 @@ export interface SetTargetRaceResult {
   race_id: string;
 }
 
+/**
+ * Mirror a DOUBLES race goal onto the athlete's active training partner's own
+ * doubles race for the same event — "one logical goal per pair". No-op unless the
+ * race is doubles and the partner has a matching planned/registered doubles row.
+ * The goal is mirrored as-is (a cleared goal propagates too, keeping the pair a
+ * single logical value). Runs inside the caller's transaction. Exported for the
+ * DB test that pins the mirror.
+ */
+export async function mirrorDoublesGoalToPartner(
+  tx: TransactionClient,
+  params: {
+    athlete_id: number;
+    format: RaceFormat;
+    event_id: number;
+    race_date: string | null;
+    goal: number | null;
+  },
+): Promise<void> {
+  if (params.format !== 'doubles') return;
+
+  const partnerRows = await tx<{ partner_id: string }[]>`
+    select case when dp.athlete_a_id = ${params.athlete_id}
+                then dp.athlete_b_id else dp.athlete_a_id end::text as partner_id
+    from doubles_pairs dp
+    where dp.status = 'active'
+      and (dp.athlete_a_id = ${params.athlete_id} or dp.athlete_b_id = ${params.athlete_id})
+    limit 1
+  `;
+  const partnerId = partnerRows[0]?.partner_id;
+  if (!partnerId) return;
+
+  await tx`
+    update races set goal_time_seconds = ${params.goal}, updated_at = now()
+    where athlete_id = ${Number(partnerId)}
+      and format = 'doubles'
+      and status in ('planned', 'registered')
+      and (
+        event_id = ${params.event_id}
+        or (event_id is null and race_date = ${params.race_date}::date)
+      )
+  `;
+}
+
 export async function setAthleteTargetRace(
   params: SetTargetRaceParams,
 ): Promise<SetTargetRaceResult> {
@@ -147,6 +190,7 @@ export async function setAthleteTargetRace(
       limit 1
     `;
 
+    let writtenId: string;
     if (existing[0]) {
       const updated = await tx<{ id: string }[]>`
         update races set
@@ -164,30 +208,46 @@ export async function setAthleteTargetRace(
         where id = ${Number(existing[0].id)}
         returning id::text as id
       `;
-      return updated[0]!.id;
+      writtenId = updated[0]!.id;
+    } else {
+      const inserted = await tx<{ id: string }[]>`
+        insert into races (
+          athlete_id, event_id, name, event_type, format, division,
+          gender_category, priority, race_date, location, goal_time_seconds, status
+        ) values (
+          ${params.athlete_id},
+          ${params.event_id},
+          ${event.name},
+          ${eventType}::race_event_type,
+          ${params.format}::race_format,
+          ${params.division}::race_division,
+          ${params.gender_category}::race_gender,
+          'target'::race_priority,
+          ${event.start_date}::date,
+          ${event.location},
+          ${goal},
+          'planned'::race_status
+        )
+        returning id::text as id
+      `;
+      writtenId = inserted[0]!.id;
     }
 
-    const inserted = await tx<{ id: string }[]>`
-      insert into races (
-        athlete_id, event_id, name, event_type, format, division,
-        gender_category, priority, race_date, location, goal_time_seconds, status
-      ) values (
-        ${params.athlete_id},
-        ${params.event_id},
-        ${event.name},
-        ${eventType}::race_event_type,
-        ${params.format}::race_format,
-        ${params.division}::race_division,
-        ${params.gender_category}::race_gender,
-        'target'::race_priority,
-        ${event.start_date}::date,
-        ${event.location},
-        ${goal},
-        'planned'::race_status
-      )
-      returning id::text as id
-    `;
-    return inserted[0]!.id;
+    // 3) DOUBLES: one logical goal per pair. When this is a doubles target and the
+    //    athlete has an active training partner with their OWN doubles race for the
+    //    same event, mirror the goal onto it in the SAME tx so the pair never holds
+    //    two conflicting goals. Match by event_id, or by date when the partner's
+    //    row predates the catalog link (both event_id NULL). Best-effort within the
+    //    tx: no partner / no matching row → nothing to mirror.
+    await mirrorDoublesGoalToPartner(tx, {
+      athlete_id: params.athlete_id,
+      format: params.format,
+      event_id: params.event_id,
+      race_date: event.start_date,
+      goal,
+    });
+
+    return writtenId;
   });
 
   // Read back through the canonical countdown reader (committed by now).
