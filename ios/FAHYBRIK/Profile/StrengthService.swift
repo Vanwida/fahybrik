@@ -16,7 +16,8 @@ import Foundation
 // the whole payload down — a String never does.
 
 struct AthleteBenchmarksResponse: Decodable {
-    let maxes: [StrengthMaxProfile]
+    /// AUDIT-B3 — a malformed lift is dropped, not the whole list.
+    @LossyArray var maxes: [StrengthMaxProfile]
 }
 
 /// One lift's CURRENT (highest-version) 1RM plus its prior versions, for the
@@ -35,7 +36,8 @@ struct StrengthMaxProfile: Codable, Identifiable {
     let testWeightKg: Double?
     let testReps: Int?
     /// Prior + current versions as the backend returns them, for the trend.
-    let history: [StrengthMaxPoint]
+    /// AUDIT-B3 — a malformed point is dropped, not the whole lift.
+    @LossyArray var history: [StrengthMaxPoint]
 
     /// Human "20 jun 2026" from `recordedAt`. Nil when absent/unparseable —
     /// never guessed. Reuses ZoneDateParser (shared module-internal parser).

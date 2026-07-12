@@ -57,12 +57,14 @@ struct ChatThreadDTO: Codable, Equatable {
 // MARK: - Wire envelopes
 
 private struct ThreadsResponse: Decodable {
-    let threads: [ChatThreadDTO]
+    @LossyArray var threads: [ChatThreadDTO]
 }
 
 private struct MessagesResponse: Decodable {
     let threadId: String
-    let messages: [ChatMessageDTO]
+    /// AUDIT-B3 — a single message with a malformed date/shape is dropped, not the
+    /// whole conversation history.
+    @LossyArray var messages: [ChatMessageDTO]
     let nextCursor: String?
 }
 
