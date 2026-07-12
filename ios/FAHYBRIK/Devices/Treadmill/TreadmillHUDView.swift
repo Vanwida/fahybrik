@@ -294,7 +294,7 @@ struct TreadmillHUDView: View {
         // neutral (the workout drives itself; PAUSE freezes it, TERMINAR overrides).
         HStack(spacing: 8) {
             neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
-            neutralButton("TERMINAR AHORA") { model.endLegNow() }
+            neutralButton("TERMINAR TRAMO AHORA") { model.endLegNow() }
         }
         .padding(.top, 4)
     }

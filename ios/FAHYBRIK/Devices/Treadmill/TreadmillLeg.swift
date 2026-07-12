@@ -52,7 +52,15 @@ enum TreadmillLegResolver {
             return TreadmillLeg(phase: .work, goal: goal,
                                 target: RunTarget.resolve(from: segment), ownsAutoAdvance: ownsDistance)
         }
-        // Recovery: a time countdown (rest_s) the session owns; no pace/zone target.
+        // Recovery: today only a time countdown (rest_s), owned by the session's clock.
+        //
+        // FORWARD SEAM (#61 run-structure grammar): when a recovery ships a DISTANCE
+        // measure ("trota 200m"), resolve it here to `.distance(meters:)` with
+        // `ownsAutoAdvance: true` — the auto-advance machine already closes any
+        // distance-owned leg generically (same path as a work bout), so no state
+        // machine change is needed, only this branch. Keep reading the new measure
+        // in preference to the legacy `rest_s` so a belt-closed recovery never also
+        // gets time-closed by the session.
         let goal: SegmentGoal = segment.formatRestSeconds.map { .time(seconds: $0) } ?? .open
         return TreadmillLeg(phase: .recovery, goal: goal, target: .none, ownsAutoAdvance: false)
     }
