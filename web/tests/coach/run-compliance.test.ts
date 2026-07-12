@@ -74,6 +74,8 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     avg_hr: null,
     max_hr: null,
     calories: null,
+    incline_pct: null,
+    run_cadence_spm: null,
     ...over,
   };
 }
