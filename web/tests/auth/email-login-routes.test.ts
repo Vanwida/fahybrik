@@ -45,8 +45,20 @@ function post(body: unknown): Request {
   });
 }
 
+// The review gate reads these at request time; keep every test hermetic by
+// clearing them by default and setting them only in the gate-specific tests.
+const REVIEW_EMAIL = 'review@fahybrid.com';
+const REVIEW_CODE = 'FAHYBRID-REVIEW-7Q2X'; // alphanumeric on purpose (higher entropy)
+
+const REVIEW_ACCOUNT = {
+  user: { id: BigInt(900), email: REVIEW_EMAIL, apple_user_id: null, role: 'athlete' as const },
+  athlete: { id: BigInt(901), user_id: BigInt(900), full_name: 'Review FAHYBRID', onboarded_at: null },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  delete process.env.REVIEW_ACCESS_EMAIL;
+  delete process.env.REVIEW_ACCESS_CODE;
   vi.mocked(withRateLimit).mockResolvedValue(ALLOWED);
   vi.mocked(createEmailLoginCode).mockResolvedValue({
     code_plaintext: '424242',
@@ -149,5 +161,116 @@ describe('POST /api/auth/email/verify', () => {
     const res = await verifyPOST(post({ email: 'a@b.com', code: '12' }));
     expect(res.status).toBe(400);
     expect((await res.json()).error.code).toBe('invalid_request');
+  });
+});
+
+// ── App Store review access gate (env-gated) ──────────────────────────────────
+// Apple's reviewer cannot receive our SiwA / email codes, so a FIXED email+code
+// pair (only in App Review notes) logs into the seeded review athlete. The gate
+// must be INVISIBLE when the envs are unset, must NOT open any other account, and
+// must keep responses indistinguishable from the normal flow.
+describe('App Store review access gate', () => {
+  function enableGate() {
+    process.env.REVIEW_ACCESS_EMAIL = REVIEW_EMAIL;
+    process.env.REVIEW_ACCESS_CODE = REVIEW_CODE;
+  }
+
+  describe('envs ABSENT → identical to current behavior', () => {
+    it('request: review-looking email is just a normal (non-member) request', async () => {
+      vi.mocked(findAthleteByEmail).mockResolvedValue(null);
+      const res = await requestPOST(post({ email: REVIEW_EMAIL }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      // Gate inert → the normal find-only path runs.
+      expect(findAthleteByEmail).toHaveBeenCalledOnce();
+    });
+
+    it('verify: review email with a 6-digit code takes the normal consume path', async () => {
+      vi.mocked(consumeEmailLoginCode).mockResolvedValue({ ok: false, reason: 'invalid' });
+      const res = await verifyPOST(post({ email: REVIEW_EMAIL, code: '000000' }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe('invalid_code');
+      expect(consumeEmailLoginCode).toHaveBeenCalledOnce();
+      expect(issueSession).not.toHaveBeenCalled();
+    });
+
+    it('verify: the fixed code is not special when the gate is off (fails 6-digit schema)', async () => {
+      const res = await verifyPOST(post({ email: REVIEW_EMAIL, code: REVIEW_CODE }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe('invalid_request');
+      expect(issueSession).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('envs PRESENT', () => {
+    beforeEach(enableGate);
+
+    it('request: review email → generic 200, NO code issued, NO email sent, account untouched', async () => {
+      const res = await requestPOST(post({ email: REVIEW_EMAIL }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(findAthleteByEmail).not.toHaveBeenCalled();
+      expect(createEmailLoginCode).not.toHaveBeenCalled();
+      expect(sendEmailLoginCode).not.toHaveBeenCalled();
+    });
+
+    it('request: a NON-review email still runs the normal find-only path', async () => {
+      vi.mocked(findAthleteByEmail).mockResolvedValue(null);
+      const res = await requestPOST(post({ email: 'someone.else@example.com' }));
+      expect(res.status).toBe(200);
+      expect(findAthleteByEmail).toHaveBeenCalledOnce();
+    });
+
+    it('verify: review email + correct fixed code → mints the SAME athlete session', async () => {
+      vi.mocked(findAthleteByEmail).mockResolvedValue(REVIEW_ACCOUNT);
+      const res = await verifyPOST(post({ email: REVIEW_EMAIL, code: REVIEW_CODE }));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.session_token).toBe('session.jwt.token');
+      expect(body.athlete_id).toBe('901');
+      expect(body.user_id).toBe('900');
+      expect(issueSession).toHaveBeenCalledOnce();
+      expect(vi.mocked(issueSession).mock.calls[0][0].audience).toBe(audiences.athlete);
+      // The fixed code bypasses the one-time-code machinery entirely.
+      expect(consumeEmailLoginCode).not.toHaveBeenCalled();
+    });
+
+    it('verify: case/space-insensitive review email still matches', async () => {
+      vi.mocked(findAthleteByEmail).mockResolvedValue(REVIEW_ACCOUNT);
+      const res = await verifyPOST(post({ email: `  ${REVIEW_EMAIL.toUpperCase()} `, code: REVIEW_CODE }));
+      expect(res.status).toBe(200);
+      expect(issueSession).toHaveBeenCalledOnce();
+    });
+
+    it('verify: review email + WRONG code → generic 400, no session, code machinery untouched', async () => {
+      const res = await verifyPOST(post({ email: REVIEW_EMAIL, code: 'wrong-code' }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe('invalid_code');
+      expect(issueSession).not.toHaveBeenCalled();
+      expect(consumeEmailLoginCode).not.toHaveBeenCalled();
+    });
+
+    it('verify: review email but account missing (race) → generic 400, no session', async () => {
+      vi.mocked(findAthleteByEmail).mockResolvedValue(null);
+      const res = await verifyPOST(post({ email: REVIEW_EMAIL, code: REVIEW_CODE }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe('invalid_code');
+      expect(issueSession).not.toHaveBeenCalled();
+    });
+
+    it('verify: the fixed code with ANOTHER email opens nothing → 400, no session', async () => {
+      const res = await verifyPOST(post({ email: 'attacker@example.com', code: REVIEW_CODE }));
+      expect(res.status).toBe(400);
+      expect(issueSession).not.toHaveBeenCalled();
+    });
+
+    it('verify: a real member + real code still works with the gate on', async () => {
+      vi.mocked(consumeEmailLoginCode).mockResolvedValue({ ok: true, email: 'fabregas.scd@gmail.com' });
+      vi.mocked(findAthleteByEmail).mockResolvedValue(ACCOUNT);
+      const res = await verifyPOST(post({ email: 'fabregas.scd@gmail.com', code: '424242' }));
+      expect(res.status).toBe(200);
+      expect(consumeEmailLoginCode).toHaveBeenCalledOnce();
+      expect(issueSession).toHaveBeenCalledOnce();
+    });
   });
 });
