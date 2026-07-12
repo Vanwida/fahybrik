@@ -80,6 +80,18 @@ final class TreadmillLegTests: XCTestCase {
         XCTAssertEqual(WorkoutLegCount.current(plan, index: 0, rotRoundIndex: 0, isWork: true), 1)
     }
 
+    func testLegCountFallsBackToSetsForLegacyPyramid() {
+        // 1200/1000/800: no `rounds`, one `sets` entry per bout, scalar distance
+        // dropped (heterogeneous) — must count 3 bouts, not collapse to 1.
+        let pyramid = pyramidSeries([1200, 1000, 800], restS: 90)
+        XCTAssertNil(pyramid.formatRounds)
+        XCTAssertEqual(pyramid.prescription?.sets?.count, 3)
+        XCTAssertEqual(WorkoutLegCount.boutCount(pyramid), 3)   // rounds ?? sets.count
+        XCTAssertEqual(WorkoutLegCount.legs(in: pyramid), 6)    // 3 bouts × (work + recovery)
+        // Round 2's work bout = 5th global leg: r0w r0r r1w r1r r2w.
+        XCTAssertEqual(WorkoutLegCount.current([pyramid], index: 0, rotRoundIndex: 2, isWork: true), 5)
+    }
+
     // MARK: - Fixtures
 
     private func continuousRun(distanceM: Double? = nil, durationS: Int? = nil) -> WorkoutSegment {
@@ -96,5 +108,19 @@ final class TreadmillLegTests: XCTestCase {
                                                   rounds: rounds, workS: workS, restS: restS, totalS: nil,
                                                   target: .pace(unit: .perKm, valueS: pace, minS: nil, maxS: nil),
                                                   note: nil, start: nil, increment: nil))
+    }
+
+    private func pyramidSeries(_ distancesM: [Double], restS: Int?) -> WorkoutSegment {
+        // Legacy sets-only pyramid: no rounds, one PrescriptionSet per bout, and no
+        // scalar targetDistanceMeters (heterogeneous distances are dropped by the web).
+        let sets = distancesM.map { d in
+            PrescriptionSet(measure: .distance(meters: d), target: nil, modality: .run,
+                            restS: nil, tempo: nil, note: nil)
+        }
+        return WorkoutSegment(order: 1, title: "Pirámide", kind: .running,
+                              blockTitle: "Series", blockPosition: 1,
+                              prescription: Prescription(scheme: .intervals, modality: .run, sets: sets,
+                                                         rounds: nil, workS: nil, restS: restS, totalS: nil,
+                                                         target: nil, note: nil, start: nil, increment: nil))
     }
 }

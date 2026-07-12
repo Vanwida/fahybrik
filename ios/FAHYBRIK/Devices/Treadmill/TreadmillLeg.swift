@@ -73,10 +73,17 @@ enum TreadmillLegResolver {
 /// segment counts as one leg (the session's own segment granularity). Matches the
 /// approved mockup ("Tramo 3 de 13" for a 6×800 session).
 enum WorkoutLegCount {
+    /// Number of work bouts in a run series. Uses `rounds`, FALLING BACK to the
+    /// `sets` array length — ~40% of real interval prescriptions are legacy
+    /// pyramids (1200/1000/800) that carry no `rounds`, only one `sets` entry per
+    /// bout. Never rely on `rounds` alone or those collapse to a single leg.
+    static func boutCount(_ s: WorkoutSegment) -> Int {
+        max(1, s.formatRounds ?? s.prescription?.sets?.count ?? 1)
+    }
+
     static func legs(in s: WorkoutSegment) -> Int {
         guard TreadmillLegResolver.isRunSeries(s) else { return 1 }
-        let rounds = max(1, s.formatRounds ?? 1)
-        return rounds * (s.formatRestSeconds != nil ? 2 : 1)   // work + recovery per round
+        return boutCount(s) * (s.formatRestSeconds != nil ? 2 : 1)   // work + recovery per round
     }
 
     static func total(_ segments: [WorkoutSegment]) -> Int {
