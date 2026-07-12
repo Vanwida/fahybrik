@@ -29,6 +29,22 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     /// previous fix. The session sums these into the current run segment.
     var onDistanceDelta: ((Double) -> Void)?
 
+    /// Called on every ACCURACY-GATED fix with CoreLocation's instantaneous speed
+    /// (m/s) and its speed-accuracy (m/s; negative = invalid) — the source the
+    /// outdoor HUD smooths into a live pace and the auto-pause reads (#64). Fired
+    /// per fix, INDEPENDENT of the distance min-step gate: a stopped athlete produces
+    /// sub-step fixes with a valid speed≈0, which auto-pause needs.
+    var onSpeed: ((_ speedMps: Double, _ speedAccuracyMps: Double) -> Void)?
+
+    /// Called with the coordinate of each fix that also produced real movement (the
+    /// same fixes that feed `onDistanceDelta`), plus the first fix — so the live
+    /// route trace (#64) is well-spaced and free of standstill jitter.
+    var onCoordinate: ((CLLocationCoordinate2D) -> Void)?
+
+    /// Latest fix's horizontal accuracy (m; negative = none yet) — the outdoor HUD
+    /// classifies it into the honest "GPS fuerte / débil / buscando" badge.
+    private(set) var latestHorizontalAccuracyM: Double = -1
+
     private let manager = CLLocationManager()
     private var lastLocation: CLLocation?
     private var isRunning = false
@@ -47,6 +63,17 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.activityType = .fitness
         manager.distanceFilter = Self.minStepMeters
+        // We run our OWN auto-pause; iOS auto-pausing the location stream when it
+        // thinks we've stopped would kill the fixes that detect movement RESUMING.
+        manager.pausesLocationUpdatesAutomatically = false
+    }
+
+    /// Keep receiving fixes with the screen locked / phone pocketed DURING an active
+    /// outdoor run only — enabled at run start, disabled at end/cancel (battery). The
+    /// caller must pair this with the `location` UIBackgroundMode; setting it true
+    /// without that mode throws, so it's opt-in per outdoor session.
+    func setBackgroundUpdates(_ enabled: Bool) {
+        manager.allowsBackgroundLocationUpdates = enabled
     }
 
     /// Begins requesting location for a run. Safe to call repeatedly. If the
@@ -93,14 +120,21 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard isRunning else { return }
         for loc in locations {
+            latestHorizontalAccuracyM = loc.horizontalAccuracy
             guard loc.horizontalAccuracy >= 0,
                   loc.horizontalAccuracy <= Self.accuracyGateMeters else { continue }
             status = .active
+            // Speed fires for EVERY good fix (auto-pause needs the standstill reading
+            // that the min-step distance gate below would swallow).
+            onSpeed?(loc.speed, loc.speedAccuracy)
             if let prev = lastLocation {
                 let d = loc.distance(from: prev)
                 if d >= Self.minStepMeters && d <= Self.maxStepMeters {
                     onDistanceDelta?(d)
+                    onCoordinate?(loc.coordinate)   // trace point on real movement
                 }
+            } else {
+                onCoordinate?(loc.coordinate)       // seed the trace at the first fix
             }
             lastLocation = loc
         }

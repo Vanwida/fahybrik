@@ -131,6 +131,8 @@ struct PostWorkoutSummaryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     tightHeader
+                    // #64 — an outdoor run's GPS route, right under the headline time.
+                    if hasRoute { routeMapCard }
                     // Manual ("Ya lo hice") entry: no measured laps exist, so the
                     // device-derived sections (zones, HR, per-segment splits) are
                     // hidden — they'd collect data with nowhere to persist. The
@@ -397,6 +399,24 @@ struct PostWorkoutSummaryView: View {
         )
     }
 
+    // #64 — the outdoor run's captured trace (nil / <2 points = not outdoors).
+    private var hasRoute: Bool {
+        guard let poly = session.capturedRoutePolyline else { return false }
+        return PolylineCodec.pointCount(poly) >= 2
+    }
+
+    private var routeMapCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: "Tu recorrido", size: 11)
+            RouteMiniMap(polyline: session.capturedRoutePolyline ?? "")
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairline, lineWidth: 1))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func buildPayload() -> WorkoutExecutionPayload? {
         guard let assignmentId, !assignmentId.isEmpty else { return nil }
         let c = executionCore()
@@ -415,6 +435,8 @@ struct PostWorkoutSummaryView: View {
             started_at: c.startedAtISO,
             ended_at: c.endedAtISO,
             segments: c.segments,
+            // #64 — the outdoor run's GPS trace, persisted to workout_routes.
+            route_polyline: session.capturedRoutePolyline,
             // #58 — optional structured feedback, in the SAME POST.
             perceived_difficulty: difficulty?.rawValue,
             pain_area: feedbackPainAreaWire,

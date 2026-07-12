@@ -24,6 +24,7 @@ struct ActiveWorkoutView: View {
     var athleteAge: Int? = nil
 
     @State private var showTreadmill: Bool = false
+    @State private var showOutdoor: Bool = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     @State private var showPM5Sheet: Bool = false
@@ -130,6 +131,7 @@ struct ActiveWorkoutView: View {
                     }
                     if isRunSeriesSegment {
                         TreadmillEntryButton(action: { showTreadmill = true })
+                        OutdoorEntryButton(action: { showOutdoor = true })
                     }
                     nextSegmentChip
                     bottomControls
@@ -189,6 +191,10 @@ struct ActiveWorkoutView: View {
             attemptPM5IfNeeded()
             updateRunGPS()
         }
+        .onChange(of: showOutdoor) { _, presenting in
+            // Hand the GPS to the outdoor HUD when it opens; take it back on close.
+            if presenting { runGPS.stop() } else { updateRunGPS() }
+        }
         .onChange(of: PhoneMirrorService.shared.wristJoined) { _, joined in
             // Hand HR off to the wrist when it joins mid-run; take it back if it drops
             // so the phone keeps recording HR alone.
@@ -217,6 +223,9 @@ struct ActiveWorkoutView: View {
         }
         .fullScreenCover(isPresented: $showTreadmill) {
             TreadmillHUDView(session: session, athleteAge: athleteAge)
+        }
+        .fullScreenCover(isPresented: $showOutdoor) {
+            OutdoorRunHUDView(session: session, athleteAge: athleteAge)
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
@@ -324,7 +333,10 @@ struct ActiveWorkoutView: View {
     // Start phone GPS only on run segments (and only if not denied); stop it
     // otherwise so we don't hold the location indicator during erg/strength work.
     private func updateRunGPS() {
-        if isRunSegment {
+        // While the outdoor GPS HUD (#64) is up it OWNS the location stream (its own
+        // provider feeds the session); running ours too would double-count distance,
+        // so stand down until it closes.
+        if isRunSegment && !showOutdoor {
             runGPS.start()
         } else {
             runGPS.stop()
@@ -553,7 +565,8 @@ struct ActiveWorkoutView: View {
                 ErgLiveHUD(session: session, pm5: pm5)
             case .running:
                 RunLiveHUD(session: session, gpsActive: gpsActive,
-                           onTapTreadmill: { showTreadmill = true })
+                           onTapTreadmill: { showTreadmill = true },
+                           onTapOutdoor: { showOutdoor = true })
             case .strength, .reps, .sled, .none:
                 StrengthLiveHUD(session: session)
             }

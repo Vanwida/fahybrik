@@ -804,6 +804,13 @@ struct WorkoutExecutionPayload: Codable {
     /// watch passes the HKWorkout id, and older encoded payloads still decode.
     var source_workout_ref: String? = nil
 
+    /// The outdoor run's GPS trace (#64) as a Google ENCODED POLYLINE (precision 5),
+    /// or nil when the session was not outdoors. The backend persists it to
+    /// workout_routes (server derives point_count) and returns it on the session
+    /// detail so the athlete sees the map. `var` with a default so the watch relay /
+    /// older payloads keep building.
+    var route_polyline: String? = nil
+
     // MARK: Structured session feedback (#58)
     //
     // Optional feedback the athlete adds on the summary, in the SAME POST. All

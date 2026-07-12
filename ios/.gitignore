@@ -25,3 +25,4 @@ fastlane/test_output
 # xcodegen-generated Info.plist (project.yml is the source of truth)
 FAHYBRIK/Generated-Info.plist
 FAHYBRIKWatch/Generated-Info.plist
+FAHYBRIKWidgets/Generated-Info.plist

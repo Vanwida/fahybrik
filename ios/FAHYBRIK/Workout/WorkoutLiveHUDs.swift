@@ -158,6 +158,9 @@ struct RunLiveHUD: View {
     /// Opens the live treadmill HUD (#60). Offered on every run leg; the treadmill
     /// screen itself handles the "no compatible treadmill found" case honestly.
     var onTapTreadmill: (() -> Void)? = nil
+    /// Opens the live OUTDOOR GPS HUD (#64) — the sibling of the treadmill entry for
+    /// running outside (map + GPS pace + auto-pause).
+    var onTapOutdoor: (() -> Void)? = nil
 
     @State private var manualDistance: Double?
 
@@ -232,6 +235,9 @@ struct RunLiveHUD: View {
             // stays as the fallback with no compatible belt.
             if let onTapTreadmill {
                 TreadmillEntryButton(action: onTapTreadmill)
+            }
+            if let onTapOutdoor {
+                OutdoorEntryButton(action: onTapOutdoor)
             }
 
             // No GPS → the athlete logs the distance they covered so the segment
