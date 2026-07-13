@@ -84,7 +84,8 @@ struct ChatView: View {
                         } else {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(displayMessages) { msg in
-                                    MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach")
+                                    MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach",
+                                               onRetry: { retry(msg.id) })
                                         .id(msg.id)
                                 }
                             }
@@ -343,7 +344,13 @@ struct ChatView: View {
             // the freshly-created thread and receive the coach's replies live.
             if subscribedThreadCount == 0 { streamEpoch += 1 }
         } catch {
-            await enqueueOffline(body: body, localId: localId)
+            // AUDIT — a deterministic 4xx won't succeed on retry: mark the message FAILED
+            // (tap to reintentar) instead of queueing it to "enviando…" forever. A
+            // transient failure (offline / 5xx / red) still queues for replay.
+            switch ChatSendOutcome.forError(error) {
+            case .queueForReplay: await enqueueOffline(body: body, localId: localId)
+            case .markFailed:     markFailed(localId: localId)
+            }
         }
     }
 
@@ -356,6 +363,24 @@ struct ChatView: View {
         if let idx = messages.firstIndex(where: { $0.id == localId }) {
             messages[idx].status = .sending
         }
+    }
+
+    /// AUDIT — a 4xx (deterministic): the message reads FAILED, not "enviando…", and is
+    /// NOT queued. The row is tap-to-retry (`retry`).
+    @MainActor
+    private func markFailed(localId: String) {
+        if let idx = messages.firstIndex(where: { $0.id == localId }) {
+            messages[idx].status = .failed
+        }
+    }
+
+    /// Tap-to-retry a failed message: flip it back to sending and redeliver.
+    @MainActor
+    private func retry(_ localId: String) {
+        guard let idx = messages.firstIndex(where: { $0.id == localId }),
+              case let .text(body) = messages[idx].kind else { return }
+        messages[idx].status = .sending
+        Task { await deliver(body: body, localId: localId) }
     }
 
     // MARK: - Sender attribution
@@ -552,7 +577,7 @@ private struct ChatMessage: Identifiable {
         case text(String)
         case voice(durationLabel: String)
     }
-    enum Status: Equatable { case sent, pending, sending }
+    enum Status: Equatable { case sent, pending, sending, failed }
 
     let id: String
     let sender: Sender
@@ -572,6 +597,10 @@ private struct MessageRow: View {
     /// parent from the chat thread payload, with a neutral fallback. The meta
     /// line lowercases it; VoiceOver uses it as-is.
     let coachLabel: String
+    /// AUDIT — invoked when a FAILED message is tapped, to resend it.
+    var onRetry: (() -> Void)? = nil
+
+    private var isFailed: Bool { message.status == .failed }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -582,21 +611,26 @@ private struct MessageRow: View {
                 Text(metaLabel)
                     .font(.system(size: 9, design: .monospaced))
                     .tracking(1.0)
-                    .foregroundStyle(Theme.Color.faint)
+                    .foregroundStyle(isFailed ? Theme.Color.danger : Theme.Color.faint)
             }
 
             if message.sender == .coach { Spacer(minLength: 40) }
         }
+        // A failed message is tap-to-retry; other statuses ignore the tap.
+        .contentShape(Rectangle())
+        .onTapGesture { if isFailed { onRetry?() } }
         // Read the whole row as one coherent VoiceOver element instead of
         // "meta, text" fragments. Voice notes set their own label on `bubble`.
         .accessibilityElement(children: .combine)
         .accessibilityLabel(voiceOverLabel)
+        .accessibilityHint(isFailed ? "No enviado. Toca dos veces para reintentar." : "")
     }
 
     private var metaLabel: String {
         let who = message.sender == .me ? "tú" : coachLabel.lowercased()
         switch message.status {
         case .sending: return "enviando… · \(who)"
+        case .failed:  return "no enviado · toca para reintentar"
         case .pending, .sent: return "\(message.timestamp) · \(who)"
         }
     }
