@@ -33,7 +33,14 @@
 // generation in sync (override POLAR_SCOPES / POLAR_API_BASE via env if needed).
 
 export const POLAR_ENDPOINTS = {
-  // Public + confirmed.
+  // OAuth host = the NEW unified auth.polar.com. IMPORTANT: a CLASSIC AccessLink
+  // app registered at admin.polaraccesslink.com authorizes against the LEGACY
+  // hosts instead — authorize `https://flow.polar.com/oauth2/authorization`,
+  // token `https://polarremote.com/v2/oauth2/token` (verified against Polar's
+  // official accesslink-example-python). If the token exchange 401s at the
+  // callback, the app is classic-v3: override without a code change via
+  // POLAR_AUTHORIZE_URL / POLAR_TOKEN_URL. Confirm which host YOUR client_id
+  // expects in the Polar developer console before testing with a real account.
   authorize: 'https://auth.polar.com/oauth/authorize',
   token: 'https://auth.polar.com/oauth/token',
   // Host for the v3 REST data endpoints (see header). Overridable via POLAR_API_BASE.
