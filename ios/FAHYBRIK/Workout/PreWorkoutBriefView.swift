@@ -33,7 +33,6 @@ struct PreWorkoutBriefView: View {
     /// exercises) the brief shows an honest "sin detalle" card, never a fabricated
     /// generic "Sesión".
     var detail: AssignmentDetail? = nil
-    let connections: ConnectionStatus
     let onStart: () -> Void
     /// "Ya lo hice": the athlete trained without the live timer and registers it
     /// after the fact. Routes straight to manual entry (no ActiveWorkout).
@@ -48,22 +47,6 @@ struct PreWorkoutBriefView: View {
 
     // Per-exercise technique video opened in-app from a series row, when present.
     @State private var segmentVideoUrl: String? = nil
-
-    struct ConnectionStatus {
-        let garmin: Bool
-        let healthkit: Bool
-        let pm5: Bool
-        /// Real device state. PM5 reflects whether a device is remembered;
-        /// Garmin/HealthKit aren't resolvable to a simple bool here so they
-        /// stay false (the grid only renders tiles for connected devices).
-        static var current: ConnectionStatus {
-            ConnectionStatus(
-                garmin: false,
-                healthkit: false,
-                pm5: PM5ConnectionStore.shared.rememberedDeviceName != nil
-            )
-        }
-    }
 
     // MARK: - Derived shape
 
@@ -95,8 +78,11 @@ struct PreWorkoutBriefView: View {
         return segs.allSatisfy { $0.kind == .strength }
     }
 
-    private var anyConnection: Bool {
-        connections.garmin || connections.healthkit || connections.pm5
+    /// The devices worth connecting BEFORE this session starts — derived from its
+    /// segments (a squat day offers none; a run day offers the belt + strap). Empty
+    /// → the card is hidden.
+    private var eligibleDevices: [PreWorkoutDevice] {
+        PreWorkoutDeviceEligibility.devices(for: sortedSegments)
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -159,8 +145,11 @@ struct PreWorkoutBriefView: View {
                         // freeform start + the retroactive "Ya lo hice" log.
                         detailUnavailableCard
                     }
-                    if anyConnection {
-                        connectionsGrid
+                    if !eligibleDevices.isEmpty {
+                        // Connect the belt / strap / erg BEFORE the clock starts, so
+                        // the live workout begins already streaming (never scanning
+                        // mid-run). Optional — starting without connecting is unchanged.
+                        DeviceConnectCard(devices: eligibleDevices)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -792,42 +781,6 @@ struct PreWorkoutBriefView: View {
         case "for_time": return "FOR TIME"
         default:         return nil
         }
-    }
-
-    // MARK: - Connections grid
-
-    private var connectionsGrid: some View {
-        CardSurface(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "Dispositivos")
-                let cols = [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8),
-                ]
-                LazyVGrid(columns: cols, spacing: 8) {
-                    connTile(label: "Garmin", connected: connections.garmin)
-                    connTile(label: "HR Strap", connected: connections.healthkit)
-                    connTile(label: "PM5", connected: connections.pm5)
-                }
-            }
-        }
-    }
-
-    private func connTile(label: String, connected: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.muted)
-            Text(connected ? "Listo" : "Off")
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(connected ? Theme.Color.ok : Theme.Color.faint)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Theme.Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     // MARK: - Footer
