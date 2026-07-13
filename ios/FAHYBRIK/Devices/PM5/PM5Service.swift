@@ -46,6 +46,7 @@ protocol PM5ServiceDelegate: AnyObject {
     func pm5Service(_ service: PM5Service, didChangeConnection state: PM5ConnectionState)
     func pm5Service(_ service: PM5Service, didConnect deviceName: String, identifier: UUID)
     func pm5Service(_ service: PM5Service, didReceiveSample sample: PM5LiveSample)
+    func pm5Service(_ service: PM5Service, didUpdateSplits splits: [PM5Split])
     func pm5Service(_ service: PM5Service, didDisconnect error: Error?)
 }
 
@@ -62,6 +63,9 @@ final class PM5Service: NSObject {
     private var peripheral: CBPeripheral?
     private var rowingService: CBService?
     private var sample: PM5LiveSample = PM5LiveSample()
+    // Splits accumulate across the current PM5 workout, keyed by interval number
+    // and joined from 0x37 + 0x38. Reset on each fresh stream (see below).
+    private var splitsByIndex: [Int: PM5Split] = [:]
     private var discovered: [UUID: PM5Discovered] = [:]
     private var pendingScan: Bool = false
     /// Bumped on every disconnect so a late `didDisconnectPeripheral` callback and the
@@ -257,6 +261,7 @@ extension PM5Service: CBPeripheralDelegate {
             UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: PM5Defaults.lastPairedIdentifier)
             UserDefaults.standard.set(peripheral.name ?? "PM5", forKey: PM5Defaults.lastPairedName)
             sample = PM5LiveSample()
+            splitsByIndex.removeAll()
             delegate?.pm5Service(
                 self,
                 didConnect: peripheral.name ?? "PM5",
@@ -271,11 +276,14 @@ extension PM5Service: CBPeripheralDelegate {
         error: Error?
     ) {
         guard error == nil, let data = characteristic.value else { return }
-        PM5DataParser.applyChunk(
-            uuid: characteristic.uuid.uuidString,
-            data: data,
-            into: &sample
-        )
+        let uuid = characteristic.uuid.uuidString
+        // Split chunks (0x37/0x38) are event-driven interval reports — route them
+        // to the interval-keyed store, not the rolling live sample.
+        if PM5DataParser.applySplitChunk(uuid: uuid, data: data, into: &splitsByIndex) {
+            delegate?.pm5Service(self, didUpdateSplits: splitsByIndex.values.sorted { $0.index < $1.index })
+            return
+        }
+        PM5DataParser.applyChunk(uuid: uuid, data: data, into: &sample)
         delegate?.pm5Service(self, didReceiveSample: sample)
     }
 }

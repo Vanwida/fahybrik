@@ -11,7 +11,7 @@
 
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { buildErgoSection } from '@/lib/athlete/analytics/ergo';
-import { resolvePeriod } from '@/lib/athlete/analytics';
+import { buildDrillDown, resolvePeriod } from '@/lib/athlete/analytics';
 import type { AnalyticsCard } from '@/lib/athlete/analytics';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeTemplate, makeAssignment, type Fixture } from '../utils/db-fixtures';
@@ -29,7 +29,7 @@ function cardById(cards: AnalyticsCard[], id: string): AnalyticsCard {
   return c;
 }
 
-/** Seed one execution → one ergo segment (explicit modality, /500m + power + dist). */
+/** Seed one execution → one ergo segment (explicit modality, /500m + power + dist + optional calories). */
 async function seedErgoSegment(params: {
   sql: ReturnType<typeof getTestSql>;
   fx: Fixture;
@@ -40,8 +40,9 @@ async function seedErgoSegment(params: {
   powerW: number;
   strokeSpm: number;
   distanceMeters: number;
+  calories?: number;
 }): Promise<void> {
-  const { sql, fx, assignmentId, daysAgo, modality, pace500, powerW, strokeSpm, distanceMeters } = params;
+  const { sql, fx, assignmentId, daysAgo, modality, pace500, powerW, strokeSpm, distanceMeters, calories } = params;
   const started = daysAgoIso(daysAgo);
   const exec = await sql<Array<{ id: string }>>`
     insert into workout_executions (assignment_id, athlete_id, started_at, ended_at, source)
@@ -52,10 +53,10 @@ async function seedErgoSegment(params: {
   await sql`
     insert into segment_executions (
       execution_id, position, started_at, ended_at, modality,
-      distance_meters, avg_pace_s_per_500m, avg_power_w, stroke_rate_spm, source
+      distance_meters, avg_pace_s_per_500m, avg_power_w, stroke_rate_spm, calories, source
     ) values (
       ${executionId}, 0, ${started}::timestamptz, ${started}::timestamptz, ${modality},
-      ${distanceMeters}, ${pace500}, ${powerW}, ${strokeSpm}, 'demo'
+      ${distanceMeters}, ${pace500}, ${powerW}, ${strokeSpm}, ${calories ?? null}, 'demo'
     )
   `;
 }
@@ -70,9 +71,9 @@ describeWithDb('ergo analytics section (redesign, real DB)', () => {
 
     // Row: two sessions in two different weeks (trend + weekly volume bars).
     const aRow1 = await makeAssignment({ fx, templateId: tpl, scheduledForIso: daysAgoIso(12).slice(0, 10), status: 'completed' });
-    await seedErgoSegment({ sql, fx, assignmentId: aRow1, daysAgo: 12, modality: 'row', pace500: 118, powerW: 250, strokeSpm: 28, distanceMeters: 2000 });
+    await seedErgoSegment({ sql, fx, assignmentId: aRow1, daysAgo: 12, modality: 'row', pace500: 118, powerW: 250, strokeSpm: 28, distanceMeters: 2000, calories: 120 });
     const aRow2 = await makeAssignment({ fx, templateId: tpl, scheduledForIso: daysAgoIso(3).slice(0, 10), status: 'completed' });
-    await seedErgoSegment({ sql, fx, assignmentId: aRow2, daysAgo: 3, modality: 'row', pace500: 110, powerW: 280, strokeSpm: 30, distanceMeters: 3000 });
+    await seedErgoSegment({ sql, fx, assignmentId: aRow2, daysAgo: 3, modality: 'row', pace500: 110, powerW: 280, strokeSpm: 30, distanceMeters: 3000, calories: 180 });
 
     // Ski: one session (splits comparison + ski-scoped trend needs_logging with 1 pt).
     const aSki = await makeAssignment({ fx, templateId: tpl, scheduledForIso: daysAgoIso(5).slice(0, 10), status: 'completed' });
@@ -136,5 +137,68 @@ describeWithDb('ergo analytics section (redesign, real DB)', () => {
     const section = await buildErgoSection({ athlete_id: fx.athleteId, period }, sql);
     const trend = cardById(section.cards, 'ergo_trend');
     expect(trend.title_es).toContain('Remo');
+  });
+
+  test('erg=row builds a POWER trend card (line, taller = more watts)', async () => {
+    const section = await buildErgoSection({ athlete_id: fx.athleteId, period, erg: 'row' }, sql);
+    const power = cardById(section.cards, 'ergo_power');
+    expect(power.title_es).toContain('Remo');
+    expect(power.title_es).toContain('potencia');
+    expect(power.series_kind).toBe('line');
+    expect(power.series.length).toBe(2);
+    expect(power.availability).toBe('real');
+    // Lowest watts at the bottom (250), highest at the top (280).
+    expect(power.series_axis).toEqual({ min_display: '250 w', max_display: '280 w' });
+    // Latest session (3d ago) = 280 w, accented + navigable to its source sessions.
+    const w = power.rows.find((r) => r.id === 'power');
+    expect(w?.value).toBe('280 w');
+    expect(w?.accent).toBe(true);
+    expect(w?.drill?.kind).toBe('ergo.power');
+    expect(cardById(section.cards, 'ergo_power').rows.find((r) => r.id === 'best')?.value).toBe('280 w');
+    // Rate rides along as row & ski companion (spm, not rpm).
+    expect(power.rows.find((r) => r.id === 'rate')?.value).toBe('30 spm');
+  });
+
+  test('erg=bike labels the power-card rate as cadence (rpm)', async () => {
+    const section = await buildErgoSection({ athlete_id: fx.athleteId, period, erg: 'bike' }, sql);
+    // No bike seed → needs_logging, but the rate row still reads in rpm not spm.
+    const power = cardById(section.cards, 'ergo_power');
+    expect(power.rows.find((r) => r.id === 'rate')?.label).toBe('Cadencia');
+  });
+
+  test('volume card surfaces calories (total + per-session) with a drill', async () => {
+    const section = await buildErgoSection({ athlete_id: fx.athleteId, period, erg: 'row' }, sql);
+    const vol = cardById(section.cards, 'ergo_volume');
+    const cal = vol.rows.find((r) => r.id === 'calories');
+    expect(cal?.value).toBe('300 cal'); // 120 + 180
+    expect(cal?.drill?.kind).toBe('ergo.calories');
+    expect(vol.rows.find((r) => r.id === 'cal_per_session')?.value).toBe('150 cal'); // 300 / 2
+  });
+
+  test('ergo.power drill returns the row sessions strongest-first, navigable', async () => {
+    const drill = await buildDrillDown(
+      { athlete_id: fx.athleteId, kind: 'ergo.power', params: { modality: 'row' }, period },
+      sql,
+    );
+    expect(drill).not.toBeNull();
+    expect(drill!.sessions.length).toBe(2);
+    // Sorted by watts desc: 280 first (labelled "mejor"), then 250.
+    expect(drill!.sessions[0]!.value).toBe('280 w');
+    expect(drill!.sessions[0]!.value_label).toBe('mejor');
+    expect(drill!.sessions[1]!.value).toBe('250 w');
+    // Each row links to its execution's assignment (opens the session detail).
+    expect(drill!.sessions[0]!.assignment_id).toBeTruthy();
+  });
+
+  test('ergo.calories drill returns the row sessions most-first, navigable', async () => {
+    const drill = await buildDrillDown(
+      { athlete_id: fx.athleteId, kind: 'ergo.calories', params: { modality: 'row' }, period },
+      sql,
+    );
+    expect(drill).not.toBeNull();
+    expect(drill!.sessions.length).toBe(2);
+    expect(drill!.sessions[0]!.value).toBe('180 cal');
+    expect(drill!.sessions[0]!.value_label).toBe('más');
+    expect(drill!.sessions[0]!.assignment_id).toBeTruthy();
   });
 });

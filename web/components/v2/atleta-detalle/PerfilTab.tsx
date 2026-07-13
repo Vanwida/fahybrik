@@ -163,6 +163,20 @@ export function PerfilTab({
         title="Tests de referencia · desde la app"
         bodyClassName="flex flex-col gap-2.5"
       >
+        {/* FC máx medida — read-only physiological anchor for HR zones. Omitted
+            when never measured (honest-null): no estimate is shown as if measured. */}
+        {data.max_hr_bpm != null ? (
+          <div className="flex items-center justify-between rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
+            <span className="flex items-center gap-2 text-xs font-semibold text-[color:var(--v2-fg)]">
+              <MIcon name="monitor_heart" size={18} className="text-[color:var(--v2-muted)]" />
+              FC máx medida
+            </span>
+            <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">
+              {data.max_hr_bpm}{' '}
+              <span className="text-[11px] font-normal text-[color:var(--v2-faint)]">bpm</span>
+            </span>
+          </div>
+        ) : null}
         {data.reference_tests.map((t) => (
           <TestCard key={t.slug} icon={t.icon} label={t.label} value={t.value} date_iso={t.date_iso} />
         ))}

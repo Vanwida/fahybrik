@@ -14,7 +14,7 @@ import { loadAthleteProfileById } from '@/lib/athlete/profile';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const profilePatchSchema = z.object({
+export const profilePatchSchema = z.object({
   full_name: z.string().trim().min(1).max(200),
   dob: z
     .string()
@@ -24,6 +24,9 @@ const profilePatchSchema = z.object({
   sex: z.enum(['male', 'female', 'other']).nullable().optional(),
   height_cm: z.number().min(80).max(260).nullable().optional(),
   weight_kg: z.number().min(25).max(250).nullable().optional(),
+  // Measured max HR (bpm). Explicit null clears it → the app reverts to an
+  // age-estimated max. Range mirrors the athletes.max_hr_bpm DB CHECK.
+  max_hr_bpm: z.number().int().min(100).max(230).nullable().optional(),
   training_experience_years: z.number().min(0).max(80).nullable().optional(),
   goal_type: z
     .enum(['first_hyrox', 'improve_hyrox_mark', 'improve_running', 'complete_fun', 'other'])
@@ -68,6 +71,7 @@ export async function PATCH(req: Request) {
         sex                        = ${d.sex ?? null}::athlete_sex,
         height_cm                  = ${d.height_cm ?? null},
         weight_kg                  = ${d.weight_kg ?? null},
+        max_hr_bpm                 = ${d.max_hr_bpm ?? null},
         training_experience_years  = ${d.training_experience_years ?? null},
         goal_type                  = ${d.goal_type ?? null}::onboarding_goal_type,
         goal_other_text            = ${goalOther},

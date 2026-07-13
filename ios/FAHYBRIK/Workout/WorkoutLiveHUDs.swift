@@ -97,7 +97,8 @@ struct ErgLiveHUD: View {
         }
     }
 
-    // Surrounding metrics: distance, elapsed lap, SPM, calories, HR.
+    // Surrounding metrics: distance, lap, SPM, calories, cal/hr, HR, drag, target —
+    // the ErgData instrument grid. Split/500m + watts stay the hero above.
     private var metricRow: some View {
         let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
         return LazyVGrid(columns: cols, spacing: 4) {
@@ -105,12 +106,14 @@ struct ErgLiveHUD: View {
             ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
             ExpertCell(label: "SPM", value: spm.map { "\($0)" } ?? "—", unit: "")
             ExpertCell(label: "Cal", value: calories.map { "\($0)" } ?? "—", unit: "")
+            ExpertCell(label: "Cal/h", value: calPerHour.map { "\($0)" } ?? "—", unit: "")
             ExpertCell(
                 label: "HR",
                 value: session.liveHRBpm.map { "\($0)" } ?? "—",
                 unit: "bpm",
                 color: session.liveZone?.color ?? Theme.Color.foreground
             )
+            ExpertCell(label: "Drag", value: dragFactor.map { "\($0)" } ?? "—", unit: "")
             ExpertCell(label: "Tgt", value: targetString, unit: targetUnit)
         }
     }
@@ -125,6 +128,8 @@ struct ErgLiveHUD: View {
     private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }
     private var spm: Int? { pm5.isConnected ? live.strokeRate : nil }
     private var calories: Int? { pm5.isConnected ? live.caloriesKcal : nil }
+    private var calPerHour: Int? { pm5.isConnected ? live.caloriesPerHour : nil }
+    private var dragFactor: Int? { pm5.isConnected ? live.dragFactor : nil }
 
     private var distanceString: String {
         if pm5.isConnected, let d = live.distanceMeters { return "\(Int(d))" }

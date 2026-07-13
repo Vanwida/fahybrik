@@ -115,6 +115,14 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     let inclinePct: Double?
     let runCadenceSpm: Int?
 
+    // Erg detail (#33), served back from the segment's raw_lap_data_json. Optional
+    // so older payloads (and non-erg segments) decode cleanly; nil → no erg card.
+    let dragFactor: Int?
+    let avgCaloriesPerHour: Double?
+    let peakDriveForceLbs: Double?
+    let avgDriveForceLbs: Double?
+    let ergSplits: [ErgSplitActual]?
+
     // `.convertFromSnakeCase` capitalizes the digit→letter boundary, so the wire
     // key `avg_pace_s_per_500m` converts to `avgPaceSPer500M` (capital M) — which
     // did NOT match the `avgPaceSPer500m` property, silently dropping the erg's
@@ -127,6 +135,33 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
         case avgPaceSPer500m = "avgPaceSPer500M"
         case avgPaceSPerKm, avgPowerW, strokeRateSpm, avgHr, maxHr, calories
         case inclinePct, runCadenceSpm
+        case dragFactor, avgCaloriesPerHour, peakDriveForceLbs, avgDriveForceLbs, ergSplits
+    }
+}
+
+// One PM5 split/interval as served back (the ErgData interval table row). Mirrors
+// `ErgSplitDTO` iOS sent; every field optional (the two source frames may not both
+// have landed). Same digit-boundary pin as the parent for `avg_pace_s_per_500m`.
+struct ErgSplitActual: Codable, Equatable, Identifiable {
+    var id: Int { index }
+    let index: Int
+    let timeSeconds: Double?
+    let distanceMeters: Double?
+    let avgPaceSPer500m: Double?
+    let strokeRateSpm: Int?
+    let avgPowerW: Int?
+    let calories: Int?
+    let caloriesPerHour: Int?
+    let dragFactor: Int?
+    let restTimeSeconds: Double?
+    let restDistanceMeters: Double?
+    let avgHr: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case index, timeSeconds, distanceMeters
+        case avgPaceSPer500m = "avgPaceSPer500M"
+        case strokeRateSpm, avgPowerW, calories, caloriesPerHour, dragFactor
+        case restTimeSeconds, restDistanceMeters, avgHr
     }
 }
 

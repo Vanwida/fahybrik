@@ -23,6 +23,7 @@ describe('session-actuals · buildSegmentActuals · incline / cadence (#62)', ()
     calories: null,
     incline_pct: null,
     run_cadence_spm: null,
+    raw_lap_data_json: null,
     ...over,
   });
 

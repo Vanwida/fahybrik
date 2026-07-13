@@ -18,10 +18,10 @@ struct ActiveWorkoutView: View {
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
     var partnerFirstName: String? = nil
-    /// #60 — athlete age (from the cached identity) for the ESTIMATED HR zone in
-    /// the treadmill HUD (220−age). Nil when unknown → the HUD shows HR without a
-    /// zone rather than inventing one. No real HR threshold exists in the product.
-    var athleteAge: Int? = nil
+    /// The athlete's resolved max-HR source (measured FCmáx, else 220−age estimate,
+    /// else nil) — the SINGLE input for the HR zone in the treadmill / outdoor HUDs.
+    /// Nil → the HUD shows HR without a zone rather than inventing one.
+    var hrMaxSource: HRMaxSource? = nil
     /// #56 — athlete bearer, used to poll the training partner's live presence for the
     /// dobles strip. Nil (ad-hoc / no auth) → the strip never shows.
     var bearer: String? = nil
@@ -266,17 +266,33 @@ struct ActiveWorkoutView: View {
                 powerWatts: pm5.live.powerWatts,
                 strokeRate: pm5.live.strokeRate,
                 distanceMeters: pm5.live.distanceMeters,
-                caloriesKcal: pm5.live.caloriesKcal
+                caloriesKcal: pm5.live.caloriesKcal,
+                dragFactor: pm5.live.dragFactor,
+                caloriesPerHour: pm5.live.caloriesPerHour,
+                monitorAvgPaceSecPer500m: pm5.live.avgPaceSecondsPer500m,
+                peakDriveForceLbs: pm5.live.peakDriveForceLbs,
+                avgDriveForceLbs: pm5.live.avgDriveForceLbs
             )
+        }
+        .onChange(of: pm5.splits) { _, splits in
+            // Snapshot the monitor's completed splits into the current erg segment
+            // (event-driven, separate from the 1 Hz live sample above).
+            guard pm5.isConnected else { return }
+            session.captureErgSplits(splits)
+        }
+        .onChange(of: session.currentSegmentIndex) { _, _ in
+            // A new erg piece starts with a clean interval table — the PM5's split
+            // numbers can otherwise carry over between pieces in one session.
+            if session.currentSegment?.kind.isErg == true { pm5.resetSplits() }
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
-            TreadmillHUDView(session: session, athleteAge: athleteAge)
+            TreadmillHUDView(session: session, hrMaxSource: hrMaxSource)
         }
         .fullScreenCover(isPresented: $showOutdoor) {
-            OutdoorRunHUDView(session: session, athleteAge: athleteAge)
+            OutdoorRunHUDView(session: session, hrMaxSource: hrMaxSource)
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.

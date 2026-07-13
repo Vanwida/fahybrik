@@ -576,6 +576,26 @@ struct PostWorkoutSummaryView: View {
                     )
                 }
 
+                // Erg detail (#33) → wire. The backend folds drag / cal-per-hour /
+                // force / splits into raw_lap_data_json; avg_pace_s_per_500m above
+                // already carries the PM5's own average pace.
+                let ergSplitDTOs: [ErgSplitDTO]? = lap.ergSplits?.map { s in
+                    ErgSplitDTO(
+                        index: s.index,
+                        time_seconds: s.timeSeconds,
+                        distance_meters: s.distanceMeters,
+                        avg_pace_s_per_500m: s.avgPaceSecPer500m,
+                        stroke_rate_spm: s.strokeRateSpm,
+                        avg_power_w: s.avgPowerWatts,
+                        calories: s.totalCalories,
+                        calories_per_hour: s.avgCaloriesPerHour,
+                        drag_factor: s.avgDragFactor,
+                        rest_time_seconds: s.restTimeSeconds,
+                        rest_distance_meters: s.restDistanceMeters,
+                        avg_hr: s.avgHeartRateBpm
+                    )
+                }
+
                 return SegmentExecutionDTO(
                     template_segment_id: lap.templateSegmentId,
                     position: lap.position,
@@ -611,7 +631,13 @@ struct PostWorkoutSummaryView: View {
                     // Segment average incline (from the belt) / cadence (nil — no
                     // on-device source yet); the backend range-gates both (#62).
                     incline_pct: lap.inclinePct,
-                    run_cadence_spm: lap.runCadenceSpm
+                    run_cadence_spm: lap.runCadenceSpm,
+                    // Erg detail (#33).
+                    drag_factor: lap.dragFactor,
+                    avg_calories_per_hour: lap.avgCaloriesPerHour,
+                    peak_drive_force_lbs: lap.peakDriveForceLbs,
+                    avg_drive_force_lbs: lap.avgDriveForceLbs,
+                    erg_splits: ergSplitDTOs
                 )
             }
     }
@@ -679,7 +705,19 @@ struct PostWorkoutSummaryView: View {
     private var zonesStackedBar: some View {
         CardSurface(padding: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: "Zonas", size: 9)
+                HStack(spacing: 6) {
+                    LabelText(text: "Zonas", size: 9)
+                    Spacer(minLength: 6)
+                    // The FCmáx these zones were computed against — with the
+                    // "estimada" qualifier when it's the 220−age fallback.
+                    if let src = session.hrMaxSource {
+                        MonoText(
+                            text: "FC máx \(src.bpm)" + (src.isEstimated ? " · estimada" : ""),
+                            size: 9,
+                            color: Theme.Color.muted
+                        )
+                    }
+                }
                 GeometryReader { geo in
                     HStack(spacing: 0) {
                         ForEach(zoneDistribution, id: \.zone) { z in

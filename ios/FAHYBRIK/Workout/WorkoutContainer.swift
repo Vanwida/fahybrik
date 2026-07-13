@@ -42,11 +42,12 @@ struct WorkoutContainer: View {
     /// (title/modality/prescription + the engine's metrics) instead of the
     /// prescribed `/api/sync/workout-execution`. Nil = the unchanged prescribed path.
     var freeContext: FreeWorkoutContext? = nil
-    /// #60 — athlete age (from the cached identity) forwarded to the live treadmill
-    /// HUD for the ESTIMATED HR zone (220−age). Nil when unknown. Explicit param
+    /// The athlete's resolved max-HR source (from the cached identity: measured
+    /// FCmáx, else 220−age estimate, else nil) — the SINGLE input for HR zones,
+    /// threaded into the live engine and the treadmill/outdoor HUDs. Explicit param
     /// because the AppDataStore environment does not cross the fullScreenCover this
     /// container is presented inside (same reason `bearer` is passed explicitly).
-    var athleteAge: Int? = nil
+    var hrMaxSource: HRMaxSource? = nil
 
     enum Phase: Equatable {
         case brief
@@ -166,7 +167,7 @@ struct WorkoutContainer: View {
                     plan: plan,
                     detail: detail,
                     onStart: {
-                        let new = WorkoutSession(plan: plan)
+                        let new = WorkoutSession(plan: plan, hrMaxSource: hrMaxSource)
                         new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
                         session = new
                         manualEntry = false
@@ -185,7 +186,7 @@ struct WorkoutContainer: View {
                         // "Ya lo hice": skip ActiveWorkout entirely. Build a session
                         // with NO live laps and jump straight to the summary, which
                         // collects the result by hand and saves source='manual'.
-                        let new = WorkoutSession(plan: plan)
+                        let new = WorkoutSession(plan: plan, hrMaxSource: hrMaxSource)
                         session = new
                         manualEntry = true
                         Haptics.medium()
@@ -236,7 +237,7 @@ struct WorkoutContainer: View {
                             session.discardAndClose()
                             onClose()
                         },
-                        athleteAge: athleteAge,
+                        hrMaxSource: hrMaxSource,
                         bearer: bearer
                     )
                     .toolbar(.hidden, for: .tabBar)
@@ -391,7 +392,7 @@ struct WorkoutContainer: View {
         // brief + the assignment fetch and go straight to the live engine.
         if let free = freeContext {
             loadState = .ready(free.plan, nil)
-            let new = WorkoutSession(plan: free.plan)
+            let new = WorkoutSession(plan: free.plan, hrMaxSource: hrMaxSource)
             session = new
             manualEntry = false
             // Mirror the free workout to the wrist too (records HR + one HKWorkout).
@@ -452,7 +453,7 @@ struct WorkoutContainer: View {
                         crashRecoveryPrompt = nil
                     }
                     PrimaryButton(title: "Recuperar") {
-                        let recovered = WorkoutSession(plan: saved.plan, startedAt: saved.startedAt)
+                        let recovered = WorkoutSession(plan: saved.plan, hrMaxSource: hrMaxSource, startedAt: saved.startedAt)
                         recovered.assignmentId = saved.assignmentId   // AUDIT-1 — the gate ensured it matches
                         recovered.currentSegmentIndex = saved.currentSegmentIndex
                         recovered.elapsedSeconds = saved.elapsedSeconds

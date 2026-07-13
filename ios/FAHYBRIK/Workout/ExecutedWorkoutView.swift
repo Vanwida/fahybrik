@@ -119,6 +119,11 @@ struct ExecutedWorkoutView: View {
                 if let segments = perSegmentRows, !segments.isEmpty {
                     segmentsTable(segments)
                 }
+                // #33 — the PM5 interval table (ErgData-style) for each erg segment
+                // whose monitor reported splits.
+                ForEach(ergIntervalSegments) { seg in
+                    ergIntervalsCard(seg)
+                }
                 if let notes = execution?.notes, !notes.isEmpty {
                     notesCard(notes)
                 }
@@ -217,6 +222,137 @@ struct ExecutedWorkoutView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Erg interval table (#33 — ErgData-style)
+
+    // Erg segments (row / ski / bike) whose monitor reported a split table.
+    private var ergIntervalSegments: [SegmentActualDTO] {
+        (execution?.segments ?? []).filter { seg in
+            ["row", "ski", "bike"].contains(seg.modality) && (seg.ergSplits?.isEmpty == false)
+        }
+    }
+
+    private func ergIntervalsCard(_ seg: SegmentActualDTO) -> some View {
+        let splits = seg.ergSplits ?? []
+        return CardSurface(padding: 0) {
+            VStack(spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    LabelText(text: "Intervalos · \(ergTitle(seg))", size: 9)
+                    Spacer(minLength: 6)
+                    if let df = seg.dragFactor {
+                        MonoText(text: "drag \(df)", size: 10, color: Theme.Color.muted)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                Hairline()
+                ergHeaderRow
+                ForEach(splits) { s in
+                    Hairline().opacity(0.4)
+                    ergDataRow(s)
+                }
+                if let footer = ergFooterText(seg) {
+                    Hairline()
+                    HStack {
+                        Spacer(minLength: 0)
+                        MonoText(text: footer, size: 10, color: Theme.Color.muted)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                }
+            }
+        }
+    }
+
+    // Column header: #, time, distance, /500m, spm, calories — the ErgData columns.
+    private var ergHeaderRow: some View {
+        HStack(spacing: 6) {
+            ergCol("#", fixed: true, .leading)
+            ergCol("Tiempo", .trailing)
+            ergCol("Dist", .trailing)
+            ergCol("/500m", .trailing)
+            ergCol("s/m", .trailing)
+            ergCol("Cal", .trailing)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private func ergDataRow(_ s: ErgSplitActual) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                ergVal("\(s.index)", fixed: true, .leading, accent: true)
+                ergVal(s.timeSeconds.map { WorkoutSession.formatElapsed($0) } ?? "—", .trailing)
+                ergVal(s.distanceMeters.map { "\(Int($0))" } ?? "—", .trailing)
+                ergVal(s.avgPaceSPer500m.map { PrescriptionRenderer.formatPace(Int($0.rounded())) } ?? "—", .trailing)
+                ergVal(s.strokeRateSpm.map { "\($0)" } ?? "—", .trailing)
+                ergVal(s.calories.map { "\($0)" } ?? "—", .trailing)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            // Rest interval (only on interval workouts) as a quiet sub-line.
+            if let rt = s.restTimeSeconds, rt > 0 {
+                HStack(spacing: 4) {
+                    Spacer(minLength: 0)
+                    MonoText(
+                        text: "descanso \(WorkoutSession.formatElapsed(rt))" + (restDistanceLabel(s)),
+                        size: 9,
+                        color: Theme.Color.faint
+                    )
+                }
+                .padding(.horizontal, 10)
+                .padding(.bottom, 7)
+            }
+        }
+    }
+
+    private func restDistanceLabel(_ s: ErgSplitActual) -> String {
+        guard let rd = s.restDistanceMeters, rd > 0 else { return "" }
+        return " · \(Int(rd)) m"
+    }
+
+    // A narrow fixed "#" column keeps the numbers from crowding; the rest share the
+    // remaining width equally.
+    private static let ergIndexColWidth: CGFloat = 22
+
+    @ViewBuilder
+    private func ergCol(_ text: String, fixed: Bool = false, _ align: Alignment) -> some View {
+        let label = Text(text)
+            .font(.system(size: 9, weight: .heavy, design: .default))
+            .tracking(0.4)
+            .foregroundStyle(Theme.Color.faint)
+        if fixed {
+            label.frame(width: Self.ergIndexColWidth, alignment: align)
+        } else {
+            label.frame(maxWidth: .infinity, alignment: align)
+        }
+    }
+
+    @ViewBuilder
+    private func ergVal(_ text: String, fixed: Bool = false, _ align: Alignment, accent: Bool = false) -> some View {
+        let val = MonoText(text: text, size: 11, color: accent ? Theme.Color.accentText : Theme.Color.foreground)
+        if fixed {
+            val.frame(width: Self.ergIndexColWidth, alignment: align)
+        } else {
+            val.frame(maxWidth: .infinity, alignment: align)
+        }
+    }
+
+    // "Remo · 2000 m" / "Ski" — modality label plus the covered distance when known.
+    private func ergTitle(_ seg: SegmentActualDTO) -> String {
+        let label = Theme.Modality.label(seg.modality)
+        if let d = seg.distanceMeters, d > 0 { return "\(label) · \(Int(d)) m" }
+        return label
+    }
+
+    // Footer summary: average burn rate + handle force when the monitor reported them.
+    private func ergFooterText(_ seg: SegmentActualDTO) -> String? {
+        var parts: [String] = []
+        if let ch = seg.avgCaloriesPerHour, ch > 0 { parts.append("\(Int(ch)) cal/h") }
+        if let f = seg.avgDriveForceLbs, f > 0 { parts.append("fuerza \(Int(f)) lbs") }
+        if let p = seg.peakDriveForceLbs, p > 0 { parts.append("pico \(Int(p))") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     // MARK: - Notes

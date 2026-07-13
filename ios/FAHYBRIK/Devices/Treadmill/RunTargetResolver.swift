@@ -79,21 +79,7 @@ extension SegmentGoal {
     }
 }
 
-// MARK: - Estimated HR zone (no real threshold exists in the product)
-
-/// Age-based HR zone estimate. There is NO measured HR threshold anywhere in
-/// FAHYBRIK — the personalized zones are pace-based — so any HR zone shown here
-/// is an estimate from the textbook 220−age max, and MUST be labeled "estimada".
-/// Without an age there is no honest estimate: returns nil and the HUD hides the
-/// zone entirely rather than inventing one.
-enum EstimatedHRZone {
-    static func hrMax(forAge age: Int?) -> Int? {
-        guard let age, age > 0, age < 120 else { return nil }
-        return TreadmillConstants.hrMaxAgeConstant - age
-    }
-
-    static func zone(forBpm bpm: Int, age: Int?) -> HRZone? {
-        guard let hrMax = hrMax(forAge: age), hrMax > 0 else { return nil }
-        return HRZoneClassifier.zone(forBpm: bpm, hrMax: hrMax)
-    }
-}
+// The age-based HR-zone estimate used to live here (`EstimatedHRZone`). It's now
+// subsumed by the single shared `PersonalHRMax` (Theme/ZoneColors.swift), which
+// resolves the athlete's MEASURED max first and falls back to 220−age — so every
+// surface reads one source instead of this file's age-only estimate.

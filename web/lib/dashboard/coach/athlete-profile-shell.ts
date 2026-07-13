@@ -61,6 +61,8 @@ export type AthleteProfileShell = {
   edited_at: string | null;
   /** Modalidad de plan (suscripción más reciente) — null si aún no hay suscripción. */
   modality: AthleteModality | null;
+  /** Measured max HR (bpm); null = never measured. Shown read-only in the ficha (PerfilTab). */
+  max_hr_bpm: number | null;
   /** Real level name from athlete_levels.name (e.g. 'N1'–'N5'); null when not assigned. */
   level_name: string | null;
   /** sort_order from athlete_levels for ranking; 0 when null. */
@@ -101,6 +103,7 @@ export async function fetchAthleteProfileShell(params: {
       alta_by_name: string | null;
       edited_by_name: string | null;
       modality: string | null;
+      max_hr_bpm: number | null;
       partner_athlete_id: string | null;
       partner_full_name: string | null;
     }>
@@ -108,6 +111,7 @@ export async function fetchAthleteProfileShell(params: {
     select
       a.id::text,
       a.full_name,
+      a.max_hr_bpm,
       al.name as level_name,
       coalesce(al.sort_order, 0)::int as level_sort,
       ab.block_type as block_type,
@@ -201,6 +205,7 @@ export async function fetchAthleteProfileShell(params: {
     // bumped by triggers for reasons unrelated to a human edit.
     edited_at: row.edited_by_name && row.updated_at ? row.updated_at.toISOString() : null,
     modality: isAthleteModality(row.modality) ? row.modality : null,
+    max_hr_bpm: row.max_hr_bpm,
     level_name: row.level_name,
     level_sort: row.level_sort,
     partner:

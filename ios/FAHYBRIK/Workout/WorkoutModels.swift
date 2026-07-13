@@ -691,6 +691,19 @@ struct LapRecord: Codable, Identifiable {
     /// accept `run_cadence_spm`. The field exists so the wire is ready when a real
     /// on-device source lands.
     var runCadenceSpm: Int? = nil
+
+    // MARK: Erg detail (#33 — PM5 "erg completo")
+    /// Segment-average drag factor (mean of the 0x31 readings). nil off an erg or
+    /// when the monitor never reported it — never a fabricated 0.
+    var dragFactor: Int? = nil
+    /// Segment-average calorie burn RATE (mean of the 0x36 Cals/Hr readings).
+    var avgCaloriesPerHour: Double? = nil
+    /// Segment-average / peak handle drive force (lbs) — stroke-quality signal.
+    var peakDriveForceLbs: Double? = nil
+    var avgDriveForceLbs: Double? = nil
+    /// The monitor's own per-interval splits (ErgData interval table), captured
+    /// verbatim from the PM5. Empty/nil when no split boundary fired this segment.
+    var ergSplits: [PM5Split]? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -761,6 +774,39 @@ struct SegmentExecutionDTO: Codable {
     // when a belt fed the segment; cadence stays null (no on-device source yet).
     var incline_pct: Double? = nil
     var run_cadence_spm: Int? = nil
+
+    // Erg detail (#33). NO new columns: the backend folds these into the segment's
+    // `raw_lap_data_json` (alongside zone_seconds). `avg_pace_s_per_500m` above
+    // already carries the PM5's own average pace when present. Keys are explicit
+    // snake_case (encoder key strategy is a no-op) so they land in the jsonb verbatim.
+    /// Segment-average drag factor (unitless C2 units).
+    var drag_factor: Int? = nil
+    /// Segment-average calorie burn rate (Cals/Hr).
+    var avg_calories_per_hour: Double? = nil
+    /// Segment-average / peak handle drive force (lbs).
+    var peak_drive_force_lbs: Double? = nil
+    var avg_drive_force_lbs: Double? = nil
+    /// The PM5's per-interval splits (ErgData interval table).
+    var erg_splits: [ErgSplitDTO]? = nil
+}
+
+// One PM5 split/interval on the wire — the ErgData interval table row. Explicit
+// snake_case property names (encoder key strategy is a no-op) so the object lands
+// in `raw_lap_data_json.erg_splits[]` verbatim. All optional except `index`
+// because the two source frames (0x37/0x38) may not both have landed.
+struct ErgSplitDTO: Codable, Equatable {
+    let index: Int
+    let time_seconds: Double?
+    let distance_meters: Double?
+    let avg_pace_s_per_500m: Double?
+    let stroke_rate_spm: Int?
+    let avg_power_w: Int?
+    let calories: Int?
+    let calories_per_hour: Int?
+    let drag_factor: Int?
+    let rest_time_seconds: Double?
+    let rest_distance_meters: Double?
+    let avg_hr: Int?
 }
 
 // Per-set strength execution on the wire. Explicit snake_case keys (the encoder's

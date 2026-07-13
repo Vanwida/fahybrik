@@ -250,6 +250,10 @@ targets:
       - path: FAHYBRIK/Plan/AssignmentDetail.swift
       - path: FAHYBRIK/Plan/PrescriptionRenderer.swift
       - path: FAHYBRIK/Theme/ZoneColors.swift
+      # #33 — PM5Split / PM5LiveSample live here (pure Foundation, no CoreBluetooth).
+      # WorkoutModels' LapRecord and WorkoutSession's erg capture reference PM5Split,
+      # so the type must compile into the watch too (the BLE service stays app-only).
+      - path: FAHYBRIK/Devices/PM5/PM5DataParser.swift
       - path: FAHYBRIK/Workout/WorkoutModels.swift
       # #56 — the pure dobles-turn projection (rep reparto + turn derivation). Pure
       # Foundation; shared into the watch because WorkoutModels' prescribedRepsForLog

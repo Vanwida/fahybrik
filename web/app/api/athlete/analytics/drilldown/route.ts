@@ -21,6 +21,8 @@ const KNOWN_KINDS = [
   'running.zone',
   'running.best_effort',
   'ergo.split',
+  'ergo.power',
+  'ergo.calories',
   'strength.lift',
   'strength.volume',
   'strength.exercise',

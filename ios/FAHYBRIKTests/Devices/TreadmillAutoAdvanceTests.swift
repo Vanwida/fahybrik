@@ -255,7 +255,7 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
 
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {
         let src = FakeTreadmill()
-        let model = TreadmillHUDModel(session: session, athleteAge: nil, treadmill: src, hr: FakeHR())
+        let model = TreadmillHUDModel(session: session, hrMaxSource: nil, treadmill: src, hr: FakeHR())
         model.start()
         src.onLink?(.connected(name: "Test"))
         return (model, src)

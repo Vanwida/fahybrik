@@ -242,7 +242,7 @@ struct InicioView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
-                athleteAge: store.identity.value?.age,
+                hrMaxSource: store.identity.value?.hrMaxSource,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     // A finished session can flip a calibration test's state / land
@@ -1571,8 +1571,9 @@ struct InicioView: View {
     // Push TODAY to the watch — never a future day. Snapshots the home's already-
     // loaded state (session card + readiness); no duplicate network fetch (readiness
     // from the store, detail from its cache, network only on a cache miss).
-    // `athleteHrMax` is nil — the phone has no athlete-specific HRmax yet, so the
-    // watch defaults to the SAME ceiling the phone's engine uses.
+    // `athleteHrMax` carries the athlete's resolved max HR (measured FCmáx, else
+    // 220−age) so the wrist classifies zones off the SAME personal ceiling the
+    // phone does; nil when neither is known (the watch then shows HR without a zone).
     //
     // Three cases, from TODAY's sessions only:
     //   1. a pending session today → push it, not done.
@@ -1606,7 +1607,7 @@ struct InicioView: View {
                     dayKind: WatchDayKind.rest,
                     assignmentId: nil, title: nil, focus: nil,
                     estDurationMinutes: nil, intensityLabel: nil, modality: nil,
-                    athleteHrMax: nil, readiness: readiness,
+                    athleteHrMax: store.identity.value?.hrMaxSource?.bpm, readiness: readiness,
                     isDone: false, doneCompleteness: nil, isDoubles: false,
                     partnerFirstName: nil, partnerVisibility: nil, bearer: bearer
                 )
@@ -1638,7 +1639,7 @@ struct InicioView: View {
                 estDurationMinutes: session.estDurationMinutes,
                 intensityLabel: nil,
                 modality: session.modality,
-                athleteHrMax: nil,
+                athleteHrMax: store.identity.value?.hrMaxSource?.bpm,
                 readiness: readiness,
                 isDone: isDone,
                 doneCompleteness: doneCompleteness,

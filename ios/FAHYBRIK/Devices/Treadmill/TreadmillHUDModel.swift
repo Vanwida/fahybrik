@@ -55,7 +55,7 @@ final class TreadmillHUDModel {
     private(set) var measured: [String: TreadmillLegMeasurement] = [:]
 
     let session: WorkoutSession
-    let athleteAge: Int?
+    let hrMaxSource: HRMaxSource?
 
     /// The shared device layer (FTMS treadmill + BLE HR strap). The model does NOT
     /// own or start/stop the sources — it subscribes for telemetry and drives the
@@ -85,17 +85,17 @@ final class TreadmillHUDModel {
 
     private var displayTimer: Timer?
 
-    init(session: WorkoutSession, athleteAge: Int?, hub: DeviceHub) {
+    init(session: WorkoutSession, hrMaxSource: HRMaxSource?, hub: DeviceHub) {
         self.session = session
-        self.athleteAge = athleteAge
+        self.hrMaxSource = hrMaxSource
         self.hub = hub
     }
 
     /// Test seam — the auto-advance tests inject fake sources they drive directly;
     /// wrap them in a throwaway hub so they exercise the SAME ingest path as prod.
-    convenience init(session: WorkoutSession, athleteAge: Int?,
+    convenience init(session: WorkoutSession, hrMaxSource: HRMaxSource?,
                      treadmill: TreadmillDataSource, hr: HeartRateSource) {
-        self.init(session: session, athleteAge: athleteAge,
+        self.init(session: session, hrMaxSource: hrMaxSource,
                   hub: DeviceHub(treadmill: treadmill, hr: hr))
     }
 
@@ -209,13 +209,15 @@ final class TreadmillHUDModel {
         return hrLink
     }
 
-    /// Estimated zone (220−age). Nil without an age or HR — the HUD then hides the
-    /// zone rather than inventing one. Always shown as "estimada".
+    /// HR zone from the athlete's resolved max (measured or 220−age). Nil without a
+    /// max or HR — the HUD then hides the zone rather than inventing one.
     var liveZone: HRZone? {
         guard let bpm = currentBpm else { return nil }
-        return EstimatedHRZone.zone(forBpm: bpm, age: athleteAge)
+        return PersonalHRMax.zone(forBpm: bpm, source: hrMaxSource)
     }
-    var zoneIsEstimated: Bool { true }
+    /// True only when the zone comes from the 220−age estimate (label "estimada");
+    /// false when it's the athlete's own measured max.
+    var zoneIsEstimated: Bool { hrMaxSource?.isEstimated ?? false }
 
     /// Hero judgment: pace targets judge on pace, zone targets on HR zone,
     /// recovery / no-target has nothing to judge.

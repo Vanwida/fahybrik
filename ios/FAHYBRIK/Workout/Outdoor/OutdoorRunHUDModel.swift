@@ -18,7 +18,7 @@ import CoreLocation
 @Observable
 final class OutdoorRunHUDModel {
     let session: WorkoutSession
-    let athleteAge: Int?
+    let hrMaxSource: HRMaxSource?
 
     // Live values the view renders (observed).
     private(set) var coordinates: [CLLocationCoordinate2D] = []
@@ -43,9 +43,9 @@ final class OutdoorRunHUDModel {
     private static let tickSeconds: TimeInterval = 0.5
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
-    init(session: WorkoutSession, athleteAge: Int?, gps: RunLocationProvider = RunLocationProvider()) {
+    init(session: WorkoutSession, hrMaxSource: HRMaxSource?, gps: RunLocationProvider = RunLocationProvider()) {
         self.session = session
-        self.athleteAge = athleteAge
+        self.hrMaxSource = hrMaxSource
         self.gps = gps
     }
 
@@ -154,7 +154,9 @@ final class OutdoorRunHUDModel {
     /// Total covered distance of the current run segment (the "km" readout).
     var coveredMeters: Double { session.liveRunDistanceMeters ?? 0 }
     var currentBpm: Int? { session.liveHRBpm }
-    var liveZone: HRZone? { currentBpm.flatMap { EstimatedHRZone.zone(forBpm: $0, age: athleteAge) } }
+    // The outdoor HUD only tints the pulse by zone (no zone label), so it needs the
+    // classification but not the estimated flag.
+    var liveZone: HRZone? { currentBpm.flatMap { PersonalHRMax.zone(forBpm: $0, source: hrMaxSource) } }
     var isAutoPaused: Bool { session.isPaused && session.autoPaused }
 
     // MARK: - Tick

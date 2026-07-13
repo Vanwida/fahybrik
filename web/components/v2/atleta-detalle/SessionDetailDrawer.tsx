@@ -31,6 +31,7 @@ import type {
 } from '@/lib/athlete/assignment-detail';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import type { ErgSplitItem } from '@/lib/execution/erg-splits';
 
 // ── pace m:ss (s → "4:15"); seconds always zero-padded. ─────────────────────
 function paceClock(seconds: number): string {
@@ -146,6 +147,74 @@ function ComplianceSummaryTile({ summary }: { summary: RunComplianceSummary }) {
       ) : (
         <MIcon name="do_not_disturb_on" size={20} className="shrink-0 text-[color:var(--v2-faint)]" />
       )}
+    </div>
+  );
+}
+
+// A per-split cell: format when the metric landed, an em dash otherwise (the two
+// PM5 frames don't always both arrive — never a fabricated 0).
+function cell(v: number | null | undefined, fmt: (n: number) => string): string {
+  return v != null ? fmt(v) : '—';
+}
+
+// Per-interval PM5 breakdown (row/ski/bike). Rendered only when the segment carried
+// erg splits (see erg-splits.ts) — the ErgData interval table, one row per interval.
+// The segment-level drag factor / cal·h⁻¹ head the table.
+function SplitsTable({
+  splits,
+  dragFactor,
+  calPerHour,
+}: {
+  splits: ErgSplitItem[];
+  dragFactor: number | null;
+  calPerHour: number | null;
+}) {
+  const hasRest = splits.some((s) => s.rest_time_seconds != null);
+  const meta = [
+    dragFactor != null ? `Drag ${round(dragFactor)}` : null,
+    calPerHour != null ? `${round(calPerHour)} cal/h` : null,
+  ].filter(Boolean);
+  return (
+    <div className="mt-0.5 overflow-x-auto rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
+      {meta.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--v2-border)] px-2.5 py-1.5">
+          {meta.map((m) => (
+            <span key={m} className="v2-num text-[11px] text-[color:var(--v2-muted)]">
+              {m}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <table className="w-full border-collapse text-[11px]">
+        <thead>
+          <tr className="text-[color:var(--v2-faint)]">
+            <th className="px-2.5 py-1 text-left font-medium">#</th>
+            <th className="px-2 py-1 text-right font-medium">Tiempo</th>
+            <th className="px-2 py-1 text-right font-medium">m</th>
+            <th className="px-2 py-1 text-right font-medium">/500m</th>
+            <th className="px-2 py-1 text-right font-medium">spm</th>
+            <th className="px-2 py-1 text-right font-medium">W</th>
+            {hasRest ? <th className="px-2.5 py-1 text-right font-medium">Desc.</th> : null}
+          </tr>
+        </thead>
+        <tbody className="v2-num text-[color:var(--v2-fg)]">
+          {splits.map((s) => (
+            <tr key={s.index} className="border-t border-[color:var(--v2-border)]">
+              <td className="px-2.5 py-1 text-left text-[color:var(--v2-muted)]">{s.index + 1}</td>
+              <td className="px-2 py-1 text-right">{cell(s.time_seconds, paceClock)}</td>
+              <td className="px-2 py-1 text-right">{cell(s.distance_meters, (n) => round(n))}</td>
+              <td className="px-2 py-1 text-right">{cell(s.avg_pace_s_per_500m, paceClock)}</td>
+              <td className="px-2 py-1 text-right">{cell(s.stroke_rate_spm, (n) => round(n))}</td>
+              <td className="px-2 py-1 text-right">{cell(s.avg_power_w, (n) => round(n))}</td>
+              {hasRest ? (
+                <td className="px-2.5 py-1 text-right text-[color:var(--v2-muted)]">
+                  {cell(s.rest_time_seconds, paceClock)}
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -356,18 +425,27 @@ export function SessionDetailDrawer({
                                 const tokens = actualTokens(a);
                                 const verdict = verdictByLap.get(`${item.uid}#${a.position}`);
                                 return (
-                                  <div key={a.position} className="flex flex-wrap items-center gap-2">
-                                    <span className="v2-micro shrink-0 w-[58px] text-[color:var(--v2-ok)]">
-                                      Hecho
-                                    </span>
-                                    {tokens.length > 0 ? (
-                                      <HechoChips tokens={tokens} />
-                                    ) : (
-                                      <span className="v2-num text-xs text-[color:var(--v2-muted)]">
-                                        registrado sin métricas
+                                  <div key={a.position} className="flex flex-col gap-1.5">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="v2-micro shrink-0 w-[58px] text-[color:var(--v2-ok)]">
+                                        Hecho
                                       </span>
-                                    )}
-                                    {verdict ? <VerdictPill verdict={verdict} /> : null}
+                                      {tokens.length > 0 ? (
+                                        <HechoChips tokens={tokens} />
+                                      ) : (
+                                        <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+                                          registrado sin métricas
+                                        </span>
+                                      )}
+                                      {verdict ? <VerdictPill verdict={verdict} /> : null}
+                                    </div>
+                                    {a.erg_splits && a.erg_splits.length > 0 ? (
+                                      <SplitsTable
+                                        splits={a.erg_splits}
+                                        dragFactor={a.drag_factor}
+                                        calPerHour={a.avg_calories_per_hour}
+                                      />
+                                    ) : null}
                                   </div>
                                 );
                               })
@@ -397,10 +475,19 @@ export function SessionDetailDrawer({
                     {unmatched.map((a) => (
                       <div
                         key={a.position}
-                        className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2"
+                        className="flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2"
                       >
-                        <span className="v2-micro shrink-0 capitalize">{a.modality}</span>
-                        <HechoChips tokens={actualTokens(a)} />
+                        <div className="flex items-center gap-2">
+                          <span className="v2-micro shrink-0 capitalize">{a.modality}</span>
+                          <HechoChips tokens={actualTokens(a)} />
+                        </div>
+                        {a.erg_splits && a.erg_splits.length > 0 ? (
+                          <SplitsTable
+                            splits={a.erg_splits}
+                            dragFactor={a.drag_factor}
+                            calPerHour={a.avg_calories_per_hour}
+                          />
+                        ) : null}
                       </div>
                     ))}
                   </div>

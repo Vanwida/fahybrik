@@ -20,9 +20,6 @@ final class WatchWorkoutCoordinator {
 
     enum Phase: Equatable { case idle, active, finished }
 
-    /// Fallback max HR when the phone didn't send the athlete's — drives zone color
-    /// only, never a recorded value.
-    private static let defaultHRMax = 190
     /// A crash snapshot older than this is stale: we never offer to resume a workout
     /// from an earlier training session (or the previous day). Comfortably longer
     /// than any single session, short enough to exclude yesterday's leftovers.
@@ -109,6 +106,14 @@ final class WatchWorkoutCoordinator {
     /// the UI lands on the block preview (the athlete taps "Empezar bloque" to run).
     /// Only a SESSION day starts — a rest day never reaches here (its brief has no
     /// button), and the guard makes that structural (the DEBUG autostart seam too).
+    /// Build the engine's HR-max source from the pushed payload. The wire carries
+    /// only the resolved bpm (the phone already picked measured-vs-estimate); the
+    /// wrist never labels "estimada", so the flag is irrelevant here. Nil bpm → no
+    /// zones (the wrist shows HR without a zone, never a fabricated ceiling).
+    private static func hrMaxSource(from payload: WatchTodayPayload) -> HRMaxSource? {
+        payload.athleteHrMax.map { HRMaxSource(bpm: $0, isEstimated: false) }
+    }
+
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
         // Symmetric guard with MirrorSessionController.start (which yields to a live
         // standalone session): a mirror recording driven by the phone must equally
@@ -117,7 +122,7 @@ final class WatchWorkoutCoordinator {
               payload.dayKind == WatchDayKind.session else { return }
         let engine = WorkoutSession(
             plan: runnablePlan(payload: payload, detail: detail),
-            athleteHRMax: payload.athleteHrMax ?? Self.defaultHRMax
+            hrMaxSource: Self.hrMaxSource(from: payload)
         )
         launch(engine: engine, payload: payload)
     }
@@ -133,7 +138,7 @@ final class WatchWorkoutCoordinator {
         guard phase == .idle, MirrorSessionController.shared.state == .idle else { return }
         let engine = WorkoutSession(
             plan: snapshot.plan,
-            athleteHRMax: payload.athleteHrMax ?? Self.defaultHRMax,
+            hrMaxSource: Self.hrMaxSource(from: payload),
             startedAt: snapshot.startedAt
         )
         engine.currentSegmentIndex = snapshot.currentSegmentIndex
