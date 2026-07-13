@@ -20,6 +20,7 @@
 
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
+import { parseErgSplits, type ErgSplits } from '@/lib/dashboard/coach/erg-splits';
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
@@ -44,6 +45,10 @@ export interface SegmentActual {
    * source (treadmill / wearable) reported none — never fabricated. */
   incline_pct: number | null;
   run_cadence_spm: number | null;
+  /** Per-interval PM5 breakdown parsed out of `raw_lap_data_json`, when the
+   * capture carried a well-formed splits array; null otherwise (tolerant read —
+   * see `erg-splits.ts`). Only erg segments ever populate this. */
+  splits: ErgSplits | null;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
@@ -66,6 +71,7 @@ export interface SegmentActualRow {
   calories: string | number | null;
   incline_pct: string | number | null;   // numeric(4,1) → string from pg
   run_cadence_spm: number | null;         // integer
+  raw_lap_data_json: unknown;             // jsonb → parsed value (or null)
 }
 
 const MODALITY_SET = new Set<string>(SEGMENT_MODALITIES);
@@ -108,6 +114,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     calories: num(r.calories),
     incline_pct: num(r.incline_pct),
     run_cadence_spm: r.run_cadence_spm ?? null,
+    splits: parseErgSplits(r.raw_lap_data_json),
   }));
 }
 
@@ -131,7 +138,8 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       max_hr                    as max_hr,
       calories                  as calories,
       incline_pct               as incline_pct,
-      run_cadence_spm           as run_cadence_spm
+      run_cadence_spm           as run_cadence_spm,
+      raw_lap_data_json         as raw_lap_data_json
     from segment_executions
     where execution_id = ${executionId}
     order by position asc, id asc

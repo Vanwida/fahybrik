@@ -16,7 +16,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type { DrillDownResult, ResolvedPeriod } from './core';
 import { runningDrill, bestEffortDrill } from './drills/running';
-import { ergoDrill } from './drills/ergo';
+import { ergoDrill, ergoPowerDrill, ergoCaloriesDrill } from './drills/ergo';
 import { strengthDrill, strengthVolumeDrill, strengthExerciseDrill } from './drills/strength';
 import { hyroxRaceDrill, hyroxScoresDrill, hyroxTransferDrill } from './drills/hyrox';
 import { recoveryDrill } from './drills/recovery';
@@ -37,6 +37,10 @@ export async function buildDrillDown(
       return bestEffortDrill(client, athleteId, params, period);
     case 'ergo.split':
       return ergoDrill(client, athleteId, params, period);
+    case 'ergo.power':
+      return ergoPowerDrill(client, athleteId, params, period);
+    case 'ergo.calories':
+      return ergoCaloriesDrill(client, athleteId, params, period);
     case 'strength.lift':
       return strengthDrill(client, athleteId, params, period);
     case 'strength.volume':
