@@ -33,10 +33,13 @@ struct MirrorHUDView: View {
                 countInContent
             } else {
                 // #56 — a HYROX dobles station renders the TURN hero (whose station +
-                // the rep reparto) in place of the generic work line; individual work
-                // keeps the standard active glance.
+                // the rep reparto) in place of the generic work line; a live treadmill
+                // distance run renders the belt ring (covered/target + pace); individual
+                // work keeps the standard active glance.
                 if let dobles = frame?.dobles {
                     doblesContent(dobles)
+                } else if let covered = frame?.beltDistanceM {
+                    treadmillContent(covered: covered, target: frame?.beltTargetM)
                 } else {
                     activeContent
                 }
@@ -201,6 +204,63 @@ struct MirrorHUDView: View {
         default:   // mine
             return d.selfReps.map { "Completa · \($0) reps" } ?? "Estación completa"
         }
+    }
+
+    // MARK: - Treadmill belt (indoor run)
+    //
+    // The wrist glance for a live treadmill DISTANCE run: a progress bar filling with the
+    // covered belt meters (a distance leg has no countdown to tick), the covered pace and
+    // the zone — the SAME readouts the phone HUD shows. Every value is frame-pushed (the
+    // wrist can't derive belt distance locally), so nothing ticks between frames; the
+    // phone resends as the meters accrue. Same status/HR/advance idiom as activeContent.
+    private func treadmillContent(covered: Double, target: Double?) -> some View {
+        LiveScaffold(status: frame?.blockTitle) {
+            VStack(spacing: 6) {
+                if let line = frame?.lineTitle {
+                    Text(line)
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundStyle(WatchTheme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                GiantNumber(text: beltPaceText, size: 46, unit: "/km")
+                beltProgressBar(fraction: beltFraction(covered: covered, target: target))
+                WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
+                hrZoneRow
+            }
+        } bottom: {
+            advanceButton
+        }
+    }
+
+    private var beltPaceText: String {
+        frame?.beltPaceSecPerKm.map(WatchFormat.pace) ?? "—:—"
+    }
+
+    private func beltFraction(covered: Double, target: Double?) -> Double {
+        guard let target, target > 0 else { return 0 }
+        return min(1, max(0, covered / target))
+    }
+
+    private func beltDistanceLabel(covered: Double, target: Double?) -> String {
+        guard let target, target > 0 else { return beltDistance(covered, km: covered >= 1000) }
+        let km = target >= 1000                              // format both by the target's scale
+        return "\(beltDistance(covered, km: km)) / \(beltDistance(target, km: km))"
+    }
+
+    private func beltDistance(_ meters: Double, km: Bool) -> String {
+        km ? String(format: "%.2f km", meters / 1000) : "\(Int(meters.rounded())) m"
+    }
+
+    private func beltProgressBar(fraction: Double) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(WatchTheme.surfaceRaised)
+                Capsule().fill(WatchTheme.orange)
+                    .frame(width: max(0, geo.size.width * min(1, max(0, fraction))))
+            }
+        }
+        .frame(height: 8)
     }
 
     // MARK: - HR + zone bar (mirrors ContinuousLiveView)

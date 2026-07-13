@@ -71,6 +71,10 @@ final class TreadmillHUDModel {
 
     // Distance derivation + running averages for the measurement snapshot.
     private var distanceBaselineM: Double?
+    // Set on a cover REOPEN (see rehydrateContinuousLegFromSession): the meters this
+    // leg already covered, used to re-anchor the odometer baseline on the first sample
+    // (baseline = reading − alreadyCovered) so the ring resumes there, not at zero.
+    private var pendingRehydratedLegDistanceM: Double?
     private var lastSampleAt: Date?
     private var speedSum = 0.0
     private var speedCount = 0
@@ -100,6 +104,7 @@ final class TreadmillHUDModel {
     func start() {
         activeLegKey = legKey()
         resetLegState()
+        rehydrateContinuousLegFromSession()   // resume a reopened continuous run's covered distance
         // Consume the shared hub's telemetry (the belt/strap may already be
         // connected from the brief). Subscribing — not owning the sources — is what
         // lets the connection survive this HUD being dismissed and re-opened.
@@ -304,17 +309,44 @@ final class TreadmillHUDModel {
 
     private func updateLegDistance(from sample: TreadmillSample) {
         guard !paused else { lastSampleAt = sample.lastUpdate; return }
+        let before = legDistanceM
         if let total = sample.totalDistanceM {
             // Prefer the machine's odometer, zeroed at this leg's first sample so
             // any overshoot from a prior leg is discarded (each leg counts from the
-            // reading at which it opens).
-            if distanceBaselineM == nil { distanceBaselineM = total }
+            // reading at which it opens). On a cover REOPEN the leg already covered
+            // `pendingRehydratedLegDistanceM`; anchor the baseline below that reading
+            // so the ring resumes there, not at zero.
+            if distanceBaselineM == nil {
+                distanceBaselineM = total - (pendingRehydratedLegDistanceM ?? 0)
+                pendingRehydratedLegDistanceM = nil
+            }
             legDistanceM = max(legDistanceM, total - (distanceBaselineM ?? total))
         } else if let kmh = sample.speedKmh {
             let dt = lastSampleAt.map { sample.lastUpdate.timeIntervalSince($0) } ?? 0
             legDistanceM = TreadmillMath.advanceDistance(legDistanceM, speedKmh: kmh, dt: min(dt, 5))
         }
         lastSampleAt = sample.lastUpdate
+        // Feed the SESSION the covered-meters INCREMENT — the segment total lives there
+        // (summed across all legs), which is what PERSISTS the distance and drives the
+        // wrist mirror's belt ring. A rehydrated first sample yields inc 0 (the leg was
+        // seeded to `before`), so a reopen never double-counts.
+        let inc = legDistanceM - before
+        if inc > 0 { session.sampleTreadmillDistance(deltaMeters: inc) }
+    }
+
+    /// On a REOPEN of the treadmill cover mid-run this model is fresh (legDistanceM 0)
+    /// while the SESSION already holds the belt distance covered this segment. For a
+    /// CONTINUOUS run (the segment IS the leg) restore the ring / auto-advance progress
+    /// so re-opening never drops the tramo to zero; the odometer baseline is re-anchored
+    /// on the first sample (baseline = reading − alreadyCovered). A structured / series
+    /// leg can't be restored from the segment total (it mixes prior bouts), so it
+    /// resumes at zero — the SEGMENT total is still persisted correctly.
+    private func rehydrateContinuousLegFromSession() {
+        guard !isStructured, !isSeries else { return }
+        let already = session.lapBeltDistanceMeters
+        guard already > 0 else { return }
+        legDistanceM = already
+        pendingRehydratedLegDistanceM = already
     }
 
     private func accumulateAverages(from sample: TreadmillSample) {

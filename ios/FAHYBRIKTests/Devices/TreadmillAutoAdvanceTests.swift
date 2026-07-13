@@ -167,6 +167,90 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         m.teardown()
     }
 
+    // MARK: - Belt distance PERSISTS to the closed lap (+ pace + provenance)
+
+    func testBeltDistancePersistsToClosedLapWithPaceAndSource() {
+        let s = continuousSession([800, 400, 1000])
+        let (m, src) = makeModel(s)
+        s.lapElapsedSeconds = 240                        // 4:00 over the segment → a real covered pace
+
+        src.emit(100)                                    // baseline 100
+        src.emit(500)                                    // covered 400 (fed as increments)
+        src.emit(912)                                    // covered 812 ≥ 800 → auto-close lap 0
+        XCTAssertEqual(s.currentSegmentIndex, 1)
+
+        let lap = s.laps.first
+        XCTAssertEqual(lap?.distanceCoveredMeters ?? 0, 812, accuracy: 0.5)   // WAS nil before this fix
+        XCTAssertEqual(lap?.source, "treadmill")                              // honest belt provenance
+        XCTAssertNotNil(lap?.avgPaceSecPerKm)                                 // derived from belt distance
+        m.teardown()
+    }
+
+    // MARK: - Precedence: the belt beats a stray GPS/manual distance on close
+
+    func testBeltDistanceBeatsGpsOnClose() {
+        let s = continuousSession([800])
+        let (m, src) = makeModel(s)
+        s.sampleRunGPS(deltaMeters: 300)                 // a stray phone-GPS reading
+        src.emit(100); src.emit(950)                     // belt covered 850 ≥ 800 → close
+        let lap = s.laps.first
+        XCTAssertEqual(lap?.distanceCoveredMeters ?? 0, 850, accuracy: 0.5)   // belt, not the 300 GPS
+        XCTAssertEqual(lap?.source, "treadmill")
+        m.teardown()
+    }
+
+    // MARK: - Pause freezes the SESSION accumulator (not just the HUD's leg counter)
+
+    func testPauseFreezesBeltAccumulator() {
+        let s = continuousSession([800, 400, 1000])
+        let (m, src) = makeModel(s)
+        src.emit(100); src.emit(300)                     // covered 200 fed to the session
+        XCTAssertEqual(s.lapBeltDistanceMeters, 200, accuracy: 0.001)
+        m.togglePause()
+        src.emit(900)                                    // paused → nothing feeds
+        XCTAssertEqual(s.lapBeltDistanceMeters, 200, accuracy: 0.001)
+        m.teardown()
+    }
+
+    // MARK: - Reopen mid-run rehydrates a CONTINUOUS leg from the session (no reset to 0)
+
+    func testReopenRehydratesContinuousLegFromSession() {
+        let s = continuousSession([2000])                // one long continuous leg
+        let (m1, src1) = makeModel(s)
+        src1.emit(100); src1.emit(600)                   // covered 500
+        XCTAssertEqual(m1.legDistanceM, 500, accuracy: 0.001)
+        XCTAssertEqual(s.lapBeltDistanceMeters, 500, accuracy: 0.001)
+        m1.teardown()                                    // cover dismissed (belt stays connected)
+
+        // Reopen: a fresh model over the SAME session — start() rehydrates the tramo.
+        let (m2, src2) = makeModel(s)
+        XCTAssertEqual(m2.legDistanceM, 500, accuracy: 0.001)   // resumed, not dropped to 0
+
+        src2.emit(9000)                                  // odometer jumps → baseline anchors below 500
+        XCTAssertEqual(m2.legDistanceM, 500, accuracy: 0.001)   // first sample adds nothing (no double count)
+        XCTAssertEqual(s.lapBeltDistanceMeters, 500, accuracy: 0.001)
+        src2.emit(9200)                                  // +200 covered
+        XCTAssertEqual(m2.legDistanceM, 700, accuracy: 0.001)
+        XCTAssertEqual(s.lapBeltDistanceMeters, 700, accuracy: 0.001)
+        m2.teardown()
+    }
+
+    // MARK: - A SERIES leg does NOT rehydrate (segment total mixes bouts) — but persists
+
+    func testSeriesReopenDoesNotRehydrateButKeepsSegmentTotal() {
+        let s = seriesSession(rounds: 4, distanceM: 400, restS: 60)
+        s.primaryAdvance()                               // skip the 3-2-1 → work bout 0
+        let (m1, src1) = makeModel(s)
+        src1.emit(50); src1.emit(250)                    // covered 200 in bout 0
+        XCTAssertEqual(s.lapBeltDistanceMeters, 200, accuracy: 0.001)
+        m1.teardown()
+
+        let (m2, _) = makeModel(s)                       // reopen mid-bout
+        XCTAssertEqual(m2.legDistanceM, 0, accuracy: 0.001)          // the bout is NOT rehydrated
+        XCTAssertEqual(s.lapBeltDistanceMeters, 200, accuracy: 0.001) // the segment total is intact
+        m2.teardown()
+    }
+
     // MARK: - Fixtures
 
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {
