@@ -400,6 +400,7 @@ export async function loadAthleteDetalle(params: {
     header,
     stats: buildStats(resumen, body),
     classification: safeClassification,
+    max_hr_bpm: shell.max_hr_bpm,
     training_days: trainingDays,
     resumen,
     plan,

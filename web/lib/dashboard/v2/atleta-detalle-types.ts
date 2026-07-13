@@ -231,6 +231,8 @@ export interface V2AthleteDetalle {
   stats: DetalleStat[];
   /** Nivel + días/semana — the assignment classification (Perfil tab). */
   classification: ClasificacionData;
+  /** Measured max HR (bpm); null = never measured. Read-only on the Perfil tab. */
+  max_hr_bpm: number | null;
   /** Días de entreno reales (#47) — the athlete's own declared weekly pattern.
    *  Always visible in the ficha header zone, independent of the active tab. */
   training_days: TrainingDaysData;
@@ -314,6 +316,8 @@ export interface PerfilTabData {
   profile_version: number | null;
   /** Strength maxes (1RM per lift + history) for the Fuerza · 1RM section. */
   strength_maxes: StrengthMaxView[];
+  /** Measured max HR (bpm); null = never measured → the row is omitted (honest-null). */
+  max_hr_bpm: number | null;
 }
 
 const SECONDS_PER_MINUTE = 60;
@@ -429,6 +433,7 @@ export function buildPerfilTab(
   benchmarks: BenchmarkSeries[] = [],
   zone_profiles: AthleteZoneProfile[] = [],
   strength_maxes: StrengthMaxView[] = [],
+  max_hr_bpm: number | null = null,
 ): PerfilTabData {
   const benchBySlug = new Map(benchmarks.map((b) => [b.exercise_slug, b]));
 
@@ -468,10 +473,15 @@ export function buildPerfilTab(
   const profile_version =
     zone_profiles.length > 0 ? Math.max(...zone_profiles.map((p) => p.version)) : null;
 
-  return { reference_tests, objective_groups, profile_version, strength_maxes };
+  return { reference_tests, objective_groups, profile_version, strength_maxes, max_hr_bpm };
 }
 
 /** Selector convenience — builds the Perfil tab from the loaded detalle payload. */
 export function selectPerfilTab(detalle: V2AthleteDetalle): PerfilTabData {
-  return buildPerfilTab(detalle.benchmarks ?? [], detalle.zone_profiles, detalle.strength_maxes ?? []);
+  return buildPerfilTab(
+    detalle.benchmarks ?? [],
+    detalle.zone_profiles,
+    detalle.strength_maxes ?? [],
+    detalle.max_hr_bpm,
+  );
 }

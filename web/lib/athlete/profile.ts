@@ -19,6 +19,9 @@ export interface AthleteProfileDTO {
   height_cm: number | null;
   weight_kg: number | null;
   body_fat_pct: number | null;
+  // Measured max HR (bpm). null = never measured → the app falls back to an
+  // age-estimated max. Persisted by PATCH /api/athlete/profile.
+  max_hr_bpm: number | null;
   training_experience_years: number | null;
   primary_discipline: string | null;
   training_days_per_week: number | null;
@@ -43,6 +46,8 @@ interface AthleteRow {
   height_cm: string | null;
   weight_kg: string | null;
   body_fat_pct: string | null;
+  // int column → postgres.js returns a JS number (no ::text cast, like training_days_per_week).
+  max_hr_bpm: number | null;
   training_experience_years: string | null;
   primary_discipline: string | null;
   training_days_per_week: number | null;
@@ -73,6 +78,7 @@ function rowToDTO(row: AthleteRow): AthleteProfileDTO {
     height_cm: toNumber(row.height_cm),
     weight_kg: toNumber(row.weight_kg),
     body_fat_pct: toNumber(row.body_fat_pct),
+    max_hr_bpm: row.max_hr_bpm,
     training_experience_years: toNumber(row.training_experience_years),
     primary_discipline: row.primary_discipline,
     training_days_per_week: row.training_days_per_week,
@@ -106,6 +112,7 @@ export async function loadAthleteProfileByUserId(
       a.height_cm::text,
       a.weight_kg::text,
       a.body_fat_pct::text,
+      a.max_hr_bpm,
       a.training_experience_years::text,
       a.primary_discipline,
       a.training_days_per_week,
@@ -144,6 +151,7 @@ export async function loadAthleteProfileById(
       a.height_cm::text,
       a.weight_kg::text,
       a.body_fat_pct::text,
+      a.max_hr_bpm,
       a.training_experience_years::text,
       a.primary_discipline,
       a.training_days_per_week,
