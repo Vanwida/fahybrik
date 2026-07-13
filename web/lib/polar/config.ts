@@ -1,9 +1,8 @@
 // Polar AccessLink (OAuth 2.0) endpoint config + env-gating helpers.
 //
-// Production credentials are gated on Polar developer-program registration
-// (admin.polaraccesslink.com). Until the env vars are provisioned, /api/polar/*
-// endpoints return 503 with a clear message rather than a 500 — mirrors
-// lib/coros/config.ts corosGatedResponse.
+// Production credentials are gated on a Polar v4 developer-program app. Until the
+// env vars are provisioned, /api/polar/* endpoints return 503 with a clear message
+// rather than a 500 — mirrors lib/coros/config.ts corosGatedResponse.
 //
 // GROUND TRUTH. Our Polar developer client is a v4 "AccessLink Dynamic API" app
 // (confirmed empirically: the v4 token endpoint at auth.polar.com authenticates
