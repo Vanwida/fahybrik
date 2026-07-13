@@ -69,13 +69,18 @@ extension PM5ConnectionState {
     /// Map the Concept2 erg's own state onto the same `DeviceLink` the treadmill /
     /// HR chips use, so `DeviceChip` renders all three identically. The connected
     /// name is filled by the caller (it holds `connectedDeviceName`).
+    ///
+    /// NOTE: `.disconnecting` maps to `.idle`, NOT `.reconnecting`. The athlete asked
+    /// to disconnect — showing "reconectando" (a busy state) made a clean disconnect
+    /// look permanently stuck. `.idle` reads as "conectar", the honest intent, and the
+    /// service force-settles to idle within a timeout regardless.
     var deviceLink: DeviceLink {
         switch self {
         case .idle:                        return .idle
         case .scanning:                    return .scanning
         case .connecting, .discoveringServices: return .connecting
-        case .streaming:                   return .connected(name: "PM5")
-        case .disconnecting:               return .reconnecting
+        case .streaming:                   return .connected(name: "Remo")
+        case .disconnecting:               return .idle
         case .failed(let msg):             return .failed(msg)
         }
     }

@@ -16,6 +16,20 @@ enum TreadmillGATT {
     static let heartRateMeasurement = CBUUID(string: "2A37")
 }
 
+// Bridge CoreBluetooth's radio state onto the pure, testable `BluetoothAvailability`
+// so `DeviceConnection.swift` stays free of CoreBluetooth (and unit-testable).
+extension BluetoothAvailability {
+    init(_ state: CBManagerState) {
+        switch state {
+        case .poweredOn:    self = .poweredOn
+        case .poweredOff:   self = .poweredOff
+        case .unauthorized: self = .unauthorized
+        case .unsupported:  self = .unsupported
+        default:            self = .unknown
+        }
+    }
+}
+
 enum TreadmillConstants {
     /// Below this belt speed the treadmill is effectively stopped: pace is
     /// undefined (a divide-by-zero) and must render as "—", never a huge number.

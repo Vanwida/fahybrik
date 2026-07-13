@@ -48,22 +48,15 @@ enum DeviceLink: Equatable {
     var deviceName: String? { if case let .connected(name) = self { return name }; return nil }
 }
 
-/// Live treadmill telemetry for the HUD.
-protocol TreadmillDataSource: AnyObject {
+/// Live treadmill telemetry for the HUD. The CONNECTION concern (scan → list → pick
+/// → disconnect) is the shared `ConnectableSource`; this only adds the belt's data
+/// callback. `diagnosticsText()` is declared on `ConnectableSource`.
+protocol TreadmillDataSource: ConnectableSource {
     var onSample: ((TreadmillSample) -> Void)? { get set }
-    var onLink: ((DeviceLink) -> Void)? { get set }
-    func start()
-    func stop()
-    /// A shareable dump of what this device advertised / discovered — the
-    /// first-connection tool for identifying a non-standard treadmill.
-    func diagnosticsText() -> String?
 }
 
-/// Live heart rate for the HUD (chest strap / watch / band over standard BLE).
-protocol HeartRateSource: AnyObject {
+/// Live heart rate for the HUD (chest strap / watch / band over standard BLE). Adds
+/// only the bpm data callback on top of the shared connection seam.
+protocol HeartRateSource: ConnectableSource {
     var onBpm: ((Int) -> Void)? { get set }
-    var onLink: ((DeviceLink) -> Void)? { get set }
-    func start()
-    func stop()
-    func diagnosticsText() -> String?
 }

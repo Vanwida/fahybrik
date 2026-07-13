@@ -13,7 +13,12 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
     final class FakeTreadmill: TreadmillDataSource {
         var onSample: ((TreadmillSample) -> Void)?
         var onLink: ((DeviceLink) -> Void)?
-        func start() {}
+        var onDiscovered: (([DeviceCandidate]) -> Void)?
+        var onBluetooth: ((BluetoothAvailability) -> Void)?
+        func startScan() {}
+        func connect(_ id: DeviceID) {}
+        func connectRemembered(_ id: DeviceID) {}
+        func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
         /// Push one odometer reading through the model.
@@ -26,7 +31,12 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
     final class FakeHR: HeartRateSource {
         var onBpm: ((Int) -> Void)?
         var onLink: ((DeviceLink) -> Void)?
-        func start() {}
+        var onDiscovered: (([DeviceCandidate]) -> Void)?
+        var onBluetooth: ((BluetoothAvailability) -> Void)?
+        func startScan() {}
+        func connect(_ id: DeviceID) {}
+        func connectRemembered(_ id: DeviceID) {}
+        func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
     }
