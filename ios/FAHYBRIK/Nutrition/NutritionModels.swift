@@ -141,6 +141,13 @@ struct NutritionDayResponse: Decodable {
     let totals: MacroTotals
 }
 
+// AUDIT — POST /api/athlete/nutrition responds `{ "entry": {...} }` (201), NOT a bare
+// NutritionEntry. Decoding the bare entry threw keyNotFound → the save looked failed
+// (and re-POSTing duplicated) even though the 201 persisted. This is the real envelope.
+struct NutritionCreateResponse: Decodable {
+    let entry: NutritionEntry
+}
+
 // MARK: - Wire: barcode lookup
 
 // Response of GET /api/athlete/nutrition/barcode?code=XXXX. Macros are per 100g
@@ -154,7 +161,10 @@ struct BarcodeLookupResponse: Decodable {
     let fatG: Double?
     let per: String?
     let barcode: String?
-    let raw: String?
+    // AUDIT — the wire `raw` is a full OpenFoodFacts OBJECT, not a String. Typing it as
+    // String? threw typeMismatch on every found:true product ("no encontrado" for all).
+    // The client doesn't need it, so it's dropped (synthesized decode ignores the key).
+    // Follow-up server-side si algún día se quiere capturar la provenance en el lookup.
 }
 
 // MARK: - Wire: search by name

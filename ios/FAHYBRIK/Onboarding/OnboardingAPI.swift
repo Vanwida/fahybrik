@@ -16,8 +16,8 @@ enum OnboardingAPI {
                 bearer: bearer
             )
         } catch {
-            // Queue for replay
-            if let body = try? JSONEncoder().encode(SubmitWrapper(snapshot: snapshot)) {
+            // Queue for replay — but NOT a deterministic 4xx (AUDIT: it would replay forever).
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(SubmitWrapper(snapshot: snapshot)) {
                 await RequestQueue.shared.enqueue(
                     path: endpointPath,
                     body: body,

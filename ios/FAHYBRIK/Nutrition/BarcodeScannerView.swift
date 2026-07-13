@@ -249,7 +249,7 @@ final class BarcodeScannerModel: NSObject, ObservableObject, AVCaptureMetadataOu
                 quantity: 100,
                 unit: "g",
                 barcode: result.barcode ?? code,
-                raw: result.raw
+                raw: nil   // AUDIT — the lookup's `raw` (OFF object) is no longer decoded client-side
             )
         } else {
             lastNotFound = code
