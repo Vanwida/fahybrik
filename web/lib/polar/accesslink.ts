@@ -1,36 +1,35 @@
-// Polar AccessLink v3 REST client (read-only) with on-demand token refresh.
+// Polar AccessLink Dynamic API v4 REST client (read-only) with on-demand token
+// refresh.
 //
-// SCOPE. This client speaks the CLASSIC AccessLink v3 REST surface that the
-// webhook pipeline drives: register a user, and GET the three entities a
-// notification points at — an exercise, a night's sleep, a night's nightly
-// recharge. Every path and field name here is taken verbatim from the official
-// AccessLink OpenAPI spec (https://www.polar.com/accesslink-api/, version v3):
-//   * POST /v3/users                         — register (member-id → polar-user-id)
-//   * GET  /v3/exercises/{id}                — non-transactional single exercise
-//   * GET  /v3/users/sleep/{date}           — sleep for a night (YYYY-MM-DD)
-//   * GET  /v3/users/nightly-recharge/{date}— nightly recharge for a night
-// We use the NON-transactional reads (simplest documented path); the webhook
-// carries the entity id/date so we never need the create→list→commit transaction
-// flow. Laps/splits are NOT available on the exercise summary (only samples/route
-// which need TCX-style parsing) — that's a documented follow-up, not done here.
+// GENERATION. Our Polar developer client is a v4 Dynamic API app (OAuth at
+// auth.polar.com with granular per-endpoint scopes; verified empirically — the
+// v4 token endpoint authenticates our credentials, the legacy v3 host does not).
+// v4 is PULL-only (no webhooks): data is read over date-range list endpoints and
+// a cron poller drives ingestion. Every path/field here is taken from the
+// official v4 OpenAPI spec (https://www.polar.com/polar-api-v4/, version v4):
+//   * GET /v4/data/training-sessions/list?from&to&features   (scope training_sessions:read)
+//   * GET /v4/data/sleeps?from&to&features                    (scope sleep:read)
+//   * GET /v4/data/nightly-recharge-results?from&to           (scope nightly_recharge:read)
+//   * GET /v4/data/sports/list                                (scope sports:read)
+// `from` is inclusive, `to` EXCLUSIVE, both ISO-8601 dates. Without `features`
+// the range can be wide (training 90d, sleep 30d, recharge 28d) but laps/samples/
+// sleep-score need `features`, which restricts the request to ONE day at a time.
+// v4 has NO user-registration and NO transaction/commit dance.
 //
-// TOKEN REFRESH. AccessLink access tokens are long-lived but do expire. This
-// client refreshes on demand: before a call when `expires_at` has passed, and
-// reactively on a 401, retrying the request exactly once. Polar's token endpoint
-// requires HTTP Basic client auth (client_secret_basic) → `basicAuth: true`,
-// same as the OAuth callback. A refreshed token is handed back via
-// `onTokensRefreshed` so the caller can persist it; an unrecoverable auth failure
-// fires `onAuthError` (the caller flips the connection to 'error'). Secrets are
-// never logged.
+// TOKEN REFRESH is identical to before: refresh before a call when expired and
+// once reactively on a 401, then retry. Polar's token endpoint requires HTTP
+// Basic client auth (basicAuth:true). Rotated tokens are handed to
+// `onTokensRefreshed`; an unrecoverable auth failure fires `onAuthError`. No
+// secrets are logged.
 
 import { refreshAccessToken, OAuth2Error } from '@/lib/oauth/oauth2';
 
 export type FetchFn = typeof fetch;
 
-// Cap any single AccessLink request so a hung provider can't wedge the webhook.
 const REQUEST_TIMEOUT_MS = 15_000;
-// Refresh a little BEFORE the token actually expires to avoid a guaranteed 401.
 const EXPIRY_SKEW_MS = 60_000;
+// Path prefix for the v4 data endpoints (appended to the configured apiBase host).
+const V4_DATA = '/v4/data';
 
 export type AccessLinkTokens = {
   access_token: string;
@@ -38,39 +37,70 @@ export type AccessLinkTokens = {
   expires_at?: Date | null;
 };
 
-// Exercise summary — the subset of `exerciseHashId` we map. Field names are the
-// spec's exact (snake_case) keys. `heart_rate` is an object {average, maximum}.
-export type PolarExercise = {
-  id: string;
-  start_time?: string;
-  start_time_utc_offset?: number;
-  duration?: string; // ISO-8601, e.g. "PT2H44M45S"
+// ── v4 response shapes (subset we map; exact keys per the official spec) ───────
+
+export type V4SportReference = { id?: string };
+
+export type V4Statistic = {
+  type?: string; // StatisticsStatisticsType, e.g. STATISTICS_TYPE_HEART_RATE
+  min?: number;
+  avg?: number;
+  max?: number;
+};
+
+export type V4Lap = {
+  splitTimeMillis?: number; // elapsed from exercise start
+  durationMillis?: number;
+  distanceMeters?: number;
+  statistics?: { statistics?: V4Statistic[] };
+};
+
+export type V4Exercise = {
+  startTime?: string; // local
+  stopTime?: string;
+  durationMillis?: number;
+  distanceMeters?: number;
   calories?: number;
-  distance?: number; // meters
-  heart_rate?: { average?: number; maximum?: number };
-  sport?: string;
-  detailed_sport_info?: string;
+  timezoneOffsetMinutes?: number;
+  sport?: V4SportReference;
+  laps?: { laps?: V4Lap[]; autoLaps?: V4Lap[] };
 };
 
-// Sleep — subset of the `sleep` schema. Stage durations are seconds.
-export type PolarSleep = {
-  date?: string;
-  sleep_start_time?: string;
-  sleep_end_time?: string;
-  light_sleep?: number;
-  deep_sleep?: number;
-  rem_sleep?: number;
-  unrecognized_sleep_stage?: number;
-  sleep_score?: number;
+export type V4TrainingSession = {
+  identifier?: { id?: string };
+  startTime?: string; // local time
+  stopTime?: string;
+  durationMillis?: number;
+  distanceMeters?: number;
+  calories?: number;
+  hrAvg?: number;
+  hrMax?: number;
+  timezoneOffsetMinutes?: number;
+  sport?: V4SportReference;
+  exercises?: V4Exercise[];
 };
 
-// Nightly recharge — subset of the `nightly-recharge` schema.
-export type PolarNightlyRecharge = {
+export type V4NightSleep = {
+  sleepDate?: string;
+  sleepScore?: { sleepScore?: number };
+  sleepEvaluation?: {
+    asleepDuration?: string; // "27000s"
+    sleepSpan?: string;
+    phaseDurations?: { rem?: string; light?: string; deep?: string; unknown?: string; wake?: string };
+  };
+};
+
+export type V4NightlyRechargeResult = {
   date?: string;
-  heart_rate_avg?: number;
-  heart_rate_variability_avg?: number; // RMSSD, ms
-  nightly_recharge_status?: number; // 1..6
-  ans_charge?: number;
+  recoveryIndicator?: number; // 1..6
+  meanNightlyRecoveryRmssd?: number; // HRV RMSSD, ms
+  ansStatus?: number;
+};
+
+export type V4Sport = {
+  id?: V4SportReference;
+  name?: string;
+  parentSport?: V4SportReference;
 };
 
 export type AccessLinkClientOptions = {
@@ -81,18 +111,16 @@ export type AccessLinkClientOptions = {
   tokens: AccessLinkTokens;
   fetchImpl?: FetchFn;
   now?: () => number;
-  // Persist a rotated token set (caller writes it back encrypted).
   onTokensRefreshed?: (tokens: AccessLinkTokens) => Promise<void> | void;
-  // Signal an unrecoverable auth failure (caller flips connection → 'error').
   onAuthError?: () => Promise<void> | void;
 };
 
-// Minimal read surface ingest-polar depends on — lets tests inject a fake without
-// standing up the whole HTTP client.
-export interface PolarReadClient {
-  getExercise(exerciseId: string): Promise<PolarExercise | null>;
-  getSleep(date: string): Promise<PolarSleep | null>;
-  getNightlyRecharge(date: string): Promise<PolarNightlyRecharge | null>;
+// Minimal read surface the poller depends on — lets tests inject a fake.
+export interface PolarV4Client {
+  listTrainingSessions(from: string, to: string, features?: string[]): Promise<V4TrainingSession[]>;
+  listSleeps(from: string, to: string, features?: string[]): Promise<V4NightSleep[]>;
+  listNightlyRecharge(from: string, to: string): Promise<V4NightlyRechargeResult[]>;
+  listSports(): Promise<V4Sport[]>;
 }
 
 export class AccessLinkError extends Error {
@@ -104,7 +132,7 @@ export class AccessLinkError extends Error {
   }
 }
 
-export class AccessLinkClient implements PolarReadClient {
+export class AccessLinkClient implements PolarV4Client {
   private tokens: AccessLinkTokens;
   private readonly opts: AccessLinkClientOptions;
   private readonly fetchImpl: FetchFn;
@@ -117,72 +145,57 @@ export class AccessLinkClient implements PolarReadClient {
     this.now = opts.now ?? Date.now;
   }
 
-  /**
-   * Register the athlete to our partner client (required before any data read).
-   * Idempotent: a 409 means the user is already registered — treated as success.
-   * Returns the Polar user id when the 200 body carries it (used to backfill the
-   * webhook reverse-lookup key), else null.
-   */
-  async registerUser(
-    memberId: string,
-  ): Promise<{ polarUserId: number | null; alreadyRegistered: boolean }> {
-    const res = await this.request('POST', '/v3/users', {
-      body: JSON.stringify({ 'member-id': memberId }),
-      contentType: 'application/json',
-    });
-    if (res.status === 409) return { polarUserId: null, alreadyRegistered: true };
-    if (!res.ok) {
-      throw new AccessLinkError(`register user returned ${res.status}`, res.status);
-    }
-    const body = (await this.json(res)) as Record<string, unknown> | null;
-    const raw = body?.['polar-user-id'];
-    const polarUserId =
-      typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : null;
-    return {
-      polarUserId: polarUserId != null && Number.isFinite(polarUserId) ? polarUserId : null,
-      alreadyRegistered: false,
-    };
-  }
-
-  async getExercise(exerciseId: string): Promise<PolarExercise | null> {
-    return this.getEntity<PolarExercise>(`/v3/exercises/${encodeURIComponent(exerciseId)}`);
-  }
-
-  async getSleep(date: string): Promise<PolarSleep | null> {
-    return this.getEntity<PolarSleep>(`/v3/users/sleep/${encodeURIComponent(date)}`);
-  }
-
-  async getNightlyRecharge(date: string): Promise<PolarNightlyRecharge | null> {
-    return this.getEntity<PolarNightlyRecharge>(
-      `/v3/users/nightly-recharge/${encodeURIComponent(date)}`,
+  async listTrainingSessions(
+    from: string,
+    to: string,
+    features?: string[],
+  ): Promise<V4TrainingSession[]> {
+    const body = await this.getJson<{ trainingSessions?: V4TrainingSession[] }>(
+      this.withQuery('/training-sessions/list', from, to, features),
     );
+    return body?.trainingSessions ?? [];
   }
 
-  // GET one entity: 200 → parsed JSON; 204/404 → null (nothing available for this
-  // id/date — e.g. a night with no recharge). Other non-2xx → throw.
-  private async getEntity<T>(path: string): Promise<T | null> {
-    const res = await this.request('GET', path);
+  async listSleeps(from: string, to: string, features?: string[]): Promise<V4NightSleep[]> {
+    const body = await this.getJson<{ nightSleeps?: V4NightSleep[] }>(
+      this.withQuery('/sleeps', from, to, features),
+    );
+    return body?.nightSleeps ?? [];
+  }
+
+  async listNightlyRecharge(from: string, to: string): Promise<V4NightlyRechargeResult[]> {
+    const body = await this.getJson<{
+      nightlyRechargeResults?: { nightlyRechargeResults?: V4NightlyRechargeResult[] };
+    }>(this.withQuery('/nightly-recharge-results', from, to));
+    return body?.nightlyRechargeResults?.nightlyRechargeResults ?? [];
+  }
+
+  async listSports(): Promise<V4Sport[]> {
+    const body = await this.getJson<{ sports?: V4Sport[] }>('/sports/list');
+    return body?.sports ?? [];
+  }
+
+  private withQuery(path: string, from: string, to: string, features?: string[]): string {
+    const params = new URLSearchParams({ from, to });
+    for (const f of features ?? []) params.append('features', f);
+    return `${path}?${params.toString()}`;
+  }
+
+  // GET a v4 data endpoint: 200 → parsed JSON; 204/404 → null. Other non-2xx → throw.
+  private async getJson<T>(path: string): Promise<T | null> {
+    const res = await this.request('GET', `${V4_DATA}${path}`);
     if (res.status === 204 || res.status === 404) return null;
-    if (!res.ok) {
-      throw new AccessLinkError(`GET ${path} returned ${res.status}`, res.status);
-    }
+    if (!res.ok) throw new AccessLinkError(`GET ${path} returned ${res.status}`, res.status);
     return (await this.json(res)) as T | null;
   }
 
   // Core request with expiry pre-refresh + one reactive refresh-and-retry on 401.
-  private async request(
-    method: string,
-    path: string,
-    init?: { body?: string; contentType?: string },
-  ): Promise<Response> {
+  private async request(method: string, path: string): Promise<Response> {
     if (this.isExpired()) await this.refresh();
-
-    let res = await this.send(method, path, init);
+    let res = await this.send(method, path);
     if (res.status === 401) {
-      // The access token was rejected mid-flight. Refresh once and retry; a second
-      // 401 (or a refresh failure) is unrecoverable.
       await this.refresh();
-      res = await this.send(method, path, init);
+      res = await this.send(method, path);
       if (res.status === 401) {
         await this.opts.onAuthError?.();
         throw new AccessLinkError(`${method} ${path} unauthorized after refresh`, 401);
@@ -191,23 +204,13 @@ export class AccessLinkClient implements PolarReadClient {
     return res;
   }
 
-  private async send(
-    method: string,
-    path: string,
-    init?: { body?: string; contentType?: string },
-  ): Promise<Response> {
+  private async send(method: string, path: string): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    const headers: Record<string, string> = {
-      authorization: `Bearer ${this.tokens.access_token}`,
-      accept: 'application/json',
-    };
-    if (init?.contentType) headers['content-type'] = init.contentType;
     try {
       return await this.fetchImpl(this.url(path), {
         method,
-        headers,
-        body: init?.body,
+        headers: { authorization: `Bearer ${this.tokens.access_token}`, accept: 'application/json' },
         signal: controller.signal,
       });
     } finally {
@@ -220,8 +223,6 @@ export class AccessLinkClient implements PolarReadClient {
     return exp != null && this.now() >= exp - EXPIRY_SKEW_MS;
   }
 
-  // Rotate the access token. No refresh token → unrecoverable. On OAuth failure →
-  // onAuthError + throw. On success → adopt the new token set + notify the caller.
   private async refresh(): Promise<void> {
     const refreshToken = this.tokens.refresh_token;
     if (!refreshToken) {
@@ -246,7 +247,6 @@ export class AccessLinkClient implements PolarReadClient {
     }
     this.tokens = {
       access_token: rotated.access_token,
-      // Polar rotates the refresh token; keep the old one if none is returned.
       refresh_token: rotated.refresh_token ?? this.tokens.refresh_token ?? null,
       expires_at:
         rotated.expires_in != null
@@ -270,4 +270,15 @@ export class AccessLinkClient implements PolarReadClient {
       return null;
     }
   }
+}
+
+// Read a typed statistic's average out of a v4 statistics array.
+export function statAvg(stats: V4Statistic[] | undefined, type: string): number | undefined {
+  const hit = stats?.find((s) => s.type === type);
+  return typeof hit?.avg === 'number' ? hit.avg : undefined;
+}
+
+export function statMax(stats: V4Statistic[] | undefined, type: string): number | undefined {
+  const hit = stats?.find((s) => s.type === type);
+  return typeof hit?.max === 'number' ? hit.max : undefined;
 }
