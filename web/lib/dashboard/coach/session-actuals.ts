@@ -20,7 +20,7 @@
 
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
-import { parseErgSplits, type ErgSplits } from '@/lib/dashboard/coach/erg-splits';
+import { parseErgDetail, type ErgSplitItem } from '@/lib/dashboard/coach/erg-splits';
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
@@ -45,10 +45,15 @@ export interface SegmentActual {
    * source (treadmill / wearable) reported none — never fabricated. */
   incline_pct: number | null;
   run_cadence_spm: number | null;
-  /** Per-interval PM5 breakdown parsed out of `raw_lap_data_json`, when the
-   * capture carried a well-formed splits array; null otherwise (tolerant read —
-   * see `erg-splits.ts`). Only erg segments ever populate this. */
-  splits: ErgSplits | null;
+  /** Concept2 PM5 erg detail (#33), folded out of `raw_lap_data_json` — the
+   * monitor's segment-level aggregates + per-interval splits. Null for non-erg /
+   * older segments. Keys are the SAME snake_case iOS posts, echoed back verbatim so
+   * the athlete detail (SegmentActualDTO) round-trips; see `erg-splits.ts`. */
+  drag_factor: number | null;
+  avg_calories_per_hour: number | null;
+  peak_drive_force_lbs: number | null;
+  avg_drive_force_lbs: number | null;
+  erg_splits: ErgSplitItem[] | null;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
@@ -114,8 +119,24 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     calories: num(r.calories),
     incline_pct: num(r.incline_pct),
     run_cadence_spm: r.run_cadence_spm ?? null,
-    splits: parseErgSplits(r.raw_lap_data_json),
+    ...ergFields(r.raw_lap_data_json),
   }));
+}
+
+/** Fold the erg detail out of raw_lap_data_json into the flat SegmentActual erg
+ *  fields (all null when the segment carries no erg detail). */
+function ergFields(raw: unknown): Pick<
+  SegmentActual,
+  'drag_factor' | 'avg_calories_per_hour' | 'peak_drive_force_lbs' | 'avg_drive_force_lbs' | 'erg_splits'
+> {
+  const erg = parseErgDetail(raw);
+  return {
+    drag_factor: erg?.drag_factor ?? null,
+    avg_calories_per_hour: erg?.avg_calories_per_hour ?? null,
+    peak_drive_force_lbs: erg?.peak_drive_force_lbs ?? null,
+    avg_drive_force_lbs: erg?.avg_drive_force_lbs ?? null,
+    erg_splits: erg?.erg_splits ?? null,
+  };
 }
 
 /** Load the per-segment actuals for ONE workout execution, ordered by position. */

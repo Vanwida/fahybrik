@@ -1,67 +1,85 @@
 import { describe, expect, it } from 'vitest';
-import { parseErgSplits } from '@/lib/dashboard/coach/erg-splits';
+import { parseErgDetail } from '@/lib/dashboard/coach/erg-splits';
 import { buildSegmentActuals, type SegmentActualRow } from '@/lib/dashboard/coach/session-actuals';
 
-// The PM5 interval-splits reader is TOLERANT by design: `raw_lap_data_json` is a
-// shared jsonb column (zone_seconds, provider laps, …) and the definitive PM5
-// shape is still owned by the iOS capture agent. A well-formed splits array is
-// surfaced; everything else degrades to null (no table, never a throw, never a
-// fabricated row).
+// The PM5 erg-detail reader is TOLERANT by design: `raw_lap_data_json` is a shared
+// jsonb column (zone_seconds today, other payloads tomorrow). It surfaces the erg
+// aggregates + interval splits when present, and degrades to null for everything
+// else — no throw, no fabricated row. Keys are the EXACT snake_case iOS posts, so
+// the round-trip is symmetric (see erg-splits.ts).
 
+// A realistic blob: zone_seconds (unrelated) + the erg detail iOS folds in.
 const goodBlob = {
-  splits: [
-    { t_s: 90, dist_m: 500, pace_s_per_500m: 90, spm: 28 },
-    { t_s: 92, dist_m: 500, pace_s_per_500m: 92, spm: 27, rest_s: 30 },
-  ],
+  zone_seconds: { z2: 120, z3: 60 },
   drag_factor: 118,
-  cal_per_hour: 900,
+  avg_calories_per_hour: 900,
+  peak_drive_force_lbs: 142.5,
+  avg_drive_force_lbs: 98.2,
+  erg_splits: [
+    { index: 0, time_seconds: 90, distance_meters: 500, avg_pace_s_per_500m: 90, stroke_rate_spm: 28, avg_power_w: 210, calories: 12, calories_per_hour: 900, drag_factor: 118, rest_time_seconds: null, rest_distance_meters: null, avg_hr: 150 },
+    { index: 1, time_seconds: 92, distance_meters: 500, avg_pace_s_per_500m: 92, stroke_rate_spm: 27, avg_power_w: 205, calories: 12, calories_per_hour: 880, drag_factor: 118, rest_time_seconds: 30, rest_distance_meters: 0, avg_hr: 152 },
+  ],
 };
 
-describe('parseErgSplits — tolerant read of raw_lap_data_json', () => {
-  it('parses a well-formed splits blob (object) with optional meta', () => {
-    const out = parseErgSplits(goodBlob);
+describe('parseErgDetail — tolerant read of raw_lap_data_json', () => {
+  it('parses erg aggregates + splits, stripping the unrelated zone_seconds key', () => {
+    const out = parseErgDetail(goodBlob);
     expect(out).not.toBeNull();
-    expect(out!.splits).toHaveLength(2);
-    expect(out!.splits[0]!.pace_s_per_500m).toBe(90);
-    expect(out!.splits[1]!.rest_s).toBe(30);
     expect(out!.drag_factor).toBe(118);
-    expect(out!.cal_per_hour).toBe(900);
+    expect(out!.avg_calories_per_hour).toBe(900);
+    expect(out!.peak_drive_force_lbs).toBe(142.5);
+    expect(out!.avg_drive_force_lbs).toBe(98.2);
+    expect(out!.erg_splits).toHaveLength(2);
+    expect(out!.erg_splits![0]!.avg_pace_s_per_500m).toBe(90);
+    expect(out!.erg_splits![1]!.rest_time_seconds).toBe(30);
+    // The stripped key never leaks into the erg shape.
+    expect((out as Record<string, unknown>).zone_seconds).toBeUndefined();
   });
 
   it('parses the same blob delivered as a JSON string', () => {
-    expect(parseErgSplits(JSON.stringify(goodBlob))).not.toBeNull();
+    expect(parseErgDetail(JSON.stringify(goodBlob))).not.toBeNull();
+  });
+
+  it('returns aggregates even when there are no interval splits', () => {
+    const out = parseErgDetail({ drag_factor: 120, avg_calories_per_hour: 850 });
+    expect(out).not.toBeNull();
+    expect(out!.drag_factor).toBe(120);
+    expect(out!.erg_splits).toBeNull();
+  });
+
+  it('returns splits even when there are no segment aggregates', () => {
+    const out = parseErgDetail({ erg_splits: [{ index: 0, avg_power_w: 200 }] });
+    expect(out).not.toBeNull();
+    expect(out!.erg_splits).toHaveLength(1);
   });
 
   it('strips unknown provider keys instead of failing', () => {
-    const out = parseErgSplits({
-      splits: [{ t_s: 90, dist_m: 500, pace_s_per_500m: 90, spm: 28, heart_rate: 150 }],
-      provider: 'pm5',
-    });
+    const out = parseErgDetail({ erg_splits: [{ index: 0, avg_power_w: 200, heart_rate: 150 }], provider: 'pm5' });
     expect(out).not.toBeNull();
-    expect(out!.splits).toHaveLength(1);
+    expect(out!.erg_splits).toHaveLength(1);
   });
 
-  it('returns null for a zone-seconds-only blob (no splits array)', () => {
-    expect(parseErgSplits({ zone_seconds: { z1: 100, z2: 200 } })).toBeNull();
+  it('returns null for a zone-seconds-only blob (no erg data)', () => {
+    expect(parseErgDetail({ zone_seconds: { z1: 100, z2: 200 } })).toBeNull();
   });
 
-  it('returns null for an empty splits array', () => {
-    expect(parseErgSplits({ splits: [] })).toBeNull();
+  it('normalises an empty splits array with no aggregates to null', () => {
+    expect(parseErgDetail({ erg_splits: [] })).toBeNull();
   });
 
-  it('returns null for a malformed split (missing pace) — no partial rows', () => {
-    expect(parseErgSplits({ splits: [{ t_s: 90, dist_m: 500, spm: 28 }] })).toBeNull();
+  it('returns null for a malformed split (missing required index)', () => {
+    expect(parseErgDetail({ erg_splits: [{ avg_power_w: 200 }] })).toBeNull();
   });
 
   it('returns null for null / garbage / bad JSON string', () => {
-    expect(parseErgSplits(null)).toBeNull();
-    expect(parseErgSplits(undefined)).toBeNull();
-    expect(parseErgSplits(42)).toBeNull();
-    expect(parseErgSplits('not json {')).toBeNull();
+    expect(parseErgDetail(null)).toBeNull();
+    expect(parseErgDetail(undefined)).toBeNull();
+    expect(parseErgDetail(42)).toBeNull();
+    expect(parseErgDetail('not json {')).toBeNull();
   });
 });
 
-describe('buildSegmentActuals — splits map onto the actual', () => {
+describe('buildSegmentActuals — erg detail maps onto the flat SegmentActual fields', () => {
   const baseRow = (over: Partial<SegmentActualRow> = {}): SegmentActualRow => ({
     template_segment_id: '10',
     position: 0,
@@ -84,14 +102,19 @@ describe('buildSegmentActuals — splits map onto the actual', () => {
     ...over,
   });
 
-  it('carries parsed splits when the blob is well-formed', () => {
+  it('flattens aggregates + splits from raw_lap_data_json', () => {
     const [a] = buildSegmentActuals([baseRow({ raw_lap_data_json: goodBlob })]);
-    expect(a!.splits).not.toBeNull();
-    expect(a!.splits!.splits).toHaveLength(2);
+    expect(a!.drag_factor).toBe(118);
+    expect(a!.avg_calories_per_hour).toBe(900);
+    expect(a!.peak_drive_force_lbs).toBe(142.5);
+    expect(a!.avg_drive_force_lbs).toBe(98.2);
+    expect(a!.erg_splits).toHaveLength(2);
   });
 
-  it('splits is null when the column is null or unrecognised', () => {
-    expect(buildSegmentActuals([baseRow()])[0]!.splits).toBeNull();
-    expect(buildSegmentActuals([baseRow({ raw_lap_data_json: { zone_seconds: {} } })])[0]!.splits).toBeNull();
+  it('leaves all erg fields null when the column is null or unrecognised', () => {
+    const [a] = buildSegmentActuals([baseRow()]);
+    expect(a!.drag_factor).toBeNull();
+    expect(a!.erg_splits).toBeNull();
+    expect(buildSegmentActuals([baseRow({ raw_lap_data_json: { zone_seconds: {} } })])[0]!.erg_splits).toBeNull();
   });
 });

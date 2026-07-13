@@ -31,7 +31,7 @@ import type {
 } from '@/lib/athlete/assignment-detail';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
-import type { ErgSplits } from '@/lib/dashboard/coach/erg-splits';
+import type { ErgSplitItem } from '@/lib/dashboard/coach/erg-splits';
 
 // ── pace m:ss (s → "4:15"); seconds always zero-padded. ─────────────────────
 function paceClock(seconds: number): string {
@@ -151,14 +151,28 @@ function ComplianceSummaryTile({ summary }: { summary: RunComplianceSummary }) {
   );
 }
 
-// Per-interval PM5 breakdown (row/ski/bike). Rendered only when the segment
-// carried a well-formed splits array (see erg-splits.ts) — a compact table, one
-// row per interval. Drag factor / cal·h⁻¹, when present, head the table.
-function SplitsTable({ splits }: { splits: ErgSplits }) {
-  const hasRest = splits.splits.some((s) => s.rest_s != null);
+// A per-split cell: format when the metric landed, an em dash otherwise (the two
+// PM5 frames don't always both arrive — never a fabricated 0).
+function cell(v: number | null | undefined, fmt: (n: number) => string): string {
+  return v != null ? fmt(v) : '—';
+}
+
+// Per-interval PM5 breakdown (row/ski/bike). Rendered only when the segment carried
+// erg splits (see erg-splits.ts) — the ErgData interval table, one row per interval.
+// The segment-level drag factor / cal·h⁻¹ head the table.
+function SplitsTable({
+  splits,
+  dragFactor,
+  calPerHour,
+}: {
+  splits: ErgSplitItem[];
+  dragFactor: number | null;
+  calPerHour: number | null;
+}) {
+  const hasRest = splits.some((s) => s.rest_time_seconds != null);
   const meta = [
-    splits.drag_factor != null ? `Drag ${round(splits.drag_factor)}` : null,
-    splits.cal_per_hour != null ? `${round(splits.cal_per_hour)} cal/h` : null,
+    dragFactor != null ? `Drag ${round(dragFactor)}` : null,
+    calPerHour != null ? `${round(calPerHour)} cal/h` : null,
   ].filter(Boolean);
   return (
     <div className="mt-0.5 overflow-x-auto rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
@@ -176,23 +190,25 @@ function SplitsTable({ splits }: { splits: ErgSplits }) {
           <tr className="text-[color:var(--v2-faint)]">
             <th className="px-2.5 py-1 text-left font-medium">#</th>
             <th className="px-2 py-1 text-right font-medium">Tiempo</th>
-            <th className="px-2 py-1 text-right font-medium">/500m</th>
             <th className="px-2 py-1 text-right font-medium">m</th>
+            <th className="px-2 py-1 text-right font-medium">/500m</th>
             <th className="px-2 py-1 text-right font-medium">spm</th>
+            <th className="px-2 py-1 text-right font-medium">W</th>
             {hasRest ? <th className="px-2.5 py-1 text-right font-medium">Desc.</th> : null}
           </tr>
         </thead>
         <tbody className="v2-num text-[color:var(--v2-fg)]">
-          {splits.splits.map((s, i) => (
-            <tr key={i} className="border-t border-[color:var(--v2-border)]">
-              <td className="px-2.5 py-1 text-left text-[color:var(--v2-muted)]">{i + 1}</td>
-              <td className="px-2 py-1 text-right">{paceClock(s.t_s)}</td>
-              <td className="px-2 py-1 text-right">{paceClock(s.pace_s_per_500m)}</td>
-              <td className="px-2 py-1 text-right">{round(s.dist_m)}</td>
-              <td className="px-2 py-1 text-right">{round(s.spm)}</td>
+          {splits.map((s) => (
+            <tr key={s.index} className="border-t border-[color:var(--v2-border)]">
+              <td className="px-2.5 py-1 text-left text-[color:var(--v2-muted)]">{s.index + 1}</td>
+              <td className="px-2 py-1 text-right">{cell(s.time_seconds, paceClock)}</td>
+              <td className="px-2 py-1 text-right">{cell(s.distance_meters, (n) => round(n))}</td>
+              <td className="px-2 py-1 text-right">{cell(s.avg_pace_s_per_500m, paceClock)}</td>
+              <td className="px-2 py-1 text-right">{cell(s.stroke_rate_spm, (n) => round(n))}</td>
+              <td className="px-2 py-1 text-right">{cell(s.avg_power_w, (n) => round(n))}</td>
               {hasRest ? (
                 <td className="px-2.5 py-1 text-right text-[color:var(--v2-muted)]">
-                  {s.rest_s != null ? paceClock(s.rest_s) : '·'}
+                  {cell(s.rest_time_seconds, paceClock)}
                 </td>
               ) : null}
             </tr>
@@ -423,7 +439,13 @@ export function SessionDetailDrawer({
                                       )}
                                       {verdict ? <VerdictPill verdict={verdict} /> : null}
                                     </div>
-                                    {a.splits ? <SplitsTable splits={a.splits} /> : null}
+                                    {a.erg_splits && a.erg_splits.length > 0 ? (
+                                      <SplitsTable
+                                        splits={a.erg_splits}
+                                        dragFactor={a.drag_factor}
+                                        calPerHour={a.avg_calories_per_hour}
+                                      />
+                                    ) : null}
                                   </div>
                                 );
                               })
@@ -459,7 +481,13 @@ export function SessionDetailDrawer({
                           <span className="v2-micro shrink-0 capitalize">{a.modality}</span>
                           <HechoChips tokens={actualTokens(a)} />
                         </div>
-                        {a.splits ? <SplitsTable splits={a.splits} /> : null}
+                        {a.erg_splits && a.erg_splits.length > 0 ? (
+                          <SplitsTable
+                            splits={a.erg_splits}
+                            dragFactor={a.drag_factor}
+                            calPerHour={a.avg_calories_per_hour}
+                          />
+                        ) : null}
                       </div>
                     ))}
                   </div>

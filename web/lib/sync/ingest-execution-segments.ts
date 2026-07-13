@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus } from '@fahybrid/shared/schema';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
+import { ergSplitItemSchema } from '@/lib/dashboard/coach/erg-splits';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -158,6 +159,15 @@ export const segmentInputSchema = z.object({
   // Per-set strength detail; delete-then-insert by segment on re-sync.
   sets: z.array(setInputSchema).max(60).optional(),
   zone_seconds_json: z.unknown().optional(),
+  // Concept2 PM5 erg detail (#33). NO new columns — these fold into the segment's
+  // `raw_lap_data_json` (alongside zone_seconds). `avg_pace_s_per_500m` above
+  // already carries the PM5's own average pace. Segment-level aggregates + the
+  // monitor's per-interval splits; all optional (a non-erg segment omits them).
+  drag_factor: z.number().finite().nonnegative().nullish(),
+  avg_calories_per_hour: z.number().finite().nonnegative().nullish(),
+  peak_drive_force_lbs: z.number().finite().nonnegative().nullish(),
+  avg_drive_force_lbs: z.number().finite().nonnegative().nullish(),
+  erg_splits: z.array(ergSplitItemSchema).max(200).nullish(),
   source: z.string().min(1).max(40).optional(),
 });
 
@@ -284,13 +294,21 @@ export async function ingestExecutionSegments(args: {
         : startedAt);
 
     const modality = normalizeModality(seg.modality);
-    // Pass the object through sql.json so the jsonb column stores an OBJECT
-    // (not a double-encoded JSON string scalar). raw_lap_data_json.zone_seconds
-    // must read back as an object for analytics.
+    // raw_lap_data_json holds every jsonb-only signal for the segment: the HR
+    // zone-seconds AND the erg detail (#33, PM5 aggregates + interval splits).
+    // Only present keys are written (honest-null: an absent metric is an absent
+    // key, never a null-filled one). Passed through sql.json so the column stores
+    // an OBJECT — NOT a double-encoded JSON string scalar — so it reads back as an
+    // object for analytics and echoes verbatim on the coach/athlete detail.
+    const lap: Record<string, unknown> = {};
+    if (seg.zone_seconds_json !== undefined) lap.zone_seconds = seg.zone_seconds_json;
+    if (seg.drag_factor != null) lap.drag_factor = seg.drag_factor;
+    if (seg.avg_calories_per_hour != null) lap.avg_calories_per_hour = seg.avg_calories_per_hour;
+    if (seg.peak_drive_force_lbs != null) lap.peak_drive_force_lbs = seg.peak_drive_force_lbs;
+    if (seg.avg_drive_force_lbs != null) lap.avg_drive_force_lbs = seg.avg_drive_force_lbs;
+    if (seg.erg_splits != null && seg.erg_splits.length > 0) lap.erg_splits = seg.erg_splits;
     const rawLap =
-      seg.zone_seconds_json !== undefined
-        ? sql.json({ zone_seconds: seg.zone_seconds_json } as Parameters<typeof sql.json>[0])
-        : null;
+      Object.keys(lap).length > 0 ? sql.json(lap as Parameters<typeof sql.json>[0]) : null;
 
     // Honest reps state. `reps_actual` is canonical; `reps_completed` is the
     // legacy alias for the SAME value. NULL means skipped — NEVER fabricate a 0.

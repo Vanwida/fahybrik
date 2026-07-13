@@ -20,6 +20,7 @@ import {
   segmentInputSchema,
   type SegmentInput,
 } from '@/lib/sync/ingest-execution-segments';
+import { loadSegmentActuals } from '@/lib/dashboard/coach/session-actuals';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeAssignment,
@@ -216,21 +217,82 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
       executionStartedAt: START,
       segments: [{ position: 0, modality: 'run', zone_seconds_json: { z2: 120, z3: 60 } }],
     });
-    // NOTE on shape: the lib pre-stringifies the wrapper (`JSON.stringify({zone_seconds})`)
-    // AND casts `::jsonb`. Given a JS *string* for a jsonb param, the postgres
-    // driver stores a DOUBLE-ENCODED JSON string scalar (jsonb_typeof='string'),
-    // not a json object — so `raw_lap_data_json` reads back as the JSON TEXT, and
-    // a naive `.zone_seconds` access is undefined. This test asserts the payload
-    // is faithfully PERSISTED (decodes back to the object) without asserting the
-    // (buggy) on-disk shape, so it stays green while the FK quirk is fixed in the
-    // feature code (see agent report). Once the lib switches to `sql.json(...)`,
-    // tighten this to assert `jsonb_typeof='object'`.
-    const [row] = await sql<Array<{ payload: unknown }>>`
-      select raw_lap_data_json#>>'{}' as payload
+    // The lib passes the wrapper through `sql.json(...)`, so the column stores a
+    // real jsonb OBJECT (jsonb_typeof='object'), NOT a double-encoded string
+    // scalar — `raw_lap_data_json->'zone_seconds'` reads back as the object.
+    const [row] = await sql<Array<{ shape: string; payload: unknown }>>`
+      select jsonb_typeof(raw_lap_data_json) as shape,
+             raw_lap_data_json#>>'{}' as payload
       from segment_executions where execution_id = ${executionId} and position = 0
     `;
+    expect(row!.shape).toBe('object');
     const decoded = JSON.parse(String(row!.payload)) as { zone_seconds?: Record<string, number> };
     expect(decoded.zone_seconds).toEqual({ z2: 120, z3: 60 });
+  });
+
+  test('erg detail (#33) round-trips POST → raw_lap_data_json → loadSegmentActuals', async () => {
+    const { executionId } = await seedExecution();
+    // A complete PM5 erg segment: the segment-level aggregates + the monitor's
+    // interval splits, alongside zone_seconds (they must coexist in one blob).
+    await ingestExecutionSegments({
+      sql,
+      executionId,
+      executionStartedAt: START,
+      segments: [
+        {
+          position: 0,
+          modality: 'row',
+          distance_meters: 1000,
+          avg_pace_s_per_500m: 108,
+          avg_power_w: 240,
+          stroke_rate_spm: 29,
+          zone_seconds_json: { z3: 200 },
+          drag_factor: 118,
+          avg_calories_per_hour: 900,
+          peak_drive_force_lbs: 142.5,
+          avg_drive_force_lbs: 98.2,
+          erg_splits: [
+            { index: 0, time_seconds: 108, distance_meters: 500, avg_pace_s_per_500m: 108, stroke_rate_spm: 29, avg_power_w: 245, calories: 12, calories_per_hour: 900, drag_factor: 118, rest_time_seconds: null, rest_distance_meters: null, avg_hr: 150 },
+            { index: 1, time_seconds: 110, distance_meters: 500, avg_pace_s_per_500m: 110, stroke_rate_spm: 28, avg_power_w: 235, calories: 12, calories_per_hour: 880, drag_factor: 118, rest_time_seconds: 30, rest_distance_meters: 0, avg_hr: 152 },
+          ],
+        },
+      ],
+    });
+
+    // Stored as a jsonb OBJECT (sql.json), NOT a double-encoded string scalar.
+    const [shape] = await sql<Array<{ t: string }>>`
+      select jsonb_typeof(raw_lap_data_json) as t
+      from segment_executions where execution_id = ${executionId} and position = 0
+    `;
+    expect(shape!.t).toBe('object');
+
+    // The coach/athlete detail reads it back through the SAME shape iOS decodes.
+    const [a] = await loadSegmentActuals(sql, executionId);
+    expect(a!.drag_factor).toBe(118);
+    expect(a!.avg_calories_per_hour).toBe(900);
+    expect(a!.peak_drive_force_lbs).toBe(142.5);
+    expect(a!.avg_drive_force_lbs).toBe(98.2);
+    expect(a!.erg_splits).toHaveLength(2);
+    expect(a!.erg_splits![0]!.avg_power_w).toBe(245);
+    expect(a!.erg_splits![1]!.rest_time_seconds).toBe(30);
+    // The segment-level aggregate columns still land verbatim (unchanged path).
+    expect(a!.avg_power_w).toBe(240);
+    expect(a!.stroke_rate_spm).toBe(29);
+  });
+
+  test('a non-erg segment writes NO raw_lap_data_json (honest null, no empty erg blob)', async () => {
+    const { executionId } = await seedExecution();
+    await ingestExecutionSegments({
+      sql,
+      executionId,
+      executionStartedAt: START,
+      segments: [{ position: 0, modality: 'strength', reps_actual: 8, weight_used_kg: 60 }],
+    });
+    const [row] = await sql<Array<{ raw: unknown }>>`
+      select raw_lap_data_json as raw
+      from segment_executions where execution_id = ${executionId} and position = 0
+    `;
+    expect(row!.raw).toBeNull();
   });
 
   test('empty segments[] writes nothing', async () => {
