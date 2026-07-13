@@ -705,7 +705,19 @@ struct PostWorkoutSummaryView: View {
     private var zonesStackedBar: some View {
         CardSurface(padding: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: "Zonas", size: 9)
+                HStack(spacing: 6) {
+                    LabelText(text: "Zonas", size: 9)
+                    Spacer(minLength: 6)
+                    // The FCmáx these zones were computed against — with the
+                    // "estimada" qualifier when it's the 220−age fallback.
+                    if let src = session.hrMaxSource {
+                        MonoText(
+                            text: "FC máx \(src.bpm)" + (src.isEstimated ? " · estimada" : ""),
+                            size: 9,
+                            color: Theme.Color.muted
+                        )
+                    }
+                }
                 GeometryReader { geo in
                     HStack(spacing: 0) {
                         ForEach(zoneDistribution, id: \.zone) { z in

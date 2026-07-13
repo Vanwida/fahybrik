@@ -1520,6 +1520,7 @@ struct EditProfileView: View {
     @State private var heightCmText: String
     @State private var weightKgText: String
     @State private var experienceText: String
+    @State private var maxHrText: String
 
     // OBJETIVO
     @State private var goalType: String?
@@ -1567,6 +1568,9 @@ struct EditProfileView: View {
         _experienceText = State(initialValue: identity?.trainingExperienceYears.map { v in
             v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
         } ?? "")
+        // Seeded from the measured max (which the onboarding threshold test feeds
+        // server-side); empty → HR zones use the 220−age estimate.
+        _maxHrText = State(initialValue: identity?.maxHrBpm.map(String.init) ?? "")
 
         _goalType = State(initialValue: identity?.goalType)
         _goalOtherText = State(initialValue: identity?.goalOtherText ?? "")
@@ -1607,8 +1611,15 @@ struct EditProfileView: View {
                                 Hairline()
                                 editDecimalRow(label: "Años entrenando", placeholder: "0–80", text: $experienceText)
                                     .accessibilityLabel("Años de experiencia entrenando")
+                                Hairline()
+                                editDecimalRow(label: "FC máx (ppm)", placeholder: "100–230", text: $maxHrText)
+                                    .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
                             }
                         }
+                        Text("Tu FC máxima real personaliza las zonas de pulso. Si la dejas vacía, se estiman con 220 − edad (marcadas “estimada”).")
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                            .padding(.horizontal, 4)
                         if hasBodyRangeWarning {
                             bodyRangeHint
                         }
@@ -1815,6 +1826,14 @@ struct EditProfileView: View {
 
     // MARK: - Body range hint
 
+    /// The entered FCmáx as a sane Int (100–230), else nil. Out-of-range or blank →
+    /// nil, so a typo never persists an absurd max (it also trips the range hint).
+    private var parsedMaxHr: Int? {
+        guard let d = parseDecimal(maxHrText) else { return nil }
+        let i = Int(d.rounded())
+        return (i >= PersonalHRMax.minMeasuredBpm && i <= PersonalHRMax.maxMeasuredBpm) ? i : nil
+    }
+
     private var hasBodyRangeWarning: Bool {
         let h = parseDecimal(heightCmText)
         let w = parseDecimal(weightKgText)
@@ -1822,7 +1841,9 @@ struct EditProfileView: View {
         let hBad = h.map { $0 < 80 || $0 > 260 } ?? false
         let wBad = w.map { $0 < 25 || $0 > 250 } ?? false
         let eBad = e.map { $0 < 0 || $0 > 80 }  ?? false
-        return hBad || wBad || eBad
+        // A non-empty FCmáx that isn't a sane integer in-range is flagged.
+        let mBad = !maxHrText.trimmingCharacters(in: .whitespaces).isEmpty && parsedMaxHr == nil
+        return hBad || wBad || eBad || mBad
     }
 
     private var bodyRangeHint: some View {
@@ -1830,7 +1851,7 @@ struct EditProfileView: View {
             Image(systemName: "info.circle")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.Color.muted)
-            Text("Comprueba los rangos: 80–260 cm · 25–250 kg · 0–80 años")
+            Text("Comprueba los rangos: 80–260 cm · 25–250 kg · 0–80 años · FC máx 100–230 ppm")
                 .scaledFont(11, relativeTo: .caption2)
                 .foregroundStyle(Theme.Color.muted)
         }
@@ -1928,7 +1949,8 @@ struct EditProfileView: View {
             trainingExperienceYears: e,
             goalType: goalType,
             goalOtherText: otherText.map { String($0.prefix(500)) },
-            preferredLanguage: preferredLanguage
+            preferredLanguage: preferredLanguage,
+            maxHrBpm: parsedMaxHr
         )
 
         do {
