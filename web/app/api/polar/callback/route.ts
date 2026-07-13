@@ -13,9 +13,11 @@ import { exchangeCodeForTokens, OAuth2Error } from '@/lib/oauth/oauth2';
 import { clearStateCookie, readStateCookie } from '@/lib/oauth/state';
 import {
   saveWearableConnection,
+  markConnectionStatus,
   type WearableProvider,
   type WearableTokenSet,
 } from '@/lib/wearables/token-store';
+import { AccessLinkClient } from '@/lib/polar/accesslink';
 import { isCryptoConfigured } from '@/lib/crypto/aes-gcm';
 
 export const dynamic = 'force-dynamic';
@@ -90,7 +92,41 @@ export async function GET(request: Request): Promise<Response> {
   // versions (x_user_id / user_id / polar-user-id). Be defensive: probe the
   // common variants in the raw body. This id is what the webhook uses to resolve
   // athlete_id (findConnectionByProviderUser).
-  const provider_user_id = extractProviderUserId(tokens.raw);
+  const tokenUserId = extractProviderUserId(tokens.raw);
+
+  // REGISTER the user to our partner client (AccessLink requires this before any
+  // data read, and it enables the webhooks that drive ingestion). We pass the
+  // athlete_id as the member-id. Registration also returns the authoritative
+  // polar-user-id, which we prefer as the webhook reverse-lookup key (the token
+  // body may not carry x_user_id). A 409 = already registered = success. A real
+  // failure (e.g. 403 missing consents) still persists the tokens but flags the
+  // connection as 'error' so the UI surfaces it. We never log secrets.
+  let polarUserId: number | null = null;
+  let registerFailed = false;
+  try {
+    const client = new AccessLinkClient({
+      apiBase: cfg.config.apiBase,
+      tokenEndpoint: cfg.config.tokenEndpoint,
+      clientId: cfg.config.clientId,
+      clientSecret: cfg.config.clientSecret,
+      tokens: {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token ?? null,
+        expires_at:
+          tokens.expires_in != null ? new Date(Date.now() + tokens.expires_in * 1000) : null,
+      },
+    });
+    const reg = await client.registerUser(athlete_id.toString());
+    polarUserId = reg.polarUserId;
+  } catch (e) {
+    registerFailed = true;
+    console.error('[polar] user registration failed', {
+      athlete_id: athlete_id.toString(),
+      status: (e as { status?: number }).status ?? null,
+    });
+  }
+
+  const provider_user_id = polarUserId != null ? String(polarUserId) : tokenUserId;
 
   const tokenSet: WearableTokenSet = {
     access_token: tokens.access_token,
@@ -106,6 +142,10 @@ export async function GET(request: Request): Promise<Response> {
     provider_user_id,
     tokens: tokenSet,
   });
+
+  if (registerFailed) {
+    await markConnectionStatus({ athlete_id, provider: POLAR_PROVIDER, status: 'error' });
+  }
 
   // Burn the transient state cookie now that the exchange succeeded.
   return new Response(JSON.stringify({ ok: true, athlete_id: athlete_id.toString() }), {
