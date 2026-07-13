@@ -24,7 +24,12 @@ enum PM5GATT {
     static let charStrokeData              = CBUUID(string: "CE060035-43E5-11E4-916C-0800200C9A66")
     static let charAdditionalStrokeData    = CBUUID(string: "CE060036-43E5-11E4-916C-0800200C9A66")
     static let charSplitIntervalData       = CBUUID(string: "CE060037-43E5-11E4-916C-0800200C9A66")
+    static let charAdditionalSplitIntervalData = CBUUID(string: "CE060038-43E5-11E4-916C-0800200C9A66")
     static let charEndOfWorkoutSummary     = CBUUID(string: "CE060039-43E5-11E4-916C-0800200C9A66")
+
+    // The two split characteristics (0x37 + 0x38) both fire on a split/interval
+    // boundary; we join them by interval number into one `PM5Split` (see parser).
+    static let splitChars: Set<CBUUID> = [charSplitIntervalData, charAdditionalSplitIntervalData]
 
     static let allNotifyChars: [CBUUID] = [
         charGeneralStatus,
@@ -33,6 +38,7 @@ enum PM5GATT {
         charStrokeData,
         charAdditionalStrokeData,
         charSplitIntervalData,
+        charAdditionalSplitIntervalData,
         charEndOfWorkoutSummary,
     ]
 }
