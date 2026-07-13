@@ -465,7 +465,8 @@ final class HealthKitSyncService {
                 await MainActor.run { handler?() }
                 return
             }
-            if let body = try? JSONEncoder().encode(wrapper) {
+            // AUDIT — generalizes the 401 guard above: no deterministic 4xx is queued.
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(wrapper) {
                 await RequestQueue.shared.enqueue(
                     path: Self.endpointPath,
                     body: body,

@@ -115,7 +115,8 @@ final class NutritionService: ObservableObject {
             raw: raw
         )
         do {
-            let _: NutritionEntry = try await APIClient.shared.post(
+            // AUDIT — decode the real `{ entry }` envelope; the 201 persisted, refresh the day.
+            let _: NutritionCreateResponse = try await APIClient.shared.post(
                 path: "api/athlete/nutrition",
                 body: body,
                 bearer: bearer

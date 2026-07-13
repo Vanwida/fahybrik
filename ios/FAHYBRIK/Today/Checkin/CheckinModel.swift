@@ -148,7 +148,8 @@ enum CheckinAPI {
         do {
             try await APIClient.shared.postRaw(path: path, body: wrapper, bearer: bearer)
         } catch {
-            if let body = try? JSONEncoder().encode(wrapper) {
+            // AUDIT — a deterministic 4xx is never queued (it would replay forever).
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(wrapper) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
             }
         }

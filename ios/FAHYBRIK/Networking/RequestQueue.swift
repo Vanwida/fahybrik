@@ -14,6 +14,17 @@ struct QueuedRequest: Codable, Identifiable {
 actor RequestQueue {
     static let shared = RequestQueue()
 
+    /// AUDIT — a 4xx is a DETERMINISTIC client error (bad request, 404 no_partner /
+    /// not_found, 409): replaying it fails identically, so it must NOT enter the offline
+    /// queue (it would sit there retrying forever). Only OFFLINE / network / server-5xx /
+    /// timeout failures are transient and worth a replay. Every enqueue site gates on
+    /// this. (A 2xx-with-bad-body `.decoding` is handled separately at the call site — the
+    /// request SUCCEEDED, so it must never be replayed either.)
+    nonisolated static func isRetriable(_ error: Error) -> Bool {
+        if case APIError.http(let code, _) = error { return code >= 500 }
+        return true
+    }
+
     private let fileURL: URL
     private var entries: [QueuedRequest] = []
     private var loaded = false

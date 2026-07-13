@@ -195,7 +195,8 @@ enum WorkoutVisionAPI {
         do {
             try await APIClient.shared.postRaw(path: path, body: payload, bearer: bearer)
         } catch {
-            if let body = try? JSONEncoder().encode(payload) {
+            // AUDIT — a deterministic 4xx is never queued (it would replay forever).
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
             }
         }

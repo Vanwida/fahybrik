@@ -10,6 +10,19 @@ import Foundation
 // Auth is the athlete bearer token. JSON is snake_case → camelCase via APIClient's
 // keyDecodingStrategy, so the DTO uses Swift camelCase property names.
 
+// AUDIT — how a FAILED chat send is treated. A DETERMINISTIC 4xx marks the message
+// failed (visible, tap-to-retry) WITHOUT queueing it (it would replay forever); a
+// TRANSIENT failure (offline / network / 5xx / timeout) queues for offline replay.
+// Pure so the transition is unit-tested.
+enum ChatSendOutcome: Equatable {
+    case queueForReplay
+    case markFailed
+
+    static func forError(_ error: Error) -> ChatSendOutcome {
+        RequestQueue.isRetriable(error) ? .queueForReplay : .markFailed
+    }
+}
+
 // MARK: - DTOs
 
 // Codable (not just Decodable) so the message history can be cached to disk via

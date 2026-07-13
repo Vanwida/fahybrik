@@ -865,8 +865,9 @@ enum WorkoutExecutionAPI {
             // (that would double-count), just skip the celebration.
             return nil
         } catch {
-            // Network / HTTP failure — enqueue for offline replay (unchanged).
-            if let body = try? JSONEncoder().encode(payload) {
+            // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
+            // in the replay queue forever (a 2xx-bad-body is already caught above).
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
             }
             return nil
@@ -913,7 +914,8 @@ enum DoblesExecutionAPI {
         } catch APIError.decoding {
             return nil
         } catch {
-            if let body = try? JSONEncoder().encode(payload) {
+            // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
             }
             return nil

@@ -526,10 +526,11 @@ enum FreeWorkoutAPI {
         do {
             try await APIClient.shared.postRaw(path: path, body: payload, bearer: bearer)
         } catch {
+            // AUDIT — a deterministic 4xx is never queued (it would replay forever).
             let enc = JSONEncoder()
             enc.keyEncodingStrategy = .convertToSnakeCase
             enc.dateEncodingStrategy = .iso8601
-            if let body = try? enc.encode(payload) {
+            if RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
             }
         }
