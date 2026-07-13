@@ -343,13 +343,14 @@ export async function exportAthleteData(
           order by created_at desc
         `
       : Promise.resolve([] as Array<Record<string, unknown>>),
-    // 9) Readiness snapshots + benchmarks.
+    // 9) Readiness snapshots + benchmarks. The snapshots table timestamps rows
+    // as computed_at (mig 0017) — there is no created_at column.
     sql`
       select
         id::text                            as id,
         to_char(recorded_for, 'YYYY-MM-DD') as recorded_for,
         score                               as score,
-        created_at::text                    as created_at
+        computed_at::text                   as computed_at
       from athlete_daily_readiness_snapshots
       where athlete_id = ${athleteIdNum}
       order by recorded_for desc
