@@ -112,11 +112,14 @@ struct PlanView: View {
             } else if weekOffset == 0 && paused {
                 // The coach paused this athlete: show the paused card, NOT the (now
                 // stale) day list — gated ABOVE the day list so published sessions
-                // never leak through while paused.
-                pausedPlanState
+                // never leak through while paused. The header stays: history and
+                // chat must remain reachable without an active plan.
+                stateWithHeader { pausedPlanState }
             } else if weekOffset == 0 && !hasAnySession {
-                // No plan at all (current week empty) — the honest no-plan state.
-                emptyPlanState
+                // No plan at all (current week empty) — the honest no-plan state,
+                // WITH the header: an athlete with past workouts but no published
+                // plan still needs the history (and chat) entry points.
+                stateWithHeader { emptyPlanState }
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Theme.Spacing.l) {
@@ -226,6 +229,19 @@ struct PlanView: View {
                 sessionTitle: session.title,
                 bearer: effectiveBearer
             )
+        }
+    }
+
+    // Wraps a full-screen state (empty / paused) with the persistent header so
+    // history + chat never disappear just because there is no plan to show.
+    private func stateWithHeader<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            headerRow
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.m)
+            Spacer(minLength: 0)
+            content()
+            Spacer(minLength: 0)
         }
     }
 

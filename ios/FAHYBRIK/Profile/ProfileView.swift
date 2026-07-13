@@ -522,6 +522,10 @@ struct ProfileView: View {
                 Text("Enviada a \(inv.inviteeEmail)")
                     .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
+                    // A long invitee email is an unbreakable token; without this it
+                    // reports its single-line intrinsic width to the ScrollView and
+                    // drags the whole page horizontally. Force wrap, grow vertically.
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(inv.expiryText.map { "Esperando a que acepte · \($0)." }
                         ?? "Esperando a que acepte desde su email.")
                     .scaledFont(12, relativeTo: .caption)
@@ -547,6 +551,9 @@ struct ProfileView: View {
                 Text(headline)
                     .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
+                    // Headline interpolates the invitee email (unbreakable token) —
+                    // wrap it instead of letting it overflow the ScrollView width.
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
                     .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.muted)
@@ -866,6 +873,9 @@ struct ProfileView: View {
                 Text(subtitle)
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
+                    // Subtitle may carry an unbreakable token (a paired BLE device
+                    // name, a bare URL). Wrap within the row width; never overflow.
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             Text(statusText)
@@ -1011,6 +1021,9 @@ struct ProfileView: View {
                 Text(subtitle)
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
+                    // Subtitle may carry an unbreakable token (a paired BLE device
+                    // name, a bare URL). Wrap within the row width; never overflow.
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             Image(systemName: "chevron.right")
