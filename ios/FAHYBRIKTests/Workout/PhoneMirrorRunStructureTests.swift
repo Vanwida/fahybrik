@@ -106,4 +106,72 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         let key1 = mirror.structuralKey(mirror.buildFrame(from: s))
         XCTAssertNotEqual(key0, key1)            // "TRAMO 1/2 · 800 m" ≠ "TRAMO 2/2 · 600 m"
     }
+
+    // MARK: - Treadmill belt ring — a continuous distance run sends covered/target/pace
+
+    private func continuousRunSession(targetM: Double) -> WorkoutSession {
+        let seg = WorkoutSegment(order: 1, title: "5 km", kind: .running,
+                                 targetDistanceMeters: targetM, blockTitle: "Carrera", blockPosition: 1)
+        return WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "Test", format: .steady, estimatedDurationSeconds: 1800,
+            blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+    }
+
+    func testTreadmillContinuousRunSendsBeltRing() {
+        let s = continuousRunSession(targetM: 5000)
+        s.lapElapsedSeconds = 300
+        s.sampleTreadmillDistance(deltaMeters: 1200)     // belt covered 1.2 km
+
+        mirror.isTreadmillLive = { true }
+        defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }
+
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.beltDistanceM ?? 0, 1200, accuracy: 0.001)   // fills the wrist ring
+        XCTAssertEqual(f.beltTargetM, 5000)
+        XCTAssertNotNil(f.beltPaceSecPerKm)                          // honest covered average
+        XCTAssertNil(f.countdownRemaining)                          // distance leg → still no fake clock
+    }
+
+    func testTreadmillBeltRingAbsentWhenBeltNotLive() {
+        let s = continuousRunSession(targetM: 5000)
+        s.sampleTreadmillDistance(deltaMeters: 1200)
+        mirror.isTreadmillLive = { false }
+        defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }
+        let f = mirror.buildFrame(from: s)
+        XCTAssertNil(f.beltDistanceM)                    // no belt live → no ring, no divergence
+    }
+
+    func testTreadmillFoldedSeriesDoesNotSendBeltRing() {
+        // A folded interval SERIES: `targetDistanceMeters` is PER-BOUT (400) while the
+        // belt accumulator spans ALL bouts of the segment — a ring would overflow, so
+        // the gate excludes it (per-leg covered isn't in the engine). It keeps its
+        // per-bout lines instead. Locks the gate against the isRunStructureActive-only
+        // check that would have let a series through.
+        let rx = Prescription(scheme: .intervals, modality: .run, sets: nil, rounds: 4,
+                              workS: nil, restS: 60, totalS: nil, target: nil, note: nil,
+                              start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "4×400", kind: .running,
+                                 targetDistanceMeters: 400, blockTitle: "Series",
+                                 blockPosition: 1, prescription: rx)
+        let s = WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
+            blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+        s.sampleTreadmillDistance(deltaMeters: 300)
+        mirror.isTreadmillLive = { true }
+        defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }
+        let f = mirror.buildFrame(from: s)
+        XCTAssertNil(f.beltDistanceM)                    // series → no ring
+    }
+
+    // MARK: - Regla viva: the treadmill tramo surfaces via the SHARED live descriptor
+    // (the same liveProgressText / liveBlockName the dobles-live heartbeat reads, so a
+    // partner's live strip shows the run's block + tramo exactly as the wrist does).
+    func testStructuredRunTramoSurfacesInSharedLiveDescriptor() {
+        let s = structuredSession([main([work(.distance(m: 800)), work(.distance(m: 600))])])
+        s.primaryAdvance()                       // → leg 0
+        XCTAssertEqual(s.liveProgressText, "TRAMO 1/2")
+        XCTAssertEqual(s.liveBlockName, "Series")
+    }
 }

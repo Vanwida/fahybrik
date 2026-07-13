@@ -102,6 +102,17 @@ struct MirrorStateFrame: Codable, Equatable {
     /// `var` with a default so the existing `MirrorStateFrame(...)` construction (which
     /// doesn't pass it) and older encoded frames keep decoding.
     var dobles: MirrorDoblesTurn? = nil
+    /// Live TREADMILL belt progress (indoor run): the meters covered THIS tramo and its
+    /// distance objetivo, so the wrist FILLS a progress ring instead of showing a naked
+    /// count-up — a DISTANCE leg has no countdown to tick, and the wrist can't derive
+    /// belt distance locally (it doesn't know the belt speed). Set only when a belt is
+    /// live on a continuous distance run; nil otherwise. `beltPaceSecPerKm` is the honest
+    /// covered pace (sec/km). Zone reuses `targetZone` + the wrist's local HR. OPTIONAL +
+    /// ADDITIVE (same pattern as `dobles`): an older watch ignores them, an older phone
+    /// omits them → nil.
+    var beltDistanceM: Double? = nil
+    var beltTargetM: Double? = nil
+    var beltPaceSecPerKm: Int? = nil
 }
 
 /// Phone → watch: the current dobles station's turn, resolved for the reading athlete

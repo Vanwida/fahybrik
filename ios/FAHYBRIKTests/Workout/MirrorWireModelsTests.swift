@@ -60,4 +60,29 @@ final class MirrorWireModelsTests: XCTestCase {
         let f = try MirrorWire.decoder.decode(MirrorStateFrame.self, from: json)
         XCTAssertEqual(f.phase, "someFuturePhase")
     }
+
+    // MARK: - Treadmill belt fields round-trip (optional + additive)
+
+    func testTreadmillBeltFrameRoundTrips() throws {
+        var f = sampleFrame(phase: MirrorWire.Phase.active, countdown: nil)
+        f.beltDistanceM = 620
+        f.beltTargetM = 800
+        f.beltPaceSecPerKm = 278
+        let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.frame, f))
+        let back = try XCTUnwrap(MirrorEnvelope.decoding(data)?.body(as: MirrorStateFrame.self))
+        XCTAssertEqual(back, f)
+        XCTAssertEqual(back.beltDistanceM, 620)
+        XCTAssertEqual(back.beltTargetM, 800)
+        XCTAssertEqual(back.beltPaceSecPerKm, 278)
+    }
+
+    func testOldFrameWithoutBeltFieldsDecodesToNil() throws {
+        // A phone that predates the belt fields sends a frame without them → nil, so an
+        // older watch just renders the standard active glance (no ring). Additive, safe.
+        let json = Data(#"{"phase":"active","sessionElapsed":10,"lapElapsed":2}"#.utf8)
+        let f = try MirrorWire.decoder.decode(MirrorStateFrame.self, from: json)
+        XCTAssertNil(f.beltDistanceM)
+        XCTAssertNil(f.beltTargetM)
+        XCTAssertNil(f.beltPaceSecPerKm)
+    }
 }
