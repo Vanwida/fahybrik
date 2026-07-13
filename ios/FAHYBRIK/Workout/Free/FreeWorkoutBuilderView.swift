@@ -76,6 +76,10 @@ struct FreeWorkoutBuilderView: View {
             if step == .bouts { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        // Leaving the measured builder WITHOUT starting (back out, or switch to the
+        // Fuerza/Funcional track) → release any belt/strap connected from the card.
+        // When Empezar sets `running`, WorkoutContainer owns teardown, so skip here.
+        .onDisappear { if running == nil { DeviceHub.shared.stopAll() } }
     }
 
     // MARK: - Nav bar
@@ -241,8 +245,22 @@ struct FreeWorkoutBuilderView: View {
 
                 titleField
                 FreePreviewCard(line: draft.previewLine)
+                if !freeDevices.isEmpty {
+                    // Same connect-before-start card as the prescribed brief: a free
+                    // run offers the belt + strap, a free erg the PM5 + strap. Connect
+                    // here and the live engine starts already streaming. Optional.
+                    DeviceConnectCard(devices: freeDevices)
+                }
             }
         }
+    }
+
+    /// Devices worth offering for the chosen measured modality — mirrors the
+    /// prescribed brief (run → belt + strap, erg → PM5 + strap). Empty until a
+    /// modality is picked / for a non-measured track.
+    private var freeDevices: [PreWorkoutDevice] {
+        guard let m = draft.modality else { return [] }
+        return m == .run ? [.treadmill, .heartRate] : [.pm5, .heartRate]
     }
 
     @ViewBuilder

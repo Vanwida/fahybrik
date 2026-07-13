@@ -31,9 +31,13 @@ struct TreadmillLegMeasurement: Equatable {
 
 @Observable
 final class TreadmillHUDModel {
-    // Live device state (observed by the view).
-    private(set) var treadmillLink: DeviceLink = .idle
-    private(set) var hrLink: DeviceLink = .idle
+    // Live device links come from the SHARED DeviceHub — connected in the pre-workout
+    // brief or here — so the chips reflect the SAME connection the whole session uses
+    // and dismissing/re-opening this HUD never drops the belt.
+    var treadmillLink: DeviceLink { hub.treadmillLink }
+    var hrLink: DeviceLink { hub.hrLink }
+    // Live merged telemetry (observed by the view). `latest` is merged here from the
+    // hub's raw samples; `bleBpm` is forwarded from the hub's strap.
     private(set) var latest = TreadmillSample()
     private(set) var bleBpm: Int?
 
@@ -49,8 +53,10 @@ final class TreadmillHUDModel {
     let session: WorkoutSession
     let athleteAge: Int?
 
-    private let treadmill: TreadmillDataSource
-    private let hr: HeartRateSource
+    /// The shared device layer (FTMS treadmill + BLE HR strap). The model does NOT
+    /// own or start/stop the sources — it subscribes for telemetry and drives the
+    /// leg logic; the hub owns the connection lifecycle across the whole session.
+    private let hub: DeviceHub
 
     // Leg identity + timing (wall-clock, pause-aware).
     private var activeLegKey = ""
@@ -71,18 +77,18 @@ final class TreadmillHUDModel {
 
     private var displayTimer: Timer?
 
-    init(session: WorkoutSession, athleteAge: Int?,
-         treadmill: TreadmillDataSource? = nil, hr: HeartRateSource? = nil) {
+    init(session: WorkoutSession, athleteAge: Int?, hub: DeviceHub) {
         self.session = session
         self.athleteAge = athleteAge
-        // Real BLE on device; deterministic mocks in the simulator (no Bluetooth).
-        #if targetEnvironment(simulator)
-        self.treadmill = treadmill ?? MockTreadmillSource()
-        self.hr = hr ?? MockHeartRateSource()
-        #else
-        self.treadmill = treadmill ?? FTMSTreadmillSource()
-        self.hr = hr ?? BLEHeartRateSource()
-        #endif
+        self.hub = hub
+    }
+
+    /// Test seam — the auto-advance tests inject fake sources they drive directly;
+    /// wrap them in a throwaway hub so they exercise the SAME ingest path as prod.
+    convenience init(session: WorkoutSession, athleteAge: Int?,
+                     treadmill: TreadmillDataSource, hr: HeartRateSource) {
+        self.init(session: session, athleteAge: athleteAge,
+                  hub: DeviceHub(treadmill: treadmill, hr: hr))
     }
 
     // MARK: - Lifecycle
@@ -90,12 +96,13 @@ final class TreadmillHUDModel {
     func start() {
         activeLegKey = legKey()
         resetLegState()
-        treadmill.onLink = { [weak self] in self?.treadmillLink = $0 }
-        treadmill.onSample = { [weak self] in self?.ingest($0) }
-        hr.onLink = { [weak self] in self?.hrLink = $0 }
-        hr.onBpm = { [weak self] in self?.bleBpm = $0 }
-        treadmill.start()
-        hr.start()
+        // Consume the shared hub's telemetry (the belt/strap may already be
+        // connected from the brief). Subscribing — not owning the sources — is what
+        // lets the connection survive this HUD being dismissed and re-opened.
+        hub.onSample = { [weak self] in self?.ingest($0) }
+        hub.onBpm = { [weak self] in self?.bleBpm = $0 }
+        hub.connectTreadmill()   // idempotent: a no-op if the brief already connected
+        hub.connectHR()
         displayTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -104,8 +111,11 @@ final class TreadmillHUDModel {
     func teardown() {
         snapshotLeg(activeLegKey)   // keep the leg in progress in memory for phase 3
         displayTimer?.invalidate(); displayTimer = nil
-        treadmill.stop()
-        hr.stop()
+        // UNSUBSCRIBE only — leave the devices connected. The link is session-scoped
+        // (owned by DeviceHub) and must outlive this HUD; the whole workout's teardown
+        // disconnects via DeviceHub.shared.stopAll() (WorkoutContainer.onDisappear).
+        hub.onSample = nil
+        hub.onBpm = nil
     }
 
     func togglePause() {
@@ -242,7 +252,7 @@ final class TreadmillHUDModel {
         }
     }
 
-    var diagnosticsText: String? { treadmill.diagnosticsText() }
+    var diagnosticsText: String? { hub.treadmillDiagnostics() }
 
     // MARK: - Ingestion & ticking
 

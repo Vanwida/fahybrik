@@ -15,7 +15,10 @@ struct TreadmillHUDView: View {
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
     init(session: WorkoutSession, athleteAge: Int?) {
-        _model = State(initialValue: TreadmillHUDModel(session: session, athleteAge: athleteAge))
+        // The SHARED hub — so a belt connected in the brief is already live here (no
+        // re-scan), and the connection outlives this cover being opened/closed.
+        _model = State(initialValue: TreadmillHUDModel(session: session, athleteAge: athleteAge,
+                                                       hub: .shared))
     }
 
     var body: some View {

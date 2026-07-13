@@ -20,14 +20,23 @@
 //       training_sessions:read activity:read sleep:read continuous_samples:read
 //       nightly_recharge:read profile:read sports:read tests:read
 //   - Webhooks: Polar POSTs events; the payload carries an HMAC signature header.
-//     The exact v4 API base is not fully confirmed publicly, so POLAR_API_BASE is
-//     env-configurable with a default treated as TO-CONFIRM.
+//
+// DATA API GENERATION (confirmed against the AccessLink OpenAPI spec, version v3
+// at https://www.polar.com/accesslink-api/): the ingestion client (lib/polar/
+// accesslink.ts) speaks the CLASSIC AccessLink v3 REST surface — it is the only
+// generation that has webhooks (the newer "Dynamic API v4" is poll-only). apiBase
+// is therefore the host `https://www.polaraccesslink.com`; the client appends the
+// versioned paths (`/v3/users`, `/v3/exercises/{id}`, `/v3/users/sleep/{date}`,
+// `/v3/users/nightly-recharge/{date}`). These reads require the OAuth scope
+// `accesslink.read_all`; if the connect flow is granted only the v4 granular
+// scopes below, the token will 403 on these endpoints — keep scope + data-API
+// generation in sync (override POLAR_SCOPES / POLAR_API_BASE via env if needed).
 
 export const POLAR_ENDPOINTS = {
   // Public + confirmed.
   authorize: 'https://auth.polar.com/oauth/authorize',
   token: 'https://auth.polar.com/oauth/token',
-  // TO CONFIRM for v4 — overridable via POLAR_API_BASE.
+  // Host for the v3 REST data endpoints (see header). Overridable via POLAR_API_BASE.
   apiBase: 'https://www.polaraccesslink.com',
 } as const;
 
@@ -50,7 +59,7 @@ export type PolarConfig = {
   authorizeEndpoint: string;
   tokenEndpoint: string;
   callbackUrl: string;
-  // v4 API base for outbound reads (TO CONFIRM — see file header).
+  // Host for the v3 REST data endpoints (client appends /v3/... — see header).
   apiBase: string;
   // Space-separated OAuth scopes sent on the authorize redirect.
   scopes: string;
@@ -83,7 +92,7 @@ export function loadPolarConfig(): PolarConfigResult {
       authorizeEndpoint: process.env.POLAR_AUTHORIZE_URL || POLAR_ENDPOINTS.authorize,
       tokenEndpoint: process.env.POLAR_TOKEN_URL || POLAR_ENDPOINTS.token,
       callbackUrl: callbackUrl!,
-      // TO CONFIRM for v4 (see file header). Overridable via POLAR_API_BASE.
+      // Host for the v3 REST data endpoints (see header). Overridable via POLAR_API_BASE.
       apiBase: process.env.POLAR_API_BASE || POLAR_ENDPOINTS.apiBase,
       scopes: process.env.POLAR_SCOPES || POLAR_DEFAULT_SCOPES,
       webhookSecret: webhookSecret && webhookSecret.length > 0 ? webhookSecret : undefined,
