@@ -72,10 +72,11 @@ export default function Section() {
       </div>
       <h2>Lo que cubre la guía</h2>
       <p className="lead">
-        La guía está dividida en nueve áreas: de montar tu método y tu semana, a{' '}
-        <b>captar y cobrar</b> a tus atletas, seguir su día a día y llevar su{' '}
-        <b>ciclo de vida</b> —pausas, lesiones, revisiones 1:1— y los <b>dobles</b>. Empieza por
-        donde quieras — o sigue el orden.
+        La guía está dividida en áreas: de montar tu método y tu semana, a{' '}
+        <b>captar y cobrar</b> a tus atletas, seguir su día a día, llevar su{' '}
+        <b>ciclo de vida</b> —pausas, lesiones, revisiones 1:1—, los <b>dobles</b>, la{' '}
+        <b>carrera</b> y los <b>aparatos</b> con los que entrena. Empieza por donde quieras — o
+        sigue el orden.
       </p>
       <div className="toc">
         {GUIA_AREAS.map((area) => {

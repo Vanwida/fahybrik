@@ -1,9 +1,10 @@
 // ════════════════════════════════════════════════════════════════════════════
 // GUÍA DEL ENTRENADOR — single source of truth for the docs index.
 //
-// The whole guide is registered ONCE here: the 11 áreas and the 38 secciones — el
-// método, el negocio, el ciclo de vida del atleta, los dobles y la carrera (todo
-// lo que se construyó en producción estos días). Both the sidebar
+// The whole guide is registered ONCE here: the 12 áreas and the 40 secciones — el
+// método, el negocio, el ciclo de vida del atleta, los dobles, la carrera y los
+// aparatos con los que entrena (todo lo que se construyó en producción estos días).
+// Both the sidebar
 // (components/v2/guia/GuiaSidebar) and the router (app/[locale]/(v2)/guia/[slug])
 // read from this file — nobody edits the sidebar by hand. Each section fills ONE
 // file in ./sections; this config already points the sidebar link + the route at it.
@@ -25,7 +26,8 @@ export type GuiaAreaId =
   | 'ciclo-vida'
   | 'dobles'
   | 'herramientas'
-  | 'carrera';
+  | 'carrera'
+  | 'aparatos';
 
 export interface GuiaArea {
   id: GuiaAreaId;
@@ -60,9 +62,10 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'dobles', label: 'Dobles' },
   { id: 'herramientas', label: 'Herramientas' },
   { id: 'carrera', label: 'Carrera' },
+  { id: 'aparatos', label: 'Aparatos y sensores' },
 ] as const;
 
-/** The 38 sections, in order. `built` ones have real content today. */
+/** The 40 sections, in order. `built` ones have real content today. */
 export const GUIA_SECTIONS: readonly GuiaSection[] = [
   // ── Empezar ───────────────────────────────────────────────────────────────
   {
@@ -377,6 +380,23 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'al-acabar-el-entreno',
     title: 'Al acabar el entreno',
     blurb: 'Récords corriendo con tarjeta compartible, y el feedback que te llega: cómo ha ido y una molestia.',
+    built: true,
+  },
+  // ── Aparatos y sensores ──────────────────────────────────────────────────────
+  {
+    num: 39,
+    area: 'aparatos',
+    slug: 'remo-y-ergometros',
+    title: 'Remo y ergómetros a fondo',
+    blurb: 'Con el PM5 de Concept2 enlazado, cada split entra entero: ritmo /500m, paladas, vatios, drag y calorías.',
+    built: true,
+  },
+  {
+    num: 40,
+    area: 'aparatos',
+    slug: 'zonas-de-pulso',
+    title: 'Zonas de pulso personales',
+    blurb: 'La FC máxima real de tu atleta personaliza todas sus zonas; sin dato, se estiman por edad y se etiquetan.',
     built: true,
   },
 ] as const;

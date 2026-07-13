@@ -48,6 +48,10 @@ import Section36 from './36-al-acabar-el-entreno';
 // dirigido, cierre juntos + el calendario del atleta).
 import Section37 from './37-dobles-en-vivo-y-juntos';
 import Section38 from './38-historial-del-atleta';
+// Aparatos y sensores — la capa de hardware/medición: el erg a fondo (PM5) y las
+// zonas de pulso personalizadas por la FC máxima real del atleta.
+import Section39 from './39-remo-y-ergometros';
+import Section40 from './40-zonas-de-pulso';
 
 /** A section body component — receives its own config metadata. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
@@ -91,4 +95,6 @@ export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
   'al-acabar-el-entreno': Section36,
   'dobles-en-vivo-y-juntos': Section37,
   'historial-del-atleta': Section38,
+  'remo-y-ergometros': Section39,
+  'zonas-de-pulso': Section40,
 };
