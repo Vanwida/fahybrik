@@ -22,8 +22,6 @@
     "backfill:prescriptions": "tsx scripts/backfill_prescriptions.ts",
     "backfill:prescriptions:dry-run": "tsx scripts/backfill_prescriptions.ts --dry-run",
     "repair:0017": "tsx scripts/repair_0017.ts",
-    "polar:register-webhook": "tsx scripts/polar_register_webhook.ts",
-    "polar:register-webhook:dry-run": "tsx scripts/polar_register_webhook.ts --dry-run",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:backfill": "tsx scripts/migrate.ts --backfill",
     "migrate:dry-run": "tsx scripts/migrate.ts --dry-run"
