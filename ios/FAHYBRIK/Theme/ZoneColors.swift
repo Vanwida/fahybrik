@@ -64,3 +64,47 @@ enum HRZoneClassifier {
         }
     }
 }
+
+// The athlete's max HR and where it came from — the SINGLE source that every
+// zone surface (structured engine, treadmill/outdoor HUDs, watch, post-workout
+// desglose) reads, so the same number drives them all. `isEstimated` travels
+// with it so a surface can label a 220−age fallback "estimada".
+struct HRMaxSource: Equatable {
+    let bpm: Int
+    /// true  = textbook 220−age fallback (label "estimada").
+    /// false = the athlete's own measured/entered max HR (personal, unlabeled).
+    let isEstimated: Bool
+}
+
+// Resolves the athlete's max HR from what we know, in priority order:
+//   1. a measured/entered max (personal) — wins whenever present and sane,
+//   2. else the textbook 220−age estimate (flagged estimated),
+//   3. else nil — no honest max, so the caller HIDES the zone rather than
+//      inventing one (never a fabricated default like 190).
+// Pure Foundation, shared into the watch target (single source of the % bands
+// stays HRZoneClassifier; only the max input is personalized here).
+enum PersonalHRMax {
+    /// Textbook age-based max: 220 − age.
+    static let ageMaxConstant = 220
+    /// Sane bounds for a measured/entered max HR (bpm). Outside → ignored, so a
+    /// typo can't drive absurd zones; falls through to the age estimate.
+    static let minMeasuredBpm = 100
+    static let maxMeasuredBpm = 230
+
+    static func resolve(measuredMaxHrBpm: Int?, age: Int?) -> HRMaxSource? {
+        if let m = measuredMaxHrBpm, m >= minMeasuredBpm, m <= maxMeasuredBpm {
+            return HRMaxSource(bpm: m, isEstimated: false)
+        }
+        if let age, age > 0, age < 120 {
+            return HRMaxSource(bpm: ageMaxConstant - age, isEstimated: true)
+        }
+        return nil
+    }
+
+    /// Classify a live BPM against a resolved source. Nil source → nil zone
+    /// (the surface hides the zone; we never fabricate a max).
+    static func zone(forBpm bpm: Int, source: HRMaxSource?) -> HRZone? {
+        guard let source else { return nil }
+        return HRZoneClassifier.zone(forBpm: bpm, hrMax: source.bpm)
+    }
+}

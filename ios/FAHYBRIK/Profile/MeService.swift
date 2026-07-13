@@ -26,6 +26,11 @@ struct AthleteIdentity: Codable {
     let goalType: String?
     let goalOtherText: String?
     let preferredLanguage: String?
+    /// Measured/entered max HR (bpm) — the athlete's personal FCmáx, editable in
+    /// the profile and seeded from the onboarding threshold test. Optional so
+    /// older /me responses (before the backend returns `max_hr_bpm`) decode
+    /// cleanly; nil → HR zones fall back to the 220−age estimate.
+    let maxHrBpm: Int?
 
     var initials: String {
         let parts = fullName
@@ -47,6 +52,13 @@ struct AthleteIdentity: Codable {
         guard let date = fmt.date(from: dob) else { return nil }
         let comps = Calendar.current.dateComponents([.year], from: date, to: Date())
         return comps.year
+    }
+
+    /// The athlete's resolved max-HR source — the SINGLE input every HR-zone
+    /// surface reads: the measured `maxHrBpm` when present, else the 220−age
+    /// estimate (flagged), else nil. See `PersonalHRMax`.
+    var hrMaxSource: HRMaxSource? {
+        PersonalHRMax.resolve(measuredMaxHrBpm: maxHrBpm, age: age)
     }
 }
 
@@ -77,6 +89,9 @@ struct ProfileUpdate: Encodable {
     var goalType: String?
     var goalOtherText: String?
     var preferredLanguage: String?
+    /// Personal measured max HR (bpm). Encodes to `max_hr_bpm`. Nil is omitted
+    /// (leaves the stored value untouched); a value sets it.
+    var maxHrBpm: Int?
 }
 
 enum ProfileService {
