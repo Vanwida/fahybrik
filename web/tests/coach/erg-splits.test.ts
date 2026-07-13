@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseErgDetail } from '@/lib/dashboard/coach/erg-splits';
+import { parseErgDetail } from '@/lib/execution/erg-splits';
 import { buildSegmentActuals, type SegmentActualRow } from '@/lib/dashboard/coach/session-actuals';
 
 // The PM5 erg-detail reader is TOLERANT by design: `raw_lap_data_json` is a shared

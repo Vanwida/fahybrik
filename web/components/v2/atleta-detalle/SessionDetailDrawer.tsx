@@ -31,7 +31,7 @@ import type {
 } from '@/lib/athlete/assignment-detail';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
-import type { ErgSplitItem } from '@/lib/dashboard/coach/erg-splits';
+import type { ErgSplitItem } from '@/lib/execution/erg-splits';
 
 // ── pace m:ss (s → "4:15"); seconds always zero-padded. ─────────────────────
 function paceClock(seconds: number): string {

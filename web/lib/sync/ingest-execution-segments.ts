@@ -14,7 +14,7 @@ import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { REPS_STATUSES, RX_SCALED_VALUES, type RepsStatus } from '@fahybrid/shared/schema';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
-import { ergSplitItemSchema } from '@/lib/dashboard/coach/erg-splits';
+import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.

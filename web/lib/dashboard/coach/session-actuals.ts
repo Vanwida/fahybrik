@@ -20,7 +20,7 @@
 
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
-import { parseErgDetail, type ErgSplitItem } from '@/lib/dashboard/coach/erg-splits';
+import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
