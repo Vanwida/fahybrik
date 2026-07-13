@@ -1568,8 +1568,9 @@ struct EditProfileView: View {
         _experienceText = State(initialValue: identity?.trainingExperienceYears.map { v in
             v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
         } ?? "")
-        // Seeded from the measured max (which the onboarding threshold test feeds
-        // server-side); empty → HR zones use the 220−age estimate.
+        // Seeded from the athlete's saved max HR — this editor is the ONLY entry
+        // point (starts empty for everyone until set here); empty → HR zones use
+        // the 220−age estimate.
         _maxHrText = State(initialValue: identity?.maxHrBpm.map(String.init) ?? "")
 
         _goalType = State(initialValue: identity?.goalType)

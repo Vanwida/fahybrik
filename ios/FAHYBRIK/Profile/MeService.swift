@@ -26,10 +26,11 @@ struct AthleteIdentity: Codable {
     let goalType: String?
     let goalOtherText: String?
     let preferredLanguage: String?
-    /// Measured/entered max HR (bpm) — the athlete's personal FCmáx, editable in
-    /// the profile and seeded from the onboarding threshold test. Optional so
-    /// older /me responses (before the backend returns `max_hr_bpm`) decode
-    /// cleanly; nil → HR zones fall back to the 220−age estimate.
+    /// Measured/entered max HR (bpm) — the athlete's personal FCmáx. Set ONLY via
+    /// the profile editor (the sole entry point; the onboarding threshold value is
+    /// discarded, never persisted here). Optional so older /me responses (before the
+    /// backend returned `max_hr_bpm`, mig 0129) decode cleanly; nil (the default for
+    /// everyone until they set it) → HR zones fall back to the 220−age estimate.
     let maxHrBpm: Int?
 
     var initials: String {
