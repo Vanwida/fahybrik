@@ -96,6 +96,37 @@ export async function saveWearableConnection(params: {
   `;
 }
 
+// Persist a REFRESHED OAuth2 token set WITHOUT disturbing identity/status. Unlike
+// saveWearableConnection (which upserts the whole row and would overwrite
+// provider_user_id / status from `excluded`), this updates only the token-bearing
+// columns — access/refresh/secret + hash + scopes + expiry. Used on a background
+// token rotation, where `provider_user_id` (the webhook reverse-lookup key) and
+// `status` must survive untouched. No-op if the (athlete, provider) row is absent.
+export async function updateWearableTokens(params: {
+  athlete_id: bigint;
+  provider: WearableProvider;
+  tokens: WearableTokenSet;
+  client?: Client;
+}): Promise<void> {
+  const client = (params.client ?? defaultSql) as Sql;
+  const access = encrypt(params.tokens.access_token);
+  const refresh = params.tokens.refresh_token ? encrypt(params.tokens.refresh_token) : null;
+  const secret = params.tokens.token_secret ? encrypt(params.tokens.token_secret) : null;
+  const accessHash = hashAccessToken(params.tokens.access_token);
+
+  await client`
+    update wearable_connections set
+      access_token_encrypted = ${access},
+      refresh_token_encrypted = ${refresh},
+      token_secret_encrypted = ${secret},
+      access_token_sha256 = ${accessHash},
+      scopes = ${params.tokens.scopes ?? null},
+      expires_at = ${params.tokens.expires_at ?? null},
+      updated_at = now()
+    where athlete_id = ${params.athlete_id} and provider = ${params.provider}
+  `;
+}
+
 export async function loadWearableConnection(params: {
   athlete_id: bigint;
   provider: WearableProvider;
