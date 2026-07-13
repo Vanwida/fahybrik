@@ -230,6 +230,15 @@ final class WorkoutSession {
     private var lapErgStartCalories: Int? = nil
     private var lapErgLastCalories: Int? = nil
     private var lapHadPM5: Bool = false
+    // Erg detail (#33): drag / cal-per-hour / drive-force are averaged over the
+    // segment; the monitor's own avg pace (last value wins) is preferred over our
+    // sample mean; the PM5 splits are snapshotted verbatim.
+    private var lapErgDragSamples: [Double] = []
+    private var lapErgCalPerHourSamples: [Double] = []
+    private var lapErgPeakForceSamples: [Double] = []
+    private var lapErgAvgForceSamples: [Double] = []
+    private var lapErgMonitorAvgPace500: Double? = nil
+    private var lapErgSplits: [PM5Split] = []
 
     // A previously-closed segment REOPENED via stepBack / jumpTo. Its captured
     // aggregates (HR / zone / distance / calories) are merged back in when the
@@ -1448,9 +1457,17 @@ final class WorkoutSession {
         let isErg = seg.kind.isErg
         let usedPM5 = isErg && lapHadPM5
 
-        let avgPace500 = usedPM5 ? mean(lapErgPaceSamples) : nil
+        // Prefer the monitor's OWN average pace (a truer mean over the whole piece)
+        // over the mean of our 1 Hz samples; fall back to the sample mean.
+        let avgPace500 = usedPM5 ? (lapErgMonitorAvgPace500 ?? mean(lapErgPaceSamples)) : nil
         let avgPower = usedPM5 ? mean(lapErgPowerSamples) : nil
         let avgSpm = usedPM5 ? mean(lapErgSpmSamples) : nil
+        // Erg detail aggregates (#33) — all nil off an erg / when unreported.
+        let avgDrag: Int? = usedPM5 ? mean(lapErgDragSamples).map { Int($0.rounded()) } : nil
+        let avgCalPerHour: Double? = usedPM5 ? mean(lapErgCalPerHourSamples) : nil
+        let peakForce: Double? = usedPM5 ? lapErgPeakForceSamples.max() : nil
+        let avgForce: Double? = usedPM5 ? mean(lapErgAvgForceSamples) : nil
+        let ergSplits: [PM5Split]? = (usedPM5 && !lapErgSplits.isEmpty) ? lapErgSplits : nil
         // In-window distance delta (PM5 distance is cumulative across the piece).
         let ergDistance: Double? = {
             guard usedPM5, let start = lapErgStartDistance, let last = lapErgLastDistance else { return nil }
@@ -1607,7 +1624,13 @@ final class WorkoutSession {
             scaledNote: lapScaledNote,
             sets: setRecordsOut,
             inclinePct: mergedIncline,
-            runCadenceSpm: nil   // no on-device running-cadence source yet (see LapRecord)
+            runCadenceSpm: nil,   // no on-device running-cadence source yet (see LapRecord)
+            // Fall back to a reopened lap's erg detail so a back-step never drops it.
+            dragFactor: avgDrag ?? reopen?.dragFactor,
+            avgCaloriesPerHour: avgCalPerHour ?? reopen?.avgCaloriesPerHour,
+            peakDriveForceLbs: peakForce ?? reopen?.peakDriveForceLbs,
+            avgDriveForceLbs: avgForce ?? reopen?.avgDriveForceLbs,
+            ergSplits: ergSplits ?? reopen?.ergSplits
         )
         laps.append(lap)
         reopenedLap = nil
@@ -1878,6 +1901,12 @@ final class WorkoutSession {
         lapErgStartCalories = nil
         lapErgLastCalories = nil
         lapHadPM5 = false
+        lapErgDragSamples.removeAll(keepingCapacity: true)
+        lapErgCalPerHourSamples.removeAll(keepingCapacity: true)
+        lapErgPeakForceSamples.removeAll(keepingCapacity: true)
+        lapErgAvgForceSamples.removeAll(keepingCapacity: true)
+        lapErgMonitorAvgPace500 = nil
+        lapErgSplits.removeAll(keepingCapacity: true)
     }
 
     private func mean(_ xs: [Double]) -> Double? {
@@ -1888,7 +1917,18 @@ final class WorkoutSession {
     /// Pulls one erg sample into the current segment's aggregation. Called from
     /// the view's PM5 onChange so the session stays the single owner of capture
     /// state without depending on the PM5 store directly (testable seam).
-    func sampleErg(paceSecPer500m: Double?, powerWatts: Int?, strokeRate: Int?, distanceMeters: Double?, caloriesKcal: Int?) {
+    func sampleErg(
+        paceSecPer500m: Double?,
+        powerWatts: Int?,
+        strokeRate: Int?,
+        distanceMeters: Double?,
+        caloriesKcal: Int?,
+        dragFactor: Int? = nil,
+        caloriesPerHour: Int? = nil,
+        monitorAvgPaceSecPer500m: Double? = nil,
+        peakDriveForceLbs: Double? = nil,
+        avgDriveForceLbs: Double? = nil
+    ) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind.isErg == true else { return }
         lapHadPM5 = true
         if let p = paceSecPer500m, p > 0 { lapErgPaceSamples.append(p) }
@@ -1902,6 +1942,22 @@ final class WorkoutSession {
             if lapErgStartCalories == nil { lapErgStartCalories = c }
             lapErgLastCalories = c
         }
+        if let df = dragFactor, df > 0 { lapErgDragSamples.append(Double(df)) }
+        if let ch = caloriesPerHour, ch > 0 { lapErgCalPerHourSamples.append(Double(ch)) }
+        if let pf = peakDriveForceLbs, pf > 0 { lapErgPeakForceSamples.append(pf) }
+        if let af = avgDriveForceLbs, af > 0 { lapErgAvgForceSamples.append(af) }
+        // The monitor's own average pace (last value wins — it's already the mean
+        // over the piece), preferred over our sample mean when persisting.
+        if let ap = monitorAvgPaceSecPer500m, ap > 0 { lapErgMonitorAvgPace500 = ap }
+    }
+
+    /// Snapshots the PM5's completed splits for the current erg segment. Called
+    /// from the view's PM5-splits onChange, mirroring `sampleErg` — the session
+    /// stays the single owner of per-segment capture without touching the store.
+    /// Replace-semantics: the store always holds the full ordered split list.
+    func captureErgSplits(_ splits: [PM5Split]) {
+        guard !isFinished, currentSegment?.kind.isErg == true else { return }
+        lapErgSplits = splits
     }
 
     /// Feeds a live HR reading from a wearable. `source` records WHERE it came

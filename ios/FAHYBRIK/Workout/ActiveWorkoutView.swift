@@ -266,8 +266,24 @@ struct ActiveWorkoutView: View {
                 powerWatts: pm5.live.powerWatts,
                 strokeRate: pm5.live.strokeRate,
                 distanceMeters: pm5.live.distanceMeters,
-                caloriesKcal: pm5.live.caloriesKcal
+                caloriesKcal: pm5.live.caloriesKcal,
+                dragFactor: pm5.live.dragFactor,
+                caloriesPerHour: pm5.live.caloriesPerHour,
+                monitorAvgPaceSecPer500m: pm5.live.avgPaceSecondsPer500m,
+                peakDriveForceLbs: pm5.live.peakDriveForceLbs,
+                avgDriveForceLbs: pm5.live.avgDriveForceLbs
             )
+        }
+        .onChange(of: pm5.splits) { _, splits in
+            // Snapshot the monitor's completed splits into the current erg segment
+            // (event-driven, separate from the 1 Hz live sample above).
+            guard pm5.isConnected else { return }
+            session.captureErgSplits(splits)
+        }
+        .onChange(of: session.currentSegmentIndex) { _, _ in
+            // A new erg piece starts with a clean interval table — the PM5's split
+            // numbers can otherwise carry over between pieces in one session.
+            if session.currentSegment?.kind.isErg == true { pm5.resetSplits() }
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
