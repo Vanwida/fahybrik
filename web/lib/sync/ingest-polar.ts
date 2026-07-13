@@ -1,148 +1,51 @@
-// Polar AccessLink webhook ingest — REAL implementation.
+// Polar (AccessLink Dynamic API v4) ingest — persistence layer.
 //
-// A Polar webhook NOTIFIES that new data exists; it never carries the data. The
-// route (app/api/polar/webhook) has already authenticated the request and
-// resolved the Polar user id → athlete_id, then hands us the parsed body. We
-// switch on the event, FETCH the referenced entity from AccessLink with the
-// athlete's stored token, and map it into the SAME tables ingest-garmin writes,
-// with the SAME data-integrity guards. Precedence, matching and idempotency are
-// deliberately identical to ingest-garmin.ts (read it side-by-side): Garmin and
-// manual entries are authoritative and never clobbered; a passive Polar import
-// never files a phantom second execution over a session already accounted for.
+// Our Polar client is v4 (pull-only, no webhooks): the cron poller
+// (lib/cron/polar-sync) fetches v4 entities, lib/polar/normalize maps them to the
+// provider-neutral structs below, and THIS module writes them into the same
+// tables ingest-garmin writes, with the SAME data-integrity guards. Precedence,
+// day-matching and idempotency are deliberately identical to ingest-garmin.ts
+// (read it side-by-side): 'garmin'/'manual' rows are authoritative and never
+// clobbered; a passive Polar import never files a phantom second execution over a
+// session already accounted for; re-running the poller is a no-op.
 //
-// Events handled:
-//   * EXERCISE → workout_executions (matched to the day's assignment) + an `hr`
-//     biometric_streams row (the exercise AVERAGE — same single-value fidelity
-//     Garmin/HealthKit store; we do NOT synthesise a dense per-second series) +
-//     ONE whole-session segment_executions row carrying the modality + native
-//     pace so a Polar run/erg is visible to the run-vs-row analytics (the exact
-//     purpose of the segment modality columns). Polar summaries expose no laps
-//     (splits need TCX parsing) — that finer per-split breakdown is a follow-up.
-//   * SLEEP → sleep_duration + sleep_score, and — because Polar has NO nightly
-//     recharge webhook — we ALSO pull that night's nightly recharge (recovery +
-//     hrv) for the same date, the only moment both are freshly available.
-// Other event types (CONTINUOUS_HEART_RATE, ACTIVITY_SUMMARY, …) are ignored.
-//
-// Idempotency: re-delivery of the same webhook is a no-op — biometric_streams
-// dedupe on (athlete, source='polar', metric, source_workout_id, recorded_at);
-// executions on the (assignment, source, ref) guard; the whole-session segment is
-// delete-then-insert scoped to source='polar'.
+//   * session  → workout_executions (matched to the day's assignment) + one `hr`
+//     stream (the session AVERAGE — same single-value fidelity Garmin stores) +
+//     segment_executions: the REAL per-lap splits when v4 returned them (v4 laps
+//     are first-class, unlike v3), else ONE whole-session segment so a Polar
+//     run/erg still lands in the run-vs-row analytics.
+//   * sleep    → sleep_duration + sleep_score.
+//   * recharge → recovery (recoveryIndicator) + hrv (RMSSD).
 
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
 import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
 import { existsOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { deriveLapIntensity } from '@/lib/garmin/lap-mapping';
-import { polarSportToModality } from '@/lib/polar/sport-mapping';
-import { parseIso8601DurationSeconds, polarStartToUtcIso } from '@/lib/polar/parse';
-import {
-  AccessLinkClient,
-  type PolarReadClient,
-  type PolarExercise,
-} from '@/lib/polar/accesslink';
-import { loadPolarConfig } from '@/lib/polar/config';
-import {
-  loadWearableConnection,
-  updateWearableTokens,
-  markConnectionStatus,
-} from '@/lib/wearables/token-store';
+import type { NormalizedSession, NormalizedSleep, NormalizedRecharge } from '@/lib/polar/normalize';
 
 const POLAR_SOURCE = 'polar';
 
-// Test seam: inject a fake read client + sql. Production passes neither and we
-// build a real client from the athlete's stored connection.
-export type IngestPolarDeps = {
-  sql?: Sql;
-  client?: PolarReadClient;
-};
+// ── training session ─────────────────────────────────────────────────────────
 
-/**
- * Ingest a single Polar AccessLink webhook payload for the given athlete.
- *
- * @param athlete_id resolved by the webhook route (findConnectionByProviderUser)
- * @param payload    the parsed Polar webhook body ({ event, entity_id|date, … })
- */
-export async function ingestPolar(
-  athlete_id: bigint,
-  payload: unknown,
-  deps?: IngestPolarDeps,
-): Promise<void> {
-  const sql = deps?.sql ?? defaultSql;
-  const evt = readEvent(payload);
-  if (!evt) return;
+export async function ingestPolarSession(args: {
+  sql: Sql;
+  athlete_id: bigint;
+  session: NormalizedSession;
+}): Promise<void> {
+  const { sql, athlete_id, session } = args;
+  const { startedAt, endedAt, externalId, durationSeconds } = session;
 
-  // Only stand up a client (and hit the network) for events we actually map.
-  if (evt.event !== 'EXERCISE' && evt.event !== 'SLEEP') return;
-
-  const client = deps?.client ?? (await buildAthletePolarClient(athlete_id, sql));
-  if (!client) return; // no usable connection (revoked / missing tokens)
-
-  if (evt.event === 'EXERCISE') {
-    if (!evt.entity_id) return;
-    await ingestExercise(sql, athlete_id, evt.entity_id, client);
-    return;
-  }
-  // SLEEP
-  if (!evt.date) return;
-  await ingestSleepAndRecharge(sql, athlete_id, evt.date, client);
-}
-
-// ── event parsing ────────────────────────────────────────────────────────────
-
-type PolarEvent = { event: string; entity_id?: string; date?: string };
-
-function readEvent(payload: unknown): PolarEvent | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const o = payload as Record<string, unknown>;
-  const event = typeof o.event === 'string' ? o.event : null;
-  if (!event) return null;
-  return {
-    event,
-    entity_id: typeof o.entity_id === 'string' ? o.entity_id : undefined,
-    date: typeof o.date === 'string' ? o.date : undefined,
-  };
-}
-
-// ── EXERCISE ─────────────────────────────────────────────────────────────────
-
-async function ingestExercise(
-  sql: Sql,
-  athlete_id: bigint,
-  exerciseId: string,
-  client: PolarReadClient,
-): Promise<void> {
-  const ex = await client.getExercise(exerciseId);
-  if (!ex || !ex.id) return;
-
-  const startedAt = polarStartToUtcIso(ex.start_time, ex.start_time_utc_offset);
-  if (!startedAt) return;
-  const durationS = parseIso8601DurationSeconds(ex.duration) ?? 0;
-  const endedAt =
-    durationS > 0
-      ? new Date(Date.parse(startedAt) + durationS * 1000).toISOString()
-      : startedAt;
-  const externalId = ex.id;
-
-  // Average HR as a single stream row (mirrors Garmin/HealthKit fidelity). This
-  // ingests regardless of assignment matching and is deduped independently.
+  // Average HR as a single stream row (mirrors Garmin/HealthKit fidelity).
   await insertPolarStream({
-    sql,
-    athlete_id,
-    ts: startedAt,
-    metric: 'hr',
-    value: ex.heart_rate?.average,
-    unit: 'bpm',
-    sourceId: externalId,
-    raw: ex,
+    sql, athlete_id, ts: startedAt, metric: 'hr', value: session.avgHr, unit: 'bpm',
+    sourceId: externalId, raw: session.raw,
   });
 
-  // TIME-WINDOW DE-DUPE (shared guard): if any execution already overlaps this
-  // window, the session is accounted for — do NOT file an execution or flip an
-  // assignment (a manual/phone log or an earlier HK/Garmin sync owns it).
+  // TIME-WINDOW DE-DUPE: any overlapping execution means the session is already
+  // accounted for → no execution, no assignment flip (mirrors ingest-garmin).
   if (await existsOverlappingExecution(sql, athlete_id, startedAt, endedAt)) return;
 
-  // Match the day's assignment; tiebreak id desc for determinism on multi-workout
-  // days (identical to ingest-garmin).
+  // Match the day's assignment; tiebreak id desc (identical to ingest-garmin).
   const day = startedAt.slice(0, 10);
   const rows = await sql<
     { id: string; existing_source: string | null; existing_ref: string | null }[]
@@ -160,12 +63,11 @@ async function ingestExercise(
   const assign = rows[0];
   if (!assign) return; // no assignment that day → hr stream stored, no execution (like Garmin)
 
-  // Exact re-delivery of THIS Polar exercise → no-op.
+  // Exact re-delivery of THIS session → no-op.
   if (assign.existing_source === POLAR_SOURCE && assign.existing_ref === externalId) return;
 
-  // UPSERT actuals. Precedence mirrors Garmin: never clobber an authoritative
-  // 'garmin' or 'manual' row; DO fill over a passive 'healthkit' one; latest
-  // Polar wins over an earlier Polar row for the same assignment.
+  // UPSERT actuals. Precedence mirrors Garmin: never clobber 'garmin'/'manual';
+  // fill over passive 'healthkit'; latest Polar wins over an earlier Polar row.
   await sql`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
@@ -175,7 +77,7 @@ async function ingestExercise(
       ${athlete_id as unknown as number},
       ${startedAt},
       ${endedAt},
-      ${durationS},
+      ${durationSeconds},
       ${POLAR_SOURCE},
       ${externalId}
     )
@@ -203,12 +105,9 @@ async function ingestExercise(
           updated_at = now()
   `;
 
-  // Close the loop: a synced Polar workout proves the session was done. Guarded to
-  // never overwrite a manual/coach decision (helper flips only 'scheduled').
   await markAssignmentDoneFromDevice(sql, assign.id, athlete_id);
 
-  // Only touch segments when WE own the execution now (i.e. we didn't preserve a
-  // garmin/manual row). If a garmin/manual execution stood, leave its segments.
+  // Segments only when WE own the execution now (never disturb a garmin/manual one).
   const owned = await sql<{ id: string; source: string | null }[]>`
     select id::text, source::text as source
     from workout_executions where assignment_id = ${assign.id}::bigint
@@ -216,141 +115,113 @@ async function ingestExercise(
   `;
   const exec = owned[0];
   if (exec && exec.source === POLAR_SOURCE) {
-    await writeWholeSessionSegment({
-      sql,
-      execId: exec.id,
-      startedAt,
-      endedAt,
-      durationS,
-      ex,
-    });
+    await writeSegments({ sql, execId: exec.id, session });
   }
 }
 
-// One whole-session segment per Polar exercise: the honest aggregate Polar gives
-// (total distance/duration + avg/max HR), tagged with the mapped modality so the
-// coach run-vs-row breakdown counts it. NOT lap density — a single position-0 row.
-// Skipped when the sport doesn't map to a modality (we don't assert one we can't
-// derive). Delete-then-insert scoped to source='polar' keeps re-delivery clean and
-// never disturbs iOS/Garmin segments (which can't coexist here — the overlap guard
-// above means a polar-owned execution has no competing segment source).
-async function writeWholeSessionSegment(args: {
+// Real per-lap splits when present; otherwise one honest whole-session segment.
+// Delete-then-insert scoped to source='polar' keeps re-delivery clean.
+async function writeSegments(args: {
   sql: Sql;
   execId: string;
-  startedAt: string;
-  endedAt: string;
-  durationS: number;
-  ex: PolarExercise;
+  session: NormalizedSession;
 }): Promise<void> {
-  const { sql, execId, startedAt, endedAt, durationS, ex } = args;
-  const modality = polarSportToModality(ex.detailed_sport_info, ex.sport);
-  if (!modality) return;
+  const { sql, execId, session } = args;
 
-  const intensity = deriveLapIntensity({
-    modality,
-    distance_meters: ex.distance,
-    duration_seconds: durationS,
-  });
+  const segments =
+    session.segments.length > 0
+      ? session.segments
+      : session.modality
+        ? [wholeSessionSegment(session)]
+        : [];
+  if (segments.length === 0) return;
 
   await sql`delete from segment_executions where execution_id = ${execId}::bigint and source = ${POLAR_SOURCE}`;
-  await sql`
-    insert into segment_executions (
-      execution_id, position, started_at, ended_at,
-      distance_meters, avg_hr, max_hr,
-      modality, avg_pace_s_per_km, avg_pace_s_per_500m,
-      avg_power_w, stroke_rate_spm, run_cadence_spm, source,
-      raw_lap_data_json
-    ) values (
-      ${execId}::bigint, 0, ${startedAt}, ${endedAt},
-      ${ex.distance ?? null},
-      ${ex.heart_rate?.average ?? null},
-      ${ex.heart_rate?.maximum ?? null},
-      ${modality},
-      ${intensity.avg_pace_s_per_km},
-      ${intensity.avg_pace_s_per_500m},
-      ${intensity.avg_power_w},
-      ${intensity.stroke_rate_spm},
-      ${intensity.run_cadence_spm},
-      ${POLAR_SOURCE},
-      ${JSON.stringify(ex)}::jsonb
-    )
-  `;
-}
-
-// ── SLEEP (+ nightly recharge for the same date) ─────────────────────────────
-
-async function ingestSleepAndRecharge(
-  sql: Sql,
-  athlete_id: bigint,
-  date: string,
-  client: PolarReadClient,
-): Promise<void> {
-  const sleep = await client.getSleep(date);
-  if (sleep) {
-    // recorded_at: the actual sleep-start instant when present, else the night's
-    // date at UTC midnight (a stable per-night anchor for dedupe).
-    const ts = isoOrNull(sleep.sleep_start_time) ?? `${date}T00:00:00.000Z`;
-    const totalSleepS = totalSleepSeconds(sleep);
-    await insertPolarStream({
-      sql, athlete_id, ts, metric: 'sleep_duration', value: totalSleepS, unit: 'seconds',
-      sourceId: `sleep:${date}`, raw: sleep,
+  for (const seg of segments) {
+    const intensity = deriveLapIntensity({
+      modality: seg.modality,
+      distance_meters: seg.distanceMeters,
+      duration_seconds: seg.durationSeconds,
+      power_w: seg.powerW,
+      // deriveLapIntensity gates by modality: stroke_rate only for erg, run_cadence
+      // only for run — so passing the single v4 cadence to both slots is safe.
+      stroke_rate_spm: seg.cadenceRpm,
+      run_cadence_spm: seg.cadenceRpm,
     });
-    await insertPolarStream({
-      sql, athlete_id, ts, metric: 'sleep_score', value: sleep.sleep_score, unit: 'score',
-      sourceId: `sleep:${date}`, raw: sleep,
-    });
-  }
-
-  // Nightly recharge has no webhook of its own — it becomes available with the
-  // night's sleep, so we pull it here. Absent for a given night → null (skip).
-  const recharge = await client.getNightlyRecharge(date);
-  if (recharge) {
-    const ts = `${date}T00:00:00.000Z`;
-    await insertPolarStream({
-      sql, athlete_id, ts, metric: 'recovery', value: recharge.nightly_recharge_status, unit: 'score',
-      sourceId: `recharge:${date}`, raw: recharge,
-    });
-    await insertPolarStream({
-      sql, athlete_id, ts, metric: 'hrv', value: recharge.heart_rate_variability_avg, unit: 'ms',
-      sourceId: `recharge:${date}`, raw: recharge,
-    });
-    await insertPolarStream({
-      sql, athlete_id, ts, metric: 'hr_resting', value: recharge.heart_rate_avg, unit: 'bpm',
-      sourceId: `recharge:${date}`, raw: recharge,
-    });
+    await sql`
+      insert into segment_executions (
+        execution_id, position, started_at, ended_at,
+        distance_meters, avg_hr, max_hr,
+        modality, avg_pace_s_per_km, avg_pace_s_per_500m,
+        avg_power_w, stroke_rate_spm, run_cadence_spm, source,
+        raw_lap_data_json
+      ) values (
+        ${execId}::bigint, ${seg.position}, ${seg.startedAt}, ${seg.endedAt},
+        ${seg.distanceMeters}, ${seg.avgHr}, ${seg.maxHr},
+        ${seg.modality}, ${intensity.avg_pace_s_per_km}, ${intensity.avg_pace_s_per_500m},
+        ${intensity.avg_power_w}, ${intensity.stroke_rate_spm}, ${intensity.run_cadence_spm},
+        ${POLAR_SOURCE},
+        ${JSON.stringify(seg.raw)}::jsonb
+      )
+    `;
   }
 }
 
-function totalSleepSeconds(s: {
-  light_sleep?: number;
-  deep_sleep?: number;
-  rem_sleep?: number;
-  unrecognized_sleep_stage?: number;
-  sleep_start_time?: string;
-  sleep_end_time?: string;
-}): number | undefined {
-  const parts = [s.light_sleep, s.deep_sleep, s.rem_sleep, s.unrecognized_sleep_stage].filter(
-    (v): v is number => typeof v === 'number' && Number.isFinite(v),
-  );
-  if (parts.length > 0) return parts.reduce((a, b) => a + b, 0);
-  // Fallback: span between start and end when stage durations are missing.
-  const start = s.sleep_start_time ? Date.parse(s.sleep_start_time) : NaN;
-  const end = s.sleep_end_time ? Date.parse(s.sleep_end_time) : NaN;
-  if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-    return Math.round((end - start) / 1000);
-  }
-  return undefined;
+function wholeSessionSegment(session: NormalizedSession): NormalizedSession['segments'][number] {
+  return {
+    position: 0,
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    distanceMeters: session.distanceMeters,
+    durationSeconds: session.durationSeconds,
+    avgHr: session.avgHr,
+    maxHr: session.maxHr,
+    modality: session.modality,
+    powerW: null,
+    cadenceRpm: null,
+    raw: session.raw,
+  };
 }
 
-function isoOrNull(v: string | null | undefined): string | null {
-  if (!v) return null;
-  const t = Date.parse(v);
-  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+// ── sleep + nightly recharge ─────────────────────────────────────────────────
+
+export async function ingestPolarSleep(args: {
+  sql: Sql;
+  athlete_id: bigint;
+  sleep: NormalizedSleep;
+}): Promise<void> {
+  const { sql, athlete_id, sleep } = args;
+  const sourceId = `sleep:${sleep.date}`;
+  await insertPolarStream({
+    sql, athlete_id, ts: sleep.recordedAt, metric: 'sleep_duration',
+    value: sleep.totalSleepSeconds, unit: 'seconds', sourceId, raw: sleep.raw,
+  });
+  await insertPolarStream({
+    sql, athlete_id, ts: sleep.recordedAt, metric: 'sleep_score',
+    value: sleep.sleepScore, unit: 'score', sourceId, raw: sleep.raw,
+  });
+}
+
+export async function ingestPolarRecharge(args: {
+  sql: Sql;
+  athlete_id: bigint;
+  recharge: NormalizedRecharge;
+}): Promise<void> {
+  const { sql, athlete_id, recharge } = args;
+  const sourceId = `recharge:${recharge.date}`;
+  await insertPolarStream({
+    sql, athlete_id, ts: recharge.recordedAt, metric: 'recovery',
+    value: recharge.recovery, unit: 'score', sourceId, raw: recharge.raw,
+  });
+  await insertPolarStream({
+    sql, athlete_id, ts: recharge.recordedAt, metric: 'hrv',
+    value: recharge.hrvMs, unit: 'ms', sourceId, raw: recharge.raw,
+  });
 }
 
 // ── biometric_streams insert (source='polar') ───────────────────────────────
-// Mirrors ingest-garmin insertStream: app-level dedupe (there is no unique index)
-// keyed on the stable source id + recorded_at.
+// Mirrors ingest-garmin insertStream: app-level dedupe (no unique index) keyed on
+// the stable source id + recorded_at.
 async function insertPolarStream(args: {
   sql: Sql;
   athlete_id: bigint;
@@ -390,47 +261,4 @@ async function insertPolarStream(args: {
       ${JSON.stringify(raw)}::jsonb
     )
   `;
-}
-
-// ── client factory (production path) ─────────────────────────────────────────
-// Build an AccessLink client bound to the athlete's stored connection. Refreshed
-// tokens are persisted; an unrecoverable auth failure flips the connection to
-// 'error'. Returns null when there is no usable connection.
-async function buildAthletePolarClient(
-  athlete_id: bigint,
-  sql: Sql,
-): Promise<PolarReadClient | null> {
-  const cfg = loadPolarConfig();
-  if (!cfg.ok) return null;
-
-  const conn = await loadWearableConnection({ athlete_id, provider: POLAR_SOURCE, client: sql });
-  if (!conn) return null;
-
-  return new AccessLinkClient({
-    apiBase: cfg.config.apiBase,
-    tokenEndpoint: cfg.config.tokenEndpoint,
-    clientId: cfg.config.clientId,
-    clientSecret: cfg.config.clientSecret,
-    tokens: {
-      access_token: conn.access_token,
-      refresh_token: conn.refresh_token ?? null,
-      expires_at: conn.expires_at ?? null,
-    },
-    onTokensRefreshed: async (t) => {
-      await updateWearableTokens({
-        athlete_id,
-        provider: POLAR_SOURCE,
-        tokens: {
-          access_token: t.access_token,
-          refresh_token: t.refresh_token ?? null,
-          expires_at: t.expires_at ?? null,
-          scopes: conn.scopes ?? null,
-        },
-        client: sql,
-      });
-    },
-    onAuthError: async () => {
-      await markConnectionStatus({ athlete_id, provider: POLAR_SOURCE, status: 'error', client: sql });
-    },
-  });
 }
