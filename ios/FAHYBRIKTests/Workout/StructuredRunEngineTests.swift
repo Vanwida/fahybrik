@@ -13,7 +13,12 @@ final class StructuredRunEngineTests: XCTestCase {
     final class FakeTreadmill: TreadmillDataSource {
         var onSample: ((TreadmillSample) -> Void)?
         var onLink: ((DeviceLink) -> Void)?
-        func start() {}
+        var onDiscovered: (([DeviceCandidate]) -> Void)?
+        var onBluetooth: ((BluetoothAvailability) -> Void)?
+        func startScan() {}
+        func connect(_ id: DeviceID) {}
+        func connectRemembered(_ id: DeviceID) {}
+        func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
         func emit(_ totalDistanceM: Double, speedKmh: Double = 12) {
@@ -25,7 +30,12 @@ final class StructuredRunEngineTests: XCTestCase {
     final class FakeHR: HeartRateSource {
         var onBpm: ((Int) -> Void)?
         var onLink: ((DeviceLink) -> Void)?
-        func start() {}
+        var onDiscovered: (([DeviceCandidate]) -> Void)?
+        var onBluetooth: ((BluetoothAvailability) -> Void)?
+        func startScan() {}
+        func connect(_ id: DeviceID) {}
+        func connectRemembered(_ id: DeviceID) {}
+        func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
     }

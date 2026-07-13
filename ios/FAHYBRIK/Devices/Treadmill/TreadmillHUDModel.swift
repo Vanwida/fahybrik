@@ -36,6 +36,10 @@ final class TreadmillHUDModel {
     // and dismissing/re-opening this HUD never drops the belt.
     var treadmillLink: DeviceLink { hub.treadmillLink }
     var hrLink: DeviceLink { hub.hrLink }
+    /// The connection channels — so the HUD chips can open the picker (to switch or
+    /// DISCONNECT a device mid-session) and the connect screen can offer "Elegir cinta".
+    var treadmillChannel: DeviceChannel { hub.treadmill }
+    var hrChannel: DeviceChannel { hub.heartRate }
     // Live merged telemetry (observed by the view). `latest` is merged here from the
     // hub's raw samples; `bleBpm` is forwarded from the hub's strap.
     private(set) var latest = TreadmillSample()

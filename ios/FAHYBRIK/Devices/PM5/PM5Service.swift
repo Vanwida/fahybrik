@@ -64,6 +64,9 @@ final class PM5Service: NSObject {
     private var sample: PM5LiveSample = PM5LiveSample()
     private var discovered: [UUID: PM5Discovered] = [:]
     private var pendingScan: Bool = false
+    /// Bumped on every disconnect so a late `didDisconnectPeripheral` callback and the
+    /// forced-timeout finalize can't both fire (fixes the "PM5 se queda pillado" hang).
+    private var disconnectGen: Int = 0
 
     private(set) var bluetoothState: PM5BluetoothState = .unknown
     private(set) var connectionState: PM5ConnectionState = .idle
@@ -111,9 +114,30 @@ final class PM5Service: NSObject {
     }
 
     func disconnect() {
-        guard let peripheral else { return }
+        // If the store thinks it's connected but we hold no peripheral, don't get
+        // stuck in `.disconnecting` forever — settle to idle immediately.
+        guard let peripheral else { finalizeDisconnect(); return }
         update(connection: .disconnecting)
         central.cancelPeripheralConnection(peripheral)
+        disconnectGen += 1
+        let gen = disconnectGen
+        // Deterministic: CoreBluetooth's didDisconnect can be delayed or never arrive
+        // when the erg is off / out of range. Force the disconnected state on timeout
+        // so the chip returns to "conectar" instead of hanging on "desconectando".
+        DispatchQueue.main.asyncAfter(deadline: .now() + DeviceConnectionTiming.disconnectTimeoutSeconds) { [weak self] in
+            guard let self, self.disconnectGen == gen, self.connectionState == .disconnecting else { return }
+            self.finalizeDisconnect()
+        }
+    }
+
+    /// Land in the disconnected state and clean up, exactly once — shared by the
+    /// normal callback path and the timeout fallback.
+    private func finalizeDisconnect() {
+        disconnectGen += 1
+        peripheral = nil
+        rowingService = nil
+        update(connection: .idle)
+        delegate?.pm5Service(self, didDisconnect: nil)
     }
 
     func forgetPaired() {
@@ -195,9 +219,10 @@ extension PM5Service: CBCentralManagerDelegate {
         didDisconnectPeripheral peripheral: CBPeripheral,
         error: Error?
     ) {
-        update(connection: .idle)
+        disconnectGen += 1                 // cancel any pending disconnect-timeout
         self.peripheral = nil
         self.rowingService = nil
+        update(connection: .idle)
         delegate?.pm5Service(self, didDisconnect: error)
     }
 }

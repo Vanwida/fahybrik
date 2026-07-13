@@ -26,6 +26,10 @@ struct PM5LiveStreamView: View {
                         onDone()
                         dismiss()
                     }
+                    SecondaryButton(title: "Desconectar") {
+                        store.disconnect()
+                        dismiss()
+                    }
                 } else if store.hasRememberedDevice {
                     SecondaryButton(title: "Olvidar dispositivo") {
                         store.forgetPaired()

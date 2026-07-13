@@ -69,8 +69,10 @@ struct TreadmillHUDView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            DeviceChip(icon: "figure.run", text: cintaChipText, link: model.treadmillLink)
-            DeviceChip(icon: "heart.fill", text: pulseChipText, link: model.effectiveHRLink)
+            headerChip(icon: "figure.run", text: cintaChipText,
+                       link: model.treadmillLink, channel: model.treadmillChannel)
+            headerChip(icon: "heart.fill", text: pulseChipText,
+                       link: model.effectiveHRLink, channel: model.hrChannel)
             Spacer(minLength: 0)
             Button(action: { Haptics.light(); voiceCoachEnabled.toggle(); if !voiceCoachEnabled { AudioCoach.shared.stopSpeaking() } }) {
                 Image(systemName: voiceCoachEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
@@ -92,6 +94,23 @@ struct TreadmillHUDView: View {
             }
             .buttonStyle(PressScaleStyle())
             .accessibilityLabel("Cerrar")
+        }
+    }
+
+    /// A header device chip that opens the picker on tap — so mid-run the athlete can
+    /// switch machines or DISCONNECT one that latched onto the wrong device.
+    private func headerChip(icon: String, text: String,
+                            link: DeviceLink, channel: DeviceChannel) -> some View {
+        Button {
+            Haptics.light()
+            channel.openPicker()
+        } label: {
+            DeviceChip(icon: icon, text: text, link: link)
+        }
+        .buttonStyle(PressScaleStyle())
+        .sheet(isPresented: Binding(get: { channel.isPresentingPicker },
+                                    set: { channel.isPresentingPicker = $0 })) {
+            DevicePickerSheet(channel: channel)
         }
     }
 
@@ -384,14 +403,17 @@ struct TreadmillHUDView: View {
                 .buttonStyle(PressScaleStyle())
             }
             Spacer(minLength: 0)
-            ExpertPrimaryButton(title: "VOLVER", height: 60) { dismiss() }
+            ExpertPrimaryButton(title: "ELEGIR CINTA", height: 60) {
+                model.treadmillChannel.openPicker()
+            }
+            SecondaryButton(title: "Volver") { dismiss() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var isSearching: Bool {
         switch model.treadmillLink {
-        case .scanning, .connecting, .reconnecting, .idle: return true
+        case .scanning, .connecting, .reconnecting: return true
         default: return false
         }
     }
@@ -400,6 +422,7 @@ struct TreadmillHUDView: View {
         case .reconnecting:  return "Reconectando con la cinta…"
         case .unavailable:   return "No encuentro ninguna cinta"
         case .failed:        return "No se pudo conectar"
+        case .idle:          return "Conecta tu cinta"
         default:             return "Buscando tu cinta…"
         }
     }
@@ -408,6 +431,7 @@ struct TreadmillHUDView: View {
         case .unavailable:   return "Comprueba que el Bluetooth de la cinta está activado y que estás cerca."
         case .failed(let m): return m
         case .reconnecting:  return "La conexión se cortó. Sigue corriendo, la recuperamos sola."
+        case .idle:          return "Elígela de la lista para ver ritmo, zona y objetivos en vivo."
         default:             return "Enciende el Bluetooth de la cinta y acércate a ella."
         }
     }
