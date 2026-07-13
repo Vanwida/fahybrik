@@ -119,19 +119,9 @@ final class RunTargetResolverTests: XCTestCase {
         XCTAssertEqual(t.fraction(distanceM: 0, elapsedS: 9999), 1.0) // clamped
     }
 
-    // MARK: - Estimated HR zone
-
-    func testEstimatedZone() {
-        XCTAssertEqual(EstimatedHRZone.hrMax(forAge: 30), 190)
-        XCTAssertEqual(EstimatedHRZone.zone(forBpm: 170, age: 30), .z4) // 170/190 = 0.894
-        XCTAssertEqual(EstimatedHRZone.zone(forBpm: 180, age: 30), .z5) // 180/190 = 0.947
-    }
-
-    func testNoAgeMeansNoZone() {
-        XCTAssertNil(EstimatedHRZone.hrMax(forAge: nil))
-        XCTAssertNil(EstimatedHRZone.zone(forBpm: 150, age: nil))
-        XCTAssertNil(EstimatedHRZone.hrMax(forAge: 0))
-    }
+    // NOTE: the age-based HR-zone estimate moved from `EstimatedHRZone` to the
+    // single shared `PersonalHRMax` (measured max first, else 220−age). Its
+    // coverage now lives in PersonalHRMaxTests.
 
     // MARK: - Fixtures
 

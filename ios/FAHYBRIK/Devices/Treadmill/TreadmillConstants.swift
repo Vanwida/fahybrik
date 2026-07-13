@@ -39,10 +39,8 @@ enum TreadmillConstants {
     // (FAHYBRIK/Plan/RunPaceModel.swift) when the pace domain was shared with the
     // watch (#68) — the judging that reads it now lives in both targets.
 
-    /// The standard textbook estimate of maximum heart rate. Only ever applied
-    /// when the athlete's age is known, and the resulting zone is ALWAYS labeled
-    /// "estimada" — there is no measured HR threshold anywhere in the product.
-    static let hrMaxAgeConstant: Int = 220
+    // The 220−age max-HR constant moved to `PersonalHRMax.ageMaxConstant`
+    // (Theme/ZoneColors.swift) when HR-max resolution became a single shared source.
 
     /// A device is considered stale (its chip flips to "reconnecting") if no
     /// notification arrives for this long — covers a silent drop the OS hasn't

@@ -17,8 +17,8 @@ struct OutdoorRunHUDView: View {
     /// the focus; the numbers below carry the coaching.
     private static let mapHeightFraction: CGFloat = 0.38
 
-    init(session: WorkoutSession, athleteAge: Int?) {
-        _model = State(initialValue: OutdoorRunHUDModel(session: session, athleteAge: athleteAge))
+    init(session: WorkoutSession, hrMaxSource: HRMaxSource?) {
+        _model = State(initialValue: OutdoorRunHUDModel(session: session, hrMaxSource: hrMaxSource))
     }
 
     var body: some View {

@@ -18,10 +18,10 @@ struct ActiveWorkoutView: View {
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
     var partnerFirstName: String? = nil
-    /// #60 — athlete age (from the cached identity) for the ESTIMATED HR zone in
-    /// the treadmill HUD (220−age). Nil when unknown → the HUD shows HR without a
-    /// zone rather than inventing one. No real HR threshold exists in the product.
-    var athleteAge: Int? = nil
+    /// The athlete's resolved max-HR source (measured FCmáx, else 220−age estimate,
+    /// else nil) — the SINGLE input for the HR zone in the treadmill / outdoor HUDs.
+    /// Nil → the HUD shows HR without a zone rather than inventing one.
+    var hrMaxSource: HRMaxSource? = nil
     /// #56 — athlete bearer, used to poll the training partner's live presence for the
     /// dobles strip. Nil (ad-hoc / no auth) → the strip never shows.
     var bearer: String? = nil
@@ -289,10 +289,10 @@ struct ActiveWorkoutView: View {
             PM5LiveStreamView(store: pm5)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
-            TreadmillHUDView(session: session, athleteAge: athleteAge)
+            TreadmillHUDView(session: session, hrMaxSource: hrMaxSource)
         }
         .fullScreenCover(isPresented: $showOutdoor) {
-            OutdoorRunHUDView(session: session, athleteAge: athleteAge)
+            OutdoorRunHUDView(session: session, hrMaxSource: hrMaxSource)
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.

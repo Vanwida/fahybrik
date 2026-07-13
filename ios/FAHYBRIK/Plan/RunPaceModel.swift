@@ -9,9 +9,10 @@ import Foundation
 // This is the pure core LIFTED out of the app-only treadmill files (#68): the
 // device-bound halves stay in `Devices/Treadmill` — `RunTarget.resolve(from:
 // WorkoutSegment)` / `SegmentGoal.resolve(from:)` (need the segment's scalar
-// extensions), the belt math (`TreadmillMath.paceSecPerKm` / `advanceDistance`,
-// need `TreadmillConstants`) and `EstimatedHRZone`. They extend the SAME types
-// declared here, so the iPhone target compiles unchanged (same symbols, other file).
+// extensions) and the belt math (`TreadmillMath.paceSecPerKm` / `advanceDistance`,
+// need `TreadmillConstants`). They extend the SAME types declared here, so the
+// iPhone target compiles unchanged (same symbols, other file). HR-max resolution
+// is now the shared `PersonalHRMax` (Theme/ZoneColors.swift).
 
 // MARK: - Clock formatting
 
