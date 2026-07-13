@@ -203,6 +203,15 @@ final class WorkoutSession {
     private var lapInclineSum: Double = 0
     private var lapInclineCount: Int = 0
 
+    // Per-segment treadmill BELT distance — the covered meters the belt measured
+    // over the current run segment (summed across all its structured legs, exactly
+    // like the incline aggregate). Fed the per-sample increment by the treadmill HUD
+    // (`sampleTreadmillDistance`), pause-aware, reset on lap change. On close it is
+    // the honest COVERED distance for an indoor run (no GPS, no PM5); the wrist
+    // mirror reads it live for the treadmill progress ring. `private(set)` so only
+    // the ingest feeds it, but the HUD (reopen rehydration) and the mirror can read.
+    private(set) var lapBeltDistanceMeters: Double = 0
+
     private var timer: Timer?
     private var lastTick: Date = Date()
     private var autoSaveTicker: Int = 0
@@ -394,6 +403,7 @@ final class WorkoutSession {
             || repsConfirmed
             || setRecords.contains { $0.confirmed }
             || (lapGpsDistanceMeters ?? 0) > 0
+            || lapBeltDistanceMeters > 0
             || !lapHRSamples.isEmpty
             || lapHadPM5
     }
@@ -1451,18 +1461,22 @@ final class WorkoutSession {
             return Double(max(0, last - start))
         }()
 
-        // Distance COVERED (not prescribed): erg in-window delta, else phone-GPS
-        // covered meters, else the athlete's manual entry. We never record the
-        // prescribed target as "covered" — target is a HUD hint, not measured work.
+        // Distance COVERED (not prescribed): erg in-window delta, else the treadmill
+        // BELT's covered meters (indoor run), else phone-GPS covered meters, else the
+        // athlete's manual entry. The belt beats GPS/manual — if a belt measured this
+        // run it IS the truth of the tramo. We never record the prescribed target as
+        // "covered" — target is a HUD hint, not measured work.
         let usedGPS = seg.kind == .running && lapHadGPS
+        let beltDistance: Double? = (seg.kind == .running && lapBeltDistanceMeters > 0) ? lapBeltDistanceMeters : nil
         let runDistance: Double? = usedGPS ? lapGpsDistanceMeters : manualRunDistanceMeters
-        let distance = ergDistance ?? runDistance
+        let distance = ergDistance ?? beltDistance ?? runDistance
 
         // Run pace COVERED — derived from real covered distance over the segment
         // duration (km/min). Only when we actually measured a distance; otherwise
-        // nil (no fabricated pace from the prescription).
+        // nil (no fabricated pace from the prescription). The belt's covered meters
+        // feed it exactly like GPS/manual do.
         let avgPaceKm: Double? = {
-            guard seg.kind == .running, let d = runDistance, d > 0, lapElapsedSeconds > 0 else { return nil }
+            guard seg.kind == .running, let d = beltDistance ?? runDistance, d > 0, lapElapsedSeconds > 0 else { return nil }
             return lapElapsedSeconds / (d / 1000.0)   // seconds per km
         }()
 
@@ -1551,9 +1565,11 @@ final class WorkoutSession {
 
         // Source precedence: the most specific real measurement wins. Device
         // movement data (pm5 / gps) > athlete manual entry > HR-only wearable.
+        let usedBelt = beltDistance != nil
         let hasManualEntry = (runDistance != nil) || (manualLoadKg != nil)
         let computedSource: String
         if usedPM5 { computedSource = "pm5" }
+        else if usedBelt { computedSource = "treadmill" }
         else if usedGPS { computedSource = "gps" }
         else if hasManualEntry { computedSource = "manual" }
         else if !lapHRSamples.isEmpty { computedSource = "healthkit" }
@@ -1619,6 +1635,7 @@ final class WorkoutSession {
         lapHadGPS = false
         lapInclineSum = 0
         lapInclineCount = 0
+        lapBeltDistanceMeters = 0
     }
 
     /// Pre-fills the manual load field for the current strength/sled segment from
@@ -1925,6 +1942,27 @@ final class WorkoutSession {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment?.kind == .running else { return }
         lapInclineSum += inclinePct
         lapInclineCount += 1
+    }
+
+    /// Feeds the covered-meters INCREMENT the treadmill belt measured since the last
+    /// sample into the current run segment's total (mirrors `sampleRunGPS`). The HUD
+    /// computes the increment from the belt odometer / speed and the SESSION owns the
+    /// running total, so it survives the live HUD cover being dismissed and re-opened
+    /// (the per-tramo truth lives here, not in the ephemeral view model). Pause-aware
+    /// by the same guard as the incline/GPS feeds; only positive deltas count.
+    func sampleTreadmillDistance(deltaMeters: Double) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              currentSegment?.kind == .running, deltaMeters > 0 else { return }
+        lapBeltDistanceMeters += deltaMeters
+    }
+
+    /// Live AVERAGE pace (sec/km) covered on the belt this segment — the covered belt
+    /// meters over the segment's elapsed. nil until both are meaningful (never a
+    /// fabricated pace). The wrist mirror's treadmill glance shows THIS honest covered
+    /// average; the phone HUD hero shows the belt's instantaneous pace alongside it.
+    var liveBeltPaceSecPerKm: Int? {
+        guard lapBeltDistanceMeters > 0, lapElapsedSeconds > 0 else { return nil }
+        return Int((lapElapsedSeconds / (lapBeltDistanceMeters / 1000.0)).rounded())
     }
 
     /// Live covered distance for the current run segment for HUD display
