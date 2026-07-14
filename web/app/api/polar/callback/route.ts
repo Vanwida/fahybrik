@@ -99,12 +99,20 @@ export async function GET(request: Request): Promise<Response> {
     scopes: tokens.scope ?? cfg.config.scopes,
   };
 
-  await saveWearableConnection({
-    athlete_id,
-    provider: POLAR_PROVIDER,
-    provider_user_id,
-    tokens: tokenSet,
-  });
+  // Persistence can fail for real (e.g. the athlete_id from the token belongs to
+  // ANOTHER deployment's database — the two-project split bit here once, as an FK
+  // violation). An unhandled throw becomes a bodyless 500 that Safari renders as a
+  // "Zero KB" download — so every failure must land on the human error page.
+  try {
+    await saveWearableConnection({
+      athlete_id,
+      provider: POLAR_PROVIDER,
+      provider_user_id,
+      tokens: tokenSet,
+    });
+  } catch {
+    return errorPage(500, 'No pudimos guardar la conexión. Vuelve a intentarlo desde la app.');
+  }
 
   // Burn the transient state cookie now that the exchange succeeded.
   return successPage(clearStateCookie(POLAR_PROVIDER, secure));
