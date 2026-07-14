@@ -197,6 +197,14 @@ final class WorkoutSession {
         }
     }
     var hrSource: HRSource? = nil
+    /// When the provenance-OWNING source last reported. A strap that dies mid-workout
+    /// (battery, contact) must not keep the "HR · Banda" label while the watch is the
+    /// one actually recording — past this quiet window a live lower-priority stream
+    /// takes the label over. Internal (not private) so tests can backdate it.
+    var hrSourceLastSeenAt: Date = .distantPast
+    /// How long the owning source may go silent before it loses the label (straps
+    /// report ~1 Hz, so 10 missed beats = gone, while a brief BLE hiccup survives).
+    static let hrSourceStaleSeconds: TimeInterval = 10
 
     /// Athlete-entered actual load for the current strength/sled segment (kg).
     /// Pre-filled from the prescription on segment entry; the athlete can adjust
@@ -1999,8 +2007,12 @@ final class WorkoutSession {
         // source takes over the provenance.
         liveHRBpm = bpm
         lapHRSamples.append(bpm)
-        if let current = hrSource, source.priority < current.priority { return }
+        if let current = hrSource, source.priority < current.priority,
+           Date().timeIntervalSince(hrSourceLastSeenAt) < Self.hrSourceStaleSeconds {
+            return   // the owner is alive — a lower-priority reading never steals the label
+        }
         hrSource = source
+        hrSourceLastSeenAt = Date()
     }
 
     /// Accumulates phone-GPS covered distance for the current RUN segment. The

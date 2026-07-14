@@ -53,6 +53,20 @@ final class HRProvenanceTests: XCTestCase {
         XCTAssertEqual(s.liveHRBpm, 190)
     }
 
+    func testDeadStrapLosesLabelToLiveHealthKitStream() {
+        // A strap that dies mid-workout must not keep the "Banda" label while the
+        // watch is the one actually recording: past the quiet window, the live
+        // lower-priority stream takes provenance over.
+        let s = session()
+        s.injectLiveHR(150, source: .strap)
+        XCTAssertEqual(s.hrSource, .strap)
+        s.hrSourceLastSeenAt = Date().addingTimeInterval(-(WorkoutSession.hrSourceStaleSeconds + 1))
+        s.injectLiveHR(155, source: .healthkit)   // strap silent past the window → takeover
+        XCTAssertEqual(s.hrSource, .healthkit)
+        s.injectLiveHR(152, source: .strap)       // the strap coming back reclaims it at once
+        XCTAssertEqual(s.hrSource, .strap)
+    }
+
     func testPauseAndFinishGuardBlockInjection() {
         let s = session()
         s.injectLiveHR(150, source: .strap)
