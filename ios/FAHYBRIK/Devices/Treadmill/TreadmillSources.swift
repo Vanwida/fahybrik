@@ -56,7 +56,11 @@ protocol TreadmillDataSource: ConnectableSource {
 }
 
 /// Live heart rate for the HUD (chest strap / watch / band over standard BLE). Adds
-/// only the bpm data callback on top of the shared connection seam.
+/// the bpm data callback on top of the shared connection seam, plus an OPTIONAL
+/// strap-battery callback. Battery lives here (not on `ConnectableSource`) because it
+/// is HR-specific — the FTMS treadmill / PM5 don't surface it. It only fires for
+/// straps that expose the standard Battery Level characteristic (0x180F/0x2A19).
 protocol HeartRateSource: ConnectableSource {
     var onBpm: ((Int) -> Void)? { get set }
+    var onBattery: ((Int) -> Void)? { get set }
 }

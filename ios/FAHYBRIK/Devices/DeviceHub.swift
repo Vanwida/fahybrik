@@ -36,6 +36,11 @@ final class DeviceHub {
     /// `onBpm` forward; kept here too so the brief can show a live pulse once linked.
     private(set) var bleBpm: Int?
 
+    /// Latest BLE-strap battery percentage (0–100), or nil when no strap is
+    /// connected / it doesn't expose the Battery Service. The picker shows it beside
+    /// the connected strap's name (Zwift/Wahoo standard). Cleared on `stopAll`.
+    private(set) var hrBatteryPercent: Int?
+
     /// The active treadmill model subscribes here for RAW telemetry so its per-leg
     /// accumulation + auto-advance run exactly as before. Nil while no live HUD is
     /// consuming (the belt may still be connected — just nothing reading it).
@@ -51,10 +56,14 @@ final class DeviceHub {
         // telemetry into the hub's fan-out once the source exists.
         treadmill = DeviceChannel(
             title: "Cinta", icon: "figure.run",
+            scanHint: "Enciende tu cinta y acércate. Aparecerá aquí en cuanto la encuentre.",
             remembered: DeviceDefaults.treadmill,
             makeSource: { injectedTreadmill ?? Self.makeTreadmill() })
         heartRate = DeviceChannel(
             title: "Banda de pulso", icon: "heart.fill",
+            // Covers straps AND any watch broadcasting HR over BLE — most watches
+            // (Garmin, Polar, Amazfit, Apple with a relay app) can emit their pulse.
+            scanHint: "Enciende tu banda de pulso — o pon tu reloj a emitir pulso por Bluetooth (en los ajustes del reloj: «difundir» o «compartir» frecuencia cardiaca). Aparecerá aquí en cuanto la encuentre.",
             remembered: DeviceDefaults.heartRate,
             makeSource: { injectedHR ?? Self.makeHR() })
 
@@ -62,7 +71,9 @@ final class DeviceHub {
             (src as? TreadmillDataSource)?.onSample = { [weak self] in self?.onSample?($0) }
         }
         heartRate.onSourceCreated = { [weak self] src in
-            (src as? HeartRateSource)?.onBpm = { [weak self] in self?.handleBpm($0) }
+            guard let hr = src as? HeartRateSource else { return }
+            hr.onBpm = { [weak self] in self?.handleBpm($0) }
+            hr.onBattery = { [weak self] in self?.handleBattery($0) }
         }
 
         // Injected (test) fakes have no CoreBluetooth → wire them eagerly so a test can
@@ -89,6 +100,12 @@ final class DeviceHub {
         onBpm?(bpm)
     }
 
+    /// Clamp the raw strap byte to a sane 0–100 % before publishing — a malformed
+    /// packet must never render "200 %".
+    private func handleBattery(_ pct: Int) {
+        hrBatteryPercent = max(0, min(100, pct))
+    }
+
     /// A shareable dump of what the treadmill advertised — the first-connection tool
     /// for identifying a non-standard machine (surfaced by the HUD).
     func treadmillDiagnostics() -> String? { treadmill.diagnosticsText() }
@@ -105,6 +122,7 @@ final class DeviceHub {
         treadmill.stop()
         heartRate.stop()
         bleBpm = nil
+        hrBatteryPercent = nil
     }
 
     // MARK: - Source construction (real on device, mock in the simulator)

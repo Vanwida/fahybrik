@@ -160,6 +160,10 @@ final class DeviceChannel {
 
     let title: String                 // "Cinta" / "Banda de pulso" — for the picker
     let icon: String
+    /// Empty-list guidance shown while scanning finds nothing yet. Per-channel
+    /// because the belt and the strap need different instructions — the strap must
+    /// also cover any watch broadcasting HR over BLE, which makes no sense for a belt.
+    let scanHint: String
     private let makeSource: () -> ConnectableSource
     private let remembered: RememberedDeviceStore
 
@@ -187,10 +191,12 @@ final class DeviceChannel {
     private var settleElapsed = false
 
     init(title: String, icon: String,
+         scanHint: String = "Enciende tu dispositivo y acércate. Aparecerá aquí en cuanto lo encuentre.",
          remembered: RememberedDeviceStore,
          makeSource: @escaping () -> ConnectableSource) {
         self.title = title
         self.icon = icon
+        self.scanHint = scanHint
         self.remembered = remembered
         self.makeSource = makeSource
     }

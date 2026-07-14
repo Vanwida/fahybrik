@@ -14,6 +14,13 @@ enum TreadmillGATT {
     // Heart Rate Service + Heart Rate Measurement characteristic (notify).
     static let heartRateService     = CBUUID(string: "180D")
     static let heartRateMeasurement = CBUUID(string: "2A37")
+
+    // Battery Service + Battery Level characteristic (read, often also notify). Read
+    // on connect to surface the strap's charge in the picker — the Zwift/Wahoo
+    // standard, so an athlete isn't caught out by a strap dying mid-session. A single
+    // uint8 percent (0–100).
+    static let batteryService       = CBUUID(string: "180F")
+    static let batteryLevel         = CBUUID(string: "2A19")
 }
 
 // Bridge CoreBluetooth's radio state onto the pure, testable `BluetoothAvailability`

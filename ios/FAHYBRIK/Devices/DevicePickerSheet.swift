@@ -12,6 +12,10 @@ struct DevicePickerSheet: View {
     /// already automatic — the belt list stays below for whoever prefers a chest strap.
     /// Default false leaves the belt / PM5 sheets and the mid-workout HUD unchanged.
     var watchHint: Bool = false
+    /// Strap battery percentage shown beside the connected device's name (HR channel
+    /// only). Default nil → the belt / PM5 sheets and any non-battery source show
+    /// nothing, exactly as before.
+    var batteryPercent: Int? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -92,6 +96,11 @@ struct DevicePickerSheet: View {
                     Text(channel.connectedName ?? channel.title)
                         .font(Theme.Typography.bodyEmph)
                         .foregroundStyle(Theme.Color.foreground)
+                    if let batteryPercent {
+                        Text("· batería \(batteryPercent) %")
+                            .font(Theme.Typography.small)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
                     Spacer()
                 }
             }
@@ -120,9 +129,10 @@ struct DevicePickerSheet: View {
                 Spacer()
             }
             if channel.candidates.isEmpty {
-                Text("Enciende tu \(channel.title.lowercased()) y acércate. Aparecerá aquí en cuanto la encuentre.")
+                Text(channel.scanHint)
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 if channel.hasRemembered, let name = channel.rememberedName {
                     Text("Último usado: \(name)")
                         .font(Theme.Typography.caption)

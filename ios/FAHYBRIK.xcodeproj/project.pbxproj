@@ -189,6 +189,7 @@
 		87E5649DFF688211A1AAFA2C /* HyroxStations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E711E3786D1AA6AB822C9E1 /* HyroxStations.swift */; };
 		882FB09C3E76582BFBF5DFD9 /* RestBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB02853595DE919DBE8644A /* RestBannerView.swift */; };
 		8868F413BE711348230E7A84 /* HealthKitPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 155C7267C644E8768F74865E /* HealthKitPermissions.swift */; };
+		886DFA6E08DA0F4FF1084736 /* DeviceHubBatteryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68139258546540DB0BDBBC35 /* DeviceHubBatteryTests.swift */; };
 		88DBA7EAB4CAD272CFB89835 /* PolylineCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1ED83DDDB3C18387B7E3780 /* PolylineCodecTests.swift */; };
 		8A60F22CE2726C1554EC974A /* FijarObjetivoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B9F63D884A87D10ED4735A /* FijarObjetivoView.swift */; };
 		8B5DEE934F36B89D4D0AC00E /* DoblesTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB82184D9C692835D4B0507 /* DoblesTurn.swift */; };
@@ -531,6 +532,7 @@
 		66DD148613A217B126233569 /* NutritionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionModels.swift; sourceTree = "<group>"; };
 		67243DF8F659D7B753163F63 /* FTMSTreadmillParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTMSTreadmillParserTests.swift; sourceTree = "<group>"; };
 		675CE3D3C7F77BFC9592B2EE /* DoblesRaceGapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesRaceGapView.swift; sourceTree = "<group>"; };
+		68139258546540DB0BDBBC35 /* DeviceHubBatteryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHubBatteryTests.swift; sourceTree = "<group>"; };
 		6864E864016B47E3286E44BA /* PlanStationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanStationsSection.swift; sourceTree = "<group>"; };
 		691375D173DBA6F86C29874E /* CheckinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckinView.swift; sourceTree = "<group>"; };
 		6A87CD8000008A35419D784E /* HyresultImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyresultImport.swift; sourceTree = "<group>"; };
@@ -1314,6 +1316,7 @@
 			isa = PBXGroup;
 			children = (
 				44FB98ED7471F434CC3D5E62 /* DeviceChannelTests.swift */,
+				68139258546540DB0BDBBC35 /* DeviceHubBatteryTests.swift */,
 				67243DF8F659D7B753163F63 /* FTMSTreadmillParserTests.swift */,
 				188040B3F7869F27D1727ED5 /* HeartRateParserTests.swift */,
 				7EE16E8C5A61C375B8EA531F /* HRChipPresentationTests.swift */,
@@ -2021,6 +2024,7 @@
 				DBB50530A73BF0494FF01F47 /* DecodingToleranceTests.swift in Sources */,
 				094EC46434DAE21BF1AD4EB9 /* DeleteAccountConfirmTests.swift in Sources */,
 				1B14B1D787328B1F381CD271 /* DeviceChannelTests.swift in Sources */,
+				886DFA6E08DA0F4FF1084736 /* DeviceHubBatteryTests.swift in Sources */,
 				94A61F86D7A0AB68E781446C /* DoblesJointTests.swift in Sources */,
 				0A47012186ECD797C9984FED /* DoblesLiveTests.swift in Sources */,
 				C65CF4FAD6FA954D539828A9 /* DoblesRaceGapTests.swift in Sources */,
