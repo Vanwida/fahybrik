@@ -101,6 +101,28 @@ describe('GET /api/polar/callback (human HTML)', () => {
     expect(await res.text()).toContain('No se pudo conectar Polar');
   });
 
+  it('storage failure → 500 HUMAN HTML, never a bodyless throw', async () => {
+    // The real incident: the athlete_id from the token belonged to another
+    // deployment's DB → FK violation → unhandled throw → Vercel 500 with no body,
+    // which Safari renders as a "Zero KB" download. Must land on the error page.
+    vi.mocked(readStateCookie).mockReturnValue({ athlete_id: BigInt(5) });
+    vi.mocked(exchangeCodeForTokens).mockResolvedValue({
+      access_token: 'a',
+      refresh_token: 'r',
+      expires_in: 3600,
+      scope: 'sleep:read',
+      raw: {},
+    });
+    vi.mocked(saveWearableConnection).mockRejectedValue(new Error('fk violation'));
+
+    const res = await GET(req('?code=abc&state=xyz'));
+    expect(res.status).toBe(500);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('No se pudo conectar Polar');
+    expect(html).toContain('No pudimos guardar la conexión');
+  });
+
   it('invalid/expired state → 401 HTML, no token exchange', async () => {
     vi.mocked(readStateCookie).mockReturnValue(null);
     const res = await GET(req('?code=abc&state=xyz'));

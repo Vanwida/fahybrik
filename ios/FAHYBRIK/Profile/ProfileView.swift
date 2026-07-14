@@ -149,6 +149,10 @@ struct ProfileView: View {
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
                     .padding(.bottom, Theme.Spacing.xxl)
+                    // Cap the ScrollView's horizontal contentSize to the viewport so
+                    // no row can ever pan the Perfil page sideways. See
+                    // `clampedToContainerWidth()`.
+                    .clampedToContainerWidth()
                 }
                 if let exportToast {
                     ToastBanner(text: exportToast)
@@ -247,6 +251,9 @@ struct ProfileView: View {
                     Text(subtitle)
                         .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
+                        // Composed of the athlete's own metrics; can run long. Wrap
+                        // within the card rather than reporting a wide single line.
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
@@ -1125,6 +1132,9 @@ struct ProfileView: View {
                 Text(title)
                     .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
+                    // Title carries the coach's name on the Metodología row ("Tu
+                    // coach: {name}") — arbitrary length. Wrap, never overflow.
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle)
                     .scaledFont(11, relativeTo: .caption2)
                     .foregroundStyle(Theme.Color.muted)
@@ -1416,6 +1426,8 @@ private struct MethodologySheet: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
                 .padding(20)
+                // Same clamp as the Perfil tab: no descendant can pan the sheet.
+                .clampedToContainerWidth()
             }
         }
         .dismissableSheet()
@@ -1470,6 +1482,9 @@ private struct CoachSheet: View {
                             Text(displayName)
                                 .font(Theme.Typography.headlineS)
                                 .foregroundStyle(Theme.Color.foreground)
+                                // Coach name is arbitrary length; this HStack has no
+                                // trailing Spacer, so wrap instead of forcing width.
+                                .fixedSize(horizontal: false, vertical: true)
                             Text("Coach")
                                 .scaledFont(12, relativeTo: .caption)
                                 .foregroundStyle(Theme.Color.muted)
@@ -1480,6 +1495,8 @@ private struct CoachSheet: View {
                         .foregroundStyle(Theme.Color.foreground)
                 }
                 .padding(20)
+                // Same clamp as the Perfil tab: no descendant can pan the sheet.
+                .clampedToContainerWidth()
             }
         }
         .dismissableSheet()
@@ -1504,6 +1521,8 @@ private struct LegalSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(20)
+                // Same clamp as the Perfil tab: no descendant can pan the sheet.
+                .clampedToContainerWidth()
             }
         }
         .dismissableSheet()
@@ -1775,6 +1794,8 @@ struct EditProfileView: View {
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
                     .padding(.bottom, Theme.Spacing.xxl)
+                    // Same clamp as the Perfil tab: no field row can pan the sheet.
+                    .clampedToContainerWidth()
                 }
             }
             .navigationTitle("Editar perfil")
@@ -2089,4 +2110,23 @@ struct EditProfileView: View {
 // Convenience on String — avoids polluting the global namespace.
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+// MARK: - Horizontal container clamp
+//
+// A vertical `ScrollView` measures its content's WIDTH from the widest descendant.
+// If any descendant reports a minimum width past the viewport — an unbreakable
+// token in a `Text` (a long email, a bare URL, a BLE device name), an `HStack`
+// whose members' minimum widths sum past the screen, or a fixed-width frame — the
+// ScrollView's horizontal contentSize grows past the viewport and the whole page
+// pans sideways. Pinning the content to the container's exact width caps that
+// horizontal contentSize, so no descendant (present or future) can ever drag the
+// page again — the structural guarantee, independent of any single offender.
+//
+// Applied OUTSIDE the content's own `.padding(...)` so the padded content measures
+// exactly the viewport width (padding included), never wider.
+private extension View {
+    func clampedToContainerWidth() -> some View {
+        containerRelativeFrame(.horizontal)
+    }
 }
