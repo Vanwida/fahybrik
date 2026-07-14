@@ -14,6 +14,7 @@
 		00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2994F9B84D49E0D65E3B5E3 /* WelcomeStep.swift */; };
 		01D3271B066FB3CDED234346 /* ReadinessGlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F10ED5AE777292AA63A3454 /* ReadinessGlanceView.swift */; };
 		025BA042FF524920D4C658A5 /* InviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0508E384288152EE74E19F1 /* InviteService.swift */; };
+		0356197E3802A9F29B46AD24 /* WearablesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67B3C8F723D9D7FC61B2F98 /* WearablesService.swift */; };
 		04BFC484BBC3EF34C69442FD /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8CB3F166EFBDA07B51DBBD /* SummaryView.swift */; };
 		04D0CE56C7766A26BAD5DC91 /* ManualEntryControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188E789D535F0AB8C94725AE /* ManualEntryControl.swift */; };
 		059C200E535CD6789EDF320C /* HRChipPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE16E8C5A61C375B8EA531F /* HRChipPresentationTests.swift */; };
@@ -22,6 +23,7 @@
 		067D73EFEB5BEB683220F93F /* OnboardingAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65DB76CDEEB1ECAD782A8C3D /* OnboardingAPI.swift */; };
 		06EF1D0880B4726E14245A0A /* ChatHeaderButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B92D0681E6B06A7010D234A /* ChatHeaderButton.swift */; };
 		07FF6AFE31C74856A422D922 /* DemoSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61DF02B3BFBF388AFA8E2CF3 /* DemoSignInView.swift */; };
+		080D6B31258BD147BF24FD94 /* WearablesServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1BF756E1FA25D0C4ACAB22 /* WearablesServiceTests.swift */; };
 		081309FB2C38666F11CAF6F8 /* PartnerTodayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A725D56DF45A29FA73EF7AE7 /* PartnerTodayPanel.swift */; };
 		0860702CCAB9C67F5DAFFDC4 /* InviteGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD67F9F44169FDFF3D52F2B8 /* InviteGateView.swift */; };
 		08CF88E82B106849AE52A4CD /* PM5ConnectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD06425D235284347988D17C /* PM5ConnectionStore.swift */; };
@@ -536,6 +538,7 @@
 		6864E864016B47E3286E44BA /* PlanStationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanStationsSection.swift; sourceTree = "<group>"; };
 		691375D173DBA6F86C29874E /* CheckinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckinView.swift; sourceTree = "<group>"; };
 		6A87CD8000008A35419D784E /* HyresultImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyresultImport.swift; sourceTree = "<group>"; };
+		6C1BF756E1FA25D0C4ACAB22 /* WearablesServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearablesServiceTests.swift; sourceTree = "<group>"; };
 		6C3F5652E7B0EA4C1290C977 /* SessionExercisesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionExercisesSheet.swift; sourceTree = "<group>"; };
 		6E2F276A687B40AFFD1FE476 /* FreeWorkoutEncodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeWorkoutEncodeTests.swift; sourceTree = "<group>"; };
 		6E7C23D30FD4E5D3A428A77D /* Day1Flow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day1Flow.swift; sourceTree = "<group>"; };
@@ -684,6 +687,7 @@
 		D4E68E01FF6A98B96974A052 /* RequestQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestQueue.swift; sourceTree = "<group>"; };
 		D65DC8A3F4BF5C11287A0483 /* AppleSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInView.swift; sourceTree = "<group>"; };
 		D674AB748CF0731318E718C5 /* HistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryService.swift; sourceTree = "<group>"; };
+		D67B3C8F723D9D7FC61B2F98 /* WearablesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearablesService.swift; sourceTree = "<group>"; };
 		D86DF203777D3C5363727298 /* StepShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepShell.swift; sourceTree = "<group>"; };
 		D8F879CB1CB83714926BFB4E /* FAHYBRIK.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FAHYBRIK.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D904EE038E0FDF9C4F160FEA /* DoblesLiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveBanner.swift; sourceTree = "<group>"; };
@@ -965,6 +969,7 @@
 				26646F2B0505100B7B99C469 /* ReviewPrompt.swift */,
 				032FA1B5468960A7CFB64AE1 /* StrengthService.swift */,
 				F8A1308F2D64ED7272E7D7AD /* SubscriptionService.swift */,
+				D67B3C8F723D9D7FC61B2F98 /* WearablesService.swift */,
 				56FCA093BE6E12C2F92078F1 /* ZonesService.swift */,
 			);
 			path = Profile;
@@ -1337,6 +1342,7 @@
 			children = (
 				73C71AFC5FA674300627A2E0 /* DeleteAccountConfirmTests.swift */,
 				AC3759759850F8540B6D0AE3 /* PartnerInfoTests.swift */,
+				6C1BF756E1FA25D0C4ACAB22 /* WearablesServiceTests.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -1934,6 +1940,7 @@
 				F364E7F1A62E3B5D7C1287E0 /* WatchPresence.swift in Sources */,
 				F0A319EE25CF82EABE8AA9E6 /* WatchRunLegDriver.swift in Sources */,
 				20803734DCE6D5DF4A678709 /* WatchWireModels.swift in Sources */,
+				0356197E3802A9F29B46AD24 /* WearablesService.swift in Sources */,
 				00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */,
 				0CEF4E5347591EAC8CA8E054 /* WorkoutAudio.swift in Sources */,
 				5E7E918AD45996758094B385 /* WorkoutCaptureModel.swift in Sources */,
@@ -2062,6 +2069,7 @@
 				DA4D00A5122E9F7058FD1E80 /* TreadmillHRProvenanceTests.swift in Sources */,
 				BA753FC017BE740279CCAD9E /* TreadmillLegTests.swift in Sources */,
 				F7B82FF308C6566463B95C46 /* WatchRunLegDriverTests.swift in Sources */,
+				080D6B31258BD147BF24FD94 /* WearablesServiceTests.swift in Sources */,
 				79A17E6B5A771745403E2F16 /* WireEnumToleranceTests.swift in Sources */,
 				9E24EFBB5F114D60DF923B04 /* WorkoutRecoveryTests.swift in Sources */,
 				5D4101AA7F659FA1AC07C97A /* WorkoutSessionAutoPauseTests.swift in Sources */,
