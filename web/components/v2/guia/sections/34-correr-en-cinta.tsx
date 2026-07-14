@@ -197,6 +197,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         siempre a mano, tanto en la lista como en la cabecera del entreno, por si latió con la de al
         lado.
       </p>
+      <p>
+        El pulso va aparte, porque no es una máquina del gimnasio sino un dispositivo <b>personal</b>.
+        Si tu atleta lleva <b>Apple Watch</b>, la tarjeta ya lo dice — <em className="em">«Pulso ·
+        Apple Watch»</em> — y no hay nada que conectar: al darle a empezar, el pulso de la muñeca
+        llega solo. La <b>banda de pecho</b> queda como opción para quien la prefiera; y si la usó
+        una vez, la app <b>reconecta su banda sola</b> (la suya exacta, nunca la de otro) cada vez
+        que abre un entreno.
+      </p>
 
       <MovilBand
         title="Elegir la cinta, antes de arrancar"
