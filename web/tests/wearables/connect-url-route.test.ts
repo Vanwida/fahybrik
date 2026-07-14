@@ -68,13 +68,10 @@ describe('POST /api/athlete/wearables/polar/connect-url', () => {
 
   it('200 returns a connect URL whose token decodes to the BEARER athlete_id', async () => {
     vi.mocked(getAthleteSessionFromBearer).mockResolvedValue(SESSION);
-    const res = await POST(
-      req(true, { 'x-forwarded-proto': 'https', 'x-forwarded-host': 'app.fahybrid.com' }),
-    );
+    const res = await POST(req());
     expect(res.status).toBe(200);
     const body = (await res.json()) as { url: string };
     const u = new URL(body.url);
-    expect(u.origin).toBe('https://app.fahybrid.com');
     expect(u.pathname).toBe('/api/polar/connect');
     const token = u.searchParams.get('token')!;
     expect(token).toBeTruthy();
@@ -83,14 +80,15 @@ describe('POST /api/athlete/wearables/polar/connect-url', () => {
     if (verified.ok) expect(verified.athlete_id).toBe(BigInt(314));
   });
 
-  it('uses the forwarded host/proto for the origin', async () => {
+  it('bases the URL on the registered callback origin, NOT the request host', async () => {
+    // The OAuth leg must run entirely on the host Polar redirects back to (the
+    // CSRF state cookie and the callback must share a domain) — so a mint from the
+    // iOS backend host still points at the OAuth host.
     vi.mocked(getAthleteSessionFromBearer).mockResolvedValue(SESSION);
     const res = await POST(
       req(true, { 'x-forwarded-proto': 'https', 'x-forwarded-host': 'fahybrik-demo.vercel.app' }),
     );
     const body = (await res.json()) as { url: string };
-    expect(body.url.startsWith('https://fahybrik-demo.vercel.app/api/polar/connect?token=')).toBe(
-      true,
-    );
+    expect(body.url.startsWith('https://app.fahybrid.com/api/polar/connect?token=')).toBe(true);
   });
 });
