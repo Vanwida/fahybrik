@@ -30,6 +30,41 @@ final class HeartRateParserTests: XCTestCase {
         XCTAssertNil(HeartRateParser.parse(Data([0x00, 0x00])))
     }
 
+    // MARK: - Sensor contact (b2 = feature supported, b1 = contact detected)
+
+    func testContactUnsupportedPasses() {
+        // b2 == 0 → feature not supported; b1 is meaningless → value passes.
+        // (Flags 0x00: this is the plain uint8 case.)
+        XCTAssertEqual(HeartRateParser.parse(Data([0x00, 0x4B])), 75)
+    }
+
+    func testContactUnsupportedButBit1SetStillPasses() {
+        // b2 == 0, b1 == 1 → the "detected" bit is spurious without support; ignore
+        // it and pass the value through.
+        XCTAssertEqual(HeartRateParser.parse(Data([0x02, 0x4B])), 75)
+    }
+
+    func testContactSupportedAndNotDetectedIsNil() {
+        // b2 == 1 (supported), b1 == 0 (no skin contact) → drop the reading.
+        XCTAssertNil(HeartRateParser.parse(Data([0x04, 0x4B])))
+    }
+
+    func testContactSupportedAndDetectedPasses() {
+        // b2 == 1 (supported), b1 == 1 (contact) → valid reading.
+        XCTAssertEqual(HeartRateParser.parse(Data([0x06, 0x4B])), 75)
+    }
+
+    func testUInt16WithContactCoexist() {
+        // b0 == 1 (uint16 LE), b2 == 1, b1 == 1 → 190 with contact present passes.
+        XCTAssertEqual(HeartRateParser.parse(Data([0x07, 0xBE, 0x00])), 190)
+    }
+
+    func testUInt16WithoutContactIsNil() {
+        // b0 == 1 (uint16 LE), b2 == 1, b1 == 0 → no contact drops the reading even
+        // when the 16-bit value is otherwise well-formed.
+        XCTAssertNil(HeartRateParser.parse(Data([0x05, 0xBE, 0x00])))
+    }
+
     func testEmptyOrTruncatedIsNil() {
         XCTAssertNil(HeartRateParser.parse(Data()))
         XCTAssertNil(HeartRateParser.parse(Data([0x00])))       // flags only, no value
