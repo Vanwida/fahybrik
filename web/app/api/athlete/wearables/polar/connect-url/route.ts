@@ -6,10 +6,16 @@
 // unauthenticated GET /api/polar/connect can trust WHOSE account is being linked
 // without exposing a raw, forgeable athlete_id.
 //
-//   200 { "url": "<origin>/api/polar/connect?token=..." }
+//   200 { "url": "<oauth-host>/api/polar/connect?token=..." }
 //   401 unauthorized              — no / invalid athlete bearer
 //   503 { "error": "polar_not_configured" } — Polar env vars missing
 //   503 encryption_not_configured — ENCRYPTION_KEY missing (cannot mint the token)
+//
+// The URL's host is the ORIGIN OF THE REGISTERED CALLBACK (POLAR_OAUTH_CALLBACK_URL),
+// not this request's host: the OAuth leg must run entirely on the one host Polar
+// redirects back to, or the CSRF state cookie set by /api/polar/connect would live
+// on a different domain than the callback that verifies it. This also lets any
+// backend host mint a valid link (the iOS backend and the OAuth host differ).
 
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
@@ -42,25 +48,8 @@ export async function POST(req: Request) {
   }
 
   const token = mintConnectToken({ athlete_id: session.athlete_id, provider: POLAR_PROVIDER });
-  const url = new URL('/api/polar/connect', requestOrigin(req));
+  const url = new URL('/api/polar/connect', new URL(cfg.config.callbackUrl).origin);
   url.searchParams.set('token', token);
 
   return jsonOk({ url: url.toString() });
-}
-
-// Public origin of the request. Behind Vercel the inbound URL is http on an
-// internal host, so honor x-forwarded-proto / x-forwarded-host first (same
-// forwarded-header basis as /api/polar/connect's secure check).
-function requestOrigin(req: Request): string {
-  const url = new URL(req.url);
-  const proto = firstForwarded(req, 'x-forwarded-proto') ?? url.protocol.replace(':', '');
-  const host = firstForwarded(req, 'x-forwarded-host') ?? req.headers.get('host') ?? url.host;
-  return `${proto}://${host}`;
-}
-
-function firstForwarded(req: Request, header: string): string | null {
-  const raw = req.headers.get(header);
-  if (!raw) return null;
-  const first = raw.split(',')[0]?.trim();
-  return first && first.length > 0 ? first : null;
 }
