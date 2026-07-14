@@ -15,6 +15,7 @@ import Foundation
 // Unavailable in the simulator; the HUD uses MockHeartRateSource there.
 final class BLEHeartRateSource: NSObject, HeartRateSource {
     var onBpm: ((Int) -> Void)?
+    var onBattery: ((Int) -> Void)?
     var onLink: ((DeviceLink) -> Void)?
     var onDiscovered: (([DeviceCandidate]) -> Void)?
     var onBluetooth: ((BluetoothAvailability) -> Void)?
@@ -135,7 +136,8 @@ extension BLEHeartRateSource: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.discoverServices([TreadmillGATT.heartRateService])
+        peripheral.discoverServices([TreadmillGATT.heartRateService,
+                                     TreadmillGATT.batteryService])
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
@@ -156,9 +158,17 @@ extension BLEHeartRateSource: CBCentralManagerDelegate {
 
 extension BLEHeartRateSource: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        for service in peripheral.services ?? [] where service.uuid == TreadmillGATT.heartRateService {
-            diag.note(service: service.uuid)
-            peripheral.discoverCharacteristics([TreadmillGATT.heartRateMeasurement], for: service)
+        for service in peripheral.services ?? [] {
+            switch service.uuid {
+            case TreadmillGATT.heartRateService:
+                diag.note(service: service.uuid)
+                peripheral.discoverCharacteristics([TreadmillGATT.heartRateMeasurement], for: service)
+            case TreadmillGATT.batteryService:
+                diag.note(service: service.uuid)
+                peripheral.discoverCharacteristics([TreadmillGATT.batteryLevel], for: service)
+            default:
+                break
+            }
         }
     }
 
@@ -169,13 +179,26 @@ extension BLEHeartRateSource: CBPeripheralDelegate {
                 peripheral.setNotifyValue(true, for: ch)
                 onLink?(.connected(name: peripheral.name ?? "Pulso"))
             }
+            // Battery Level: read once now, and subscribe when the strap supports
+            // notify so the percentage stays current as it drains during a session.
+            if ch.uuid == TreadmillGATT.batteryLevel {
+                if ch.properties.contains(.read) { peripheral.readValue(for: ch) }
+                if ch.properties.contains(.notify) { peripheral.setNotifyValue(true, for: ch) }
+            }
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard characteristic.uuid == TreadmillGATT.heartRateMeasurement,
-              let data = characteristic.value,
-              let bpm = HeartRateParser.parse(data) else { return }
-        onBpm?(bpm)
+        switch characteristic.uuid {
+        case TreadmillGATT.heartRateMeasurement:
+            guard let data = characteristic.value, let bpm = HeartRateParser.parse(data) else { return }
+            onBpm?(bpm)
+        case TreadmillGATT.batteryLevel:
+            // Battery Level (0x2A19) is a single uint8 percentage (0–100).
+            guard let pct = characteristic.value?.first else { return }
+            onBattery?(Int(pct))
+        default:
+            break
+        }
     }
 }

@@ -92,6 +92,7 @@ final class MockTreadmillSource: TreadmillDataSource {
 
 final class MockHeartRateSource: HeartRateSource {
     var onBpm: ((Int) -> Void)?
+    var onBattery: ((Int) -> Void)?
     var onLink: ((DeviceLink) -> Void)?
     var onDiscovered: (([DeviceCandidate]) -> Void)?
     var onBluetooth: ((BluetoothAvailability) -> Void)?
@@ -115,6 +116,7 @@ final class MockHeartRateSource: HeartRateSource {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self else { return }
             self.onLink?(.connected(name: MockHRProfile.deviceName))
+            self.onBattery?(85)   // fixed charge so the simulator shows the battery pill
             self.timer = Timer.scheduledTimer(withTimeInterval: TreadmillConstants.mockTickSeconds,
                                               repeats: true) { [weak self] _ in
                 guard let self else { return }

@@ -117,10 +117,17 @@ targets:
         # closing tramos with the screen locked / phone pocketed.
         # allowsBackgroundLocationUpdates is enabled ONLY during an active outdoor
         # run and disabled the moment it ends (RunLocationProvider.setBackgroundUpdates).
+        # `bluetooth-central` — an INDOOR workout with NO audio cue and NO GPS (a
+        # strength session with just a HR strap, or an erg / treadmill set) would
+        # otherwise be suspended the instant the screen locks, and the pulse / belt /
+        # PM5 telemetry would stop arriving mid-set. This mode keeps CoreBluetooth
+        # streaming while the phone is pocketed — the same background BLE Zwift,
+        # Wahoo and Peloton rely on.
         UIBackgroundModes:
           - remote-notification
           - audio
           - location
+          - bluetooth-central
         UILaunchScreen:
           UILaunchScreen: {}
         UISupportedInterfaceOrientations:

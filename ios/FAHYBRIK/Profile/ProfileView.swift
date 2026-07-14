@@ -82,6 +82,15 @@ struct ProfileView: View {
     @State private var showHealthDisconnectConfirm: Bool = false
     @State private var healthShowRevokeHint: Bool = false
 
+    // Polar wearable link. `polarConnected` reflects GET /api/athlete/wearables;
+    // `polarConnecting` drives the connect-url in-flight spinner; `polarSafari` opens
+    // the OAuth page in an SFSafariViewController (the callback returns to a web page,
+    // not the app, so we re-fetch on dismiss); `polarAlert` surfaces 503 / network.
+    @State private var polarConnected: Bool = false
+    @State private var polarConnecting: Bool = false
+    @State private var polarSafari: SafariURL? = nil
+    @State private var polarAlert: String? = nil
+
     private enum SheetKind: String, Identifiable {
         case methodology
         case coach
@@ -156,6 +165,7 @@ struct ProfileView: View {
             store.activate(bearer: bearer)
             await store.loadProfile()
             await loadRaces()
+            await loadPolar()
         }
         .sheet(item: $sheet) { kind in
             sheetView(for: kind)
@@ -190,6 +200,16 @@ struct ProfileView: View {
             EditProfileView(bearer: bearer, identity: identity) { updated in
                 store.setIdentity(updated)
             }
+        }
+        // Polar OAuth in an in-app browser; the callback lands on a web page (not the
+        // app), so re-fetch the wearables status when the sheet closes.
+        .sheet(item: $polarSafari, onDismiss: { Task { await loadPolar() } }) { item in
+            SafariView(url: item.url).ignoresSafeArea()
+        }
+        .alert("Polar", isPresented: polarAlertBinding, presenting: polarAlert) { _ in
+            Button("Entendido", role: .cancel) {}
+        } message: { message in
+            Text(message)
         }
         .confirmationDialog(
             "¿Desconectar Apple Salud?",
@@ -651,6 +671,8 @@ struct ProfileView: View {
                     statusColor: Theme.Color.muted
                 )
                 Hairline()
+                polarRow
+                Hairline()
                 appleHealthRow
                 Hairline()
                 NavigationLink {
@@ -666,6 +688,91 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    // MARK: - Polar
+
+    /// Polar cloud sync. Not connected → a tappable "conectar" row that opens the OAuth
+    /// page; connected → a static "conectada" status (unlinking lives on the web). The
+    /// spinner shows while the connect-url request is in flight.
+    private var polarRow: some View {
+        Button {
+            guard !polarConnected, !polarConnecting else { return }
+            Haptics.light()
+            Task { await connectPolar() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "heart.circle")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Polar")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(polarConnected
+                         ? "Sincroniza tus entrenos automáticamente"
+                         : "Conecta tu cuenta para sincronizar tus entrenos")
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(2)
+                }
+                Spacer()
+                if polarConnecting {
+                    ProgressView().tint(Theme.Color.accentText)
+                } else {
+                    Text(polarConnected ? "conectada" : "conectar")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(polarConnected ? Theme.Color.ok : Theme.Color.accentText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background((polarConnected ? Theme.Color.ok : Theme.Color.accentText).opacity(0.15))
+                        .clipShape(Capsule())
+                    if !polarConnected {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.Color.faint)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+        .disabled(polarConnected || polarConnecting || bearer == nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Polar, \(polarConnected ? "conectada" : "conectar")")
+        .accessibilityHint(polarConnected ? "" : "Toca para conectar tu cuenta Polar")
+        .accessibilityAddTraits(polarConnected ? [] : .isButton)
+    }
+
+    private var polarAlertBinding: Binding<Bool> {
+        Binding(get: { polarAlert != nil }, set: { if !$0 { polarAlert = nil } })
+    }
+
+    /// Reads the wearables status and reflects Polar's connected flag. Silent on
+    /// failure — the row simply stays "conectar".
+    private func loadPolar() async {
+        guard let bearer else { return }
+        guard let providers = try? await WearablesService.fetch(bearer: bearer) else { return }
+        polarConnected = providers.first { $0.provider == WearablesService.polar }?.connected ?? false
+    }
+
+    /// Requests the Polar OAuth URL and opens it in-app. 503 (not configured) and
+    /// network errors surface as an alert; on success the browser sheet opens and its
+    /// dismiss re-fetches the status.
+    private func connectPolar() async {
+        guard let bearer, !polarConnecting else { return }
+        polarConnecting = true
+        defer { polarConnecting = false }
+        do {
+            polarSafari = SafariURL(url: try await WearablesService.polarConnectURL(bearer: bearer))
+        } catch let APIError.http(status, _) where status == 503 {
+            polarAlert = "Polar no está disponible todavía. Vuelve a intentarlo más adelante."
+        } catch {
+            polarAlert = "No pudimos conectar con Polar. Revisa tu conexión e inténtalo de nuevo."
         }
     }
 

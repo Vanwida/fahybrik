@@ -48,8 +48,11 @@ struct DeviceConnectCard: View {
         .sheet(isPresented: pickerBinding(hub.heartRate)) {
             // The picker carries the watch hint so, when the athlete is wearing an
             // Apple Watch, the sheet explains HR is already automatic (belts stay
-            // listed below for whoever prefers a chest strap).
-            DevicePickerSheet(channel: hub.heartRate, watchHint: watch.appAvailable)
+            // listed below for whoever prefers a chest strap). It also surfaces the
+            // connected strap's battery level when the strap reports one.
+            DevicePickerSheet(channel: hub.heartRate,
+                              watchHint: watch.appAvailable,
+                              batteryPercent: hub.hrBatteryPercent)
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)

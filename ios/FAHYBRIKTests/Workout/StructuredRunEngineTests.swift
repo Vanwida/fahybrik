@@ -29,6 +29,7 @@ final class StructuredRunEngineTests: XCTestCase {
     }
     final class FakeHR: HeartRateSource {
         var onBpm: ((Int) -> Void)?
+        var onBattery: ((Int) -> Void)?
         var onLink: ((DeviceLink) -> Void)?
         var onDiscovered: (([DeviceCandidate]) -> Void)?
         var onBluetooth: ((BluetoothAvailability) -> Void)?

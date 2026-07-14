@@ -6,10 +6,13 @@
 // captures the Polar user id when present, and persists the connection
 // (encrypted at rest) into wearable_connections via the provider-agnostic store.
 //
-// Mirrors /api/coros/callback route shape and JSON error contract.
+// The athlete lands here in Safari on their phone (top-level redirect from
+// Polar), so every terminal response is a minimal HUMAN HTML page in Spanish
+// (dark + brand-orange, inline, no dependencies) — never raw JSON. The
+// verification/storage logic is unchanged; only the final response shape is HTML.
 
-import { polarGatedResponse, loadPolarConfig } from '@/lib/polar/config';
-import { exchangeCodeForTokens, OAuth2Error } from '@/lib/oauth/oauth2';
+import { loadPolarConfig } from '@/lib/polar/config';
+import { exchangeCodeForTokens } from '@/lib/oauth/oauth2';
 import { clearStateCookie, readStateCookie } from '@/lib/oauth/state';
 import {
   saveWearableConnection,
@@ -27,28 +30,26 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
   // Polar surfaces user-denial / provider errors as ?error=... — surface it
-  // verbatim rather than treating a missing code as our own bug.
+  // rather than treating a missing code as our own bug.
   const providerError = url.searchParams.get('error');
   if (providerError) {
     const description = url.searchParams.get('error_description') ?? undefined;
-    return jsonError(400, 'polar_authorization_error', description ?? providerError);
+    return errorPage(400, description ?? 'No se completó la autorización con Polar.');
   }
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   if (!code) {
-    return jsonError(400, 'invalid_callback', 'code query param is required');
+    return errorPage(400, 'Falta el código de autorización de Polar.');
   }
 
   const cfg = loadPolarConfig();
-  if (!cfg.ok) return polarGatedResponse(cfg.missing);
+  if (!cfg.ok) {
+    return errorPage(503, 'La conexión con Polar no está disponible ahora mismo.');
+  }
 
   if (!isCryptoConfigured()) {
-    return jsonError(
-      503,
-      'encryption_not_configured',
-      'ENCRYPTION_KEY env var is required to persist OAuth tokens. See /docs/polar_setup.md.',
-    );
+    return errorPage(503, 'La conexión con Polar no está disponible ahora mismo.');
   }
 
   const secure = isSecureRequest(request, url);
@@ -62,13 +63,14 @@ export async function GET(request: Request): Promise<Response> {
     state: state ?? '',
   });
   if (!recovered) {
-    return jsonError(401, 'invalid_state', 'state cookie is missing, expired, or does not match this callback');
+    return errorPage(401, 'La sesión de conexión caducó. Vuelve a intentarlo desde la app.');
   }
   const athlete_id = recovered.athlete_id;
 
   // Exchange the authorization code for tokens. Polar's token endpoint requires
   // HTTP Basic client auth (base64(clientId:clientSecret)) → basicAuth:true. Any
-  // failure (non-2xx, unreachable, timeout, bad body) maps to a single 502.
+  // failure (non-2xx, unreachable, timeout, bad body — OAuth2Error or otherwise)
+  // maps to a single generic error page; we never leak the provider's internals.
   let tokens;
   try {
     tokens = await exchangeCodeForTokens({
@@ -79,11 +81,8 @@ export async function GET(request: Request): Promise<Response> {
       redirectUri: cfg.config.callbackUrl,
       basicAuth: true,
     });
-  } catch (e) {
-    if (e instanceof OAuth2Error) {
-      return jsonError(502, 'polar_token_exchange_failed', e.message);
-    }
-    return jsonError(502, 'polar_token_exchange_failed', (e as Error).message);
+  } catch {
+    return errorPage(502, 'No se pudo completar la conexión con Polar. Vuelve a intentarlo.');
   }
 
   // v4 needs no user registration and the cron poller resolves athletes by
@@ -108,13 +107,7 @@ export async function GET(request: Request): Promise<Response> {
   });
 
   // Burn the transient state cookie now that the exchange succeeded.
-  return new Response(JSON.stringify({ ok: true, athlete_id: athlete_id.toString() }), {
-    status: 200,
-    headers: {
-      'content-type': 'application/json',
-      'set-cookie': clearStateCookie(POLAR_PROVIDER, secure),
-    },
-  });
+  return successPage(clearStateCookie(POLAR_PROVIDER, secure));
 }
 
 // Polar's user-id field key varies (x_user_id / user_id / polar-user-id /
@@ -137,9 +130,67 @@ function isSecureRequest(request: Request, url: URL): boolean {
   return fwd != null && fwd.split(',')[0].trim() === 'https';
 }
 
-function jsonError(status: number, code: string, message: string): Response {
-  return new Response(JSON.stringify({ ok: false, error: code, message }), {
-    status,
-    headers: { 'content-type': 'application/json' },
+// ---- Human HTML result pages (dark + brand orange, inline, no dependencies) ----
+
+const BRAND = {
+  bg: '#0A0A0A',
+  fg: '#F5F5F5',
+  muted: '#A1A1A1',
+  accent: '#F06A2A',
+  danger: '#F23F3F',
+} as const;
+
+function successPage(setCookie: string): Response {
+  return resultPage({
+    status: 200,
+    ok: true,
+    title: 'Cuenta Polar conectada',
+    message: 'Ya puedes volver a la app.',
+    setCookie,
   });
+}
+
+function errorPage(status: number, message: string): Response {
+  return resultPage({ status, ok: false, title: 'No se pudo conectar Polar', message });
+}
+
+function resultPage(params: {
+  status: number;
+  ok: boolean;
+  title: string;
+  message: string;
+  setCookie?: string;
+}): Response {
+  const iconColor = params.ok ? BRAND.accent : BRAND.danger;
+  const iconTint = params.ok ? 'rgba(240,106,42,0.12)' : 'rgba(242,63,63,0.12)';
+  const icon = params.ok ? '&#10003;' : '&#10005;'; // ✓ / ✕
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${escapeHtml(params.title)}</title>
+</head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:${BRAND.bg};color:${BRAND.fg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<main style="max-width:340px;width:100%;text-align:center;">
+<div style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;background:${iconTint};border:1px solid ${iconColor};color:${iconColor};font-size:28px;line-height:1;">${icon}</div>
+<h1 style="margin:0 0 10px;font-size:20px;font-weight:700;letter-spacing:-0.01em;">${escapeHtml(params.title)}</h1>
+<p style="margin:0;font-size:15px;line-height:1.5;color:${BRAND.muted};">${escapeHtml(params.message)}</p>
+</main>
+</body>
+</html>`;
+  const headers: Record<string, string> = { 'content-type': 'text/html; charset=utf-8' };
+  if (params.setCookie) headers['set-cookie'] = params.setCookie;
+  return new Response(html, { status: params.status, headers });
+}
+
+// Escape provider-controlled text (e.g. error_description) before it lands in HTML.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
