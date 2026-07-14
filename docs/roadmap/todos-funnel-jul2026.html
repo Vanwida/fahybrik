@@ -689,9 +689,18 @@
         <div class="resumen"><b>Hecha · 13 jul, en prod y demo.</b> Conectas cinta/banda/remo ANTES de empezar, eligiendo TU máquina por nombre (se acabó engancharse a la cinta del vecino) y con desconectar siempre a mano. Los metros del cinturón ya se guardan (antes se perdían) y el reloj pinta lo mismo que el móvil. El remo ahora registra TODO lo que da el PM5 (splits por intervalo, drag factor, cal/h — y de paso cayeron 3 bugs del parser que corrompían calorías y paladas). Y zonas de pulso personales: tu FC máx medida en el perfil manda sobre la estimada — murió el "190 para todo el mundo" que llevaba falseando el tiempo-en-zona. Guía al día (secciones 34, 39 y 40). Pendiente: control de velocidad de la cinta desde la app, esperando el diagnóstico de la Titanium.</div>
       </div>
     </div>
+    <div class="task done" data-id="73">
+      <div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="body">
+        <div class="tid">#73</div>
+        <div class="tsub">Pulso top-notch: Apple Watch primera clase, relojes como banda y botón Conectar Polar</div>
+        <div class="tdesc">De la queja real: "es estúpido tener que conectar tu propio dispositivo".</div>
+        <div class="resumen"><b>Hecha · 14 jul, en prod y demo.</b> La app ya distingue máquinas del gym (se eligen por nombre) de TUS dispositivos: con Apple Watch el chip dice "Pulso · Apple Watch" y no hay nada que conectar; tu banda recordada se reconecta sola. Cualquier reloj emitiendo pulso (Garmin, Polar, Whoop 4.0, Amazfit) entra como banda, con su batería visible. Bugs de datos cazados: el pulso de banda BLE no se grababa en zonas (solo pintaba el HUD de cinta), la app se suspendía con pantalla bloqueada en entrenos sin audio/GPS (faltaba bluetooth-central), y una banda colgando metía lecturas basura (bits de contacto). Botón "Conectar Polar" en el Perfil, blindando de paso un agujero de seguridad del arranque OAuth (iba sin autenticación) — cadena completa probada en vivo hasta la pantalla de login de Polar.</div>
+      </div>
+    </div>
   </section>
 
-  <footer>FAHYBRID · documento de trabajo interno · actualizado 13 jul 2026</footer>
+  <footer>FAHYBRID · documento de trabajo interno · actualizado 14 jul 2026</footer>
 </div>
 
 <script>
