@@ -126,9 +126,17 @@ struct TreadmillHUDView: View {
         }
     }
     private var pulseChipText: String {
-        if model.hrLink.isLive { return "Pulso · " + (model.hrLink.deviceName ?? "banda") }
-        if model.session.liveHRBpm != nil { return "Pulso · reloj" }
-        return "Pulso · —"
+        // Single source of truth: whatever the engine says is recording HR (strap →
+        // its name/"banda", watch → "reloj", PM5 → "remo"), else the channel state.
+        "Pulso · " + (model.effectiveHRLink.deviceName ?? pulseStateWord)
+    }
+    private var pulseStateWord: String {
+        switch model.effectiveHRLink {
+        case .scanning, .connecting: return "buscando"
+        case .reconnecting:          return "reconectando"
+        case .unavailable, .failed:  return "sin señal"
+        case .idle, .connected:      return "—"
+        }
     }
 
     // MARK: - Count-in

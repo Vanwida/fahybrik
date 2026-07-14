@@ -180,7 +180,22 @@ final class WorkoutSession {
 
     /// Provenance of the live heart-rate signal currently feeding the session,
     /// so the connection strip can show WHERE HR comes from. nil = no HR.
-    enum HRSource: String { case healthkit, pm5 }
+    ///
+    /// PRIORITY (who OWNS the provenance when several stream at once): a dedicated
+    /// BLE chest/arm `strap` is the most trustworthy exercise-HR signal, the
+    /// Apple Watch / iPhone `healthkit` stream next, an intermittent PM5-paired
+    /// strap (`pm5`) last. A higher-priority source takes over; a lower-priority
+    /// reading still feeds the live value + lap samples but never steals the label.
+    enum HRSource: String {
+        case strap, healthkit, pm5
+        var priority: Int {
+            switch self {
+            case .strap:     return 3
+            case .healthkit: return 2
+            case .pm5:       return 1
+            }
+        }
+    }
     var hrSource: HRSource? = nil
 
     /// Athlete-entered actual load for the current strength/sled segment (kg).
@@ -1967,10 +1982,9 @@ final class WorkoutSession {
         lapErgSplits = splits
     }
 
-    /// Feeds a live HR reading from a wearable. `source` records WHERE it came
-    /// from (Apple Watch/iPhone via HealthKit, or a strap paired through the PM5)
-    /// so the connection strip can show provenance. PM5 passthrough is preferred
-    /// only as a fallback: once HealthKit is streaming it stays the source.
+    /// Feeds a live HR reading from a wearable. `source` records WHERE it came from
+    /// (a BLE chest/arm strap, Apple Watch/iPhone via HealthKit, or a strap paired
+    /// through the PM5) so the connection strip can show provenance.
     func injectLiveHR(_ bpm: Int, source: HRSource) {
         // Paused / finished minutes are NOT training data: a rest-HR reading taken
         // while the athlete paused (or after the session ended) must not enter the
@@ -1978,12 +1992,15 @@ final class WorkoutSession {
         // pauses the same engine, and the watch now pauses the HK session alongside
         // it (WatchWorkoutCoordinator.togglePause), so no stream should feed through.
         guard !isPaused, !isFinished else { return }
-        // Don't let an intermittent PM5 strap reading override an active
-        // HealthKit/watch stream that's already the chosen source.
-        if hrSource == .healthkit && source == .pm5 { liveHRBpm = bpm; lapHRSamples.append(bpm); return }
+        // Every reading is real HR → it updates the live value and the lap
+        // aggregation regardless of who owns provenance. But the SOURCE label is a
+        // latch: a lower-priority reading (e.g. a PM5 strap under an active
+        // watch/strap stream) must not steal it. Only an equal-or-higher priority
+        // source takes over the provenance.
         liveHRBpm = bpm
-        hrSource = source
         lapHRSamples.append(bpm)
+        if let current = hrSource, source.priority < current.priority { return }
+        hrSource = source
     }
 
     /// Accumulates phone-GPS covered distance for the current RUN segment. The

@@ -41,9 +41,11 @@ final class TreadmillHUDModel {
     var treadmillChannel: DeviceChannel { hub.treadmill }
     var hrChannel: DeviceChannel { hub.heartRate }
     // Live merged telemetry (observed by the view). `latest` is merged here from the
-    // hub's raw samples; `bleBpm` is forwarded from the hub's strap.
+    // hub's raw samples; `bleBpm` reads the hub's published strap value directly (the
+    // strap→engine wiring lives in ActiveWorkoutView now, so this HUD only DISPLAYS
+    // it — no per-screen callback that could drop the recording on dismiss).
     private(set) var latest = TreadmillSample()
-    private(set) var bleBpm: Int?
+    var bleBpm: Int? { hub.bleBpm }
 
     // Per-leg live accumulation (observed).
     private(set) var legDistanceM: Double = 0
@@ -105,11 +107,12 @@ final class TreadmillHUDModel {
         activeLegKey = legKey()
         resetLegState()
         rehydrateContinuousLegFromSession()   // resume a reopened continuous run's covered distance
-        // Consume the shared hub's telemetry (the belt/strap may already be
-        // connected from the brief). Subscribing — not owning the sources — is what
-        // lets the connection survive this HUD being dismissed and re-opened.
+        // Consume the shared hub's belt telemetry (the belt may already be connected
+        // from the brief). Subscribing — not owning the source — is what lets the
+        // connection survive this HUD being dismissed and re-opened. The strap's bpm
+        // is NOT taken here: it flows to the engine via ActiveWorkoutView and is read
+        // back for display through `bleBpm` (hub.bleBpm), so a single owner feeds it.
         hub.onSample = { [weak self] in self?.ingest($0) }
-        hub.onBpm = { [weak self] in self?.bleBpm = $0 }
         hub.connectTreadmill()   // idempotent: a no-op if the brief already connected
         hub.connectHR()
         displayTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -123,8 +126,9 @@ final class TreadmillHUDModel {
         // UNSUBSCRIBE only — leave the devices connected. The link is session-scoped
         // (owned by DeviceHub) and must outlive this HUD; the whole workout's teardown
         // disconnects via DeviceHub.shared.stopAll() (WorkoutContainer.onDisappear).
+        // Only the belt sample slot is ours to release; the strap's onBpm belongs to
+        // ActiveWorkoutView (engine wiring) and must stay live under this cover.
         hub.onSample = nil
-        hub.onBpm = nil
     }
 
     func togglePause() {
@@ -203,10 +207,20 @@ final class TreadmillHUDModel {
         return session.liveHRBpm ?? bleBpm
     }
 
+    /// The HR chip's link, labelled by WHO is actually recording (the engine's
+    /// provenance), not merely by which channel is connected — so it never says
+    /// "reloj" while the strap records, or vice-versa.
+    ///   • strap    → the strap's real advertised name if its channel is live, else "banda"
+    ///   • healthkit → "reloj" (Apple Watch / iPhone)
+    ///   • pm5       → "remo" (a strap paired through the Concept2)
+    ///   • none      → the channel's own state (so "buscando…" still shows while connecting)
     var effectiveHRLink: DeviceLink {
-        if hrLink.isLive { return hrLink }
-        if session.liveHRBpm != nil { return .connected(name: "reloj") }
-        return hrLink
+        switch session.hrSource {
+        case .strap:     return hrLink.isLive ? hrLink : .connected(name: "banda")
+        case .healthkit: return .connected(name: "reloj")
+        case .pm5:       return .connected(name: "remo")
+        case .none:      return hrLink
+        }
     }
 
     /// HR zone from the athlete's resolved max (measured or 220−age). Nil without a
