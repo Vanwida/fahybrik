@@ -395,6 +395,14 @@ struct ActiveWorkoutView: View {
         liveHR.onSample = { bpm in
             session.injectLiveHR(bpm, source: .healthkit)
         }
+        // A BLE chest/arm strap connected in the pre-workout brief now records into
+        // the ENGINE (zones + hr_avg), not just the treadmill HUD's display — so it
+        // counts on any workout, with or without a treadmill cover open. Highest HR
+        // priority (a dedicated strap beats the watch). Torn down with the shared
+        // device layer in DeviceHub.stopAll() (WorkoutContainer teardown).
+        DeviceHub.shared.onBpm = { bpm in
+            session.injectLiveHR(bpm, source: .strap)
+        }
     }
 
     // Start phone GPS only on run segments (and only if not denied); stop it

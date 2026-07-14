@@ -380,11 +380,28 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
         guard state == .activated else { return }
+        // Read the paired/installed flags off the delegate queue and hand the plain
+        // Bools to the MainActor (WCSession isn't Sendable). This is the first point
+        // the watch presence is known — so "Pulso · Apple Watch" appears from launch.
+        let paired = session.isPaired
+        let installed = session.isWatchAppInstalled
         Task { @MainActor in
+            WatchPresence.shared.refresh(paired: paired, installed: installed)
             // Flush any push/clear held during the activation race, then replay any
             // executions that failed to decode on a prior launch.
             self.flushPendingContext()
             await self.retryDeadLetters()
+        }
+    }
+
+    /// The watch pairing / app-install state changed (app installed or removed, a
+    /// watch un/paired or swapped). Keep the observable presence in sync so the HR
+    /// chip flips live without the athlete reopening the brief.
+    func sessionWatchStateDidChange(_ session: WCSession) {
+        let paired = session.isPaired
+        let installed = session.isWatchAppInstalled
+        Task { @MainActor in
+            WatchPresence.shared.refresh(paired: paired, installed: installed)
         }
     }
 

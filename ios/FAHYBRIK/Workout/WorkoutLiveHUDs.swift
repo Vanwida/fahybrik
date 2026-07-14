@@ -1144,9 +1144,20 @@ struct ConnectionStrip: View {
 
     private var hrLabel: String? {
         switch session.hrSource {
+        case .strap:     return "HR · Banda"
         case .healthkit: return "HR · Watch"
         case .pm5:       return "HR · PM5"
         case .none:      return nil
+        }
+    }
+
+    /// Spoken source for VoiceOver — honest about which device records HR.
+    private var hrSpokenSource: String {
+        switch session.hrSource {
+        case .strap:     return "la banda"
+        case .healthkit: return "el reloj"
+        case .pm5:       return "el PM5"
+        case .none:      return "el reloj"
         }
     }
 
@@ -1165,7 +1176,7 @@ struct ConnectionStrip: View {
             }
             if let hrLabel {
                 chip(icon: "heart.fill", text: hrLabel, on: true)
-                    .accessibilityLabel("Frecuencia cardiaca desde \(session.hrSource == .pm5 ? "el PM5" : "el reloj")")
+                    .accessibilityLabel("Frecuencia cardiaca desde \(hrSpokenSource)")
             }
             if segmentIsRun {
                 chip(

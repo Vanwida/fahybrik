@@ -63,6 +63,36 @@ enum PreWorkoutDeviceEligibility {
     }
 }
 
+// MARK: - HR chip presentation (personal wearable vs chest strap)
+
+/// How the pre-workout HEART-RATE chip should read — the market-standard split
+/// (Garmin/Wahoo/Peloton) between a shared machine you pick by name and a PERSONAL
+/// wearable that streams on its own. Pure + fully unit-testable; the card renders
+/// whatever this returns.
+///
+/// The rule: a live/connecting BLE chest strap always wins the chip (the athlete
+/// opted into the chest belt). Otherwise, if the Apple Watch app is available, the
+/// chip is a positive, non-actionable "Apple Watch" state (HR arrives by itself at
+/// start — nothing to connect). With neither, it's the unchanged "conectar" CTA.
+enum HRChipPresentation: Equatable {
+    /// The BLE strap is live, connecting or scanning → show its own link + name/state.
+    case band
+    /// No strap active but the Apple Watch app is present → HR is automatic; a
+    /// positive "Pulso · Apple Watch" chip (tap still opens the picker to add a belt).
+    case appleWatch
+    /// Neither strap nor watch → the unchanged idle "conectar" call-to-action.
+    case idle
+
+    static func resolve(bandLink: DeviceLink, watchAvailable: Bool) -> HRChipPresentation {
+        switch bandLink {
+        case .connected, .connecting, .scanning, .reconnecting:
+            return .band
+        case .idle, .unavailable, .failed:
+            return watchAvailable ? .appleWatch : .idle
+        }
+    }
+}
+
 // MARK: - PM5 connection state → the shared DeviceLink vocabulary
 
 extension PM5ConnectionState {
