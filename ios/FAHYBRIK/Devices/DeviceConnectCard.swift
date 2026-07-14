@@ -19,6 +19,7 @@ struct DeviceConnectCard: View {
 
     @State private var hub = DeviceHub.shared
     @State private var pm5 = PM5ConnectionStore.shared
+    @State private var watch = WatchPresence.shared
     @State private var showPM5Sheet = false
 
     var body: some View {
@@ -45,17 +46,35 @@ struct DeviceConnectCard: View {
             DevicePickerSheet(channel: hub.treadmill)
         }
         .sheet(isPresented: pickerBinding(hub.heartRate)) {
-            DevicePickerSheet(channel: hub.heartRate)
+            // The picker carries the watch hint so, when the athlete is wearing an
+            // Apple Watch, the sheet explains HR is already automatic (belts stay
+            // listed below for whoever prefers a chest strap).
+            DevicePickerSheet(channel: hub.heartRate, watchHint: watch.appAvailable)
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
         }
+        // A remembered STRAP is a personal device → reconnect it silently on appear.
+        // Machines (belt/PM5) stay an explicit choice; never auto-grab in a gym.
+        .onAppear { autoReconnectPersonalHR() }
     }
 
     @ViewBuilder
     private func chip(for device: PreWorkoutDevice) -> some View {
+        // The heart-rate chip is watch-aware: with an Apple Watch and no active strap
+        // it becomes a positive "Apple Watch" state instead of a "connect a belt" CTA.
+        if device == .heartRate, hrPresentation == .appleWatch {
+            appleWatchChip()
+        } else {
+            standardChip(device)
+        }
+    }
+
+    /// The unchanged tappable chip for the belt / PM5, and for the HR strap whenever a
+    /// strap is active or no watch is present.
+    private func standardChip(_ device: PreWorkoutDevice) -> some View {
         let link = link(for: device)
-        Button {
+        return Button {
             tap(device, link: link)
         } label: {
             DeviceChip(icon: device.icon, text: chipText(device, link: link), link: link)
@@ -74,6 +93,35 @@ struct DeviceConnectCard: View {
         .accessibilityAction(named: link.isLive ? "Desconectar" : "Conectar") {
             link.isLive ? disconnect(device) : tap(device, link: link)
         }
+    }
+
+    /// Positive, non-CTA HR chip shown when the athlete wears an Apple Watch and no
+    /// strap is active: the pulse arrives on its own at start. Tap still opens the
+    /// picker (to optionally add a chest belt) — it's an escape hatch, not a prompt.
+    private func appleWatchChip() -> some View {
+        Button {
+            Haptics.light()
+            hub.heartRate.openPicker()
+        } label: {
+            DeviceChip(icon: "applewatch", text: "Pulso · Apple Watch",
+                       link: .connected(name: "Apple Watch"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Pulso por Apple Watch, automático")
+        .accessibilityHint("Toca para conectar una banda de pecho")
+    }
+
+    private var hrPresentation: HRChipPresentation {
+        HRChipPresentation.resolve(bandLink: hub.heartRate.link,
+                                   watchAvailable: watch.appAvailable)
+    }
+
+    private func autoReconnectPersonalHR() {
+        guard devices.contains(.heartRate) else { return }
+        let ch = hub.heartRate
+        guard ch.hasRemembered, !ch.isConnected, !isBusy(ch.link) else { return }
+        ch.beginConnect(autoPresentPicker: false)
     }
 
     // MARK: - Per-device live link

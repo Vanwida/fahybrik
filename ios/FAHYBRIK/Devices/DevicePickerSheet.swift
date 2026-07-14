@@ -8,6 +8,10 @@ import SwiftUI
 // three devices read as one instrument panel.
 struct DevicePickerSheet: View {
     @Bindable var channel: DeviceChannel
+    /// When true (HR channel + a paired Apple Watch), a banner explains the pulse is
+    /// already automatic — the belt list stays below for whoever prefers a chest strap.
+    /// Default false leaves the belt / PM5 sheets and the mid-workout HUD unchanged.
+    var watchHint: Bool = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -107,6 +111,7 @@ struct DevicePickerSheet: View {
 
     private var scanningState: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            watchHintBanner
             HStack(spacing: Theme.Spacing.s) {
                 ProgressView().tint(Theme.Color.accent).scaleEffect(0.85)
                 Text("Buscando dispositivos cercanos…")
@@ -135,6 +140,26 @@ struct DevicePickerSheet: View {
                     channel.forget()
                 }
             }
+        }
+    }
+
+    /// "You're wearing an Apple Watch — HR is automatic" banner, above the belt list.
+    @ViewBuilder
+    private var watchHintBanner: some View {
+        if watchHint {
+            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                Image(systemName: "applewatch")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                Text("Llevas Apple Watch: el pulso llega solo al empezar el entreno. Conecta una banda solo si prefieres el pecho.")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Theme.Spacing.m)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         }
     }
 
