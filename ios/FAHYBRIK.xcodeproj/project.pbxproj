@@ -2302,7 +2302,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
-				FAHYBRIK_API_BASE = "https://fahybrik-demo.vercel.app";
+				FAHYBRIK_API_BASE = "https://app.fahybrid.com";
 				FAHYBRIK_DEMO_ENTRY = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIK/Generated-Info.plist";

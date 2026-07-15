@@ -161,7 +161,11 @@ targets:
       # the regenerated .pbxproj), NOT in the gitignored Generated-Info.plist.
       configs:
         Debug:
-          FAHYBRIK_API_BASE: "https://fahybrik-demo.vercel.app"
+          # app.fahybrid.com is the STABLE seam to the app backend: today it points
+          # at the current backend project; at the single-production cutover the
+          # DOMAIN moves and every installed build lands on production without a
+          # rebuild. Never point builds at a *.vercel.app project name again.
+          FAHYBRIK_API_BASE: "https://app.fahybrid.com"
           FAHYBRIK_DEMO_ENTRY: "1"
           # DEBUG compilation flag lives ONLY here (Debug). It must NEVER reach
           # Release: under #if DEBUG, PushManager reports apns_env="sandbox" (so a
