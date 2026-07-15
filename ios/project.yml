@@ -176,7 +176,10 @@ targets:
           # simulator push during dev.
           CODE_SIGN_ENTITLEMENTS: FAHYBRIK/FAHYBRIK-Debug.entitlements
         Release:
-          FAHYBRIK_API_BASE: "https://fahybrik-web.vercel.app"
+          # SAME backend as Debug — one production universe for every build. The
+          # domain is the stable seam (see Debug note); TestFlight/App Store users
+          # must land where the real plans, executions and coach loop live.
+          FAHYBRIK_API_BASE: "https://app.fahybrid.com"
           FAHYBRIK_DEMO_ENTRY: "0"
           # Production APNS entitlement (aps-environment=production) for TestFlight
           # / App Store distribution. Pairs with the no-DEBUG Release build above.
