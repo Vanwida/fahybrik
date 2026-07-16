@@ -22,10 +22,25 @@ describe('#61 default resistance tests carry structured content', () => {
     expect(p?.modality).toBe('run');
     expect(p?.structure).toBeDefined();
 
+    // Pin EVERY tramo the guided cursor drives — iOS asserts against this exact wire,
+    // so a silent drift here would break the cursor (or a fixture) downstream.
     const s = p!.structure!;
     expect(s.map((ph) => ph.role)).toEqual(['warmup', 'main', 'cooldown']);
-    expect(phaseByRole(s, 'warmup')!.elements[0]).toMatchObject({ measure: { type: 'duration', s: 600 } });
-    expect(mainPhase(s)!.elements[0]).toMatchObject({ kind: 'work', measure: { type: 'distance', m: 5000 } });
+    expect(phaseByRole(s, 'warmup')!.elements[0]).toMatchObject({
+      kind: 'work',
+      measure: { type: 'duration', s: 600 },
+      target: { type: 'rpe', value: 3 },
+    });
+    expect(mainPhase(s)!.elements[0]).toMatchObject({
+      kind: 'work',
+      measure: { type: 'distance', m: 5000 },
+      target: { type: 'rpe', min: 9, max: 10 },
+    });
+    expect(phaseByRole(s, 'cooldown')!.elements[0]).toMatchObject({
+      kind: 'work',
+      measure: { type: 'duration', s: 600 },
+      target: { type: 'rpe', value: 2 },
+    });
   });
 
   it('the 2K row is warmup + a 2000 m erg main (valid erg prescriptions, modality row)', () => {
