@@ -56,22 +56,25 @@
  * workout_assignments (+ executions) on every run. Run THIS script AFTER it. The
  * run_5k benchmarks are independent of that wipe and always survive.
  *
- * HOST-GUARDED: refuses to run unless DATABASE_URL host is the demo branch
- * (ep-flat-wind). Touches ONLY athlete 70.
+ * TARGET + GUARD (shared _demo_target): athlete resolved by marker email; demo
+ * branch always writable, MAIN only with SEED_DEMO_ALLOW_MAIN=1. Touches ONLY the
+ * resolved demo athlete (+ its coach's run-history templates). Runs AFTER the plan.
  *
- * RUN (against the DEMO DB — host must be ep-flat-wind):
- *   cd web && NODE_OPTIONS="--conditions=react-server" \
+ * RUN (against MAIN):
+ *   cd web && SEED_DEMO_ALLOW_MAIN=1 DATABASE_URL="<main>" \
+ *     NODE_OPTIONS="--conditions=react-server" \
  *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
  *     ../infra/scripts/seed_demo_athlete_running.ts
  */
 import './_load_web_env.ts';
 
 import type { Sql } from '@/lib/db';
+import { assertDemoWriteHost, resolveDemoTarget } from './_demo_target.ts';
 
 // ── CONFIG ───────────────────────────────────────────────────────────────────
-const REQUIRED_HOST = 'ep-flat-wind';
-const ATHLETE_ID = 70;
-const COACH_ID = 29;
+// athlete/coach resolved at runtime from marker email (ids differ per branch).
+let ATHLETE_ID: number;
+let COACH_ID: number;
 const DEMO_FLAG = '[demo-seed:run-history]';
 const ASSIGN_FLAG = '[demo-run-history]';
 const SEG_SOURCE = 'demo';
@@ -283,16 +286,6 @@ const pace = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).
 
 // ── steps ──────────────────────────────────────────────────────────────────────
 
-async function assertOwnership(): Promise<void> {
-  const rows = await D.sql<Array<{ coach_id: string }>>`
-    select coach_id::text from athletes where id = ${ATHLETE_ID} limit 1
-  `;
-  if (rows.length === 0) throw new Error(`athlete ${ATHLETE_ID} not found on this DB`);
-  if (Number(rows[0]!.coach_id) !== COACH_ID) {
-    throw new Error(`athlete ${ATHLETE_ID} belongs to coach ${rows[0]!.coach_id}, expected ${COACH_ID}`);
-  }
-}
-
 /** Seed the 3 run_5k benchmarks (idempotent: clear this athlete's run_5k, re-insert). */
 async function seedBenchmarks(): Promise<void> {
   await D.sql`delete from athlete_benchmarks where athlete_id = ${ATHLETE_ID} and exercise_slug = ${BENCH_SLUG}`;
@@ -501,17 +494,16 @@ async function verify(): Promise<void> {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (!host.includes(REQUIRED_HOST)) {
-    throw new Error(
-      `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (${REQUIRED_HOST}).`,
-    );
-  }
+  const host = assertDemoWriteHost('seed_demo_athlete_running');
   log(`target host: ${host}`);
 
   D = await loadDeps();
 
-  await assertOwnership();
+  const target = await resolveDemoTarget(D.sql);
+  ATHLETE_ID = target.athleteId;
+  COACH_ID = target.coachId;
+  log(`resolved demo athlete ${ATHLETE_ID} <${target.athleteEmail}>, coach ${COACH_ID}`);
+
   await seedBenchmarks();
   // Order matters: wipe the assignments FIRST so the templates they reference can
   // be dropped and rebuilt cleanly (FK on workout_assignments.template_id).
