@@ -54,6 +54,7 @@ export async function restoreDefaultTests(
         testSlug: protocol.slug,
         specs,
         existingTemplateId: existingRow?.template_id ? Number(existingRow.template_id) : null,
+        content: protocol.content,
       });
 
       let testId: number;

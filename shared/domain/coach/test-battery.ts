@@ -26,6 +26,57 @@ import {
   BENCH_HRR_60,
 } from './benchmark-slugs';
 import { STRENGTH_LIFTS } from '../strength/exercises';
+import type { Prescription } from '../prescription/types';
+import type { RunStructure } from '../prescription/run-structure';
+import { prescriptionFromStructure } from '../prescription/run-structure-convert';
+
+// ── Test CONTENT blueprint (#61 guided execution) ────────────────────────────
+// A default test's session isn't a bare "run" — it's a real prescribed workout the
+// guided cursor drives: a calentamiento, the effort proper, a vuelta a la calma. The
+// materializer writes these segments with a STRUCTURED prescription_json (vs the
+// generic one-empty-segment-per-result), so iOS has tramos to guide. A RUN carries
+// the phased RunStructure in ONE segment (the engine is running-only); an ERG (row)
+// carries separate legacy segments (warmup + main) — erg keeps its existing form.
+export interface CalibrationContentSegment {
+  /** Catalog exercise slug candidates; first that exists on the DB anchors it. */
+  exercise: readonly string[];
+  /** Block title shown to the athlete ("Calentamiento", "2K remo a fondo"). */
+  title: string;
+  /** Orders/groups the segment within the session. */
+  block_position: number;
+  /** The structured prescription the athlete executes (prescription_json). */
+  prescription: Prescription;
+}
+
+// 5K control (run): one run item carrying the phased structure. Warmup + suelta are
+// easy by RPE (no zone needed pre-test); the 5K itself is a fondo (RPE 9-10 — we are
+// MEASURING the pace, not prescribing it). Distance in metres, time in seconds.
+const TT_5K_RUN_STRUCTURE: RunStructure = [
+  { role: 'warmup', elements: [{ kind: 'work', measure: { type: 'duration', s: 600 }, target: { type: 'rpe', value: 3 } }] },
+  { role: 'main', elements: [{ kind: 'work', measure: { type: 'distance', m: 5000 }, target: { type: 'rpe', min: 9, max: 10 } }] },
+  { role: 'cooldown', elements: [{ kind: 'work', measure: { type: 'duration', s: 600 }, target: { type: 'rpe', value: 2 } }] },
+];
+
+const TT_5K_CONTENT: readonly CalibrationContentSegment[] = [
+  { exercise: ['run'], title: '5K control', block_position: 0, prescription: prescriptionFromStructure(TT_5K_RUN_STRUCTURE) },
+];
+
+// 2K remo (erg): warmup + the 2000 m a fondo, as two erg segments (RunStructure is
+// run-only). Steady scheme, one set each; the main is distance 2000 m at RPE 9-10.
+const TT_2K_ROW_CONTENT: readonly CalibrationContentSegment[] = [
+  {
+    exercise: ['row', 'row-z2-long'],
+    title: 'Calentamiento',
+    block_position: 0,
+    prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'duration', seconds: 600 }, target: { kind: 'rpe', value: 3 } }] },
+  },
+  {
+    exercise: ['row', 'row-z2-long'],
+    title: '2K remo a fondo',
+    block_position: 1,
+    prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'distance', meters: 2000 }, target: { kind: 'rpe', min: 9, max: 10 } }] },
+  },
+];
 
 // The hrr60 (recuperación de FC 60 s) OPTIONAL result seeded on the resistance tests
 // (5K, 2K remo, half-sim — NOT the 1RM battery: HRR después de un test neuromuscular
@@ -62,6 +113,10 @@ export interface CalibrationTestProtocol {
   day_of_week: number;
   // The contract: what this test measures and calibrates.
   store_results: StoreResultSpec[];
+  // The SESSION the athlete executes (#61 guided tramos). When present, the
+  // materializer writes these structured segments; when absent (half-sim, 1RM,
+  // coach-authored tests) it falls back to the generic one-segment-per-result.
+  content?: readonly CalibrationContentSegment[];
 }
 
 export const CALIBRATION_META_KEY = 'calibration' as const;
@@ -88,6 +143,7 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
       },
       HRR60_OPTIONAL_RESULT,
     ],
+    content: TT_5K_CONTENT,
   },
   {
     slug: 'tt_2k_row',
@@ -108,6 +164,7 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
       },
       HRR60_OPTIONAL_RESULT,
     ],
+    content: TT_2K_ROW_CONTENT,
   },
   {
     slug: 'one_rm_battery',
