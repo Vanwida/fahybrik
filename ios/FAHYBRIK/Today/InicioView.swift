@@ -58,6 +58,9 @@ struct InicioView: View {
     // #34 — bumped to force the calibration battery card to reload (pull-to-refresh
     // and after a completed session, which may flip a test's state / result).
     @State private var testBatteryNonce: Int = 0
+    // Tests guiados — the Tests hub (benchmarks + zonas + «Probarme»), raised by
+    // the battery card. Full-screen cover, like every launch from Inicio.
+    @State private var showTestsHub: Bool = false
 
     @State private var checkinPending: Bool = CheckinStore.isPending()
 
@@ -194,17 +197,13 @@ struct InicioView: View {
                 hechoHoySection
                     .staggerReveal(revealed, index: 6)
                 // #34 — the coach's calibration battery (X/N). Self-loading; renders
-                // nothing unless a battery is actually scheduled. Pending tests open
-                // their session (same cover as the hero); a "resultado pendiente"
-                // opens the capture inline.
+                // nothing unless a battery is actually scheduled. The card summarizes
+                // and opens the Tests hub (benchmarks + zonas + «Probarme»).
                 if !isPaused {
                     TestBatteryInicioSection(
                         bearer: effectiveBearer,
                         reloadNonce: testBatteryNonce,
-                        onOpenSession: { assignmentId, title in
-                            Haptics.light()
-                            workoutLaunch = WorkoutLaunch(assignmentId: assignmentId, title: title)
-                        }
+                        onOpenHub: { showTestsHub = true }
                     )
                     .staggerReveal(revealed, index: 6)
                 }
@@ -272,6 +271,21 @@ struct InicioView: View {
                 bearer: effectiveBearer,
                 onClose: { showFreeBuilder = false },
                 onCompleted: { Task { await store.planMutated() } }
+            )
+        }
+        .fullScreenCover(isPresented: $showTestsHub, onDismiss: {
+            // Whatever happened in the hub (a test run, a captured result), the
+            // battery card re-reads its truth.
+            testBatteryNonce += 1
+        }) {
+            TestsHubView(
+                bearer: effectiveBearer,
+                hrMaxSource: store.identity.value?.hrMaxSource,
+                onClose: { showTestsHub = false },
+                onSessionCompleted: {
+                    testBatteryNonce += 1
+                    Task { await store.planMutated() }
+                }
             )
         }
         .sheet(isPresented: $showCheckin) {
