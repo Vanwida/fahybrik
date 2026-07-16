@@ -251,10 +251,15 @@ function toBlock(b: ComposableBlock): Block {
     title: b.title,
     description: b.description,
     methodology_group_id: b.methodology_group_id,
+    // OJO: `blocks.format` es texto libre del importador ('zone2', 'race_sim'…),
+    // NO el enum `templateFormat`. Va crudo aquí porque `Block` es el tipo del
+    // dominio y lo guarda crudo; la traducción ocurre UNA vez, en
+    // `templateFormatForBlock` dentro del materializador. Meterlo tal cual en un
+    // `WeekDayPart` da 400 al guardar en 87 de los 99 bloques.
     format: b.format,
     source_ref: b.source_ref,
-    // El composer solo trabaja con bloques desglosables (con block_exercises);
-    // el materializador no usa este flag. Completa el shape `Block`.
+    // `needs_review` es del flujo de revisión de la biblioteca; el materializador
+    // no lo usa. Solo completa el shape `Block`.
     needs_review: false,
   };
 }
