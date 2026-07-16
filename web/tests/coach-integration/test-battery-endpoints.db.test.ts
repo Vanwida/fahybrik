@@ -9,6 +9,7 @@ import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
 import { createCoachTest } from '@/lib/coach/write-coach-test';
 import { startCalibrationTest } from '@/lib/coach/start-calibration';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
+import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { loadAthleteBenchmarkSeries } from '@/lib/athlete/benchmark-history';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
@@ -204,5 +205,54 @@ describeWithDb('#34 athlete test-battery endpoints (real DB)', () => {
     const only = await loadAthleteBenchmarkSeries({ athlete_id: fx.athleteId, slug: 'run_5k', client: sql });
     expect(only).toHaveLength(1);
     expect(only[0]!.exercise_slug).toBe('run_5k');
+  }, 60000);
+
+  test('optional result (hrr60) does NOT gate completion; se muestra si se captura', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    await restoreDefaultTests(fx.coachId, sql);
+
+    const s = await startCalibrationTest({ athlete_id: fx.athleteId, slug: 'tt_5k', client: sql });
+    if (!s.ok) throw new Error('start failed');
+    // start expone optional en store_results: run_5k requerido, hrr60 opcional.
+    expect(s.data.store_results.find((r) => r.slug === 'run_5k')?.optional).toBe(false);
+    expect(s.data.store_results.find((r) => r.slug === 'hrr60')?.optional).toBe(true);
+
+    // Capturo SOLO el requerido (run_5k) y marco la sesión ejecutada.
+    await recordBatteryResults({
+      athlete_id: fx.athleteId,
+      assignment_id: s.data.assignment_id,
+      entries: [{ slug: 'run_5k', value: 1300 }],
+      source: 'athlete_test',
+      client: sql,
+    });
+    await sql`update workout_assignments set status = 'completed' where id = ${s.data.assignment_id}`;
+
+    const b1 = await loadBatteryStatus(fx.athleteId, sql);
+    const t1 = b1.tests.find((t) => t.calibration_slug === 'tt_5k')!;
+    expect(t1.result_captured).toBe(true); // completo aunque falte la HRR opcional
+    expect(t1.result_pending).toBe(false);
+    expect(t1.result_label).toBe('21:40'); // 1300s, sin la HRR
+
+    // Ahora capturo la HRR opcional → sigue completo y el label la añade.
+    await recordBatteryResults({
+      athlete_id: fx.athleteId,
+      assignment_id: s.data.assignment_id,
+      entries: [{ slug: 'hrr60', value: 32 }],
+      source: 'athlete_test',
+      client: sql,
+    });
+    const b2 = await loadBatteryStatus(fx.athleteId, sql);
+    const t2 = b2.tests.find((t) => t.calibration_slug === 'tt_5k')!;
+    expect(t2.result_captured).toBe(true);
+    expect(t2.result_label).toBe('21:40 · 32 bpm');
+
+    // Y el benchmark hrr60 quedó en bpm.
+    const [{ unit }] = await sql<{ unit: string }[]>`
+      select unit from athlete_benchmarks
+      where athlete_id = ${fx.athleteId} and exercise_slug = 'hrr60'
+      order by recorded_at desc, id desc limit 1
+    `;
+    expect(unit).toBe('bpm');
   }, 60000);
 });

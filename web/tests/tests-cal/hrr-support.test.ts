@@ -5,6 +5,7 @@ import {
   benchmarkLowerIsBetter,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { storeResultsSchema } from '@fahybrid/shared/schema/test-battery';
+import { DEFAULT_CALIBRATION_BATTERY } from '@fahybrid/shared/domain/coach/test-battery';
 
 // #34 follow-up — HRR (heart-rate recovery) support (pure, no DB). Pins the
 // direction-of-improvement rule + the benchmark mapping + the contract schema, so
@@ -47,5 +48,38 @@ describe('store_results contract admits HRR as a baseline', () => {
       { slug: 'hrr60', measure: 'hrr', unit: 'bpm', derives: 'run_zones', modality: 'run', label: 'X' },
     ]);
     expect(parsed.success).toBe(false);
+  });
+
+  it('accepts the optional flag on a spec', () => {
+    const parsed = storeResultsSchema.safeParse([
+      { slug: 'hrr60', measure: 'hrr', unit: 'bpm', derives: 'none', label: 'HRR', optional: true },
+    ]);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data[0]!.optional).toBe(true);
+  });
+});
+
+describe('hrr60 seeded OPTIONAL on the resistance defaults (not the 1RM battery)', () => {
+  const byPrimary = new Map(DEFAULT_CALIBRATION_BATTERY.map((p) => [p.primary_modality, p]));
+
+  it('5K, 2K row and half-sim each carry an OPTIONAL hrr60 (bpm baseline)', () => {
+    for (const mod of ['run', 'row', 'hyrox'] as const) {
+      const p = byPrimary.get(mod)!;
+      const hrr = p.store_results.find((r) => r.slug === 'hrr60');
+      expect(hrr, `${mod} debe llevar hrr60`).toBeTruthy();
+      expect(hrr!.optional).toBe(true);
+      expect(hrr!.measure).toBe('hrr');
+      expect(hrr!.unit).toBe('bpm');
+      expect(hrr!.derives).toBe('none');
+    }
+  });
+
+  it('the 1RM battery has NO hrr60 (HRR tras fuerza no es estándar)', () => {
+    expect(byPrimary.get('strength')!.store_results.some((r) => r.slug === 'hrr60')).toBe(false);
+  });
+
+  it('the required (non-optional) result still anchors each resistance test', () => {
+    expect(byPrimary.get('run')!.store_results.filter((r) => !r.optional).map((r) => r.slug)).toEqual(['run_5k']);
+    expect(byPrimary.get('row')!.store_results.filter((r) => !r.optional).map((r) => r.slug)).toEqual(['row_2k']);
   });
 });
