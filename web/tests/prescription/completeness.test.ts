@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   checkPrescriptionCompleteness,
+  isExecutable,
   prescriptionSchema,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
@@ -213,5 +214,49 @@ describe('checkPrescriptionCompleteness — unknown modality', () => {
     );
     expect(r.ok).toBe(true);
     expect(checkPrescriptionCompleteness(p({ scheme: 'steady' }), { modality: null }).ok).toBe(false);
+  });
+});
+
+// A CAP says when to stop. A DOSE says what to do. Treating `rounds` as a dose
+// let "6 rondas de Box Jump" pass as prescribed — the athlete still has to guess
+// how many box jumps, which is the whole failure this module exists to catch.
+describe('checkPrescriptionCompleteness — a cap is not a dose', () => {
+  test('rounds alone is NOT a dose: 6 rounds of what?', () => {
+    const r = checkPrescriptionCompleteness(
+      p({ scheme: 'rounds', rounds: 6 }),
+      { modality: 'functional' },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.reasons.join(' ')).toMatch(/Sin dosis/i);
+  });
+
+  test('rounds still counts as the CAP of a capped scheme whose sets carry the work', () => {
+    // EMOM ×10 of 12 cal: the rounds are the cap, the set is the dose. Executable
+    // as written — an EMOM needs no RPE, the minute IS the intensity.
+    const r = checkPrescriptionCompleteness(
+      p({
+        scheme: 'emom',
+        rounds: 10,
+        sets: [{ measure: { kind: 'calories', value: 12 } }],
+      }),
+      { modality: 'ski' },
+    );
+    expect(isExecutable(r)).toBe(true);
+    expect(r.reasons.join(' ')).not.toMatch(/sin límite/i);
+  });
+
+  test('an EMOM with a cap but no work is still not a workout', () => {
+    const r = checkPrescriptionCompleteness(p({ scheme: 'emom', rounds: 10 }), {
+      modality: 'functional',
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  test('time on its own IS work — "rueda 45 minutos" needs no rep count', () => {
+    const r = checkPrescriptionCompleteness(
+      p({ scheme: 'steady', total_s: 2700, target: { kind: 'hr_zone', value: 2 } }),
+      { modality: 'bike' },
+    );
+    expect(r.ok).toBe(true);
   });
 });

@@ -151,20 +151,25 @@ export function checkPrescriptionCompleteness(
   const issues: CompletenessIssue[] = [];
 
   // ── Universal floor: there must be a dose SOMEWHERE ───────────────────────
-  // Either per-set work, or a block-level cap (AMRAP 12' / EMOM ×10) that makes
-  // the total work explicit. A #61 run structure carries its dose in its phases.
-  const hasBlockDose =
-    p.total_s != null || p.rounds != null || p.work_s != null || p.structure != null;
+  //
+  // A CAP is not a DOSE, and conflating them was a hole in this floor.
+  // `rounds` says when to STOP, never what to DO: "6 rondas de Box Jump" passed
+  // as prescribed and does not say how many box jumps — the athlete guesses,
+  // which is the exact failure this module exists to catch. `total_s`/`work_s`
+  // ARE work ("rueda 45'" is a complete instruction on its own), and a #61 run
+  // structure carries its dose inside its phases.
+  const hasCap = p.total_s != null || p.rounds != null || p.work_s != null;
+  const hasBlockDose = p.total_s != null || p.work_s != null || p.structure != null;
   const hasSetDose = sets.some((s) => setMeasure(s) != null);
   if (!hasSetDose && !hasBlockDose) {
     return result([
-      blocking('Sin dosis: no dice cuánto trabajo hacer (ni medida, ni tiempo, ni rondas).'),
+      blocking('Sin dosis: no dice cuánto trabajo hacer (ni medida, ni tiempo).'),
     ]);
   }
 
-  // A capped scheme must actually state its cap — an AMRAP with no duration and
-  // no round count is not executable.
-  if (CAPPED_SCHEMES.has(p.scheme) && !hasBlockDose) {
+  // A capped scheme must state its cap. Here `rounds` DOES count — an EMOM ×10
+  // whose sets carry the work is fully prescribed; the round count is the cap.
+  if (CAPPED_SCHEMES.has(p.scheme) && !hasCap) {
     issues.push(blocking(`Formato ${p.scheme} sin límite: falta duración total o rondas.`));
   }
 
