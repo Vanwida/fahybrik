@@ -191,7 +191,7 @@ function buildSupportSpecs(hyroxExercises: BlockExerciseWrite[]): Record<Support
         line(EX.runDrills, WU, 'tempo', { scheme: 'sets', modality: 'run', sets: [{ measure: dur(40) }, { measure: dur(40) }, { measure: dur(40) }] }),
         line(EX.legSwings, WU, 'tempo', { scheme: 'sets', modality: 'mobility', sets: [{ measure: reps(10) }, { measure: reps(10) }] }),
         line(EX.run, WU, 'tempo', {
-          scheme: 'interval',
+          scheme: 'intervals',
           modality: 'run',
           rounds: 4,
           rest_s: 60,
