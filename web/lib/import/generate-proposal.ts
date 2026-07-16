@@ -51,14 +51,20 @@ export function weekDaysToProposal(params: {
     const dowLabel = DAY_LABELS_FULL[dow - 1] ?? `Día ${dow}`;
     const parts: WeekDayPart[] = day ? day.sessions.flatMap((s) => s.blocks ?? []) : [];
 
-    // Which blocks are the COACH's (materialised from one of his templates) versus
-    // ours (composed by the model). A session that resolved to a library template
-    // carries its `template_id`; a composed one does not. The two get different
-    // bars, and conflating them is a real defect in both directions — see below.
+    // Which blocks are the COACH's versus ours (composed by the model). His come
+    // from either of his two libraries, and each leaves its own mark:
+    //   · a session materialised from one of his TEMPLATES carries `template_id`
+    //   · a part materialised from one of his BLOCKS carries `source_block_id`
+    // Checking only `template_id` judged his 99 blocks by the AUTHORING bar and
+    // flagged his own method for review (5 of 8 items on his real week). The two
+    // sources get different bars, and conflating them is a defect in both
+    // directions — see below.
     const libraryBlockUids = new Set<string>();
     for (const s of day?.sessions ?? []) {
-      if (s.template_id == null) continue;
-      for (const b of s.blocks ?? []) libraryBlockUids.add(b.uid);
+      const fromTemplate = s.template_id != null;
+      for (const b of s.blocks ?? []) {
+        if (fromTemplate || b.source_block_id != null) libraryBlockUids.add(b.uid);
+      }
     }
 
     if (parts.length === 0) {

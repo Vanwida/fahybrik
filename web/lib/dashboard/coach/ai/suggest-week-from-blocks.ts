@@ -144,7 +144,7 @@ export interface ComposableBlock {
   exercises: LibraryBlockExercise[];
 }
 
-async function loadComposableBlocks(
+export async function loadComposableBlocks(
   coachId: number | bigint,
   client: Sql,
 ): Promise<ComposableBlock[]> {

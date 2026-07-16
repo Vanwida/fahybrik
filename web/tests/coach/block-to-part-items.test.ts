@@ -51,9 +51,11 @@ describe('createPartFromLibraryBlock — the block IS structure', () => {
     expect(squat.exercise_name).toBe('Front Squat');
     const sets = squat.prescription_json?.sets ?? [];
     expect(sets).toHaveLength(6);
-    expect(sets.map((s) => setMeasure(s)?.kind === 'reps' ? setMeasure(s)!.value : null)).toEqual([
-      7, 6, 6, 6, 5, 5,
-    ]);
+    const reps = sets.map((s) => {
+      const m = setMeasure(s);
+      return m?.kind === 'reps' ? m.value : null;
+    });
+    expect(reps).toEqual([7, 6, 6, 6, 5, 5]);
   });
 
   test("keeps the coach's verbatim text as provenance, not as the payload", () => {

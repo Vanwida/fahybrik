@@ -352,3 +352,66 @@ describe('weekDaysToProposal — the bar depends on the source', () => {
     expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
   });
 });
+
+// A block is the coach's method too — it just leaves a different mark.
+describe('weekDaysToProposal — a block-sourced part is the coach\'s, not ours', () => {
+  const squat = {
+    uid: 'i1',
+    exercise_id: 42,
+    exercise_name: 'Front Squat',
+    // His real block: 6 typed sets, no %RM stated — his call, his athlete.
+    prescription_json: {
+      scheme: 'sets',
+      modality: 'strength',
+      sets: [7, 6, 6, 6, 5, 5].map((reps) => ({ measure: { kind: 'reps', value: reps } })),
+    },
+  };
+
+  test('source_block_id marks it as HIS — the executable bar applies', () => {
+    const days = [
+      {
+        day_of_week: 1,
+        sessions: [
+          {
+            kind: 'workout',
+            template_id: null,
+            blocks: [
+              {
+                uid: 'b1',
+                format: 'strength_block',
+                title: 'Front squat 6 series 7-6-6-6-5-5',
+                group: 'principal',
+                source_block_id: 4211,
+                items: [squat],
+              },
+            ],
+          },
+        ],
+      },
+    ] as unknown as WeekDay[];
+    const proposal = weekDaysToProposal({ days, sheetLabel: 'IA' });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    // Was 'review': block sessions carry no template_id, so his own method got
+    // measured against the bar meant for what WE author.
+    expect(flag.confidence).toBe('detected');
+    expect(proposal.weeks[0]!.days[0]!.state).toBe('detected');
+  });
+
+  test('the same item with no source mark is ours, and must state its load', () => {
+    const days = [
+      {
+        day_of_week: 1,
+        sessions: [
+          {
+            kind: 'workout',
+            blocks: [
+              { uid: 'b1', format: 'sets', title: 'Fuerza', group: 'principal', items: [squat] },
+            ],
+          },
+        ],
+      },
+    ] as unknown as WeekDay[];
+    const proposal = weekDaysToProposal({ days, sheetLabel: 'IA' });
+    expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});
