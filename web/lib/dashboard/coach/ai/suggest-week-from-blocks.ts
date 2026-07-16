@@ -11,7 +11,10 @@ import {
 } from '@fahybrid/shared/schema/program-templates';
 import type { Block } from '@fahybrid/shared/schema/blocks';
 import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
-import { createPartFromLibraryBlock } from '@/lib/dashboard/programming/block-to-part';
+import {
+  createPartFromLibraryBlock,
+  type LibraryBlockExercise,
+} from '@/lib/dashboard/programming/block-to-part';
 
 /**
  * Coach IA — composición de SEMANA a partir de la BIBLIOTECA DE BLOQUES (0037).
@@ -19,21 +22,26 @@ import { createPartFromLibraryBlock } from '@/lib/dashboard/programming/block-to
  * Principio de producto (Documento Maestro): la IA NO genera entrenos de cero —
  * SELECCIONA y ADAPTA bloques existentes de Pablo. Esta es la diferencia con
  * `suggest-week.ts`, que reparte TEMPLATES del catálogo (sesiones completas con
- * `template_segments` hidratables a ejercicios). Los bloques (Model A) guardan
- * la prescripción VERBATIM en `description` y NO tienen estructura de ejercicios,
- * así que cada bloque se materializa como un `WeekDayPart` con:
+ * `template_segments` hidratables a ejercicios).
+ *
+ * Un bloque se materializa como un `WeekDayPart` con:
  *   - `title`       = block.title
+ *   - `items[]`     = sus `block_exercises`, con `exercise_id` + prescripción tipada
  *   - `coach_note`  = block.description verbatim (+ modificadores sugeridos)
- *   - `items: []`   (Pablo detalla ejercicios después si quiere)
  *   - `format`      = mapeo coarse → templateFormat (para que el Studio renderice)
+ *
+ * OJO — este módulo decía "los bloques NO tienen estructura de ejercicios" y
+ * emitía `items: []`. Era falso: los 99 bloques del método de Pablo tienen
+ * 121/121 ejercicios con `exercise_id` y `prescription_json`. Verificado contra
+ * la DB, no contra el comentario.
  *
  * El shape de salida es compatible con el modal "Generar semana" del dashboard:
  * `days: WeekDay[]` consumible por `onAcceptWeek`. Además expone `matched_blocks`
  * con los `block_id` reales referenciados (trazabilidad — nunca inventamos).
  *
- * La materialización bloque → `WeekDayPart` (format mapping, coach_note verbatim,
- * source_block_id, modificadores) la hace `createPartFromLibraryBlock` — la misma
- * que usa la inserción manual desde el Studio. NO duplicamos esa lógica aquí.
+ * La materialización bloque → `WeekDayPart` (format mapping, items, coach_note,
+ * source_block_id, modificadores) la hace `createPartFromLibraryBlock`. NO
+ * duplicamos esa lógica aquí.
  */
 
 // ---------------------------------------------------------------------------
@@ -132,6 +140,8 @@ export interface ComposableBlock {
   format: string | null;
   source_ref: string | null;
   default_modifiers: BlockUseModifiers | null;
+  /** The block's own exercises + their typed dose (`block_exercises`). */
+  exercises: LibraryBlockExercise[];
 }
 
 async function loadComposableBlocks(
@@ -156,10 +166,54 @@ async function loadComposableBlocks(
     where coach_id = ${Number(coachId)}
     order by methodology_group_id asc, id asc
   `;
+  if (rows.length === 0) return [];
+
+  // The block's REAL dose. This loader used to skip `block_exercises` entirely
+  // while the comment above claimed it only handled "bloques desglosables", so
+  // every block materialised as `items: []` with the prescription stranded in
+  // `coach_note` — Pablo's whole method arriving as dead text. One extra query
+  // for the lot; blocks are ~100 per coach.
+  const exRows = await client<
+    Array<{
+      block_id: number;
+      exercise_id: number;
+      exercise_name: string;
+      prescription_json: unknown;
+      params_json: Record<string, unknown> | null;
+      notes: string | null;
+    }>
+  >`
+    select be.block_id,
+           be.exercise_id,
+           e.name as exercise_name,
+           be.prescription_json,
+           be.params_json,
+           be.notes
+    from block_exercises be
+    join blocks b on b.id = be.block_id
+    join exercises e on e.id = be.exercise_id
+    where b.coach_id = ${Number(coachId)}
+    order by be.block_id asc, be.block_position asc, be.position asc
+  `;
+
+  const byBlock = new Map<number, LibraryBlockExercise[]>();
+  for (const r of exRows) {
+    const list = byBlock.get(Number(r.block_id)) ?? [];
+    list.push({
+      exercise_id: Number(r.exercise_id),
+      exercise_name: r.exercise_name,
+      prescription_json: r.prescription_json,
+      params_json: r.params_json,
+      notes: r.notes,
+    });
+    byBlock.set(Number(r.block_id), list);
+  }
+
   return rows.map((r) => ({
     ...r,
     id: Number(r.id),
     methodology_group_id: Number(r.methodology_group_id),
+    exercises: byBlock.get(Number(r.id)) ?? [],
   }));
 }
 
@@ -319,7 +373,7 @@ function buildDay(
   // Materialización canónica (misma que la inserción manual desde el Studio):
   // verbatim en coach_note, items vacío, source_block_id + block_modifiers.
   const blocks = cleaned.map((p) =>
-    createPartFromLibraryBlock(toBlock(p.block), p.modifiers ?? undefined),
+    createPartFromLibraryBlock(toBlock(p.block), p.modifiers ?? undefined, p.block.exercises),
   );
   const day = weekDaySchema.parse({
     day_of_week: dow,
