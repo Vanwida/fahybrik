@@ -36,6 +36,7 @@ import {
   upsertWeekTemplate,
 } from '@/lib/dashboard/coach/program-weeks';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
+import { visibleToCoach } from '@/lib/exercises/coach-override';
 import { learnSynonym } from './exercise-resolve';
 import { ImportError } from './proposal-service';
 
@@ -85,6 +86,31 @@ interface UnresolvedLine {
   day_of_week: number;
   block_title: string;
   exercise_name: string;
+}
+
+/**
+ * Verify every synonym's `exercise_id` is one this coach may actually see (base
+ * catalog or their own PROPIO) — a synonym is a WRITE that, once learned, wins on
+ * EVERY future import (layer 1 of the cascade), so an unchecked exercise_id would
+ * let a crafted confirm teach a mapping into another coach's exercise. Returns the
+ * ids that are NOT visible (either they don't exist, or they belong to another
+ * coach) — the caller turns both into the same rejection, never revealing which.
+ */
+async function findInvisibleExerciseIds(
+  client: Sql,
+  coach_id: number,
+  ids: number[],
+): Promise<number[]> {
+  if (ids.length === 0) return [];
+  const unique = Array.from(new Set(ids));
+  const visible = await client<Array<{ id: string }>>`
+    select e.id::text as id
+    from exercises e
+    where e.id = any(${unique}::bigint[])
+      and ${visibleToCoach(client, coach_id)}
+  `;
+  const visibleIds = new Set(visible.map((r) => Number(r.id)));
+  return unique.filter((id) => !visibleIds.has(id));
 }
 
 function collectUnresolved(req: ImportConfirmRequest): UnresolvedLine[] {
@@ -156,6 +182,23 @@ export async function confirmImport(params: {
         : `${unresolved.length} líneas sin ejercicio del catálogo. Resuélvelas antes de confirmar.`,
       400,
       { lines: unresolved },
+    );
+  }
+
+  // Every synonym target must be an exercise this coach may see — refuse BEFORE
+  // learning any of them (same "gate, then act" shape as the two checks above).
+  const invalidSynonymIds = await findInvisibleExerciseIds(
+    client,
+    coach_id,
+    req.synonyms.map((s) => Number(s.exercise_id)),
+  );
+  if (invalidSynonymIds.length > 0) {
+    throw new ImportError(
+      'invalid_synonym_exercise',
+      invalidSynonymIds.length === 1
+        ? '1 sinónimo señala un ejercicio que no existe o no es tuyo.'
+        : `${invalidSynonymIds.length} sinónimos señalan ejercicios que no existen o no son tuyos.`,
+      404,
     );
   }
 

@@ -141,3 +141,277 @@ describe('weekDaysToProposal — #48 generate → typed proposal', () => {
     expect(totalUnresolved(model)).toBe(1);
   });
 });
+
+// The gate that let the garbage through: the grid only ever asked "does the
+// exercise resolve?". These items all resolve perfectly and prescribe nothing.
+describe('weekDaysToProposal — prescription completeness gate', () => {
+  const dayWith = (items: unknown[], group = 'principal'): WeekDay[] =>
+    [
+      {
+        day_of_week: 1,
+        sessions: [
+          {
+            kind: 'workout',
+            blocks: [{ uid: 'b1', format: 'sets', title: 'Bloque', group, items }],
+          },
+        ],
+      },
+    ] as unknown as WeekDay[];
+
+  test('a resolved exercise with no dose is REVIEW, never detected', () => {
+    // This is "Batería 1RM" as it reached Alex: three real exercise ids, no sets,
+    // no reps, no %RM, no rest.
+    const proposal = weekDaysToProposal({
+      days: dayWith([
+        {
+          uid: 'i1',
+          exercise_id: 42,
+          exercise_name: 'Back Squat',
+          prescription_json: { scheme: 'sets', modality: 'strength' },
+        },
+      ]),
+      sheetLabel: 'IA',
+    });
+    const day = proposal.weeks[0]!.days.find((d) => d.day_of_week === 1)!;
+    expect(day.flags[0]!.confidence).toBe('review');
+    expect(day.flags[0]!.review_reasons.length).toBeGreaterThan(0);
+    expect(day.state).toBe('review');
+    // It resolves — so the OLD unresolved-only check would have called it clean.
+    expect(day.flags[0]!.unresolved_exercise).toBe(false);
+    expect(proposal.summary.review).toBe(1);
+    expect(proposal.summary.detected).toBe(0);
+  });
+
+  test('a fully prescribed item is detected', () => {
+    const proposal = weekDaysToProposal({
+      days: dayWith([
+        {
+          uid: 'i1',
+          exercise_id: 42,
+          exercise_name: 'Back Squat',
+          prescription_json: {
+            scheme: 'sets',
+            modality: 'strength',
+            sets: Array.from({ length: 5 }, () => ({
+              measure: { kind: 'reps', value: 5 },
+              target: { kind: 'percent_rm', value: 80 },
+              rest_s: 180,
+            })),
+          },
+        },
+      ]),
+      sheetLabel: 'IA',
+    });
+    const day = proposal.weeks[0]!.days.find((d) => d.day_of_week === 1)!;
+    expect(day.flags[0]!.confidence).toBe('detected');
+    expect(day.state).toBe('detected');
+    expect(proposal.summary.detected).toBe(1);
+    expect(proposal.summary.review).toBe(0);
+  });
+
+  test('the block role relaxes the target rule for a warm-up', () => {
+    const jog = [
+      {
+        uid: 'i1',
+        exercise_id: 88,
+        exercise_name: 'Run',
+        prescription_json: {
+          scheme: 'warmup',
+          modality: 'run',
+          sets: [{ measure: { kind: 'duration', seconds: 600 } }],
+        },
+      },
+    ];
+    const warm = weekDaysToProposal({ days: dayWith(jog, 'calentamiento'), sheetLabel: 'IA' });
+    expect(warm.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('detected');
+
+    const main = weekDaysToProposal({ days: dayWith(jog, 'principal'), sheetLabel: 'IA' });
+    expect(main.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});
+
+// Who wrote the line decides which bar it clears. Conflating the two is a defect
+// in BOTH directions: it either lets our own thin output through, or lectures the
+// coach about his own plan.
+describe('weekDaysToProposal — the bar depends on the source', () => {
+  const runNoTarget = {
+    uid: 'i1',
+    exercise_id: 3479,
+    exercise_name: 'Run',
+    prescription_json: {
+      scheme: 'hyrox_sim',
+      modality: 'run',
+      sets: [{ measure: { kind: 'distance', meters: 1000 } }],
+    },
+  };
+
+  const dayFrom = (session: Record<string, unknown>): WeekDay[] =>
+    [{ day_of_week: 1, sessions: [session] }] as unknown as WeekDay[];
+
+  const block = { uid: 'b1', format: 'hyrox_sim', title: 'Sim', group: 'principal', items: [runNoTarget] };
+
+  test("the coach's own template passes: a sim run has no pace on purpose", () => {
+    // `template_id` present = materialised from HIS library.
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('detected');
+    expect(flag.review_reasons).toEqual([]);
+  });
+
+  test('the same line composed by us is flagged: we had no business omitting the target', () => {
+    // No `template_id` = the model authored it.
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('review');
+    expect(flag.review_reasons.join(' ')).toMatch(/ritmo|zona|RPE/i);
+  });
+
+  test("a blocking gap is flagged even in the coach's own template", () => {
+    const noDose = {
+      uid: 'b2',
+      format: 'sets',
+      title: 'Fuerza',
+      group: 'principal',
+      items: [
+        { uid: 'i9', exercise_id: 42, exercise_name: 'Back Squat', prescription_json: { scheme: 'sets', modality: 'strength' } },
+      ],
+    };
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [noDose] }),
+      sheetLabel: 'IA',
+    });
+    // Nobody can execute an unspecified amount of work — not even the author.
+    expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});
+
+// Who wrote the line decides which bar it clears. Conflating them is a defect in
+// BOTH directions: it either lets our own thin output pass, or lectures the coach
+// about his own plan.
+describe('weekDaysToProposal — the bar depends on the source', () => {
+  const runNoTarget = {
+    uid: 'i1',
+    exercise_id: 3479,
+    exercise_name: 'Run',
+    prescription_json: {
+      scheme: 'hyrox_sim',
+      modality: 'run',
+      sets: [{ measure: { kind: 'distance', meters: 1000 } }],
+    },
+  };
+  const block = { uid: 'b1', format: 'hyrox_sim', title: 'Sim', group: 'principal', items: [runNoTarget] };
+  const dayFrom = (session: Record<string, unknown>): WeekDay[] =>
+    [{ day_of_week: 1, sessions: [session] }] as unknown as WeekDay[];
+
+  test("the coach's own template passes: a sim run has no pace on purpose", () => {
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('detected');
+    expect(flag.review_reasons).toEqual([]);
+  });
+
+  test('the same line composed by us is flagged — we had no business omitting the target', () => {
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('review');
+    expect(flag.review_reasons.join(' ')).toMatch(/ritmo|zona|RPE/i);
+  });
+
+  test("a blocking gap is flagged even inside the coach's own template", () => {
+    const noDose = {
+      uid: 'b2',
+      format: 'sets',
+      title: 'Fuerza',
+      group: 'principal',
+      items: [
+        {
+          uid: 'i9',
+          exercise_id: 42,
+          exercise_name: 'Back Squat',
+          prescription_json: { scheme: 'sets', modality: 'strength' },
+        },
+      ],
+    };
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [noDose] }),
+      sheetLabel: 'IA',
+    });
+    // Nobody can execute an unspecified amount of work — not even the author.
+    expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});
+
+// A block is the coach's method too — it just leaves a different mark.
+describe('weekDaysToProposal — a block-sourced part is the coach\'s, not ours', () => {
+  const squat = {
+    uid: 'i1',
+    exercise_id: 42,
+    exercise_name: 'Front Squat',
+    // His real block: 6 typed sets, no %RM stated — his call, his athlete.
+    prescription_json: {
+      scheme: 'sets',
+      modality: 'strength',
+      sets: [7, 6, 6, 6, 5, 5].map((reps) => ({ measure: { kind: 'reps', value: reps } })),
+    },
+  };
+
+  test('source_block_id marks it as HIS — the executable bar applies', () => {
+    const days = [
+      {
+        day_of_week: 1,
+        sessions: [
+          {
+            kind: 'workout',
+            template_id: null,
+            blocks: [
+              {
+                uid: 'b1',
+                format: 'strength_block',
+                title: 'Front squat 6 series 7-6-6-6-5-5',
+                group: 'principal',
+                source_block_id: 4211,
+                items: [squat],
+              },
+            ],
+          },
+        ],
+      },
+    ] as unknown as WeekDay[];
+    const proposal = weekDaysToProposal({ days, sheetLabel: 'IA' });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    // Was 'review': block sessions carry no template_id, so his own method got
+    // measured against the bar meant for what WE author.
+    expect(flag.confidence).toBe('detected');
+    expect(proposal.weeks[0]!.days[0]!.state).toBe('detected');
+  });
+
+  test('the same item with no source mark is ours, and must state its load', () => {
+    const days = [
+      {
+        day_of_week: 1,
+        sessions: [
+          {
+            kind: 'workout',
+            blocks: [
+              { uid: 'b1', format: 'sets', title: 'Fuerza', group: 'principal', items: [squat] },
+            ],
+          },
+        ],
+      },
+    ] as unknown as WeekDay[];
+    const proposal = weekDaysToProposal({ days, sheetLabel: 'IA' });
+    expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});

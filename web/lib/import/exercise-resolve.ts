@@ -12,9 +12,20 @@
  *                         OWN learned mapping. Beats everything below.
  *   (2) global alias    — the static term→slug map (GLOBAL_ALIASES, mirrored from
  *                         infra/scripts/parse_blocks_lib.ts) → catalog by slug.
- *   (3) catalog name exact       — `lower(exercises.name)` == normalized term.
- *   (4) catalog name substring   — term ⊂ name or name ⊂ term (shortest name wins).
+ *                         Unscoped by coach — see the note on layer (2) below.
+ *   (3) catalog name exact       — `lower(coalesce(override.name, exercises.name))`
+ *                         == normalized term, scoped to what THIS coach may see.
+ *   (4) catalog name substring   — same merged-name + scope, term ⊂ name or
+ *                         name ⊂ term (shortest name wins).
  *   (5) miss            — { exercise_id: null, normalized }; caller escalates.
+ *
+ * OWNERSHIP (migration 0132, `lib/exercises/coach-override.ts`): layers (3)/(4)
+ * are the ones that ENUMERATE/RESOLVE by name, so per that module's contract they
+ * must scope to `visibleToCoach` — unscoped, coach B's import could silently
+ * resolve to coach A's PROPIO exercise via the deterministic `order by id asc`
+ * tiebreak. They also match the coach's MERGED name (override.name ?? base.name),
+ * not the base name: a coach writes their Excel in their OWN vocabulary, and if
+ * they renamed "Wall Balls" -> "Wall Ball Shots" that is what their sheet says.
  *
  * SOURCE-OF-TRUTH NOTE on GLOBAL_ALIASES: the canonical alias map lives in
  * `infra/scripts/parse_blocks_lib.ts` (a BUILD-TIME corpus parser). We keep a
@@ -26,6 +37,7 @@
 
 import { sql } from '@/lib/db';
 import type { Sql, TransactionClient } from '@/lib/db';
+import { visibleToCoach, joinCoachOverride } from '@/lib/exercises/coach-override';
 
 type Client = Sql | TransactionClient;
 
@@ -224,6 +236,17 @@ export async function resolveExercise(
   // (2) Global alias map → catalog slug. Try the light form first (keeps alias
   // keys that embed an equipment token, e.g. "db snatch"), then the aggressive
   // key (handles "front squat 70kg" → "front squat").
+  //
+  // Deliberately UNSCOPED by coach, and this is safe (not an oversight): `slug`
+  // carries `exercises_slug_unique` (migration 0001), a single GLOBAL unique
+  // constraint with no per-coach namespace — migration 0132 keeps it that way on
+  // purpose. GLOBAL_ALIASES targets are always BASE catalog slugs (the corpus
+  // parser mirrors our own product's canonical movements); a coach's PROPIO
+  // exercise can never legally hold one of those slugs, because the BASE row
+  // already owns it — the coach would get an auto-suffixed slug instead (e.g.
+  // `sled-push-2`), which no alias key points to. So `slug = ${slug}` can only
+  // ever match the (universally visible) BASE row: adding `visibleToCoach` here
+  // would be a no-op, not a fix.
   const slug = aliasToSlug(light) ?? aliasToSlug(normalized);
   if (slug) {
     const bySlug = await client<Array<{ id: string }>>`
@@ -233,23 +256,42 @@ export async function resolveExercise(
   }
 
   if (normalized) {
-    // (3) Catalog name, exact (case/accent-insensitive via the normalized term).
+    // Ownership tiebreak (layers 3/4): a coach can now match the SAME name via
+    // two different rows — a base exercise they renamed to "X" via override, AND
+    // an own exercise they separately created and called "X". `own` must win
+    // (it is the more specific, more recently-authored intent). In Postgres,
+    // boolean ordering is `false < true`, so `(e.coach_id is null) asc` sorts
+    // owned rows (expression = false) BEFORE base rows (expression = true) —
+    // verified directly against a live branch (see task report), not assumed.
+
+    // (3) Catalog name, exact — matched against the coach's MERGED name
+    // (override.name ?? base.name; see file header). Scoped to what this coach
+    // may see so this can never resolve into another coach's PROPIO exercise.
     const exact = await client<Array<{ id: string }>>`
-      select id::text as id from exercises
-      where lower(name) = ${normalized}
-      order by id asc
+      select e.id::text as id
+      from exercises e
+      ${joinCoachOverride(client, coachId)}
+      where lower(coalesce(ceo.name, e.name)) = ${normalized}
+        and ${visibleToCoach(client, coachId)}
+      order by (e.coach_id is null) asc, e.id asc
       limit 1
     `;
     if (exact[0]) return { exercise_id: Number(exact[0].id), via: 'name_exact' };
 
-    // (4) Catalog name, substring — the term is contained in a catalog name OR a
-    // catalog name is contained in the term. Deterministic: shortest name (most
-    // specific) first, then id.
+    // (4) Catalog name, substring — same merged-name + visibility scope as (3).
+    // The term is contained in the (merged) name OR the name is contained in the
+    // term. Deterministic: own-before-base first, then shortest name (most
+    // specific), then id.
     const sub = await client<Array<{ id: string }>>`
-      select id::text as id from exercises
-      where position(${normalized} in lower(name)) > 0
-         or position(lower(name) in ${normalized}) > 0
-      order by length(name) asc, id asc
+      select e.id::text as id
+      from exercises e
+      ${joinCoachOverride(client, coachId)}
+      where (
+          position(${normalized} in lower(coalesce(ceo.name, e.name))) > 0
+          or position(lower(coalesce(ceo.name, e.name)) in ${normalized}) > 0
+        )
+        and ${visibleToCoach(client, coachId)}
+      order by (e.coach_id is null) asc, length(coalesce(ceo.name, e.name)) asc, e.id asc
       limit 1
     `;
     if (sub[0]) return { exercise_id: Number(sub[0].id), via: 'name_substring' };

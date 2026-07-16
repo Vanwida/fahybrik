@@ -105,13 +105,17 @@ export async function makeCoachAndAthlete(sql: Sql): Promise<Fixture> {
       if (fx.blockIds.length > 0) {
         await sql`delete from blocks where id in ${sql(fx.blockIds)}`;
       }
-      // 4) Coach + users, then any exercises the fixture seeded (exercises are
-      // FK'd by block_exercises + template_segments, both already cascaded).
-      await sql`delete from coaches where id = ${coachId}`;
-      await sql`delete from users where id in (${athleteUserId}, ${coachUserId})`;
+      // 4) Exercises the fixture seeded (block_exercises + template_segments FKs
+      // already cascaded via blocks/templates above). MUST run before the coach
+      // delete below: since migration 0132, a PROPIO exercise carries
+      // `exercises.coach_id references coaches(id) on delete restrict`, so a
+      // coach-owned exercise still on the table would block deleting its coach.
       if (fx.exerciseIds.length > 0) {
         await sql`delete from exercises where id in ${sql(fx.exerciseIds)}`;
       }
+      // 5) Coach + users.
+      await sql`delete from coaches where id = ${coachId}`;
+      await sql`delete from users where id in (${athleteUserId}, ${coachUserId})`;
     },
   };
 
@@ -266,20 +270,26 @@ export async function makeMonthTemplate(params: {
 
 /** Insert an exercise, auto-registered for teardown. `category`/`modality`
  *  default to 'strength' (exercises.modality is NOT NULL since 0053); pass them
- *  to seed a specific modality (e.g. 'functional' for a WOD movement). */
+ *  to seed a specific modality (e.g. 'functional' for a WOD movement).
+ *  `coachId` (migration 0132, ownership) is OPTIONAL and defaults to omitted →
+ *  `coach_id` stays NULL, a BASE catalog exercise — every existing caller keeps
+ *  seeding BASE rows unchanged. Pass a fixture's `coachId` to seed a PROPIO
+ *  exercise owned by that coach (invisible to every other coach). */
 export async function makeExercise(params: {
   fx: Fixture;
   name?: string;
   slug?: string;
   category?: string;
   modality?: string;
+  coachId?: number;
 }): Promise<number> {
   const slug = params.slug ?? uniq('ex');
   const rows = await params.fx.sql<Array<{ id: string }>>`
-    insert into exercises (slug, name, category, modality)
+    insert into exercises (slug, name, category, modality, coach_id)
     values (
       ${slug}, ${params.name ?? slug},
-      ${params.category ?? 'strength'}::exercise_category, ${params.modality ?? 'strength'}
+      ${params.category ?? 'strength'}::exercise_category, ${params.modality ?? 'strength'},
+      ${params.coachId ?? null}
     )
     returning id::text
   `;

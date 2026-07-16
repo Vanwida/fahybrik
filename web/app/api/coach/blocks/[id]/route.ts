@@ -36,7 +36,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   const block = await getBlockById(session.coach_id, block_id);
   if (!block) return jsonError('not_found', 'Bloque no encontrado', 404);
 
-  const items = await getBlockExerciseItems(block_id);
+  const items = await getBlockExerciseItems(block_id, session.coach_id);
   return jsonOk({ block, items });
 }
 

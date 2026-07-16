@@ -9,6 +9,7 @@
 //   · dayTone surfaces the exclusion as 'skipped' (never just a colour change).
 
 import { describe, expect, test } from 'vitest';
+import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type {
   ImportProposal,
@@ -20,7 +21,9 @@ import {
   buildConfirmBody,
   buildReviewModel,
   dayTone,
+  sessionIncompleteLines,
   totalExcludedDays,
+  totalIncomplete,
   totalUnresolved,
   totalWritableDays,
   unmappedWeekCount,
@@ -33,7 +36,23 @@ import {
 let seq = 0;
 const uid = (prefix: string) => `t-${prefix}-${++seq}`;
 
-function makeSession(items: Array<{ uid: string; name: string; exerciseId: number | null }>): EditorSession {
+/** A REAL, executable prescription: 5×5 @80% r3'. These fixtures are about the
+ *  coach's SELECTION, so their lines must clear the dose gate — a bare
+ *  `{ scheme: 'sets' }` is a NAME, not a prescription, and is exactly what
+ *  `totalIncomplete` exists to catch (see the 'sin dosis' describe below). */
+const DOSED: Prescription = {
+  scheme: 'sets',
+  sets: [
+    { measure: { kind: 'reps', value: 5 }, target: { kind: 'percent_rm', value: 80 }, rest_s: 180 },
+  ],
+};
+
+/** A name with no work behind it — the garbage the review grid used to wave through. */
+const NO_DOSE: Prescription = { scheme: 'sets' };
+
+function makeSession(
+  items: Array<{ uid: string; name: string; exerciseId: number | null; prescription?: Prescription }>,
+): EditorSession {
   return {
     uid: uid('ses'),
     slot: 'am',
@@ -46,7 +65,7 @@ function makeSession(items: Array<{ uid: string; name: string; exerciseId: numbe
           uid: it.uid,
           exercise_id: it.exerciseId,
           exercise_name: it.name,
-          prescription: { scheme: 'sets' },
+          prescription: it.prescription ?? DOSED,
         })),
       },
     ],
@@ -214,5 +233,105 @@ describe('per-WEEK exclusion', () => {
     model[1]!.days[0]!.included = false; // its only non-rest day
     expect(unmappedWeekCount(model)).toBe(0);
     expect(buildConfirmBody('7', model).weeks.every((w) => w.target_week_template_id === 101)).toBe(true);
+  });
+});
+
+// ── The dose gate ────────────────────────────────────────────────────────────
+// The regression this exists for: a whole week of items that named an exercise
+// and prescribed NOTHING sailed through as "26 items, 0 sin resolver" and lit up
+// Confirmar. Resolving the exercise was the only thing the grid ever checked, so
+// "Back Squat" with no series and "Run" with no distance counted as typed.
+
+/** One included day, one line: a resolved exercise + whatever prescription. */
+function oneLineModel(prescription: Prescription): ReviewWeek[] {
+  const itemUid = uid('item');
+  return buildReviewModel(
+    makeProposal([
+      makeWeek(1, [
+        makeDay(
+          1,
+          'Lunes',
+          makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10, prescription }]),
+          [makeFlag(itemUid, 'Back Squat')],
+        ),
+      ]),
+    ]),
+    [makeMicroWeek('101', 0)],
+  );
+}
+
+describe('lines with no dose block confirm', () => {
+  test('a resolved "Back Squat" with no prescription is NOT confirmable', () => {
+    const model = oneLineModel(NO_DOSE);
+    expect(totalUnresolved(model)).toBe(0); // the old gate saw nothing wrong…
+    expect(totalIncomplete(model)).toBe(1); // …this one does.
+    expect(dayTone(model[0]!.days[0]!)).toBe('incomplete');
+  });
+
+  test('a resolved "Run" with no distance and no time is NOT confirmable', () => {
+    const model = oneLineModel({ scheme: 'steady', modality: 'run' });
+    expect(totalIncomplete(model)).toBe(1);
+    expect(sessionIncompleteLines(model[0]!.days[0]!.session)[0]!.reasons.join(' ')).toMatch(
+      /dosis/i,
+    );
+  });
+
+  test('the incomplete line names itself and says what is missing', () => {
+    const lines = sessionIncompleteLines(oneLineModel(NO_DOSE)[0]!.days[0]!.session);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.exercise_name).toBe('Back Squat');
+    expect(lines[0]!.reasons.length).toBeGreaterThan(0);
+  });
+
+  test('a real 5×5 @80% r3\' passes', () => {
+    const model = oneLineModel(DOSED);
+    expect(totalIncomplete(model)).toBe(0);
+    expect(dayTone(model[0]!.days[0]!)).toBe('ok');
+  });
+
+  test('excluding the day drops its undosed lines from the count, like unresolved', () => {
+    const model = oneLineModel(NO_DOSE);
+    expect(totalIncomplete(model)).toBe(1);
+    model[0]!.days[0]!.included = false;
+    expect(totalIncomplete(model)).toBe(0);
+    expect(dayTone(model[0]!.days[0]!)).toBe('skipped');
+  });
+
+  test('a line with NO exercise counts as unresolved only — never twice', () => {
+    // Fix order is pick-the-exercise then prescribe-it, so each line reports ONE
+    // next action and the two counters stay disjoint.
+    const itemUid = uid('item');
+    const model = buildReviewModel(
+      makeProposal([
+        makeWeek(1, [
+          makeDay(
+            1,
+            'Lunes',
+            makeSession([{ uid: itemUid, name: 'zercher jmp', exerciseId: null, prescription: NO_DOSE }]),
+            [makeFlag(itemUid, 'zercher jmp', { unresolved_exercise: true })],
+          ),
+        ]),
+      ]),
+      [makeMicroWeek('101', 0)],
+    );
+    expect(totalUnresolved(model)).toBe(1);
+    expect(totalIncomplete(model)).toBe(0);
+    expect(dayTone(model[0]!.days[0]!)).toBe('unresolved');
+  });
+
+  test('what Pablo actually writes still passes: an easy jog with no pace, bodyweight pull-ups', () => {
+    // The importer TRANSCRIBES. Requiring an intensity here would redden ~57% of
+    // his real workbook: an easy 30' jog needs no pace, a bodyweight pull-up has
+    // no %RM. Both are executable, so both import.
+    expect(totalIncomplete(oneLineModel({ scheme: 'steady', modality: 'run', total_s: 1800 }))).toBe(0);
+    expect(
+      totalIncomplete(
+        oneLineModel({
+          scheme: 'sets',
+          modality: 'strength',
+          sets: [{ measure: { kind: 'reps', value: 10 } }],
+        }),
+      ),
+    ).toBe(0);
   });
 });

@@ -1,22 +1,34 @@
 import 'server-only';
 
-// v2 · BIBLIOTECA — server data shaper. Loads the two library surfaces (sesiones
-// = library blocks, microciclos = month templates) in parallel via the EXISTING
-// loaders, then maps each row into the v2 view model: a training MODALITY (the
-// categorical color axis) + an OBJECTIVE bucket (the secondary rail). No new
-// schema — pure read + classify.
+// v2 · BIBLIOTECA — server data shaper. Loads the library surfaces in parallel via
+// the EXISTING loaders, then maps each row into the v2 view model: a training
+// MODALITY (the categorical color axis) + an OBJECTIVE bucket (the secondary
+// rail). No new schema — pure read + classify.
 //
-// A "sesión" is the reusable training: the live `blocks` table (Pablo's 97 Excel
-// trainings + the typed editor). Modality + objective are DERIVED from real fields
-// (block.methodology_group_id) using the same closed enums the rest of the app
-// uses; there is no persisted "modality" column, so the mapping lives here as the
-// single source of truth for this screen.
+// LA ESCALERA (de lo más pequeño a lo más grande) — Ejercicio › Bloque › Sesión ›
+// Microciclo. Cada peldaño es una tabla distinta y aquí NO se mezclan:
+//   · Bloque    = `blocks` (+ block_exercises) — la pieza REUTILIZABLE del coach.
+//                 Los 97 entrenos del Excel de Pablo son esto.
+//   · Sesión    = `templates` madre (instance_athlete_id IS NULL) + template_segments
+//                 — UN entreno, el que ejecuta el atleta.
+//   · Microciclo = `program_month_templates` — varias semanas.
+// Hasta ahora la pestaña "Sesiones" leía `blocks`: llamaba sesión a un bloque y
+// las sesiones reales (templates) no se veían en ninguna parte. Eso se corrige aquí.
+//
+// Modality + objective are DERIVED from real fields (methodology_group_id) using
+// the same closed enums the rest of the app uses; there is no persisted "modality"
+// column, so the mapping lives here as the single source of truth for this screen.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
-import { listBlocks } from '@/lib/dashboard/coach/blocks';
+import {
+  blockReadiness,
+  listBlocksWithStructure,
+  type BlockReadiness,
+  type BlockWithStructure,
+} from '@/lib/dashboard/coach/blocks';
+import { listTemplatesForCoach, type TemplateListRow } from '@/lib/dashboard/coach/templates';
 import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
-import type { Block } from '@fahybrid/shared/schema/blocks';
 import type { V2Modality } from '@/components/v2/constants';
 
 // ── Category axes ─────────────────────────────────────────────────────────────
@@ -88,17 +100,53 @@ function cardModality(filter: V2LibModalityFilter, groupId?: number): V2Modality
 
 // ── View models ───────────────────────────────────────────────────────────────
 
-export interface V2SesionItem {
+/** Un BLOQUE: la pieza reutilizable del coach (`blocks` + `block_exercises`). */
+export interface V2BloqueItem {
   id: string;
   title: string;
   description: string;
+  /** Procedencia del Excel del coach ("S9 – Martes"). Desambigua títulos repetidos. */
+  source_ref: string | null;
   format_label: string | null;
   modality: V2Modality;
   modality_filter: V2LibModalityFilter;
   objective: V2LibObjective | null;
   group_id: number;
   group_label: string;
+  /**
+   * `true` = tiene ejercicios estructurados → el atleta puede ejecutarlo y se
+   * puede insertar en un día. `false` = solo prosa verbatim en `description`.
+   * NO es `needs_review`: en los datos reales discrepan (hay bloques tipados
+   * marcados para revisar). La señal honesta es la existencia de block_exercises.
+   */
+  typed: boolean;
+  exercise_count: number;
+  /** Cuántas piezas inserta en el día (block_position distintos). Puede ser >1. */
+  part_count: number;
+  /** Líneas que dicen el ejercicio pero no cuánto trabajo. 0 = listo. */
+  undosed_count: number;
+  /** Qué falta exactamente, en las palabras del gate. */
+  undosed_reasons: string[];
+  /** Estado derivado: sin_tipar › sin_dosis › listo. */
+  readiness: BlockReadiness;
   needs_review: boolean;
+}
+
+/** Una SESIÓN: un entreno completo (`templates` madre + template_segments). */
+export interface V2SesionItem {
+  id: string;
+  title: string;
+  format_label: string | null;
+  modality: V2Modality;
+  modality_filter: V2LibModalityFilter;
+  objective: V2LibObjective | null;
+  group_id: number | null;
+  group_label: string | null;
+  /** Bloques (block_position) y ejercicios (segments) que contiene. */
+  block_count: number;
+  segment_count: number;
+  is_draft: boolean;
+  updated_at: string;
 }
 
 /** A microcycle template (program_month_templates) — the multi-week unit the
@@ -113,9 +161,10 @@ export interface V2MicrocicloItem {
 }
 
 export interface V2BibliotecaData {
+  bloques: V2BloqueItem[];
   sesiones: V2SesionItem[];
   microciclos: V2MicrocicloItem[];
-  counts: { sesiones: number; microciclos: number };
+  counts: { bloques: number; sesiones: number; microciclos: number };
 }
 
 // ── Public loader ─────────────────────────────────────────────────────────────
@@ -127,21 +176,27 @@ export async function loadBibliotecaData(params: {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
 
-  const [blocks, groups, months] = await Promise.all([
-    listBlocks(coachId, null, client),
+  // Cada peldaño de la escalera sale de SU tabla. `listTemplatesForCoach` ya
+  // excluye los forks por atleta y los tests de calibración.
+  const [blocks, templates, groups, months] = await Promise.all([
+    listBlocksWithStructure(coachId, null, client),
+    listTemplatesForCoach(coachId, client),
     listMethodologyGroups(client),
     listMonthTemplates({ coach_id: coachId, client }),
   ]);
 
   const groupLabel = new Map<number, string>(groups.map((g) => [g.id, g.name_es]));
 
-  const sesiones = blocks.map((b) => mapSesion(b, groupLabel));
+  const bloques = blocks.map((b) => mapBloque(b, groupLabel));
+  const sesiones = templates.map((t) => mapSesion(t, groupLabel));
   const microciclos = months.map(mapMicrociclo);
 
   return {
+    bloques,
     sesiones,
     microciclos,
     counts: {
+      bloques: bloques.length,
       sesiones: sesiones.length,
       microciclos: microciclos.length,
     },
@@ -162,18 +217,50 @@ function mapMicrociclo(m: {
   };
 }
 
-function mapSesion(b: Block, groupLabel: Map<number, string>): V2SesionItem {
+function mapBloque(b: BlockWithStructure, groupLabel: Map<number, string>): V2BloqueItem {
   const modality_filter = GROUP_MODALITY[b.methodology_group_id] ?? 'mixta';
   return {
     id: String(b.id),
     title: b.title,
     description: b.description,
+    source_ref: b.source_ref,
     format_label: b.format ? b.format.replace(/_/g, ' ') : null,
     modality: cardModality(modality_filter, b.methodology_group_id),
     modality_filter,
     objective: GROUP_OBJECTIVE[b.methodology_group_id] ?? null,
     group_id: b.methodology_group_id,
     group_label: groupLabel.get(b.methodology_group_id) ?? `Grupo ${b.methodology_group_id}`,
+    typed: b.typed,
+    exercise_count: b.exercise_count,
+    part_count: b.part_count,
+    undosed_count: b.undosed_count,
+    undosed_reasons: b.undosed_reasons,
+    readiness: blockReadiness(b),
     needs_review: b.needs_review,
+  };
+}
+
+/**
+ * `templates.methodology_group_id` es NULLABLE (a diferencia del de `blocks`):
+ * una sesión puede no estar clasificada. En ese caso no inventamos modalidad —
+ * cae en el color neutro y queda fuera de los filtros de modalidad/objetivo.
+ */
+function mapSesion(t: TemplateListRow, groupLabel: Map<number, string>): V2SesionItem {
+  const groupId = t.methodology_group_id;
+  const modality_filter: V2LibModalityFilter =
+    groupId == null ? 'mixta' : (GROUP_MODALITY[groupId] ?? 'mixta');
+  return {
+    id: t.id,
+    title: t.name,
+    format_label: t.format ? t.format.replace(/_/g, ' ') : null,
+    modality: groupId == null ? 'calentamiento' : cardModality(modality_filter, groupId),
+    modality_filter,
+    objective: groupId == null ? null : (GROUP_OBJECTIVE[groupId] ?? null),
+    group_id: groupId,
+    group_label: groupId == null ? null : (groupLabel.get(groupId) ?? `Grupo ${groupId}`),
+    block_count: t.block_count,
+    segment_count: t.segment_count,
+    is_draft: t.is_draft,
+    updated_at: t.updated_at,
   };
 }

@@ -7,12 +7,13 @@
 // destination. The coach then fills the exercises inline in the day. No library
 // tab, no in-modal prescription form, no jargon — just "what type of block?".
 //
-// Closes on Escape / scrim click; focus-trapped to the dialog.
+// Closes on Escape / scrim click; focus-trapped to the dialog (via ModalPortal).
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { EditorBlock, StructureGroup } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
+import { ModalPortal } from './ModalPortal';
 import { ArchetypeGrid } from './ArchetypePicker';
 
 export function AddBlockModal({
@@ -30,20 +31,11 @@ export function AddBlockModal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Escape to close; focus the dialog on mount.
-  useEffect(() => {
-    dialogRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   // Picking a type builds a ready, pre-seeded block and adds it immediately.
   const pick = (id: ArchetypeId) => onAdd(createBlockFromArchetype(id, destinationGroup));
 
   return (
+    <ModalPortal onEscape={onClose}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -78,5 +70,6 @@ export function AddBlockModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

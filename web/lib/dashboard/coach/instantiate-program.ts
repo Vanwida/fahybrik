@@ -28,6 +28,7 @@ import {
   type Availability,
   type PreferredWeek,
 } from '@fahybrid/shared/domain/coach/intake-availability';
+import { joinCoachOverride, visibleToCoach } from '@/lib/exercises/coach-override';
 
 /**
  * Validate + wrap an item's structured prescription for the `prescription_json`
@@ -457,9 +458,29 @@ async function insertSlotAssignment(params: {
  * (exercise_id + params_json canónicos + block_position espejado). Los parts que
  * ya traen items (a medida o ya hidratados) o sin `source_block_id` se devuelven
  * intactos. Un único query batch para todos los block_ids de la sesión.
+ *
+ * ⚠️ NO ES CÓDIGO MUERTO — ES EL LECTOR DE LOS DATOS VIEJOS. NO LO BORRES.
+ *
+ * Ninguna vía NUEVA depende de esto: al insertar un bloque desde la Biblioteca en
+ * el editor de día se COPIA la estructura (items ya vienen llenos, ver
+ * `library-block-to-editor.ts`), así que aquí esos parts pasan de largo. Pero en
+ * `slots_json` de las semanas YA ESCRITAS viven **39 parts** con `source_block_id`
+ * y `items: []` (verificado contra prod, jul-2026: 39 de 379 parts, y los 39
+ * tienen items vacío) — esos SIGUEN resolviéndose aquí, al asignar. Si esto se
+ * "limpia" por no encontrarle llamadores nuevos, esas 39 piezas se materializan
+ * VACÍAS y el atleta recibe un entreno sin ejercicios.
+ *
+ * Lo mismo aplica al `items: []` de `createPartFromLibraryBlock` (block-to-part.ts):
+ * es la otra mitad de este contrato, no un olvido.
+ *
+ * `coachId` — el nombre de cada ejercicio hidratado es el MERGED (override del
+ * coach si renombró la base, si no la base, 0132). El `source_block_id` llega
+ * aquí por FK desde un part ya scoped a este coach; el join es solo para el
+ * nombre — NUNCA le añadas un filtro de visibilidad.
  */
 export async function hydrateBlockParts(
   client: Sql,
+  coachId: number | bigint,
   parts: WeekDayPart[],
 ): Promise<WeekDayPart[]> {
   const blockIds = Array.from(
@@ -473,10 +494,11 @@ export async function hydrateBlockParts(
 
   const rows = await client<BlockExerciseRow[]>`
     select be.block_id::text, be.position, be.block_position,
-           be.exercise_id::text, e.name as exercise_name,
+           be.exercise_id::text, coalesce(ceo.name, e.name) as exercise_name,
            be.params_json, be.prescription_json, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = any(${blockIds}::bigint[])
     order by be.block_id, be.position
   `;
@@ -522,7 +544,7 @@ async function materializeInlineSessionTemplate(params: {
   // `block_exercises` estructurados del bloque (ejercicios reales del catálogo +
   // params canónicos). Si el bloque NO tiene estructura (needs_review), se queda
   // sin items y degrada a nota verbatim vía coach_note (comportamiento previo).
-  const blocks = await hydrateBlockParts(params.client, rawBlocks);
+  const blocks = await hydrateBlockParts(params.client, params.coach_id, rawBlocks);
   const totalItems = blocks.reduce((n, b) => n + (b.items?.length ?? 0), 0);
   if (totalItems === 0) return null;
 
@@ -535,8 +557,14 @@ async function materializeInlineSessionTemplate(params: {
       blocks.flatMap((b) => (b.items ?? []).map((it) => Number(it.exercise_id))),
     ),
   );
+  // Filters out both non-existent ids AND ids belonging to another coach — a
+  // referenced id here arrives verbatim from the session's own JSON blocks,
+  // not by FK from an already-scoped row, so it must be resolved through the
+  // same visibility every enumeration/resolver uses (mig 0132).
   const existingRows = await params.client<Array<{ id: string }>>`
-    select id::text from exercises where id = any(${referencedIds}::bigint[])
+    select e.id::text from exercises e
+    where e.id = any(${referencedIds}::bigint[])
+      and ${visibleToCoach(params.client, params.coach_id)}
   `;
   const existingExerciseIds = new Set(existingRows.map((r) => Number(r.id)));
   if (existingExerciseIds.size === 0) return null;

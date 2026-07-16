@@ -16,6 +16,7 @@ import {
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
 import { loadTemplateAsBlocks } from './template-to-blocks';
+import { loadCoachExerciseCatalog, type CoachCatalogExercise } from './exercise-catalog';
 
 // ---------------------------------------------------------------------------
 // Request / response
@@ -127,7 +128,10 @@ export async function suggestWorkout(params: {
   }
 
   // LLM disponible — pedir bloques nuevos.
-  const exercises = await loadExerciseCatalog(client);
+  const exercises = await loadCoachExerciseCatalog(client, params.coach_id, {
+    order: 'name',
+    limit: 200,
+  });
   try {
     const blocks = await llmSuggestBlocks({
       focus: req.focus,
@@ -243,7 +247,7 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
     .sort((a, b) => b.score - a.score);
 
   const winner = ranked[0]?.tpl ?? usable[0]!;
-  const blocks = await loadTemplateAsBlocks(winner.id, args.client);
+  const blocks = await loadTemplateAsBlocks(winner.id, args.coach_id, args.client);
   return {
     id: winner.id,
     name: winner.name,
@@ -260,21 +264,6 @@ function seedPrincipalBlock(): WeekDayPart {
     config_json: defaultConfigForPartFormat('strength_block'),
     items: [],
   };
-}
-
-interface CatalogRow {
-  id: string;
-  name: string;
-  category: string;
-}
-
-async function loadExerciseCatalog(client: Sql): Promise<CatalogRow[]> {
-  return await client<CatalogRow[]>`
-    select id::text as id, name, category::text as category
-    from exercises
-    order by name
-    limit 200
-  `;
 }
 
 const llmBlockSchema = z.object({
@@ -316,7 +305,7 @@ const llmWorkoutSchema = z.object({
 interface LlmArgs {
   focus: string;
   level: 'beginner' | 'intermediate' | 'pro' | 'elite';
-  exercises: CatalogRow[];
+  exercises: CoachCatalogExercise[];
   coach_id: number | bigint;
   athlete_id?: number | bigint | null;
 }

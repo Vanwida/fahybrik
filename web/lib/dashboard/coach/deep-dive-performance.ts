@@ -9,6 +9,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import { AthleteAnalyticsError } from './deep-dive-body';
 
 export const POLARIZATION_WINDOWS = ['7d', '14d', '28d', '90d'] as const;
@@ -137,7 +138,10 @@ export async function buildAthletePerformance(params: {
   // Each loader is guarded: when an underlying table/column doesn't exist yet
   // (sync pipeline still being built), we fall back to empty data so the UI
   // renders honestly instead of throwing 500.
-  const exercises = await safeCall(() => loadExerciseSeries(client, params.athlete_id, now), [] as ExerciseTimeSeries[]);
+  const exercises = await safeCall(
+    () => loadExerciseSeries(client, params.athlete_id, params.coach_id, now),
+    [] as ExerciseTimeSeries[],
+  );
   const polarization_by_window = await Promise.all(
     POLARIZATION_WINDOWS.map((w) =>
       safeCall(() => loadPolarization(client, params.athlete_id, now, w), zeroPolarization(w)),
@@ -194,19 +198,23 @@ export async function buildAthletePerformance(params: {
 async function loadExerciseSeries(
   client: Sql,
   athlete_id: number,
+  coach_id: number | bigint,
   now: Date,
 ): Promise<ExerciseTimeSeries[]> {
   const since = addDays(now, -180).toISOString();
+  // Name is DISPLAYED (the exercise_label the coach reads below) — coach's
+  // renamed exercise wins over the base catalog name (mig 0132).
   const top = await client<Array<{ slug: string; name: string; category: string; n: number }>>`
-    select ex.slug, ex.name, ex.category::text as category, count(*)::int as n
+    select e.slug, coalesce(ceo.name, e.name) as name, e.category::text as category, count(*)::int as n
     from segment_executions se
     join template_segments ts on ts.id = se.template_segment_id
-    join exercises ex on ex.id = ts.exercise_id
+    join exercises e on e.id = ts.exercise_id
+    ${joinCoachOverride(client, coach_id)}
     join workout_executions we on we.id = se.execution_id
     where we.athlete_id = ${athlete_id}
       and coalesce(we.ended_at, we.started_at) >= ${since}
       and se.started_at is not null and se.ended_at is not null
-    group by ex.slug, ex.name, ex.category
+    group by e.slug, e.name, e.category, ceo.name
     order by n desc
     limit 8
   `;

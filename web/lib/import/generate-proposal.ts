@@ -12,6 +12,11 @@
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { weekDayPartsToEditorBlocks } from '@/lib/dashboard/v2/ai-blocks-to-editor';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
+import {
+  blockingReasons,
+  checkPrescriptionCompleteness,
+  isExecutable,
+} from '@fahybrid/shared/domain/prescription';
 import type { WeekDay, WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 // Types only (erased at compile) — this stays free of the server-only orchestrator.
 import type { ImportProposal, ProposalDay, ProposalFlag, ProposalWeek } from './build-proposal';
@@ -37,6 +42,7 @@ export function weekDaysToProposal(params: {
 
   let total = 0;
   let detected = 0;
+  let review = 0;
   let unresolved = 0;
   const outDays: ProposalDay[] = [];
 
@@ -44,6 +50,22 @@ export function weekDaysToProposal(params: {
     const day = byDow.get(dow);
     const dowLabel = DAY_LABELS_FULL[dow - 1] ?? `Día ${dow}`;
     const parts: WeekDayPart[] = day ? day.sessions.flatMap((s) => s.blocks ?? []) : [];
+
+    // Which blocks are the COACH's versus ours (composed by the model). His come
+    // from either of his two libraries, and each leaves its own mark:
+    //   · a session materialised from one of his TEMPLATES carries `template_id`
+    //   · a part materialised from one of his BLOCKS carries `source_block_id`
+    // Checking only `template_id` judged his 99 blocks by the AUTHORING bar and
+    // flagged his own method for review (5 of 8 items on his real week). The two
+    // sources get different bars, and conflating them is a defect in both
+    // directions — see below.
+    const libraryBlockUids = new Set<string>();
+    for (const s of day?.sessions ?? []) {
+      const fromTemplate = s.template_id != null;
+      for (const b of s.blocks ?? []) {
+        if (fromTemplate || b.source_block_id != null) libraryBlockUids.add(b.uid);
+      }
+    }
 
     if (parts.length === 0) {
       outDays.push({
@@ -62,15 +84,35 @@ export function weekDaysToProposal(params: {
     for (const b of blocks) {
       for (const it of b.items) {
         const isUnresolved = it.exercise_id == null || Number(it.exercise_id) <= 0;
+        // A resolved exercise id is not a workout. "Back Squat" with no reps, no
+        // load and no rest resolves perfectly and prescribes nothing — marking it
+        // `detected` is how a week of bare names passed review as finished. The
+        // dose has to clear the same bar as the id.
+        const completeness = checkPrescriptionCompleteness(it.prescription, {
+          modality: it.prescription.modality ?? null,
+          role: b.group ?? 'principal',
+        });
+        // Which bar applies depends on WHO wrote the line.
+        //  · We composed it → the STRICT bar. A model that writes "Back Squat 5×5"
+        //    with no load has not finished the job; there is no coach behind it.
+        //  · The coach's own template → the EXECUTABLE bar. His HYROX-sim run legs
+        //    carry no pace on purpose (in a simulation the race IS the target).
+        //    Holding his library to the authoring bar flagged 25 of his own items
+        //    as "review" — lecturing him about his own plan, which is noise.
+        const fromLibrary = libraryBlockUids.has(b.uid);
+        const passes = fromLibrary ? isExecutable(completeness) : completeness.ok;
+        const reasons = fromLibrary ? blockingReasons(completeness) : completeness.reasons;
+        const confidence = passes ? 'detected' : 'review';
         flags.push({
           uid: it.uid,
-          confidence: 'detected',
-          review_reasons: [],
+          confidence,
+          review_reasons: reasons,
           unresolved_exercise: isUnresolved,
           exercise_token: it.exercise_name,
         });
         total += 1;
-        detected += 1;
+        if (confidence === 'detected') detected += 1;
+        else review += 1;
         if (isUnresolved) unresolved += 1;
       }
     }
@@ -88,7 +130,9 @@ export function weekDaysToProposal(params: {
       stimulus: focus ?? null,
       session,
       flags,
-      state: flags.some((f) => f.unresolved_exercise) ? 'review' : 'detected',
+      state: flags.some((f) => f.unresolved_exercise || f.confidence === 'review')
+        ? 'review'
+        : 'detected',
     });
   }
 
@@ -100,6 +144,6 @@ export function weekDaysToProposal(params: {
   };
   return {
     weeks: [week],
-    summary: { total_items: total, detected, review: 0, unresolved },
+    summary: { total_items: total, detected, review, unresolved },
   };
 }

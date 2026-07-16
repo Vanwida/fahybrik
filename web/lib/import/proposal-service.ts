@@ -23,6 +23,10 @@ import { parseWeekRange, parseDayDestination } from './range-parse';
 import { readPlanWorkbook, parsePastedText, type ImportedWeek } from './xlsx-reader';
 import { buildLlmAssist } from './llm-assist';
 import { suggestWeekPlan } from '@/lib/dashboard/coach/ai/suggest-week';
+import {
+  loadComposableBlocks,
+  suggestWeekFromBlocks,
+} from '@/lib/dashboard/coach/ai/suggest-week-from-blocks';
 import { weekDaysToProposal } from './generate-proposal';
 
 export class ImportError extends Error {
@@ -209,11 +213,23 @@ function isGenerateRequest(body: unknown): boolean {
 }
 
 /**
- * AI-GENERATE branch: compose a full week from the coach's library (`suggest-week`
- * in slow mode — LLM if configured, deterministic library fallback otherwise) and
- * convert it into the typed proposal. Its blocks carry catalog-resolved items, so
- * the generated week is fully typed by construction; the coach still reviews and
- * confirms it through the same gate. Saves nothing.
+ * AI-GENERATE branch. ONE rule decides the source, and it is a product rule, not a
+ * technical one: **the coach's own method wins.**
+ *
+ *   · He has BLOCKS  → `suggest-week-from-blocks`. A block is a real piece of his
+ *     plan ("Front squat 6 series 7-6-6-6-5-5", imported from his Excel), already
+ *     written and already typed. There is nothing for a model to author, so this
+ *     path costs ~1s instead of minutes and is 100% his content.
+ *   · He has NONE    → `suggest-week` composes from the exercise catalog. That is
+ *     every new coach, so composition is not a fallback, it is the day-one path.
+ *
+ * Why not let the model PICK his blocks: we tried. Handing it his 99 titles and
+ * asking it to choose blew past the 120s LLM timeout, and the whole week fell back
+ * to nothing. The blocks path already has a deterministic heuristic that balances
+ * the week by methodology group — instant, and it cannot hallucinate a title.
+ *
+ * Both paths return `{ days, name }` and ride the same review→confirm gate. Saves
+ * nothing.
  */
 async function buildGeneratedProposal(params: {
   coach_id: number | bigint;
@@ -228,6 +244,17 @@ async function buildGeneratedProposal(params: {
   const client = params.client ?? defaultSql;
 
   await assertMicrocycleOwned(params.coach_id, req.microcycle_id, client);
+
+  const coachBlocks = await loadComposableBlocks(params.coach_id, client);
+
+  if (coachBlocks.length > 0) {
+    const week = await suggestWeekFromBlocks({
+      coach_id: params.coach_id,
+      body: { focus: req.focus, mode: 'fast', ...(req.level ? { level: req.level } : {}) },
+      client,
+    });
+    return weekDaysToProposal({ days: week.days, sheetLabel: week.name });
+  }
 
   const week = await suggestWeekPlan({
     coach_id: params.coach_id,

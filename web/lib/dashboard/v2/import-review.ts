@@ -10,6 +10,11 @@
 // Types come from the server module via `import type` (erased at compile — the
 // `server-only` side-effect never reaches the client bundle).
 
+import {
+  checkPrescriptionCompleteness,
+  isExecutable,
+  blockingReasons,
+} from '@fahybrid/shared/domain/prescription';
 import type { EditorSession, EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import type { ProposalFlag, ProposalDay, ProposalWeek, ImportProposal } from '@/lib/import/build-proposal';
 
@@ -46,7 +51,7 @@ export interface ReviewWeek {
 }
 
 /** A day's honest tone for the grid. */
-export type DayTone = 'rest' | 'skipped' | 'ok' | 'review' | 'unresolved';
+export type DayTone = 'rest' | 'skipped' | 'ok' | 'review' | 'incomplete' | 'unresolved';
 
 function fromProposalDay(d: ProposalDay): ReviewDay {
   return {
@@ -83,16 +88,71 @@ export function buildReviewModel(
   return proposal.weeks.map((w, i) => fromProposalWeek(w, byIndex[i]?.id ?? null));
 }
 
+/** True when a line points at a real catalog exercise. */
+function itemResolved(item: EditorBlock['items'][number]): boolean {
+  return item.exercise_id != null && Number(item.exercise_id) > 0;
+}
+
 /** Items with no catalog exercise across a session (the hard save blocker). */
 function sessionUnresolvedCount(session: EditorSession | null): number {
   if (!session) return 0;
   let n = 0;
   for (const block of session.blocks) {
     for (const item of block.items) {
-      if (item.exercise_id == null || Number(item.exercise_id) <= 0) n += 1;
+      if (!itemResolved(item)) n += 1;
     }
   }
   return n;
+}
+
+/** A line that names an exercise but prescribes no work the athlete could do. */
+export interface IncompleteLine {
+  uid: string;
+  exercise_name: string;
+  /** Why it is not executable, coach-facing (from the domain gate). */
+  reasons: string[];
+}
+
+/**
+ * Lines that are RESOLVED but not executable — a "Back Squat" with no series, a
+ * "Run" with no distance. The second half of the confirm gate: importing a name
+ * with no dose writes a session the athlete cannot do, and until now the grid
+ * called that "0 sin resolver" and let it through.
+ *
+ * Only the domain's BLOCKING issues count. An imported line legitimately omits
+ * the intensity (Pablo's own workbook does it on ~130 of 369 lines: bodyweight
+ * pull-ups have no %RM, an easy jog needs no pace) — the importer TRANSCRIBES
+ * what the coach wrote, so `isExecutable`, never the strict `ok`. See the TWO
+ * BARS note in shared/domain/prescription/completeness.ts.
+ *
+ * A line with no exercise is skipped here: it already blocks as "sin ejercicio"
+ * and that is the first thing to fix, so each line reports ONE next action and
+ * the two counters never double-count the same line.
+ *
+ * Modality comes from the prescription — client-side there is no catalog to ask,
+ * and picking an exercise stamps its intrinsic modality onto the line (mig 0053,
+ * `withPickedExercise`). Unknown modality falls back to the universal floor.
+ */
+export function sessionIncompleteLines(session: EditorSession | null): IncompleteLine[] {
+  if (!session) return [];
+  const out: IncompleteLine[] = [];
+  for (const block of session.blocks) {
+    for (const item of block.items) {
+      if (!itemResolved(item)) continue;
+      const check = checkPrescriptionCompleteness(item.prescription);
+      if (isExecutable(check)) continue;
+      out.push({
+        uid: item.uid,
+        exercise_name: item.exercise_name,
+        reasons: blockingReasons(check),
+      });
+    }
+  }
+  return out;
+}
+
+function sessionIncompleteCount(session: EditorSession | null): number {
+  return sessionIncompleteLines(session).length;
 }
 
 /** True when this day would actually be written on confirm. */
@@ -101,13 +161,15 @@ function dayWrites(week: ReviewWeek, day: ReviewDay): boolean {
 }
 
 /** The day's tone: rest → grey, excluded (day or its whole week) → skipped, any
- *  unresolved exercise → red, any review-confidence line → amber, else green.
- *  Recomputed from the LIVE session so resolving an exercise turns a day green
- *  in place. */
+ *  unresolved exercise → red, any line with no dose → red, any review-confidence
+ *  line → amber, else green. Ordered by what the coach must fix FIRST: pick the
+ *  exercise, then prescribe it. Recomputed from the LIVE session so fixing a line
+ *  turns a day green in place. */
 export function dayTone(day: ReviewDay, weekIncluded = true): DayTone {
   if (!day.session) return 'rest';
   if (!weekIncluded || !day.included) return 'skipped';
   if (sessionUnresolvedCount(day.session) > 0) return 'unresolved';
+  if (sessionIncompleteCount(day.session) > 0) return 'incomplete';
   if (day.flags.some((f) => f.confidence === 'review')) return 'review';
   return 'ok';
 }
@@ -121,6 +183,21 @@ export function totalUnresolved(weeks: ReviewWeek[]): number {
       acc +
       w.days.reduce(
         (a, d) => a + (dayWrites(w, d) ? sessionUnresolvedCount(d.session) : 0),
+        0,
+      ),
+    0,
+  );
+}
+
+/** Total lines that name an exercise but prescribe no work, across the INCLUDED
+ *  days (the second confirm gate). Excluding a day/week removes its lines from
+ *  the count, exactly like `totalUnresolved`. */
+export function totalIncomplete(weeks: ReviewWeek[]): number {
+  return weeks.reduce(
+    (acc, w) =>
+      acc +
+      w.days.reduce(
+        (a, d) => a + (dayWrites(w, d) ? sessionIncompleteCount(d.session) : 0),
         0,
       ),
     0,
@@ -200,7 +277,8 @@ export interface ConfirmBody {
  * a token that was unresolved and now points at an exercise is learned (deduped by
  * normalized-ish term+id pair) — an excluded day teaches nothing. Rest days,
  * excluded days/weeks and unmapped weeks are silently skipped here — the caller
- * gates on `unmappedWeekCount`/`totalUnresolved` before enabling confirm.
+ * gates on `unmappedWeekCount` / `totalUnresolved` / `totalIncomplete` before
+ * enabling confirm.
  */
 export function buildConfirmBody(microcycleId: string, weeks: ReviewWeek[]): ConfirmBody {
   const out: ConfirmBody = { microcycle_id: Number(microcycleId), weeks: [], synonyms: [] };

@@ -27,7 +27,9 @@ import { RestDayPanel } from './RestDayPanel';
 import { SessionPartCard } from './SessionPartCard';
 import { CopyDayModal } from './CopyDayModal';
 import { SuggestWorkoutModal } from './SuggestWorkoutModal';
+import { LibraryBlockRail } from './LibraryBlockRail';
 import { BlockEditor } from './BlockEditor';
+import { ModalPortal } from './ModalPortal';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
 import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
@@ -124,8 +126,10 @@ export function DayEditor({
   const isRest = dayKind === 'rest';
 
   // Item-edit drawer target + the "añadir ejercicio" picker target (which block
-  // gets the picked exercise) + the "Redactar con IA" target session.
+  // gets the picked exercise) + las dos vías de "traer bloques hechos" (IA /
+  // biblioteca), cada una apuntando a la sesión que los recibe.
   const [aiFor, setAiFor] = useState<{ sessionUid: string } | null>(null);
+  const [libraryFor, setLibraryFor] = useState<{ sessionUid: string } | null>(null);
   const [editing, setEditing] = useState<{ sessionUid: string; blockUid: string } | null>(null);
   const [pickingFor, setPickingFor] = useState<{ sessionUid: string; blockUid: string } | null>(
     null,
@@ -198,13 +202,16 @@ export function DayEditor({
     );
   };
 
-  // "Redactar con IA" (#33) — append the coach-approved AI drafts to the session.
+  // El seam GENÉRICO "añade estos bloques a esta sesión". Lo usan las dos vías que
+  // traen bloques ya hechos: "Redactar con IA" (#33) y la Biblioteca de bloques.
   // Append, never replace: the existing blocks stay; the coach edits from here.
+  // Un bloque insertado es un EditorBlock normal — indistinguible de uno a mano.
   const addBlocksToSession = (sessionUid: string, newBlocks: EditorBlock[]) => {
     setSessions((prev) =>
       prev.map((s) => (s.uid === sessionUid ? { ...s, blocks: [...s.blocks, ...newBlocks] } : s)),
     );
     setAiFor(null);
+    setLibraryFor(null);
   };
 
   const removeBlock = (sessionUid: string, blockUid: string) => {
@@ -313,6 +320,7 @@ export function DayEditor({
       // Cierra los overlays workout-only al pasar a descanso. El editor nuevo no
       // tiene AddBlockModal (bloques inline por arquetipo), así que no hay `addTo`.
       setAiFor(null);
+      setLibraryFor(null);
       setEditing(null);
       setPickingFor(null);
       setCopyOpen(false);
@@ -392,6 +400,9 @@ export function DayEditor({
   const editingSession = editing ? sessions.find((s) => s.uid === editing.sessionUid) : null;
   const editingBlock = editingSession?.blocks.find((b) => b.uid === editing?.blockUid) ?? null;
   const aiForSession = aiFor ? sessions.find((s) => s.uid === aiFor.sessionUid) : null;
+  const libraryForSession = libraryFor
+    ? sessions.find((s) => s.uid === libraryFor.sessionUid)
+    : null;
   const pickingForBlock = pickingFor
     ? sessions
         .find((s) => s.uid === pickingFor.sessionUid)
@@ -575,6 +586,7 @@ export function DayEditor({
               onSuggestTitle={() => suggestTitle(session)}
               suggesting={suggestingUid === session.uid}
               onSuggestWorkout={() => setAiFor({ sessionUid: session.uid })}
+              onInsertFromLibrary={() => setLibraryFor({ sessionUid: session.uid })}
               onAddBlock={(archetype) => addBlockOfType(session.uid, archetype)}
               onRenameBlock={(blockUid, title) => renameBlock(session.uid, blockUid, title)}
               onReorderBlocks={(orderedUids) => reorderBlocks(session.uid, orderedUids)}
@@ -607,6 +619,16 @@ export function DayEditor({
           destinationLabel={`Sesión ${SLOT_LABEL[aiForSession.slot]} · ${model.day_label}`}
           onClose={() => setAiFor(null)}
           onInsert={(newBlocks) => addBlocksToSession(aiFor.sessionUid, newBlocks)}
+        />
+      ) : null}
+
+      {/* Biblioteca de bloques — copia un bloque ya hecho del coach en esta sesión.
+          Misma salida que la vía IA: EditorBlock[] por el mismo seam. */}
+      {libraryFor && libraryForSession ? (
+        <LibraryBlockRail
+          destinationLabel={`Sesión ${SLOT_LABEL[libraryForSession.slot]} · ${model.day_label}`}
+          onClose={() => setLibraryFor(null)}
+          onInsert={(newBlocks) => addBlocksToSession(libraryFor.sessionUid, newBlocks)}
         />
       ) : null}
 
@@ -703,13 +725,24 @@ function BlockEditorDrawer({
   onAddItem: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    // El ExercisePicker se abre ENCIMA de este drawer (desde "añadir componente" y
+    // desde el ExercisePickerField de dentro): Escape es suyo mientras esté abierto.
+    // El censo del portal lo resuelve solo — aquí no hace falta saber quién hay arriba.
+    <ModalPortal onEscape={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
         role="dialog"
         aria-modal
         aria-label={`Editar bloque ${block.title}`}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
+        // Width is an ARBITRARY value on purpose: globals.css redefines the spacing
+        // scale with shirt-size names (--spacing-xl: 24px), and Tailwind resolves
+        // --spacing-* before --container-* for max-w-*, so `max-w-xl` would collapse
+        // this drawer to 24px behind the scrim. Never use max-w-{xs,xl} here.
+        className="flex h-full w-full max-w-[576px] flex-col overflow-hidden border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
       >
         <header className="flex items-center justify-between border-b border-[color:var(--v2-border)] px-5 py-4">
           <h2 className="v2-display text-xl">{block.title || 'Editar bloque'}</h2>
@@ -727,5 +760,6 @@ function BlockEditorDrawer({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -16,9 +16,11 @@ import {
 // this must run on the Node runtime (not edge). Never statically rendered.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-// The GENERATE branch (#48) may call the coach-IA LLM to compose the week; allow
-// the same budget as the standalone suggest-week route.
-export const maxDuration = 180;
+// The GENERATE branch (#48) composes the week with one LLM call per SESSION. A
+// double-session week is 12 of them, and the provider queues concurrent calls, so
+// the measured end-to-end is ~204s — over the 180s this used to carry. 300s is the
+// ceiling the cron routes already run at.
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const session = await getCoachSession();

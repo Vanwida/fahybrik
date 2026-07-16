@@ -19,6 +19,7 @@ import { BlockEditor } from './BlockEditor';
 import { AddBlockModal } from './AddBlockModal';
 import { v2SelectCell } from './fields';
 import { serializeBlockExercises } from '@/lib/dashboard/v2/editor-serialize';
+import { firstUndosedBlockUid } from '@/lib/dashboard/v2/block-dose';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
@@ -90,7 +91,14 @@ export function BlockLibraryEditor({
   const [title, setTitle] = useState(model.title);
   const [methodologyGroupId, setMethodologyGroupId] = useState<number>(model.methodology_group_id);
   const [blocks, setBlocks] = useState<EditorBlock[]>(model.blocks);
-  const [selectedUid, setSelectedUid] = useState<string | null>(model.blocks[0]?.uid ?? null);
+  // Abre donde hay trabajo: si alguna pieza no dice cuánto trabajo hacer, esa. El
+  // coach llega aquí desde la marca "sin dosis" de la Biblioteca a arreglar eso —
+  // hacerle buscar la pieza sería mandarle a cazar lo que ya sabemos dónde está.
+  // Se calcula una vez, al montar: si se recalculara, arreglar la dosis movería el
+  // foco solo mientras escribe.
+  const [selectedUid, setSelectedUid] = useState<string | null>(
+    () => firstUndosedBlockUid(model.blocks) ?? model.blocks[0]?.uid ?? null,
+  );
   const [addToGroup, setAddToGroup] = useState<StructureGroup | null>(null);
   const [blockId, setBlockId] = useState<number | null>(model.block_id);
   const [saveState, setSaveState] = useState<SaveState>('idle');

@@ -13,6 +13,7 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import {
   composeWelcomeDraft,
   detectBenchmarkOutliers,
@@ -456,9 +457,17 @@ export async function loadIntakeProfile(params: {
       ab.value::float as value,
       ab.unit,
       ab.recorded_at,
-      e.name as label
+      -- Coach's renamed exercise wins over the base catalog name (mig 0132) —
+      -- this label is DISPLAYED in the intake profile, not matched on. The
+      -- base-only identity join below is untouched: it's what PICKS the row
+      -- (a benchmark slug is a global identity, never a coach's own exercise);
+      -- the override join only changes what NAME we show for that same row.
+      coalesce(ceo.name, e.name) as label
     from athlete_benchmarks ab
-    left join exercises e on e.slug = ab.exercise_slug
+    -- Benchmark label lookup by BASE-catalog identity only (never a coach's
+    -- own exercise) — the slug is a global benchmark identity, not scoped.
+    left join exercises e on e.slug = ab.exercise_slug and e.coach_id is null
+    ${joinCoachOverride(client, params.coach_id)}
     where ab.athlete_id = ${params.athlete_id as number}
     order by ab.exercise_slug, ab.recorded_at desc
   `;

@@ -5,7 +5,9 @@ import { SuggestWeekError, suggestWeekPlan } from '@/lib/dashboard/coach/ai/sugg
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 180;
+// `slow` mode composes one LLM call per SESSION (up to 12 on a double-session
+// week). Measured end-to-end ~204s, so 180 was not enough — see COMPOSE_BUDGET_MS.
+export const maxDuration = 300;
 
 export async function GET() {
   return jsonOk({ llm_configured: isCoachIaLlmConfigured() });

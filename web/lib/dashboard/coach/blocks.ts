@@ -1,11 +1,16 @@
 import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
 import {
+  blockingReasons,
+  checkPrescriptionCompleteness,
+  isExecutable,
   prescriptionToParams,
   safeParsePrescription,
+  type Modality,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
 
@@ -17,6 +22,137 @@ type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 // day/week composer. The library is PER-COACH content (like microciclos): each
 // block belongs to its owning coach (`coach_id`); a brand-new coach starts with
 // an empty library and builds their own.
+
+/**
+ * Un bloque + su estado ESTRUCTURAL, para las superficies que necesitan saber si
+ * el atleta puede ejecutarlo (Biblioteca › Bloques y el rail del editor de día).
+ *
+ * `typed` es la única señal honesta de "ejecutable": sale de la existencia de
+ * `block_exercises`. NO es `needs_review` — son cosas distintas y en los datos
+ * reales discrepan (hay bloques marcados para revisar que SÍ están tipados).
+ * Un bloque sin tipar solo tiene la prosa verbatim en `description`: se muestra,
+ * pero no se puede insertar en un día (se perdería el texto).
+ *
+ * `part_count` = `block_position` distintos = cuántas piezas inserta el bloque
+ * en el día. Un bloque NO es siempre una pieza: los importados del Excel llegan
+ * a 6 (p.ej. "10' row z2" = row + ski + bike + run).
+ */
+export interface BlockWithStructure extends Block {
+  typed: boolean;
+  exercise_count: number;
+  part_count: number;
+  /**
+   * Líneas del bloque que NO dicen cuánto trabajo hacer — el listón EJECUTABLE
+   * del gate de prescripción (`isExecutable`), no el estricto. `0` = el atleta
+   * puede ejecutarlo entero. Siempre 0 si `typed` es false (no hay líneas que
+   * juzgar: ese bloque es prosa y su problema es otro).
+   */
+  undosed_count: number;
+  /** Los motivos reales del gate, sin repetir, para poder decirle al coach QUÉ falta. */
+  undosed_reasons: string[];
+}
+
+/** El estado de un bloque, derivado. Excluyentes y en orden de gravedad. */
+export type BlockReadiness = 'sin_tipar' | 'sin_dosis' | 'listo';
+
+export function blockReadiness(b: {
+  typed: boolean;
+  undosed_count: number;
+}): BlockReadiness {
+  if (!b.typed) return 'sin_tipar';
+  return b.undosed_count > 0 ? 'sin_dosis' : 'listo';
+}
+
+/** Una línea del bloque, tal y como sale del agregado json. */
+type BlockLineJson = {
+  block_position: number | null;
+  prescription_json: unknown;
+  /** Modalidad INTRÍNSECA del ejercicio (0053) — la que pide el gate, no la de la prescripción. */
+  exercise_modality: string | null;
+};
+
+type BlockWithStructureRow = BlockRow & { lines: BlockLineJson[] | null };
+
+/**
+ * List a coach's blocks with their structural state, in ONE round-trip.
+ * Same ordering/scoping contract as `listBlocks`.
+ *
+ * Trae las líneas agregadas (no solo contadas) porque el estado de un bloque no
+ * se puede saber contando: hay que juzgar cada prescripción con el MISMO gate que
+ * bloquea el grid de importación (`checkPrescriptionCompleteness`), para que la
+ * Biblioteca y el gate nunca digan cosas distintas del mismo bloque.
+ *
+ * @param coachId  owning coach (the current session coach).
+ * @param groupId  methodology_group_id (1..10), or null for all groups.
+ */
+export async function listBlocksWithStructure(
+  coachId: number | bigint,
+  groupId: number | null = null,
+  client: Sql = defaultSql,
+): Promise<BlockWithStructure[]> {
+  const cid = Number(coachId);
+  const rows = await client<BlockWithStructureRow[]>`
+    select b.id, b.slug, b.title, b.description, b.methodology_group_id,
+           b.format, b.source_ref, b.needs_review,
+           coalesce(
+             json_agg(
+               json_build_object(
+                 'block_position', be.block_position,
+                 'prescription_json', be.prescription_json,
+                 'exercise_modality', e.modality::text
+               ) order by be.position
+             ) filter (where be.id is not null),
+             '[]'
+           ) as lines
+      from blocks b
+      left join block_exercises be on be.block_id = b.id
+      left join exercises e on e.id = be.exercise_id
+     where b.coach_id = ${cid}
+       ${groupId === null ? client`` : client`and b.methodology_group_id = ${groupId}`}
+     group by b.id
+     order by b.methodology_group_id asc, b.id asc
+  `;
+  return rows.map((r) => ({ ...mapBlockRow(r), ...structureOf(r.lines ?? []) }));
+}
+
+/** Cuenta y juzga las líneas de un bloque. Sin líneas → sin tipar, y nada que juzgar. */
+function structureOf(lines: BlockLineJson[]): {
+  typed: boolean;
+  exercise_count: number;
+  part_count: number;
+  undosed_count: number;
+  undosed_reasons: string[];
+} {
+  const positions = new Set(lines.map((l) => l.block_position ?? 0));
+  let undosed_count = 0;
+  const reasons = new Set<string>();
+
+  for (const line of lines) {
+    const parsed = safeParsePrescription(line.prescription_json);
+    if (!parsed.success) {
+      // Ilegible = el atleta tampoco puede ejecutarla. Se cuenta, sin inventar el motivo.
+      undosed_count++;
+      reasons.add('Prescripción ilegible.');
+      continue;
+    }
+    const check = checkPrescriptionCompleteness(parsed.data, {
+      // La modalidad del EJERCICIO (catálogo), como pide el gate: la de la
+      // prescripción es una pista que quien la escribió pudo omitir.
+      modality: (line.exercise_modality ?? null) as Modality | null,
+    });
+    if (isExecutable(check)) continue;
+    undosed_count++;
+    for (const r of blockingReasons(check)) reasons.add(r);
+  }
+
+  return {
+    typed: lines.length > 0,
+    exercise_count: lines.length,
+    part_count: positions.size,
+    undosed_count,
+    undosed_reasons: [...reasons],
+  };
+}
 
 /**
  * List a coach's blocks, optionally filtered to a single methodology group.
@@ -113,17 +249,24 @@ export function blockExerciseToItem(row: BlockExerciseRow): WeekDayPartItem {
  * devuelve como `WeekDayPartItem[]` (orden por `position`). Vacío si el bloque
  * no tiene estructura (needs_review) o no existe. Usa el mapeo compartido para
  * espejar EXACTO lo que el materializador hidrata en `template_segments`.
+ *
+ * `coachId` — el nombre que ve el coach es el MERGED (su override si renombró
+ * la base, si no la base), no `e.name` en crudo (0132). Un `block_exercises`
+ * llega aquí por FK desde un bloque ya scoped al coach, así que el join es solo
+ * para el nombre — nunca añadas un filtro de visibilidad aquí.
  */
 export async function getBlockExerciseItems(
   blockId: number,
+  coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<WeekDayPartItem[]> {
   const rows = await client<BlockExerciseRow[]>`
     select be.block_id::text, be.position, be.block_position,
-           be.exercise_id::text, e.name as exercise_name,
+           be.exercise_id::text, coalesce(ceo.name, e.name) as exercise_name,
            be.params_json, be.prescription_json, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = ${blockId}
     order by be.position
   `;
@@ -165,9 +308,13 @@ export type BlockLibraryExercise = {
   notes: string | null;
 };
 
-/** Ejercicios estructurados de un bloque para la biblioteca (orden por position). */
+/**
+ * Ejercicios estructurados de un bloque para la biblioteca (orden por position).
+ * `coachId` — nombre MERGED (0132), ver nota en `getBlockExerciseItems`.
+ */
 export async function getBlockLibraryExercises(
   blockId: number,
+  coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<BlockLibraryExercise[]> {
   const rows = await client<
@@ -180,10 +327,11 @@ export async function getBlockLibraryExercises(
       notes: string | null;
     }>
   >`
-    select be.position, be.block_position, e.name as exercise_name,
+    select be.position, be.block_position, coalesce(ceo.name, e.name) as exercise_name,
            be.params_json, be.reps_scheme, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = ${blockId}
     order by be.position
   `;
@@ -345,21 +493,27 @@ export type BlockExerciseEditRow = {
   block_title: string | null;
   exercise_id: string;
   exercise_name: string;
+  /** Modalidad INTRÍNSECA del ejercicio (0053) — la que pide el gate de prescripción. */
+  exercise_modality: string | null;
   params_json: Record<string, unknown> | null;
   prescription_json: unknown;
   notes: string | null;
 };
 
+/** `coachId` — nombre MERGED (0132) para el editor, ver nota en `getBlockExerciseItems`. */
 export async function getBlockExerciseRowsForEdit(
   blockId: number,
+  coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<BlockExerciseEditRow[]> {
   return client<BlockExerciseEditRow[]>`
     select be.block_position, be.position, be.block_format, be.block_title,
-           be.exercise_id::text as exercise_id, e.name as exercise_name,
+           be.exercise_id::text as exercise_id, coalesce(ceo.name, e.name) as exercise_name,
+           e.modality::text as exercise_modality,
            be.params_json, be.prescription_json, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = ${blockId}
     order by be.position
   `;

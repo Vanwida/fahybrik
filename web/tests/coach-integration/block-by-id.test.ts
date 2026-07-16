@@ -73,7 +73,7 @@ describeWithDb('GET /api/coach/blocks/[id] hydration (real DB)', () => {
     expect(block!.id).toBe(blockId);
     expect(block!.title).toBe('Front squat + Hip thrust');
 
-    const items = await getBlockExerciseItems(blockId, sql);
+    const items = await getBlockExerciseItems(blockId, fx.coachId, sql);
     expect(items.map((i) => i.exercise_id)).toEqual([frontSquat, hipThrust]);
     expect(items.map((i) => i.exercise_name)).toEqual(['Front Squat', 'Hip Thrust']);
     // Stable uids (be-<blockId>-<position>) — same shape the materializer emits.
@@ -95,7 +95,7 @@ describeWithDb('GET /api/coach/blocks/[id] hydration (real DB)', () => {
 
     const block = await getBlockById(fx.coachId, blockId, sql);
     expect(block).not.toBeNull();
-    const items = await getBlockExerciseItems(blockId, sql);
+    const items = await getBlockExerciseItems(blockId, fx.coachId, sql);
     expect(items).toHaveLength(0);
   });
 

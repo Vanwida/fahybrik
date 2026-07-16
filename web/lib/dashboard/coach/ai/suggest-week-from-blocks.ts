@@ -3,6 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import {
   weekDaySchema,
   blockUseModifiersSchema,
@@ -10,8 +11,16 @@ import {
   type BlockUseModifiers,
 } from '@fahybrid/shared/schema/program-templates';
 import type { Block } from '@fahybrid/shared/schema/blocks';
+import {
+  checkPrescriptionCompleteness,
+  isExecutable,
+  safeParsePrescription,
+} from '@fahybrid/shared/domain/prescription';
 import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
-import { createPartFromLibraryBlock } from '@/lib/dashboard/programming/block-to-part';
+import {
+  createPartFromLibraryBlock,
+  type LibraryBlockExercise,
+} from '@/lib/dashboard/programming/block-to-part';
 
 /**
  * Coach IA — composición de SEMANA a partir de la BIBLIOTECA DE BLOQUES (0037).
@@ -19,21 +28,26 @@ import { createPartFromLibraryBlock } from '@/lib/dashboard/programming/block-to
  * Principio de producto (Documento Maestro): la IA NO genera entrenos de cero —
  * SELECCIONA y ADAPTA bloques existentes de Pablo. Esta es la diferencia con
  * `suggest-week.ts`, que reparte TEMPLATES del catálogo (sesiones completas con
- * `template_segments` hidratables a ejercicios). Los bloques (Model A) guardan
- * la prescripción VERBATIM en `description` y NO tienen estructura de ejercicios,
- * así que cada bloque se materializa como un `WeekDayPart` con:
+ * `template_segments` hidratables a ejercicios).
+ *
+ * Un bloque se materializa como un `WeekDayPart` con:
  *   - `title`       = block.title
+ *   - `items[]`     = sus `block_exercises`, con `exercise_id` + prescripción tipada
  *   - `coach_note`  = block.description verbatim (+ modificadores sugeridos)
- *   - `items: []`   (Pablo detalla ejercicios después si quiere)
  *   - `format`      = mapeo coarse → templateFormat (para que el Studio renderice)
+ *
+ * OJO — este módulo decía "los bloques NO tienen estructura de ejercicios" y
+ * emitía `items: []`. Era falso: los 99 bloques del método de Pablo tienen
+ * 121/121 ejercicios con `exercise_id` y `prescription_json`. Verificado contra
+ * la DB, no contra el comentario.
  *
  * El shape de salida es compatible con el modal "Generar semana" del dashboard:
  * `days: WeekDay[]` consumible por `onAcceptWeek`. Además expone `matched_blocks`
  * con los `block_id` reales referenciados (trazabilidad — nunca inventamos).
  *
- * La materialización bloque → `WeekDayPart` (format mapping, coach_note verbatim,
- * source_block_id, modificadores) la hace `createPartFromLibraryBlock` — la misma
- * que usa la inserción manual desde el Studio. NO duplicamos esa lógica aquí.
+ * La materialización bloque → `WeekDayPart` (format mapping, items, coach_note,
+ * source_block_id, modificadores) la hace `createPartFromLibraryBlock`. NO
+ * duplicamos esa lógica aquí.
  */
 
 // ---------------------------------------------------------------------------
@@ -132,9 +146,11 @@ export interface ComposableBlock {
   format: string | null;
   source_ref: string | null;
   default_modifiers: BlockUseModifiers | null;
+  /** The block's own exercises + their typed dose (`block_exercises`). */
+  exercises: LibraryBlockExercise[];
 }
 
-async function loadComposableBlocks(
+export async function loadComposableBlocks(
   coachId: number | bigint,
   client: Sql,
 ): Promise<ComposableBlock[]> {
@@ -156,10 +172,62 @@ async function loadComposableBlocks(
     where coach_id = ${Number(coachId)}
     order by methodology_group_id asc, id asc
   `;
+  if (rows.length === 0) return [];
+
+  // The block's REAL dose. This loader used to skip `block_exercises` entirely
+  // while the comment above claimed it only handled "bloques desglosables", so
+  // every block materialised as `items: []` with the prescription stranded in
+  // `coach_note` — Pablo's whole method arriving as dead text. One extra query
+  // for the lot; blocks are ~100 per coach.
+  //
+  // The name is the coach's (mig 0132): they compose the week reading THEIR
+  // vocabulary, so a base exercise they renamed must show up renamed here too.
+  // The override join is a LEFT JOIN and only changes the label — never which
+  // rows come back. No visibility predicate: `be.exercise_id` already arrives
+  // from a block scoped by `b.coach_id`, and filtering here would make assigned
+  // work vanish.
+  const exRows = await client<
+    Array<{
+      block_id: number;
+      exercise_id: number;
+      exercise_name: string;
+      prescription_json: unknown;
+      params_json: Record<string, unknown> | null;
+      notes: string | null;
+    }>
+  >`
+    select be.block_id,
+           be.exercise_id,
+           coalesce(ceo.name, e.name) as exercise_name,
+           be.prescription_json,
+           be.params_json,
+           be.notes
+    from block_exercises be
+    join blocks b on b.id = be.block_id
+    join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, BigInt(coachId))}
+    where b.coach_id = ${Number(coachId)}
+    order by be.block_id asc, be.block_position asc, be.position asc
+  `;
+
+  const byBlock = new Map<number, LibraryBlockExercise[]>();
+  for (const r of exRows) {
+    const list = byBlock.get(Number(r.block_id)) ?? [];
+    list.push({
+      exercise_id: Number(r.exercise_id),
+      exercise_name: r.exercise_name,
+      prescription_json: r.prescription_json,
+      params_json: r.params_json,
+      notes: r.notes,
+    });
+    byBlock.set(Number(r.block_id), list);
+  }
+
   return rows.map((r) => ({
     ...r,
     id: Number(r.id),
     methodology_group_id: Number(r.methodology_group_id),
+    exercises: byBlock.get(Number(r.id)) ?? [],
   }));
 }
 
@@ -197,10 +265,15 @@ function toBlock(b: ComposableBlock): Block {
     title: b.title,
     description: b.description,
     methodology_group_id: b.methodology_group_id,
+    // OJO: `blocks.format` es texto libre del importador ('zone2', 'race_sim'…),
+    // NO el enum `templateFormat`. Va crudo aquí porque `Block` es el tipo del
+    // dominio y lo guarda crudo; la traducción ocurre UNA vez, en
+    // `templateFormatForBlock` dentro del materializador. Meterlo tal cual en un
+    // `WeekDayPart` da 400 al guardar en 87 de los 99 bloques.
     format: b.format,
     source_ref: b.source_ref,
-    // El composer solo trabaja con bloques desglosables (con block_exercises);
-    // el materializador no usa este flag. Completa el shape `Block`.
+    // `needs_review` es del flujo de revisión de la biblioteca; el materializador
+    // no lo usa. Solo completa el shape `Block`.
     needs_review: false,
   };
 }
@@ -319,7 +392,7 @@ function buildDay(
   // Materialización canónica (misma que la inserción manual desde el Studio):
   // verbatim en coach_note, items vacío, source_block_id + block_modifiers.
   const blocks = cleaned.map((p) =>
-    createPartFromLibraryBlock(toBlock(p.block), p.modifiers ?? undefined),
+    createPartFromLibraryBlock(toBlock(p.block), p.modifiers ?? undefined, p.block.exercises),
   );
   const day = weekDaySchema.parse({
     day_of_week: dow,
@@ -378,6 +451,38 @@ interface HeuristicArgs {
 }
 
 /**
+ * ¿Puede el coach CONFIRMAR una semana que use este bloque?
+ *
+ * De los 99 bloques de Pablo, 29 tienen ejercicios sin dosis ninguna: su
+ * taquigrafía ("Strict shoulder press 4r" dice 4 series y nunca las reps, que se
+ * las dice al atleta en el gym). El gate del importador BLOQUEA un item sin
+ * dosis — con razón: nadie ejecuta una cantidad de trabajo sin especificar. Pero
+ * si el reparto cae en ellos, la semana sale roja y no la puede confirmar.
+ *
+ * Así que entre SUS bloques preferimos los que sí puede shipear. No se impone
+ * nada ni se inventa nada: mismo método, mismos grupos, mismo equilibrio — solo
+ * se ordena. Los 29 siguen disponibles si su grupo no tiene alternativa (mejor su
+ * bloque marcado que un hueco).
+ *
+ * Un bloque de solo prosa (sus 14 simulaciones y 9 WODs, sin `block_exercises`)
+ * SÍ es confirmable: sale con `items: []` y su texto en `coach_note`, y sin items
+ * no hay nada que marcar.
+ *
+ * Usa el gate real (`checkPrescriptionCompleteness`), no una heurística paralela:
+ * si el listón cambia, esto lo sigue solo.
+ */
+function blockIsConfirmable(b: ComposableBlock): boolean {
+  return b.exercises.every((ex) => {
+    const parsed = safeParsePrescription(ex.prescription_json);
+    if (!parsed.success) return false;
+    const check = checkPrescriptionCompleteness(parsed.data, {
+      modality: parsed.data.modality ?? null,
+    });
+    return isExecutable(check);
+  });
+}
+
+/**
  * Compose determinista sin LLM. Reparte 1 bloque por día de entreno recorriendo
  * los grupos metodológicos, evitando repetir el mismo bloque y alternando carga
  * (strength/cardio/metcon) con recovery cuando es posible.
@@ -388,12 +493,20 @@ interface HeuristicArgs {
 export function composeWeekHeuristic(args: HeuristicArgs): ComposeResult {
   const trainingSet = new Set(args.training_days);
 
-  // Agrupa bloques por methodology_group. El orden dentro del grupo es por id.
+  // Agrupa bloques por methodology_group. Dentro de cada grupo, PRIMERO los que
+  // el coach puede confirmar (ver `blockIsConfirmable`); a igualdad, por id.
   const byGroup = new Map<number, ComposableBlock[]>();
   for (const b of args.blocks) {
     const arr = byGroup.get(b.methodology_group_id);
     if (arr) arr.push(b);
     else byGroup.set(b.methodology_group_id, [b]);
+  }
+  for (const arr of byGroup.values()) {
+    arr.sort((a, b) => {
+      const ca = blockIsConfirmable(a) ? 0 : 1;
+      const cb = blockIsConfirmable(b) ? 0 : 1;
+      return ca !== cb ? ca - cb : a.id - b.id;
+    });
   }
 
   // Orden de grupos a recorrer: por id de grupo metodológico.

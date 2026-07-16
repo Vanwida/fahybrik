@@ -22,6 +22,7 @@ import {
 } from '@/lib/import/exercise-resolve';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeExercise, type Fixture } from '../utils/db-fixtures';
+import { upsertCoachExerciseOverride } from '@/lib/exercises/coach-override';
 
 // ---------------------------------------------------------------------------
 // PURE — always run.
@@ -181,5 +182,83 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     const res = await resolveExercise(fx.coachId, term, sql);
     expect(res.exercise_id).toBeNull();
     expect(res).toMatchObject({ exercise_id: null, normalized: normalizeTerm(term) });
+  });
+
+  // -------------------------------------------------------------------------
+  // OWNERSHIP (migration 0132) — the layer-3/4 leak this task closes, plus the
+  // rename-fork and own-before-base tiebreak it introduces.
+  // -------------------------------------------------------------------------
+
+  test("coach B does NOT resolve coach A's PROPIO exercise by exact name (layer 3)", async () => {
+    const a = await seedCoach();
+    const b = await seedCoach();
+    const name = 'Vqzxr Only Mine Move';
+    const mineId = await makeExercise({ fx: a, name, coachId: a.coachId });
+
+    // Control: the OWNING coach resolves it fine.
+    expect(await resolveExercise(a.coachId, name, sql)).toMatchObject({
+      exercise_id: mineId,
+      via: 'name_exact',
+    });
+
+    // The leak: a different coach must NOT resolve into A's private exercise.
+    const res = await resolveExercise(b.coachId, name, sql);
+    expect(res.exercise_id).toBeNull();
+  });
+
+  test("coach B does NOT resolve coach A's PROPIO exercise by substring (layer 4)", async () => {
+    const a = await seedCoach();
+    const b = await seedCoach();
+    const name = 'Wjkpz Substring Only Mine';
+    const mineId = await makeExercise({ fx: a, name, coachId: a.coachId });
+    const token = 'wjkpz'; // rare token contained in `name`, unique to this test.
+
+    // Control: the OWNING coach resolves it via substring.
+    expect(await resolveExercise(a.coachId, token, sql)).toMatchObject({
+      exercise_id: mineId,
+      via: 'name_substring',
+    });
+
+    // The leak: a different coach must NOT resolve into A's private exercise.
+    const res = await resolveExercise(b.coachId, token, sql);
+    expect(res.exercise_id).toBeNull();
+  });
+
+  test('a coach resolves a BASE exercise they renamed, by their NEW name (override on name)', async () => {
+    const fx = await seedCoach();
+    const baseId = await makeExercise({ fx, name: 'Base Movement Ntrqv' });
+    await upsertCoachExerciseOverride(sql, {
+      coach_id: BigInt(fx.coachId),
+      exercise_id: BigInt(baseId),
+      patch: { name: 'Renamed Move Ntrqv' },
+    });
+
+    // The coach's Excel says the NEW name — that must resolve.
+    expect(await resolveExercise(fx.coachId, 'Renamed Move Ntrqv', sql)).toMatchObject({
+      exercise_id: baseId,
+      via: 'name_exact',
+    });
+
+    // A different coach, who never renamed it, still only knows the BASE name —
+    // the new name means nothing to them (per-coach fork, not global).
+    const other = await seedCoach();
+    const otherRes = await resolveExercise(other.coachId, 'Renamed Move Ntrqv', sql);
+    expect(otherRes.exercise_id).toBeNull();
+  });
+
+  test('own-before-base tiebreak: renamed base "X" + a separate PROPIO exercise also called "X" resolves to the OWN one', async () => {
+    const fx = await seedCoach();
+    const baseId = await makeExercise({ fx, name: 'Origin Name Tzvqk' });
+    const ownId = await makeExercise({ fx, name: 'Tiebreak Name Tzvqk', coachId: fx.coachId });
+    await upsertCoachExerciseOverride(sql, {
+      coach_id: BigInt(fx.coachId),
+      exercise_id: BigInt(baseId),
+      patch: { name: 'Tiebreak Name Tzvqk' },
+    });
+    expect(ownId).not.toBe(baseId);
+
+    // Both rows now answer to the SAME merged name for this coach — own must win.
+    const res = await resolveExercise(fx.coachId, 'Tiebreak Name Tzvqk', sql);
+    expect(res).toMatchObject({ exercise_id: ownId, via: 'name_exact' });
   });
 });

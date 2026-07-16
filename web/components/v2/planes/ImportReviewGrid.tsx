@@ -15,6 +15,7 @@ import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import {
   dayTone,
   totalExcludedDays,
+  totalIncomplete,
   totalUnresolved,
   totalWritableDays,
   unmappedWeekCount,
@@ -26,17 +27,23 @@ import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { ImportDayReviewDrawer } from './ImportDayReviewDrawer';
 
+// `incomplete` shares the danger hue with `unresolved` because it shares the
+// consequence — both block Confirmar. Amber would promise the coach he can ship
+// it, which is a lie. The TAG carries the distinction: which of the two things
+// this day is missing, and therefore what he has to go do.
 const TONE_CELL: Record<DayTone, string> = {
   rest: 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]',
   skipped: 'border-dashed border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',
   ok: 'border-[color:var(--v2-ok)]/50 hover:border-[color:var(--v2-ok)]',
   review: 'border-[color:var(--v2-warn)]/60 hover:border-[color:var(--v2-warn)]',
+  incomplete: 'border-[color:var(--v2-danger)]/60 hover:border-[color:var(--v2-danger)]',
   unresolved: 'border-[color:var(--v2-danger)]/60 hover:border-[color:var(--v2-danger)]',
 };
 
 const TONE_TAG: Record<Exclude<DayTone, 'rest'>, { label: string; className: string }> = {
   ok: { label: 'tipado', className: 'bg-[color:var(--v2-ok)]/15 text-[color:var(--v2-ok)]' },
   review: { label: 'revisar', className: 'bg-[color:var(--v2-warn)]/15 text-[color:var(--v2-warn)]' },
+  incomplete: { label: 'sin dosis', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
   unresolved: { label: 'ejercicio?', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
   skipped: { label: 'no entra', className: 'bg-[color:var(--v2-faint)]/15 text-[color:var(--v2-muted)]' },
 };
@@ -118,10 +125,12 @@ export function ImportReviewGrid({
   };
 
   const unresolved = totalUnresolved(reviewWeeks);
+  const incomplete = totalIncomplete(reviewWeeks);
   const unmapped = unmappedWeekCount(reviewWeeks);
   const writable = totalWritableDays(reviewWeeks);
   const excluded = totalExcludedDays(reviewWeeks);
-  const canConfirm = !confirming && unresolved === 0 && unmapped === 0 && writable > 0;
+  const canConfirm =
+    !confirming && unresolved === 0 && incomplete === 0 && unmapped === 0 && writable > 0;
 
   const editingWeek = editing ? reviewWeeks[editing.weekIdx] : null;
   const editingDay = editingWeek ? editingWeek.days[editing!.dayIdx] : null;
@@ -281,6 +290,13 @@ export function ImportReviewGrid({
             {unresolved === 1
               ? '1 línea sin ejercicio del catálogo. Resuélvela para poder guardar.'
               : `${unresolved} líneas sin ejercicio del catálogo. Resuélvelas para poder guardar.`}
+          </p>
+        ) : incomplete > 0 ? (
+          <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-danger)]">
+            <MIcon name="error" size={14} />
+            {incomplete === 1
+              ? '1 línea dice el ejercicio pero no cuánto trabajo. Ábrela y prescríbela.'
+              : `${incomplete} líneas dicen el ejercicio pero no cuánto trabajo. Ábrelas y prescríbelas.`}
           </p>
         ) : unmapped > 0 ? (
           <p className="flex items-center gap-1.5 text-[12px] text-[color:var(--v2-warn)]">

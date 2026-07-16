@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 import { templateFormat, targetBlock } from '@fahybrid/shared/schema/_primitives';
@@ -118,6 +119,14 @@ export async function listTemplatesForCoach(
       -- Exclude per-athlete INSTANCES (forks): the library lists only reusable
       -- templates; instances are reached through their assignment.
       and t.instance_athlete_id is null
+      -- Exclude CALIBRATION TESTS (0112): un test mide al atleta, no es un
+      -- entreno reutilizable. Tienen su propia superficie y el coach no los
+      -- programa como sesiones. La verdad es el vinculo coach_calibration_tests
+      -- .template_id, no la forma 'test' (una sesion puede tener forma de test
+      -- sin ser un protocolo de calibracion).
+      and not exists (
+        select 1 from coach_calibration_tests ct where ct.template_id = t.id
+      )
     order by t.updated_at desc
     limit 500
   `;
@@ -220,7 +229,9 @@ export async function getTemplateDetail(params: {
       s.block_title,
       s.block_format,
       s.exercise_id::text as exercise_id,
-      e.name as exercise_name,
+      -- Coach's renamed exercise wins over the base catalog name (mig 0132) — the
+      -- editor must show the name THIS coach uses, same as the athlete-facing read.
+      coalesce(ceo.name, e.name) as exercise_name,
       e.category::text as exercise_category,
       e.modality::text as exercise_modality,
       s.params_json,
@@ -228,6 +239,7 @@ export async function getTemplateDetail(params: {
       s.notes
     from template_segments s
     join exercises e on e.id = s.exercise_id
+    ${joinCoachOverride(client, params.coach_id)}
     where s.template_id = ${Number(params.template_id)}
     order by s.block_position asc, s.position asc
   `;

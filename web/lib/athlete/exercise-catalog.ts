@@ -4,6 +4,7 @@ import {
   coachExerciseColumns,
   exerciseCatalogOrder,
   joinCoachOverride,
+  visibleToCoach,
   type CoachExerciseRow,
 } from '@/lib/exercises/coach-override';
 
@@ -43,9 +44,12 @@ export async function loadAthleteExerciseCatalog(
     select ${coachExerciseColumns(sql)}
     from exercises e
     ${joinCoachOverride(sql, q.coachId)}
-    where (${category}::exercise_category is null or e.category = ${category}::exercise_category)
+    where ${visibleToCoach(sql, q.coachId)}
+      and (${category}::exercise_category is null or e.category = ${category}::exercise_category)
       and (${term}::text is null
-           or lower(e.name) like ${term}::text
+           -- Match the MERGED name — an athlete searching must find an exercise
+           -- their coach renamed, not just its base name.
+           or lower(coalesce(ceo.name, e.name)) like ${term}::text
            or lower(e.slug) like ${term}::text)
     order by ${exerciseCatalogOrder(sql)}
     limit ${q.limit}

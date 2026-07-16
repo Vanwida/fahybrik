@@ -4,7 +4,7 @@
 // carry the structured Prescription forward so PrescriptionFields edits the rich
 // domain model, not a scalar fallback.
 
-import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import {
   recoveryActivitySchema,
   type RecoveryActivity,
@@ -61,6 +61,17 @@ export interface EditorItem {
   uid: string;
   exercise_id: number | null;
   exercise_name: string;
+  /**
+   * Modalidad INTRÍNSECA del ejercicio (`exercises.modality`, 0053). La pide el
+   * gate de prescripción, que avisa explícitamente de NO usar
+   * `prescription.modality`: esa es una pista que quien escribió la prescripción
+   * pudo omitir. Sin esto, el editor y la Biblioteca juzgarían la misma línea con
+   * datos distintos y podrían contradecirse.
+   *
+   * Opcional: la rellenan los loaders que la tienen (bloque y sesión). Ausente →
+   * el gate cae a la modalidad de la prescripción, como antes.
+   */
+  exercise_modality?: Modality | null;
   prescription: Prescription;
   notes?: string;
 }
@@ -91,6 +102,17 @@ export interface EditorBlock {
   group?: StructureGroup;
   /** Library origin, when inserted from the Biblioteca de Bloques. */
   source_block_id?: number | null;
+  /**
+   * Título del bloque de origen, para poder DECIRLE al coach de dónde salió esto
+   * ("Desde tu bloque «X»"). Es PROCEDENCIA, no un vínculo vivo: insertar COPIA
+   * la estructura y editar el bloque en la Biblioteca no cambia esta semana.
+   *
+   * DERIVADO, nunca se persiste: el serializador solo escribe los campos conocidos
+   * de WeekDayPart, y al recargar lo resuelve el loader desde `source_block_id`.
+   * `null` = el bloque de origen ya no existe (o no es de este coach) → no se
+   * pinta nada, que es lo honesto: la referencia es del pasado, no una promesa.
+   */
+  source_block_title?: string | null;
   items: EditorItem[];
 }
 
@@ -205,6 +227,22 @@ export interface LibraryBlockRow {
   /** Modality color slug for the left-border (carrera/ergo/fuerza/circuito/…). */
   modality_slug: string;
   usage_count: number;
+  /**
+   * De dónde salió el bloque en el plan del coach ("S9 – Martes"). Es lo que
+   * DISTINGUE los títulos repetidos: el título importado es solo el primer
+   * fragmento del entreno ("10' row z2" cuando en realidad es row + ski + bike +
+   * run), así que 4 títulos se repiten entre 9 bloques. null si no vino de un import.
+   */
+  source_ref: string | null;
+  /**
+   * Tiene `block_exercises` → el atleta puede ejecutarlo → se puede insertar en un
+   * día. Un bloque sin tipar solo tiene la prosa verbatim del coach en
+   * `description`: se muestra, pero insertarlo la perdería (ver
+   * `isInsertableBlockModel`). NO es `needs_review`: en los datos reales discrepan.
+   */
+  typed: boolean;
+  /** Cuántas piezas (EditorBlock) añade al día: `block_position` distintos. 0 sin tipar. */
+  part_count: number;
 }
 
 /** Minimal exercise catalog row for the "añadir ejercicio" picker. */

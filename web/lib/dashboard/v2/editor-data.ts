@@ -1,23 +1,23 @@
 import 'server-only';
 
-import { sql } from '@/lib/db';
-
 // editor-data — server loaders for the v2 editing cluster. Each REUSES an
 // existing real loader (getTemplateDetail, loadMonthTemplateWithWeeks,
 // listTemplatesForCoach, listBlocks) and maps it into the client-safe view
 // models in editor-types.ts. No new tables, no invented data: an empty result
 // degrades to an empty model (the UI shows an EmptyState), never throws.
 
+import { sql } from '@/lib/db';
 import { getTemplateDetail, listTemplatesForCoach } from '@/lib/dashboard/coach/templates';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
 import {
   getBlockById,
   getBlockExerciseRowsForEdit,
-  listBlocks,
+  listBlocksWithStructure,
 } from '@/lib/dashboard/coach/blocks';
 import {
   legacyItemToPrescription,
   safeParsePrescription,
+  type Modality,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
 import { normalizeWeekDay } from '@fahybrid/shared/schema/program-templates';
@@ -76,16 +76,27 @@ export async function loadSessionEditorModel(params: {
       title,
       format: b.block_format ?? detail.format,
       group: inferGroup(title, b.block_format ?? detail.format),
-      items: b.items.map<EditorItem>((it) => ({
-        uid: `tpl-item-${it.id}`,
-        exercise_id: Number(it.exercise_id),
-        exercise_name: it.exercise_name,
-        notes: it.notes ?? undefined,
-        prescription: legacyItemToPrescription({
-          params_json: it.params_json,
-          notes: it.notes,
-        }),
-      })),
+      items: b.items.map<EditorItem>((it) => {
+        // Prefiere la prescripción ESTRUCTURADA (0043) y degrada a la legacy solo
+        // si falta o no valida — igual que loadBlockEditorModel. Antes se llamaba
+        // a legacyItemToPrescription SIEMPRE: una sesión con prescripción
+        // estructurada se abría degradada y, al volver a guardar, PERSISTÍA lo
+        // degradado (pérdida silenciosa). getTemplateDetail ya la trae parseada.
+        const prescription: Prescription =
+          it.prescription_json ??
+          legacyItemToPrescription({
+            params_json: it.params_json,
+            notes: it.notes,
+          });
+        return {
+          uid: `tpl-item-${it.id}`,
+          exercise_id: Number(it.exercise_id),
+          exercise_name: it.exercise_name,
+          exercise_modality: (it.exercise_modality ?? null) as Modality | null,
+          notes: it.notes ?? undefined,
+          prescription,
+        };
+      }),
     };
   });
 
@@ -112,7 +123,7 @@ export async function loadBlockEditorModel(params: {
   const block = await getBlockById(params.coach_id, params.block_id);
   if (!block) return null;
 
-  const rows = await getBlockExerciseRowsForEdit(params.block_id);
+  const rows = await getBlockExerciseRowsForEdit(params.block_id, params.coach_id);
 
   // Group rows by block_position, preserving first-seen order.
   const groupsMap = new Map<number, typeof rows>();
@@ -142,6 +153,9 @@ export async function loadBlockEditorModel(params: {
           uid: `be-item-${it.position}`,
           exercise_id: Number(it.exercise_id),
           exercise_name: it.exercise_name,
+          // La modalidad del CATÁLOGO viaja al cliente para que el editor juzgue
+          // la dosis con el mismo dato que la Biblioteca (si no, se contradicen).
+          exercise_modality: (it.exercise_modality ?? null) as Modality | null,
           notes: it.notes ?? undefined,
           prescription,
         };
@@ -182,8 +196,9 @@ export async function loadDayEditorModel(params: {
   );
   const day = dayRaw ? normalizeWeekDay(dayRaw) : { day_of_week: dayOfWeek, sessions: [] };
 
-  const sessions: EditorSession[] = (day.sessions ?? []).map((s, si) =>
-    mapSession(s, si),
+  const sessions: EditorSession[] = await withSourceBlockTitles(
+    (day.sessions ?? []).map((s, si) => mapSession(s, si)),
+    params.coach_id,
   );
 
   if (!week) return null; // microcycle with no weeks → no day to edit
@@ -229,6 +244,49 @@ export async function loadDayEditorModel(params: {
     week_day_base,
     weeks,
   };
+}
+
+/**
+ * Resuelve el TÍTULO del bloque de origen de los parts que vinieron de la
+ * Biblioteca, para que el día pueda decir "Desde tu bloque «X»".
+ *
+ * Es PROCEDENCIA, no un vínculo vivo: la inserción copia la estructura y editar
+ * el bloque en la Biblioteca NO cambia esta semana. Por eso el título se resuelve
+ * al LEER y no se persiste — así nunca se queda obsoleto ni miente.
+ *
+ * Scoped por coach: un `source_block_id` que ya no existe (o de otro coach) se
+ * queda en `null` y no se pinta nada. Un solo query batch para todo el día.
+ */
+async function withSourceBlockTitles(
+  sessions: EditorSession[],
+  coachId: number | bigint,
+): Promise<EditorSession[]> {
+  const ids = Array.from(
+    new Set(
+      sessions.flatMap((s) =>
+        s.blocks.filter((b) => b.source_block_id != null).map((b) => Number(b.source_block_id)),
+      ),
+    ),
+  );
+  if (ids.length === 0) return sessions;
+
+  type SourceBlockRow = { id: string; title: string };
+  const rows: SourceBlockRow[] = await sql<SourceBlockRow[]>`
+    select id::text as id, title
+      from blocks
+     where id = any(${ids}::bigint[])
+       and coach_id = ${Number(coachId)}
+  `.catch(() => []);
+
+  const titleById = new Map<number, string>(rows.map((r) => [Number(r.id), r.title]));
+  return sessions.map((s) => ({
+    ...s,
+    blocks: s.blocks.map((b) =>
+      b.source_block_id == null
+        ? b
+        : { ...b, source_block_title: titleById.get(Number(b.source_block_id)) ?? null },
+    ),
+  }));
 }
 
 function mapSession(s: DomainWeekSession, index: number): EditorSession {
@@ -279,7 +337,7 @@ export async function loadLibraryRail(params: {
 }): Promise<{ sessions: LibrarySessionRow[]; blocks: LibraryBlockRow[] }> {
   const [sessions, blocks] = await Promise.all([
     listTemplatesForCoach(params.coach_id).catch(() => []),
-    listBlocks(params.coach_id, null).catch(() => []),
+    loadLibraryBlockRail(params),
   ]);
 
   return {
@@ -290,36 +348,80 @@ export async function loadLibraryRail(params: {
       block_count: t.block_count,
       segment_count: t.segment_count,
     })),
-    blocks: blocks.map<LibraryBlockRow>((b) => ({
-      id: b.id,
-      title: b.title,
-      format: b.format,
-      methodology_group_id: b.methodology_group_id,
-      modality_slug: blockFormatToModalitySlug(b.format),
-      // TODO(endpoint): real per-block usage count not exposed by listBlocks.
-      usage_count: 0,
-    })),
+    blocks,
   };
 }
 
-// Map a block's template_format to the v2 modality color axis (best-effort; the
-// block model has no explicit modality, format is the strongest available signal).
+/**
+ * La mitad de BLOQUES del rail: la biblioteca del coach con su estado
+ * ESTRUCTURAL, que es lo que decide si una fila se puede insertar en un día.
+ * `listBlocksWithStructure` lo resuelve en UNA consulta (bloques + nº de
+ * ejercicios + nº de piezas), así que el rail no necesita ninguna más.
+ *
+ * Separado de `loadLibraryRail` para que el rail del editor de día pueda pedir
+ * SOLO los bloques (es lo único que inserta hoy) sin arrastrar la consulta de
+ * plantillas de sesión, que nadie renderiza todavía.
+ */
+export async function loadLibraryBlockRail(params: {
+  coach_id: number | bigint;
+}): Promise<LibraryBlockRow[]> {
+  const blocks = await listBlocksWithStructure(params.coach_id, null).catch(() => []);
+  return blocks.map<LibraryBlockRow>((b) => ({
+    id: b.id,
+    title: b.title,
+    format: b.format,
+    methodology_group_id: b.methodology_group_id,
+    modality_slug: blockFormatToModalitySlug(b.format),
+    source_ref: b.source_ref,
+    typed: b.typed,
+    part_count: b.part_count,
+    // TODO(endpoint): real per-block usage count not exposed by listBlocksWithStructure.
+    usage_count: 0,
+  }));
+}
+
+// Map a block's format to the v2 modality color axis (best-effort; the block model
+// has no explicit modality, format is the strongest available signal).
+//
+// OJO — `blocks.format` tiene DOS vocabularios que conviven: el del IMPORTADOR del
+// plan del coach (run_intervals, race_sim, zone2, erg_intervals, metcon,
+// core_mobility, plyometric, tapering, functional_circuit) y el que escribe
+// `createBlockFromArchetype` (tempo, intervals, amrap, emom, for_time, circuit,
+// hyrox_sim, test). Los dos se mapean aquí: con solo el segundo, 87 de los 99
+// bloques reales caían al default y el rail salía casi monocolor — inescaneable.
 function blockFormatToModalitySlug(format: string | null): string {
   switch (format) {
+    // Fuerza — barra y potencia.
     case 'strength_block':
+    case 'plyometric':
       return 'fuerza';
+    // Correr.
     case 'tempo':
     case 'intervals':
+    case 'run_intervals':
       return 'carrera';
     case 'test':
       // The default test type is ergo; the form's hue follows the picked type.
       return 'ergo';
+    // Ergómetros (row / ski / bike). `zone2` es mayoritariamente ergo en el plan
+    // real, aunque algún bloque mezcle carrera al final.
+    case 'erg_intervals':
+    case 'zone2':
+      return 'ergo';
+    // Trabajo mixto / competición.
     case 'amrap':
     case 'emom':
     case 'for_time':
     case 'circuit':
     case 'hyrox_sim':
+    case 'race_sim':
+    case 'metcon':
+    case 'functional_circuit':
       return 'circuito';
+    // Core, movilidad y activación pre-carrera.
+    case 'core_mobility':
+    case 'tapering':
+      return 'calentamiento';
     default:
       return modalityColorSlug('functional');
   }

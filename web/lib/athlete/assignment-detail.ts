@@ -453,9 +453,11 @@ export async function loadAssignmentDetail(
           s.prescription_json                         as prescription_json,
           s.notes                                     as notes,
           e.id::text                                  as exercise_id,
-          e.name                                      as exercise_name,
           e.slug                                      as exercise_slug,
           e.category::text                            as exercise_category,
+          -- exercise_name/cues/description/video_url all come from the merge below
+          -- (coach override wins, else base) — do NOT also select e.name here, it
+          -- would emit a duplicate exercise_name column.
           ${mergedExerciseContent(sql, 'exercise_')}
         from template_segments s
         join exercises e on e.id = s.exercise_id
