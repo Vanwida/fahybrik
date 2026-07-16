@@ -42,6 +42,7 @@ import {
 } from '@fahybrid/shared/schema/program-templates';
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import { callCoachIaLlmJson, CoachIaLlmError } from './llm';
+import { loadCoachExerciseCatalog } from './exercise-catalog';
 
 // Budgets sized against a MEASURED fact, not a guess: the configured chat model
 // is a reasoning model, and `max_tokens` caps reasoning + content TOGETHER. A
@@ -149,16 +150,26 @@ export interface ComposedDay {
 // ---------------------------------------------------------------------------
 
 /**
- * The exercise catalog the model is allowed to draw from. `modality` is intrinsic
- * to the exercise row (mig 0053) — it is the TRUTH we validate prescriptions
- * against, never whatever `prescription.modality` the model felt like writing.
+ * The exercise catalog the model is allowed to draw from — SCOPED TO THE COACH
+ * (mig 0132): the BASE catalog plus his own exercises, under his own names when
+ * he has renamed one. This used to be an unscoped `select … from exercises`,
+ * which both hid his own exercises from the composer and showed him everyone
+ * else's. `loadCoachExerciseCatalog` is the single source for every Coach IA
+ * surface; the name it returns is already the merged one.
+ *
+ * `modality` is intrinsic to the exercise row (mig 0053) — it is the TRUTH we
+ * validate prescriptions against, never whatever `prescription.modality` the
+ * model felt like writing. A row whose modality we cannot parse is dropped
+ * rather than guessed.
  */
-export async function loadExerciseCatalog(client: Sql): Promise<CatalogExercise[]> {
-  const rows = await client<Array<{ id: string; name: string; modality: string; category: string }>>`
-    select id::text as id, name, modality, category::text as category
-    from exercises
-    order by modality, name
-  `;
+export async function loadExerciseCatalog(
+  client: Sql,
+  coachId: number | bigint,
+): Promise<CatalogExercise[]> {
+  const rows = await loadCoachExerciseCatalog(client, coachId, {
+    order: 'modality_name',
+    limit: null,
+  });
   return rows.flatMap((r) => {
     const modality = modalitySchema.safeParse(r.modality);
     if (!modality.success) return [];

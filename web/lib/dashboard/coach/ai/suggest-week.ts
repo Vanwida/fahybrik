@@ -503,7 +503,7 @@ export function formatBoxScheduleForPrompt(schedule: BoxScheduleForPrompt | null
  * throws, which hands the caller its library fallback.
  */
 async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
-  const catalog = await loadExerciseCatalog(args.client);
+  const catalog = await loadExerciseCatalog(args.client, args.coach_id);
   if (catalog.length === 0) {
     throw new CoachIaLlmError('empty', 'El catálogo de ejercicios está vacío.');
   }
