@@ -8,6 +8,7 @@
 // asks for explicit confirmation before overwriting — never a silent clobber.
 
 import { useMemo, useState } from 'react';
+import { ModalPortal, useEscapeToClose } from './ModalPortal';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { DAY_LABELS_FULL, type DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
@@ -45,6 +46,9 @@ export function CopyDayModal({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errored, setErrored] = useState(false);
+
+  // A media copia, Escape se traga: no se cierra el modal con la petición en vuelo.
+  useEscapeToClose(onClose, !busy);
 
   const targetWeek = useMemo(
     () => weeks.find((w) => w.id === targetWeekId) ?? weeks[0] ?? null,
@@ -109,6 +113,7 @@ export function CopyDayModal({
   const days = targetWeek?.days ?? [];
 
   return (
+    <ModalPortal>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -278,5 +283,6 @@ export function CopyDayModal({
         </footer>
       </div>
     </div>
+    </ModalPortal>
   );
 }

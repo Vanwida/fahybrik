@@ -28,6 +28,7 @@ import { SessionPartCard } from './SessionPartCard';
 import { CopyDayModal } from './CopyDayModal';
 import { SuggestWorkoutModal } from './SuggestWorkoutModal';
 import { BlockEditor } from './BlockEditor';
+import { ModalPortal, useEscapeToClose } from './ModalPortal';
 import { ExercisePicker, type PickedExercise } from './ExercisePicker';
 import { blockMinutes } from './block-helpers';
 import { createBlockFromArchetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
@@ -702,7 +703,13 @@ function BlockEditorDrawer({
   onChange: (next: EditorBlock) => void;
   onAddItem: () => void;
 }) {
+  // El ExercisePicker se abre ENCIMA de este drawer (desde "añadir componente" y
+  // desde el ExercisePickerField de dentro): Escape es suyo mientras esté abierto.
+  // La pila lo resuelve sola — aquí no hace falta saber quién hay arriba.
+  useEscapeToClose(onClose);
+
   return (
+    <ModalPortal>
     <div
       className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
       onClick={onClose}
@@ -734,5 +741,6 @@ function BlockEditorDrawer({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

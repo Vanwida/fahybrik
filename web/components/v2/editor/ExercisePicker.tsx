@@ -20,6 +20,7 @@
 // the shared youtubeUrlSchema (no new schema).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ModalPortal, useEscapeToClose } from './ModalPortal';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
@@ -149,14 +150,13 @@ export function ExercisePicker({
   // sessionStorage. Derived free from picks; no schema. Most-recent-first.
   const recentIds = useRecentExerciseIds();
 
+  // Escape via la pila compartida: este picker se abre ENCIMA del drawer de dosis,
+  // y con un listener propio en `window` una sola pulsación cerraría los dos.
+  useEscapeToClose(onClose);
+
   useEffect(() => {
     dialogRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
 
   // Pre-load the catalog (same endpoint ExercisePalette uses). Focus search.
   useEffect(() => {
@@ -226,6 +226,7 @@ export function ExercisePicker({
   }, []);
 
   return (
+    <ModalPortal>
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -287,6 +288,7 @@ export function ExercisePicker({
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }
 
