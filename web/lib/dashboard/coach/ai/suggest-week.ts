@@ -7,10 +7,17 @@ import {
   weekDaySchema,
   type WeekDay,
 } from '@fahybrid/shared/schema/program-templates';
-import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
+import { isCoachIaLlmConfigured, CoachIaLlmError } from './llm';
 import { loadTemplateAsBlocks } from './template-to-blocks';
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
+import type { Modality } from '@fahybrid/shared/domain/prescription';
+import {
+  composeSession,
+  loadExerciseCatalog,
+  planWeekSkeleton,
+  type CatalogExercise,
+} from './compose-week';
 
 /**
  * Clona los blocks de un template generando uids nuevos para parts e items.
@@ -139,7 +146,7 @@ export async function suggestWeekPlan(params: {
     : null;
 
   try {
-    const planned = await llmOrderWeek({
+    const planned = await composeWeekPlan({
       focus: req.focus,
       level: req.level ?? 'pro',
       templates: usable,
@@ -196,6 +203,19 @@ interface TemplateRow {
   segment_count: number;
 }
 
+/**
+ * The coach's TRAINING library — and only that.
+ *
+ * Calibration tests (5K control, Remo 2K, Batería 1RM, HYROX half-sim) live in the
+ * same `templates` table, and dealing them into a week is what produced the
+ * garbage: a coach whose library held nothing but his four tests got a week of
+ * tests. A test MEASURES the athlete; it is not a session and can never be one, so
+ * it is excluded here, at the source, for every caller.
+ *
+ * `coach_calibration_tests.template_id` is the canonical marker (mig 0112); the
+ * legacy `meta_json ? 'calibration'` mirror is still written on every materialize,
+ * so both are checked — a test must fail BOTH to count as training.
+ */
 async function loadCoachTemplates(
   coach_id: number | bigint,
   client: Sql,
@@ -217,6 +237,11 @@ async function loadCoachTemplates(
     where t.coach_id = ${coach_id as number}
       and t.archived_at is null
       and t.is_draft = false
+      and not exists (
+        select 1 from coach_calibration_tests cct
+        where cct.template_id = t.id
+      )
+      and not (t.meta_json ? 'calibration')
     order by t.updated_at desc
     limit 80
   `;
@@ -356,46 +381,14 @@ function defaultWeekName(focus: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// LLM ordering — el LLM solo ordena templates del catálogo + escribe focus.
-// No genera bloques nuevos aquí (eso lo hace suggest-workout en modo slow).
+// Slow mode = COMPOSITION. The model plans the week's skeleton, then one call per
+// session WRITES that session from the exercise catalog with a full prescription
+// on every item. It used to only re-order the coach's existing templates, which
+// is why an empty library produced a week of calibration tests: a selector can
+// only ever hand back what is already there.
 // ---------------------------------------------------------------------------
 
-/**
- * Acepta `template_names: string[]` (nuevo) o `template_name: string` (legacy
- * single). El `.transform` normaliza a array para downstream.
- */
-const llmDaySchema = z
-  .object({
-    day_of_week: z.number().int().min(1).max(7),
-    kind: z.enum(['rest', 'workout']),
-    template_names: z.array(z.string().max(200)).max(4).optional(),
-    template_name: z.string().max(200).optional().nullable(),
-    focus: z.string().max(120).optional(),
-    notes: z.string().max(400).optional(),
-  })
-  .transform((d) => {
-    // Defensive: si el LLM responde con el shape viejo (single string), lo
-    // promovemos a array. Si vienen ambos, prevalece `template_names`.
-    const names =
-      d.template_names && d.template_names.length > 0
-        ? d.template_names
-        : d.template_name
-          ? [d.template_name]
-          : [];
-    return {
-      day_of_week: d.day_of_week,
-      kind: d.kind,
-      template_names: names,
-      focus: d.focus,
-      notes: d.notes,
-    };
-  });
-
-const llmWeekSchema = z.object({
-  days: z.array(llmDaySchema).min(1).max(7),
-});
-
-interface LlmOrderArgs {
+interface ComposeWeekArgs {
   focus: string;
   level: 'beginner' | 'intermediate' | 'pro' | 'elite';
   templates: TemplateRow[];
@@ -491,166 +484,182 @@ export function formatBoxScheduleForPrompt(schedule: BoxScheduleForPrompt | null
   return lines.join('\n');
 }
 
-async function llmOrderWeek(args: LlmOrderArgs): Promise<BuildResult> {
-  const boxBlock = formatBoxScheduleForPrompt(args.box_class_schedule ?? null);
 
-  const systemLines = [
-    'Eres un coach de HYROX y entrenamiento híbrido de élite.',
-    'Ordenas una SEMANA seleccionando templates EXACTOS del catálogo proporcionado.',
-    'JSON exacto: { "days": [{ "day_of_week", "kind": "rest"|"workout", "template_names"?: string[], "focus"?, "notes"? }] }',
-    'Reglas:',
-    '- 7 días (1=lunes…7=domingo). Marca rest como kind:"rest" (sin template_names).',
-    '- Cada día con kind:"workout" lleva 1-3 templates en `template_names[]` (máx 4). Cada template = 1 BLOQUE de la sesión (warmup / principal / finisher). El orden en el array es el orden en que se ejecutan.',
-    '- Combinaciones típicas HYROX/élite:',
-    '  • [warmup ligero] + [principal] + [finisher]  (sesión completa estándar)',
-    '  • [warmup] + [principal]  (si principal ya es denso)',
-    '  • [principal]  (si la sesión es muy específica y carga total alta — p.ej. simulacro)',
-    '- NUNCA inventes templates: copia EXACTO los nombres del catálogo (case-sensitive si puedes, case-insensitive aceptable).',
-    '- NUNCA combines un `cardio_running` con un `strength_block` en el MISMO día si el atleta está en deload (compromete la recuperación).',
-    '- NUNCA pongas ejercicios cardio (running/rowing/ski erg/bike) dentro de un template con format=strength_block. Cardio vive en templates intervals, for_time, circuit, amrap, emom o hyrox_sim.',
-    '- Sesión dura + recuperación / Z2 al día siguiente.',
-  ];
-
-  if (boxBlock) {
-    systemLines.push(
-      '',
-      '- BOX-CLASS AWARENESS (este atleta entrena con su coach en clases presenciales).',
-      '  Si el box hace fuerza un día, ese día el plan va Z2 / técnica / recovery — NO añadas más fuerza pesada.',
-      '  Si el box hace HYROX/metabolic ese día, el plan va aeróbico ligero o descanso activo — NO dupliques estaciones.',
-      '  Misma lógica para running, rowing, intervals.',
-      '  El objetivo es complementar, no apilar el mismo tipo de carga el mismo día.',
-      boxBlock,
-    );
+/**
+ * Compose the week: plan the skeleton, then write every session in PARALLEL.
+ *
+ * The coach's own templates win wherever the skeleton found one that fits (his
+ * method is the product; ours is the fallback). Everything else is composed from
+ * the exercise catalog with a full prescription per item.
+ *
+ * One session failing must not cost the coach his week, so the fan-out is
+ * `allSettled` and a failed session degrades to an empty day. Only a total wipeout
+ * throws, which hands the caller its library fallback.
+ */
+async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
+  const catalog = await loadExerciseCatalog(args.client);
+  if (catalog.length === 0) {
+    throw new CoachIaLlmError('empty', 'El catálogo de ejercicios está vacío.');
   }
+  const byId = new Map(catalog.map((e) => [e.id, e]));
 
-  const system = systemLines.join('\n');
-
-  const tplList = args.templates
-    .map((t) => `- "${t.name}" (format=${t.format}, block=${t.target_block}, level=${t.target_level ?? '?'})`)
-    .join('\n');
-  const user = [
-    `Foco semana: ${args.focus}`,
-    `Nivel: ${args.level}`,
-    `Días entreno preferidos: ${args.training_days.join(', ')}`,
-    '',
-    'Catálogo de templates (copia los nombres EXACTOS en `template_names[]`, en orden de ejecución dentro del día):',
-    tplList,
-  ].join('\n');
-
-  const raw = await callCoachIaLlmJson({
-    system,
-    user,
-    meta: {
-      surface: 'suggest_week',
-      coach_id: args.coach_id,
-      athlete_id: args.athlete_id ?? null,
-    },
-    temperature: 0.3,
-    max_tokens: Number(process.env.LLM_CHAT_MAX_TOKENS_WEEK ?? 2048),
+  const skeleton = await planWeekSkeleton({
+    focus: args.focus,
+    level: args.level,
+    training_days: args.training_days,
+    library: args.templates.map((t) => ({
+      id: t.id,
+      name: t.name,
+      format: t.format,
+      target_block: t.target_block,
+      target_level: t.target_level,
+    })),
+    box_block: formatBoxScheduleForPrompt(args.box_class_schedule ?? null),
+    coach_id: args.coach_id,
+    athlete_id: args.athlete_id ?? null,
   });
 
-  const parsed = llmWeekSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new CoachIaLlmError('invalid_json', `LLM week schema inválido: ${parsed.error.message}`);
+  const byName = new Map(args.templates.map((t) => [t.name.trim().toLowerCase(), t]));
+
+  interface Task {
+    dow: number;
+    index: number;
+    theme: string;
+    template?: TemplateRow;
+    modalities: Modality[];
+    intensity: string;
+  }
+  const tasks: Task[] = [];
+  for (const d of skeleton.days) {
+    if (d.kind === 'rest') continue;
+    d.sessions.forEach((s, index) => {
+      const tpl = s.library_template_name
+        ? byName.get(s.library_template_name.trim().toLowerCase())
+        : undefined;
+      tasks.push({
+        dow: d.day_of_week,
+        index,
+        theme: s.theme,
+        ...(tpl ? { template: tpl } : {}),
+        modalities: s.modalities,
+        intensity: s.intensity,
+      });
+    });
   }
 
-  const byName = new Map(args.templates.map((t) => [t.name.trim().toLowerCase(), t]));
+  // Fan out: every session composed at once. A single 7-day call is what hit the
+  // token ceiling and came back truncated; per-session calls each have room for a
+  // real dose, and running them together keeps this inside the route's budget.
+  const settled = await Promise.allSettled(
+    tasks.map(async (t) => {
+      if (t.template) {
+        const blocks = cloneBlocksWithFreshUids(
+          await loadTemplateAsBlocks(t.template.id, args.client),
+        );
+        return { task: t, blocks: stampModalityFromCatalog(blocks, byId) };
+      }
+      const composed = await composeSession({
+        focus: args.focus,
+        level: args.level,
+        day_label: DOW_LABELS_ES[t.dow] ?? `Día ${t.dow}`,
+        theme: t.theme,
+        modalities: t.modalities,
+        intensity: t.intensity,
+        catalog,
+        coach_id: args.coach_id,
+        athlete_id: args.athlete_id ?? null,
+      });
+      return { task: t, blocks: composed.blocks };
+    }),
+  );
+
+  const ok = settled.filter(
+    (r): r is PromiseFulfilledResult<{ task: Task; blocks: WeekDayPart[] }> =>
+      r.status === 'fulfilled' && r.value.blocks.length > 0,
+  );
+  if (tasks.length > 0 && ok.length === 0) {
+    throw new CoachIaLlmError('empty', 'Ninguna sesión se pudo componer.');
+  }
+
+  // Assemble the seven days.
+  const byDow = new Map<number, Array<{ task: Task; blocks: WeekDayPart[] }>>();
+  for (const r of ok) {
+    const list = byDow.get(r.value.task.dow) ?? [];
+    list.push(r.value);
+    byDow.set(r.value.task.dow, list);
+  }
+
+  const skeletonByDow = new Map(skeleton.days.map((d) => [d.day_of_week, d]));
   const matched: SuggestWeekResponse['matched_templates'] = [];
   const rest_days: number[] = [];
-
-  // Cache blocks por template_id (un mismo template puede repetirse en
-  // varios días — solo fetch una vez, uids únicos por día).
-  const blocksCache = new Map<string, Awaited<ReturnType<typeof loadTemplateAsBlocks>>>();
-  const blocksFor = async (templateId: string) => {
-    if (!blocksCache.has(templateId)) {
-      blocksCache.set(templateId, await loadTemplateAsBlocks(templateId, args.client));
-    }
-    return blocksCache.get(templateId)!;
-  };
-
-  // Completa 7 días (rellena rest si LLM se dejó alguno).
-  const llmByDow = new Map(parsed.data.days.map((d) => [d.day_of_week, d]));
   const days: SuggestedWeekDay[] = [];
 
   for (let dow = 1; dow <= 7; dow += 1) {
-    const item = llmByDow.get(dow);
-    if (!item || item.kind === 'rest' || item.template_names.length === 0) {
+    const sessions = (byDow.get(dow) ?? []).sort((a, b) => a.task.index - b.task.index);
+    if (sessions.length === 0) {
       rest_days.push(dow);
       const restDay = weekDaySchema.parse({ day_of_week: dow, sessions: [] });
       days.push({ ...restDay, preview_label: 'Descanso' });
       continue;
     }
 
-    // Resolver cada nombre → template del catálogo. Los no-match se anotan
-    // en `notes` (concat al notes del LLM) y se omiten (no rompen el día).
-    const resolved: TemplateRow[] = [];
-    const missing: string[] = [];
-    for (const rawName of item.template_names) {
-      const tpl = byName.get(rawName.trim().toLowerCase());
-      if (tpl) resolved.push(tpl);
-      else missing.push(rawName);
-    }
+    // AM/PM lives only in the editor's session model, not in `WeekSession`, and
+    // the review grid flattens a day's sessions into one. So on a double-session
+    // day the split is carried in the block titles — the coach sees both, labelled.
+    const isDouble = sessions.length > 1;
+    const weekSessions = sessions.map(({ task, blocks }, i) => ({
+      kind: 'workout' as const,
+      ...(task.template ? { template_id: Number(task.template.id) } : {}),
+      blocks: isDouble ? prefixBlockTitles(blocks, i === 0 ? 'AM' : 'PM') : blocks,
+      focus: task.theme,
+    }));
 
-    if (resolved.length === 0) {
-      // Todos los names fueron inventados → día vacío con focus + nota.
-      const noMatchNote = `Sin match: ${missing.map((m) => `"${m}"`).join(', ')}`;
-      const day = weekDaySchema.parse({
-        day_of_week: dow,
-        sessions: [{ kind: 'workout', template_id: null, blocks: [] }],
-        focus: item.focus,
-        notes: [item.notes, noMatchNote].filter(Boolean).join(' · '),
-      });
-      days.push({ ...day, preview_label: noMatchNote });
-      continue;
-    }
-
-    // Materializar: por cada template resuelto, cargar sus parts y
-    // concatenar al `blocks[]` único del día (1 sesión, N bloques).
-    // `cloneBlocksWithFreshUids` garantiza uids únicos por instancia, incluso
-    // si el mismo template aparece dos veces o en varios días.
-    const aggregatedBlocks: WeekDayPart[] = [];
-    for (let i = 0; i < resolved.length; i += 1) {
-      const tpl = resolved[i]!;
+    sessions.forEach(({ task }, session_index) => {
+      if (!task.template) return;
       matched.push({
         day_of_week: dow,
-        session_index: i,
-        template_id: tpl.id,
-        template_name: tpl.name,
+        session_index,
+        template_id: task.template.id,
+        template_name: task.template.name,
       });
-      const cached = await blocksFor(tpl.id);
-      const cloned = cloneBlocksWithFreshUids(cached);
-      aggregatedBlocks.push(...cloned);
-    }
+    });
 
-    // `template_id` queda referenciado al primer template resuelto. El
-    // Studio renderiza desde `blocks[]` (que incluye TODOS los templates),
-    // así que esa referencia es solo informativa para "abrir como template".
-    const primaryTpl = resolved[0]!;
-    const dayNotes =
-      missing.length > 0
-        ? [item.notes, `Sin match: ${missing.map((m) => `"${m}"`).join(', ')}`]
-            .filter(Boolean)
-            .join(' · ')
-        : item.notes;
-    const previewLabel =
-      resolved.length === 1
-        ? primaryTpl.name
-        : resolved.map((t) => t.name).join(' + ');
-
+    const skel = skeletonByDow.get(dow);
     const day = weekDaySchema.parse({
       day_of_week: dow,
-      sessions: [
-        {
-          kind: 'workout',
-          template_id: Number(primaryTpl.id),
-          ...(aggregatedBlocks.length > 0 ? { blocks: aggregatedBlocks } : {}),
-        },
-      ],
-      focus: item.focus,
-      notes: dayNotes,
+      sessions: weekSessions,
+      ...(skel?.focus ? { focus: skel.focus } : {}),
     });
-    days.push({ ...day, preview_label: previewLabel });
+    days.push({ ...day, preview_label: sessions.map((s) => s.task.theme).join(' + ') });
   }
 
   return { days, matched, rest_days };
+}
+
+/**
+ * Stamp each item's modality from the catalog. Modality is a property of the
+ * EXERCISE (mig 0053), so the catalog is its only truth — and stamping it here
+ * means the completeness gate reads the same truth for a library item as for a
+ * composed one, instead of trusting whatever the source happened to record.
+ */
+function stampModalityFromCatalog(
+  blocks: WeekDayPart[],
+  byId: Map<number, CatalogExercise>,
+): WeekDayPart[] {
+  return blocks.map((part) => ({
+    ...part,
+    items: part.items.map((it) => {
+      const ex = byId.get(Number(it.exercise_id));
+      if (!ex || !it.prescription_json) return it;
+      return {
+        ...it,
+        prescription_json: { ...it.prescription_json, modality: ex.modality },
+      };
+    }),
+  }));
+}
+
+/** Label a double session's blocks so the AM/PM split survives the flattening. */
+function prefixBlockTitles(blocks: WeekDayPart[], prefix: string): WeekDayPart[] {
+  return blocks.map((b) => ({ ...b, title: `${prefix} · ${b.title}` }));
 }

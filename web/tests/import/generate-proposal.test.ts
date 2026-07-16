@@ -141,3 +141,91 @@ describe('weekDaysToProposal — #48 generate → typed proposal', () => {
     expect(totalUnresolved(model)).toBe(1);
   });
 });
+
+// The gate that let the garbage through: the grid only ever asked "does the
+// exercise resolve?". These items all resolve perfectly and prescribe nothing.
+describe('weekDaysToProposal — prescription completeness gate', () => {
+  const dayWith = (items: unknown[], group = 'principal'): WeekDay[] =>
+    [
+      {
+        day_of_week: 1,
+        sessions: [
+          {
+            kind: 'workout',
+            blocks: [{ uid: 'b1', format: 'sets', title: 'Bloque', group, items }],
+          },
+        ],
+      },
+    ] as unknown as WeekDay[];
+
+  test('a resolved exercise with no dose is REVIEW, never detected', () => {
+    // This is "Batería 1RM" as it reached Alex: three real exercise ids, no sets,
+    // no reps, no %RM, no rest.
+    const proposal = weekDaysToProposal({
+      days: dayWith([
+        {
+          uid: 'i1',
+          exercise_id: 42,
+          exercise_name: 'Back Squat',
+          prescription_json: { scheme: 'sets', modality: 'strength' },
+        },
+      ]),
+      sheetLabel: 'IA',
+    });
+    const day = proposal.weeks[0]!.days.find((d) => d.day_of_week === 1)!;
+    expect(day.flags[0]!.confidence).toBe('review');
+    expect(day.flags[0]!.review_reasons.length).toBeGreaterThan(0);
+    expect(day.state).toBe('review');
+    // It resolves — so the OLD unresolved-only check would have called it clean.
+    expect(day.flags[0]!.unresolved_exercise).toBe(false);
+    expect(proposal.summary.review).toBe(1);
+    expect(proposal.summary.detected).toBe(0);
+  });
+
+  test('a fully prescribed item is detected', () => {
+    const proposal = weekDaysToProposal({
+      days: dayWith([
+        {
+          uid: 'i1',
+          exercise_id: 42,
+          exercise_name: 'Back Squat',
+          prescription_json: {
+            scheme: 'sets',
+            modality: 'strength',
+            sets: Array.from({ length: 5 }, () => ({
+              measure: { kind: 'reps', value: 5 },
+              target: { kind: 'percent_rm', value: 80 },
+              rest_s: 180,
+            })),
+          },
+        },
+      ]),
+      sheetLabel: 'IA',
+    });
+    const day = proposal.weeks[0]!.days.find((d) => d.day_of_week === 1)!;
+    expect(day.flags[0]!.confidence).toBe('detected');
+    expect(day.state).toBe('detected');
+    expect(proposal.summary.detected).toBe(1);
+    expect(proposal.summary.review).toBe(0);
+  });
+
+  test('the block role relaxes the target rule for a warm-up', () => {
+    const jog = [
+      {
+        uid: 'i1',
+        exercise_id: 88,
+        exercise_name: 'Run',
+        prescription_json: {
+          scheme: 'warmup',
+          modality: 'run',
+          sets: [{ measure: { kind: 'duration', seconds: 600 } }],
+        },
+      },
+    ];
+    const warm = weekDaysToProposal({ days: dayWith(jog, 'calentamiento'), sheetLabel: 'IA' });
+    expect(warm.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('detected');
+
+    const main = weekDaysToProposal({ days: dayWith(jog, 'principal'), sheetLabel: 'IA' });
+    expect(main.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});

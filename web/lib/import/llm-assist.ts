@@ -16,8 +16,7 @@ import 'server-only';
 import { z } from 'zod';
 import {
   prescriptionSchema,
-  prescriptionSchemeSchema,
-  modalitySchema,
+  prescriptionGrammarLines,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
 import type { ParsedLine } from '@fahybrid/shared/domain/import/notation';
@@ -57,12 +56,7 @@ function buildSystemPrompt(): string {
     '- Si no puedes descomponer la línea con confianza, devuelve UNA sola línea con confidence "review", exercise_token "" y prescription { "scheme": <formato>, "note": <texto verbatim> } — nada más.',
     '- Todo texto libre va SOLO en el campo "note". El resto es estructura.',
     '',
-    'prescription.scheme ∈ ' + prescriptionSchemeSchema.options.join(' | '),
-    'prescription.modality (opcional) ∈ ' + modalitySchema.options.join(' | '),
-    'Campos de prescription (todos opcionales salvo scheme): modality, rounds, work_s, rest_s, total_s, start, increment, note,',
-    '  target (objetivo de intensidad: { kind: "percent_rm"|"kg"|"rpe"|"rir"|"pace"|"hr_zone"|"hr_bpm"|"calories"|"watts"|"bodyweight", value?|min?|max? ; pace usa unit + value_s/min_s/max_s }),',
-    '  sets (array por-serie: { measure?: { kind:"reps"|"distance"|"duration"|"calories", ... }, target?, rest_s?, tempo?, note? }).',
-    'Los segundos son números en segundos; las distancias en metros; el ritmo en segundos por unidad.',
+    ...prescriptionGrammarLines(),
   ].join('\n');
 }
 
