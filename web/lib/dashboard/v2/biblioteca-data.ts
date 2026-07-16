@@ -20,7 +20,12 @@ import 'server-only';
 // column, so the mapping lives here as the single source of truth for this screen.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
-import { listBlocksWithStructure, type BlockWithStructure } from '@/lib/dashboard/coach/blocks';
+import {
+  blockReadiness,
+  listBlocksWithStructure,
+  type BlockReadiness,
+  type BlockWithStructure,
+} from '@/lib/dashboard/coach/blocks';
 import { listTemplatesForCoach, type TemplateListRow } from '@/lib/dashboard/coach/templates';
 import { listMonthTemplates } from '@/lib/dashboard/coach/program-months';
 import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
@@ -118,6 +123,12 @@ export interface V2BloqueItem {
   exercise_count: number;
   /** Cuántas piezas inserta en el día (block_position distintos). Puede ser >1. */
   part_count: number;
+  /** Líneas que dicen el ejercicio pero no cuánto trabajo. 0 = listo. */
+  undosed_count: number;
+  /** Qué falta exactamente, en las palabras del gate. */
+  undosed_reasons: string[];
+  /** Estado derivado: sin_tipar › sin_dosis › listo. */
+  readiness: BlockReadiness;
   needs_review: boolean;
 }
 
@@ -222,6 +233,9 @@ function mapBloque(b: BlockWithStructure, groupLabel: Map<number, string>): V2Bl
     typed: b.typed,
     exercise_count: b.exercise_count,
     part_count: b.part_count,
+    undosed_count: b.undosed_count,
+    undosed_reasons: b.undosed_reasons,
+    readiness: blockReadiness(b),
     needs_review: b.needs_review,
   };
 }

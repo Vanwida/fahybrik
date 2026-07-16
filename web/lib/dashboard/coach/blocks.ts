@@ -4,8 +4,12 @@ import { sql as defaultSql } from '@/lib/db';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
 import {
+  blockingReasons,
+  checkPrescriptionCompleteness,
+  isExecutable,
   prescriptionToParams,
   safeParsePrescription,
+  type Modality,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
 
@@ -36,16 +40,47 @@ export interface BlockWithStructure extends Block {
   typed: boolean;
   exercise_count: number;
   part_count: number;
+  /**
+   * Líneas del bloque que NO dicen cuánto trabajo hacer — el listón EJECUTABLE
+   * del gate de prescripción (`isExecutable`), no el estricto. `0` = el atleta
+   * puede ejecutarlo entero. Siempre 0 si `typed` es false (no hay líneas que
+   * juzgar: ese bloque es prosa y su problema es otro).
+   */
+  undosed_count: number;
+  /** Los motivos reales del gate, sin repetir, para poder decirle al coach QUÉ falta. */
+  undosed_reasons: string[];
 }
 
-type BlockWithStructureRow = BlockRow & {
-  exercise_count: string | number;
-  part_count: string | number;
+/** El estado de un bloque, derivado. Excluyentes y en orden de gravedad. */
+export type BlockReadiness = 'sin_tipar' | 'sin_dosis' | 'listo';
+
+export function blockReadiness(b: {
+  typed: boolean;
+  undosed_count: number;
+}): BlockReadiness {
+  if (!b.typed) return 'sin_tipar';
+  return b.undosed_count > 0 ? 'sin_dosis' : 'listo';
+}
+
+/** Una línea del bloque, tal y como sale del agregado json. */
+type BlockLineJson = {
+  block_position: number | null;
+  prescription_json: unknown;
+  /** Modalidad INTRÍNSECA del ejercicio (0053) — la que pide el gate, no la de la prescripción. */
+  exercise_modality: string | null;
 };
+
+type BlockWithStructureRow = BlockRow & { lines: BlockLineJson[] | null };
 
 /**
  * List a coach's blocks with their structural state, in ONE round-trip.
  * Same ordering/scoping contract as `listBlocks`.
+ *
+ * Trae las líneas agregadas (no solo contadas) porque el estado de un bloque no
+ * se puede saber contando: hay que juzgar cada prescripción con el MISMO gate que
+ * bloquea el grid de importación (`checkPrescriptionCompleteness`), para que la
+ * Biblioteca y el gate nunca digan cosas distintas del mismo bloque.
+ *
  * @param coachId  owning coach (the current session coach).
  * @param groupId  methodology_group_id (1..10), or null for all groups.
  */
@@ -58,24 +93,64 @@ export async function listBlocksWithStructure(
   const rows = await client<BlockWithStructureRow[]>`
     select b.id, b.slug, b.title, b.description, b.methodology_group_id,
            b.format, b.source_ref, b.needs_review,
-           count(be.id) as exercise_count,
-           count(distinct be.block_position) as part_count
+           coalesce(
+             json_agg(
+               json_build_object(
+                 'block_position', be.block_position,
+                 'prescription_json', be.prescription_json,
+                 'exercise_modality', e.modality::text
+               ) order by be.position
+             ) filter (where be.id is not null),
+             '[]'
+           ) as lines
       from blocks b
       left join block_exercises be on be.block_id = b.id
+      left join exercises e on e.id = be.exercise_id
      where b.coach_id = ${cid}
        ${groupId === null ? client`` : client`and b.methodology_group_id = ${groupId}`}
      group by b.id
      order by b.methodology_group_id asc, b.id asc
   `;
-  return rows.map((r) => {
-    const exercise_count = Number(r.exercise_count);
-    return {
-      ...mapBlockRow(r),
-      typed: exercise_count > 0,
-      exercise_count,
-      part_count: Number(r.part_count),
-    };
-  });
+  return rows.map((r) => ({ ...mapBlockRow(r), ...structureOf(r.lines ?? []) }));
+}
+
+/** Cuenta y juzga las líneas de un bloque. Sin líneas → sin tipar, y nada que juzgar. */
+function structureOf(lines: BlockLineJson[]): {
+  typed: boolean;
+  exercise_count: number;
+  part_count: number;
+  undosed_count: number;
+  undosed_reasons: string[];
+} {
+  const positions = new Set(lines.map((l) => l.block_position ?? 0));
+  let undosed_count = 0;
+  const reasons = new Set<string>();
+
+  for (const line of lines) {
+    const parsed = safeParsePrescription(line.prescription_json);
+    if (!parsed.success) {
+      // Ilegible = el atleta tampoco puede ejecutarla. Se cuenta, sin inventar el motivo.
+      undosed_count++;
+      reasons.add('Prescripción ilegible.');
+      continue;
+    }
+    const check = checkPrescriptionCompleteness(parsed.data, {
+      // La modalidad del EJERCICIO (catálogo), como pide el gate: la de la
+      // prescripción es una pista que quien la escribió pudo omitir.
+      modality: (line.exercise_modality ?? null) as Modality | null,
+    });
+    if (isExecutable(check)) continue;
+    undosed_count++;
+    for (const r of blockingReasons(check)) reasons.add(r);
+  }
+
+  return {
+    typed: lines.length > 0,
+    exercise_count: lines.length,
+    part_count: positions.size,
+    undosed_count,
+    undosed_reasons: [...reasons],
+  };
 }
 
 /**

@@ -32,3 +32,15 @@ export const LIB_OBJECTIVES: ReadonlyArray<{ id: V2LibObjective; label: string }
   { id: 'vo2', label: 'VO₂' },
   { id: 'fuerza_max', label: 'Fuerza máx' },
 ];
+
+// ── Tercer eje, SOLO para Bloques: el estado (¿lo puede ejecutar el atleta?) ──
+// No es una preferencia de vista: es trabajo pendiente del coach. Un bloque sin
+// dosis pasa el editor pero el gate le bloqueará el Confirmar cada vez que lo use
+// — el sitio de arreglarlo es la fuente (el bloque), una vez, no cada uso.
+export type V2LibReadiness = 'sin_tipar' | 'sin_dosis' | 'listo';
+
+export const LIB_READINESS: ReadonlyArray<{ id: V2LibReadiness; label: string }> = [
+  { id: 'sin_dosis', label: 'Sin dosis' },
+  { id: 'sin_tipar', label: 'Sin tipar' },
+  { id: 'listo', label: 'Listos' },
+];

@@ -4,9 +4,13 @@
 // izquierdo codifica la modalidad; el cuerpo lleva el título, su grupo
 // metodológico, la procedencia del Excel (source_ref) y la prosa verbatim.
 //
-// Dos marcas honestas, y son DISTINTAS:
+// Marcas honestas, y son DISTINTAS entre sí:
 //   · "sin tipar"  → no tiene ejercicios estructurados: el atleta NO puede
 //     ejecutarlo y no se puede insertar en un día (solo existe la prosa).
+//   · "sin dosis"  → tipado, pero N líneas dicen el ejercicio y no cuánto trabajo
+//     ("Cable Fly · 5 series", ¿de cuántas reps?). El mismo listón que bloquea el
+//     Confirmar del grid, así que la Biblioteca y el gate nunca se contradicen.
+//     Se arregla AQUÍ, en la fuente, una vez — no en cada día que use el bloque.
 //   · "sin desglosar" (needs_review) → el coach lo marcó para repasar. Un bloque
 //     puede estar tipado Y marcado para revisar: no son lo mismo.
 // La card entera enlaza al editor de bloque (/biblioteca/bloque/[id]).
@@ -34,20 +38,23 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
         borderLeftColor: `var(${meta.colorVar})`,
       }}
     >
-      {/* Título + marca de "sin tipar" */}
+      {/* Título + estado (excluyentes: o sin tipar, o sin dosis, o nada) */}
       <div className="flex items-start justify-between gap-2">
         <h3 className="min-w-0 text-sm font-semibold leading-snug text-[color:var(--v2-fg)]">
           {bloque.title}
         </h3>
-        {!bloque.typed ? (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
-            style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
+        {bloque.readiness === 'sin_tipar' ? (
+          <StateBadge
+            icon="pending"
+            label="sin tipar"
             title="Solo texto: el atleta no puede ejecutarlo ni se puede insertar en un día"
-          >
-            <MIcon name="pending" size={13} aria-hidden />
-            sin tipar
-          </span>
+          />
+        ) : null}
+        {bloque.readiness === 'sin_dosis' ? (
+          // Los motivos del gate ya están escritos para el coach y en español: se
+          // muestran VERBATIM. Prefijarlos duplicaba el texto ("Dice el ejercicio
+          // pero no cuánto trabajo. Sin dosis: no dice cuánto trabajo hacer…").
+          <StateBadge icon="edit_note" label="sin dosis" title={bloque.undosed_reasons.join(' ')} />
         ) : null}
       </div>
 
@@ -82,6 +89,30 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
           ) : null}
         </p>
       ) : null}
+
+      {/* CUÁNTAS líneas le faltan — el coach necesita saber el tamaño del arreglo
+          antes de abrir, no solo que "algo" falta. */}
+      {bloque.readiness === 'sin_dosis' ? (
+        <p className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--v2-warn)' }}>
+          <span className="v2-num">{bloque.undosed_count}</span>{' '}
+          {bloque.undosed_count === 1 ? 'línea sin dosis' : 'líneas sin dosis'} · ábrelo para
+          completarlas
+        </p>
+      ) : null}
     </Link>
+  );
+}
+
+/** Marca de estado. Un bloque tiene UNO: sin tipar o sin dosis (o ninguno). */
+function StateBadge({ icon, label, title }: { icon: string; label: string; title: string }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-[11px] font-semibold"
+      style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
+      title={title}
+    >
+      <MIcon name={icon} size={13} aria-hidden />
+      {label}
+    </span>
   );
 }

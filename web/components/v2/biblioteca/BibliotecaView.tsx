@@ -39,8 +39,10 @@ import { MicrociclosPanel } from '@/components/v2/biblioteca/MicrociclosPanel';
 import {
   LIB_MODALITY_FILTERS,
   LIB_OBJECTIVES,
+  LIB_READINESS,
   type V2LibModalityFilter,
   type V2LibObjective,
+  type V2LibReadiness,
 } from '@/lib/dashboard/v2/biblioteca-axes';
 import type { V2BibliotecaData } from '@/lib/dashboard/v2/biblioteca-data';
 import {
@@ -127,6 +129,7 @@ export function BibliotecaView({
   const [tab, setTab] = useState<BibliotecaTab>(initialTab);
   const [modality, setModality] = useState<ModalityRailId>('todas');
   const [objective, setObjective] = useState<V2LibObjective | null>(null);
+  const [readiness, setReadiness] = useState<V2LibReadiness | null>(null);
   const [query, setQuery] = useState('');
   const [nuevoMicroOpen, setNuevoMicroOpen] = useState(false);
   const q = query.trim().toLowerCase();
@@ -143,6 +146,8 @@ export function BibliotecaView({
         setModality('todas');
         setObjective(null);
       }
+      // El estado es un eje SOLO de bloques: al salir se limpia siempre.
+      if (next !== 'bloques') setReadiness(null);
       router.replace(`${pathname}?tab=${next}`, { scroll: false });
     },
     [router, pathname],
@@ -153,13 +158,22 @@ export function BibliotecaView({
     return data.bloques.filter((b) => {
       if (modality !== 'todas' && b.modality_filter !== modality) return false;
       if (objective && b.objective !== objective) return false;
+      if (readiness && b.readiness !== readiness) return false;
       // El source_ref ("S9 – Martes") entra en la búsqueda: los títulos
       // importados se repiten y la procedencia es lo que los distingue.
       if (q && !matchesText(`${b.title} ${b.description} ${b.group_label} ${b.source_ref ?? ''}`, q))
         return false;
       return true;
     });
-  }, [data.bloques, modality, objective, q]);
+  }, [data.bloques, modality, objective, readiness, q]);
+
+  // Contadores del eje de estado. Sobre TODOS los bloques, no sobre los filtrados:
+  // el rail dice cuánto trabajo hay en la biblioteca entera, no en la vista.
+  const readinessCounts = useMemo(() => {
+    const acc: Partial<Record<V2LibReadiness, number>> = { sin_dosis: 0, sin_tipar: 0, listo: 0 };
+    for (const b of data.bloques) acc[b.readiness] = (acc[b.readiness] ?? 0) + 1;
+    return acc;
+  }, [data.bloques]);
 
   const sesiones = useMemo(() => {
     return data.sesiones.filter((s) => {
@@ -281,6 +295,15 @@ export function BibliotecaView({
             modalityOptions={LIB_MODALITY_FILTERS}
             objectiveOptions={LIB_OBJECTIVES}
             showModality
+            // El estado solo existe para los bloques: una sesión no se "tipa".
+            {...(tab === 'bloques'
+              ? {
+                  readiness,
+                  onReadiness: setReadiness,
+                  readinessOptions: LIB_READINESS,
+                  readinessCounts,
+                }
+              : {})}
           />
         ) : null}
 
