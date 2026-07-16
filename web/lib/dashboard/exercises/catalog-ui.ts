@@ -1,4 +1,5 @@
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
+import { modalitySchema, type Modality } from '@fahybrid/shared/domain/prescription';
 import {
   COACH_OVERRIDE_FIELDS,
   type CoachExerciseRow,
@@ -39,6 +40,117 @@ export const EXERCISE_CATEGORY_OPTIONS: ReadonlyArray<{
   value: ExerciseCategory;
   label: string;
 }> = EXERCISE_CATEGORY_ORDER.map((value) => ({ value, label: EXERCISE_CATEGORY_LABELS[value] }));
+
+/**
+ * LAS NUEVE MODALIDADES, en vocabulario de gimnasio. Es lo que el coach DECLARA al
+ * crear un movimiento: las analíticas enrutan por aquí, así que un "Remo 500m" que
+ * entra como `other` rompe en silencio. Por eso `createExerciseSchema` la exige y ya
+ * no la deriva del nombre (ver lib/dashboard/exercises/create-exercise.ts).
+ *
+ * OJO, ESTO NO ES `MODALITY_META` (components/v2/constants.ts). Aquélla tiene CINCO
+ * claves porque es el eje de COLOR: remo, ski y bici caen las tres en "ergo" — un
+ * punto naranja no distingue máquinas y no tiene por qué. Aquí hacen falta las nueve
+ * REALES, que es lo que guarda la columna y con lo que se compara. Dos espacios de
+ * claves distintos para dos trabajos distintos, no una copia.
+ */
+export const MODALITY_LABELS: Record<Modality, string> = {
+  run: 'Carrera',
+  row: 'Remo',
+  ski: 'SkiErg',
+  bike: 'BikeErg',
+  strength: 'Fuerza',
+  functional: 'Funcional',
+  core: 'Core',
+  mobility: 'Movilidad',
+  other: 'Otro',
+};
+
+/**
+ * Las opciones del selector, GENERADAS del enum canónico (`modalitySchema.options`)
+ * en vez de escritas a mano: si el dominio gana una modalidad, el desplegable la
+ * ofrece solo y el Record de arriba obliga a ponerle nombre — o no compila. El orden
+ * del enum ya sirve tal cual: el cardio primero (que es donde el coach duda), luego
+ * fuerza y funcional, y `other` al final, que es la salida y no la primera opción.
+ */
+export const MODALITY_OPTIONS: ReadonlyArray<{ value: Modality; label: string }> =
+  modalitySchema.options.map((value) => ({ value, label: MODALITY_LABELS[value] }));
+
+/** Sin acentos y en minúsculas: "Bici", "bici" y "BICI" son la misma palabra. */
+const fold = (s: string): string =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+
+/**
+ * QUÉ máquina de cardio nombra el texto. Español y inglés porque el catálogo Base
+ * está en inglés y el coach escribe en español — ése era justo el agujero de la regla
+ * vieja, que sólo miraba inglés (`like '%row%'`).
+ */
+const CARDIO_NAME_HINTS: ReadonlyArray<readonly [RegExp, Modality]> = [
+  [/\bski|skierg/, 'ski'],
+  [/\bbike|\bbici|airbike|assault/, 'bike'],
+  [/\brow|\bremo/, 'row'],
+  [/\brun|\bcorr|carrera|cinta|sprint|rodaje|tirada/, 'run'],
+];
+
+/** Cuando el nombre no dice nada, lo dice la categoría. */
+const CATEGORY_MODALITY: Record<ExerciseCategory, Modality> = {
+  cardio: 'run',
+  hyrox_station: 'functional',
+  strength: 'strength',
+  plyometric: 'functional',
+  skill: 'functional',
+  core: 'core',
+  mobility: 'mobility',
+};
+
+/**
+ * En estas TRES la categoría ya ES la disciplina, así que el nombre no se mira: en
+ * `strength`, "Remo con barra" es fuerza — ahí "remo" nombra el movimiento, no la
+ * máquina. Es el falso positivo clásico, y mirar la categoría antes que el nombre lo
+ * mata sin necesidad de una lista de excepciones que nunca acabaría.
+ */
+const CATEGORY_IS_THE_DISCIPLINE: ReadonlySet<ExerciseCategory> = new Set<ExerciseCategory>([
+  'strength',
+  'core',
+  'mobility',
+]);
+
+/**
+ * La modalidad que el formulario PRE-SELECCIONA. Sugiere, nunca decide: el coach la
+ * ve y la confirma o la cambia antes de que se mande nada.
+ *
+ * El nombre sólo desempata QUÉ cardio es ("Remo 500m" → row, no el `other` que daba
+ * la regla vieja). Todo lo demás lo dice la categoría. Deliberadamente corta: una
+ * heurística que acierta el 90% y se ve es útil; una que acierta el 99% y no se ve es
+ * la que nos trajo hasta aquí.
+ */
+export function suggestModality(name: string, category: ExerciseCategory): Modality {
+  const fallback = CATEGORY_MODALITY[category];
+  if (CATEGORY_IS_THE_DISCIPLINE.has(category)) return fallback;
+  const text = fold(name);
+  return CARDIO_NAME_HINTS.find(([re]) => re.test(text))?.[1] ?? fallback;
+}
+
+/**
+ * Lo que enseña el campo de modalidad: lo del coach si ya eligió, y si no la
+ * sugerencia — que se recalcula MIENTRAS escribe el nombre.
+ *
+ * En cuanto elige, `picked` deja de ser null y la sugerencia no puede volver a
+ * pisarle lo suyo. Sin eso, poner "Remo", elegir Fuerza y seguir escribiendo
+ * ("Remo con barra") devolvería el campo a Remo solo: un campo que se descambia
+ * mientras terminas de escribir es un campo roto, y el coach no volvería a fiarse
+ * de ninguno.
+ */
+export function resolveModality(
+  picked: Modality | null,
+  name: string,
+  category: ExerciseCategory,
+): { value: Modality; suggested: boolean } {
+  if (picked !== null) return { value: picked, suggested: false };
+  return { value: suggestModality(name, category), suggested: true };
+}
 
 export interface OriginMeta {
   /** Cómo lo llama el coach en la fila y en el filtro. */

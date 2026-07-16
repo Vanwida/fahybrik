@@ -9,9 +9,12 @@
 
 import { MIcon } from '@/components/ui/MIcon';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
+import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
 import {
   EXERCISE_CATEGORY_OPTIONS,
+  MODALITY_LABELS,
+  MODALITY_OPTIONS,
   equipmentLabel,
   muscleLabel,
 } from '@/lib/dashboard/exercises/catalog-ui';
@@ -124,8 +127,13 @@ export function SharedIdentity({
   // Traducido, como en la fila: aquí sólo se LEE. (En un ejercicio propio estos
   // mismos campos se editan en crudo — ahí el texto vuelve a la base tal cual, así
   // que traducirlo lo corrompería.)
+  // La MODALIDAD va aquí y no entre los campos editables: en un Base es identidad
+  // compartida igual que la categoría (el PATCH la responde con 409 `shared_identity`,
+  // que la nombra). Enseñarla es lo que hace entendible el 409 — y esconderla dejaría
+  // al coach sin ver con qué se compara su ejercicio en las analíticas.
   const facts: Array<[string, string]> = [
     ['Categoría', EXERCISE_CATEGORY_LABELS[ex.category]],
+    ['Modalidad', MODALITY_LABELS[ex.modality]],
     ['Músculos', ex.primary_muscle_groups.map(muscleLabel).join(', ') || '—'],
     ['Material', ex.equipment.map(equipmentLabel).join(', ') || '—'],
   ];
@@ -159,11 +167,28 @@ export function SharedIdentity({
   );
 }
 
+/**
+ * "Sugerida" — la etiqueta que convierte una adivinanza en una propuesta. Va pegada
+ * al label y desaparece en cuanto el coach elige: mientras esté, dice que ese valor
+ * lo pusimos nosotros y que mirarlo es su trabajo.
+ */
+function SuggestedTag() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
+      <MIcon name="lightbulb" size={11} />
+      Sugerida
+    </span>
+  );
+}
+
 /** La identidad de un ejercicio del coach: suya entera, así que se edita. */
 export function OwnIdentity({
   creating,
   category,
   onCategory,
+  modality,
+  onModality,
+  modalitySuggested,
   muscles,
   onMuscles,
   equipment,
@@ -172,6 +197,10 @@ export function OwnIdentity({
   creating: boolean;
   category: ExerciseCategory;
   onCategory: (c: ExerciseCategory) => void;
+  modality: Modality;
+  onModality: (m: Modality) => void;
+  /** true = el valor lo pusimos nosotros y el coach aún no lo ha tocado. */
+  modalitySuggested: boolean;
   muscles: string;
   onMuscles: (v: string) => void;
   equipment: string;
@@ -195,15 +224,43 @@ export function OwnIdentity({
             </option>
           ))}
         </select>
-        <p className={hintCls}>
-          De aquí sale la modalidad del ejercicio — con qué se compara y cómo cuenta en las
-          analíticas.
+        <p className={hintCls}>Cómo se ordena y se busca en tu catálogo.</p>
+      </div>
+
+      {/* La MODALIDAD se declara, no se adivina. Antes salía del nombre con regex en
+          inglés, así que un "Remo 500m" entraba como `other` y las analíticas que
+          enrutan por modalidad se rompían sin decir nada. Se pre-selecciona una
+          sugerencia — pero se ve, y quien acaba de escribir el movimiento sabe lo que
+          es. Ver `suggestModality` y create-exercise.ts. */}
+      <div>
+        <label className={labelCls} htmlFor="ej-mod">
+          <span>Modalidad</span>
+          {modalitySuggested ? <SuggestedTag /> : null}
+        </label>
+        <select
+          id="ej-mod"
+          value={modality}
+          onChange={(e) => onModality(e.target.value as Modality)}
+          className={cn(inputCls, 'h-[38px] py-0')}
+          aria-describedby="ej-mod-hint"
+        >
+          {MODALITY_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <p id="ej-mod-hint" className={hintCls}>
+          {modalitySuggested
+            ? 'Lo hemos deducido del nombre y la categoría. Compruébalo: es con lo que se compara en las analíticas.'
+            : 'Con qué se compara y cómo cuenta en las analíticas.'}
         </p>
       </div>
 
       {/* Al CREAR sólo se pide lo imprescindible: la API de crear sólo acepta
-          nombre + categoría + vídeo. Músculos y material se editan después, ya con
-          la fila creada — pedirlos aquí sería pedir algo que no se puede guardar. */}
+          nombre + categoría + modalidad + vídeo. Músculos y material se editan
+          después, ya con la fila creada — pedirlos aquí sería pedir algo que no se
+          puede guardar. */}
       {creating ? null : (
         <>
           <div>

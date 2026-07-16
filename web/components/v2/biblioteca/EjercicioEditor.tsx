@@ -28,10 +28,12 @@ import { MIcon } from '@/components/ui/MIcon';
 import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { isValidYouTubeUrl } from '@fahybrid/shared/youtube';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
+import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
 import {
   EXERCISE_CATEGORY_OPTIONS,
   EXERCISE_ORIGIN_META,
+  resolveModality,
 } from '@/lib/dashboard/exercises/catalog-ui';
 import {
   MAX_NAME,
@@ -47,6 +49,19 @@ import {
 } from '@/components/v2/biblioteca/EjercicioEditorFields';
 import { cn } from '@/lib/utils';
 
+/**
+ * El movimiento de partida al crear desde "esto no lo puedo cambiar". Lleva la
+ * IDENTIDAD del ejercicio del que se sale — y la modalidad es identidad tanto como
+ * la categoría, así que viaja con ella. Si no, salir de un "Remo 500m" para hacerse
+ * uno propio volvería a pasar por la adivinanza del nombre teniendo la modalidad de
+ * verdad delante.
+ */
+export interface ExerciseSeed {
+  name: string;
+  category: ExerciseCategory;
+  modality: Modality;
+}
+
 export function EjercicioEditor({
   ex,
   seed,
@@ -58,11 +73,11 @@ export function EjercicioEditor({
   /** null = crear. */
   ex: CoachExerciseRow | null;
   /** Al crear desde "no puedo cambiar esto" — arranca con el movimiento de partida. */
-  seed?: { name: string; category: ExerciseCategory } | null;
+  seed?: ExerciseSeed | null;
   onClose: () => void;
   onSaved: (row: CoachExerciseRow) => void;
   onCreated: (row: CoachExerciseRow) => void;
-  onCreateOwn: (seed: { name: string; category: ExerciseCategory }) => void;
+  onCreateOwn: (seed: ExerciseSeed) => void;
 }) {
   const creating = ex === null;
   // Un ejercicio BASE tiene identidad COMPARTIDA; uno propio es entero del coach.
@@ -83,6 +98,14 @@ export function EjercicioEditor({
 
   const [name, setName] = useState(initial.name);
   const [category, setCategory] = useState<ExerciseCategory>(initial.category);
+  // null = "el coach todavía no ha elegido", que NO es lo mismo que un valor: es lo
+  // que deja a la sugerencia seguir el nombre mientras lo escribe, y lo que la calla
+  // en cuanto elige. Al editar uno propio ya hay valor declarado, así que no hay
+  // sugerencia que dar; al crear desde un seed, la modalidad viene del ejercicio de
+  // partida, que es un dato real y no una adivinanza.
+  const [modality, setModality] = useState<Modality | null>(
+    creating ? (seed?.modality ?? null) : (ex?.modality ?? null),
+  );
   const [cues, setCues] = useState(initial.cues);
   const [description, setDescription] = useState(initial.description);
   const [video, setVideo] = useState(initial.video);
@@ -104,6 +127,15 @@ export function EjercicioEditor({
   const nameError = !shared && name.trim() === '' ? 'Tu ejercicio necesita un nombre.' : null;
   const canSave = !nameError && !videoInvalid && !saving;
 
+  // El valor que se va a mandar y si sigue siendo sugerencia. Siempre hay valor, así
+  // que "modalidad requerida" nunca es un botón apagado sin explicación — el trabajo
+  // del coach es mirarla, no rellenarla.
+  const { value: modalityValue, suggested: modalitySuggested } = resolveModality(
+    modality,
+    name,
+    category,
+  );
+
   const title = creating ? 'Nuevo ejercicio' : ex.name;
 
   const submit = async () => {
@@ -119,6 +151,7 @@ export function EjercicioEditor({
             body: JSON.stringify({
               name: name.trim(),
               category,
+              modality: modalityValue,
               ...(video.trim() ? { video_url: video.trim() } : {}),
             }),
           })
@@ -165,9 +198,11 @@ export function EjercicioEditor({
     if (video.trim() !== initial.video) patch.video_url = video.trim();
 
     // La identidad sólo viaja en un ejercicio PROPIO. En un Base ni se manda: la
-    // API respondería 409 y el formulario ya no la deja tocar.
+    // API respondería 409 y el formulario ya no la deja tocar. La modalidad es
+    // identidad, así que va con la categoría y no con los campos forkeables.
     if (!shared) {
       if (category !== ex.category) patch.category = category;
+      if (modalityValue !== ex.modality) patch.modality = modalityValue;
       const m = parseList(muscles);
       const e = parseList(equipment);
       if (!sameList(m, ex.primary_muscle_groups)) patch.primary_muscle_groups = m;
@@ -343,12 +378,20 @@ export function EjercicioEditor({
 
             {/* ── La identidad: compartida y bloqueada, o del coach ────────── */}
             {shared ? (
-              <SharedIdentity ex={ex} onCreateOwn={() => onCreateOwn({ name: ex.name, category: ex.category })} />
+              <SharedIdentity
+                ex={ex}
+                onCreateOwn={() =>
+                  onCreateOwn({ name: ex.name, category: ex.category, modality: ex.modality })
+                }
+              />
             ) : (
               <OwnIdentity
                 creating={creating}
                 category={category}
                 onCategory={setCategory}
+                modality={modalityValue}
+                onModality={setModality}
+                modalitySuggested={modalitySuggested}
                 muscles={muscles}
                 onMuscles={setMuscles}
                 equipment={equipment}

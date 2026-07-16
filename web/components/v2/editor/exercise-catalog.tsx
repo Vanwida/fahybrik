@@ -49,12 +49,15 @@ export interface CatalogRow {
   override_video_url: string | null;
 }
 
-// The exercise shape the API returns (GET list / POST create / PATCH edit).
-// POST create returns a bare CatalogExercise (lib/dashboard/exercises/types.ts) —
-// no origin/coach_id/base_*/override_* at all, since create-exercise.ts always
-// mints a brand-new OWN row with nothing yet to fork against. GET/PATCH return
-// the full CoachExerciseRow (lib/exercises/coach-override.ts), where all of
-// those are always present. `toCatalogRow` below normalizes both into one shape.
+// The exercise shape the API returns (GET list / POST create / PATCH edit) — the
+// full CoachExerciseRow (lib/exercises/coach-override.ts) on all three now that POST
+// re-reads the row it just created (app/api/exercises/route.ts).
+//
+// The optional fields below are kept optional ON PURPOSE, and `toCatalogRow` keeps
+// filling them: they are the client's insurance, not a description of today's
+// server. POST used to answer a bare CatalogExercise with no `origin`, and the
+// Biblioteca catalog — which has no normalizer — crashed on it. One shape at the
+// boundary, one normalizer, and a missing field degrades instead of throwing.
 export type ApiExercise = {
   id: string;
   name: string;
@@ -131,6 +134,35 @@ export const ORIGIN_LABEL: Partial<Record<ExerciseOrigin, string>> = {
   customized: 'Personalizado',
   own: 'Mío',
 };
+
+// The picker's pill — a filter in the search body, a single-choice option in the
+// create form. Same control, same size, same hit area: the two bodies are one sheet
+// and a chip that changed shape between them would read as a different widget.
+export function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'v2-focus rounded-[var(--v2-r-pill)] px-2.5 py-1 text-[11px] font-bold transition-colors',
+        active
+          ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+          : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
 
 // ── Shared YouTube input (create + edit — one source, one validator) ──────────
 export type VideoState = 'empty' | 'valid' | 'invalid';

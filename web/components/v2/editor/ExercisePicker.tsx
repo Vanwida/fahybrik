@@ -9,9 +9,11 @@
 // Three modes in one sheet (same overlay/focus-trap/Esc pattern as ArchetypePicker):
 //   • search  — keyboard-focused search + category chips + RECENTS (D2: recents
 //               yes, derived free; favoritos no). Picking selects the exercise.
-//   • create  — inline "crear ejercicio" (name + category + optional YouTube),
-//               POST /api/exercises, then selects the new exercise (D3 scope =
-//               global single-coach; modality derived server-side).
+//   • create  — "crear ejercicio" (ExerciseCreateForm: name + category + modality
+//               + optional YouTube), POST /api/exercises, then selects the new
+//               exercise (D3 scope = global single-coach). The coach DECLARES the
+//               modality — the server stopped deriving it from the name, which is
+//               what silently turned a Spanish "Remo 500m" into `other`.
 //   • edit     — light "✎ editar ejercicio" (ExerciseEditForm): fork name/cues/
 //               description/video_url on a base exercise, or edit an own
 //               exercise directly, via the existing PATCH (D7: in the picker;
@@ -24,19 +26,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalPortal } from './ModalPortal';
 import { EditExerciseForm } from './ExerciseEditForm';
+import { CreateExerciseForm } from './ExerciseCreateForm';
 import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
-import type { V2Modality } from '@/components/v2/constants';
+import { MODALITY_LABELS } from '@/lib/dashboard/exercises/catalog-ui';
 import {
   CATEGORY_OPTIONS,
+  FilterChip,
   ORIGIN_LABEL,
-  YouTubeField,
-  extractApiErrorMessage,
   toCatalogRow,
-  videoFieldState,
   type ApiExercise,
   type CatalogRow,
 } from './exercise-catalog';
@@ -49,14 +49,6 @@ export interface PickedExercise {
   modality: Modality;
   video_url: string | null;
 }
-
-const MODALITY_LABEL: Record<V2Modality, string> = {
-  carrera: 'Carrera',
-  ergo: 'Ergómetro',
-  fuerza: 'Fuerza',
-  circuito: 'Funcional',
-  calentamiento: 'Movilidad',
-};
 
 type Mode = 'search' | 'create' | 'edit';
 
@@ -371,6 +363,12 @@ function ExerciseRow({
           ) : null}
         </span>
       </button>
+      {/* El COLOR sale del cubo (remo/ski/bici comparten el naranja de "ergo": un
+          punto no distingue máquinas), pero el TEXTO dice la modalidad REAL — "Remo",
+          no "Ergómetro". Es el dato que guarda la fila y ahora el que el coach declara
+          al crearla, así que la etiqueta que lee tiene que ser exactamente ése.
+          Antes vivía aquí un mapa local de cinco cubos que además ya había derivado
+          de MODALITY_META ("Circuito" allí, "Funcional" aquí). */}
       <span
         className="shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
         style={{
@@ -378,7 +376,7 @@ function ExerciseRow({
           color: `var(--v2-mod-${slug})`,
         }}
       >
-        {MODALITY_LABEL[slug]}
+        {MODALITY_LABELS[ex.modality]}
       </span>
       <button
         type="button"
@@ -389,147 +387,6 @@ function ExerciseRow({
       >
         <MIcon name={hasVideo ? 'play_circle' : 'edit'} size={16} />
       </button>
-    </div>
-  );
-}
-
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'v2-focus rounded-[var(--v2-r-pill)] px-2.5 py-1 text-[11px] font-bold transition-colors',
-        active
-          ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-          : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-// ── Create mode ─────────────────────────────────────────────────────────────--
-function CreateExerciseForm({
-  seedName,
-  defaultCategory,
-  onCancel,
-  onCreated,
-}: {
-  seedName: string;
-  defaultCategory: ExerciseCategory;
-  onCancel: () => void;
-  onCreated: (ex: CatalogRow) => void;
-}) {
-  const [name, setName] = useState(seedName);
-  const [category, setCategory] = useState<ExerciseCategory>(defaultCategory);
-  const [video, setVideo] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const videoState = videoFieldState(video);
-  const canSave = name.trim().length > 0 && videoState !== 'invalid' && !saving;
-
-  const submit = async () => {
-    if (!canSave) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/exercises', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          category,
-          ...(video.trim() ? { video_url: video.trim() } : {}),
-        }),
-      });
-      if (!res.ok) {
-        setError(
-          (await extractApiErrorMessage(res)) ?? 'No se pudo crear el ejercicio. Reintenta.',
-        );
-        setSaving(false);
-        return;
-      }
-      const data = (await res.json()) as { exercise: ApiExercise };
-      onCreated(toCatalogRow(data.exercise));
-    } catch {
-      setError('No se pudo crear el ejercicio. Reintenta.');
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4 overflow-y-auto p-5">
-      <label className="block space-y-1.5">
-        <span className="v2-micro">Nombre</span>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-          maxLength={120}
-          placeholder="p. ej. Zancada búlgara con mancuerna"
-          aria-label="Nombre del ejercicio"
-          className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
-        />
-      </label>
-
-      <div className="space-y-1.5">
-        <span className="v2-micro">
-          Tipo <span className="text-[color:var(--v2-faint)]">(de qué movimiento es)</span>
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORY_OPTIONS.map((c) => (
-            <FilterChip
-              key={c.value}
-              label={c.label}
-              active={category === c.value}
-              onClick={() => setCategory(c.value)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <YouTubeField value={video} onChange={setVideo} state={videoState} />
-
-      <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,165,46,.3)] bg-[color:var(--v2-warn-soft)] px-3 py-2.5">
-        <MIcon name="info" size={15} className="mt-px shrink-0 text-[color:var(--v2-warn)]" />
-        <p className="text-[12px] leading-snug text-[color:var(--v2-fg)]">
-          Se añade a tu catálogo y queda disponible para cualquier sesión.
-        </p>
-      </div>
-
-      {error ? <p className="text-xs text-[color:var(--v2-danger)]">{error}</p> : null}
-
-      <div className="flex items-center justify-between gap-3 border-t border-[color:var(--v2-border)] pt-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="v2-focus rounded-[var(--v2-r-s)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSave}
-          className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-        >
-          <MIcon name={saving ? 'progress_activity' : 'add'} size={16} />
-          {saving ? 'Creando…' : 'Crear y usar'}
-        </button>
-      </div>
     </div>
   );
 }

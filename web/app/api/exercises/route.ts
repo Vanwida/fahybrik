@@ -9,6 +9,7 @@ import {
   createExerciseSchema,
   ExerciseCreateError,
 } from '@/lib/dashboard/exercises/create-exercise';
+import { loadCoachExerciseRow } from '@/lib/exercises/coach-override';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,10 +48,19 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/exercises — create an exercise the coach is missing (the picker's
- * "crear ejercicio nuevo" row, or the Biblioteca catalog). Body: name + category
- * (+ optional YouTube). Modality is derived server-side (intrinsic, mig 0053).
- * The row is the coach's OWN — no other coach sees it (mig 0132). Returns the
- * fresh exercise so the picker selects it in.
+ * "crear ejercicio nuevo" row, or the Biblioteca catalog). Body: name + category +
+ * modality (+ optional YouTube). The coach DECLARES the modality — it is not derived
+ * from the name any more (see create-exercise.ts: the old rule read English regexes
+ * and silently filed a Spanish "Remo 500m" under `other`, breaking the analytics that
+ * route on it). The row is the coach's OWN — no other coach sees it (mig 0132).
+ *
+ * RESPONDE LA MISMA FILA QUE GET Y PATCH (`CoachExerciseRow`: contenido fusionado +
+ * base_* + override_* + origin), y no la fila cruda de `createExercise`. Esa fila
+ * cruda no trae `origin`, así que el catálogo pintaba `EXERCISE_ORIGIN_META[undefined]`
+ * y se caía en cuanto se creaba algo desde la Biblioteca — invisible hasta ahora sólo
+ * porque crear devolvía 400 antes de llegar. Un endpoint que contesta una forma
+ * distinta a la que lista es un endpoint que obliga a cada consumidor a rellenar los
+ * huecos a mano, y a que uno de ellos se le olvide.
  */
 export async function POST(req: Request) {
   const session = await getCoachSession();
@@ -69,7 +79,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const exercise = await createExercise(parsed.data, session.coach_id);
+    const created = await createExercise(parsed.data, session.coach_id);
+    // Re-read it as the coach sees it. Un ejercicio recién creado es OWN por
+    // construcción (no tiene override que fusionar), así que esto no cambia ningún
+    // valor — cambia la FORMA, que es lo que el catálogo necesita para pintar la fila
+    // sin adivinar. Si desapareciera entre el insert y el select, la fila cruda sigue
+    // siendo una respuesta honesta del 201.
+    const exercise =
+      (await loadCoachExerciseRow(sql, session.coach_id, BigInt(created.id))) ?? created;
     return jsonOk({ exercise }, 201);
   } catch (err) {
     if (err instanceof ExerciseCreateError) {

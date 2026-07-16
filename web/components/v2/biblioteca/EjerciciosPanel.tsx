@@ -24,8 +24,8 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { ContextHint } from '@/components/v2/orientacion';
 import { EjercicioRow } from '@/components/v2/biblioteca/EjercicioRow';
-import { EjercicioEditor } from '@/components/v2/biblioteca/EjercicioEditor';
-import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
+import { EjercicioEditor, type ExerciseSeed } from '@/components/v2/biblioteca/EjercicioEditor';
+import { BorrarEjercicioDialog } from '@/components/v2/biblioteca/BorrarEjercicioDialog';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
 import {
   ORIGIN_FACET_OPTIONS,
@@ -35,7 +35,7 @@ import {
 
 type EditorState =
   | { mode: 'edit'; ex: CoachExerciseRow }
-  | { mode: 'create'; seed: { name: string; category: ExerciseCategory } | null }
+  | { mode: 'create'; seed: ExerciseSeed | null }
   | null;
 
 const CTA_CLS =
@@ -46,6 +46,7 @@ export function EjerciciosPanel({ query }: { query?: string }) {
   const [failed, setFailed] = useState(false);
   const [facet, setFacet] = useState<OriginFacet>('todos');
   const [editor, setEditor] = useState<EditorState>(null);
+  const [deleting, setDeleting] = useState<CoachExerciseRow | null>(null);
   const [reload, setReload] = useState(0);
 
   // Limpiar el error es lo que hace el botón de reintentar, no el efecto: dentro
@@ -100,12 +101,22 @@ export function EjerciciosPanel({ query }: { query?: string }) {
     setEditor(null);
   }, []);
 
+  /** Borrado confirmado: la fila se va de la lista sin recargar el catálogo entero —
+   *  el servidor ya dijo que no existe, así que volver a preguntarlo es un viaje que
+   *  sólo sirve para que la lista parpadee. */
+  const onDeleted = useCallback((id: string) => {
+    setRows((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
+    setDeleting(null);
+  }, []);
+
   const closeEditor = useCallback(() => setEditor(null), []);
   const openEdit = useCallback((ex: CoachExerciseRow) => setEditor({ mode: 'edit', ex }), []);
   const openCreateOwn = useCallback(
-    (seed: { name: string; category: ExerciseCategory }) => setEditor({ mode: 'create', seed }),
+    (seed: ExerciseSeed) => setEditor({ mode: 'create', seed }),
     [],
   );
+  const openDelete = useCallback((ex: CoachExerciseRow) => setDeleting(ex), []);
+  const closeDelete = useCallback(() => setDeleting(null), []);
 
   return (
     <div className="flex flex-col">
@@ -151,7 +162,7 @@ export function EjerciciosPanel({ query }: { query?: string }) {
         {visible.length > 0 ? (
           <ul className="flex flex-col gap-1.5">
             {visible.map((ex) => (
-              <EjercicioRow key={ex.id} ex={ex} onEdit={openEdit} />
+              <EjercicioRow key={ex.id} ex={ex} onEdit={openEdit} onDelete={openDelete} />
             ))}
           </ul>
         ) : null}
@@ -196,6 +207,10 @@ export function EjerciciosPanel({ query }: { query?: string }) {
           onCreated={onCreated}
           onCreateOwn={openCreateOwn}
         />
+      ) : null}
+
+      {deleting ? (
+        <BorrarEjercicioDialog ex={deleting} onClose={closeDelete} onDeleted={onDeleted} />
       ) : null}
     </div>
   );
