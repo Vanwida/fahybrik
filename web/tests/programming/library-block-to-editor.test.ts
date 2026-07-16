@@ -3,9 +3,11 @@ import {
   isInsertableBlockModel,
   libraryBlockToEditorBlocks,
 } from '@/lib/dashboard/v2/library-block-to-editor';
+import { serializeDay } from '@/lib/dashboard/v2/editor-serialize';
 import type { BlockEditorModel, EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { templateFormat } from '@fahybrid/shared/schema/_primitives';
+import { weekDayPartSchema } from '@fahybrid/shared/schema/program-templates';
 
 // El mapeo bloque de biblioteca → EditorBlock[] que el editor de día inserta.
 // Los fixtures reproducen lo que `loadBlockEditorModel` devuelve de verdad para
@@ -101,6 +103,33 @@ describe('libraryBlockToEditorBlocks', () => {
 
     expect(blocks.every((b) => b.source_block_id === 52)).toBe(true);
     expect(blocks.every((b) => b.methodology_group_id === 5)).toBe(true);
+  });
+
+  // La procedencia se PINTA ("Desde tu bloque «X»"), así que el título del origen
+  // tiene que viajar ya en la inserción — sin esperar a recargar el día.
+  it('cada pieza sabe de qué bloque salió, para poder decirlo', () => {
+    const blocks = libraryBlockToEditorBlocks(block52());
+
+    expect(blocks.every((b) => b.source_block_title === "10' row z2")).toBe(true);
+  });
+
+  // El título del origen es DERIVADO: si se persistiera, renombrar el bloque en la
+  // Biblioteca dejaría el día mintiendo con el nombre viejo. El serializador solo
+  // escribe campos de WeekDayPart, y el schema no tiene `source_block_title` → esta
+  // prueba fija esa frontera: lo que va a la BD conserva el id, nunca el título.
+  it('el título del origen NO llega a la BD; el id sí', () => {
+    const day = serializeDay({
+      day_of_week: 2,
+      sessions: [{ uid: 's1', slot: 'am', blocks: libraryBlockToEditorBlocks(block52()) }],
+      original: { day_of_week: 2, sessions: [] },
+    });
+
+    const parts = day.sessions[0]?.blocks ?? [];
+    expect(parts).toHaveLength(4);
+    expect(parts.every((p) => p.source_block_id === 52)).toBe(true);
+    expect(parts.every((p) => !('source_block_title' in p))).toBe(true);
+    // Y el resultado es válido para la BD: el schema es la frontera real.
+    expect(parts.every((p) => weekDayPartSchema.safeParse(p).success)).toBe(true);
   });
 
   it('dos inserciones del MISMO bloque no comparten ningún uid', () => {

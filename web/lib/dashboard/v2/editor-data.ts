@@ -6,6 +6,7 @@ import 'server-only';
 // models in editor-types.ts. No new tables, no invented data: an empty result
 // degrades to an empty model (the UI shows an EmptyState), never throws.
 
+import { sql } from '@/lib/db';
 import { getTemplateDetail, listTemplatesForCoach } from '@/lib/dashboard/coach/templates';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
 import {
@@ -190,8 +191,9 @@ export async function loadDayEditorModel(params: {
   );
   const day = dayRaw ? normalizeWeekDay(dayRaw) : { day_of_week: dayOfWeek, sessions: [] };
 
-  const sessions: EditorSession[] = (day.sessions ?? []).map((s, si) =>
-    mapSession(s, si),
+  const sessions: EditorSession[] = await withSourceBlockTitles(
+    (day.sessions ?? []).map((s, si) => mapSession(s, si)),
+    params.coach_id,
   );
 
   if (!week) return null; // microcycle with no weeks → no day to edit
@@ -237,6 +239,49 @@ export async function loadDayEditorModel(params: {
     week_day_base,
     weeks,
   };
+}
+
+/**
+ * Resuelve el TÍTULO del bloque de origen de los parts que vinieron de la
+ * Biblioteca, para que el día pueda decir "Desde tu bloque «X»".
+ *
+ * Es PROCEDENCIA, no un vínculo vivo: la inserción copia la estructura y editar
+ * el bloque en la Biblioteca NO cambia esta semana. Por eso el título se resuelve
+ * al LEER y no se persiste — así nunca se queda obsoleto ni miente.
+ *
+ * Scoped por coach: un `source_block_id` que ya no existe (o de otro coach) se
+ * queda en `null` y no se pinta nada. Un solo query batch para todo el día.
+ */
+async function withSourceBlockTitles(
+  sessions: EditorSession[],
+  coachId: number | bigint,
+): Promise<EditorSession[]> {
+  const ids = Array.from(
+    new Set(
+      sessions.flatMap((s) =>
+        s.blocks.filter((b) => b.source_block_id != null).map((b) => Number(b.source_block_id)),
+      ),
+    ),
+  );
+  if (ids.length === 0) return sessions;
+
+  type SourceBlockRow = { id: string; title: string };
+  const rows: SourceBlockRow[] = await sql<SourceBlockRow[]>`
+    select id::text as id, title
+      from blocks
+     where id = any(${ids}::bigint[])
+       and coach_id = ${Number(coachId)}
+  `.catch(() => []);
+
+  const titleById = new Map<number, string>(rows.map((r) => [Number(r.id), r.title]));
+  return sessions.map((s) => ({
+    ...s,
+    blocks: s.blocks.map((b) =>
+      b.source_block_id == null
+        ? b
+        : { ...b, source_block_title: titleById.get(Number(b.source_block_id)) ?? null },
+    ),
+  }));
 }
 
 function mapSession(s: DomainWeekSession, index: number): EditorSession {

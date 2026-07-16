@@ -290,6 +290,16 @@ function SortableBlockCard({
         </button>
       </div>
 
+      {/* PROCEDENCIA. Insertar desde la Biblioteca COPIA la estructura: esto dice de
+          dónde salió, no promete que se actualice sola. Si el bloque de origen ya no
+          existe, el loader deja el título en null y aquí no se pinta nada. */}
+      {block.source_block_title ? (
+        <p className="flex items-center gap-1 px-2 pt-1.5 text-[11px] text-[color:var(--v2-faint)]">
+          <MIcon name="library_books" size={13} aria-hidden />
+          Desde tu bloque «{block.source_block_title}»
+        </p>
+      ) : null}
+
       <div className="px-2 py-2">
         <BlockItemTable
           block={block}

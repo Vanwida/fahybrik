@@ -140,6 +140,11 @@ export function libraryBlockToEditorBlocks(model: BlockEditorModel): EditorBlock
     // Procedencia: de qué bloque de la biblioteca salió esta pieza. `serializePart`
     // lo persiste, así que el día recuerda su origen aunque el coach lo edite.
     source_block_id: model.block_id,
+    // El título del origen viaja para poder pintar "Desde tu bloque «X»" YA, sin
+    // esperar a recargar. No se persiste (serializePart solo escribe los campos
+    // de WeekDayPart): al recargar lo resuelve el loader desde `source_block_id`,
+    // así que nunca se queda obsoleto si el coach renombra el bloque.
+    source_block_title: model.title,
     // `group` (calentamiento/principal/vuelta) se OMITE a propósito: el editor de
     // día es agnóstico — una lista plana que el coach nombra y ordena — igual que
     // `createBlockFromArchetype`. Además el que trae el loader se infirió del

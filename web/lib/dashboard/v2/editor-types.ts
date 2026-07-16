@@ -91,6 +91,17 @@ export interface EditorBlock {
   group?: StructureGroup;
   /** Library origin, when inserted from the Biblioteca de Bloques. */
   source_block_id?: number | null;
+  /**
+   * Título del bloque de origen, para poder DECIRLE al coach de dónde salió esto
+   * ("Desde tu bloque «X»"). Es PROCEDENCIA, no un vínculo vivo: insertar COPIA
+   * la estructura y editar el bloque en la Biblioteca no cambia esta semana.
+   *
+   * DERIVADO, nunca se persiste: el serializador solo escribe los campos conocidos
+   * de WeekDayPart, y al recargar lo resuelve el loader desde `source_block_id`.
+   * `null` = el bloque de origen ya no existe (o no es de este coach) → no se
+   * pinta nada, que es lo honesto: la referencia es del pasado, no una promesa.
+   */
+  source_block_title?: string | null;
   items: EditorItem[];
 }
 
