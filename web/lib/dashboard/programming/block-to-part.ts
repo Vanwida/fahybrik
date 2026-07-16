@@ -27,6 +27,18 @@ import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 // `coach_note` se mantiene: es la voz literal de Pablo y la trazabilidad de
 // dónde salió — el mismo patrón dual `params_json` / `prescription_json` que ya
 // usa el resto del dominio.
+//
+// ⚠️ PERO el `items: []` DE CUANDO NO SE PASAN EJERCICIOS NO ES UN OLVIDO: es la
+// mitad de un contrato vivo. Un part con `source_block_id` e `items` vacío es una
+// REFERENCIA sin resolver, y `hydrateBlockParts` (lib/dashboard/coach/
+// instantiate-program.ts) la resuelve AL ASIGNAR. En `slots_json` de las semanas
+// ya escritas viven 39 parts así (verificado contra prod, jul-2026). Sembrar items
+// siempre — o borrar la hidratación por no encontrarle llamadores nuevos — deja
+// esas 39 piezas vacías en el entreno del atleta.
+//
+// El editor de día NO pasa por aquí: al insertar un bloque copia la estructura
+// (`library-block-to-editor.ts`). Esta función es la vía de la IA + el lector de
+// lo viejo. Las dos conviven a propósito.
 
 // block.format → template_format. Espeja BLOCK_TO_TEMPLATE_FORMAT del
 // materializador (instantiate-program). Cualquier valor no mapeado cae en el
