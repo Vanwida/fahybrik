@@ -28,6 +28,7 @@ import {
   type Availability,
   type PreferredWeek,
 } from '@fahybrid/shared/domain/coach/intake-availability';
+import { visibleToCoach } from '@/lib/exercises/coach-override';
 
 /**
  * Validate + wrap an item's structured prescription for the `prescription_json`
@@ -535,8 +536,14 @@ async function materializeInlineSessionTemplate(params: {
       blocks.flatMap((b) => (b.items ?? []).map((it) => Number(it.exercise_id))),
     ),
   );
+  // Filters out both non-existent ids AND ids belonging to another coach — a
+  // referenced id here arrives verbatim from the session's own JSON blocks,
+  // not by FK from an already-scoped row, so it must be resolved through the
+  // same visibility every enumeration/resolver uses (mig 0132).
   const existingRows = await params.client<Array<{ id: string }>>`
-    select id::text from exercises where id = any(${referencedIds}::bigint[])
+    select e.id::text from exercises e
+    where e.id = any(${referencedIds}::bigint[])
+      and ${visibleToCoach(params.client, params.coach_id)}
   `;
   const existingExerciseIds = new Set(existingRows.map((r) => Number(r.id)));
   if (existingExerciseIds.size === 0) return null;

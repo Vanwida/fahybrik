@@ -18,6 +18,7 @@ import type {
   WeekDayPart,
 } from '@fahybrid/shared/schema/program-templates';
 import { templateFormat } from '@fahybrid/shared/schema/_primitives';
+import { visibleToCoach } from '@/lib/exercises/coach-override';
 
 // =============================================================================
 // Publish preview — qué recibirá el atleta ANTES de confirmar.
@@ -192,7 +193,7 @@ export async function buildPublishPreview(params: {
       for (let i = 0; i < day.sessions.length; i++) {
         const session = day.sessions[i]!;
         if (session.kind !== 'workout') continue;
-        const preview = await previewSession({ client, session });
+        const preview = await previewSession({ client, session, coach_id: params.coach_id });
         if (preview.materializes) sessionCount += 1;
         sessions.push({ ...preview, slot: slotLabelForSessionIndex(i) });
       }
@@ -237,8 +238,9 @@ export async function buildPublishPreview(params: {
 async function previewSession(params: {
   client: Sql;
   session: WeekSession;
+  coach_id: number | bigint;
 }): Promise<Omit<PreviewSession, 'slot'>> {
-  const { client, session } = params;
+  const { client, session, coach_id } = params;
 
   if (session.template_id != null) {
     const rows = await client<Array<{ name: string; seg_count: number }>>`
@@ -267,10 +269,16 @@ async function previewSession(params: {
   const referencedIds = Array.from(
     new Set(blocks.flatMap((b) => (b.items ?? []).map((it) => Number(it.exercise_id)))),
   );
+  // Filters out both non-existent ids AND ids belonging to another coach — a
+  // referenced id here arrives verbatim from the week's own JSON blocks, not
+  // by FK from an already-scoped row, so it must be resolved through the same
+  // visibility every enumeration/resolver uses (mig 0132).
   const existing =
     referencedIds.length > 0
       ? await client<Array<{ id: string }>>`
-          select id::text from exercises where id = any(${referencedIds}::bigint[])
+          select e.id::text from exercises e
+          where e.id = any(${referencedIds}::bigint[])
+            and ${visibleToCoach(client, coach_id)}
         `
       : [];
   const existingIds = new Set(existing.map((r) => Number(r.id)));

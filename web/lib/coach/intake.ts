@@ -458,7 +458,9 @@ export async function loadIntakeProfile(params: {
       ab.recorded_at,
       e.name as label
     from athlete_benchmarks ab
-    left join exercises e on e.slug = ab.exercise_slug
+    -- Benchmark label lookup by BASE-catalog identity only (never a coach's
+    -- own exercise) — the slug is a global benchmark identity, not scoped.
+    left join exercises e on e.slug = ab.exercise_slug and e.coach_id is null
     where ab.athlete_id = ${params.athlete_id as number}
     order by ab.exercise_slug, ab.recorded_at desc
   `;

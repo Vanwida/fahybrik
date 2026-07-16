@@ -89,8 +89,13 @@ async function resolveExerciseIds(
   const bySpecSlug = new Map<string, number>();
   if (candidates.size === 0) return bySpecSlug;
 
+  // Benchmark anchors are BASE-catalog identities (HYROX stations, lift slugs)
+  // by definition, never a coach's own exercise — `coach_id is null` states
+  // that intent explicitly rather than relying on slugs happening to be
+  // globally unique.
   const rows = await tx<Array<{ id: string; slug: string }>>`
-    select id::text as id, slug from exercises where slug = any(${[...candidates]})
+    select id::text as id, slug from exercises
+    where slug = any(${[...candidates]}) and coach_id is null
   `;
   const idByCatalogSlug = new Map<string, number>(rows.map((r) => [r.slug, Number(r.id)]));
 
@@ -168,10 +173,13 @@ async function writeCalibrationContentSegments(
   // Resolve every candidate exercise slug once (catalog slugs, tried in order).
   const candidates = new Set<string>();
   for (const seg of content) for (const s of seg.exercise) candidates.add(s);
+  // Same base-identity resolution as `resolveExerciseIds` above: a calibration
+  // blueprint's exercise slugs are always BASE catalog, never a coach's own.
   const rows =
     candidates.size > 0
       ? await tx<Array<{ id: string; slug: string }>>`
-          select id::text as id, slug from exercises where slug = any(${[...candidates]})
+          select id::text as id, slug from exercises
+          where slug = any(${[...candidates]}) and coach_id is null
         `
       : [];
   const idByCatalogSlug = new Map<string, number>(rows.map((r) => [r.slug, Number(r.id)]));

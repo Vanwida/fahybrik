@@ -9,17 +9,19 @@ import {
   type StudioBlock,
 } from '@/lib/studio/blocks';
 import { HYROX_SECTION_TYPES } from '@/lib/studio/section-types';
-
-interface ExerciseRow {
-  id: string;
-  name: string;
-}
+import {
+  loadCoachExerciseCatalog,
+  type CoachCatalogExercise,
+} from '@/lib/dashboard/coach/ai/exercise-catalog';
 
 function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
-function matchExercise(name: string, byName: Map<string, ExerciseRow>): ExerciseRow | null {
+function matchExercise(
+  name: string,
+  byName: Map<string, CoachCatalogExercise>,
+): CoachCatalogExercise | null {
   const n = normalize(name);
   const exact = byName.get(n);
   if (exact) return exact;
@@ -39,9 +41,13 @@ export async function persistWorkoutFromAiSuggestion(params: {
   const client = params.client ?? defaultSql;
   const is_draft = params.is_draft ?? true;
 
-  const exercises = await client<ExerciseRow[]>`
-    select id::text, name from exercises order by name limit 300
-  `;
+  // The coach writes the suggestion in THEIR names (overrides applied), so
+  // name→id resolution below must match against the same MERGED name — not
+  // the base one — or a renamed exercise fails to resolve.
+  const exercises = await loadCoachExerciseCatalog(client, params.coach_id, {
+    order: 'name',
+    limit: 300,
+  });
   const byName = new Map(exercises.map((e) => [normalize(e.name), e]));
 
   const blocks: StudioBlock[] = [];
