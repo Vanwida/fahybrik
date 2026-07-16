@@ -164,7 +164,8 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     const run = assignments.find((a) => a.slug === 'tt_5k')!;
     // tt_5k → week 1, day 3 (Wed) ⇒ monday + 2 days.
     expect(run.scheduled_for).toBe(isoDateString(addDays(monday, 2)));
-    expect(run.store_len).toBe(1);
+    // tt_5k now materializes 2 store_results: run_5k (required) + hrr60 (optional #34).
+    expect(run.store_len).toBe(2);
 
     // Bridge: record the 5K time ⇒ a run_5k benchmark is written (calibration
     // read from the clone's meta_json.store_results).
@@ -209,20 +210,32 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     expect(runStatus.result_captured).toBe(true);
     expect(runStatus.result_label).toBe('20:00');
 
-    // Assignment detail exposes store_results for the test session.
+    // Assignment detail exposes store_results for the test session — run_5k (required)
+    // + the seeded hrr60 (optional #34), each carrying its optional flag for iOS.
     const detail = await loadAssignmentDetail({
       sql,
       athlete_id: BigInt(fx.athleteId),
       assignment_id: BigInt(Number(run.id)),
     });
-    expect(detail?.assignment.store_results).toEqual([
-      expect.objectContaining({
-        slug: 'run_5k',
-        measure: 'time',
-        unit: 'seconds',
-        derives: 'run_zones',
-        modality: 'run',
-      }),
-    ]);
+    expect(detail?.assignment.store_results).toHaveLength(2);
+    expect(detail?.assignment.store_results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: 'run_5k',
+          measure: 'time',
+          unit: 'seconds',
+          derives: 'run_zones',
+          modality: 'run',
+          optional: false,
+        }),
+        expect.objectContaining({
+          slug: 'hrr60',
+          measure: 'hrr',
+          unit: 'bpm',
+          derives: 'none',
+          optional: true,
+        }),
+      ]),
+    );
   }, 60000);
 });
