@@ -15,7 +15,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import type { CoachZone, ResolvedZone, ZonePaceUnit } from '@fahybrid/shared/domain/methodology';
+import { standardZonesFor, type CoachZone, type ResolvedZone, type ZonePaceUnit } from '@fahybrid/shared/domain/methodology';
 import {
   resolvedZoneSnapshotSchema,
   type ResolvedZoneSnapshot,
@@ -34,7 +34,18 @@ interface ZoneRow {
   high_offset_s: number | null;
 }
 
-/** Load a coach's 6-zone OFFSET model for one pace unit (per_500m | per_km). */
+/**
+ * Load a coach's 6-zone OFFSET model for one pace unit (per_500m | per_km).
+ *
+ * A coach with NO seeded rows for the unit falls back to the STANDARD offset
+ * model (`standardZonesFor` — the same bands migration 0061 seeds). Migration
+ * 0061 only seeded the coaches that existed when it ran, and coach creation does
+ * not seed zones, so every coach created since (incl. real signups) has zero
+ * rows; the fallback lets their athletes record tests immediately, exactly as
+ * the seeded standard intends. Per-coach rows, once present, always win — and a
+ * PARTIAL set (1..5 rows) is returned as-is so the callers' 6-zone guard still
+ * surfaces a genuinely corrupt model instead of being masked.
+ */
 export async function loadCoachZonesForUnit(
   client: Sql,
   coach_id: number,
@@ -47,6 +58,7 @@ export async function loadCoachZonesForUnit(
     where coach_id = ${coach_id} and pace_unit = ${pace_unit}
     order by sort_order asc
   `;
+  if (rows.length === 0) return [...standardZonesFor(pace_unit)];
   return rows.map((r) => ({
     code: r.code,
     label: r.label,
