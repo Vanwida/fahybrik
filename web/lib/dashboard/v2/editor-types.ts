@@ -205,6 +205,22 @@ export interface LibraryBlockRow {
   /** Modality color slug for the left-border (carrera/ergo/fuerza/circuito/…). */
   modality_slug: string;
   usage_count: number;
+  /**
+   * De dónde salió el bloque en el plan del coach ("S9 – Martes"). Es lo que
+   * DISTINGUE los títulos repetidos: el título importado es solo el primer
+   * fragmento del entreno ("10' row z2" cuando en realidad es row + ski + bike +
+   * run), así que 4 títulos se repiten entre 9 bloques. null si no vino de un import.
+   */
+  source_ref: string | null;
+  /**
+   * Tiene `block_exercises` → el atleta puede ejecutarlo → se puede insertar en un
+   * día. Un bloque sin tipar solo tiene la prosa verbatim del coach en
+   * `description`: se muestra, pero insertarlo la perdería (ver
+   * `isInsertableBlockModel`). NO es `needs_review`: en los datos reales discrepan.
+   */
+  typed: boolean;
+  /** Cuántas piezas (EditorBlock) añade al día: `block_position` distintos. 0 sin tipar. */
+  part_count: number;
 }
 
 /** Minimal exercise catalog row for the "añadir ejercicio" picker. */

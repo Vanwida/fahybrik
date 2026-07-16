@@ -1,7 +1,5 @@
 import 'server-only';
 
-import { sql } from '@/lib/db';
-
 // editor-data — server loaders for the v2 editing cluster. Each REUSES an
 // existing real loader (getTemplateDetail, loadMonthTemplateWithWeeks,
 // listTemplatesForCoach, listBlocks) and maps it into the client-safe view
@@ -13,7 +11,7 @@ import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months
 import {
   getBlockById,
   getBlockExerciseRowsForEdit,
-  listBlocks,
+  listBlocksWithStructure,
 } from '@/lib/dashboard/coach/blocks';
 import {
   legacyItemToPrescription,
@@ -289,7 +287,7 @@ export async function loadLibraryRail(params: {
 }): Promise<{ sessions: LibrarySessionRow[]; blocks: LibraryBlockRow[] }> {
   const [sessions, blocks] = await Promise.all([
     listTemplatesForCoach(params.coach_id).catch(() => []),
-    listBlocks(params.coach_id, null).catch(() => []),
+    loadLibraryBlockRail(params),
   ]);
 
   return {
@@ -300,36 +298,80 @@ export async function loadLibraryRail(params: {
       block_count: t.block_count,
       segment_count: t.segment_count,
     })),
-    blocks: blocks.map<LibraryBlockRow>((b) => ({
-      id: b.id,
-      title: b.title,
-      format: b.format,
-      methodology_group_id: b.methodology_group_id,
-      modality_slug: blockFormatToModalitySlug(b.format),
-      // TODO(endpoint): real per-block usage count not exposed by listBlocks.
-      usage_count: 0,
-    })),
+    blocks,
   };
 }
 
-// Map a block's template_format to the v2 modality color axis (best-effort; the
-// block model has no explicit modality, format is the strongest available signal).
+/**
+ * La mitad de BLOQUES del rail: la biblioteca del coach con su estado
+ * ESTRUCTURAL, que es lo que decide si una fila se puede insertar en un día.
+ * `listBlocksWithStructure` lo resuelve en UNA consulta (bloques + nº de
+ * ejercicios + nº de piezas), así que el rail no necesita ninguna más.
+ *
+ * Separado de `loadLibraryRail` para que el rail del editor de día pueda pedir
+ * SOLO los bloques (es lo único que inserta hoy) sin arrastrar la consulta de
+ * plantillas de sesión, que nadie renderiza todavía.
+ */
+export async function loadLibraryBlockRail(params: {
+  coach_id: number | bigint;
+}): Promise<LibraryBlockRow[]> {
+  const blocks = await listBlocksWithStructure(params.coach_id, null).catch(() => []);
+  return blocks.map<LibraryBlockRow>((b) => ({
+    id: b.id,
+    title: b.title,
+    format: b.format,
+    methodology_group_id: b.methodology_group_id,
+    modality_slug: blockFormatToModalitySlug(b.format),
+    source_ref: b.source_ref,
+    typed: b.typed,
+    part_count: b.part_count,
+    // TODO(endpoint): real per-block usage count not exposed by listBlocksWithStructure.
+    usage_count: 0,
+  }));
+}
+
+// Map a block's format to the v2 modality color axis (best-effort; the block model
+// has no explicit modality, format is the strongest available signal).
+//
+// OJO — `blocks.format` tiene DOS vocabularios que conviven: el del IMPORTADOR del
+// plan del coach (run_intervals, race_sim, zone2, erg_intervals, metcon,
+// core_mobility, plyometric, tapering, functional_circuit) y el que escribe
+// `createBlockFromArchetype` (tempo, intervals, amrap, emom, for_time, circuit,
+// hyrox_sim, test). Los dos se mapean aquí: con solo el segundo, 87 de los 99
+// bloques reales caían al default y el rail salía casi monocolor — inescaneable.
 function blockFormatToModalitySlug(format: string | null): string {
   switch (format) {
+    // Fuerza — barra y potencia.
     case 'strength_block':
+    case 'plyometric':
       return 'fuerza';
+    // Correr.
     case 'tempo':
     case 'intervals':
+    case 'run_intervals':
       return 'carrera';
     case 'test':
       // The default test type is ergo; the form's hue follows the picked type.
       return 'ergo';
+    // Ergómetros (row / ski / bike). `zone2` es mayoritariamente ergo en el plan
+    // real, aunque algún bloque mezcle carrera al final.
+    case 'erg_intervals':
+    case 'zone2':
+      return 'ergo';
+    // Trabajo mixto / competición.
     case 'amrap':
     case 'emom':
     case 'for_time':
     case 'circuit':
     case 'hyrox_sim':
+    case 'race_sim':
+    case 'metcon':
+    case 'functional_circuit':
       return 'circuito';
+    // Core, movilidad y activación pre-carrera.
+    case 'core_mobility':
+    case 'tapering':
+      return 'calentamiento';
     default:
       return modalityColorSlug('functional');
   }
