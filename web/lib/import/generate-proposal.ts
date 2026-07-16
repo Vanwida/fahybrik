@@ -12,7 +12,11 @@
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { weekDayPartsToEditorBlocks } from '@/lib/dashboard/v2/ai-blocks-to-editor';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
-import { checkPrescriptionCompleteness } from '@fahybrid/shared/domain/prescription';
+import {
+  blockingReasons,
+  checkPrescriptionCompleteness,
+  isExecutable,
+} from '@fahybrid/shared/domain/prescription';
 import type { WeekDay, WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 // Types only (erased at compile) — this stays free of the server-only orchestrator.
 import type { ImportProposal, ProposalDay, ProposalFlag, ProposalWeek } from './build-proposal';
@@ -47,6 +51,16 @@ export function weekDaysToProposal(params: {
     const dowLabel = DAY_LABELS_FULL[dow - 1] ?? `Día ${dow}`;
     const parts: WeekDayPart[] = day ? day.sessions.flatMap((s) => s.blocks ?? []) : [];
 
+    // Which blocks are the COACH's (materialised from one of his templates) versus
+    // ours (composed by the model). A session that resolved to a library template
+    // carries its `template_id`; a composed one does not. The two get different
+    // bars, and conflating them is a real defect in both directions — see below.
+    const libraryBlockUids = new Set<string>();
+    for (const s of day?.sessions ?? []) {
+      if (s.template_id == null) continue;
+      for (const b of s.blocks ?? []) libraryBlockUids.add(b.uid);
+    }
+
     if (parts.length === 0) {
       outDays.push({
         day_of_week: dow,
@@ -72,11 +86,21 @@ export function weekDaysToProposal(params: {
           modality: it.prescription.modality ?? null,
           role: b.group ?? 'principal',
         });
-        const confidence = completeness.ok ? 'detected' : 'review';
+        // Which bar applies depends on WHO wrote the line.
+        //  · We composed it → the STRICT bar. A model that writes "Back Squat 5×5"
+        //    with no load has not finished the job; there is no coach behind it.
+        //  · The coach's own template → the EXECUTABLE bar. His HYROX-sim run legs
+        //    carry no pace on purpose (in a simulation the race IS the target).
+        //    Holding his library to the authoring bar flagged 25 of his own items
+        //    as "review" — lecturing him about his own plan, which is noise.
+        const fromLibrary = libraryBlockUids.has(b.uid);
+        const passes = fromLibrary ? isExecutable(completeness) : completeness.ok;
+        const reasons = fromLibrary ? blockingReasons(completeness) : completeness.reasons;
+        const confidence = passes ? 'detected' : 'review';
         flags.push({
           uid: it.uid,
           confidence,
-          review_reasons: completeness.reasons,
+          review_reasons: reasons,
           unresolved_exercise: isUnresolved,
           exercise_token: it.exercise_name,
         });

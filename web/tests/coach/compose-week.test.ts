@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
+  composeConcurrency,
   composeDeadline,
   formatCatalogForPrompt,
+  mapWithConcurrency,
   type CatalogExercise,
 } from '@/lib/dashboard/coach/ai/compose-week';
 import { prescriptionGrammarLines } from '@fahybrid/shared/domain/prescription';
@@ -49,12 +51,14 @@ describe('prescription grammar prompt', () => {
 });
 
 describe('composeDeadline', () => {
-  test('leaves headroom under the route maxDuration of 180s', () => {
+  test('stops retries with room to finish under the route maxDuration of 300s', () => {
     const now = 1_000_000;
     const budget = composeDeadline(now) - now;
     expect(budget).toBeGreaterThan(60_000);
-    // Measured: one retrying session took the whole week to 171s. The budget must
-    // stop a retry well before the 180s wall, or the coach gets nothing at all.
-    expect(budget).toBeLessThan(180_000);
+    // A retry costs ~70-90s. The budget must leave room for one to FINISH inside
+    // the route's 300s, or the coach gets a timeout instead of a flagged week.
+    const RETRY_WORST_CASE_MS = 90_000;
+    const ROUTE_MAX_DURATION_MS = 300_000;
+    expect(budget + RETRY_WORST_CASE_MS).toBeLessThan(ROUTE_MAX_DURATION_MS);
   });
 });

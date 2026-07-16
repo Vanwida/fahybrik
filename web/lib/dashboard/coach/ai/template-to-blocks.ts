@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
+import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 import {
   defaultConfigForPartFormat,
@@ -55,6 +56,7 @@ export async function loadTemplateAsBlocks(
     exercise_id: string;
     exercise_name: string;
     params_json: Record<string, unknown> | null;
+    prescription_json: unknown;
     notes: string | null;
     template_name: string;
     template_format: string;
@@ -70,6 +72,7 @@ export async function loadTemplateAsBlocks(
       ts.exercise_id::text as exercise_id,
       e.name as exercise_name,
       ts.params_json,
+      ts.prescription_json,
       ts.notes,
       t.name as template_name,
       t.format::text as template_format
@@ -112,13 +115,23 @@ export async function loadTemplateAsBlocks(
       format: fmt,
       title,
       config_json: defaultConfigForPartFormat(fmt),
-      items: groupSegs.map((s) => ({
-        uid: newBlockUid(),
-        exercise_id: Number(s.exercise_id),
-        exercise_name: s.exercise_name,
-        params_json: (s.params_json ?? {}) as Record<string, unknown>,
-        ...(s.notes ? { notes: s.notes } : {}),
-      })),
+      items: groupSegs.map((s) => {
+        // `prescription_json` is the segment's REAL dose; `params_json` is the
+        // lossy scalar mirror. Reading only the mirror threw the dose away: a
+        // Back Squat stored as 4 sets of 10/8/8/6 @65-80%RM arrives as
+        // `{reps_scheme:"10/8/8/6"}`, which the legacy bridge cannot decode, so
+        // the coach's own template surfaced as "sin dosis". Carry the structured
+        // one when it exists and let the mirror stay the fallback.
+        const prescription = safeParsePrescription(s.prescription_json);
+        return {
+          uid: newBlockUid(),
+          exercise_id: Number(s.exercise_id),
+          exercise_name: s.exercise_name,
+          params_json: (s.params_json ?? {}) as Record<string, unknown>,
+          ...(prescription.success ? { prescription_json: prescription.data } : {}),
+          ...(s.notes ? { notes: s.notes } : {}),
+        };
+      }),
     };
   });
 

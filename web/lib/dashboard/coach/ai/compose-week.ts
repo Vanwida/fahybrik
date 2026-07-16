@@ -73,6 +73,49 @@ export function composeDeadline(now: number = Date.now()): number {
   return now + COMPOSE_BUDGET_MS;
 }
 
+/**
+ * How many sessions may be in flight at once.
+ *
+ * Firing all twelve together is WORSE than bounding them, which is not obvious:
+ * the provider queues concurrent requests, and the queue wait is charged to each
+ * request's own `LLM_CHAT_TIMEOUT_MS` (120s). So the calls at the back of the
+ * queue time out — the fan-out causes the very failures it was meant to avoid, and
+ * whole days vanish from the week (measured: 3 of 8 sessions lost at unbounded
+ * concurrency, 0 of 8 at 4).
+ *
+ * The provider is the bottleneck either way, so bounding costs little wall clock
+ * and buys back the missing days.
+ */
+const COMPOSE_CONCURRENCY = Number(process.env.LLM_COMPOSE_CONCURRENCY ?? 4);
+
+/** Run `worker` over `items` with at most `limit` in flight, preserving order. */
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<Array<PromiseSettledResult<R>>> {
+  const results = new Array<PromiseSettledResult<R>>(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (;;) {
+      const i = next;
+      next += 1;
+      if (i >= items.length) return;
+      try {
+        results[i] = { status: 'fulfilled', value: await worker(items[i]!, i) };
+      } catch (reason) {
+        results[i] = { status: 'rejected', reason };
+      }
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+export function composeConcurrency(): number {
+  return COMPOSE_CONCURRENCY;
+}
+
 export interface CatalogExercise {
   id: number;
   name: string;

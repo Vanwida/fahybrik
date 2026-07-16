@@ -13,9 +13,11 @@ import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import {
+  composeConcurrency,
   composeDeadline,
   composeSession,
   loadExerciseCatalog,
+  mapWithConcurrency,
   planWeekSkeleton,
   type CatalogExercise,
 } from './compose-week';
@@ -551,35 +553,34 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
     });
   }
 
-  // Fan out: every session composed at once. A single 7-day call is what hit the
-  // token ceiling and came back truncated; per-session calls each have room for a
-  // real dose, and running them together keeps this inside the route's budget.
-  // The deadline is shared by every session, so retries stop collectively rather
-  // than each session independently walking the whole week into a timeout.
+  // Fan out per session — a single 7-day call is what hit the token ceiling and
+  // came back truncated. But BOUNDED: the provider queues concurrent requests and
+  // charges the queue wait to each request's own timeout, so firing all twelve at
+  // once made the ones at the back die of a timeout the fan-out itself caused.
+  // The deadline is shared, so retries stop collectively rather than each session
+  // independently walking the week into the route's ceiling.
   const deadline_ms = composeDeadline();
-  const settled = await Promise.allSettled(
-    tasks.map(async (t) => {
-      if (t.template) {
-        const blocks = cloneBlocksWithFreshUids(
-          await loadTemplateAsBlocks(t.template.id, args.client),
-        );
-        return { task: t, blocks: stampModalityFromCatalog(blocks, byId) };
-      }
-      const composed = await composeSession({
-        focus: args.focus,
-        level: args.level,
-        day_label: DOW_LABELS_ES[t.dow] ?? `Día ${t.dow}`,
-        theme: t.theme,
-        modalities: t.modalities,
-        intensity: t.intensity,
-        catalog,
-        coach_id: args.coach_id,
-        athlete_id: args.athlete_id ?? null,
-        deadline_ms,
-      });
-      return { task: t, blocks: composed.blocks };
-    }),
-  );
+  const settled = await mapWithConcurrency(tasks, composeConcurrency(), async (t) => {
+    if (t.template) {
+      const blocks = cloneBlocksWithFreshUids(
+        await loadTemplateAsBlocks(t.template.id, args.client),
+      );
+      return { task: t, blocks: stampModalityFromCatalog(blocks, byId) };
+    }
+    const composed = await composeSession({
+      focus: args.focus,
+      level: args.level,
+      day_label: DOW_LABELS_ES[t.dow] ?? `Día ${t.dow}`,
+      theme: t.theme,
+      modalities: t.modalities,
+      intensity: t.intensity,
+      catalog,
+      coach_id: args.coach_id,
+      athlete_id: args.athlete_id ?? null,
+      deadline_ms,
+    });
+    return { task: t, blocks: composed.blocks };
+  });
 
   const ok = settled.filter(
     (r): r is PromiseFulfilledResult<{ task: Task; blocks: WeekDayPart[] }> =>

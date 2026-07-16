@@ -229,3 +229,126 @@ describe('weekDaysToProposal — prescription completeness gate', () => {
     expect(main.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
   });
 });
+
+// Who wrote the line decides which bar it clears. Conflating the two is a defect
+// in BOTH directions: it either lets our own thin output through, or lectures the
+// coach about his own plan.
+describe('weekDaysToProposal — the bar depends on the source', () => {
+  const runNoTarget = {
+    uid: 'i1',
+    exercise_id: 3479,
+    exercise_name: 'Run',
+    prescription_json: {
+      scheme: 'hyrox_sim',
+      modality: 'run',
+      sets: [{ measure: { kind: 'distance', meters: 1000 } }],
+    },
+  };
+
+  const dayFrom = (session: Record<string, unknown>): WeekDay[] =>
+    [{ day_of_week: 1, sessions: [session] }] as unknown as WeekDay[];
+
+  const block = { uid: 'b1', format: 'hyrox_sim', title: 'Sim', group: 'principal', items: [runNoTarget] };
+
+  test("the coach's own template passes: a sim run has no pace on purpose", () => {
+    // `template_id` present = materialised from HIS library.
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('detected');
+    expect(flag.review_reasons).toEqual([]);
+  });
+
+  test('the same line composed by us is flagged: we had no business omitting the target', () => {
+    // No `template_id` = the model authored it.
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('review');
+    expect(flag.review_reasons.join(' ')).toMatch(/ritmo|zona|RPE/i);
+  });
+
+  test("a blocking gap is flagged even in the coach's own template", () => {
+    const noDose = {
+      uid: 'b2',
+      format: 'sets',
+      title: 'Fuerza',
+      group: 'principal',
+      items: [
+        { uid: 'i9', exercise_id: 42, exercise_name: 'Back Squat', prescription_json: { scheme: 'sets', modality: 'strength' } },
+      ],
+    };
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [noDose] }),
+      sheetLabel: 'IA',
+    });
+    // Nobody can execute an unspecified amount of work — not even the author.
+    expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});
+
+// Who wrote the line decides which bar it clears. Conflating them is a defect in
+// BOTH directions: it either lets our own thin output pass, or lectures the coach
+// about his own plan.
+describe('weekDaysToProposal — the bar depends on the source', () => {
+  const runNoTarget = {
+    uid: 'i1',
+    exercise_id: 3479,
+    exercise_name: 'Run',
+    prescription_json: {
+      scheme: 'hyrox_sim',
+      modality: 'run',
+      sets: [{ measure: { kind: 'distance', meters: 1000 } }],
+    },
+  };
+  const block = { uid: 'b1', format: 'hyrox_sim', title: 'Sim', group: 'principal', items: [runNoTarget] };
+  const dayFrom = (session: Record<string, unknown>): WeekDay[] =>
+    [{ day_of_week: 1, sessions: [session] }] as unknown as WeekDay[];
+
+  test("the coach's own template passes: a sim run has no pace on purpose", () => {
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('detected');
+    expect(flag.review_reasons).toEqual([]);
+  });
+
+  test('the same line composed by us is flagged — we had no business omitting the target', () => {
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', blocks: [block] }),
+      sheetLabel: 'IA',
+    });
+    const flag = proposal.weeks[0]!.days[0]!.flags[0]!;
+    expect(flag.confidence).toBe('review');
+    expect(flag.review_reasons.join(' ')).toMatch(/ritmo|zona|RPE/i);
+  });
+
+  test("a blocking gap is flagged even inside the coach's own template", () => {
+    const noDose = {
+      uid: 'b2',
+      format: 'sets',
+      title: 'Fuerza',
+      group: 'principal',
+      items: [
+        {
+          uid: 'i9',
+          exercise_id: 42,
+          exercise_name: 'Back Squat',
+          prescription_json: { scheme: 'sets', modality: 'strength' },
+        },
+      ],
+    };
+    const proposal = weekDaysToProposal({
+      days: dayFrom({ kind: 'workout', template_id: 500, blocks: [noDose] }),
+      sheetLabel: 'IA',
+    });
+    // Nobody can execute an unspecified amount of work — not even the author.
+    expect(proposal.weeks[0]!.days[0]!.flags[0]!.confidence).toBe('review');
+  });
+});
