@@ -13,6 +13,31 @@
 //
 // Pure + dependency-free (no I/O, no server-only) so both the composer and the
 // import review grid run the identical gate.
+//
+// TWO BARS, ONE RULE SET
+// ----------------------
+// The bar for AUTHORED content is higher than the bar for TRANSCRIBED content,
+// and the difference is not a matter of taste:
+//
+//   · The composer AUTHORS. When the model writes "Back Squat 5×5" with no load
+//     it has not done its job — there is no coach behind that line to fill the
+//     gap. It must clear the STRICT bar (`ok`): dose AND intensity AND rest.
+//   · The importer TRANSCRIBES what a coach already wrote. "Pull-ups 4×10" is
+//     bodyweight (there is no %RM to state — that is why `bodyweight` is a
+//     Target kind); "trote suave 30'" is complete and unambiguous. Its job is to
+//     capture the coach faithfully, not to lecture him about his own plan. It
+//     clears the EXECUTABLE bar (`isExecutable`): the item must carry a dose.
+//
+// So each issue is tagged and the CALLER picks the bar:
+//   · `blocking` — the item cannot be executed at all (no dose, a capped format
+//     with no cap, a set with no measure). Nobody may ship this, ever.
+//   · `advisory` — coach discretion (intensity, rest between sets). Absent is a
+//     legitimate authoring choice for a human, and a defect for a machine.
+//
+// Measured against Pablo's canonical 12-week workbook (369 real parsed items):
+// the strict bar rejects 57% of what he imports every week; the executable bar
+// rejects 0 of the 137 typed items in his canonical weeks. That gap IS this
+// distinction — do not collapse the two bars back into one.
 
 import {
   setMeasure,
@@ -30,10 +55,41 @@ import {
  *  a main set without one ("Back Squat 5×5" — at what load?) is ambiguous. */
 export type PrescriptionRole = 'calentamiento' | 'principal' | 'vuelta';
 
+/** `blocking` = not executable by anyone. `advisory` = coach discretion (see the
+ *  TWO BARS note above). */
+export type CompletenessSeverity = 'blocking' | 'advisory';
+
+export interface CompletenessIssue {
+  severity: CompletenessSeverity;
+  /** Coach-facing, in Spanish — surfaced verbatim. */
+  message: string;
+}
+
 export interface CompletenessResult {
+  /** The STRICT bar: zero issues of any severity. What AUTHORED content must clear. */
   ok: boolean;
-  /** Coach-facing reasons, in Spanish — surfaced verbatim as review reasons. */
+  /** Every issue's message, in evaluation order. */
   reasons: string[];
+  /** The same issues, tagged with severity, so a caller can pick its own bar. */
+  issues: CompletenessIssue[];
+}
+
+const blocking = (message: string): CompletenessIssue => ({ severity: 'blocking', message });
+const advisory = (message: string): CompletenessIssue => ({ severity: 'advisory', message });
+
+function result(issues: CompletenessIssue[]): CompletenessResult {
+  return { ok: issues.length === 0, reasons: issues.map((i) => i.message), issues };
+}
+
+/** The EXECUTABLE bar: nothing stops the athlete from doing this item as written.
+ *  What TRANSCRIBED content (the importer) must clear. */
+export function isExecutable(r: CompletenessResult): boolean {
+  return !r.issues.some((i) => i.severity === 'blocking');
+}
+
+/** Only the reasons that make the item non-executable — the ones worth blocking on. */
+export function blockingReasons(r: CompletenessResult): string[] {
+  return r.issues.filter((i) => i.severity === 'blocking').map((i) => i.message);
 }
 
 /** Schemes whose dose lives at the block level (a cap/round count), not per set. */
@@ -92,25 +148,24 @@ export function checkPrescriptionCompleteness(
   const role = opts.role ?? 'principal';
   const modality = opts.modality ?? p.modality ?? null;
   const sets = p.sets ?? [];
-  const reasons: string[] = [];
+  const issues: CompletenessIssue[] = [];
 
   // ── Universal floor: there must be a dose SOMEWHERE ───────────────────────
   // Either per-set work, or a block-level cap (AMRAP 12' / EMOM ×10) that makes
-  // the total work explicit.
+  // the total work explicit. A #61 run structure carries its dose in its phases.
   const hasBlockDose =
-    p.total_s != null || p.rounds != null || p.work_s != null;
+    p.total_s != null || p.rounds != null || p.work_s != null || p.structure != null;
   const hasSetDose = sets.some((s) => setMeasure(s) != null);
   if (!hasSetDose && !hasBlockDose) {
-    return {
-      ok: false,
-      reasons: ['Sin dosis: no dice cuánto trabajo hacer (ni medida, ni tiempo, ni rondas).'],
-    };
+    return result([
+      blocking('Sin dosis: no dice cuánto trabajo hacer (ni medida, ni tiempo, ni rondas).'),
+    ]);
   }
 
   // A capped scheme must actually state its cap — an AMRAP with no duration and
   // no round count is not executable.
   if (CAPPED_SCHEMES.has(p.scheme) && !hasBlockDose) {
-    reasons.push(`Formato ${p.scheme} sin límite: falta duración total o rondas.`);
+    issues.push(blocking(`Formato ${p.scheme} sin límite: falta duración total o rondas.`));
   }
 
   // ── Per-modality minimums ─────────────────────────────────────────────────
@@ -118,50 +173,50 @@ export function checkPrescriptionCompleteness(
 
   switch (modality) {
     case 'run': {
-      requireSetMeasures(sets, ['distance', 'duration'], 'Correr', reasons);
+      requireSetMeasures(sets, ['distance', 'duration'], 'Correr', issues);
       if (needsTarget) {
-        requireSetTargets(sets, p, ENDURANCE_TARGETS, 'ritmo, zona, pulso o RPE', reasons);
+        requireSetTargets(sets, p, ENDURANCE_TARGETS, 'ritmo, zona, pulso o RPE', issues);
       }
-      requireIntervalRest(sets, reasons);
+      requireIntervalRest(sets, issues);
       break;
     }
     case 'row':
     case 'ski':
     case 'bike': {
-      requireSetMeasures(sets, ['distance', 'duration', 'calories'], 'Ergo', reasons);
+      requireSetMeasures(sets, ['distance', 'duration', 'calories'], 'Ergo', issues);
       if (needsTarget) {
-        requireSetTargets(sets, p, ENDURANCE_TARGETS, 'ritmo /500m, watts, zona o RPE', reasons);
+        requireSetTargets(sets, p, ENDURANCE_TARGETS, 'ritmo /500m, watts, zona o RPE', issues);
       }
-      requireIntervalRest(sets, reasons);
+      requireIntervalRest(sets, issues);
       break;
     }
     case 'strength': {
       if (sets.length === 0) {
-        reasons.push('Fuerza sin series: hacen falta series con repeticiones y carga.');
+        issues.push(blocking('Fuerza sin series: hacen falta series con repeticiones y carga.'));
         break;
       }
-      requireSetMeasures(sets, ['reps', 'duration'], 'Fuerza', reasons);
+      requireSetMeasures(sets, ['reps', 'duration'], 'Fuerza', issues);
       if (needsTarget) {
-        requireSetTargets(sets, p, LOAD_TARGETS, 'carga (%RM, kg, RIR o RPE)', reasons);
+        requireSetTargets(sets, p, LOAD_TARGETS, 'carga (%RM, kg, RIR o RPE)', issues);
         // Rest between strength sets is part of the dose, not a nicety: the same
         // 5×5 at 2' and at 4' are different sessions.
         const missingRest = sets.slice(0, -1).some((s) => s.rest_s == null);
         if (missingRest && p.rest_s == null) {
-          reasons.push('Fuerza sin descanso entre series.');
+          issues.push(advisory('Fuerza sin descanso entre series.'));
         }
       }
       break;
     }
     case 'core':
     case 'mobility': {
-      requireSetMeasures(sets, ['reps', 'duration'], 'Core/movilidad', reasons);
+      requireSetMeasures(sets, ['reps', 'duration'], 'Core/movilidad', issues);
       break;
     }
     case 'functional': {
       // A WOD movement's dose is its measure; the intensity is the cap/format, so
       // no per-set target is required (10 burpees is 10 burpees).
       if (!CAPPED_SCHEMES.has(p.scheme)) {
-        requireSetMeasures(sets, ['reps', 'distance', 'duration', 'calories'], 'Funcional', reasons);
+        requireSetMeasures(sets, ['reps', 'distance', 'duration', 'calories'], 'Funcional', issues);
       }
       break;
     }
@@ -170,49 +225,54 @@ export function checkPrescriptionCompleteness(
       break;
   }
 
-  return { ok: reasons.length === 0, reasons };
+  return result(issues);
 }
 
+/** A set with no measure — or measured in a unit its modality cannot execute (a
+ *  run of "20 reps") — leaves the athlete with nothing to do. BLOCKING. */
 function requireSetMeasures(
   sets: PrescriptionSet[],
   allowed: Array<Measure['kind']>,
   label: string,
-  reasons: string[],
+  issues: CompletenessIssue[],
 ): void {
   if (sets.length === 0) return; // block-level dose already accepted upstream.
   const kinds = measureKinds(sets);
   const allowedSet = new Set(allowed);
   const bad = kinds.filter((k) => k == null || !allowedSet.has(k));
   if (bad.length > 0) {
-    reasons.push(`${label}: cada serie necesita ${listMeasures(allowed)}.`);
+    issues.push(blocking(`${label}: cada serie necesita ${listMeasures(allowed)}.`));
   }
 }
 
+/** ADVISORY: the intensity is what a machine must state and a coach may leave to
+ *  the gym — a bodyweight pull-up has no %RM, an easy jog needs no pace. */
 function requireSetTargets(
   sets: PrescriptionSet[],
   p: Prescription,
   allowed: Set<Target['kind']>,
   label: string,
-  reasons: string[],
+  issues: CompletenessIssue[],
 ): void {
   if (sets.length === 0) {
     // No sets, but a block dose exists (e.g. steady with only total_s): the
     // block-level target must then carry the intensity.
     const t = prescriptionTarget(p);
-    if (!t || !allowed.has(t.kind)) reasons.push(`Sin objetivo: falta ${label}.`);
+    if (!t || !allowed.has(t.kind)) issues.push(advisory(`Sin objetivo: falta ${label}.`));
     return;
   }
   const missing = sets.some((s) => {
     const t = effectiveTarget(s, p);
     return !t || !allowed.has(t.kind);
   });
-  if (missing) reasons.push(`Sin objetivo: falta ${label}.`);
+  if (missing) issues.push(advisory(`Sin objetivo: falta ${label}.`));
 }
 
 /** Multi-set endurance work is intervals; intervals without a recovery are not
- *  prescribed. The last set needs no rest (the session ends). */
-function requireIntervalRest(sets: PrescriptionSet[], reasons: string[]): void {
+ *  prescribed. The last set needs no rest (the session ends). ADVISORY — the work
+ *  itself is still executable. */
+function requireIntervalRest(sets: PrescriptionSet[], issues: CompletenessIssue[]): void {
   if (sets.length < 2) return;
   const missing = sets.slice(0, -1).some((s) => s.rest_s == null);
-  if (missing) reasons.push('Series sin descanso entre repeticiones.');
+  if (missing) issues.push(advisory('Series sin descanso entre repeticiones.'));
 }
