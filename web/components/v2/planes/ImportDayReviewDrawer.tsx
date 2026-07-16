@@ -9,7 +9,7 @@
 
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewDay } from '@/lib/dashboard/v2/import-review';
-import { dayTone } from '@/lib/dashboard/v2/import-review';
+import { dayTone, sessionIncompleteLines } from '@/lib/dashboard/v2/import-review';
 import { MIcon } from '@/components/ui/MIcon';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 
@@ -18,6 +18,7 @@ const TONE_COPY: Record<ReturnType<typeof dayTone>, { label: string; className: 
   skipped: { label: 'No se importa', className: 'text-[color:var(--v2-faint)] line-through' },
   ok: { label: 'Tipado', className: 'text-[color:var(--v2-ok)]' },
   review: { label: 'Revisar', className: 'text-[color:var(--v2-warn)]' },
+  incomplete: { label: 'Falta prescripción', className: 'text-[color:var(--v2-danger)]' },
   unresolved: { label: 'Falta ejercicio', className: 'text-[color:var(--v2-danger)]' },
 };
 
@@ -38,6 +39,9 @@ export function ImportDayReviewDrawer({
 }) {
   const session = day.session;
   const tone = TONE_COPY[dayTone(day)];
+  // Named-but-not-prescribed lines. Listed up front with WHAT is missing, because
+  // the block editor below shows empty fields without saying which ones matter.
+  const incompleteLines = sessionIncompleteLines(session);
 
   const updateBlock = (next: EditorBlock) => {
     if (!session) return;
@@ -105,6 +109,30 @@ export function ImportDayReviewDrawer({
             <p className="text-sm text-[color:var(--v2-muted)]">Día de descanso — nada que revisar.</p>
           ) : (
             <>
+              {incompleteLines.length > 0 ? (
+                <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-danger)]/40 bg-[color:var(--v2-danger)]/8 p-3.5">
+                  <p className="flex items-center gap-1.5 text-[12px] font-bold text-[color:var(--v2-danger)]">
+                    <MIcon name="error" size={14} />
+                    {incompleteLines.length === 1
+                      ? 'Falta prescribir 1 línea'
+                      : `Faltan prescribir ${incompleteLines.length} líneas`}
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {incompleteLines.map((line) => (
+                      <li key={line.uid} className="text-[11.5px] leading-snug">
+                        <span className="font-semibold text-[color:var(--v2-fg)]">
+                          {line.exercise_name || 'Línea sin nombre'}
+                        </span>
+                        <span className="text-[color:var(--v2-muted)]">
+                          {' — '}
+                          {line.reasons.join(' · ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               <label className="block space-y-1.5">
                 <span className="v2-micro">Título de la sesión</span>
                 <input
