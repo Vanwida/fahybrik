@@ -26,8 +26,10 @@ import {
 import { loadCoachCatalog } from '@/lib/dashboard/exercises/list-exercises';
 import { loadAthleteExerciseCatalog } from '@/lib/athlete/exercise-catalog';
 import { updateExercise } from '@/lib/dashboard/exercises/update-exercise';
+import { createExercise } from '@/lib/dashboard/exercises/create-exercise';
+import { deleteExercise } from '@/lib/dashboard/exercises/delete-exercise';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
-import { makeCoachAndAthlete, makeExercise, type Fixture } from '../utils/db-fixtures';
+import { makeCoachAndAthlete, makeExercise, makeTemplate, type Fixture } from '../utils/db-fixtures';
 
 describeWithDb('exercise ownership + fork (real DB)', () => {
   const sql = getTestSql();
@@ -193,6 +195,85 @@ describeWithDb('exercise ownership + fork (real DB)', () => {
 
     // Restore, so the suite stays order-independent.
     await updateExercise(BigInt(ownOfA), { name: 'Complejo Fabrik' }, BigInt(a.coachId), sql);
+  });
+
+  // ── Modality is DECLARED, not guessed ─────────────────────────────────────
+  test('the coach declares the modality — a Spanish name no longer lands in `other`', async () => {
+    // The old rule derived modality from regexes over the ENGLISH name
+    // (`like '%row%'`), so "Remo 500m" became `other` and the analytics that route
+    // on modality broke silently. The coach says what it is.
+    const created = await createExercise(
+      { name: 'Remo 500m', category: 'cardio', modality: 'row' },
+      BigInt(a.coachId),
+      sql,
+    );
+    expect(created.modality).toBe('row');
+
+    // And renaming it does NOT re-guess: the movement is still a row.
+    const renamed = await updateExercise(
+      BigInt(created.id),
+      { name: 'Remo quinientos' },
+      BigInt(a.coachId),
+      sql,
+    );
+    expect(renamed.modality).toBe('row');
+
+    await sql`delete from exercises where id = ${created.id}`;
+  });
+
+  // ── Delete: the undo for "lo creé sin querer" ─────────────────────────────
+  test('the coach deletes their own unused exercise', async () => {
+    const created = await createExercise(
+      { name: 'Error de dedo', category: 'strength', modality: 'strength' },
+      BigInt(a.coachId),
+      sql,
+    );
+    await deleteExercise(BigInt(created.id), BigInt(a.coachId), sql);
+
+    const gone = await loadCoachCatalog(sql, BigInt(a.coachId), { search: 'error de dedo' });
+    expect(gone).toHaveLength(0);
+    expect(await loadExerciseScope(sql, BigInt(a.coachId), BigInt(created.id))).toBeNull();
+  });
+
+  test('an exercise in use is NOT deleted — the refusal names where', async () => {
+    const created = await createExercise(
+      { name: 'En uso', category: 'strength', modality: 'strength' },
+      BigInt(a.coachId),
+      sql,
+    );
+    const templateId = await makeTemplate({ fx: a, name: 'Sesión con el ejercicio' });
+    await sql`
+      insert into template_segments (template_id, exercise_id, position, block_position)
+      values (${templateId}, ${created.id}, 1, 1)
+    `;
+
+    await expect(
+      deleteExercise(BigInt(created.id), BigInt(a.coachId), sql),
+    ).rejects.toMatchObject({ code: 'in_use', status: 409 });
+
+    // Ground truth: it's still there. A refusal that half-deletes would be worse
+    // than no refusal.
+    expect(await loadExerciseScope(sql, BigInt(a.coachId), BigInt(created.id))).toBe('own');
+
+    await sql`delete from template_segments where exercise_id = ${created.id}`;
+    await sql`delete from exercises where id = ${created.id}`;
+  });
+
+  test("a coach cannot delete another coach's exercise", async () => {
+    await expect(deleteExercise(BigInt(ownOfA), BigInt(b.coachId), sql)).rejects.toMatchObject({
+      code: 'not_found',
+      status: 404,
+    });
+    expect(await loadExerciseScope(sql, BigInt(a.coachId), BigInt(ownOfA))).toBe('own');
+  });
+
+  test('nobody deletes a BASE exercise, not even by going around the route', async () => {
+    // The route answers 409 for BASE, but the writer must refuse too: its guard is
+    // `coach_id = <coach>`, and a base row has none — so it matches nothing.
+    await expect(deleteExercise(BigInt(baseId), BigInt(a.coachId), sql)).rejects.toMatchObject({
+      code: 'not_found',
+    });
+    expect(await loadExerciseScope(sql, BigInt(a.coachId), BigInt(baseId))).toBe('base');
   });
 
   test("updateExercise refuses another coach's exercise AND the base row", async () => {

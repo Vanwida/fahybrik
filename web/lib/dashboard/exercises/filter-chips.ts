@@ -41,10 +41,11 @@ export const EXERCISE_FILTER_CHIPS: ExerciseFilterChip[] = [
 ];
 
 // Cómo se llama cada categoría delante del coach. Ojo: `cardio` NO es "Carrera" —
-// la categoría agrupa remo, ski, bici y carrera (así la reparte `modalityExpr` en
-// modalidades), así que llamarla "Carrera" haría que quien crea un "Remo 500m"
-// tuviera que elegir "Carrera". El chip de filtro de arriba sigue diciendo
-// "Carrera" porque filtra otra cosa: la intención del coach al buscar.
+// la categoría agrupa remo, ski, bici y carrera, así que llamarla "Carrera" haría
+// que quien crea un "Remo 500m" tuviera que elegir "Carrera". Qué disciplina es en
+// concreto lo declara el coach en el campo `modality`, que es otra cosa y no se
+// deriva de aquí. El chip de filtro de arriba sí dice "Carrera" porque filtra otra
+// cosa más: la intención del coach al buscar.
 export const EXERCISE_CATEGORY_LABELS: Record<ExerciseCategory, string> = {
   hyrox_station: 'HYROX',
   strength: 'Fuerza',

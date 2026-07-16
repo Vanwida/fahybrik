@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
+import { modalitySchema } from '@fahybrid/shared/domain/prescription';
 import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
-import { sql } from '@/lib/db';
+import { sql, type Sql } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
-import { EXERCISE_SELECT_COLUMNS, modalityExpr } from '@/lib/dashboard/exercises/update-exercise';
+import { EXERCISE_SELECT_COLUMNS } from '@/lib/dashboard/exercises/update-exercise';
 
 /**
  * Create an exercise the coach is missing — from the picker while authoring, or
@@ -14,20 +15,27 @@ import { EXERCISE_SELECT_COLUMNS, modalityExpr } from '@/lib/dashboard/exercises
  * the BASE catalog — that's our product, and one coach's movement is not part of
  * it. `source = 'coach'` stays for honest provenance alongside the seeded rows.
  *
- * The coach supplies NAME + CATEGORY (+ optional YouTube). `modality` is NOT a
- * free input: it is INTRINSIC and DERIVED from category(+name) by the SAME rule
- * the migration 0053 backfill and update-exercise use (modalityExpr). This keeps
- * the invariant "a line's modality follows its exercise" unbreakable — the coach
- * picks the kind of movement (category), the system owns the modality.
+ * MODALITY IS DECLARED, NOT ADIVINADA. It used to be derived from category+name by
+ * the migration-0053 rule — regexes over the ENGLISH name (`like '%row%'`). A coach
+ * writing Spanish creates "Remo 500m" and gets `other` instead of `row`: the
+ * analytics that route on modality then break, silently, and the coach never sees
+ * why. Guessing is only defensible when nobody knows the answer — and here the
+ * person who just created the movement knows exactly what it is. So they declare
+ * it, and the UI may only PRE-SELECT a suggestion.
+ *
+ * The 0053 rule stays where it belongs: in migration 0053, as the historical
+ * backfill of the BASE catalog. It is no longer app behaviour.
  */
 
-// Category is required (drives the derived modality + the catalog ordering). The
-// coach-facing chips map onto these enum values. `video_url` reuses the shared
-// YouTube schema (validate + canonicalize to a watch URL, or null).
+// Category drives the catalog ordering; modality is the intrinsic discipline the
+// analytics group by. Both are required — a movement whose kind we don't know is a
+// movement we can't reason about. `video_url` reuses the shared YouTube schema
+// (validate + canonicalize to a watch URL, or null).
 export const createExerciseSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     category: exerciseCategory,
+    modality: modalitySchema,
     video_url: youtubeUrlSchema.optional(),
   })
   .strict();
@@ -66,10 +74,10 @@ function slugify(name: string): string {
     .slice(0, 80);
 }
 
-async function uniqueSlug(base: string): Promise<string> {
+async function uniqueSlug(base: string, client: Sql): Promise<string> {
   const root = base || 'ejercicio';
   // One query for all existing slugs sharing the root, then pick the first free.
-  const taken = await sql<{ slug: string }[]>`
+  const taken = await client<{ slug: string }[]>`
     select slug from exercises where slug = ${root} or slug like ${`${root}-%`}
   `;
   const set = new Set(taken.map((r) => r.slug));
@@ -85,36 +93,29 @@ async function uniqueSlug(base: string): Promise<string> {
 export async function createExercise(
   input: CreateExerciseInput,
   coachId: bigint,
+  client: Sql = sql,
 ): Promise<CatalogExercise> {
-  const slug = await uniqueSlug(slugify(input.name));
+  const slug = await uniqueSlug(slugify(input.name), client);
   const videoUrl = input.video_url ?? null;
 
-  // Insert with a placeholder modality, then set it from the persisted
-  // category/name via the shared derivation (Postgres can't read the just-set
-  // category in the same INSERT's expressions). One transaction so the row is
-  // never observed with the placeholder.
-  const rows = await sql.begin(async (tx) => {
-    const inserted = await tx<{ id: string }[]>`
-      insert into exercises (slug, name, category, video_url, source, modality, coach_id)
-      values (
-        ${slug},
-        ${input.name},
-        ${input.category}::exercise_category,
-        ${videoUrl},
-        'coach',
-        'other',
-        ${coachId}
-      )
-      returning id::text as id
-    `;
-    const id = inserted[0]?.id;
-    return tx<CatalogExercise[]>`
-      update exercises
-      set modality = ${modalityExpr()}
-      where id = ${id}
-      returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
-    `;
-  });
+  // ONE statement. This used to be a two-step transaction (insert a placeholder
+  // modality, then UPDATE it from the persisted category/name, because Postgres
+  // can't read the just-set category in the same INSERT). Now that the coach
+  // declares the modality there is nothing to derive, so the placeholder — and
+  // the window where the row existed with a wrong modality — is simply gone.
+  const rows = await client<CatalogExercise[]>`
+    insert into exercises (slug, name, category, modality, video_url, source, coach_id)
+    values (
+      ${slug},
+      ${input.name},
+      ${input.category}::exercise_category,
+      ${input.modality},
+      ${videoUrl},
+      'coach',
+      ${coachId}
+    )
+    returning ${client.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
+  `;
 
   const row = rows[0];
   if (!row) {

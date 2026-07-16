@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
+import { modalitySchema } from '@fahybrid/shared/domain/prescription';
 import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
 import { sql, type Sql } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
@@ -45,11 +46,19 @@ const trimmedText = (max: number) =>
  */
 export const updateExerciseSchema = z
   .object({
+    // NOTE: `name` is nullable-by-transform, NOT `.nullable()`. `''` → null is the
+    // supported way to clear the override; a LITERAL `null` in the body is rejected
+    // by the schema. The UI sends `''`. Stated here because the difference is
+    // invisible at the call site and has already confused one caller.
     name: trimmedText(120),
     description: trimmedText(2000).nullable(),
     cues: trimmedText(2000).nullable(),
     video_url: youtubeUrlSchema,
     category: exerciseCategory,
+    // Declared, never derived — see `createExercise`. On a BASE exercise this is
+    // shared identity and the route refuses it (409); on the coach's OWN exercise
+    // it's theirs to set.
+    modality: modalitySchema,
     primary_muscle_groups: z.array(z.string().trim().min(1).max(60)).max(20),
     equipment: z.array(z.string().trim().min(1).max(60)).max(20),
   })
@@ -83,41 +92,6 @@ export const EXERCISE_SELECT_COLUMNS = [
   'cues',
   'video_url',
 ] as const;
-
-// Modality is INTRINSIC and DERIVED from category(+name) — migration 0053. When a
-// coach edits category or name (or CREATES an exercise), modality must be computed
-// with the SAME deterministic rule the migration used, so it never drifts out of
-// sync. Kept as one SQL expression here (single source of truth alongside the
-// migration + the create handler). It references the row's category/name columns,
-// so on UPDATE it must be applied AFTER the user-supplied SET fragments.
-export function modalityExpr(client: Sql = sql): ReturnType<typeof sql> {
-  return client`
-    case
-      when category = 'strength'   then 'strength'
-      when category = 'core'       then 'core'
-      when category = 'mobility'   then 'mobility'
-      when category = 'plyometric' then 'functional'
-      when category = 'skill'      then 'functional'
-      when category = 'cardio' then
-        case
-          when lower(name) like '%ski%' then 'ski'
-          when lower(name) like '%row%' then 'row'
-          when lower(name) like '%bike%' or lower(name) like '%assault%'
-            or lower(name) like '%echo%' or lower(name) like '%cycl%' then 'bike'
-          when lower(name) like '%run%' or lower(name) like '%treadmill%'
-            or lower(name) like '%jog%' then 'run'
-          else 'other'
-        end
-      when category = 'hyrox_station' then
-        case
-          when lower(name) like '%ski%' then 'ski'
-          when lower(name) like '%row%' then 'row'
-          when lower(name) like '%run%' then 'run'
-          else 'functional'
-        end
-      else 'other'
-    end`;
-}
 
 /**
  * Apply a partial update to an exercise the coach OWNS, and return the fresh row.
@@ -160,28 +134,17 @@ export async function updateExercise(
 
   const setClause = assignments.reduce((acc, frag) => client`${acc}, ${frag}`);
 
-  // If category or name changed, modality must be recomputed from the NEW row.
-  // Postgres evaluates every SET RHS against the OLD row, so the recompute can't
-  // read the just-set values in the same statement. We chain a second UPDATE that
-  // reads the now-persisted category/name. Done inside one transaction so the row
-  // is never observed mid-update.
-  const recomputesModality = patch.category !== undefined || patch.name !== undefined;
-
-  const rows = await client.begin(async (tx) => {
-    const updated = await tx<CatalogExercise[]>`
-      update exercises
-      set ${setClause}, updated_at = now()
-      where id = ${id} and coach_id = ${coachId}
-      returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
-    `;
-    if (updated.length === 0 || !recomputesModality) return updated;
-    return tx<CatalogExercise[]>`
-      update exercises
-      set modality = ${modalityExpr(tx as unknown as Sql)}
-      where id = ${id} and coach_id = ${coachId}
-      returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
-    `;
-  });
+  // ONE statement. This used to chain a second UPDATE that re-derived `modality`
+  // from the new name/category — which meant a coach renaming their own "Row Erg"
+  // to "Remo" silently flipped it to `other` and broke their analytics. The coach
+  // declares the modality now, so there is nothing to recompute and no transaction
+  // to hold.
+  const rows = await client<CatalogExercise[]>`
+    update exercises
+    set ${setClause}, updated_at = now()
+    where id = ${id} and coach_id = ${coachId}
+    returning ${client.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
+  `;
 
   const row = rows[0];
   if (!row) {

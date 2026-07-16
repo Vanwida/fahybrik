@@ -6,6 +6,7 @@ import {
   updateExercise,
   updateExerciseSchema,
 } from '@/lib/dashboard/exercises/update-exercise';
+import { deleteExercise, ExerciseDeleteError } from '@/lib/dashboard/exercises/delete-exercise';
 import {
   loadCoachExerciseRow,
   loadExerciseScope,
@@ -27,8 +28,9 @@ export const dynamic = 'force-dynamic';
  *   • a BASE exercise (`coach_id is null`) → the four fields the coach AUTHORS
  *     (name / cues / description / video_url) become THEIR override — the base row
  *     is never mutated, so every other coach keeps what they had. The shared
- *     identity (category / muscles / equipment) is REFUSED: it's what the movement
- *     IS, and the system reasons over it. Need a different movement? Create your own.
+ *     identity (category / modality / muscles / equipment) is REFUSED: it's what the
+ *     movement IS, and the system reasons over it. Need a different movement? Create
+ *     your own.
  *   • another coach's exercise → 404, identical to "doesn't exist". The API never
  *     reveals that another coach's exercise exists.
  *
@@ -41,6 +43,7 @@ export const dynamic = 'force-dynamic';
 // names what it refused instead of a generic "no puedes".
 const IDENTITY_LABELS: Record<string, string> = {
   category: 'la categoría',
+  modality: 'la modalidad',
   primary_muscle_groups: 'los músculos',
   equipment: 'el material',
 };
@@ -94,8 +97,8 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
   try {
     if (scope === 'own') {
-      // The whole row is theirs — every supplied field is written directly, and
-      // modality is recomputed from the new name/category as always.
+      // The whole row is theirs — every supplied field is written directly,
+      // modality included (they declared it, we never re-derive it).
       await updateExercise(exerciseBigId, parsed.data, session.coach_id);
     } else {
       if (identityKeys.length > 0) {
@@ -119,6 +122,52 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       return jsonError(err.code, err.message, err.status);
     }
     const message = err instanceof Error ? err.message : 'No se pudo actualizar';
+    return jsonError('internal_error', message, 500);
+  }
+}
+
+/**
+ * DELETE /api/exercises/[id] — undo an exercise the coach created by mistake.
+ *
+ * Bounded by the same origin rules as PATCH, and for the same reason:
+ *   • OWN + never used   → deleted. It's a typo, not history.
+ *   • OWN + used anywhere → 409 naming WHERE (a session, a block, or work an athlete
+ *     already did). See delete-exercise.ts: `segment_executions` is ON DELETE SET
+ *     NULL, so without this guard the delete would succeed and silently strip the
+ *     exercise off an athlete's record.
+ *   • BASE               → 409. Our catalog isn't the coach's to remove — and every
+ *     other coach has it too.
+ *   • another coach's    → 404, same answer as "doesn't exist".
+ */
+export async function DELETE(_request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const session = await getCoachSession();
+  if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+
+  const { id } = await ctx.params;
+  const exerciseId = Number(id);
+  if (!Number.isInteger(exerciseId) || exerciseId <= 0) {
+    return jsonError('bad_request', 'ID inválido', 400);
+  }
+  const exerciseBigId = BigInt(exerciseId);
+
+  const scope = await loadExerciseScope(sql, session.coach_id, exerciseBigId);
+  if (!scope) return jsonError('not_found', 'Ejercicio no encontrado', 404);
+  if (scope === 'base') {
+    return jsonError(
+      'shared_identity',
+      'Este ejercicio es de la base: lo tenemos todos, así que no se borra. Si no lo usas, ignóralo — sólo puedes borrar los que creas tú.',
+      409,
+    );
+  }
+
+  try {
+    await deleteExercise(exerciseBigId, session.coach_id, sql);
+    return jsonOk({ deleted: true });
+  } catch (err) {
+    if (err instanceof ExerciseDeleteError) {
+      return jsonError(err.code, err.message, err.status);
+    }
+    const message = err instanceof Error ? err.message : 'No se pudo borrar';
     return jsonError('internal_error', message, 500);
   }
 }
