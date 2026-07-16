@@ -117,10 +117,22 @@ describe('libraryBlockToEditorBlocks', () => {
   // Biblioteca dejaría el día mintiendo con el nombre viejo. El serializador solo
   // escribe campos de WeekDayPart, y el schema no tiene `source_block_title` → esta
   // prueba fija esa frontera: lo que va a la BD conserva el id, nunca el título.
+  //
+  // El `format` se PARSEA en vez de castearse: `EditorBlock.format` es `string | null`
+  // (el tipo laxo del cliente) y el serializador pide el enum `TemplateFormat`, que es
+  // justo la frontera que cruza el guardado real (el editor manda por HTTP y la ruta
+  // valida con Zod). Parsear aquí reproduce esa frontera Y afirma el invariante: si
+  // `toDayFormat` dejara de devolver un formato del enum, esto revienta — que es
+  // exactamente el bug que hacía que 87 de 99 bloques dieran 400 al guardar.
   it('el título del origen NO llega a la BD; el id sí', () => {
+    const blocks = libraryBlockToEditorBlocks(block52()).map((b) => ({
+      ...b,
+      format: templateFormat.parse(b.format),
+    }));
+
     const day = serializeDay({
       day_of_week: 2,
-      sessions: [{ uid: 's1', slot: 'am', blocks: libraryBlockToEditorBlocks(block52()) }],
+      sessions: [{ uid: 's1', slot: 'am', blocks }],
       original: { day_of_week: 2, sessions: [] },
     });
 
