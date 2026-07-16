@@ -18,6 +18,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { cn } from '@/lib/utils';
 import type { V2WeekAdjustmentCard } from '@/lib/dashboard/v2/hoy-lanes';
+import { Rail } from '@/components/v2/Rail';
 
 const BTN_BASE =
   'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
@@ -211,11 +212,11 @@ export function AjusteSemanalStrip({ cards }: { cards: V2WeekAdjustmentCard[] })
       </div>
 
       {/* Horizontal scroll row */}
-      <div className="flex gap-2.5 overflow-x-auto pb-1">
+      <Rail>
         {visible.map((card) => (
           <AjusteSemanalCard key={card.id} card={card} onResolved={handleResolved} />
         ))}
-      </div>
+      </Rail>
     </section>
   );
 }
