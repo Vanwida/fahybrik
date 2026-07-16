@@ -7,6 +7,7 @@ import { Link } from '@/i18n/navigation';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { MIcon } from '@/components/ui/MIcon';
 import type { PendingIntakeAthlete } from '@/lib/coach/intake';
+import { Rail } from '@/components/v2/Rail';
 
 function waitingLabel(hours: number): string {
   if (hours < 1) return 'recién llegado';
@@ -40,7 +41,7 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
         </Link>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto pb-1">
+      <Rail>
         {pending.map((a) => (
           <Link
             key={a.athlete_id}
@@ -65,7 +66,7 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
             </span>
           </Link>
         ))}
-      </div>
+      </Rail>
     </section>
   );
 }

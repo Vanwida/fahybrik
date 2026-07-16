@@ -270,7 +270,7 @@ export function MetricasPanel({ snapshot, outcomes, weekly, by_objetivo }: Funne
           <div>
             <h1 className="v2-display text-[clamp(28px,5vw,42px)] text-[color:var(--v2-fg)]">
               Métricas del funnel{' '}
-              <span className="text-[color:var(--v2-faint)]">· {RANGE_SUFFIX[range]}</span>
+              <span className="whitespace-nowrap text-[color:var(--v2-faint)]">· {RANGE_SUFFIX[range]}</span>
             </h1>
             <p className="mt-2 max-w-[62ch] text-sm text-[color:var(--v2-muted)]">
               Cohorte de los{' '}

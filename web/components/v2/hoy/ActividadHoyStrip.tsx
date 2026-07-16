@@ -16,6 +16,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Link } from '@/i18n/navigation';
 import type { ActivityToday } from '@/lib/dashboard/coach/activity-today';
+import { Rail } from '@/components/v2/Rail';
 
 export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
   if (activity.sessions.length === 0) return null;
@@ -39,7 +40,7 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
         </span>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto pb-1">
+      <Rail>
         {activity.sessions.map((s) => (
           <Link
             key={s.id}
@@ -86,7 +87,7 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
             <span className="text-[11px] text-[color:var(--v2-muted)]">más hoy</span>
           </Link>
         ) : null}
-      </div>
+      </Rail>
     </section>
   );
 }

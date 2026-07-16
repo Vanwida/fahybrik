@@ -25,6 +25,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 import type { V2AsignacionSugeridaCard } from '@/lib/dashboard/v2/hoy-lanes';
+import { Rail } from '@/components/v2/Rail';
 
 // ── Shared button styling (matches NivelSugeridoCard) ───────────────────────────
 
@@ -262,11 +263,11 @@ export function AsignacionSugeridaStrip({
       </div>
 
       {/* Horizontal scroll row */}
-      <div className="flex gap-2.5 overflow-x-auto pb-1">
+      <Rail>
         {visible.map((card) => (
           <AsignacionSugeridaCard key={card.id} card={card} onAssigned={handleAssigned} />
         ))}
-      </div>
+      </Rail>
     </section>
   );
 }

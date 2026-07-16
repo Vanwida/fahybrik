@@ -15,6 +15,7 @@ import { LevelBadge } from '@/components/v2/LevelBadge';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2NivelSugeridoCard } from '@/lib/dashboard/v2/hoy-lanes';
+import { Rail } from '@/components/v2/Rail';
 
 // ── Confidence badge ──────────────────────────────────────────────────────────
 
@@ -172,11 +173,11 @@ export function NivelSugeridoStrip({ cards }: { cards: V2NivelSugeridoCard[] }) 
       </div>
 
       {/* Horizontal scroll row */}
-      <div className="flex gap-2.5 overflow-x-auto pb-1">
+      <Rail>
         {visible.map((card) => (
           <NivelSugeridoCard key={card.id} card={card} onAccepted={handleAccepted} />
         ))}
-      </div>
+      </Rail>
     </section>
   );
 }

@@ -20,6 +20,7 @@ import { LevelBadge } from '@/components/v2/LevelBadge';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import type { V2SiguienteMicrocicloCard } from '@/lib/dashboard/v2/hoy-lanes';
+import { Rail } from '@/components/v2/Rail';
 
 const BTN_BASE =
   'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-[11px] font-semibold transition-colors';
@@ -193,11 +194,11 @@ export function SiguienteMicrocicloStrip({
         </span>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto pb-1">
+      <Rail>
         {visible.map((card) => (
           <Card key={card.id} card={card} onAdvanced={handleAdvanced} />
         ))}
-      </div>
+      </Rail>
     </section>
   );
 }

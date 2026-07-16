@@ -22,8 +22,9 @@ import { cn } from '@/lib/utils';
  * FAHYBRID brand mark — the real FHP icon tile (orange on dark), self-contained so
  * it reads correctly on both the light and dark v2 surfaces. Sourced from the
  * standardized brand set in /public/brand. Not a generic icon, the actual logo.
+ * Exported: the mobile top bar (V2Shell) shows the same mark when the sidebar is hidden.
  */
-function HexMark({ className }: { className?: string }) {
+export function HexMark({ className }: { className?: string }) {
   return (
     <img
       src="/brand/fh-icon-300.png"
