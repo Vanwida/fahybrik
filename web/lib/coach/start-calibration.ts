@@ -26,6 +26,8 @@ export interface StartTestStoreResult {
   unit: string;
   derives: string;
   modality: string | null;
+  /** Optional result (#34): iOS may auto-fill or skip it; never blocks finishing. */
+  optional: boolean;
 }
 
 export interface StartTestResult {
@@ -68,6 +70,7 @@ export async function startCalibrationTest(params: {
     unit: r.unit,
     derives: r.derives,
     modality: r.modality,
+    optional: r.optional,
   }));
 
   const scheduled_for = isoDateString(startOfDayInBox(params.now ?? new Date()));

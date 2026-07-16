@@ -152,6 +152,9 @@ export interface AssignmentDetailStoreResult {
   unit: string;
   derives: string;
   modality: string | null;
+  // #34 — an OPTIONAL result: iOS may auto-fill it (e.g. HRR from the HR stream) or let
+  // the athlete skip it; it never blocks finishing the test. false = required.
+  optional: boolean;
 }
 
 export interface AssignmentDetailWorkout {
@@ -363,7 +366,7 @@ export async function loadAssignmentDetail(
   const storeResults = assignment.calibration_test_id
     ? await sql<AssignmentDetailStoreResult[]>`
         select slug, label, measure::text as measure, unit::text as unit,
-               derives::text as derives, modality
+               derives::text as derives, modality, optional
         from coach_test_results
         where test_id = ${Number(assignment.calibration_test_id)}
         order by sort_order asc, id asc

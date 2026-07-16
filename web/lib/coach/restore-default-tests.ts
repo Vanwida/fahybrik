@@ -97,8 +97,8 @@ export async function restoreDefaultTests(
       for (let i = 0; i < specs.length; i += 1) {
         const s = specs[i]!;
         await tx`
-          insert into coach_test_results (test_id, slug, label, measure, unit, derives, modality, sort_order)
-          values (${testId}, ${s.slug}, ${s.label}, ${s.measure}, ${s.unit}, ${s.derives}, ${s.modality ?? null}, ${i})
+          insert into coach_test_results (test_id, slug, label, measure, unit, derives, modality, optional, sort_order)
+          values (${testId}, ${s.slug}, ${s.label}, ${s.measure}, ${s.unit}, ${s.derives}, ${s.modality ?? null}, ${s.optional ?? false}, ${i})
         `;
       }
 
