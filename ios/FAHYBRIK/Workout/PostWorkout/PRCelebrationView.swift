@@ -94,9 +94,11 @@ struct WorkoutShareData: Equatable {
 
 }
 
-// MARK: - Gold accents (celebration only)
-
-private enum Gold {
+// MARK: - Gold accents (celebrations only)
+//
+// Shared by every "record" moment — the run-PR overlay here and the test-record
+// overlay (TestRecordCelebrationView) — so the celebration voice stays ONE.
+enum CelebrationGold {
     static let bright = Color(red: 0.93, green: 0.79, blue: 0.42)
     static let deep = Color(red: 0.78, green: 0.60, blue: 0.24)
     static var gradient: LinearGradient {
@@ -133,7 +135,7 @@ struct PRCelebrationView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(Theme.Tracking.dataLabel)
                         .textCase(.uppercase)
-                        .foregroundStyle(Gold.bright)
+                        .foregroundStyle(CelebrationGold.bright)
                 }
 
                 VStack(spacing: 10) {
@@ -151,7 +153,7 @@ struct PRCelebrationView: View {
                     .fill(Theme.Color.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                            .stroke(Gold.deep.opacity(0.5), lineWidth: 1)
+                            .stroke(CelebrationGold.deep.opacity(0.5), lineWidth: 1)
                     )
             )
             .padding(.horizontal, Theme.Spacing.xl)
@@ -170,9 +172,9 @@ struct PRCelebrationView: View {
 
     private var medal: some View {
         ZStack {
-            Circle().fill(Gold.gradient)
+            Circle().fill(CelebrationGold.gradient)
                 .frame(width: 76, height: 76)
-                .shadow(color: Gold.deep.opacity(0.5), radius: 16, y: 6)
+                .shadow(color: CelebrationGold.deep.opacity(0.5), radius: 16, y: 6)
             Text("PR")
                 .font(.system(size: 26, weight: .heavy, design: .default).italic())
                 .foregroundStyle(Color.black.opacity(0.72))
@@ -192,7 +194,7 @@ struct PRCelebrationView: View {
             if let delta = record.deltaLine {
                 Text(delta)
                     .font(.system(size: 12))
-                    .foregroundStyle(record.isFirstMark ? Theme.Color.muted : Gold.bright)
+                    .foregroundStyle(record.isFirstMark ? Theme.Color.muted : CelebrationGold.bright)
                     .multilineTextAlignment(.center)
             }
         }
@@ -213,7 +215,7 @@ struct PRCelebrationView: View {
                     .foregroundStyle(Color.black.opacity(0.78))
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Gold.gradient)
+                    .background(CelebrationGold.gradient)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 }
                 .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
@@ -252,7 +254,7 @@ struct WorkoutShareCard: View {
                     .foregroundStyle(Color.black.opacity(0.78))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Gold.gradient)
+                    .background(CelebrationGold.gradient)
                     .clipShape(Capsule())
                 }
             }

@@ -116,6 +116,14 @@ struct RecordBatteryResult: Codable, Equatable {
             let mods = zonesDerived.map { Self.modalityLabel($0.modality) }
             out.append("Zonas actualizadas · \(mods.joined(separator: ", "))")
         }
+        return out + secondaryEffects
+    }
+
+    /// The non-zone confirmations (1RM / nivel). Split out because the result
+    /// screen renders the zones as their own rich card (new umbral + delta) and
+    /// must not repeat them as a plain line.
+    var secondaryEffects: [String] {
+        var out: [String] = []
         if strengthMaxesWritten > 0 {
             out.append(strengthMaxesWritten == 1 ? "1RM actualizado" : "Fuerzas actualizadas")
         }
@@ -123,12 +131,13 @@ struct RecordBatteryResult: Codable, Equatable {
         return out
     }
 
-    private static func modalityLabel(_ raw: String) -> String {
+    static func modalityLabel(_ raw: String) -> String {
         switch raw {
-        case "run": return "carrera"
-        case "row": return "remo"
-        case "ski": return "ski"
-        default:    return raw
+        case "run":  return "carrera"
+        case "row":  return "remo"
+        case "ski":  return "ski"
+        case "bike": return "bike"
+        default:     return raw
         }
     }
 }

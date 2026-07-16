@@ -134,6 +134,15 @@ struct TestResultCaptureSheet: View {
     @State private var errorText: String? = nil
     @Environment(\.colorScheme) private var scheme
 
+    // Mockup C — the result step's zone truth. `preThresholds` snapshots the
+    // CURRENT umbral per modality on open (best effort) so the updated card can
+    // show the real delta; `newZoneProfiles` is the post-save re-fetch (the new
+    // umbral as the server resolved it, not a client guess).
+    @State private var preThresholds: [String: Double] = [:]
+    @State private var newZoneProfiles: [ZoneModalityProfile]? = nil
+    /// «Récord del test» overlay — raised when the bridge reports improved entries.
+    @State private var showCelebration = false
+
     // One editable result. Text-backed (not Double-backed) so numeric entry never
     // fights a formatter; the value is parsed on save.
     private struct Row: Identifiable {
@@ -187,8 +196,17 @@ struct TestResultCaptureSheet: View {
                     .padding(.bottom, Theme.Spacing.xxl)
                 }
             }
+
+            if showCelebration, let result {
+                TestRecordCelebrationView(
+                    items: TestRecordCelebrationView.items(from: result.improvedEntries, specs: specs),
+                    onDone: { showCelebration = false }
+                )
+                .transition(.opacity)
+            }
         }
         .onAppear(perform: seedRows)
+        .task { await snapshotCurrentThresholds() }
     }
 
     // MARK: Top bar
@@ -313,7 +331,7 @@ struct TestResultCaptureSheet: View {
         }
     }
 
-    // MARK: Done (honest feedback)
+    // MARK: Done (honest feedback — mockup C)
 
     @ViewBuilder
     private var doneContent: some View {
@@ -322,17 +340,34 @@ struct TestResultCaptureSheet: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(Theme.Color.ok)
-                Text("Resultado guardado")
+                Text(result?.improvedEntries.isEmpty == false ? "Récord del test" : "Resultado guardado")
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
             }
 
-            let effects = result?.effects ?? []
-            if effects.isEmpty {
+            // Every recorded entry with its delta vs the previous mark (server
+            // truth) — the honest per-number readback.
+            if let entries = result?.entries, !entries.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(entries.enumerated()), id: \.element.slug) { idx, entry in
+                        if idx > 0 { Hairline() }
+                        entryRow(entry)
+                    }
+                }
+            }
+
+            // "Tus zonas se han actualizado" — the rich card, with the NEW umbral
+            // (re-fetched, server-resolved) and its delta vs the pre-save one.
+            if let result, !result.zonesDerived.isEmpty {
+                zonesUpdatedCard(result.zonesDerived)
+            }
+
+            let effects = result?.secondaryEffects ?? []
+            if effects.isEmpty, result?.entries?.isEmpty != false, result?.zonesDerived.isEmpty != false {
                 Text("Tu marca queda registrada en tu perfil.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
-            } else {
+            } else if !effects.isEmpty {
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                     ForEach(effects, id: \.self) { effect in
                         HStack(spacing: 9) {
@@ -361,6 +396,89 @@ struct TestResultCaptureSheet: View {
             }
             .padding(.top, Theme.Spacing.s)
         }
+    }
+
+    /// One saved entry: label · value · delta chip (green/red by the unit's
+    /// better-direction; "primera marca" when there was nothing to beat).
+    private func entryRow(_ entry: RecordBatteryResult.EntryDelta) -> some View {
+        let spec = specs.first { $0.slug == entry.slug }
+        let unit = spec?.unit ?? ""
+        return HStack(spacing: Theme.Spacing.m) {
+            Text(spec?.label ?? entry.slug)
+                .font(Theme.Typography.bodyEmph)
+                .foregroundStyle(Theme.Color.foreground)
+                .lineLimit(1)
+            Spacer(minLength: Theme.Spacing.s)
+            Text(BenchmarkDelta.valueLabel(unit: unit, value: entry.value))
+                .font(.system(size: 15, weight: .bold, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.foreground)
+            if let prev = entry.prevValue {
+                BenchmarkDeltaChip(unit: unit, delta: entry.value - prev)
+            } else {
+                Text("primera marca")
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+        }
+        .padding(.vertical, Theme.Spacing.s)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The updated zones, per derived modality: the server-resolved NEW umbral
+    /// (re-fetched — never computed client-side) + delta vs the pre-save umbral
+    /// when it actually changed.
+    private func zonesUpdatedCard(_ derived: [RecordBatteryResult.ZoneDerived]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            HStack(spacing: 9) {
+                Image(systemName: "speedometer")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                Text("Tus zonas se han actualizado")
+                    .font(Theme.Typography.bodyEmph)
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+            VStack(spacing: 0) {
+                ForEach(derived, id: \.modality) { zone in
+                    zoneUpdateRow(zone)
+                }
+            }
+            Text("El umbral nuevo ya marca los ritmos de tus próximos entrenos.")
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.hairline, lineWidth: 1)
+        )
+    }
+
+    private func zoneUpdateRow(_ zone: RecordBatteryResult.ZoneDerived) -> some View {
+        // Prefer the re-fetched profile (label + unit as the server renders
+        // them); fall back to the response's threshold with the modality's
+        // intrinsic unit (run → /km, ergo → /500m) while the re-fetch lands.
+        let profile = newZoneProfiles?.first { $0.modality == zone.modality }
+        let thresholdText = profile?.thresholdLabel
+            ?? "\(PrescriptionRenderer.formatPace(Int(zone.thresholdS.rounded())))\(zone.modality == "run" ? "/km" : "/500m")"
+        let delta = preThresholds[zone.modality].map { zone.thresholdS - $0 }
+        return HStack(spacing: Theme.Spacing.m) {
+            Text(profile?.modalityLabel ?? RecordBatteryResult.modalityLabel(zone.modality).capitalized)
+                .font(Theme.Typography.small)
+                .foregroundStyle(Theme.Color.foreground)
+            Spacer(minLength: Theme.Spacing.s)
+            Text("umbral \(thresholdText)")
+                .font(.system(size: 13, weight: .bold, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.Color.foreground)
+            if let delta, delta != 0 {
+                BenchmarkDeltaChip(unit: "seconds", delta: delta)
+            }
+        }
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Actions
@@ -410,10 +528,31 @@ struct TestResultCaptureSheet: View {
             result = res
             Haptics.success()
             stage = .done
+            // Récord del test (mockup C): the bridge says a mark was BEATEN.
+            if !res.improvedEntries.isEmpty {
+                withAnimation(.easeOut(duration: 0.2)) { showCelebration = true }
+            }
+            // Zones changed → re-fetch the server-resolved profiles so the card
+            // shows the REAL new umbral (never a client-side computation).
+            if !res.zonesDerived.isEmpty {
+                newZoneProfiles = try? await ZonesService.fetch(bearer: bearer)
+            }
         } catch {
             stage = .editing
             errorText = "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo."
         }
+    }
+
+    /// Snapshot the CURRENT umbral per modality before saving, so the updated-
+    /// zones card can show an honest delta. Best effort — with no snapshot the
+    /// card simply shows the new umbral without a delta.
+    private func snapshotCurrentThresholds() async {
+        guard let bearer, preThresholds.isEmpty else { return }
+        guard let profiles = try? await ZonesService.fetch(bearer: bearer) else { return }
+        preThresholds = Dictionary(
+            profiles.compactMap { p in p.thresholdS.map { (p.modality, $0) } },
+            uniquingKeysWith: { _, latest in latest }
+        )
     }
 
     /// "142.5" without a trailing ".0" — kg display for the prefill seed.

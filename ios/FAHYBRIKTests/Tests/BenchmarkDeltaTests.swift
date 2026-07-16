@@ -103,6 +103,32 @@ final class BenchmarkDeltaTests: XCTestCase {
         XCTAssertEqual(res.improvedEntries.map(\.slug), ["run_5k"])
     }
 
+    // MARK: - Celebration mapping (mockup C)
+
+    func testCelebrationItemsMapThroughTheTestContract() {
+        let specs = [
+            StoreResultSpec(slug: "run_5k", unit: "seconds", measure: "time",
+                            label: "5K", derives: nil, modality: nil),
+            StoreResultSpec(slug: "hrr60", unit: "bpm", measure: "hrr",
+                            label: "Recuperación", derives: nil, modality: nil),
+        ]
+        let entries = [
+            RecordBatteryResult.EntryDelta(slug: "run_5k", value: 1334, prevValue: 1346, improved: true),
+            RecordBatteryResult.EntryDelta(slug: "hrr60", value: 34, prevValue: 31, improved: true),
+            RecordBatteryResult.EntryDelta(slug: "unknown_slug", value: 10, prevValue: nil, improved: nil),
+        ]
+        let items = TestRecordCelebrationView.items(from: entries, specs: specs)
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0].label, "5K")
+        XCTAssertEqual(items[0].valueText, "22:14")
+        XCTAssertEqual(items[0].deltaText, "−12 s vs tu marca anterior")
+        XCTAssertEqual(items[1].valueText, "34 bpm")
+        XCTAssertEqual(items[1].deltaText, "+3 bpm vs tu marca anterior")
+        // Unknown slug degrades honestly: slug as label, no delta without a prev.
+        XCTAssertEqual(items[2].label, "unknown_slug")
+        XCTAssertNil(items[2].deltaText)
+    }
+
     func testRecordResultToleratesMissingEntries() throws {
         // The pre-deltas backend shape must keep decoding (no celebration, no crash).
         let json = """
