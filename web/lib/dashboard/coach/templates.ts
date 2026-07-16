@@ -118,6 +118,14 @@ export async function listTemplatesForCoach(
       -- Exclude per-athlete INSTANCES (forks): the library lists only reusable
       -- templates; instances are reached through their assignment.
       and t.instance_athlete_id is null
+      -- Exclude CALIBRATION TESTS (0112): un test mide al atleta, no es un
+      -- entreno reutilizable. Tienen su propia superficie y el coach no los
+      -- programa como sesiones. La verdad es el vinculo coach_calibration_tests
+      -- .template_id, no la forma 'test' (una sesion puede tener forma de test
+      -- sin ser un protocolo de calibracion).
+      and not exists (
+        select 1 from coach_calibration_tests ct where ct.template_id = t.id
+      )
     order by t.updated_at desc
     limit 500
   `;

@@ -19,6 +19,66 @@ type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 // an empty library and builds their own.
 
 /**
+ * Un bloque + su estado ESTRUCTURAL, para las superficies que necesitan saber si
+ * el atleta puede ejecutarlo (Biblioteca › Bloques y el rail del editor de día).
+ *
+ * `typed` es la única señal honesta de "ejecutable": sale de la existencia de
+ * `block_exercises`. NO es `needs_review` — son cosas distintas y en los datos
+ * reales discrepan (hay bloques marcados para revisar que SÍ están tipados).
+ * Un bloque sin tipar solo tiene la prosa verbatim en `description`: se muestra,
+ * pero no se puede insertar en un día (se perdería el texto).
+ *
+ * `part_count` = `block_position` distintos = cuántas piezas inserta el bloque
+ * en el día. Un bloque NO es siempre una pieza: los importados del Excel llegan
+ * a 6 (p.ej. "10' row z2" = row + ski + bike + run).
+ */
+export interface BlockWithStructure extends Block {
+  typed: boolean;
+  exercise_count: number;
+  part_count: number;
+}
+
+type BlockWithStructureRow = BlockRow & {
+  exercise_count: string | number;
+  part_count: string | number;
+};
+
+/**
+ * List a coach's blocks with their structural state, in ONE round-trip.
+ * Same ordering/scoping contract as `listBlocks`.
+ * @param coachId  owning coach (the current session coach).
+ * @param groupId  methodology_group_id (1..10), or null for all groups.
+ */
+export async function listBlocksWithStructure(
+  coachId: number | bigint,
+  groupId: number | null = null,
+  client: Sql = defaultSql,
+): Promise<BlockWithStructure[]> {
+  const cid = Number(coachId);
+  const rows = await client<BlockWithStructureRow[]>`
+    select b.id, b.slug, b.title, b.description, b.methodology_group_id,
+           b.format, b.source_ref, b.needs_review,
+           count(be.id) as exercise_count,
+           count(distinct be.block_position) as part_count
+      from blocks b
+      left join block_exercises be on be.block_id = b.id
+     where b.coach_id = ${cid}
+       ${groupId === null ? client`` : client`and b.methodology_group_id = ${groupId}`}
+     group by b.id
+     order by b.methodology_group_id asc, b.id asc
+  `;
+  return rows.map((r) => {
+    const exercise_count = Number(r.exercise_count);
+    return {
+      ...mapBlockRow(r),
+      typed: exercise_count > 0,
+      exercise_count,
+      part_count: Number(r.part_count),
+    };
+  });
+}
+
+/**
  * List a coach's blocks, optionally filtered to a single methodology group.
  * @param coachId  owning coach (the current session coach).
  * @param groupId  methodology_group_id (1..10), or null for all groups.
