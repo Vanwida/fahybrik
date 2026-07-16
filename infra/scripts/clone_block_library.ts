@@ -44,21 +44,26 @@
  *  is unique and deterministic, so re-running skips exactly the blocks already
  *  cloned and never duplicates.
  *
- * GUARDED: refuses to run unless DATABASE_URL host contains `ep-flat-wind`
- * (the demo DB). Override the host guard ONLY by changing REQUIRED_HOST below.
+ * GUARDED (shared _demo_target): the demo branch (ep-flat-wind) is always
+ * writable; MAIN (ep-aged-base) only with SEED_DEMO_ALLOW_MAIN=1. Every TARGET
+ * must be a demo coach account (assertDemoCoach) — refuses a real coach.
  *
- * RUN (against the DEMO DB):
- *   cd infra && ./node_modules/.bin/tsx --tsconfig ./tsconfig.json \
- *     scripts/clone_block_library.ts --source=4 --target=29 [--target=30 ...]
+ * SOURCE can be a coach id OR `global` (blocks.coach_id IS NULL): on MAIN the
+ * methodology library is GLOBAL/unowned, so the demo coaches are seeded from it.
  *
- *   Args (either form): --source=<id> / SOURCE_COACH_ID=<id>,
- *                       --target=<id> (repeatable) / TARGET_COACH_IDS=29,30
+ * RUN (against MAIN, from web/ so `@/` + the shared guard resolve):
+ *   cd web && SEED_DEMO_ALLOW_MAIN=1 DATABASE_URL="<main>" \
+ *     NODE_OPTIONS="--conditions=react-server" \
+ *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
+ *     ../infra/scripts/clone_block_library.ts --source=global --target=62
+ *
+ *   Args (either form): --source=<id|global> / SOURCE_COACH_ID=<id>,
+ *                       --target=<id> (repeatable) / TARGET_COACH_IDS=62,63
  *   --dry-run reports the plan without writing.
  */
 import { getSql } from './_db.js';
+import { assertDemoWriteHost, assertDemoCoach } from './_demo_target.ts';
 
-/** The block library content DB this script is allowed to touch. */
-const REQUIRED_HOST = 'ep-flat-wind';
 /** Deterministic per-target slug suffix → also the idempotency key. */
 const SLUG_SUFFIX = '--c';
 
@@ -74,11 +79,22 @@ function flagValues(name: string): string[] {
   return out;
 }
 
-function parseIds(): { source: number; targets: number[] } {
-  const srcRaw = flagValues('source')[0] ?? process.env.SOURCE_COACH_ID ?? '';
-  const source = Number(srcRaw);
-  if (!Number.isInteger(source) || source <= 0) {
-    throw new Error('Missing/invalid --source=<coachId> (or SOURCE_COACH_ID).');
+/** A clone source: a specific coach id, or the GLOBAL library (blocks.coach_id IS
+ *  NULL). On main the methodology library is global (unowned); on the demo branch
+ *  it was owned by a coach — both are valid sources for cloning into a coach. */
+type Source = number | 'global';
+
+function parseIds(): { source: Source; targets: number[] } {
+  const srcRaw = (flagValues('source')[0] ?? process.env.SOURCE_COACH_ID ?? '').trim();
+  let source: Source;
+  if (srcRaw.toLowerCase() === 'global') {
+    source = 'global';
+  } else {
+    const n = Number(srcRaw);
+    if (!Number.isInteger(n) || n <= 0) {
+      throw new Error('Missing/invalid --source=<coachId|global> (or SOURCE_COACH_ID).');
+    }
+    source = n;
   }
   const targetsRaw = [
     ...flagValues('target'),
@@ -88,7 +104,7 @@ function parseIds(): { source: number; targets: number[] } {
   if (targets.length === 0 || targets.some((t) => !Number.isInteger(t) || t <= 0)) {
     throw new Error('Missing/invalid --target=<coachId> (repeatable) or TARGET_COACH_IDS=29,30.');
   }
-  if (targets.includes(source)) {
+  if (typeof source === 'number' && targets.includes(source)) {
     throw new Error('A target coach must differ from the source coach.');
   }
   return { source, targets: [...new Set(targets)] };
@@ -153,8 +169,10 @@ async function levelIdToName(sql: Sql, coachId: number): Promise<Map<string, str
  * derived slug. Returns counts. THE single clone routine (DRY) — main() just
  * loops targets through it.
  */
-async function cloneLibrary(sql: Sql, source: number, target: number): Promise<CloneResult> {
-  const srcIdToName = await levelIdToName(sql, source);
+async function cloneLibrary(sql: Sql, source: Source, target: number): Promise<CloneResult> {
+  // GLOBAL source has no athlete_levels of its own → empty map → level bounds NULL
+  // out on the copies (a global block references no per-coach level).
+  const srcIdToName = source === 'global' ? new Map<string, string>() : await levelIdToName(sql, source);
   const tgtNameToId = await levelNameToId(sql, target);
 
   // Remap a source level id → the target coach's level of the same NAME (NULL if
@@ -166,14 +184,24 @@ async function cloneLibrary(sql: Sql, source: number, target: number): Promise<C
     return tgtNameToId.get(name) ?? null;
   };
 
-  const blocks = await sql<BlockRow[]>`
-    select id::text, slug, title, description, methodology_group_id::text,
-           format, source_ref, default_modifiers, needs_review,
-           min_level_id::text, max_level_id::text, days_per_week
-    from blocks
-    where coach_id = ${source}
-    order by id
-  `;
+  const blocks =
+    source === 'global'
+      ? await sql<BlockRow[]>`
+          select id::text, slug, title, description, methodology_group_id::text,
+                 format, source_ref, default_modifiers, needs_review,
+                 min_level_id::text, max_level_id::text, days_per_week
+          from blocks
+          where coach_id is null
+          order by id
+        `
+      : await sql<BlockRow[]>`
+          select id::text, slug, title, description, methodology_group_id::text,
+                 format, source_ref, default_modifiers, needs_review,
+                 min_level_id::text, max_level_id::text, days_per_week
+          from blocks
+          where coach_id = ${source}
+          order by id
+        `;
 
   let inserted = 0;
   let skipped = 0;
@@ -242,16 +270,19 @@ async function cloneLibrary(sql: Sql, source: number, target: number): Promise<C
 }
 
 async function main() {
-  const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (!host.includes(REQUIRED_HOST)) {
-    throw new Error(
-      `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the ` +
-        `expected DB (${REQUIRED_HOST}). Point DATABASE_URL at the right branch.`,
-    );
-  }
+  // Demo branch always ok; main only with SEED_DEMO_ALLOW_MAIN=1 (shared guard).
+  const host = assertDemoWriteHost('clone_block_library');
 
   const { source, targets } = parseIds();
   const sql = getSql();
+
+  // Target-safety: every target MUST be a demo coach account. Refuses to clone a
+  // library onto a real coach even if the operator passes a wrong id.
+  for (const target of targets) {
+    const email = await assertDemoCoach(sql, target);
+    // eslint-disable-next-line no-console
+    console.log(`[clone_block_library] target coach ${target} verified demo: <${email}>`);
+  }
 
   // eslint-disable-next-line no-console
   console.log(
