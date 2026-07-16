@@ -81,10 +81,30 @@ struct RecordBatteryResult: Codable, Equatable {
     let zonesDerived: [ZoneDerived]
     let strengthMaxesWritten: Int
     let levelRecomputed: Bool
+    /// Tests guiados — per-entry delta vs the athlete's previous mark, computed
+    /// SERVER-side (seconds: lower is better; kg/bpm: higher is better). Drives
+    /// the «Récord del test» celebration. OPTIONAL so a backend that hasn't
+    /// shipped it yet (or an older cached response) still decodes — the flow
+    /// then simply skips the celebration, never breaks.
+    let entries: [EntryDelta]?
 
     struct ZoneDerived: Codable, Equatable {
         let modality: String   // run | row | ski
         let thresholdS: Double
+    }
+
+    /// One recorded result vs its previous mark. `prevValue` nil = first mark
+    /// (nothing to beat yet); `improved` nil mirrors that.
+    struct EntryDelta: Codable, Equatable {
+        let slug: String
+        let value: Double
+        let prevValue: Double?
+        let improved: Bool?
+    }
+
+    /// The entries that BEAT the previous mark — the celebration trigger.
+    var improvedEntries: [EntryDelta] {
+        (entries ?? []).filter { $0.improved == true }
     }
 
     /// Human confirmations, in priority order, of what the calibration changed.
@@ -124,6 +144,51 @@ struct TestResultEntry: Codable, Equatable {
     let value: Double
 }
 
+// MARK: - Start a test («Probarme»)
+
+/// Response of POST /api/athlete/test-battery/start — the assignment the athlete
+/// runs TODAY (created or reused server-side) plus its result contract.
+struct StartTestResponse: Codable, Equatable {
+    let assignmentId: String
+    let scheduledFor: String
+    let storeResults: [StoreResultSpec]
+}
+
+// MARK: - Benchmark history (the athlete's curve per test)
+
+/// GET /api/athlete/benchmarks/history?slug=<calibration slug>. One test can
+/// produce several benchmark series (a 1RM battery → squat + deadlift + …), so
+/// the payload is series-shaped even when there's just one.
+struct BenchmarkHistoryResponse: Codable, Equatable {
+    let series: [BenchmarkSeries]
+}
+
+struct BenchmarkSeries: Codable, Equatable, Identifiable {
+    var id: String { exerciseSlug }
+    let exerciseSlug: String
+    let label: String
+    /// seconds | kg | bpm | meters | reps | calories — drives formatting AND the
+    /// better-direction (see BenchmarkDelta).
+    let unit: String
+    /// Chronological, oldest → newest (the curve reads left to right).
+    let results: [BenchmarkPoint]
+
+    var lastValue: Double? { results.last?.value }
+    /// Newest vs previous mark, in the unit's own sign. Nil with fewer than two.
+    var lastDelta: Double? {
+        guard results.count >= 2 else { return nil }
+        return results[results.count - 1].value - results[results.count - 2].value
+    }
+}
+
+struct BenchmarkPoint: Codable, Equatable {
+    let value: Double
+    /// ISO timestamp; kept as a raw String and parsed defensively where shown
+    /// (mirrors ZonesService.recordedAt — a malformed date must never take the
+    /// whole history down).
+    let recordedAt: String
+}
+
 // MARK: - Service
 
 enum TestBatteryService {
@@ -153,5 +218,28 @@ enum TestBatteryService {
             body: Body(results: entries),
             bearer: bearer
         )
+    }
+
+    /// «Probarme» — create/reuse TODAY's assignment for a battery test and get
+    /// back the id the normal session flow launches with.
+    static func startTest(slug: String, bearer: String) async throws -> StartTestResponse {
+        struct Body: Encodable { let slug: String }
+        return try await APIClient.shared.post(
+            path: "api/athlete/test-battery/start",
+            body: Body(slug: slug),
+            bearer: bearer
+        )
+    }
+
+    /// The athlete's benchmark curve(s) for one test (hub sparkline + deltas).
+    static func fetchBenchmarkHistory(slug: String, bearer: String) async throws -> [BenchmarkSeries] {
+        guard let encoded = slug.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return []
+        }
+        let resp: BenchmarkHistoryResponse = try await APIClient.shared.get(
+            path: "api/athlete/benchmarks/history?slug=\(encoded)",
+            bearer: bearer
+        )
+        return resp.series
     }
 }
