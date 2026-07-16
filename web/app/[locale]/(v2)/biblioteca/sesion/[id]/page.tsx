@@ -1,17 +1,24 @@
-// v2 · BIBLIOTECA · EDITOR DE SESIÓN — "Modelar una sesión, sin texto libre".
-// Server component: loads the real library block (loadBlockEditorModel) and hands
-// the structured model to the client <BlockLibraryEditor>. A missing block 404s.
+// v2 · BIBLIOTECA · EDITOR DE SESIÓN — "Modelar un entreno, sin texto libre".
+// Server component: carga la sesión de biblioteca real (loadSessionEditorModel)
+// y le pasa el modelo estructurado al cliente <SessionEditor>. Si no existe, 404.
+//
+// `[id]` es un `templates.id` — una plantilla MADRE. Antes esta ruta recibía un
+// `blocks.id` (editaba un bloque llamándolo sesión); los bloques viven ahora en
+// /biblioteca/bloque/[id].
+//
+// SessionEditor sin prop `save` YA hace el comportamiento de biblioteca
+// (POST/PUT /api/coach/templates + volver a /biblioteca?tab=sesiones): estaba
+// construido y nunca se había cableado a esta pantalla.
 
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
-import { loadBlockEditorModel } from '@/lib/dashboard/v2/editor-data';
-import { BlockLibraryEditor } from '@/components/v2/editor/BlockLibraryEditor';
+import { loadSessionEditorModel } from '@/lib/dashboard/v2/editor-data';
+import { SessionEditor } from '@/components/v2/editor/SessionEditor';
 
 export const dynamic = 'force-dynamic';
 
-export default async function V2BloqueEditorPage({
+export default async function V2SesionEditorPage({
   params,
 }: {
   params: Promise<{ locale: string; id: string }>;
@@ -22,17 +29,14 @@ export default async function V2BloqueEditorPage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  const blockId = Number(id);
-  if (!Number.isInteger(blockId) || blockId <= 0) notFound();
+  const templateId = Number(id);
+  if (!Number.isInteger(templateId) || templateId <= 0) notFound();
 
-  const model = await loadBlockEditorModel({
+  const model = await loadSessionEditorModel({
     coach_id: session.coach_id,
-    block_id: blockId,
+    template_id: templateId,
   }).catch(() => null);
   if (!model) notFound();
 
-  const methodologyGroups = await listMethodologyGroups();
-  const groups = methodologyGroups.map((g) => ({ id: g.id, name: g.name_es }));
-
-  return <BlockLibraryEditor model={model} groups={groups} />;
+  return <SessionEditor model={model} />;
 }

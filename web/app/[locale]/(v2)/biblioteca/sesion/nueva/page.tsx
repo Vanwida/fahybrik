@@ -1,15 +1,22 @@
-// v2 · BIBLIOTECA · NUEVA SESIÓN — the from-scratch library block editor.
-// Same client editor as the edit route, seeded with an empty (unsaved) model.
+// v2 · BIBLIOTECA · NUEVA SESIÓN — el editor de sesión desde cero.
+// Mismo cliente que la ruta de edición, sembrado con un modelo vacío (sin guardar).
+// Al primer guardado, SessionEditor hace POST /api/coach/templates y adopta el id.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { listMethodologyGroups } from '@/lib/dashboard/coach/methodology-groups';
-import type { BlockEditorModel } from '@/lib/dashboard/v2/editor-types';
-import { BlockLibraryEditor } from '@/components/v2/editor/BlockLibraryEditor';
+import type { SessionEditorModel } from '@/lib/dashboard/v2/editor-types';
+import { SessionEditor } from '@/components/v2/editor/SessionEditor';
 
 export const dynamic = 'force-dynamic';
 
-export default async function V2NuevoBloquePage({
+// `templates.format` es un eje GRUESO y obligatorio (una sesión entera no tiene
+// un solo formato: sus bloques sí). SessionEditor no lo expone, así que la
+// semilla se queda. Usamos `sets`, el canónico más neutro — los cuatro legacy
+// (strength_block/tempo/circuit/test) no los escribe código nuevo por contrato
+// del catálogo de formatos.
+const NEW_SESSION_FORMAT = 'sets';
+
+export default async function V2NuevaSesionPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -20,17 +27,14 @@ export default async function V2NuevoBloquePage({
   const session = await getCoachSession();
   if (!session) return null;
 
-  const methodologyGroups = await listMethodologyGroups();
-  const groups = methodologyGroups.map((g) => ({ id: g.id, name: g.name_es }));
-
-  const model: BlockEditorModel = {
-    block_id: null,
-    title: 'Nueva sesión',
-    description: '',
-    methodology_group_id: groups[0]?.id ?? 1,
-    format: null,
+  const model: SessionEditorModel = {
+    template_id: null,
+    name: 'Nueva sesión',
+    format: NEW_SESSION_FORMAT,
+    is_draft: true,
     blocks: [],
+    used_in_plans: 0,
   };
 
-  return <BlockLibraryEditor model={model} groups={groups} />;
+  return <SessionEditor model={model} />;
 }
