@@ -1,16 +1,22 @@
 import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
-import { sql } from '@/lib/db';
+import { sql, type Sql } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 
 /**
- * Catalog editing scope — GLOBAL, not per-coach.
+ * DIRECT edit of an exercise the coach OWNS (`exercises.coach_id = <coach>`).
  *
- * The `exercises` table is a shared catalog (no `coach_id` column). FAHYBRIK is
- * single-coach (Pablo), so any authenticated coach is allowed to edit the
- * catalog. If the product ever goes multi-coach, this becomes per-coach copies
- * or an `owner_coach_id` + visibility model — but that's out of scope today.
+ * This is one of the two write paths, and the narrow one. Since migration 0132 a
+ * coach may only mutate the `exercises` row of an exercise THEY created — there
+ * the whole row is theirs, identity included. Editing a BASE exercise never comes
+ * through here: its forkable fields go to the coach's override
+ * (`upsertCoachExerciseOverride`) and its shared identity is refused. The router
+ * that picks between the two lives in the PATCH route, keyed on
+ * `loadExerciseScope`.
+ *
+ * The ownership guard is in the WHERE clause, not a prior check: a base row or
+ * another coach's row simply matches nothing → 404. No TOCTOU window.
  */
 
 const trimmedText = (max: number) =>
@@ -22,13 +28,24 @@ const trimmedText = (max: number) =>
 
 /**
  * Partial update body. Every field is optional; only the keys present in the
- * request are written. `name` cannot be cleared (1..120). `description` / `cues`
- * accept multi-line text and normalize empty → null. `video_url` is validated
- * and canonicalized to a watch URL (or null) by the shared YouTube schema.
+ * request are written. `description` / `cues` accept multi-line text and
+ * normalize empty → null. `video_url` is validated and canonicalized to a watch
+ * URL (or null) by the shared YouTube schema.
+ *
+ * `name` normalizes empty → null like the other three FORKABLE fields, and that
+ * symmetry is the point: on a BASE exercise, clearing a field clears the coach's
+ * override so the base value is inherited again. A fork you can't undo is a trap,
+ * so "" on `name` is how a coach takes back their rename.
+ *
+ * The two paths then read that null differently, which is why the meaning can't
+ * live in the schema alone:
+ *   • BASE → null clears the name override (inherit the base name).
+ *   • OWN  → null is REFUSED by `updateExercise`: `exercises.name` is NOT NULL and
+ *     an own exercise has no base name to fall back to. It would be nameless.
  */
 export const updateExerciseSchema = z
   .object({
-    name: z.string().trim().min(1).max(120),
+    name: trimmedText(120),
     description: trimmedText(2000).nullable(),
     cues: trimmedText(2000).nullable(),
     video_url: youtubeUrlSchema,
@@ -43,7 +60,7 @@ export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
 
 export class ExerciseUpdateError extends Error {
   constructor(
-    public code: 'not_found' | 'no_fields',
+    public code: 'not_found' | 'no_fields' | 'invalid_name',
     message: string,
     public status: number,
   ) {
@@ -73,8 +90,8 @@ export const EXERCISE_SELECT_COLUMNS = [
 // sync. Kept as one SQL expression here (single source of truth alongside the
 // migration + the create handler). It references the row's category/name columns,
 // so on UPDATE it must be applied AFTER the user-supplied SET fragments.
-export function modalityExpr(): ReturnType<typeof sql> {
-  return sql`
+export function modalityExpr(client: Sql = sql): ReturnType<typeof sql> {
+  return client`
     case
       when category = 'strength'   then 'strength'
       when category = 'core'       then 'core'
@@ -103,28 +120,45 @@ export function modalityExpr(): ReturnType<typeof sql> {
 }
 
 /**
- * Apply a partial update to a catalog exercise and return the fresh row.
+ * Apply a partial update to an exercise the coach OWNS, and return the fresh row.
  * Builds the SET clause only from the fields actually supplied so untouched
- * columns are never overwritten. Throws ExerciseUpdateError on no-op / 404.
+ * columns are never overwritten. Throws ExerciseUpdateError on no-op / 404 —
+ * where 404 also covers "exists but isn't yours" (the guard is in the WHERE).
+ *
+ * `client` defaults to the app's pool. It's injectable so the real-DB suite can
+ * point the writer at its throwaway Neon branch — the ownership guard below is
+ * an IDOR fix and has to be provable against a real database, not a mock (project
+ * rule: never mock the DB).
  */
 export async function updateExercise(
   id: bigint,
   patch: UpdateExerciseInput,
+  coachId: bigint,
+  client: Sql = sql,
 ): Promise<CatalogExercise> {
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined);
   if (entries.length === 0) {
     throw new ExerciseUpdateError('no_fields', 'No hay campos para actualizar', 400);
   }
 
+  // `exercises.name` is NOT NULL, and an OWN exercise has no base name to fall
+  // back to — clearing it would leave it nameless. (On a BASE exercise null is
+  // legitimate and never reaches here: it clears the coach's name override.)
+  // Enforced by the writer, not the caller, so no future path can slip a
+  // nameless row past the schema.
+  if (patch.name === null) {
+    throw new ExerciseUpdateError('invalid_name', 'Tu ejercicio necesita un nombre.', 400);
+  }
+
   // Build one parameterized assignment fragment per supplied field, then join
   // with commas. `category` needs an explicit enum cast; the rest bind directly.
   const assignments = entries.map(([key, value]) =>
     key === 'category'
-      ? sql`category = ${value as string}::exercise_category`
-      : sql`${sql(key)} = ${value as never}`,
+      ? client`category = ${value as string}::exercise_category`
+      : client`${client(key)} = ${value as never}`,
   );
 
-  const setClause = assignments.reduce((acc, frag) => sql`${acc}, ${frag}`);
+  const setClause = assignments.reduce((acc, frag) => client`${acc}, ${frag}`);
 
   // If category or name changed, modality must be recomputed from the NEW row.
   // Postgres evaluates every SET RHS against the OLD row, so the recompute can't
@@ -133,18 +167,18 @@ export async function updateExercise(
   // is never observed mid-update.
   const recomputesModality = patch.category !== undefined || patch.name !== undefined;
 
-  const rows = await sql.begin(async (tx) => {
+  const rows = await client.begin(async (tx) => {
     const updated = await tx<CatalogExercise[]>`
       update exercises
       set ${setClause}, updated_at = now()
-      where id = ${id}
+      where id = ${id} and coach_id = ${coachId}
       returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
     `;
     if (updated.length === 0 || !recomputesModality) return updated;
     return tx<CatalogExercise[]>`
       update exercises
-      set modality = ${modalityExpr()}
-      where id = ${id}
+      set modality = ${modalityExpr(tx as unknown as Sql)}
+      where id = ${id} and coach_id = ${coachId}
       returning ${tx.unsafe(EXERCISE_SELECT_COLUMNS.join(', '))}
     `;
   });

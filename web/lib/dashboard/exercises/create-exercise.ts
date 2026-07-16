@@ -6,13 +6,13 @@ import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { EXERCISE_SELECT_COLUMNS, modalityExpr } from '@/lib/dashboard/exercises/update-exercise';
 
 /**
- * Create a catalog exercise the coach is missing while authoring a session.
+ * Create an exercise the coach is missing — from the picker while authoring, or
+ * from the Biblioteca catalog screen.
  *
- * Scope mirrors update-exercise: the `exercises` catalog is GLOBAL (no per-coach
- * ownership column on the table), single-coach today — so any authenticated coach
- * may add to it. The new row is tagged `source = 'coach'` for honest provenance
- * (vs the seeded catalog), since the table has no `needs_review`/`coach_id`
- * columns and we add NO migration here (clean, no invented schema).
+ * The new row is the coach's OWN (`coach_id = <coach>`, migration 0132): it is
+ * theirs to edit whole, and NO other coach ever sees it. It is NOT an addition to
+ * the BASE catalog — that's our product, and one coach's movement is not part of
+ * it. `source = 'coach'` stays for honest provenance alongside the seeded rows.
  *
  * The coach supplies NAME + CATEGORY (+ optional YouTube). `modality` is NOT a
  * free input: it is INTRINSIC and DERIVED from category(+name) by the SAME rule
@@ -48,6 +48,14 @@ export class ExerciseCreateError extends Error {
 // slug = lowercase, accents stripped, non-alphanumerics → single dash. The table
 // enforces a unique slug; we suffix a short disambiguator on collision so a coach
 // can add "Sentadilla búlgara" even if a near-name exists.
+// The slug namespace stays GLOBAL (see migration 0132): it is the machine
+// contract of the BASE catalog — station-detail, calibration-content,
+// create-free-workout and intake all resolve `where slug = X` with `limit 1` and
+// no tiebreak. Scanning every coach's slugs here (not just the caller's) keeps a
+// collision IMPOSSIBLE rather than merely survivable, so those readers stay
+// deterministic. A coach's own exercise silently takes `sled-push-2` — invisible,
+// since nothing resolves a coach exercise by slug (the importer matches it by
+// NAME in its layer 3).
 function slugify(name: string): string {
   return name
     .normalize('NFD')
@@ -74,7 +82,10 @@ async function uniqueSlug(base: string): Promise<string> {
   return `${root}-${Date.now()}`;
 }
 
-export async function createExercise(input: CreateExerciseInput): Promise<CatalogExercise> {
+export async function createExercise(
+  input: CreateExerciseInput,
+  coachId: bigint,
+): Promise<CatalogExercise> {
   const slug = await uniqueSlug(slugify(input.name));
   const videoUrl = input.video_url ?? null;
 
@@ -84,14 +95,15 @@ export async function createExercise(input: CreateExerciseInput): Promise<Catalo
   // never observed with the placeholder.
   const rows = await sql.begin(async (tx) => {
     const inserted = await tx<{ id: string }[]>`
-      insert into exercises (slug, name, category, video_url, source, modality)
+      insert into exercises (slug, name, category, video_url, source, modality, coach_id)
       values (
         ${slug},
         ${input.name},
         ${input.category}::exercise_category,
         ${videoUrl},
         'coach',
-        'other'
+        'other',
+        ${coachId}
       )
       returning id::text as id
     `;
