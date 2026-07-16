@@ -6,13 +6,14 @@
 // that type's modality/measure/target/scheme defaults — a ready form, never empty
 // toggles.
 //
-// Closes on Escape / scrim click; focus-trapped to the dialog. The types are the
-// sport's session vocabulary (agnostic to methodology — the block type is a sport
-// fact, never a phase/method concept).
+// Closes on Escape / scrim click; focus-trapped to the dialog (via ModalPortal).
+// The types are the sport's session vocabulary (agnostic to methodology — the
+// block type is a sport fact, never a phase/method concept).
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { ARCHETYPES, type Archetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
+import { ModalPortal } from './ModalPortal';
 
 export function ArchetypePicker({
   destinationLabel,
@@ -26,16 +27,8 @@ export function ArchetypePicker({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    dialogRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   return (
+    <ModalPortal onEscape={onClose}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -71,6 +64,7 @@ export function ArchetypePicker({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

@@ -11,7 +11,7 @@
 // inserted draft is indistinguishable from a hand-built block.
 
 import { useEffect, useMemo, useState } from 'react';
-import { ModalPortal, useEscapeToClose } from './ModalPortal';
+import { ModalPortal } from './ModalPortal';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
@@ -101,8 +101,6 @@ export function SuggestWorkoutModal({
     };
   }, []);
 
-  // Mientras la IA redacta, Escape se traga (no se cierra a media generación).
-  useEscapeToClose(onClose, phase !== 'thinking');
 
   const canGenerate = focus.trim().length >= FOCUS_MIN;
 
@@ -155,7 +153,8 @@ export function SuggestWorkoutModal({
   const title = phase === 'thinking' ? 'Redactando…' : phase === 'proposal' ? 'Propuesta' : 'Redactar con IA';
 
   return (
-    <ModalPortal>
+    // Mientras la IA redacta, Escape se traga (no se cierra a media generación).
+    <ModalPortal onEscape={onClose} escapeEnabled={phase !== 'thinking'}>
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm sm:p-8"
       role="dialog"
