@@ -309,15 +309,20 @@ async function runExerciseId(): Promise<number> {
   return Number(rows[0].id);
 }
 
-/** Drop the run-history templates this script owns (legacy + the 4 kind templates)
- *  so a re-run rebuilds them cleanly. Their template_segments cascade. Safe ONLY
- *  after wipePriorHistory() has removed the assignments that referenced them. */
+/** Drop ORPHAN run-history templates (legacy + the 4 kind templates) — only those
+ *  no assignment references, so a re-run rebuilds cleanly WITHOUT deleting templates
+ *  another athlete of the same coach still shares (the run-history templates are
+ *  coach library content, reused across athletes; ensureTemplates find-or-creates).
+ *  Their template_segments cascade. Safe after wipePriorHistory() dropped THIS
+ *  athlete's assignments. */
 async function cleanupRunTemplates(): Promise<void> {
   const names = [LEGACY_TEMPLATE_NAME, ...Object.values(RUN_TEMPLATES).map((t) => t.name)];
   const del = await D.sql`
-    delete from templates where coach_id = ${COACH_ID} and name = any(${names})
+    delete from templates t
+    where t.coach_id = ${COACH_ID} and t.name = any(${names})
+      and not exists (select 1 from workout_assignments wa where wa.template_id = t.id)
   `;
-  log(`cleaned ${del.count} prior run-history template(s)`);
+  log(`cleaned ${del.count} orphan run-history template(s)`);
 }
 
 /** Create the 4 structured run templates (easy / threshold / intervals / tempo),
@@ -330,6 +335,22 @@ async function ensureTemplates(): Promise<Record<RunKind, RunTemplate>> {
 
   for (const kind of Object.keys(RUN_TEMPLATES) as RunKind[]) {
     const spec = RUN_TEMPLATES[kind];
+    // Find-or-create by (coach, name): the run-history templates are coach library
+    // content shared across the coach's athletes. If one already exists (e.g. seeded
+    // for another athlete of this coach), REUSE it + its ordered segments so both
+    // athletes' assignments point at the same template (no duplicate, no collision).
+    const found = await D.sql<Array<{ id: string }>>`
+      select id::text from templates where coach_id = ${COACH_ID} and name = ${spec.name} limit 1
+    `;
+    if (found[0]) {
+      const templateId = Number(found[0].id);
+      const segs = await D.sql<Array<{ id: string }>>`
+        select id::text from template_segments where template_id = ${templateId} order by position asc
+      `;
+      out[kind] = { templateId, segmentIds: segs.map((s) => Number(s.id)) };
+      log(`template "${spec.name}" reused (id ${templateId}, ${segs.length} segs)`);
+      continue;
+    }
     const ins = await D.sql<Array<{ id: string }>>`
       insert into templates (coach_id, name, description, format, is_draft)
       values (
