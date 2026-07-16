@@ -80,11 +80,17 @@ export function composeDeadline(now: number = Date.now()): number {
  * the provider queues concurrent requests, and the queue wait is charged to each
  * request's own `LLM_CHAT_TIMEOUT_MS` (120s). So the calls at the back of the
  * queue time out — the fan-out causes the very failures it was meant to avoid, and
- * whole days vanish from the week (measured: 3 of 8 sessions lost at unbounded
- * concurrency, 0 of 8 at 4).
+ * whole days vanish from the week.
  *
- * The provider is the bottleneck either way, so bounding costs little wall clock
- * and buys back the missing days.
+ * Measured on coach 60 (empty library, every session composed):
+ *   · unbounded (up to 12 in flight) → 1-3 of 8 sessions lost, 171-204s
+ *   · bounded to 4                   → 1 of 7 lost, 260s
+ * So bounding buys back days and costs wall clock. 4 is the balance that fits
+ * under `maxDuration`; raising it trades completeness back for speed.
+ *
+ * NOTE: at 260s for 7 sessions this architecture is at its limit — a 12-session
+ * double week has no headroom left inside one HTTP request. The next move is to
+ * compose in the background and let the coach poll, not to tune this number.
  */
 const COMPOSE_CONCURRENCY = Number(process.env.LLM_COMPOSE_CONCURRENCY ?? 4);
 
