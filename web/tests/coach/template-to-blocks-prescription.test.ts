@@ -39,7 +39,7 @@ describeWithDb('loadTemplateAsBlocks keeps the structured prescription', () => {
       from exercises e where e.modality = 'strength' limit 1
     `;
 
-    const blocks = await loadTemplateAsBlocks(templateId, sql);
+    const blocks = await loadTemplateAsBlocks(templateId, fx.coachId, sql);
     const item = blocks[0]!.items[0]!;
 
     expect(item.prescription_json).toBeDefined();

@@ -264,7 +264,7 @@ async function previewSession(params: {
   }
 
   const rawBlocks: WeekDayPart[] = session.blocks ?? [];
-  const blocks = await hydrateBlockParts(client, rawBlocks);
+  const blocks = await hydrateBlockParts(client, coach_id, rawBlocks);
 
   const referencedIds = Array.from(
     new Set(blocks.flatMap((b) => (b.items ?? []).map((it) => Number(it.exercise_id)))),

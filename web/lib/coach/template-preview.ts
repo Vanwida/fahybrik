@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import { formatLabel } from '@/lib/studio/section-types';
 import type { TemplateFormat } from '@/lib/templates/schema';
 import type { TemplatePreview, TemplatePreviewBlock } from '@/lib/coach/template-preview-types';
@@ -60,11 +61,14 @@ export async function getTemplatePreviews(params: {
     select
       s.template_id::text as template_id,
       s.position,
-      e.name as exercise_name,
+      -- Coach's renamed exercise wins (mig 0132) — the preview headline/blocks are
+      -- built from this exercise_name, and must show what THIS coach called it.
+      coalesce(ceo.name, e.name) as exercise_name,
       s.params_json,
       s.notes
     from template_segments s
     join exercises e on e.id = s.exercise_id
+    ${joinCoachOverride(client, params.coach_id)}
     where s.template_id in ${client(numericIds)}
     order by s.template_id, s.position
   `;

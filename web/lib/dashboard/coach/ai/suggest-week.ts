@@ -124,6 +124,7 @@ export async function suggestWeekPlan(params: {
       focus: req.focus,
       level: req.level,
       client,
+      coach_id: params.coach_id,
     });
     return {
       mode: req.mode,
@@ -176,6 +177,7 @@ export async function suggestWeekPlan(params: {
       focus: req.focus,
       level: req.level,
       client,
+      coach_id: params.coach_id,
     });
     const notes =
       err instanceof CoachIaLlmError
@@ -275,6 +277,8 @@ interface BuildArgs {
   focus: string;
   level?: z.infer<typeof programLevel> | undefined;
   client: Sql;
+  /** Para el nombre MERGED de los ejercicios de bloques hidratados (0132). */
+  coach_id: number | bigint;
 }
 
 interface BuildResult {
@@ -297,7 +301,7 @@ async function buildWeekFromLibrary(args: BuildArgs): Promise<BuildResult> {
   const blocksCache = new Map<string, Awaited<ReturnType<typeof loadTemplateAsBlocks>>>();
   const blocksFor = async (templateId: string) => {
     if (!blocksCache.has(templateId)) {
-      blocksCache.set(templateId, await loadTemplateAsBlocks(templateId, args.client));
+      blocksCache.set(templateId, await loadTemplateAsBlocks(templateId, args.coach_id, args.client));
     }
     return blocksCache.get(templateId)!;
   };
@@ -563,7 +567,7 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
   const settled = await mapWithConcurrency(tasks, composeConcurrency(), async (t) => {
     if (t.template) {
       const blocks = cloneBlocksWithFreshUids(
-        await loadTemplateAsBlocks(t.template.id, args.client),
+        await loadTemplateAsBlocks(t.template.id, args.coach_id, args.client),
       );
       return { task: t, blocks: stampModalityFromCatalog(blocks, byId) };
     }

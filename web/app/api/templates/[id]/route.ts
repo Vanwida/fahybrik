@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { sql } from '@/lib/db';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { TemplateDetail, TemplateSegmentPreview } from '@/lib/dashboard/templates/types';
 
 export const runtime = 'nodejs';
@@ -57,12 +58,14 @@ export async function GET(
       s.id::text as id,
       s.position,
       s.exercise_id::text as exercise_id,
-      e.name as exercise_name,
+      -- Coach's renamed exercise wins over the base catalog name (mig 0132).
+      coalesce(ceo.name, e.name) as exercise_name,
       e.category::text as exercise_category,
       s.params_json,
       s.notes
     from template_segments s
     join exercises e on e.id = s.exercise_id
+    ${joinCoachOverride(sql, session.coach_id)}
     where s.template_id = ${templateId}
     order by s.position asc
   `;

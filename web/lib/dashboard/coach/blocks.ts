@@ -1,6 +1,7 @@
 import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
 import {
@@ -248,17 +249,24 @@ export function blockExerciseToItem(row: BlockExerciseRow): WeekDayPartItem {
  * devuelve como `WeekDayPartItem[]` (orden por `position`). Vacío si el bloque
  * no tiene estructura (needs_review) o no existe. Usa el mapeo compartido para
  * espejar EXACTO lo que el materializador hidrata en `template_segments`.
+ *
+ * `coachId` — el nombre que ve el coach es el MERGED (su override si renombró
+ * la base, si no la base), no `e.name` en crudo (0132). Un `block_exercises`
+ * llega aquí por FK desde un bloque ya scoped al coach, así que el join es solo
+ * para el nombre — nunca añadas un filtro de visibilidad aquí.
  */
 export async function getBlockExerciseItems(
   blockId: number,
+  coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<WeekDayPartItem[]> {
   const rows = await client<BlockExerciseRow[]>`
     select be.block_id::text, be.position, be.block_position,
-           be.exercise_id::text, e.name as exercise_name,
+           be.exercise_id::text, coalesce(ceo.name, e.name) as exercise_name,
            be.params_json, be.prescription_json, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = ${blockId}
     order by be.position
   `;
@@ -300,9 +308,13 @@ export type BlockLibraryExercise = {
   notes: string | null;
 };
 
-/** Ejercicios estructurados de un bloque para la biblioteca (orden por position). */
+/**
+ * Ejercicios estructurados de un bloque para la biblioteca (orden por position).
+ * `coachId` — nombre MERGED (0132), ver nota en `getBlockExerciseItems`.
+ */
 export async function getBlockLibraryExercises(
   blockId: number,
+  coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<BlockLibraryExercise[]> {
   const rows = await client<
@@ -315,10 +327,11 @@ export async function getBlockLibraryExercises(
       notes: string | null;
     }>
   >`
-    select be.position, be.block_position, e.name as exercise_name,
+    select be.position, be.block_position, coalesce(ceo.name, e.name) as exercise_name,
            be.params_json, be.reps_scheme, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = ${blockId}
     order by be.position
   `;
@@ -480,21 +493,27 @@ export type BlockExerciseEditRow = {
   block_title: string | null;
   exercise_id: string;
   exercise_name: string;
+  /** Modalidad INTRÍNSECA del ejercicio (0053) — la que pide el gate de prescripción. */
+  exercise_modality: string | null;
   params_json: Record<string, unknown> | null;
   prescription_json: unknown;
   notes: string | null;
 };
 
+/** `coachId` — nombre MERGED (0132) para el editor, ver nota en `getBlockExerciseItems`. */
 export async function getBlockExerciseRowsForEdit(
   blockId: number,
+  coachId: number | bigint,
   client: Sql = defaultSql,
 ): Promise<BlockExerciseEditRow[]> {
   return client<BlockExerciseEditRow[]>`
     select be.block_position, be.position, be.block_format, be.block_title,
-           be.exercise_id::text as exercise_id, e.name as exercise_name,
+           be.exercise_id::text as exercise_id, coalesce(ceo.name, e.name) as exercise_name,
+           e.modality::text as exercise_modality,
            be.params_json, be.prescription_json, be.notes
     from block_exercises be
     join exercises e on e.id = be.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where be.block_id = ${blockId}
     order by be.position
   `;

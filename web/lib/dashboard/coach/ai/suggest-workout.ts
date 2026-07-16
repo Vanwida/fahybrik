@@ -247,7 +247,7 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
     .sort((a, b) => b.score - a.score);
 
   const winner = ranked[0]?.tpl ?? usable[0]!;
-  const blocks = await loadTemplateAsBlocks(winner.id, args.client);
+  const blocks = await loadTemplateAsBlocks(winner.id, args.coach_id, args.client);
   return {
     id: winner.id,
     name: winner.name,

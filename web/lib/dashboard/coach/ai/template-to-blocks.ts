@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
@@ -41,10 +42,16 @@ function coerceFormat(
  *
  * Ordering: `block_position ASC, position ASC`.
  *
+ * `coachId` — el nombre que ve el coach en el bloque compuesto es el MERGED
+ * (su override si renombró la base, si no la base, 0132). El template ya llega
+ * scoped al coach por su propio caller; este join es solo para el nombre, no
+ * añade visibilidad.
+ *
  * Devuelve `[]` si el template no tiene segments.
  */
 export async function loadTemplateAsBlocks(
   templateId: string | number | bigint,
+  coachId: number | bigint,
   client: Sql,
 ): Promise<WeekDayPart[]> {
   type Row = {
@@ -70,7 +77,7 @@ export async function loadTemplateAsBlocks(
       ts.block_format,
       ts.block_title,
       ts.exercise_id::text as exercise_id,
-      e.name as exercise_name,
+      coalesce(ceo.name, e.name) as exercise_name,
       ts.params_json,
       ts.prescription_json,
       ts.notes,
@@ -79,6 +86,7 @@ export async function loadTemplateAsBlocks(
     from template_segments ts
     join templates t on t.id = ts.template_id
     join exercises e on e.id = ts.exercise_id
+    ${joinCoachOverride(client, coachId)}
     where ts.template_id = ${Number(templateId)}
     order by ts.block_position asc, ts.position asc
   `;

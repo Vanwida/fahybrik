@@ -17,6 +17,7 @@ import {
 import {
   legacyItemToPrescription,
   safeParsePrescription,
+  type Modality,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
 import { normalizeWeekDay } from '@fahybrid/shared/schema/program-templates';
@@ -91,6 +92,7 @@ export async function loadSessionEditorModel(params: {
           uid: `tpl-item-${it.id}`,
           exercise_id: Number(it.exercise_id),
           exercise_name: it.exercise_name,
+          exercise_modality: (it.exercise_modality ?? null) as Modality | null,
           notes: it.notes ?? undefined,
           prescription,
         };
@@ -121,7 +123,7 @@ export async function loadBlockEditorModel(params: {
   const block = await getBlockById(params.coach_id, params.block_id);
   if (!block) return null;
 
-  const rows = await getBlockExerciseRowsForEdit(params.block_id);
+  const rows = await getBlockExerciseRowsForEdit(params.block_id, params.coach_id);
 
   // Group rows by block_position, preserving first-seen order.
   const groupsMap = new Map<number, typeof rows>();
@@ -151,6 +153,9 @@ export async function loadBlockEditorModel(params: {
           uid: `be-item-${it.position}`,
           exercise_id: Number(it.exercise_id),
           exercise_name: it.exercise_name,
+          // La modalidad del CATÁLOGO viaja al cliente para que el editor juzgue
+          // la dosis con el mismo dato que la Biblioteca (si no, se contradicen).
+          exercise_modality: (it.exercise_modality ?? null) as Modality | null,
           notes: it.notes ?? undefined,
           prescription,
         };

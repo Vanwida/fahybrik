@@ -49,6 +49,7 @@ import type {
 } from './deep-dive-types';
 import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
 import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
@@ -142,7 +143,7 @@ export async function buildAthleteDeepDive(
   });
   const modality = await loadModality(client, numericId, now);
   const trends = await loadTrends(client, numericId, now, tssSeries.slice(-TRENDS_DAYS));
-  const performance = await loadPerformance(client, numericId, now);
+  const performance = await loadPerformance(client, numericId, params.coach_id, now);
   const recent_days = await loadRecentDays(client, numericId, now);
   const notes = await loadNotes(client, numericId, params.coach_id);
 
@@ -826,6 +827,7 @@ async function loadZoneTime(client: Sql, athlete_id: number, now: Date): Promise
 async function loadPerformance(
   client: Sql,
   athlete_id: number,
+  coach_id: bigint | number,
   now: Date,
 ): Promise<PerformanceBlock> {
   const since = addDays(now, -90).toISOString();
@@ -843,10 +845,12 @@ async function loadPerformance(
     }>
   >`
     select
-      ex.slug                              as slug,
-      ex.name                              as name,
-      ex.category::text                    as category,
-      ex.hyrox_station_position            as hyrox_station_position,
+      e.slug                               as slug,
+      -- Coach's renamed exercise wins over the base catalog name (mig 0132) —
+      -- this is the per-exercise performance label the coach reads.
+      coalesce(ceo.name, e.name)           as name,
+      e.category::text                     as category,
+      e.hyrox_station_position             as hyrox_station_position,
       min(extract(epoch from (se.ended_at - se.started_at)))::int as best_seconds,
       avg(extract(epoch from (se.ended_at - se.started_at)))::int as avg_seconds,
       count(se.id)::int                    as attempts,
@@ -854,14 +858,15 @@ async function loadPerformance(
       max(coalesce(we.ended_at, we.started_at, we.created_at)) as last_done_at
     from segment_executions se
     join template_segments ts on ts.id = se.template_segment_id
-    join exercises ex on ex.id = ts.exercise_id
+    join exercises e on e.id = ts.exercise_id
+    ${joinCoachOverride(client, coach_id)}
     join workout_executions we on we.id = se.execution_id
     where we.athlete_id = ${athlete_id}
       and coalesce(we.ended_at, we.started_at, we.created_at) >= ${since}
       and se.started_at is not null and se.ended_at is not null
-    group by ex.slug, ex.name, ex.category, ex.hyrox_station_position
+    group by e.slug, e.name, e.category, e.hyrox_station_position, ceo.name
     having count(se.id) >= 1
-    order by ex.category, ex.name
+    order by e.category, coalesce(ceo.name, e.name)
   `;
 
   const benchmarks = await client<
