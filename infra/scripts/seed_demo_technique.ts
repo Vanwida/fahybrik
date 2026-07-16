@@ -1,33 +1,36 @@
 /**
- * Seed the technique-video demo data for athlete 70 on the DEMO branch.
+ * Seed the technique/strength demo data for the demo athlete (resolved by marker
+ * email). Two things, both idempotent:
+ *   1. A back-squat 1RM (80 kg) in `athlete_strength_maxes` for the demo athlete —
+ *      athlete-scoped, so the %RM → kg resolution surfaces an absolute load.
+ *   2. Real YouTube technique URLs on the exercises that appear in the plan.
  *
- * Two things, both idempotent and host-guarded to ep-flat-wind:
- *   1. Real YouTube technique URLs on the exercises that appear in athlete 70's
- *      published plan, so the iOS "Ver técnica" affordance + the in-workout
- *      video button + ExerciseDetailView render with real data.
- *   2. A back-squat 1RM (80 kg) for athlete 70 in `athlete_strength_maxes`, so
- *      the %RM → kg resolution can surface an absolute load.
+ * ── GLOBAL-WRITE SAFETY ──────────────────────────────────────────────────────
+ * `exercises.video_url` is GLOBAL, shared catalog content — NOT tied to a demo
+ * account. On the demo branch the whole DB is demo-isolated, so enriching it is
+ * fine. On MAIN it would leak to every real athlete, which the demo-seed HARD
+ * RULE forbids ("only write rows tied to demo accounts"). So the video writes are
+ * SKIPPED on main and only applied on the demo branch. The 1RM (athlete-scoped)
+ * always runs.
  *
  * URLs are real, public, ground-truthed videos (verified via YouTube oEmbed) —
- * official Concept2 / Global Triathlon Network / HYROX-partner channels. None
- * are fabricated ids.
+ * official Concept2 / Global Triathlon Network / HYROX-partner channels.
  *
- * NOTE on the %RM → kg demo: athlete 70's plan prescribes its %RM strength block
- * on FRONT SQUAT (`front-squat`), which is intentionally NOT mapped to a 1RM
- * benchmark (shared/domain/strength/exercises.ts — "we don't borrow another
- * lift's 1RM"). So this back_squat_1rm only renders an absolute load once the
- * plan's %RM block uses a mapped lift (back-squat); see the report for the
- * one-line root fix in seed_demo_athlete_plan.ts.
+ * TARGET + GUARD (shared _demo_target): athlete resolved by marker email; demo
+ * branch always writable, MAIN only with SEED_DEMO_ALLOW_MAIN=1.
  *
- * Run:
- *   cd infra && DATABASE_URL=<ep-flat-wind url> npx tsx scripts/seed_demo_technique.ts
- *   (DATABASE_URL is read from repo-root .env.local when unset.)
+ * RUN (against MAIN):
+ *   cd web && SEED_DEMO_ALLOW_MAIN=1 DATABASE_URL="<main>" \
+ *     NODE_OPTIONS="--conditions=react-server" \
+ *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
+ *     ../infra/scripts/seed_demo_technique.ts
  */
+import './_load_web_env.ts';
 import { getSql } from './_db.js';
+import { assertDemoWriteHost, resolveDemoTarget, currentHost } from './_demo_target.ts';
 
-const REQUIRED_HOST = 'ep-flat-wind'; // demo branch — the ONLY DB this may touch
-const ATHLETE_ID = 70;
-const COACH_ID = 29;
+/** On this host the exercises catalog is demo-isolated → safe to enrich. */
+const DEMO_HOST = 'ep-flat-wind';
 
 // exercise slug (catalog) → real public technique video. These are the
 // principal exercises across athlete 70's 5 training days + HYROX simulation.
@@ -49,46 +52,40 @@ const BACK_SQUAT_1RM_KG = 80;
 const log = (...a: unknown[]) => console.log('[seed_demo_technique]', ...a); // eslint-disable-line no-console
 
 async function main(): Promise<void> {
-  const url = process.env.DATABASE_URL ?? '';
-  const host = url.match(/@([^/?]+)/)?.[1] ?? '';
-  if (!host.includes(REQUIRED_HOST)) {
-    throw new Error(
-      `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (${REQUIRED_HOST}). ` +
-        `Point DATABASE_URL at the demo branch.`,
-    );
-  }
+  const host = assertDemoWriteHost('seed_demo_technique');
   log(`target host: ${host}`);
 
   const sql = getSql();
   try {
-    // Guard against wrong-DB / wrong-id: athlete 70 must belong to coach 29.
-    const owner = await sql<Array<{ coach_id: string }>>`
-      select coach_id::text from athletes where id = ${ATHLETE_ID} limit 1
-    `;
-    if (owner.length === 0) throw new Error(`athlete ${ATHLETE_ID} not found on this DB`);
-    if (Number(owner[0]!.coach_id) !== COACH_ID) {
-      throw new Error(`athlete ${ATHLETE_ID} belongs to coach ${owner[0]!.coach_id}, expected ${COACH_ID}`);
+    const target = await resolveDemoTarget(sql);
+    const ATHLETE_ID = target.athleteId;
+    log(`resolved demo athlete ${ATHLETE_ID} <${target.athleteEmail}>, coach ${target.coachId}`);
+
+    // 1. video_url — GLOBAL catalog content. Only enrich it on the demo-isolated
+    //    branch; on main it would leak to every real athlete (HARD RULE), so skip.
+    if (currentHost().includes(DEMO_HOST)) {
+      let updated = 0;
+      const missing: string[] = [];
+      for (const v of VIDEOS) {
+        const res = await sql`
+          update exercises set video_url = ${v.url}, updated_at = now()
+          where slug = ${v.slug} and coalesce(video_url, '') <> ${v.url}
+        `;
+        const exists = await sql<Array<{ n: string }>>`
+          select count(*)::text as n from exercises where slug = ${v.slug}
+        `;
+        if (Number(exists[0]!.n) === 0) missing.push(v.slug);
+        else updated += res.count;
+        log(`video ${v.slug} ← ${v.url} (${v.source})${res.count ? ' [set]' : ' [already]'}`);
+      }
+      if (missing.length) log(`WARNING: slugs not found in catalog: ${missing.join(', ')}`);
+      log(`videos: ${updated} row(s) changed this run, ${VIDEOS.length - missing.length}/${VIDEOS.length} target exercises present`);
+    } else {
+      log('videos: SKIPPED (global exercises.video_url is shared catalog on main — HARD RULE: demo-account rows only)');
     }
 
-    // 1. video_url — idempotent (sets the canonical url; re-runs are no-ops).
-    let updated = 0;
-    const missing: string[] = [];
-    for (const v of VIDEOS) {
-      const res = await sql`
-        update exercises set video_url = ${v.url}, updated_at = now()
-        where slug = ${v.slug} and coalesce(video_url, '') <> ${v.url}
-      `;
-      const exists = await sql<Array<{ n: string }>>`
-        select count(*)::text as n from exercises where slug = ${v.slug}
-      `;
-      if (Number(exists[0]!.n) === 0) missing.push(v.slug);
-      else updated += res.count;
-      log(`video ${v.slug} ← ${v.url} (${v.source})${res.count ? ' [set]' : ' [already]'}`);
-    }
-    if (missing.length) log(`WARNING: slugs not found in catalog: ${missing.join(', ')}`);
-    log(`videos: ${updated} row(s) changed this run, ${VIDEOS.length - missing.length}/${VIDEOS.length} target exercises present`);
-
-    // 2. back-squat 1RM (version 1, coach test, confirmed) — idempotent upsert.
+    // 2. back-squat 1RM (version 1, coach test, confirmed) — athlete-scoped,
+    //    idempotent upsert. Runs on every host.
     await sql`
       insert into athlete_strength_maxes
         (athlete_id, exercise_slug, one_rm_kg, source, needs_review, version, notes, recorded_at)
