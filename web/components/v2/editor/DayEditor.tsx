@@ -709,7 +709,11 @@ function BlockEditorDrawer({
         aria-modal
         aria-label={`Editar bloque ${block.title}`}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
+        // Width is an ARBITRARY value on purpose: globals.css redefines the spacing
+        // scale with shirt-size names (--spacing-xl: 24px), and Tailwind resolves
+        // --spacing-* before --container-* for max-w-*, so `max-w-xl` would collapse
+        // this drawer to 24px behind the scrim. Never use max-w-{xs,xl} here.
+        className="flex h-full w-full max-w-[576px] flex-col overflow-hidden border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
       >
         <header className="flex items-center justify-between border-b border-[color:var(--v2-border)] px-5 py-4">
           <h2 className="v2-display text-xl">{block.title || 'Editar bloque'}</h2>
