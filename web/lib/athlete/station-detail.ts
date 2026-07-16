@@ -333,12 +333,18 @@ export async function buildStationDetail(
 
   // technique_video_url: the matching station exercise's video, MERGED with the
   // coach's override. Null when neither override nor global is set (honest
-  // placeholder on iOS).
+  // placeholder on iOS). HYROX stations are BASE identities BY DEFINITION — a
+  // coach never owns "SkiErg 1km" as a PROPIO exercise — so we scope to
+  // `e.coach_id is null` rather than `visibleToCoach` (which would also match a
+  // same-slugged PROPIO exercise, which can't happen for stations but would be
+  // the wrong predicate to reach for here). The override JOIN stays: the
+  // coach's video override still wins over the base one.
   const videoRows = await client<VideoRow[]>`
     select ${mergedExerciseContent(client)}
     from exercises e
     ${joinCoachOverride(client, coachId)}
     where e.slug = ${station.slug}
+      and e.coach_id is null
     limit 1
   `;
   const technique_video_url = videoRows[0]?.video_url ?? null;

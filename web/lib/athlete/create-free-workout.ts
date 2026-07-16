@@ -3,6 +3,7 @@ import 'server-only';
 import { sql as defaultSql, type Sql } from '@/lib/db';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
+import { visibleToCoach } from '@/lib/exercises/coach-override';
 import {
   recordWorkoutExecution,
   type ExecutionMetricsInput,
@@ -202,8 +203,13 @@ export async function createFreeWorkout(
 async function resolveSegments(db: Sql, input: CreateFreeWorkoutInput): Promise<ResolvedSegment[]> {
   if (input.kind === 'measured') {
     const slug = FREE_WORKOUT_MODALITY_SLUGS[input.modality];
+    // Scoped to what this athlete's coach can see — the canonical modality
+    // exercise is always base, but this stays consistent with the item-built
+    // path below and never resolves into another coach's catalog.
     const exRows = await db<Array<{ id: string }>>`
-      select id::text as id from exercises where slug = ${slug} limit 1
+      select e.id::text as id from exercises e
+      where e.slug = ${slug} and ${visibleToCoach(db, input.coachId)}
+      limit 1
     `;
     const exerciseId = exRows[0]?.id;
     if (!exerciseId) {
@@ -215,10 +221,16 @@ async function resolveSegments(db: Sql, input: CreateFreeWorkoutInput): Promise<
     return [{ exerciseId: Number(exerciseId), prescriptionForDb: toJson(input.prescription) }];
   }
 
-  // ITEM-built: fetch every referenced exercise in ONE query (id + modality).
+  // ITEM-built: fetch every referenced exercise in ONE query (id + modality),
+  // scoped to what this athlete's coach can see. These ids come straight from
+  // the athlete's request body — without this scope an athlete could reference
+  // ANOTHER coach's private exercise (IDOR). An out-of-scope id simply doesn't
+  // come back here, so it falls through to the same exercise_not_found below —
+  // never a "belongs to another coach" leak.
   const ids = input.items.map((it) => it.exerciseId);
   const rows = await db<Array<{ id: string; modality: string | null }>>`
-    select id::text as id, modality from exercises where id = any(${ids}::bigint[])
+    select e.id::text as id, e.modality from exercises e
+    where e.id = any(${ids}::bigint[]) and ${visibleToCoach(db, input.coachId)}
   `;
   const modalityById = new Map<number, string | null>();
   for (const r of rows) modalityById.set(Number(r.id), r.modality);

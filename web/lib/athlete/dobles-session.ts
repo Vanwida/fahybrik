@@ -41,6 +41,7 @@ import {
 } from '@fahybrid/shared/domain/prescription';
 import { EXERCISE_TO_1RM_BENCHMARK, resolvePercentRmToKg } from '@fahybrid/shared/domain/strength';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
+import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 
 // ── Wire shape (snake_case; iOS decodes via convertFromSnakeCase) ────────────
 export interface DoblesExerciseRow {
@@ -147,7 +148,19 @@ export async function loadDoblesSession(
   const meta = metaRows[0];
   if (!meta) return null;
 
-  // Segments of the shared template (exercise + structured prescription).
+  // The self athlete's owning coach drives the per-coach exercise-override merge
+  // (mirrors assignment-detail.ts / station-detail.ts) — without this, this
+  // surface showed the BASE exercise name while assignment-detail showed the
+  // coach's renamed one for the SAME session (a pre-existing inconsistency).
+  const coachRows = await sql<{ coach_id: string | null }[]>`
+    select coach_id::text as coach_id from athletes where id = ${self_athlete_id as unknown as number} limit 1
+  `;
+  const coachId = coachRows[0]?.coach_id ? BigInt(coachRows[0].coach_id) : null;
+
+  // Segments of the shared template (exercise + structured prescription). This
+  // is a hydration join (the exercise id arrives by FK from an already-scoped
+  // template_segments row) — no visibility filter, only the override JOIN for
+  // the merged display name.
   let segments: SegmentRow[] = [];
   if (meta.template_id) {
     segments = await sql<SegmentRow[]>`
@@ -157,10 +170,11 @@ export async function loadDoblesSession(
         coalesce(s.block_position, 0) as block_position,
         s.params_json                 as params_json,
         s.prescription_json           as prescription_json,
-        e.name                        as exercise_name,
-        e.slug                        as exercise_slug
+        e.slug                        as exercise_slug,
+        ${mergedExerciseContent(sql, 'exercise_')}
       from template_segments s
       join exercises e on e.id = s.exercise_id
+      ${joinCoachOverride(sql, coachId)}
       where s.template_id = ${meta.template_id}::bigint
       order by s.block_position asc, s.position asc, s.id asc
     `;
