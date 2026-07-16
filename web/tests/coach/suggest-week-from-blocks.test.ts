@@ -264,3 +264,65 @@ describeWithDb('suggestWeekFromBlocks heuristic fallback (real DB, no LLM)', () 
     expect(real.length).toBe(new Set(ids).size);
   });
 });
+
+// De los 99 bloques de Pablo, 29 tienen ejercicios sin dosis: el gate los bloquea
+// y la semana no se puede confirmar. Entre SUS bloques, preferimos los que sí
+// puede shipear — mismo método, mismos grupos, solo ordenados.
+describe('composeWeekHeuristic — prefiere los bloques confirmables del coach', () => {
+  const blk = (
+    id: number,
+    title: string,
+    exercises: ComposableBlock['exercises'],
+  ): ComposableBlock => ({
+    id,
+    slug: `b-${id}`,
+    title,
+    description: title,
+    methodology_group_id: 1,
+    format: 'strength_block',
+    source_ref: null,
+    default_modifiers: null,
+    exercises,
+  });
+
+  const dosed: ComposableBlock['exercises'] = [
+    {
+      exercise_id: 42,
+      exercise_name: 'Back Squat',
+      prescription_json: {
+        scheme: 'sets',
+        modality: 'strength',
+        sets: [
+          { measure: { kind: 'reps', value: 5 }, target: { kind: 'percent_rm', value: 80 }, rest_s: 180 },
+        ],
+      },
+    },
+  ];
+  // Su taquigrafía real: "4r" son 4 series y las reps nunca llegan al dato.
+  const doseless: ComposableBlock['exercises'] = [
+    {
+      exercise_id: 43,
+      exercise_name: 'Overhead Press',
+      prescription_json: { scheme: 'sets', modality: 'strength', sets: [{}, {}, {}, {}] },
+    },
+  ];
+
+  test('el bloque sin dosis va DETRÁS aunque tenga id menor', () => {
+    const res = composeWeekHeuristic({
+      blocks: [blk(1, 'Sin dosis', doseless), blk(2, 'Con dosis', dosed)],
+      training_days: [1],
+    });
+    expect(res.matched.map((m) => m.block_title)).toEqual(['Con dosis']);
+  });
+
+  test('si el grupo NO tiene ninguno confirmable, usa el suyo igual — no le borramos el grupo', () => {
+    // Los grupos 2 y 9 de Pablo son 0/7 y 0/5 confirmables: saltarlos sería
+    // quitarle dos de sus diez grupos metodológicos sin decírselo. Mejor su
+    // bloque marcado que un hueco.
+    const res = composeWeekHeuristic({
+      blocks: [blk(1, 'Solo este', doseless)],
+      training_days: [1],
+    });
+    expect(res.matched.map((m) => m.block_title)).toEqual(['Solo este']);
+  });
+});
