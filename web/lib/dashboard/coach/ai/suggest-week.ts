@@ -13,6 +13,7 @@ import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import {
+  composeDeadline,
   composeSession,
   loadExerciseCatalog,
   planWeekSkeleton,
@@ -164,6 +165,7 @@ export async function suggestWeekPlan(params: {
       days: planned.days,
       matched_templates: planned.matched,
       rest_days: planned.rest_days,
+      notes: planned.notes,
     };
   } catch (err) {
     const fallback = await buildWeekFromLibrary({
@@ -277,6 +279,8 @@ interface BuildResult {
   days: SuggestedWeekDay[];
   matched: SuggestWeekResponse['matched_templates'];
   rest_days: number[];
+  /** Surfaced to the coach when the week came back thinner than planned. */
+  notes?: string | undefined;
 }
 
 async function buildWeekFromLibrary(args: BuildArgs): Promise<BuildResult> {
@@ -550,6 +554,9 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
   // Fan out: every session composed at once. A single 7-day call is what hit the
   // token ceiling and came back truncated; per-session calls each have room for a
   // real dose, and running them together keeps this inside the route's budget.
+  // The deadline is shared by every session, so retries stop collectively rather
+  // than each session independently walking the whole week into a timeout.
+  const deadline_ms = composeDeadline();
   const settled = await Promise.allSettled(
     tasks.map(async (t) => {
       if (t.template) {
@@ -568,6 +575,7 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
         catalog,
         coach_id: args.coach_id,
         athlete_id: args.athlete_id ?? null,
+        deadline_ms,
       });
       return { task: t, blocks: composed.blocks };
     }),
@@ -580,6 +588,13 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
   if (tasks.length > 0 && ok.length === 0) {
     throw new CoachIaLlmError('empty', 'Ninguna sesión se pudo componer.');
   }
+  // A session that failed leaves its day empty. Say so: a coach who asked for six
+  // days and silently got three has no way to tell a rest day from a failure.
+  const failed = tasks.length - ok.length;
+  const notes =
+    failed > 0
+      ? `${failed} de ${tasks.length} sesiones no se pudieron componer y quedaron vacías. Reintenta o complétalas a mano.`
+      : undefined;
 
   // Assemble the seven days.
   const byDow = new Map<number, Array<{ task: Task; blocks: WeekDayPart[] }>>();
@@ -633,7 +648,7 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
     days.push({ ...day, preview_label: sessions.map((s) => s.task.theme).join(' + ') });
   }
 
-  return { days, matched, rest_days };
+  return { days, matched, rest_days, notes };
 }
 
 /**

@@ -33,7 +33,7 @@ import {
   type Modality,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
-import { templateFormat } from '@fahybrid/shared/schema/_primitives';
+import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   structureGroupSchema,
   type StructureGroup,
@@ -43,13 +43,35 @@ import {
 import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import { callCoachIaLlmJson, CoachIaLlmError } from './llm';
 
-// The model needs room to write a real dose. The old 2048 ceiling was shared by a
-// whole week; these are per-SESSION, which is what makes the output complete.
-const MAX_TOKENS_SKELETON = Number(process.env.LLM_CHAT_MAX_TOKENS_WEEK_PLAN ?? 1500);
-const MAX_TOKENS_SESSION = Number(process.env.LLM_CHAT_MAX_TOKENS_SESSION ?? 3500);
+// Budgets sized against a MEASURED fact, not a guess: the configured chat model
+// is a reasoning model, and `max_tokens` caps reasoning + content TOGETHER. A
+// trivial 7-day skeleton spent 1110 of 1501 completion tokens thinking before it
+// wrote a character, hit finish_reason:'length', and the JSON came back cut in
+// half — which is exactly how the old 2048-capped single call produced
+// completion_tokens=2048 on the nose and a truncated week.
+//
+// So each call needs room for the model to think AND still finish. Per-session
+// fan-out is what makes that affordable: N generous calls in parallel cost less
+// wall clock than one call big enough to hold a whole week.
+const MAX_TOKENS_SKELETON = Number(process.env.LLM_CHAT_MAX_TOKENS_WEEK_PLAN ?? 4000);
+const MAX_TOKENS_SESSION = Number(process.env.LLM_CHAT_MAX_TOKENS_SESSION ?? 10000);
 
 /** Catalog rows sent to the model. Above this the prompt is filtered by modality. */
 const CATALOG_PROMPT_LIMIT = 400;
+
+/**
+ * Wall-clock budget for the whole compose, under the routes' `maxDuration = 180`.
+ *
+ * Sessions run in parallel, so the critical path is the SLOWEST one — and a retry
+ * doubles it (measured: 171s end-to-end when one session retried, against a 180s
+ * ceiling). Past this mark we stop retrying and ship what we have: a week with one
+ * item flagged for review beats a timeout that hands the coach nothing.
+ */
+const COMPOSE_BUDGET_MS = Number(process.env.LLM_COMPOSE_BUDGET_MS ?? 130_000);
+
+export function composeDeadline(now: number = Date.now()): number {
+  return now + COMPOSE_BUDGET_MS;
+}
 
 export interface CatalogExercise {
   id: number;
@@ -131,16 +153,33 @@ export function formatCatalogForPrompt(
 
 const skeletonSessionSchema = z.object({
   slot: z.enum(['am', 'pm']).default('am'),
-  theme: z.string().min(2).max(120),
-  modalities: z.array(modalitySchema).max(6).default([]),
-  intensity: z.enum(['easy', 'moderate', 'hard']).default('moderate'),
+  theme: z.string().min(2).max(200),
+  // A HINT, not truth — it only steers the compose prompt and narrows a large
+  // catalog. Modality truth is the exercise's own (mig 0053), stamped from the
+  // catalog later. Observed: the model answers "sprint intervals" / "sled push"
+  // here, not the enum. Rejecting a sound week plan over a free-text hint would
+  // be the schema serving itself, so unknown values are dropped, not fatal.
+  modalities: z
+    .array(z.string().max(60))
+    .max(8)
+    .default([])
+    .transform((raw) =>
+      raw.flatMap((m) => {
+        const parsed = modalitySchema.safeParse(m.trim().toLowerCase());
+        return parsed.success ? [parsed.data] : [];
+      }),
+    ),
+  intensity: z.enum(['easy', 'moderate', 'hard']).catch('moderate').default('moderate'),
   library_template_name: z.string().max(200).nullish(),
 });
 
 const skeletonDaySchema = z.object({
   day_of_week: z.number().int().min(1).max(7),
   kind: z.enum(['rest', 'workout']),
-  focus: z.string().max(120).optional(),
+  // `.nullish()`, not `.optional()`: models write `"focus": null` for a rest day
+  // rather than omitting the key, and `.optional()` rejects an explicit null. That
+  // one null on Sunday was enough to throw away the whole week and fall back.
+  focus: z.string().max(200).nullish(),
   sessions: z.array(skeletonSessionSchema).max(2).default([]),
 });
 
@@ -235,22 +274,69 @@ export async function planWeekSkeleton(args: {
 // Phase 2 — compose ONE session
 // ---------------------------------------------------------------------------
 
-const composedItemSchema = z.object({
+// The envelope is parsed LOOSELY and each prescription is gated on its own below.
+// `prescriptionSchema` is `.strict()`, so one stray key anywhere — the model likes
+// writing `notes` inside a set, where the field is `note` — used to reject the
+// WHOLE session and delete the day. One bad item may cost its own item and
+// nothing more; that is the same "drop the line, keep the rest" rule the importer's
+// `llm-assist` already follows.
+const composedItemLooseSchema = z.object({
   exercise_id: z.number().int().positive(),
-  prescription: prescriptionSchema,
-  notes: z.string().max(500).optional(),
+  prescription: z.unknown(),
+  notes: z.string().max(500).nullish(),
 });
 
 const composedBlockSchema = z.object({
   title: z.string().min(1).max(120),
-  role: structureGroupSchema,
-  format: templateFormat,
-  items: z.array(composedItemSchema).min(1).max(24),
+  role: structureGroupSchema.catch('principal'),
+  // Normalised below against `templateFormat`; a format we don't know is not worth
+  // losing a composed block over.
+  format: z.string().max(40).nullish(),
+  items: z.array(composedItemLooseSchema).min(1).max(24),
 });
 
 const composedSessionSchema = z.object({
   blocks: z.array(composedBlockSchema).min(1).max(8),
 });
+
+/** Fallback block format per role, when the model's own is missing/unknown. */
+const ROLE_FALLBACK_FORMAT: Record<StructureGroup, TemplateFormat> = {
+  calentamiento: 'warmup',
+  principal: 'sets',
+  vuelta: 'cooldown',
+};
+
+function normalizeFormatForRole(
+  raw: string | null | undefined,
+  role: StructureGroup,
+): TemplateFormat {
+  const parsed = templateFormat.safeParse(raw);
+  return parsed.success ? parsed.data : ROLE_FALLBACK_FORMAT[role];
+}
+
+/**
+ * Map the per-set `notes` the model reliably writes onto the canonical `note`.
+ *
+ * This invents nothing — it is the same alias-to-canonical lift `normalizeSet`
+ * already does for `reps`/`rpe`/`hr_zone`, applied to a plural the model cannot
+ * seem to resist. Without it a `.strict()` parse throws away a perfectly good
+ * prescription over an `s`.
+ */
+function liftSetNoteAlias(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const p = raw as Record<string, unknown>;
+  if (!Array.isArray(p.sets)) return raw;
+  return {
+    ...p,
+    sets: p.sets.map((s) => {
+      if (typeof s !== 'object' || s === null) return s;
+      const set = s as Record<string, unknown>;
+      if (!('notes' in set)) return set;
+      const { notes, ...rest } = set;
+      return rest.note != null ? rest : { ...rest, note: notes };
+    }),
+  };
+}
 
 /**
  * The AUTHORING contract. Deliberately the mirror image of the importer's
@@ -297,6 +383,8 @@ interface ComposeSessionArgs {
   athlete_id?: number | bigint | null;
   /** Reasons the previous attempt was incomplete — appended on the retry. */
   retry_reasons?: string[];
+  /** Epoch ms after which no retry may start (see COMPOSE_BUDGET_MS). */
+  deadline_ms?: number;
 }
 
 function buildSessionUser(args: ComposeSessionArgs): string {
@@ -367,12 +455,23 @@ export async function composeSession(args: ComposeSessionArgs): Promise<SessionC
       for (const it of b.items) {
         const ex = byId.get(it.exercise_id);
         if (!ex) {
+          // An id we never sent. It cannot resolve, so it cannot be saved — the
+          // model does not get to invent an exercise.
           invented.push(it.exercise_id);
+          continue;
+        }
+        // Gate #1 — well-formed. Malformed drops the ITEM, not the session.
+        const shape = prescriptionSchema.safeParse(liftSetNoteAlias(it.prescription));
+        if (!shape.success) {
+          incomplete.push(`${ex.name} (${b.title}): prescripción mal formada.`);
           continue;
         }
         // Modality is the exercise's property, not the model's opinion: stamp it
         // from the catalog so every downstream gate reads the same truth.
-        const prescription: Prescription = { ...it.prescription, modality: ex.modality };
+        const prescription: Prescription = { ...shape.data, modality: ex.modality };
+        // Gate #2 — a real dose. Failure is recorded (and drives the retry), but
+        // the item is KEPT: the review gate downstream flags it honestly, which
+        // is more useful to the coach than a silently missing exercise.
         const check = checkPrescriptionCompleteness(prescription, {
           modality: ex.modality,
           role: b.role,
@@ -392,8 +491,8 @@ export async function composeSession(args: ComposeSessionArgs): Promise<SessionC
       blocks.push({
         uid: newBlockUid(),
         title: b.title,
-        format: b.format,
-        group: b.role as StructureGroup,
+        format: normalizeFormatForRole(b.format, b.role),
+        group: b.role,
         items,
       });
     }
@@ -403,10 +502,14 @@ export async function composeSession(args: ComposeSessionArgs): Promise<SessionC
   const first = await attempt();
   if (first.incomplete_reasons.length === 0 && first.blocks.length > 0) return first;
 
+  // Out of budget → ship the first attempt. Its gaps are flagged for review by the
+  // same completeness gate downstream, so nothing incomplete poses as finished;
+  // spending the remaining seconds on a retry that might not land would cost the
+  // coach the entire week to a timeout.
+  if (args.deadline_ms != null && Date.now() > args.deadline_ms) return first;
+
   // ONE bounded retry, told exactly what was missing. If it still comes back
-  // incomplete we keep the better of the two — the honest review flag is applied
-  // downstream by the same completeness gate, so nothing incomplete can pose as
-  // finished.
+  // incomplete we keep the better of the two.
   try {
     const second = await attempt(first.incomplete_reasons.slice(0, 8));
     if (second.blocks.length === 0) return first;

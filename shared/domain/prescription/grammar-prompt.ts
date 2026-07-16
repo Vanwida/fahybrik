@@ -28,5 +28,9 @@ export function prescriptionGrammarLines(): string[] {
     'Los segundos son números en segundos; las distancias en metros; el ritmo en segundos por unidad.',
     'measure: reps usa { kind:"reps", value }, distancia { kind:"distance", meters }, tiempo { kind:"duration", seconds }, calorías { kind:"calories", value }.',
     'pace.unit ∈ per_km (correr) | per_500m (remo/ski) | per_mile.',
+    // The schema is `.strict()` and these two are the keys models actually get
+    // wrong; naming them here is cheaper than dropping the line downstream.
+    'Dentro de una serie el campo de texto es "note" (SINGULAR). No existe "notes" dentro de sets.',
+    'No añadas campos que no estén en esta lista: cualquier clave extra invalida la línea entera.',
   ];
 }
