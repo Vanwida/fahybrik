@@ -4,7 +4,7 @@
 // carry the structured Prescription forward so PrescriptionFields edits the rich
 // domain model, not a scalar fallback.
 
-import type { Prescription } from '@fahybrid/shared/domain/prescription';
+import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import {
   recoveryActivitySchema,
   type RecoveryActivity,
@@ -61,6 +61,17 @@ export interface EditorItem {
   uid: string;
   exercise_id: number | null;
   exercise_name: string;
+  /**
+   * Modalidad INTRÍNSECA del ejercicio (`exercises.modality`, 0053). La pide el
+   * gate de prescripción, que avisa explícitamente de NO usar
+   * `prescription.modality`: esa es una pista que quien escribió la prescripción
+   * pudo omitir. Sin esto, el editor y la Biblioteca juzgarían la misma línea con
+   * datos distintos y podrían contradecirse.
+   *
+   * Opcional: la rellenan los loaders que la tienen (bloque y sesión). Ausente →
+   * el gate cae a la modalidad de la prescripción, como antes.
+   */
+  exercise_modality?: Modality | null;
   prescription: Prescription;
   notes?: string;
 }

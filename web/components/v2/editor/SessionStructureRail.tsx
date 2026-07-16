@@ -10,6 +10,7 @@ import type { EditorBlock, StructureGroup } from '@/lib/dashboard/v2/editor-type
 import { STRUCTURE_GROUP_LABEL, STRUCTURE_GROUP_ORDER } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { undosedLines } from '@/lib/dashboard/v2/block-dose';
 import { blockModalitySlug, blockSummaryLine } from './block-helpers';
 
 export function SessionStructureRail({
@@ -65,6 +66,7 @@ function BlockRow({
   onSelect: () => void;
 }) {
   const slug = blockModalitySlug(block);
+  const undosed = undosedLines(block).length;
   return (
     <button
       type="button"
@@ -86,6 +88,17 @@ function BlockRow({
       <p className="v2-num mt-0.5 truncate text-xs text-[color:var(--v2-muted)]">
         {blockSummaryLine(block)}
       </p>
+      {/* Dónde queda trabajo. Con 56 bloques que arreglar, el coach no puede ir
+          abriendo pieza por pieza a ver cuál falla. */}
+      {undosed > 0 ? (
+        <p
+          className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-semibold"
+          style={{ color: 'var(--v2-warn)' }}
+        >
+          <MIcon name="edit_note" size={12} aria-hidden />
+          <span className="v2-num">{undosed}</span> sin dosis
+        </p>
+      ) : null}
     </button>
   );
 }

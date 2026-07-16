@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
+import { undosedLines, type UndosedLine } from '@/lib/dashboard/v2/block-dose';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
 import { MIcon } from '@/components/ui/MIcon';
@@ -48,6 +49,8 @@ export function BlockEditor({
   // with items fall back to the per-item axes editor.
   const hasArchetypeForm =
     block.items.length > 0 && patternForBlock(block.archetype_id, block.format) !== null;
+
+  const undosed = undosedLines(block);
 
   const updateItem = (uid: string, patch: Partial<EditorItem>) => {
     onChange({
@@ -96,6 +99,14 @@ export function BlockEditor({
           ) : null}
         </div>
       </div>
+
+      {/* QUÉ falta, encima del formulario que lo arregla. Va AQUÍ y no dentro de
+          ArchetypeBlockForm porque este componente pinta DOS vías (la de arquetipo
+          y la legacy por-item): puesto dentro de una, la otra se quedaba sin marcar
+          — y los bloques importados del coach caen en la legacy más de lo que
+          parece (un `plyometric` no resuelve a arquetipo). Desaparece solo en
+          cuanto entra la dosis. */}
+      {undosed.length > 0 ? <UndosedNotice lines={undosed} /> : null}
 
       {/* DEFAULT — the archetype-first tailored form (the simple input). It owns
           the exercise name, the type-specific fields, the phase tag, the athlete
@@ -202,6 +213,46 @@ export function BlockEditor({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * El aviso de dosis: dice QUÉ línea falla y POR QUÉ, con las palabras del gate.
+ *
+ * Los motivos van verbatim (`blockingReasons`) porque ya están escritos para el
+ * coach y en español — reescribirlos aquí sería una segunda voz que se desincroniza
+ * del gate que le bloquea el Confirmar.
+ *
+ * Con una sola línea (117 de las 119 piezas del coach) no se nombra el ejercicio:
+ * es el que tiene delante, y decírselo sería ruido.
+ */
+function UndosedNotice({ lines }: { lines: UndosedLine[] }) {
+  const one = lines.length === 1;
+  return (
+    <div
+      className="flex gap-2 rounded-[var(--v2-r-m)] px-3 py-2"
+      style={{ background: 'var(--v2-warn-soft)' }}
+    >
+      <span className="shrink-0" style={{ color: 'var(--v2-warn)' }}>
+        <MIcon name="edit_note" size={16} aria-hidden />
+      </span>
+      <div className="min-w-0 text-xs leading-relaxed">
+        <p className="font-semibold" style={{ color: 'var(--v2-warn)' }}>
+          {one ? 'Dice el ejercicio pero no cuánto trabajo' : `${lines.length} líneas sin dosis`}
+        </p>
+        <ul className="mt-0.5 space-y-0.5 text-[color:var(--v2-muted)]">
+          {lines.map((l) => (
+            <li key={l.uid}>
+              {one ? null : <b>{l.exercise_name || 'Ejercicio'}: </b>}
+              {l.reasons.join(' ')}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1 text-[color:var(--v2-faint)]">
+          Rellénalo aquí y queda arreglado para todos los días que usen este bloque.
+        </p>
+      </div>
     </div>
   );
 }
