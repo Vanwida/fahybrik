@@ -3,29 +3,39 @@
 // BibliotecaView — client orchestrator for the v2 Biblioteca screen. Owns the
 // active tab (mirrored to ?tab= so it's linkable), the two filter axes (modality
 // rail + objective rail) and the live search. Filtering is client-side over the
-// server-shaped data passed in via props; the header counts reflect the FILTERED
+// server-shaped data passed in via props; the footer count reflects the FILTERED
 // view so the coach always sees how many items match.
 //
+// LA ESCALERA — Ejercicio › Bloque › Sesión › Microciclo, de lo más pequeño a lo
+// más grande. Las pestañas van en ESE orden porque el orden ES la enseñanza: un
+// movimiento arma un bloque, los bloques arman una sesión, las sesiones arman un
+// microciclo. Cada pestaña lee SU tabla (ejercicios / blocks / templates /
+// program_month_templates) — antes "Sesiones" leía `blocks` y llamaba sesión a un
+// bloque, así que las sesiones reales no se veían en ninguna parte.
+//
+// Ejercicios es lo único agnóstico (nuestro); de Bloque para arriba es el método
+// del coach. Ese panel lo construye `build-ejercicios`; aquí solo se monta.
+
 import { useMemo, useState, useCallback } from 'react';
 import { useRouter, usePathname } from '@/i18n/navigation';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
-import { EmptyState } from '@/components/v2/EmptyState';
 import {
   IntroStrip,
   InfoDot,
   PipelineCue,
   ContextHint,
-  TeachingEmptyState,
   useOrientationState,
   type IntroMicroStep,
 } from '@/components/v2/orientacion';
 import type { PipelineProgress, PipelineStepKey } from '@/lib/dashboard/v2/orientacion-types';
 import { CategoryRail } from '@/components/v2/biblioteca/CategoryRail';
-import { SesionCard } from '@/components/v2/biblioteca/SesionCard';
-import { MicrocicloCard } from '@/components/v2/biblioteca/MicrocicloCard';
 import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
+import { EjerciciosPanel } from '@/components/v2/biblioteca/EjerciciosPanel';
+import { BloquesPanel } from '@/components/v2/biblioteca/BloquesPanel';
+import { SesionesPanel } from '@/components/v2/biblioteca/SesionesPanel';
+import { MicrociclosPanel } from '@/components/v2/biblioteca/MicrociclosPanel';
 import {
   LIB_MODALITY_FILTERS,
   LIB_OBJECTIVES,
@@ -33,13 +43,14 @@ import {
   type V2LibObjective,
 } from '@/lib/dashboard/v2/biblioteca-axes';
 import type { V2BibliotecaData } from '@/lib/dashboard/v2/biblioteca-data';
+import {
+  NUEVA_SESION_HREF,
+  NUEVO_BLOQUE_HREF,
+  type BibliotecaTab,
+} from '@/components/v2/biblioteca/biblioteca-nav';
 import { cn } from '@/lib/utils';
 
-// Periodization phases (Fases) live in the Periodización section now, not here.
-export type BibliotecaTab = 'sesiones' | 'microciclos';
-
-/** Route to create a brand-new sesión (the library-block editor, from scratch). */
-const NUEVA_SESION_HREF = '/biblioteca/sesion/nueva';
+export type { BibliotecaTab };
 
 // ── Inline orientation (shared primitives) ──────────────────────────────────
 const SECTION_KEY = 'biblioteca';
@@ -49,9 +60,19 @@ const BIBLIOTECA_STEPS: readonly PipelineStepKey[] = ['sesiones', 'microciclos']
 
 // The IntroStrip line defines the CURRENT tab (one sentence each, ≤22 words).
 const TAB_INTRO_LINE: Record<BibliotecaTab, React.ReactNode> = {
+  ejercicios: (
+    <>
+      Un <b>ejercicio</b> es un movimiento — la pieza más pequeña, con la que armas tus bloques.
+    </>
+  ),
+  bloques: (
+    <>
+      Un <b>bloque</b> es una pieza reutilizable — el ladrillo con el que armas los días.
+    </>
+  ),
   sesiones: (
     <>
-      Una <b>sesión</b> es un entreno reutilizable — la pieza de los días de tus microciclos.
+      Una <b>sesión</b> es un entreno entero — lo que tu atleta hace un día.
     </>
   ),
   microciclos: (
@@ -61,26 +82,28 @@ const TAB_INTRO_LINE: Record<BibliotecaTab, React.ReactNode> = {
   ),
 };
 
-// The 2 micro-steps teach the size ordering — the typical confusion in Biblioteca.
+// Los 4 micro-pasos enseñan el orden de tamaño — la confusión típica en Biblioteca.
 const INTRO_STEPS: IntroMicroStep[] = [
-  {
-    title: 'Sesión',
-    body: <>Un entreno reutilizable. La pieza de cada día.</>,
-  },
-  {
-    title: 'Microciclo',
-    body: <>Varias semanas de días. Lo que luego ordenas en Secuencias.</>,
-  },
+  { title: 'Ejercicio', body: <>Un movimiento. La pieza más pequeña.</> },
+  { title: 'Bloque', body: <>Una pieza reutilizable. El ladrillo de cada día.</> },
+  { title: 'Sesión', body: <>Un entreno entero. Lo que hace tu atleta un día.</> },
+  { title: 'Microciclo', body: <>Varias semanas de días. Lo que ordenas en Secuencias.</> },
 ];
 
 const TAB_OPTIONS = (
   counts: V2BibliotecaData['counts'],
 ): ReadonlyArray<{ value: BibliotecaTab; label: string }> => [
+  // Ejercicios aún no trae contador: su panel carga sus propios datos.
+  { value: 'ejercicios', label: 'Ejercicios' },
+  { value: 'bloques', label: `Bloques · ${counts.bloques}` },
   { value: 'sesiones', label: `Sesiones · ${counts.sesiones}` },
   { value: 'microciclos', label: `Microciclos · ${counts.microciclos}` },
 ];
 
 type ModalityRailId = 'todas' | V2LibModalityFilter;
+
+/** Las pestañas que se filtran por modalidad/objetivo (las que llevan grupo). */
+const RAIL_TABS: readonly BibliotecaTab[] = ['bloques', 'sesiones'];
 
 function matchesText(haystack: string, q: string): boolean {
   return haystack.toLowerCase().includes(q);
@@ -108,24 +131,42 @@ export function BibliotecaView({
   const [nuevoMicroOpen, setNuevoMicroOpen] = useState(false);
   const q = query.trim().toLowerCase();
 
+  const railVisible = RAIL_TABS.includes(tab);
+
   // Tab change → update state + reflect in the URL (shallow, no scroll jump).
-  // Modality is a SESIONES-only axis; leaving that tab clears it so a stale
-  // selection never silently filters another tab.
+  // Modality/objective solo aplican a las pestañas con grupo; al salir de ellas
+  // se limpian para que una selección vieja nunca filtre otra pestaña en silencio.
   const onTab = useCallback(
     (next: BibliotecaTab) => {
       setTab(next);
-      if (next !== 'sesiones') setModality('todas');
+      if (!RAIL_TABS.includes(next)) {
+        setModality('todas');
+        setObjective(null);
+      }
       router.replace(`${pathname}?tab=${next}`, { scroll: false });
     },
     [router, pathname],
   );
 
   // ── Filtered collections (per active tab) ─────────────────────────────────
+  const bloques = useMemo(() => {
+    return data.bloques.filter((b) => {
+      if (modality !== 'todas' && b.modality_filter !== modality) return false;
+      if (objective && b.objective !== objective) return false;
+      // El source_ref ("S9 – Martes") entra en la búsqueda: los títulos
+      // importados se repiten y la procedencia es lo que los distingue.
+      if (q && !matchesText(`${b.title} ${b.description} ${b.group_label} ${b.source_ref ?? ''}`, q))
+        return false;
+      return true;
+    });
+  }, [data.bloques, modality, objective, q]);
+
   const sesiones = useMemo(() => {
     return data.sesiones.filter((s) => {
       if (modality !== 'todas' && s.modality_filter !== modality) return false;
       if (objective && s.objective !== objective) return false;
-      if (q && !matchesText(`${s.title} ${s.description} ${s.group_label}`, q)) return false;
+      if (q && !matchesText(`${s.title} ${s.group_label ?? ''} ${s.format_label ?? ''}`, q))
+        return false;
       return true;
     });
   }, [data.sesiones, modality, objective, q]);
@@ -136,9 +177,19 @@ export function BibliotecaView({
     return data.microciclos.filter((m) => matchesText(`${m.name} ${m.level}`, q));
   }, [data.microciclos, q]);
 
-  // The modality/objective rail only makes sense for sesiones.
-  const railVisible = tab === 'sesiones';
-  const filteredCount = tab === 'sesiones' ? sesiones.length : microciclos.length;
+  const FILTERED_COUNT: Record<BibliotecaTab, number | null> = {
+    ejercicios: null, // su panel cuenta lo suyo
+    bloques: bloques.length,
+    sesiones: sesiones.length,
+    microciclos: microciclos.length,
+  };
+  const COUNT_NOUN: Record<BibliotecaTab, string> = {
+    ejercicios: '',
+    bloques: 'bloques',
+    sesiones: 'sesiones',
+    microciclos: 'microciclos',
+  };
+  const filteredCount = FILTERED_COUNT[tab];
 
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col">
@@ -173,26 +224,7 @@ export function BibliotecaView({
               )}
             />
           </label>
-          {/* Per-tab primary action: microciclos opens the create modal; sesiones
-              links to the from-scratch editor. */}
-          {tab === 'microciclos' ? (
-            <button
-              type="button"
-              onClick={() => setNuevoMicroOpen(true)}
-              className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-            >
-              <MIcon name="add" size={18} />
-              Nuevo microciclo
-            </button>
-          ) : (
-            <Link
-              href={NUEVA_SESION_HREF}
-              className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-            >
-              <MIcon name="add" size={18} />
-              Nueva sesión
-            </Link>
-          )}
+          <PrimaryAction tab={tab} onCreateMicro={() => setNuevoMicroOpen(true)} />
         </div>
       </div>
 
@@ -205,7 +237,8 @@ export function BibliotecaView({
           progress={progress}
           line={
             <>
-              Tu <b>contenido</b> reutilizable: Sesiones → Microciclos. Lo que ordenas en Periodización.
+              Tu <b>contenido</b> reutilizable: Bloques → Sesiones → Microciclos. Lo que ordenas en
+              Periodización.
             </>
           }
         />
@@ -231,19 +264,14 @@ export function BibliotecaView({
         />
       </div>
 
-      {/* size-ordering context — the typical Biblioteca confusion */}
+      {/* El orden de tamaño — la confusión típica de la Biblioteca. */}
       <ContextHint className="mt-3">
-        De lo más pequeño a lo más grande: <b>Sesión</b> (un entreno) → <b>Microciclo</b> (varias
-        semanas).
+        De lo más pequeño a lo más grande: <b>Ejercicio</b> (un movimiento) → <b>Bloque</b> (una
+        pieza) → <b>Sesión</b> (un entreno) → <b>Microciclo</b> (varias semanas).
       </ContextHint>
 
       {/* ── Two-pane: category rail + grid ───────────────────────────────── */}
-      <div
-        className={cn(
-          'mt-4 grid gap-4',
-          railVisible ? 'lg:grid-cols-[200px_1fr]' : 'grid-cols-1',
-        )}
-      >
+      <div className={cn('mt-4 grid gap-4', railVisible ? 'lg:grid-cols-[200px_1fr]' : 'grid-cols-1')}>
         {railVisible ? (
           <CategoryRail
             modality={modality}
@@ -252,26 +280,30 @@ export function BibliotecaView({
             onObjective={setObjective}
             modalityOptions={LIB_MODALITY_FILTERS}
             objectiveOptions={LIB_OBJECTIVES}
-            showModality={tab === 'sesiones'}
+            showModality
           />
         ) : null}
 
         <div className="min-w-0">
+          {tab === 'ejercicios' ? <EjerciciosPanel query={q} /> : null}
+          {tab === 'bloques' ? (
+            <BloquesPanel items={bloques} hasAny={data.bloques.length > 0} />
+          ) : null}
           {tab === 'sesiones' ? (
-            <SesionesGrid items={sesiones} hasAny={data.sesiones.length > 0} />
-          ) : (
-            <MicrociclosGrid
+            <SesionesPanel items={sesiones} hasAny={data.sesiones.length > 0} />
+          ) : null}
+          {tab === 'microciclos' ? (
+            <MicrociclosPanel
               items={microciclos}
               hasAny={data.microciclos.length > 0}
               onCreate={() => setNuevoMicroOpen(true)}
             />
-          )}
+          ) : null}
 
           {/* Footer count — honest, reflects active filters. */}
-          {filteredCount > 0 ? (
+          {filteredCount != null && filteredCount > 0 ? (
             <p className="mt-4 text-xs text-[color:var(--v2-faint)]">
-              <span className="v2-num">{filteredCount}</span>{' '}
-              {tab === 'sesiones' ? 'sesiones' : 'microciclos'}
+              <span className="v2-num">{filteredCount}</span> {COUNT_NOUN[tab]}
             </p>
           ) : null}
         </div>
@@ -282,108 +314,25 @@ export function BibliotecaView({
   );
 }
 
-// ── Grids ───────────────────────────────────────────────────────────────────
+/** Acción principal de cada pestaña. Ejercicios la trae su propio panel. */
+function PrimaryAction({ tab, onCreateMicro }: { tab: BibliotecaTab; onCreateMicro: () => void }) {
+  const CLS =
+    'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 
-const GRID_CLS = 'grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3';
-
-function SesionesGrid({
-  items,
-  hasAny,
-}: {
-  items: V2BibliotecaData['sesiones'];
-  hasAny: boolean;
-}) {
-  if (items.length === 0) {
-    // Filtered-to-empty → plain prompt. Genuinely empty → teaching moment.
-    if (hasAny) {
-      return (
-        <EmptyState
-          icon="filter_alt_off"
-          title="Ninguna sesión con estos filtros"
-          description="Ajusta la modalidad, el objetivo o la búsqueda."
-        />
-      );
-    }
+  if (tab === 'ejercicios') return null;
+  if (tab === 'microciclos') {
     return (
-      <TeachingEmptyState
-        icon="library_add"
-        title="Aún no tienes sesiones"
-        whatToDo={<>Una sesión es un entreno reutilizable — la pieza de los días de tus microciclos.</>}
-        why={<><b>Por qué importa:</b> con las sesiones armas los días de tus microciclos.</>}
-        highlightStep="sesiones"
-        action={
-          <Link
-            href={NUEVA_SESION_HREF}
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="add" size={16} />
-            Crear mi primera sesión
-          </Link>
-        }
-      />
+      <button type="button" onClick={onCreateMicro} className={CLS}>
+        <MIcon name="add" size={18} />
+        Nuevo microciclo
+      </button>
     );
   }
+  const href = tab === 'bloques' ? NUEVO_BLOQUE_HREF : NUEVA_SESION_HREF;
   return (
-    <div className={GRID_CLS}>
-      {items.map((s, i) => (
-        <SesionCard key={s.id} sesion={s} index={i} />
-      ))}
-      {/* Dashed "+ nueva sesión" tile closes the grid. */}
-      <Link
-        href={NUEVA_SESION_HREF}
-        className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-      >
-        <MIcon name="add" size={22} />
-        <span className="text-xs font-semibold">nueva sesión</span>
-      </Link>
-    </div>
-  );
-}
-
-function MicrociclosGrid({
-  items,
-  hasAny,
-  onCreate,
-}: {
-  items: V2BibliotecaData['microciclos'];
-  hasAny: boolean;
-  onCreate: () => void;
-}) {
-  if (items.length === 0) {
-    if (hasAny) {
-      return (
-        <EmptyState
-          icon="search_off"
-          title="Ningún microciclo coincide"
-          description="Prueba con otro término de búsqueda."
-        />
-      );
-    }
-    return (
-      <TeachingEmptyState
-        icon="calendar_view_week"
-        title="Aún no tienes microciclos"
-        whatToDo={<>Un microciclo es una estructura de varias semanas — la unidad que vivirá tu atleta.</>}
-        why={<><b>Por qué importa:</b> son las piezas que luego encadenas en Periodización → Secuencias.</>}
-        highlightStep="microciclos"
-        action={
-          <button
-            type="button"
-            onClick={onCreate}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="add" size={18} />
-            Crear mi primer microciclo
-          </button>
-        }
-      />
-    );
-  }
-  return (
-    <div className={GRID_CLS}>
-      {items.map((m, i) => (
-        <MicrocicloCard key={m.id} microciclo={m} index={i} />
-      ))}
-    </div>
+    <Link href={href} className={CLS}>
+      <MIcon name="add" size={18} />
+      {tab === 'bloques' ? 'Nuevo bloque' : 'Nueva sesión'}
+    </Link>
   );
 }
