@@ -76,16 +76,26 @@ export async function loadSessionEditorModel(params: {
       title,
       format: b.block_format ?? detail.format,
       group: inferGroup(title, b.block_format ?? detail.format),
-      items: b.items.map<EditorItem>((it) => ({
-        uid: `tpl-item-${it.id}`,
-        exercise_id: Number(it.exercise_id),
-        exercise_name: it.exercise_name,
-        notes: it.notes ?? undefined,
-        prescription: legacyItemToPrescription({
-          params_json: it.params_json,
-          notes: it.notes,
-        }),
-      })),
+      items: b.items.map<EditorItem>((it) => {
+        // Prefiere la prescripción ESTRUCTURADA (0043) y degrada a la legacy solo
+        // si falta o no valida — igual que loadBlockEditorModel. Antes se llamaba
+        // a legacyItemToPrescription SIEMPRE: una sesión con prescripción
+        // estructurada se abría degradada y, al volver a guardar, PERSISTÍA lo
+        // degradado (pérdida silenciosa). getTemplateDetail ya la trae parseada.
+        const prescription: Prescription =
+          it.prescription_json ??
+          legacyItemToPrescription({
+            params_json: it.params_json,
+            notes: it.notes,
+          });
+        return {
+          uid: `tpl-item-${it.id}`,
+          exercise_id: Number(it.exercise_id),
+          exercise_name: it.exercise_name,
+          notes: it.notes ?? undefined,
+          prescription,
+        };
+      }),
     };
   });
 
