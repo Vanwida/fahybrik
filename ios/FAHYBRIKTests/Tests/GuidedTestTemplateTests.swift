@@ -24,9 +24,24 @@ final class GuidedTestTemplateTests: XCTestCase {
 
     // MARK: - tt_5k — the guided cursor must have tramos
 
-    /// The 5K time-trial template: calentamiento 10 min RPE3 · 5000 m a fondo
-    /// RPE 9-10 · vuelta a la calma. The whole point: `hasRunStructure` true, so
-    /// WorkoutSession.tick drives tickRunStructure (guided) instead of a naked clock.
+    /// The 5K time-trial payload, hand-mirrored from what the web side
+    /// materializes (verified E2E against main + prod, coach 62, 2026-07-16):
+    ///   warmup   → duration 600 s · rpe 3
+    ///   main     → distance 5000 m · rpe 9-10
+    ///   cooldown → duration 600 s · rpe 2
+    ///
+    /// WHAT THIS FIXTURE CAN AND CANNOT PROVE. It is a hand-copy, so it can NEVER
+    /// detect web-side drift: asserting its exact numbers back to itself is
+    /// self-referential (only a live E2E sees the real template change). What it
+    /// DOES prove is the app-side contract — given a payload of this shape, the
+    /// guided cursor lights up. So the contract test below asserts only the
+    /// INVARIANTS that make the cursor guide; the warmup/cooldown durations are
+    /// editable coach content and live in a separate, clearly-labelled snapshot.
+    ///
+    /// FIXTURE RULE (learned the hard way): every value here mirrors the REAL
+    /// payload. An earlier revision invented a 300 s cooldown from a prose
+    /// description — the test then passed against a fiction. Never fabricate a
+    /// fixture value; copy it from the real payload or don't assert it.
     private let tt5kJSON = """
     {
       "assignment": { "id": "482", "athlete_id": "67", "scheduled_for": "2026-07-16", "status": "scheduled",
@@ -49,13 +64,18 @@ final class GuidedTestTemplateTests: XCTestCase {
                 { "kind": "work", "measure": { "type": "distance", "m": 5000 },
                   "target": { "type": "rpe", "min": 9, "max": 10 } } ] },
               { "role": "cooldown", "elements": [
-                { "kind": "work", "measure": { "type": "duration", "s": 300 },
+                { "kind": "work", "measure": { "type": "duration", "s": 600 },
                   "target": { "type": "rpe", "value": 2 } } ] }
             ] },
           "notes": null }
       ] } ] } }
     """
 
+    /// CONTRACT — what must hold for the guided cursor to guide a 5K test, and
+    /// nothing more. Deliberately silent on the warmup/cooldown DURATIONS: those
+    /// are coach-editable content (Pablo can make the warmup 8 or 15 min without
+    /// telling anyone) and asserting them here would break the build over a
+    /// legitimate content edit while proving nothing about the app.
     func testTT5kLightsUpTheGuidedCursor() throws {
         let detail = try decode(tt5kJSON)
         let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
@@ -66,8 +86,33 @@ final class GuidedTestTemplateTests: XCTestCase {
         XCTAssertTrue(runSeg.hasRunStructure, "El test 5K debe traer tramos: sin esto el guiado no guía.")
 
         let legs = try XCTUnwrap(runSeg.runStructureLegs)
+        // Phases in order — the cursor walks them warmup → main → cooldown.
         XCTAssertEqual(legs.map(\.phaseRole), [.warmup, .main, .cooldown])
-        XCTAssertEqual(legs.map(\.measure), [.duration(s: 600), .distance(m: 5000), .duration(s: 300)])
+        // The test's IDENTITY: the main tramo measures the 5 km being timed. If
+        // this drifts it isn't a 5K test any more — that's a real contract break,
+        // unlike a warmup the coach retuned.
+        let main = try XCTUnwrap(legs.first { $0.phaseRole == .main })
+        XCTAssertEqual(main.measure, .distance(m: 5000))
+        XCTAssertTrue(main.isWork)
+    }
+
+    /// SNAPSHOT of today's default content (web, coach 62, 2026-07-16) — NOT a
+    /// contract. Its job is decode coverage: durations and rpe value/min/max
+    /// survive the wire → Prescription → legs chain intact. If the coach edits the
+    /// warmup or the cooldown, UPDATE OR DELETE this test — it must never be the
+    /// reason a legitimate content change is blocked.
+    func testTT5kDefaultContentSnapshotDecodes() throws {
+        let detail = try decode(tt5kJSON)
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: detail))
+        let runSeg = try XCTUnwrap(plan.segments.first { $0.kind == .running })
+        let legs = try XCTUnwrap(runSeg.runStructureLegs)
+
+        XCTAssertEqual(legs.map(\.measure), [.duration(s: 600), .distance(m: 5000), .duration(s: 600)])
+        XCTAssertEqual(legs.map(\.target), [
+            .rpe(value: 3, min: nil, max: nil),
+            .rpe(value: nil, min: 9, max: 10),   // "a fondo" — min/max both decode
+            .rpe(value: 2, min: nil, max: nil),
+        ])
         XCTAssertTrue(legs.allSatisfy(\.isWork))
     }
 
