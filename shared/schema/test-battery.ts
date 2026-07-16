@@ -11,16 +11,19 @@ import { z } from 'zod';
 // so this is an array of specs.
 
 /** How the work of a test result is measured. A coach picks this per result.
- *  Only `time` and `load` CALIBRATE today (zones / 1RM). `distance`, `reps` and
- *  `calories` are storable as a baseline (`derives: 'none'`) — deriving zones from a
- *  distance-covered test or a 1RM from reps needs the segment's fixed parameter and is
- *  a follow-up on the bridge; the coach UI constrains those to baseline until then. */
-export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load'] as const;
+ *  Only `time` and `load` CALIBRATE today (zones / 1RM). `distance`, `reps`,
+ *  `calories` and `hrr` are storable as a baseline (`derives: 'none'`) — deriving
+ *  zones from a distance-covered test or a 1RM from reps needs the segment's fixed
+ *  parameter and is a follow-up on the bridge; `hrr` (heart-rate recovery) never
+ *  calibrates, it's pure progression evidence. The coach UI constrains all of them
+ *  to baseline. */
+export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr'] as const;
 export type StoreResultMeasure = (typeof STORE_RESULT_MEASURES)[number];
 
 /** The unit the entered value is in. Pairs with `measure`
- *  (time→seconds, distance→meters, reps→reps, calories→calories, load→kg). */
-export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg'] as const;
+ *  (time→seconds, distance→meters, reps→reps, calories→calories, load→kg,
+ *  hrr→bpm — bpm the HR dropped in the fixed recovery window). */
+export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg', 'bpm'] as const;
 export type StoreResultUnit = (typeof STORE_RESULT_UNITS)[number];
 
 /** The ACTIVE calibration each result drives (level is always re-derived after,

@@ -126,6 +126,8 @@ function formatCapturedValue(measure: string, value: number): string {
       return `${n} m`;
     case 'calories':
       return `${n} cal`;
+    case 'hrr':
+      return `${n} bpm`;
     default: // reps
       return n;
   }

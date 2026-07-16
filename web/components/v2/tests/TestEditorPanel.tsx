@@ -41,6 +41,7 @@ const UNIT_ES: Record<StoreResultUnit, string> = {
   reps: 'repeticiones',
   calories: 'calorías',
   kg: 'kg',
+  bpm: 'bpm',
 };
 
 function resultHelp(r: DraftResult): string {

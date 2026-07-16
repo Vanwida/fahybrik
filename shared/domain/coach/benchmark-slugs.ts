@@ -66,6 +66,13 @@ export const BENCH_ROW_THRESHOLD = 'row_threshold_s_per_500m';
 export const BENCH_SKI_THRESHOLD = 'ski_threshold_s_per_500m';
 export const BENCH_BIKE_THRESHOLD = 'bike_threshold_s_per_500m';
 
+// ── Heart-rate recovery (unit: bpm) ──────────────────────────────────────────
+// The bpm the HR drops in a fixed window after stopping a near-maximal effort —
+// a standard cardiovascular-recovery marker. hrr60 = the drop 60 s after stopping.
+// HIGHER is better (a fitter athlete recovers more bpm). A BASELINE benchmark:
+// it never derives zones or a 1RM, it's progression evidence only.
+export const BENCH_HRR_60 = 'hrr60';
+
 export type TestModality = 'run' | 'row' | 'ski' | 'bike';
 
 /** The benchmark slug for a modality's threshold (umbral) test result. */
@@ -94,6 +101,15 @@ export function hyroxBenchmarkSlug(division: string | null | undefined): string 
 export const BENCHMARK_UNIT_KG = 'kg';
 export const BENCHMARK_UNIT_REPS = 'reps';
 export const BENCHMARK_UNIT_SECONDS = 'seconds';
+export const BENCHMARK_UNIT_BPM = 'bpm';
+
+/** Direction of improvement for a benchmark, from its stored unit. Only a TIME
+ *  benchmark (seconds) improves DOWNWARD (faster = better); every other unit
+ *  (kg 1RM, reps, meters, calories, bpm heart-rate recovery) improves UPWARD.
+ *  Single source of truth for the progression "improved?" signal. */
+export function benchmarkLowerIsBetter(unit: string): boolean {
+  return unit === BENCHMARK_UNIT_SECONDS;
+}
 
 // ── Display labels (Spanish) — canonical home for benchmark UI copy ───────────
 // Non-strength benchmarks (time-trials + rep tests + HYROX). Strength 1RM labels
@@ -114,6 +130,7 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_ROW_THRESHOLD]: 'Umbral remo',
   [BENCH_SKI_THRESHOLD]: 'Umbral ski',
   [BENCH_BIKE_THRESHOLD]: 'Umbral bici',
+  [BENCH_HRR_60]: 'Recuperación FC 60s',
 };
 
 /** Human label for a benchmark slug; falls back to a humanized slug. */
