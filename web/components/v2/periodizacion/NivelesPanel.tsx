@@ -281,7 +281,7 @@ export function NivelesPanel({
                     <button
                       type="button"
                       onClick={() => onEnter(lvl)}
-                      className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-[11.5px] font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)]"
+                      className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-[11.5px] font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
                     >
                       Periodización <MIcon name="arrow_forward" size={13} />
                     </button>
