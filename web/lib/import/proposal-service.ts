@@ -22,6 +22,8 @@ import { buildImportProposal, type ImportProposal, type LlmAssist } from './buil
 import { parseWeekRange, parseDayDestination } from './range-parse';
 import { readPlanWorkbook, parsePastedText, type ImportedWeek } from './xlsx-reader';
 import { buildLlmAssist } from './llm-assist';
+import { suggestWeekPlan } from '@/lib/dashboard/coach/ai/suggest-week';
+import { weekDaysToProposal } from './generate-proposal';
 
 export class ImportError extends Error {
   constructor(
@@ -73,6 +75,24 @@ export const importProposalRequestSchema = z
   });
 
 export type ImportProposalRequest = z.infer<typeof importProposalRequestSchema>;
+
+/**
+ * The AI-GENERATE branch (#48). A distinct request shape — no xlsx/paste source,
+ * just a natural-language FOCUS → `suggest-week` composes a full week from the
+ * coach's real library, and it is routed through the SAME typed proposal so the
+ * review gate still holds. `mode: 'generate'` is the discriminant the service
+ * peeks at before the file/paste schema (which requires `variant`).
+ */
+export const importGenerateRequestSchema = z
+  .object({
+    microcycle_id: idSchema,
+    mode: z.literal('generate'),
+    focus: z.string().min(2).max(400),
+    level: z.enum(['beginner', 'intermediate', 'pro', 'elite']).optional(),
+  })
+  .strict();
+
+export type ImportGenerateRequest = z.infer<typeof importGenerateRequestSchema>;
 
 // Pablo's canonical 12-week workbook, used only when the coach neither uploads a
 // file nor pastes text (the demo convenience path). Same location the read tests
@@ -179,6 +199,45 @@ function buildPastedDay(pasted_text: string, weekday: number): ImportedWeek[] {
  * `llmAssist` is injectable for tests (a test passes a no-op / omits it so no
  * model is hit); in the route it defaults to the real env-wired assist.
  */
+/** Peek the discriminant without full validation: the GENERATE branch. */
+function isGenerateRequest(body: unknown): boolean {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    (body as { mode?: unknown }).mode === 'generate'
+  );
+}
+
+/**
+ * AI-GENERATE branch: compose a full week from the coach's library (`suggest-week`
+ * in slow mode — LLM if configured, deterministic library fallback otherwise) and
+ * convert it into the typed proposal. Its blocks carry catalog-resolved items, so
+ * the generated week is fully typed by construction; the coach still reviews and
+ * confirms it through the same gate. Saves nothing.
+ */
+async function buildGeneratedProposal(params: {
+  coach_id: number | bigint;
+  body: unknown;
+  client?: Sql;
+}): Promise<ImportProposal> {
+  const parsed = importGenerateRequestSchema.safeParse(params.body);
+  if (!parsed.success) {
+    throw new ImportError('invalid_request', parsed.error.message, 400);
+  }
+  const req = parsed.data;
+  const client = params.client ?? defaultSql;
+
+  await assertMicrocycleOwned(params.coach_id, req.microcycle_id, client);
+
+  const week = await suggestWeekPlan({
+    coach_id: params.coach_id,
+    body: { focus: req.focus, mode: 'slow', ...(req.level ? { level: req.level } : {}) },
+    client,
+  });
+
+  return weekDaysToProposal({ days: week.days, sheetLabel: week.name });
+}
+
 export async function buildImportProposalFromRequest(params: {
   coach_id: number | bigint;
   body: unknown;
@@ -186,6 +245,16 @@ export async function buildImportProposalFromRequest(params: {
   /** Explicit override; default = the real env-configured assist (or none). */
   llmAssist?: LlmAssist | null;
 }): Promise<ImportProposal> {
+  // The GENERATE branch is a distinct request; route it before the file/paste
+  // schema (which requires `variant`, absent here).
+  if (isGenerateRequest(params.body)) {
+    return buildGeneratedProposal({
+      coach_id: params.coach_id,
+      body: params.body,
+      client: params.client,
+    });
+  }
+
   const parsed = importProposalRequestSchema.safeParse(params.body);
   if (!parsed.success) {
     throw new ImportError('invalid_request', parsed.error.message, 400);
