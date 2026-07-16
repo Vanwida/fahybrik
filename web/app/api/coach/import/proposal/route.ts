@@ -16,6 +16,9 @@ import {
 // this must run on the Node runtime (not edge). Never statically rendered.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// The GENERATE branch (#48) may call the coach-IA LLM to compose the week; allow
+// the same budget as the standalone suggest-week route.
+export const maxDuration = 180;
 
 export async function POST(request: Request) {
   const session = await getCoachSession();

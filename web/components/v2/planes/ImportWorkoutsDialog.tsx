@@ -12,7 +12,7 @@
 //             unresolved or excluded is ever sent — the grid gates the confirm
 //             button and buildConfirmBody drops the excluded days/weeks.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
@@ -23,11 +23,13 @@ import {
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
 import type { ImportProposal } from '@/lib/import/build-proposal';
+import { looksLikeInstruction } from '@/lib/import/instruction-detect';
+import { getLlmConfigured } from '@/components/v2/editor/ai-suggest-workout';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import { ImportReviewGrid } from './ImportReviewGrid';
 
 type ImportVariant = 'estandar' | 'fuerza' | 'resistencia';
-type SourceMode = 'file' | 'paste';
+type SourceMode = 'file' | 'paste' | 'generate';
 type Phase = 'form' | 'review';
 
 const VARIANTS: { value: ImportVariant; label: string }[] = [
@@ -35,6 +37,45 @@ const VARIANTS: { value: ImportVariant; label: string }[] = [
   { value: 'fuerza', label: 'Foco fuerza' },
   { value: 'resistencia', label: 'Foco resistencia' },
 ];
+
+const SOURCE_LABEL: Record<SourceMode, string> = {
+  file: 'Subir Excel',
+  paste: 'Pegar texto',
+  generate: 'Generar con IA',
+};
+
+/** Container-week picker — shared by the paste (day) and generate (whole week) flows. */
+function WeekSelect({
+  microWeeks,
+  value,
+  onChange,
+  ariaLabel = 'Semana del microciclo',
+}: {
+  microWeeks: MicroWeekRef[];
+  value: string;
+  onChange: (v: string) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
+    >
+      {microWeeks.length === 0 ? (
+        <option value="">— sin semanas —</option>
+      ) : (
+        microWeeks.map((mw) => (
+          <option key={mw.id} value={mw.id}>
+            Semana {mw.index + 1}
+            {mw.label ? ` · ${mw.label}` : ''}
+          </option>
+        ))
+      )}
+    </select>
+  );
+}
 
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -68,8 +109,15 @@ export function ImportWorkoutsDialog({
   const [pastedText, setPastedText] = useState('');
   // Paste-flow destination: ONE concrete day = a container week + a weekday. The
   // week defaults to the microcycle's first week; the coach adjusts either select.
+  // The GENERATE flow reuses `pasteWeekId` — it targets one WHOLE week, no weekday.
   const [pasteWeekId, setPasteWeekId] = useState<string>(microWeeks[0]?.id ?? '');
   const [pasteWeekday, setPasteWeekday] = useState<number>(1);
+  // Generate-flow (#48): the coach's natural-language week focus.
+  const [generateFocus, setGenerateFocus] = useState('');
+  // Shown when a pasted block reads like an instruction (steer to "Generar con IA").
+  const [pasteInstructionHint, setPasteInstructionHint] = useState(false);
+  // null = unknown (loading); false disables the AI tab (LLM not configured yet).
+  const [llmConfigured, setLlmConfigured] = useState<boolean | null>(null);
 
   const [extracting, setExtracting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -77,6 +125,31 @@ export function ImportWorkoutsDialog({
   const [reviewWeeks, setReviewWeeks] = useState<ReviewWeek[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  // Whether the coach-IA LLM is configured — gates the "Generar con IA" tab, the
+  // same global flag the SuggestWorkoutModal's "Completo" mode reads.
+  useEffect(() => {
+    let live = true;
+    void getLlmConfigured().then((ok) => {
+      if (live) setLlmConfigured(ok);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const selectSource = (m: SourceMode) => {
+    setSourceMode(m);
+    setPasteInstructionHint(false);
+    setFormError(null);
+  };
+
+  // Steer a mis-pasted instruction into the AI tab, carrying the typed text over.
+  const switchToGenerateWithText = () => {
+    setGenerateFocus(pastedText);
+    setSourceMode('generate');
+    setPasteInstructionHint(false);
+  };
 
   const onFile = (f: File | undefined) => {
     if (!f) return;
@@ -94,15 +167,24 @@ export function ImportWorkoutsDialog({
     !extracting &&
     (sourceMode === 'paste'
       ? pastedText.trim().length > 0 && pasteWeekId.length > 0
-      : rangeText.trim().length > 0);
+      : sourceMode === 'generate'
+        ? generateFocus.trim().length >= 2 && pasteWeekId.length > 0 && llmConfigured === true
+        : rangeText.trim().length > 0);
 
   const extract = async () => {
     if (!canExtract) return;
+    // Instruction guard (#48): a pasted INSTRUCTION would mis-parse as a session.
+    // Detect it BEFORE hitting the parser and steer the coach to "Generar con IA".
+    if (sourceMode === 'paste' && looksLikeInstruction(pastedText)) {
+      setPasteInstructionHint(true);
+      return;
+    }
     setExtracting(true);
     setFormError(null);
     try {
-      // PASTE = one day → send the pasted session + its destination weekday (the
-      // container week is applied to the review model below). EXCEL = a week range.
+      // PASTE = one day → the pasted session + its destination weekday. GENERATE =
+      // a focus → the LLM composes a whole week (server routes it through the same
+      // proposal). EXCEL = a week range. All three land in the review model below.
       const body =
         sourceMode === 'paste'
           ? {
@@ -111,12 +193,18 @@ export function ImportWorkoutsDialog({
               pasted_text: pastedText,
               target_weekday: pasteWeekday,
             }
-          : {
-              microcycle_id: Number(microcycleId),
-              variant,
-              range_text: rangeText.trim(),
-              ...(xlsxBase64 ? { xlsx_base64: xlsxBase64 } : {}),
-            };
+          : sourceMode === 'generate'
+            ? {
+                microcycle_id: Number(microcycleId),
+                mode: 'generate' as const,
+                focus: generateFocus.trim(),
+              }
+            : {
+                microcycle_id: Number(microcycleId),
+                variant,
+                range_text: rangeText.trim(),
+                ...(xlsxBase64 ? { xlsx_base64: xlsxBase64 } : {}),
+              };
       const res = await fetch('/api/coach/import/proposal', {
         method: 'POST',
         credentials: 'include',
@@ -124,14 +212,22 @@ export function ImportWorkoutsDialog({
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        setFormError(await readErrorMessage(res, 'No se pudo extraer la propuesta.'));
+        setFormError(
+          await readErrorMessage(
+            res,
+            sourceMode === 'generate'
+              ? 'No se pudo generar la semana.'
+              : 'No se pudo extraer la propuesta.',
+          ),
+        );
         return;
       }
       const proposal = (await res.json()) as ImportProposal;
       const model = buildReviewModel(proposal, microWeeks);
-      // Paste yields one imported "week"; map it onto the container week the coach
-      // picked (default mapping would land it on the first week) and label it to match.
-      if (sourceMode === 'paste' && model[0]) {
+      // Paste and generate both yield ONE imported "week"; map it onto the
+      // container week the coach picked (default mapping would land it on the
+      // first week) and label it to match.
+      if ((sourceMode === 'paste' || sourceMode === 'generate') && model[0]) {
         model[0].target_week_id = pasteWeekId;
         const mw = microWeeks.find((w) => w.id === pasteWeekId);
         if (mw) model[0].week = mw.index + 1;
@@ -219,11 +315,11 @@ export function ImportWorkoutsDialog({
           <div className="space-y-4 overflow-y-auto p-5">
             {/* Source toggle */}
             <div className="inline-flex rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] p-0.5">
-              {(['file', 'paste'] as const).map((m) => (
+              {(['file', 'paste', 'generate'] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setSourceMode(m)}
+                  onClick={() => selectSource(m)}
                   className={cn(
                     'v2-focus rounded-[calc(var(--v2-r-s)-2px)] px-3 py-1.5 text-[12px] font-semibold transition-colors',
                     sourceMode === m
@@ -231,7 +327,7 @@ export function ImportWorkoutsDialog({
                       : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
                   )}
                 >
-                  {m === 'file' ? 'Subir Excel' : 'Pegar texto'}
+                  {SOURCE_LABEL[m]}
                 </button>
               ))}
             </div>
@@ -260,42 +356,77 @@ export function ImportWorkoutsDialog({
                   Sin archivo se usa la plantilla de ejemplo.
                 </p>
               </div>
-            ) : (
+            ) : sourceMode === 'paste' ? (
               <label className="block space-y-1.5">
                 <span className="v2-micro">Pega la sesión de un día</span>
                 <textarea
                   value={pastedText}
-                  onChange={(e) => setPastedText(e.target.value)}
+                  onChange={(e) => {
+                    setPastedText(e.target.value);
+                    if (pasteInstructionHint) setPasteInstructionHint(false);
+                  }}
                   rows={5}
                   maxLength={20_000}
                   placeholder={'Martes\nFUERZA — Tren inferior\n5 rounds Back Squat c/2\'30": 10/10/8/8/6 — 60/65/70/70/75% RM'}
                   className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
                 />
+                {pasteInstructionHint ? (
+                  <div className="flex flex-col gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn)]/10 px-3 py-2.5">
+                    <p className="flex items-start gap-1.5 text-[12px] leading-snug text-[color:var(--v2-fg)]">
+                      <MIcon name="lightbulb" size={15} className="mt-px shrink-0 text-[color:var(--v2-warn)]" />
+                      Esto parece una instrucción, no una sesión pegada. Para que la IA te la genere usa «Generar con IA».
+                    </p>
+                    <button
+                      type="button"
+                      onClick={switchToGenerateWithText}
+                      className="v2-focus inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-[12px] font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                    >
+                      <MIcon name="draw" size={14} /> Generar con IA
+                    </button>
+                  </div>
+                ) : null}
               </label>
+            ) : (
+              <div className="space-y-3">
+                <label className="block space-y-1.5">
+                  <span className="v2-micro">¿Qué semana quieres? (foco, sesiones, modalidades)</span>
+                  <textarea
+                    value={generateFocus}
+                    onChange={(e) => setGenerateFocus(e.target.value)}
+                    rows={4}
+                    maxLength={400}
+                    disabled={llmConfigured === false}
+                    placeholder={
+                      'p. ej. Semana de doble sesión combinando running e híbrido, foco HYROX. 6 días, domingo descanso.'
+                    }
+                    className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)] disabled:opacity-50"
+                  />
+                </label>
+                <div className="space-y-1.5">
+                  <span className="v2-micro">¿En qué semana del microciclo la meto?</span>
+                  <WeekSelect microWeeks={microWeeks} value={pasteWeekId} onChange={setPasteWeekId} />
+                  <p className="v2-micro text-[color:var(--v2-faint)]">
+                    La IA compone la semana entera con tu biblioteca. La revisas antes de guardar — nada
+                    entra sin ejercicio del catálogo.
+                  </p>
+                </div>
+                {llmConfigured === false ? (
+                  <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-[12px] leading-snug text-[color:var(--v2-muted)]">
+                    <MIcon name="info" size={14} className="mt-px shrink-0 text-[color:var(--v2-warn)]" />
+                    La generación con IA está pendiente de configurar. Mientras tanto usa «Subir Excel» o
+                    «Pegar texto».
+                  </p>
+                ) : null}
+              </div>
             )}
 
-            {/* Destination — a single DAY for paste, a WEEK RANGE for Excel. */}
+            {/* Destination — a single DAY for paste, a WEEK RANGE for Excel. Generate
+                targets a whole week, picked inside its own panel above. */}
             {sourceMode === 'paste' ? (
               <div className="space-y-1.5">
                 <span className="v2-micro">¿En qué día del microciclo lo meto?</span>
                 <div className="grid grid-cols-2 gap-2">
-                  <select
-                    aria-label="Semana del microciclo"
-                    value={pasteWeekId}
-                    onChange={(e) => setPasteWeekId(e.target.value)}
-                    className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
-                  >
-                    {microWeeks.length === 0 ? (
-                      <option value="">— sin semanas —</option>
-                    ) : (
-                      microWeeks.map((mw) => (
-                        <option key={mw.id} value={mw.id}>
-                          Semana {mw.index + 1}
-                          {mw.label ? ` · ${mw.label}` : ''}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <WeekSelect microWeeks={microWeeks} value={pasteWeekId} onChange={setPasteWeekId} />
                   <select
                     aria-label="Día de la semana"
                     value={pasteWeekday}
@@ -313,7 +444,7 @@ export function ImportWorkoutsDialog({
                   La sesión entra en ese día. El resto de la semana no se toca.
                 </p>
               </div>
-            ) : (
+            ) : sourceMode === 'file' ? (
               <label className="block space-y-1.5">
                 <span className="v2-micro">¿Qué rango meto en este microciclo?</span>
                 <input
@@ -328,7 +459,7 @@ export function ImportWorkoutsDialog({
                   Ej.: «solo la semana 1» · «de la 4 a la 9» · «semanas 1, 3 y 5»
                 </p>
               </label>
-            )}
+            ) : null}
 
             {/* Variant (Fork D) — only the Excel sheet has variants; paste has none. */}
             {sourceMode === 'file' ? (
@@ -375,8 +506,24 @@ export function ImportWorkoutsDialog({
                 disabled={!canExtract}
                 className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
               >
-                <MIcon name={extracting ? 'progress_activity' : 'document_scanner'} size={17} />
-                {extracting ? 'Extrayendo…' : 'Extraer y revisar'}
+                <MIcon
+                  name={
+                    extracting
+                      ? 'progress_activity'
+                      : sourceMode === 'generate'
+                        ? 'draw'
+                        : 'document_scanner'
+                  }
+                  size={17}
+                  className={extracting ? 'animate-spin' : undefined}
+                />
+                {extracting
+                  ? sourceMode === 'generate'
+                    ? 'Generando…'
+                    : 'Extrayendo…'
+                  : sourceMode === 'generate'
+                    ? 'Generar y revisar'
+                    : 'Extraer y revisar'}
               </button>
             </div>
           </div>
