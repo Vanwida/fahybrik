@@ -239,22 +239,29 @@ async function main() {
   const weekStart = mondayOf(today);
 
   // ── Guardrail: refuse to run against the known main branch host ──────────────
+  // SEED_DEMO_ALLOW_MAIN=1 overrides it — explicit opt-in for the (temporary)
+  // single-universe era where Alex wants the demo roster visible in production.
   const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (host.includes('ep-aged-base-alij2f0j')) {
+  if (host.includes('ep-aged-base-alij2f0j') && process.env.SEED_DEMO_ALLOW_MAIN !== '1') {
     throw new Error(
       `Refusing to seed: DATABASE_URL points at the MAIN branch host (${host}). ` +
-        `Point DATABASE_URL at a disposable Neon branch.`,
+        `Point DATABASE_URL at a disposable Neon branch, or set SEED_DEMO_ALLOW_MAIN=1 on purpose.`,
     );
   }
   // eslint-disable-next-line no-console
   console.log(`[seed_demo] target host: ${host || '(unknown)'}`);
 
   // ── 1. Resolve / repair the dev-bypass coach ─────────────────────────────────
+  // Resolve the coach like the app does (coach_members, migration 0113) with the
+  // legacy owner link as fallback — the email's ACTIVE club membership is the truth,
+  // not whichever coach row it happened to mint first.
   const coachRows = await sql<{ coach_id: string; user_id: string }[]>`
-    select c.id::text as coach_id, u.id::text as user_id
+    select coalesce(cm.coach_id, c_owned.id)::text as coach_id, u.id::text as user_id
     from users u
-    join coaches c on c.user_id = u.id
+    left join coach_members cm on cm.user_id = u.id and cm.removed_at is null
+    left join coaches c_owned on c_owned.user_id = u.id
     where u.email = ${COACH_EMAIL} and u.deleted_at is null
+      and coalesce(cm.coach_id, c_owned.id) is not null
     limit 1
   `;
   if (!coachRows[0]) {
