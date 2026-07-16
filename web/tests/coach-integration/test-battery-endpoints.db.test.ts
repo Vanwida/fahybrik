@@ -11,6 +11,7 @@ import { startCalibrationTest } from '@/lib/coach/start-calibration';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { loadAthleteBenchmarkSeries } from '@/lib/athlete/benchmark-history';
+import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
 
@@ -254,5 +255,47 @@ describeWithDb('#34 athlete test-battery endpoints (real DB)', () => {
       order by recorded_at desc, id desc limit 1
     `;
     expect(unit).toBe('bpm');
+  }, 60000);
+
+  test('#61 assignment-detail of a started 5K test carries the structured run tramos', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    await restoreDefaultTests(fx.coachId, sql);
+
+    const s = await startCalibrationTest({ athlete_id: fx.athleteId, slug: 'tt_5k', client: sql });
+    if (!s.ok) throw new Error('start failed');
+
+    const detail = await loadAssignmentDetail({
+      sql,
+      athlete_id: BigInt(fx.athleteId),
+      assignment_id: BigInt(s.data.assignment_id),
+    });
+    expect(detail?.workout).toBeTruthy();
+    const items = detail!.workout!.blocks.flatMap((b) => b.items);
+    const runItem = items.find((it) => it.prescription_json?.structure);
+    expect(runItem, 'un item de carrera con structure').toBeTruthy();
+    const structure = runItem!.prescription_json!.structure!;
+    expect(structure.map((ph) => ph.role)).toEqual(['warmup', 'main', 'cooldown']);
+    const mainSeg = structure.find((ph) => ph.role === 'main')!.elements[0];
+    expect(mainSeg).toMatchObject({ kind: 'work', measure: { type: 'distance', m: 5000 } });
+  }, 60000);
+
+  test('#61 the 2K row test materializes calentamiento + un tramo de 2000 m erg', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    await restoreDefaultTests(fx.coachId, sql);
+
+    const s = await startCalibrationTest({ athlete_id: fx.athleteId, slug: 'tt_2k_row', client: sql });
+    if (!s.ok) throw new Error('start failed');
+
+    const detail = await loadAssignmentDetail({
+      sql,
+      athlete_id: BigInt(fx.athleteId),
+      assignment_id: BigInt(s.data.assignment_id),
+    });
+    const items = detail!.workout!.blocks.flatMap((b) => b.items);
+    expect(items.length).toBeGreaterThanOrEqual(2); // calentamiento + 2000 m
+    const main = items.find((it) => it.params_json?.distance_meters === 2000);
+    expect(main, 'un tramo de 2000 m erg').toBeTruthy();
   }, 60000);
 });
