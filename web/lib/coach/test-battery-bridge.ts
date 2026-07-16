@@ -33,6 +33,7 @@ import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
   BENCH_SKI_1K,
+  benchmarkLowerIsBetter,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { storeResultsSchema, type StoreResultSpec } from '@fahybrid/shared/schema/test-battery';
 import type { TestSource } from '@fahybrid/shared/domain/athlete/record-test-result';
@@ -50,6 +51,17 @@ export type BridgeError =
   | 'no_coach'
   | 'unknown_slug';
 
+/** One recorded value with its progression delta vs the athlete's previous value
+ *  for the same slug. `prev_value` is the last dated `athlete_benchmarks` value
+ *  BEFORE this write (any source); `improved` is null on a first-ever result or a
+ *  tie, else the direction-correct verdict (time faster / kg-bpm-reps higher). */
+export interface RecordedEntry {
+  slug: string;
+  value: number;
+  prev_value: number | null;
+  improved: boolean | null;
+}
+
 export interface RecordBatteryResult {
   ok: boolean;
   error?: BridgeError;
@@ -57,6 +69,9 @@ export interface RecordBatteryResult {
   zones_derived: Array<{ modality: ZoneModality; threshold_s: number }>;
   strength_maxes_written: number;
   level_recomputed: boolean;
+  /** Per recorded entry, its value + delta vs the previous value (for the
+   *  post-capture "mejoraste" surface). Empty on an error return. */
+  entries: RecordedEntry[];
 }
 
 /** One entered value for a store_results slug. */
@@ -86,6 +101,7 @@ export async function recordBatteryResults(params: {
     zones_derived: [],
     strength_maxes_written: 0,
     level_recomputed: false,
+    entries: [],
   };
 
   // Load the assignment's template store_results (ownership-scoped) + the coach.
@@ -113,6 +129,18 @@ export async function recordBatteryResults(params: {
 
   const coach_id = rows[0].coach_id ? Number(rows[0].coach_id) : null;
 
+  // Snapshot the athlete's PREVIOUS value per slug BEFORE writing anything, so the
+  // delta (prev_value / improved) compares against the last recorded value, not the
+  // one we're about to append. Latest dated row per slug, any source.
+  const entrySlugs = entries.map((e) => e.slug);
+  const prevRows = await sql<{ exercise_slug: string; value: number }[]>`
+    select distinct on (exercise_slug) exercise_slug, value::float8 as value
+    from athlete_benchmarks
+    where athlete_id = ${athlete_id} and exercise_slug = any(${entrySlugs})
+    order by exercise_slug, recorded_at desc, id desc
+  `;
+  const prevBySlug = new Map(prevRows.map((r) => [r.exercise_slug, r.value]));
+
   // 1) Write every benchmark FIRST (committed on the pool), so the zone
   //    derivation below reads the just-recorded run_5k/row_2k.
   const zoneModalities = new Set<ZoneModality>();
@@ -124,6 +152,15 @@ export async function recordBatteryResults(params: {
         athlete_id,
         exercise_slug: spec.slug,
         one_rm_kg: e.value,
+        source,
+      });
+    } else if (spec.measure === 'hrr') {
+      // heart-rate recovery (hrr60) — a baseline benchmark in bpm; derives nothing.
+      await recordTestBenchmark(sql, {
+        kind: 'hrr',
+        athlete_id,
+        exercise_slug: spec.slug,
+        bpm: e.value,
         source,
       });
     } else {
@@ -187,6 +224,20 @@ export async function recordBatteryResults(params: {
       // best-effort: the benchmarks + projections above are the contract.
     }
   }
+
+  // Per-entry progression delta vs the snapshot taken before the writes. Direction
+  // is unit-correct (time faster = better; kg / bpm / reps higher = better).
+  out.entries = entries.map((e) => {
+    const spec = specBySlug.get(e.slug)!;
+    const prev = prevBySlug.get(e.slug) ?? null;
+    const improved =
+      prev == null || e.value === prev
+        ? null
+        : benchmarkLowerIsBetter(spec.unit)
+          ? e.value < prev
+          : e.value > prev;
+    return { slug: e.slug, value: e.value, prev_value: prev, improved };
+  });
 
   out.ok = true;
   return out;
