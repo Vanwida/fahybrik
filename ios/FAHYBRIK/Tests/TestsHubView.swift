@@ -27,7 +27,10 @@ struct TestsHubView: View {
     @State private var status: BatteryStatus? = nil
     @State private var zones: [ZoneModalityProfile] = []
     @State private var zonesLoaded = false
-    /// calibrationSlug → benchmark series (curve + last/delta). A missing key
+    /// calibrationSlug → benchmark series (curve + last/delta) for that test.
+    /// Grouped from ONE all-series history fetch through each test's result
+    /// contract (store_results[].slug = the BENCHMARK slug the history endpoint
+    /// indexes by — the calibration slug would return nothing). A missing key
     /// simply hides the curve for that test.
     @State private var histories: [String: [BenchmarkSeries]] = [:]
     @State private var loading = true
@@ -438,22 +441,39 @@ struct TestsHubView: View {
             return
         }
         async let zonesReq = ZonesService.fetch(bearer: bearer)
+        // ONE fetch for every benchmark series the athlete has; grouped per test
+        // below through each test's result contract. Tolerant — a failed history
+        // just hides the curves, never the hub.
+        async let allSeriesReq = TestBatteryService.fetchBenchmarkHistory(bearer: bearer)
         do {
             let s = try await TestBatteryService.fetchStatus(bearer: bearer)
             status = s
             failed = false
-            // Curves fan out per unique test; each one is tolerant — a failed
-            // history just hides that card's curve, never the hub.
-            await withTaskGroup(of: (String, [BenchmarkSeries])?.self) { group in
-                for slug in Set(s.tests.map(\.calibrationSlug)) {
+            // Each test's BENCHMARK slugs come from its assignment detail's
+            // store_results (cache-first — the container already caches details).
+            var slugsByTest: [String: [String]] = [:]
+            await withTaskGroup(of: (String, [String]).self) { group in
+                for test in s.tests {
                     group.addTask {
-                        guard let series = try? await TestBatteryService
-                            .fetchBenchmarkHistory(slug: slug, bearer: bearer) else { return nil }
-                        return (slug, series)
+                        (test.calibrationSlug, await Self.benchmarkSlugs(for: test, bearer: bearer))
                     }
                 }
-                for await pair in group {
-                    if let (slug, series) = pair { histories[slug] = series }
+                for await (calibration, slugs) in group {
+                    // Merge — several occurrences of the same test share the contract.
+                    slugsByTest[calibration, default: []].append(contentsOf: slugs)
+                }
+            }
+            let allSeries = (try? await allSeriesReq) ?? []
+            let seriesBySlug = Dictionary(
+                allSeries.map { ($0.exerciseSlug, $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
+            histories = slugsByTest.mapValues { slugs in
+                // Preserve the contract's own order (headline result first).
+                var seen = Set<String>()
+                return slugs.compactMap { slug in
+                    guard seen.insert(slug).inserted else { return nil }
+                    return seriesBySlug[slug]
                 }
             }
         } catch {
@@ -462,6 +482,20 @@ struct TestsHubView: View {
         zones = (try? await zonesReq) ?? zones
         zonesLoaded = true
         loading = false
+    }
+
+    /// The benchmark slugs this test promises (store_results contract), resolved
+    /// from the assignment detail — cache-first, then the network; empty (no
+    /// curve) when neither is available. Never fabricated.
+    private static func benchmarkSlugs(for test: CalibrationTestStatus, bearer: String) async -> [String] {
+        if let cached = AssignmentDetailCache.load(test.assignmentId) {
+            return cached.storeResults.map(\.slug)
+        }
+        guard let detail = try? await PlanService.fetchAssignmentDetail(test.assignmentId, bearer: bearer) else {
+            return []
+        }
+        AssignmentDetailCache.save(detail)
+        return detail.storeResults.map(\.slug)
     }
 
     // MARK: - Dates

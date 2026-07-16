@@ -74,17 +74,62 @@ final class BenchmarkDeltaTests: XCTestCase {
 
     // MARK: - Wire decodes
 
-    func testStartTestResponseDecodes() throws {
+    func testStartTestResponseDecodesTheRealWire() throws {
+        // Verified E2E shape: numeric assignment_id, reused flag, 6-field
+        // store_results with nullable derives/modality + the optional flag.
         let json = """
-        {"assignment_id":"482","scheduled_for":"2026-07-16",
-         "store_results":[{"slug":"run_5k","unit":"seconds","measure":"time","label":"5K"},
-                          {"slug":"hrr60","unit":"bpm","measure":"hrr","label":"Recuperación"}]}
+        {"assignment_id":482,"scheduled_for":"2026-07-16","reused":false,
+         "store_results":[
+           {"slug":"run_5k","unit":"seconds","measure":"time","label":"5K",
+            "derives":"run_zones","modality":"run","optional":false},
+           {"slug":"hrr60","unit":"bpm","measure":"hrr","label":"Recuperación",
+            "derives":null,"modality":null,"optional":true}]}
         """
         let resp = try makeDecoder().decode(StartTestResponse.self, from: Data(json.utf8))
-        XCTAssertEqual(resp.assignmentId, "482")
+        XCTAssertEqual(resp.assignmentId, "482")   // normalized to the app's String shape
         XCTAssertEqual(resp.scheduledFor, "2026-07-16")
+        XCTAssertEqual(resp.reused, false)
         XCTAssertEqual(resp.storeResults.count, 2)
         XCTAssertEqual(TestMeasure(resp.storeResults[1].measure), .hrr)
+        XCTAssertFalse(resp.storeResults[0].isOptional)
+        XCTAssertTrue(resp.storeResults[1].isOptional)
+    }
+
+    func testStartTestResponseToleratesStringIdAndMissingFlags() throws {
+        // If the backend ever harmonizes ids to strings (like the status
+        // endpoint) or drops reused/optional, the decode must keep working.
+        let json = """
+        {"assignment_id":"731","scheduled_for":"2026-07-16",
+         "store_results":[{"slug":"row_2k","unit":"seconds","measure":"time","label":"2K remo"}]}
+        """
+        let resp = try makeDecoder().decode(StartTestResponse.self, from: Data(json.utf8))
+        XCTAssertEqual(resp.assignmentId, "731")
+        XCTAssertNil(resp.reused)
+        XCTAssertFalse(resp.storeResults[0].isOptional)   // absent → required
+    }
+
+    // MARK: - Save gating (optional never blocks)
+
+    func testOptionalEntriesNeverBlockTheSave() {
+        // Required filled + optional missing → saveable (the omission is honest).
+        XCTAssertTrue(TestResultGating.canSave(entries: [
+            (value: 1334, isOptional: false),
+            (value: nil, isOptional: true),
+        ]))
+        // Required missing → blocked, optional presence can't unlock it.
+        XCTAssertFalse(TestResultGating.canSave(entries: [
+            (value: nil, isOptional: false),
+            (value: 32, isOptional: true),
+        ]))
+        // Nothing measured at all → nothing to send.
+        XCTAssertFalse(TestResultGating.canSave(entries: [
+            (value: nil, isOptional: true),
+        ]))
+        // Optional-only but measured → saveable.
+        XCTAssertTrue(TestResultGating.canSave(entries: [
+            (value: 32, isOptional: true),
+        ]))
+        XCTAssertFalse(TestResultGating.canSave(entries: []))
     }
 
     func testRecordResultDecodesEntryDeltas() throws {
@@ -108,9 +153,9 @@ final class BenchmarkDeltaTests: XCTestCase {
     func testCelebrationItemsMapThroughTheTestContract() {
         let specs = [
             StoreResultSpec(slug: "run_5k", unit: "seconds", measure: "time",
-                            label: "5K", derives: nil, modality: nil),
+                            label: "5K", derives: nil, modality: nil, optional: nil),
             StoreResultSpec(slug: "hrr60", unit: "bpm", measure: "hrr",
-                            label: "Recuperación", derives: nil, modality: nil),
+                            label: "Recuperación", derives: nil, modality: nil, optional: true),
         ]
         let entries = [
             RecordBatteryResult.EntryDelta(slug: "run_5k", value: 1334, prevValue: 1346, improved: true),

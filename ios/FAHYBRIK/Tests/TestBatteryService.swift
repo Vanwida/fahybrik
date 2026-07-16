@@ -143,19 +143,43 @@ struct TestResultEntry: Codable, Equatable {
 
 // MARK: - Start a test («Probarme»)
 
-/// Response of POST /api/athlete/test-battery/start — the assignment the athlete
-/// runs TODAY (created or reused server-side) plus its result contract.
-struct StartTestResponse: Codable, Equatable {
+/// Response of POST /api/athlete/test-battery/start (201 creates / 200 reuses) —
+/// the assignment the athlete runs TODAY plus its result contract. The wire
+/// ships `assignment_id` as a NUMBER (verified E2E by the web side) while the
+/// status endpoint ships strings, so the id is normalized to String here — the
+/// one shape WorkoutLaunch and the rest of the app use.
+struct StartTestResponse: Decodable, Equatable {
     let assignmentId: String
-    let scheduledFor: String
+    let scheduledFor: String   // YYYY-MM-DD
     let storeResults: [StoreResultSpec]
+    /// True when the server reused an already-scheduled assignment for today.
+    let reused: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case assignmentId, scheduledFor, storeResults, reused
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Number today; tolerate a string if the backend ever harmonizes.
+        if let numeric = try? c.decode(Int.self, forKey: .assignmentId) {
+            assignmentId = String(numeric)
+        } else {
+            assignmentId = try c.decode(String.self, forKey: .assignmentId)
+        }
+        scheduledFor = try c.decode(String.self, forKey: .scheduledFor)
+        storeResults = try c.decode([StoreResultSpec].self, forKey: .storeResults)
+        reused = try c.decodeIfPresent(Bool.self, forKey: .reused)
+    }
 }
 
-// MARK: - Benchmark history (the athlete's curve per test)
+// MARK: - Benchmark history (the athlete's curve per benchmark)
 
-/// GET /api/athlete/benchmarks/history?slug=<calibration slug>. One test can
-/// produce several benchmark series (a 1RM battery → squat + deadlift + …), so
-/// the payload is series-shaped even when there's just one.
+/// GET /api/athlete/benchmarks/history?slug=<BENCHMARK slug> (run_5k,
+/// back_squat_1rm, …) — NOT the calibration-test slug (tt_5k): the store is
+/// indexed by exercise_slug. Without ?slug it returns EVERY series the athlete
+/// has. One test can produce several benchmark series (a 1RM battery → squat +
+/// deadlift + …), so the payload is series-shaped even when there's just one.
 struct BenchmarkHistoryResponse: Codable, Equatable {
     let series: [BenchmarkSeries]
 }
@@ -228,15 +252,16 @@ enum TestBatteryService {
         )
     }
 
-    /// The athlete's benchmark curve(s) for one test (hub sparkline + deltas).
-    static func fetchBenchmarkHistory(slug: String, bearer: String) async throws -> [BenchmarkSeries] {
-        guard let encoded = slug.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return []
+    /// The athlete's benchmark curve(s). `slug` = a BENCHMARK slug (the ones a
+    /// test's `store_results[].slug` carries); nil = every series the athlete
+    /// has — the hub fetches all once and groups them per test.
+    static func fetchBenchmarkHistory(slug: String? = nil, bearer: String) async throws -> [BenchmarkSeries] {
+        var path = "api/athlete/benchmarks/history"
+        if let slug,
+           let encoded = slug.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?slug=\(encoded)"
         }
-        let resp: BenchmarkHistoryResponse = try await APIClient.shared.get(
-            path: "api/athlete/benchmarks/history?slug=\(encoded)",
-            bearer: bearer
-        )
+        let resp: BenchmarkHistoryResponse = try await APIClient.shared.get(path: path, bearer: bearer)
         return resp.series
     }
 }

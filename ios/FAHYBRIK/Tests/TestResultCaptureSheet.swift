@@ -113,6 +113,20 @@ enum TestBatteryPrefill {
     }
 }
 
+// MARK: - Save gating (pure)
+
+/// When can the capture be saved? Every REQUIRED entry has its value, and at
+/// least one value exists overall (an optional-only capture with nothing
+/// measured has nothing to send). Optional entries — contract `optional: true`
+/// or an app-measured `hrr` — never block: measured → sent; missing → omitted
+/// without error, the test still counts. Pure so the rule is unit-tested.
+enum TestResultGating {
+    static func canSave(entries: [(value: Double?, isOptional: Bool)]) -> Bool {
+        entries.contains { $0.value != nil }
+            && entries.filter { !$0.isOptional }.allSatisfy { $0.value != nil }
+    }
+}
+
 // MARK: - Sheet
 
 struct TestResultCaptureSheet: View {
@@ -153,6 +167,11 @@ struct TestResultCaptureSheet: View {
         var secText: String   // time
         var amountText: String // load/distance/reps/calories/other
 
+        /// An OPTIONAL row never blocks the save: the contract can flag any
+        /// result `optional`, and an `hrr` row is intrinsically optional (it's
+        /// app-measured — with no signal it's omitted, never typed).
+        var isOptional: Bool { spec.isOptional || measure == .hrr }
+
         var value: Double? {
             switch measure {
             case .time:
@@ -170,12 +189,9 @@ struct TestResultCaptureSheet: View {
     }
 
     private var canSave: Bool {
-        // hrr rows are auto-measured and OPTIONAL: with no signal they're omitted
-        // (never typed by hand), so they must not block the save of the real
-        // entered results. Everything else still requires its value.
-        bearer != nil
-            && rows.contains { $0.value != nil }
-            && rows.filter { $0.measure != .hrr }.allSatisfy { $0.value != nil }
+        bearer != nil && TestResultGating.canSave(
+            entries: rows.map { (value: $0.value, isOptional: $0.isOptional) }
+        )
     }
 
     var body: some View {
@@ -288,7 +304,16 @@ struct TestResultCaptureSheet: View {
         let measure = row.wrappedValue.measure
         return CardSurface(padding: Theme.Spacing.l) {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                LabelText(text: row.wrappedValue.spec.label)
+                HStack(alignment: .firstTextBaseline) {
+                    LabelText(text: row.wrappedValue.spec.label)
+                    if row.wrappedValue.isOptional, measure != .hrr {
+                        Spacer(minLength: Theme.Spacing.s)
+                        Text("OPCIONAL")
+                            .font(.system(size: 9, weight: .semibold))
+                            .tracking(Theme.Tracking.dataLabel)
+                            .foregroundStyle(Theme.Color.faint)
+                    }
+                }
                 if measure == .hrr {
                     hrrReadout(row.wrappedValue)
                 } else if measure == .time {

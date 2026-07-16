@@ -272,6 +272,13 @@ struct StoreResultSpec: Codable, Equatable, Identifiable {
     let derives: String?
     /// Modality for a zone derivation (run/row/ski); nil for strength/baseline.
     let modality: String?
+    /// Tests guiados — an OPTIONAL result never blocks the capture: if the app
+    /// measured it (the HRR window) it's pre-filled and sent; with no signal
+    /// it's omitted without error and the test still counts as completed.
+    /// Nullable-decoded (absent on older payloads) → treat nil as required.
+    let optional: Bool?
+
+    var isOptional: Bool { optional ?? false }
 }
 
 struct WorkoutBlock: Codable, Equatable, Identifiable {
