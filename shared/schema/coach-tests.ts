@@ -20,12 +20,16 @@ export const coachTestResultInputSchema = z.discriminatedUnion('kind', [
     target: z.string().min(1).max(60),
     /** Optional coach label override; defaults to the target's result_label. */
     label: z.string().min(1).max(60).optional(),
+    /** Mark the result as OPTIONAL (does not gate the test's completion). Absent = required. */
+    optional: z.boolean().optional(),
   }),
   z.object({
     kind: z.literal('baseline'),
     measure: z.enum(STORE_RESULT_MEASURES),
     unit: z.enum(STORE_RESULT_UNITS),
     label: z.string().min(1).max(60),
+    /** Mark the result as OPTIONAL (does not gate the test's completion). Absent = required. */
+    optional: z.boolean().optional(),
   }),
 ]);
 export type CoachTestResultInput = z.infer<typeof coachTestResultInputSchema>;

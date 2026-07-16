@@ -55,6 +55,10 @@ export const storeResultSpecSchema = z.object({
   // The modality for a zone derivation (run/row/ski). Omitted for strength/baseline.
   modality: z.enum(['run', 'row', 'ski', 'bike', 'strength', 'hyrox']).optional(),
   label: z.string().min(1).max(60),
+  // An OPTIONAL result (#34): captured only if available — the app may auto-measure it
+  // (e.g. HRR from the HR stream) or the athlete may skip it. It does NOT gate the test's
+  // completion (battery-status counts only the required results). Absent = required.
+  optional: z.boolean().optional(),
 })
   // A coherence guard mirrored in the DB check + coach UI: only time/load may calibrate.
   .refine((s) => s.derives === 'none' || CALIBRATING_MEASURES.includes(s.measure), {

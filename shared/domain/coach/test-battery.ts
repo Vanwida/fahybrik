@@ -23,8 +23,22 @@ import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
   BENCH_BENCH_PRESS_1RM,
+  BENCH_HRR_60,
 } from './benchmark-slugs';
 import { STRENGTH_LIFTS } from '../strength/exercises';
+
+// The hrr60 (recuperación de FC 60 s) OPTIONAL result seeded on the resistance tests
+// (5K, 2K remo, half-sim — NOT the 1RM battery: HRR después de un test neuromuscular
+// no es estándar y contaminaría la serie). Baseline (derives 'none', bpm), optional so
+// it never blocks the test's completion — la app la mide sola desde la FC si puede.
+const HRR60_OPTIONAL_RESULT: StoreResultSpec = {
+  slug: BENCH_HRR_60,
+  unit: 'bpm',
+  measure: 'hrr',
+  derives: 'none',
+  label: 'Recuperación FC 60s',
+  optional: true,
+};
 
 /** The `template_format` a seed test template uses (subset of the enum). */
 export type CalibrationFormat = 'test' | 'strength_block' | 'hyrox_sim';
@@ -72,6 +86,7 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
         modality: 'run',
         label: 'Tiempo 5K',
       },
+      HRR60_OPTIONAL_RESULT,
     ],
   },
   {
@@ -91,6 +106,7 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
         modality: 'row',
         label: 'Tiempo 2K remo',
       },
+      HRR60_OPTIONAL_RESULT,
     ],
   },
   {
@@ -124,6 +140,7 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
         modality: 'hyrox',
         label: 'Tiempo half-sim',
       },
+      HRR60_OPTIONAL_RESULT,
     ],
   },
 ] as const;
