@@ -266,11 +266,13 @@ async function athleteUserId(athleteId: number): Promise<number> {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main() {
+  // SEED_DEMO_ALLOW_MAIN=1 overrides the host guard — explicit opt-in for the
+  // single-universe era (demo slots live in prod until Alex retires them).
   const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (!host.includes('ep-flat-wind')) {
+  if (!host.includes('ep-flat-wind') && process.env.SEED_DEMO_ALLOW_MAIN !== '1') {
     throw new Error(
       `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (ep-flat-wind). ` +
-        `Point DATABASE_URL at the demo branch.`,
+        `Point DATABASE_URL at the demo branch, or set SEED_DEMO_ALLOW_MAIN=1 on purpose.`,
     );
   }
   // eslint-disable-next-line no-console

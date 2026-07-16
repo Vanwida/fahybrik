@@ -28,23 +28,25 @@
  * ORDERING: independent of the other athlete-70 seeds. Borrows SPARE assignments
  * (no execution yet), chosen by query — never the strength seed's sim day (666).
  *
- * HOST-GUARDED: refuses to run unless the DATABASE_URL host is the demo branch
- * (ep-flat-wind), OR the operator names the host via DEMO_SEED_ALLOW_HOST (for
- * ephemeral-fork verification). Touches ONLY athlete 70.
+ * TARGET + GUARD (shared _demo_target): athlete resolved by marker email; demo
+ * branch always writable, MAIN only with SEED_DEMO_ALLOW_MAIN=1. Touches ONLY the
+ * resolved demo athlete's executions. Runs AFTER the plan (borrows its assignments).
  *
- * RUN (against the DEMO DB — host must be ep-flat-wind):
- *   cd web && NODE_OPTIONS="--conditions=react-server" \
+ * RUN (against MAIN):
+ *   cd web && SEED_DEMO_ALLOW_MAIN=1 DATABASE_URL="<main>" \
+ *     NODE_OPTIONS="--conditions=react-server" \
  *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
  *     ../infra/scripts/seed_demo_athlete_stations.ts
  */
 import './_load_web_env.ts';
 
 import type { Sql } from '@/lib/db';
+import { assertDemoWriteHost, resolveDemoTarget } from './_demo_target.ts';
 
 // ── CONFIG ───────────────────────────────────────────────────────────────────
-const REQUIRED_HOST = 'ep-flat-wind';
-const ATHLETE_ID = 70;
-const COACH_ID = 29;
+// athlete/coach resolved at runtime from marker email (ids differ per branch).
+let ATHLETE_ID: number;
+let COACH_ID: number;
 const EXEC_FLAG = '[demo-stations-history]';
 const SEG_SOURCE = 'demo';
 const MADRID_OFFSET = '+02:00'; // CEST
@@ -81,15 +83,6 @@ async function loadDeps(): Promise<Deps> {
 }
 
 // ── steps ────────────────────────────────────────────────────────────────────
-async function assertOwnership(): Promise<void> {
-  const rows = await D.sql<Array<{ coach_id: string }>>`
-    select coach_id::text from athletes where id = ${ATHLETE_ID} limit 1
-  `;
-  if (rows.length === 0) throw new Error(`athlete ${ATHLETE_ID} not found on this DB`);
-  if (Number(rows[0]!.coach_id) !== COACH_ID) {
-    throw new Error(`athlete ${ATHLETE_ID} belongs to coach ${rows[0]!.coach_id}, expected ${COACH_ID}`);
-  }
-}
 
 /** Resolve the station exercise ids by slug (never hardcode ids). */
 async function resolveExerciseIds(slugs: string[]): Promise<Map<string, number>> {
@@ -109,7 +102,10 @@ async function wipePrior(): Promise<void> {
   log(`wiped ${del.count} prior station execution(s)`);
 }
 
-/** The latest HYROX-simulation assignment WITHOUT an execution (never 666). */
+/** The latest HYROX-simulation assignment WITHOUT an execution.
+ *  A composed session (Calentamiento → Simulación → Vuelta a la calma) carries the
+ *  session format at the template level (not `hyrox_sim`, which is the block format),
+ *  so we identify the sim day by NAME too — consistent with seedSimScore. */
 async function findSimAssignment(): Promise<{ id: number; day: string } | null> {
   const rows = await D.sql<Array<{ id: string; day: string }>>`
     select wa.id::text as id, to_char(wa.scheduled_for, 'YYYY-MM-DD') as day
@@ -117,7 +113,7 @@ async function findSimAssignment(): Promise<{ id: number; day: string } | null> 
     join templates t on t.id = wa.template_id
     left join workout_executions we on we.assignment_id = wa.id
     where wa.athlete_id = ${ATHLETE_ID}
-      and t.format::text in ('hyrox_sim', 'simulation')
+      and (t.format::text in ('hyrox_sim', 'simulation') or t.name ilike '%simulaci%')
       and we.id is null
     order by wa.scheduled_for desc
     limit 1
@@ -126,7 +122,8 @@ async function findSimAssignment(): Promise<{ id: number; day: string } | null> 
 }
 
 /** Up to N spare (no-execution) NON-sim assignments to host fresh practices,
- *  circuit/metcon days preferred; deterministic order. */
+ *  circuit/metcon days preferred; deterministic order. Sim days are excluded by
+ *  name too (see findSimAssignment) so a "fresh" practice never lands on a sim day. */
 async function findFreshAssignments(excludeId: number, n: number): Promise<Array<{ id: number; day: string }>> {
   const rows = await D.sql<Array<{ id: string; day: string }>>`
     select wa.id::text as id, to_char(wa.scheduled_for, 'YYYY-MM-DD') as day
@@ -137,6 +134,7 @@ async function findFreshAssignments(excludeId: number, n: number): Promise<Array
       and we.id is null
       and wa.id <> ${excludeId}
       and t.format::text not in ('hyrox_sim', 'simulation')
+      and t.name not ilike '%simulaci%'
     order by (t.format::text = 'circuit') desc, wa.scheduled_for desc
     limit ${n}
   `;
@@ -297,7 +295,10 @@ async function verify(): Promise<void> {
 /** The seed body, host-guard free — importable for ephemeral-fork verification. */
 export async function seedStationsHistory(): Promise<void> {
   D = await loadDeps();
-  await assertOwnership();
+  const target = await resolveDemoTarget(D.sql);
+  ATHLETE_ID = target.athleteId;
+  COACH_ID = target.coachId;
+  log(`resolved demo athlete ${ATHLETE_ID} <${target.athleteEmail}>, coach ${COACH_ID}`);
   const slugs = [...new Set([...FRESH_STATIONS.map((s) => s.slug), ...SIM_STATIONS.map((s) => s.slug)])];
   const exIds = await resolveExerciseIds(slugs);
   await wipePrior();
@@ -323,19 +324,8 @@ export async function seedStationsHistory(): Promise<void> {
   log(`done — ${freshCount} fresh practice(s) + ${simSegs} simulation segment(s).`);
 }
 
-function assertHost(): string {
-  const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  const allow = process.env.DEMO_SEED_ALLOW_HOST;
-  if (host.includes(REQUIRED_HOST)) return host;
-  if (allow && allow.length > 0 && host.includes(allow)) return host;
-  throw new Error(
-    `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (${REQUIRED_HOST}). ` +
-      'Set DEMO_SEED_ALLOW_HOST=<host-substring> to target another branch (e.g. an ephemeral fork).',
-  );
-}
-
 async function main(): Promise<void> {
-  log(`target host: ${assertHost()}`);
+  log(`target host: ${assertDemoWriteHost('seed_demo_athlete_stations')}`);
   await seedStationsHistory();
   await D.sql.end();
 }

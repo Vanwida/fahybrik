@@ -55,11 +55,17 @@
  * stable name marker (weeks re-upserted); assignment = wiped + rebuilt; publish =
  * idempotent upsert. Re-running converges, never duplicates.
  *
- * HOST-GUARDED: refuses to run unless DATABASE_URL host is the demo branch
- * (ep-flat-wind). Touches ONLY athlete 70 / coach 29 (+ coach-4 read for zones).
+ * TARGET + GUARD (shared _demo_target): coach + athlete resolved by MARKER EMAIL
+ * (demo athlete 70/coach 29 on the demo branch; athlete 67/coach 62 on main), never
+ * hardcoded ids. Demo branch always writable; MAIN only with SEED_DEMO_ALLOW_MAIN=1.
+ * Touches ONLY the resolved demo athlete + coach (+ coach-4 read for zones).
+ * PRE-REQ on a blank-slate coach (e.g. main coach 62): clone the methodology library
+ * first (clone_block_library --source=global --target=<coachId>) so the 6 principal
+ * blocks exist as `--c<coachId>` slugs.
  *
- * RUN (against the DEMO DB — host must be ep-flat-wind):
- *   cd web && NODE_OPTIONS="--conditions=react-server" \
+ * RUN (against MAIN):
+ *   cd web && SEED_DEMO_ALLOW_MAIN=1 DATABASE_URL="<main>" \
+ *     NODE_OPTIONS="--conditions=react-server" \
  *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
  *     ../infra/scripts/seed_demo_athlete_plan.ts
  */
@@ -71,12 +77,15 @@ import type { BlockWrite, BlockExerciseWrite } from '@fahybrid/shared/schema/blo
 import { blockWriteSchema } from '@fahybrid/shared/schema/blocks';
 import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
+import { assertDemoWriteHost, resolveDemoTarget } from './_demo_target.ts';
 
 // ── CONFIG ───────────────────────────────────────────────────────────────────
 
-const REQUIRED_HOST = 'ep-flat-wind'; // demo branch — the ONLY DB this may touch
-const ATHLETE_ID = 70; // demo athlete 1 (gets the plan)
-const COACH_ID = 29; //   demo coach 1 (owns athlete 70 + the cloned library)
+// Resolved at runtime from the demo MARKER EMAILS (see _demo_target) — ids differ
+// per branch (demo athlete 70/coach 29; main athlete 67/coach 62), so we never
+// hardcode them. Populated in main() before any step runs.
+let ATHLETE_ID: number; // demo athlete 1 (gets the plan)
+let COACH_ID: number; //   demo coach 1 (owns the athlete + the cloned library)
 const SOURCE_ZONE_COACH_ID = 4; // Pablo — source of the methodology_zones offset model
 const LEVEL_NAME = 'N3'; // Rendimiento
 const TRAINING_DAYS = 5;
@@ -182,7 +191,7 @@ function buildSupportSpecs(hyroxExercises: BlockExerciseWrite[]): Record<Support
         line(EX.runDrills, WU, 'tempo', { scheme: 'sets', modality: 'run', sets: [{ measure: dur(40) }, { measure: dur(40) }, { measure: dur(40) }] }),
         line(EX.legSwings, WU, 'tempo', { scheme: 'sets', modality: 'mobility', sets: [{ measure: reps(10) }, { measure: reps(10) }] }),
         line(EX.run, WU, 'tempo', {
-          scheme: 'interval',
+          scheme: 'intervals',
           modality: 'run',
           rounds: 4,
           rest_s: 60,
@@ -211,20 +220,23 @@ function buildSupportSpecs(hyroxExercises: BlockExerciseWrite[]): Record<Support
   };
 }
 
-/** Pablo's typed PRINCIPAL blocks, cloned into coach 29's library (slug `--c29`). */
-const MAIN_SLUGS = {
-  // %RM back squat — the MAPPED lift (back-squat → back_squat_1rm). athlete 70 has
+/** Pablo's typed PRINCIPAL blocks, cloned into the demo coach's library. The clone
+ *  (clone_block_library) derives per-coach slugs as `${base}--c${coachId}`, so we
+ *  keep the BASE slugs here and append the suffix for the resolved COACH_ID at
+ *  lookup time (demo coach 29 → `--c29`, main coach 62 → `--c62`). */
+const MAIN_BASE_SLUGS = {
+  // %RM back squat — the MAPPED lift (back-squat → back_squat_1rm). The athlete has
   // a seeded back_squat_1rm, so its %RM band resolves to an ABSOLUTE kg load in the
   // brief ("65–80% → 52–64 kg"). Front-squat is intentionally unmapped (we don't
   // borrow another lift's 1RM), so the front-squat block's %RM can only show "% · —".
-  STRENGTH_RM: 'g1-5-back-squat-4r-10-8-8-6--c29', //                   %RM back squat → resolves kg
-  RUN_FARTLEK: 'g4-38-fartlek-10-wu-5x5-z4-1-z5--c29', //               run @Zn → resolves pace
-  ERG_Z2: 'g5-52-10-row-z2--c29', //                                    erg @Zn → resolves pace
-  WOD_EMOM: 'g9-87-emom-15-20-bw-lunges--c29', //                       typed WOD (EMOM)
-  STRENGTH_KG: 'g9-90-4r-20-reverse-lunge-30kg--c29', //                strength kg circuit
-  RUN_THRESHOLD: 'g4-33-threshold-3-bloques-3x5-a-15-5km-h--c29', //    run threshold intervals
+  STRENGTH_RM: 'g1-5-back-squat-4r-10-8-8-6', //                   %RM back squat → resolves kg
+  RUN_FARTLEK: 'g4-38-fartlek-10-wu-5x5-z4-1-z5', //               run @Zn → resolves pace
+  ERG_Z2: 'g5-52-10-row-z2', //                                    erg @Zn → resolves pace
+  WOD_EMOM: 'g9-87-emom-15-20-bw-lunges', //                       typed WOD (EMOM)
+  STRENGTH_KG: 'g9-90-4r-20-reverse-lunge-30kg', //                strength kg circuit
+  RUN_THRESHOLD: 'g4-33-threshold-3-bloques-3x5-a-15-5km-h', //    run threshold intervals
 } as const;
-type MainKey = keyof typeof MAIN_SLUGS;
+type MainKey = keyof typeof MAIN_BASE_SLUGS;
 
 // A composed DAY: warmup variant + principal block (role title + slot format) +
 // cooldown. cooldown is always "Vuelta a la calma" (tempo). Each warmup is titled
@@ -324,33 +336,26 @@ const log = (...a: unknown[]) => console.log('[seed_demo_athlete_plan]', ...a); 
 
 // ── steps ──────────────────────────────────────────────────────────────────────
 
-/** Verify athlete 70 belongs to coach 29 (guards against wrong-DB / wrong-id). */
-async function assertOwnership(): Promise<void> {
-  const rows = await D.sql<Array<{ coach_id: string }>>`
-    select coach_id::text from athletes where id = ${ATHLETE_ID} limit 1
-  `;
-  if (rows.length === 0) throw new Error(`athlete ${ATHLETE_ID} not found on this DB`);
-  if (Number(rows[0]!.coach_id) !== COACH_ID) {
-    throw new Error(`athlete ${ATHLETE_ID} belongs to coach ${rows[0]!.coach_id}, expected ${COACH_ID}`);
-  }
-}
-
-/** Classify athlete 70: level N3 + 5 training days (same writes as the routes). */
+/** Classify the athlete: level N3 + 5 training days (same writes as the routes). */
 async function classifyAthlete(): Promise<{ level_id: number }> {
   const lvl = await D.sql<Array<{ id: string }>>`
     select id::text from athlete_levels where coach_id = ${COACH_ID} and name = ${LEVEL_NAME} limit 1
   `;
   if (lvl.length === 0) throw new Error(`coach ${COACH_ID} has no level "${LEVEL_NAME}" (athlete_levels)`);
   const level_id = Number(lvl[0]!.id);
+  // Classify AND mark onboarded (coalesce → idempotent) so the athlete lands on
+  // the plan, not the onboarding flow — same as the /level + /training-days routes
+  // followed by a completed onboarding.
   await D.sql`
     update athletes
        set level_id = ${level_id},
            level_source = 'coach',
            training_days_per_week = ${TRAINING_DAYS},
+           onboarded_at = coalesce(onboarded_at, now()),
            updated_at = now()
      where id = ${ATHLETE_ID}
   `;
-  log(`classified athlete ${ATHLETE_ID}: level ${LEVEL_NAME} (id ${level_id}), ${TRAINING_DAYS} days`);
+  log(`classified athlete ${ATHLETE_ID}: level ${LEVEL_NAME} (id ${level_id}), ${TRAINING_DAYS} days, onboarded`);
   return { level_id };
 }
 
@@ -452,15 +457,20 @@ async function seedSupportBlocks(): Promise<Record<SupportKey, number>> {
   return out;
 }
 
-/** Resolve Pablo's cloned PRINCIPAL block ids by slug (in coach 29's library). */
+/** Resolve Pablo's cloned PRINCIPAL block ids by slug (in the demo coach's library).
+ *  Slugs are suffixed with the resolved COACH_ID (`--c62` on main). */
 async function resolveMainBlocks(): Promise<Record<MainKey, number>> {
-  const slugs = Object.values(MAIN_SLUGS);
+  const suffix = `--c${COACH_ID}`;
+  const wanted = Object.fromEntries(
+    (Object.entries(MAIN_BASE_SLUGS) as Array<[MainKey, string]>).map(([k, base]) => [k, `${base}${suffix}`]),
+  ) as Record<MainKey, string>;
+  const slugs = Object.values(wanted);
   const rows = await D.sql<Array<{ id: string; slug: string }>>`
     select id::text, slug from blocks where coach_id = ${COACH_ID} and slug = any(${slugs})
   `;
   const bySlug = new Map(rows.map((r) => [r.slug, Number(r.id)]));
   const out = {} as Record<MainKey, number>;
-  for (const [key, slug] of Object.entries(MAIN_SLUGS) as Array<[MainKey, string]>) {
+  for (const [key, slug] of Object.entries(wanted) as Array<[MainKey, string]>) {
     const id = bySlug.get(slug);
     if (id == null) throw new Error(`principal block not found in coach ${COACH_ID} library: ${slug} (clone the library first)`);
     out[key] = id;
@@ -741,33 +751,25 @@ async function verify(): Promise<void> {
     from weekly_plans where athlete_id = ${ATHLETE_ID} order by week_start asc
   `;
   log(`weekly_plans: ${wps.map((w) => `${w.week_start}=${w.status}`).join(', ') || '(none)'}`);
-
-  // 4. Honesty check: demo athlete 2 (71) must stay EMPTY.
-  const other = await D.sql<Array<{ wa: string; wp: string }>>`
-    select (select count(*) from workout_assignments where athlete_id = 71)::text as wa,
-           (select count(*) from weekly_plans where athlete_id = 71)::text as wp
-  `;
-  log(`athlete 71 (demo 2): ${other[0]!.wa} assignments, ${other[0]!.wp} weekly_plans (expect 0/0)`);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (!host.includes(REQUIRED_HOST)) {
-    throw new Error(
-      `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (${REQUIRED_HOST}). ` +
-        `Point DATABASE_URL at the demo branch.`,
-    );
-  }
+  const host = assertDemoWriteHost('seed_demo_athlete_plan');
   log(`target host: ${host}`);
 
   D = await loadDeps();
 
+  // Resolve the demo coach + athlete by marker email (hard-asserts demo-only).
+  const target = await resolveDemoTarget(D.sql);
+  ATHLETE_ID = target.athleteId;
+  COACH_ID = target.coachId;
+  log(`resolved demo target: athlete ${ATHLETE_ID} <${target.athleteEmail}>, coach ${COACH_ID} <${target.coachEmail}>`);
+
   const startDateIso = D.dates.isoDateString(D.dates.mondayOfWeek(D.dates.startOfDayInBox(new Date())));
   log(`microciclo start (this week's Monday): ${startDateIso}, ${WEEK_COUNT} weeks`);
 
-  await assertOwnership();
   const { level_id } = await classifyAthlete();
   await copyZoneModel();
   await deriveZoneProfiles();

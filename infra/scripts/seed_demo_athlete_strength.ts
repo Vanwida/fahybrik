@@ -29,23 +29,25 @@
  * assignments + wipes athlete 70's executions on every run). Independent of
  * seed_demo_athlete_running.ts (different assignments).
  *
- * HOST-GUARDED: refuses to run unless the DATABASE_URL host is the demo branch
- * (ep-flat-wind), OR the operator names the host explicitly via DEMO_SEED_ALLOW_HOST
- * (used for ephemeral-fork verification). Touches ONLY athlete 70.
+ * TARGET + GUARD (shared _demo_target): athlete resolved by marker email; demo
+ * branch always writable, MAIN only with SEED_DEMO_ALLOW_MAIN=1. Touches ONLY the
+ * resolved demo athlete's executions. Runs AFTER the plan (needs Fuerza segments).
  *
- * RUN (against the DEMO DB — host must be ep-flat-wind):
- *   cd web && NODE_OPTIONS="--conditions=react-server" \
+ * RUN (against MAIN):
+ *   cd web && SEED_DEMO_ALLOW_MAIN=1 DATABASE_URL="<main>" \
+ *     NODE_OPTIONS="--conditions=react-server" \
  *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
  *     ../infra/scripts/seed_demo_athlete_strength.ts
  */
 import './_load_web_env.ts';
 
 import type { Sql } from '@/lib/db';
+import { assertDemoWriteHost, resolveDemoTarget } from './_demo_target.ts';
 
 // ── CONFIG ───────────────────────────────────────────────────────────────────
-const REQUIRED_HOST = 'ep-flat-wind';
-const ATHLETE_ID = 70;
-const COACH_ID = 29;
+// athlete/coach resolved at runtime from marker email (ids differ per branch).
+let ATHLETE_ID: number;
+let COACH_ID: number;
 const EXEC_FLAG = '[demo-strength-history]';
 const SIM_FLAG = '[demo-strength-history:sim-score]';
 const SEG_SOURCE = 'demo';
@@ -158,15 +160,6 @@ function deriveSets(presc: { sets?: PrescSet[] }, oneRm: number | null): Derived
 }
 
 // ── steps ────────────────────────────────────────────────────────────────────
-async function assertOwnership(): Promise<void> {
-  const rows = await D.sql<Array<{ coach_id: string }>>`
-    select coach_id::text from athletes where id = ${ATHLETE_ID} limit 1
-  `;
-  if (rows.length === 0) throw new Error(`athlete ${ATHLETE_ID} not found on this DB`);
-  if (Number(rows[0]!.coach_id) !== COACH_ID) {
-    throw new Error(`athlete ${ATHLETE_ID} belongs to coach ${rows[0]!.coach_id}, expected ${COACH_ID}`);
-  }
-}
 
 async function oneRepMax(): Promise<number | null> {
   const rows = await D.sql<Array<{ kg: string }>>`
@@ -388,7 +381,10 @@ async function verify(): Promise<void> {
 /** The seed body, host-guard free — importable for ephemeral-fork verification. */
 export async function seedStrengthHistory(): Promise<void> {
   D = await loadDeps();
-  await assertOwnership();
+  const target = await resolveDemoTarget(D.sql);
+  ATHLETE_ID = target.athleteId;
+  COACH_ID = target.coachId;
+  log(`resolved demo athlete ${ATHLETE_ID} <${target.athleteEmail}>, coach ${COACH_ID}`);
   const oneRm = await oneRepMax();
   log(`athlete ${ATHLETE_ID} back-squat 1RM: ${oneRm != null ? `${oneRm} kg` : '(none — %RM lifts log reps only)'}`);
   await wipePrior();
@@ -398,19 +394,8 @@ export async function seedStrengthHistory(): Promise<void> {
   log(`done — ${counts.execs} sessions, ${counts.segs} segments, ${counts.sets} sets${sim ? ' + sim score' : ''}.`);
 }
 
-function assertHost(): string {
-  const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  const allow = process.env.DEMO_SEED_ALLOW_HOST;
-  if (host.includes(REQUIRED_HOST)) return host;
-  if (allow && allow.length > 0 && host.includes(allow)) return host;
-  throw new Error(
-    `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (${REQUIRED_HOST}). ` +
-      'Set DEMO_SEED_ALLOW_HOST=<host-substring> to target another branch (e.g. an ephemeral fork).',
-  );
-}
-
 async function main(): Promise<void> {
-  log(`target host: ${assertHost()}`);
+  log(`target host: ${assertDemoWriteHost('seed_demo_athlete_strength')}`);
   await seedStrengthHistory();
   await D.sql.end();
 }
