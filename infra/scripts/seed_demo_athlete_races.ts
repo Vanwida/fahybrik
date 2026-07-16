@@ -92,17 +92,52 @@ async function resolveEventId(sql: Sql, eventName: string | null): Promise<numbe
   return rows[0] ? Number(rows[0].id) : null;
 }
 
+/** Scale every split/time by `f` (DEMO_RACES_SCALE) — used to give the doubles
+ *  PARTNER a race history that is CLOSE to but not IDENTICAL to the main athlete's,
+ *  so the pair's two solo predictions read as two real people (not a copy). */
+function scaleRace(r: RaceFix, f: number): RaceFix {
+  const s = (n: number | null) => (n == null ? n : Math.round(n * f));
+  const runSplits = Array.isArray(r.run_splits_json)
+    ? (r.run_splits_json as unknown[]).map((v) => (typeof v === 'number' ? Math.round(v * f) : v))
+    : r.run_splits_json;
+  const stnSplits = Array.isArray(r.station_splits_json)
+    ? (r.station_splits_json as Array<Record<string, unknown>>).map((st) =>
+        st && typeof st === 'object' && typeof st.seconds === 'number' ? { ...st, seconds: Math.round(st.seconds * f) } : st,
+      )
+    : r.station_splits_json;
+  return {
+    ...r,
+    goal_time_seconds: s(r.goal_time_seconds),
+    result_time_seconds: s(r.result_time_seconds),
+    run_total_seconds: s(r.run_total_seconds),
+    roxzone_seconds: s(r.roxzone_seconds),
+    best_run_lap_seconds: s(r.best_run_lap_seconds),
+    run_splits_json: runSplits,
+    station_splits_json: stnSplits,
+  };
+}
+
 async function main(): Promise<void> {
   const host = assertDemoWriteHost('seed_demo_athlete_races');
   log(`target host: ${host}`);
 
-  const races = JSON.parse(readFileSync(FIXTURE, 'utf8')) as RaceFix[];
+  const all = JSON.parse(readFileSync(FIXTURE, 'utf8')) as RaceFix[];
+  // DEMO_RACES_ONLY_COMPLETED=1 seeds ONLY completed races (with splits) — used for
+  // the doubles PARTNER, whose own recent completed race drives the pair prediction
+  // (the singles predict layer reads own-race splits), without copying the main
+  // athlete's future singles targets.
+  const completedOnly = (process.env.DEMO_RACES_ONLY_COMPLETED ?? '').trim() === '1';
+  const scaleRaw = (process.env.DEMO_RACES_SCALE ?? '').trim();
+  const scale = scaleRaw ? Number(scaleRaw) : null;
+  if (scale != null && (!Number.isFinite(scale) || scale <= 0)) throw new Error(`invalid DEMO_RACES_SCALE: ${scaleRaw}`);
+  const selected = completedOnly ? all.filter((r) => r.status === 'completed') : all;
+  const races = scale != null ? selected.map((r) => scaleRace(r, scale)) : selected;
   const sql = getSql();
   try {
     const target = await resolveDemoTarget(sql);
     const A = target.athleteId;
     const C = target.coachId;
-    log(`resolved demo athlete ${A} <${target.athleteEmail}>, coach ${C}; ${races.length} races in fixture`);
+    log(`resolved demo athlete ${A} <${target.athleteEmail}>, coach ${C}; ${races.length}/${all.length} races${completedOnly ? ' (completed-only)' : ''}${scale != null ? ` (scaled ×${scale})` : ''}`);
 
     let inserted = 0;
     let partnersInserted = 0;
