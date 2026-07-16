@@ -21,6 +21,7 @@ enum TestMeasure {
     case distance  // meters
     case reps
     case calories
+    case hrr       // bpm drop — MEASURED by the app's recovery window, never typed
     case other     // unknown future measure → plain number, no unit assumptions
 
     init(_ raw: String) {
@@ -30,6 +31,7 @@ enum TestMeasure {
         case "distance": self = .distance
         case "reps":     self = .reps
         case "calories": self = .calories
+        case "hrr":      self = .hrr
         default:         self = .other
         }
     }
@@ -42,6 +44,7 @@ enum TestMeasure {
         case .distance: return 50    // meters
         case .reps:     return 1
         case .calories: return 5
+        case .hrr:      return 1     // bpm (display only — the row is read-only)
         case .other:    return 1
         }
     }
@@ -53,6 +56,7 @@ enum TestMeasure {
         case .distance: return "m"
         case .reps:     return "reps"
         case .calories: return "cal"
+        case .hrr:      return "bpm"
         case .time, .other: return ""
         }
     }
@@ -98,9 +102,28 @@ enum TestBatteryPrefill {
         case .calories:
             let c = session.laps.compactMap { $0.calories }.reduce(0, +)
             return c > 0 ? c : nil
+        case .hrr:
+            // Measured by the post-effort recovery window (tests guiados). Nil
+            // when the window never ran / had no signal — the row then reads as
+            // omitted; the athlete NEVER types a recovery value by hand.
+            return session.hrRecovery?.hrr60.map(Double.init)
         case .other:
             return nil
         }
+    }
+}
+
+// MARK: - Save gating (pure)
+
+/// When can the capture be saved? Every REQUIRED entry has its value, and at
+/// least one value exists overall (an optional-only capture with nothing
+/// measured has nothing to send). Optional entries — contract `optional: true`
+/// or an app-measured `hrr` — never block: measured → sent; missing → omitted
+/// without error, the test still counts. Pure so the rule is unit-tested.
+enum TestResultGating {
+    static func canSave(entries: [(value: Double?, isOptional: Bool)]) -> Bool {
+        entries.contains { $0.value != nil }
+            && entries.filter { !$0.isOptional }.allSatisfy { $0.value != nil }
     }
 }
 
@@ -125,6 +148,15 @@ struct TestResultCaptureSheet: View {
     @State private var errorText: String? = nil
     @Environment(\.colorScheme) private var scheme
 
+    // Mockup C — the result step's zone truth. `preThresholds` snapshots the
+    // CURRENT umbral per modality on open (best effort) so the updated card can
+    // show the real delta; `newZoneProfiles` is the post-save re-fetch (the new
+    // umbral as the server resolved it, not a client guess).
+    @State private var preThresholds: [String: Double] = [:]
+    @State private var newZoneProfiles: [ZoneModalityProfile]? = nil
+    /// «Récord del test» overlay — raised when the bridge reports improved entries.
+    @State private var showCelebration = false
+
     // One editable result. Text-backed (not Double-backed) so numeric entry never
     // fights a formatter; the value is parsed on save.
     private struct Row: Identifiable {
@@ -134,6 +166,11 @@ struct TestResultCaptureSheet: View {
         var minText: String   // time
         var secText: String   // time
         var amountText: String // load/distance/reps/calories/other
+
+        /// An OPTIONAL row never blocks the save: the contract can flag any
+        /// result `optional`, and an `hrr` row is intrinsically optional (it's
+        /// app-measured — with no signal it's omitted, never typed).
+        var isOptional: Bool { spec.isOptional || measure == .hrr }
 
         var value: Double? {
             switch measure {
@@ -152,7 +189,9 @@ struct TestResultCaptureSheet: View {
     }
 
     private var canSave: Bool {
-        bearer != nil && !rows.isEmpty && rows.allSatisfy { $0.value != nil }
+        bearer != nil && TestResultGating.canSave(
+            entries: rows.map { (value: $0.value, isOptional: $0.isOptional) }
+        )
     }
 
     var body: some View {
@@ -173,8 +212,17 @@ struct TestResultCaptureSheet: View {
                     .padding(.bottom, Theme.Spacing.xxl)
                 }
             }
+
+            if showCelebration, let result {
+                TestRecordCelebrationView(
+                    items: TestRecordCelebrationView.items(from: result.improvedEntries, specs: specs),
+                    onDone: { showCelebration = false }
+                )
+                .transition(.opacity)
+            }
         }
         .onAppear(perform: seedRows)
+        .task { await snapshotCurrentThresholds() }
     }
 
     // MARK: Top bar
@@ -256,8 +304,19 @@ struct TestResultCaptureSheet: View {
         let measure = row.wrappedValue.measure
         return CardSurface(padding: Theme.Spacing.l) {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                LabelText(text: row.wrappedValue.spec.label)
-                if measure == .time {
+                HStack(alignment: .firstTextBaseline) {
+                    LabelText(text: row.wrappedValue.spec.label)
+                    if row.wrappedValue.isOptional, measure != .hrr {
+                        Spacer(minLength: Theme.Spacing.s)
+                        Text("OPCIONAL")
+                            .font(.system(size: 9, weight: .semibold))
+                            .tracking(Theme.Tracking.dataLabel)
+                            .foregroundStyle(Theme.Color.faint)
+                    }
+                }
+                if measure == .hrr {
+                    hrrReadout(row.wrappedValue)
+                } else if measure == .time {
                     TimeEntry(minText: row.minText, secText: row.secText, step: measure.step)
                 } else {
                     AmountEntry(
@@ -271,54 +330,42 @@ struct TestResultCaptureSheet: View {
         }
     }
 
-    // MARK: Done (honest feedback)
-
+    // The recovery result is MEASURED (post-effort window), never typed: with a
+    // value it renders as a read-only readout; without signal it announces the
+    // honest omission — the save simply skips it.
     @ViewBuilder
-    private var doneContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Theme.Color.ok)
-                Text("Resultado guardado")
-                    .font(Theme.Typography.headlineS)
+    private func hrrReadout(_ row: Row) -> some View {
+        if let value = row.value {
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Text("−\(Int(value))")
+                    .font(Theme.Typography.readoutL)
                     .foregroundStyle(Theme.Color.foreground)
-            }
-
-            let effects = result?.effects ?? []
-            if effects.isEmpty {
-                Text("Tu marca queda registrada en tu perfil.")
-                    .font(Theme.Typography.small)
+                Text("bpm")
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
-            } else {
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    ForEach(effects, id: \.self) { effect in
-                        HStack(spacing: 9) {
-                            Image(systemName: "arrow.up.right.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Theme.Color.accentText)
-                            Text(effect)
-                                .font(Theme.Typography.bodyEmph)
-                                .foregroundStyle(Theme.Color.foreground)
-                        }
-                    }
-                }
-                .padding(Theme.Spacing.l)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.hairline, lineWidth: 1)
-                )
             }
-
-            PrimaryButton(title: "Hecho") {
-                Haptics.light()
-                onDone()
-            }
-            .padding(.top, Theme.Spacing.s)
+            .frame(maxWidth: .infinity)
+            Text("Medido automáticamente al terminar el esfuerzo.")
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
+        } else {
+            Text("Sin medición esta vez — se guarda el resto del test sin este dato.")
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    // MARK: Done (honest feedback — mockup C, extracted view)
+
+    private var doneContent: some View {
+        TestResultDoneView(
+            result: result,
+            specs: specs,
+            newZoneProfiles: newZoneProfiles,
+            preThresholds: preThresholds,
+            onDone: onDone
+        )
     }
 
     // MARK: Actions
@@ -368,10 +415,31 @@ struct TestResultCaptureSheet: View {
             result = res
             Haptics.success()
             stage = .done
+            // Récord del test (mockup C): the bridge says a mark was BEATEN.
+            if !res.improvedEntries.isEmpty {
+                withAnimation(.easeOut(duration: 0.2)) { showCelebration = true }
+            }
+            // Zones changed → re-fetch the server-resolved profiles so the card
+            // shows the REAL new umbral (never a client-side computation).
+            if !res.zonesDerived.isEmpty {
+                newZoneProfiles = try? await ZonesService.fetch(bearer: bearer)
+            }
         } catch {
             stage = .editing
             errorText = "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo."
         }
+    }
+
+    /// Snapshot the CURRENT umbral per modality before saving, so the updated-
+    /// zones card can show an honest delta. Best effort — with no snapshot the
+    /// card simply shows the new umbral without a delta.
+    private func snapshotCurrentThresholds() async {
+        guard let bearer, preThresholds.isEmpty else { return }
+        guard let profiles = try? await ZonesService.fetch(bearer: bearer) else { return }
+        preThresholds = Dictionary(
+            profiles.compactMap { p in p.thresholdS.map { (p.modality, $0) } },
+            uniquingKeysWith: { _, latest in latest }
+        )
     }
 
     /// "142.5" without a trailing ".0" — kg display for the prefill seed.
@@ -380,118 +448,5 @@ struct TestResultCaptureSheet: View {
         return rounded == rounded.rounded()
             ? String(Int(rounded))
             : String(format: "%.1f", rounded)
-    }
-}
-
-// MARK: - Entry controls
-
-/// A big mono numeric field with − / + fine-adjust buttons, in the instrument
-/// readout voice. Backed by a String binding so typing never fights a formatter.
-private struct AmountEntry: View {
-    @Binding var text: String
-    let unit: String
-    let step: Double
-    let decimals: Bool
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            stepButton("minus") { adjust(-step) }
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                TextField("0", text: $text)
-                    .keyboardType(decimals ? .decimalPad : .numberPad)
-                    .focused($focused)
-                    .font(Theme.Typography.readoutL)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .multilineTextAlignment(.center)
-                    .fixedSize()
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            stepButton("plus") { adjust(step) }
-        }
-    }
-
-    private func adjust(_ delta: Double) {
-        let current = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let next = max(0, current + delta)
-        text = decimals
-            ? (next == next.rounded() ? String(Int(next)) : String(format: "%.1f", next))
-            : String(Int(next.rounded()))
-        Haptics.light()
-    }
-
-    private func stepButton(_ system: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(width: 44, height: 44)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(system == "plus" ? "Aumentar" : "Disminuir")   // AUDIT-B7
-    }
-}
-
-/// mm:ss entry — two mono fields with a colon, plus − / + on the whole time
-/// (adjusts seconds, rolling into minutes). For time-trial results (5K, 2K).
-private struct TimeEntry: View {
-    @Binding var minText: String
-    @Binding var secText: String
-    let step: Double
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            stepButton("minus") { adjust(-step) }
-            HStack(alignment: .center, spacing: 4) {
-                field($minText, placeholder: "0")
-                Text(":")
-                    .font(Theme.Typography.readoutL)
-                    .foregroundStyle(Theme.Color.muted)
-                field($secText, placeholder: "00")
-            }
-            .frame(maxWidth: .infinity)
-            stepButton("plus") { adjust(step) }
-        }
-    }
-
-    private func field(_ binding: Binding<String>, placeholder: String) -> some View {
-        TextField(placeholder, text: binding)
-            .keyboardType(.numberPad)
-            .font(Theme.Typography.readoutL)
-            .foregroundStyle(Theme.Color.foreground)
-            .multilineTextAlignment(.center)
-            .frame(minWidth: 62)
-            .fixedSize()
-    }
-
-    private func adjust(_ delta: Double) {
-        let m = Int(minText) ?? 0
-        let s = Int(secText) ?? 0
-        let total = max(0, m * 60 + s + Int(delta))
-        minText = String(total / 60)
-        secText = String(format: "%02d", total % 60)
-        Haptics.light()
-    }
-
-    private func stepButton(_ system: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(width: 44, height: 44)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(system == "plus" ? "Aumentar" : "Disminuir")   // AUDIT-B7
     }
 }

@@ -6,20 +6,23 @@ import SwiftUI
 // hecho ✓). It NEVER shows a broken "0/0": with nothing scheduled it renders
 // the honest "Pablo prepara tu semana" state.
 //
-// Presentational + a self-loading Inicio wrapper that hosts the "resultado
-// pendiente" capture (fetches the session's store_results contract, then the
-// bridge capture sheet) and hands "pendiente" taps up to open the session.
+// Tests guiados: the card SUMMARIZES and NAVIGATES — one tap anywhere opens the
+// Tests hub (TestsHubView), where every action lives («Probarme», «Continuar»,
+// «Añadir resultado», curvas, zonas). The rows here are read-only state.
 
 struct TestBatteryCard: View {
     let status: BatteryStatus
-    /// Open a pending test's session (the athlete runs it like any session).
-    var onOpenSession: (CalibrationTestStatus) -> Void = { _ in }
-    /// Add the number for a test that RAN but was never captured (the nudge).
-    var onCaptureTest: (CalibrationTestStatus) -> Void = { _ in }
+    /// Open the Tests hub — the single action of the whole card.
+    var onOpen: () -> Void = {}
 
     var body: some View {
         if status.isScheduled {
-            scheduledCard
+            Button {
+                Haptics.light()
+                onOpen()
+            } label: { scheduledCard }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityHint("Abre tus tests y benchmarks")
         } else {
             preparingCard
         }
@@ -43,6 +46,10 @@ struct TestBatteryCard: View {
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(status.completed) de \(status.total) tests con resultado")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.faint)
+                        .padding(.leading, 6)
                 }
 
                 Text(stakeSubtitle)
@@ -53,7 +60,7 @@ struct TestBatteryCard: View {
                 VStack(spacing: 0) {
                     ForEach(Array(status.tests.enumerated()), id: \.element.id) { idx, test in
                         if idx > 0 { Hairline() }
-                        testRow(test)
+                        rowContent(test)
                     }
                 }
                 .padding(.top, Theme.Spacing.xs)
@@ -69,26 +76,6 @@ struct TestBatteryCard: View {
             return "Añade el resultado que falta para calibrar tu plan."
         }
         return "Fijan tus zonas, tu 1RM y tu nivel. Hazlos frescos: marcan tus números."
-    }
-
-    @ViewBuilder
-    private func testRow(_ test: CalibrationTestStatus) -> some View {
-        switch test.displayState {
-        case .pending:
-            Button {
-                Haptics.light()
-                onOpenSession(test)
-            } label: { rowContent(test) }
-            .buttonStyle(PressScaleStyle())
-        case .resultPending:
-            Button {
-                Haptics.light()
-                onCaptureTest(test)
-            } label: { rowContent(test) }
-            .buttonStyle(PressScaleStyle())
-        case .done:
-            rowContent(test)
-        }
     }
 
     private func rowContent(_ test: CalibrationTestStatus) -> some View {
@@ -210,49 +197,26 @@ struct TestBatteryCard: View {
 //
 // Loads the battery status for the athlete and renders the card only when a
 // battery is actually scheduled (total > 0) — so Inicio never carries a
-// permanent "preparando" placeholder for athletes without tests. Hosts the
-// "resultado pendiente" capture (fetch the session's store_results contract →
-// bridge capture sheet); "pendiente" taps are handed up to open the session.
+// permanent "preparando" placeholder for athletes without tests. The card is a
+// SUMMARY: every action (run a test, capture a missing number, see the curves)
+// lives in the Tests hub the tap opens.
 
 struct TestBatteryInicioSection: View {
     let bearer: String?
     /// Bumped by Inicio (pull-to-refresh, a completed workout) to reload status.
     var reloadNonce: Int = 0
-    /// Open a pending test's session — Inicio owns the WorkoutContainer cover.
-    let onOpenSession: (_ assignmentId: String, _ title: String) -> Void
+    /// Open the Tests hub — Inicio owns the cover.
+    let onOpenHub: () -> Void
 
     @State private var status: BatteryStatus? = nil
-    @State private var captureTarget: CaptureTarget? = nil
-
-    // The assignment whose result the athlete is entering, with its resolved
-    // store_results contract. Identifiable so the sheet binds to it directly.
-    private struct CaptureTarget: Identifiable {
-        let id: String            // assignmentId
-        let specs: [StoreResultSpec]
-    }
 
     var body: some View {
         Group {
             if let status, status.isScheduled {
-                TestBatteryCard(
-                    status: status,
-                    onOpenSession: { onOpenSession($0.assignmentId, $0.label) },
-                    onCaptureTest: { test in Task { await openCapture(test) } }
-                )
+                TestBatteryCard(status: status, onOpen: onOpenHub)
             }
         }
         .task(id: reloadToken) { await load() }
-        .sheet(item: $captureTarget) { target in
-            TestResultCaptureSheet(
-                assignmentId: target.id,
-                specs: target.specs,
-                bearer: bearer,
-                onDone: {
-                    captureTarget = nil
-                    Task { await load() }
-                }
-            )
-        }
     }
 
     // Reload whenever the bearer changes OR Inicio bumps the nonce.
@@ -266,21 +230,6 @@ struct TestBatteryInicioSection: View {
             // Honest: on failure keep any prior status, else treat as none (the
             // card hides) — never a broken shell.
             if status == nil { status = .empty }
-        }
-    }
-
-    // Resolve the session's store_results contract, then open the capture sheet
-    // for a manual entry (no live pre-fill — the session already ran).
-    private func openCapture(_ test: CalibrationTestStatus) async {
-        guard let bearer else { return }
-        do {
-            let detail = try await PlanService.fetchAssignmentDetail(test.assignmentId, bearer: bearer)
-            let specs = detail.storeResults
-            guard !specs.isEmpty else { return }
-            captureTarget = CaptureTarget(id: test.assignmentId, specs: specs)
-        } catch {
-            // Couldn't resolve the contract — leave the nudge in place; the athlete
-            // can retry. No fabricated capture.
         }
     }
 }

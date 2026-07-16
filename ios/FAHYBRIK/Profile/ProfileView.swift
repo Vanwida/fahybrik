@@ -119,6 +119,7 @@ struct ProfileView: View {
                         }
 
                         SectionHeader(title: "Rendimiento")
+                        testsCard
                         zonesCard
                         strengthCard
 
@@ -621,6 +622,30 @@ struct ProfileView: View {
             // Non-fatal — the refresh below reconciles the card to server truth.
         }
         await store.refreshPartner(force: true)
+    }
+
+    // MARK: - Tests ("Tus tests")
+
+    /// Tests guiados — the benchmarks hub: every battery test with its last mark,
+    /// delta, curve and «Probarme». Pushed (nav bar back); it launches sessions
+    /// through its own cover.
+    private var testsCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                TestsHubView(
+                    bearer: bearer,
+                    hrMaxSource: identity?.hrMaxSource,
+                    onSessionCompleted: { Task { await store.planMutated() } }
+                )
+            } label: {
+                profileRowContent(
+                    icon: "stopwatch",
+                    title: "Tus tests",
+                    subtitle: "Benchmarks con tu progreso · pruébate y calibra tus zonas"
+                )
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Zones ("Mis zonas")
