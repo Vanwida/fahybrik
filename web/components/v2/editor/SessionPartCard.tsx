@@ -47,6 +47,7 @@ export function SessionPartCard({
   onSuggestTitle,
   suggesting,
   onSuggestWorkout,
+  onInsertFromLibrary,
   onAddBlock,
   onRenameBlock,
   onReorderBlocks,
@@ -61,6 +62,8 @@ export function SessionPartCard({
   suggesting: boolean;
   /** Open "Redactar con IA" for this session (#33) — drafts blocks the coach inserts. */
   onSuggestWorkout: () => void;
+  /** Abre la Biblioteca de bloques para esta sesión — copia un bloque ya hecho. */
+  onInsertFromLibrary: () => void;
   /** Add a fresh block of the chosen TYPE (agnostic — no section). */
   onAddBlock: (archetype: ArchetypeId) => void;
   /** Rename a block inline (the coach's label — the athlete reads it). */
@@ -170,8 +173,9 @@ export function SessionPartCard({
           </SortableContext>
         </DndContext>
 
-        {/* Inline type picker — no modal, no dimmed scrim. Toggled from the dashed
-            "＋ Añadir bloque"; picking a TYPE creates the block, the coach names it. */}
+        {/* Las dos formas de añadir un bloque, juntas porque son la misma decisión:
+            desde CERO (picker de tipo inline — sin modal, sin scrim) o COPIANDO uno
+            ya hecho de la biblioteca del coach. */}
         {pickerOpen ? (
           <InlineBlockPicker
             onPick={(id) => {
@@ -181,14 +185,25 @@ export function SessionPartCard({
             onClose={() => setPickerOpen(false)}
           />
         ) : (
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="v2-focus flex w-full items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="add" size={16} />
-            Añadir bloque
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="v2-focus flex flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="add" size={16} />
+              Añadir bloque
+            </button>
+            <button
+              type="button"
+              onClick={onInsertFromLibrary}
+              title="Copia un bloque de tu biblioteca en esta sesión"
+              className="v2-focus flex shrink-0 items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+            >
+              <MIcon name="inventory_2" size={16} />
+              De la biblioteca
+            </button>
+          </div>
         )}
       </div>
     </section>
