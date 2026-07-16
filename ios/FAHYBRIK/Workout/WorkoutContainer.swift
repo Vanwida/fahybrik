@@ -52,6 +52,11 @@ struct WorkoutContainer: View {
     enum Phase: Equatable {
         case brief
         case active
+        // Tests guiados — a test whose contract asks for an `hrr` result holds
+        // here for the post-effort recovery window (the app keeps measuring the
+        // pulse; the athlete does nothing). Reached only from a LIVE finish —
+        // manual/capture logs never measured a live effort, so they skip it.
+        case recovery
         case summary
         // #34 — a calibration TEST session ends here instead of closing: after the
         // execution is saved, the athlete confirms the measured number(s) (pre-
@@ -207,10 +212,6 @@ struct WorkoutContainer: View {
                     ActiveWorkoutView(
                         session: session,
                         onFinish: {
-                            // Live finish: close the wrist recording (→ one HKWorkout).
-                            // The wrist replies with its UUID while the athlete fills the
-                            // summary; PostWorkoutSummaryView stamps source_workout_ref.
-                            PhoneMirrorService.shared.end(save: true)
                             // #56 — one final "ha terminado" beat: the headline time (the
                             // captured score for a timed format, else the duration); RPE is
                             // not known until the summary, so null here.
@@ -220,7 +221,22 @@ struct WorkoutContainer: View {
                                 finalRpe: nil
                             )
                             Haptics.heavy()
-                            phase = .summary
+                            if wantsHRRecovery(detail) {
+                                // Tests guiados — the effort ended but the MEASUREMENT
+                                // hasn't: open the session's HRR window and hold on the
+                                // recovery screen. The wrist recording stays open too
+                                // (its HR stream feeds the window); it closes when the
+                                // window does.
+                                session.beginRecoveryWindow()
+                                phase = .recovery
+                            } else {
+                                // Live finish: close the wrist recording (→ one
+                                // HKWorkout). The wrist replies with its UUID while the
+                                // athlete fills the summary; PostWorkoutSummaryView
+                                // stamps source_workout_ref.
+                                PhoneMirrorService.shared.end(save: true)
+                                phase = .summary
+                            }
                         },
                         // Clean exit: leave the workout WITHOUT recording anything.
                         // No execution is saved and the session is never marked done
@@ -239,6 +255,19 @@ struct WorkoutContainer: View {
                         },
                         hrMaxSource: hrMaxSource,
                         bearer: bearer
+                    )
+                    .toolbar(.hidden, for: .tabBar)
+                }
+            case .recovery:
+                if let session {
+                    RecoveryCaptureView(
+                        session: session,
+                        onDone: {
+                            // The window is over (skip / continue / 90 s auto-close):
+                            // NOW close the wrist recording, then the normal summary.
+                            PhoneMirrorService.shared.end(save: true)
+                            phase = .summary
+                        }
                     )
                     .toolbar(.hidden, for: .tabBar)
                 }
@@ -352,6 +381,16 @@ struct WorkoutContainer: View {
                 .frame(maxWidth: 320)
             }
             .padding(Theme.Spacing.xl)
+        }
+    }
+
+    // Tests guiados — this test's contract promises an HRR result (measure `hrr`,
+    // canonically slug `hrr60`), so a LIVE finish routes through the recovery
+    // window before the summary. Slug fallback keeps it working if the backend
+    // ever ships the entry without the measure.
+    private func wantsHRRecovery(_ detail: AssignmentDetail?) -> Bool {
+        (detail?.storeResults ?? []).contains {
+            TestMeasure($0.measure) == .hrr || $0.slug == "hrr60"
         }
     }
 

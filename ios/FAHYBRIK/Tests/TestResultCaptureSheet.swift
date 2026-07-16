@@ -21,6 +21,7 @@ enum TestMeasure {
     case distance  // meters
     case reps
     case calories
+    case hrr       // bpm drop — MEASURED by the app's recovery window, never typed
     case other     // unknown future measure → plain number, no unit assumptions
 
     init(_ raw: String) {
@@ -30,6 +31,7 @@ enum TestMeasure {
         case "distance": self = .distance
         case "reps":     self = .reps
         case "calories": self = .calories
+        case "hrr":      self = .hrr
         default:         self = .other
         }
     }
@@ -42,6 +44,7 @@ enum TestMeasure {
         case .distance: return 50    // meters
         case .reps:     return 1
         case .calories: return 5
+        case .hrr:      return 1     // bpm (display only — the row is read-only)
         case .other:    return 1
         }
     }
@@ -53,6 +56,7 @@ enum TestMeasure {
         case .distance: return "m"
         case .reps:     return "reps"
         case .calories: return "cal"
+        case .hrr:      return "bpm"
         case .time, .other: return ""
         }
     }
@@ -98,6 +102,11 @@ enum TestBatteryPrefill {
         case .calories:
             let c = session.laps.compactMap { $0.calories }.reduce(0, +)
             return c > 0 ? c : nil
+        case .hrr:
+            // Measured by the post-effort recovery window (tests guiados). Nil
+            // when the window never ran / had no signal — the row then reads as
+            // omitted; the athlete NEVER types a recovery value by hand.
+            return session.hrRecovery?.hrr60.map(Double.init)
         case .other:
             return nil
         }
@@ -152,7 +161,12 @@ struct TestResultCaptureSheet: View {
     }
 
     private var canSave: Bool {
-        bearer != nil && !rows.isEmpty && rows.allSatisfy { $0.value != nil }
+        // hrr rows are auto-measured and OPTIONAL: with no signal they're omitted
+        // (never typed by hand), so they must not block the save of the real
+        // entered results. Everything else still requires its value.
+        bearer != nil
+            && rows.contains { $0.value != nil }
+            && rows.filter { $0.measure != .hrr }.allSatisfy { $0.value != nil }
     }
 
     var body: some View {
@@ -257,7 +271,9 @@ struct TestResultCaptureSheet: View {
         return CardSurface(padding: Theme.Spacing.l) {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 LabelText(text: row.wrappedValue.spec.label)
-                if measure == .time {
+                if measure == .hrr {
+                    hrrReadout(row.wrappedValue)
+                } else if measure == .time {
                     TimeEntry(minText: row.minText, secText: row.secText, step: measure.step)
                 } else {
                     AmountEntry(
@@ -268,6 +284,32 @@ struct TestResultCaptureSheet: View {
                     )
                 }
             }
+        }
+    }
+
+    // The recovery result is MEASURED (post-effort window), never typed: with a
+    // value it renders as a read-only readout; without signal it announces the
+    // honest omission — the save simply skips it.
+    @ViewBuilder
+    private func hrrReadout(_ row: Row) -> some View {
+        if let value = row.value {
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Text("−\(Int(value))")
+                    .font(Theme.Typography.readoutL)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("bpm")
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            .frame(maxWidth: .infinity)
+            Text("Medido automáticamente al terminar el esfuerzo.")
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
+        } else {
+            Text("Sin medición esta vez — se guarda el resto del test sin este dato.")
+                .font(Theme.Typography.caption)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
