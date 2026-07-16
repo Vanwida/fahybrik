@@ -340,8 +340,17 @@ export function legacyRowToPrescription(row: LegacyRow, keys: LegacyParamKeys): 
     }
   }
 
-  // Distance-based interval work: attach distance to each implied bout.
-  if (distance !== undefined && scheme === 'intervals' && p.rounds) {
+  // Distance-based repeated work: attach the distance to each implied bout.
+  //
+  // `rounds` belongs here as much as `intervals` — both mean "N bouts of X", and
+  // leaving it out SILENTLY DROPPED the distance. Real case from Pablo's library:
+  // "Series pista: 2x1200 (1'45'')" has `{rounds:2, distance_meters:1200,
+  // duration_seconds:60}` in params, and came out as `{rounds:2, work_s:60}` —
+  // the 1200m gone, so his 2×1200 read as "2 rondas de 1 minuto". Worse than
+  // incomplete: WRONG, and the completeness gate cannot catch it because
+  // `work_s` counts as a dose. The distance was never lost in `params_json`,
+  // only in the conversion.
+  if (distance !== undefined && (scheme === 'intervals' || scheme === 'rounds') && p.rounds) {
     p.sets = Array.from({ length: p.rounds }, () => ({
       measure: { kind: 'distance', meters: distance },
     }));

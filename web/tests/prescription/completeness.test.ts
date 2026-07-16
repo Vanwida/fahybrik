@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest';
 import {
   checkPrescriptionCompleteness,
   isExecutable,
+  legacyItemToPrescription,
+  setMeasure,
   prescriptionSchema,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
@@ -258,5 +260,31 @@ describe('checkPrescriptionCompleteness — a cap is not a dose', () => {
       { modality: 'bike' },
     );
     expect(r.ok).toBe(true);
+  });
+});
+
+// El puente legacy → prescripción tiraba la distancia cuando había `rounds`.
+// Caso real de la biblioteca de Pablo: "Series pista: 2x1200 (1'45'')".
+describe('legacyItemToPrescription — la distancia sobrevive a `rounds`', () => {
+  test('2x1200 conserva los 1200m en cada bout', () => {
+    const p = legacyItemToPrescription({
+      params_json: { rounds: 2, distance_meters: 1200, duration_seconds: 60 },
+      notes: null,
+    });
+    expect(p.sets).toHaveLength(2);
+    for (const s of p.sets ?? []) {
+      expect(setMeasure(s)).toEqual({ kind: 'distance', meters: 1200 });
+    }
+    expect(p.rounds).toBe(2);
+  });
+
+  test('sin distancia, `rounds` se comporta igual que antes', () => {
+    const p = legacyItemToPrescription({
+      params_json: { rounds: 5, duration_seconds: 180, rest_seconds: 45 },
+      notes: null,
+    });
+    expect(p.sets).toBeUndefined();
+    expect(p.rounds).toBe(5);
+    expect(p.work_s).toBe(180);
   });
 });
