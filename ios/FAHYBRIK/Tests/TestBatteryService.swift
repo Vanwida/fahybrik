@@ -107,21 +107,9 @@ struct RecordBatteryResult: Codable, Equatable {
         (entries ?? []).filter { $0.improved == true }
     }
 
-    /// Human confirmations, in priority order, of what the calibration changed.
-    /// Empty when nothing derived (a pure baseline) — the sheet then just
-    /// confirms the result was saved, without inventing an effect.
-    var effects: [String] {
-        var out: [String] = []
-        if !zonesDerived.isEmpty {
-            let mods = zonesDerived.map { Self.modalityLabel($0.modality) }
-            out.append("Zonas actualizadas · \(mods.joined(separator: ", "))")
-        }
-        return out + secondaryEffects
-    }
-
-    /// The non-zone confirmations (1RM / nivel). Split out because the result
-    /// screen renders the zones as their own rich card (new umbral + delta) and
-    /// must not repeat them as a plain line.
+    /// The non-zone confirmations (1RM / nivel), exactly as the bridge reported
+    /// them. Zones are NOT a line here: the result screen renders them as their
+    /// own rich card (new umbral + delta) — see TestResultDoneView.
     var secondaryEffects: [String] {
         var out: [String] = []
         if strengthMaxesWritten > 0 {
