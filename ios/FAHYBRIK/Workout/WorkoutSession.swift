@@ -244,6 +244,21 @@ final class WorkoutSession {
     private var lapHRSamples: [Int] = []
     private var lapZoneAccumSec: [Int: Double] = [:]
 
+    // MARK: - HRR (tests guiados) — post-effort recovery window
+    //
+    // A rolling tail of the most recent effort HR readings (~the last 12 s) so
+    // `beginRecoveryWindow` can derive hr_end (mean of the final 10 s of effort)
+    // at the moment the session finishes. Tiny and always-on: pruned on every
+    // reading, so it never grows past a few samples.
+    private var recentEffortHR: [(date: Date, bpm: Int)] = []
+    private static let effortTailKeepSeconds: TimeInterval = 12
+    /// When `finish()` ran — the anchor for recovery offsets. Nil until finished.
+    private(set) var finishedAt: Date? = nil
+    /// The post-effort HRR capture (tests with an `hrr` result contract). Created
+    /// by `beginRecoveryWindow()`; nil for every normal session — the recovery
+    /// path in `injectLiveHR` is then inert.
+    private(set) var hrRecovery: HRRecoveryCapture? = nil
+
     // Per-segment PM5 aggregation. We sample the live erg stream each tick while
     // the current segment is an erg AND a PM5 is streaming, then average on lap.
     // Distance/calories use the in-window delta (final − value at segment start)
@@ -740,6 +755,9 @@ final class WorkoutSession {
         if !isFinished, currentSegment != nil, lapElapsedSeconds > 0, !currentBlockIsStructural {
             closeCurrentSegmentLap()
         }
+        // HRR anchor: recovery offsets measure from the moment the EFFORT ended.
+        // First finish wins (finish can re-enter via auto-finish + button races).
+        if finishedAt == nil { finishedAt = Date() }
         isFinished = true
         // Voice the total time BEFORE stop() tears the tone session down — the coach
         // holds the session active for the cue and releases it when the cue ends (#63).
@@ -759,6 +777,19 @@ final class WorkoutSession {
     func discardAndClose() {
         stop()
         Task { await WorkoutStateStore.shared.close() }
+    }
+
+    /// Open the post-effort HRR window (tests guiados). Called by the container
+    /// right after a LIVE finish when the test's contract asks for an `hrr`
+    /// result; a no-op otherwise. Snapshots the effort tail (hr_end) and starts
+    /// accepting recovery samples through `injectLiveHR` for the next 90 s.
+    func beginRecoveryWindow(now: Date = Date()) {
+        guard isFinished, hrRecovery == nil else { return }
+        let anchor = finishedAt ?? now
+        let tail = recentEffortHR.map {
+            (secondsBeforeFinish: anchor.timeIntervalSince($0.date), bpm: $0.bpm)
+        }
+        hrRecovery = HRRecoveryCapture(effortTail: tail)
     }
 
     // MARK: - Segment entry / EMOM lifecycle
@@ -1994,12 +2025,24 @@ final class WorkoutSession {
     /// (a BLE chest/arm strap, Apple Watch/iPhone via HealthKit, or a strap paired
     /// through the PM5) so the connection strip can show provenance.
     func injectLiveHR(_ bpm: Int, source: HRSource) {
-        // Paused / finished minutes are NOT training data: a rest-HR reading taken
-        // while the athlete paused (or after the session ended) must not enter the
-        // lap's HR aggregation. Objectively correct on both platforms — the phone
-        // pauses the same engine, and the watch now pauses the HK session alongside
-        // it (WatchWorkoutCoordinator.togglePause), so no stream should feed through.
-        guard !isPaused, !isFinished else { return }
+        // Finished minutes are NOT training data — but a test's HRR window IS a
+        // measurement: post-finish readings feed ONLY the recovery capture (live
+        // value + HRR engine), never the lap aggregation. With no window open
+        // (every normal session) they're dropped exactly as before.
+        if isFinished {
+            guard let hrRecovery, let finishedAt else { return }
+            let offset = Date().timeIntervalSince(finishedAt)
+            guard offset <= HRRecoveryCapture.windowSeconds else { return }
+            liveHRBpm = bpm
+            hrRecovery.addSample(bpm: bpm, secondsSinceFinish: offset)
+            return
+        }
+        // Paused minutes are NOT training data: a rest-HR reading taken while the
+        // athlete paused must not enter the lap's HR aggregation. Objectively
+        // correct on both platforms — the phone pauses the same engine, and the
+        // watch pauses the HK session alongside it (WatchWorkoutCoordinator
+        // .togglePause), so no stream should feed through.
+        guard !isPaused else { return }
         // Every reading is real HR → it updates the live value and the lap
         // aggregation regardless of who owns provenance. But the SOURCE label is a
         // latch: a lower-priority reading (e.g. a PM5 strap under an active
@@ -2007,6 +2050,14 @@ final class WorkoutSession {
         // source takes over the provenance.
         liveHRBpm = bpm
         lapHRSamples.append(bpm)
+        // HRR effort tail — keep the last ~12 s of readings so a test finish can
+        // derive hr_end (mean of the final 10 s of effort). Pruned every reading.
+        let now = Date()
+        recentEffortHR.append((date: now, bpm: bpm))
+        let cutoff = now.addingTimeInterval(-Self.effortTailKeepSeconds)
+        while let first = recentEffortHR.first, first.date < cutoff {
+            recentEffortHR.removeFirst()
+        }
         if let current = hrSource, source.priority < current.priority,
            Date().timeIntervalSince(hrSourceLastSeenAt) < Self.hrSourceStaleSeconds {
             return   // the owner is alive — a lower-priority reading never steals the label

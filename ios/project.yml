@@ -274,6 +274,10 @@ targets:
       # reads repSplit() to log a split station against the pact (SetTableLiveView reads
       # it on the wrist). The SwiftUI hero (DoblesTurnHero) stays iOS-only.
       - path: FAHYBRIK/Workout/DoblesTurn.swift
+      # HRR post-effort recovery capture (tests guiados) — pure Foundation.
+      # WorkoutSession references HRRecoveryCapture, so it must compile into the
+      # watch too (the recovery UI itself stays iOS-only).
+      - path: FAHYBRIK/Workout/HRRecovery.swift
       - path: FAHYBRIK/Workout/WorkoutSession.swift
       # Shared count-down formatter (#68 micro-fix) — the wrist WatchFormat.countdown
       # delegates here so it rounds like the iPhone (mirror countdown parity).
