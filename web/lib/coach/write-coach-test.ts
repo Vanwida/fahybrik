@@ -60,12 +60,13 @@ function slugify(input: string): string {
 /** Resolve one coach result input to a normalized StoreResultSpec. Calibration →
  *  from the catalog; baseline → generated slug + derives:'none'. */
 function resolveResultSpec(input: CoachTestResultInput, testSlug: string): StoreResultSpec {
+  const optional = input.optional === true ? { optional: true as const } : {};
   if (input.kind === 'calibration') {
     const target = calibrationTargetByKey(input.target);
     if (!target) {
       throw new CoachTestError('invalid_target', `Calibración desconocida: ${input.target}`, 422);
     }
-    return specForCalibrationTarget(target, input.label);
+    return { ...specForCalibrationTarget(target, input.label), ...optional };
   }
   return {
     slug: `${testSlug}_${slugify(input.label)}`.slice(0, 60),
@@ -73,6 +74,7 @@ function resolveResultSpec(input: CoachTestResultInput, testSlug: string): Store
     unit: input.unit,
     derives: 'none',
     label: input.label,
+    ...optional,
   };
 }
 
@@ -156,8 +158,8 @@ async function insertResults(
   for (let i = 0; i < specs.length; i += 1) {
     const s = specs[i]!;
     await tx`
-      insert into coach_test_results (test_id, slug, label, measure, unit, derives, modality, sort_order)
-      values (${testId}, ${s.slug}, ${s.label}, ${s.measure}, ${s.unit}, ${s.derives}, ${s.modality ?? null}, ${i})
+      insert into coach_test_results (test_id, slug, label, measure, unit, derives, modality, optional, sort_order)
+      values (${testId}, ${s.slug}, ${s.label}, ${s.measure}, ${s.unit}, ${s.derives}, ${s.modality ?? null}, ${s.optional ?? false}, ${i})
     `;
   }
 }

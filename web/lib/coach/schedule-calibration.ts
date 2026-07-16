@@ -14,6 +14,38 @@ import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance
 import { listCoachTests } from '@/lib/coach/coach-tests';
 import { addDays, isoDateString } from '@fahybrid/shared/domain/dates';
 
+/**
+ * Insert ONE calibration-test session for the athlete, pointing at an already-cloned
+ * per-athlete instance template. This is the SINGLE place the `workout_assignments`
+ * shape of a test session is written — both the week-1 auto-scheduler (below) and the
+ * ad-hoc "Probarme" start (POST /api/athlete/test-battery/start) route through it, so
+ * the status/notes/calibration-FK invariants never drift. Returns the new assignment id.
+ */
+export async function insertCalibrationAssignment(params: {
+  client: Sql;
+  athlete_id: number;
+  test_id: number;
+  /** The per-athlete instance template id (already cloned by the caller). */
+  template_id: number;
+  template_version: number;
+  /** ISO `YYYY-MM-DD` in the box timezone. */
+  scheduled_for: string;
+  /** The covering microcycle, or null for an ad-hoc (unplanned) session. */
+  microcycle_id: number | null;
+}): Promise<number> {
+  const rows = await params.client<{ id: string }[]>`
+    insert into workout_assignments (
+      athlete_id, microcycle_id, scheduled_for, template_id, template_version,
+      status, notes, calibration_test_id
+    ) values (
+      ${params.athlete_id}, ${params.microcycle_id}, ${params.scheduled_for}::date,
+      ${params.template_id}, ${params.template_version}, 'scheduled', 'calibration', ${params.test_id}
+    )
+    returning id::text as id
+  `;
+  return Number(rows[0]!.id);
+}
+
 export async function scheduleWeek1Calibration(params: {
   client: Sql;
   coach_id: number | bigint;
@@ -61,15 +93,15 @@ export async function scheduleWeek1Calibration(params: {
       const scheduledFor = isoDateString(addDays(params.week1_monday, dayOffset));
       // Only week-1 occurrences hang off the passed microcycle; later weeks aren't covered.
       const microcycleId = occ.week_offset === 1 ? week1MicrocycleId : null;
-      await client`
-        insert into workout_assignments (
-          athlete_id, microcycle_id, scheduled_for, template_id, template_version,
-          status, notes, calibration_test_id
-        ) values (
-          ${athlete_id}, ${microcycleId}, ${scheduledFor}::date,
-          ${clone.template_id}, ${clone.version}, 'scheduled', 'calibration', ${Number(test.id)}
-        )
-      `;
+      await insertCalibrationAssignment({
+        client,
+        athlete_id,
+        test_id: Number(test.id),
+        template_id: clone.template_id,
+        template_version: clone.version,
+        scheduled_for: scheduledFor,
+        microcycle_id: microcycleId,
+      });
       injected += 1;
     }
   }

@@ -41,6 +41,7 @@ const UNIT_ES: Record<StoreResultUnit, string> = {
   reps: 'repeticiones',
   calories: 'calorías',
   kg: 'kg',
+  bpm: 'bpm',
 };
 
 function resultHelp(r: DraftResult): string {
@@ -161,7 +162,7 @@ export function TestEditorPanel({
                   <SelectInput
                     ariaLabel="Qué mide y calibra"
                     value={encodeResultChoice(r)}
-                    onChange={(v) => setResult(i, decodeResultChoice(v, r.label))}
+                    onChange={(v) => setResult(i, decodeResultChoice(v, r.label, r.optional))}
                   >
                     <optgroup label="Calibra (zonas / 1RM)">
                       {CALIBRATION_TARGETS.map((t) => (
@@ -198,6 +199,21 @@ export function TestEditorPanel({
                   maxLength={60}
                 />
               </div>
+              <label className="mt-1.5 flex cursor-pointer items-start gap-1.5 text-[11.5px] leading-snug text-[color:var(--v2-muted)]">
+                <input
+                  type="checkbox"
+                  checked={r.optional}
+                  onChange={(e) => setResult(i, { ...r, optional: e.target.checked })}
+                  className="v2-focus mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--v2-accent)]"
+                />
+                <span>
+                  Opcional
+                  <span className="text-[color:var(--v2-faint)]">
+                    {' '}
+                    · la app la mide sola si puede; no bloquea completar el test
+                  </span>
+                </span>
+              </label>
               <p className="mt-1 text-[11px] leading-snug text-[color:var(--v2-faint)]">
                 {resultHelp(r)}
               </p>

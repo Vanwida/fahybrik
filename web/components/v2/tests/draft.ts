@@ -16,10 +16,11 @@ import type { CoachTestResultInput } from '@fahybrid/shared/schema/coach-tests';
 import { CALIBRATION_TARGETS } from '@fahybrid/shared/domain/coach/test-battery';
 
 /** One result being edited. A CALIBRATION result carries only a catalog target
- *  key (slug/measure/unit derived); a BASELINE result carries its own measure/unit. */
+ *  key (slug/measure/unit derived); a BASELINE result carries its own measure/unit.
+ *  `optional` marks a result that never blocks the test's completion (#34). */
 export type DraftResult =
-  | { kind: 'calibration'; target: string; label: string }
-  | { kind: 'baseline'; measure: StoreResultMeasure; unit: StoreResultUnit; label: string };
+  | { kind: 'calibration'; target: string; label: string; optional: boolean }
+  | { kind: 'baseline'; measure: StoreResultMeasure; unit: StoreResultUnit; label: string; optional: boolean };
 
 export interface DraftSchedule {
   week_offset: number;
@@ -44,13 +45,13 @@ export function encodeResultChoice(r: DraftResult): string {
   return r.kind === 'calibration' ? `cal:${r.target}` : `base:${r.measure}`;
 }
 
-/** Map a decoded <select> value back to a DraftResult, preserving the label. */
-export function decodeResultChoice(value: string, label: string): DraftResult {
+/** Map a decoded <select> value back to a DraftResult, preserving label + optional. */
+export function decodeResultChoice(value: string, label: string, optional: boolean): DraftResult {
   if (value.startsWith('cal:')) {
-    return { kind: 'calibration', target: value.slice(4), label };
+    return { kind: 'calibration', target: value.slice(4), label, optional };
   }
   const measure = value.slice(5) as StoreResultMeasure;
-  return { kind: 'baseline', measure, unit: unitForMeasure(measure), label };
+  return { kind: 'baseline', measure, unit: unitForMeasure(measure), label, optional };
 }
 
 /** The natural unit for a baseline measure (time→seconds, load→kg, …). */
@@ -68,15 +69,15 @@ export function unitForMeasure(measure: StoreResultMeasure): StoreResultUnit {
 function resultToDraft(r: CoachTestResult): DraftResult {
   if (r.derives !== 'none') {
     const target = CALIBRATION_TARGETS.find((t) => t.slug === r.slug && t.derives === r.derives);
-    if (target) return { kind: 'calibration', target: target.key, label: r.label };
+    if (target) return { kind: 'calibration', target: target.key, label: r.label, optional: r.optional };
   }
-  return { kind: 'baseline', measure: r.measure, unit: r.unit, label: r.label };
+  return { kind: 'baseline', measure: r.measure, unit: r.unit, label: r.label, optional: r.optional };
 }
 
 /** A new default result (a 5K-control run-zones calibration — the most common). */
 export function defaultDraftResult(): DraftResult {
   const first = CALIBRATION_TARGETS[0]!;
-  return { kind: 'calibration', target: first.key, label: '' };
+  return { kind: 'calibration', target: first.key, label: '', optional: false };
 }
 
 export function emptyTestDraft(): TestDraft {
@@ -104,11 +105,12 @@ export function testToDraft(t: CoachCalibrationTest): TestDraft {
 }
 
 export function draftResultToInput(d: DraftResult): CoachTestResultInput {
+  const optional = d.optional ? { optional: true as const } : {};
   if (d.kind === 'calibration') {
     const label = d.label.trim();
     return label
-      ? { kind: 'calibration', target: d.target, label }
-      : { kind: 'calibration', target: d.target };
+      ? { kind: 'calibration', target: d.target, label, ...optional }
+      : { kind: 'calibration', target: d.target, ...optional };
   }
-  return { kind: 'baseline', measure: d.measure, unit: d.unit, label: d.label.trim() };
+  return { kind: 'baseline', measure: d.measure, unit: d.unit, label: d.label.trim(), ...optional };
 }

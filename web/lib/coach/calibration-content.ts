@@ -21,7 +21,11 @@ import {
   storeResultsSchema,
   type StoreResultSpec,
 } from '@fahybrid/shared/schema/test-battery';
-import { CALIBRATION_META_KEY } from '@fahybrid/shared/domain/coach/test-battery';
+import {
+  CALIBRATION_META_KEY,
+  type CalibrationContentSegment,
+} from '@fahybrid/shared/domain/coach/test-battery';
+import { prescriptionToParams } from '@fahybrid/shared/domain/prescription';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
@@ -148,6 +152,52 @@ async function writeContentSegments(
   }
 }
 
+/** Write a test's session from a structured CONTENT blueprint (#61 guided tramos):
+ *  one template_segment per blueprint segment, each anchored on its exercise and
+ *  carrying the real `prescription_json` (the RunStructure for a run, a legacy erg
+ *  prescription for a row) + a scalar `params_json` summary for legacy readers.
+ *  Deletes any prior segments first. Used ONLY for the default protocols that ship a
+ *  `content`; coach-authored tests keep the generic per-result path. */
+async function writeCalibrationContentSegments(
+  tx: TransactionClient,
+  templateId: number,
+  content: readonly CalibrationContentSegment[],
+): Promise<void> {
+  await tx`delete from template_segments where template_id = ${templateId}`;
+
+  // Resolve every candidate exercise slug once (catalog slugs, tried in order).
+  const candidates = new Set<string>();
+  for (const seg of content) for (const s of seg.exercise) candidates.add(s);
+  const rows =
+    candidates.size > 0
+      ? await tx<Array<{ id: string; slug: string }>>`
+          select id::text as id, slug from exercises where slug = any(${[...candidates]})
+        `
+      : [];
+  const idByCatalogSlug = new Map<string, number>(rows.map((r) => [r.slug, Number(r.id)]));
+
+  let position = 0;
+  for (const seg of content) {
+    const hit = seg.exercise.find((s) => idByCatalogSlug.has(s));
+    if (hit == null) continue; // no anchor exercise on this DB → skip (honest)
+    const exerciseId = idByCatalogSlug.get(hit)!;
+    // Scalar summary for legacy readers; assignment-detail prefers prescription_json.
+    const paramsJson = prescriptionToParams(seg.prescription) as Parameters<typeof tx.json>[0];
+    const prescriptionJson = seg.prescription as unknown as Parameters<typeof tx.json>[0];
+    await tx`
+      insert into template_segments (
+        template_id, position, exercise_id, params_json, notes,
+        block_position, block_format, block_title, prescription_json
+      )
+      values (
+        ${templateId}, ${position}, ${exerciseId}::bigint, ${tx.json(paramsJson)},
+        ${seg.title}, ${seg.block_position}, ${null}, ${seg.title}, ${tx.json(prescriptionJson)}
+      )
+    `;
+    position += 1;
+  }
+}
+
 /**
  * Ensure a test's CONTENT template exists and matches the given contract, INSIDE a
  * transaction. If `existingTemplateId` is passed and still valid, it is reused
@@ -164,6 +214,9 @@ export async function materializeTestContent(
     testSlug: string;
     specs: StoreResultSpec[];
     existingTemplateId?: number | null;
+    /** Structured session blueprint (#61). When present, its segments are written
+     *  instead of the generic one-per-result; else the generic path runs. */
+    content?: readonly CalibrationContentSegment[];
   },
 ): Promise<number> {
   // Defensive: the specs are the exact shape the bridge parses. Parsing here
@@ -207,6 +260,12 @@ export async function materializeTestContent(
     `;
   }
 
-  await writeContentSegments(tx, templateId, params.name, specs);
+  // Structured session (default resistance tests) vs generic one-per-result (half-sim,
+  // 1RM, coach-authored). The store_results contract (meta_json) is identical either way.
+  if (params.content && params.content.length > 0) {
+    await writeCalibrationContentSegments(tx, templateId, params.content);
+  } else {
+    await writeContentSegments(tx, templateId, params.name, specs);
+  }
   return templateId;
 }

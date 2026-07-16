@@ -42,9 +42,10 @@ export async function loadBatteryStatus(
       status: string;
       calibration: string;
       label: string;
-      // Each expected result's slug + how it's measured, ordered — drives both the
-      // captured check and the formatted result_label.
-      expected_specs: Array<{ slug: string; measure: string }>;
+      // Each expected result's slug + how it's measured + whether it's optional,
+      // ordered — drives both the captured check (only REQUIRED gate completion) and
+      // the formatted result_label.
+      expected_specs: Array<{ slug: string; measure: string; optional: boolean }>;
     }[]
   >`
     select wa.id::text as assignment_id,
@@ -53,7 +54,7 @@ export async function loadBatteryStatus(
            cct.slug as calibration,
            cct.name as label,
            coalesce(
-             jsonb_agg(jsonb_build_object('slug', ctr.slug, 'measure', ctr.measure)
+             jsonb_agg(jsonb_build_object('slug', ctr.slug, 'measure', ctr.measure, 'optional', ctr.optional)
                        order by ctr.sort_order, ctr.id) filter (where ctr.slug is not null),
              '[]'::jsonb
            ) as expected_specs
@@ -81,7 +82,10 @@ export async function loadBatteryStatus(
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
     const specs = r.expected_specs ?? [];
-    const result_captured = specs.length > 0 && specs.every((s) => valueBySlug.has(s.slug));
+    // Completion is gated ONLY by the REQUIRED results — an optional result (e.g. HRR
+    // the app auto-measures) never blocks "completado".
+    const required = specs.filter((s) => !s.optional);
+    const result_captured = required.length > 0 && required.every((s) => valueBySlug.has(s.slug));
     return {
       calibration_slug: r.calibration ?? '',
       label: r.label,
@@ -90,10 +94,14 @@ export async function loadBatteryStatus(
       session_status: r.status,
       result_captured,
       result_pending: !result_captured && executed.has(r.status),
-      // Pre-formatted captured value(s), joined for a multi-result battery. Null
-      // until every expected result is in — a half-captured battery shows no number.
+      // Pre-formatted captured value(s), joined for a multi-result battery. Shown once
+      // the required results are in; a captured OPTIONAL result rides along, a missing
+      // one is simply omitted (it never blocked completion).
       result_label: result_captured
-        ? specs.map((s) => formatCapturedValue(s.measure, valueBySlug.get(s.slug)!)).join(' · ')
+        ? specs
+            .filter((s) => valueBySlug.has(s.slug))
+            .map((s) => formatCapturedValue(s.measure, valueBySlug.get(s.slug)!))
+            .join(' · ')
         : null,
     };
   });
@@ -126,6 +134,8 @@ function formatCapturedValue(measure: string, value: number): string {
       return `${n} m`;
     case 'calories':
       return `${n} cal`;
+    case 'hrr':
+      return `${n} bpm`;
     default: // reps
       return n;
   }

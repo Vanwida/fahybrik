@@ -21,6 +21,8 @@ export interface CoachTestResult {
   unit: StoreResultUnit;
   derives: StoreResultDerives;
   modality: string | null;
+  /** Optional result — does not gate the test's completion (#34). */
+  optional: boolean;
   sort_order: number;
 }
 
@@ -96,7 +98,7 @@ export async function listCoachTests(
   const [resultRows, scheduleRows] = await Promise.all([
     client<ResultRow[]>`
       select id::text, test_id::text, slug, label,
-             measure, unit, derives, modality, sort_order
+             measure, unit, derives, modality, optional, sort_order
       from coach_test_results
       where test_id = any(${ids})
       order by sort_order asc, id asc`,
@@ -118,6 +120,7 @@ export async function listCoachTests(
       unit: r.unit,
       derives: r.derives,
       modality: r.modality,
+      optional: r.optional,
       sort_order: r.sort_order,
     });
     resultsByTest.set(r.test_id, list);

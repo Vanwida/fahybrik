@@ -29,6 +29,7 @@
 import {
   BENCHMARK_UNIT_KG,
   BENCHMARK_UNIT_SECONDS,
+  BENCHMARK_UNIT_BPM,
   thresholdBenchmarkSlug,
   type TestModality,
 } from '../coach/benchmark-slugs';
@@ -70,7 +71,24 @@ export interface TimeTrialTestEvent {
   source: TestSource;
 }
 
-export type TestEvent = ThresholdTestEvent | StrengthTestEvent | TimeTrialTestEvent;
+// A heart-rate-recovery result (hrr60 = bpm the HR dropped 60 s after stopping a
+// near-maximal effort). A BASELINE benchmark: it records the bpm drop under its own
+// slug (hrr60, unit bpm) and derives NOTHING — no zone, no 1RM. Higher = fitter.
+export interface HrrTestEvent {
+  kind: 'hrr';
+  athlete_id: number;
+  /** The HRR benchmark slug (hrr60…) — already canonical. */
+  exercise_slug: string;
+  /** bpm the HR dropped in the fixed recovery window. HIGHER is better. */
+  bpm: number;
+  source: TestSource;
+}
+
+export type TestEvent =
+  | ThresholdTestEvent
+  | StrengthTestEvent
+  | TimeTrialTestEvent
+  | HrrTestEvent;
 
 export interface BenchmarkAppendRow {
   exercise_slug: string;
@@ -90,6 +108,9 @@ export function benchmarkForTestEvent(event: TestEvent): BenchmarkAppendRow {
   }
   if (event.kind === 'timetrial') {
     return { exercise_slug: event.exercise_slug, value: event.seconds, unit: BENCHMARK_UNIT_SECONDS };
+  }
+  if (event.kind === 'hrr') {
+    return { exercise_slug: event.exercise_slug, value: event.bpm, unit: BENCHMARK_UNIT_BPM };
   }
   return {
     exercise_slug: thresholdBenchmarkSlug(event.modality),
