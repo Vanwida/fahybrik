@@ -1,74 +1,19 @@
 'use client';
 
-// ArchetypePicker — the block-type chooser. Opened as an OVERLAY/SHEET from
-// "Añadir bloque": the coach sees clean TYPE CARDS (icon + name), not a board of
-// axes and not a wall of descriptions. Picking one creates a block PRE-SEEDED with
-// that type's modality/measure/target/scheme defaults — a ready form, never empty
-// toggles.
+// Las TARJETAS de tipo de bloque (icono + nombre, sin descripciones): el
+// vocabulario de sesión del deporte. Picar una crea un bloque PRE-SEMBRADO con la
+// modalidad/medida/objetivo/esquema de ese tipo — un formulario listo, nunca
+// toggles vacíos. Agnóstico al método: el tipo de bloque es un hecho del deporte,
+// jamás un concepto de fase/metodología.
 //
-// Closes on Escape / scrim click; focus-trapped to the dialog (via ModalPortal).
-// The types are the sport's session vocabulary (agnostic to methodology — the
-// block type is a sport fact, never a phase/method concept).
+// Aquí vivía además un modal `ArchetypePicker` que envolvía esta rejilla, pero no
+// lo renderizaba NADIE: el selector de tipo entra por AddBlockModal (modal) y por
+// el picker inline de SessionPartCard, y los dos montan la rejilla directamente.
 
-import { useRef } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { ARCHETYPES, type Archetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
-import { ModalPortal } from './ModalPortal';
 
-export function ArchetypePicker({
-  destinationLabel,
-  onPick,
-  onClose,
-}: {
-  /** e.g. "principal" / "Calentamiento" — shown in the header sub-line. */
-  destinationLabel: string;
-  onPick: (id: ArchetypeId) => void;
-  onClose: () => void;
-}) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <ModalPortal onEscape={onClose}>
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal
-        aria-label="Elegir tipo de bloque"
-        tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-        className="v2-focus flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
-      >
-        <header className="flex items-center justify-between gap-3 border-b border-[color:var(--v2-border)] px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl">
-              Añadir bloque <span className="text-[color:var(--v2-muted)]">· {destinationLabel}</span>
-            </h2>
-            <p className="v2-micro mt-0.5">¿Qué tipo de trabajo es?</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cancelar"
-            className="v2-focus flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={20} />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <ArchetypeGrid onPick={onPick} />
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
-  );
-}
-
-/** The block-type cards (icon + name, no descriptions) — reused by the standalone
+/** The block-type cards (icon + name, no descriptions) — reused by the inline
  *  picker AND the AddBlockModal type chooser. */
 export function ArchetypeGrid({ onPick }: { onPick: (id: ArchetypeId) => void }) {
   return (

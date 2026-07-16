@@ -162,7 +162,10 @@ export function ExercisePicker({
       .finally(() => {
         if (alive) {
           setLoading(false);
-          searchRef.current?.focus();
+          // preventScroll: enfocar arrastra el fondo para "revelar" el input y la
+          // página de detrás se iba hasta abajo al abrir el picker. El scroll lock
+          // NO lo tapa: overflow:hidden frena la rueda, no el scroll programático.
+          searchRef.current?.focus({ preventScroll: true });
         }
       });
     return () => {

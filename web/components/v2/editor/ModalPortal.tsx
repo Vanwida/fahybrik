@@ -125,7 +125,9 @@ export function ModalPortal({
       // El contenedor del diálogo si es enfocable (tabIndex=-1 → el lector de
       // pantalla anuncia su aria-label); si no, el primer control.
       const dialog = box.querySelector<HTMLElement>('[role="dialog"][tabindex]');
-      (dialog ?? tabbablesIn(box)[0])?.focus();
+      // preventScroll OBLIGATORIO: enfocar arrastra el fondo para "revelar" el
+      // elemento y la página de detrás se iba hasta abajo sola al abrir. Medido.
+      (dialog ?? tabbablesIn(box)[0])?.focus({ preventScroll: true });
     }
     return () => {
       // Al cerrar, el foco vuelve a quien abrió (si sigue en el documento); si no,
