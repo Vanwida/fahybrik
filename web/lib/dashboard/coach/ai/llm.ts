@@ -14,6 +14,40 @@ import { recordLlmInvocation } from '@/lib/observability/llm-cost';
  * unifique, ese módulo importará desde aquí.
  */
 
+/**
+ * Presupuesto de salida por defecto. OJO: el modelo de chat configurado RAZONA, y
+ * `max_tokens` capa razonamiento + contenido JUNTOS — medido: ~1.4-2k tokens de
+ * pensamiento antes de escribir un carácter. Un presupuesto corto no devuelve un
+ * JSON más corto: devuelve `finish_reason:"length"` y un JSON cortado por la
+ * mitad, que revienta el parseo y cae al fallback. El default viejo (2048) era
+ * justo el tamaño del razonamiento. Cada llamador serio pone el suyo; esto es el
+ * suelo para que nadie herede una trampa.
+ */
+const DEFAULT_MAX_TOKENS = Number(process.env.LLM_CHAT_MAX_TOKENS ?? 8192);
+
+/**
+ * Routing de provider de OpenRouter (`LLM_CHAT_PROVIDER_ORDER` / `_FALLBACKS`).
+ *
+ * Sin esto, OpenRouter reparte a cualquier provider del modelo — y no se portan
+ * igual: medido con el mismo prompt y `max_tokens:2048`, Alibaba mete el
+ * razonamiento DENTRO del presupuesto (finish_reason:"length", JSON truncado) y
+ * GMICloud no (finish_reason:"stop", JSON entero). Ignorar la config que Alex ya
+ * puso en el env hacía que el mismo código fallara o no según a quién le tocara.
+ *
+ * NOTA: `web/lib/coach/ai-chat.ts` lee estas mismas envs por su cuenta (gemelo).
+ * Si aparece un tercer lector, esto se extrae a un módulo compartido.
+ */
+function readOpenRouterRouting(): { order: string[]; allow_fallbacks: boolean } | undefined {
+  const orderRaw = process.env.LLM_CHAT_PROVIDER_ORDER?.trim();
+  const order = orderRaw ? orderRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if (order.length === 0) return undefined;
+  const fallbacksRaw = process.env.LLM_CHAT_PROVIDER_FALLBACKS?.trim().toLowerCase();
+  return {
+    order,
+    allow_fallbacks: !(fallbacksRaw === 'false' || fallbacksRaw === '0'),
+  };
+}
+
 export function isCoachIaLlmConfigured(): boolean {
   const model = (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
   const key =
@@ -80,16 +114,20 @@ export async function callCoachIaLlmJson(args: CallArgs): Promise<unknown> {
     if (title) headers['X-Title'] = title;
   }
 
-  const body = {
+  const body: Record<string, unknown> = {
     model,
     messages: [
       { role: 'system', content: args.system },
       { role: 'user', content: args.user },
     ],
     temperature: args.temperature ?? 0.35,
-    max_tokens: args.max_tokens ?? 2048,
+    max_tokens: args.max_tokens ?? DEFAULT_MAX_TOKENS,
     response_format: { type: 'json_object' },
   };
+  if (provider === 'openrouter') {
+    const routing = readOpenRouterRouting();
+    if (routing) body.provider = routing;
+  }
 
   const res = await fetch(url, {
     method: 'POST',
