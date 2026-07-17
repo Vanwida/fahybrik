@@ -218,18 +218,29 @@ function isGenerateRequest(body: unknown): boolean {
  *
  *   · He has BLOCKS  → `suggest-week-from-blocks`. A block is a real piece of his
  *     plan ("Front squat 6 series 7-6-6-6-5-5", imported from his Excel), already
- *     written and already typed. There is nothing for a model to author, so this
- *     path costs ~1s instead of minutes and is 100% his content.
+ *     written and already typed. There is nothing for a model to AUTHOR here — but
+ *     there is plenty to CHOOSE, and choosing is the whole job.
  *   · He has NONE    → `suggest-week` composes from the exercise catalog. That is
  *     every new coach, so composition is not a fallback, it is the day-one path.
  *
- * Why not let the model PICK his blocks: we tried. Handing it his 99 titles and
- * asking it to choose blew past the 120s LLM timeout, and the whole week fell back
- * to nothing. The blocks path already has a deterministic heuristic that balances
- * the week by methodology group — instant, and it cannot hallucinate a title.
+ * Both paths ask the model (`mode: 'slow'`), and that is not negotiable while the
+ * button says «Generar con IA».
  *
- * Both paths return `{ days, name }` and ride the same review→confirm gate. Saves
- * nothing.
+ * This used to pass `mode: 'fast'` — a deterministic rotation of his groups, no
+ * model, no focus. It shipped, and the coach typed "doble sesión de running e
+ * híbrido enfocado en HYROX" into his real account and got LUN Fuerza · MAR Fuerza
+ * · MIÉ Z2, one session a day, zero HYROX, in under a second. The screen asked him
+ * for a focus and binned it. The excuse in this comment was that letting the model
+ * pick from his 99 titles "blew past the 120s timeout" — it does not, and never
+ * did: MEASURED against his real library it answers in ~2s on a ~4.3k-token prompt.
+ * The 120s/260s figures came from `compose-week.ts`, the catalog path, where the
+ * model WRITES 7-12 sessions from scratch across as many calls. Selecting ids from
+ * a list is one small call. What actually broke was `max_tokens: 2048` on a
+ * reasoning model (see `compose-week-llm.ts`), whose truncated JSON fell into a
+ * SILENT fallback — so the failure looked like a slow model instead of a bug.
+ *
+ * Both paths return `{ days, name, notices }` and ride the same review→confirm
+ * gate. Saves nothing.
  */
 async function buildGeneratedProposal(params: {
   coach_id: number | bigint;
@@ -250,10 +261,14 @@ async function buildGeneratedProposal(params: {
   if (coachBlocks.length > 0) {
     const week = await suggestWeekFromBlocks({
       coach_id: params.coach_id,
-      body: { focus: req.focus, mode: 'fast', ...(req.level ? { level: req.level } : {}) },
+      body: { focus: req.focus, mode: 'slow', ...(req.level ? { level: req.level } : {}) },
       client,
     });
-    return weekDaysToProposal({ days: week.days, sheetLabel: week.name });
+    return weekDaysToProposal({
+      days: week.days,
+      sheetLabel: week.name,
+      notices: week.notices,
+    });
   }
 
   const week = await suggestWeekPlan({

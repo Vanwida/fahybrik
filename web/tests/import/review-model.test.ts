@@ -86,16 +86,16 @@ function makeFlag(itemUid: string, token: string, overrides: Partial<ProposalFla
 function makeDay(
   dayOfWeek: number,
   dow: string,
-  session: EditorSession | null,
+  sessions: EditorSession[],
   flags: ProposalFlag[] = [],
 ): ProposalDay {
   return {
     day_of_week: dayOfWeek,
     dow,
     stimulus: null,
-    session,
+    sessions,
     flags,
-    state: session ? 'detected' : 'rest',
+    state: sessions.length > 0 ? 'detected' : 'rest',
   };
 }
 
@@ -119,16 +119,16 @@ function buildFixture(microWeeks: MicroWeekRef[]): ReviewWeek[] {
   const w2MonUid = uid('item');
   const proposal = makeProposal([
     makeWeek(1, [
-      makeDay(1, 'Lunes', makeSession([{ uid: monUid, name: 'Back Squat', exerciseId: 10 }]), [
+      makeDay(1, 'Lunes', [makeSession([{ uid: monUid, name: 'Back Squat', exerciseId: 10 }])], [
         makeFlag(monUid, 'Back Squat'),
       ]),
-      makeDay(2, 'Martes', makeSession([{ uid: tueUid, name: 'zercher jmp', exerciseId: null }]), [
+      makeDay(2, 'Martes', [makeSession([{ uid: tueUid, name: 'zercher jmp', exerciseId: null }])], [
         makeFlag(tueUid, 'zercher jmp', { unresolved_exercise: true }),
       ]),
-      makeDay(3, 'Miércoles', null),
+      makeDay(3, 'Miércoles', []),
     ]),
     makeWeek(2, [
-      makeDay(1, 'Lunes', makeSession([{ uid: w2MonUid, name: 'Deadlift', exerciseId: 20 }]), [
+      makeDay(1, 'Lunes', [makeSession([{ uid: w2MonUid, name: 'Deadlift', exerciseId: 20 }])], [
         makeFlag(w2MonUid, 'Deadlift'),
       ]),
     ]),
@@ -177,7 +177,7 @@ describe('per-DAY exclusion', () => {
   test('an excluded day teaches NO synonyms even if its exercise was resolved', () => {
     const model = buildFixture(TWO_MICRO_WEEKS);
     // Coach resolves the martes exercise in the drawer…
-    model[0]!.days[1]!.session!.blocks[0]!.items[0]!.exercise_id = 55;
+    model[0]!.days[1]!.sessions[0]!.blocks[0]!.items[0]!.exercise_id = 55;
     expect(buildConfirmBody('7', model).synonyms).toEqual([
       { term: 'zercher jmp', exercise_id: 55 },
     ]);
@@ -251,7 +251,7 @@ function oneLineModel(prescription: Prescription): ReviewWeek[] {
         makeDay(
           1,
           'Lunes',
-          makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10, prescription }]),
+          [makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10, prescription }])],
           [makeFlag(itemUid, 'Back Squat')],
         ),
       ]),
@@ -271,13 +271,13 @@ describe('lines with no dose block confirm', () => {
   test('a resolved "Run" with no distance and no time is NOT confirmable', () => {
     const model = oneLineModel({ scheme: 'steady', modality: 'run' });
     expect(totalIncomplete(model)).toBe(1);
-    expect(sessionIncompleteLines(model[0]!.days[0]!.session)[0]!.reasons.join(' ')).toMatch(
+    expect(sessionIncompleteLines(model[0]!.days[0]!.sessions[0]!)[0]!.reasons.join(' ')).toMatch(
       /dosis/i,
     );
   });
 
   test('the incomplete line names itself and says what is missing', () => {
-    const lines = sessionIncompleteLines(oneLineModel(NO_DOSE)[0]!.days[0]!.session);
+    const lines = sessionIncompleteLines(oneLineModel(NO_DOSE)[0]!.days[0]!.sessions[0]!);
     expect(lines).toHaveLength(1);
     expect(lines[0]!.exercise_name).toBe('Back Squat');
     expect(lines[0]!.reasons.length).toBeGreaterThan(0);
@@ -307,7 +307,7 @@ describe('lines with no dose block confirm', () => {
           makeDay(
             1,
             'Lunes',
-            makeSession([{ uid: itemUid, name: 'zercher jmp', exerciseId: null, prescription: NO_DOSE }]),
+            [makeSession([{ uid: itemUid, name: 'zercher jmp', exerciseId: null, prescription: NO_DOSE }])],
             [makeFlag(itemUid, 'zercher jmp', { unresolved_exercise: true })],
           ),
         ]),

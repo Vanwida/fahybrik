@@ -59,7 +59,7 @@ describe('weekDaysToProposal — #48 generate → typed proposal', () => {
     // Days 3–7 had no content → honest rest cells (nothing to write).
     for (const dow of [3, 4, 5, 6, 7]) {
       const d = week.days.find((x) => x.day_of_week === dow)!;
-      expect(d.session, `dow ${dow}`).toBeNull();
+      expect(d.sessions, `dow ${dow}`).toEqual([]);
       expect(d.flags).toEqual([]);
       expect(d.state).toBe('rest');
     }
@@ -70,13 +70,13 @@ describe('weekDaysToProposal — #48 generate → typed proposal', () => {
     const week = proposal.weeks[0]!;
 
     const monday = week.days.find((d) => d.day_of_week === 1)!;
-    expect(monday.session).not.toBeNull();
+    expect(monday.sessions.length).toBeGreaterThan(0);
     expect(monday.dow).toBe('Lunes');
-    expect(monday.session!.slot).toBe('am');
-    expect(monday.session!.focus).toBe('Fuerza tren inferior');
+    expect(monday.sessions[0]!.slot).toBe('am');
+    expect(monday.sessions[0]!.focus).toBe('Fuerza tren inferior');
 
     // Every item resolved by construction → no unresolved flag, day is "detected".
-    const items = monday.session!.blocks.flatMap((b) => b.items);
+    const items = monday.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items));
     expect(items).toHaveLength(2);
     for (const it of items) {
       expect(Number(it.exercise_id)).toBeGreaterThan(0);
@@ -92,9 +92,10 @@ describe('weekDaysToProposal — #48 generate → typed proposal', () => {
   test('each generated session is confirm-shaped (validates against editorSessionInputSchema)', () => {
     const proposal = weekDaysToProposal({ days: sampleWeek(), sheetLabel: 'IA' });
     for (const day of proposal.weeks[0]!.days) {
-      if (!day.session) continue;
-      const parsed = editorSessionInputSchema.safeParse(day.session);
-      expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error?.issues)).toBe(true);
+      for (const session of day.sessions) {
+        const parsed = editorSessionInputSchema.safeParse(session);
+        expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error?.issues)).toBe(true);
+      }
     }
   });
 
