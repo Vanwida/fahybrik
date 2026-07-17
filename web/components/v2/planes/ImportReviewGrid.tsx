@@ -12,6 +12,8 @@
 
 import { useState } from 'react';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
+import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
+import { ImportNotices } from './ImportNotices';
 import {
   dayTone,
   totalExcludedDays,
@@ -80,6 +82,7 @@ function CellBody({
 export function ImportReviewGrid({
   reviewWeeks,
   microWeeks,
+  notices,
   onChange,
   onConfirm,
   confirming,
@@ -88,6 +91,8 @@ export function ImportReviewGrid({
 }: {
   reviewWeeks: ReviewWeek[];
   microWeeks: MicroWeekRef[];
+  /** Lo que la IA no pudo honrar del foco. Se enseña ANTES de la parrilla. */
+  notices?: WeekNotice[];
   onChange: (next: ReviewWeek[]) => void;
   onConfirm: () => void;
   confirming: boolean;
@@ -100,12 +105,25 @@ export function ImportReviewGrid({
     onChange(reviewWeeks.map((w, i) => (i === weekIdx ? { ...w, target_week_id: target } : w)));
   };
 
-  const setSession = (weekIdx: number, dayIdx: number, session: EditorSession) => {
+  /** Reemplaza UNA sesión del día (el resto del día se queda como estaba). */
+  const setSession = (
+    weekIdx: number,
+    dayIdx: number,
+    sessionIdx: number,
+    session: EditorSession,
+  ) => {
     onChange(
       reviewWeeks.map((w, i) =>
         i !== weekIdx
           ? w
-          : { ...w, days: w.days.map((d, j) => (j === dayIdx ? { ...d, session } : d)) },
+          : {
+              ...w,
+              days: w.days.map((d, j) =>
+                j !== dayIdx
+                  ? d
+                  : { ...d, sessions: d.sessions.map((s, k) => (k === sessionIdx ? session : s)) },
+              ),
+            },
       ),
     );
   };
@@ -138,6 +156,7 @@ export function ImportReviewGrid({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
+        {notices && notices.length > 0 ? <ImportNotices notices={notices} /> : null}
         {reviewWeeks.map((week, weekIdx) => (
           <section key={`${week.sheet}-${weekIdx}`} className="space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -209,10 +228,13 @@ export function ImportReviewGrid({
             >
               {week.days.map((day, dayIdx) => {
                 const tone = dayTone(day, week.included);
+                // Con doble sesión la celda resume las DOS ("Series · Fuerza"):
+                // enseñar solo la primera escondería medio día de entreno.
                 const headline =
-                  day.session?.focus ??
-                  day.session?.blocks[0]?.title ??
-                  (tone === 'rest' ? 'Descanso' : '—');
+                  day.sessions
+                    .map((s) => s.focus ?? s.blocks[0]?.title)
+                    .filter(Boolean)
+                    .join(' · ') || (tone === 'rest' ? 'Descanso' : '—');
                 // A rest day writes nothing → inert. With the week excluded the
                 // week-level control governs → cells are display-only too.
                 const clickable = tone !== 'rest' && week.included;
@@ -348,7 +370,9 @@ export function ImportReviewGrid({
         <ImportDayReviewDrawer
           day={editingDay}
           dayLabel={`Semana ${editingWeek!.week} · ${editingDay.dow}`}
-          onChangeSession={(session) => setSession(editing.weekIdx, editing.dayIdx, session)}
+          onChangeSession={(sessionIdx, session) =>
+            setSession(editing.weekIdx, editing.dayIdx, sessionIdx, session)
+          }
           onChangeIncluded={(included) => setDayIncluded(editing.weekIdx, editing.dayIdx, included)}
           onClose={() => setEditing(null)}
         />

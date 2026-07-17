@@ -89,10 +89,10 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
       for (const w of proposal.weeks) {
         for (const d of w.days) {
           if (d.state === 'rest') {
-            expect(d.session).toBeNull();
+            expect(d.sessions).toEqual([]);
             continue;
           }
-          for (const it of d.session!.blocks.flatMap((b) => b.items)) {
+          for (const it of d.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items))) {
             expect(typeof it.prescription.scheme).toBe('string');
           }
         }
@@ -101,8 +101,8 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
       // Week 1 · Martes = Back Squat 5 rounds 10/10/8/8/6 → typed as a strength
       // set-scheme AND resolved to a catalog id via the real resolver.
       const martes = proposal.weeks[0]!.days.find((d) => d.day_of_week === 2)!;
-      const squat = martes.session!.blocks
-        .flatMap((b) => b.items)
+      const squat = martes.sessions
+        .flatMap((s) => s.blocks.flatMap((b) => b.items))
         .find((it) => /squat/i.test(it.exercise_name));
       expect(squat).toBeTruthy();
       expect(squat!.prescription.scheme).toBe('sets');
@@ -127,8 +127,8 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
     });
     expect(proposal.weeks).toHaveLength(1);
     const day = proposal.weeks[0]!.days.find((d) => d.day_of_week === 2)!;
-    expect(day.session).not.toBeNull();
-    const dl = day.session!.blocks.flatMap((b) => b.items)[0]!;
+    expect(day.sessions.length).toBeGreaterThan(0);
+    const dl = day.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items))[0]!;
     expect(dl.prescription.scheme).toBe('sets');
     expect(Array.isArray(dl.prescription.sets)).toBe(true);
   });

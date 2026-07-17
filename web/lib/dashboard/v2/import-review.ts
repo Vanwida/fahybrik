@@ -30,8 +30,11 @@ export interface ReviewDay {
   day_of_week: number;
   dow: string;
   stimulus: string | null;
-  /** Editable in the drawer; null = rest / empty (nothing to write). */
-  session: EditorSession | null;
+  /**
+   * Editable in the drawer; EMPTY = rest / empty (nothing to write). Two entries
+   * = double session (am + pm), slot positional as everywhere else.
+   */
+  sessions: EditorSession[];
   flags: ProposalFlag[];
   /** Coach's selection — false = leave this day out of the import (not written,
    *  not counted, its unresolved lines stop blocking confirm). Rest days ignore it. */
@@ -58,7 +61,7 @@ function fromProposalDay(d: ProposalDay): ReviewDay {
     day_of_week: d.day_of_week,
     dow: d.dow,
     stimulus: d.stimulus,
-    session: d.session ? structuredClone(d.session) : null,
+    sessions: d.sessions.map((s) => structuredClone(s)),
     flags: d.flags,
     included: true,
   };
@@ -155,9 +158,28 @@ function sessionIncompleteCount(session: EditorSession | null): number {
   return sessionIncompleteLines(session).length;
 }
 
+// ── Day-level rollups ─────────────────────────────────────────────────────────
+// Un día tiene N sesiones (2 = doble sesión), así que los contadores del gate
+// suman TODAS. Cuando el día era una sola sesión esto era el mismo número; con
+// doble sesión, mirar solo la primera dejaría pasar sin revisar la mitad de la
+// semana — justo el tipo de agujero silencioso que el gate existe para tapar.
+
+/** Todas las líneas sin dosis del día (todas sus sesiones). */
+export function dayIncompleteLines(day: ReviewDay): IncompleteLine[] {
+  return day.sessions.flatMap((s) => sessionIncompleteLines(s));
+}
+
+function dayUnresolvedCount(day: ReviewDay): number {
+  return day.sessions.reduce((n, s) => n + sessionUnresolvedCount(s), 0);
+}
+
+function dayIncompleteCount(day: ReviewDay): number {
+  return day.sessions.reduce((n, s) => n + sessionIncompleteCount(s), 0);
+}
+
 /** True when this day would actually be written on confirm. */
 function dayWrites(week: ReviewWeek, day: ReviewDay): boolean {
-  return week.included && day.included && !!day.session;
+  return week.included && day.included && day.sessions.length > 0;
 }
 
 /** The day's tone: rest → grey, excluded (day or its whole week) → skipped, any
@@ -166,10 +188,10 @@ function dayWrites(week: ReviewWeek, day: ReviewDay): boolean {
  *  exercise, then prescribe it. Recomputed from the LIVE session so fixing a line
  *  turns a day green in place. */
 export function dayTone(day: ReviewDay, weekIncluded = true): DayTone {
-  if (!day.session) return 'rest';
+  if (day.sessions.length === 0) return 'rest';
   if (!weekIncluded || !day.included) return 'skipped';
-  if (sessionUnresolvedCount(day.session) > 0) return 'unresolved';
-  if (sessionIncompleteCount(day.session) > 0) return 'incomplete';
+  if (dayUnresolvedCount(day) > 0) return 'unresolved';
+  if (dayIncompleteCount(day) > 0) return 'incomplete';
   if (day.flags.some((f) => f.confidence === 'review')) return 'review';
   return 'ok';
 }
@@ -181,10 +203,7 @@ export function totalUnresolved(weeks: ReviewWeek[]): number {
   return weeks.reduce(
     (acc, w) =>
       acc +
-      w.days.reduce(
-        (a, d) => a + (dayWrites(w, d) ? sessionUnresolvedCount(d.session) : 0),
-        0,
-      ),
+      w.days.reduce((a, d) => a + (dayWrites(w, d) ? dayUnresolvedCount(d) : 0), 0),
     0,
   );
 }
@@ -196,10 +215,7 @@ export function totalIncomplete(weeks: ReviewWeek[]): number {
   return weeks.reduce(
     (acc, w) =>
       acc +
-      w.days.reduce(
-        (a, d) => a + (dayWrites(w, d) ? sessionIncompleteCount(d.session) : 0),
-        0,
-      ),
+      w.days.reduce((a, d) => a + (dayWrites(w, d) ? dayIncompleteCount(d) : 0), 0),
     0,
   );
 }
@@ -212,7 +228,7 @@ export function totalWritableDays(weeks: ReviewWeek[]): number {
 /** Non-rest days the coach chose to leave out (day excluded, or its week). */
 export function totalExcludedDays(weeks: ReviewWeek[]): number {
   return weeks.reduce(
-    (acc, w) => acc + w.days.filter((d) => d.session && !dayWrites(w, d)).length,
+    (acc, w) => acc + w.days.filter((d) => d.sessions.length > 0 && !dayWrites(w, d)).length,
     0,
   );
 }
@@ -266,7 +282,8 @@ export interface ConfirmBody {
   weeks: Array<{
     target_week_template_id: number;
     day_of_week: number;
-    session: ReturnType<typeof sessionToWire>;
+    /** N sesiones del día. Posicional: [0]=am, [1]=pm. */
+    sessions: Array<ReturnType<typeof sessionToWire>>;
   }>;
   synonyms: Array<{ term: string; exercise_id: number }>;
 }
@@ -288,15 +305,15 @@ export function buildConfirmBody(microcycleId: string, weeks: ReviewWeek[]): Con
     if (!w.included || !w.target_week_id) continue;
     const target = Number(w.target_week_id);
     for (const d of w.days) {
-      if (!d.session || !d.included) continue;
+      if (d.sessions.length === 0 || !d.included) continue;
       out.weeks.push({
         target_week_template_id: target,
         day_of_week: d.day_of_week,
-        session: sessionToWire(d.session),
+        sessions: d.sessions.map(sessionToWire),
       });
 
       const flagByUid = new Map(d.flags.map((f) => [f.uid, f]));
-      for (const block of d.session.blocks) {
+      for (const block of d.sessions.flatMap((s) => s.blocks)) {
         for (const item of block.items) {
           const f = flagByUid.get(item.uid);
           const token = f?.exercise_token.trim();

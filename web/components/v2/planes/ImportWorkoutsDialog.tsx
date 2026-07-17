@@ -23,6 +23,7 @@ import {
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
 import type { ImportProposal } from '@/lib/import/build-proposal';
+import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 import { looksLikeInstruction } from '@/lib/import/instruction-detect';
 import { getLlmConfigured } from '@/components/v2/editor/ai-suggest-workout';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
@@ -123,6 +124,9 @@ export function ImportWorkoutsDialog({
   const [formError, setFormError] = useState<string | null>(null);
 
   const [reviewWeeks, setReviewWeeks] = useState<ReviewWeek[]>([]);
+  // Lo que la IA no pudo honrar del foco (contenido sin tipar, IA caída…). Viene
+  // con la propuesta y se enseña en la revisión: callarlo es el fallo original.
+  const [notices, setNotices] = useState<WeekNotice[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
@@ -224,6 +228,7 @@ export function ImportWorkoutsDialog({
       }
       const proposal = (await res.json()) as ImportProposal;
       const model = buildReviewModel(proposal, microWeeks);
+      setNotices(proposal.notices ?? []);
       // Paste and generate both yield ONE imported "week"; map it onto the
       // container week the coach picked (default mapping would land it on the
       // first week) and label it to match.
@@ -305,6 +310,7 @@ export function ImportWorkoutsDialog({
           <ImportReviewGrid
             reviewWeeks={reviewWeeks}
             microWeeks={microWeeks}
+            notices={notices}
             onChange={setReviewWeeks}
             onConfirm={confirm}
             confirming={confirming}
