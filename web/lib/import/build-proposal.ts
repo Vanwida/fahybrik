@@ -16,6 +16,7 @@ import { parseNotationCell, type ParsedLine } from '@fahybrid/shared/domain/impo
 import { resolveExercise } from './exercise-resolve';
 import type { ImportedWeek } from './xlsx-reader';
 import type { EditorSession, EditorBlock, EditorItem, StructureGroup } from '@/lib/dashboard/v2/editor-types';
+import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 
 export interface ProposalFlag {
   uid: string;
@@ -33,8 +34,17 @@ export interface ProposalDay {
   dow: string;
   /** Capa-1 stimulus line → the day/session focus (intent, not dosage). */
   stimulus: string | null;
-  /** The typed session, or null for a rest day / empty cell. */
-  session: EditorSession | null;
+  /**
+   * The day's typed sessions. EMPTY = rest day / empty cell.
+   *
+   * An array, not a single session, because a day genuinely has N: one is the
+   * normal case, TWO is a double session (am + pm) and the coach asks for it in
+   * so many words. The slot is POSITIONAL here exactly like everywhere else in
+   * the domain ([0]=am, [1]=pm — see `slotLabelForSessionIndex`), so this now
+   * speaks the same language as `weekDaySchema.sessions` instead of flattening
+   * every day into one `am` and quietly losing half the week.
+   */
+  sessions: EditorSession[];
   flags: ProposalFlag[];
   /** Overall day state for the review grid: green / amber / rest. */
   state: 'detected' | 'review' | 'rest';
@@ -50,6 +60,12 @@ export interface ProposalWeek {
 export interface ImportProposal {
   weeks: ProposalWeek[];
   summary: { total_items: number; detected: number; review: number; unresolved: number };
+  /**
+   * Lo que NO se pudo honrar de lo que pidió el coach (contenido sin tipar, IA
+   * caída…). Viaja con la propuesta para que la revisión lo enseñe: un hueco
+   * rellenado en silencio es el fallo, no la falta de contenido.
+   */
+  notices?: WeekNotice[];
 }
 
 /** A rest-day cell — no session to type. */
@@ -98,7 +114,7 @@ export async function buildImportProposal(params: {
           day_of_week: d.day_of_week,
           dow: d.dow,
           stimulus: d.stimulus,
-          session: null,
+          sessions: [],
           flags: [],
           state: 'rest',
         });
@@ -173,7 +189,9 @@ export async function buildImportProposal(params: {
         day_of_week: d.day_of_week,
         dow: d.dow,
         stimulus: d.stimulus,
-        session,
+        // El Excel/pegado transcriben UNA sesión por día: eso es lo que el coach
+        // escribió, y no se inventa una segunda.
+        sessions: [session],
         flags,
         state: dayNeedsReview ? 'review' : 'detected',
       });

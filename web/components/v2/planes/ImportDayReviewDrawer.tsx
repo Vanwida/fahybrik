@@ -9,9 +9,15 @@
 
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewDay } from '@/lib/dashboard/v2/import-review';
-import { dayTone, sessionIncompleteLines } from '@/lib/dashboard/v2/import-review';
+import { dayIncompleteLines, dayTone } from '@/lib/dashboard/v2/import-review';
 import { MIcon } from '@/components/ui/MIcon';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
+
+/**
+ * Etiqueta de la sesión dentro del día. Solo se enseña cuando hay más de una:
+ * en un día normal, poner «Mañana» encima de la única sesión es ruido.
+ */
+const SESSION_LABEL = ['Mañana', 'Tarde', 'Extra'];
 
 const TONE_COPY: Record<ReturnType<typeof dayTone>, { label: string; className: string }> = {
   rest: { label: 'Descanso', className: 'text-[color:var(--v2-faint)]' },
@@ -32,28 +38,33 @@ export function ImportDayReviewDrawer({
   day: ReviewDay;
   /** e.g. "Semana 1 · Martes". */
   dayLabel: string;
-  onChangeSession: (session: EditorSession) => void;
+  /** El día tiene N sesiones: se edita la de este índice ([0]=am, [1]=pm). */
+  onChangeSession: (sessionIndex: number, session: EditorSession) => void;
   /** Toggle whether this day gets imported at all. */
   onChangeIncluded: (included: boolean) => void;
   onClose: () => void;
 }) {
-  const session = day.session;
+  const sessions = day.sessions;
+  const hasSessions = sessions.length > 0;
   const tone = TONE_COPY[dayTone(day)];
-  // Named-but-not-prescribed lines. Listed up front with WHAT is missing, because
-  // the block editor below shows empty fields without saying which ones matter.
-  const incompleteLines = sessionIncompleteLines(session);
+  // Named-but-not-prescribed lines de TODAS las sesiones del día. Listed up front
+  // with WHAT is missing, because the block editor below shows empty fields
+  // without saying which ones matter.
+  const incompleteLines = dayIncompleteLines(day);
 
-  const updateBlock = (next: EditorBlock) => {
+  const updateBlock = (sessionIndex: number, next: EditorBlock) => {
+    const session = sessions[sessionIndex];
     if (!session) return;
-    onChangeSession({
+    onChangeSession(sessionIndex, {
       ...session,
       blocks: session.blocks.map((b) => (b.uid === next.uid ? next : b)),
     });
   };
 
-  const setFocus = (focus: string) => {
+  const setFocus = (sessionIndex: number, focus: string) => {
+    const session = sessions[sessionIndex];
     if (!session) return;
-    onChangeSession({ ...session, focus });
+    onChangeSession(sessionIndex, { ...session, focus });
   };
 
   return (
@@ -79,7 +90,7 @@ export function ImportDayReviewDrawer({
                 {day.stimulus}
               </p>
             ) : null}
-            {session ? (
+            {hasSessions ? (
               <button
                 type="button"
                 onClick={() => onChangeIncluded(!day.included)}
@@ -105,7 +116,7 @@ export function ImportDayReviewDrawer({
         </header>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-          {!session ? (
+          {!hasSessions ? (
             <p className="text-sm text-[color:var(--v2-muted)]">Día de descanso — nada que revisar.</p>
           ) : (
             <>
@@ -133,32 +144,46 @@ export function ImportDayReviewDrawer({
                 </div>
               ) : null}
 
-              <label className="block space-y-1.5">
-                <span className="v2-micro">Título de la sesión</span>
-                <input
-                  type="text"
-                  value={session.focus ?? ''}
-                  maxLength={120}
-                  onChange={(e) => setFocus(e.target.value)}
-                  placeholder="p. ej. Fuerza · Tren inferior"
-                  className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
-                />
-              </label>
+              {sessions.map((session, sessionIndex) => (
+                <section key={session.uid} className="space-y-3">
+                  {sessions.length > 1 ? (
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+                      <MIcon name={sessionIndex === 0 ? 'wb_sunny' : 'bedtime'} size={13} />
+                      {SESSION_LABEL[sessionIndex] ?? `Sesión ${sessionIndex + 1}`}
+                    </h3>
+                  ) : null}
 
-              {session.blocks.length === 0 ? (
-                <p className="text-sm text-[color:var(--v2-muted)]">
-                  Esta sesión no tiene bloques tipados.
-                </p>
-              ) : (
-                session.blocks.map((block) => (
-                  <div
-                    key={block.uid}
-                    className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-4"
-                  >
-                    <BlockEditor block={block} onChange={updateBlock} />
-                  </div>
-                ))
-              )}
+                  <label className="block space-y-1.5">
+                    <span className="v2-micro">Título de la sesión</span>
+                    <input
+                      type="text"
+                      value={session.focus ?? ''}
+                      maxLength={120}
+                      onChange={(e) => setFocus(sessionIndex, e.target.value)}
+                      placeholder="p. ej. Fuerza · Tren inferior"
+                      className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
+                    />
+                  </label>
+
+                  {session.blocks.length === 0 ? (
+                    <p className="text-sm text-[color:var(--v2-muted)]">
+                      Esta sesión no tiene bloques tipados.
+                    </p>
+                  ) : (
+                    session.blocks.map((block) => (
+                      <div
+                        key={block.uid}
+                        className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-4"
+                      >
+                        <BlockEditor
+                          block={block}
+                          onChange={(next) => updateBlock(sessionIndex, next)}
+                        />
+                      </div>
+                    ))
+                  )}
+                </section>
+              ))}
             </>
           )}
         </div>

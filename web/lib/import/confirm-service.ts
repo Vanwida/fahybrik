@@ -49,7 +49,13 @@ export const importConfirmRequestSchema = z
         z.object({
           target_week_template_id: idSchema,
           day_of_week: z.number().int().min(1).max(7),
-          session: editorSessionInputSchema,
+          /**
+           * Las sesiones del día. Array porque un día puede llevar DOBLE SESIÓN
+           * (am+pm) y el coach la pide con esas palabras; el slot es posicional,
+           * igual que en `slots_json`. Con `min(1)`: un día sin sesiones no se
+           * manda (eso es un descanso, y un descanso no se escribe).
+           */
+          sessions: z.array(editorSessionInputSchema).min(1).max(3),
         }),
       )
       .min(1)
@@ -116,7 +122,7 @@ async function findInvisibleExerciseIds(
 function collectUnresolved(req: ImportConfirmRequest): UnresolvedLine[] {
   const out: UnresolvedLine[] = [];
   for (const entry of req.weeks) {
-    for (const block of entry.session.blocks) {
+    for (const block of entry.sessions.flatMap((s) => s.blocks)) {
       for (const item of block.items) {
         if (!itemHasExercise(item)) {
           out.push({
@@ -239,7 +245,7 @@ export async function confirmImport(params: {
         };
       const nextDay = serializeDay({
         day_of_week: entry.day_of_week,
-        sessions: [entry.session as EditorSessionInput],
+        sessions: entry.sessions as EditorSessionInput[],
         original,
       });
       days = mergeDayIntoDays(days, nextDay);

@@ -31,9 +31,9 @@ const FOCUS =
       });
       const elapsed = Date.now() - started;
 
-      const days = proposal.weeks[0]!.days.filter((d) => d.session != null);
+      const days = proposal.weeks[0]!.days.filter((d) => d.sessions.length > 0);
       const withItems = days.filter((d) =>
-        d.session!.blocks.some((b) => b.items.length > 0),
+        d.sessions.some((s) => s.blocks.some((b) => b.items.length > 0)),
       );
 
       console.log(
@@ -45,7 +45,9 @@ const FOCUS =
             dias_con_items: withItems.length,
             summary: proposal.summary,
             titulos: days.flatMap((d) =>
-              d.session!.blocks.map((b) => `${d.dow}: ${b.title} (${b.items.length} items)`),
+              d.sessions.flatMap((s) =>
+                s.blocks.map((b) => `${d.dow}: ${b.title} (${b.items.length} items)`),
+              ),
             ),
           },
           null,

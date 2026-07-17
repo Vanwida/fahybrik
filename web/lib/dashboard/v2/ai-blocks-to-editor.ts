@@ -14,7 +14,19 @@ import type {
   WeekDayPart,
   WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
-import type { EditorBlock, EditorItem, StructureGroup } from './editor-types';
+import type { EditorBlock, EditorItem, EditorSession, StructureGroup } from './editor-types';
+
+/**
+ * El slot de una sesión a partir de su POSICIÓN en el día.
+ *
+ * En todo el dominio el slot es posicional y no se persiste ([0]=am, [1]=pm — ver
+ * `slotLabelForSessionIndex` y el comentario de `editorSessionInputSchema`: "slot
+ * is NOT sent — it is positional"). Este es el mismo mapeo en el tipo que usa el
+ * editor, para que una doble sesión llegue como am+pm y no como dos «am».
+ */
+export function editorSlotForSessionIndex(i: number): EditorSession['slot'] {
+  return i === 0 ? 'am' : i === 1 ? 'pm' : 'extra';
+}
 
 // Structure-group heuristic — a client copy of editor-data.ts `inferGroup` (that
 // module is server-only). A block has no explicit rail column; we infer it from

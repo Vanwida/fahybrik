@@ -38,7 +38,7 @@ const FOCUS =
         );
       }
 
-      const trainingDays = proposal.weeks[0]!.days.filter((d) => d.session != null);
+      const trainingDays = proposal.weeks[0]!.days.filter((d) => d.sessions.length > 0);
       console.log(
         JSON.stringify(
           {
@@ -48,9 +48,13 @@ const FOCUS =
             summary: proposal.summary,
             per_day: trainingDays.map((d) => ({
               dow: d.dow,
-              blocks: d.session!.blocks.length,
-              groups: d.session!.blocks.map((b) => b.group),
-              items: d.session!.blocks.reduce((n, b) => n + b.items.length, 0),
+              sessions: d.sessions.length,
+              blocks: d.sessions.reduce((n, s) => n + s.blocks.length, 0),
+              groups: d.sessions.flatMap((s) => s.blocks.map((b) => b.group)),
+              items: d.sessions.reduce(
+                (n, s) => n + s.blocks.reduce((m, b) => m + b.items.length, 0),
+                0,
+              ),
               review: d.flags.filter((f) => f.confidence === 'review').length,
             })),
           },
@@ -62,10 +66,14 @@ const FOCUS =
       expect(week.source).toBe('llm');
       expect(trainingDays.length).toBeGreaterThanOrEqual(5);
       for (const d of trainingDays) {
-        const groups = d.session!.blocks.map((b) => b.group);
-        expect(groups, `${d.dow} sin calentamiento`).toContain('calentamiento');
-        expect(groups, `${d.dow} sin principal`).toContain('principal');
-        expect(groups, `${d.dow} sin vuelta`).toContain('vuelta');
+        // Doble sesión (am+pm) = dos sesiones completas: cada una debe llevar las
+        // tres fases, no solo la primera del día.
+        for (const s of d.sessions) {
+          const groups = s.blocks.map((b) => b.group);
+          expect(groups, `${d.dow} sin calentamiento`).toContain('calentamiento');
+          expect(groups, `${d.dow} sin principal`).toContain('principal');
+          expect(groups, `${d.dow} sin vuelta`).toContain('vuelta');
+        }
         expect(d.flags.every((f) => !f.unresolved_exercise)).toBe(true);
       }
     },

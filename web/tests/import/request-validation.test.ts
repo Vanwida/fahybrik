@@ -120,7 +120,7 @@ describe('range wiring — the parser feeds the endpoint', () => {
 describe('importConfirmRequestSchema', () => {
   const base = {
     microcycle_id: 7,
-    weeks: [{ target_week_template_id: 11, day_of_week: 2, session: validSession }],
+    weeks: [{ target_week_template_id: 11, day_of_week: 2, sessions: [validSession] }],
   };
 
   test('accepts a valid confirm with an explicit week mapping', () => {
@@ -139,11 +139,11 @@ describe('importConfirmRequestSchema', () => {
     expect(importConfirmRequestSchema.safeParse({ ...base, weeks: [] }).success).toBe(false);
   });
   test('rejects a day_of_week out of 1..7', () => {
-    const bad = { ...base, weeks: [{ target_week_template_id: 11, day_of_week: 8, session: validSession }] };
+    const bad = { ...base, weeks: [{ target_week_template_id: 11, day_of_week: 8, sessions: [validSession] }] };
     expect(importConfirmRequestSchema.safeParse(bad).success).toBe(false);
   });
   test('rejects a missing target_week_template_id (Fork B: mapping is explicit)', () => {
-    const bad = { ...base, weeks: [{ day_of_week: 2, session: validSession }] };
+    const bad = { ...base, weeks: [{ day_of_week: 2, sessions: [validSession] }] };
     expect(importConfirmRequestSchema.safeParse(bad).success).toBe(false);
   });
   test('a null exercise_id line still PARSES (server rejects it, not the schema)', () => {
@@ -155,12 +155,14 @@ describe('importConfirmRequestSchema', () => {
         {
           target_week_template_id: 11,
           day_of_week: 2,
-          session: {
-            ...validSession,
-            blocks: [
-              { ...validSession.blocks[0], items: [{ ...validSession.blocks[0]!.items[0]!, exercise_id: null }] },
-            ],
-          },
+          sessions: [
+            {
+              ...validSession,
+              blocks: [
+                { ...validSession.blocks[0], items: [{ ...validSession.blocks[0]!.items[0]!, exercise_id: null }] },
+              ],
+            },
+          ],
         },
       ],
     };

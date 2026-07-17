@@ -46,14 +46,16 @@ describeWithDb('#28 import orchestrator — real xlsx → typed proposal (real D
     // (never a free-text blob) and a scheme.
     for (const day of wk.days) {
       if (day.state === 'rest') {
-        expect(day.session).toBeNull();
+        expect(day.sessions).toEqual([]);
         continue;
       }
-      expect(day.session).not.toBeNull();
-      for (const block of day.session!.blocks) {
-        for (const it of block.items) {
-          expect(it.prescription).toBeTruthy();
-          expect(typeof it.prescription.scheme).toBe('string');
+      expect(day.sessions.length).toBeGreaterThan(0);
+      for (const session of day.sessions) {
+        for (const block of session.blocks) {
+          for (const it of block.items) {
+            expect(it.prescription).toBeTruthy();
+            expect(typeof it.prescription.scheme).toBe('string');
+          }
         }
       }
     }
@@ -61,8 +63,8 @@ describeWithDb('#28 import orchestrator — real xlsx → typed proposal (real D
     // Martes = Fuerza Tren inferior "5 rounds Back Squat … 10/10/8/8/6 — 60/65…":
     // the back squat must type as a strength set-scheme AND resolve to a catalog id.
     const martes = wk.days.find((d) => d.day_of_week === 2)!;
-    const squat = martes
-      .session!.blocks.flatMap((b) => b.items)
+    const squat = martes.sessions
+      .flatMap((s) => s.blocks.flatMap((b) => b.items))
       .find((it) => /squat/i.test(it.exercise_name));
     expect(squat).toBeTruthy();
     expect(squat!.prescription.scheme).toBe('sets');
