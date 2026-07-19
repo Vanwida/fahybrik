@@ -48,6 +48,12 @@ struct PreWorkoutBriefView: View {
     // Per-exercise technique video opened in-app from a series row, when present.
     @State private var segmentVideoUrl: String? = nil
 
+    // #8 — where the athlete runs today (indoor treadmill vs outdoor GPS). Asked BEFORE
+    // connecting, so a treadmill connect only appears when it's actually indoors —
+    // instead of a "Cinta" chip that silently assumed a treadmill.
+    private enum RunLocation { case indoor, outdoor }
+    @State private var runLocation: RunLocation? = nil
+
     // MARK: - Derived shape
 
     private var modality: String? {
@@ -83,6 +89,16 @@ struct PreWorkoutBriefView: View {
     /// → the card is hidden.
     private var eligibleDevices: [PreWorkoutDevice] {
         PreWorkoutDeviceEligibility.devices(for: sortedSegments)
+    }
+
+    private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
+
+    /// Devices to offer given the run-location choice: the treadmill connect appears
+    /// ONLY once the athlete says they run indoors; the HR strap (and any erg) is always
+    /// offered. A non-run workout is unaffected.
+    private var devicesForLocation: [PreWorkoutDevice] {
+        guard hasRunSegment else { return eligibleDevices }
+        return runLocation == .indoor ? eligibleDevices : eligibleDevices.filter { $0 != .treadmill }
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -121,6 +137,50 @@ struct PreWorkoutBriefView: View {
         return zones.max(by: { $0.rawValue < $1.rawValue })
     }
 
+    // #8 — "¿Dónde corres hoy?": the location decision, made before connecting.
+    private var runLocationChoice: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("¿Dónde corres hoy?")
+                .font(.system(size: 15, weight: .heavy, design: .default).italic())
+                .foregroundStyle(Theme.Color.foreground)
+            HStack(spacing: 10) {
+                locationCard(title: "En cinta", subtitle: "Conéctala y contrólala",
+                             icon: "figure.run", selected: runLocation == .indoor) {
+                    runLocation = .indoor
+                }
+                locationCard(title: "En la calle", subtitle: "GPS · ritmo en vivo",
+                             icon: "location.fill", selected: runLocation == .outdoor) {
+                    runLocation = .outdoor
+                }
+            }
+        }
+    }
+
+    private func locationCard(title: String, subtitle: String, icon: String,
+                              selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: { Haptics.light(); action() }) {
+            VStack(alignment: .leading, spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
+                Text(title)
+                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(selected ? Theme.Color.accentOn.opacity(0.85) : Theme.Color.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(selected ? Theme.Color.accent : Theme.Color.surface)
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(selected ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -145,11 +205,16 @@ struct PreWorkoutBriefView: View {
                         // freeform start + the retroactive "Ya lo hice" log.
                         detailUnavailableCard
                     }
-                    if !eligibleDevices.isEmpty {
+                    // #8 — for a run, ask WHERE first; the treadmill connect appears only
+                    // when the athlete says they run indoors (no more implicit "Cinta").
+                    if hasRunSegment {
+                        runLocationChoice
+                    }
+                    if !devicesForLocation.isEmpty {
                         // Connect the belt / strap / erg BEFORE the clock starts, so
                         // the live workout begins already streaming (never scanning
                         // mid-run). Optional — starting without connecting is unchanged.
-                        DeviceConnectCard(devices: eligibleDevices)
+                        DeviceConnectCard(devices: devicesForLocation)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
