@@ -56,10 +56,10 @@ struct AthleteIdentity: Codable {
     }
 
     /// The athlete's resolved max-HR source — the SINGLE input every HR-zone
-    /// surface reads: the measured `maxHrBpm` when present, else the 220−age
-    /// estimate (flagged), else nil. See `PersonalHRMax`.
+    /// surface reads: the measured `maxHrBpm` when present, else a generic age+sex
+    /// estimate (flagged "genérica"), else nil. See `PersonalHRMax`.
     var hrMaxSource: HRMaxSource? {
-        PersonalHRMax.resolve(measuredMaxHrBpm: maxHrBpm, age: age)
+        PersonalHRMax.resolve(measuredMaxHrBpm: maxHrBpm, age: age, sex: sex)
     }
 }
 

@@ -112,7 +112,7 @@ struct DeviceChip: View {
 // MARK: - Zone meter (5 segments)
 
 /// Five stacked segments Z1–Z5; the active zone is lit, the rest dimmed. The
-/// "estimada" qualifier shows ONLY when the zone came from the 220−age estimate
+/// "genérica" qualifier shows ONLY when the zone came from the age+sex estimate
 /// (no measured max) — with the athlete's own FCmáx the zone is personal.
 struct ZoneMeter: View {
     let zone: HRZone
@@ -137,14 +137,14 @@ struct ZoneMeter: View {
                     .font(.system(size: 15, weight: .heavy, design: .default).italic())
                     .foregroundStyle(zone.color)
                 if isEstimated {
-                    Text("estimada")
+                    Text("genérica")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Zona \(zone.label)" + (isEstimated ? ", estimada" : ""))
+        .accessibilityLabel("Zona \(zone.label)" + (isEstimated ? ", genérica" : ""))
     }
 }
 

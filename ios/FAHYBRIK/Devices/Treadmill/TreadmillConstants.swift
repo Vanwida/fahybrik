@@ -62,8 +62,8 @@ enum TreadmillConstants {
     // (FAHYBRIK/Plan/RunPaceModel.swift) when the pace domain was shared with the
     // watch (#68) — the judging that reads it now lives in both targets.
 
-    // The 220−age max-HR constant moved to `PersonalHRMax.ageMaxConstant`
-    // (Theme/ZoneColors.swift) when HR-max resolution became a single shared source.
+    // Age-based max-HR estimation lives in `PersonalHRMax.genericMax(age:sex:)`
+    // (Theme/ZoneColors.swift) — the single shared source for HR-max resolution.
 
     /// A device is considered stale (its chip flips to "reconnecting") if no
     /// notification arrives for this long — covers a silent drop the OS hasn't

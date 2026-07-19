@@ -709,10 +709,10 @@ struct PostWorkoutSummaryView: View {
                     LabelText(text: "Zonas", size: 9)
                     Spacer(minLength: 6)
                     // The FCmáx these zones were computed against — with the
-                    // "estimada" qualifier when it's the 220−age fallback.
+                    // "genérica" qualifier when it's the age+sex estimate (not measured).
                     if let src = session.hrMaxSource {
                         MonoText(
-                            text: "FC máx \(src.bpm)" + (src.isEstimated ? " · estimada" : ""),
+                            text: "FC máx \(src.bpm)" + (src.isEstimated ? " · genérica" : ""),
                             size: 9,
                             color: Theme.Color.muted
                         )

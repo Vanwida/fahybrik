@@ -71,7 +71,7 @@ enum HRZoneClassifier {
 // with it so a surface can label a 220−age fallback "estimada".
 struct HRMaxSource: Equatable {
     let bpm: Int
-    /// true  = textbook 220−age fallback (label "estimada").
+    /// true  = a GENERIC age(+sex) estimate (label "genérica" — not the athlete's own).
     /// false = the athlete's own measured/entered max HR (personal, unlabeled).
     let isEstimated: Bool
 }
@@ -84,21 +84,29 @@ struct HRMaxSource: Equatable {
 // Pure Foundation, shared into the watch target (single source of the % bands
 // stays HRZoneClassifier; only the max input is personalized here).
 enum PersonalHRMax {
-    /// Textbook age-based max: 220 − age.
-    static let ageMaxConstant = 220
     /// Sane bounds for a measured/entered max HR (bpm). Outside → ignored, so a
-    /// typo can't drive absurd zones; falls through to the age estimate.
+    /// typo can't drive absurd zones; falls through to the generic estimate.
     static let minMeasuredBpm = 100
     static let maxMeasuredBpm = 230
 
-    static func resolve(measuredMaxHrBpm: Int?, age: Int?) -> HRMaxSource? {
+    static func resolve(measuredMaxHrBpm: Int?, age: Int?, sex: String? = nil) -> HRMaxSource? {
         if let m = measuredMaxHrBpm, m >= minMeasuredBpm, m <= maxMeasuredBpm {
             return HRMaxSource(bpm: m, isEstimated: false)
         }
         if let age, age > 0, age < 120 {
-            return HRMaxSource(bpm: ageMaxConstant - age, isEstimated: true)
+            return HRMaxSource(bpm: genericMax(age: age, sex: sex), isEstimated: true)
         }
         return nil
+    }
+
+    /// Generic age(+sex) max HR when the athlete hasn't measured their own. Women use
+    /// Gulati (206 − 0.88·age, validated on women); everyone else uses Tanaka
+    /// (208 − 0.7·age). Both track real maxima far better than the old 220 − age, which
+    /// overstates older athletes. Labeled "genérica" wherever it drives zones.
+    static func genericMax(age: Int, sex: String?) -> Int {
+        let a = Double(age)
+        let raw = sex?.lowercased() == "female" ? (206.0 - 0.88 * a) : (208.0 - 0.7 * a)
+        return Int(raw.rounded())
     }
 
     /// Classify a live BPM against a resolved source. Nil source → nil zone

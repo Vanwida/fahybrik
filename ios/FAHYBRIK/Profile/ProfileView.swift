@@ -1768,7 +1768,7 @@ struct EditProfileView: View {
                                     .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
                             }
                         }
-                        Text("Tu FC máxima real personaliza las zonas de pulso. Si la dejas vacía, se estiman con 220 − edad (marcadas “estimada”).")
+                        Text("Tu FC máxima real personaliza las zonas de pulso. Si la dejas vacía, se calculan por tu edad y sexo (marcadas “genérica”). Añade tu fecha de nacimiento para que salgan.")
                             .scaledFont(11, relativeTo: .caption2)
                             .foregroundStyle(Theme.Color.muted)
                             .padding(.horizontal, 4)
