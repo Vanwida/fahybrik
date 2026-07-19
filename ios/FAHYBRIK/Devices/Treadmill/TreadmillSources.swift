@@ -55,6 +55,46 @@ protocol TreadmillDataSource: ConnectableSource {
     var onSample: ((TreadmillSample) -> Void)? { get set }
 }
 
+/// What THIS connected treadmill lets the app DRIVE — read from the machine itself at
+/// connect time (Fitness Machine Feature + Supported Ranges + a writable Control
+/// Point). We DETECT it, never assume it: a belt that only broadcasts data reports
+/// `canControl == false`, and the UI says so instead of pretending to drive a machine
+/// that will ignore it. Any FTMS treadmill is covered without per-brand code.
+struct TreadmillControlCapability: Equatable {
+    var hasControlPoint: Bool
+    var canControlSpeed: Bool
+    var canControlIncline: Bool
+    var speed: FTMSControl.Range?     // km/h
+    var incline: FTMSControl.Range?   // %
+
+    /// True only when the machine has a writable Control Point AND declares at least
+    /// one settable target — the gate the UI uses to offer controls at all.
+    var canControl: Bool { hasControlPoint && (canControlSpeed || canControlIncline) }
+
+    static let none = TreadmillControlCapability(hasControlPoint: false,
+                                                 canControlSpeed: false,
+                                                 canControlIncline: false,
+                                                 speed: nil, incline: nil)
+}
+
+/// The CONTROL seam, adopted ONLY by sources that can drive the belt (the real FTMS
+/// source + the simulator mock). The generic `TreadmillDataSource` stays read-only, so
+/// every existing conformer (and every test fake) needs no change — the hub feature-
+/// detects control with `as? TreadmillControllable`.
+protocol TreadmillControllable: AnyObject {
+    /// Fired once the machine's control capability is known (after connect + a feature
+    /// read). `.none` for a belt that can't be driven.
+    var onControlCapability: ((TreadmillControlCapability) -> Void)? { get set }
+    /// Fired on every machine-reported state change (console, safety key, or our own
+    /// command taking effect) — the bidirectional-sync seam.
+    var onMachineEvent: ((TreadmillMachineEvent) -> Void)? { get set }
+    /// Fired with the ack of a control command we sent.
+    var onControlResult: ((TreadmillControlResult) -> Void)? { get set }
+    /// Send a control command. The source owns the Request-Control handshake — callers
+    /// just say what they want.
+    func send(_ command: TreadmillControlCommand)
+}
+
 /// Live heart rate for the HUD (chest strap / watch / band over standard BLE). Adds
 /// the bpm data callback on top of the shared connection seam, plus an OPTIONAL
 /// strap-battery callback. Battery lives here (not on `ConnectableSource`) because it

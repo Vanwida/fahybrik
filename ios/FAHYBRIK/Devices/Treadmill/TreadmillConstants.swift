@@ -8,8 +8,24 @@ enum TreadmillGATT {
     // Fitness Machine Service + its Treadmill Data characteristic (notify).
     static let fitnessMachineService = CBUUID(string: "1826")
     static let treadmillData         = CBUUID(string: "2ACD")
-    // Optional, discovered for diagnostics only (identifies the machine/vendor).
+    // Fitness Machine Feature (read): its Target Setting Features word tells us whether
+    // the belt lets the app set speed / inclination targets at all.
     static let fitnessMachineFeature = CBUUID(string: "2ACC")
+
+    // --- Machine CONTROL (drive the belt from the app + stay in sync) ---
+    /// Fitness Machine Control Point (write + indicate): where we write start/stop and
+    /// target speed/incline, and read back each command's ack. Its mere presence (and
+    /// being writable) is what makes a belt controllable.
+    static let controlPoint          = CBUUID(string: "2AD9")
+    /// Machine Status (notify): the belt reports its OWN state changes here (started/
+    /// stopped/paused by the athlete on the console, safety-key stop, target changed) —
+    /// the seam that keeps the app mirrored to the machine.
+    static let machineStatus         = CBUUID(string: "2ADA")
+    /// Supported Speed Range (read): min / max / step, so the UI clamps to what the belt
+    /// actually accepts.
+    static let supportedSpeedRange   = CBUUID(string: "2AD4")
+    /// Supported Inclination Range (read): min / max / step for incline.
+    static let supportedInclineRange = CBUUID(string: "2AD5")
 
     // Heart Rate Service + Heart Rate Measurement characteristic (notify).
     static let heartRateService     = CBUUID(string: "180D")

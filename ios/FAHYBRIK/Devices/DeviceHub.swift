@@ -47,6 +47,20 @@ final class DeviceHub {
     var onSample: ((TreadmillSample) -> Void)?
     var onBpm: ((Int) -> Void)?
 
+    // --- Treadmill machine control (drive the belt + stay synced) ---
+    /// What the connected belt lets the app drive — `.none` for a read-only machine or
+    /// in the simulator. Published so the HUD can decide whether to offer controls.
+    private(set) var treadmillControl: TreadmillControlCapability = .none
+    /// Fired when the capability is (re)known — the HUD binds this to show/hide controls.
+    var onControlCapability: ((TreadmillControlCapability) -> Void)?
+    /// Fired on every machine-reported state change (console / safety key / our command).
+    var onMachineEvent: ((TreadmillMachineEvent) -> Void)?
+    /// Fired with each control command's ack.
+    var onControlResult: ((TreadmillControlResult) -> Void)?
+    /// The controllable source, if the connected belt supports it. Weak: owned by the
+    /// channel. nil on a read-only belt / simulator mock (feature-detected).
+    private weak var treadmillControllable: (any TreadmillControllable)?
+
     /// `shared` passes nil → real BLE on device / deterministic mocks in the
     /// simulator, both created lazily. Tests inject fakes they drive directly.
     init(treadmill injectedTreadmill: TreadmillDataSource? = nil,
@@ -69,6 +83,16 @@ final class DeviceHub {
 
         treadmill.onSourceCreated = { [weak self] src in
             (src as? TreadmillDataSource)?.onSample = { [weak self] in self?.onSample?($0) }
+            // Feature-detect control: only a controllable belt (real FTMS source) wires
+            // these; a read-only machine / the simulator mock simply never reports.
+            guard let self, let control = src as? (any TreadmillControllable) else { return }
+            self.treadmillControllable = control
+            control.onControlCapability = { [weak self] cap in
+                self?.treadmillControl = cap
+                self?.onControlCapability?(cap)
+            }
+            control.onMachineEvent = { [weak self] event in self?.onMachineEvent?(event) }
+            control.onControlResult = { [weak self] result in self?.onControlResult?(result) }
         }
         heartRate.onSourceCreated = { [weak self] src in
             guard let hr = src as? HeartRateSource else { return }
@@ -95,6 +119,11 @@ final class DeviceHub {
     func connectTreadmill() { treadmill.beginConnect(autoPresentPicker: false) }
     func connectHR() { heartRate.beginConnect(autoPresentPicker: false) }
 
+    /// Drive the connected belt (start/stop, target speed/incline). No-op on a
+    /// read-only machine or in the simulator — the caller can gate on `treadmillControl
+    /// .canControl` to hide the controls entirely.
+    func sendTreadmill(_ command: TreadmillControlCommand) { treadmillControllable?.send(command) }
+
     private func handleBpm(_ bpm: Int) {
         bleBpm = bpm
         onBpm?(bpm)
@@ -119,10 +148,15 @@ final class DeviceHub {
     func stopAll() {
         onSample = nil
         onBpm = nil
+        onControlCapability = nil
+        onMachineEvent = nil
+        onControlResult = nil
         treadmill.stop()
         heartRate.stop()
         bleBpm = nil
         hrBatteryPercent = nil
+        treadmillControllable = nil
+        treadmillControl = .none
     }
 
     // MARK: - Source construction (real on device, mock in the simulator)
