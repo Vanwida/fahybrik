@@ -73,6 +73,12 @@ final class TreadmillHUDModel {
 
     // Distance derivation + running averages for the measurement snapshot.
     private var distanceBaselineM: Double?
+    // Odometer-health tracking: the last RAW machine odometer reading and how many
+    // consecutive samples it has sat flat while the belt was moving. Lets us fall back
+    // to speed integration when the machine's Total Distance is frozen/broken (see
+    // `odometerIsLive`).
+    private var lastOdometerRawM: Double?
+    private var odometerStalledSamples = 0
     // Set on a cover REOPEN (see rehydrateContinuousLegFromSession): the meters this
     // leg already covered, used to re-anchor the odometer baseline on the first sample
     // (baseline = reading − alreadyCovered) so the ring resumes there, not at zero.
@@ -323,21 +329,46 @@ final class TreadmillHUDModel {
         }
     }
 
+    /// Whether the machine odometer can be trusted for THIS sample. It's trusted while
+    /// it advances; the instant the belt is clearly moving but the odometer sits flat
+    /// for `odometerStallGraceSamples`, we stop trusting it and let the caller integrate
+    /// speed instead — a broken/frozen/coarse FTMS Total Distance (common on OEM belts
+    /// like the Titanium/Exercycle) would otherwise freeze covered meters at zero even
+    /// though speed reads fine. The stall count resets the moment the odometer moves
+    /// again, so a healthy machine always wins.
+    private func odometerIsLive(total: Double, speedKmh: Double?) -> Bool {
+        defer { lastOdometerRawM = total }
+        guard let last = lastOdometerRawM else { odometerStalledSamples = 0; return true }
+        if total > last + TreadmillConstants.odometerAdvanceEpsilonM {
+            odometerStalledSamples = 0
+            return true
+        }
+        // Flat odometer. If the belt isn't really moving that's CORRECT (integration
+        // would add nothing anyway), so keep trusting it. Only a flat odometer while the
+        // belt runs is the failure we route around.
+        guard (speedKmh ?? 0) > TreadmillConstants.minMovingSpeedKmh else { return true }
+        odometerStalledSamples += 1
+        return odometerStalledSamples < TreadmillConstants.odometerStallGraceSamples
+    }
+
     private func updateLegDistance(from sample: TreadmillSample) {
         guard !paused else { lastSampleAt = sample.lastUpdate; return }
         let before = legDistanceM
-        if let total = sample.totalDistanceM {
-            // Prefer the machine's odometer, zeroed at this leg's first sample so
-            // any overshoot from a prior leg is discarded (each leg counts from the
-            // reading at which it opens). On a cover REOPEN the leg already covered
-            // `pendingRehydratedLegDistanceM`; anchor the baseline below that reading
-            // so the ring resumes there, not at zero.
+        if let total = sample.totalDistanceM, odometerIsLive(total: total, speedKmh: sample.speedKmh) {
+            // Prefer the machine's odometer WHILE IT IS ACTUALLY ADVANCING, zeroed at
+            // this leg's first sample so any overshoot from a prior leg is discarded
+            // (each leg counts from the reading at which it opens). On a cover REOPEN the
+            // leg already covered `pendingRehydratedLegDistanceM`; anchor the baseline
+            // below that reading so the ring resumes there, not at zero.
             if distanceBaselineM == nil {
                 distanceBaselineM = total - (pendingRehydratedLegDistanceM ?? 0)
                 pendingRehydratedLegDistanceM = nil
             }
             legDistanceM = max(legDistanceM, total - (distanceBaselineM ?? total))
         } else if let kmh = sample.speedKmh {
+            // No odometer, OR the odometer is frozen while the belt runs → integrate
+            // speed×time so the covered-meters readout keeps climbing. `max()` above
+            // keeps the whole run monotonic if the odometer later resumes.
             let dt = lastSampleAt.map { sample.lastUpdate.timeIntervalSince($0) } ?? 0
             legDistanceM = TreadmillMath.advanceDistance(legDistanceM, speedKmh: kmh, dt: min(dt, 5))
         }
@@ -420,6 +451,8 @@ final class TreadmillHUDModel {
         pausedAccum = 0
         pauseStartedAt = paused ? Date() : nil
         distanceBaselineM = nil
+        lastOdometerRawM = nil
+        odometerStalledSamples = 0
         lastSampleAt = nil
         speedSum = 0; speedCount = 0
         inclineSum = 0; inclineCount = 0

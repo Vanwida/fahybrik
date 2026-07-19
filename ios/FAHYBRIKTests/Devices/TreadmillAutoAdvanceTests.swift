@@ -63,6 +63,50 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         m.teardown()
     }
 
+    // MARK: - Frozen / broken machine odometer → falls back to speed integration
+
+    /// The "los metros no suman" bug: some OEM treadmills (Titanium/Exercycle-class)
+    /// advertise FTMS Total Distance but report it FROZEN while the belt runs. The
+    /// odometer branch would then win forever and covered meters would stick at 0 even
+    /// though speed reads fine. After a short grace the model must distrust the flat
+    /// odometer and integrate speed×time so meters keep climbing.
+    func testFrozenOdometerFallsBackToSpeedIntegration() {
+        let s = continuousSession([100_000])            // one very long leg → nothing auto-closes
+        let (m, src) = makeModel(s)
+        let t0 = Date()
+        func emit(_ total: Double, at offset: TimeInterval, speedKmh: Double = 12) {
+            src.onSample?(TreadmillSample(speedKmh: speedKmh, inclinePct: 1,
+                                          totalDistanceM: total, elapsedS: nil,
+                                          hrBpm: nil, lastUpdate: t0.addingTimeInterval(offset)))
+        }
+        emit(500, at: 0)                                // opening reading → baseline 500
+        XCTAssertEqual(m.legDistanceM, 0, accuracy: 0.001)
+        // Odometer STUCK at 500 while the belt runs at 12 km/h (3.333 m/s), 1 s apart.
+        for i in 1...5 { emit(500, at: TimeInterval(i)) }
+        XCTAssertGreaterThan(m.legDistanceM, 5)         // NOT frozen at 0 — integration kicked in
+        XCTAssertLessThan(m.legDistanceM, 20)           // and no runaway
+        XCTAssertEqual(s.lapBeltDistanceMeters, m.legDistanceM, accuracy: 0.001)  // fed to the session too
+        m.teardown()
+    }
+
+    /// A HEALTHY odometer is unaffected by the fallback: it always wins while it
+    /// advances, so covered distance tracks the machine EXACTLY with no integration
+    /// drift or double count.
+    func testHealthyOdometerStillWinsNoDrift() {
+        let s = continuousSession([100_000])
+        let (m, src) = makeModel(s)
+        let t0 = Date()
+        func emit(_ total: Double, at offset: TimeInterval) {
+            src.onSample?(TreadmillSample(speedKmh: 12, inclinePct: 1, totalDistanceM: total,
+                                          elapsedS: nil, hrBpm: nil,
+                                          lastUpdate: t0.addingTimeInterval(offset)))
+        }
+        emit(500, at: 0)                                // baseline
+        emit(510, at: 1); emit(520, at: 2); emit(530, at: 3); emit(540, at: 4)
+        XCTAssertEqual(m.legDistanceM, 40, accuracy: 0.001)   // the odometer delta exactly, no stray meters
+        m.teardown()
+    }
+
     // MARK: - Time auto-close (continuous)
 
     func testTimeAutoCloseContinuous() {

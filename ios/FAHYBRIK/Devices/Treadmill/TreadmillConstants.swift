@@ -54,6 +54,19 @@ enum TreadmillConstants {
     /// reported yet.
     static let sampleStaleSeconds: TimeInterval = 4
 
+    /// The machine odometer (FTMS Total Distance) is trusted while it advances. If the
+    /// belt is clearly moving (speed > `minMovingSpeedKmh`) yet the odometer stays flat
+    /// for this many consecutive samples, we stop trusting it and integrate speed×time
+    /// instead — some budget FTMS firmwares (OEM treadmills) report a broken/frozen/
+    /// coarse Total Distance that would otherwise FREEZE covered meters at zero even
+    /// though speed reads fine (the "los metros no suman" bug). ~3 s at a 1 Hz stream.
+    static let odometerStallGraceSamples = 3
+
+    /// Minimum odometer increase (meters) that counts as "advancing". FTMS Total
+    /// Distance has 1 m resolution, so any real step is ≥ 1 m; a sub-meter epsilon
+    /// absorbs float noise without masking a genuinely frozen odometer.
+    static let odometerAdvanceEpsilonM: Double = 0.5
+
     /// Deterministic mock cadence (simulator/DEBUG only): how often the fake
     /// treadmill/HR sources emit a sample. Matches a typical ~1 Hz FTMS stream.
     static let mockTickSeconds: TimeInterval = 1.0
