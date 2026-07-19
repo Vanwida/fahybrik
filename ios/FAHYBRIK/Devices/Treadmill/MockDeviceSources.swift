@@ -51,13 +51,31 @@ enum MockHRProfile {
 }
 
 #if targetEnvironment(simulator)
-final class MockTreadmillSource: TreadmillDataSource {
+/// Simulator belt that ALSO speaks the control seam, so the whole drive-the-belt UX
+/// (steppers, 3·2·1 start, STOP, and the app↔belt sync) is exercisable with no
+/// hardware. It starts STOPPED and reports full control; the hero speed visibly ramps
+/// toward whatever target the app sets, mirroring a real machine's response.
+final class MockTreadmillSource: TreadmillDataSource, TreadmillControllable {
     var onSample: ((TreadmillSample) -> Void)?
     var onLink: ((DeviceLink) -> Void)?
     var onDiscovered: (([DeviceCandidate]) -> Void)?
     var onBluetooth: ((BluetoothAvailability) -> Void)?
+    var onControlCapability: ((TreadmillControlCapability) -> Void)?
+    var onMachineEvent: ((TreadmillMachineEvent) -> Void)?
+    var onControlResult: ((TreadmillControlResult) -> Void)?
+
     private var timer: Timer?
     private var tick = 0
+    private var targetSpeed = 0.0
+    private var actualSpeed = 0.0
+    private var incline = 1.0
+    private var distanceM = 0.0
+
+    /// A Titanium-like range so the steppers behave as they would on a real belt.
+    private let capability = TreadmillControlCapability(
+        hasControlPoint: true, canControlSpeed: true, canControlIncline: true,
+        speed: FTMSControl.Range(min: 0.8, max: 25, step: 0.5),
+        incline: FTMSControl.Range(min: 0, max: 15, step: 0.5))
 
     func startScan() {
         onBluetooth?(.poweredOn)
@@ -76,18 +94,45 @@ final class MockTreadmillSource: TreadmillDataSource {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self else { return }
             self.onLink?(.connected(name: MockTreadmillProfile.deviceName))
+            self.onControlCapability?(self.capability)
             self.timer = Timer.scheduledTimer(withTimeInterval: TreadmillConstants.mockTickSeconds,
-                                              repeats: true) { [weak self] _ in
-                guard let self else { return }
-                self.onSample?(MockTreadmillProfile.sample(tick: self.tick))
-                self.tick += 1
-            }
+                                              repeats: true) { [weak self] _ in self?.emit() }
+        }
+    }
+
+    /// Ramp actual toward target (≤0.8 km/h per tick) and stream it — so the hero speed
+    /// chases the target the app set instead of jumping, exactly like a real belt.
+    private func emit() {
+        let delta = targetSpeed - actualSpeed
+        actualSpeed = max(0, actualSpeed + max(-0.8, min(0.8, delta)))
+        if actualSpeed > 0 { distanceM += actualSpeed / 3.6 * TreadmillConstants.mockTickSeconds }
+        onSample?(TreadmillSample(speedKmh: actualSpeed, inclinePct: incline, totalDistanceM: distanceM,
+                                  elapsedS: Int(Double(tick) * TreadmillConstants.mockTickSeconds),
+                                  hrBpm: nil, lastUpdate: Date()))
+        tick += 1
+    }
+
+    func send(_ command: TreadmillControlCommand) {
+        switch command {
+        case .requestControl, .reset:
+            onControlResult?(.success)
+        case .start:
+            if targetSpeed < 1 { targetSpeed = 4.0 }         // gentle start
+            onMachineEvent?(.startedByUser); onControlResult?(.success)
+        case .stop:
+            targetSpeed = 0; onMachineEvent?(.stoppedByUser); onControlResult?(.success)
+        case .pause:
+            targetSpeed = 0; onMachineEvent?(.pausedByUser); onControlResult?(.success)
+        case .setTargetSpeedKmh(let v):
+            targetSpeed = v; onControlResult?(.success)
+        case .setTargetInclinePct(let v):
+            incline = v; onControlResult?(.success)
         }
     }
 
     func disconnect() { timer?.invalidate(); timer = nil; onLink?(.idle) }
     func stop() { timer?.invalidate(); timer = nil; onLink?(.idle) }
-    func diagnosticsText() -> String? { "Simulador — cinta de demostración (sin Bluetooth real)." }
+    func diagnosticsText() -> String? { "Simulador — cinta de demostración con control (sin Bluetooth real)." }
 }
 
 final class MockHeartRateSource: HeartRateSource {

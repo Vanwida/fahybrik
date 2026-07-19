@@ -38,6 +38,10 @@ struct TreadmillHUDView: View {
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, 10)
         }
+        .overlay {
+            if let n = model.startCountdown { countdownOverlay(n) }
+        }
+        .animation(.easeInOut(duration: 0.2), value: model.startCountdown)
         .onAppear {
             model.start()
             // The workout screen underneath already holds the display awake for the
@@ -163,6 +167,7 @@ struct TreadmillHUDView: View {
             VStack(spacing: Theme.Spacing.m) {
                 legHeader
                 heroCard
+                controlPanel
                 hrAndZoneRow
                 metricsRow
                 goalSection
@@ -171,6 +176,86 @@ struct TreadmillHUDView: View {
             .padding(.bottom, 4)
         }
         .safeAreaInset(edge: .bottom) { controls }
+    }
+
+    // MARK: - Machine control panel (steppers / read-only note)
+
+    /// Speed + inclination steppers when the belt is controllable; an honest "solo
+    /// datos" note when it isn't. The values shown are the TARGETS we've set — the hero
+    /// above always shows the belt's REAL speed, so the two never silently diverge.
+    @ViewBuilder
+    private var controlPanel: some View {
+        if model.controlCapability.canControl {
+            HStack(spacing: 8) {
+                stepperCard(label: "Velocidad",
+                            value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
+                            down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
+                if model.controlCapability.canControlIncline {
+                    stepperCard(label: "Inclinación",
+                                value: String(format: "%.1f", model.targetInclinePct), unit: "%",
+                                down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
+                }
+            }
+        } else if model.treadmillLink.isLive {
+            readOnlyNote
+        }
+    }
+
+    private func stepperCard(label: String, value: String, unit: String,
+                             down: @escaping () -> Void, up: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: label, size: 10)
+            HStack(spacing: 4) {
+                stepButton("minus", action: down)
+                Spacer(minLength: 2)
+                HStack(alignment: .lastTextBaseline, spacing: 3) {
+                    Text(value)
+                        .font(.system(size: 24, weight: .heavy, design: .monospaced).monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(unit)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                Spacer(minLength: 2)
+                stepButton("plus", action: up)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(Theme.Color.surface)
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .stroke(Theme.Color.hairline, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .heavy))
+                .foregroundStyle(Theme.Color.foreground)
+                .frame(width: 40, height: 40)
+                .background(Theme.Color.surfaceElevated)
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(icon == "plus" ? "Subir" : "Bajar")
+    }
+
+    private var readOnlyNote: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+            Text("Esta cinta solo envía datos — no permite control desde la app. Ajústala en la máquina.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     /// PRESCRIBED inclinación / cadencia for a structured leg (#61) — a sober
@@ -353,14 +438,97 @@ struct TreadmillHUDView: View {
         }
     }
 
+    @ViewBuilder
     private var controls: some View {
-        // Advancement is automatic — these are manual controls, so both read as
-        // neutral (the workout drives itself; PAUSE freezes it, TERMINAR overrides).
-        HStack(spacing: 8) {
-            neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
-            neutralButton("TERMINAR TRAMO AHORA") { model.endLegNow() }
+        VStack(spacing: 8) {
+            if let notice = model.controlNotice {
+                Text(notice)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.Color.danger)
+                    .frame(maxWidth: .infinity)
+            }
+            HStack(spacing: 8) {
+                if model.controlCapability.canControl {
+                    // Belt is drivable → START when stopped, big STOP when moving.
+                    if model.beltMoving {
+                        neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
+                        stopButton { model.stopBelt() }
+                    } else {
+                        startButton { model.startBelt() }
+                        neutralButton("TERMINAR TRAMO") { model.endLegNow() }
+                    }
+                } else {
+                    // Read-only belt (or none) → the original manual controls.
+                    neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
+                    neutralButton("TERMINAR TRAMO AHORA") { model.endLegNow() }
+                }
+            }
         }
         .padding(.top, 4)
+    }
+
+    /// Start the belt (orange = go). Kicks off the 3·2·1 in the model.
+    private func startButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label("EMPEZAR", systemImage: "play.fill")
+                .font(.system(size: 18, weight: .heavy, design: .default).italic())
+                .tracking(0.6)
+                .foregroundStyle(Theme.Color.accentOn)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity)
+                .frame(height: 66)
+                .background(Theme.Color.accent)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+    }
+
+    /// Stop the belt (red, wide = the safety action, always the biggest target).
+    private func stopButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label("PARAR", systemImage: "stop.fill")
+                .font(.system(size: 18, weight: .heavy, design: .default).italic())
+                .tracking(0.6)
+                .foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity)
+                .frame(height: 66)
+                .background(Theme.Color.danger)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Parar la cinta")
+    }
+
+    // MARK: - 3·2·1 start countdown
+
+    private func countdownOverlay(_ n: Int) -> some View {
+        ZStack {
+            Theme.Color.background.opacity(0.94).ignoresSafeArea()
+            VStack(spacing: 8) {
+                LabelText(text: "La cinta va a arrancar", size: 13)
+                Text("\(n)")
+                    .font(.system(size: 180, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.accentText)
+                    .contentTransition(.numericText())
+                Text("Colócate en la banda y agárrate. Empezará suave y subirá a tu ritmo.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.Color.muted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                Button(action: { model.cancelStart() }) {
+                    Text("Cancelar")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.Color.foreground)
+                        .padding(.horizontal, 26).padding(.vertical, 12)
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                }
+                .buttonStyle(PressScaleStyle())
+                .padding(.top, 22)
+            }
+        }
+        .transition(.opacity)
     }
 
     private func neutralButton(_ title: String, action: @escaping () -> Void) -> some View {

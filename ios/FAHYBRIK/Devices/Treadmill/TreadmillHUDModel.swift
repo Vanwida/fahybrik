@@ -56,6 +56,23 @@ final class TreadmillHUDModel {
     /// Measured work per leg key — the in-memory seam for the persistence phase.
     private(set) var measured: [String: TreadmillLegMeasurement] = [:]
 
+    // --- Machine control (drive the belt from the app + stay synced) ---
+    /// What the connected belt lets us drive. `.none` (no controls) on a read-only
+    /// machine or in a plain simulator. Seeded from the hub, refreshed on connect.
+    private(set) var controlCapability = TreadmillControlCapability.none
+    /// The target we've SET. The HERO number stays `latest.speedKmh` (the belt's REAL
+    /// speed) — target and actual converge, never diverge, which is the whole point.
+    private(set) var targetSpeedKmh: Double = 0
+    private(set) var targetInclinePct: Double = 0
+    /// Seconds left in the 3·2·1 pre-start countdown; nil when not counting.
+    private(set) var startCountdown: Int?
+    /// A transient message when the machine rejects a command / pulls control.
+    private(set) var controlNotice: String?
+    private var countdownTimer: Timer?
+    /// The belt is MOVING per its real reported speed — the single source of truth for
+    /// the START/STOP button, so it can never claim "running" while the belt is still.
+    var beltMoving: Bool { (latest.speedKmh ?? 0) > TreadmillConstants.minMovingSpeedKmh }
+
     let session: WorkoutSession
     let hrMaxSource: HRMaxSource?
 
@@ -121,6 +138,13 @@ final class TreadmillHUDModel {
         hub.onSample = { [weak self] in self?.ingest($0) }
         hub.connectTreadmill()   // idempotent: a no-op if the brief already connected
         hub.connectHR()
+        // Machine control (drive the belt + stay synced). Seed with whatever the hub
+        // already knows — the belt may have connected (and reported capability) back in
+        // the brief — then subscribe for updates.
+        applyCapability(hub.treadmillControl)
+        hub.onControlCapability = { [weak self] in self?.applyCapability($0) }
+        hub.onMachineEvent = { [weak self] in self?.applyMachineEvent($0) }
+        hub.onControlResult = { [weak self] in self?.applyControlResult($0) }
         displayTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -135,6 +159,10 @@ final class TreadmillHUDModel {
         // Only the belt sample slot is ours to release; the strap's onBpm belongs to
         // ActiveWorkoutView (engine wiring) and must stay live under this cover.
         hub.onSample = nil
+        hub.onControlCapability = nil
+        hub.onMachineEvent = nil
+        hub.onControlResult = nil
+        countdownTimer?.invalidate(); countdownTimer = nil
     }
 
     func togglePause() {
@@ -154,6 +182,105 @@ final class TreadmillHUDModel {
     func endLegNow() {
         Haptics.medium()
         session.primaryAdvance()
+    }
+
+    // MARK: - Machine control (drive the belt + keep app ↔ belt in lock-step)
+
+    private func applyCapability(_ cap: TreadmillControlCapability) {
+        controlCapability = cap
+        // Seed the steppers from the belt's ACTUAL reading the first time we learn we
+        // can drive it, so they start where the machine already is (sync from the off).
+        if cap.canControl, targetSpeedKmh == 0 {
+            let live = latest.speedKmh ?? 0
+            targetSpeedKmh = live > TreadmillConstants.minMovingSpeedKmh ? live : (cap.speed?.min ?? 6.0)
+            targetInclinePct = latest.inclinePct ?? 0
+        }
+    }
+
+    private func applyMachineEvent(_ event: TreadmillMachineEvent) {
+        switch event {
+        case .startedByUser, .stoppedByUser, .stoppedBySafetyKey, .pausedByUser:
+            cancelStart()                                       // machine settled → drop any countdown
+        case .targetSpeedChangedKmh(let v):   targetSpeedKmh = clampSpeed(v)     // console → app mirrors it
+        case .targetInclineChangedPct(let v): targetInclinePct = clampIncline(v)
+        case .controlPermissionLost:          controlNotice = "La cinta retiró el control"
+        case .reset, .other:                  break
+        }
+    }
+
+    private func applyControlResult(_ result: TreadmillControlResult) {
+        switch result {
+        case .success:             controlNotice = nil
+        case .controlNotPermitted: controlNotice = "La cinta no cedió el control"
+        case .notSupported:        controlNotice = "La cinta no admite ese ajuste"
+        default:                   controlNotice = "La cinta rechazó el comando"
+        }
+    }
+
+    private func clampSpeed(_ v: Double) -> Double {
+        guard let r = controlCapability.speed else { return max(0, v) }
+        return min(r.max, max(r.min, v))
+    }
+    private func clampIncline(_ v: Double) -> Double {
+        guard let r = controlCapability.incline else { return v }
+        return min(r.max, max(r.min, v))
+    }
+    private func round1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+
+    /// Nudge the target belt speed by ±1 of the machine's own step (fallback 0.5 km/h).
+    func nudgeSpeed(_ direction: Int) {
+        guard controlCapability.canControlSpeed else { return }
+        let step = controlCapability.speed?.step ?? 0.5
+        targetSpeedKmh = round1(clampSpeed(targetSpeedKmh + Double(direction) * step))
+        Haptics.light()
+        hub.sendTreadmill(.setTargetSpeedKmh(targetSpeedKmh))
+    }
+
+    func nudgeIncline(_ direction: Int) {
+        guard controlCapability.canControlIncline else { return }
+        let step = controlCapability.incline?.step ?? 0.5
+        targetInclinePct = round1(clampIncline(targetInclinePct + Double(direction) * step))
+        Haptics.light()
+        hub.sendTreadmill(.setTargetInclinePct(targetInclinePct))
+    }
+
+    /// Begin the belt with a 3·2·1 so the athlete can position — the belt NEVER lurches
+    /// into motion without warning. On zero it starts and ramps to the set target.
+    func startBelt() {
+        guard controlCapability.canControl, startCountdown == nil, !beltMoving else { return }
+        startCountdown = 3
+        Haptics.medium()
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self, let n = self.startCountdown else { return }
+            if n <= 1 {
+                self.startCountdown = nil
+                self.countdownTimer?.invalidate(); self.countdownTimer = nil
+                self.hub.sendTreadmill(.start)
+                self.hub.sendTreadmill(.setTargetSpeedKmh(self.targetSpeedKmh))
+                if self.controlCapability.canControlIncline {
+                    self.hub.sendTreadmill(.setTargetInclinePct(self.targetInclinePct))
+                }
+                Haptics.success()
+            } else {
+                self.startCountdown = n - 1
+                Haptics.light()
+            }
+        }
+    }
+
+    /// Escape hatch for the countdown (before the belt moves).
+    func cancelStart() {
+        startCountdown = nil
+        countdownTimer?.invalidate(); countdownTimer = nil
+    }
+
+    /// Stop the belt now (also cancels a pending countdown).
+    func stopBelt() {
+        cancelStart()
+        guard controlCapability.hasControlPoint else { return }
+        Haptics.medium()
+        hub.sendTreadmill(.stop)
     }
 
     // MARK: - Leg context (read by the view)

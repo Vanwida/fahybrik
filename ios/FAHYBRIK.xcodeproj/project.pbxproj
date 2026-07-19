@@ -207,6 +207,7 @@
 		8F6E43B57187DACF0C2F711B /* DoblesSharedAnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524FC97C42145BEC71B664B3 /* DoblesSharedAnalyticsView.swift */; };
 		914FDD70869B73509571F320 /* FreeExerciseCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D65ADEFCDB677C9B03B055 /* FreeExerciseCatalog.swift */; };
 		92D8371CE02BCA4B1BBA0937 /* RunLegProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1667FE1B5D4D953FE736F9F5 /* RunLegProgress.swift */; };
+		9312410D8CAAE5FC29F8B441 /* TreadmillControlModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1245B54D8AD689F48671C7ED /* TreadmillControlModelTests.swift */; };
 		93EE28BB05D799827567F0BA /* ScanDecisionEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 339393195A20ADB48340066A /* ScanDecisionEngineTests.swift */; };
 		93F19F72C6C6B5896B1C09FD /* ZoneColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1128A7E5708C06E1C6D02EA /* ZoneColors.swift */; };
 		94A61F86D7A0AB68E781446C /* DoblesJointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9089B8E40B6C70E41A6050B /* DoblesJointTests.swift */; };
@@ -436,6 +437,7 @@
 		0DD05E4662FE0BD965C20823 /* AudioCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCoach.swift; sourceTree = "<group>"; };
 		0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStationsStep.swift; sourceTree = "<group>"; };
 		11C7ACA0B44E299EB0DE56D6 /* DevicesStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesStep.swift; sourceTree = "<group>"; };
+		1245B54D8AD689F48671C7ED /* TreadmillControlModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillControlModelTests.swift; sourceTree = "<group>"; };
 		126973181B33705A08DCCDD8 /* CoachCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachCue.swift; sourceTree = "<group>"; };
 		132C3EF8A21239C98539DE74 /* RecoveryCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryCaptureView.swift; sourceTree = "<group>"; };
 		1336EE556EDC1149E64E62DB /* PreferredWeekStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferredWeekStep.swift; sourceTree = "<group>"; };
@@ -1379,6 +1381,7 @@
 				B4CADF45330757D85B5D383A /* RunTargetResolverTests.swift */,
 				339393195A20ADB48340066A /* ScanDecisionEngineTests.swift */,
 				F0829AF2BC474FCF4A83E232 /* TreadmillAutoAdvanceTests.swift */,
+				1245B54D8AD689F48671C7ED /* TreadmillControlModelTests.swift */,
 				E3B6B37C817AE7E22FF9BBF6 /* TreadmillHRProvenanceTests.swift */,
 				60C0964B0D02FCA8F8C108F8 /* TreadmillLegTests.swift */,
 			);
@@ -2128,6 +2131,7 @@
 				93EE28BB05D799827567F0BA /* ScanDecisionEngineTests.swift in Sources */,
 				A2E9DFBDFF2D890349C53C1A /* StructuredRunEngineTests.swift in Sources */,
 				0E3287795D6662E9E6E92259 /* TreadmillAutoAdvanceTests.swift in Sources */,
+				9312410D8CAAE5FC29F8B441 /* TreadmillControlModelTests.swift in Sources */,
 				DA4D00A5122E9F7058FD1E80 /* TreadmillHRProvenanceTests.swift in Sources */,
 				BA753FC017BE740279CCAD9E /* TreadmillLegTests.swift in Sources */,
 				F7B82FF308C6566463B95C46 /* WatchRunLegDriverTests.swift in Sources */,
