@@ -71,6 +71,7 @@ final class DeviceHub {
         treadmill = DeviceChannel(
             title: "Cinta", icon: "figure.run",
             scanHint: "Enciende tu cinta y acércate. Aparecerá aquí en cuanto la encuentre.",
+            pickHint: "¿No sabes cuál es la tuya? La de señal más fuerte suele ser la que tienes delante — aléjate de otras cintas para distinguirla. Solo aparecen cintas compatibles por Bluetooth (FTMS, como las Titanium).",
             remembered: DeviceDefaults.treadmill,
             makeSource: { injectedTreadmill ?? Self.makeTreadmill() })
         heartRate = DeviceChannel(

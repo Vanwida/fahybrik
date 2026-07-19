@@ -145,6 +145,24 @@ struct DevicePickerSheet: View {
                     }
                 }
             }
+            // Persistent help — how to pick YOUR machine + which are supported. Stays
+            // visible even once devices appear (the old hint vanished with the list, so
+            // a lost athlete had nothing to go on).
+            if let pickHint = channel.pickHint {
+                HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                    Text(pickHint)
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Theme.Spacing.m)
+                .background(Theme.Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            }
             if channel.hasRemembered {
                 SecondaryButton(title: "Olvidar dispositivo recordado") {
                     channel.forget()

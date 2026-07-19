@@ -164,6 +164,10 @@ final class DeviceChannel {
     /// because the belt and the strap need different instructions — the strap must
     /// also cover any watch broadcasting HR over BLE, which makes no sense for a belt.
     let scanHint: String
+    /// PERSISTENT guidance shown even once devices appear (unlike `scanHint`) — how to
+    /// pick YOUR machine among several, and which machines are supported. Non-technical
+    /// athletes don't recognise a raw BLE name (Gerard didn't know his own treadmill's).
+    let pickHint: String?
     private let makeSource: () -> ConnectableSource
     private let remembered: RememberedDeviceStore
 
@@ -192,11 +196,13 @@ final class DeviceChannel {
 
     init(title: String, icon: String,
          scanHint: String = "Enciende tu dispositivo y acércate. Aparecerá aquí en cuanto lo encuentre.",
+         pickHint: String? = nil,
          remembered: RememberedDeviceStore,
          makeSource: @escaping () -> ConnectableSource) {
         self.title = title
         self.icon = icon
         self.scanHint = scanHint
+        self.pickHint = pickHint
         self.remembered = remembered
         self.makeSource = makeSource
     }
