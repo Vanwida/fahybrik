@@ -163,6 +163,17 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         return true
     }
 
+    // MARK: - Orientation gate
+    // The app is PORTRAIT-only except where a screen explicitly opts into landscape
+    // (the live treadmill / erg HUDs, where big numbers read better rotated). A screen
+    // flips this static via `.allowsLandscape()`; the system asks us here. See
+    // OrientationGate.swift.
+    static var orientationLock: UIInterfaceOrientationMask = .portrait
+    func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        Self.orientationLock
+    }
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data

@@ -10,6 +10,9 @@ struct TreadmillHUDView: View {
     @State private var model: TreadmillHUDModel
     @State private var showDiagnostics = false
     @Environment(\.dismiss) private var dismiss
+    /// Compact height == the phone is in landscape → switch to the big-number layout.
+    @Environment(\.verticalSizeClass) private var vSizeClass
+    private var isLandscape: Bool { vSizeClass == .compact }
     /// Quick "Avisos de voz" (#63) toggle — shares the key with ProfileView, so the
     /// athlete can mute/unmute the coach without leaving the run.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
@@ -30,6 +33,8 @@ struct TreadmillHUDView: View {
                     connectingState
                 } else if model.isCountIn {
                     countInState
+                } else if isLandscape {
+                    landscapeLiveHUD
                 } else {
                     liveHUD
                 }
@@ -38,6 +43,7 @@ struct TreadmillHUDView: View {
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, 10)
         }
+        .allowsLandscape()
         .overlay {
             if let n = model.startCountdown { countdownOverlay(n) }
         }
@@ -176,6 +182,92 @@ struct TreadmillHUDView: View {
             .padding(.bottom, 4)
         }
         .safeAreaInset(edge: .bottom) { controls }
+    }
+
+    // MARK: - Landscape live HUD (#6 — big numbers when the phone is rotated)
+
+    /// Landscape split: the belt's REAL speed fills the left half (reads at 5 m), and the
+    /// controls + a compact metric strip + START/STOP sit on the right. Only for the
+    /// running state — recovery / count-in / connecting keep their centered portrait
+    /// states, which read fine rotated.
+    private var landscapeLiveHUD: some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(landscapeLegLine)
+                    .font(.system(size: 12, weight: .heavy, design: .default).italic())
+                    .tracking(0.4)
+                    .foregroundStyle(Theme.Color.accentText)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text(landscapeHero)
+                    .font(.system(size: 112, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1).minimumScaleFactor(0.5)
+                Text(landscapeHeroUnit)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(Theme.Color.muted)
+                Spacer(minLength: 4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 8) {
+                if model.controlCapability.canControl {
+                    stepperCard(label: "Velocidad",
+                                value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
+                                down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
+                    if model.controlCapability.canControlIncline {
+                        stepperCard(label: "Inclinación",
+                                    value: String(format: "%.1f", model.targetInclinePct), unit: "%",
+                                    down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
+                    }
+                }
+                landscapeMetrics
+                landscapeBottomBar
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxHeight: .infinity)
+        .padding(.vertical, 2)
+    }
+
+    /// Under control the hero shows the belt's REAL speed (what the athlete drives); on a
+    /// read-only belt it falls back to live pace (the running metric).
+    private var landscapeHero: String {
+        model.controlCapability.canControl ? speedString : heroPace
+    }
+    private var landscapeHeroUnit: String {
+        model.controlCapability.canControl ? "km/h · real en la cinta" : "/km · ritmo real"
+    }
+    private var landscapeLegLine: String {
+        var line = "Tramo \(model.legNumber) de \(model.legTotal)"
+        if let objetivo = model.runTarget.objetivoLabel { line += " — objetivo \(objetivo)" }
+        return line
+    }
+
+    private var landscapeMetrics: some View {
+        HStack(spacing: 8) {
+            ExpertCell(label: "Metros", value: distString(model.legDistanceM), unit: "")
+            ExpertCell(label: "Tiempo", value: TreadmillMath.clock(Int(model.legElapsedEffective)), unit: "")
+            ExpertCell(label: "Pulso",
+                       value: model.currentBpm.map { "\($0)" } ?? "—", unit: "bpm",
+                       color: model.liveZone?.color ?? Theme.Color.foreground)
+        }
+    }
+
+    @ViewBuilder
+    private var landscapeBottomBar: some View {
+        HStack(spacing: 8) {
+            if model.controlCapability.canControl {
+                if model.beltMoving {
+                    stopButton { model.stopBelt() }
+                } else {
+                    startButton { model.startBelt() }
+                }
+            } else {
+                neutralButton("TERMINAR TRAMO") { model.endLegNow() }
+            }
+        }
     }
 
     // MARK: - Machine control panel (steppers / read-only note)
