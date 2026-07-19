@@ -67,6 +67,10 @@ final class PM5Service: NSObject {
     // and joined from 0x37 + 0x38. Reset on each fresh stream (see below).
     private var splitsByIndex: [Int: PM5Split] = [:]
     private var discovered: [UUID: PM5Discovered] = [:]
+    /// The live CBPeripherals this scan turned up, so a tap connects THAT object.
+    /// `retrievePeripherals(withIdentifiers:)` can return empty right after a scan and
+    /// silently no-op the tap ("pulsé y no pasó nada") — keeping the peripheral fixes it.
+    private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
     private var pendingScan: Bool = false
     /// Bumped on every disconnect so a late `didDisconnectPeripheral` callback and the
     /// forced-timeout finalize can't both fire (fixes the "PM5 se queda pillado" hang).
@@ -91,6 +95,7 @@ final class PM5Service: NSObject {
             return
         }
         discovered.removeAll()
+        discoveredPeripherals.removeAll()
         delegate?.pm5Service(self, didUpdateDiscovered: [])
         update(connection: .scanning)
         central.scanForPeripherals(
@@ -105,15 +110,15 @@ final class PM5Service: NSObject {
     }
 
     func connect(_ id: UUID) {
-        if let known = central.retrievePeripherals(withIdentifiers: [id]).first {
-            stopScan()
+        stopScan()
+        // Prefer the peripheral we actually discovered this scan; only fall back to
+        // retrievePeripherals (which can be empty just after a scan). If neither
+        // resolves, say so instead of a silent no-op.
+        if let known = discoveredPeripherals[id]
+            ?? central.retrievePeripherals(withIdentifiers: [id]).first {
             connect(peripheral: known)
-            return
-        }
-        if let entry = discovered[id],
-           let known = central.retrievePeripherals(withIdentifiers: [entry.id]).first {
-            stopScan()
-            connect(peripheral: known)
+        } else {
+            update(connection: .failed("No encuentro ese PM5. Enciéndelo, ponlo en la pantalla principal y acércate."))
         }
     }
 
@@ -200,6 +205,7 @@ extension PM5Service: CBCentralManagerDelegate {
         let name = peripheral.name ?? (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? "PM5"
         let entry = PM5Discovered(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
         discovered[peripheral.identifier] = entry
+        discoveredPeripherals[peripheral.identifier] = peripheral   // keep the live object for connect
         let sorted = discovered.values.sorted { $0.rssi > $1.rssi }
         delegate?.pm5Service(self, didUpdateDiscovered: sorted)
     }
@@ -267,6 +273,18 @@ extension PM5Service: CBPeripheralDelegate {
                 didConnect: peripheral.name ?? "PM5",
                 identifier: peripheral.identifier
             )
+        }
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didUpdateNotificationStateFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        // A subscription that the monitor REJECTS would otherwise leave the app showing
+        // "conectado" while no data ever arrives. Surface it instead of hanging silent.
+        if let error {
+            update(connection: .failed("El PM5 no aceptó la suscripción de datos: \(error.localizedDescription)"))
         }
     }
 

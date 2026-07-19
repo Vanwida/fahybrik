@@ -70,6 +70,12 @@ struct ErgLiveHUD: View {
 
     var body: some View {
         VStack(spacing: 12) {
+            // Honest "connected but no data" state: the PM5 can be linked yet sending
+            // nothing (sitting on a menu, or not being rowed). Say so instead of showing
+            // a silent grid of dashes that reads as "broken".
+            if pm5.isConnected, noLiveData {
+                ergNoDataHint
+            }
             // Hero face: split /500m, then watts directly under — the two values
             // a rower fixes on, exactly as the PM5 monitor stacks them, set into
             // an elevated instrument well so the readout floats off the canvas.
@@ -119,6 +125,29 @@ struct ErgLiveHUD: View {
     }
 
     // MARK: derived
+
+    /// Connected but nothing coming through yet — drives the honest "sin datos" hint.
+    private var noLiveData: Bool {
+        live.paceSecondsPer500m == nil && live.powerWatts == nil && (live.distanceMeters ?? 0) <= 0
+    }
+
+    private var ergNoDataHint: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.warning)
+            Text("Conectado, pero el PM5 aún no envía datos. Dale unas paladas y comprueba que está en la pantalla principal.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.Color.foreground)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.warningTint)
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+            .stroke(Theme.Color.warning.opacity(0.4), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
 
     private var splitString: String {
         guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return "—:—" }
