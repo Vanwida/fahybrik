@@ -33,6 +33,7 @@ struct ActiveWorkoutView: View {
 
     @State private var showTreadmill: Bool = false
     @State private var showOutdoor: Bool = false
+    @State private var showErgFocus: Bool = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
@@ -173,6 +174,8 @@ struct ActiveWorkoutView: View {
                     Spacer(minLength: 0)
                     if isErgSegment && !pm5.isConnected {
                         connectPM5CTA
+                    } else if isErgSegment && pm5.isConnected {
+                        ergFocusEntryButton
                     }
                     if isRunSeriesSegment {
                         TreadmillEntryButton(action: { showTreadmill = true })
@@ -293,6 +296,9 @@ struct ActiveWorkoutView: View {
         }
         .fullScreenCover(isPresented: $showOutdoor) {
             OutdoorRunHUDView(session: session, hrMaxSource: hrMaxSource)
+        }
+        .fullScreenCover(isPresented: $showErgFocus) {
+            ErgFocusHUDView(session: session, pm5: pm5)
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
@@ -578,6 +584,29 @@ struct ActiveWorkoutView: View {
     private func relayTimeString(_ s: Double) -> String {
         let t = max(0, Int(s))
         return String(format: "%d:%02d", t / 60, t % 60)
+    }
+
+    /// Opens the erg FOCUS HUD — split /500m + watts at a glance, and (unlike this
+    /// inline HUD) rotatable to landscape for the big number. Only when the PM5 streams.
+    private var ergFocusEntryButton: some View {
+        Button(action: { Haptics.light(); showErgFocus = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 14, weight: .heavy))
+                Text("VER EN GRANDE")
+                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
+                    .tracking(0.8)
+            }
+            .foregroundStyle(Theme.Color.foreground)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Theme.Color.surfaceElevated)
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityHint("Abre el remo a pantalla completa; gira el móvil para el número gigante")
     }
 
     // Modality-aware HUD. An EMOM segment gets the dedicated interval timer

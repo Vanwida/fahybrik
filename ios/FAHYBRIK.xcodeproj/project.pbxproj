@@ -180,6 +180,7 @@
 		79A17E6B5A771745403E2F16 /* WireEnumToleranceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997F135C465EA5E004B46A6A /* WireEnumToleranceTests.swift */; };
 		79E6589E62D14A6A05FA3675 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF5FF39EA2B78DE9BD86B0A7 /* ActivityKit.framework */; };
 		7AB1DA442FF369008A9BEA87 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D1C6D9394CB9C5A94F6D800 /* AVFoundation.framework */; };
+		7AB4E75B1326C38928C4C305 /* ErgFocusHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54BB98621B6BE500173B09B /* ErgFocusHUDView.swift */; };
 		7B25A3918B881C47B3B817D9 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */; };
 		7BFF3BD33F2C773D88A2E177 /* PauseFinishPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0275845B700EAF34FAE2F4D /* PauseFinishPage.swift */; };
 		7D2FAFFFE200A6EA5BB15F05 /* StrengthOneRMStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97736E2A223554D304876154 /* StrengthOneRMStep.swift */; };
@@ -664,6 +665,7 @@
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
 		B4C3DE00D4A428A3EAA07320 /* DevicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePickerSheet.swift; sourceTree = "<group>"; };
 		B4CADF45330757D85B5D383A /* RunTargetResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolverTests.swift; sourceTree = "<group>"; };
+		B54BB98621B6BE500173B09B /* ErgFocusHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgFocusHUDView.swift; sourceTree = "<group>"; };
 		B59EF5B0ACBF02169ABBCFD1 /* RunTargetResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolver.swift; sourceTree = "<group>"; };
 		B6638A2E174C3189F64CFDB4 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B6BCDB72AAF37412C15E92BB /* BenchmarkDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkDelta.swift; sourceTree = "<group>"; };
@@ -1454,6 +1456,7 @@
 		EA6DA94A654AEBD5A25D9C8A /* PM5 */ = {
 			isa = PBXGroup;
 			children = (
+				B54BB98621B6BE500173B09B /* ErgFocusHUDView.swift */,
 				DD06425D235284347988D17C /* PM5ConnectionStore.swift */,
 				BF4A6030590FD922EB603075 /* PM5Constants.swift */,
 				F9E7A827DE9F843CC7217D82 /* PM5DataParser.swift */,
@@ -1854,6 +1857,7 @@
 				64F824DF2F30A5B370A5FDCC /* EmailAuthService.swift in Sources */,
 				F2FCE58AD9EBE3714C6352B4 /* EmailSignInView.swift in Sources */,
 				DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */,
+				7AB4E75B1326C38928C4C305 /* ErgFocusHUDView.swift in Sources */,
 				A68764BA54E6F06F78581784 /* EventsModels.swift in Sources */,
 				F0C898F9D3FFEC1E359B6977 /* ExecutedWorkoutView.swift in Sources */,
 				F9B735581824B7F65F32D523 /* ExerciseDetailView.swift in Sources */,
