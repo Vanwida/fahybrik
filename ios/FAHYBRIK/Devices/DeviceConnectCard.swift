@@ -40,12 +40,21 @@ struct DeviceConnectCard: View {
                 }
             }
         }
-        // The generic picker for the two channel devices; presented off each channel's
-        // own `isPresentingPicker` (set by a tap OR by the scan needing a choice).
-        .sheet(isPresented: pickerBinding(hub.treadmill)) {
+        // The generic picker for the two channel devices, presented off each channel's
+        // own `isPresentingPicker` — which ONLY a chip tap on this card can raise
+        // (the channel never raises it by itself; see `DeviceChannel`).
+        //
+        // ATTACHED ONLY FOR A DEVICE THIS CARD ACTUALLY OFFERS. It used to bind both
+        // sheets unconditionally, so the pre-workout brief — which offers the HR strap
+        // alone — still carried a live TREADMILL presenter. When the athlete tapped
+        // "Buscar mi cinta" inside the run pre-start `.fullScreenCover`, that orphan
+        // presenter, sitting on the screen UNDERNEATH, tried to present the picker and
+        // UIKit refused ("only presenting a single sheet is supported"). A presenter
+        // for a chip that isn't on screen has no reason to exist.
+        .sheet(isPresented: pickerBinding(hub.treadmill, enabled: devices.contains(.treadmill))) {
             DevicePickerSheet(channel: hub.treadmill)
         }
-        .sheet(isPresented: pickerBinding(hub.heartRate)) {
+        .sheet(isPresented: pickerBinding(hub.heartRate, enabled: devices.contains(.heartRate))) {
             // The picker carries the watch hint so, when the athlete is wearing an
             // Apple Watch, the sheet explains HR is already automatic (belts stay
             // listed below for whoever prefers a chest strap). It also surfaces the
@@ -124,7 +133,7 @@ struct DeviceConnectCard: View {
         guard devices.contains(.heartRate) else { return }
         let ch = hub.heartRate
         guard ch.hasRemembered, !ch.isConnected, !isBusy(ch.link) else { return }
-        ch.beginConnect(autoPresentPicker: false)
+        ch.beginSilentReconnect()
     }
 
     // MARK: - Per-device live link
@@ -154,11 +163,11 @@ struct DeviceConnectCard: View {
     private func tap(_ device: PreWorkoutDevice, link: DeviceLink) {
         Haptics.light()
         if let ch = channel(for: device) {
-            if link.isLive || isBusy(link) {
-                ch.openPicker()                            // manage / disconnect / see progress
-            } else {
-                ch.beginConnect(autoPresentPicker: true)   // scan → list → pick (may auto-connect the remembered one)
-            }
+            // ONE intent for every state: the tap opens the sheet now and the scan runs
+            // behind it (live → manage/disconnect, busy → watch progress, idle → scan
+            // → list → pick, still auto-connecting the single remembered device). The
+            // sheet no longer waits on a settle timer to pop itself at the athlete.
+            ch.openPicker()
             return
         }
         // PM5 keeps its own richer sheet (shows live erg data). Reconnect straight to a
@@ -178,9 +187,11 @@ struct DeviceConnectCard: View {
         else { pm5.disconnect() }
     }
 
-    private func pickerBinding(_ channel: DeviceChannel) -> Binding<Bool> {
-        Binding(get: { channel.isPresentingPicker },
-                set: { channel.isPresentingPicker = $0 })
+    /// `enabled == false` pins the binding to false, so a card that doesn't show this
+    /// device's chip can never present its picker (see the note on the modifiers).
+    private func pickerBinding(_ channel: DeviceChannel, enabled: Bool) -> Binding<Bool> {
+        Binding(get: { enabled && channel.isPresentingPicker },
+                set: { if enabled { channel.isPresentingPicker = $0 } })
     }
 
     // MARK: - Presentation

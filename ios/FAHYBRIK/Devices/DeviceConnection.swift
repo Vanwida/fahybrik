@@ -138,9 +138,13 @@ enum DeviceDefaults {
 // MARK: - Device channel — the per-type connection coordinator
 
 /// Owns ONE generic device's connection lifecycle: it drives the source's scan,
-/// runs the pure `ScanDecisionEngine`, keeps the remembered device, presents the
-/// picker when a choice is needed, and disconnects deterministically. The hub holds
-/// two of these (cinta, banda) and wires each source's data callback itself.
+/// runs the pure `ScanDecisionEngine`, keeps the remembered device, PUBLISHES the
+/// candidates when a choice is needed, and disconnects deterministically. The hub
+/// holds two of these (cinta, banda) and wires each source's data callback itself.
+///
+/// IT DOES NOT PRESENT ANYTHING. A device channel has no idea which screen the
+/// athlete is on, so it must never raise a modal — it only ever answers "here is what
+/// I found". See `isPresentingPicker` for the field bug that taught us this.
 ///
 /// TESTABILITY: every timer just calls one of the internal `…Elapsed()` hooks, and
 /// every decision routes through the pure engine — so tests inject a fake source,
@@ -154,9 +158,26 @@ final class DeviceChannel {
     private(set) var candidates: [DeviceCandidate] = []
     /// System Bluetooth availability (drives the picker's guidance states).
     private(set) var bluetooth: BluetoothAvailability = .unknown
-    /// True when the athlete must choose from the list — the UI observes this to
-    /// present the picker sheet.
+    /// True ONLY because the athlete explicitly asked for the picker SHEET (a chip
+    /// tap). The channel NEVER raises this by itself — see `evaluate()`. It stays
+    /// writable so the sheet's own dismiss gesture can lower it.
+    ///
+    /// THE FIELD BUG THIS CONTRACT FIXES: this flag is CHANNEL-owned but drives
+    /// `.sheet(isPresented:)` in `DeviceConnectCard` and `TreadmillHUDView`. While the
+    /// device layer could raise it on its own (a scan settling on its own timer), a
+    /// sheet tried to present from a screen buried UNDER the run pre-start
+    /// `.fullScreenCover` — UIKit refused it ("Currently, only presenting a single
+    /// sheet is supported") and the presentation fight swallowed the athlete's taps,
+    /// making the belt list vanish. Presentation is now EXPLICIT-ONLY: a modal exists
+    /// because a finger asked for it, never because a timer fired.
     var isPresentingPicker: Bool = false
+
+    /// Raised while an INLINE candidate list owns the screen (the run pre-start flow's
+    /// paso 3). While it is up, `isPresentingPicker` CANNOT go true: the athlete is
+    /// already looking at the list, and a sheet over a fullScreenCover is exactly the
+    /// collision above. A latch makes that invariant STRUCTURAL instead of "we audited
+    /// every caller today".
+    private var inlineSelectionActive = false
 
     let title: String                 // "Cinta" / "Banda de pulso" — for the picker
     let icon: String
@@ -215,58 +236,86 @@ final class DeviceChannel {
     var connectedName: String? { link.deviceName }
 
     // MARK: - Intents
+    //
+    // THREE explicit entry points, one per way the athlete can reach a device. They
+    // differ ONLY in who shows the candidate list — a sheet, an inline step, or
+    // nobody — because that is the single thing the channel used to get wrong.
 
-    /// The athlete tapped the chip, OR the HUD is (re)entering. `autoPresentPicker` =
-    /// true for an explicit chip tap (surface the list if a choice is needed); false
-    /// for a silent HUD re-entry: only the remembered device is tried, and if it can't
-    /// be reached the channel sits at `.idle` (the HUD prompts "Elige tu cinta")
-    /// instead of scanning indefinitely or grabbing a stranger.
-    func beginConnect(autoPresentPicker: Bool) {
+    /// A remembered device reconnects in the BACKGROUND (the HUD re-entering, the brief
+    /// appearing with a personal strap already paired). Only the remembered device is
+    /// tried; if it can't be reached the channel sits at `.idle` and the surface prompts
+    /// "Elige tu cinta". Never scans blind, never grabs a stranger, and — critically —
+    /// never surfaces anything on its own.
+    func beginSilentReconnect() {
         guard !isBusy else { return }
-        // Silent path with nothing remembered → nothing to auto-connect to, and we
-        // must never blind-connect. Sit idle; the athlete opens the picker explicitly.
-        if remembered.id == nil, !autoPresentPicker {
+        // Nothing remembered → nothing to auto-connect to, and we must never
+        // blind-connect. Sit idle; the athlete opens the picker explicitly.
+        guard remembered.id != nil else {
             link = .idle
             return
         }
-        startAttempt(autoPresent: autoPresentPicker)
+        startAttempt(intent: .silent)
     }
 
-    /// Explicitly open the picker (chip tap, the HUD's "Elegir", or the run pre-start
-    /// flow's inline "Cintas cerca" step). Marks the picker as on-screen and makes sure
-    /// a scan is running and will END IN A LIST.
+    /// The athlete tapped a device chip that shows the picker SHEET (`DeviceConnectCard`,
+    /// the treadmill HUD's header chip / "Buscar mi cinta"). Raises the sheet IMMEDIATELY
+    /// — the tap is the intent, so the athlete watches the scan fill in instead of
+    /// staring at a chip until a timer decides to pop something at them.
     ///
-    /// THE FIELD BUG THIS FIXES: a remembered belt triggers a SILENT attempt
-    /// (`beginConnect(autoPresentPicker: false)`) the moment the connect guide appears.
-    /// The channel is then `isBusy`, so this used to early-return — leaving
-    /// `autoPresentPicker == false` from that silent attempt. When the settle window
-    /// elapsed, `evaluate()` took the silent branch and did `_source?.stop()` +
-    /// `link = .idle`, KILLING the live scan underneath the picker the athlete was
-    /// already reading ("veo el nombre de mi cinta y desaparece sola").
-    ///
-    /// So opening the picker UPGRADES the attempt in flight instead of bailing: from
-    /// here on the settle window presents the list. The scan itself is deliberately NOT
-    /// restarted — restarting would clear the candidates already found and make the
-    /// list flicker. The auto-connect rule is untouched: `ScanDecisionEngine` still
-    /// only ever auto-connects the single REMEMBERED device.
+    /// THE FIELD BUG THIS FIXES (c4a1547, kept): a remembered belt triggers a SILENT
+    /// attempt the moment the connect guide appears. The channel is then `isBusy`, so
+    /// this used to early-return — leaving the silent intent in place. When the settle
+    /// window elapsed, `evaluate()` took the silent branch and did `_source?.stop()` +
+    /// `link = .idle`, KILLING the live scan underneath the list the athlete was already
+    /// reading ("veo el nombre de mi cinta y desaparece sola"). So this UPGRADES the
+    /// attempt in flight instead of bailing. The scan is deliberately NOT restarted —
+    /// restarting would clear the candidates already found and make the list flicker.
     func openPicker() {
-        isPresentingPicker = true
+        // The latch: an inline list already owns the screen, so a sheet here would be
+        // a modal fighting a fullScreenCover. Keep the scan, drop the presentation.
+        if !inlineSelectionActive { isPresentingPicker = true }
+        ensureListScan()
+    }
+
+    /// The athlete stepped into an INLINE candidate list (the run pre-start flow's paso
+    /// 3, which renders "Cintas cerca" as a full-screen STEP, not a sheet). Does exactly
+    /// what `openPicker()` does to the SCAN — including the upgrade-in-flight above — but
+    /// never touches `isPresentingPicker`, and latches it down so nothing else can raise
+    /// a sheet over the flow while the list is up.
+    func beginInlineSelection() {
+        inlineSelectionActive = true
+        isPresentingPicker = false      // an inline list owns the screen: no sheet, ever
+        ensureListScan()
+    }
+
+    /// The inline list left the screen (the back arrow). Releases the latch and, if the
+    /// athlete never chose, tears the scan down exactly like dismissing the sheet does.
+    /// Symmetric with `beginInlineSelection()` so the latch can never be stranded — a
+    /// stranded latch would silently mute the chip sheets for the rest of the session.
+    func endInlineSelection() {
+        inlineSelectionActive = false
+        cancelConnect()
+    }
+
+    /// Shared by both explicit list intents: make sure a scan is running and that it will
+    /// END IN A LIST rather than in the silent stop-and-idle.
+    private func ensureListScan() {
         guard !isConnected else { return }
         if isBusy {
-            autoPresentPicker = true    // upgrade in place — never stop the source now
+            intent = .list          // upgrade in place — never stop the source now
             return
         }
-        startAttempt(autoPresent: true)
+        startAttempt(intent: .list)
     }
 
     /// Shared scan/connect kickoff: try the remembered device directly (by identifier,
-    /// never "first found") AND scan for the picker list in parallel.
-    private func startAttempt(autoPresent: Bool) {
+    /// never "first found") AND scan for the candidate list in parallel.
+    private func startAttempt(intent: AttemptIntent) {
         generation += 1
         settleElapsed = false
         candidates = []
         pickInFlight = false
-        self.autoPresentPicker = autoPresent
+        self.intent = intent
         let src = source()
         if let id = remembered.id {
             link = .connecting
@@ -298,6 +347,7 @@ final class DeviceChannel {
         generation += 1                 // cancel any pending settle/fallback
         pickInFlight = false
         isPresentingPicker = false
+        inlineSelectionActive = false
         _source?.disconnect()
         if _source == nil { link = .idle }
     }
@@ -324,6 +374,7 @@ final class DeviceChannel {
     func stop() {
         generation += 1
         isPresentingPicker = false
+        inlineSelectionActive = false
         _source?.stop()
     }
 
@@ -357,7 +408,19 @@ final class DeviceChannel {
 
     // MARK: - Core evaluation (pure engine + effects)
 
-    private var autoPresentPicker = true
+    /// Why this attempt is scanning — the ONLY thing that changes what a settled scan
+    /// does. It no longer decides whether to PRESENT anything (that is the UI's call,
+    /// driven by a tap); it decides whether the scan is worth keeping alive.
+    private enum AttemptIntent {
+        /// Somebody is showing the candidate list right now — the picker sheet the
+        /// athlete opened, or the pre-start flow's inline step. Keep the scan alive and
+        /// keep publishing `candidates`; the list is already on screen.
+        case list
+        /// Background remembered-only reconnect with nobody watching. If the remembered
+        /// device doesn't land, stop the scan and rest at idle — never surface anything.
+        case silent
+    }
+    private var intent: AttemptIntent = .silent
     /// True between a pick (`connect(_:)`) and the resulting `.connected` — so the
     /// sheet's dismiss doesn't abort the connection that dismiss was triggered by.
     private var pickInFlight = false
@@ -374,13 +437,16 @@ final class DeviceChannel {
             lastConnectingID = id
             source().connect(id)
         case .present(let list):
+            // PUBLISH, NEVER PRESENT. This runs off a timer, and a timer has no idea
+            // which screen the athlete is on — raising `isPresentingPicker` here is how
+            // a picker sheet ended up fighting the run pre-start `.fullScreenCover`
+            // ("only presenting a single sheet is supported"), swallowing his taps.
+            // The list is on screen because he asked for it; all we owe him is the data.
             candidates = list
-            if autoPresentPicker {
-                isPresentingPicker = true
-            } else {
-                // Silent path: the remembered device got its chance and didn't land →
-                // stop the pointless scan and rest at idle so the HUD prompts the
-                // athlete to choose (never auto-connect to a machine we don't know).
+            if intent == .silent {
+                // Nobody is watching and the remembered device got its chance → stop the
+                // pointless scan and rest at idle so the surface prompts him to choose
+                // (never auto-connect to a machine we don't know).
                 _source?.stop()
                 link = .idle
             }
@@ -402,6 +468,7 @@ final class DeviceChannel {
             self.link = newLink
             if case let .connected(name) = newLink {
                 self.isPresentingPicker = false
+                self.inlineSelectionActive = false   // the list did its job; latch released
                 self.pickInFlight = false
                 self.generation += 1     // stop pending timers
                 self.candidates = []

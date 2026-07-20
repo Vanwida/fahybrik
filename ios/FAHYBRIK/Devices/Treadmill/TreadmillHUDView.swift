@@ -700,12 +700,10 @@ struct TreadmillHUDView: View {
 
     private func searchBelt() {
         Haptics.light()
-        switch model.treadmillLink {
-        case .scanning, .connecting, .reconnecting:
-            model.treadmillChannel.openPicker()                       // see progress / pick
-        default:
-            model.treadmillChannel.beginConnect(autoPresentPicker: true)
-        }
+        // One intent for every link state: the tap opens the picker and the scan runs
+        // behind it (upgrading a silent reconnect already in flight rather than
+        // restarting it). The channel never pops this sheet on its own.
+        model.treadmillChannel.openPicker()
     }
 
     // MARK: - Formatting

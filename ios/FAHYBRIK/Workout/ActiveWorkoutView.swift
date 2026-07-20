@@ -345,7 +345,7 @@ struct ActiveWorkoutView: View {
             // piece now; the store's per-connection guard makes this idempotent.
             attemptProgramPM5()
         }
-        .sheet(isPresented: $showPM5Sheet) {
+        .sheet(isPresented: $showPM5Sheet, onDismiss: { maybeAutoOpenRunCover() }) {
             PM5LiveStreamView(store: pm5)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
@@ -358,6 +358,7 @@ struct ActiveWorkoutView: View {
             // Resume only if opening the video is what paused the clock.
             if resumeAfterVideo { session.resumeFromVideo() }
             resumeAfterVideo = false
+            maybeAutoOpenRunCover()     // the screen is free again — see the guard
         }) {
             if let url = session.currentSegment?.videoUrl {
                 YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
@@ -482,7 +483,15 @@ struct ActiveWorkoutView: View {
               isRunSegment,
               !session.isAwaitingBlockStart,
               autoOpenedRunSegment != session.currentSegmentIndex,
-              !showTreadmill, !showOutdoor else { return }
+              !showTreadmill, !showOutdoor,
+              // NEVER push a cover over an open sheet. This fires off SESSION state
+              // (the engine advancing a segment), so it can land while the athlete has
+              // the erg sheet or a technique video open — and UIKit answers a modal
+              // fighting a modal with "only presenting a single sheet is supported",
+              // eating his taps. `autoOpenedRunSegment` is deliberately NOT stamped on
+              // this path, and both sheets re-run this check on dismiss, so he still
+              // lands in his HUD the moment the screen is free.
+              !showPM5Sheet, !showSegmentVideo else { return }
         autoOpenedRunSegment = session.currentSegmentIndex
         switch env {
         case .treadmill: showTreadmill = true

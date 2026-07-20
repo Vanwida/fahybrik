@@ -117,8 +117,8 @@ final class DeviceHub {
     /// Silent (re)connect used by the HUD on entry: try the remembered device, but
     /// don't pop a picker sheet on run-start — the HUD offers "Elegir" if a choice is
     /// needed. Idempotent (a no-op while already busy).
-    func connectTreadmill() { treadmill.beginConnect(autoPresentPicker: false) }
-    func connectHR() { heartRate.beginConnect(autoPresentPicker: false) }
+    func connectTreadmill() { treadmill.beginSilentReconnect() }
+    func connectHR() { heartRate.beginSilentReconnect() }
 
     /// Drive the connected belt (start/stop, target speed/incline). No-op on a
     /// read-only machine or in the simulator — the caller can gate on `treadmillControl

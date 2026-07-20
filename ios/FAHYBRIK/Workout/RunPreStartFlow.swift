@@ -102,7 +102,10 @@ struct RunPreStartFlow: View {
         case .treadmill:
             withAnimation(.easeInOut(duration: 0.2)) { step = .location }
         case .picker:
-            hub.treadmill.cancelConnect()
+            // Symmetric with `beginInlineSelection()`: releases the no-sheet latch AND
+            // stops the scan if he never chose. Leaving the latch up would silently mute
+            // the chip pickers everywhere else for the rest of the session.
+            hub.treadmill.endInlineSelection()
             withAnimation(.easeInOut(duration: 0.2)) { step = .treadmill }
         }
     }
@@ -177,11 +180,19 @@ struct RunPreStartFlow: View {
     }
 
     /// "Buscar mi cinta" — go to paso 3 and make sure a LIST-bound scan is running.
-    /// `openPicker()` starts one, or upgrades the silent remembered-reconnect already
-    /// in flight so the settle window can never stop the source under the list.
+    ///
+    /// `beginInlineSelection()`, NEVER `openPicker()`. Both start (or upgrade) the same
+    /// scan, but `openPicker()` also raises the channel's `isPresentingPicker` — and
+    /// that flag is a SHEET trigger observed by `DeviceConnectCard` and the treadmill
+    /// HUD. Raising it from in here asked UIKit to present a sheet from a screen buried
+    /// under this fullScreenCover; UIKit refused ("Currently, only presenting a single
+    /// sheet is supported"), the presentation fight ate the athlete's taps and the list
+    /// disappeared on him. This step renders the list INLINE and needs no sheet at all,
+    /// so it takes the scan and leaves the presentation flag alone — and latches it down
+    /// so nothing else can raise one while paso 3 is up.
     private func searchBelt() {
         Haptics.light()
-        hub.treadmill.openPicker()
+        hub.treadmill.beginInlineSelection()
         withAnimation(.easeInOut(duration: 0.2)) { step = .picker }
     }
 
@@ -255,7 +266,7 @@ struct RunPreStartFlow: View {
                     .foregroundStyle(Theme.Color.muted)
                 Button("Buscar otra vez") {
                     Haptics.light()
-                    hub.treadmill.openPicker()
+                    hub.treadmill.beginInlineSelection()   // inline list — never a sheet
                 }
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.Color.accentText)
