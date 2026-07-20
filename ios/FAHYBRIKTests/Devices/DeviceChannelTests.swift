@@ -1,10 +1,13 @@
 import XCTest
 @testable import FAHYBRIK
 
-// The DeviceChannel connection coordinator: it turns a scan into the right action
-// (auto-connect the remembered device, or present the picker), remembers what the
-// athlete chose, and disconnects. Driven here with a fake source + an in-memory
+// The DeviceChannel connection coordinator, driven with a fake source + an in-memory
 // UserDefaults + the channel's own decision hooks — no CoreBluetooth, no real timers.
+//
+// THE INVARIANT THIS FILE DEFENDS: **the channel opens a link only when a finger asked
+// it to, in this session, from a list of what is actually around.** Not on appear, not
+// on a timer, not after a drop, not for the device used last. The fake source counts
+// every `connect` it is handed, so "nothing connected" is asserted, not assumed.
 final class DeviceChannelTests: XCTestCase {
 
     // MARK: - Fake source (records what the channel asked for)
@@ -16,13 +19,14 @@ final class DeviceChannelTests: XCTestCase {
 
         private(set) var scanStarted = 0
         private(set) var connectedID: DeviceID?
-        private(set) var rememberedAttemptID: DeviceID?
+        /// EVERY connect the channel ever asked for. The count is the safety assertion:
+        /// zero means the app did not touch a machine on its own.
+        private(set) var connectCalls: [DeviceID] = []
         private(set) var disconnectCount = 0
         private(set) var stopCount = 0
 
         func startScan() { scanStarted += 1 }
-        func connect(_ id: DeviceID) { connectedID = id }
-        func connectRemembered(_ id: DeviceID) { rememberedAttemptID = id }
+        func connect(_ id: DeviceID) { connectedID = id; connectCalls.append(id) }
         func disconnect() { disconnectCount += 1 }
         func stop() { stopCount += 1 }
         func diagnosticsText() -> String? { nil }
@@ -30,6 +34,8 @@ final class DeviceChannelTests: XCTestCase {
         // Simulate the source's own callbacks:
         func discover(_ c: [DeviceCandidate]) { onDiscovered?(c) }
         func land(name: String) { onLink?(.connected(name: name)) }
+        /// The peripheral vanished on its own (out of range, powered off, taken).
+        func dropUnexpectedly() { onLink?(.lost) }
     }
 
     // MARK: - Fixtures
@@ -41,7 +47,8 @@ final class DeviceChannelTests: XCTestCase {
         DeviceCandidate(id: id(tail), name: "Dev \(tail)", rssi: rssi)
     }
 
-    private func makeChannel(remembered: DeviceID? = nil, name: String = "Belt")
+    private func makeChannel(remembered: DeviceID? = nil, name: String = "Belt",
+                             requiresConfirmation: Bool = false)
         -> (channel: DeviceChannel, source: FakeConnectable, store: RememberedDeviceStore) {
         let suite = "test.device.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -50,33 +57,235 @@ final class DeviceChannelTests: XCTestCase {
         if let r = remembered { store.remember(r, name: name) }
         let fake = FakeConnectable()
         let channel = DeviceChannel(title: "Cinta", icon: "figure.run",
+                                    requiresConfirmation: requiresConfirmation,
                                     remembered: store, makeSource: { fake })
+        channel.prewireInjectedSource()   // so "zero connects" is observable from the start
         return (channel, fake, store)
     }
 
-    // MARK: - THE PRESENTATION CONTRACT (the field bug this file exists to lock down)
+    // ══════════════════════════════════════════════════════════════════════════
+    // MARK: - NOTHING CONNECTS BY ITSELF (the safety contract)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// THE test. A remembered belt, alone in the room, discovered by a live scan — the
+    /// exact situation the old channel treated as "obviously yours, go straight in".
+    /// It must sit in the list and wait for a tap. If this fails, the app can start a
+    /// treadmill that somebody else is running on.
+    func testNeverAutoConnectsEvenToTheRememberedDevice() {
+        let mine = cand(1)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.openPicker()                 // he asked to look — that is not asking to connect
+        src.discover([mine])            // and there it is, alone
+        ch.settleWindowElapsed()
+
+        XCTAssertEqual(src.connectCalls, [], "the remembered device was connected without a tap")
+        XCTAssertEqual(ch.candidates.map(\.id), [mine.id], "it belongs in the list, badged")
+        XCTAssertFalse(ch.isConnected)
+    }
+
+    /// `prepare()` is what every screen calls on appear. It must be inert in EVERY
+    /// state — this is the hook that used to reach for the remembered device and is how
+    /// the app grabbed a belt in the gym by itself.
+    func testPrepareNeverConnectsInAnyState() {
+        let mine = cand(1)
+
+        // Nothing remembered.
+        let (fresh, freshSrc, _) = makeChannel(remembered: nil)
+        fresh.prepare()
+        XCTAssertEqual(freshSrc.connectCalls, [])
+        XCTAssertEqual(freshSrc.scanStarted, 0, "appearing on screen must not even scan")
+
+        // A remembered device — the tempting case.
+        let (remembered, rememberedSrc, _) = makeChannel(remembered: mine.id)
+        remembered.prepare()
+        XCTAssertEqual(rememberedSrc.connectCalls, [], "prepare() reached for the remembered belt")
+        XCTAssertEqual(rememberedSrc.scanStarted, 0)
+        XCTAssertEqual(remembered.link, .idle)
+
+        // Re-entering repeatedly (re-render, tab switch, foreground) stays inert.
+        for _ in 0..<5 { remembered.prepare() }
+        XCTAssertEqual(rememberedSrc.connectCalls, [])
+
+        // After a drop.
+        let (dropped, droppedSrc, _) = makeChannel(remembered: mine.id)
+        droppedSrc.dropUnexpectedly()
+        dropped.prepare()
+        XCTAssertEqual(droppedSrc.connectCalls, [], "prepare() re-grabbed a machine after a drop")
+        XCTAssertEqual(dropped.link, .lost, "the athlete must still be told it dropped")
+
+        // While a link the athlete made is live: left completely alone.
+        let (live, liveSrc, _) = makeChannel(remembered: mine.id)
+        live.connect(mine.id)
+        liveSrc.land(name: "Titanium T1")
+        live.prepare()
+        XCTAssertTrue(live.isConnected, "prepare() must not disturb a link he made")
+        XCTAssertEqual(liveSrc.connectCalls.count, 1, "and must not re-issue a connect")
+    }
+
+    /// An unexpected drop produces NO reconnect — from the channel, and (by the source
+    /// contract asserted here) from nothing else either. Equipment rotates: the machine
+    /// that just dropped may already be under somebody else.
+    func testUnexpectedDisconnectNeverReconnects() {
+        let mine = cand(1)
+        let (ch, src, store) = makeChannel(remembered: mine.id)
+
+        ch.connect(mine.id)                     // athlete tapped it
+        src.land(name: "Titanium T1")
+        XCTAssertTrue(ch.isConnected)
+        let connectsWhileLive = src.connectCalls.count
+
+        src.dropUnexpectedly()                  // the belt vanishes mid-run
+
+        XCTAssertEqual(src.connectCalls.count, connectsWhileLive, "the channel went back for it")
+        XCTAssertEqual(ch.link, .lost, "the athlete must be told, honestly")
+        XCTAssertFalse(ch.isConnected)
+        XCTAssertTrue(store.has, "the device stays REMEMBERED — as a label for the next list")
+
+        // …and nothing later brings it back on its own.
+        ch.onCandidatesChanged()
+        ch.settleWindowElapsed()
+        ch.prepare()
+        XCTAssertEqual(src.connectCalls.count, connectsWhileLive, "something reconnected after the drop")
+    }
+
+    /// The only route to a live link, end to end: look → list → tap. Every connect the
+    /// source ever sees traces back to that tap.
+    func testOnlyAnExplicitTapEverProducesAConnect() {
+        let mine = cand(1), stranger = cand(9)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.openPicker()
+        src.discover([mine, stranger])
+        ch.settleWindowElapsed()
+        XCTAssertEqual(src.connectCalls, [], "browsing a list is not connecting")
+
+        ch.requestConnect(stranger)             // he taps a row — a strap-style channel
+        XCTAssertEqual(src.connectCalls, [stranger.id], "the tapped device, and only it")
+    }
+
+    /// Belts are gated behind a confirmation, because we can DRIVE them. The tap alone
+    /// must not open the link.
+    func testTreadmillRowRequiresConfirmationBeforeConnecting() {
+        let belt = cand(1)
+        let (ch, src, _) = makeChannel(remembered: nil, requiresConfirmation: true)
+
+        ch.openPicker()
+        src.discover([belt])
+        ch.settleWindowElapsed()
+
+        ch.requestConnect(belt)                 // tap
+        XCTAssertEqual(src.connectCalls, [], "a belt connected before he confirmed it was his")
+        XCTAssertEqual(ch.pendingConfirmation?.id, belt.id, "the dialog must be up")
+
+        ch.confirmPendingConnect()              // "Conectar"
+        XCTAssertEqual(src.connectCalls, [belt.id])
+        XCTAssertNil(ch.pendingConfirmation)
+    }
+
+    func testCancellingTheConfirmationTouchesNothing() {
+        let belt = cand(1)
+        let (ch, src, _) = makeChannel(remembered: nil, requiresConfirmation: true)
+        ch.openPicker()
+        src.discover([belt])
+        ch.requestConnect(belt)
+        ch.cancelPendingConnect()               // "Cancelar" — wrong machine
+        XCTAssertEqual(src.connectCalls, [], "cancelling still connected")
+        XCTAssertNil(ch.pendingConfirmation)
+        XCTAssertFalse(ch.isConnected)
+    }
+
+    /// A pending confirmation can never survive a teardown and fire later against a
+    /// machine the athlete has since walked away from.
+    func testPendingConfirmationIsClearedByEveryTeardown() {
+        let belt = cand(1)
+        for teardown in ["disconnect", "stop", "cancelConnect", "prepare"] {
+            let (ch, src, _) = makeChannel(remembered: nil, requiresConfirmation: true)
+            ch.openPicker()
+            src.discover([belt])
+            ch.requestConnect(belt)
+            XCTAssertNotNil(ch.pendingConfirmation, "precondition for \(teardown)")
+
+            switch teardown {
+            case "disconnect":    ch.disconnect()
+            case "stop":          ch.stop()
+            case "cancelConnect": ch.cancelConnect()
+            default:              ch.prepare()
+            }
+
+            XCTAssertNil(ch.pendingConfirmation, "\(teardown) stranded a pending confirmation")
+            ch.confirmPendingConnect()          // a late "Conectar" must do nothing
+            XCTAssertEqual(src.connectCalls, [], "\(teardown) let a stale confirmation connect")
+        }
+    }
+
+    /// A read-only device (HR strap) connects on the tap itself — no dialog. It can't
+    /// hurt anybody, and a pointless prompt teaches athletes to dismiss prompts.
+    func testHeartRateStrapConnectsStraightFromTheTap() {
+        let strap = cand(3)
+        let (ch, src, _) = makeChannel(remembered: nil, requiresConfirmation: false)
+        ch.openPicker()
+        src.discover([strap])
+        ch.requestConnect(strap)
+        XCTAssertNil(ch.pendingConfirmation, "no dialog for a device we only read")
+        XCTAssertEqual(src.connectCalls, [strap.id])
+    }
+
+    /// Scanning is not connecting — no matter how long it runs or what turns up.
+    func testAFullScanLifecycleIssuesZeroConnects() {
+        let mine = cand(1), other = cand(2)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.openPicker()
+        src.discover([])
+        ch.onCandidatesChanged()
+        src.discover([mine])                    // the remembered one appears, alone
+        ch.onCandidatesChanged()
+        src.discover([mine, other])             // then a second machine
+        ch.settleWindowElapsed()
+        ch.onCandidatesChanged()
+        ch.cancelConnect()                      // he closes it without choosing
+
+        XCTAssertEqual(src.connectCalls, [], "a scan connected something")
+    }
+
+    // MARK: - Remembered = a label: sorted first, badged, never an action
+
+    func testRememberedDeviceLeadsTheListButIsStillJustARow() {
+        let mine = cand(1, rssi: -85)           // weak signal…
+        let loudStranger = cand(9, rssi: -35)   // …next to a very loud stranger
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.openPicker()
+        src.discover([loudStranger, mine])
+        ch.settleWindowElapsed()
+
+        XCTAssertEqual(ch.candidates.map(\.id), [mine.id, loudStranger.id], "remembered first")
+        XCTAssertEqual(ch.rememberedID, mine.id, "…and flagged so the row can badge it")
+        XCTAssertEqual(src.connectCalls, [], "leading the list is not being chosen")
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // MARK: - THE PRESENTATION CONTRACT (a separate field bug, still guarded)
+    // ══════════════════════════════════════════════════════════════════════════
     //
     // `isPresentingPicker` drives `.sheet(isPresented:)` in `DeviceConnectCard` and
-    // `TreadmillHUDView`. The channel used to raise it BY ITSELF whenever a scan settled
-    // on a choice — off a timer, with no idea what was on screen. During the run
-    // pre-start `.fullScreenCover` that asked UIKit to present a sheet from the screen
-    // buried underneath; UIKit refused ("Currently, only presenting a single sheet is
-    // supported") and the presentation fight swallowed the athlete's taps, so the belt
-    // list vanished under him. TWICE, in the field.
-    //
-    // The contract now: ONLY an explicit `openPicker()` may raise that flag. A settled
-    // scan publishes `candidates` and nothing else.
+    // `TreadmillHUDView`. The channel must never raise it by itself: off a timer, with
+    // no idea what is on screen, it once asked UIKit to present a sheet from a screen
+    // buried under the run pre-start `.fullScreenCover` — UIKit refused ("only
+    // presenting a single sheet is supported") and the fight swallowed the athlete's
+    // taps, so the belt list vanished under him. TWICE, in the field.
 
     func testSettledScanNeverRaisesThePickerFlagOnItsOwn() {
         let a = cand(1), b = cand(2)
         let (ch, src, _) = makeChannel(remembered: nil)
         ch.beginInlineSelection()                          // a list is on screen, but INLINE
         src.discover([a, b])
-        ch.settleWindowElapsed()                           // the timer fires: a choice is due
+        ch.settleWindowElapsed()                           // the timer fires
         XCTAssertFalse(ch.isPresentingPicker)              // …and NO modal is raised
         XCTAssertEqual(ch.candidates.count, 2)             // it only published the candidates
         XCTAssertEqual(src.stopCount, 0)                   // …with the scan still alive
-        XCTAssertNil(src.connectedID)
+        XCTAssertEqual(src.connectCalls, [])
     }
 
     func testInlineSelectionNeverTouchesThePickerFlag() {
@@ -86,34 +295,8 @@ final class DeviceChannelTests: XCTestCase {
         XCTAssertEqual(src.scanStarted, 1)                 // …but the scan really did start
     }
 
-    /// The exact field sequence: the connect guide silently reconnects a remembered belt,
-    /// the athlete taps "Buscar mi cinta", and the inline list appears. The scan must be
-    /// upgraded in place (c4a1547) AND no sheet may be raised (this fix).
-    func testInlineSelectionUpgradesSilentAttemptWithoutRaisingASheet() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-
-        ch.beginSilentReconnect()                          // guide appears, remembered belt
-        XCTAssertEqual(src.rememberedAttemptID, mine.id)
-        let scansBefore = src.scanStarted
-
-        ch.beginInlineSelection()                          // "Buscar mi cinta" → paso 3
-        XCTAssertEqual(src.scanStarted, scansBefore)       // upgraded in place, not restarted
-        XCTAssertFalse(ch.isPresentingPicker)              // and NOT a sheet
-
-        src.discover([stranger])
-        ch.settleWindowElapsed()
-
-        XCTAssertFalse(ch.isPresentingPicker)              // still no sheet…
-        XCTAssertEqual(src.stopCount, 0)                   // …scan STILL alive under the list
-        XCTAssertNotEqual(ch.link, .idle)                  // never idled under the list
-        XCTAssertEqual(ch.candidates.map(\.id), [stranger.id])
-        XCTAssertNil(src.connectedID)                      // still never grabs a stranger
-    }
-
     /// The latch: while the inline list owns the screen, even a stray `openPicker()`
-    /// cannot raise a sheet over the fullScreenCover. Structural, not "we checked".
+    /// cannot raise a sheet over the fullScreenCover. Structural, not "we audited it".
     func testOpenPickerCannotRaiseASheetWhileInlineSelectionIsActive() {
         let (ch, src, _) = makeChannel(remembered: nil)
         ch.beginInlineSelection()
@@ -139,102 +322,33 @@ final class DeviceChannelTests: XCTestCase {
         ch.beginInlineSelection()
         src.discover([other])
         ch.settleWindowElapsed()
-        ch.connect(other.id)
+        ch.requestConnect(other)
         src.land(name: "Titanium T1")
         XCTAssertTrue(ch.isConnected)
         ch.openPicker()                                    // chip tap afterwards
         XCTAssertTrue(ch.isPresentingPicker)               // not stranded
     }
 
-    // MARK: - un-solo-y-recordado → auto
-
-    func testSingleRememberedAutoConnectsWithoutPicker() {
-        let mine = cand(1)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-        ch.beginSilentReconnect()
-        XCTAssertEqual(src.rememberedAttemptID, mine.id)   // tried directly by id
-        src.discover([mine])                               // the scan turns up only it
-        XCTAssertEqual(src.connectedID, mine.id)           // → auto-connected
-        XCTAssertFalse(ch.isPresentingPicker)              // no list needed, nothing shown
-    }
-
-    /// The chip tap raises the sheet immediately (the tap IS the intent), and a single
-    /// remembered device still lands without the athlete choosing — closing the sheet.
-    func testChipTapOpensSheetImmediatelyAndClosesWhenTheRememberedDeviceLands() {
+    /// The chip tap raises the sheet immediately — the tap IS the intent, so he watches
+    /// the scan fill in rather than staring at a chip until a timer pops something.
+    func testChipTapOpensTheSheetImmediately() {
         let mine = cand(1)
         let (ch, src, _) = makeChannel(remembered: mine.id)
         ch.openPicker()
         XCTAssertTrue(ch.isPresentingPicker)               // open NOW, not on a timer
-        src.discover([mine])
-        XCTAssertEqual(src.connectedID, mine.id)
-        src.land(name: "Titanium T1")
-        XCTAssertFalse(ch.isPresentingPicker)              // dismissed on landing
+        XCTAssertEqual(src.scanStarted, 1)
+        XCTAssertEqual(src.connectCalls, [])               // opening a sheet connects nothing
     }
 
-    // MARK: - varios → lista
-
-    func testMultipleAlwaysPresentsList() {
-        let mine = cand(1, rssi: -70)
-        let other = cand(2, rssi: -40)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-        ch.openPicker()                                    // chip tap → sheet is up
-        src.discover([mine, other])
-        XCTAssertNil(src.connectedID)                      // did NOT auto-connect
-        ch.settleWindowElapsed()
-        XCTAssertEqual(ch.candidates.map(\.id), [other.id, mine.id])  // strongest first
-        XCTAssertTrue(ch.isPresentingPicker)               // the sheet the tap opened stays
-        XCTAssertNil(src.connectedID)
-    }
-
-    // MARK: - recordado-ausente → lista tras timeout
-
-    func testRememberedAbsentPresentsListAfterFallback() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-        ch.openPicker()
-        src.discover([stranger])                           // only a stranger showed up
-        XCTAssertNil(src.connectedID)                      // not before settle, not ever
-        ch.rememberedFallbackElapsed()                     // 5s passed, remembered never came
-        XCTAssertEqual(ch.candidates.map(\.id), [stranger.id])
-        XCTAssertNil(src.connectedID)                      // never auto-connected the stranger
-    }
-
-    // MARK: - The gym bug: a single UNKNOWN device is never grabbed
-
-    func testSingleUnknownIsNeverAutoConnected() {
-        let unknown = cand(7)
+    /// A scan already running is left alone: restarting it would clear the candidates
+    /// found so far and make the list flicker under the athlete's finger.
+    func testASecondListIntentDoesNotRestartTheScan() {
         let (ch, src, _) = makeChannel(remembered: nil)
         ch.openPicker()
-        src.discover([unknown])
-        ch.settleWindowElapsed()
-        XCTAssertNil(src.connectedID)                      // NOT connected blindly
-        XCTAssertEqual(ch.candidates.map(\.id), [unknown.id])  // athlete must choose
-    }
-
-    // MARK: - Silent HUD path: nothing remembered → idle, no scan, no picker
-
-    func testSilentPathWithNothingRememberedRestsIdle() {
-        let (ch, src, _) = makeChannel(remembered: nil)
-        ch.beginSilentReconnect()
-        XCTAssertEqual(src.scanStarted, 0)                 // no blind scan
-        XCTAssertFalse(ch.isPresentingPicker)
-        XCTAssertFalse(ch.isConnected)
-    }
-
-    // MARK: - Silent HUD path: remembered absent → stop scan + idle (HUD prompts choose)
-
-    func testSilentPathRememberedAbsentStopsAndIdles() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-        ch.beginSilentReconnect()
-        XCTAssertEqual(src.rememberedAttemptID, mine.id)
-        src.discover([stranger])
-        ch.rememberedFallbackElapsed()
-        XCTAssertFalse(ch.isPresentingPicker)              // silent → no sheet
-        XCTAssertGreaterThan(src.stopCount, 0)             // stopped the pointless scan
-        XCTAssertNil(src.connectedID)
+        let scans = src.scanStarted
+        ch.openPicker()
+        ch.beginInlineSelection()
+        XCTAssertEqual(src.scanStarted, scans, "the scan was restarted under the list")
     }
 
     // MARK: - Picking + remembering
@@ -247,7 +361,7 @@ final class DeviceChannelTests: XCTestCase {
         ch.settleWindowElapsed()
         XCTAssertTrue(ch.isPresentingPicker)
 
-        ch.connect(other.id)                               // athlete taps the row
+        ch.requestConnect(other)                           // athlete taps the row
         XCTAssertEqual(src.connectedID, other.id)
         XCTAssertFalse(ch.isPresentingPicker)              // sheet dismisses on pick
 
@@ -265,13 +379,14 @@ final class DeviceChannelTests: XCTestCase {
         let (ch, src, store) = makeChannel(remembered: mine.id)
         ch.openPicker()
         src.discover([mine])
+        ch.requestConnect(mine)
         src.land(name: "Belt")
         XCTAssertTrue(ch.isConnected)
 
         ch.disconnect()
         XCTAssertEqual(src.disconnectCount, 1)
         XCTAssertFalse(ch.isPresentingPicker)
-        XCTAssertTrue(store.has)                            // disconnect keeps the memory
+        XCTAssertTrue(store.has)                            // kept — as a label, not a trigger
     }
 
     func testForgetClearsMemory() {
@@ -279,10 +394,11 @@ final class DeviceChannelTests: XCTestCase {
         let (ch, src, store) = makeChannel(remembered: mine.id)
         ch.openPicker()
         src.discover([mine])
+        ch.requestConnect(mine)
         src.land(name: "Belt")
         ch.forget()
         XCTAssertFalse(store.has)                           // forget wipes it
-        XCTAssertEqual(src.disconnectCount, 1)             // and disconnects
+        XCTAssertEqual(src.disconnectCount, 1)              // and disconnects
     }
 
     // MARK: - Sheet dismiss must not abort an in-flight pick
@@ -293,9 +409,9 @@ final class DeviceChannelTests: XCTestCase {
         ch.openPicker()
         src.discover([other])
         ch.settleWindowElapsed()
-        ch.connect(other.id)                     // athlete taps a row
+        ch.requestConnect(other)                 // athlete taps a row
         XCTAssertEqual(src.connectedID, other.id)
-        ch.cancelConnect()                       // the sheet's onDisappear fires immediately after
+        ch.cancelConnect()                       // the sheet's onDisappear fires right after
         XCTAssertEqual(src.stopCount, 0)         // connection NOT torn down
         src.land(name: "Belt")
         XCTAssertTrue(ch.isConnected)
@@ -310,112 +426,6 @@ final class DeviceChannelTests: XCTestCase {
         XCTAssertTrue(ch.isPresentingPicker)
         ch.cancelConnect()                       // dismissed without choosing
         XCTAssertGreaterThan(src.stopCount, 0)   // scan stopped (battery)
-        XCTAssertNil(src.connectedID)
-    }
-
-    // MARK: - The field bug: the picker must never have its scan killed underneath it
-    //
-    // Sequence that blocked the founder: the connect guide appears → a remembered belt
-    // starts a SILENT attempt (`beginSilentReconnect()`) → he taps "Buscar mi cinta" →
-    // the list intent used to early-return because the channel was already busy, leaving
-    // the silent intent in place → when the settle window elapsed, `evaluate()` took the
-    // silent branch and did `_source?.stop()` + `link = .idle`, killing the live scan
-    // under the list he was reading. Both list intents now UPGRADE the attempt in place.
-
-    func testOpenPickerUpgradesSilentAttemptSoSettlePresentsInsteadOfStopping() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-
-        ch.beginSilentReconnect()   // silent remembered reconnect
-        XCTAssertEqual(src.rememberedAttemptID, mine.id)
-        let scansBefore = src.scanStarted
-
-        ch.openPicker()                             // athlete taps "Buscar mi cinta"
-        XCTAssertTrue(ch.isPresentingPicker)
-        XCTAssertEqual(src.scanStarted, scansBefore) // upgraded in place, not restarted
-
-        src.discover([stranger])
-        ch.settleWindowElapsed()
-
-        XCTAssertTrue(ch.isPresentingPicker)         // the list is presented…
-        XCTAssertEqual(src.stopCount, 0)             // …and the scan is STILL ALIVE
-        XCTAssertNotEqual(ch.link, .idle)            // never idled under the picker
-        XCTAssertEqual(ch.candidates.map(\.id), [stranger.id])
-        XCTAssertNil(src.connectedID)                // still never grabs a stranger
-    }
-
-    /// Same upgrade, reached through the remembered-fallback timer instead of settle —
-    /// the other route into `evaluate()`'s `.present` branch.
-    func testOpenPickerUpgradeAlsoHoldsThroughRememberedFallback() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-
-        ch.beginSilentReconnect()
-        ch.openPicker()
-        src.discover([stranger])
-        ch.rememberedFallbackElapsed()               // the remembered belt never showed
-
-        XCTAssertTrue(ch.isPresentingPicker)
-        XCTAssertEqual(src.stopCount, 0)             // scan not torn down
-        XCTAssertNil(src.connectedID)
-    }
-
-    /// The upgrade must not weaken the gym rule: with the picker open, a lone UNKNOWN
-    /// belt is still listed for the athlete to choose, never auto-connected.
-    func testUpgradedPickerStillNeverAutoConnectsAnUnknownDevice() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-
-        ch.beginSilentReconnect()
-        ch.openPicker()
-        src.discover([stranger])                     // a single, UNKNOWN machine
-        ch.settleWindowElapsed()
-
-        XCTAssertNil(src.connectedID)                // NOT connected blindly
-        XCTAssertTrue(ch.isPresentingPicker)         // the athlete chooses
-    }
-
-    /// …and the remembered belt still auto-connects the instant it appears alone, even
-    /// after the picker upgraded the attempt (the one auto-connect case must survive).
-    func testUpgradedPickerStillAutoConnectsTheSingleRememberedDevice() {
-        let mine = cand(1)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-
-        ch.beginSilentReconnect()
-        ch.openPicker()
-        src.discover([mine])                         // your machine, alone
-
-        XCTAssertEqual(src.connectedID, mine.id)     // straight in, no list needed
-        XCTAssertEqual(src.stopCount, 0)
-    }
-
-    /// The SILENT path stays silent when the athlete never opened the picker — the HUD
-    /// re-entry behaviour (stop the pointless scan, rest at idle) is unchanged.
-    func testSilentPathWithoutOpenPickerStillStopsAndIdles() {
-        let mine = cand(1)
-        let stranger = cand(9)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-
-        ch.beginSilentReconnect()
-        src.discover([stranger])
-        ch.settleWindowElapsed()
-
-        XCTAssertFalse(ch.isPresentingPicker)
-        XCTAssertGreaterThan(src.stopCount, 0)
-        XCTAssertEqual(ch.link, .idle)
-    }
-
-    // MARK: - Idempotent re-entry
-
-    func testReentryWhileBusyIsNoOp() {
-        let mine = cand(1)
-        let (ch, src, _) = makeChannel(remembered: mine.id)
-        ch.openPicker()
-        let scans = src.scanStarted
-        ch.openPicker()           // second tap while connecting
-        XCTAssertEqual(src.scanStarted, scans)             // no restart
+        XCTAssertEqual(src.connectCalls, [])
     }
 }

@@ -170,13 +170,10 @@ struct RunPreStartFlow: View {
             onSkip: { onStart(.treadmill) },
             onStartConnected: { onStart(.treadmill) }
         )
-        .onAppear {
-            // A remembered belt reconnects silently — the state simply shows
-            // connected; a first-timer keeps the guide + "Buscar mi cinta".
-            if hub.treadmill.hasRemembered, !hub.treadmill.isConnected {
-                hub.connectTreadmill()
-            }
-        }
+        // NO .onAppear CONNECT. This step used to silently reconnect a remembered belt
+        // on entry, so the athlete arrived at a "✓ Conectada" he never asked for — and
+        // in a gym that belt is frequently somebody else's, possibly mid-run, with our
+        // app holding its control point. The button ALWAYS leads to the list now.
     }
 
     /// "Buscar mi cinta" — go to paso 3 and make sure a LIST-bound scan is running.
@@ -225,12 +222,13 @@ struct RunPreStartFlow: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
                             ForEach(hub.treadmill.candidates) { candidate in
+                                // requestConnect → the "¿es TU cinta?" confirmation.
                                 DeviceCandidateRow(
                                     candidate: candidate,
                                     isRemembered: candidate.id == hub.treadmill.rememberedID
                                 ) {
                                     Haptics.light()
-                                    hub.treadmill.connect(candidate.id)
+                                    hub.treadmill.requestConnect(candidate)
                                 }
                             }
                         }
@@ -247,13 +245,14 @@ struct RunPreStartFlow: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .deviceConnectConfirmation(hub.treadmill)
     }
 
     /// Live state of the scan: searching, connecting, or dead (with a way back in).
     @ViewBuilder
     private var scanLine: some View {
         switch hub.treadmill.link {
-        case .scanning, .reconnecting:
+        case .scanning:
             busyLine("Buscando… mantén la cinta cerca y encendida.")
         case .connecting:
             busyLine("Conectando…")
@@ -315,6 +314,10 @@ struct TreadmillConnectGuide: View {
             if link.isLive {
                 connectedCard
             } else {
+                // The belt dropped → say it plainly, ABOVE the how-to. Nothing is
+                // recovering it; "Buscar mi cinta" below is the way back, through the
+                // list, with the athlete choosing.
+                if link == .lost { lostCard }
                 howToCard
                 if isBusy { busyLine }
             }
@@ -364,6 +367,31 @@ struct TreadmillConnectGuide: View {
         }
     }
 
+    /// "Se perdió la conexión" — the honest state after a drop. No spinner, because
+    /// nothing is running; the athlete reconnects from the list when he wants to.
+    private var lostCard: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.Color.warning)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Se perdió la conexión con la cinta")
+                    .font(Theme.Typography.bodyEmph)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("Puedes seguir corriendo. Si quieres volver a conectarla, búscala y elígela otra vez.")
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.warningTint)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
     private var howToCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             guideRow(1, "Enciende la cinta y ponla en su pantalla principal.")
@@ -402,15 +430,16 @@ struct TreadmillConnectGuide: View {
 
     private var busyWord: String {
         switch link {
-        case .reconnecting: return "Reconectando — sigue corriendo, la recuperamos sola."
-        case .connecting:   return "Conectando…"
-        default:            return "Buscando tu cinta…"
+        case .connecting: return "Conectando…"
+        default:          return "Buscando tu cinta…"
         }
     }
 
+    /// `.lost` is deliberately NOT busy: it used to say "Reconectando — sigue corriendo,
+    /// la recuperamos sola", which was both a lie and a promise we must never make.
     private var isBusy: Bool {
         switch link {
-        case .scanning, .connecting, .reconnecting: return true
+        case .scanning, .connecting: return true
         default: return false
         }
     }

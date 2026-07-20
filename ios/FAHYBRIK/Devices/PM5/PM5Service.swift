@@ -64,9 +64,9 @@ protocol PM5ServiceDelegate: AnyObject {
 }
 
 // CoreBluetooth wrapper. Single-peripheral usage — we only ever want one PM5
-// at a time. Auto-reconnect on disconnect is intentionally OFF here; the
-// store decides whether to call `reconnectLastPaired()` based on whether
-// we're inside an active row/ski-erg segment.
+// at a time. Auto-reconnect is OFF, permanently and everywhere: neither this
+// service nor its store may reopen a link the athlete did not ask for, on a
+// drop or on any lifecycle event. See `DeviceConnection.swift` for the rule.
 final class PM5Service: NSObject {
     static let shared = PM5Service()
 
@@ -196,19 +196,13 @@ final class PM5Service: NSObject {
         disconnect()
     }
 
-    func reconnectLastPaired() {
-        guard bluetoothState == .poweredOn else {
-            pendingScan = true
-            return
-        }
-        guard let raw = UserDefaults.standard.string(forKey: PM5Defaults.lastPairedIdentifier),
-              let id = UUID(uuidString: raw),
-              let known = central.retrievePeripherals(withIdentifiers: [id]).first else {
-            startScan()
-            return
-        }
-        connect(peripheral: known)
-    }
+    // `reconnectLastPaired()` USED TO LIVE HERE AND IT IS NOT COMING BACK. It reached
+    // for the last paired erg by identifier, and it was invoked from lifecycle hooks —
+    // the erg sheet appearing, the workout view appearing, every segment change. Ergs
+    // rotate like every other machine in a gym: the athlete moves from the rower to the
+    // ski, or somebody else takes the one he used yesterday. The erg is chosen the same
+    // way as everything else now — from the list, by tapping. `connect(_:)` is the only
+    // door, and only a finger opens it.
 
     /// "Cambiar de erg": drop the current link (if any) and connect the tapped one.
     /// The old peripheral is cancelled FIRST and replaced synchronously, so its late

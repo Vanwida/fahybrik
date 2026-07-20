@@ -85,9 +85,12 @@ enum HRChipPresentation: Equatable {
 
     static func resolve(bandLink: DeviceLink, watchAvailable: Bool) -> HRChipPresentation {
         switch bandLink {
-        case .connected, .connecting, .scanning, .reconnecting:
+        case .connected, .connecting, .scanning:
             return .band
-        case .idle, .unavailable, .failed:
+        // `.lost` falls through to the watch/idle presentation on purpose: the strap is
+        // gone and nothing is bringing it back, so the honest chip is the one that
+        // invites a tap (or credits the watch that IS still reading his pulse).
+        case .idle, .lost, .unavailable, .failed:
             return watchAvailable ? .appleWatch : .idle
         }
     }

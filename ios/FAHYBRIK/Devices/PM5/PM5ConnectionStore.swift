@@ -38,12 +38,36 @@ final class PM5ConnectionStore: NSObject {
     /// piece programmed then.
     private var programmedSegmentId: UUID? = nil
 
+    /// True when the erg dropped ON ITS OWN (not because the athlete disconnected).
+    /// Nothing recovers it — this exists so the UI can SAY so and offer the list again.
+    /// Cleared the moment he acts (a new scan, a new connection).
+    var connectionLost: Bool = false
+    /// Set by the store just before it asks the service to drop the link, so the
+    /// disconnect callback can tell "he asked for this" from "the erg vanished".
+    private var expectingDisconnect = false
+
     var rememberedDeviceName: String? {
         UserDefaults.standard.string(forKey: PM5Defaults.lastPairedName)
     }
 
-    var hasRememberedDevice: Bool {
-        UserDefaults.standard.string(forKey: PM5Defaults.lastPairedIdentifier) != nil
+    /// The erg used last — a LABEL for the list (badge + sorted first), never a
+    /// reconnect trigger. Ergs rotate: rower today, ski tomorrow, somebody else's after.
+    var rememberedIdentifier: UUID? {
+        UserDefaults.standard.string(forKey: PM5Defaults.lastPairedIdentifier)
+            .flatMap(UUID.init(uuidString:))
+    }
+
+    var hasRememberedDevice: Bool { rememberedIdentifier != nil }
+
+    /// The discovered ergs in the order the athlete should see them: the one he used
+    /// last on top (badged), then the rest as the scan ranked them.
+    var discoveredForDisplay: [PM5Discovered] {
+        let remembered = rememberedIdentifier
+        return discovered.enumerated().sorted { a, b in
+            let aR = a.element.id == remembered, bR = b.element.id == remembered
+            if aR != bR { return aR }
+            return a.offset < b.offset
+        }.map(\.element)
     }
 
     var isConnected: Bool {
@@ -61,6 +85,7 @@ final class PM5ConnectionStore: NSObject {
 
     // MARK: - intent
     func startScan() {
+        connectionLost = false      // he's looking again; the warning did its job
         #if targetEnvironment(simulator)
         startMockStream()
         #else
@@ -78,7 +103,9 @@ final class PM5ConnectionStore: NSObject {
         #endif
     }
 
+    /// The athlete tapped an erg in the list. THE only way a PM5 link is ever opened.
     func connect(_ id: UUID) {
+        connectionLost = false
         #if targetEnvironment(simulator)
         startMockStream()
         #else
@@ -88,6 +115,7 @@ final class PM5ConnectionStore: NSObject {
     }
 
     func disconnect() {
+        expectingDisconnect = true      // he asked → the drop is not a "lost connection"
         #if targetEnvironment(simulator)
         stopMockStream()
         connectionState = .idle
@@ -104,6 +132,8 @@ final class PM5ConnectionStore: NSObject {
     /// no manual disconnect first (the remembered rower must never trap the athlete
     /// away from the SKI next to it).
     func switchTo(_ id: UUID) {
+        expectingDisconnect = true      // the old link drops because he chose another
+        connectionLost = false
         #if targetEnvironment(simulator)
         startMockStream()
         #else
@@ -113,6 +143,8 @@ final class PM5ConnectionStore: NSObject {
     }
 
     func forgetPaired() {
+        expectingDisconnect = true
+        connectionLost = false
         #if targetEnvironment(simulator)
         stopMockStream()
         UserDefaults.standard.removeObject(forKey: PM5Defaults.lastPairedIdentifier)
@@ -127,13 +159,11 @@ final class PM5ConnectionStore: NSObject {
         #endif
     }
 
-    func reconnectIfPossible() {
-        #if targetEnvironment(simulator)
-        startMockStream()
-        #else
-        service.reconnectLastPaired()
-        #endif
-    }
+    // `reconnectIfPossible()` USED TO LIVE HERE. It was called from `ErgConnectCard`'s
+    // tap, from the erg sheet's `onAppear`, from `DeviceConnectCard`'s chip and from
+    // `ActiveWorkoutView` on appear AND on every segment change — five lifecycle paths
+    // that each reopened a link to whatever machine still held that identifier. All
+    // deleted. The athlete taps an erg in the list; that is the whole story.
 
     /// Clear the captured splits. Called by the active-workout view when a NEW erg
     /// segment starts, so each piece's interval table starts clean (the monitor's
@@ -289,6 +319,8 @@ extension PM5ConnectionStore: PM5ServiceDelegate {
         self.connectedDeviceName = deviceName
         self.connectedIdentifier = identifier
         self.lastError = nil
+        self.connectionLost = false
+        self.expectingDisconnect = false
         // A fresh link starts with a clean monitor — allow the current erg piece
         // to be (re)programmed onto it.
         self.programmedSegmentId = nil
@@ -302,7 +334,14 @@ extension PM5ConnectionStore: PM5ServiceDelegate {
         self.splits = splits
     }
 
+    /// The link is down. We do NOT go back for it — not here, not on the next screen,
+    /// not on the next segment. When the athlete didn't ask for this, we raise
+    /// `connectionLost` so the surface can say "se perdió la conexión con el erg" and
+    /// offer the list; that is the entire recovery mechanism, and it needs his finger.
     func pm5Service(_ service: PM5Service, didDisconnect error: Error?) {
+        let wasLinked = self.connectedIdentifier != nil
+        self.connectionLost = wasLinked && !self.expectingDisconnect
+        self.expectingDisconnect = false
         self.connectedDeviceName = nil
         self.connectedIdentifier = nil
         self.programState = .idle

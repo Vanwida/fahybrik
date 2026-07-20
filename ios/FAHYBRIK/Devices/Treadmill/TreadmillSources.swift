@@ -44,7 +44,11 @@ enum DeviceLink: Equatable {
     case scanning                // looking for a compatible device
     case connecting              // found one, opening the link
     case connected(name: String) // streaming
-    case reconnecting            // dropped mid-session, trying to recover
+    /// The link DROPPED and we are NOT recovering it. Nothing in this app ever
+    /// reconnects on its own: gym equipment rotates constantly, so "the machine you
+    /// were on" is very likely someone else's right now — and we can DRIVE belts.
+    /// The surface says so honestly and offers a button back into the scan list.
+    case lost
     case unavailable             // Bluetooth off / unauthorized / nothing found
     case failed(String)          // hard error, human-readable
 

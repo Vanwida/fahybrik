@@ -17,7 +17,6 @@ final class TreadmillControlModelTests: XCTestCase {
         private(set) var sent: [TreadmillControlCommand] = []
         func startScan() {}
         func connect(_ id: DeviceID) {}
-        func connectRemembered(_ id: DeviceID) {}
         func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
@@ -38,7 +37,6 @@ final class TreadmillControlModelTests: XCTestCase {
         var onBluetooth: ((BluetoothAvailability) -> Void)?
         func startScan() {}
         func connect(_ id: DeviceID) {}
-        func connectRemembered(_ id: DeviceID) {}
         func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }

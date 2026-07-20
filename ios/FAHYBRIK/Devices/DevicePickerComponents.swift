@@ -58,11 +58,16 @@ struct SignalBars: View {
 // MARK: - One found device
 
 /// A single discovered device: its advertised NAME (the only thing the athlete can
-/// recognise), an "ÚLTIMO" badge when it's the remembered one, the proximity word and
-/// the signal bars. Tapping connects to THIS device — never "the first one found".
+/// recognise), an "ÚLTIMO USADO" badge when it's the remembered one, the proximity word
+/// and the signal bars. Tapping connects to THIS device — never "the first one found".
+///
+/// The badge is the ONLY thing "remembered" buys a device: it sorts to the top and says
+/// so, to be found in one glance. It never connects on its own. Machines rotate — the
+/// belt you used last is very likely somebody else's right now.
 struct DeviceCandidateRow: View {
     let candidate: DeviceCandidate
-    /// True when this is the device the athlete used last (badged, so it's obvious).
+    /// True when this is the device the athlete used last (badged + sorted first, so
+    /// it's obvious). A LABEL, never an action.
     let isRemembered: Bool
     let onTap: () -> Void
 
@@ -76,7 +81,7 @@ struct DeviceCandidateRow: View {
                             .foregroundStyle(Theme.Color.foreground)
                             .lineLimit(1)
                         if isRemembered {
-                            Text("ÚLTIMO")
+                            Text("ÚLTIMO USADO")
                                 .font(.system(size: 8, weight: .heavy, design: .default).italic())
                                 .tracking(0.6)
                                 .foregroundStyle(Theme.Color.accentText)
@@ -97,8 +102,30 @@ struct DeviceCandidateRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(candidate.name), \(DeviceProximity.label(candidate.rssi))")
+        .accessibilityLabel("\(candidate.name)\(isRemembered ? ", último usado" : ""), \(DeviceProximity.label(candidate.rssi))")
         .accessibilityHint("Toca para conectar")
+    }
+}
+
+// MARK: - "¿Es TU cinta?" — the confirmation before we touch a machine we can drive
+
+/// The confirmation a treadmill row raises before connecting. Belts only: this app can
+/// set their speed and incline and start/stop them, so connecting to the wrong one
+/// reaches into a machine somebody else may be running on. Straps and ergs connect on
+/// the tap alone — they can't hurt anybody.
+///
+/// Attached by every host that lists belts (the picker sheet and the run pre-start's
+/// inline step) off the SAME channel state, so neither can forget it.
+extension View {
+    func deviceConnectConfirmation(_ channel: DeviceChannel) -> some View {
+        alert("¿Conectar con \(channel.pendingConfirmation?.name ?? "esta cinta")?",
+              isPresented: Binding(get: { channel.pendingConfirmation != nil },
+                                   set: { if !$0 { channel.cancelPendingConnect() } })) {
+            Button("Conectar") { Haptics.medium(); channel.confirmPendingConnect() }
+            Button("Cancelar", role: .cancel) { channel.cancelPendingConnect() }
+        } message: {
+            Text("Asegúrate de que es TU cinta — la que tienes delante. La app puede cambiarle la velocidad y la inclinación.")
+        }
     }
 }
 

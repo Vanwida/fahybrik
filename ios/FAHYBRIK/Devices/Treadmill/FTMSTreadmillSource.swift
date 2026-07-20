@@ -5,13 +5,17 @@ import Foundation
 // NSObject + CBCentralManager on the main queue, a pure parser does the byte work,
 // state is pushed out through callbacks.
 //
-// CONNECTION MODEL (the gym fix): scanning ACCUMULATES every Fitness Machine it
-// finds into a candidate list (name + signal) and reports it — it never
-// auto-connects to "the first one found", which in a shared gym is a stranger's
-// treadmill. The DeviceChannel decides whether to auto-connect (only the single
-// remembered machine) or hand the athlete the list to pick from. Once a specific
-// peripheral is chosen it auto-reconnects to THAT machine on an unexpected drop, and
-// disconnects deterministically (with a timeout) when the athlete asks.
+// CONNECTION MODEL: scanning ACCUMULATES every Fitness Machine it finds into a
+// candidate list (name + signal) and reports it. It NEVER connects — not to the first
+// one found, not to the one used last, and not back to a machine that just dropped.
+// The DeviceChannel hands the athlete the list; he taps his belt and confirms it is
+// his; only then does `connect(_:)` open a link. An unexpected drop reports `.lost`
+// and stops there, and a failed attempt reports `.failed` with no retry loop.
+//
+// WHY SO STRICT: this class can DRIVE the machine (speed, incline, start, stop) via
+// the Control Point. Reconnecting on our own once re-grabbed a belt in a shared gym —
+// equipment rotates, so the machine we'd be reaching for may have somebody else on it.
+// Disconnects stay deterministic (with a timeout) when the athlete asks.
 //
 // NOTE: CoreBluetooth is unavailable in the iOS simulator; the HUD uses
 // MockTreadmillSource there. This class only runs on device.
@@ -86,15 +90,6 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         } else if let p = central.retrievePeripherals(withIdentifiers: [id]).first {
             connect(p, advertised: [])
         }
-    }
-
-    func connectRemembered(_ id: DeviceID) {
-        intentionalStop = false
-        guard central.state == .poweredOn,
-              let p = central.retrievePeripherals(withIdentifiers: [id]).first else {
-            return   // the channel's scan + fallback timer take over
-        }
-        connect(p, advertised: [])
     }
 
     func disconnect() {
@@ -241,25 +236,37 @@ extension FTMSTreadmillSource: CBCentralManagerDelegate {
                                      TreadmillGATT.heartRateService])
     }
 
+    /// The attempt failed. We say so and STOP. There is no retry loop: a retry is a
+    /// connect the athlete did not ask for, aimed at a belt that may since have been
+    /// taken by somebody else.
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         guard !intentionalStop else { return }
-        onLink?(.reconnecting)
-        central.connect(peripheral, options: nil)
+        self.peripheral = nil
+        dataChar = nil
+        resetControlState()
+        onControlCapability?(.none)
+        onLink?(.failed("No pude conectar con la cinta. Vuelve a intentarlo."))
     }
 
+    /// The belt dropped. WE DO NOT GO BACK FOR IT.
+    ///
+    /// This method used to call `central.connect(peripheral)` again, which silently
+    /// re-grabbed the machine — the single most dangerous line in the device layer once
+    /// the app could drive belts. Gym equipment rotates: by the time a link drops and
+    /// comes back, that belt may be under another athlete, mid-run, and we would be
+    /// holding its control point. The link dies here, honestly, and the athlete decides
+    /// what to connect to next from a fresh list.
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         dataChar = nil
         if intentionalStop {
             finalizeDisconnect()      // athlete-initiated: settle to idle now
             return
         }
-        // Unexpected drop of the CHOSEN machine → reconnect to that same peripheral
-        // (connect() with no timeout resolves when it's back in range). Control
-        // permission and the CCCD do NOT survive a reconnect, and the characteristic
-        // handles are stale — drop the control state so the re-connect re-earns it.
+        disconnectGen += 1
+        self.peripheral = nil
         resetControlState()
-        onLink?(.reconnecting)
-        central.connect(peripheral, options: nil)
+        onControlCapability?(.none)   // the belt is gone → no control
+        onLink?(.lost)                // "se perdió la conexión" + a button back to the list
     }
 }
 

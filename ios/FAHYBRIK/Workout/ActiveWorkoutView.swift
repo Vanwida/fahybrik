@@ -252,7 +252,6 @@ struct ActiveWorkoutView: View {
         .onAppear {
             session.start()
             wireLiveSources()
-            attemptPM5IfNeeded()
             attemptProgramPM5()
             updateRunGPS()
             maybeAutoOpenRunCover()
@@ -285,7 +284,6 @@ struct ActiveWorkoutView: View {
             }
         }
         .onChange(of: session.currentSegmentIndex) { _, _ in
-            attemptPM5IfNeeded()
             updateRunGPS()
             maybeAutoOpenRunCover()
         }
@@ -440,12 +438,11 @@ struct ActiveWorkoutView: View {
             && YouTubeLinkParser.videoId(from: session.currentSegment!.videoUrl!) != nil
     }
 
-    private func attemptPM5IfNeeded() {
-        guard isErgSegment, !pm5.isConnected else { return }
-        if pm5.hasRememberedDevice {
-            pm5.reconnectIfPossible()
-        }
-    }
+    // `attemptPM5IfNeeded()` USED TO LIVE HERE, called on appear and on EVERY segment
+    // change: reaching an erg segment silently reopened the last paired PM5. Deleted.
+    // Arriving at a piece of work is not consent to grab a machine — the athlete opens
+    // the erg sheet and taps the erg he is on. If nothing is connected he simply rows
+    // and the app records what it can, exactly as it does for an unrecognised belt.
 
     /// Program the CURRENT erg piece on the connected PM5 (ErgData behavior: the
     /// monitor loads the workout and shows "row to begin"; the athlete touches

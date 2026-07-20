@@ -140,7 +140,7 @@ struct TreadmillHUDView: View {
     private var cintaStateWord: String {
         switch model.treadmillLink {
         case .scanning, .connecting: return "buscando"
-        case .reconnecting:          return "reconectando"
+        case .lost:                  return "se perdió"
         case .unavailable, .failed:  return "sin señal"
         case .idle, .connected:      return "—"
         }
@@ -153,7 +153,7 @@ struct TreadmillHUDView: View {
     private var pulseStateWord: String {
         switch model.effectiveHRLink {
         case .scanning, .connecting: return "buscando"
-        case .reconnecting:          return "reconectando"
+        case .lost:                  return "se perdió"
         case .unavailable, .failed:  return "sin señal"
         case .idle, .connected:      return "—"
         }

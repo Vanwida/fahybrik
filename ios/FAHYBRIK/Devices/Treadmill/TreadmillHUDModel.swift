@@ -149,8 +149,12 @@ final class TreadmillHUDModel {
         // is NOT taken here: it flows to the engine via ActiveWorkoutView and is read
         // back for display through `bleBpm` (hub.bleBpm), so a single owner feeds it.
         hub.onSample = { [weak self] in self?.ingest($0) }
-        hub.connectTreadmill()   // idempotent: a no-op if the brief already connected
-        hub.connectHR()
+        // Settle the chips into an honest state — these do NOT connect. Opening this
+        // HUD used to silently reach for the remembered belt; a screen appearing is
+        // never a reason to grab a machine. If nothing is linked, the guide's "Buscar
+        // mi cinta" is the way in, and it goes through the list.
+        hub.prepareTreadmill()
+        hub.prepareHR()
         // Machine control (drive the belt + stay synced). Seed with whatever the hub
         // already knows — the belt may have connected (and reported capability) back in
         // the brief — then subscribe for updates.

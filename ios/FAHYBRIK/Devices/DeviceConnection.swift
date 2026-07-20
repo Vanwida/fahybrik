@@ -7,13 +7,35 @@ import Observation
 // Concept2-PM5 pattern (scan → list the found devices by NAME → the athlete picks →
 // remember it) generalized to cinta + banda.
 //
-// WHY THIS EXISTS (the gym failure it fixes): the old sources auto-connected to the
-// FIRST advertiser they saw. In a gym with several treadmills / other people's HR
-// straps that means grabbing a STRANGER'S machine — the athlete "mareó a la gente
-// que entrenaba en otra cinta" and the HR chip latched onto someone else's Polar.
-// The rule here is blunt: NEVER auto-connect to an unknown device. Auto-connect
-// happens for exactly ONE case — the single device found is the one you used last.
-// Everything else surfaces a list and the athlete chooses.
+// ══════════════════════════════════════════════════════════════════════════════
+// THE ONE RULE: NOTHING EVER CONNECTS BY ITSELF. NOT EVEN TO THE DEVICE YOU
+// USED LAST. NOT EVEN AFTER A DROP.
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// A connection exists because a FINGER asked for it, in this session, from a list
+// of what is actually around. There is no auto-connect, no silent reconnect, no
+// retry loop, no "fast path to the remembered device" — those are all deleted, not
+// merely disabled, so they cannot creep back.
+//
+// WHY (the field failures, in order):
+//   1. The first sources auto-connected to the FIRST advertiser they saw. In a gym
+//      that grabs a STRANGER'S machine — the athlete "mareó a la gente que
+//      entrenaba en otra cinta" and the HR chip latched onto someone else's Polar.
+//   2. So we narrowed it to "auto-connect only the single REMEMBERED device". That
+//      still auto-connected in the gym, and it is the dangerous case: the app can
+//      now DRIVE belts (FTMS speed/incline/start/stop). Grabbing a belt that is
+//      mid-workout under another athlete is not rude, it is a safety incident.
+//   3. Equipment ROTATES. People move between machines constantly. Yesterday's
+//      belt — or the one you were on ten minutes ago — is very likely someone
+//      else's right now. "Remembered" is therefore NOT evidence of ownership.
+//
+// What "remembered" is allowed to be: a LABEL. It badges its row "ÚLTIMO USADO"
+// and sorts it to the top so the athlete finds it in one glance. It is never an
+// action, never a trigger, never a reason to skip the list.
+//
+// After ANY disconnection, expected or not, the link goes to a truthful state
+// (`.idle` / `.lost`) and the surface offers a button back into the scan. Never a
+// spinner that silently re-grabs a machine.
 
 /// A CoreBluetooth peripheral identity — the stable per-install UUID the OS assigns
 /// a peripheral. Used to remember a chosen device and to reconnect to that EXACT
@@ -49,14 +71,12 @@ protocol ConnectableSource: AnyObject {
     var onBluetooth: ((BluetoothAvailability) -> Void)? { get set }
     /// Begin a service-filtered scan, ACCUMULATING candidates (never auto-connecting).
     func startScan()
-    /// Connect to a specific candidate the athlete (or the auto-rule) chose.
+    /// Connect to the ONE candidate the athlete tapped. This is the ONLY way a link is
+    /// ever opened — there is deliberately no "connect to the remembered one" entry
+    /// point, because the remembered device is a label, not an instruction.
     func connect(_ id: DeviceID)
-    /// Fast-path: try to connect straight to a remembered identifier without waiting
-    /// for a scan (CoreBluetooth can reach a known peripheral by UUID). Falls back to
-    /// a scan internally if the OS no longer knows it.
-    func connectRemembered(_ id: DeviceID)
-    /// Athlete-initiated cut. Ends the link, stops auto-reconnect, KEEPS the
-    /// remembered device (so the next tap reconnects fast). Deterministic.
+    /// Athlete-initiated cut. Ends the link and KEEPS the remembered device — as a
+    /// label for next time's list, never as a reconnect trigger. Deterministic.
     func disconnect()
     /// Full teardown for the end of the whole workout (kills scan + link).
     func stop()
@@ -67,31 +87,41 @@ protocol ConnectableSource: AnyObject {
 
 /// What to do given the current scan state. Pure — a function of (what's been found,
 /// what we remember, whether the short settle window has elapsed).
+///
+/// THERE ARE ONLY TWO OUTCOMES, AND NEITHER OF THEM CONNECTS. A scan can keep
+/// listening or hand the athlete a list; opening a link is a separate act that only a
+/// tap performs. Any future case that connects is a safety regression — see the
+/// header of this file and `ScanDecisionEngineTests`.
 enum ScanDecision: Equatable {
-    /// Still inside the settle window and nothing decisive — keep listening so a
-    /// device that advertises a beat late still makes the list.
+    /// Still inside the settle window — keep listening so a device that advertises a
+    /// beat late still makes the list.
     case keepScanning
-    /// Exactly one device and it's the remembered one → connect with no picker.
-    case autoConnect(DeviceID)
-    /// Hand the athlete the list to choose from (sorted strongest-signal first).
+    /// Hand the athlete the list to choose from (remembered first, then by signal).
     case present([DeviceCandidate])
 }
 
 enum ScanDecisionEngine {
-    /// The one rule that fixes the gym bug: auto-connect ONLY to the single remembered
-    /// device; a lone UNKNOWN device is never auto-connected (it might be someone
-    /// else's). Multiple, unknown, or "remembered not here" all resolve to a list —
-    /// but only once the settle window has elapsed, so the list isn't presented before
-    /// a second machine has had a chance to appear (and before the single-remembered
-    /// auto-connect gets its shot).
+    /// A settled scan ALWAYS resolves to a list. Always — including the case that used
+    /// to be treated as safe: exactly one device found and it is the one we remember.
+    /// That case is NOT safe. Equipment rotates; yesterday's belt (or the one from ten
+    /// minutes ago) is very likely someone else's right now, possibly mid-workout, and
+    /// this app can drive belts. "Remembered" only earns that device the top of the
+    /// list and an "ÚLTIMO USADO" badge — the athlete still taps it.
     static func decide(candidates: [DeviceCandidate],
                        remembered: DeviceID?,
                        settleElapsed: Bool) -> ScanDecision {
-        if candidates.count == 1, let only = candidates.first, only.id == remembered {
-            return .autoConnect(only.id)      // your machine, alone → straight in
-        }
         guard settleElapsed else { return .keepScanning }
-        return .present(candidates.sorted { $0.rssi > $1.rssi })
+        return .present(sorted(candidates, remembered: remembered))
+    }
+
+    /// Remembered device first (it is what the athlete is most likely looking for),
+    /// then strongest signal — the machine you are standing in front of is loudest.
+    static func sorted(_ candidates: [DeviceCandidate], remembered: DeviceID?) -> [DeviceCandidate] {
+        candidates.sorted { a, b in
+            let aRemembered = a.id == remembered, bRemembered = b.id == remembered
+            if aRemembered != bRemembered { return aRemembered }
+            return a.rssi > b.rssi
+        }
     }
 }
 
@@ -172,6 +202,12 @@ final class DeviceChannel {
     /// because a finger asked for it, never because a timer fired.
     var isPresentingPicker: Bool = false
 
+    /// The device the athlete just tapped that is WAITING FOR HIS CONFIRMATION, on a
+    /// channel that requires one (belts — the machines we can drive). Non-nil means a
+    /// dialog is up and NOTHING has been connected yet. Cleared by confirm, cancel, or
+    /// any teardown, so it can never strand a half-made decision.
+    private(set) var pendingConfirmation: DeviceCandidate?
+
     /// Raised while an INLINE candidate list owns the screen (the run pre-start flow's
     /// paso 3). While it is up, `isPresentingPicker` CANNOT go true: the athlete is
     /// already looking at the list, and a sheet over a fullScreenCover is exactly the
@@ -189,6 +225,11 @@ final class DeviceChannel {
     /// pick YOUR machine among several, and which machines are supported. Non-technical
     /// athletes don't recognise a raw BLE name (Gerard didn't know his own treadmill's).
     let pickHint: String?
+    /// True for machines the app can DRIVE (the treadmill: speed, incline, start, stop).
+    /// Tapping such a row asks "¿es TU cinta?" before connecting, because connecting to
+    /// the wrong one can move a belt under whoever is running on it. False for read-only
+    /// devices (an HR strap can't hurt anybody) — there the tap connects straight away.
+    let requiresConfirmation: Bool
     private let makeSource: () -> ConnectableSource
     private let remembered: RememberedDeviceStore
 
@@ -218,12 +259,14 @@ final class DeviceChannel {
     init(title: String, icon: String,
          scanHint: String = "Enciende tu dispositivo y acércate. Aparecerá aquí en cuanto lo encuentre.",
          pickHint: String? = nil,
+         requiresConfirmation: Bool = false,
          remembered: RememberedDeviceStore,
          makeSource: @escaping () -> ConnectableSource) {
         self.title = title
         self.icon = icon
         self.scanHint = scanHint
         self.pickHint = pickHint
+        self.requiresConfirmation = requiresConfirmation
         self.remembered = remembered
         self.makeSource = makeSource
     }
@@ -237,39 +280,35 @@ final class DeviceChannel {
 
     // MARK: - Intents
     //
-    // THREE explicit entry points, one per way the athlete can reach a device. They
-    // differ ONLY in who shows the candidate list — a sheet, an inline step, or
-    // nobody — because that is the single thing the channel used to get wrong.
+    // NONE OF THESE CONNECT. The only member of this type that opens a link is
+    // `connect(_:)`, and the only things that call it are an athlete's tap on a list
+    // row (`requestConnect` → for a belt, after he confirms). Everything here just
+    // decides who is showing the list.
 
-    /// A remembered device reconnects in the BACKGROUND (the HUD re-entering, the brief
-    /// appearing with a personal strap already paired). Only the remembered device is
-    /// tried; if it can't be reached the channel sits at `.idle` and the surface prompts
-    /// "Elige tu cinta". Never scans blind, never grabs a stranger, and — critically —
-    /// never surfaces anything on its own.
-    func beginSilentReconnect() {
-        guard !isBusy else { return }
-        // Nothing remembered → nothing to auto-connect to, and we must never
-        // blind-connect. Sit idle; the athlete opens the picker explicitly.
-        guard remembered.id != nil else {
-            link = .idle
-            return
-        }
-        startAttempt(intent: .silent)
+    /// A screen that uses this device appeared (the HUD opening, the brief showing its
+    /// chips). It makes the state TRUTHFUL and nothing else: no connect, no scan, not
+    /// even a CoreBluetooth source (so the system Bluetooth alert still only appears on
+    /// a real tap).
+    ///
+    /// THIS USED TO BE `beginSilentReconnect()` AND IT CONNECTED. It fired from
+    /// `onAppear` hooks and reached straight for the remembered device by identifier —
+    /// which is exactly how the app grabbed a belt in the gym by itself. It is renamed
+    /// so no future reader can mistake it for a reconnect, and it is kept deliberately
+    /// inert: re-entering a screen must never move a machine.
+    func prepare() {
+        guard !isConnected else { return }   // a live link the athlete made stays
+        generation += 1                      // drop any timer from an abandoned scan
+        pendingConfirmation = nil
+        // Rest at a state the UI can be honest about. `.lost` is preserved on purpose:
+        // "se perdió la conexión" must survive a re-render, or the athlete never learns
+        // his belt dropped.
+        if link != .lost { link = .idle }
     }
 
     /// The athlete tapped a device chip that shows the picker SHEET (`DeviceConnectCard`,
     /// the treadmill HUD's header chip / "Buscar mi cinta"). Raises the sheet IMMEDIATELY
     /// — the tap is the intent, so the athlete watches the scan fill in instead of
     /// staring at a chip until a timer decides to pop something at them.
-    ///
-    /// THE FIELD BUG THIS FIXES (c4a1547, kept): a remembered belt triggers a SILENT
-    /// attempt the moment the connect guide appears. The channel is then `isBusy`, so
-    /// this used to early-return — leaving the silent intent in place. When the settle
-    /// window elapsed, `evaluate()` took the silent branch and did `_source?.stop()` +
-    /// `link = .idle`, KILLING the live scan underneath the list the athlete was already
-    /// reading ("veo el nombre de mi cinta y desaparece sola"). So this UPGRADES the
-    /// attempt in flight instead of bailing. The scan is deliberately NOT restarted —
-    /// restarting would clear the candidates already found and make the list flicker.
     func openPicker() {
         // The latch: an inline list already owns the screen, so a sheet here would be
         // a modal fighting a fullScreenCover. Keep the scan, drop the presentation.
@@ -297,43 +336,58 @@ final class DeviceChannel {
         cancelConnect()
     }
 
-    /// Shared by both explicit list intents: make sure a scan is running and that it will
-    /// END IN A LIST rather than in the silent stop-and-idle.
+    /// Shared by both explicit list intents: make sure a scan is running. A scan already
+    /// in flight is LEFT ALONE — restarting it would clear the candidates already found
+    /// and make the list flicker under the athlete's finger.
     private func ensureListScan() {
-        guard !isConnected else { return }
-        if isBusy {
-            intent = .list          // upgrade in place — never stop the source now
-            return
-        }
-        startAttempt(intent: .list)
+        guard !isConnected, !isBusy else { return }
+        startAttempt()
     }
 
-    /// Shared scan/connect kickoff: try the remembered device directly (by identifier,
-    /// never "first found") AND scan for the candidate list in parallel.
-    private func startAttempt(intent: AttemptIntent) {
+    /// Scan kickoff. It SCANS. That is all it has ever been allowed to do since the
+    /// remembered-device fast path was deleted: there is no identifier to reach for
+    /// here, no `.connecting` to enter, nothing to fall back from.
+    private func startAttempt() {
         generation += 1
         settleElapsed = false
         candidates = []
         pickInFlight = false
-        self.intent = intent
-        let src = source()
-        if let id = remembered.id {
-            link = .connecting
-            lastConnectingID = id
-            src.connectRemembered(id)
-            src.startScan()
-            scheduleRememberedFallback(for: generation)
-        } else {
-            link = .scanning
-            src.startScan()
-        }
+        link = .scanning
+        source().startScan()
         scheduleSettle(for: generation)
     }
 
-    /// The athlete picked a device from the list. Dismissing the sheet right after must
-    /// NOT abort this connect (see `cancelConnect`), so flag the pick as in flight.
+    // MARK: - Connecting (the ONLY path, and it starts at a fingertip)
+
+    /// The athlete tapped a row. For a device we can only READ (an HR strap), that tap
+    /// is the whole decision and this connects. For a device we can DRIVE (a treadmill:
+    /// speed, incline, start, stop) it first raises a confirmation — grabbing the wrong
+    /// belt can move it under whoever is running on it.
+    func requestConnect(_ candidate: DeviceCandidate) {
+        guard requiresConfirmation else {
+            connect(candidate.id)
+            return
+        }
+        pendingConfirmation = candidate
+    }
+
+    /// The athlete confirmed "sí, es mi cinta" → now, and only now, we connect.
+    func confirmPendingConnect() {
+        guard let candidate = pendingConfirmation else { return }
+        pendingConfirmation = nil
+        connect(candidate.id)
+    }
+
+    /// He backed out of the confirmation. Nothing was touched; the list stays up.
+    func cancelPendingConnect() { pendingConfirmation = nil }
+
+    /// Open the link to ONE device the athlete chose. Every caller traces back to a tap:
+    /// `requestConnect` / `confirmPendingConnect`. Nothing timed, nothing on appear,
+    /// nothing after a drop. Dismissing the sheet right after must NOT abort this
+    /// connect (see `cancelConnect`), so flag the pick as in flight.
     func connect(_ id: DeviceID) {
         pickInFlight = true
+        pendingConfirmation = nil
         isPresentingPicker = false
         link = .connecting
         lastConnectingID = id
@@ -344,8 +398,9 @@ final class DeviceChannel {
     /// forces `.idle` within its own timeout even if the peripheral is gone. No-op if
     /// nothing was ever connected (no source created).
     func disconnect() {
-        generation += 1                 // cancel any pending settle/fallback
+        generation += 1                 // cancel any pending settle timer
         pickInFlight = false
+        pendingConfirmation = nil
         isPresentingPicker = false
         inlineSelectionActive = false
         _source?.disconnect()
@@ -366,6 +421,7 @@ final class DeviceChannel {
         if isConnected || pickInFlight { return }
         generation += 1
         isPresentingPicker = false
+        pendingConfirmation = nil
         _source?.stop()
         link = .idle
     }
@@ -375,6 +431,7 @@ final class DeviceChannel {
         generation += 1
         isPresentingPicker = false
         inlineSelectionActive = false
+        pendingConfirmation = nil
         _source?.stop()
     }
 
@@ -388,43 +445,32 @@ final class DeviceChannel {
 
     // MARK: - Decision hooks (called by the timers; called DIRECTLY by tests)
 
-    /// Re-evaluate whenever the candidate set changes — this is what lets the single
-    /// remembered device auto-connect the instant it appears, before settle.
+    /// Re-evaluate whenever the candidate set changes, so the list on screen stays live
+    /// as machines appear. It can only ever re-sort and re-publish — see `evaluate()`.
     func onCandidatesChanged() { evaluate() }
 
-    /// The short settle window elapsed → a decision is now due.
+    /// The short settle window elapsed → the list is due.
     func settleWindowElapsed() {
-        settleElapsed = true
-        evaluate()
-    }
-
-    /// The remembered fast-path didn't connect in time → make sure we scan + surface
-    /// the list rather than sitting on a "connecting" that will never land.
-    func rememberedFallbackElapsed() {
-        guard !isConnected else { return }
         settleElapsed = true
         evaluate()
     }
 
     // MARK: - Core evaluation (pure engine + effects)
 
-    /// Why this attempt is scanning — the ONLY thing that changes what a settled scan
-    /// does. It no longer decides whether to PRESENT anything (that is the UI's call,
-    /// driven by a tap); it decides whether the scan is worth keeping alive.
-    private enum AttemptIntent {
-        /// Somebody is showing the candidate list right now — the picker sheet the
-        /// athlete opened, or the pre-start flow's inline step. Keep the scan alive and
-        /// keep publishing `candidates`; the list is already on screen.
-        case list
-        /// Background remembered-only reconnect with nobody watching. If the remembered
-        /// device doesn't land, stop the scan and rest at idle — never surface anything.
-        case silent
-    }
-    private var intent: AttemptIntent = .silent
     /// True between a pick (`connect(_:)`) and the resulting `.connected` — so the
     /// sheet's dismiss doesn't abort the connection that dismiss was triggered by.
     private var pickInFlight = false
 
+    /// PUBLISH, NEVER PRESENT, NEVER CONNECT. This runs off a timer, and a timer knows
+    /// neither which screen the athlete is on nor which machine he is standing in front
+    /// of. It therefore does exactly one thing: keep `candidates` current for whatever
+    /// list is already on screen because he asked for it.
+    ///
+    /// (Raising `isPresentingPicker` here is how a picker sheet once ended up fighting
+    /// the run pre-start `.fullScreenCover` — "only presenting a single sheet is
+    /// supported" — and swallowed his taps. Connecting here is how the app grabbed a
+    /// stranger's belt. Both are structurally impossible now: the enum has no
+    /// auto-connect case and this method has no presentation effect.)
     private func evaluate() {
         guard !isConnected else { return }
         switch ScanDecisionEngine.decide(candidates: candidates,
@@ -432,31 +478,15 @@ final class DeviceChannel {
                                           settleElapsed: settleElapsed) {
         case .keepScanning:
             break
-        case .autoConnect(let id):
-            link = .connecting
-            lastConnectingID = id
-            source().connect(id)
         case .present(let list):
-            // PUBLISH, NEVER PRESENT. This runs off a timer, and a timer has no idea
-            // which screen the athlete is on — raising `isPresentingPicker` here is how
-            // a picker sheet ended up fighting the run pre-start `.fullScreenCover`
-            // ("only presenting a single sheet is supported"), swallowing his taps.
-            // The list is on screen because he asked for it; all we owe him is the data.
             candidates = list
-            if intent == .silent {
-                // Nobody is watching and the remembered device got its chance → stop the
-                // pointless scan and rest at idle so the surface prompts him to choose
-                // (never auto-connect to a machine we don't know).
-                _source?.stop()
-                link = .idle
-            }
         }
     }
 
     private var isBusy: Bool {
         switch link {
-        case .connected, .connecting, .scanning, .reconnecting: return true
-        case .idle, .unavailable, .failed: return false
+        case .connected, .connecting, .scanning: return true
+        case .idle, .lost, .unavailable, .failed: return false
         }
     }
 
@@ -504,22 +534,12 @@ final class DeviceChannel {
             self.settleWindowElapsed()
         }
     }
-
-    private func scheduleRememberedFallback(for gen: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + DeviceConnectionTiming.rememberedFallbackSeconds) { [weak self] in
-            guard let self, self.generation == gen else { return }
-            self.rememberedFallbackElapsed()
-        }
-    }
 }
 
 enum DeviceConnectionTiming {
     /// How long to accumulate candidates before presenting the list — long enough for
     /// a second nearby machine to advertise, short enough not to feel laggy.
     static let scanSettleSeconds: TimeInterval = 3
-    /// How long to wait for the remembered device's direct connect before falling to
-    /// the picker list.
-    static let rememberedFallbackSeconds: TimeInterval = 5
     /// How long to wait for CoreBluetooth's disconnect callback before FORCING the
     /// state to disconnected (fixes the "PM5 se queda pillado" hang).
     static let disconnectTimeoutSeconds: TimeInterval = 3

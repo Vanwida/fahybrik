@@ -17,7 +17,6 @@ final class StructuredRunEngineTests: XCTestCase {
         var onBluetooth: ((BluetoothAvailability) -> Void)?
         func startScan() {}
         func connect(_ id: DeviceID) {}
-        func connectRemembered(_ id: DeviceID) {}
         func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
@@ -35,7 +34,6 @@ final class StructuredRunEngineTests: XCTestCase {
         var onBluetooth: ((BluetoothAvailability) -> Void)?
         func startScan() {}
         func connect(_ id: DeviceID) {}
-        func connectRemembered(_ id: DeviceID) {}
         func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }

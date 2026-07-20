@@ -93,14 +93,18 @@ struct ErgConnectCard: View {
     private var subtitle: String {
         if connected { return "Datos en vivo al empezar" }
         if busy { return "Acércate al erg y pulsa «Connect» en el monitor" }
+        // After a drop, say so here — this card is often the only erg surface on screen.
+        if pm5.connectionLost { return "Se perdió la conexión — toca para elegirlo otra vez" }
         return "Toca para buscar tu PM5"
     }
 
     private func tap() {
         Haptics.light()
-        // Mirror the chip behavior: a remembered erg reconnects silently while the
-        // sheet opens; a fresh one gets the scanner + illustrated guide.
-        if !pm5.isConnected, pm5.hasRememberedDevice { pm5.reconnectIfPossible() }
+        // OPENS THE SHEET. It does not connect. A remembered erg used to be reconnected
+        // right here, on this tap, before the athlete had seen a single machine name —
+        // so "conectar" silently meant "grab whatever answers to that identifier". Now
+        // the sheet scans, the erg used last sits on top of the list badged, and he
+        // taps the one he is actually sitting on.
         showSheet = true
     }
 }

@@ -10,11 +10,11 @@ import Observation
 // live in one shared device layer with one lifecycle.
 //
 // Each generic device's connection concern (scan → LIST by name → the athlete picks
-// → remember it → disconnect) lives in a `DeviceChannel`; the hub holds two and
-// wires each source's telemetry callback. WHY channels: in a shared gym, blindly
-// auto-connecting to the first advertiser grabs a stranger's machine — the channel +
-// its pure `ScanDecisionEngine` make selection explicit and remember the athlete's
-// own device by identifier.
+// → disconnect) lives in a `DeviceChannel`; the hub holds two and wires each source's
+// telemetry callback. WHY channels: in a shared gym NOTHING may connect on its own —
+// not to the first advertiser, not to the device used last, not back to one that just
+// dropped. The channel + its pure `ScanDecisionEngine` make every connection an
+// explicit choice; "remembered" only badges a row and sorts it first.
 //
 // LIFECYCLE: each channel's CoreBluetooth source is created LAZILY on first connect
 // (so the power alert only appears when the athlete opts in) and torn down by
@@ -72,6 +72,9 @@ final class DeviceHub {
             title: "Cinta", icon: "figure.run",
             scanHint: "Enciende tu cinta y acércate. Aparecerá aquí en cuanto la encuentre.",
             pickHint: "¿No sabes cuál es la tuya? La de señal más fuerte suele ser la que tienes delante — aléjate de otras cintas para distinguirla. Solo aparecen cintas compatibles por Bluetooth (FTMS, como las Titanium).",
+            // The belt is the one device the app can MOVE (velocidad, inclinación,
+            // arrancar, parar), so choosing one asks for a confirmation first.
+            requiresConfirmation: true,
             remembered: DeviceDefaults.treadmill,
             makeSource: { injectedTreadmill ?? Self.makeTreadmill() })
         heartRate = DeviceChannel(
@@ -114,11 +117,13 @@ final class DeviceHub {
     var treadmillConnected: Bool { treadmill.isConnected }
     var hrConnected: Bool { heartRate.isConnected }
 
-    /// Silent (re)connect used by the HUD on entry: try the remembered device, but
-    /// don't pop a picker sheet on run-start — the HUD offers "Elegir" if a choice is
-    /// needed. Idempotent (a no-op while already busy).
-    func connectTreadmill() { treadmill.beginSilentReconnect() }
-    func connectHR() { heartRate.beginSilentReconnect() }
+    /// Called when a screen that uses these devices appears. They CONNECT NOTHING —
+    /// they only settle each channel into a state the UI can be honest about. Named
+    /// `connectTreadmill()` / `connectHR()` until the gym incident, when it turned out
+    /// that "the HUD opening" was one of the ways the app reached for a machine on its
+    /// own. Entering a screen must never move a belt.
+    func prepareTreadmill() { treadmill.prepare() }
+    func prepareHR() { heartRate.prepare() }
 
     /// Drive the connected belt (start/stop, target speed/incline). No-op on a
     /// read-only machine or in the simulator — the caller can gate on `treadmillControl

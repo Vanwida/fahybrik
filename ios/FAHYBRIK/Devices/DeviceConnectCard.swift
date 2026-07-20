@@ -66,9 +66,10 @@ struct DeviceConnectCard: View {
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
         }
-        // A remembered STRAP is a personal device → reconnect it silently on appear.
-        // Machines (belt/PM5) stay an explicit choice; never auto-grab in a gym.
-        .onAppear { autoReconnectPersonalHR() }
+        // NO .onAppear CONNECT. This card used to silently reconnect a remembered HR
+        // strap the moment it appeared ("it's personal, it's safe"). It isn't: straps
+        // move between people too, and one exception is all it takes for the invariant
+        // to stop being auditable. Every device here waits for a tap.
     }
 
     @ViewBuilder
@@ -129,13 +130,6 @@ struct DeviceConnectCard: View {
                                    watchAvailable: watch.appAvailable)
     }
 
-    private func autoReconnectPersonalHR() {
-        guard devices.contains(.heartRate) else { return }
-        let ch = hub.heartRate
-        guard ch.hasRemembered, !ch.isConnected, !isBusy(ch.link) else { return }
-        ch.beginSilentReconnect()
-    }
-
     // MARK: - Per-device live link
 
     private func link(for device: PreWorkoutDevice) -> DeviceLink {
@@ -164,22 +158,16 @@ struct DeviceConnectCard: View {
         Haptics.light()
         if let ch = channel(for: device) {
             // ONE intent for every state: the tap opens the sheet now and the scan runs
-            // behind it (live → manage/disconnect, busy → watch progress, idle → scan
-            // → list → pick, still auto-connecting the single remembered device). The
-            // sheet no longer waits on a settle timer to pop itself at the athlete.
+            // behind it (live → manage/disconnect, busy → watch progress, idle/lost →
+            // scan → list → pick). It scans; it never connects.
             ch.openPicker()
             return
         }
-        // PM5 keeps its own richer sheet (shows live erg data). Reconnect straight to a
-        // remembered erg, else open the picker.
-        if pm5.isConnected {
-            showPM5Sheet = true
-        } else if pm5.hasRememberedDevice {
-            pm5.reconnectIfPossible()
-            showPM5Sheet = true
-        } else {
-            showPM5Sheet = true
-        }
+        // PM5 keeps its own richer sheet (shows live erg data). It only ever OPENS —
+        // the erg is chosen from the list inside, by tapping. A remembered erg used to
+        // be reconnected from right here, on the tap that opened the sheet, which is
+        // how the app could latch onto whichever machine had that identifier now.
+        showPM5Sheet = true
     }
 
     private func disconnect(_ device: PreWorkoutDevice) {
@@ -207,17 +195,12 @@ struct DeviceConnectCard: View {
         case .connected:    return "listo"
         case .connecting:   return "conectando"
         case .scanning:     return "buscando"
-        case .reconnecting: return "reconectando"
+        // Honest, and it points at the only way back in: the athlete taps and chooses.
+        // It never says "reconectando", because nothing is reconnecting.
+        case .lost:         return "se perdió · conectar"
         case .idle:         return "conectar"
         case .unavailable:  return "sin señal"
         case .failed:       return "reintentar"
-        }
-    }
-
-    private func isBusy(_ link: DeviceLink) -> Bool {
-        switch link {
-        case .connecting, .scanning, .reconnecting: return true
-        default:                                    return false
         }
     }
 }

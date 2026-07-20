@@ -87,7 +87,6 @@ final class MockTreadmillSource: TreadmillDataSource, TreadmillControllable {
     }
 
     func connect(_ id: DeviceID) { beginStream() }
-    func connectRemembered(_ id: DeviceID) { beginStream() }
 
     private func beginStream() {
         onLink?(.connecting)
@@ -154,7 +153,6 @@ final class MockHeartRateSource: HeartRateSource {
     }
 
     func connect(_ id: DeviceID) { beginStream() }
-    func connectRemembered(_ id: DeviceID) { beginStream() }
 
     private func beginStream() {
         onLink?(.connecting)

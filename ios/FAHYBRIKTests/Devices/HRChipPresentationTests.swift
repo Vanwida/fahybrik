@@ -7,22 +7,26 @@ import XCTest
 final class HRChipPresentationTests: XCTestCase {
 
     func testActiveStrapAlwaysWinsRegardlessOfWatch() {
-        let active: [DeviceLink] = [.connected(name: "H10"), .connecting, .scanning, .reconnecting]
+        let active: [DeviceLink] = [.connected(name: "H10"), .connecting, .scanning]
         for link in active {
             XCTAssertEqual(HRChipPresentation.resolve(bandLink: link, watchAvailable: false), .band)
             XCTAssertEqual(HRChipPresentation.resolve(bandLink: link, watchAvailable: true), .band)
         }
     }
 
+    /// `.lost` counts as INACTIVE. The strap dropped and nothing is bringing it back —
+    /// the chip must invite a tap (or credit the watch that is still reading his pulse),
+    /// never imply a recovery in progress. It replaced `.reconnecting`, which is gone
+    /// along with every automatic reconnect in the app.
     func testNoStrapWithWatchShowsAppleWatch() {
-        let inactive: [DeviceLink] = [.idle, .unavailable, .failed("x")]
+        let inactive: [DeviceLink] = [.idle, .lost, .unavailable, .failed("x")]
         for link in inactive {
             XCTAssertEqual(HRChipPresentation.resolve(bandLink: link, watchAvailable: true), .appleWatch)
         }
     }
 
     func testNoStrapNoWatchIsIdleCTA() {
-        let inactive: [DeviceLink] = [.idle, .unavailable, .failed("x")]
+        let inactive: [DeviceLink] = [.idle, .lost, .unavailable, .failed("x")]
         for link in inactive {
             XCTAssertEqual(HRChipPresentation.resolve(bandLink: link, watchAvailable: false), .idle)
         }

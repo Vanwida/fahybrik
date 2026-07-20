@@ -41,6 +41,7 @@ struct DevicePickerSheet: View {
         .presentationDragIndicator(.visible)
         // Dismissing without connecting stops the scan (battery); a live link stays.
         .onDisappear { channel.cancelConnect() }
+        .deviceConnectConfirmation(channel)
     }
 
     // MARK: - Header
@@ -127,18 +128,23 @@ struct DevicePickerSheet: View {
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
+                // A LABEL, and the copy says what will happen: it appears in the list
+                // and he taps it. Nothing here reconnects to it on its own.
                 if channel.hasRemembered, let name = channel.rememberedName {
-                    Text("Último usado: \(name)")
+                    Text("Último usado: \(name) — tócalo en la lista cuando aparezca.")
                         .font(Theme.Typography.caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else {
                 VStack(spacing: Theme.Spacing.s) {
                     ForEach(channel.candidates) { candidate in
+                        // requestConnect, never connect: for a belt this raises the
+                        // "¿es TU cinta?" confirmation first. The athlete's finger is
+                        // the only thing that ever opens a link.
                         DeviceCandidateRow(candidate: candidate,
                                            isRemembered: candidate.id == channel.rememberedID) {
                             Haptics.light()
-                            channel.connect(candidate.id)
+                            channel.requestConnect(candidate)
                         }
                     }
                 }

@@ -39,17 +39,15 @@ struct PM5LiveStreamView: View {
             .padding(Theme.Spacing.l)
         }
         .onAppear {
-            // SIEMPRE buscar al abrir — aunque haya un erg recordado o ya conectado.
-            // El remo recordado no puede esconder el SKI de al lado: la lista de
-            // ergs cercanos tiene que estar visible desde el primer segundo.
+            // BUSCAR, NUNCA CONECTAR. Abrir esta hoja escanea y ya está: aquí había una
+            // reconexión al erg recordado que abría el enlace sin que nadie lo pidiera —
+            // y los ergs rotan (hoy remo, mañana ski, y el de ayer ya es de otro). El
+            // recordado sale el primero de la lista y marcado; el atleta lo toca.
             store.startScan()
-            if store.hasRememberedDevice && !store.isConnected {
-                store.reconnectIfPossible()
-            }
         }
         .onChange(of: store.isConnected) { _, connected in
-            // Conectar (tap o auto-reconexión) para el escaneo por debajo; relánzalo
-            // para que "Cambiar de erg" siga viendo los demás PM5 de la sala.
+            // Tras conectar, relanza el escaneo por debajo para que "Cambiar de erg"
+            // siga viendo los demás PM5 de la sala.
             if connected { store.startScan() }
         }
         .onDisappear { store.stopScan() }
@@ -174,7 +172,7 @@ struct PM5LiveStreamView: View {
     private var changeErgSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             LabelText(text: "CAMBIAR DE ERG", size: 11)
-            let others = store.discovered.filter { $0.id != store.connectedIdentifier }
+            let others = store.discoveredForDisplay.filter { $0.id != store.connectedIdentifier }
             if others.isEmpty {
                 HStack(spacing: Theme.Spacing.s) {
                     ProgressView()
@@ -224,21 +222,26 @@ struct PM5LiveStreamView: View {
             // Nothing found yet → the illustrated guide carries the whole state
             // (ErgData's move): show WHAT to press on the monitor, not a spinner.
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                lostNote
                 Text("Asegúrate de que el PM5 está encendido y mostrando la pantalla principal.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                 PM5ConnectGuide()
                 if store.hasRememberedDevice, let name = store.rememberedDeviceName {
-                    Text("Último emparejado: \(name)")
+                    Text("Último usado: \(name) — tócalo en la lista cuando aparezca.")
                         .font(Theme.Typography.caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
         } else {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                lostNote
                 VStack(spacing: Theme.Spacing.s) {
-                    ForEach(store.discovered) { dev in
-                        deviceRow(dev) { store.connect(dev.id) }
+                    // Remembered erg first + badged; tapping is what connects.
+                    ForEach(store.discoveredForDisplay) { dev in
+                        deviceRow(dev, isRemembered: dev.id == store.rememberedIdentifier) {
+                            store.connect(dev.id)
+                        }
                     }
                 }
                 collapsedConnectHelp
@@ -246,11 +249,34 @@ struct PM5LiveStreamView: View {
         }
     }
 
+    /// "Se perdió la conexión con el erg" — shown after an unexpected drop. Nothing is
+    /// reconnecting; the list below IS the way back, and it takes a tap.
+    @ViewBuilder
+    private var lostNote: some View {
+        if store.connectionLost, !store.isConnected {
+            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.warning)
+                Text("Se perdió la conexión con el erg. Elígelo otra vez abajo para volver a conectarlo.")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Theme.Spacing.m)
+            .background(Theme.Color.warningTint)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
     // ErgData-style discovered row: erg icon + "ID <serial>" (the number on the
     // monitor is how an athlete tells ergs apart in a full gym) + a plain-Spanish
     // action line. The raw advertised name stays as secondary info when it says
     // more than "PM5 <serial>". RSSI dropped on purpose — it means nothing here.
-    private func deviceRow(_ dev: PM5Discovered, action: @escaping () -> Void) -> some View {
+    private func deviceRow(_ dev: PM5Discovered, isRemembered: Bool = false,
+                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: Theme.Spacing.m) {
                 Image(systemName: "figure.rower")
@@ -260,9 +286,18 @@ struct PM5LiveStreamView: View {
                     .background(Theme.Color.surfaceSunken)
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name)
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(Theme.Color.foreground)
+                    HStack(spacing: 6) {
+                        Text(Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name)
+                            .font(Theme.Typography.bodyEmph)
+                            .foregroundStyle(Theme.Color.foreground)
+                        // A label, not an action — same contract as the belt/strap list.
+                        if isRemembered {
+                            Text("ÚLTIMO USADO")
+                                .font(.system(size: 8, weight: .heavy, design: .default).italic())
+                                .tracking(0.6)
+                                .foregroundStyle(Theme.Color.accentText)
+                        }
+                    }
                     Text(deviceRowSubtitle(dev))
                         .font(Theme.Typography.caption)
                         .foregroundStyle(Theme.Color.muted)

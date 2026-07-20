@@ -5,12 +5,12 @@ import Foundation
 // SIG-compliant broadcaster: chest straps, and Garmin/Polar/Apple watches or bands
 // that relay HR.
 //
-// CONNECTION MODEL (the gym fix): identical to the treadmill — scanning ACCUMULATES
-// every strap it finds into a named candidate list and never auto-connects to the
-// first one (which latched onto a stranger's Polar while the athlete wore an Apple
-// Watch). The DeviceChannel picks the single remembered strap automatically or hands
-// the athlete the list. Once a strap is chosen it auto-reconnects to THAT device on
-// a drop and disconnects deterministically on request.
+// CONNECTION MODEL: identical to the treadmill — scanning ACCUMULATES every strap it
+// finds into a named candidate list and never connects on its own (it once latched
+// onto a stranger's Polar while the athlete wore an Apple Watch). The DeviceChannel
+// hands the athlete the list and he taps his own; the strap used last is badged and
+// sorted first, which is all "remembered" ever does. A drop reports `.lost` and stays
+// there — no reconnect — and disconnects are deterministic on request.
 //
 // Unavailable in the simulator; the HUD uses MockHeartRateSource there.
 final class BLEHeartRateSource: NSObject, HeartRateSource {
@@ -52,15 +52,6 @@ final class BLEHeartRateSource: NSObject, HeartRateSource {
         } else if let p = central.retrievePeripherals(withIdentifiers: [id]).first {
             connect(peripheral: p, advertised: [])
         }
-    }
-
-    func connectRemembered(_ id: DeviceID) {
-        intentionalStop = false
-        guard central.state == .poweredOn,
-              let p = central.retrievePeripherals(withIdentifiers: [id]).first else {
-            return
-        }
-        connect(peripheral: p, advertised: [])
     }
 
     func disconnect() {
@@ -140,19 +131,25 @@ extension BLEHeartRateSource: CBCentralManagerDelegate {
                                      TreadmillGATT.batteryService])
     }
 
+    /// Failed to connect → say so and stop. No retry loop (see the treadmill source).
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         guard !intentionalStop else { return }
-        onLink?(.reconnecting)
-        central.connect(peripheral, options: nil)
+        self.peripheral = nil
+        onLink?(.failed("No pude conectar con la banda. Vuelve a intentarlo."))
     }
 
+    /// The strap dropped. Same rule as the belt, for the same reason: nothing in this
+    /// app reconnects by itself. A strap can't hurt anyone, but a silent reconnect can
+    /// still latch onto a stranger's band — that already happened in the gym — and one
+    /// consistent rule is what keeps the invariant auditable.
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         if intentionalStop {
             finalizeDisconnect()
             return
         }
-        onLink?(.reconnecting)
-        central.connect(peripheral, options: nil)
+        disconnectGen += 1
+        self.peripheral = nil
+        onLink?(.lost)
     }
 }
 

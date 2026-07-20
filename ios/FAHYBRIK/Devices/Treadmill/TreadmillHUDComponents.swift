@@ -68,7 +68,9 @@ struct DeviceChip: View {
 
     private var on: Bool { link.isLive }
     private var searching: Bool {
-        switch link { case .scanning, .connecting, .reconnecting: return true; default: return false }
+        // `.lost` is NOT searching — nothing is looking for anything. A pulsing dot
+        // there would read as "recovering", which is exactly the lie we removed.
+        switch link { case .scanning, .connecting: return true; default: return false }
     }
 
     var body: some View {
