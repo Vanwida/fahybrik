@@ -1,22 +1,24 @@
 import { jsonError, jsonOk, getClientIp } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
-import { demoCoachBySlot, isDemoAccessEnabled } from '@/lib/auth/demo-access';
+import { demoCoachBySlot } from '@/lib/auth/demo-access';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { audiences, issueSession } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Gated: mint a long-lived athlete Bearer JWT for a demo coach's demo athlete,
-// so the colleague can ALSO log into the iOS app as that athlete (next task
-// consumes this). Same session issuer/audience as every real athlete bearer
-// (lib/auth/session, JWT_AUDIENCE_ATHLETE) — DB-backed + revocable, no parallel
-// auth. 404 when the flag is off.
+// Mint a long-lived athlete Bearer JWT for one of the two seeded DEMO athletes
+// (Atleta Demo 1 / 2), so anyone can log into the iOS app as that athlete without
+// a real Apple ID — a permanent, credential-free showcase login in the single
+// production universe (Alex's ask: "NADA DE ENTORNOS DEMO", these must just work).
+//
+// SAFE: it resolves ONLY the two hard-coded demo athlete emails from DEMO_COACHES
+// and issues the SAME kind of athlete session every real sign-in uses
+// (lib/auth/session, athlete audience) — DB-backed + revocable, no parallel auth.
+// It does NOT touch the demo COACH path (that stays gated behind DEMO_ACCESS in
+// proxy.ts / coach-session.ts, so no dashboard auth-bypass leaks to production).
+// The exposure is intentional: these are demo-data accounts meant to be open.
 export async function POST(req: Request) {
-  if (!isDemoAccessEnabled()) {
-    return jsonError('not_found', 'Not found', 404);
-  }
-
   let body: { slot?: unknown };
   try {
     body = (await req.json()) as { slot?: unknown };
