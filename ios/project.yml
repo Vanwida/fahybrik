@@ -280,6 +280,10 @@ targets:
       # WorkoutSession references HRRecoveryCapture, so it must compile into the
       # watch too (the recovery UI itself stays iOS-only).
       - path: FAHYBRIK/Workout/HRRecovery.swift
+      # #8 — WorkoutSession carries the run's environment (cinta/calle), so the enum
+      # must compile into the watch; the SwiftUI picker is `#if !os(watchOS)`-guarded
+      # (it leans on the iOS-only Theme/Haptics layer).
+      - path: FAHYBRIK/Workout/RunEnvironment.swift
       - path: FAHYBRIK/Workout/WorkoutSession.swift
       # Shared count-down formatter (#68 micro-fix) — the wrist WatchFormat.countdown
       # delegates here so it rounds like the iPhone (mirror countdown parity).

@@ -39,11 +39,18 @@ struct PM5LiveStreamView: View {
             .padding(Theme.Spacing.l)
         }
         .onAppear {
+            // SIEMPRE buscar al abrir — aunque haya un erg recordado o ya conectado.
+            // El remo recordado no puede esconder el SKI de al lado: la lista de
+            // ergs cercanos tiene que estar visible desde el primer segundo.
+            store.startScan()
             if store.hasRememberedDevice && !store.isConnected {
                 store.reconnectIfPossible()
-            } else if !store.isConnected {
-                store.startScan()
             }
+        }
+        .onChange(of: store.isConnected) { _, connected in
+            // Conectar (tap o auto-reconexión) para el escaneo por debajo; relánzalo
+            // para que "Cambiar de erg" siga viendo los demás PM5 de la sala.
+            if connected { store.startScan() }
         }
         .onDisappear { store.stopScan() }
     }
@@ -105,6 +112,7 @@ struct PM5LiveStreamView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             if store.isConnected {
                 connectedCard
+                changeErgSection
             } else {
                 scanningHeader
                 deviceList
@@ -113,6 +121,32 @@ struct PM5LiveStreamView: View {
                 Text(err)
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.danger)
+            }
+        }
+    }
+
+    /// The OTHER discovered PM5s while one is connected — one tap swaps ergs
+    /// (drops the current, connects the tapped). Always present so the remembered
+    /// erg can never hide the rest of the room; while empty it says it's looking.
+    private var changeErgSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            LabelText(text: "CAMBIAR DE ERG", size: 11)
+            let others = store.discovered.filter { $0.id != store.connectedIdentifier }
+            if others.isEmpty {
+                HStack(spacing: Theme.Spacing.s) {
+                    ProgressView()
+                        .tint(Theme.Color.accent)
+                        .scaleEffect(0.85)
+                    Text("Buscando otros ergs cercanos…")
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            } else {
+                VStack(spacing: Theme.Spacing.s) {
+                    ForEach(others) { dev in
+                        deviceRow(dev) { store.switchTo(dev.id) }
+                    }
+                }
             }
         }
     }
@@ -157,28 +191,32 @@ struct PM5LiveStreamView: View {
         } else {
             VStack(spacing: Theme.Spacing.s) {
                 ForEach(store.discovered) { dev in
-                    Button(action: { store.connect(dev.id) }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(dev.name)
-                                    .font(Theme.Typography.bodyEmph)
-                                    .foregroundStyle(Theme.Color.foreground)
-                                Text("RSSI \(dev.rssi) dBm")
-                                    .font(Theme.Typography.caption)
-                                    .foregroundStyle(Theme.Color.muted)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                        .padding(Theme.Spacing.m)
-                        .background(Theme.Color.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                    deviceRow(dev) { store.connect(dev.id) }
                 }
             }
         }
+    }
+
+    private func deviceRow(_ dev: PM5Discovered, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dev.name)
+                        .font(Theme.Typography.bodyEmph)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text("RSSI \(dev.rssi) dBm")
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            .padding(Theme.Spacing.m)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var connectedCard: some View {

@@ -10,6 +10,10 @@ import SwiftUI
 // routes to `FreeWorkoutAPI` instead of the prescribed sync.
 struct FreeWorkoutBuilderView: View {
     let bearer: String?
+    /// The athlete's resolved max-HR source — threaded into WorkoutContainer so a
+    /// FREE workout gets the same personal HR zones as a prescribed one (it was
+    /// dropped here, leaving every free session zone-less regardless of profile).
+    var hrMaxSource: HRMaxSource? = nil
     let onClose: () -> Void
     /// Fired after the free workout is saved, so the caller can refresh the plan
     /// (the new self-origin session then appears as a "Libre" row).
@@ -18,6 +22,10 @@ struct FreeWorkoutBuilderView: View {
     @State private var draft = FreeWorkoutDraft()
     @State private var step: Step = .modality
     @State private var running: FreeWorkoutContext? = nil
+    /// #8 — where a free RUN happens (cinta / calle). Asked prominently before
+    /// Empezar; decides whether the treadmill connect is offered and which live HUD
+    /// auto-opens on start.
+    @State private var runEnvironment: RunEnvironment? = nil
     /// Which builder track the athlete is on. The MEASURED wizard (row/run/ski/bike)
     /// lives here; FUERZA / FUNCIONAL hand off to their own list builders, which
     /// return a `FreeWorkoutContext` that runs through the SAME engine below.
@@ -35,6 +43,7 @@ struct FreeWorkoutBuilderView: View {
                 fallbackTitle: ctx.title,
                 bearer: bearer,
                 freeContext: ctx,
+                hrMaxSource: hrMaxSource,
                 onClose: onClose,
                 onCompleted: { _ in onCompleted(); onClose() }
             )
@@ -245,6 +254,12 @@ struct FreeWorkoutBuilderView: View {
 
                 titleField
                 FreePreviewCard(line: draft.previewLine)
+                // #8 — the human flow: correr → ¿dónde? → (cinta → conectar) →
+                // empezar. The location question comes FIRST and the treadmill
+                // connect only appears when the answer is "en cinta".
+                if draft.modality == .run {
+                    RunEnvironmentPicker(selection: $runEnvironment)
+                }
                 if !freeDevices.isEmpty {
                     // Same connect-before-start card as the prescribed brief: a free
                     // run offers the belt + strap, a free erg the PM5 + strap. Connect
@@ -257,10 +272,13 @@ struct FreeWorkoutBuilderView: View {
 
     /// Devices worth offering for the chosen measured modality — mirrors the
     /// prescribed brief (run → belt + strap, erg → PM5 + strap). Empty until a
-    /// modality is picked / for a non-measured track.
+    /// modality is picked / for a non-measured track. #8 — the belt is offered
+    /// ONLY once the athlete answers "En cinta": an outdoor (or undecided) run
+    /// must never have a treadmill connect pushed on it.
     private var freeDevices: [PreWorkoutDevice] {
         guard let m = draft.modality else { return [] }
-        return m == .run ? [.treadmill, .heartRate] : [.pm5, .heartRate]
+        guard m == .run else { return [.pm5, .heartRate] }
+        return runEnvironment == .treadmill ? [.treadmill, .heartRate] : [.heartRate]
     }
 
     @ViewBuilder
@@ -320,7 +338,9 @@ struct FreeWorkoutBuilderView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
             ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                guard let ctx = draft.buildContext() else { return }
+                guard var ctx = draft.buildContext() else { return }
+                // #8 — carry "¿dónde corres?" so the right live HUD auto-opens.
+                ctx.runEnvironment = draft.modality == .run ? runEnvironment : nil
                 Haptics.medium()
                 running = ctx
             }

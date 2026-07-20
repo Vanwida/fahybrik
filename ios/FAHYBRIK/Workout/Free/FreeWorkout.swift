@@ -480,6 +480,11 @@ struct FreeWorkoutContext {
     let prescription: Prescription?             // measured path only
     let items: [FreeWorkoutItemPayload]?        // fuerza / funcional only
     let plan: WorkoutPlan
+    /// #8 — where a free RUN happens (cinta / calle), chosen in the builder. The
+    /// container stamps it on the session so the right live HUD auto-opens on start.
+    /// Nil for non-run modalities (defaulted so the fuerza/funcional builders are
+    /// untouched).
+    var runEnvironment: RunEnvironment? = nil
 }
 
 // MARK: - FreeWorkoutPayload — the FROZEN free-save contract

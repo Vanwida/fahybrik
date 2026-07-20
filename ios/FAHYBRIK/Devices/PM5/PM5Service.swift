@@ -97,7 +97,16 @@ final class PM5Service: NSObject {
         discovered.removeAll()
         discoveredPeripherals.removeAll()
         delegate?.pm5Service(self, didUpdateDiscovered: [])
-        update(connection: .scanning)
+        // Scanning COEXISTS with a live or in-flight link ("Cambiar de erg": the
+        // remembered rower must never hide the SKI next to it). Only take the
+        // .scanning state from a settled/failed one — flipping .streaming here
+        // would read as a disconnect in the UI while the erg is still linked.
+        switch connectionState {
+        case .idle, .scanning, .failed:
+            update(connection: .scanning)
+        case .connecting, .discoveringServices, .streaming, .disconnecting:
+            break
+        }
         central.scanForPeripherals(
             withServices: [PM5GATT.infoService],
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
@@ -169,6 +178,19 @@ final class PM5Service: NSObject {
         connect(peripheral: known)
     }
 
+    /// "Cambiar de erg": drop the current link (if any) and connect the tapped one.
+    /// The old peripheral is cancelled FIRST and replaced synchronously, so its late
+    /// didDisconnect callback (guarded below) can't clobber the new connection.
+    func switchToDevice(_ id: UUID) {
+        if let current = peripheral, current.identifier != id {
+            disconnectGen += 1          // cancel any pending disconnect-timeout
+            peripheral = nil
+            rowingService = nil
+            central.cancelPeripheralConnection(current)
+        }
+        connect(id)
+    }
+
     // MARK: - internal
 
     private func connect(peripheral: CBPeripheral) {
@@ -229,6 +251,10 @@ extension PM5Service: CBCentralManagerDelegate {
         didDisconnectPeripheral peripheral: CBPeripheral,
         error: Error?
     ) {
+        // Only react to the CURRENT peripheral going down. A late callback for an
+        // erg we already replaced (switchToDevice) or finalized must not reset the
+        // new link's state to idle.
+        guard peripheral.identifier == self.peripheral?.identifier else { return }
         disconnectGen += 1                 // cancel any pending disconnect-timeout
         self.peripheral = nil
         self.rowingService = nil

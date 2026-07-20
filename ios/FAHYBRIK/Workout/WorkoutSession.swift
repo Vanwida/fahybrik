@@ -23,6 +23,10 @@ final class WorkoutSession {
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
+    /// Where the athlete said they run TODAY (cinta / calle), chosen pre-start.
+    /// Drives the auto-open of the right live HUD and keeps GPS off on a treadmill
+    /// run (indoor GPS noise reads as phantom pace). Ephemeral — never persisted.
+    var runEnvironment: RunEnvironment? = nil
 
     var currentSegmentIndex: Int = 0
     var elapsedSeconds: Double = 0
@@ -280,6 +284,15 @@ final class WorkoutSession {
     private var lapErgAvgForceSamples: [Double] = []
     private var lapErgMonitorAvgPace500: Double? = nil
     private var lapErgSplits: [PM5Split] = []
+
+    /// Erg meters covered IN THIS SEGMENT'S WINDOW — the PM5's cumulative distance
+    /// minus the window's start anchor (the same delta `lap()` records; the raw
+    /// counter spans the whole piece, so it would lie on serie 2+). Nil until the
+    /// first PM5 sample of the segment lands. Read by the erg focus HUD.
+    var lapErgDistanceMeters: Double? {
+        guard let start = lapErgStartDistance, let last = lapErgLastDistance else { return nil }
+        return max(0, last - start)
+    }
 
     // A previously-closed segment REOPENED via stepBack / jumpTo. Its captured
     // aggregates (HR / zone / distance / calories) are merged back in when the
@@ -1530,10 +1543,7 @@ final class WorkoutSession {
         let avgForce: Double? = usedPM5 ? mean(lapErgAvgForceSamples) : nil
         let ergSplits: [PM5Split]? = (usedPM5 && !lapErgSplits.isEmpty) ? lapErgSplits : nil
         // In-window distance delta (PM5 distance is cumulative across the piece).
-        let ergDistance: Double? = {
-            guard usedPM5, let start = lapErgStartDistance, let last = lapErgLastDistance else { return nil }
-            return max(0, last - start)
-        }()
+        let ergDistance: Double? = usedPM5 ? lapErgDistanceMeters : nil
         let ergCalories: Double? = {
             guard usedPM5, let start = lapErgStartCalories, let last = lapErgLastCalories else { return nil }
             return Double(max(0, last - start))

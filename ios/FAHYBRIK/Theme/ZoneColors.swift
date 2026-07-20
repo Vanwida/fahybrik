@@ -78,9 +78,9 @@ struct HRMaxSource: Equatable {
 
 // Resolves the athlete's max HR from what we know, in priority order:
 //   1. a measured/entered max (personal) — wins whenever present and sane,
-//   2. else the textbook 220−age estimate (flagged estimated),
-//   3. else nil — no honest max, so the caller HIDES the zone rather than
-//      inventing one (never a fabricated default like 190).
+//   2. else the generic age(+sex) estimate (flagged estimated),
+//   3. else a fully generic ADULT default (flagged estimated) — zones must
+//      ALWAYS resolve; a labeled "genérica" band beats a hidden zone.
 // Pure Foundation, shared into the watch target (single source of the % bands
 // stays HRZoneClassifier; only the max input is personalized here).
 enum PersonalHRMax {
@@ -88,6 +88,10 @@ enum PersonalHRMax {
     /// typo can't drive absurd zones; falls through to the generic estimate.
     static let minMeasuredBpm = 100
     static let maxMeasuredBpm = 230
+    /// The last-resort generic adult max when we know NEITHER a sane measured max
+    /// NOR an age: Tanaka at a reference adult age of 35 (208 − 0.7·35 ≈ 184).
+    /// Always labeled "genérica" (isEstimated) wherever it drives zones.
+    static let genericDefaultBpm = 184
 
     static func resolve(measuredMaxHrBpm: Int?, age: Int?, sex: String? = nil) -> HRMaxSource? {
         if let m = measuredMaxHrBpm, m >= minMeasuredBpm, m <= maxMeasuredBpm {
@@ -96,7 +100,7 @@ enum PersonalHRMax {
         if let age, age > 0, age < 120 {
             return HRMaxSource(bpm: genericMax(age: age, sex: sex), isEstimated: true)
         }
-        return nil
+        return HRMaxSource(bpm: genericDefaultBpm, isEstimated: true)
     }
 
     /// Generic age(+sex) max HR when the athlete hasn't measured their own. Women use

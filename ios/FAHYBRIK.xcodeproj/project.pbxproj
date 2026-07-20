@@ -247,6 +247,7 @@
 		AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7831A459ACF982E946D9C459 /* AppleAuthService.swift */; };
 		AE25853908E48C1E1DB65E74 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29E61CE4DB49D80EB669089C /* WidgetKit.framework */; };
 		AED8329DA32A7589C456BA98 /* DoblesPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FFFB6CDD421AC16CF45DEF /* DoblesPlanView.swift */; };
+		B00F2DEB1FBAC56305152382 /* RunEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3807715E5A421C492855AAAE /* RunEnvironment.swift */; };
 		B351BF51CD96F1BAED3886FB /* DoblesTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB82184D9C692835D4B0507 /* DoblesTurn.swift */; };
 		B3982E0F7A8076E4F293A7F4 /* RunPaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C404CAEEB910F656FCB7A9D1 /* RunPaceModel.swift */; };
 		B43F0B6859E0415203FAD2FE /* PartnerRedeemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC4097FB089CB79FC0A55D1B /* PartnerRedeemView.swift */; };
@@ -342,6 +343,7 @@
 		EB9DA003E477A312DE774B02 /* PlanStationsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6864E864016B47E3286E44BA /* PlanStationsSection.swift */; };
 		EC11C17FD3DE9C14C8F20C14 /* CoachSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7A0077626A26D5A3D32D9C /* CoachSpeech.swift */; };
 		EE0606D2D548588AF1C61E99 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374148A629E21B522808AF09 /* WorkoutStateStore.swift */; };
+		EE2BF03020A90C6AE41537C2 /* RunEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3807715E5A421C492855AAAE /* RunEnvironment.swift */; };
 		EE9581D18518C2C057912E0C /* ObjectiveStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D4062C5F3F6CF199EABAB2 /* ObjectiveStep.swift */; };
 		EEBC99BA15D17BB81E7AC277 /* LiveHUDShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2AE2572F37333FE254CDC1A /* LiveHUDShared.swift */; };
 		EF04D46203ED3F7813E924CD /* AccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */; };
@@ -491,6 +493,7 @@
 		358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FAHYBRIKWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36F5AA95A8BE72BFDB602AFC /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
 		374148A629E21B522808AF09 /* WorkoutStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStateStore.swift; sourceTree = "<group>"; };
+		3807715E5A421C492855AAAE /* RunEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunEnvironment.swift; sourceTree = "<group>"; };
 		383A764FED1518A8E1F2F3E7 /* PredichoVsRealView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredichoVsRealView.swift; sourceTree = "<group>"; };
 		39B36B6CE858283E18E8F3CB /* EmailSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSignInView.swift; sourceTree = "<group>"; };
 		39EF7B3C71957791C43C44FF /* InviteLandingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteLandingView.swift; sourceTree = "<group>"; };
@@ -893,6 +896,7 @@
 				51BD96F7AFC982A6BCFF1075 /* PhoneMirrorService.swift */,
 				75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */,
 				C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */,
+				3807715E5A421C492855AAAE /* RunEnvironment.swift */,
 				29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */,
 				9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */,
 				9A9DD42611097003D4CA70E1 /* WorkoutFormatHUDs.swift */,
@@ -1968,6 +1972,7 @@
 				C9D703E1E43ED49541B6C4F7 /* RunActivityAttributes.swift in Sources */,
 				30B3FCA3257F2485577A9DEB /* RunAutoPause.swift in Sources */,
 				841170B9A8C6B42AA2267BE2 /* RunCueEngine.swift in Sources */,
+				B00F2DEB1FBAC56305152382 /* RunEnvironment.swift in Sources */,
 				BF7BF61B02D30C74754A8CB4 /* RunLegDisplay.swift in Sources */,
 				2CA4D4F1D2213433170B29A8 /* RunLegProgress.swift in Sources */,
 				DD32A406F569C759C2A0E05B /* RunLiveActivityController.swift in Sources */,
@@ -2054,6 +2059,7 @@
 				882FB09C3E76582BFBF5DFD9 /* RestBannerView.swift in Sources */,
 				4DB2635ADEFABE694C8A79A0 /* RootView.swift in Sources */,
 				CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */,
+				EE2BF03020A90C6AE41537C2 /* RunEnvironment.swift in Sources */,
 				26444568E85146A951B8F179 /* RunLegDisplay.swift in Sources */,
 				92D8371CE02BCA4B1BBA0937 /* RunLegProgress.swift in Sources */,
 				B3982E0F7A8076E4F293A7F4 /* RunPaceModel.swift in Sources */,

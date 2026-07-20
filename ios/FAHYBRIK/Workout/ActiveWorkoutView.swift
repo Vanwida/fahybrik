@@ -33,6 +33,9 @@ struct ActiveWorkoutView: View {
 
     @State private var showTreadmill: Bool = false
     @State private var showOutdoor: Bool = false
+    // #8 — the last segment index whose run HUD we auto-opened. Guards the auto-open
+    // to ONCE per segment, so a manual close is respected until the next run segment.
+    @State private var autoOpenedRunSegment: Int? = nil
     @State private var showErgFocus: Bool = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
@@ -208,11 +211,15 @@ struct ActiveWorkoutView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: session.isAwaitingBlockStart)
         .animation(.easeInOut(duration: 0.2), value: exitStep)
+        // The whole workout screen ROTATES (mandate: "se voltea la UI y punto") —
+        // same opt-in as the treadmill/erg HUD covers; portrait restores on exit.
+        .allowsLandscape()
         .onAppear {
             session.start()
             wireLiveSources()
             attemptPM5IfNeeded()
             updateRunGPS()
+            maybeAutoOpenRunCover()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
             if !PhoneMirrorService.shared.wristJoined {
@@ -244,6 +251,12 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.currentSegmentIndex) { _, _ in
             attemptPM5IfNeeded()
             updateRunGPS()
+            maybeAutoOpenRunCover()
+        }
+        .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
+            // The athlete tapped "Empezar" on a block whose first segment is a run —
+            // land them straight in the HUD they chose, not the generic screen.
+            if !awaiting { maybeAutoOpenRunCover() }
         }
         .onChange(of: showOutdoor) { _, presenting in
             // Hand the GPS to the outdoor HUD when it opens; take it back on close.
@@ -411,13 +424,32 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    // #8 — the athlete answered "¿dónde corres?" before starting: put them straight
+    // in the chosen live HUD (cinta / calle) when a run segment goes live, instead of
+    // a generic GPS screen. Fires ONCE per segment (the autoOpenedRunSegment guard),
+    // so a manual close stays closed until the next run segment.
+    private func maybeAutoOpenRunCover() {
+        guard let env = session.runEnvironment,
+              isRunSegment,
+              !session.isAwaitingBlockStart,
+              autoOpenedRunSegment != session.currentSegmentIndex,
+              !showTreadmill, !showOutdoor else { return }
+        autoOpenedRunSegment = session.currentSegmentIndex
+        switch env {
+        case .treadmill: showTreadmill = true
+        case .outdoor:   showOutdoor = true
+        }
+    }
+
     // Start phone GPS only on run segments (and only if not denied); stop it
     // otherwise so we don't hold the location indicator during erg/strength work.
     private func updateRunGPS() {
         // While the outdoor GPS HUD (#64) is up it OWNS the location stream (its own
         // provider feeds the session); running ours too would double-count distance,
-        // so stand down until it closes.
-        if isRunSegment && !showOutdoor {
+        // so stand down until it closes. On a TREADMILL run the GPS stays off
+        // entirely — indoor GPS noise reads as phantom pace ("números aleatorios");
+        // the belt is the distance source.
+        if isRunSegment && !showOutdoor && session.runEnvironment != .treadmill {
             runGPS.start()
         } else {
             runGPS.stop()

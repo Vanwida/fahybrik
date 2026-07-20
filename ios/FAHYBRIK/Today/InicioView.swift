@@ -269,6 +269,7 @@ struct InicioView: View {
             // refreshed so the new self-origin session appears as a "Libre" row.
             FreeWorkoutBuilderView(
                 bearer: effectiveBearer,
+                hrMaxSource: store.identity.value?.hrMaxSource,
                 onClose: { showFreeBuilder = false },
                 onCompleted: { Task { await store.planMutated() } }
             )

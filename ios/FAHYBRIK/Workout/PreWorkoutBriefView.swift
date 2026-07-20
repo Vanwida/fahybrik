@@ -33,7 +33,9 @@ struct PreWorkoutBriefView: View {
     /// exercises) the brief shows an honest "sin detalle" card, never a fabricated
     /// generic "Sesión".
     var detail: AssignmentDetail? = nil
-    let onStart: () -> Void
+    /// Fired with the athlete's run-location choice (nil for a non-run session or if
+    /// unchosen) — the container stamps it on the session to auto-open the right HUD.
+    let onStart: (RunEnvironment?) -> Void
     /// "Ya lo hice": the athlete trained without the live timer and registers it
     /// after the fact. Routes straight to manual entry (no ActiveWorkout).
     let onManualLog: () -> Void
@@ -48,11 +50,10 @@ struct PreWorkoutBriefView: View {
     // Per-exercise technique video opened in-app from a series row, when present.
     @State private var segmentVideoUrl: String? = nil
 
-    // #8 — where the athlete runs today (indoor treadmill vs outdoor GPS). Asked BEFORE
-    // connecting, so a treadmill connect only appears when it's actually indoors —
-    // instead of a "Cinta" chip that silently assumed a treadmill.
-    private enum RunLocation { case indoor, outdoor }
-    @State private var runLocation: RunLocation? = nil
+    // #8 — where the athlete runs today (cinta vs calle). Asked BEFORE connecting, so a
+    // treadmill connect only appears when it's actually indoors, and carried into the
+    // session so the right live HUD auto-opens on start (no generic GPS screen).
+    @State private var runLocation: RunEnvironment? = nil
 
     // MARK: - Derived shape
 
@@ -98,7 +99,7 @@ struct PreWorkoutBriefView: View {
     /// offered. A non-run workout is unaffected.
     private var devicesForLocation: [PreWorkoutDevice] {
         guard hasRunSegment else { return eligibleDevices }
-        return runLocation == .indoor ? eligibleDevices : eligibleDevices.filter { $0 != .treadmill }
+        return runLocation == .treadmill ? eligibleDevices : eligibleDevices.filter { $0 != .treadmill }
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -137,48 +138,9 @@ struct PreWorkoutBriefView: View {
         return zones.max(by: { $0.rawValue < $1.rawValue })
     }
 
-    // #8 — "¿Dónde corres hoy?": the location decision, made before connecting.
+    // #8 — "¿Dónde corres hoy?": the SHARED picker (same cards as the free builder).
     private var runLocationChoice: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("¿Dónde corres hoy?")
-                .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            HStack(spacing: 10) {
-                locationCard(title: "En cinta", subtitle: "Conéctala y contrólala",
-                             icon: "figure.run", selected: runLocation == .indoor) {
-                    runLocation = .indoor
-                }
-                locationCard(title: "En la calle", subtitle: "GPS · ritmo en vivo",
-                             icon: "location.fill", selected: runLocation == .outdoor) {
-                    runLocation = .outdoor
-                }
-            }
-        }
-    }
-
-    private func locationCard(title: String, subtitle: String, icon: String,
-                              selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: { Haptics.light(); action() }) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
-                Text(title)
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
-                Text(subtitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(selected ? Theme.Color.accentOn.opacity(0.85) : Theme.Color.muted)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(selected ? Theme.Color.accent : Theme.Color.surface)
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(selected ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        RunEnvironmentPicker(selection: $runLocation)
     }
 
     var body: some View {
@@ -859,7 +821,7 @@ struct PreWorkoutBriefView: View {
     //    saves the by-hand result with source='manual'.
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
-            ExpertPrimaryButton(title: ctaTitle, action: onStart)
+            ExpertPrimaryButton(title: ctaTitle) { onStart(runLocation) }
             Button(action: { Haptics.light(); onManualLog() }) {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle")

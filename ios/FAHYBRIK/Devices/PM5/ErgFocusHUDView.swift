@@ -68,7 +68,7 @@ struct ErgFocusHUDView: View {
             splitBlock(splitSize: 118, wattSize: 40)
             HStack(spacing: 8) {
                 boxMetric(value: spm.map { "\($0)" } ?? "—", label: "s/min")
-                boxMetric(value: distanceString, label: "metros")
+                metersBox
             }
             Spacer(minLength: 0)
             metricStrip
@@ -103,6 +103,8 @@ struct ErgFocusHUDView: View {
                     boxMetric(value: watts.map { "\($0)" } ?? "—", label: "vatios", accent: true)
                     boxMetric(value: spm.map { "\($0)" } ?? "—", label: "s/min")
                 }
+                // The serie's meters live here too — landscape must NEVER lose them.
+                metersBox
                 metricStrip
             }
             .frame(maxWidth: .infinity)
@@ -134,6 +136,51 @@ struct ErgFocusHUDView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    // Meters toward the SERIE's goal — covered-in-this-window (the session's erg
+    // anchor; the PM5's raw counter is cumulative across the piece, so it would lie
+    // on serie 2+) against the segment's prescribed distance, with a thin progress
+    // bar. No target → plain covered meters. Shared by portrait AND landscape.
+    @ViewBuilder
+    private var metersBox: some View {
+        if let target = targetMeters, target > 0 {
+            let covered = coveredMeters ?? 0
+            let done = covered >= target
+            VStack(spacing: 6) {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(coveredMeters.map { "\(Int($0))" } ?? "—")
+                        .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
+                        .foregroundStyle(done ? Theme.Color.ok : Theme.Color.foreground)
+                        .lineLimit(1).minimumScaleFactor(0.5)
+                    Text("/ \(Int(target)) m")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Theme.Color.surfaceSunken)
+                        Capsule()
+                            .fill(done ? Theme.Color.ok : Theme.Color.accent)
+                            .frame(width: max(0, geo.size.width * min(1, covered / target)))
+                    }
+                }
+                .frame(height: 4)
+                Text("METROS")
+                    .font(.system(size: 9, weight: .heavy)).tracking(0.8)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Metros: \(Int(covered)) de \(Int(target))" + (done ? ", completado" : ""))
+        } else {
+            boxMetric(value: coveredMeters.map { "\(Int($0))" } ?? "—", label: "metros")
         }
     }
 
@@ -195,10 +242,13 @@ struct ErgFocusHUDView: View {
     }
     private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }
     private var spm: Int? { pm5.isConnected ? live.strokeRate : nil }
-    private var distanceString: String {
-        if pm5.isConnected, let d = live.distanceMeters { return "\(Int(d))" }
-        return "—"
+    /// Meters covered IN THIS WINDOW (the engine's per-segment erg delta). 0 while
+    /// connected but before the first sample lands; nil when not connected.
+    private var coveredMeters: Double? {
+        guard pm5.isConnected else { return nil }
+        return session.lapErgDistanceMeters ?? 0
     }
+    private var targetMeters: Double? { session.currentSegment?.targetDistanceMeters }
     private var legLine: String {
         session.currentSegment?.title ?? "Remo"
     }

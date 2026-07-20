@@ -3,9 +3,10 @@ import XCTest
 
 // The single shared HR-max resolver (Theme/ZoneColors.swift): a measured/entered max
 // wins whenever sane, else a GENERIC age+sex estimate (flagged, labeled "genérica"),
-// else nil — never a fabricated default. Generic = Tanaka (208 − 0.7·age) for
-// men/other/unknown, Gulati (206 − 0.88·age) for women. Drives every HR-zone surface
-// (engine, treadmill/outdoor HUDs, watch, post-workout desglose).
+// else the fully generic ADULT default (also flagged) — zones must ALWAYS resolve.
+// Generic = Tanaka (208 − 0.7·age) for men/other/unknown, Gulati (206 − 0.88·age)
+// for women. Drives every HR-zone surface (engine, treadmill/outdoor HUDs, watch,
+// post-workout desglose).
 final class PersonalHRMaxTests: XCTestCase {
 
     // MARK: - resolve() priority
@@ -20,8 +21,10 @@ final class PersonalHRMaxTests: XCTestCase {
         XCTAssertEqual(src, HRMaxSource(bpm: 187, isEstimated: true)) // Tanaka 208 − 0.7·30
     }
 
-    func testNilWhenNeitherMeasuredNorAge() {
-        XCTAssertNil(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: nil))
+    func testGenericDefaultWhenNeitherMeasuredNorAge() {
+        let src = PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: nil)
+        XCTAssertEqual(src, HRMaxSource(bpm: PersonalHRMax.genericDefaultBpm, isEstimated: true))
+        XCTAssertEqual(src?.bpm, 184) // Tanaka at reference adult age 35
     }
 
     // MARK: - generic estimate uses age AND sex
@@ -49,16 +52,29 @@ final class PersonalHRMaxTests: XCTestCase {
         XCTAssertEqual(high, HRMaxSource(bpm: 180, isEstimated: true))
     }
 
-    func testMeasuredMaxOutOfRangeWithNoAgeIsNil() {
-        XCTAssertNil(PersonalHRMax.resolve(measuredMaxHrBpm: 99, age: nil))
-        XCTAssertNil(PersonalHRMax.resolve(measuredMaxHrBpm: 231, age: nil))
+    func testMeasuredMaxOutOfRangeWithNoAgeFallsToGenericDefault() {
+        let expected = HRMaxSource(bpm: PersonalHRMax.genericDefaultBpm, isEstimated: true)
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: 99, age: nil), expected)
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: 231, age: nil), expected)
     }
 
     // MARK: - age bounds
 
-    func testAgeOutOfRangeYieldsNoEstimate() {
-        XCTAssertNil(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: 0))
-        XCTAssertNil(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: 120))
+    func testAgeOutOfRangeFallsToGenericDefault() {
+        let expected = HRMaxSource(bpm: PersonalHRMax.genericDefaultBpm, isEstimated: true)
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: 0), expected)
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: 120), expected)
+    }
+
+    func testGenericDefaultOnlyWhenAgeAbsentOrInvalid() {
+        // A valid age computes FROM the age (Tanaka 208 − 0.7·50 = 173), never the
+        // fixed default…
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: 50)?.bpm, 173)
+        // …the fixed 184 appears only when the age is absent or unusable.
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: nil)?.bpm,
+                       PersonalHRMax.genericDefaultBpm)
+        XCTAssertEqual(PersonalHRMax.resolve(measuredMaxHrBpm: nil, age: -5)?.bpm,
+                       PersonalHRMax.genericDefaultBpm)
     }
 
     // MARK: - zone(forBpm:source:)

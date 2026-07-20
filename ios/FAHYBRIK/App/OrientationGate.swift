@@ -7,6 +7,22 @@ import UIKit
 // immediately (iOS 16+), so the athlete never has to physically turn the phone, and the
 // app snaps back to portrait the instant the HUD is dismissed.
 enum OrientationGate {
+    // Landscape-allowed screens NEST (the workout screen presents the treadmill /
+    // erg full-screen HUDs on top, all rotatable) — a plain on/off gate would snap
+    // back to portrait the moment an inner cover dismissed, locking the still-open
+    // outer screen. Count the holders: portrait returns only when the LAST one leaves.
+    private static var landscapeHolders = 0
+
+    static func push() {
+        landscapeHolders += 1
+        apply(.allButUpsideDown)
+    }
+
+    static func pop() {
+        landscapeHolders = max(0, landscapeHolders - 1)
+        if landscapeHolders == 0 { apply(.portrait) }
+    }
+
     static func apply(_ mask: UIInterfaceOrientationMask) {
         PushAppDelegate.orientationLock = mask
         guard let scene = activeScene else { return }
@@ -23,8 +39,8 @@ enum OrientationGate {
 private struct LandscapeAllowedModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .onAppear { OrientationGate.apply(.allButUpsideDown) }
-            .onDisappear { OrientationGate.apply(.portrait) }
+            .onAppear { OrientationGate.push() }
+            .onDisappear { OrientationGate.pop() }
     }
 }
 

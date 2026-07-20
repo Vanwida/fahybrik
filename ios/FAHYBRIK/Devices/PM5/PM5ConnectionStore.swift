@@ -85,6 +85,18 @@ final class PM5ConnectionStore: NSObject {
         #endif
     }
 
+    /// "Cambiar de erg": drop the current erg and connect the tapped one — one tap,
+    /// no manual disconnect first (the remembered rower must never trap the athlete
+    /// away from the SKI next to it).
+    func switchTo(_ id: UUID) {
+        #if targetEnvironment(simulator)
+        startMockStream()
+        #else
+        lastError = nil
+        service.switchToDevice(id)
+        #endif
+    }
+
     func forgetPaired() {
         #if targetEnvironment(simulator)
         stopMockStream()

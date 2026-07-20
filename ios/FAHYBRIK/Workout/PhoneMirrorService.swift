@@ -55,6 +55,14 @@ final class PhoneMirrorService {
     // How long we hold the mirrored session waiting for the wrist's `ended` reply
     // before clearing it — the recording save happens on the wrist, asynchronously.
     private static let endGraceSeconds: TimeInterval = 10
+    // startWatchApp can fail SILENTLY on the first try (watch waking / app cold) —
+    // the athlete then trains without wrist HR and never knows why. Retry a couple
+    // of times, a few seconds apart, before giving up quietly.
+    private static let watchLaunchAttempts = 3
+    private static let watchLaunchRetrySeconds: TimeInterval = 3
+    // Bumped by begin()/end() so a stale retry loop from a previous session can't
+    // launch the watch app after the workout it belonged to is gone.
+    @ObservationIgnored private var watchLaunchGeneration = 0
 
     private init() {}
 
@@ -84,14 +92,32 @@ final class PhoneMirrorService {
         config.locationType = (activityKind == "running") ? .outdoor : .indoor
         // Sharing the workout type is what startWatchApp needs; best-effort, no
         // reprompt once the athlete has decided. Then launch the watch app.
+        watchLaunchGeneration += 1
+        let generation = watchLaunchGeneration
         Task { [weak self] in
             guard let self else { return }
             try? await self.healthStore.requestAuthorization(
                 toShare: [HKObjectType.workoutType()], read: []
             )
-            self.healthStore.startWatchApp(with: config) { _, _ in
-                // Silent: a launch failure just means the phone records alone.
+            await self.launchWatchApp(config, generation: generation)
+        }
+    }
+
+    /// Launch the watch app with up to `watchLaunchAttempts` tries, a few seconds
+    /// apart — stopping early once a launch reports success, the wrist has joined,
+    /// or a newer begin()/end() superseded this loop. Silent to the athlete beyond
+    /// that: if the watch never comes, the phone records alone as always.
+    private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
+        for attempt in 1...Self.watchLaunchAttempts {
+            guard generation == watchLaunchGeneration, !wristJoined else { return }
+            let launched: Bool = await withCheckedContinuation { cont in
+                healthStore.startWatchApp(with: config) { ok, _ in
+                    cont.resume(returning: ok)
+                }
             }
+            if launched || wristJoined { return }
+            guard attempt < Self.watchLaunchAttempts else { return }
+            try? await Task.sleep(for: .seconds(Self.watchLaunchRetrySeconds))
         }
     }
 
@@ -101,6 +127,7 @@ final class PhoneMirrorService {
     /// the save is asynchronous on the wrist. Called with save=true when the session
     /// enters the summary, save=false on discard/exit. A no-op when no wrist joined.
     func end(save: Bool) {
+        watchLaunchGeneration += 1   // cancel any in-flight launch retries
         guard mirrored != nil else { return }
         send(MirrorWire.MessageType.end, MirrorEnd(save: save))
         stopFrameLoop()
