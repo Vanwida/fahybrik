@@ -122,6 +122,33 @@ struct PM5LiveStreamView: View {
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.danger)
             }
+            csafeDiagnosticsSection
+        }
+    }
+
+    /// Hex TX/RX ring of the workout-programming exchange — collapsed by default,
+    /// only for physical debugging at the gym. Hidden until something was sent.
+    @ViewBuilder
+    private var csafeDiagnosticsSection: some View {
+        if !store.csafeDiagnostics.isEmpty {
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(store.csafeDiagnostics.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(.system(size: 9, weight: .regular, design: .monospaced))
+                            .foregroundStyle(Theme.Color.muted)
+                            .lineLimit(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+            } label: {
+                Text("DIAGNÓSTICO PM5")
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(0.8)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            .tint(Theme.Color.muted)
         }
     }
 

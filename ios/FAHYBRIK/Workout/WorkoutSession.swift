@@ -2005,12 +2005,25 @@ final class WorkoutSession {
         if let p = paceSecPer500m, p > 0 { lapErgPaceSamples.append(p) }
         if let w = powerWatts, w > 0 { lapErgPowerSamples.append(Double(w)) }
         if let s = strokeRate, s > 0 { lapErgSpmSamples.append(Double(s)) }
+        // The PM5's counters are CUMULATIVE — until the monitor RESETS them: a
+        // programmed piece landing ("row to begin") or the athlete pressing Menu
+        // zeroes distance/calories mid-segment. On a backward jump, re-anchor so
+        // the meters already covered in this window are preserved instead of the
+        // delta silently freezing at max(0, small − big).
         if let d = distanceMeters {
-            if lapErgStartDistance == nil { lapErgStartDistance = d }
+            if lapErgStartDistance == nil {
+                lapErgStartDistance = d
+            } else if let last = lapErgLastDistance, d < last {
+                lapErgStartDistance = d - (last - (lapErgStartDistance ?? d))
+            }
             lapErgLastDistance = d
         }
         if let c = caloriesKcal {
-            if lapErgStartCalories == nil { lapErgStartCalories = c }
+            if lapErgStartCalories == nil {
+                lapErgStartCalories = c
+            } else if let last = lapErgLastCalories, c < last {
+                lapErgStartCalories = c - (last - (lapErgStartCalories ?? c))
+            }
             lapErgLastCalories = c
         }
         if let df = dragFactor, df > 0 { lapErgDragSamples.append(Double(df)) }

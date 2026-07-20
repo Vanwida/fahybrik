@@ -170,6 +170,13 @@ struct ActiveWorkoutView: View {
                         DoblesTurnHero(turn: turn, next: nextDoblesTurn,
                                        compact: true, partnerFallback: partnerFirstName)
                     }
+                    // ErgData parity: the piece is programmed ON the monitor —
+                    // this line narrates it ("enviando…" → "rema para empezar").
+                    // Above the HUD so it covers every erg format (steady, series,
+                    // for-time…), silent unless there's something honest to say.
+                    if isErgSegment {
+                        PM5ProgramBanner(pm5: pm5)
+                    }
                     modalityHUD
                     if session.currentSegmentIsMetcon {
                         RxScaledToggle(session: session)
@@ -218,6 +225,7 @@ struct ActiveWorkoutView: View {
             session.start()
             wireLiveSources()
             attemptPM5IfNeeded()
+            attemptProgramPM5()
             updateRunGPS()
             maybeAutoOpenRunCover()
             // The wrist streams fresher HR while mirroring — only run the phone's
@@ -300,6 +308,14 @@ struct ActiveWorkoutView: View {
             // A new erg piece starts with a clean interval table — the PM5's split
             // numbers can otherwise carry over between pieces in one session.
             if session.currentSegment?.kind.isErg == true { pm5.resetSplits() }
+            // …and gets programmed onto the monitor (once per piece; the store
+            // guards repeats). Non-erg segments never touch the PM5.
+            attemptProgramPM5()
+        }
+        .onChange(of: pm5.connectionState) { _, _ in
+            // PM5 connected (or reconnected) mid-piece → send it the current erg
+            // piece now; the store's per-connection guard makes this idempotent.
+            attemptProgramPM5()
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pm5)
@@ -403,6 +419,14 @@ struct ActiveWorkoutView: View {
         if pm5.hasRememberedDevice {
             pm5.reconnectIfPossible()
         }
+    }
+
+    /// Program the CURRENT erg piece on the connected PM5 (ErgData behavior: the
+    /// monitor loads the workout and shows "row to begin"; the athlete touches
+    /// nothing). The store guards once-per-piece + re-program on a fresh link.
+    private func attemptProgramPM5() {
+        guard let seg = session.currentSegment, seg.kind.isErg else { return }
+        pm5.programIfNeeded(for: seg)
     }
 
     // Hook the optional providers' callbacks into the session. Done once on

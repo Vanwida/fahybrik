@@ -20,7 +20,10 @@ struct ErgFocusHUDView: View {
             Theme.Color.background.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.m) {
                 header
-                if pm5.isConnected, noLiveData { noDataHint }
+                // Programming banner first (it explains a silent monitor better);
+                // the no-data hint only when there's nothing programmed in flight.
+                PM5ProgramBanner(pm5: pm5)
+                if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil { noDataHint }
                 if isLandscape { landscapeBody } else { portraitBody }
             }
             .padding(.horizontal, Theme.Spacing.m)

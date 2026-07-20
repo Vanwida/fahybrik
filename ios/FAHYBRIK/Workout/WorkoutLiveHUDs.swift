@@ -72,8 +72,9 @@ struct ErgLiveHUD: View {
         VStack(spacing: 12) {
             // Honest "connected but no data" state: the PM5 can be linked yet sending
             // nothing (sitting on a menu, or not being rowed). Say so instead of showing
-            // a silent grid of dashes that reads as "broken".
-            if pm5.isConnected, noLiveData {
+            // a silent grid of dashes that reads as "broken". Suppressed while the
+            // programming banner explains the same silence better ("rema para empezar").
+            if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil {
                 ergNoDataHint
             }
             // Hero face: split /500m, then watts directly under — the two values

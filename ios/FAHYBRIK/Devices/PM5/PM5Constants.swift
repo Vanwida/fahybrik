@@ -10,6 +10,12 @@ import Foundation
 enum PM5GATT {
     static let infoService = CBUUID(string: "CE060000-43E5-11E4-916C-0800200C9A66")
     static let rowingService = CBUUID(string: "CE060030-43E5-11E4-916C-0800200C9A66")
+    /// C2 PM Control service — the CSAFE command channel used to PROGRAM workouts
+    /// on the monitor (what ErgData does). We WRITE framed commands to 0x0021 and
+    /// receive the PM's response frames as notifications on 0x0022.
+    static let controlService = CBUUID(string: "CE060020-43E5-11E4-916C-0800200C9A66")
+    static let charCSAFEReceive = CBUUID(string: "CE060021-43E5-11E4-916C-0800200C9A66")
+    static let charCSAFERespond = CBUUID(string: "CE060022-43E5-11E4-916C-0800200C9A66")
 
     // Identifying read-only chars on the info service.
     static let charSerialNumber  = CBUUID(string: "CE060012-43E5-11E4-916C-0800200C9A66")
@@ -41,6 +47,24 @@ enum PM5GATT {
         charAdditionalSplitIntervalData,
         charEndOfWorkoutSummary,
     ]
+}
+
+// Timing for the workout-programming handshake (no magic numbers inline).
+enum PM5ProgramTiming {
+    /// How long we wait for the PM's ack after the last write before declaring
+    /// the programming failed (the athlete can still just row — never blocks).
+    static let ackTimeoutSeconds: TimeInterval = 4
+    /// Gap between two consecutive CSAFE frames (terminate → program). The spec
+    /// mandates a minimum inter-frame gap of 50 ms; we leave a little headroom.
+    static let interFrameGapSeconds: TimeInterval = 0.08
+    /// Diagnostics ring size — enough for a full program exchange at the gym.
+    static let diagnosticsMaxLines = 20
+    /// Simulated send latency for the simulator mock, so the "enviando" state is
+    /// visible in demos instead of flashing straight to "listo".
+    static let mockSendSeconds: TimeInterval = 0.6
+    /// Sim "row to begin" hold after a programmed piece before the mock athlete
+    /// starts rowing — makes the ready banner demoable.
+    static let mockPrepareSeconds: TimeInterval = 3
 }
 
 // Persistence key for "remember last paired PM5". Only stores the
