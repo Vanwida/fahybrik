@@ -2,9 +2,10 @@ import SwiftUI
 
 // Concept2 PM5 / ErgData-style live HUDs for the active workout screen.
 // ActiveWorkoutView routes to one of these by the current segment's kind:
-//   • ErgLiveHUD   — row / ski / bike erg (PM5): big split /500m + watts center
 //   • RunLiveHUD   — running: big pace /km center
 //   • StrengthLiveHUD — strength / reps: reps + load + rest treatment
+// Erg (row / ski) work does NOT live here: it has ONE surface of its own,
+// `ErgHUDContent` (Devices/PM5), which serves portrait and landscape alike.
 // All read WorkoutSession + PM5ConnectionStore (passed in) as the single data
 // sources — no duplicated state. Tokens from Theme/Atoms; dark + Fabrik orange.
 
@@ -57,129 +58,6 @@ private struct CenterMetric: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(caption), \(value) \(unit)")
-    }
-}
-
-// MARK: - Erg HUD (row / ski / bike)
-
-struct ErgLiveHUD: View {
-    let session: WorkoutSession
-    let pm5: PM5ConnectionStore
-
-    private var live: PM5LiveSample { pm5.live }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            // Honest "connected but no data" state: the PM5 can be linked yet sending
-            // nothing (sitting on a menu, or not being rowed). Say so instead of showing
-            // a silent grid of dashes that reads as "broken". Suppressed while the
-            // programming banner explains the same silence better ("rema para empezar").
-            if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil {
-                ergNoDataHint
-            }
-            // Hero face: split /500m, then watts directly under — the two values
-            // a rower fixes on, exactly as the PM5 monitor stacks them, set into
-            // an elevated instrument well so the readout floats off the canvas.
-            CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
-                VStack(spacing: 4) {
-                    CenterMetric(
-                        value: splitString,
-                        unit: "/500m",
-                        caption: "Split",
-                        color: Theme.Color.foreground,
-                        hero: true
-                    )
-                    Hairline()
-                    CenterMetric(
-                        value: watts.map { "\($0)" } ?? "—",
-                        unit: "W",
-                        caption: "Power",
-                        color: Theme.Color.accentText,
-                        hero: false
-                    )
-                }
-            }
-
-            metricRow
-        }
-    }
-
-    // Surrounding metrics: distance, lap, SPM, calories, cal/hr, HR, drag, target —
-    // the ErgData instrument grid. Split/500m + watts stay the hero above.
-    private var metricRow: some View {
-        let cols = [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
-        return LazyVGrid(columns: cols, spacing: 4) {
-            ExpertCell(label: "Dist", value: distanceString, unit: "m")
-            ExpertCell(label: "Lap", value: WorkoutSession.formatElapsed(session.lapElapsedSeconds), unit: "")
-            ExpertCell(label: "SPM", value: spm.map { "\($0)" } ?? "—", unit: "")
-            ExpertCell(label: "Cal", value: calories.map { "\($0)" } ?? "—", unit: "")
-            ExpertCell(label: "Cal/h", value: calPerHour.map { "\($0)" } ?? "—", unit: "")
-            ExpertCell(
-                label: "HR",
-                value: session.liveHRBpm.map { "\($0)" } ?? "—",
-                unit: "bpm",
-                color: session.liveZone?.color ?? Theme.Color.foreground
-            )
-            ExpertCell(label: "Drag", value: dragFactor.map { "\($0)" } ?? "—", unit: "")
-            ExpertCell(label: "Tgt", value: targetString, unit: targetUnit)
-        }
-    }
-
-    // MARK: derived
-
-    /// Connected but nothing coming through yet — drives the honest "sin datos" hint.
-    private var noLiveData: Bool {
-        live.paceSecondsPer500m == nil && live.powerWatts == nil && (live.distanceMeters ?? 0) <= 0
-    }
-
-    private var ergNoDataHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.warning)
-            Text("Conectado, pero el PM5 aún no envía datos. Dale unas paladas y comprueba que está en la pantalla principal.")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.Color.foreground)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.warningTint)
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-            .stroke(Theme.Color.warning.opacity(0.4), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-
-    private var splitString: String {
-        guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return "—:—" }
-        let s = Int(p.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
-    private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }
-    private var spm: Int? { pm5.isConnected ? live.strokeRate : nil }
-    private var calories: Int? { pm5.isConnected ? live.caloriesKcal : nil }
-    private var calPerHour: Int? { pm5.isConnected ? live.caloriesPerHour : nil }
-    private var dragFactor: Int? { pm5.isConnected ? live.dragFactor : nil }
-
-    private var distanceString: String {
-        if pm5.isConnected, let d = live.distanceMeters { return "\(Int(d))" }
-        if let t = session.currentSegment?.targetDistanceMeters { return "0/\(Int(t))" }
-        return "—"
-    }
-
-    // Target cell: prefer prescribed distance, else target power.
-    private var targetString: String {
-        let seg = session.currentSegment
-        if let d = seg?.targetDistanceMeters { return "\(Int(d))" }
-        if let w = seg?.targetPowerWatts { return "\(w)" }
-        if let t = seg?.targetDurationSeconds { return WorkoutSession.formatElapsed(Double(t)) }
-        return "—"
-    }
-    private var targetUnit: String {
-        let seg = session.currentSegment
-        if seg?.targetDistanceMeters != nil { return "m" }
-        if seg?.targetPowerWatts != nil { return "W" }
-        return ""
     }
 }
 

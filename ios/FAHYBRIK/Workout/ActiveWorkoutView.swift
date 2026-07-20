@@ -36,7 +36,6 @@ struct ActiveWorkoutView: View {
     // #8 — the last segment index whose run HUD we auto-opened. Guards the auto-open
     // to ONCE per segment, so a manual close is respected until the next run segment.
     @State private var autoOpenedRunSegment: Int? = nil
-    @State private var showErgFocus: Bool = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
@@ -64,9 +63,24 @@ struct ActiveWorkoutView: View {
     // segment needs them and never block the workout.
     @State private var runGPS = RunLocationProvider()
     @State private var liveHR = LiveHeartRateProvider()
+    /// Drives the erg surface's portrait↔landscape arrangement (`.compact` = landscape).
+    @Environment(\.verticalSizeClass) private var vSizeClass
 
     private var isErgSegment: Bool {
         session.currentSegment?.kind == .rowOrSki
+    }
+    /// Landscape + plain erg work → `ErgHUDContent` takes the whole screen. There is
+    /// no second erg view and no "ver en grande" cover any more: rotating the phone IS
+    /// the gesture, and the SAME component simply re-lays itself out. Excluded:
+    /// EMOM-on-an-erg (its own format HUD), the dobles relay and structural blocks
+    /// (warmup/cooldown checklists), and the pre-block gate, which owns the screen.
+    private var isErgLandscapeFocus: Bool {
+        vSizeClass == .compact
+            && isErgSegment
+            && session.currentSegment?.isEMOM != true
+            && !session.currentSegmentIsPartnerRelay
+            && !session.currentBlockIsStructural
+            && !session.isAwaitingBlockStart
     }
     private var isRunSegment: Bool {
         session.currentSegment?.kind == .running
@@ -125,6 +139,20 @@ struct ActiveWorkoutView: View {
                     .ignoresSafeArea()
                     .animation(.easeInOut(duration: 0.3), value: session.rotPhase)
             }
+            if isErgLandscapeFocus {
+                // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
+                // big numbers, so the erg surface owns the screen. The only chrome kept
+                // is `topStrip` (salir / pausa / atrás) — the athlete is never trapped,
+                // which the old full-screen cover couldn't offer either. Everything
+                // else (phase rail, strips, next chip, bottom controls) is portrait's.
+                VStack(spacing: 6) {
+                    topStrip
+                    ErgHUDContent(session: session, pm5: pm5)
+                }
+                .padding(.horizontal, Theme.Spacing.m)
+                .padding(.top, 4)
+                .padding(.bottom, 6)
+            } else {
             VStack(spacing: 8) {
                 topStrip
                 phaseRail
@@ -172,9 +200,10 @@ struct ActiveWorkoutView: View {
                     }
                     // ErgData parity: the piece is programmed ON the monitor —
                     // this line narrates it ("enviando…" → "rema para empezar").
-                    // Above the HUD so it covers every erg format (steady, series,
-                    // for-time…), silent unless there's something honest to say.
-                    if isErgSegment {
+                    // Every other erg format renders it INSIDE `ErgHUDContent` (so it
+                    // travels into landscape too); only EMOM-on-an-erg, which keeps
+                    // its own format HUD, needs it hoisted here.
+                    if isErgSegment, session.currentSegment?.isEMOM == true {
                         PM5ProgramBanner(pm5: pm5)
                     }
                     modalityHUD
@@ -184,8 +213,6 @@ struct ActiveWorkoutView: View {
                     Spacer(minLength: 0)
                     if isErgSegment && !pm5.isConnected {
                         connectPM5CTA
-                    } else if isErgSegment && pm5.isConnected {
-                        ergFocusEntryButton
                     }
                     if isRunSeriesSegment {
                         TreadmillEntryButton(action: { showTreadmill = true })
@@ -198,6 +225,7 @@ struct ActiveWorkoutView: View {
             .padding(.horizontal, Theme.Spacing.m)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, 10)
+            }
 
             // Block-transition gate: the upcoming block's preview / "ready" screen.
             // Full-screen over the live HUD while the session is parked before a
@@ -325,9 +353,6 @@ struct ActiveWorkoutView: View {
         }
         .fullScreenCover(isPresented: $showOutdoor) {
             OutdoorRunHUDView(session: session, hrMaxSource: hrMaxSource)
-        }
-        .fullScreenCover(isPresented: $showErgFocus) {
-            ErgFocusHUDView(session: session, pm5: pm5)
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
@@ -642,29 +667,6 @@ struct ActiveWorkoutView: View {
         return String(format: "%d:%02d", t / 60, t % 60)
     }
 
-    /// Opens the erg FOCUS HUD — split /500m + watts at a glance, and (unlike this
-    /// inline HUD) rotatable to landscape for the big number. Only when the PM5 streams.
-    private var ergFocusEntryButton: some View {
-        Button(action: { Haptics.light(); showErgFocus = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 14, weight: .heavy))
-                Text("VER EN GRANDE")
-                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                    .tracking(0.8)
-            }
-            .foregroundStyle(Theme.Color.foreground)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Theme.Color.surfaceElevated)
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityHint("Abre el remo a pantalla completa; gira el móvil para el número gigante")
-    }
-
     // Modality-aware HUD. An EMOM segment gets the dedicated interval timer
     // (count-down + auto-roll + the minute's work) REGARDLESS of its erg/strength
     // kind; everything else routes by kind exactly as before: erg → split/watts
@@ -678,6 +680,16 @@ struct ActiveWorkoutView: View {
             StructuredRunLiveHUD(session: session)
         } else if session.currentSegment?.isEMOM == true {
             EmomLiveHUD(session: session)
+        } else if session.currentSegment?.kind == .rowOrSki {
+            // ERG WINS OVER THE GENERIC CONDITIONING TIMER. An erg interval series
+            // (5×500 r1:30) IS a conditioning format, so it used to land on
+            // `conditioningHUD` — a 00:00 lap clock that knows nothing about a PM5,
+            // leaving the athlete with no erg data at all. Erg work always gets the
+            // erg surface; it carries the series context itself (serie N/total, the
+            // "esta serie / luego" line, the rest countdown, the count-in).
+            // EMOM is handled above and stays EMOM even on an erg — that HUD is
+            // format-specific and correct.
+            ErgHUDContent(session: session, pm5: pm5)
         } else if session.currentSegment?.isConditioningTimer == true {
             // Conditioning formats route by SCHEME to their dedicated timer (the
             // block-level fold means one segment = one format), regardless of kind.
@@ -685,7 +697,7 @@ struct ActiveWorkoutView: View {
         } else {
             switch session.currentSegment?.kind {
             case .rowOrSki:
-                ErgLiveHUD(session: session, pm5: pm5)
+                ErgHUDContent(session: session, pm5: pm5)
             case .running:
                 RunLiveHUD(session: session, gpsActive: gpsActive,
                            onTapTreadmill: { showTreadmill = true },

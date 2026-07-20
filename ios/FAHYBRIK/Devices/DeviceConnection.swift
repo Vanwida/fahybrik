@@ -232,12 +232,30 @@ final class DeviceChannel {
         startAttempt(autoPresent: autoPresentPicker)
     }
 
-    /// Explicitly open the picker (chip tap on a live/idle device, or the HUD's
-    /// "Elegir" button). Shows the sheet and, when not connected, (re)starts a scan so
-    /// the list is live.
+    /// Explicitly open the picker (chip tap, the HUD's "Elegir", or the run pre-start
+    /// flow's inline "Cintas cerca" step). Marks the picker as on-screen and makes sure
+    /// a scan is running and will END IN A LIST.
+    ///
+    /// THE FIELD BUG THIS FIXES: a remembered belt triggers a SILENT attempt
+    /// (`beginConnect(autoPresentPicker: false)`) the moment the connect guide appears.
+    /// The channel is then `isBusy`, so this used to early-return — leaving
+    /// `autoPresentPicker == false` from that silent attempt. When the settle window
+    /// elapsed, `evaluate()` took the silent branch and did `_source?.stop()` +
+    /// `link = .idle`, KILLING the live scan underneath the picker the athlete was
+    /// already reading ("veo el nombre de mi cinta y desaparece sola").
+    ///
+    /// So opening the picker UPGRADES the attempt in flight instead of bailing: from
+    /// here on the settle window presents the list. The scan itself is deliberately NOT
+    /// restarted — restarting would clear the candidates already found and make the
+    /// list flicker. The auto-connect rule is untouched: `ScanDecisionEngine` still
+    /// only ever auto-connects the single REMEMBERED device.
     func openPicker() {
         isPresentingPicker = true
-        guard !isConnected, !isBusy else { return }
+        guard !isConnected else { return }
+        if isBusy {
+            autoPresentPicker = true    // upgrade in place — never stop the source now
+            return
+        }
         startAttempt(autoPresent: true)
     }
 

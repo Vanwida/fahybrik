@@ -1,73 +1,127 @@
 import SwiftUI
 import UIKit
 
-// Full-screen "focus" HUD for the erg (row / ski), mirroring ErgData's landscape
-// information architecture in our brand: meters top-left (goal-aware), the current
-// split /500m as the huge center hero with media/500 + tiempo beneath, a left rail
-// (s/min · vatios · vatios medios) and a right rail (cal · cal/h · proyección ·
-// pulso · drag). During an interval REST the top-left slot becomes the rest
-// countdown and the hero becomes "Intervalo N" with the just-rowed interval's
-// numbers — exactly how ErgData flips its face between work and rest. Read-only:
-// the PM5's resistance is the physical damper, so there are no controls, only a
-// glanceable readout kept in lock-step with the monitor. Opts into LANDSCAPE (#6).
-struct ErgFocusHUDView: View {
+// THE erg work surface — the ONE view the athlete sees for row / ski work, in both
+// orientations. ErgData's information architecture in our brand: meters top-left
+// (goal-aware), the current split /500m as the huge centre hero with media/500 +
+// tiempo beneath, a left rail (s/min · vatios · vatios medios) and a right rail
+// (cal · cal/h · proyección · pulso · drag). During an interval REST the top-left slot
+// becomes the rest countdown and the hero becomes "Intervalo N" with the just-rowed
+// interval's numbers — exactly how ErgData flips its face between work and rest.
+// Read-only: the PM5's resistance is the physical damper, so there are no controls,
+// only a glanceable readout kept in lock-step with the monitor.
+//
+// ONE VIEW, TWO ARRANGEMENTS. There is no second erg screen and no "ver en grande"
+// cover: the athlete rotates the phone and this same component re-lays itself out
+// (`verticalSizeClass == .compact` → landscape). Portrait stacks meters/hero/rails;
+// landscape puts the rails either side of the hero for the big number.
+//
+// IT ALSO OWNS THE SERIES CONTEXT. An erg interval series (5×500 r1:30) used to be
+// routed to the generic conditioning timer, which knows nothing about a PM5 — the
+// athlete got a 00:00 clock and no erg data at all. That screen is never rendered for
+// erg work now; the context it carried (serie N/total, "esta serie / luego", the rest
+// countdown, the count-in) lives in the `seriesStrip` + the rest state here.
+struct ErgHUDContent: View {
     let session: WorkoutSession
     let pm5: PM5ConnectionStore
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var vSizeClass
     private var isLandscape: Bool { vSizeClass == .compact }
 
     private var live: PM5LiveSample { pm5.live }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.m) {
-                header
-                // Programming banner first (it explains a silent monitor better);
-                // the no-data hint only when there's nothing programmed in flight.
-                PM5ProgramBanner(pm5: pm5)
-                if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil { noDataHint }
-                if isLandscape { landscapeBody } else { portraitBody }
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, 12)
+        VStack(spacing: isLandscape ? 8 : Theme.Spacing.m) {
+            // Landscape hides the workout chrome so the numbers own the screen —
+            // the leg title has to travel with the HUD there.
+            if isLandscape { header }
+            seriesStrip
+            // The programming banner first (it explains a silent monitor better than
+            // the generic hint); the no-data hint only when nothing is in flight.
+            PM5ProgramBanner(pm5: pm5)
+            if pm5.isConnected, noLiveData, pm5.programAnnouncement == nil { noDataHint }
+            if isLandscape { landscapeBody } else { portraitBody }
         }
-        .allowsLandscape()
+        .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Header
+    // MARK: - Header (landscape only — portrait has the workout's own top strip)
 
     private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(legLine)
-                    .font(.system(size: 12, weight: .heavy, design: .default).italic())
-                    .tracking(0.4)
-                    .foregroundStyle(Theme.Color.accentText)
-                    .lineLimit(1)
-                if let obj = objectiveLine {
-                    Text(obj)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            Spacer()
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .heavy))
+        HStack(spacing: 8) {
+            Text(legLine)
+                .font(.system(size: 12, weight: .heavy, design: .default).italic())
+                .tracking(0.4)
+                .foregroundStyle(Theme.Color.accentText)
+                .lineLimit(1)
+            if let obj = objectiveLine {
+                Text(obj)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
             }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Cerrar pantalla completa")
+            Spacer(minLength: 0)
         }
     }
 
-    // MARK: - Landscape (ErgData face: meters+rail left, hero center, rail right)
+    // MARK: - Series context (absorbed from the generic intervals timer)
+
+    /// "SERIE 2/5 · ESTA SERIE 500 m · LUEGO descanso 1:30" — one thin line, the
+    /// ErgData way, instead of the old full-screen clock card. Absent for a single
+    /// continuous piece, where there is no series to count.
+    @ViewBuilder
+    private var seriesStrip: some View {
+        if isCountIn {
+            HStack(spacing: 8) {
+                LabelText(text: "Prepárate", color: Theme.Color.accentText, size: 10)
+                Text("\(Int(session.condCountInRemaining.rounded(.up)))")
+                    .font(.system(size: 15, weight: .heavy, design: .monospaced).monospacedDigit())
+                    .foregroundStyle(Theme.Color.accentText)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        } else if hasSeries {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("SERIE \(session.rotRoundIndex + 1)/\(max(1, session.rotTotalRounds))")
+                    .font(.system(size: 11, weight: .heavy)).tracking(0.8)
+                    .foregroundStyle(Theme.Color.accentText)
+                    .fixedSize()
+                Text(prescriptionLine)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.Color.muted)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Serie \(session.rotRoundIndex + 1) de \(max(1, session.rotTotalRounds)). \(prescriptionLine)")
+        }
+    }
+
+    /// While working: what this serie is + what follows. While resting: what's next up.
+    private var prescriptionLine: String {
+        let seg = session.currentSegment
+        let movement: String? = seg?.primaryMovement
+        let distance: Double? = seg?.targetDistanceMeters
+        let work: String? = distance.flatMap { PrescriptionRenderer.formatDistance($0) }
+        let thisOne = [work, movement].compactMap { $0 }.joined(separator: " ")
+        if isResting {
+            return "Luego · \(thisOne.isEmpty ? "siguiente serie" : thisOne)"
+        }
+        let restSeconds: Int? = seg?.formatRestSeconds ?? nil
+        let rest: String? = restSeconds.map {
+            "luego descanso \(WorkoutSession.formatElapsed(Double($0)))"
+        }
+        return [thisOne.isEmpty ? nil : thisOne, rest].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    // MARK: - Landscape (ErgData face: meters+rail left, hero centre, rail right)
 
     private var landscapeBody: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -94,18 +148,16 @@ struct ErgFocusHUDView: View {
         .frame(maxHeight: .infinity)
     }
 
-    // MARK: - Portrait (meters/rest strip above, hero center, rails as two rows)
+    // MARK: - Portrait (meters/rest strip above, hero centre, rails as two rows)
 
     private var portraitBody: some View {
         VStack(spacing: Theme.Spacing.m) {
             topLeftSlot
-            Spacer(minLength: 0)
             heroCard(splitSize: 92, restNameSize: 40)
-            Spacer(minLength: 0)
             HStack(spacing: 8) { leftRail }
             HStack(spacing: 6) { rightRail }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Top-left slot (meters while working, rest countdown while resting)
@@ -296,14 +348,17 @@ struct ErgFocusHUDView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
     }
 
-    // MARK: - Derived (same rules as the inline ErgLiveHUD)
+    // MARK: - Derived
 
-    /// The session's rotating format clock says we're between series — the same
-    /// signal the inline Intervals HUD renders as "Descanso". EMOM and continuous
-    /// pieces never enter it (their `rotPhase` stays `.work`).
+    /// The session's rotating format clock says we're between series. EMOM and
+    /// continuous pieces never enter it (their `rotPhase` stays `.work`).
     private var isResting: Bool {
         session.rotPhase == .rest && session.rotPhaseRemaining > 0
     }
+    private var isCountIn: Bool { session.isCondCountIn }
+    /// True when this erg segment really is a series worth counting — otherwise the
+    /// strip is silent rather than showing a fake "SERIE 1/1".
+    private var hasSeries: Bool { session.rotTotalRounds > 1 }
 
     private var noLiveData: Bool {
         live.paceSecondsPer500m == nil && live.powerWatts == nil && (live.distanceMeters ?? 0) <= 0
@@ -369,9 +424,7 @@ struct ErgFocusHUDView: View {
         return session.lapErgDistanceMeters ?? 0
     }
     private var targetMeters: Double? { session.currentSegment?.targetDistanceMeters }
-    private var legLine: String {
-        session.currentSegment?.title ?? "Remo"
-    }
+    private var legLine: String { session.currentSegment?.title ?? "Remo" }
     private var objectiveLine: String? {
         let seg = session.currentSegment
         if let d = seg?.targetDistanceMeters { return "\(Int(d)) m" }

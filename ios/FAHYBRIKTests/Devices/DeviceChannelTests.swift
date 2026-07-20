@@ -211,6 +211,101 @@ final class DeviceChannelTests: XCTestCase {
         XCTAssertNil(src.connectedID)
     }
 
+    // MARK: - The field bug: the picker must never have its scan killed underneath it
+    //
+    // Sequence that blocked the founder: the connect guide appears → a remembered belt
+    // starts a SILENT attempt (autoPresentPicker == false) → he taps "Buscar mi cinta"
+    // → `openPicker()` used to early-return because the channel was already busy,
+    // leaving the silent flag set → when the settle window elapsed, `evaluate()` took
+    // the silent branch and did `_source?.stop()` + `link = .idle`, killing the live
+    // scan under the list he was reading. `openPicker()` now UPGRADES the attempt.
+
+    func testOpenPickerUpgradesSilentAttemptSoSettlePresentsInsteadOfStopping() {
+        let mine = cand(1)
+        let stranger = cand(9)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.beginConnect(autoPresentPicker: false)   // silent remembered reconnect
+        XCTAssertEqual(src.rememberedAttemptID, mine.id)
+        let scansBefore = src.scanStarted
+
+        ch.openPicker()                             // athlete taps "Buscar mi cinta"
+        XCTAssertTrue(ch.isPresentingPicker)
+        XCTAssertEqual(src.scanStarted, scansBefore) // upgraded in place, not restarted
+
+        src.discover([stranger])
+        ch.settleWindowElapsed()
+
+        XCTAssertTrue(ch.isPresentingPicker)         // the list is presented…
+        XCTAssertEqual(src.stopCount, 0)             // …and the scan is STILL ALIVE
+        XCTAssertNotEqual(ch.link, .idle)            // never idled under the picker
+        XCTAssertEqual(ch.candidates.map(\.id), [stranger.id])
+        XCTAssertNil(src.connectedID)                // still never grabs a stranger
+    }
+
+    /// Same upgrade, reached through the remembered-fallback timer instead of settle —
+    /// the other route into `evaluate()`'s `.present` branch.
+    func testOpenPickerUpgradeAlsoHoldsThroughRememberedFallback() {
+        let mine = cand(1)
+        let stranger = cand(9)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.beginConnect(autoPresentPicker: false)
+        ch.openPicker()
+        src.discover([stranger])
+        ch.rememberedFallbackElapsed()               // the remembered belt never showed
+
+        XCTAssertTrue(ch.isPresentingPicker)
+        XCTAssertEqual(src.stopCount, 0)             // scan not torn down
+        XCTAssertNil(src.connectedID)
+    }
+
+    /// The upgrade must not weaken the gym rule: with the picker open, a lone UNKNOWN
+    /// belt is still listed for the athlete to choose, never auto-connected.
+    func testUpgradedPickerStillNeverAutoConnectsAnUnknownDevice() {
+        let mine = cand(1)
+        let stranger = cand(9)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.beginConnect(autoPresentPicker: false)
+        ch.openPicker()
+        src.discover([stranger])                     // a single, UNKNOWN machine
+        ch.settleWindowElapsed()
+
+        XCTAssertNil(src.connectedID)                // NOT connected blindly
+        XCTAssertTrue(ch.isPresentingPicker)         // the athlete chooses
+    }
+
+    /// …and the remembered belt still auto-connects the instant it appears alone, even
+    /// after the picker upgraded the attempt (the one auto-connect case must survive).
+    func testUpgradedPickerStillAutoConnectsTheSingleRememberedDevice() {
+        let mine = cand(1)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.beginConnect(autoPresentPicker: false)
+        ch.openPicker()
+        src.discover([mine])                         // your machine, alone
+
+        XCTAssertEqual(src.connectedID, mine.id)     // straight in, no list needed
+        XCTAssertEqual(src.stopCount, 0)
+    }
+
+    /// The SILENT path stays silent when the athlete never opened the picker — the HUD
+    /// re-entry behaviour (stop the pointless scan, rest at idle) is unchanged.
+    func testSilentPathWithoutOpenPickerStillStopsAndIdles() {
+        let mine = cand(1)
+        let stranger = cand(9)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+
+        ch.beginConnect(autoPresentPicker: false)
+        src.discover([stranger])
+        ch.settleWindowElapsed()
+
+        XCTAssertFalse(ch.isPresentingPicker)
+        XCTAssertGreaterThan(src.stopCount, 0)
+        XCTAssertEqual(ch.link, .idle)
+    }
+
     // MARK: - Idempotent re-entry
 
     func testReentryWhileBusyIsNoOp() {

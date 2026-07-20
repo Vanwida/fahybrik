@@ -6,6 +6,14 @@ import SwiftUI
 // athlete taps the one that's theirs. When already connected it shows the connected
 // device's real name and a clear DESCONECTAR action. Mirrors the PM5 picker so all
 // three devices read as one instrument panel.
+//
+// USED BY: the heart-rate chip (`DeviceConnectCard`) and the treadmill HUD's in-run
+// "Elegir" — both presented from a plain screen, where a modal is safe. The run
+// PRE-START flow does NOT use this sheet: there the same list is an inline STEP
+// (`RunPreStartFlow`), because a sheet presented from inside a fullScreenCover and
+// bound to channel-owned state dismissed itself under the athlete. The rows, the
+// signal bars, the persistent pick hint and the Bluetooth guidance are the SHARED
+// components in DevicePickerComponents.swift, so the two hosts never drift.
 struct DevicePickerSheet: View {
     @Bindable var channel: DeviceChannel
     /// When true (HR channel + a paired Apple Watch), a banner explains the pulse is
@@ -62,27 +70,13 @@ struct DevicePickerSheet: View {
 
     @ViewBuilder
     private var content: some View {
-        switch channel.bluetooth {
-        case .poweredOff:
-            guidance(icon: "antenna.radiowaves.left.and.right.slash",
-                     title: "Bluetooth apagado",
-                     detail: "Actívalo desde el Centro de Control y vuelve aquí.") { EmptyView() }
-        case .unauthorized:
-            guidance(icon: "lock.shield",
-                     title: "Bluetooth bloqueado",
-                     detail: "Permite Bluetooth para FAHYBRID en Ajustes para conectar tu \(channel.title.lowercased()).") {
-                settingsButton
-            }
-        case .unsupported:
-            guidance(icon: "exclamationmark.triangle",
-                     title: "Sin Bluetooth LE",
-                     detail: "Este iPhone no soporta Bluetooth Low Energy.") { EmptyView() }
-        case .unknown, .poweredOn:
-            if channel.isConnected {
-                connectedState
-            } else {
-                scanningState
-            }
+        if DeviceBluetoothGuidance.isBlocking(channel.bluetooth) {
+            DeviceBluetoothGuidance(availability: channel.bluetooth,
+                                    deviceWord: channel.title.lowercased())
+        } else if channel.isConnected {
+            connectedState
+        } else {
+            scanningState
         }
     }
 
@@ -141,7 +135,11 @@ struct DevicePickerSheet: View {
             } else {
                 VStack(spacing: Theme.Spacing.s) {
                     ForEach(channel.candidates) { candidate in
-                        candidateRow(candidate)
+                        DeviceCandidateRow(candidate: candidate,
+                                           isRemembered: candidate.id == channel.rememberedID) {
+                            Haptics.light()
+                            channel.connect(candidate.id)
+                        }
                     }
                 }
             }
@@ -149,19 +147,7 @@ struct DevicePickerSheet: View {
             // visible even once devices appear (the old hint vanished with the list, so
             // a lost athlete had nothing to go on).
             if let pickHint = channel.pickHint {
-                HStack(alignment: .top, spacing: Theme.Spacing.s) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                    Text(pickHint)
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Theme.Spacing.m)
-                .background(Theme.Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                DevicePickHintNote(text: pickHint)
             }
             if channel.hasRemembered {
                 SecondaryButton(title: "Olvidar dispositivo recordado") {
@@ -191,104 +177,4 @@ struct DevicePickerSheet: View {
         }
     }
 
-    private func candidateRow(_ candidate: DeviceCandidate) -> some View {
-        Button(action: {
-            Haptics.light()
-            channel.connect(candidate.id)
-        }) {
-            HStack(spacing: Theme.Spacing.m) {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(candidate.name)
-                            .font(Theme.Typography.bodyEmph)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                        if candidate.id == channel.rememberedID {
-                            Text("ÚLTIMO")
-                                .font(.system(size: 8, weight: .heavy, design: .default).italic())
-                                .tracking(0.6)
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                    }
-                    Text(proximityLabel(candidate.rssi))
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-                SignalBars(rssi: candidate.rssi)
-                Image(systemName: "chevron.right").foregroundStyle(Theme.Color.muted)
-            }
-            .padding(Theme.Spacing.m)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(candidate.name), \(proximityLabel(candidate.rssi))")
-        .accessibilityHint("Toca para conectar")
-    }
-
-    private func proximityLabel(_ rssi: Int) -> String {
-        switch rssi {
-        case ...(-80): return "Señal débil"
-        case (-79)...(-65): return "Señal media"
-        default: return "Señal fuerte"
-        }
-    }
-
-    // MARK: - Bluetooth guidance
-
-    private func guidance<CTA: View>(icon: String, title: String, detail: String,
-                                     @ViewBuilder cta: () -> CTA) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(spacing: Theme.Spacing.m) {
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(detail)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            cta()
-        }
-    }
-
-    @ViewBuilder
-    private var settingsButton: some View {
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            SecondaryButton(title: "Abrir Ajustes") { UIApplication.shared.open(url) }
-        }
-    }
-}
-
-// MARK: - Signal strength bars
-
-/// Four rising bars filled by RSSI — how the athlete tells their own (close, strong)
-/// machine from a distant stranger's in the list.
-struct SignalBars: View {
-    let rssi: Int
-
-    private var level: Int {
-        switch rssi {
-        case ...(-85): return 1
-        case (-84)...(-72): return 2
-        case (-71)...(-58): return 3
-        default: return 4
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 2) {
-            ForEach(1...4, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(i <= level ? Theme.Color.accent : Theme.Color.outline)
-                    .frame(width: 3, height: CGFloat(4 + i * 3))
-            }
-        }
-        .accessibilityHidden(true)
-    }
 }

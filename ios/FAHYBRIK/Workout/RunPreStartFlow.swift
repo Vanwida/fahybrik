@@ -6,8 +6,23 @@ import SwiftUI
 //
 //   PASO 1 — "¿Dónde corres hoy?": two BIG cards (En cinta / En la calle) + Continuar.
 //   PASO 2 — only for "En cinta": "Conecta tu cinta" — the how-to guide, the
-//            compatibility note, "Buscar mi cinta" (the ONE existing picker sheet via
-//            the shared DeviceHub channel) and "Correr sin conectar".
+//            compatibility note, "Buscar mi cinta" and "Correr sin conectar".
+//   PASO 3 — "Cintas cerca": the list of found belts. A FULL-SCREEN STEP of this same
+//            flow, exactly as the mockup drew it — NOT a sheet.
+//
+// WHY PASO 3 IS A STEP AND NOT A SHEET (field bug, founder blocked on device): this
+// screen used to present `DevicePickerSheet` via `.sheet(isPresented:)` bound to
+// `hub.treadmill.isPresentingPicker` — CHANNEL-OWNED state — from inside a
+// fullScreenCover whose body re-renders continuously as the scan mutates `candidates`
+// and `link`. The channel could therefore dismiss its own presenter: `evaluate()`
+// stopped the source and idled the link under the open sheet, and the sheet's
+// `onDisappear` then called `cancelConnect()`. The athlete glimpsed his treadmill's
+// name and the view vanished before he could tap it.
+//
+// As a STEP, the list is driven by this view's private `@State step`, which nothing in
+// the device layer can reach. It is entered only by an explicit tap and left only by
+// the back arrow or by an actual connection. No `isPresented` binding, no presentation
+// lifecycle, no `onDisappear` teardown — the dismissal is structurally impossible.
 //
 // Finishing the sequence calls the caller's ORIGINAL start closure with the chosen
 // RunEnvironment — the session stamping + right-HUD auto-open plumbing downstream
@@ -24,7 +39,7 @@ struct RunPreStartFlow: View {
     @State private var choice: RunEnvironment? = nil
     @State private var hub = DeviceHub.shared
 
-    private enum Step { case location, treadmill }
+    private enum Step { case location, treadmill, picker }
 
     var body: some View {
         ZStack {
@@ -34,16 +49,19 @@ struct RunPreStartFlow: View {
                 switch step {
                 case .location:  locationStep
                 case .treadmill: treadmillStep
+                case .picker:    pickerStep
                 }
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.m)
             .padding(.bottom, Theme.Spacing.l)
         }
-        // THE treadmill picker (scan → list by name → pick) — the same single sheet
-        // every treadmill journey in the app funnels into.
-        .sheet(isPresented: pickerBinding) {
-            DevicePickerSheet(channel: hub.treadmill)
+        // A belt landing while the athlete is on the list closes the loop by itself:
+        // back to paso 2, which now reads "✓ Conectada · <nombre>" with "▶ Empezar".
+        .onChange(of: hub.treadmill.isConnected) { _, connected in
+            guard connected, step == .picker else { return }
+            Haptics.medium()
+            withAnimation(.easeInOut(duration: 0.2)) { step = .treadmill }
         }
     }
 
@@ -53,13 +71,9 @@ struct RunPreStartFlow: View {
         HStack(spacing: Theme.Spacing.m) {
             Button {
                 Haptics.light()
-                if step == .treadmill {
-                    withAnimation(.easeInOut(duration: 0.2)) { step = .location }
-                } else {
-                    onCancel()
-                }
+                goBack()
             } label: {
-                Image(systemName: step == .treadmill ? "chevron.left" : "xmark")
+                Image(systemName: step == .location ? "xmark" : "chevron.left")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Theme.Color.foreground)
                     .frame(width: 34, height: 34)
@@ -68,13 +82,28 @@ struct RunPreStartFlow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(step == .treadmill ? "Atrás" : "Cancelar")
+            .accessibilityLabel(step == .location ? "Cancelar" : "Atrás")
 
             Text(sessionTitle)
                 .font(Theme.Typography.caption)
                 .foregroundStyle(Theme.Color.muted)
                 .lineLimit(1)
             Spacer(minLength: 0)
+        }
+    }
+
+    /// The ONE way out of a step, backwards. Leaving the list without choosing stops
+    /// the scan (battery) exactly like dismissing the old sheet did — the difference is
+    /// that only THIS, an explicit tap, can do it.
+    private func goBack() {
+        switch step {
+        case .location:
+            onCancel()
+        case .treadmill:
+            withAnimation(.easeInOut(duration: 0.2)) { step = .location }
+        case .picker:
+            hub.treadmill.cancelConnect()
+            withAnimation(.easeInOut(duration: 0.2)) { step = .treadmill }
         }
     }
 
@@ -147,19 +176,103 @@ struct RunPreStartFlow: View {
         }
     }
 
+    /// "Buscar mi cinta" — go to paso 3 and make sure a LIST-bound scan is running.
+    /// `openPicker()` starts one, or upgrades the silent remembered-reconnect already
+    /// in flight so the settle window can never stop the source under the list.
     private func searchBelt() {
         Haptics.light()
+        hub.treadmill.openPicker()
+        withAnimation(.easeInOut(duration: 0.2)) { step = .picker }
+    }
+
+    // MARK: - Paso 3 · Cintas cerca (INLINE — see the note at the top of the file)
+
+    private var pickerStep: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            VStack(alignment: .leading, spacing: 4) {
+                LabelText(text: "Elegir cinta")
+                Text("Cintas cerca")
+                    .font(.system(size: 28, weight: .heavy, design: .default).italic())
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+
+            if DeviceBluetoothGuidance.isBlocking(hub.treadmill.bluetooth) {
+                // Honest dead-end: the radio can't scan. Same copy as the sheet.
+                DeviceBluetoothGuidance(availability: hub.treadmill.bluetooth,
+                                        deviceWord: hub.treadmill.title.lowercased())
+                Spacer(minLength: 0)
+            } else {
+                scanLine
+                // Only the LIST scrolls. The help note below is pinned outside, so it
+                // survives a full list and a short landscape screen alike.
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        if hub.treadmill.candidates.isEmpty {
+                            Text(hub.treadmill.scanHint)
+                                .font(Theme.Typography.small)
+                                .foregroundStyle(Theme.Color.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            ForEach(hub.treadmill.candidates) { candidate in
+                                DeviceCandidateRow(
+                                    candidate: candidate,
+                                    isRemembered: candidate.id == hub.treadmill.rememberedID
+                                ) {
+                                    Haptics.light()
+                                    hub.treadmill.connect(candidate.id)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // PERSISTENT — the athlete needs this MOST once names appear, so it is
+            // never swapped out for the list.
+            if let pickHint = hub.treadmill.pickHint {
+                DevicePickHintNote(text: pickHint)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// Live state of the scan: searching, connecting, or dead (with a way back in).
+    @ViewBuilder
+    private var scanLine: some View {
         switch hub.treadmill.link {
-        case .scanning, .connecting, .reconnecting:
-            hub.treadmill.openPicker()                       // see progress / pick
+        case .scanning, .reconnecting:
+            busyLine("Buscando… mantén la cinta cerca y encendida.")
+        case .connecting:
+            busyLine("Conectando…")
         default:
-            hub.treadmill.beginConnect(autoPresentPicker: true)
+            // The scan is not running (it ended, or Bluetooth hiccuped). Say so and
+            // offer the way back in instead of a spinner that lies.
+            HStack(spacing: Theme.Spacing.s) {
+                Text("Búsqueda detenida.")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+                Button("Buscar otra vez") {
+                    Haptics.light()
+                    hub.treadmill.openPicker()
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.accentText)
+                Spacer(minLength: 0)
+            }
         }
     }
 
-    private var pickerBinding: Binding<Bool> {
-        Binding(get: { hub.treadmill.isPresentingPicker },
-                set: { hub.treadmill.isPresentingPicker = $0 })
+    private func busyLine(_ text: String) -> some View {
+        HStack(spacing: Theme.Spacing.s) {
+            ProgressView().tint(Theme.Color.accent).scaleEffect(0.85)
+            Text(text)
+                .font(Theme.Typography.small)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
     }
 }
 

@@ -144,6 +144,7 @@
 		53BED8207DE1CAB3060B3D1A /* HRProvenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AB3E2FBF445091413BB293B /* HRProvenanceTests.swift */; };
 		55F658B967472472F5C9F3D5 /* FTMSTreadmillParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67243DF8F659D7B753163F63 /* FTMSTreadmillParserTests.swift */; };
 		5677E087C238140250D08673 /* ImportRaceLinkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9120CB1234A2DD3E8B1AE0DC /* ImportRaceLinkSheet.swift */; };
+		570EE6AEC3C13661091B45C9 /* DevicePickerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3B368C604B50246EEB4455 /* DevicePickerComponents.swift */; };
 		5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46EA36D8F153A96F0826B91 /* APIClient.swift */; };
 		5A0C180CE405482368863BA6 /* BarcodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09B1C18FB0D59D66BB13DA54 /* BarcodeScannerView.swift */; };
 		5AC8BE902E87C9BDE654A5FC /* AnalyticsCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F97F5ED9605254944B92BC /* AnalyticsCharts.swift */; };
@@ -188,7 +189,6 @@
 		79A17E6B5A771745403E2F16 /* WireEnumToleranceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997F135C465EA5E004B46A6A /* WireEnumToleranceTests.swift */; };
 		79E6589E62D14A6A05FA3675 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF5FF39EA2B78DE9BD86B0A7 /* ActivityKit.framework */; };
 		7AB1DA442FF369008A9BEA87 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D1C6D9394CB9C5A94F6D800 /* AVFoundation.framework */; };
-		7AB4E75B1326C38928C4C305 /* ErgFocusHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54BB98621B6BE500173B09B /* ErgFocusHUDView.swift */; };
 		7B25A3918B881C47B3B817D9 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D3A8A5E48AFA81BFA12598 /* OnboardingFlow.swift */; };
 		7BFF3BD33F2C773D88A2E177 /* PauseFinishPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0275845B700EAF34FAE2F4D /* PauseFinishPage.swift */; };
 		7D2FAFFFE200A6EA5BB15F05 /* StrengthOneRMStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97736E2A223554D304876154 /* StrengthOneRMStep.swift */; };
@@ -251,6 +251,7 @@
 		AA0A3A4FD162D97F6FE0EE32 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2409D4C2BF713C21AC7029 /* WorkoutSession.swift */; };
 		AA27B7CFD653512B56C3BBB9 /* Day1Flow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E7C23D30FD4E5D3A428A77D /* Day1Flow.swift */; };
 		AAF4092F2B7DC798BBCF6F21 /* FreeWorkoutEncodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E2F276A687B40AFFD1FE476 /* FreeWorkoutEncodeTests.swift */; };
+		AB9771EA4D3AFF09B6FEA9B9 /* ErgHUDContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5464FD53B26A7327CCA9E5A7 /* ErgHUDContent.swift */; };
 		AC5EA79BFC7C50D5507482AE /* HRRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C00259964041F77CA4E4EE /* HRRecoveryTests.swift */; };
 		AD5D93F1F8B818A595CC1249 /* RunPaceSmootherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FD8786B3D4A9B15C0CC294 /* RunPaceSmootherTests.swift */; };
 		AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7831A459ACF982E946D9C459 /* AppleAuthService.swift */; };
@@ -550,6 +551,7 @@
 		51BD96F7AFC982A6BCFF1075 /* PhoneMirrorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneMirrorService.swift; sourceTree = "<group>"; };
 		524FC97C42145BEC71B664B3 /* DoblesSharedAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesSharedAnalyticsView.swift; sourceTree = "<group>"; };
 		540953E181A1B013FB43B851 /* LaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSplashView.swift; sourceTree = "<group>"; };
+		5464FD53B26A7327CCA9E5A7 /* ErgHUDContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgHUDContent.swift; sourceTree = "<group>"; };
 		54C429EF69DCC42F2FFC9B19 /* SetTableLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetTableLiveView.swift; sourceTree = "<group>"; };
 		558495606B0C684F8A6C044C /* FAHYBRIKWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FAHYBRIKWatch.entitlements; sourceTree = "<group>"; };
 		5599795B00DC56F144BCA3B6 /* PredictionReviewDecodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictionReviewDecodeTests.swift; sourceTree = "<group>"; };
@@ -631,6 +633,7 @@
 		8E25499DD3ECFE3EBCD1718F /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		8EDFB04C7062AB409D6B2E69 /* PolylineCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylineCodec.swift; sourceTree = "<group>"; };
 		8EF04D12188570A339018BC1 /* TreadmillLeg.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillLeg.swift; sourceTree = "<group>"; };
+		8F3B368C604B50246EEB4455 /* DevicePickerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePickerComponents.swift; sourceTree = "<group>"; };
 		8FFD2F1D47B75449195DF8C2 /* PM5ConnectGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5ConnectGuide.swift; sourceTree = "<group>"; };
 		9120CB1234A2DD3E8B1AE0DC /* ImportRaceLinkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRaceLinkSheet.swift; sourceTree = "<group>"; };
 		92301D3099895B625F52E562 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -684,7 +687,6 @@
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
 		B4C3DE00D4A428A3EAA07320 /* DevicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePickerSheet.swift; sourceTree = "<group>"; };
 		B4CADF45330757D85B5D383A /* RunTargetResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolverTests.swift; sourceTree = "<group>"; };
-		B54BB98621B6BE500173B09B /* ErgFocusHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgFocusHUDView.swift; sourceTree = "<group>"; };
 		B59EF5B0ACBF02169ABBCFD1 /* RunTargetResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolver.swift; sourceTree = "<group>"; };
 		B6638A2E174C3189F64CFDB4 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B6BCDB72AAF37412C15E92BB /* BenchmarkDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkDelta.swift; sourceTree = "<group>"; };
@@ -1485,7 +1487,7 @@
 		EA6DA94A654AEBD5A25D9C8A /* PM5 */ = {
 			isa = PBXGroup;
 			children = (
-				B54BB98621B6BE500173B09B /* ErgFocusHUDView.swift */,
+				5464FD53B26A7327CCA9E5A7 /* ErgHUDContent.swift */,
 				8FFD2F1D47B75449195DF8C2 /* PM5ConnectGuide.swift */,
 				DD06425D235284347988D17C /* PM5ConnectionStore.swift */,
 				BF4A6030590FD922EB603075 /* PM5Constants.swift */,
@@ -1616,6 +1618,7 @@
 				C168F742CD340687C6684273 /* DeviceConnectCard.swift */,
 				2B43F27E8F2380A23E1E6447 /* DeviceConnection.swift */,
 				58859ABC592990B8A4EB837F /* DeviceHub.swift */,
+				8F3B368C604B50246EEB4455 /* DevicePickerComponents.swift */,
 				B4C3DE00D4A428A3EAA07320 /* DevicePickerSheet.swift */,
 				240AA2F54005BEF81363BC6D /* ErgConnectCard.swift */,
 				507990931B3A77E5786C8A7C /* PreWorkoutDevices.swift */,
@@ -1867,6 +1870,7 @@
 				95989F2BA0A1266E74EDF6B2 /* DeviceConnection.swift in Sources */,
 				C0C4BF9ABFABEEA9379070D9 /* DeviceDiagnostics.swift in Sources */,
 				677A5D19A5642F5B27CE77BD /* DeviceHub.swift in Sources */,
+				570EE6AEC3C13661091B45C9 /* DevicePickerComponents.swift in Sources */,
 				2A555265BBE023B34A1F5FD1 /* DevicePickerSheet.swift in Sources */,
 				064CD3E85096AB9E9729189C /* DevicesStep.swift in Sources */,
 				F8E5907840DE1E828A8224C9 /* DoblesJointModels.swift in Sources */,
@@ -1892,7 +1896,7 @@
 				F2FCE58AD9EBE3714C6352B4 /* EmailSignInView.swift in Sources */,
 				DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */,
 				09A60A290811DB35200D800D /* ErgConnectCard.swift in Sources */,
-				7AB4E75B1326C38928C4C305 /* ErgFocusHUDView.swift in Sources */,
+				AB9771EA4D3AFF09B6FEA9B9 /* ErgHUDContent.swift in Sources */,
 				A68764BA54E6F06F78581784 /* EventsModels.swift in Sources */,
 				F0C898F9D3FFEC1E359B6977 /* ExecutedWorkoutView.swift in Sources */,
 				F9B735581824B7F65F32D523 /* ExerciseDetailView.swift in Sources */,
