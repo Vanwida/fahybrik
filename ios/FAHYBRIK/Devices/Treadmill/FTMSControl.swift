@@ -19,9 +19,23 @@ enum TreadmillControlCommand: Equatable {
     case reset
     case setTargetSpeedKmh(Double)
     case setTargetInclinePct(Double)
+    /// Inclination expressed in the machine's OWN console LEVELS (1…15), for families
+    /// whose Inclination field is internal units rather than 0.1 % grade — the BH /
+    /// Exercycle i.Concept 3.0 line (see `FTMSInclineLevels`). Kept as a SEPARATE case
+    /// from `.setTargetInclinePct` so a level can never be silently written as a grade.
+    case setTargetInclineLevel(Double)
     case start                          // start / resume
     case stop
     case pause
+
+    /// True for the two "set a target" ops. The generic-hammer profile prepends its
+    /// Request-Control + Start prelude only to THESE (never to start/stop/reset).
+    var isTarget: Bool {
+        switch self {
+        case .setTargetSpeedKmh, .setTargetInclinePct, .setTargetInclineLevel: return true
+        case .requestControl, .reset, .start, .stop, .pause: return false
+        }
+    }
 }
 
 /// The ack of a control command, decoded from a Control Point indication (0x80 …).
@@ -44,8 +58,71 @@ enum TreadmillMachineEvent: Equatable {
     case startedByUser
     case targetSpeedChangedKmh(Double)
     case targetInclineChangedPct(Double)
+    /// The i.Concept translation of `targetInclineChangedPct`: the machine reported a new
+    /// inclination in its own internal units, converted to a console LEVEL by the source.
+    case targetInclineChangedLevel(Double)
     case controlPermissionLost
     case other(UInt8)
+}
+
+// MARK: - Inclination levels (BH / Exercycle i.Concept 3.0)
+
+/// The i.Concept family does NOT put grade×0.1 % in the FTMS Inclination field — it puts
+/// an INTERNAL value on a 0…1000 scale that maps to the console's own 1…15 levels. The
+/// same units apply BOTH ways: the Treadmill Data (0x2ACD) reading and the Set Target
+/// Inclination (0x2AD9 op 0x03) write. Writing "3.0" expecting 3 % on one of these belts
+/// asks it for raw 30 — well below level 1 — which is why a plain-FTMS incline command
+/// appears to do nothing.
+///
+/// The anchor pairs below are qdomyos-zwift's console-level table for this family. Levels
+/// 7…14 are not tabulated there; the 6→15 segment is linear (≈ 66.7 raw per level), so we
+/// interpolate rather than invent per-level constants. The minimum meaningful step is ONE
+/// LEVEL — there is no sub-level resolution to offer the athlete.
+enum FTMSInclineLevels {
+    /// (console level, raw Inclination field value). Ordered by level, ascending.
+    static let iConceptAnchors: [(level: Double, raw: Double)] = [
+        (1, 60), (2, 130), (3, 200), (4, 260), (5, 330), (6, 400), (15, 1000)
+    ]
+    static let minLevel: Double = 1
+    static let maxLevel: Double = 15
+    /// The console moves in whole levels — the stepper must too.
+    static let levelStep: Double = 1
+
+    static func clampLevel(_ level: Double) -> Double {
+        min(maxLevel, max(minLevel, level))
+    }
+
+    /// Console level → the raw value to write in the Inclination field.
+    static func raw(forLevel level: Double) -> Int {
+        let l = clampLevel(level)
+        let a = iConceptAnchors
+        for i in 0..<(a.count - 1) where l <= a[i + 1].level {
+            let (lo, hi) = (a[i], a[i + 1])
+            guard hi.level > lo.level else { return Int(lo.raw.rounded()) }
+            let t = (l - lo.level) / (hi.level - lo.level)
+            return Int((lo.raw + t * (hi.raw - lo.raw)).rounded())
+        }
+        return Int(a[a.count - 1].raw.rounded())
+    }
+
+    /// Raw Inclination field value → console level (fractional; the machine can report a
+    /// value between two console detents). Clamped to the real 1…15 console range.
+    static func level(forRaw raw: Double) -> Double {
+        let a = iConceptAnchors
+        if raw <= a[0].raw { return minLevel }
+        for i in 0..<(a.count - 1) where raw <= a[i + 1].raw {
+            let (lo, hi) = (a[i], a[i + 1])
+            guard hi.raw > lo.raw else { return lo.level }
+            let t = (raw - lo.raw) / (hi.raw - lo.raw)
+            return clampLevel(lo.level + t * (hi.level - lo.level))
+        }
+        return maxLevel
+    }
+
+    /// The whole level a raw reading sits closest to — what the HUD shows ("Nivel 3").
+    static func displayLevel(forRaw raw: Double) -> Int {
+        Int(level(forRaw: raw).rounded())
+    }
 }
 
 enum FTMSControl {
@@ -76,10 +153,17 @@ enum FTMSControl {
             return Data([Op.setTargetSpeed.rawValue, UInt8(u & 0xFF), UInt8(u >> 8)])
         case .setTargetInclinePct(let pct):
             // sint16, resolution 0.1 %. Negative on decline-capable belts.
-            let s = Int16(clamping: Int((pct * 10).rounded()))
-            let u = UInt16(bitPattern: s)
-            return Data([Op.setTargetInclination.rawValue, UInt8(u & 0xFF), UInt8(u >> 8)])
+            return inclineData(rawValue: Int((pct * 10).rounded()))
+        case .setTargetInclineLevel(let level):
+            // Same op code and same sint16 slot — but the machine reads it as its own
+            // internal units, so the console level is translated first.
+            return inclineData(rawValue: FTMSInclineLevels.raw(forLevel: level))
         }
+    }
+
+    private static func inclineData(rawValue: Int) -> Data {
+        let u = UInt16(bitPattern: Int16(clamping: rawValue))
+        return Data([Op.setTargetInclination.rawValue, UInt8(u & 0xFF), UInt8(u >> 8)])
     }
 
     /// The request op code a command writes — so the source can match an incoming
@@ -89,9 +173,36 @@ enum FTMSControl {
         case .requestControl:     return Op.requestControl.rawValue
         case .reset:              return Op.reset.rawValue
         case .setTargetSpeedKmh:  return Op.setTargetSpeed.rawValue
-        case .setTargetInclinePct: return Op.setTargetInclination.rawValue
+        case .setTargetInclinePct, .setTargetInclineLevel:
+                                  return Op.setTargetInclination.rawValue
         case .start:              return Op.startResume.rawValue
         case .stop, .pause:       return Op.stopPause.rawValue
+        }
+    }
+
+    /// Human name for a Control Point request op code — for the shareable diagnostics
+    /// trace, where a bare "0x03" tells the athlete (and us) nothing.
+    static func opName(_ code: UInt8) -> String {
+        switch code {
+        case Op.requestControl.rawValue:       return "pedir control"
+        case Op.reset.rawValue:                return "reset"
+        case Op.setTargetSpeed.rawValue:       return "objetivo velocidad"
+        case Op.setTargetInclination.rawValue: return "objetivo inclinación"
+        case Op.startResume.rawValue:          return "arrancar"
+        case Op.stopPause.rawValue:            return "parar/pausar"
+        default:                               return "desconocido"
+        }
+    }
+
+    /// Human name for a decoded ack result — same reason.
+    static func resultName(_ result: TreadmillControlResult) -> String {
+        switch result {
+        case .success:            return "OK"
+        case .notSupported:       return "NO SOPORTADO (0x02)"
+        case .invalidParameter:   return "PARÁMETRO INVÁLIDO (0x03)"
+        case .operationFailed:    return "FALLÓ (0x04)"
+        case .controlNotPermitted: return "CONTROL NO PERMITIDO (0x05)"
+        case .unknown(let v):     return String(format: "desconocido (0x%02X)", v)
         }
     }
 

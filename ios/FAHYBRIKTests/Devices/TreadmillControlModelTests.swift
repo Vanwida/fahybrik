@@ -105,6 +105,45 @@ final class TreadmillControlModelTests: XCTestCase {
         m.teardown()
     }
 
+    /// The i.Concept family (his TM2000) has no percent grade to show — the stepper must
+    /// say "Nivel", move one whole level per tap, and send a LEVEL command.
+    func testIConceptInclineIsLevelsNotPercent() {
+        let (m, src) = makeModel()
+        var levelCap = cap
+        levelCap.profile = .iConcept
+        levelCap.incline = FTMSControl.Range(min: 1, max: 15, step: FTMSInclineLevels.levelStep)
+        src.pushCapability(levelCap)
+        XCTAssertTrue(m.inclineIsLevel)
+        XCTAssertEqual(m.inclineControlLabel, "Nivel")
+        XCTAssertEqual(m.inclineControlUnit, "", "never a fabricated % on a machine without grade")
+
+        m.nudgeIncline(1)
+        XCTAssertEqual(m.targetIncline, 2, accuracy: 0.001, "one tap = one whole level")
+        XCTAssertEqual(src.sent.last, .setTargetInclineLevel(2))
+        XCTAssertEqual(m.inclineControlValue, "2")
+
+        for _ in 0..<50 { m.nudgeIncline(1) }
+        XCTAssertEqual(m.targetIncline, 15, accuracy: 0.001, "clamped to the console's top level")
+
+        // The machine reporting its own console change lands in the same target.
+        src.pushEvent(.targetInclineChangedLevel(4))
+        XCTAssertEqual(m.targetIncline, 4, accuracy: 0.001)
+        m.teardown()
+    }
+
+    /// A spec-clean belt keeps exact 0.1 % behaviour — the level path must not leak.
+    func testStandardBeltKeepsPercentIncline() {
+        let (m, src) = makeModel()
+        src.pushCapability(cap)                          // profile defaults to .standard
+        XCTAssertFalse(m.inclineIsLevel)
+        XCTAssertEqual(m.inclineControlLabel, "Inclinación")
+        XCTAssertEqual(m.inclineControlUnit, "%")
+        m.nudgeIncline(1)
+        XCTAssertEqual(m.targetIncline, 0.5, accuracy: 0.001)   // seeded at 0 %, step 0.5
+        XCTAssertEqual(src.sent.last, .setTargetInclinePct(0.5))
+        m.teardown()
+    }
+
     func testReadOnlyBeltOffersNoControl() {
         let (m, src) = makeModel()
         src.pushCapability(.none)                        // a data-only belt

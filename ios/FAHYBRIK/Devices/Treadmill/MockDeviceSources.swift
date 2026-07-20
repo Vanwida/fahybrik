@@ -125,7 +125,7 @@ final class MockTreadmillSource: TreadmillDataSource, TreadmillControllable {
             targetSpeed = 0; onMachineEvent?(.pausedByUser); onControlResult?(.success)
         case .setTargetSpeedKmh(let v):
             targetSpeed = v; onControlResult?(.success)
-        case .setTargetInclinePct(let v):
+        case .setTargetInclinePct(let v), .setTargetInclineLevel(let v):
             incline = v; onControlResult?(.success)
         }
     }

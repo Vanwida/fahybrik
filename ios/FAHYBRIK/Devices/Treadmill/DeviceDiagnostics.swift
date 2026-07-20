@@ -13,12 +13,34 @@ struct DeviceDiagnostics {
     private var advertised: [CBUUID] = []
     private var services: [CBUUID] = []
     private var characteristics: [(service: CBUUID, char: CBUUID, props: String)] = []
+    /// Timestamped control-plane trace (every Control Point TX, every ack/status RX,
+    /// every profile decision). This is what turns "la cinta no me hace caso" into a
+    /// diagnosable fact — it rides along in "Compartir diagnóstico".
+    private var events: [String] = []
+
+    /// Cap on the trace so a long session can't grow the share sheet unbounded. Keeps
+    /// the MOST RECENT lines — the ones around the failure the athlete just saw.
+    static let maxEvents = 200
+
+    private static let clock: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss.SSS"
+        return f
+    }()
 
     init(role: String) { self.role = role }
 
     mutating func reset() {
         name = nil; identifier = nil
         advertised = []; services = []; characteristics = []
+        events = []
+    }
+
+    /// Append one trace line, stamped with the wall clock so ordering (and the gaps that
+    /// reveal a timeout) survive into the shared text.
+    mutating func log(_ line: String) {
+        events.append("[\(Self.clock.string(from: Date()))] \(line)")
+        if events.count > Self.maxEvents { events.removeFirst(events.count - Self.maxEvents) }
     }
 
     mutating func note(peripheral: CBPeripheral, advertised: [CBUUID]) {
@@ -37,7 +59,7 @@ struct DeviceDiagnostics {
 
     /// nil until we've actually connected to something to describe.
     func text() -> String? {
-        guard name != nil || !services.isEmpty else { return nil }
+        guard name != nil || !services.isEmpty || !events.isEmpty else { return nil }
         var lines: [String] = []
         lines.append("FAHYBRID · diagnóstico de conexión (\(role))")
         lines.append("Dispositivo: \(name ?? "sin nombre")")
@@ -53,6 +75,11 @@ struct DeviceDiagnostics {
             for c in characteristics {
                 lines.append("  · \(c.service.uuidString)/\(c.char.uuidString) [\(c.props)]")
             }
+        }
+        if !events.isEmpty {
+            lines.append("")
+            lines.append("Traza de control (últimas \(events.count)):")
+            lines.append(contentsOf: events.map { "  \($0)" })
         }
         return lines.joined(separator: "\n")
     }

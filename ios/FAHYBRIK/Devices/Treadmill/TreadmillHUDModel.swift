@@ -63,7 +63,10 @@ final class TreadmillHUDModel {
     /// The target we've SET. The HERO number stays `latest.speedKmh` (the belt's REAL
     /// speed) — target and actual converge, never diverge, which is the whole point.
     private(set) var targetSpeedKmh: Double = 0
-    private(set) var targetInclinePct: Double = 0
+    /// The incline target we've SET, in the unit THIS machine speaks: percent grade on a
+    /// spec-clean belt, console LEVEL on the i.Concept family (`inclineIsLevel`). One
+    /// stored value, one meaning per machine — the labels below carry the unit.
+    private(set) var targetIncline: Double = 0
     /// Seconds left in the 3·2·1 pre-start countdown; nil when not counting.
     private(set) var startCountdown: Int?
     /// A transient message when the machine rejects a command / pulls control.
@@ -203,7 +206,7 @@ final class TreadmillHUDModel {
         if cap.canControl, targetSpeedKmh == 0 {
             let live = latest.speedKmh ?? 0
             targetSpeedKmh = live > TreadmillConstants.minMovingSpeedKmh ? live : (cap.speed?.min ?? 6.0)
-            targetInclinePct = latest.inclinePct ?? 0
+            targetIncline = clampIncline(latest.inclineLevel ?? latest.inclinePct ?? 0)
         }
     }
 
@@ -212,7 +215,10 @@ final class TreadmillHUDModel {
         case .startedByUser, .stoppedByUser, .stoppedBySafetyKey, .pausedByUser:
             cancelStart()                                       // machine settled → drop any countdown
         case .targetSpeedChangedKmh(let v):   targetSpeedKmh = clampSpeed(v)     // console → app mirrors it
-        case .targetInclineChangedPct(let v): targetInclinePct = clampIncline(v)
+        // Both incline reports land in the SAME stored target — the machine only ever
+        // sends the one that matches its own family.
+        case .targetInclineChangedPct(let v):   targetIncline = clampIncline(v)
+        case .targetInclineChangedLevel(let v): targetIncline = clampIncline(v)
         case .controlPermissionLost:          controlNotice = "La cinta retiró el control"
         case .reset, .other:                  break
         }
@@ -232,7 +238,10 @@ final class TreadmillHUDModel {
         return min(r.max, max(r.min, v))
     }
     private func clampIncline(_ v: Double) -> Double {
-        guard let r = controlCapability.incline else { return v }
+        guard let r = controlCapability.incline else {
+            // No range reported: a level-based machine still has a known console range.
+            return inclineIsLevel ? FTMSInclineLevels.clampLevel(v) : v
+        }
         return min(r.max, max(r.min, v))
     }
     private func round1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
@@ -248,10 +257,40 @@ final class TreadmillHUDModel {
 
     func nudgeIncline(_ direction: Int) {
         guard controlCapability.canControlIncline else { return }
+        if inclineIsLevel {
+            // The console has no sub-level detent — one tap is one LEVEL.
+            targetIncline = clampIncline((targetIncline + Double(direction) * FTMSInclineLevels.levelStep).rounded())
+            Haptics.light()
+            hub.sendTreadmill(.setTargetInclineLevel(targetIncline))
+            return
+        }
         let step = controlCapability.incline?.step ?? 0.5
-        targetInclinePct = round1(clampIncline(targetInclinePct + Double(direction) * step))
+        targetIncline = round1(clampIncline(targetIncline + Double(direction) * step))
         Haptics.light()
-        hub.sendTreadmill(.setTargetInclinePct(targetInclinePct))
+        hub.sendTreadmill(.setTargetInclinePct(targetIncline))
+    }
+
+    // MARK: - Incline units (honest per machine family)
+
+    /// This belt reports and accepts incline as a console LEVEL, not a percent grade.
+    var inclineIsLevel: Bool { controlCapability.inclineIsLevel }
+    /// Stepper caption: "Nivel" where the machine has no notion of grade, "Inclinación"
+    /// where the FTMS field really is one. We never invent a percentage.
+    var inclineControlLabel: String { inclineIsLevel ? "Nivel" : "Inclinación" }
+    var inclineControlUnit: String { inclineIsLevel ? "" : "%" }
+    var inclineControlValue: String {
+        inclineIsLevel ? String(Int(targetIncline.rounded())) : String(format: "%.1f", targetIncline)
+    }
+    /// The belt's LIVE incline for the metric strip, in the same honest unit.
+    var liveInclineValue: String {
+        if inclineIsLevel { return latest.inclineLevel.map { String(Int($0.rounded())) } ?? "—" }
+        return latest.inclinePct.map { String(format: "%.1f", $0) } ?? "—"
+    }
+
+    /// The command that sets the CURRENT incline target on THIS machine — one place
+    /// decides the unit, so the countdown start and the stepper can't disagree.
+    private var inclineCommand: TreadmillControlCommand {
+        inclineIsLevel ? .setTargetInclineLevel(targetIncline) : .setTargetInclinePct(targetIncline)
     }
 
     /// Begin the belt with a 3·2·1 so the athlete can position — the belt NEVER lurches
@@ -269,7 +308,7 @@ final class TreadmillHUDModel {
                 self.hub.sendTreadmill(.start)
                 self.hub.sendTreadmill(.setTargetSpeedKmh(self.targetSpeedKmh))
                 if self.controlCapability.canControlIncline {
-                    self.hub.sendTreadmill(.setTargetInclinePct(self.targetInclinePct))
+                    self.hub.sendTreadmill(self.inclineCommand)
                 }
                 Haptics.success()
             } else {
@@ -429,6 +468,7 @@ final class TreadmillHUDModel {
         var merged = latest
         if let v = sample.speedKmh { merged.speedKmh = v }
         if let v = sample.inclinePct { merged.inclinePct = v }
+        if let v = sample.inclineLevel { merged.inclineLevel = v }
         if let v = sample.totalDistanceM { merged.totalDistanceM = v }
         if let v = sample.elapsedS { merged.elapsedS = v }
         if let v = sample.hrBpm { merged.hrBpm = v }

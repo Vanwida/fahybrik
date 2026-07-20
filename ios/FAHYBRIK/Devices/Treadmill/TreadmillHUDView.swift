@@ -227,8 +227,8 @@ struct TreadmillHUDView: View {
                                 value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
                                 down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
                     if model.controlCapability.canControlIncline {
-                        stepperCard(label: "Inclinación",
-                                    value: String(format: "%.1f", model.targetInclinePct), unit: "%",
+                        stepperCard(label: model.inclineControlLabel,
+                                    value: model.inclineControlValue, unit: model.inclineControlUnit,
                                     down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
                     }
                 }
@@ -293,8 +293,8 @@ struct TreadmillHUDView: View {
                             value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
                             down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
                 if model.controlCapability.canControlIncline {
-                    stepperCard(label: "Inclinación",
-                                value: String(format: "%.1f", model.targetInclinePct), unit: "%",
+                    stepperCard(label: model.inclineControlLabel,
+                                value: model.inclineControlValue, unit: model.inclineControlUnit,
                                 down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
                 }
             }
@@ -509,7 +509,8 @@ struct TreadmillHUDView: View {
         let cols = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
         return LazyVGrid(columns: cols, spacing: 8) {
             ExpertCell(label: "Velocidad", value: speedString, unit: "km/h")
-            ExpertCell(label: "Inclinación", value: inclineString, unit: "%")
+            ExpertCell(label: model.inclineControlLabel, value: inclineString,
+                       unit: model.inclineControlUnit)
             ExpertCell(label: "Tiempo", value: TreadmillMath.clock(Int(model.legElapsedEffective)), unit: "")
         }
     }
@@ -731,9 +732,9 @@ struct TreadmillHUDView: View {
     private var speedString: String {
         model.latest.speedKmh.map { String(format: "%.1f", $0) } ?? "—"
     }
-    private var inclineString: String {
-        model.latest.inclinePct.map { String(format: "%.1f", $0) } ?? "—"
-    }
+    /// Percent grade, or the console LEVEL on machines whose incline field isn't a grade
+    /// — the model owns which, so the cell never shows a fabricated "%".
+    private var inclineString: String { model.liveInclineValue }
     private func distString(_ m: Double) -> String {
         m >= 1000 ? String(format: "%.2f km", m / 1000) : "\(Int(m.rounded())) m"
     }

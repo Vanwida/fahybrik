@@ -15,8 +15,14 @@ struct TreadmillSample: Equatable {
     /// Instantaneous belt speed, km/h (the treadmill's native unit). Present in
     /// essentially every packet.
     var speedKmh: Double?
-    /// Belt inclination, percent grade. Negative on decline-capable treadmills.
+    /// Belt inclination, percent grade. Negative on decline-capable treadmills. nil on
+    /// machines whose Inclination field is NOT a grade (see `inclineLevel`) — we leave it
+    /// empty rather than publish a number that isn't a percentage.
     var inclinePct: Double?
+    /// Belt inclination as a CONSOLE LEVEL (1…15), for families whose Inclination field
+    /// carries internal units instead of grade — the BH / Exercycle i.Concept line. Only
+    /// one of `inclinePct` / `inclineLevel` is ever populated, per machine family.
+    var inclineLevel: Double?
     /// Machine-reported cumulative distance, meters. Not every treadmill sends it;
     /// the model integrates speed when it's absent.
     var totalDistanceM: Double?
@@ -65,11 +71,18 @@ struct TreadmillControlCapability: Equatable {
     var canControlSpeed: Bool
     var canControlIncline: Bool
     var speed: FTMSControl.Range?     // km/h
-    var incline: FTMSControl.Range?   // %
+    var incline: FTMSControl.Range?   // % — or console LEVELS when `profile.inclineIsLevel`
+    /// The control dialect detected for THIS machine (and any mid-session escalation).
+    /// The UI reads it to label incline honestly: a percentage where the field really is
+    /// a grade, "Nivel N" where it isn't.
+    var profile: FTMSControlProfile = .standard
 
     /// True only when the machine has a writable Control Point AND declares at least
     /// one settable target — the gate the UI uses to offer controls at all.
     var canControl: Bool { hasControlPoint && (canControlSpeed || canControlIncline) }
+
+    /// Incline is expressed in console levels, not percent grade, on this machine.
+    var inclineIsLevel: Bool { profile.inclineIsLevel }
 
     static let none = TreadmillControlCapability(hasControlPoint: false,
                                                  canControlSpeed: false,
