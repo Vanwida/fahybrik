@@ -126,6 +126,11 @@ final class MockTreadmillSource: TreadmillDataSource, TreadmillControllable {
             targetSpeed = v; onControlResult?(.success)
         case .setTargetInclinePct(let v), .setTargetInclineLevel(let v):
             incline = v; onControlResult?(.success)
+        case .setTargetedDistanceM(let m):
+            // Mirror a machine that accepts the programmed piece onto its own display.
+            onMachineEvent?(.targetedDistanceChangedM(m)); onControlResult?(.success)
+        case .setTargetedTrainingTimeS(let s):
+            onMachineEvent?(.targetedTrainingTimeChangedS(s)); onControlResult?(.success)
         }
     }
 

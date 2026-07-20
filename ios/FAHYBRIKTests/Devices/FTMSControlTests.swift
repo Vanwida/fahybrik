@@ -66,16 +66,54 @@ final class FTMSControlTests: XCTestCase {
     // MARK: - Decode capability (feature + ranges)
 
     func testDecodeTargetFeatures() {
-        // Target Setting Features is the SECOND uint32; bit0 = speed, bit1 = incline.
+        // Target Setting Features is the SECOND uint32 (FTMS §4.3.1.2): bit0 = speed,
+        // bit1 = incline, bit8 = targeted distance, bit9 = targeted training time.
         let both = FTMSControl.decodeTargetFeatures(Data([0, 0, 0, 0, 0x03, 0, 0, 0]))
         XCTAssertEqual(both?.speed, true)
         XCTAssertEqual(both?.incline, true)
+        XCTAssertEqual(both?.targetedDistance, false)
 
         let speedOnly = FTMSControl.decodeTargetFeatures(Data([0, 0, 0, 0, 0x01, 0, 0, 0]))
         XCTAssertEqual(speedOnly?.speed, true)
         XCTAssertEqual(speedOnly?.incline, false)
 
+        // 0x0300 = bits 8 and 9 → the two workout-programming ops, and NOT speed/incline.
+        let piece = FTMSControl.decodeTargetFeatures(Data([0, 0, 0, 0, 0x00, 0x03, 0, 0]))
+        XCTAssertEqual(piece?.targetedDistance, true)
+        XCTAssertEqual(piece?.targetedTrainingTime, true)
+        XCTAssertEqual(piece?.speed, false)
+        XCTAssertEqual(piece?.raw, 0x0300)
+
         XCTAssertNil(FTMSControl.decodeTargetFeatures(Data([0, 0, 0, 0])))   // too short
+    }
+
+    // MARK: - Programming the piece onto the machine's own display
+
+    func testEncodeTargetedDistanceIsUint24Meters() {
+        // FTMS Table 4.15, op 0x0C: UINT24, meters, resolution 1 m, little-endian.
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedDistanceM(1000))), [0x0C, 0xE8, 0x03, 0x00])
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedDistanceM(400))), [0x0C, 0x90, 0x01, 0x00])
+        // Three octets, not four — a big distance must not spill into a fourth byte.
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedDistanceM(70_000))), [0x0C, 0x70, 0x11, 0x01])
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedDistanceM(-5))), [0x0C, 0x00, 0x00, 0x00])
+    }
+
+    func testEncodeTargetedTrainingTimeIsUint16Seconds() {
+        // FTMS Table 4.15, op 0x0D: UINT16, seconds, resolution 1 s.
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedTrainingTimeS(600))), [0x0D, 0x58, 0x02])
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedTrainingTimeS(90))), [0x0D, 0x5A, 0x00])
+        XCTAssertEqual([UInt8](FTMSControl.encode(.setTargetedTrainingTimeS(-1))), [0x0D, 0x00, 0x00])
+    }
+
+    func testDecodeProgrammedPieceStatusEvents() {
+        // Machine Status Table 4.26: 0x0D targeted distance (UINT24), 0x0E time (UINT16).
+        XCTAssertEqual(FTMSControl.decodeMachineEvent(Data([0x0D, 0xE8, 0x03, 0x00])),
+                       .targetedDistanceChangedM(1000))
+        XCTAssertEqual(FTMSControl.decodeMachineEvent(Data([0x0E, 0x58, 0x02])),
+                       .targetedTrainingTimeChangedS(600))
+        // A truncated payload decodes to nothing rather than to a fabricated number —
+        // same rule the speed / incline status events follow.
+        XCTAssertNil(FTMSControl.decodeMachineEvent(Data([0x0D, 0xE8])))
     }
 
     func testDecodeSpeedRange() {
@@ -96,13 +134,30 @@ final class FTMSControlTests: XCTestCase {
 
     // MARK: - Capability gate
 
-    func testCapabilityGate() {
+    /// THE GATE THAT BROKE HIS TM2000. It used to also require the machine to DECLARE a
+    /// settable target, so a firmware reporting a zeroed Target Setting Features word
+    /// switched every control off before a byte was ever written — "solo recoge la info".
+    /// A writable Control Point is now the whole test: a fact, not a claim.
+    func testCapabilityGateIsTheControlPointAlone() {
         XCTAssertFalse(TreadmillControlCapability.none.canControl)
-        // Control point but no settable target → still not controllable.
         var cap = TreadmillControlCapability.none
         cap.hasControlPoint = true
-        XCTAssertFalse(cap.canControl)
-        cap.canControlSpeed = true
-        XCTAssertTrue(cap.canControl)
+        XCTAssertTrue(cap.canControl, "a writable control point IS the gate")
+        // Even with the feature word claiming nothing is settable, we still offer control
+        // and let the machine refuse each command on its own merits.
+        cap.canControlSpeed = false
+        cap.canControlIncline = false
+        cap.targetFeatureBits = 0
+        XCTAssertTrue(cap.canControl, "a lying feature word must never disable the HUD")
+    }
+
+    func testInclineUnitsFollowTheResolvedDialectNotTheFamily() {
+        var cap = TreadmillControlCapability.none
+        cap.hasControlPoint = true
+        XCTAssertFalse(cap.inclineIsLevel, "grade is what we try first")
+        cap.profile = .iConcept
+        XCTAssertFalse(cap.inclineIsLevel, "the FAMILY no longer dictates the units")
+        cap.inclineDialect = .level
+        XCTAssertTrue(cap.inclineIsLevel, "only the resolved dialect does")
     }
 }

@@ -49,6 +49,7 @@
 		161B43BE72F64914405F658B /* YouTubeEmbedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ECB10E750AEF2622E5CA05B /* YouTubeEmbedView.swift */; };
 		1699C2BCA6C7685BF706CCFC /* InviteLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EF7B3C71957791C43C44FF /* InviteLandingView.swift */; };
 		16A0C9694C66EF7A9D0A3A18 /* FTMSTreadmillSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DC451680B6387D150D43277 /* FTMSTreadmillSource.swift */; };
+		16ABB1764052F214563937B1 /* TreadmillControlDebugSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCD17A0BAFD5CBB7B44180A /* TreadmillControlDebugSheet.swift */; };
 		16F44D1EA1029D4C1FA0104E /* MirrorWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DFE8F688C3BC32E9467B89D /* MirrorWireModels.swift */; };
 		178D2CE2F12CB48ECF81288B /* PreferredWeekStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1336EE556EDC1149E64E62DB /* PreferredWeekStep.swift */; };
 		17BB28C19D105D86E548A7A1 /* PlanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A6F6A06597A99FDB74B021 /* PlanService.swift */; };
@@ -299,6 +300,7 @@
 		CEA271C9C2482C5722EF1437 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97E9DD607F2BB4B375E00CF4 /* Assets.xcassets */; };
 		CF189219BC59E831BD6806A9 /* Chip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C75141ACA472A805D8158 /* Chip.swift */; };
 		CF70E9EF986A6BFA99F5783C /* RotatingLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0805561D5D522F1427F7A0B9 /* RotatingLiveView.swift */; };
+		D0A40812E60DB25147E89856 /* FTMSControlStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */; };
 		D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D674AB748CF0731318E718C5 /* HistoryService.swift */; };
 		D1CCE0FB0BEEEA275FC8AAB3 /* DoblesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4075C7EACC5B3ADAD94F5E5 /* DoblesService.swift */; };
 		D23CB0F3457C878E6A1F412D /* TestResultDoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A43342DB16A6417086FE00 /* TestResultDoneView.swift */; };
@@ -686,6 +688,7 @@
 		B20208738EAA72C5507897FC /* RunLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveActivityWidget.swift; sourceTree = "<group>"; };
 		B262C422F955BA0E6DA89F19 /* DoblesLiveStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveStrip.swift; sourceTree = "<group>"; };
 		B3E8F007672C98463F4570A9 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
+		B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTMSControlStrategy.swift; sourceTree = "<group>"; };
 		B4C3DE00D4A428A3EAA07320 /* DevicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePickerSheet.swift; sourceTree = "<group>"; };
 		B4CADF45330757D85B5D383A /* RunTargetResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolverTests.swift; sourceTree = "<group>"; };
 		B59EF5B0ACBF02169ABBCFD1 /* RunTargetResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTargetResolver.swift; sourceTree = "<group>"; };
@@ -756,6 +759,7 @@
 		DCEE8F536C882F5BA9402CEA /* MockDeviceSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceSources.swift; sourceTree = "<group>"; };
 		DD06425D235284347988D17C /* PM5ConnectionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5ConnectionStore.swift; sourceTree = "<group>"; };
 		DD8F4BB0E65C93AE8B1A7E38 /* ReviewTodayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewTodayCard.swift; sourceTree = "<group>"; };
+		DDCD17A0BAFD5CBB7B44180A /* TreadmillControlDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillControlDebugSheet.swift; sourceTree = "<group>"; };
 		DDDDA98C11AEAAF94F408F75 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		DE3A7AC481E0E10D85BAFE73 /* TreadmillHUDComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillHUDComponents.swift; sourceTree = "<group>"; };
 		DF5FF39EA2B78DE9BD86B0A7 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
@@ -1133,12 +1137,14 @@
 				880B505E261FD68366EE8498 /* DeviceDiagnostics.swift */,
 				D7A3F24E25DD92D4F93C6D24 /* FTMSControl.swift */,
 				F9732FF1089DB4CEE313349D /* FTMSControlSequencer.swift */,
+				B3F1CFE3F5242E9A0ABDFA24 /* FTMSControlStrategy.swift */,
 				150C8A6EAB2B6FC85A7D0ED7 /* FTMSTreadmillParser.swift */,
 				4DC451680B6387D150D43277 /* FTMSTreadmillSource.swift */,
 				28A8A51900BDAC310D579C42 /* HeartRateParser.swift */,
 				DCEE8F536C882F5BA9402CEA /* MockDeviceSources.swift */,
 				B59EF5B0ACBF02169ABBCFD1 /* RunTargetResolver.swift */,
 				4B095C0D35F7A67110145CEF /* TreadmillConstants.swift */,
+				DDCD17A0BAFD5CBB7B44180A /* TreadmillControlDebugSheet.swift */,
 				DE3A7AC481E0E10D85BAFE73 /* TreadmillHUDComponents.swift */,
 				CD17EBA04CF3E3C9136E86BA /* TreadmillHUDModel.swift */,
 				2987C54DE3A0D9FDDD575E56 /* TreadmillHUDView.swift */,
@@ -1906,6 +1912,7 @@
 				E098A6DDCC6361576489843A /* FAHYBRIKApp.swift in Sources */,
 				F9A6CB791E3E0A6F3D5BE9FF /* FTMSControl.swift in Sources */,
 				8658FC56697B65880261C21F /* FTMSControlSequencer.swift in Sources */,
+				D0A40812E60DB25147E89856 /* FTMSControlStrategy.swift in Sources */,
 				3C8DDBA07356D0EDC06ECD01 /* FTMSTreadmillParser.swift in Sources */,
 				16A0C9694C66EF7A9D0A3A18 /* FTMSTreadmillSource.swift in Sources */,
 				2AD3387B52E11CED13C90EE0 /* FacilityStep.swift in Sources */,
@@ -2048,6 +2055,7 @@
 				28ECA2B64F0FE3156D7F32E2 /* ThresholdStep.swift in Sources */,
 				1A5375BE0FBA2E654DD29C27 /* TodayView.swift in Sources */,
 				3F5987EB7F92F4E9E0530508 /* TreadmillConstants.swift in Sources */,
+				16ABB1764052F214563937B1 /* TreadmillControlDebugSheet.swift in Sources */,
 				A2F9A77C50CE9C7129149920 /* TreadmillHUDComponents.swift in Sources */,
 				DC0AE5484CE306545FD41D7F /* TreadmillHUDModel.swift in Sources */,
 				DA5FA028EA658CAD85EE7360 /* TreadmillHUDView.swift in Sources */,

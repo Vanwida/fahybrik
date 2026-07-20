@@ -204,6 +204,7 @@ final class TreadmillHUDModel {
     // MARK: - Machine control (drive the belt + keep app ↔ belt in lock-step)
 
     private func applyCapability(_ cap: TreadmillControlCapability) {
+        let dialectChanged = cap.inclineDialect != controlCapability.inclineDialect
         controlCapability = cap
         // Seed the steppers from the belt's ACTUAL reading the first time we learn we
         // can drive it, so they start where the machine already is (sync from the off).
@@ -212,7 +213,40 @@ final class TreadmillHUDModel {
             targetSpeedKmh = live > TreadmillConstants.minMovingSpeedKmh ? live : (cap.speed?.min ?? 6.0)
             targetIncline = clampIncline(latest.inclineLevel ?? latest.inclinePct ?? 0)
         }
+        // The incline units were re-resolved under us → the stored target is now a number
+        // in a different unit, and its bounds moved with it. Re-clamp so the stepper can
+        // never sit outside the range it is now being read against.
+        if dialectChanged { targetIncline = clampIncline(targetIncline) }
+        // A belt that just became controllable can be told what piece we're running.
+        programCurrentLegOnMachine()
     }
+
+    // MARK: - Programming the PIECE onto the machine's own display
+
+    /// Push the current leg's goal to the belt's own console (FTMS Set Targeted Distance
+    /// 0x0C / Set Targeted Training Time 0x0D), so the machine counts down the same tramo
+    /// the app is running — the treadmill twin of what we already do on the erg.
+    ///
+    /// BEST EFFORT, ALWAYS. It is gated on the machine ADVERTISING the capability (unlike
+    /// speed/incline, these ops really are optional in the spec — C.9 / C.10), it never
+    /// blocks the run, and a refusal is swallowed into the trace instead of the HUD.
+    private func programCurrentLegOnMachine() {
+        guard controlCapability.canControl else { return }
+        let key = activeLegKey
+        guard !key.isEmpty, programmedLegKey != key else { return }
+        switch currentLeg.goal {
+        case let .distance(meters) where controlCapability.canSetTargetDistance:
+            programmedLegKey = key
+            hub.sendTreadmillBestEffort(.setTargetedDistanceM(Int(meters.rounded())))
+        case let .time(seconds) where controlCapability.canSetTargetTime:
+            programmedLegKey = key
+            hub.sendTreadmillBestEffort(.setTargetedTrainingTimeS(seconds))
+        default:
+            break
+        }
+    }
+    /// The leg whose goal we already pushed — so a 0.5 s tick can't spam the Control Point.
+    private var programmedLegKey: String?
 
     private func applyMachineEvent(_ event: TreadmillMachineEvent) {
         switch event {
@@ -224,6 +258,9 @@ final class TreadmillHUDModel {
         case .targetInclineChangedPct(let v):   targetIncline = clampIncline(v)
         case .targetInclineChangedLevel(let v): targetIncline = clampIncline(v)
         case .controlPermissionLost:          controlNotice = "La cinta retiró el control"
+        // The machine confirming a programmed piece is good news with nothing to say —
+        // the trace records it; the athlete doesn't need a banner for it.
+        case .targetedDistanceChangedM, .targetedTrainingTimeChangedS: break
         case .reset, .other:                  break
         }
     }
@@ -264,14 +301,14 @@ final class TreadmillHUDModel {
         if inclineIsLevel {
             // The console has no sub-level detent — one tap is one LEVEL.
             targetIncline = clampIncline((targetIncline + Double(direction) * FTMSInclineLevels.levelStep).rounded())
-            Haptics.light()
-            hub.sendTreadmill(.setTargetInclineLevel(targetIncline))
-            return
+        } else {
+            let step = controlCapability.incline?.step ?? 0.5
+            targetIncline = round1(clampIncline(targetIncline + Double(direction) * step))
         }
-        let step = controlCapability.incline?.step ?? 0.5
-        targetIncline = round1(clampIncline(targetIncline + Double(direction) * step))
         Haptics.light()
-        hub.sendTreadmill(.setTargetInclinePct(targetIncline))
+        // ONE place decides the units (the dialect the machine has answered to), so a
+        // stepper tap and the countdown start can never disagree about what "3" means.
+        hub.sendTreadmill(inclineCommand)
     }
 
     // MARK: - Incline units (honest per machine family)
@@ -280,8 +317,8 @@ final class TreadmillHUDModel {
     var inclineIsLevel: Bool { controlCapability.inclineIsLevel }
     /// Stepper caption: "Nivel" where the machine has no notion of grade, "Inclinación"
     /// where the FTMS field really is one. We never invent a percentage.
-    var inclineControlLabel: String { inclineIsLevel ? "Nivel" : "Inclinación" }
-    var inclineControlUnit: String { inclineIsLevel ? "" : "%" }
+    var inclineControlLabel: String { controlCapability.inclineDialect.controlLabel }
+    var inclineControlUnit: String { controlCapability.inclineDialect.controlUnit }
     var inclineControlValue: String {
         inclineIsLevel ? String(Int(targetIncline.rounded())) : String(format: "%.1f", targetIncline)
     }
@@ -294,7 +331,47 @@ final class TreadmillHUDModel {
     /// The command that sets the CURRENT incline target on THIS machine — one place
     /// decides the unit, so the countdown start and the stepper can't disagree.
     private var inclineCommand: TreadmillControlCommand {
-        inclineIsLevel ? .setTargetInclineLevel(targetIncline) : .setTargetInclinePct(targetIncline)
+        controlCapability.inclineDialect.command(for: targetIncline)
+    }
+
+    // MARK: - Field diagnosis (the "Modo de control" override)
+
+    /// The rung currently on the wire, and the incline interpretation in force. Read by
+    /// the diagnostics sheet so he can see what the app is doing without a new build.
+    var controlStrategy: FTMSControlStrategy { controlCapability.strategy }
+    var controlInclineDialect: FTMSInclineDialect { controlCapability.inclineDialect }
+
+    /// Pin a prelude rung by hand (`nil` → back to the automatic ladder).
+    func forceControlStrategy(_ strategy: FTMSControlStrategy?) {
+        Haptics.light()
+        hub.forceTreadmillStrategy(strategy)
+    }
+
+    /// Pin the incline interpretation by hand (`nil` → automatic).
+    func forceInclineDialect(_ dialect: FTMSInclineDialect?) {
+        Haptics.light()
+        hub.forceTreadmillInclineDialect(dialect)
+    }
+
+    /// Send ONE speed target at the current rung — the 30-second test in the gym. Does not
+    /// touch the athlete's own stepper value, so the HUD keeps saying what it was saying.
+    func sendTestSpeed(_ kmh: Double) {
+        Haptics.medium()
+        hub.sendTreadmill(.setTargetSpeedKmh(kmh))
+    }
+
+    /// Send ONE incline target in a SPECIFIC interpretation, to settle the units question
+    /// by watching the belt's own reading move (or not).
+    func sendTestIncline(_ value: Double, dialect: FTMSInclineDialect) {
+        Haptics.medium()
+        hub.sendTreadmill(dialect.command(for: value))
+    }
+
+    /// The belt's RAW Inclination field, straight off Treadmill Data — what he compares
+    /// against what he asked for, in the same units nRF Connect would show.
+    var liveInclineRaw: Double? {
+        if let level = latest.inclineLevel { return Double(FTMSInclineLevels.raw(forLevel: level)) }
+        return latest.inclinePct.map { $0 * 10 }
     }
 
     /// Begin the belt with a 3·2·1 so the athlete can position — the belt NEVER lurches
@@ -617,6 +694,8 @@ final class TreadmillHUDModel {
         snapshotLeg(activeLegKey)
         activeLegKey = key
         resetLegState()
+        // New tramo → tell the machine's own display what it is (best effort).
+        programCurrentLegOnMachine()
         // A new continuous-run leg → restart the coach's km-split cursor so splits
         // count from THIS leg's distance, not cumulatively across the workout (#63).
         if !isStructured, !isSeries, !currentLeg.isRecovery {

@@ -37,7 +37,6 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     private var controlPointChar: CBCharacteristic?
     /// Accumulated as feature + range reads land; published to `onControlCapability`.
     private var capability = TreadmillControlCapability.none
-    private var featureCharPresent = false
     /// The op pipeline: serialization, the Request-Control lifecycle, the per-family
     /// dialect and the escalation. All the control RULES live there (pure + tested); this
     /// class only moves bytes and feeds it what CoreBluetooth reports.
@@ -63,13 +62,33 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         sequencer.onWrite = { [weak self] data in self?.rawWrite(data) }
         sequencer.onResult = { [weak self] result in self?.onControlResult?(result) }
         sequencer.onDiagnostic = { [weak self] line in self?.diag.log(line) }
-        sequencer.onProfileChange = { [weak self] profile in
+        sequencer.onStrategyChange = { [weak self] strategy in
             guard let self else { return }
-            self.learnedProfile = profile
-            self.capability.profile = profile
-            self.applyProfileToInclineRange()
+            // The rung is a property of the MACHINE, not of the link — carrying it across
+            // a reconnect spares the athlete a second dead tap.
+            self.learnedStrategy = strategy
+            self.capability.strategy = strategy
+            self.noteControlFacts()
             self.publishCapability()
         }
+        sequencer.onInclineDialectChange = { [weak self] dialect in
+            guard let self else { return }
+            self.learnedInclineDialect = dialect
+            self.capability.inclineDialect = dialect
+            self.applyInclineDialectToRange()
+            self.noteControlFacts()
+            self.publishCapability()
+        }
+    }
+
+    /// Keep the shareable dump's header in step with what the control plane is doing —
+    /// so "Compartir diagnóstico" always opens with the CURRENT mode, not the initial one.
+    private func noteControlFacts() {
+        diag.note(fact: "Familia", capability.profile.label)
+        diag.note(fact: "Modo de control", "\(capability.strategy.rung) — \(capability.strategy.label)")
+        diag.note(fact: "Bytes que enviaría a 6 km/h",
+                  capability.strategy.wireHint.replacingOccurrences(of: "02 F4 01", with: "02 58 02"))
+        diag.note(fact: "Inclinación interpretada como", capability.inclineDialect.label)
     }
 
     func startScan() {
@@ -119,11 +138,22 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     func diagnosticsText() -> String? { diag.text() }
 
     /// Drive the belt. The caller just states intent; the sequencer owns the prelude, the
-    /// one-op-at-a-time serialization and the CCCD gate. No-op on a read-only belt.
+    /// one-op-at-a-time serialization and the transport gate. No-op on a read-only belt.
     func send(_ command: TreadmillControlCommand) {
         guard controlPointChar != nil, peripheral != nil else { return }
         sequencer.send(command)
     }
+
+    /// Program the machine's own display (targeted distance / time). Never errors out.
+    func sendBestEffort(_ command: TreadmillControlCommand) {
+        guard controlPointChar != nil, peripheral != nil else { return }
+        sequencer.sendBestEffort(command)
+    }
+
+    /// FIELD DIAGNOSIS: pin / release the prelude rung by hand.
+    func forceStrategy(_ strategy: FTMSControlStrategy?) { sequencer.forceStrategy(strategy) }
+    /// FIELD DIAGNOSIS: pin / release the incline interpretation by hand.
+    func forceInclineDialect(_ dialect: FTMSInclineDialect?) { sequencer.forceInclineDialect(dialect) }
 
     // MARK: - Private
 
@@ -150,12 +180,18 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         // A DIFFERENT machine → forget what we learned about the last one.
         if learnedProfileFor != p.identifier {
             learnedProfile = .standard
+            learnedStrategy = nil
+            learnedInclineDialect = nil
             learnedProfileFor = p.identifier
         }
         // Fresh machine → forget any prior machine's control state/capability. Control
         // permission NEVER survives a reconnect, so this also re-arms Request-Control.
         resetControlState()
         diag.note(peripheral: p, advertised: advertised)
+        // The name the machine ADVERTISED (which is what identifies the family, and what
+        // he'll see in nRF Connect) is not always the same as `peripheral.name`.
+        diag.note(fact: "Nombre anunciado",
+                  found[p.identifier]?.candidate.name ?? p.name ?? "sin nombre")
         detectProfile(for: p)
         onLink?(.connecting)
         central.connect(p, options: nil)
@@ -168,37 +204,52 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         let name = p.name ?? found[p.identifier]?.candidate.name
         let detected = FTMSControlProfile.detect(name: name)
         guard detected != .standard else { return }
+        learnedProfile = detected
         sequencer.adoptProfile(detected)
+        capability.profile = sequencer.profile
+        capability.strategy = sequencer.strategy
+        capability.inclineDialect = sequencer.inclineDialect
+        noteControlFacts()
     }
 
     private func resetControlState() {
         controlPointChar = nil
         capability = .none
-        featureCharPresent = false
         rawInclineRange = nil
-        // Control permission and the CCCD are re-earned on every link, but the DIALECT we
-        // learned about this machine (including an escalation it forced on us) is a
-        // property of the machine — carrying it over spares the athlete a second dead tap.
-        capability.profile = learnedProfile
-        sequencer.reset(profile: learnedProfile)
+        cccdGeneration += 1
+        // Control permission and the transport gate are re-earned on every link, but what
+        // we LEARNED about this machine (the rung that worked, the incline units that
+        // matched) is a property of the machine — carrying it over spares the athlete a
+        // second dead tap.
+        sequencer.reset(profile: learnedProfile,
+                        strategy: learnedStrategy,
+                        inclineDialect: learnedInclineDialect)
+        capability.profile = sequencer.profile
+        capability.strategy = sequencer.strategy
+        capability.inclineDialect = sequencer.inclineDialect
     }
 
-    /// The dialect learned for the machine currently selected — the family detected from
-    /// its name, or an escalation it forced mid-session. Cleared only when the athlete
-    /// picks a DIFFERENT machine.
+    /// What we learned about the machine currently selected — the family from its name,
+    /// the prelude rung that actually moved it, and the incline units it answered to.
+    /// Cleared only when the athlete picks a DIFFERENT machine.
     private var learnedProfile: FTMSControlProfile = .standard
+    private var learnedStrategy: FTMSControlStrategy?
+    private var learnedInclineDialect: FTMSInclineDialect?
     private var learnedProfileFor: DeviceID?
+    /// Guards the Control Point CCCD grace timer against a stale fire after a reconnect.
+    private var cccdGeneration = 0
 
     /// The Supported Inclination Range as the machine reported it, in 0.1 % units — kept
     /// raw so the level translation can be (re)applied if the profile changes later.
     private var rawInclineRange: FTMSControl.Range?
 
-    /// On an i.Concept machine the Supported Inclination Range is in the SAME internal
-    /// units as the Inclination field, so it must be translated to console levels before
-    /// the UI clamps a stepper with it — otherwise "max 100" reads as 100 levels.
-    private func applyProfileToInclineRange() {
+    /// Under the LEVEL interpretation the Supported Inclination Range is in the same
+    /// internal units as the Inclination field, so it must be translated to console levels
+    /// before the UI clamps a stepper with it — otherwise "max 100" reads as 100 levels.
+    /// Re-applied whenever the dialect flips, so the stepper's bounds follow the units.
+    private func applyInclineDialectToRange() {
         guard let raw = rawInclineRange else { return }
-        guard capability.profile.inclineIsLevel else { capability.incline = raw; return }
+        guard capability.inclineDialect == .level else { capability.incline = raw; return }
         capability.incline = FTMSControl.Range(
             min: FTMSInclineLevels.level(forRaw: raw.min * 10),
             max: FTMSInclineLevels.level(forRaw: raw.max * 10),
@@ -290,20 +341,27 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                 where ch.properties.contains(.write) || ch.properties.contains(.writeWithoutResponse):
                 controlPointChar = ch
                 capability.hasControlPoint = true
+                // A WRITABLE CONTROL POINT IS THE WHOLE GATE. We used to wait for the
+                // feature word to tell us which targets are settable, and switch the
+                // controls off when it said none — which is how a lying firmware turned
+                // the app into a read-only display. The machine gets to refuse each
+                // command on its own merits; it does not get to refuse them all in advance.
+                capability.canControlSpeed = true
+                capability.canControlIncline = true
                 // ORDER MATTERS: the Control Point's CCCD must be configured BEFORE the
                 // first write, or the machine answers ATT "CCC Improperly Configured".
-                // Writes stay queued until `didUpdateNotificationStateFor` confirms it.
                 if ch.properties.contains(.indicate) || ch.properties.contains(.notify) {
                     peripheral.setNotifyValue(true, for: ch)
+                    armCCCDGrace()
                 } else {
-                    // Nothing to subscribe to → nothing to wait for.
+                    // Nothing to subscribe to → nothing to wait for, and nothing will ever
+                    // ack, so ops must not sit out a timeout each.
                     diag.log("El punto de control no indica ni notifica — sin acks que esperar")
-                    sequencer.transportReady()
+                    sequencer.transportReady(indications: false)
                 }
             case TreadmillGATT.machineStatus where ch.properties.contains(.notify):
                 peripheral.setNotifyValue(true, for: ch)   // console / safety-key sync
             case TreadmillGATT.fitnessMachineFeature where ch.properties.contains(.read):
-                featureCharPresent = true
                 peripheral.readValue(for: ch)
             case TreadmillGATT.supportedSpeedRange where ch.properties.contains(.read):
                 peripheral.readValue(for: ch)
@@ -314,17 +372,31 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
             }
         }
         // Once the Fitness Machine's characteristics are enumerated we know whether the
-        // belt is controllable. A read-only belt publishes `.none` now (definitive); a
-        // controllable belt WITHOUT a feature word can't declare its targets, so we fall
-        // back to assuming speed control (a writable Control Point almost always means a
-        // speed-settable belt) — otherwise we wait for the feature read to be precise.
+        // belt is controllable — and that answer is FINAL. It depends only on whether a
+        // writable Control Point exists, so nothing here waits on the feature read; the
+        // athlete gets his controls the moment the machine is enumerated.
         if service.uuid == TreadmillGATT.fitnessMachineService {
-            if !capability.hasControlPoint {
-                publishCapability()
-            } else if !featureCharPresent {
-                capability.canControlSpeed = true
-                publishCapability()
-            }
+            diag.note(fact: "Punto de control 0x2AD9",
+                      capability.hasControlPoint ? "presente y escribible → SE PUEDE CONTROLAR"
+                                                 : "ausente / no escribible → solo lectura")
+            noteControlFacts()
+            publishCapability()
+        }
+    }
+
+    /// Some firmwares never confirm the Control Point's descriptor write — no callback, or
+    /// a callback with `isNotifying == false` and no error. Blocking on that forever means
+    /// every button in the HUD is dead for the whole session. After a short grace we write
+    /// anyway and say so: a command that MIGHT be rejected beats a machine we never asked.
+    private func armCCCDGrace() {
+        cccdGeneration += 1
+        let gen = cccdGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + DeviceConnectionTiming.controlPointCCCDGraceSeconds) {
+            [weak self] in
+            guard let self, self.cccdGeneration == gen, !self.sequencer.isTransportReady else { return }
+            self.diag.log("La cinta no confirmó las indicaciones del punto de control en "
+                          + "\(DeviceConnectionTiming.controlPointCCCDGraceSeconds) s — escribo igualmente")
+            self.sequencer.transportReady(indications: true)
         }
     }
 
@@ -336,10 +408,18 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
         if let error {
             diag.log("FALLÓ activar indicaciones del punto de control: \(error.localizedDescription)")
             // Better a write that may be rejected than a HUD whose buttons do nothing.
-            sequencer.transportReady()
+            sequencer.transportReady(indications: false)
             return
         }
-        if characteristic.isNotifying { sequencer.transportReady() }
+        if characteristic.isNotifying {
+            diag.note(fact: "Indicaciones 0x2AD9", "activas")
+            sequencer.transportReady(indications: true)
+        } else {
+            // Answered, but refused to subscribe. Don't wait out the grace for nothing.
+            diag.log("La cinta respondió al CCCD pero NO quedó notificando — escribo sin esperar acks")
+            diag.note(fact: "Indicaciones 0x2AD9", "la cinta no las activó")
+            sequencer.transportReady(indications: false)
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
@@ -356,17 +436,46 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                 onMachineEvent?(adapted)
             }
         case TreadmillGATT.fitnessMachineFeature:
-            if let f = FTMSControl.decodeTargetFeatures(data) {
-                capability.canControlSpeed = f.speed
-                capability.canControlIncline = f.incline
-                publishCapability()
+            // A HINT, NEVER A GATE. This word is what used to switch the controls off;
+            // now it only records what the machine CLAIMS and unlocks the two genuinely
+            // optional workout-programming ops (0x0C / 0x0D, spec C.9 / C.10).
+            diag.note(fact: "0x2ACC (Fitness Machine Feature)", Self.hex(data))
+            guard let f = FTMSControl.decodeTargetFeatures(data) else {
+                diag.log("0x2ACC llegó con \(data.count) bytes (<8) — ilegible; controlo igual")
+                return
             }
+            capability.targetFeatureBits = f.raw
+            capability.canSetTargetDistance = f.targetedDistance
+            capability.canSetTargetTime = f.targetedTrainingTime
+            diag.note(fact: "Target Setting Features",
+                      String(format: "0x%08X — velocidad %@ · inclinación %@ · distancia %@ · tiempo %@",
+                             f.raw, f.speed ? "sí" : "NO", f.incline ? "sí" : "NO",
+                             f.targetedDistance ? "sí" : "NO", f.targetedTrainingTime ? "sí" : "NO"))
+            if !f.speed || !f.incline {
+                diag.log("OJO: la cinta dice NO poder fijar "
+                         + [f.speed ? nil : "velocidad", f.incline ? nil : "inclinación"]
+                            .compactMap { $0 }.joined(separator: " ni ")
+                         + ". Lo ignoro a propósito y le mando los comandos igual — muchos "
+                         + "firmwares mienten en este campo. Que conteste ella.")
+            }
+            publishCapability()
         case TreadmillGATT.supportedSpeedRange:
+            diag.note(fact: "0x2AD4 (rango de velocidad)", Self.hex(data))
             capability.speed = FTMSControl.decodeSpeedRange(data)
+            if let r = capability.speed {
+                diag.note(fact: "Velocidad admitida",
+                          String(format: "%.2f – %.2f km/h, paso %.2f", r.min, r.max, r.step))
+            }
             publishCapability()
         case TreadmillGATT.supportedInclineRange:
+            diag.note(fact: "0x2AD5 (rango de inclinación)", Self.hex(data))
             rawInclineRange = FTMSControl.decodeInclineRange(data)
-            applyProfileToInclineRange()
+            if let r = rawInclineRange {
+                diag.note(fact: "Inclinación admitida (cruda)",
+                          String(format: "%.0f – %.0f, paso %.0f  (como %% → %.1f – %.1f)",
+                                 r.min * 10, r.max * 10, r.step * 10, r.min, r.max))
+            }
+            applyInclineDialectToRange()
             publishCapability()
         default:
             break
@@ -387,15 +496,16 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
         onControlCapability?(capability)
     }
 
-    /// Re-express a telemetry sample in the units THIS machine actually speaks. On the
-    /// i.Concept family the Inclination field is internal units, so the grade we'd
+    /// Re-express a telemetry sample in the units THIS machine actually speaks. Under the
+    /// LEVEL interpretation the Inclination field is internal units, so the grade we'd
     /// otherwise publish (raw ÷ 10) is fiction — we publish a console level instead and
     /// leave `inclinePct` empty rather than show a number that isn't a percentage.
     private func adaptToProfile(_ sample: TreadmillSample) -> TreadmillSample {
         if let speed = sample.speedKmh { sequencer.noteBeltSpeed(kmh: speed) }
         guard let pct = sample.inclinePct else { return sample }
-        sequencer.noteInclineRaw(pct * 10)   // field-calibration capture for the level table
-        guard capability.profile.inclineIsLevel else { return sample }
+        // The raw field feeds the units ladder: it is how we find out which reading is real.
+        sequencer.noteInclineRaw(pct * 10)
+        guard capability.inclineDialect == .level else { return sample }
         var adapted = sample
         adapted.inclineLevel = FTMSInclineLevels.level(forRaw: pct * 10)
         adapted.inclinePct = nil
@@ -404,9 +514,15 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
 
     /// Same translation for the machine's own "target inclination changed" report.
     private func adaptToProfile(_ event: TreadmillMachineEvent) -> TreadmillMachineEvent {
-        guard capability.profile.inclineIsLevel,
+        guard capability.inclineDialect == .level,
               case .targetInclineChangedPct(let pct) = event else { return event }
         return .targetInclineChangedLevel(FTMSInclineLevels.level(forRaw: pct * 10))
+    }
+
+    /// Space-separated hex, byte for byte identical to what nRF Connect shows — so a
+    /// manual write there and our trace can be compared without translating anything.
+    private static func hex(_ data: Data) -> String {
+        data.map { String(format: "%02X", $0) }.joined(separator: " ")
     }
 
     private func rawWrite(_ data: Data) {

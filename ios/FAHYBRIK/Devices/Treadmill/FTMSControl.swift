@@ -27,13 +27,30 @@ enum TreadmillControlCommand: Equatable {
     case start                          // start / resume
     case stop
     case pause
+    /// Set Targeted Distance (op 0x0C) — UINT24, METERS, resolution 1 m (FTMS §4.16.2.13,
+    /// Table 4.15). Programs the PIECE on the machine's own display, so the belt's console
+    /// counts down the same leg the app is running.
+    case setTargetedDistanceM(Int)
+    /// Set Targeted Training Time (op 0x0D) — UINT16, SECONDS, resolution 1 s
+    /// (FTMS §4.16.2.14, Table 4.15). The time-goal twin of the above.
+    case setTargetedTrainingTimeS(Int)
 
-    /// True for the two "set a target" ops. The generic-hammer profile prepends its
-    /// Request-Control + Start prelude only to THESE (never to start/stop/reset).
+    /// True for every "set a target" op. Strategies prepend their prelude only to THESE
+    /// (never to start/stop/reset) — a safety stop must not queue behind a handshake.
     var isTarget: Bool {
         switch self {
-        case .setTargetSpeedKmh, .setTargetInclinePct, .setTargetInclineLevel: return true
+        case .setTargetSpeedKmh, .setTargetInclinePct, .setTargetInclineLevel,
+             .setTargetedDistanceM, .setTargetedTrainingTimeS: return true
         case .requestControl, .reset, .start, .stop, .pause: return false
+        }
+    }
+
+    /// Programming the machine's own workout display is a NICE-TO-HAVE: a rejection must
+    /// never reach the athlete as an error, and must never trigger a dialect escalation.
+    var isWorkoutProgramming: Bool {
+        switch self {
+        case .setTargetedDistanceM, .setTargetedTrainingTimeS: return true
+        default: return false
         }
     }
 }
@@ -61,6 +78,10 @@ enum TreadmillMachineEvent: Equatable {
     /// The i.Concept translation of `targetInclineChangedPct`: the machine reported a new
     /// inclination in its own internal units, converted to a console LEVEL by the source.
     case targetInclineChangedLevel(Double)
+    /// Machine Status 0x0D — the belt accepted a programmed distance (UINT24, meters).
+    case targetedDistanceChangedM(Int)
+    /// Machine Status 0x0E — the belt accepted a programmed time (UINT16, seconds).
+    case targetedTrainingTimeChangedS(Int)
     case controlPermissionLost
     case other(UInt8)
 }
@@ -134,6 +155,8 @@ enum FTMSControl {
         case setTargetInclination = 0x03
         case startResume          = 0x07
         case stopPause            = 0x08
+        case setTargetedDistance  = 0x0C
+        case setTargetedTime      = 0x0D
     }
     /// First byte of a Control Point INDICATION carrying a command response.
     static let responseOpCode: UInt8 = 0x80
@@ -158,6 +181,15 @@ enum FTMSControl {
             // Same op code and same sint16 slot — but the machine reads it as its own
             // internal units, so the console level is translated first.
             return inclineData(rawValue: FTMSInclineLevels.raw(forLevel: level))
+        case .setTargetedDistanceM(let meters):
+            // UINT24, 1 m resolution, little-endian (LSO first) — three octets, NOT four.
+            let u = UInt32(clamping: max(0, meters)) & 0x00FF_FFFF
+            return Data([Op.setTargetedDistance.rawValue,
+                         UInt8(u & 0xFF), UInt8((u >> 8) & 0xFF), UInt8((u >> 16) & 0xFF)])
+        case .setTargetedTrainingTimeS(let seconds):
+            // UINT16, 1 s resolution.
+            let u = UInt16(clamping: max(0, seconds))
+            return Data([Op.setTargetedTime.rawValue, UInt8(u & 0xFF), UInt8(u >> 8)])
         }
     }
 
@@ -177,6 +209,8 @@ enum FTMSControl {
                                   return Op.setTargetInclination.rawValue
         case .start:              return Op.startResume.rawValue
         case .stop, .pause:       return Op.stopPause.rawValue
+        case .setTargetedDistanceM:     return Op.setTargetedDistance.rawValue
+        case .setTargetedTrainingTimeS: return Op.setTargetedTime.rawValue
         }
     }
 
@@ -190,6 +224,8 @@ enum FTMSControl {
         case Op.setTargetInclination.rawValue: return "objetivo inclinación"
         case Op.startResume.rawValue:          return "arrancar"
         case Op.stopPause.rawValue:            return "parar/pausar"
+        case Op.setTargetedDistance.rawValue:  return "programar distancia"
+        case Op.setTargetedTime.rawValue:      return "programar tiempo"
         default:                               return "desconocido"
         }
     }
@@ -230,6 +266,9 @@ enum FTMSControl {
         guard let op = b.first else { return nil }
         func u16(_ i: Int) -> Int? { b.count > i + 1 ? Int(b[i]) | Int(b[i + 1]) << 8 : nil }
         func s16(_ i: Int) -> Int? { u16(i).map { $0 >= 0x8000 ? $0 - 0x10000 : $0 } }
+        func u24(_ i: Int) -> Int? {
+            b.count > i + 2 ? Int(b[i]) | Int(b[i + 1]) << 8 | Int(b[i + 2]) << 16 : nil
+        }
         switch op {
         case 0x01: return .reset
         case 0x02: return (b.count > 1 && b[1] == 0x02) ? .pausedByUser : .stoppedByUser
@@ -237,6 +276,10 @@ enum FTMSControl {
         case 0x04: return .startedByUser
         case 0x05: return u16(1).map { .targetSpeedChangedKmh(Double($0) / 100.0) }
         case 0x06: return s16(1).map { .targetInclineChangedPct(Double($0) / 10.0) }
+        // 0x0D / 0x0E confirm the machine took the PIECE we programmed onto its console
+        // (Table 4.26): targeted distance UINT24 meters, targeted time UINT16 seconds.
+        case 0x0D: return u24(1).map { .targetedDistanceChangedM($0) }
+        case 0x0E: return u16(1).map { .targetedTrainingTimeChangedS($0) }
         case 0xFF: return .controlPermissionLost
         default:   return .other(op)
         }
@@ -244,14 +287,33 @@ enum FTMSControl {
 
     // MARK: - Decode Fitness Machine Feature (0x2ACC)
 
-    /// (speedTargetSettable, inclineTargetSettable) from the Target Setting Features
-    /// word (the SECOND uint32). nil when the buffer is too short. bit 0 = speed
-    /// target settable, bit 1 = inclination target settable.
-    static func decodeTargetFeatures(_ data: Data) -> (speed: Bool, incline: Bool)? {
+    /// What the Target Setting Features word (the SECOND uint32 of 0x2ACC) CLAIMS the
+    /// machine can be told to do (FTMS §4.3.1.2).
+    ///
+    /// TREAT AS A HINT, NOT A GATE for speed / incline. Plenty of OEM firmwares ship this
+    /// word zeroed or truncated while their Control Point happily accepts targets — and
+    /// gating the UI on it is what made the app "solo recoge la info" on his TM2000.
+    /// qdomyos-zwift never reads it at all. We keep it for the diagnostics trace, and use
+    /// it only for the genuinely OPTIONAL workout-programming ops (0x0C / 0x0D), whose
+    /// support is conditional in the spec itself (C.9 / C.10).
+    struct TargetFeatures: Equatable {
+        var speed: Bool                 // bit 0
+        var incline: Bool               // bit 1
+        var targetedDistance: Bool      // bit 8
+        var targetedTrainingTime: Bool  // bit 9
+        /// The whole word, so the shared trace carries what the machine really said.
+        var raw: UInt32
+    }
+
+    static func decodeTargetFeatures(_ data: Data) -> TargetFeatures? {
         let b = [UInt8](data)
         guard b.count >= 8 else { return nil }
         let target = UInt32(b[4]) | UInt32(b[5]) << 8 | UInt32(b[6]) << 16 | UInt32(b[7]) << 24
-        return (speed: target & (1 << 0) != 0, incline: target & (1 << 1) != 0)
+        return TargetFeatures(speed: target & (1 << 0) != 0,
+                              incline: target & (1 << 1) != 0,
+                              targetedDistance: target & (1 << 8) != 0,
+                              targetedTrainingTime: target & (1 << 9) != 0,
+                              raw: target)
     }
 
     // MARK: - Decode Supported Ranges

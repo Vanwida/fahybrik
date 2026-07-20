@@ -15,12 +15,18 @@ final class TreadmillControlModelTests: XCTestCase {
         var onMachineEvent: ((TreadmillMachineEvent) -> Void)?
         var onControlResult: ((TreadmillControlResult) -> Void)?
         private(set) var sent: [TreadmillControlCommand] = []
+        /// Kept apart from `sent`: programming the machine's display must never be able to
+        /// masquerade as a command the athlete asked for.
+        private(set) var bestEffort: [TreadmillControlCommand] = []
+        private(set) var forcedStrategies: [FTMSControlStrategy?] = []
         func startScan() {}
         func connect(_ id: DeviceID) {}
         func disconnect() {}
         func stop() {}
         func diagnosticsText() -> String? { nil }
         func send(_ command: TreadmillControlCommand) { sent.append(command) }
+        func sendBestEffort(_ command: TreadmillControlCommand) { bestEffort.append(command) }
+        func forceStrategy(_ strategy: FTMSControlStrategy?) { forcedStrategies.append(strategy) }
         // Drivers the test uses to simulate the machine.
         func pushCapability(_ c: TreadmillControlCapability) { onControlCapability?(c) }
         func pushEvent(_ e: TreadmillMachineEvent) { onMachineEvent?(e) }
@@ -103,12 +109,13 @@ final class TreadmillControlModelTests: XCTestCase {
         m.teardown()
     }
 
-    /// The i.Concept family (his TM2000) has no percent grade to show — the stepper must
-    /// say "Nivel", move one whole level per tap, and send a LEVEL command.
-    func testIConceptInclineIsLevelsNotPercent() {
+    /// Once the belt has ANSWERED in console levels there is no percent grade to show —
+    /// the stepper must say "Nivel", move one whole level per tap, and send a LEVEL
+    /// command. Driven by the resolved dialect now, never by the machine's family.
+    func testLevelDialectInclineIsLevelsNotPercent() {
         let (m, src) = makeModel()
         var levelCap = cap
-        levelCap.profile = .iConcept
+        levelCap.inclineDialect = .level
         levelCap.incline = FTMSControl.Range(min: 1, max: 15, step: FTMSInclineLevels.levelStep)
         src.pushCapability(levelCap)
         XCTAssertTrue(m.inclineIsLevel)
@@ -129,16 +136,71 @@ final class TreadmillControlModelTests: XCTestCase {
         m.teardown()
     }
 
-    /// A spec-clean belt keeps exact 0.1 % behaviour — the level path must not leak.
-    func testStandardBeltKeepsPercentIncline() {
+    /// A belt reading in real grade keeps exact 0.1 % behaviour — the level path must not
+    /// leak into it.
+    func testGradeDialectKeepsPercentIncline() {
         let (m, src) = makeModel()
-        src.pushCapability(cap)                          // profile defaults to .standard
+        src.pushCapability(cap)                          // dialect defaults to .grade
         XCTAssertFalse(m.inclineIsLevel)
         XCTAssertEqual(m.inclineControlLabel, "Inclinación")
         XCTAssertEqual(m.inclineControlUnit, "%")
         m.nudgeIncline(1)
         XCTAssertEqual(m.targetIncline, 0.5, accuracy: 0.001)   // seeded at 0 %, step 0.5
         XCTAssertEqual(src.sent.last, .setTargetInclinePct(0.5))
+        m.teardown()
+    }
+
+    // MARK: - Programming the piece onto the machine's own display
+
+    /// He expects parity with the erg ("la app no crea la serie en la máquina"): a leg with
+    /// a distance goal should push it so the belt's own console counts down the same tramo.
+    func testDistanceLegIsProgrammedOntoTheMachine() {
+        let (m, src) = makeModel()
+        var programmable = cap
+        programmable.canSetTargetDistance = true
+        src.pushCapability(programmable)
+        // The segment under test is a 100 km continuous run.
+        XCTAssertEqual(src.bestEffort, [.setTargetedDistanceM(100_000)])
+        XCTAssertTrue(src.sent.isEmpty, "programming the display is not a command he issued")
+        m.teardown()
+    }
+
+    /// Unlike speed and incline, these ops are genuinely optional in the FTMS spec
+    /// (C.9 / C.10), so here the machine's advertised bits ARE the gate — we don't spray
+    /// op codes a machine has told us it doesn't implement.
+    func testUnadvertisedProgrammingIsNotAttempted() {
+        let (m, src) = makeModel()
+        src.pushCapability(cap)                          // bits 8/9 not advertised
+        XCTAssertTrue(src.bestEffort.isEmpty)
+        m.teardown()
+    }
+
+    /// It must never fire twice for the same leg — the model ticks twice a second.
+    func testProgrammingHappensOncePerLeg() {
+        let (m, src) = makeModel()
+        var programmable = cap
+        programmable.canSetTargetDistance = true
+        src.pushCapability(programmable)
+        src.pushCapability(programmable)
+        src.emitSpeed(8)
+        src.emitSpeed(9)
+        XCTAssertEqual(src.bestEffort.count, 1)
+        m.teardown()
+    }
+
+    // MARK: - Field diagnosis
+
+    func testForcingAControlModeReachesTheSource() {
+        let (m, src) = makeModel()
+        src.pushCapability(cap)
+        m.forceControlStrategy(.s4)
+        m.forceControlStrategy(nil)
+        XCTAssertEqual(src.forcedStrategies, [.s4, nil])
+        // The test speed goes out as a real command, leaving his own stepper untouched.
+        let stepperBefore = m.targetSpeedKmh
+        m.sendTestSpeed(6)
+        XCTAssertEqual(src.sent.last, .setTargetSpeedKmh(6))
+        XCTAssertEqual(m.targetSpeedKmh, stepperBefore, accuracy: 0.001)
         m.teardown()
     }
 

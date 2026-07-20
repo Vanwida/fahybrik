@@ -75,18 +75,37 @@ struct TreadmillControlCapability: Equatable {
     var canControlSpeed: Bool
     var canControlIncline: Bool
     var speed: FTMSControl.Range?     // km/h
-    var incline: FTMSControl.Range?   // % — or console LEVELS when `profile.inclineIsLevel`
-    /// The control dialect detected for THIS machine (and any mid-session escalation).
-    /// The UI reads it to label incline honestly: a percentage where the field really is
-    /// a grade, "Nivel N" where it isn't.
+    var incline: FTMSControl.Range?   // % — or console LEVELS when `inclineIsLevel`
+    /// The machine FAMILY detected from its advertised name. It seeds where the dialect
+    /// ladders start; it no longer decides units or prelude on its own.
     var profile: FTMSControlProfile = .standard
+    /// The prelude rung currently on the wire (S1…S5) — shown in the field-diagnosis
+    /// screen and in the shared trace.
+    var strategy: FTMSControlStrategy = .s2
+    /// How the machine's Inclination field is being interpreted right now. Resolved by
+    /// watching what the belt reports back, not by assuming a family.
+    var inclineDialect: FTMSInclineDialect = .grade
+    /// The machine ADVERTISES that it accepts a programmed distance / training time
+    /// (0x2ACC Target Setting Features bits 8 / 9). Unlike speed and incline, these ops
+    /// are genuinely conditional in the spec (C.9 / C.10), so here the bits ARE the gate.
+    var canSetTargetDistance = false
+    var canSetTargetTime = false
+    /// The raw Target Setting Features word, purely for the diagnostics dump — we no
+    /// longer let it decide whether the athlete gets controls.
+    var targetFeatureBits: UInt32?
 
-    /// True only when the machine has a writable Control Point AND declares at least
-    /// one settable target — the gate the UI uses to offer controls at all.
-    var canControl: Bool { hasControlPoint && (canControlSpeed || canControlIncline) }
+    /// TRUE FOR ANY MACHINE WITH A WRITABLE CONTROL POINT.
+    ///
+    /// This deliberately does NOT consult the Fitness Machine Feature bits any more. Those
+    /// bits were the gate here, and on his TM2000 they are the reason the app "solo recoge
+    /// la info": a firmware that reports a zeroed (or truncated) Target Setting Features
+    /// word switched every control off before a single byte was ever written. qdomyos-zwift
+    /// never reads them; neither do we. A belt is read-only only when it has no writable
+    /// Control Point at all — a fact, not a claim.
+    var canControl: Bool { hasControlPoint }
 
     /// Incline is expressed in console levels, not percent grade, on this machine.
-    var inclineIsLevel: Bool { profile.inclineIsLevel }
+    var inclineIsLevel: Bool { inclineDialect == .level }
 
     static let none = TreadmillControlCapability(hasControlPoint: false,
                                                  canControlSpeed: false,
@@ -110,6 +129,22 @@ protocol TreadmillControllable: AnyObject {
     /// Send a control command. The source owns the Request-Control handshake — callers
     /// just say what they want.
     func send(_ command: TreadmillControlCommand)
+    /// Best-effort: program the PIECE on the machine's own display (targeted distance /
+    /// training time). A refusal is swallowed — it never blocks or errors the workout.
+    func sendBestEffort(_ command: TreadmillControlCommand)
+    /// FIELD DIAGNOSIS: pin the prelude rung by hand (`nil` = back to the automatic
+    /// ladder), so a dialect can be found in a gym in seconds without a new build.
+    func forceStrategy(_ strategy: FTMSControlStrategy?)
+    /// FIELD DIAGNOSIS: pin how the Inclination field is interpreted (`nil` = automatic).
+    func forceInclineDialect(_ dialect: FTMSInclineDialect?)
+}
+
+/// Defaults so a read-only fake / test double doesn't have to care about the control
+/// plane. Only the real FTMS source overrides these.
+extension TreadmillControllable {
+    func sendBestEffort(_ command: TreadmillControlCommand) { send(command) }
+    func forceStrategy(_ strategy: FTMSControlStrategy?) {}
+    func forceInclineDialect(_ dialect: FTMSInclineDialect?) {}
 }
 
 /// Live heart rate for the HUD (chest strap / watch / band over standard BLE). Adds

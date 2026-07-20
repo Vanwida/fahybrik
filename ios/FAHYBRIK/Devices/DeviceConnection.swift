@@ -543,4 +543,10 @@ enum DeviceConnectionTiming {
     /// How long to wait for CoreBluetooth's disconnect callback before FORCING the
     /// state to disconnected (fixes the "PM5 se queda pillado" hang).
     static let disconnectTimeoutSeconds: TimeInterval = 3
+    /// How long to wait for a treadmill to confirm the Control Point's CCCD before we
+    /// start writing anyway. Some firmwares simply never answer the descriptor write yet
+    /// accept every command — blocking on them forever leaves the athlete with a HUD full
+    /// of buttons that do nothing, which is strictly worse than a command that might be
+    /// refused (and which we would SEE refused, in the trace).
+    static let controlPointCCCDGraceSeconds: TimeInterval = 1.5
 }

@@ -130,6 +130,21 @@ final class DeviceHub {
     /// .canControl` to hide the controls entirely.
     func sendTreadmill(_ command: TreadmillControlCommand) { treadmillControllable?.send(command) }
 
+    /// Program the machine's own display (targeted distance / time). Best effort: never
+    /// errors, never blocks the run.
+    func sendTreadmillBestEffort(_ command: TreadmillControlCommand) {
+        treadmillControllable?.sendBestEffort(command)
+    }
+
+    /// FIELD DIAGNOSIS: pin the belt's prelude rung / incline interpretation by hand
+    /// (`nil` → back to the automatic ladder). Command dialect only — never a connection.
+    func forceTreadmillStrategy(_ strategy: FTMSControlStrategy?) {
+        treadmillControllable?.forceStrategy(strategy)
+    }
+    func forceTreadmillInclineDialect(_ dialect: FTMSInclineDialect?) {
+        treadmillControllable?.forceInclineDialect(dialect)
+    }
+
     private func handleBpm(_ bpm: Int) {
         bleBpm = bpm
         onBpm?(bpm)

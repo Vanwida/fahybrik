@@ -13,6 +13,10 @@ struct DeviceDiagnostics {
     private var advertised: [CBUUID] = []
     private var services: [CBUUID] = []
     private var characteristics: [(service: CBUUID, char: CBUUID, props: String)] = []
+    /// Ordered key → value facts about the machine (advertised name, raw 0x2ACC bytes,
+    /// the raw ranges, the control mode in force). These sit ABOVE the trace so the
+    /// shared text opens with the state, not with 200 lines of protocol.
+    private var facts: [(key: String, value: String)] = []
     /// Timestamped control-plane trace (every Control Point TX, every ack/status RX,
     /// every profile decision). This is what turns "la cinta no me hace caso" into a
     /// diagnosable fact — it rides along in "Compartir diagnóstico".
@@ -33,7 +37,17 @@ struct DeviceDiagnostics {
     mutating func reset() {
         name = nil; identifier = nil
         advertised = []; services = []; characteristics = []
-        events = []
+        events = []; facts = []
+    }
+
+    /// Record (or overwrite) one named fact. Overwriting keeps the ORIGINAL position, so
+    /// a live-updating value like the control mode doesn't jump around the dump.
+    mutating func note(fact key: String, _ value: String) {
+        if let i = facts.firstIndex(where: { $0.key == key }) {
+            facts[i].value = value
+        } else {
+            facts.append((key: key, value: value))
+        }
     }
 
     /// Append one trace line, stamped with the wall clock so ordering (and the gaps that
@@ -59,11 +73,16 @@ struct DeviceDiagnostics {
 
     /// nil until we've actually connected to something to describe.
     func text() -> String? {
-        guard name != nil || !services.isEmpty || !events.isEmpty else { return nil }
+        guard name != nil || !services.isEmpty || !events.isEmpty || !facts.isEmpty else { return nil }
         var lines: [String] = []
         lines.append("FAHYBRID · diagnóstico de conexión (\(role))")
         lines.append("Dispositivo: \(name ?? "sin nombre")")
         if let identifier { lines.append("ID: \(identifier)") }
+        if !facts.isEmpty {
+            lines.append("")
+            lines.append("Estado del control:")
+            for f in facts { lines.append("  · \(f.key): \(f.value)") }
+        }
         if !advertised.isEmpty {
             lines.append("Servicios anunciados: \(advertised.map(\.uuidString).joined(separator: ", "))")
         }

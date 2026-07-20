@@ -9,6 +9,8 @@ import UIKit
 struct TreadmillHUDView: View {
     @State private var model: TreadmillHUDModel
     @State private var showDiagnostics = false
+    /// "Modo de control" — the field-diagnosis sheet (long-press the cinta chip).
+    @State private var showControlDebug = false
     @Environment(\.dismiss) private var dismiss
     /// Compact height == the phone is in landscape → switch to the big-number layout.
     @Environment(\.verticalSizeClass) private var vSizeClass
@@ -72,6 +74,9 @@ struct TreadmillHUDView: View {
         .sheet(isPresented: $showDiagnostics) {
             if let text = model.diagnosticsText { ShareSheet(items: [text]) }
         }
+        .sheet(isPresented: $showControlDebug) {
+            TreadmillControlDebugSheet(model: model)
+        }
     }
 
     private func dismissIfLeftRun() {
@@ -90,7 +95,12 @@ struct TreadmillHUDView: View {
     private var header: some View {
         HStack(spacing: 6) {
             headerChip(icon: "figure.run", text: cintaChipText,
-                       link: model.treadmillLink, channel: model.treadmillChannel)
+                       link: model.treadmillLink, channel: model.treadmillChannel,
+                       // MANTENIDO PULSADO en el chip de la cinta = "Modo de control",
+                       // el diagnóstico de campo. Fuera del camino del atleta, pero
+                       // siempre a un gesto cuando la cinta no obedece.
+                       onLongPress: model.controlCapability.hasControlPoint
+                           ? { showControlDebug = true } : nil)
             headerChip(icon: "heart.fill", text: pulseChipText,
                        link: model.effectiveHRLink, channel: model.hrChannel)
             Spacer(minLength: 0)
@@ -120,7 +130,8 @@ struct TreadmillHUDView: View {
     /// A header device chip that opens the picker on tap — so mid-run the athlete can
     /// switch machines or DISCONNECT one that latched onto the wrong device.
     private func headerChip(icon: String, text: String,
-                            link: DeviceLink, channel: DeviceChannel) -> some View {
+                            link: DeviceLink, channel: DeviceChannel,
+                            onLongPress: (() -> Void)? = nil) -> some View {
         Button {
             Haptics.light()
             channel.openPicker()
@@ -128,6 +139,11 @@ struct TreadmillHUDView: View {
             DeviceChip(icon: icon, text: text, link: link)
         }
         .buttonStyle(PressScaleStyle())
+        .onLongPressGesture(minimumDuration: 0.6) {
+            guard let onLongPress else { return }
+            Haptics.medium()
+            onLongPress()
+        }
         .sheet(isPresented: Binding(get: { channel.isPresentingPicker },
                                     set: { channel.isPresentingPicker = $0 })) {
             DevicePickerSheet(channel: channel)
@@ -545,10 +561,21 @@ struct TreadmillHUDView: View {
     private var controls: some View {
         VStack(spacing: 8) {
             if let notice = model.controlNotice {
-                Text(notice)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.danger)
-                    .frame(maxWidth: .infinity)
+                // The machine refused something → this is EXACTLY the moment the control
+                // dialect is in question, so the way into the diagnosis is right here
+                // instead of only behind the long-press.
+                HStack(spacing: 8) {
+                    Text(notice)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.danger)
+                    Button(action: { Haptics.light(); showControlDebug = true }) {
+                        Text("Modo de control")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.Color.accentText)
+                    }
+                    .buttonStyle(PressScaleStyle())
+                }
+                .frame(maxWidth: .infinity)
             }
             HStack(spacing: 8) {
                 if model.controlCapability.canControl {
