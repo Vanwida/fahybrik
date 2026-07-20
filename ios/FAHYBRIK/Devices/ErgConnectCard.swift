@@ -1,0 +1,106 @@
+import SwiftUI
+
+// ErgData-style FIRST-CLASS connect card for the Concept2 erg — full-width at the
+// TOP of the free builder's Configura step and of the prescribed brief whenever
+// the session contains erg work. Connecting IS the first step of an erg session
+// (there is no "¿dónde?" question like running), so the card is big and unmissable,
+// never a small chip below the fold. State comes from the SAME shared
+// `PM5ConnectionStore` the chips and the live HUD read, so whatever connects here
+// stays connected into the workout — no re-scan.
+struct ErgConnectCard: View {
+    @State private var pm5 = PM5ConnectionStore.shared
+    @State private var showSheet = false
+
+    var body: some View {
+        Button(action: tap) {
+            HStack(spacing: Theme.Spacing.m) {
+                Image(systemName: "figure.rower")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(connected ? Theme.Color.ok : Theme.Color.accentText)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.Color.surfaceSunken)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        if connected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Theme.Color.ok)
+                        }
+                        Text(title)
+                            .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                    Text(subtitle)
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 8)
+                if busy {
+                    ProgressView().tint(Theme.Color.accent)
+                } else if connected {
+                    Text("cambiar")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                }
+            }
+            .padding(Theme.Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(connected ? Theme.Color.surface : Theme.Color.accent.opacity(0.08))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .stroke(connected ? Theme.Color.hairlineStrong : Theme.Color.accent,
+                        lineWidth: connected ? 1 : 1.5))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .sheet(isPresented: $showSheet) {
+            PM5LiveStreamView(store: pm5)
+        }
+        .accessibilityLabel(connected
+            ? "Erg conectado: \(title). Toca para cambiar de erg."
+            : "Conecta tu erg. Toca para buscar tu PM5.")
+    }
+
+    // MARK: - Derived state
+
+    private var connected: Bool { pm5.isConnected }
+    private var busy: Bool {
+        switch pm5.connectionState {
+        case .scanning, .connecting, .discoveringServices: return true
+        default: return false
+        }
+    }
+    private var title: String {
+        if connected { return connectedTitle }
+        if busy { return "Buscando…" }
+        return "Conecta tu erg"
+    }
+    /// "Remo · ID <serial>" — the ID on the PM5's own screen is how the athlete
+    /// tells ergs apart; falls back to the raw advertised name.
+    private var connectedTitle: String {
+        let name = pm5.connectedDeviceName ?? "PM5"
+        if let serial = PM5LiveStreamView.pm5Serial(name) { return "Remo · ID \(serial)" }
+        return "Remo · \(name)"
+    }
+    private var subtitle: String {
+        if connected { return "Datos en vivo al empezar" }
+        if busy { return "Acércate al erg y pulsa «Connect» en el monitor" }
+        return "Toca para buscar tu PM5"
+    }
+
+    private func tap() {
+        Haptics.light()
+        // Mirror the chip behavior: a remembered erg reconnects silently while the
+        // sheet opens; a fresh one gets the scanner + illustrated guide.
+        if !pm5.isConnected, pm5.hasRememberedDevice { pm5.reconnectIfPossible() }
+        showSheet = true
+    }
+}

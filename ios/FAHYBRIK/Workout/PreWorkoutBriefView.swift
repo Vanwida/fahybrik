@@ -50,10 +50,9 @@ struct PreWorkoutBriefView: View {
     // Per-exercise technique video opened in-app from a series row, when present.
     @State private var segmentVideoUrl: String? = nil
 
-    // #8 — where the athlete runs today (cinta vs calle). Asked BEFORE connecting, so a
-    // treadmill connect only appears when it's actually indoors, and carried into the
-    // session so the right live HUD auto-opens on start (no generic GPS screen).
-    @State private var runLocation: RunEnvironment? = nil
+    // #8 — a session with running work starts through the full-screen pre-start
+    // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
+    @State private var showRunPreStart = false
 
     // MARK: - Derived shape
 
@@ -94,12 +93,11 @@ struct PreWorkoutBriefView: View {
 
     private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
 
-    /// Devices to offer given the run-location choice: the treadmill connect appears
-    /// ONLY once the athlete says they run indoors; the HR strap (and any erg) is always
-    /// offered. A non-run workout is unaffected.
-    private var devicesForLocation: [PreWorkoutDevice] {
-        guard hasRunSegment else { return eligibleDevices }
-        return runLocation == .treadmill ? eligibleDevices : eligibleDevices.filter { $0 != .treadmill }
+    /// Devices the SMALL bottom card still offers: the HR strap only. The PM5 has
+    /// its first-class connect card at the top and the treadmill lives in the
+    /// full-screen pre-start run sequence — ONE journey each, no duplicates.
+    private var bottomDevices: [PreWorkoutDevice] {
+        eligibleDevices.filter { $0 == .heartRate }
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -138,11 +136,6 @@ struct PreWorkoutBriefView: View {
         return zones.max(by: { $0.rawValue < $1.rawValue })
     }
 
-    // #8 — "¿Dónde corres hoy?": the SHARED picker (same cards as the free builder).
-    private var runLocationChoice: some View {
-        RunEnvironmentPicker(selection: $runLocation)
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -150,6 +143,12 @@ struct PreWorkoutBriefView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header
                     coachNote
+                    // ErgData pattern: erg work puts the CONNECT card first-class at
+                    // the top, above the blocks — the one PM5 entry, never a small
+                    // chip below the fold.
+                    if eligibleDevices.contains(.pm5) {
+                        ErgConnectCard()
+                    }
                     if let blocks = structuredBlocks, !blocks.isEmpty {
                         // The brief renders the coach's structured prescription —
                         // the SAME authoritative `GET /assignments/{id}/detail`
@@ -167,16 +166,11 @@ struct PreWorkoutBriefView: View {
                         // freeform start + the retroactive "Ya lo hice" log.
                         detailUnavailableCard
                     }
-                    // #8 — for a run, ask WHERE first; the treadmill connect appears only
-                    // when the athlete says they run indoors (no more implicit "Cinta").
-                    if hasRunSegment {
-                        runLocationChoice
-                    }
-                    if !devicesForLocation.isEmpty {
-                        // Connect the belt / strap / erg BEFORE the clock starts, so
-                        // the live workout begins already streaming (never scanning
-                        // mid-run). Optional — starting without connecting is unchanged.
-                        DeviceConnectCard(devices: devicesForLocation)
+                    if !bottomDevices.isEmpty {
+                        // The strap connects BEFORE the clock starts, so the live
+                        // workout begins already streaming. Optional — starting
+                        // without connecting is unchanged.
+                        DeviceConnectCard(devices: bottomDevices)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -187,6 +181,17 @@ struct PreWorkoutBriefView: View {
             footer
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        // #8 — the run pre-start sequence (mockup): ¿dónde? → (cinta → conectar) → GO.
+        .fullScreenCover(isPresented: $showRunPreStart) {
+            RunPreStartFlow(
+                sessionTitle: plan.name,
+                onStart: { env in
+                    showRunPreStart = false
+                    onStart(env)
+                },
+                onCancel: { showRunPreStart = false }
+            )
+        }
         .sheet(isPresented: Binding(
             get: { segmentVideoUrl != nil },
             set: { if !$0 { segmentVideoUrl = nil } }
@@ -821,7 +826,15 @@ struct PreWorkoutBriefView: View {
     //    saves the by-hand result with source='manual'.
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
-            ExpertPrimaryButton(title: ctaTitle) { onStart(runLocation) }
+            ExpertPrimaryButton(title: ctaTitle) {
+                if hasRunSegment {
+                    // #8 — running work: the full-screen pre-start sequence decides
+                    // dónde + conexión, then fires `onStart` with the environment.
+                    showRunPreStart = true
+                } else {
+                    onStart(nil)
+                }
+            }
             Button(action: { Haptics.light(); onManualLog() }) {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle")

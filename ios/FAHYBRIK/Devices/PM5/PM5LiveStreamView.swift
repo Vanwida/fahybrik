@@ -113,6 +113,7 @@ struct PM5LiveStreamView: View {
             if store.isConnected {
                 connectedCard
                 changeErgSection
+                collapsedConnectHelp
             } else {
                 scanningHeader
                 deviceList
@@ -124,6 +125,21 @@ struct PM5LiveStreamView: View {
             }
             csafeDiagnosticsSection
         }
+    }
+
+    /// The illustrated guide, folded away — the persistent "never vanishes" form
+    /// used once ergs are listed or one is already connected.
+    private var collapsedConnectHelp: some View {
+        DisclosureGroup {
+            PM5ConnectGuide()
+                .padding(.top, Theme.Spacing.s)
+        } label: {
+            Text("CÓMO CONECTAR")
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.8)
+                .foregroundStyle(Theme.Color.muted)
+        }
+        .tint(Theme.Color.muted)
     }
 
     /// Hex TX/RX ring of the workout-programming exchange — collapsed by default,
@@ -205,10 +221,13 @@ struct PM5LiveStreamView: View {
     @ViewBuilder
     private var deviceList: some View {
         if store.discovered.isEmpty {
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            // Nothing found yet → the illustrated guide carries the whole state
+            // (ErgData's move): show WHAT to press on the monitor, not a spinner.
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 Text("Asegúrate de que el PM5 está encendido y mostrando la pantalla principal.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
+                PM5ConnectGuide()
                 if store.hasRememberedDevice, let name = store.rememberedDeviceName {
                     Text("Último emparejado: \(name)")
                         .font(Theme.Typography.caption)
@@ -216,22 +235,35 @@ struct PM5LiveStreamView: View {
                 }
             }
         } else {
-            VStack(spacing: Theme.Spacing.s) {
-                ForEach(store.discovered) { dev in
-                    deviceRow(dev) { store.connect(dev.id) }
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                VStack(spacing: Theme.Spacing.s) {
+                    ForEach(store.discovered) { dev in
+                        deviceRow(dev) { store.connect(dev.id) }
+                    }
                 }
+                collapsedConnectHelp
             }
         }
     }
 
+    // ErgData-style discovered row: erg icon + "ID <serial>" (the number on the
+    // monitor is how an athlete tells ergs apart in a full gym) + a plain-Spanish
+    // action line. The raw advertised name stays as secondary info when it says
+    // more than "PM5 <serial>". RSSI dropped on purpose — it means nothing here.
     private func deviceRow(_ dev: PM5Discovered, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: Theme.Spacing.m) {
+                Image(systemName: "figure.rower")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 38, height: 38)
+                    .background(Theme.Color.surfaceSunken)
+                    .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(dev.name)
+                    Text(Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name)
                         .font(Theme.Typography.bodyEmph)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("RSSI \(dev.rssi) dBm")
+                    Text(deviceRowSubtitle(dev))
                         .font(Theme.Typography.caption)
                         .foregroundStyle(Theme.Color.muted)
                 }
@@ -244,6 +276,27 @@ struct PM5LiveStreamView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Erg \(Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name), toca para conectar")
+    }
+
+    /// The PM5 advertises "PM5 <serial>" (sometimes with extra tokens). The longest
+    /// digit run IS the ID shown on the monitor's own screen; nil when the name
+    /// carries no usable number (then the raw name is shown untouched).
+    static func pm5Serial(_ name: String) -> String? {
+        let runs = name.split(whereSeparator: { !$0.isNumber })
+        guard let best = runs.max(by: { $0.count < $1.count }), best.count >= 4 else { return nil }
+        return String(best)
+    }
+
+    private func deviceRowSubtitle(_ dev: PM5Discovered) -> String {
+        guard let serial = Self.pm5Serial(dev.name) else { return "Toca para conectar" }
+        // Anything the name says beyond "PM5 <serial>" (e.g. "Row"/"Ski") is worth
+        // keeping — it tells machines apart. Pure "PM5 <serial>" adds nothing.
+        let leftover = dev.name
+            .replacingOccurrences(of: serial, with: "")
+            .replacingOccurrences(of: "PM5", with: "", options: .caseInsensitive)
+            .trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        return leftover.isEmpty ? "Toca para conectar" : "Toca para conectar · \(dev.name)"
     }
 
     private var connectedCard: some View {

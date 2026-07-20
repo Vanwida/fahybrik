@@ -29,6 +29,16 @@ struct TreadmillHUDView: View {
             Theme.Color.background.ignoresSafeArea().instrumentCanvas()
             VStack(spacing: Theme.Spacing.m) {
                 header
+                // Honest "connected but silent" state, above the hero: many FTMS
+                // belts emit NOTHING until the band moves, so without this the HUD
+                // is a grid of dashes that reads as "broken". The 1 s TimelineView
+                // re-evaluates the time-based staleness check; the banner drops the
+                // instant a sample lands (the model's `latest` mutation re-renders).
+                if model.treadmillLink.isLive, !model.isCountIn {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        if model.telemetrySilent { treadmillNoDataHint }
+                    }
+                }
                 if !model.treadmillLink.isLive {
                     connectingState
                 } else if model.isCountIn {
@@ -641,66 +651,59 @@ struct TreadmillHUDView: View {
         .buttonStyle(PressScaleStyle())
     }
 
-    // MARK: - Connecting / scan state
+    // MARK: - Connected-but-silent hint (mirror of the erg's "sin datos" banner)
 
-    private var connectingState: some View {
-        VStack(spacing: Theme.Spacing.l) {
-            Spacer(minLength: 0)
-            if isSearching {
-                ProgressView().tint(Theme.Color.accent).scaleEffect(1.3)
-            } else {
-                Image(systemName: "figure.run")
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
+    private var treadmillNoDataHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.warning)
+                Text("Conectada, pero la cinta no envía datos. Ponla en marcha desde la consola — algunas solo emiten con la banda en movimiento.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(connectTitle)
-                .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Text(connectSubtitle)
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.xl)
             if model.diagnosticsText != nil {
                 Button(action: { showDiagnostics = true }) {
                     Text("Compartir diagnóstico")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Theme.Color.accentText)
                 }
                 .buttonStyle(PressScaleStyle())
+                .padding(.leading, 21)
             }
-            Spacer(minLength: 0)
-            ExpertPrimaryButton(title: "ELEGIR CINTA", height: 60) {
-                model.treadmillChannel.openPicker()
-            }
-            SecondaryButton(title: "Volver") { dismiss() }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.warningTint)
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+            .stroke(Theme.Color.warning.opacity(0.4), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
-    private var isSearching: Bool {
-        switch model.treadmillLink {
-        case .scanning, .connecting, .reconnecting: return true
-        default: return false
-        }
+    // MARK: - Connecting / scan state — THE shared "Conecta tu cinta" screen
+    //
+    // The SAME guide as the pre-start sequence's paso 2 (single connect journey):
+    // it reappears here when the HUD opens unconnected or the belt drops mid-run —
+    // identical copy and buttons, never a different-looking second path.
+    private var connectingState: some View {
+        TreadmillConnectGuide(
+            link: model.treadmillLink,
+            onSearch: { searchBelt() },
+            onSkip: { dismiss() },
+            onShareDiagnostics: model.diagnosticsText != nil ? { showDiagnostics = true } : nil
+        )
     }
-    private var connectTitle: String {
+
+    private func searchBelt() {
+        Haptics.light()
         switch model.treadmillLink {
-        case .reconnecting:  return "Reconectando con la cinta…"
-        case .unavailable:   return "No encuentro ninguna cinta"
-        case .failed:        return "No se pudo conectar"
-        case .idle:          return "Conecta tu cinta"
-        default:             return "Buscando tu cinta…"
-        }
-    }
-    private var connectSubtitle: String {
-        switch model.treadmillLink {
-        case .unavailable:   return "Comprueba que el Bluetooth de la cinta está activado y que estás cerca."
-        case .failed(let m): return m
-        case .reconnecting:  return "La conexión se cortó. Sigue corriendo, la recuperamos sola."
-        case .idle:          return "Elígela de la lista para ver ritmo, zona y objetivos en vivo."
-        default:             return "Enciende el Bluetooth de la cinta y acércate a ella."
+        case .scanning, .connecting, .reconnecting:
+            model.treadmillChannel.openPicker()                       // see progress / pick
+        default:
+            model.treadmillChannel.beginConnect(autoPresentPicker: true)
         }
     }
 

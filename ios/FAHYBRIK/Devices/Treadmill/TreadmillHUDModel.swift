@@ -72,6 +72,16 @@ final class TreadmillHUDModel {
     /// The belt is MOVING per its real reported speed — the single source of truth for
     /// the START/STOP button, so it can never claim "running" while the belt is still.
     var beltMoving: Bool { (latest.speedKmh ?? 0) > TreadmillConstants.minMovingSpeedKmh }
+    /// Connected but SILENT: no telemetry has EVER landed (`lastUpdate` still at its
+    /// `.distantPast` sentinel — many FTMS belts emit nothing until the band moves)
+    /// or nothing for `sampleStaleSeconds`. Drives the honest "sin datos" hint in
+    /// the HUD, the treadmill mirror of the erg's banner. Time-dependent: callers
+    /// must re-evaluate on a clock tick (the HUD wraps it in a 1 s TimelineView).
+    var telemetrySilent: Bool {
+        guard treadmillLink.isLive else { return false }
+        if latest.lastUpdate == .distantPast { return true }
+        return Date().timeIntervalSince(latest.lastUpdate) > TreadmillConstants.sampleStaleSeconds
+    }
 
     let session: WorkoutSession
     let hrMaxSource: HRMaxSource?

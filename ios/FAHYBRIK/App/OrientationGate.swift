@@ -23,16 +23,47 @@ enum OrientationGate {
         if landscapeHolders == 0 { apply(.portrait) }
     }
 
+    /// Seconds before the safety-net force fires — must outlast a fullScreenCover
+    /// present/dismiss transition (~0.4 s) so the geometry request can never race it.
+    private static let forceFallbackDelay: TimeInterval = 0.6
+
     static func apply(_ mask: UIInterfaceOrientationMask) {
         PushAppDelegate.orientationLock = mask
         guard let scene = activeScene else { return }
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+        // Recomputing supported orientations is enough: the system rotates AWAY from
+        // a now-unsupported orientation on its own, COORDINATED with any in-flight
+        // present/dismiss transition. Unconditionally calling
+        // `requestGeometryUpdate` here (the old behavior) raced those transitions —
+        // rotating mid-cover left the window half-rendered, half black.
         scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        // Safety net: if, once any transition has finished, the interface still sits
+        // OUTSIDE the mask (system didn't rotate us back), force it then — never
+        // immediately. Skipped when a newer push/pop changed the lock meanwhile.
+        DispatchQueue.main.asyncAfter(deadline: .now() + forceFallbackDelay) {
+            guard PushAppDelegate.orientationLock == mask,
+                  let scene = activeScene,
+                  !mask.contains(scene.interfaceOrientation.asMask) else { return }
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+        }
     }
 
     private static var activeScene: UIWindowScene? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    }
+}
+
+private extension UIInterfaceOrientation {
+    /// This orientation as a mask bit, so it can be tested against an
+    /// `UIInterfaceOrientationMask` with `contains`.
+    var asMask: UIInterfaceOrientationMask {
+        switch self {
+        case .portrait:           return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        case .landscapeLeft:      return .landscapeLeft
+        case .landscapeRight:     return .landscapeRight
+        default:                  return .portrait
+        }
     }
 }
 

@@ -22,10 +22,9 @@ struct FreeWorkoutBuilderView: View {
     @State private var draft = FreeWorkoutDraft()
     @State private var step: Step = .modality
     @State private var running: FreeWorkoutContext? = nil
-    /// #8 — where a free RUN happens (cinta / calle). Asked prominently before
-    /// Empezar; decides whether the treadmill connect is offered and which live HUD
-    /// auto-opens on start.
-    @State private var runEnvironment: RunEnvironment? = nil
+    /// #8 — a free RUN starts through the full-screen pre-start sequence
+    /// (¿dónde corres? → cinta → conectar → GO); this presents it on Empezar.
+    @State private var showRunPreStart = false
     /// Which builder track the athlete is on. The MEASURED wizard (row/run/ski/bike)
     /// lives here; FUERZA / FUNCIONAL hand off to their own list builders, which
     /// return a `FreeWorkoutContext` that runs through the SAME engine below.
@@ -85,6 +84,17 @@ struct FreeWorkoutBuilderView: View {
             if step == .bouts { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        // #8 — the run pre-start sequence (mockup): ¿dónde? → (cinta → conectar) → GO.
+        .fullScreenCover(isPresented: $showRunPreStart) {
+            RunPreStartFlow(
+                sessionTitle: runFlowTitle,
+                onStart: { env in
+                    showRunPreStart = false
+                    startNow(environment: env)
+                },
+                onCancel: { showRunPreStart = false }
+            )
+        }
         // Leaving the measured builder WITHOUT starting (back out, or switch to the
         // Fuerza/Funcional track) → release any belt/strap connected from the card.
         // When Empezar sets `running`, WorkoutContainer owns teardown, so skip here.
@@ -210,6 +220,15 @@ struct FreeWorkoutBuilderView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 stepHeader(title: "Configura", subtitle: nil)
 
+                // ErgData pattern: for erg work, CONNECTING is the first-class first
+                // step — a big card on top of the form, never a chip below the fold.
+                // Pulso goes right under (erg first, pulso second); the old bottom
+                // devices card is gone for ergs.
+                if let m = draft.modality, m != .run {
+                    ErgConnectCard()
+                    DeviceConnectCard(devices: [.heartRate])
+                }
+
                 if format.usesRounds {
                     FreeStepper(label: format.roundsLabel, value: $draft.rounds,
                                 step: FreeStep.rounds, minValue: 1) { "\($0)" }
@@ -254,31 +273,14 @@ struct FreeWorkoutBuilderView: View {
 
                 titleField
                 FreePreviewCard(line: draft.previewLine)
-                // #8 — the human flow: correr → ¿dónde? → (cinta → conectar) →
-                // empezar. The location question comes FIRST and the treadmill
-                // connect only appears when the answer is "en cinta".
+                // #8 — a run's location + treadmill connect live in the full-screen
+                // pre-start sequence (on Empezar), the ONE treadmill journey. Only
+                // the HR strap stays here.
                 if draft.modality == .run {
-                    RunEnvironmentPicker(selection: $runEnvironment)
-                }
-                if !freeDevices.isEmpty {
-                    // Same connect-before-start card as the prescribed brief: a free
-                    // run offers the belt + strap, a free erg the PM5 + strap. Connect
-                    // here and the live engine starts already streaming. Optional.
-                    DeviceConnectCard(devices: freeDevices)
+                    DeviceConnectCard(devices: [.heartRate])
                 }
             }
         }
-    }
-
-    /// Devices worth offering for the chosen measured modality — mirrors the
-    /// prescribed brief (run → belt + strap, erg → PM5 + strap). Empty until a
-    /// modality is picked / for a non-measured track. #8 — the belt is offered
-    /// ONLY once the athlete answers "En cinta": an outdoor (or undecided) run
-    /// must never have a treadmill connect pushed on it.
-    private var freeDevices: [PreWorkoutDevice] {
-        guard let m = draft.modality else { return [] }
-        guard m == .run else { return [.pm5, .heartRate] }
-        return runEnvironment == .treadmill ? [.treadmill, .heartRate] : [.heartRate]
     }
 
     @ViewBuilder
@@ -338,17 +340,33 @@ struct FreeWorkoutBuilderView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
             ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                guard var ctx = draft.buildContext() else { return }
-                // #8 — carry "¿dónde corres?" so the right live HUD auto-opens.
-                ctx.runEnvironment = draft.modality == .run ? runEnvironment : nil
-                Haptics.medium()
-                running = ctx
+                if draft.modality == .run {
+                    // #8 — running work with no environment chosen → the full-screen
+                    // pre-start sequence decides (¿dónde? → cinta → conectar → GO).
+                    showRunPreStart = true
+                } else {
+                    startNow(environment: nil)
+                }
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.m)
         }
         .background(Theme.Color.background)
+    }
+
+    /// Build + launch the workout. `environment` carries "¿dónde corres?" so the
+    /// right live HUD auto-opens (the pre-start sequence's answer; nil for non-run).
+    private func startNow(environment: RunEnvironment?) {
+        guard var ctx = draft.buildContext() else { return }
+        ctx.runEnvironment = draft.modality == .run ? environment : nil
+        Haptics.medium()
+        running = ctx
+    }
+
+    /// The session name the pre-start sequence shows over "¿Dónde corres hoy?".
+    private var runFlowTitle: String {
+        draft.titleEdited.isEmpty ? draft.defaultTitle : draft.titleEdited
     }
 
     // MARK: - Shared bits
