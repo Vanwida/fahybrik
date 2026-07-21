@@ -140,6 +140,10 @@ struct WorkoutSegment: Codable, Identifiable {
     let targetDurationSeconds: Int?
     let targetPaceSecondsPerKm: Int?
     let targetPowerWatts: Int?
+    /// Prescribed CALORIE target for a calorie-measured erg ("20 cal row"). Calories
+    /// never flattened into a scalar before (#erg-1), so a calorie erg showed "—" as
+    /// its target in the HUD. Optional so cached snapshots / non-calorie work decode.
+    let targetCalories: Int?
     let targetZone: HRZone?
     let loadKg: Double?
     /// Prescribed effort (RPE). The ONLY intensity cue for target-less work
@@ -163,12 +167,27 @@ struct WorkoutSegment: Codable, Identifiable {
     /// carry only scalars (then the engine falls back to the generic lap).
     let prescription: Prescription?
 
+    /// The specific ERG sub-modality for a PM5-driven segment: "row" | "ski" | "bike"
+    /// (#erg-2). The live grid collapses all three into a single `.rowOrSki` kind, so
+    /// without this the execution record emitted "row" for ALL ergs and the coach's
+    /// modality analytics merged ski/bike/row. Threaded from the exercise category at
+    /// build time; nil for non-erg segments (then `wireModality` uses `kind.modality`).
+    /// `var` with a default so every existing `WorkoutSegment(...)` call-site + cached
+    /// snapshots keep decoding.
+    var ergKind: String? = nil
+
     /// #23 HYROX dobles reparto: how this STATION segment is split with the
     /// partner (derived from the coach's simulation; see WorkoutPlan.from). Nil
     /// for individual sessions, runs, and unmapped stations — those run in full,
     /// unchanged. `var` with a default so the big init and cached/mirror snapshots
     /// stay untouched and decode tolerantly.
     var doblesSplit: SegmentDoblesSplit? = nil
+
+    /// The MODALITY string emitted on the execution wire for this segment. Prefers
+    /// the resolved erg sub-modality (`ergKind`: row/ski/bike) so coach analytics can
+    /// separate the three ergs; falls back to the kind's default bucket for runs /
+    /// strength / stations. Single source for the lap's `modality` (#erg-2).
+    var wireModality: String { ergKind ?? kind.modality }
 
     init(
         id: UUID = UUID(),
@@ -181,13 +200,15 @@ struct WorkoutSegment: Codable, Identifiable {
         targetDurationSeconds: Int? = nil,
         targetPaceSecondsPerKm: Int? = nil,
         targetPowerWatts: Int? = nil,
+        targetCalories: Int? = nil,
         targetZone: HRZone? = nil,
         loadKg: Double? = nil,
         targetRpe: Double? = nil,
         blockTitle: String? = nil,
         blockPosition: Int? = nil,
         videoUrl: String? = nil,
-        prescription: Prescription? = nil
+        prescription: Prescription? = nil,
+        ergKind: String? = nil
     ) {
         self.id = id
         self.order = order
@@ -199,6 +220,7 @@ struct WorkoutSegment: Codable, Identifiable {
         self.targetDurationSeconds = targetDurationSeconds
         self.targetPaceSecondsPerKm = targetPaceSecondsPerKm
         self.targetPowerWatts = targetPowerWatts
+        self.targetCalories = targetCalories
         self.targetZone = targetZone
         self.loadKg = loadKg
         self.targetRpe = targetRpe
@@ -206,6 +228,7 @@ struct WorkoutSegment: Codable, Identifiable {
         self.blockPosition = blockPosition
         self.videoUrl = videoUrl
         self.prescription = prescription
+        self.ergKind = ergKind
     }
 }
 
@@ -346,6 +369,7 @@ extension WorkoutSegment {
     private func uniformEmomInterval(_ p: Prescription) -> EmomInterval {
         let work: String = targetReps.map { "\($0) reps" }
             ?? targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work no longer "—"
             ?? targetDurationSeconds.map { PrescriptionRenderer.formatClock($0) }
             ?? "—"
         let detail = effortGuidance
@@ -538,6 +562,7 @@ extension WorkoutSegment {
         // Scalar fallback: one component from the dominant measure + intensity.
         let work: String = targetReps.map { "\($0) reps" }
             ?? targetDistanceMeters.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? targetCalories.map { "\($0) cal" }   // #erg-1: calorie work no longer "—"
             ?? targetDurationSeconds.map { PrescriptionRenderer.formatClock($0) }
             ?? "—"
         let detail = effortGuidance
@@ -676,8 +701,25 @@ struct LapRecord: Codable, Identifiable {
     var rxScaled: String? = nil
     /// Optional free note on HOW a WOD was scaled.
     var scaledNote: String? = nil
-    /// Per-set strength detail (a 5×5 / pyramid); nil for single-set / non-strength.
+    /// Per-set strength detail (a 5×5 / pyramid, AND — #break-3 — a single set, so its
+    /// rpe/rir/tempo/rest reach the coach's per-set analytics); nil for non-strength.
     var sets: [SetRecord]? = nil
+
+    // MARK: EMOM completion (#break-1)
+    /// How many EMOM intervals the athlete completed the prescribed work in. Captured
+    /// from `emomCompletedIntervals` BEFORE the live engine tears down (it used to be
+    /// zeroed before the lap closed → the coach saw blanks). nil off an EMOM segment.
+    var emomRoundsCompleted: Int? = nil
+    /// How many intervals the EMOM prescribed (the "Y" in "X/Y rondas"). nil off EMOM.
+    var emomRoundsPrescribed: Int? = nil
+
+    // MARK: Structured-run per-leg attribution (#break-2)
+    /// For a structured/interval run, the 0-based ordinal of the WORK leg this lap
+    /// measured (a pyramid's 1200/1000/800 → legs 0/1/2). Drives a stable per-leg
+    /// wire `position` so each interval's OWN pace/distance/HR reaches the coach
+    /// instead of collapsing into one blended aggregate lap. nil for every non-run /
+    /// single-aggregate lap (which keeps `position` = the segment's coach order).
+    var runLegIndex: Int? = nil
 
     // MARK: Run device averages (#62)
     /// AVERAGE incline (%) over the segment, folded from the treadmill telemetry
@@ -767,6 +809,12 @@ struct SegmentExecutionDTO: Codable {
     let rx_scaled: String?           // "rx" | "scaled"
     let scaled_note: String?
     let sets: [SetExecutionDTO]?
+
+    // EMOM completion (#break-1, mig 0134). "X/Y rondas hechas" — both nil off an
+    // EMOM segment. `var` with a default so the watch relay / older payloads keep
+    // building and the memberwise init stays back-compatible.
+    var emom_rounds_completed: Int? = nil
+    var emom_rounds_prescribed: Int? = nil
 
     // Run device averages (#62, mig 0124). `incline_pct` is the segment's average
     // treadmill grade; `run_cadence_spm` the average running cadence. Both optional
@@ -1122,16 +1170,27 @@ extension WorkoutPlan {
         let p = item.paramsJson
         let distanceMeters: Double? = p.distanceMeters.map(Double.init)
             ?? p.distanceKm.map { $0 * 1000 }
+        let kind = item.segmentKind
+        // #break-3(a): a scalar "4×10" (params_json {sets:4, reps:10}) with NO
+        // structured prescription primed ONE lap of 10 reps → 3 sets vanished (~4×
+        // volume error) while the athlete was shown "4×10". Materialize the scalar Nx
+        // into a real per-set prescription so the multi-set logger records ALL N sets
+        // (with their tempo/rest). An AUTHORED prescription always wins — only a
+        // prescription-LESS scalar strength with N>1 sets is synthesized here.
+        let prescription = item.prescription ?? scalarStrengthPrescription(from: p, kind: kind)
         return WorkoutSegment(
             order: order,
             title: item.exerciseName,
-            kind: item.segmentKind,
+            kind: kind,
             templateSegmentId: item.templateSegmentId,
             targetReps: p.reps,
             targetDistanceMeters: distanceMeters,
             targetDurationSeconds: p.durationSeconds,
             targetPaceSecondsPerKm: p.paceSecPerKm,
-            targetPowerWatts: nil,
+            // #erg-3: watts now reaches execution — structured target is primary (the
+            // scalar `watts` is a lossy mirror the normalizer may not always carry).
+            targetPowerWatts: prescription?.wattsTarget ?? p.watts,
+            targetCalories: p.calories,         // #erg-1: calorie erg target now visible in HUD
             targetZone: p.hrZone.flatMap { HRZone(rawValue: $0) },
             loadKg: p.loadKg,
             targetRpe: p.rpe,
@@ -1141,8 +1200,28 @@ extension WorkoutPlan {
             // The rich structured prescription drives the live EMOM/interval timer
             // (scheme + per-interval sets); scalar params above still feed the
             // generic HUDs. Preferred when present, ignored when nil.
-            prescription: item.prescription
+            prescription: prescription,
+            ergKind: item.ergSubtype            // #erg-2: row/ski/bike, not a merged "row"
         )
+    }
+
+    /// #break-3(a): build a per-set strength prescription from a SCALAR "N × reps"
+    /// (params_json `{sets, reps, load_kg | load_pct, rest_seconds}`) so a
+    /// prescription-less multi-set lift materializes ALL its sets instead of priming
+    /// one. Returns nil unless it is genuinely a multi-set (`sets > 1`) rep-based
+    /// strength scalar — a single set, a non-strength item, or a repless scalar keeps
+    /// the legacy single-lap path (single sets get their per-set detail at close time).
+    private static func scalarStrengthPrescription(from p: WorkoutItemParams, kind: SegmentKind) -> Prescription? {
+        guard kind == .strength, let sets = p.sets, sets > 1, let reps = p.reps, reps > 0 else { return nil }
+        // Prefer an absolute kg objective; else a %1RM; else none (athlete logs load).
+        let target: Target? = p.loadKg.map { .kg(value: $0, min: nil, max: nil) }
+            ?? p.loadPct.map { .percentRM(value: $0, min: nil, max: nil) }
+        let one = PrescriptionSet(measure: .reps(reps), target: target, modality: .strength,
+                                  restS: p.restSeconds, tempo: nil, note: nil)
+        return Prescription(scheme: .sets, modality: .strength,
+                            sets: Array(repeating: one, count: sets),
+                            rounds: nil, workS: nil, restS: p.restSeconds, totalS: nil,
+                            target: target, note: nil, start: nil, increment: nil)
     }
 
     // Package the shared alternating-EMOM fold (`block.alternatingEmom` — the ONE
@@ -1176,7 +1255,10 @@ extension WorkoutPlan {
             // No single technique video for a multi-movement EMOM (the model carries
             // one per segment, not per minute) — omit rather than show a misleading one.
             videoUrl: nil,
-            prescription: merged
+            prescription: merged,
+            // #erg-2: a homogeneous all-erg EMOM keeps its subtype; a mixed EMOM (run
+            // + reps) is `.reps` above and has no single erg → nil.
+            ergKind: (kinds.count == 1) ? block.items.first?.ergSubtype : nil
         )
     }
 
@@ -1212,7 +1294,8 @@ extension WorkoutPlan {
             targetDistanceMeters: distanceMeters,
             targetDurationSeconds: p?.durationSeconds,
             targetPaceSecondsPerKm: p?.paceSecPerKm,
-            targetPowerWatts: nil,
+            targetPowerWatts: merged.wattsTarget ?? p?.watts,   // #erg-3
+            targetCalories: p?.calories,         // #erg-1
             targetZone: p?.hrZone.flatMap { HRZone(rawValue: $0) },
             loadKg: p?.loadKg,
             targetRpe: p?.rpe,
@@ -1220,7 +1303,10 @@ extension WorkoutPlan {
             blockPosition: block.blockPosition,
             // One technique video only when the block is a single movement.
             videoUrl: (kinds.count == 1) ? block.items.first?.exerciseVideoUrl : nil,
-            prescription: merged
+            prescription: merged,
+            // #erg-2: a homogeneous erg fold (all-row, all-ski) carries its subtype so
+            // the ONE lap records the right erg; a mixed WOD has no single erg → nil.
+            ergKind: (kinds.count == 1) ? block.items.first?.ergSubtype : nil
         )
     }
 
@@ -1305,6 +1391,27 @@ extension WorkoutItem {
             return s.contains("sled") ? .sled : .reps
         default:
             return .reps   // mobility | skill | plyometric | core | other
+        }
+    }
+
+    /// #erg-2: the specific ERG sub-modality — "row" | "ski" | "bike" — or nil for a
+    /// non-erg item. The live grid collapses all three into `.rowOrSki`; this recovers
+    /// the distinction for the execution wire so the coach's modality analytics keep
+    /// ski/bike/row separate. Disambiguates by category first, then slug (mirrors
+    /// `segmentKind` + the web `SEG_MODALITY_SQL` resolver exactly).
+    var ergSubtype: String? {
+        let s = exerciseSlug.lowercased()
+        switch exerciseCategory {
+        case "rowing":  return "row"
+        case "ski_erg": return "ski"
+        case "bike_erg": return "bike"
+        case "cardio":
+            if s.contains("row") { return "row" }
+            if s.contains("ski") { return "ski" }
+            if s.contains("bike") || s.contains("cycl") { return "bike" }
+            return nil   // run / treadmill / generic cardio is not an erg
+        default:
+            return nil
         }
     }
 

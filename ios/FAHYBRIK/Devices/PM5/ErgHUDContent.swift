@@ -109,7 +109,10 @@ struct ErgHUDContent: View {
         let seg = session.currentSegment
         let movement: String? = seg?.primaryMovement
         let distance: Double? = seg?.targetDistanceMeters
+        // #erg-1: a calorie erg ("20 cal row") carries no distance — fall back to the
+        // calorie target so the work reads "20 cal", not an empty string.
         let work: String? = distance.flatMap { PrescriptionRenderer.formatDistance($0) }
+            ?? seg?.targetCalories.map { "\($0) cal" }
         let thisOne = [work, movement].compactMap { $0 }.joined(separator: " ")
         if isResting {
             return "Luego · \(thisOne.isEmpty ? "siguiente serie" : thisOne)"
@@ -428,7 +431,8 @@ struct ErgHUDContent: View {
     private var objectiveLine: String? {
         let seg = session.currentSegment
         if let d = seg?.targetDistanceMeters { return "\(Int(d)) m" }
-        if let w = seg?.targetPowerWatts { return "\(w) W" }
+        if let c = seg?.targetCalories { return "\(c) cal" }   // #erg-1
+        if let w = seg?.targetPowerWatts { return "\(w) W" }   // #erg-3 (now reached)
         return nil
     }
 }

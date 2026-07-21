@@ -41,6 +41,10 @@ export interface SegmentActual {
   avg_hr: number | null;
   max_hr: number | null;
   calories: number | null;
+  /** EMOM completion (mig 0134): intervals the athlete completed the work in vs
+   * prescribed — the coach's "X/Y rondas hechas". Both null off an EMOM segment. */
+  emom_rounds_completed: number | null;
+  emom_rounds_prescribed: number | null;
   /** AVERAGE running metrics over the segment (#62, mig 0124). Null when the
    * source (treadmill / wearable) reported none — never fabricated. */
   incline_pct: number | null;
@@ -74,6 +78,8 @@ export interface SegmentActualRow {
   avg_hr: number | null;
   max_hr: number | null;
   calories: string | number | null;
+  emom_rounds_completed: number | null;   // integer
+  emom_rounds_prescribed: number | null;  // integer
   incline_pct: string | number | null;   // numeric(4,1) → string from pg
   run_cadence_spm: number | null;         // integer
   raw_lap_data_json: unknown;             // jsonb → parsed value (or null)
@@ -117,6 +123,8 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     avg_hr: r.avg_hr ?? null,
     max_hr: r.max_hr ?? null,
     calories: num(r.calories),
+    emom_rounds_completed: r.emom_rounds_completed ?? null,
+    emom_rounds_prescribed: r.emom_rounds_prescribed ?? null,
     incline_pct: num(r.incline_pct),
     run_cadence_spm: r.run_cadence_spm ?? null,
     ...ergFields(r.raw_lap_data_json),
@@ -158,6 +166,8 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       avg_hr                    as avg_hr,
       max_hr                    as max_hr,
       calories                  as calories,
+      emom_rounds_completed     as emom_rounds_completed,
+      emom_rounds_prescribed    as emom_rounds_prescribed,
       incline_pct               as incline_pct,
       run_cadence_spm           as run_cadence_spm,
       raw_lap_data_json         as raw_lap_data_json

@@ -327,6 +327,10 @@ enum Target: Equatable {
     case hrZone(value: Double?, min: Double?, max: Double?)
     case hrBpm(value: Double?, min: Double?, max: Double?)
     case calories(value: Double?, min: Double?, max: Double?)
+    /// Erg POWER objective in watts (#erg-3). Mirrors the web `{ kind: 'watts' }`
+    /// target; without this case the wire value decoded to `.unknown` and the power
+    /// HUD branch stayed dead. `value` (point) or `min`/`max` (band).
+    case watts(value: Double?, min: Double?, max: Double?)
     /// Unrecognized / malformed kind — never crashes the decode.
     case unknown
 
@@ -353,6 +357,7 @@ extension Target: Codable {
         case "hr_zone":    self = .hrZone(value: value, min: min, max: max)
         case "hr_bpm":     self = .hrBpm(value: value, min: min, max: max)
         case "calories":   self = .calories(value: value, min: min, max: max)
+        case "watts":      self = .watts(value: value, min: min, max: max)
         case "pace":
             let unit = (try? c.decode(PaceUnit.self, forKey: .unit)) ?? .perKm
             let valueS = (try? c.decode(Double.self, forKey: .valueS)).map { Int($0) }
@@ -381,6 +386,7 @@ extension Target: Codable {
         case let .hrZone(v, mn, mx):    try scalar("hr_zone", v, mn, mx)
         case let .hrBpm(v, mn, mx):     try scalar("hr_bpm", v, mn, mx)
         case let .calories(v, mn, mx):  try scalar("calories", v, mn, mx)
+        case let .watts(v, mn, mx):     try scalar("watts", v, mn, mx)
         case let .pace(unit, vS, mnS, mxS):
             try c.encode("pace", forKey: .kind)
             try c.encode(unit, forKey: .unit)
@@ -435,6 +441,22 @@ extension PrescriptionSet {
     /// Prescribed RIR objective, when the target is `.rir` (value, else low end).
     var prescribedRir: Double? {
         if case let .rir(value, min, _) = target { return value ?? min }
+        return nil
+    }
+}
+
+extension Prescription {
+    /// #erg-3: the prescribed erg POWER in WATTS — from the block-level target, else
+    /// the first set carrying a `.watts` objective. The primary source for a segment's
+    /// `targetPowerWatts` (the scalar `params_json.watts` is a lossy mirror). nil when
+    /// no watts target is prescribed (then the HUD shows no power target, not a fake 0).
+    var wattsTarget: Int? {
+        func watts(_ t: Target?) -> Int? {
+            guard case let .watts(value, min, _) = t, let v = value ?? min else { return nil }
+            return Int(v.rounded())
+        }
+        if let block = watts(target) { return block }
+        for s in sets ?? [] { if let x = watts(s.target) { return x } }
         return nil
     }
 }

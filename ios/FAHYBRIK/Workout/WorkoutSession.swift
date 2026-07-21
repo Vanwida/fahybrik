@@ -173,6 +173,21 @@ final class WorkoutSession {
     private var runLegStartElapsed: Double = 0    // lapElapsedSeconds at the current leg's GO
     private var runStructureSegmentIndex: Int? = nil  // which segment owns the cursor
 
+    // #break-2 — per-WORK-leg execution baselines. A structured/interval run used to
+    // collapse into ONE aggregate lap whose pace blended work + recovery (meaningless).
+    // We now snapshot each of these at every leg's GO (`markRunLegStart`) and DIFF them
+    // when a WORK leg closes (`recordRunLegLap`), so each interval gets its OWN
+    // distance/duration/pace/HR/incline/zone. Recovery legs advance the cursor and
+    // reset the baselines but are not persisted (the coach's run-compliance zips the
+    // prescription's WORK segments to these per-leg laps in order).
+    private var runLegBeltStart: Double = 0        // lapBeltDistanceMeters at leg GO
+    private var runLegGpsStart: Double = 0         // lapGpsDistanceMeters at leg GO
+    private var runLegHRStartCount: Int = 0        // lapHRSamples.count at leg GO
+    private var runLegZoneStart: [Int: Double] = [:]   // lapZoneAccumSec snapshot at leg GO
+    private var runLegInclineSumStart: Double = 0  // lapInclineSum at leg GO
+    private var runLegInclineCountStart: Int = 0   // lapInclineCount at leg GO
+    private var runWorkLegOrdinal: Int = 0         // 0-based index among WORK legs recorded
+
     /// Captured final score for the PRINCIPAL conditioning block, set on its close
     /// and read by the post-workout summary to PRE-FILL the result (the athlete
     /// never re-enters what the live timer already counted). Format-aware: time for
@@ -181,6 +196,13 @@ final class WorkoutSession {
     private(set) var capturedScoreTimeSeconds: Int? = nil
     private(set) var capturedScoreRounds: Int? = nil
     private(set) var capturedScoreReps: Int? = nil
+
+    /// #break-1 — EMOM completion (rounds done / prescribed) captured on the EMOM's
+    /// close BEFORE the live engine's `clearEMOMState()` zeroes `emomCompletedIntervals`
+    /// (the bug: it zeroed before the lap closed, so the coach saw blanks). Read by
+    /// `closeCurrentSegmentLap` into the LapRecord's emom fields, then cleared.
+    private var capturedEmomCompleted: Int? = nil
+    private var capturedEmomPrescribed: Int? = nil
 
     /// Provenance of the live heart-rate signal currently feeding the session,
     /// so the connection strip can show WHERE HR comes from. nil = no HR.
@@ -756,6 +778,7 @@ final class WorkoutSession {
         // (a "Terminar y guardar" mid-AMRAP keeps the rounds so far). No-op when
         // the engine already closed itself via `closeConditioningAndAdvance`.
         captureConditioningScore()
+        captureEMOMScore()   // a "Terminar y guardar" mid-EMOM keeps X/Y rondas (#break-1)
         clearEMOMState()
         clearConditioning()
         clearRunStructure()
@@ -980,12 +1003,23 @@ final class WorkoutSession {
         }
     }
 
+    // Capture the EMOM's completion (X of Y intervals) BEFORE the engine is torn
+    // down — mirrors captureConditioningScore. `emomCompletedIntervals` is zeroed by
+    // clearEMOMState(), so without this the lap closed with the rounds LOST (#break-1).
+    // Only fires for the ACTIVE EMOM segment, so a non-EMOM close never captures it.
+    private func captureEMOMScore() {
+        guard emomSegmentIndex == currentSegmentIndex, let plan = currentSegment?.emomPlan else { return }
+        capturedEmomCompleted = emomCompletedIntervals
+        capturedEmomPrescribed = plan.intervalCount
+    }
+
     // Close the EMOM segment's lap (reusing the standard segment-close path) and
     // advance to the next segment, or finish the session. Crossing into the next
     // block parks on its preview (the gate) instead of auto-starting it.
     private func closeEMOMAndAdvance() {
         let wasLast = isLastSegment
         let origin = currentSegmentIndex
+        captureEMOMScore()   // BEFORE clearEMOMState zeroes the counters (#break-1)
         clearEMOMState()
         closeCurrentSegmentLap()
         if wasLast {
@@ -1345,6 +1379,7 @@ final class WorkoutSession {
         guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { clearRunStructure(); return }
         runStructureSegmentIndex = currentSegmentIndex
         runLegIndex = 0
+        runWorkLegOrdinal = 0        // #break-2: first WORK leg recorded is ordinal 0
         runCountInRemaining = Self.countInSeconds
         primeRunLeg()
         WorkoutAudio.shared.activate()
@@ -1360,16 +1395,29 @@ final class WorkoutSession {
         runLegStartElapsed = 0
     }
 
+    /// Snapshot the per-WORK-leg execution baselines at a leg's GO (#break-2). Each
+    /// leg's measured distance / HR / incline / zone is the DIFF between the values at
+    /// close and these. Called wherever a leg's clock starts (prime + both GO paths).
+    private func markRunLegStart() {
+        runLegStartElapsed = lapElapsedSeconds
+        runLegBeltStart = lapBeltDistanceMeters
+        runLegGpsStart = lapGpsDistanceMeters ?? 0
+        runLegHRStartCount = lapHRSamples.count
+        runLegZoneStart = lapZoneAccumSec
+        runLegInclineSumStart = lapInclineSum
+        runLegInclineCountStart = lapInclineCount
+    }
+
     /// Set the current leg's GO baseline + its countdown (a TIME leg counts down; a
     /// DISTANCE leg has no clock countdown — the belt / manual close ends it).
     private func primeRunLeg() {
-        runLegStartElapsed = lapElapsedSeconds
+        markRunLegStart()
         runLegRemaining = currentRunLeg?.durationSeconds.map(Double.init) ?? 0
     }
 
     private func skipRunCountIn() {
         runCountInRemaining = 0
-        runLegStartElapsed = lapElapsedSeconds
+        markRunLegStart()
         WorkoutAudio.shared.playGo()
         Haptics.medium()
         #if os(iOS)
@@ -1389,10 +1437,12 @@ final class WorkoutSession {
     // otherwise the athlete tapped through.
     private func advanceRunLeg(auto: Bool) {
         guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { return }
-        // FORWARD SEAM (team note #1): the per-leg MEASURED split (covered distance /
-        // duration / pace) is available here at the leg boundary — kept AGGREGATE for
-        // now (one lap per block), left open for per-tramo persistence to converge
-        // with the treadmill phase-3 `measured` model. Nothing recorded per-bout yet.
+        // #break-2: the just-finished leg's OWN measured split (covered distance /
+        // duration / pace / HR) is available HERE at the boundary. Record a WORK leg as
+        // its own segment execution so each interval's pace reaches the coach instead
+        // of blending into one aggregate lap. Recovery legs advance the cursor only.
+        let finished = legs[runLegIndex]
+        if finished.kind == .work { recordRunLegLap(finished) }
         let next = runLegIndex + 1
         if next >= legs.count {
             WorkoutAudio.shared.playFinish()
@@ -1415,8 +1465,9 @@ final class WorkoutSession {
         #endif
     }
 
-    // Close the run segment's single aggregate lap (reusing the standard close path)
-    // and advance to the next segment, or finish — mirrors closeConditioningAndAdvance.
+    // Close the structured run and advance. The WORK legs were each recorded as their
+    // own segment execution during advanceRunLeg; closeCurrentSegmentLap detects the
+    // structure and only resets the per-segment accumulators (no aggregate lap).
     private func closeRunStructureAndAdvance() {
         let wasLast = isLastSegment
         let origin = currentSegmentIndex
@@ -1430,6 +1481,82 @@ final class WorkoutSession {
         }
     }
 
+    // #break-2: record ONE segment execution for a finished WORK leg. All legs share
+    // the run block's `templateSegmentId` (the coach's run-compliance zips the
+    // prescription's work segments to these laps in order); a stable `runLegIndex`
+    // drives a unique wire position. Captures the leg's OWN measured distance /
+    // duration / pace / HR / incline / zone via the baselines snapshotted at its GO —
+    // so a pyramid's 1200/1000/800 land as three honest paces, not one blend.
+    private func recordRunLegLap(_ leg: RunLeg) {
+        guard let seg = currentSegment else { return }
+        let now = Date()
+        let dur = runLegElapsed   // lapElapsedSeconds − runLegStartElapsed (this leg only)
+        // Covered distance for THIS leg: belt delta wins (a belt IS the tramo's truth),
+        // else GPS delta; nil when no device measured it (never the prescribed target).
+        let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
+        let gpsDelta = Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
+        let distance: Double? = beltDelta > 0 ? beltDelta : (gpsDelta > 0 ? gpsDelta : nil)
+        // Run pace /km from the leg's OWN covered distance + duration — the whole point
+        // of per-leg recording. nil without a measured distance (no fabricated pace).
+        let paceKm: Double? = {
+            guard let d = distance, d > 0, dur > 0 else { return nil }
+            return dur / (d / 1000.0)
+        }()
+        // Per-leg HR = the samples logged since this leg's GO.
+        let startIdx = Swift.min(runLegHRStartCount, lapHRSamples.count)
+        let hrSlice = Array(lapHRSamples[startIdx...])
+        let avgHR = hrSlice.isEmpty ? nil : hrSlice.reduce(0, +) / hrSlice.count
+        let maxHR = hrSlice.max()
+        // Per-leg zone seconds = the accumulation delta since GO.
+        var zone: [Int: Double] = [:]
+        for (k, v) in lapZoneAccumSec {
+            let d = v - (runLegZoneStart[k] ?? 0)
+            if d > 0 { zone[k] = d }
+        }
+        // Per-leg average incline from the belt readings that fed THIS leg.
+        let inclineCountDelta = lapInclineCount - runLegInclineCountStart
+        let inclinePct: Double? = inclineCountDelta > 0
+            ? (lapInclineSum - runLegInclineSumStart) / Double(inclineCountDelta)
+            : nil
+        // Source precedence mirrors the aggregate close: real movement data > HR-only.
+        let source = beltDelta > 0 ? "treadmill" : (gpsDelta > 0 ? "gps" : (avgHR != nil ? "healthkit" : "manual"))
+        let ordinal = runWorkLegOrdinal
+        runWorkLegOrdinal += 1
+        let lap = LapRecord(
+            id: UUID(),
+            segmentId: seg.id,
+            templateSegmentId: seg.templateSegmentId,
+            position: seg.order,
+            modality: "run",
+            startedAt: now.addingTimeInterval(-dur),
+            endedAt: now,
+            durationSeconds: dur,
+            avgHRBpm: avgHR,
+            maxHRBpm: maxHR,
+            zoneSecondsByZone: zone,
+            repsCompleted: nil,
+            distanceCoveredMeters: distance,
+            avgPaceSecPer500m: nil,
+            avgPaceSecPerKm: paceKm,
+            avgPowerWatts: nil,
+            strokeRateSpm: nil,
+            calories: nil,
+            weightUsedKg: nil,
+            source: source,
+            repsPrescribed: nil,
+            repsStatus: nil,
+            repsConfirmed: false,
+            isStructural: false,
+            rxScaled: nil,
+            scaledNote: nil,
+            sets: nil,
+            runLegIndex: ordinal,
+            inclinePct: inclinePct,
+            runCadenceSpm: nil
+        )
+        laps.append(lap)
+    }
+
     // Drives the structured-run count-in + the current TIME leg's countdown off the
     // 0.25s tick. A DISTANCE leg (runLegRemaining == 0) never auto-rolls here — it
     // waits for the belt (TreadmillHUDModel → primaryAdvance) or a manual "Tramo
@@ -1441,7 +1568,7 @@ final class WorkoutSession {
             runCountInRemaining = Swift.max(0, before - dt)
             if before.rounded(.up) != runCountInRemaining.rounded(.up) {
                 if runCountInRemaining <= 0 {
-                    runLegStartElapsed = lapElapsedSeconds   // GO — the leg clock starts now
+                    markRunLegStart()   // GO — the leg clock + per-leg baselines start now
                     WorkoutAudio.shared.playGo()
                     Haptics.medium()
                     #if os(iOS)
@@ -1527,6 +1654,13 @@ final class WorkoutSession {
     // HR / zone / PM5 samples, appends it, and resets the per-segment accumulators.
     private func closeCurrentSegmentLap() {
         guard let seg = currentSegment else { return }
+        // #break-2: a structured/interval run records ONE lap per WORK leg during
+        // advanceRunLeg (each with its own pace), so there is no blended aggregate to
+        // build here — just reset the per-segment accumulators the per-leg path used.
+        if seg.hasRunStructure {
+            resetSegmentAccumulators()
+            return
+        }
         let now = Date()
         let isErg = seg.kind.isErg
         let usedPM5 = isErg && lapHadPM5
@@ -1625,6 +1759,30 @@ final class WorkoutSession {
             }
         }
 
+        // #break-3(b): a genuine single-set STRENGTH lift used to drop its tempo / rest
+        // (they lived ONLY in the multi-set `sets[]`, never on the single-set path).
+        // Emit a ONE-element set so those prescribed cues reach `set_executions` — the
+        // SAME home the coach's per-set analytics read for multi-set work (no new
+        // columns, no split-brain). Skipped / open-score / bodyweight-rep work carries
+        // no such detail, so it is left exactly as before. RPE/RIR stay nil (collected
+        // only if entered, mirroring the multi-set prime — no single-set RPE UI yet).
+        if seg.kind == .strength, !seg.usesMultiSetStrength, !repsSkipped, !seg.repsAreOpenScore {
+            let planned = seg.prescription?.sets?.first
+            setRecordsOut = [SetRecord(
+                setIndex: 1,
+                repsPrescribed: repsPrescribedOut,
+                repsActual: repsActual,
+                loadPrescribedKg: planned?.prescribedLoadKg ?? seg.loadKg,
+                loadActualKg: weight,
+                rpe: nil,
+                rir: nil,
+                status: repsStatusOut ?? "done",
+                confirmed: repsConfirmedOut,
+                tempo: planned?.tempo,
+                restS: planned?.restS ?? seg.prescription?.restS
+            )]
+        }
+
         // Back-compat `repsCompleted` == actual (nil stays nil on a skip — never 0).
         let reps: Int? = repsActual
 
@@ -1671,7 +1829,7 @@ final class WorkoutSession {
             segmentId: seg.id,
             templateSegmentId: seg.templateSegmentId,
             position: seg.order,
-            modality: seg.kind.modality,
+            modality: seg.wireModality,   // #erg-2: row/ski/bike, not a merged "row"
             startedAt: now.addingTimeInterval(-lapElapsedSeconds),
             endedAt: now,
             durationSeconds: lapElapsedSeconds,
@@ -1694,6 +1852,8 @@ final class WorkoutSession {
             rxScaled: lapRxScaled,
             scaledNote: lapScaledNote,
             sets: setRecordsOut,
+            emomRoundsCompleted: capturedEmomCompleted,     // #break-1 (nil off an EMOM)
+            emomRoundsPrescribed: capturedEmomPrescribed,
             inclinePct: mergedIncline,
             runCadenceSpm: nil,   // no on-device running-cadence source yet (see LapRecord)
             // Fall back to a reopened lap's erg detail so a back-step never drops it.
@@ -1704,8 +1864,14 @@ final class WorkoutSession {
             ergSplits: ergSplits ?? reopen?.ergSplits
         )
         laps.append(lap)
-        reopenedLap = nil
+        resetSegmentAccumulators()
+    }
 
+    // Reset every per-segment accumulator after a lap closes (or, for a structured run
+    // whose WORK legs were recorded individually, after the per-leg path consumed them)
+    // so the next segment starts from its own prescription, not the previous one's data.
+    private func resetSegmentAccumulators() {
+        reopenedLap = nil
         lapElapsedSeconds = 0
         lapHRSamples.removeAll(keepingCapacity: true)
         lapZoneAccumSec.removeAll(keepingCapacity: true)
@@ -1715,6 +1881,10 @@ final class WorkoutSession {
         repsPrimedSegmentIndex = nil
         setRecords = []
         setsPrimedSegmentIndex = nil
+        // #break-1: the captured EMOM rounds have been written to the lap — clear them
+        // so a following non-EMOM segment never inherits a stale count.
+        capturedEmomCompleted = nil
+        capturedEmomPrescribed = nil
         dismissRest()
         resetErgAccumulators()
         resetSegmentManualAndGPS()

@@ -208,6 +208,8 @@ enum PrescriptionRenderer {
             return range(v, mn, mx, suffix: " ppm")
         case let .calories(v, mn, mx):
             return range(v, mn, mx, suffix: " cal")
+        case let .watts(v, mn, mx):
+            return range(v, mn, mx, suffix: " W")
         case .hrZone, .pace, .unknown:
             return nil
         }

@@ -408,6 +408,10 @@ struct WorkoutItemParams: Codable, Equatable {
     let calories: Int?
     let caloriesPerMin: Int?
     let hrZone: Int?
+    /// Erg POWER target in watts (#erg-3). The web normalizer now whitelists `watts`
+    /// so the scalar summary carries it; the structured `prescription.target` (.watts)
+    /// is the primary source, this the flat mirror. Optional so older payloads decode.
+    let watts: Int?
 }
 
 // MARK: - LossyArray (resilient element-wise array decode)

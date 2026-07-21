@@ -280,6 +280,39 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     expect(a!.stroke_rate_spm).toBe(29);
   });
 
+  test('EMOM completion (mig 0134) persists + reads back; a non-EMOM segment leaves it NULL', async () => {
+    const { executionId } = await seedExecution();
+    await ingestExecutionSegments({
+      sql,
+      executionId,
+      executionStartedAt: START,
+      segments: [
+        // An EMOM segment: 8 of 10 intervals completed.
+        { position: 0, modality: 'other', emom_rounds_completed: 8, emom_rounds_prescribed: 10 },
+        // A plain run leg: no EMOM → both columns honest NULL, never a fabricated 0.
+        { position: 1, modality: 'run', distance_meters: 1000, avg_pace_s_per_km: 240 },
+      ],
+    });
+
+    const rows = await sql<
+      Array<{ position: number; emom_rounds_completed: number | null; emom_rounds_prescribed: number | null }>
+    >`
+      select position, emom_rounds_completed, emom_rounds_prescribed
+      from segment_executions where execution_id = ${executionId}
+      order by position
+    `;
+    expect(rows[0]!.emom_rounds_completed).toBe(8);
+    expect(rows[0]!.emom_rounds_prescribed).toBe(10);
+    expect(rows[1]!.emom_rounds_completed).toBeNull();
+    expect(rows[1]!.emom_rounds_prescribed).toBeNull();
+
+    // The coach reader surfaces the completion so the loop is real ("X/Y rondas").
+    const actuals = await loadSegmentActuals(sql, executionId);
+    expect(actuals[0]!.emom_rounds_completed).toBe(8);
+    expect(actuals[0]!.emom_rounds_prescribed).toBe(10);
+    expect(actuals[1]!.emom_rounds_completed).toBeNull();
+  });
+
   test('a non-erg segment writes NO raw_lap_data_json (honest null, no empty erg blob)', async () => {
     const { executionId } = await seedExecution();
     await ingestExecutionSegments({
@@ -428,5 +461,25 @@ describe('normalizeModality + segmentInputSchema (pure)', () => {
     expect(segmentInputSchema.safeParse({ position: 0, modality: 'run' }).success).toBe(true);
     expect(segmentInputSchema.safeParse({ position: -1, modality: 'run' }).success).toBe(false);
     expect(segmentInputSchema.safeParse({ position: 0, modality: '' }).success).toBe(false);
+  });
+
+  test('segmentInputSchema accepts EMOM completion (mig 0134), rejecting negatives', () => {
+    const ok = segmentInputSchema.safeParse({
+      position: 0,
+      modality: 'other',
+      emom_rounds_completed: 8,
+      emom_rounds_prescribed: 10,
+    });
+    expect(ok.success).toBe(true);
+    if (ok.success) {
+      expect(ok.data.emom_rounds_completed).toBe(8);
+      expect(ok.data.emom_rounds_prescribed).toBe(10);
+    }
+    // A non-EMOM segment simply omits them (both optional).
+    expect(segmentInputSchema.safeParse({ position: 0, modality: 'run' }).success).toBe(true);
+    // Negatives are rejected (a count is never < 0).
+    expect(
+      segmentInputSchema.safeParse({ position: 0, modality: 'other', emom_rounds_completed: -1 }).success,
+    ).toBe(false);
   });
 });

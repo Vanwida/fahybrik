@@ -263,6 +263,10 @@ export interface AssignmentDetailParamsJson {
   calories?: number;
   calories_per_min?: number;
   hr_zone?: number;
+  /** Erg POWER target in watts (#erg-3). Surfaced from a `{ kind: 'watts' }`
+   * prescription target so iOS's scalar path can render it; the structured
+   * prescription_json.target carries the same value as the primary source. */
+  watts?: number;
 }
 
 // =============================================================================
@@ -1050,6 +1054,11 @@ function normalizeParams(raw: Record<string, unknown> | null): AssignmentDetailP
 
   const hrZone = num('hr_zone');
   if (hrZone !== undefined) out.hr_zone = hrZone;
+
+  // #erg-3: the erg watts target (prescriptionToParams emits `watts`); whitelisted
+  // here so it survives to iOS instead of being stripped with the unknown keys.
+  const watts = num('watts');
+  if (watts !== undefined) out.watts = watts;
 
   return out;
 }

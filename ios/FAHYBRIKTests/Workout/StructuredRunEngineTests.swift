@@ -200,6 +200,64 @@ final class StructuredRunEngineTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(s.laps.last?.inclinePct), 6.0, accuracy: 0.001)
     }
 
+    // MARK: - #break-2 · per-WORK-leg execution (no blended aggregate lap)
+
+    func testStructuredRunRecordsOneLapPerWorkLegNotBlended() throws {
+        // A pyramid 1000 / 500 with a parado recovery between must record TWO per-leg
+        // laps, each with its OWN covered distance + pace — NOT one aggregate blending
+        // both work bouts and the recovery (the meaningless-pace bug). The treadmill
+        // anchors its odometer baseline at each leg's FIRST sample, so we cover ≥ the
+        // leg's target FROM that baseline (mirrors testTreadmillClosesHeterogeneousPyramid).
+        let s = structuredSession([main([
+            work(.distance(m: 1000)), rec(.duration(s: 60), .parado), work(.distance(m: 500)),
+        ])])
+        s.primaryAdvance()                       // skip the count-in (leg 0 GO)
+        let (m, src) = makeModel(s)
+
+        // Leg 0 (work 1000m) over 4:00 → covers ~1100 (≥1000) → auto-closes → records leg 0.
+        s.lapElapsedSeconds = 240
+        src.emit(100); src.emit(1200)
+        XCTAssertEqual(s.laps.count, 1, "The first WORK leg is recorded at its boundary.")
+        XCTAssertEqual(s.runLegIndex, 1)         // now parked on the recovery
+
+        s.primaryAdvance()                       // skip the recovery → leg 2 (work 500m) GO
+        // Leg 2 (work 500m) over 1:00 → covers ~600 (≥500) → auto-closes → records leg 2.
+        s.lapElapsedSeconds = 300
+        src.emit(1300); src.emit(1900)
+        XCTAssertEqual(s.laps.count, 2, "Two WORK legs → two laps (recovery is not persisted).")
+
+        let a = s.laps[0], b = s.laps[1]
+        let da = try XCTUnwrap(a.distanceCoveredMeters)
+        let db = try XCTUnwrap(b.distanceCoveredMeters)
+        // Each leg carries its OWN covered distance — distinct, so NOT one blended lap.
+        XCTAssertGreaterThanOrEqual(da, 1000)
+        XCTAssertGreaterThanOrEqual(db, 500)
+        XCTAssertGreaterThan(da, db, "The 1000m leg covered more than the 500m leg (per-leg, not blended).")
+        // Each leg's pace = ITS OWN duration / ITS OWN distance (the whole point).
+        XCTAssertEqual(try XCTUnwrap(a.avgPaceSecPerKm), 240.0 / (da / 1000.0), accuracy: 1)
+        XCTAssertEqual(try XCTUnwrap(b.avgPaceSecPerKm), 60.0 / (db / 1000.0), accuracy: 1)
+        XCTAssertNotEqual(a.avgPaceSecPerKm, b.avgPaceSecPerKm, "The two legs must not share a blended pace.")
+        XCTAssertEqual(a.runLegIndex, 0)
+        XCTAssertEqual(b.runLegIndex, 1, "Second WORK leg is ordinal 1 (the recovery is skipped, not counted).")
+        XCTAssertEqual(a.modality, "run")
+        XCTAssertEqual(b.modality, "run")
+        m.teardown()
+    }
+
+    func testSteadyStructuredRunStaysOneLap() throws {
+        // A steady/continuous run is ONE work leg → ONE lap. The per-leg path must not
+        // break the steady case (it degrades to a single recorded leg).
+        let s = structuredSession([main([work(.distance(m: 3000))])])
+        s.primaryAdvance()                       // skip count-in
+        let (m, src) = makeModel(s)
+        s.lapElapsedSeconds = 720                // 12:00
+        src.emit(100); src.emit(3200)            // covers ~3100 (≥3000) → closes the single leg
+        XCTAssertEqual(s.laps.count, 1, "A steady run stays a single lap.")
+        XCTAssertEqual(s.laps.first?.runLegIndex, 0)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(s.laps.first?.distanceCoveredMeters), 3000)
+        m.teardown()
+    }
+
     // MARK: - Fixtures
 
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {

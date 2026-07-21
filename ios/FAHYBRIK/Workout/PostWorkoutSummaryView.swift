@@ -535,9 +535,21 @@ struct PostWorkoutSummaryView: View {
         let manualHRAvg = validHR(manualAvgHR)
         let manualHRMax = validHR(manualMaxHR)
 
-        return session.laps
-            .sorted { $0.position < $1.position }
-            .map { lap in
+        // #break-2: a structured/interval run records several per-WORK-leg laps that
+        // all share the block's coach `position` (disambiguated by `runLegIndex`).
+        // When any are present, re-sequence the wire `position` to a unique, ordered
+        // run so the ingest's (execution_id, position) upsert keeps EACH leg instead of
+        // collapsing them. The coach maps actuals → prescription by template_segment_id,
+        // so the absolute position is only ordering; a run-free session keeps its exact
+        // legacy position = coach order (zero change).
+        let ordered = session.laps.sorted {
+            ($0.position, $0.runLegIndex ?? -1) < ($1.position, $1.runLegIndex ?? -1)
+        }
+        let hasRunLegs = ordered.contains { $0.runLegIndex != nil }
+        return ordered
+            .enumerated()
+            .map { offset, lap in
+                let wirePosition = hasRunLegs ? offset : lap.position
                 let zones: [String: Int]? = lap.zoneSecondsByZone.isEmpty
                     ? nil
                     : lap.zoneSecondsByZone.reduce(into: [String: Int]()) {
@@ -598,7 +610,7 @@ struct PostWorkoutSummaryView: View {
 
                 return SegmentExecutionDTO(
                     template_segment_id: lap.templateSegmentId,
-                    position: lap.position,
+                    position: wirePosition,
                     modality: lap.modality,
                     started_at: iso.string(from: lap.startedAt),
                     ended_at: iso.string(from: lap.endedAt),
@@ -628,6 +640,8 @@ struct PostWorkoutSummaryView: View {
                     rx_scaled: lap.rxScaled,
                     scaled_note: lap.scaledNote,
                     sets: setDTOs,
+                    emom_rounds_completed: lap.emomRoundsCompleted,   // #break-1
+                    emom_rounds_prescribed: lap.emomRoundsPrescribed,
                     // Segment average incline (from the belt) / cadence (nil — no
                     // on-device source yet); the backend range-gates both (#62).
                     incline_pct: lap.inclinePct,

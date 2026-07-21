@@ -21,6 +21,8 @@ describe('session-actuals · buildSegmentActuals · incline / cadence (#62)', ()
     avg_hr: null,
     max_hr: null,
     calories: null,
+    emom_rounds_completed: null,
+    emom_rounds_prescribed: null,
     incline_pct: null,
     run_cadence_spm: null,
     raw_lap_data_json: null,

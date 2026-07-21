@@ -154,6 +154,12 @@ export const segmentInputSchema = z.object({
   reps_status: z.enum(REPS_STATUSES).optional(),
   reps_confirmed: z.boolean().optional(),
   is_structural: z.boolean().optional(),
+  // EMOM completion (mig 0134). How many of the EMOM's intervals the athlete
+  // completed the prescribed work in, and how many were prescribed — the honest
+  // "X/Y rondas" the finish dialog promises. Both NULL for non-EMOM segments; an
+  // EMOM interval is neither a rep nor a strength set, so it gets its own columns.
+  emom_rounds_completed: z.number().int().min(0).nullable().optional(),
+  emom_rounds_prescribed: z.number().int().min(0).nullable().optional(),
   rx_scaled: z.enum(RX_SCALED_VALUES).optional(),
   scaled_note: z.string().max(500).optional(),
   // Per-set strength detail; delete-then-insert by segment on re-sync.
@@ -352,6 +358,7 @@ export async function ingestExecutionSegments(args: {
         run_cadence_spm, incline_pct,
         avg_hr, max_hr, calories, reps_completed, weight_used_kg,
         reps_prescribed, reps_status, reps_confirmed, is_structural, rx_scaled, scaled_note,
+        emom_rounds_completed, emom_rounds_prescribed,
         raw_lap_data_json, source,
         context_format, context_source, exercise_id, prescription_snapshot, prior_work_s
       ) values (
@@ -379,6 +386,8 @@ export async function ingestExecutionSegments(args: {
         ${isStructural},
         ${seg.rx_scaled ?? null},
         ${seg.scaled_note ?? null},
+        ${seg.emom_rounds_completed ?? null},
+        ${seg.emom_rounds_prescribed ?? null},
         ${rawLap},
         ${seg.source ?? null},
         ${contextFormat},
@@ -413,6 +422,10 @@ export async function ingestExecutionSegments(args: {
         is_structural       = excluded.is_structural,
         rx_scaled           = excluded.rx_scaled,
         scaled_note         = excluded.scaled_note,
+        -- EMOM completion is the athlete's declared truth for THIS payload → overwrite
+        -- (a re-sync of a non-EMOM segment carries NULLs, restoring the honest absence).
+        emom_rounds_completed  = excluded.emom_rounds_completed,
+        emom_rounds_prescribed = excluded.emom_rounds_prescribed,
         raw_lap_data_json   = coalesce(excluded.raw_lap_data_json, segment_executions.raw_lap_data_json),
         source              = coalesce(excluded.source, segment_executions.source),
         -- Effort context is server-DERIVED, so a re-sync recomputes it: the

@@ -74,6 +74,8 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     avg_hr: null,
     max_hr: null,
     calories: null,
+    emom_rounds_completed: null,
+    emom_rounds_prescribed: null,
     incline_pct: null,
     run_cadence_spm: null,
     drag_factor: null,
