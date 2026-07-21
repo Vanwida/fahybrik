@@ -124,6 +124,8 @@ struct ProfileView: View {
                         strengthCard
 
                         SectionHeader(title: "Entreno")
+                        trainingDaysCard
+                        injuriesCard
                         audioCoachCard
 
                         SectionHeader(title: "Dispositivos")
@@ -1034,6 +1036,44 @@ struct ProfileView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle), \(statusText)")
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Entreno self-service (#47 días de entreno · #16 molestias)
+
+    /// "Mis días de entreno" — the athlete picks which days they train and how the
+    /// week is distributed (#47). Pushed; the availability screen owns its own
+    /// loading / states. Built by TrainingDaysView (sibling feature).
+    private var trainingDaysCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                TrainingDaysView(bearer: bearer)
+            } label: {
+                profileRowContent(
+                    icon: "calendar",
+                    title: "Mis días de entreno",
+                    subtitle: "Elige qué días entrenas y cómo se reparte tu semana"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// "Molestias y lesiones" — the athlete self-reports an injury and follows its
+    /// evolution with the coach (#16). Pushed; passes the agnostic coach name so
+    /// the report/timeline copy addresses the real coach, never a hardcoded name.
+    private var injuriesCard: some View {
+        CardSurface(padding: 0) {
+            NavigationLink {
+                InjuriesView(bearer: bearer, coachName: coachName)
+            } label: {
+                profileRowContent(
+                    icon: "bandage.fill",
+                    title: "Molestias y lesiones",
+                    subtitle: "Reporta una molestia y sigue su evolución con tu coach"
+                )
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Audio coaching (#63)
