@@ -108,8 +108,14 @@ struct AppRoot: View {
                             // Demo athlete lands authenticated (seeded onboarded).
                             // Reuses the real session path; access gate + push
                             // wire up exactly as a normal sign-in.
+                            // DEBUG-ONLY body: `acceptDemoSession` is stripped from
+                            // Release, so its only reference is gated here too. In a
+                            // Release build this closure is inert — the demo entry UI
+                            // that would fire it is itself DEBUG-only.
+                            #if DEBUG
                             auth.acceptDemoSession(bearer: bearer, athleteId: athleteId)
                             startPush()
+                            #endif
                         }
                     )
                 case .onboarding, .authenticated:

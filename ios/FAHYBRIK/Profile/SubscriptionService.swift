@@ -90,10 +90,17 @@ struct SubscriptionInfo: Codable, Equatable {
     let currentPeriodEnd: String?
     let cancelAtPeriodEnd: Bool
 
+    // The app decodes with a GLOBAL `.convertFromSnakeCase` (APIClient.makeJSONDecoder),
+    // which rewrites the wire key `plan_type` → `planType` BEFORE CodingKey lookup.
+    // Pinning `planType = "plan_type"` made decodeIfPresent look up the RAW snake_case
+    // spelling the converter had already renamed, so it missed and `planType` decoded
+    // nil EVERY time (a `pro_elite` athlete showed "Individual"; Dobles-without-partner
+    // was misclassified). Let the synthesized key match the converted spelling — every
+    // other field here already equals its converted form.
     private enum CodingKeys: String, CodingKey {
         case subscribed, status
         case planLabel, currentPeriodEnd, cancelAtPeriodEnd
-        case planType = "plan_type"
+        case planType
     }
 
     init(from decoder: Decoder) throws {

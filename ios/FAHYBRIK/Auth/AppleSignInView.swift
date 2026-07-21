@@ -11,7 +11,9 @@ struct AppleSignInView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var error: String?
     @State private var inProgress: Bool = false
+    #if DEBUG
     @State private var showDemo: Bool = false
+    #endif
     /// Presents the passwordless email-code login — the universal path for an
     /// athlete whose Apple ID doesn't match their enrolment email.
     @State private var showEmail: Bool = false
@@ -125,12 +127,15 @@ struct AppleSignInView: View {
                 // the demo build flag is on; the backend additionally 404s the
                 // mint endpoint off-demo, so the picker degrades to an honest
                 // "demo no disponible" even if the button is ever shown.
+                // DEBUG-ONLY: never compiled into a Release / App Store build.
+                #if DEBUG
                 if DemoEntry.isEnabled, onDemoSession != nil {
                     Button("Entrar como atleta demo") { showDemo = true }
                         .font(Theme.Typography.small)
                         .foregroundStyle(Theme.Color.muted)
                         .padding(.top, Theme.Spacing.xs)
                 }
+                #endif
 
                 LegalAcknowledgementText()
                     .padding(.horizontal, Theme.Spacing.xl)
@@ -147,12 +152,14 @@ struct AppleSignInView: View {
                 onClose: { showEmail = false }
             )
         }
+        #if DEBUG
         .sheet(isPresented: $showDemo) {
             DemoSignInView { bearer, athleteId in
                 showDemo = false
                 onDemoSession?(bearer, athleteId)
             }
         }
+        #endif
         .fullScreenCover(isPresented: $showNoAccount) {
             NoAccountView { showNoAccount = false }
         }
@@ -210,23 +217,22 @@ struct NoAccountView: View {
     }
 }
 
-// Gates the additive demo-entry button. Reads the optional Info.plist key
-// `FahybrikDemoEntry` ("1" → on, "0" → off); absent → on in DEBUG, off in
-// Release. This is a UX gate only — the real security gate is server-side
-// (the mint endpoint 404s unless DEMO_ACCESS=1), so a stray button can never
-// grant access on its own.
+// Gates the additive demo-entry button. DEBUG-ONLY — the whole enum is stripped
+// from Release along with the rest of the demo path, so the real security gate
+// (server-side: the mint endpoint 404s unless DEMO_ACCESS=1) is never even
+// reachable in the App Store binary. Reads the optional Info.plist key
+// `FahybrikDemoEntry` ("1" → on, "0" → off); absent → on (this only ever
+// compiles in DEBUG).
+#if DEBUG
 enum DemoEntry {
     static var isEnabled: Bool {
         if let raw = Bundle.main.object(forInfoDictionaryKey: "FahybrikDemoEntry") as? String {
             return raw == "1"
         }
-        #if DEBUG
         return true
-        #else
-        return false
-        #endif
     }
 }
+#endif
 
 private struct LegalAcknowledgementText: View {
     private static let privacyURL = URL(string: "https://fahybrid.com/privacy")!

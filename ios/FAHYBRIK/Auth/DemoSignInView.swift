@@ -5,6 +5,11 @@ import SwiftUI
 // athlete's Bearer via DemoAuthService → hand the session up so AppRoot seats
 // it exactly like a real sign-in. Honest states: per-slot loading, a clean
 // "demo no disponible" when the flag is off, and a network-error line.
+//
+// DEBUG-ONLY: excluded from Release builds so the demo entry UI never ships in
+// the App Store binary. Its only call-site (the demo button + sheet in
+// AppleSignInView) is likewise `#if DEBUG`-gated.
+#if DEBUG
 struct DemoSignInView: View {
     /// Called once a demo session is minted. Carries the athlete bearer + id so
     /// the host can route them through `AuthState.acceptDemoSession`.
@@ -109,3 +114,4 @@ struct DemoSignInView: View {
         }
     }
 }
+#endif

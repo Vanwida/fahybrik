@@ -7,7 +7,7 @@ enum APIBase {
            let u = URL(string: s) {
             return u
         }
-        return URL(string: "https://fahybrik-web.vercel.app")!
+        return URL(string: "https://app.fahybrid.com")!
     }
 }
 

@@ -79,6 +79,10 @@ final class AuthState {
     /// `accessGated = nil` re-derives the invite-only gate from the subscription
     /// endpoint just like a real session (the demo athlete carries an active
     /// comp subscription, so it resolves ungated).
+    /// DEBUG-ONLY: stripped from Release so no demo session path ships in the
+    /// App Store binary. Its only caller (AppRoot's onDemoSession closure) gates
+    /// this reference behind `#if DEBUG` too.
+    #if DEBUG
     func acceptDemoSession(bearer: String, athleteId: String) {
         self.bearer = bearer
         self.athleteId = athleteId
@@ -87,6 +91,7 @@ final class AuthState {
         loadDay1()
         persist()
     }
+    #endif
 
     func finishOnboarding() {
         stage = .authenticated

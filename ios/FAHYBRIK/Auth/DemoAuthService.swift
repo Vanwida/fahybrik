@@ -20,6 +20,12 @@ import Foundation
 //
 // snake_case JSON ⇄ camelCase Swift handled by APIClient's
 // convertFromSnakeCase / convertToSnakeCase strategies.
+//
+// DEBUG-ONLY: the entire demo auth path is stripped from Release builds so the
+// App Store binary never carries a demo sign-in path (Release has no DEBUG
+// compilation condition — see project.yml). Every reference to this symbol is
+// likewise `#if DEBUG`-gated.
+#if DEBUG
 enum DemoAuthService {
     static let path = "/api/demo/athlete-bearer"
 
@@ -70,3 +76,4 @@ enum DemoAuthService {
         }
     }
 }
+#endif
