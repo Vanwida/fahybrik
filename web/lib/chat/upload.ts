@@ -150,9 +150,24 @@ export const ATTACHMENT_PROXY_PREFIX = '/api/chat/attachments/';
  * URL because `sendMessageSchema.attachment_url` requires `.url()`.
  */
 export function attachmentProxyUrl(pathname: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'http://localhost:3000';
   const encoded = pathname.split('/').map(encodeURIComponent).join('/');
-  return `${baseUrl}${ATTACHMENT_PROXY_PREFIX}${encoded}`;
+  return `${attachmentBaseUrl()}${ATTACHMENT_PROXY_PREFIX}${encoded}`;
+}
+
+/**
+ * The absolute origin the proxy URL is built on. `sendMessageSchema.attachment_url`
+ * requires `.url()`, so this MUST be a scheme-qualified absolute origin — a
+ * scheme-less env value (e.g. `NEXT_PUBLIC_APP_URL=app.fahybrid.com` without
+ * `https://`) would otherwise yield an invalid `attachment_url` and make EVERY
+ * attachment send fail validation (400). We normalise defensively: add `https://`
+ * when the configured value has no scheme, and strip any trailing slash so the
+ * prefix concatenation never doubles it. Dev falls back to localhost.
+ */
+function attachmentBaseUrl(): string {
+  const configured = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? '').trim();
+  if (!configured) return 'http://localhost:3000';
+  const withScheme = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
+  return withScheme.replace(/\/+$/, '');
 }
 
 /**

@@ -78,6 +78,11 @@ struct ChatView: View {
     /// Remote proxy URL once uploaded, so a retry after a failed SEND skips the
     /// (already-done) upload.
     @State private var uploadedURLs: [String: String] = [:]
+    /// A photo/video/file the athlete has PICKED but not yet sent — shown as a
+    /// pending preview in the composer (thumbnail + discard ✕ + send ↑). Nothing
+    /// is uploaded or sent until they tap send: picking never fires on its own.
+    /// (Voice keeps its own in-sheet record→preview→send flow.)
+    @State private var composerAttachment: ChatPickedAttachment? = nil
 
     enum AttachmentSheet: Identifiable {
         case voice, cameraPhoto, cameraVideo, library, document
@@ -107,7 +112,10 @@ struct ChatView: View {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(displayMessages) { msg in
                                     MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach",
-                                               bearer: bearer, onRetry: { retry(msg.id) })
+                                               bearer: bearer,
+                                               onRetry: { retry(msg.id) },
+                                               onDiscard: { discard(msg.id) },
+                                               onDelete: { deleteSentMessage(msg.id) })
                                         .id(msg.id)
                                 }
                             }
@@ -189,9 +197,35 @@ struct ChatView: View {
         }
     }
 
-    /// A picker/camera handed back an attachment — dismiss the sheet and send it.
+    /// A picker/camera handed back an attachment — dismiss the sheet and park it
+    /// as a PENDING preview in the composer. NOTHING is sent until the athlete
+    /// taps send (review-then-send, matching the voice flow) — this is the safety
+    /// fix: picking a photo no longer fires it off to the coach on its own.
     private func handlePicked(_ picked: ChatPickedAttachment) {
         activeSheet = nil
+        // Replacing an earlier pending pick? Clean its temp file so we don't leak.
+        if let prior = composerAttachment, prior.localURL != picked.localURL {
+            try? FileManager.default.removeItem(at: prior.localURL)
+        }
+        composerAttachment = picked
+        inputFocused = false
+        Haptics.light()
+    }
+
+    /// Discard the pending (not-yet-sent) attachment and delete its temp file.
+    private func discardComposerAttachment() {
+        if let picked = composerAttachment {
+            try? FileManager.default.removeItem(at: picked.localURL)
+        }
+        composerAttachment = nil
+        Haptics.light()
+    }
+
+    /// Send the pending attachment now (the composer's send ↑). Clears the
+    /// preview, then runs the normal optimistic upload→send.
+    private func sendComposerAttachment() {
+        guard let picked = composerAttachment else { return }
+        composerAttachment = nil
         sendAttachment(picked)
     }
 
@@ -494,6 +528,39 @@ struct ChatView: View {
         }
     }
 
+    /// Discard a FAILED / un-sent local message instead of retrying it: drop the
+    /// row and clean up any retained attachment file. Never touches the network —
+    /// nothing was ever persisted server-side, so there's nothing to delete.
+    @MainActor
+    private func discard(_ localId: String) {
+        if let picked = pendingAttachments[localId] {
+            try? FileManager.default.removeItem(at: picked.localURL)
+        }
+        pendingAttachments[localId] = nil
+        uploadedURLs[localId] = nil
+        messages.removeAll { $0.id == localId }
+        Haptics.light()
+    }
+
+    /// Delete one of the athlete's OWN sent messages. Removes it optimistically
+    /// (locally + from the cache) then soft-deletes it server-side, author-scoped.
+    /// On failure we re-sync so the message reappears rather than silently
+    /// vanishing on this device while still living for the coach.
+    @MainActor
+    private func deleteSentMessage(_ id: String) {
+        guard let bearer else { return }
+        messages.removeAll { $0.id == id }
+        store.removeChatMessage(id: id)
+        Haptics.light()
+        Task {
+            do {
+                try await ChatService.deleteMessage(bearer: bearer, messageId: id)
+            } catch {
+                await refresh()
+            }
+        }
+    }
+
     // MARK: - Attachment send
 
     /// Send a captured/recorded/picked attachment. Guards the client-side size
@@ -762,7 +829,23 @@ struct ChatView: View {
     //
     // Composer: a pill text field + circular ORANGE send button, per the handoff.
     // Send glyph fills accent (enabled) / sunken (disabled). Wiring unchanged.
+    @ViewBuilder
     private var inputRow: some View {
+        Group {
+            if let picked = composerAttachment {
+                pendingAttachmentComposer(picked)
+            } else {
+                textComposer
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
+        .background(Theme.Color.background)
+    }
+
+    /// Normal composer: ＋ attach · text field · orange send ↑.
+    private var textComposer: some View {
         let canSend = !draft.trimmingCharacters(in: .whitespaces).isEmpty
         return HStack(spacing: 10) {
             Button {
@@ -808,10 +891,122 @@ struct ChatView: View {
             .disabled(!canSend)
             .accessibilityLabel("Enviar mensaje")
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 14)
-        .background(Theme.Color.background)
+    }
+
+    /// Pending-attachment composer: a preview of what's about to be sent, with a
+    /// discard ✕ and the orange send ↑. This is the "review then send" gate — the
+    /// attachment only leaves the device when the athlete taps send.
+    private func pendingAttachmentComposer(_ picked: ChatPickedAttachment) -> some View {
+        HStack(spacing: 10) {
+            PendingAttachmentPreview(picked: picked)
+            Spacer(minLength: 8)
+            Button(action: discardComposerAttachment) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.Color.surface)
+                    .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Descartar adjunto")
+
+            Button {
+                Haptics.light()
+                sendComposerAttachment()
+            } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.Color.accentOn)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.Color.accent)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Enviar adjunto")
+        }
+    }
+}
+
+// MARK: - Pending attachment preview (composer)
+
+/// Compact preview of a picked-but-not-yet-sent attachment: an image thumbnail,
+/// or a kind glyph for video/file/voice, plus a title + size/duration line.
+/// Purely presentational; the composer owns discard/send.
+private struct PendingAttachmentPreview: View {
+    let picked: ChatPickedAttachment
+    @State private var thumb: UIImage?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.Color.surfaceSunken)
+                    .frame(width: 44, height: 44)
+                if let thumb {
+                    Image(uiImage: thumb)
+                        .resizable().scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else {
+                    Image(systemName: glyph)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                }
+                if picked.kind == .video {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 20, height: 20)
+                        .background(.black.opacity(0.42))
+                        .clipShape(Circle())
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1).truncationMode(.middle)
+                Text(subtitle)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
+            }
+        }
+        .task(id: picked.localURL) { await loadThumb() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Adjunto listo para enviar: \(title)")
+    }
+
+    private var glyph: String {
+        switch picked.kind {
+        case .voice: return "waveform"
+        case .image: return "photo"
+        case .video: return "video.fill"
+        case .file:  return "doc.fill"
+        }
+    }
+
+    private var title: String {
+        switch picked.kind {
+        case .voice: return "Nota de voz"
+        case .image: return "Foto"
+        case .video: return "Vídeo"
+        case .file:  return picked.filename
+        }
+    }
+
+    private var subtitle: String {
+        if let seconds = picked.meta.durationSeconds { return DurationLabel.mmss(seconds) }
+        if picked.sizeBytes > 0 { return ByteCountLabel.format(picked.sizeBytes) }
+        return "Listo para enviar"
+    }
+
+    @MainActor
+    private func loadThumb() async {
+        guard picked.kind == .image else { return }
+        let path = picked.localURL.path
+        thumb = await Task.detached { UIImage(contentsOfFile: path) }.value
     }
 }
 
@@ -864,9 +1059,16 @@ private struct MessageRow: View {
     let bearer: String?
     /// AUDIT — invoked when a FAILED message is tapped, to resend it.
     var onRetry: (() -> Void)? = nil
+    /// Long-press action on a FAILED message: discard it (drop the un-sent row)
+    /// instead of retrying.
+    var onDiscard: (() -> Void)? = nil
+    /// Long-press action on the athlete's OWN sent message: delete it.
+    var onDelete: (() -> Void)? = nil
 
     private var isFailed: Bool { message.status == .failed }
     private var isMe: Bool { message.sender == .me }
+    /// The athlete may delete only their own, already-sent message.
+    private var canDelete: Bool { isMe && message.status == .sent }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -879,6 +1081,16 @@ private struct MessageRow: View {
                     .tracking(1.0)
                     .foregroundStyle(isFailed ? Theme.Color.danger : Theme.Color.faint)
             }
+            // Long-press menu: retry/discard a failed row, or delete your own sent
+            // message. Applied to the bubble column so the lifted preview is just
+            // the bubble (iMessage-style), never the full-width row.
+            .chatMessageActions(
+                isFailed: isFailed,
+                canDelete: canDelete,
+                onRetry: { onRetry?() },
+                onDiscard: { onDiscard?() },
+                onDelete: { onDelete?() }
+            )
 
             if message.sender == .coach { Spacer(minLength: 40) }
         }
@@ -951,6 +1163,32 @@ private extension View {
     func failedRowTap(_ active: Bool, action: @escaping () -> Void) -> some View {
         if active {
             self.contentShape(Rectangle()).onTapGesture(perform: action)
+        } else {
+            self
+        }
+    }
+
+    /// Long-press (context) menu for a message bubble. A FAILED row offers
+    /// Reintentar + Descartar; the athlete's OWN sent row offers Eliminar. Any
+    /// other row (coach's, still-sending) gets no menu, so the gesture never
+    /// swallows taps on healthy bubbles' inner controls.
+    @ViewBuilder
+    func chatMessageActions(
+        isFailed: Bool,
+        canDelete: Bool,
+        onRetry: @escaping () -> Void,
+        onDiscard: @escaping () -> Void,
+        onDelete: @escaping () -> Void
+    ) -> some View {
+        if isFailed {
+            self.contextMenu {
+                Button { onRetry() } label: { Label("Reintentar", systemImage: "arrow.clockwise") }
+                Button(role: .destructive) { onDiscard() } label: { Label("Descartar", systemImage: "trash") }
+            }
+        } else if canDelete {
+            self.contextMenu {
+                Button(role: .destructive) { onDelete() } label: { Label("Eliminar mensaje", systemImage: "trash") }
+            }
         } else {
             self
         }

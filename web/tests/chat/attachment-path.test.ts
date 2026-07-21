@@ -8,6 +8,7 @@ import {
   athleteIdFromPathname,
   attachmentProxyUrl,
 } from '@/lib/chat/upload';
+import { sendMessageSchema } from '@/lib/chat/schema';
 
 describe('athleteIdFromPathname (A3 ownership boundary)', () => {
   it('extracts the athlete_id from a well-formed pathname', () => {
@@ -51,5 +52,39 @@ describe('attachmentProxyUrl', () => {
   it('is a valid absolute URL (satisfies sendMessageSchema.url())', () => {
     const url = attachmentProxyUrl('chat/42/2026/05/abc.jpg');
     expect(() => new URL(url)).not.toThrow();
+  });
+
+  // Regression: a misconfigured prod env is the most likely cause of every
+  // attachment showing "no enviado" — a scheme-less base makes attachment_url
+  // fail sendMessageSchema.url() (400), which the iOS attachment path surfaces
+  // as a failed send. The builder must normalise so the send always validates.
+  const sendAccepts = (url: string) =>
+    sendMessageSchema.safeParse({ attachment_url: url, attachment_kind: 'image' }).success;
+
+  it('adds a scheme when NEXT_PUBLIC_APP_URL is set without one', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'app.fahybrid.com'; // no https://
+    const url = attachmentProxyUrl('chat/42/2026/05/abc.jpg');
+    expect(url).toBe(`https://app.fahybrid.com${ATTACHMENT_PROXY_PREFIX}chat/42/2026/05/abc.jpg`);
+    expect(() => new URL(url)).not.toThrow();
+    expect(sendAccepts(url)).toBe(true);
+  });
+
+  it('does not double the slash when the base has a trailing slash', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.fahybrid.com/';
+    const url = attachmentProxyUrl('chat/42/2026/05/abc.jpg');
+    expect(url).toBe(`https://app.fahybrid.com${ATTACHMENT_PROXY_PREFIX}chat/42/2026/05/abc.jpg`);
+    expect(sendAccepts(url)).toBe(true);
+  });
+
+  it('falls back to a valid localhost URL when the env is empty', () => {
+    process.env.NEXT_PUBLIC_APP_URL = '';
+    const url = attachmentProxyUrl('chat/42/2026/05/abc.jpg');
+    expect(() => new URL(url)).not.toThrow();
+    expect(sendAccepts(url)).toBe(true);
+  });
+
+  it('the well-formed prod URL is accepted by the send schema', () => {
+    const url = attachmentProxyUrl('chat/42/2026/05/abc.jpg');
+    expect(sendAccepts(url)).toBe(true);
   });
 });

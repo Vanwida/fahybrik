@@ -359,6 +359,18 @@ final class AppDataStore {
         persist()
     }
 
+    /// Drop a message from the cached history by id and persist — the athlete
+    /// deleted their own message (soft-deleted server-side) so it must not
+    /// reappear from the disk cache on the next open. No-op when absent.
+    func removeChatMessage(id: String) {
+        guard var list = chatMessages.value else { return }
+        let before = list.count
+        list.removeAll { $0.id == id }
+        guard list.count != before else { return }
+        chatMessages.setLoaded(list)
+        persist()
+    }
+
     func refreshPartner(force: Bool = false) async {
         await revalidate(get: { self.partner }, set: { self.partner = $0 }, force: force) {
             try await PartnerService.fetchEnvelope(bearer: $0)

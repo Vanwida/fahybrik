@@ -255,6 +255,20 @@ enum ChatService {
         }
     }
 
+    /// Delete one of the athlete's OWN messages (author-scoped soft delete). The
+    /// backend verifies the caller authored the message AND that it belongs to
+    /// their thread, so this can only ever remove the athlete's own message.
+    /// Throws on any non-2xx (caller restores on failure). `me` keeps the path
+    /// athlete-agnostic; the bearer identifies the author.
+    static func deleteMessage(bearer: String, messageId: String) async throws {
+        let encoded = messageId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? messageId
+        let _: Empty = try await APIClient.shared.delete(
+            path: "\(messagesPath)/\(encoded)",
+            body: Optional<Empty>.none,
+            bearer: bearer
+        )
+    }
+
     // MARK: - Real-time stream (SSE)
 
     /// Open the chat SSE stream and drive two callbacks:

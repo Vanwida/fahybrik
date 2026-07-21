@@ -197,6 +197,31 @@ export async function getMessageById(
   return rows[0] ? rowToMessageDto(rows[0]) : null;
 }
 
+// Author-scoped soft delete. Sets `deleted_at` ONLY when the message belongs to
+// `thread_id` AND was authored by `sender_user_id` (the caller) AND isn't already
+// deleted. Ownership is enforced in the WHERE clause, so a client can never
+// delete another author's message or reach into another thread. Returns true iff
+// a row was flagged. Soft (not hard) delete keeps history/audit intact; every
+// read path already filters `deleted_at is null`, so it drops from both sides.
+export async function softDeleteOwnMessage(args: {
+  sql: Sql;
+  thread_id: string | bigint;
+  message_id: string;
+  sender_user_id: bigint;
+}): Promise<boolean> {
+  const { sql, thread_id, message_id, sender_user_id } = args;
+  const rows = await sql<{ id: string }[]>`
+    update chat_messages
+       set deleted_at = now()
+     where id = ${message_id}::bigint
+       and thread_id = ${thread_id as unknown as string}::bigint
+       and sender_user_id = ${sender_user_id as unknown as number}
+       and deleted_at is null
+    returning id::text
+  `;
+  return rows.length > 0;
+}
+
 // Messages across a set of threads created strictly after `after` (a raw
 // Postgres timestamptz text cursor), oldest-first. Powers the SSE in-stream poll
 // fallback used when the LISTEN/NOTIFY transport is unavailable. The returned
