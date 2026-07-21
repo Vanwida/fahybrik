@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Chat tab — direct thread between the athlete and their coach (coach identity
 // is agnostic data, read from the chat thread payload — never hardcoded).
@@ -64,6 +65,27 @@ struct ChatView: View {
     // until a thread exists (brand-new athlete who hasn't messaged yet).
     @State private var subscribedThreadCount: Int = 0
 
+    // MARK: Attachments (voice / photo / video / file)
+    //
+    // Which media source the composer's "＋" menu is currently presenting.
+    @State private var showAttachMenu = false
+    @State private var activeSheet: AttachmentSheet? = nil
+    /// A friendly, dismissible error (over-limit, picker/encode failure).
+    @State private var attachmentError: String? = nil
+    /// The just-captured/recorded/picked attachment behind each optimistic row,
+    /// keyed by its local id — the retry + upload source (never in render state).
+    @State private var pendingAttachments: [String: ChatPickedAttachment] = [:]
+    /// Remote proxy URL once uploaded, so a retry after a failed SEND skips the
+    /// (already-done) upload.
+    @State private var uploadedURLs: [String: String] = [:]
+
+    enum AttachmentSheet: Identifiable {
+        case voice, cameraPhoto, cameraVideo, library, document
+        var id: Int { hashValue }
+    }
+
+    private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
+
     var body: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
@@ -85,7 +107,7 @@ struct ChatView: View {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(displayMessages) { msg in
                                     MessageRow(message: msg, coachLabel: coachFirstName ?? "Coach",
-                                               onRetry: { retry(msg.id) })
+                                               bearer: bearer, onRetry: { retry(msg.id) })
                                         .id(msg.id)
                                 }
                             }
@@ -114,6 +136,68 @@ struct ChatView: View {
             await loadInitial()
             await liveLoop()
         }
+        .confirmationDialog("Adjuntar", isPresented: $showAttachMenu, titleVisibility: .visible) {
+            Button("Grabar nota de voz") { activeSheet = .voice }
+            if cameraAvailable {
+                Button("Hacer una foto") { activeSheet = .cameraPhoto }
+                Button("Grabar vídeo") { activeSheet = .cameraVideo }
+            }
+            Button("Foto o vídeo de la galería") { activeSheet = .library }
+            Button("Archivo") { activeSheet = .document }
+            Button("Cancelar", role: .cancel) {}
+        }
+        .sheet(item: $activeSheet) { sheet in attachmentSheet(sheet) }
+        .alert("No se pudo adjuntar", isPresented: Binding(
+            get: { attachmentError != nil },
+            set: { if !$0 { attachmentError = nil } }
+        )) {
+            Button("Entendido", role: .cancel) { attachmentError = nil }
+        } message: {
+            Text(attachmentError ?? "")
+        }
+    }
+
+    // MARK: - Attachment sheets
+
+    @ViewBuilder
+    private func attachmentSheet(_ sheet: AttachmentSheet) -> some View {
+        switch sheet {
+        case .voice:
+            VoiceRecorderView(onSend: { picked in sendAttachment(picked) })
+        case .cameraPhoto:
+            ChatCameraPicker(mode: .photo,
+                             onPicked: { handlePicked($0) },
+                             onCancel: { activeSheet = nil },
+                             onError: { presentAttachmentError($0) })
+                .ignoresSafeArea()
+        case .cameraVideo:
+            ChatCameraPicker(mode: .video,
+                             onPicked: { handlePicked($0) },
+                             onCancel: { activeSheet = nil },
+                             onError: { presentAttachmentError($0) })
+                .ignoresSafeArea()
+        case .library:
+            ChatMediaLibraryPicker(onPicked: { handlePicked($0) },
+                                   onCancel: { activeSheet = nil },
+                                   onError: { presentAttachmentError($0) })
+                .ignoresSafeArea()
+        case .document:
+            ChatDocumentPicker(onPicked: { handlePicked($0) },
+                               onCancel: { activeSheet = nil },
+                               onError: { presentAttachmentError($0) })
+                .ignoresSafeArea()
+        }
+    }
+
+    /// A picker/camera handed back an attachment — dismiss the sheet and send it.
+    private func handlePicked(_ picked: ChatPickedAttachment) {
+        activeSheet = nil
+        sendAttachment(picked)
+    }
+
+    private func presentAttachmentError(_ message: String) {
+        activeSheet = nil
+        attachmentError = message
     }
 
     // MARK: - Data flow
@@ -242,10 +326,19 @@ struct ChatView: View {
     @MainActor
     private func reconcile(with dtos: [ChatMessageDTO]) {
         let serverMessages = dtos.map { mapDTO($0) }
+        let serverIds = Set(dtos.map { $0.id })
         let serverBodies = Set(dtos.compactMap { $0.body })
+        let serverAttachmentURLs = Set(dtos.compactMap { $0.attachmentUrl })
+        // Keep any still-optimistic local row the server hasn't echoed yet — by
+        // id, by text body, or (for attachments) by remote URL. A pending
+        // attachment mid-upload (no remote URL yet) is always kept so it never
+        // blinks out of the conversation.
         let pending = messages.filter { msg in
-            guard msg.status != .sent, case let .text(body) = msg.kind else { return false }
-            return !serverBodies.contains(body)
+            guard msg.status != .sent else { return false }
+            if serverIds.contains(msg.id) { return false }
+            if case let .text(body) = msg.kind { return !serverBodies.contains(body) }
+            if let url = msg.remoteAttachmentURL { return !serverAttachmentURLs.contains(url) }
+            return true
         }
         messages = serverMessages + pending
     }
@@ -274,6 +367,18 @@ struct ChatView: View {
                if case let .text(b) = msg.kind, msg.status != .sent { return b == body }
                return false
            }) {
+            if myUserId == nil {
+                myUserId = dto.senderUserId
+                UserDefaults.standard.set(dto.senderUserId, forKey: Self.myUserIdKey)
+            }
+            messages[localIdx] = mapDTO(dto, forcedSender: .me)
+            return
+        }
+        // Attachment echo of one of our own optimistic sends: match the un-sent
+        // local row by its (now-known) remote URL — the same-body dedup above has
+        // no text to key on for attachments. Kills the "optimistic + echo" double.
+        if let url = dto.attachmentUrl,
+           let localIdx = messages.firstIndex(where: { $0.status != .sent && $0.remoteAttachmentURL == url }) {
             if myUserId == nil {
                 myUserId = dto.senderUserId
                 UserDefaults.standard.set(dto.senderUserId, forKey: Self.myUserIdKey)
@@ -375,12 +480,124 @@ struct ChatView: View {
     }
 
     /// Tap-to-retry a failed message: flip it back to sending and redeliver.
+    /// Text redelivers the body; an attachment re-runs upload+send (or just
+    /// re-sends if the upload already succeeded).
     @MainActor
     private func retry(_ localId: String) {
+        guard let idx = messages.firstIndex(where: { $0.id == localId }) else { return }
+        if case let .text(body) = messages[idx].kind {
+            messages[idx].status = .sending
+            Task { await deliver(body: body, localId: localId) }
+        } else {
+            messages[idx].status = .sending
+            Task { await deliverAttachment(localId: localId) }
+        }
+    }
+
+    // MARK: - Attachment send
+
+    /// Send a captured/recorded/picked attachment. Guards the client-side size
+    /// limit first (friendly error, no wasted upload), then inserts an optimistic
+    /// bubble that previews the LOCAL file instantly and drives upload → send.
+    private func sendAttachment(_ picked: ChatPickedAttachment) {
+        guard ChatAttachmentLimits.withinLimit(kind: picked.kind, bytes: picked.sizeBytes) else {
+            Haptics.error()
+            attachmentError = ChatAttachmentLimits.overLimitMessage(for: picked.kind)
+            return
+        }
+        Haptics.light()
+        let localId = "local-\(UUID().uuidString)"
+        pendingAttachments[localId] = picked
+        let optimistic = ChatMessage(
+            id: localId,
+            sender: .me,
+            kind: attachmentKind(for: picked, source: ChatAttachmentSource(localURL: picked.localURL)),
+            timestamp: ChatMessage.todayLabel,
+            status: .pending
+        )
+        messages.append(optimistic)
+        Task { await deliverAttachment(localId: localId) }
+    }
+
+    @MainActor
+    private func deliverAttachment(localId: String) async {
+        guard let bearer, let picked = pendingAttachments[localId] else {
+            markFailed(localId: localId)
+            return
+        }
+        setStatus(localId, .sending)
+        do {
+            // 1. Upload (unless a prior attempt already did) — streams from the file.
+            let url: String
+            if let existing = uploadedURLs[localId] {
+                url = existing
+            } else {
+                let result = try await ChatService.uploadAttachment(
+                    bearer: bearer, kind: picked.kind, fileURL: picked.localURL,
+                    filename: picked.filename, mimeType: picked.mimeType
+                )
+                url = result.url
+                uploadedURLs[localId] = url
+                // Reflect the remote URL on the optimistic row (the dedup key for
+                // the SSE echo) and seed the loader so the server-echoed bubble
+                // resolves from our local file instead of re-downloading it.
+                setRemoteURL(localId, url)
+                await seedLoader(url: url, picked: picked)
+            }
+            // 2. Send the message referencing the uploaded blob.
+            let saved = try await ChatService.sendMessage(
+                bearer: bearer, body: nil, attachmentUrl: url,
+                attachmentKind: picked.kind, attachmentMeta: picked.meta
+            )
+            if myUserId == nil {
+                myUserId = saved.senderUserId
+                UserDefaults.standard.set(saved.senderUserId, forKey: Self.myUserIdKey)
+            }
+            messages.removeAll { $0.id == localId }
+            pendingAttachments[localId] = nil
+            uploadedURLs[localId] = nil
+            ingest(saved)
+            if subscribedThreadCount == 0 { streamEpoch += 1 }
+        } catch {
+            // Attachments never enter the blind offline replay queue: the URL only
+            // exists post-upload, and the raw-JSON replay can't re-upload the
+            // bytes. So ANY failure marks the row failed → tap-to-retry re-runs the
+            // (cheap, already-uploaded) send, or re-uploads from the retained file.
+            markFailed(localId: localId)
+        }
+    }
+
+    private func seedLoader(url: String, picked: ChatPickedAttachment) async {
+        await ChatMediaLoader.shared.seedLocalFile(remoteURL: url, localFileURL: picked.localURL)
+        if picked.kind == .image, let img = UIImage(contentsOfFile: picked.localURL.path) {
+            await ChatMediaLoader.shared.seedImage(remoteURL: url, image: img)
+        }
+    }
+
+    private func attachmentKind(for picked: ChatPickedAttachment, source: ChatAttachmentSource) -> ChatMessage.Kind {
+        switch picked.kind {
+        case .voice: return .voice(source: source, duration: picked.meta.durationSeconds)
+        case .image: return .image(source: source, aspect: picked.meta.aspectRatio)
+        case .video: return .video(source: source, duration: picked.meta.durationSeconds)
+        case .file:  return .file(source: source, name: picked.filename, sizeBytes: picked.sizeBytes)
+        }
+    }
+
+    @MainActor
+    private func setStatus(_ localId: String, _ status: ChatMessage.Status) {
+        if let idx = messages.firstIndex(where: { $0.id == localId }) { messages[idx].status = status }
+    }
+
+    /// Attach the uploaded remote URL to the optimistic row while KEEPING its
+    /// local file for instant preview.
+    @MainActor
+    private func setRemoteURL(_ localId: String, _ url: String) {
         guard let idx = messages.firstIndex(where: { $0.id == localId }),
-              case let .text(body) = messages[idx].kind else { return }
-        messages[idx].status = .sending
-        Task { await deliver(body: body, localId: localId) }
+              let picked = pendingAttachments[localId] else { return }
+        messages[idx].kind = attachmentKind(
+            for: picked,
+            source: ChatAttachmentSource(localURL: picked.localURL, remoteURL: url)
+        )
     }
 
     // MARK: - Sender attribution
@@ -399,24 +616,37 @@ struct ChatView: View {
     /// before `myUserId` is learned), sidestepping the cold-start race.
     private func mapDTO(_ dto: ChatMessageDTO, forcedSender: ChatMessage.Sender? = nil) -> ChatMessage {
         let sender: ChatMessage.Sender = forcedSender ?? (isMine(dto.senderUserId) ? .me : .coach)
-        let kind: ChatMessage.Kind
-        if dto.attachmentKind == "voice" {
-            kind = .voice(durationLabel: ChatView.voiceDurationLabel(from: dto))
-        } else {
-            kind = .text(dto.body ?? "")
-        }
         return ChatMessage(
             id: dto.id,
             sender: sender,
-            kind: kind,
+            kind: ChatView.kind(from: dto),
             timestamp: ChatView.relativeLabel(for: dto.createdAt),
             status: .sent
         )
     }
 
-    private static func voiceDurationLabel(from dto: ChatMessageDTO) -> String {
-        // Voice metadata isn't decoded into the DTO yet; show a neutral marker.
-        "audio"
+    /// Map a canonical DTO to a render kind. An attachment message (has a URL +
+    /// a recognised kind) renders its media from the authenticated remote source;
+    /// everything else is text. Voice/video duration + image aspect come from
+    /// `attachment_meta` (real now — no more "audio" placeholder).
+    private static func kind(from dto: ChatMessageDTO) -> ChatMessage.Kind {
+        guard let urlStr = dto.attachmentUrl,
+              let kindStr = dto.attachmentKind,
+              let kind = ChatAttachmentKind(rawValue: kindStr) else {
+            return .text(dto.body ?? "")
+        }
+        let source = ChatAttachmentSource(remoteURL: urlStr)
+        let meta = dto.attachmentMeta
+        switch kind {
+        case .voice: return .voice(source: source, duration: meta?.durationSeconds)
+        case .image: return .image(source: source, aspect: meta?.aspectRatio)
+        case .video: return .video(source: source, duration: meta?.durationSeconds)
+        case .file:  return .file(
+            source: source,
+            name: ChatAttachmentInfer.receivedFileName(remoteURLString: urlStr),
+            sizeBytes: meta?.sizeBytes
+        )
+        }
     }
 
     private static func relativeLabel(for date: Date) -> String {
@@ -535,6 +765,22 @@ struct ChatView: View {
     private var inputRow: some View {
         let canSend = !draft.trimmingCharacters(in: .whitespaces).isEmpty
         return HStack(spacing: 10) {
+            Button {
+                Haptics.light()
+                inputFocused = false
+                showAttachMenu = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.Color.surface)
+                    .overlay(Circle().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityLabel("Adjuntar")
+
             TextField("", text: $draft, prompt: Text("Mensaje…").foregroundColor(Theme.Color.faint))
                 .focused($inputFocused)
                 .scaledFont(14, relativeTo: .subheadline)
@@ -575,18 +821,34 @@ private struct ChatMessage: Identifiable {
     enum Sender { case me, coach }
     enum Kind {
         case text(String)
-        case voice(durationLabel: String)
+        case voice(source: ChatAttachmentSource, duration: Double?)
+        case image(source: ChatAttachmentSource, aspect: Double?)
+        case video(source: ChatAttachmentSource, duration: Double?)
+        case file(source: ChatAttachmentSource, name: String, sizeBytes: Int?)
     }
     enum Status: Equatable { case sent, pending, sending, failed }
 
     let id: String
     let sender: Sender
-    let kind: Kind
+    // `var` so the optimistic row can gain its remote URL after upload.
+    var kind: Kind
     let timestamp: String
     var status: Status
 
     static let todayLabel = "hoy"
     static let yesterdayLabel = "ayer"
+
+    /// The remote (proxy) URL of this message's attachment, if any — the dedup
+    /// key that matches an SSE echo of our own attachment to its optimistic row.
+    var remoteAttachmentURL: String? {
+        switch kind {
+        case .text: return nil
+        case .voice(let s, _), .image(let s, _), .video(let s, _): return s.remoteURL
+        case .file(let s, _, _): return s.remoteURL
+        }
+    }
+
+    var isText: Bool { if case .text = kind { return true }; return false }
 }
 
 // MARK: - Message row
@@ -597,16 +859,20 @@ private struct MessageRow: View {
     /// parent from the chat thread payload, with a neutral fallback. The meta
     /// line lowercases it; VoiceOver uses it as-is.
     let coachLabel: String
+    /// Athlete bearer — attachment bubbles need it to load remote media through
+    /// the authenticated proxy.
+    let bearer: String?
     /// AUDIT — invoked when a FAILED message is tapped, to resend it.
     var onRetry: (() -> Void)? = nil
 
     private var isFailed: Bool { message.status == .failed }
+    private var isMe: Bool { message.sender == .me }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            if message.sender == .me { Spacer(minLength: 40) }
+            if isMe { Spacer(minLength: 40) }
 
-            VStack(alignment: message.sender == .me ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
                 bubble
                 Text(metaLabel)
                     .font(.system(size: 9, design: .monospaced))
@@ -616,18 +882,18 @@ private struct MessageRow: View {
 
             if message.sender == .coach { Spacer(minLength: 40) }
         }
-        // A failed message is tap-to-retry; other statuses ignore the tap.
-        .contentShape(Rectangle())
-        .onTapGesture { if isFailed { onRetry?() } }
-        // Read the whole row as one coherent VoiceOver element instead of
-        // "meta, text" fragments. Voice notes set their own label on `bubble`.
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(voiceOverLabel)
-        .accessibilityHint(isFailed ? "No enviado. Toca dos veces para reintentar." : "")
+        // A failed message is tap-to-retry across the whole row. Non-failed rows
+        // add NO row-level gesture, so the interactive bubbles (play / open /
+        // zoom) receive taps cleanly.
+        .failedRowTap(isFailed) { onRetry?() }
+        // Text reads as one combined VoiceOver element; attachment rows keep their
+        // children individually reachable (the play / open buttons).
+        .modifier(RowAccessibility(isText: message.isText, label: voiceOverLabel,
+                                   hint: isFailed ? "No enviado. Toca dos veces para reintentar." : ""))
     }
 
     private var metaLabel: String {
-        let who = message.sender == .me ? "tú" : coachLabel.lowercased()
+        let who = isMe ? "tú" : coachLabel.lowercased()
         switch message.status {
         case .sending: return "enviando… · \(who)"
         case .failed:  return "no enviado · toca para reintentar"
@@ -635,14 +901,18 @@ private struct MessageRow: View {
         }
     }
 
-    /// Coherent VoiceOver summary: who, when, and the message content.
+    /// Coherent VoiceOver summary for text rows (attachment rows label their own
+    /// bubbles).
     private var voiceOverLabel: String {
-        let who = message.sender == .me ? "Tú" : coachLabel
+        let who = isMe ? "Tú" : coachLabel
         switch message.kind {
-        case .text(let body):
-            return "\(who), \(message.timestamp): \(body)"
-        case .voice(let duration):
-            return "\(who), \(message.timestamp): nota de voz, \(duration)"
+        case .text(let body): return "\(who), \(message.timestamp): \(body)"
+        case .voice(_, let d):
+            let dur = d.map { ", \(DurationLabel.mmss($0))" } ?? ""
+            return "\(who), \(message.timestamp): nota de voz\(dur)"
+        case .image: return "\(who), \(message.timestamp): foto"
+        case .video: return "\(who), \(message.timestamp): vídeo"
+        case .file(_, let name, _): return "\(who), \(message.timestamp): archivo \(name)"
         }
     }
 
@@ -652,90 +922,55 @@ private struct MessageRow: View {
         case .text(let body):
             Text(body)
                 .scaledFont(14, relativeTo: .footnote)
-                .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.foreground)
+                .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.foreground)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 10)
-                .background(message.sender == .me ? Theme.Color.accent : Theme.Color.surface)
-                .overlay {
-                    // Received bubbles get a hairline seam (handoff `#283341`
-                    // border); sent bubbles are a solid orange fill, no border.
-                    if message.sender == .coach {
-                        BubbleShape(isMe: false).stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                    }
-                }
-                .clipShape(BubbleShape(isMe: message.sender == .me))
-                .frame(maxWidth: 280, alignment: message.sender == .me ? .trailing : .leading)
+                .chatBubbleSurface(isMe: isMe)
+                .frame(maxWidth: 280, alignment: isMe ? .trailing : .leading)
                 .opacity(message.status == .sent ? 1 : 0.6)
-        case .voice(let durationLabel):
-            HStack(spacing: 8) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.accentText)
-                Waveform(filledColor: message.sender == .me ? Theme.Color.accentOn : Theme.Color.foreground)
-                    .frame(width: 90, height: 18)
-                Text(durationLabel)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(message.sender == .me ? Theme.Color.accentOn : Theme.Color.muted)
-            }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 10)
-            .background(message.sender == .me ? Theme.Color.accent : Theme.Color.surface)
-            .overlay {
-                if message.sender == .coach {
-                    BubbleShape(isMe: false).stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                }
-            }
-            .clipShape(BubbleShape(isMe: message.sender == .me))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Nota de voz, \(durationLabel)")
+        case .voice(let source, let duration):
+            ChatVoiceBubble(isMe: isMe, source: source, metaDuration: duration, bearer: bearer)
+                .opacity(message.status == .sent ? 1 : 0.85)
+        case .image(let source, let aspect):
+            ChatImageBubble(isMe: isMe, source: source, aspect: aspect, bearer: bearer)
+                .opacity(message.status == .sent ? 1 : 0.85)
+        case .video(let source, let duration):
+            ChatVideoBubble(isMe: isMe, source: source, metaDuration: duration, bearer: bearer)
+                .opacity(message.status == .sent ? 1 : 0.85)
+        case .file(let source, let name, let sizeBytes):
+            ChatFileBubble(isMe: isMe, source: source, name: name, sizeBytes: sizeBytes, bearer: bearer)
+                .opacity(message.status == .sent ? 1 : 0.85)
         }
     }
 }
 
-private struct Waveform: View {
-    let filledColor: Color
-    private static let bars: [CGFloat] = [0.32, 0.55, 0.82, 0.65, 0.42, 0.74, 0.52, 0.88, 0.62, 0.45, 0.72, 0.55]
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(Array(Self.bars.enumerated()), id: \.offset) { _, h in
-                Capsule()
-                    .fill(filledColor.opacity(0.85))
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-                    .scaleEffect(y: h, anchor: .center)
-            }
+/// Applies the row-level tap only when the message failed, so a healthy row's
+/// inner buttons (play / open / zoom) aren't intercepted.
+private extension View {
+    @ViewBuilder
+    func failedRowTap(_ active: Bool, action: @escaping () -> Void) -> some View {
+        if active {
+            self.contentShape(Rectangle()).onTapGesture(perform: action)
+        } else {
+            self
         }
     }
 }
 
-// Asymmetric bubble matching the handoff: the "tail" corner is the TOP corner
-// on the speaker's side — received = top-leading flattened (4pt), sent =
-// top-trailing flattened (4pt). All other corners 14pt.
-private struct BubbleShape: Shape {
-    let isMe: Bool
-    func path(in rect: CGRect) -> Path {
-        let radius: CGFloat = 14
-        let small: CGFloat = 4
-        let topLeft     = isMe ? radius : small
-        let topRight    = isMe ? small  : radius
-        let bottomLeft  = radius
-        let bottomRight = radius
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX + topLeft, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX - topRight, y: rect.minY))
-        p.addArc(center: CGPoint(x: rect.maxX - topRight, y: rect.minY + topRight),
-                 radius: topRight, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottomRight))
-        p.addArc(center: CGPoint(x: rect.maxX - bottomRight, y: rect.maxY - bottomRight),
-                 radius: bottomRight, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-        p.addLine(to: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY))
-        p.addArc(center: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY - bottomLeft),
-                 radius: bottomLeft, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + topLeft))
-        p.addArc(center: CGPoint(x: rect.minX + topLeft, y: rect.minY + topLeft),
-                 radius: topLeft, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        p.closeSubpath()
-        return p
+/// Text rows combine into one VoiceOver element; attachment rows stay `.contain`
+/// so their bubble's own controls remain individually accessible.
+private struct RowAccessibility: ViewModifier {
+    let isText: Bool
+    let label: String
+    let hint: String
+    func body(content: Content) -> some View {
+        if isText {
+            content
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(label)
+                .accessibilityHint(hint)
+        } else {
+            content.accessibilityElement(children: .contain)
+        }
     }
 }

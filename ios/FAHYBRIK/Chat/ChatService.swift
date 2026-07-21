@@ -37,6 +37,10 @@ struct ChatMessageDTO: Codable, Identifiable, Equatable {
     let body: String?
     let attachmentUrl: String?
     let attachmentKind: String?
+    /// Attachment metadata (duration/size/mime/dimensions). Optional + all-optional
+    /// fields, so it decodes both off the wire (snake_case) and from the disk cache
+    /// (camelCase) — see ChatAttachmentMeta. Absent on text-only messages.
+    let attachmentMeta: ChatAttachmentMeta?
     let createdAt: Date
     let readAt: Date?
     let editedAt: Date?
@@ -85,8 +89,25 @@ private struct SendResponse: Decodable {
     let message: ChatMessageDTO
 }
 
+// Mirrors sendMessageSchema (web/lib/chat/schema.ts): body OR attachment_url
+// required; attachment_kind required when attachment_url is present. Nil fields
+// are omitted by the synthesized encoder (encodeIfPresent), so a text send emits
+// just `body` and an attachment send emits `attachment_url/kind/meta`. The
+// APIClient encoder's convertToSnakeCase maps every key (incl. nested meta:
+// durationMs→duration_ms) to the wire shape.
 private struct SendBody: Encodable {
-    let body: String
+    let body: String?
+    let attachmentUrl: String?
+    let attachmentKind: String?
+    let attachmentMeta: ChatAttachmentMeta?
+}
+
+// POST /api/chat/upload response — { url, mime_type, size_bytes, kind }.
+struct ChatUploadResult: Decodable, Equatable {
+    let url: String
+    let mimeType: String
+    let sizeBytes: Int
+    let kind: String
 }
 
 private struct ReadBody: Encodable {
@@ -100,6 +121,8 @@ enum ChatService {
     private static let messagesPath = "/api/chat/threads/me/messages"
     private static let readPath = "/api/chat/threads/me/read"
     private static let threadsPath = "/api/chat/threads"
+    // Multipart attachment upload — returns a proxy URL the message then references.
+    private static let uploadPath = "/api/chat/upload"
     // Server-Sent Events feed of new messages for the calling principal. The
     // athlete subscribes to their single thread; the server emits one
     // `event: message` per new message (same MessageDTO shape as the REST list)
@@ -124,24 +147,99 @@ enum ChatService {
         return resp.messages.sorted { $0.createdAt < $1.createdAt }
     }
 
-    /// Send a text message. Returns the persisted DTO (carries the real id +
-    /// server timestamp + the athlete's own senderUserId).
-    static func sendMessage(bearer: String, body: String) async throws -> ChatMessageDTO {
+    /// Send a message — text and/or an already-uploaded attachment. Returns the
+    /// persisted DTO (real id + server timestamp + the athlete's own
+    /// senderUserId). For an attachment, pass the `attachment_url` returned by
+    /// `uploadAttachment` plus its kind + meta; body may be nil.
+    static func sendMessage(
+        bearer: String,
+        body: String? = nil,
+        attachmentUrl: String? = nil,
+        attachmentKind: ChatAttachmentKind? = nil,
+        attachmentMeta: ChatAttachmentMeta? = nil
+    ) async throws -> ChatMessageDTO {
         let resp: SendResponse = try await APIClient.shared.post(
             path: messagesPath,
-            body: SendBody(body: body),
+            body: SendBody(
+                body: body,
+                attachmentUrl: attachmentUrl,
+                attachmentKind: attachmentKind?.rawValue,
+                attachmentMeta: attachmentMeta
+            ),
             bearer: bearer
         )
         return resp.message
     }
 
-    /// Encode the send body for the offline RequestQueue (snake_case to match
-    /// the backend Zod schema; the queue replays the raw bytes verbatim).
-    static func encodeSendBody(_ body: String) -> Data? {
-        try? JSONEncoder().encode(["body": body])
+    /// Upload an attachment file to /api/chat/upload (multipart: `file` + `kind`
+    /// + `filename`). The multipart envelope is written to a temp file and
+    /// STREAMED via `upload(for:fromFile:)`, so a 200 MB video is never buffered
+    /// in memory. Returns the proxy `url` + server-confirmed size/mime, which the
+    /// caller then references in `sendMessage`.
+    static func uploadAttachment(
+        bearer: String,
+        kind: ChatAttachmentKind,
+        fileURL: URL,
+        filename: String,
+        mimeType: String
+    ) async throws -> ChatUploadResult {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let bodyFile = try buildMultipartBodyFile(
+            boundary: boundary, kind: kind.rawValue,
+            filename: filename, mimeType: mimeType, payloadURL: fileURL
+        )
+        defer { try? FileManager.default.removeItem(at: bodyFile) }
+
+        var req = URLRequest(url: APIBase.url.appendingPathComponent(uploadPath))
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+
+        let (data, resp) = try await URLSession.shared.upload(for: req, fromFile: bodyFile)
+        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else { throw APIError.http(http.statusCode, data) }
+        return try uploadDecoder.decode(ChatUploadResult.self, from: data)
+    }
+
+    private static let uploadDecoder = APIClient.makeJSONDecoder()
+
+    /// Streams a `multipart/form-data` envelope to a temp file: the `kind` +
+    /// `filename` text fields, then the `file` part with the payload copied in
+    /// 1 MB chunks (never fully in memory). Caller uploads the returned file.
+    private static func buildMultipartBodyFile(
+        boundary: String, kind: String, filename: String, mimeType: String, payloadURL: URL
+    ) throws -> URL {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("chat-upload-\(UUID().uuidString).multipart")
+        FileManager.default.createFile(atPath: tmp.path, contents: nil)
+        let out = try FileHandle(forWritingTo: tmp)
+        defer { try? out.close() }
+
+        func write(_ s: String) throws { try out.write(contentsOf: Data(s.utf8)) }
+        // Quotes would break the Content-Disposition header.
+        let safeName = filename.replacingOccurrences(of: "\"", with: "")
+
+        try write("--\(boundary)\r\nContent-Disposition: form-data; name=\"kind\"\r\n\r\n\(kind)\r\n")
+        try write("--\(boundary)\r\nContent-Disposition: form-data; name=\"filename\"\r\n\r\n\(safeName)\r\n")
+        try write("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(safeName)\"\r\nContent-Type: \(mimeType)\r\n\r\n")
+
+        let reader = try FileHandle(forReadingFrom: payloadURL)
+        defer { try? reader.close() }
+        while let chunk = try reader.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+            try out.write(contentsOf: chunk)
+        }
+        try write("\r\n--\(boundary)--\r\n")
+        return tmp
     }
 
     static var sendPath: String { messagesPath }
+
+    /// Serialize a TEXT send for the offline replay queue (attachment sends aren't
+    /// queued — their bytes can't be re-uploaded blind). `{"body": "..."}` matches
+    /// sendMessageSchema directly; body needs no snake_case conversion.
+    static func encodeSendBody(_ body: String) -> Data? {
+        try? JSONEncoder().encode(["body": body])
+    }
 
     /// Mark all coach messages up to `messageId` read. Best-effort.
     /// (APIClient encodes with convertToSnakeCase → `up_to_message_id`.)
