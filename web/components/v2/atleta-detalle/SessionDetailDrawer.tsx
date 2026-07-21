@@ -74,6 +74,12 @@ function prescritoLine(item: AssignmentDetailItem): string {
 //    is implied by which pace field is non-null (run = /km, erg = /500m). ─────
 function actualTokens(a: SegmentActual): string[] {
   const t: string[] = [];
+  // EMOM completion (mig 0134): the segment's headline "hecho" — rounds the athlete
+  // hit the prescribed work in, over rounds prescribed. Both fields present ⇔ EMOM
+  // segment (both null off it), so guard on the pair — never a denominator-less ratio.
+  if (a.emom_rounds_completed != null && a.emom_rounds_prescribed != null) {
+    t.push(`${a.emom_rounds_completed}/${a.emom_rounds_prescribed} rondas`);
+  }
   if (a.reps_completed != null) t.push(`${a.reps_completed} reps`);
   if (a.weight_used_kg != null) t.push(`${round(a.weight_used_kg, 1)} kg`);
   if (a.distance_meters != null) t.push(`${round(a.distance_meters)} m`);
