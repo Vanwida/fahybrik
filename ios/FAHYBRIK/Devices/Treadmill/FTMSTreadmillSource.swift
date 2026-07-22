@@ -81,16 +81,29 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
             self.noteControlFacts()
             self.publishCapability()
         }
+        sequencer.onSpeedControlUnsupported = { [weak self] in
+            guard let self else { return }
+            // The belt cannot be told a speed (proven, not guessed): speed is now the
+            // athlete's on the console. A property of the MACHINE — remember it so a
+            // reconnect doesn't re-spam 0x02. Incline / read-back stay fully controllable.
+            self.learnedSpeedUnsupported = true
+            self.capability.canControlSpeed = false
+            self.noteControlFacts()
+            self.publishCapability()
+        }
     }
 
     /// Keep the shareable dump's header in step with what the control plane is doing —
     /// so "Compartir diagnóstico" always opens with the CURRENT mode, not the initial one.
     private func noteControlFacts() {
         diag.note(fact: "Familia", capability.profile.label)
+        diag.note(fact: "Velocidad por Bluetooth",
+                  capability.canControlSpeed ? "controlable desde la app"
+                                             : "NO soportada — manual en la consola")
         diag.note(fact: "Modo de control", "\(capability.strategy.rung) — \(capability.strategy.label)")
         diag.note(fact: "Bytes que enviaría a 6 km/h",
                   capability.strategy.wireHint.replacingOccurrences(of: "02 F4 01", with: "02 58 02"))
-        diag.note(fact: "Inclinación interpretada como", capability.inclineDialect.label)
+        diag.note(fact: "Inclinación codificada como", capability.inclineDialect.label)
     }
 
     func startScan() {
@@ -184,6 +197,7 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
             learnedProfile = .standard
             learnedStrategy = nil
             learnedInclineDialect = nil
+            learnedSpeedUnsupported = false
             learnedProfileFor = p.identifier
         }
         // Fresh machine → forget any prior machine's control state/capability. Control
@@ -225,7 +239,8 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         // second dead tap.
         sequencer.reset(profile: learnedProfile,
                         strategy: learnedStrategy,
-                        inclineDialect: learnedInclineDialect)
+                        inclineDialect: learnedInclineDialect,
+                        speedUnsupported: learnedSpeedUnsupported)
         capability.profile = sequencer.profile
         capability.strategy = sequencer.strategy
         capability.inclineDialect = sequencer.inclineDialect
@@ -237,6 +252,9 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     private var learnedProfile: FTMSControlProfile = .standard
     private var learnedStrategy: FTMSControlStrategy?
     private var learnedInclineDialect: FTMSInclineDialect?
+    /// The belt's firmware proved it cannot set a speed target — carried across reconnects to
+    /// the SAME machine so the honest manual state is instant, with no repeat 0x02 spam.
+    private var learnedSpeedUnsupported = false
     private var learnedProfileFor: DeviceID?
     /// Guards the Control Point CCCD grace timer against a stale fire after a reconnect.
     private var cccdGeneration = 0
@@ -348,7 +366,10 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
                 // controls off when it said none — which is how a lying firmware turned
                 // the app into a read-only display. The machine gets to refuse each
                 // command on its own merits; it does not get to refuse them all in advance.
-                capability.canControlSpeed = true
+                // Speed starts controllable UNLESS this exact machine already proved (last
+                // connection) it rejects 0x02 — then it opens straight into honest manual,
+                // no repeat spam. It re-proves itself on the wire otherwise.
+                capability.canControlSpeed = !learnedSpeedUnsupported
                 capability.canControlIncline = true
                 // ORDER MATTERS: the Control Point's CCCD must be configured BEFORE the
                 // first write, or the machine answers ATT "CCC Improperly Configured".

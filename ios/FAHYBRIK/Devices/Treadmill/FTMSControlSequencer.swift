@@ -56,6 +56,14 @@ enum FTMSControlTuning {
     /// plenty to keep a target the belt may have dropped). Never carries a Start (0x07), so
     /// it can NEVER restart a belt the athlete stopped — the safety line we do not cross.
     static let reassertIntervalSeconds: TimeInterval = 1.0
+    /// How many times Set Target Speed (0x02) may come back "Op Code Not Supported" before
+    /// we conclude the belt genuinely CANNOT be told a speed and hand speed control back to
+    /// the athlete's console. TWO, not one: a single stray rejection could be a transient,
+    /// but a firmware that truly lacks the op refuses EVERY time (his BH i.Concept TM2000
+    /// answered 0x02 on every attempt, belt running, speed never changing — remote speed is
+    /// impossible on that firmware; qdomyos-zwift can't do it either). Once proven, the
+    /// re-assert poll is pointless spam — we stop it.
+    static let speedNotSupportedThreshold = 2
     /// Belt speed this close to the target counts as "arrived".
     static let speedConvergenceToleranceKmh: Double = 0.3
     /// Belt speed moving at least this much TOWARD the target counts as "the machine is
@@ -86,6 +94,10 @@ final class FTMSControlSequencer {
     var onStrategyChange: ((FTMSControlStrategy) -> Void)?
     /// Fired when the incline interpretation changes.
     var onInclineDialectChange: ((FTMSInclineDialect) -> Void)?
+    /// Fired ONCE when Set Target Speed is proven unsupported (see `speedControlUnsupported`)
+    /// — the source flips the capability to speed-manual and the HUD swaps the stepper for an
+    /// honest read-only line. No prelude, no re-assert, no ladder fixes an op the belt lacks.
+    var onSpeedControlUnsupported: (() -> Void)?
 
     // MARK: - State
 
@@ -101,6 +113,15 @@ final class FTMSControlSequencer {
     private(set) var inclineDialect: FTMSInclineDialect = .grade
     private(set) var inclineDialectConfirmed = false
     private(set) var isInclineDialectPinned = false
+    /// Set Target Speed (0x02) is PROVEN unsupported on this belt — it answered "Op Code Not
+    /// Supported" `speedNotSupportedThreshold` times. Speed is then the athlete's to set on the
+    /// console: we stop the re-assert poll, never send another speed target on the routine
+    /// path, and the HUD shows the honest manual line. Incline and read-back are untouched.
+    /// A property of the MACHINE (its firmware), so it survives a reconnect via `reset`.
+    private(set) var speedControlUnsupported = false
+    private var speedNotSupportedCount = 0
+    /// The Set Target Speed request op code (0x02), for matching its acks.
+    private let setSpeedOpCode = FTMSControl.requestOpCode(for: .setTargetSpeedKmh(0))
     /// Whether the machine has GRANTED control (S2's once-per-grant bookkeeping).
     private(set) var hasControl = false
     /// The transport says writes may leave.
@@ -175,7 +196,8 @@ final class FTMSControlSequencer {
     /// machine is carried in by the transport (it belongs to the machine, not the link).
     func reset(profile newProfile: FTMSControlProfile = .standard,
                strategy learnedStrategy: FTMSControlStrategy? = nil,
-               inclineDialect learnedDialect: FTMSInclineDialect? = nil) {
+               inclineDialect learnedDialect: FTMSInclineDialect? = nil,
+               speedUnsupported learnedSpeedUnsupported: Bool = false) {
         queue.removeAll()
         inFlight = nil
         releaseGeneration += 1
@@ -185,6 +207,11 @@ final class FTMSControlSequencer {
         inclineVerificationGeneration += 1
         reassertGeneration += 1
         hasControl = false
+        // The firmware's inability to set speed belongs to the MACHINE, not the link —
+        // carrying it across a reconnect spares the athlete a second round of futile 0x02
+        // spam. The COUNT resets: if it were a fluke last time, it re-proves itself.
+        speedControlUnsupported = learnedSpeedUnsupported
+        speedNotSupportedCount = 0
         isTransportReady = false
         controlPointIndicates = true
         lastBeltSpeedKmh = 0
@@ -238,7 +265,13 @@ final class FTMSControlSequencer {
         // fire-and-forget and KEEP re-asserting the speed target on a poll — exactly like
         // qdomyos-zwift's update() loop — instead of sending once and waiting for an ack
         // that says "not supported" on a belt that actually obeys.
-        if firesAndForgets, case .setTargetSpeedKmh = command { startSpeedReassert() }
+        //
+        // BUT NOT once speed is proven unsupported: the routine UI won't send speed then
+        // (the stepper is gone), and a stray field-diagnosis test may write ONCE, but the
+        // forever-poll must never respin — that was the pure spam this whole pivot removes.
+        if firesAndForgets, !speedControlUnsupported, case .setTargetSpeedKmh = command {
+            startSpeedReassert()
+        }
     }
 
     // MARK: - Ignore-acks / re-assert model (i.Concept T01_ — matches qdomyos-zwift)
@@ -263,6 +296,7 @@ final class FTMSControlSequencer {
             guard let self,
                   self.reassertGeneration == generation,   // not superseded / not stopped
                   self.firesAndForgets,
+                  !self.speedControlUnsupported,            // speed proven manual → poll is dead
                   self.lastSpeedTargetKmh != nil,           // intent still alive (a stop clears it)
                   self.isTransportReady else { return }
             self.reassertSpeedTarget()
@@ -282,6 +316,26 @@ final class FTMSControlSequencer {
                    makeOp(.setTargetSpeedKmh(target), isPrelude: false, waitsForIndication: false, group: group)]
         log(String(format: "RE-ASERTO velocidad %.1f km/h (poll estilo QZ, sin arrancar)", target))
         enqueue(ops)
+    }
+
+    /// Tally a "Set Target Speed not supported" ack. Below the threshold we keep trying (one
+    /// could be transient); AT it we mark speed manual FOR GOOD: kill the re-assert poll,
+    /// forget the speed intent (no more 0x02 goes out on its own), and tell the source so the
+    /// HUD swaps the stepper for the honest "set it on the belt" line. Fires exactly once.
+    private func noteSpeedNotSupported() {
+        guard !speedControlUnsupported else { return }
+        speedNotSupportedCount += 1
+        log("La cinta contestó «no soportado» a fijar velocidad "
+            + "(\(speedNotSupportedCount)/\(FTMSControlTuning.speedNotSupportedThreshold))")
+        guard speedNotSupportedCount >= FTMSControlTuning.speedNotSupportedThreshold else { return }
+        speedControlUnsupported = true
+        // Kill the QZ re-assert poll and forget the target: nothing re-sends 0x02 now.
+        forgetSpeedIntent(reason: "la cinta no admite fijar velocidad por Bluetooth")
+        speedVerification = nil
+        speedVerificationGeneration += 1
+        log("VELOCIDAD → MANUAL: dejo de mandar y de re-asertar objetivos de velocidad. "
+            + "La inclinación y la lectura de datos siguen igual.")
+        onSpeedControlUnsupported?()
     }
 
     /// Programming the machine's own display (targeted distance / time). Best effort: a
@@ -334,9 +388,18 @@ final class FTMSControlSequencer {
         log("RX 0x80 ← \(Self.hexByte(resp.request)) \(FTMSControl.opName(resp.request)) = "
             + FTMSControl.resultName(resp.result))
 
-        // QZ MODEL: for the i.Concept family the ack is a LIE. Log it (above, for our eyes)
-        // and stop — it never gates control, never escalates a rung, never reaches the HUD.
-        // The belt obeys the write regardless; the poll re-assert keeps the target fresh.
+        // "Set Target Speed → Op Code Not Supported" is the ONE speed ack we DO trust, on
+        // EVERY family (counted BEFORE the i.Concept ack-drop below): no prelude, re-assert
+        // or ladder can conjure an op the firmware does not implement. A couple of these and
+        // we hand speed to the console for good.
+        if resp.request == setSpeedOpCode, resp.result == .notSupported {
+            noteSpeedNotSupported()
+        }
+
+        // QZ MODEL: for the i.Concept family the REST of the ack is a LIE. Log it (above, for
+        // our eyes) and stop — it never gates control, never escalates a rung, never reaches
+        // the HUD. The belt obeys other writes regardless; the poll re-assert keeps incline/
+        // targets fresh. (The speed-not-supported count above is the one exception it feeds.)
         if firesAndForgets { return }
 
         if resp.request == FTMSControl.requestOpCode(for: .requestControl) {

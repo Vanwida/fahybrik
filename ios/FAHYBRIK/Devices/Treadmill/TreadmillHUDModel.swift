@@ -228,8 +228,10 @@ final class TreadmillHUDModel {
         // in a different unit, and its bounds moved with it. Re-clamp so the stepper can
         // never sit outside the range it is now being read against.
         if dialectChanged { targetIncline = clampIncline(targetIncline) }
-        // A belt that just became controllable can be told what piece we're running.
+        // A belt that just became controllable can be told what piece we're running, and can
+        // be driven to the leg's prescribed incline (the one axis the T01_ actually obeys).
         programCurrentLegOnMachine()
+        applyPrescribedInclineToMachine()
     }
 
     // MARK: - Programming the PIECE onto the machine's own display
@@ -258,6 +260,26 @@ final class TreadmillHUDModel {
     }
     /// The leg whose goal we already pushed — so a 0.5 s tick can't spam the Control Point.
     private var programmedLegKey: String?
+
+    /// Drive the belt's INCLINE to the leg's PRESCRIBED grade, once per leg. This is the
+    /// honest capability model at work: on the T01_ the app cannot set speed, but it CAN set
+    /// incline, so when the coach prescribes one we apply it automatically (the treadmill twin
+    /// of matching the target pace). Only when a leg actually prescribes an incline (> 0) —
+    /// otherwise we LEAVE the belt where it is, never forcing it to flat. The athlete can
+    /// still nudge afterwards; a new leg with its own prescription re-applies.
+    private func applyPrescribedInclineToMachine() {
+        guard canControlIncline else { return }
+        let key = activeLegKey
+        guard !key.isEmpty, prescribedInclineLegKey != key else { return }
+        guard let pct = prescribedInclinePct, pct > 0 else { return }
+        prescribedInclineLegKey = key
+        // The prescription is a PERCENT. Both dialects speak percent (grade natively, the
+        // i.Concept via its internal table where level == %), so the same number drives both.
+        targetIncline = clampIncline(pct)
+        hub.sendTreadmill(inclineCommand)
+    }
+    /// The leg whose prescribed incline we already drove — one physical incline move per leg.
+    private var prescribedInclineLegKey: String?
 
     private func applyMachineEvent(_ event: TreadmillMachineEvent) {
         switch event {
@@ -302,9 +324,24 @@ final class TreadmillHUDModel {
     }
     private func round1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
 
+    // MARK: - Honest capability model (the two INDEPENDENT axes the HUD reads)
+
+    /// The belt lets the app drive BELT MOTION — target speed, start, stop. False on a
+    /// manual-speed machine (its Control Point rejected Set Target Speed as "not supported",
+    /// like the BH i.Concept T01_): the athlete sets speed and starts/stops on the console,
+    /// we read it. A machine that accepts 0x02 keeps the full speed stepper + START/STOP.
+    var canControlSpeed: Bool { controlCapability.canControl && controlCapability.canControlSpeed }
+    /// The app can drive INCLINE (independent of speed — the T01_ obeys 0x03 while rejecting
+    /// 0x02). Drives automatically when a leg prescribes an incline; the stepper stays live.
+    var canControlIncline: Bool { controlCapability.canControl && controlCapability.canControlIncline }
+    /// Connected and controllable, but SPEED is manual: show the honest one-line note and the
+    /// workout-flow controls instead of belt START/STOP. Distinct from a fully read-only belt
+    /// (no control point at all), which gets the broader "solo datos" note.
+    var speedIsManual: Bool { controlCapability.canControl && !controlCapability.canControlSpeed }
+
     /// Nudge the target belt speed by ±1 of the machine's own step (fallback 0.5 km/h).
     func nudgeSpeed(_ direction: Int) {
-        guard controlCapability.canControlSpeed else { return }
+        guard canControlSpeed else { return }
         let step = controlCapability.speed?.step ?? 0.5
         targetSpeedKmh = round1(clampSpeed(targetSpeedKmh + Double(direction) * step))
         Haptics.light()
@@ -312,9 +349,9 @@ final class TreadmillHUDModel {
     }
 
     func nudgeIncline(_ direction: Int) {
-        guard controlCapability.canControlIncline else { return }
+        guard canControlIncline else { return }
         if inclineIsLevel {
-            // The console has no sub-level detent — one tap is one LEVEL.
+            // The i.Concept moves in whole detents — one tap is one level, i.e. one percent.
             targetIncline = clampIncline((targetIncline + Double(direction) * FTMSInclineLevels.levelStep).rounded())
         } else {
             let step = controlCapability.incline?.step ?? 0.5
@@ -328,10 +365,12 @@ final class TreadmillHUDModel {
 
     // MARK: - Incline units (honest per machine family)
 
-    /// This belt reports and accepts incline as a console LEVEL, not a percent grade.
+    /// This belt encodes incline in the i.Concept internal 0–1000 units rather than 0.1 %
+    /// grade — still a PERCENT to the athlete (level == %), just in WHOLE-percent detents, so
+    /// the stepper moves 1 % per tap and shows no decimals.
     var inclineIsLevel: Bool { controlCapability.inclineIsLevel }
-    /// Stepper caption: "Nivel" where the machine has no notion of grade, "Inclinación"
-    /// where the FTMS field really is one. We never invent a percentage.
+    /// Stepper caption + unit — always "Inclinación" / "%": both encodings drive a percent
+    /// grade (the i.Concept level IS the percent), so we never hide it behind a bare "Nivel".
     var inclineControlLabel: String { controlCapability.inclineDialect.controlLabel }
     var inclineControlUnit: String { controlCapability.inclineDialect.controlUnit }
     var inclineControlValue: String {
@@ -392,7 +431,9 @@ final class TreadmillHUDModel {
     /// Begin the belt with a 3·2·1 so the athlete can position — the belt NEVER lurches
     /// into motion without warning. On zero it starts and ramps to the set target.
     func startBelt() {
-        guard controlCapability.canControl, startCountdown == nil, !beltMoving else { return }
+        // Only when the belt actually obeys start/speed. On a manual-speed machine START is
+        // hidden (the athlete starts it on the console) — this guard is the belt-and-suspenders.
+        guard canControlSpeed, startCountdown == nil, !beltMoving else { return }
         startCountdown = 3
         Haptics.medium()
         countdownTimer?.invalidate()
@@ -718,8 +759,10 @@ final class TreadmillHUDModel {
         snapshotLeg(activeLegKey)
         activeLegKey = key
         resetLegState()
-        // New tramo → tell the machine's own display what it is (best effort).
+        // New tramo → tell the machine's own display what it is (best effort), and drive the
+        // belt to this leg's prescribed incline if it has one (the axis the belt obeys).
         programCurrentLegOnMachine()
+        applyPrescribedInclineToMachine()
         // A new continuous-run leg → restart the coach's km-split cursor so splits
         // count from THIS leg's distance, not cumulatively across the workout (#63).
         if !isStructured, !isSeries, !currentLeg.isRecovery {

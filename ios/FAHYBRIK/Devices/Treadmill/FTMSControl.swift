@@ -101,6 +101,14 @@ enum TreadmillMachineEvent: Equatable {
 /// Every level is tabulated there — no interpolation between console detents — so we carry
 /// all fifteen anchors and match QZ byte-for-byte. The minimum meaningful step is ONE LEVEL;
 /// there is no sub-level resolution to offer the athlete.
+///
+/// LEVEL == PERCENT for this family. The fifteen levels correspond one-to-one to 1…15 %
+/// grade: the belt's own Supported Inclination Range (0x2AD5) reports 1.0–15.0 %, QZ stores
+/// these as its Inclination value (which it treats as % everywhere), and the anchor for
+/// level 1 (raw 60) is the ~1 % rung. So `raw(forLevel:)` doubles as "% → raw" and
+/// `level(forRaw:)` as "raw → %": feed it the prescribed percent, get the raw that reaches
+/// it. (Field caveat: the exact physical grade at each raw is calibrated from QZ + the
+/// machine's declared range, not a per-detent goniometer reading — see the level anchors.)
 enum FTMSInclineLevels {
     /// (console level, raw Inclination field value). Ordered by level, ascending.
     /// From qdomyos-zwift horizontreadmill.cpp: 0x3C→1, 0x82→2, 0xC8→3, 0x0104→4, 0x014A→5,

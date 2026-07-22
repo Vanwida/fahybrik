@@ -238,16 +238,17 @@ struct TreadmillHUDView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(spacing: 8) {
-                if model.controlCapability.canControl {
+                if model.canControlSpeed {
                     stepperCard(label: "Velocidad",
                                 value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
                                 down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
-                    if model.controlCapability.canControlIncline {
-                        stepperCard(label: model.inclineControlLabel,
-                                    value: model.inclineControlValue, unit: model.inclineControlUnit,
-                                    down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
-                    }
                 }
+                if model.canControlIncline {
+                    stepperCard(label: model.inclineControlLabel,
+                                value: model.inclineControlValue, unit: model.inclineControlUnit,
+                                down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
+                }
+                if model.speedIsManual { manualSpeedNote }
                 landscapeMetrics
                 landscapeBottomBar
             }
@@ -284,7 +285,7 @@ struct TreadmillHUDView: View {
     @ViewBuilder
     private var landscapeBottomBar: some View {
         HStack(spacing: 8) {
-            if model.controlCapability.canControl {
+            if model.canControlSpeed {
                 if model.beltMoving {
                     stopButton { model.stopBelt() }
                 } else {
@@ -304,15 +305,21 @@ struct TreadmillHUDView: View {
     @ViewBuilder
     private var controlPanel: some View {
         if model.controlCapability.canControl {
-            HStack(spacing: 8) {
-                stepperCard(label: "Velocidad",
-                            value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
-                            down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
-                if model.controlCapability.canControlIncline {
-                    stepperCard(label: model.inclineControlLabel,
-                                value: model.inclineControlValue, unit: model.inclineControlUnit,
-                                down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    if model.canControlSpeed {
+                        stepperCard(label: "Velocidad",
+                                    value: String(format: "%.1f", model.targetSpeedKmh), unit: "km/h",
+                                    down: { model.nudgeSpeed(-1) }, up: { model.nudgeSpeed(1) })
+                    }
+                    if model.canControlIncline {
+                        stepperCard(label: model.inclineControlLabel,
+                                    value: model.inclineControlValue, unit: model.inclineControlUnit,
+                                    down: { model.nudgeIncline(-1) }, up: { model.nudgeIncline(1) })
+                    }
                 }
+                // Speed is the athlete's on this belt → one calm line, never a red error.
+                if model.speedIsManual { manualSpeedNote }
             }
         } else if model.treadmillLink.isLive {
             readOnlyNote
@@ -374,6 +381,26 @@ struct TreadmillHUDView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// The calm, one-line honest state for a belt whose firmware won't take a speed target
+    /// over Bluetooth (the incline stepper stays live beside it). Muted, never a red error —
+    /// the athlete sets speed on the console and we keep reading his real pace.
+    private var manualSpeedNote: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "speedometer")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+            Text("Pon la velocidad en la cinta — tu modelo no la deja controlar por Bluetooth. La inclinación sí.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     /// PRESCRIBED inclinación / cadencia for a structured leg (#61) — a sober
@@ -578,8 +605,8 @@ struct TreadmillHUDView: View {
                 .frame(maxWidth: .infinity)
             }
             HStack(spacing: 8) {
-                if model.controlCapability.canControl {
-                    // Belt is drivable → START when stopped, big STOP when moving.
+                if model.canControlSpeed {
+                    // The belt takes start/stop/speed → START when stopped, big STOP when moving.
                     if model.beltMoving {
                         neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
                         stopButton { model.stopBelt() }
@@ -588,7 +615,8 @@ struct TreadmillHUDView: View {
                         neutralButton("TERMINAR TRAMO") { model.endLegNow() }
                     }
                 } else {
-                    // Read-only belt (or none) → the original manual controls.
+                    // Manual-speed belt (athlete starts/stops on the console) OR read-only →
+                    // the app runs the workout flow, never a belt button that would do nothing.
                     neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
                     neutralButton("TERMINAR TRAMO AHORA") { model.endLegNow() }
                 }

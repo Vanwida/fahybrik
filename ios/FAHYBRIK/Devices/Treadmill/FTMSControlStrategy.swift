@@ -61,10 +61,23 @@ enum FTMSControlProfile: String, Equatable {
         }
     }
 
-    /// Which incline interpretation to try FIRST. Grade everywhere — it is the spec
-    /// meaning of the field and what the vendor documentation for his machine states.
-    /// The level table is the second rung, not the default.
-    var inclineDialectLadder: [FTMSInclineDialect] { [.grade, .level] }
+    /// Which incline interpretation to try, in order.
+    ///
+    /// STANDARD: grade first (the spec meaning of the field), the level table as a fallback
+    /// if the belt ignores a grade write — resolved empirically, as before.
+    ///
+    /// i.CONCEPT / T01_: LOCKED to the level table, one rung, no fallback. Field-proven: his
+    /// TM2000 accepts 0x03 and physically moves, but reports/accepts the Inclination field in
+    /// INTERNAL 0…1000 units, not 0.1 % grade. Leaving grade on the ladder is exactly what
+    /// produced the confusing MID-SESSION flip ("reinterpretada como nivel de consola") the
+    /// athlete saw — grade would 5 s later escalate to level, changing the units under him.
+    /// One encoding, chosen at connect, kept for the whole session.
+    var inclineDialectLadder: [FTMSInclineDialect] {
+        switch self {
+        case .standard: return [.grade, .level]
+        case .iConcept: return [.level]
+        }
+    }
 }
 
 /// One rung of the prelude ladder. The belt is the authority: we climb until something
@@ -113,23 +126,30 @@ enum FTMSControlStrategy: String, CaseIterable, Equatable {
     }
 }
 
-/// What the FTMS Inclination field (0x2ACD reading AND 0x2AD9 op 0x03 write) MEANS on
-/// this machine. Resolved by asking for a value and watching what the belt reports back.
+/// How the FTMS Inclination field (0x2ACD reading AND 0x2AD9 op 0x03 write) is ENCODED on
+/// this machine. Both dialects express the same athlete-facing quantity — a PERCENT GRADE —
+/// and differ only in the wire units; resolved by asking for a value and watching the belt.
 enum FTMSInclineDialect: String, Equatable {
-    /// The spec meaning: sint16, 0.1 % grade. `3.0` → raw 30.
+    /// The spec encoding: sint16, 0.1 % grade. `3.0 %` → raw 30.
     case grade
-    /// The i.Concept internal scale: an 0…1000 value mapping to console levels 1…15.
-    /// `3` (level three) → raw 200.
+    /// The i.Concept internal encoding: the SAME percent grade, carried as an 0…1000 value.
+    /// It is a percent, not an abstract detent — the belt's own Supported Inclination Range
+    /// (0x2AD5) reports 1.0–15.0 %, qdomyos-zwift stores it as Inclination 1…15, and its 15
+    /// console levels line up one-to-one with 1…15 % (level N ≈ N %). So `3 %` → the level-3
+    /// slot → raw 200, via `FTMSInclineLevels`. Whole-percent detents; no sub-% resolution.
     case level
 
     var label: String {
         switch self {
-        case .grade: return "% de pendiente (0,1 % por unidad)"
-        case .level: return "nivel de consola (tabla i.Concept)"
+        case .grade: return "% de pendiente (0,1 % por unidad, estándar FTMS)"
+        case .level: return "% de pendiente (unidades internas i.Concept 0–1000)"
         }
     }
 
-    /// The stepper caption. We never invent a percentage for a machine that has no grade.
+    /// The stepper caption + unit, per the RESOLVED dialect. A spec-clean belt drives a
+    /// percent grade → "Inclinación" / "%". The i.Concept only answers in console LEVELS
+    /// (0–1000 internal), so we show a bare "Nivel" and never fabricate a percent we
+    /// haven't verified maps 1:1 to the physical grade — honesty over a made-up number.
     var controlLabel: String { self == .level ? "Nivel" : "Inclinación" }
     var controlUnit: String { self == .level ? "" : "%" }
 
@@ -145,7 +165,9 @@ enum FTMSInclineDialect: String, Equatable {
         self == .level ? FTMSInclineLevels.raw(forLevel: value) : Int((value * 10).rounded())
     }
 
-    /// A raw field reading expressed in this dialect's own unit (for the HUD readout).
+    /// A raw field reading expressed as a PERCENT grade for the HUD — directly for `.grade`
+    /// (raw ÷ 10), and via the i.Concept table for `.level` (where the level number IS the
+    /// percent, so `level(forRaw:)` already yields %).
     func display(fromRaw raw: Double) -> Double {
         self == .level ? FTMSInclineLevels.level(forRaw: raw) : raw / 10
     }
