@@ -61,3 +61,4 @@ infra/reports/
 # runtime/hook artifacts
 logs/
 __pycache__/
+.env*
