@@ -15,6 +15,13 @@ struct TreadmillSample: Equatable {
     /// Instantaneous belt speed, km/h (the treadmill's native unit). Present in
     /// essentially every packet.
     var speedKmh: Double?
+    /// Average belt speed, km/h (Treadmill Data flag bit 1). A FALLBACK read: some OEM
+    /// firmwares (the BH / Exercycle i.Concept T01_ among them) report Instantaneous Speed
+    /// as 0 while the belt is genuinely running from its own console — but keep the odometer
+    /// and, on some packets, Average Speed alive. The model prefers instantaneous, then a
+    /// speed derived from the advancing odometer, then this — so the measured tile shows the
+    /// real belt speed instead of a frozen 0.0.
+    var avgSpeedKmh: Double?
     /// Belt inclination, percent grade. Negative on decline-capable treadmills. nil on
     /// machines whose Inclination field is NOT a grade (see `inclineLevel`) — we leave it
     /// empty rather than publish a number that isn't a percentage.
@@ -72,6 +79,11 @@ protocol TreadmillDataSource: ConnectableSource {
 /// that will ignore it. Any FTMS treadmill is covered without per-brand code.
 struct TreadmillControlCapability: Equatable {
     var hasControlPoint: Bool
+    /// TRUE the moment a writable Control Point is found — we never trust the lying Fitness
+    /// Machine Feature bits (his BH i.Concept T01_ advertises Speed-target support yet its
+    /// ack says "not supported", and advertises NO incline-target support yet obeys 0x03).
+    /// Because those acks are garbage, the app IGNORES them and drives the belt anyway
+    /// (qdomyos-zwift does the same), so these stay true whenever there's a control point.
     var canControlSpeed: Bool
     var canControlIncline: Bool
     var speed: FTMSControl.Range?     // km/h

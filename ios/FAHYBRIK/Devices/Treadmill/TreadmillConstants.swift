@@ -86,4 +86,9 @@ enum TreadmillConstants {
     /// Deterministic mock cadence (simulator/DEBUG only): how often the fake
     /// treadmill/HR sources emit a sample. Matches a typical ~1 Hz FTMS stream.
     static let mockTickSeconds: TimeInterval = 1.0
+
+    /// How often the raw Treadmill Data (0x2ACD) packet is echoed to the `[CINTA]` console
+    /// trace — often enough to see the parse (instantaneous speed vs the odometer) live at
+    /// the gym, rare enough not to flood a ~1 Hz stream into an unreadable wall.
+    static let rawDataLogIntervalSeconds: TimeInterval = 2.0
 }

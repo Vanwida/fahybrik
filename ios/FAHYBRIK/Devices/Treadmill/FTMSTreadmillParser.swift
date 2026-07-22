@@ -67,8 +67,13 @@ enum FTMSTreadmillParser {
         if flags & (1 << 0) == 0, let raw = c.u16() {
             s.speedKmh = Double(raw) / 100.0
         }
-        // b1 Average Speed — advance only.
-        if flags & (1 << 1) != 0 { _ = c.u16() }
+        // b1 Average Speed (uint16, 0.01 km/h). Captured — not just skipped — as a fallback
+        // speed for firmwares that stream Instantaneous Speed as 0 while the belt runs (the
+        // BH i.Concept T01_). qdomyos-zwift decodes it at this same offset (horizontreadmill
+        // .cpp, `if (Flags.avgSpeed)` right after the instantaneous-speed field).
+        if flags & (1 << 1) != 0, let avg = c.u16() {
+            s.avgSpeedKmh = Double(avg) / 100.0
+        }
         // b2 Total Distance (uint24, meters).
         if flags & (1 << 2) != 0, let d = c.u24() {
             s.totalDistanceM = Double(d)

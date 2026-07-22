@@ -35,12 +35,26 @@ final class FTMSTreadmillParserTests: XCTestCase {
         XCTAssertEqual(s?.inclinePct, -2.0)
     }
 
-    func testMoreDataBitSuppressesInstantaneousSpeed() {
-        // bit0 (More Data) set → NO instantaneous speed; bit1 avg speed present.
-        // We don't surface avg speed, so speedKmh must be nil.
+    func testMoreDataBitSuppressesInstantaneousSpeedButAverageIsCaptured() {
+        // bit0 (More Data) set → NO instantaneous speed; bit1 avg speed present (900 = 9.00).
+        // Instantaneous is nil, but the average is now CAPTURED as a fallback speed for
+        // firmwares that freeze the instantaneous field at 0 while the belt runs.
         let packet = Data([0x03, 0x00, 0x84, 0x03])
         let s = FTMSTreadmillParser.parse(packet)
         XCTAssertNil(s?.speedKmh)
+        XCTAssertEqual(s?.avgSpeedKmh, 9.0)
+    }
+
+    func testAverageSpeedOffsetSurvivesWithInstantaneousPresent() {
+        // bits 0 clear (inst present) + bit1 avg + bit2 distance. Walk must land distance
+        // correctly only if the average-speed field consumed its two bytes.
+        // flags 0x0006 → NO (bit0=0 inst present)… actually inst present needs bit0==0, so
+        // flags = 0x0006 (bit1 avg, bit2 dist, bit0 clear). speed 10.00 · avg 9.50 · dist 250.
+        let packet = Data([0x06, 0x00, 0xE8, 0x03, 0xB6, 0x03, 0xFA, 0x00, 0x00])
+        let s = FTMSTreadmillParser.parse(packet)
+        XCTAssertEqual(s?.speedKmh, 10.0)
+        XCTAssertEqual(s?.avgSpeedKmh, 9.5)
+        XCTAssertEqual(s?.totalDistanceM, 250)
     }
 
     func testHeartRatePresent() {

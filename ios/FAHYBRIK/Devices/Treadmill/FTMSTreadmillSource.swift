@@ -50,6 +50,8 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     /// finalize don't both fire.
     private var disconnectGen = 0
     private var diag = DeviceDiagnostics(role: "Cinta")
+    /// Rate-limit stamp for the raw 0x2ACD `[CINTA]` echo (see `logTreadmillData`).
+    private var lastTreadmillDataLogAt: Date?
 
     override init() {
         super.init()
@@ -426,7 +428,10 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
         guard let data = characteristic.value else { return }
         switch characteristic.uuid {
         case TreadmillGATT.treadmillData:
-            if let sample = FTMSTreadmillParser.parse(data) { onSample?(adaptToProfile(sample)) }
+            if let sample = FTMSTreadmillParser.parse(data) {
+                logTreadmillData(raw: data, sample: sample)
+                onSample?(adaptToProfile(sample))
+            }
         case TreadmillGATT.controlPoint:
             sequencer.handleIndication(data)
         case TreadmillGATT.machineStatus:
@@ -523,6 +528,21 @@ extension FTMSTreadmillSource: CBPeripheralDelegate {
     /// manual write there and our trace can be compared without translating anything.
     private static func hex(_ data: Data) -> String {
         data.map { String(format: "%02X", $0) }.joined(separator: " ")
+    }
+
+    /// Echo the raw 0x2ACD packet + what we PARSED from it to the `[CINTA]` console, rate
+    /// limited. This is how the founder sees the "0.0 km/h while distance climbs" bug in his
+    /// Xcode log: the flags, the instantaneous-speed field, the average, and the odometer,
+    /// side by side, straight off the wire.
+    private func logTreadmillData(raw: Data, sample: TreadmillSample) {
+        let now = Date()
+        if let last = lastTreadmillDataLogAt,
+           now.timeIntervalSince(last) < TreadmillConstants.rawDataLogIntervalSeconds { return }
+        lastTreadmillDataLogAt = now
+        let inst = sample.speedKmh.map { String(format: "%.2f", $0) } ?? "—"
+        let avg = sample.avgSpeedKmh.map { String(format: "%.2f", $0) } ?? "—"
+        let odo = sample.totalDistanceM.map { String(format: "%.0f m", $0) } ?? "—"
+        diag.log("0x2ACD [\(Self.hex(raw))] → vel inst \(inst) km/h · media \(avg) km/h · odómetro \(odo)")
     }
 
     private func rawWrite(_ data: Data) {

@@ -1,13 +1,24 @@
 import CoreBluetooth
 import Foundation
+import os
 
 // Captures what a BLE device advertised and exposed during the first connection,
 // composed into a plain-text dump the athlete can share. This is the tool for
 // identifying a treadmill that ISN'T standard FTMS (e.g. a specific Titanium
 // model): the visible copy stays sober, all the technical detail lives in the
 // shared text. Mutated from CoreBluetooth callbacks on the main queue.
+//
+// EVERY line ALSO goes to the Xcode device console, tagged "[CINTA]" (or the role),
+// so the founder — who debugs at the gym with a MacBook + Xcode attached — captures the
+// full control trace in a normal log capture, not only inside the app's share sheet. BLE
+// bytes only, no PII, so it prints in every build. `os.Logger` with a PUBLIC interpolation
+// (the default redacts) is what makes the bytes actually show up.
 struct DeviceDiagnostics {
     let role: String
+    /// One shared logger; the tag is per-role so a console filter of "[CINTA]" pulls the
+    /// treadmill's whole trace.
+    private static let logger = Logger(subsystem: "com.fahybrik.devices", category: "ble")
+    private var consoleTag: String { "[\(role.uppercased())]" }
     private var name: String?
     private var identifier: String?
     private var advertised: [CBUUID] = []
@@ -48,13 +59,20 @@ struct DeviceDiagnostics {
         } else {
             facts.append((key: key, value: value))
         }
+        // Mirror to the Xcode console so the founder captures the machine's facts (advertised
+        // name, raw 0x2ACC / 0x2AD4 / 0x2AD5 bytes, control mode) without opening the app.
+        let tag = consoleTag   // hoisted so the log autoclosure doesn't capture mutating self
+        Self.logger.log("\(tag, privacy: .public) \(key, privacy: .public): \(value, privacy: .public)")
     }
 
     /// Append one trace line, stamped with the wall clock so ordering (and the gaps that
-    /// reveal a timeout) survive into the shared text.
+    /// reveal a timeout) survive into the shared text — AND print it to the Xcode console,
+    /// tagged, so every Control-Point TX/RX and strategy decision shows up in a log capture.
     mutating func log(_ line: String) {
         events.append("[\(Self.clock.string(from: Date()))] \(line)")
         if events.count > Self.maxEvents { events.removeFirst(events.count - Self.maxEvents) }
+        let tag = consoleTag   // hoisted so the log autoclosure doesn't capture mutating self
+        Self.logger.log("\(tag, privacy: .public) \(line, privacy: .public)")
     }
 
     mutating func note(peripheral: CBPeripheral, advertised: [CBUUID]) {

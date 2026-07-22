@@ -51,6 +51,11 @@ enum FTMSControlTuning {
     /// How long an issued target has to actually MOVE the machine before we conclude this
     /// dialect isn't the one and climb a rung.
     static let targetVerificationSeconds: TimeInterval = 5
+    /// QZ MODEL re-assert cadence for the i.Concept family: re-write the speed target this
+    /// often (qdomyos-zwift re-fires on its ~200 ms poll; 1 s is gentle on the radio and
+    /// plenty to keep a target the belt may have dropped). Never carries a Start (0x07), so
+    /// it can NEVER restart a belt the athlete stopped — the safety line we do not cross.
+    static let reassertIntervalSeconds: TimeInterval = 1.0
     /// Belt speed this close to the target counts as "arrived".
     static let speedConvergenceToleranceKmh: Double = 0.3
     /// Belt speed moving at least this much TOWARD the target counts as "the machine is
@@ -158,6 +163,10 @@ final class FTMSControlSequencer {
     private var lastInclineRaw: Double?
     private var lastSpeedTargetKmh: Double?
     private var lastInclineTargetValue: Double?
+    /// Bumped whenever the speed intent starts, stops, or the link resets — so a pending
+    /// re-assert tick belongs to a target that is still wanted (and never revives a stopped
+    /// belt: a stop forgets the intent AND bumps this).
+    private var reassertGeneration = 0
 
     // MARK: - Connection lifecycle
 
@@ -174,6 +183,7 @@ final class FTMSControlSequencer {
         inclineVerification = nil
         speedVerificationGeneration += 1
         inclineVerificationGeneration += 1
+        reassertGeneration += 1
         hasControl = false
         isTransportReady = false
         controlPointIndicates = true
@@ -224,6 +234,54 @@ final class FTMSControlSequencer {
     func send(_ command: TreadmillControlCommand) {
         remember(command)
         enqueue(expand(command, isBestEffort: false))
+        // QZ MODEL (i.Concept / T01_): the belt's Control-Point acks lie, so we drive it
+        // fire-and-forget and KEEP re-asserting the speed target on a poll — exactly like
+        // qdomyos-zwift's update() loop — instead of sending once and waiting for an ack
+        // that says "not supported" on a belt that actually obeys.
+        if firesAndForgets, case .setTargetSpeedKmh = command { startSpeedReassert() }
+    }
+
+    // MARK: - Ignore-acks / re-assert model (i.Concept T01_ — matches qdomyos-zwift)
+
+    /// This machine's Control-Point acknowledgements are GARBAGE (it answers Set Target
+    /// Speed with "Op Code Not Supported" yet obeys, and claims incline-target unsupported
+    /// yet accepts 0x03). qdomyos-zwift never reads the result code for these — it writes
+    /// fire-and-forget and re-asserts on its ~200 ms poll (horizontreadmill.cpp:
+    /// writeCharacteristic wait_for_response=false + update()). So for this family the ack
+    /// is trace-only: it must not gate control, escalate a rung, or reach the athlete.
+    private var firesAndForgets: Bool { profile == .iConcept }
+
+    /// Begin (or refresh) the poll that keeps re-writing the athlete's speed target — QZ's
+    /// update() loop. A new intent supersedes any prior poll (generation bump).
+    private func startSpeedReassert() {
+        reassertGeneration += 1
+        scheduleSpeedReassert(generation: reassertGeneration)
+    }
+
+    private func scheduleSpeedReassert(generation: Int) {
+        schedule(FTMSControlTuning.reassertIntervalSeconds) { [weak self] in
+            guard let self,
+                  self.reassertGeneration == generation,   // not superseded / not stopped
+                  self.firesAndForgets,
+                  self.lastSpeedTargetKmh != nil,           // intent still alive (a stop clears it)
+                  self.isTransportReady else { return }
+            self.reassertSpeedTarget()
+            self.scheduleSpeedReassert(generation: generation)
+        }
+    }
+
+    /// Re-write the current speed target, fire-and-forget. Request Control first (this
+    /// firmware can drop the grant silently, and it costs nothing since we ignore its ack),
+    /// then the target — but NEVER a Start (0x07): re-asserting a Start could revive a belt
+    /// the athlete stopped, and this machine sends no Machine Status for us to notice a stop.
+    /// Setting a target on an already-stopped belt is inert; sending Start would not be.
+    private func reassertSpeedTarget() {
+        guard let target = lastSpeedTargetKmh else { return }
+        let group = FTMSControl.requestOpCode(for: .setTargetSpeedKmh(target))
+        let ops = [makeOp(.requestControl, isPrelude: true, waitsForIndication: false, group: group),
+                   makeOp(.setTargetSpeedKmh(target), isPrelude: false, waitsForIndication: false, group: group)]
+        log(String(format: "RE-ASERTO velocidad %.1f km/h (poll estilo QZ, sin arrancar)", target))
+        enqueue(ops)
     }
 
     /// Programming the machine's own display (targeted distance / time). Best effort: a
@@ -275,6 +333,11 @@ final class FTMSControlSequencer {
         }
         log("RX 0x80 ← \(Self.hexByte(resp.request)) \(FTMSControl.opName(resp.request)) = "
             + FTMSControl.resultName(resp.result))
+
+        // QZ MODEL: for the i.Concept family the ack is a LIE. Log it (above, for our eyes)
+        // and stop — it never gates control, never escalates a rung, never reaches the HUD.
+        // The belt obeys the write regardless; the poll re-assert keeps the target fresh.
+        if firesAndForgets { return }
 
         if resp.request == FTMSControl.requestOpCode(for: .requestControl) {
             switch resp.result {
@@ -413,7 +476,9 @@ final class FTMSControlSequencer {
         speedVerification = nil
         speedVerificationGeneration += 1
         lastSpeedTargetKmh = nil
-        log("Objetivo de velocidad OLVIDADO — \(reason). Nada va a reenviarlo.")
+        // Kill the QZ re-assert poll too — a stopped belt must never be re-commanded.
+        reassertGeneration += 1
+        log("Objetivo de velocidad OLVIDADO — \(reason). Nada va a reenviarlo (poll cortado).")
     }
 
     /// Append a chain, superseding any QUEUED chain from the same caller op code. Rapid
@@ -446,8 +511,10 @@ final class FTMSControlSequencer {
                 let alreadyAsking = inFlight?.opCode == FTMSControl.requestOpCode(for: .requestControl)
                     || queue.contains { $0.opCode == FTMSControl.requestOpCode(for: .requestControl) }
                 if !hasControl, !alreadyAsking {
+                    // Fire-and-forget for the i.Concept family (its ack is a lie we ignore),
+                    // so the target isn't stalled 1.5 s waiting for an indication we discard.
                     ops.append(makeOp(.requestControl, isPrelude: true,
-                                      waitsForIndication: true, group: group))
+                                      waitsForIndication: !firesAndForgets, group: group))
                 }
             case .s3:
                 ops.append(makeOp(.requestControl, isPrelude: true, waitsForIndication: false, group: group))
@@ -457,12 +524,16 @@ final class FTMSControlSequencer {
                 ops.append(makeOp(.start, isPrelude: true, waitsForIndication: false, group: group))
                 ops.append(pauseOp(FTMSControlTuning.interOpDelaySeconds, group: group))
             case .s5:
-                ops.append(makeOp(.reset, isPrelude: true, waitsForIndication: true, group: group))
-                ops.append(makeOp(.requestControl, isPrelude: true, waitsForIndication: true, group: group))
-                ops.append(makeOp(.start, isPrelude: true, waitsForIndication: true, group: group))
+                let waits = !firesAndForgets   // i.Concept ignores acks, so its preludes don't wait
+                ops.append(makeOp(.reset, isPrelude: true, waitsForIndication: waits, group: group))
+                ops.append(makeOp(.requestControl, isPrelude: true, waitsForIndication: waits, group: group))
+                ops.append(makeOp(.start, isPrelude: true, waitsForIndication: waits, group: group))
             }
         }
-        ops.append(makeOp(command, isPrelude: false, waitsForIndication: true,
+        // The i.Concept family is fire-and-forget: the real target write does NOT wait for
+        // an indication it would only misread (QZ writes wait_for_response=false). Every
+        // other machine keeps waiting for its 0x80 ack.
+        ops.append(makeOp(command, isPrelude: false, waitsForIndication: !firesAndForgets,
                           group: group, isBestEffort: isBestEffort))
         return ops
     }
@@ -552,6 +623,10 @@ final class FTMSControlSequencer {
     // MARK: - Verification (the belt is the authority, not the feature bits)
 
     private func armSpeedVerification(target: Double) {
+        // The i.Concept family has no prelude ladder to prove — it's fire-and-forget +
+        // re-assert (its belt even reports speed as 0 while running, so movement can't
+        // confirm anything). No verification, no escalation: the poll does the work.
+        guard !firesAndForgets else { return }
         guard !isStrategyPinned else { return }     // he is testing a rung by hand
         // The belt is ALREADY at the target: it can neither prove nor disprove the rung,
         // so we arm nothing and claim nothing. Confirming here would let a no-op tap
@@ -605,6 +680,7 @@ final class FTMSControlSequencer {
     /// Climb one rung and RE-SEND the athlete's target through the new dialect. Escalating
     /// without re-sending would leave the tap they made silently unhonored.
     private func escalateStrategy(reason: String) {
+        guard !firesAndForgets else { return }      // i.Concept: no ladder, the poll drives it
         guard !isStrategyPinned else { return }
         // A rung that has ALREADY moved this belt is the answer for the session. A later
         // miss is the machine being busy (ramping, safety key, someone on the console),

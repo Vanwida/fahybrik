@@ -95,14 +95,20 @@ enum TreadmillMachineEvent: Equatable {
 /// asks it for raw 30 — well below level 1 — which is why a plain-FTMS incline command
 /// appears to do nothing.
 ///
-/// The anchor pairs below are qdomyos-zwift's console-level table for this family. Levels
-/// 7…14 are not tabulated there; the 6→15 segment is linear (≈ 66.7 raw per level), so we
-/// interpolate rather than invent per-level constants. The minimum meaningful step is ONE
-/// LEVEL — there is no sub-level resolution to offer the athlete.
+/// The anchor pairs below are qdomyos-zwift's FULL console-level table for the `T01_` /
+/// i.Concept family, transcribed verbatim from its horizontreadmill.cpp Treadmill-Data
+/// decoder (the `if(ICONCEPT_FTMS_treadmill || T01)` branch, val1/val2 → Inclination 1…15).
+/// Every level is tabulated there — no interpolation between console detents — so we carry
+/// all fifteen anchors and match QZ byte-for-byte. The minimum meaningful step is ONE LEVEL;
+/// there is no sub-level resolution to offer the athlete.
 enum FTMSInclineLevels {
     /// (console level, raw Inclination field value). Ordered by level, ascending.
+    /// From qdomyos-zwift horizontreadmill.cpp: 0x3C→1, 0x82→2, 0xC8→3, 0x0104→4, 0x014A→5,
+    /// 0x0190→6, 0x01CC→7, 0x0212→8, 0x0258→9, 0x0294→10, 0x02DA→11, 0x0320→12, 0x035C→13,
+    /// 0x03A2→14, 0x03E8→15.
     static let iConceptAnchors: [(level: Double, raw: Double)] = [
-        (1, 60), (2, 130), (3, 200), (4, 260), (5, 330), (6, 400), (15, 1000)
+        (1, 60), (2, 130), (3, 200), (4, 260), (5, 330), (6, 400), (7, 460), (8, 530),
+        (9, 600), (10, 660), (11, 730), (12, 800), (13, 860), (14, 930), (15, 1000)
     ]
     static let minLevel: Double = 1
     static let maxLevel: Double = 15

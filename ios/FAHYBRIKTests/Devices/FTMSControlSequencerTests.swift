@@ -239,14 +239,58 @@ final class FTMSControlSequencerTests: XCTestCase {
 
     // MARK: - THE LADDER
 
-    /// THE REGRESSION TEST. i.Concept used to be pinned to bare targets with escalation
-    /// explicitly disabled — so when the assumption was wrong, nothing could ever move.
-    func testIConceptEscalatesLikeEverythingElse() {
+    /// THE i.Concept MODEL (matches qdomyos-zwift). Its Control-Point acks LIE — it answers
+    /// Set Target Speed with "not supported" on a belt that actually obeys — so we drive it
+    /// fire-and-forget, IGNORE the ack, and never climb a ladder. The belt is commanded by a
+    /// re-assert poll, not by chasing a rung the ack can't inform.
+    func testIConceptFiresAndForgetsIgnoresTheLyingAckAndDoesNotClimb() {
         let (seq, scheduler, w) = makeSequencer(profile: .iConcept)
-        XCTAssertEqual(seq.strategy, .s2, "not a bare target — the spec wants control first")
-        seq.send(.setTargetSpeedKmh(12))
-        failVerification(seq, scheduler, w)
-        XCTAssertEqual(seq.strategy, .s1, "i.Concept MUST be able to climb; it used to be frozen")
+        XCTAssertEqual(seq.strategy, .s2, "0x00 request control + 0x02 target — no Start, no wait")
+        seq.send(.setTargetSpeedKmh(6))
+        seq.noteWriteCompleted(error: nil)      // request control write (fire-and-forget)
+        seq.noteWriteCompleted(error: nil)      // target write (fire-and-forget)
+        XCTAssertEqual(w.opCodes, [opRequestControl, opSetSpeed], "no Start (0x07) in the routine path")
+        XCTAssertEqual(w.hex.last, "025802", "6.0 km/h → 600 → 0x0258, LE")
+
+        // The machine's "Op Code Not Supported" is IGNORED — no result to the HUD, no climb.
+        seq.handleIndication(ack(opSetSpeed, 0x02))
+        XCTAssertTrue(w.results.isEmpty, "the lying ack must never reach the athlete")
+        seq.noteBeltSpeed(kmh: 0)
+        scheduler.fire(after: FTMSControlTuning.targetVerificationSeconds)
+        XCTAssertEqual(seq.strategy, .s2, "i.Concept never escalates — it re-asserts instead")
+    }
+
+    /// The QZ poll: the target is re-written on a timer, fire-and-forget, and CRUCIALLY the
+    /// re-assert never carries a Start (0x07) — so it can't revive a stopped belt.
+    func testIConceptReassertsTheTargetOnAPollWithoutEverStarting() {
+        let (seq, scheduler, w) = makeSequencer(profile: .iConcept)
+        seq.send(.setTargetSpeedKmh(8))
+        seq.noteWriteCompleted(error: nil); seq.noteWriteCompleted(error: nil)
+        let before = w.opCodes.count
+
+        scheduler.fire(after: FTMSControlTuning.reassertIntervalSeconds)   // one poll tick
+        seq.noteWriteCompleted(error: nil); seq.noteWriteCompleted(error: nil)
+        XCTAssertEqual(Array(w.opCodes.suffix(2)), [opRequestControl, opSetSpeed],
+                       "re-assert = request control + speed")
+        XCTAssertFalse(w.opCodes.dropFirst(before).contains(opStart),
+                       "a re-assert must NEVER send Start — it could restart a stopped belt")
+        XCTAssertEqual(w.hex.last, "022003", "still 8.0 km/h → 800 → 0x0320, LE")
+    }
+
+    /// SAFETY: a stop kills the re-assert poll — a belt he stopped is never re-commanded.
+    func testAStopKillsTheIConceptReassertPoll() {
+        let (seq, scheduler, w) = makeSequencer(profile: .iConcept)
+        seq.send(.setTargetSpeedKmh(6))
+        seq.noteWriteCompleted(error: nil); seq.noteWriteCompleted(error: nil)
+        seq.send(.stop)
+        seq.noteWriteCompleted(error: nil)
+        let afterStop = w.opCodes.count
+
+        scheduler.fireAll()   // fire the re-assert (and anything else) — nothing may go out
+        seq.noteWriteCompleted(error: nil)
+        XCTAssertEqual(w.opCodes.count, afterStop, "the poll is dead after a stop")
+        XCTAssertFalse(w.opCodes.dropFirst(afterStop).contains(opSetSpeed),
+                       "a stopped belt is never re-sent a speed target")
     }
 
     func testLadderClimbsEveryRungThenSettles() {
@@ -565,15 +609,15 @@ final class FTMSControlSequencerTests: XCTestCase {
 final class FTMSInclineLevelTests: XCTestCase {
 
     func testLevelToRawMatchesTheConsoleTable() {
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 1), 60)
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 2), 130)
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 3), 200)
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 4), 260)
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 5), 330)
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 6), 400)
-        XCTAssertEqual(FTMSInclineLevels.raw(forLevel: 15), 1000)
-        // The 6→15 segment is linear at ~66.7 raw per level.
-        XCTAssertEqual(Double(FTMSInclineLevels.raw(forLevel: 10)), 400 + 4 * 200.0 / 3, accuracy: 1)
+        // Every level is transcribed verbatim from qdomyos-zwift horizontreadmill.cpp
+        // (val1/val2 → Inclination), so raw ↔ level is exact, not interpolated.
+        let table: [(Double, Int)] = [
+            (1, 60), (2, 130), (3, 200), (4, 260), (5, 330), (6, 400), (7, 460), (8, 530),
+            (9, 600), (10, 660), (11, 730), (12, 800), (13, 860), (14, 930), (15, 1000)
+        ]
+        for (level, raw) in table {
+            XCTAssertEqual(FTMSInclineLevels.raw(forLevel: level), raw, "level \(level) → raw \(raw)")
+        }
     }
 
     func testLevelIsClampedToTheRealConsoleRange() {

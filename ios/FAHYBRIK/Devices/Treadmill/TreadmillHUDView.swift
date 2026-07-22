@@ -755,7 +755,9 @@ struct TreadmillHUDView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
     private var speedString: String {
-        model.latest.speedKmh.map { String(format: "%.1f", $0) } ?? "—"
+        // The RESOLVED belt speed (odometer-derived when the machine freezes instantaneous
+        // speed at 0), so the tile shows the real pace he's running, never a stuck 0.0.
+        model.displaySpeedKmh.map { String(format: "%.1f", $0) } ?? "—"
     }
     /// Percent grade, or the console LEVEL on machines whose incline field isn't a grade
     /// — the model owns which, so the cell never shows a fabricated "%".

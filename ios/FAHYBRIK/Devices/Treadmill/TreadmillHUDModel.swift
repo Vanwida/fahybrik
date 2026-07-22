@@ -72,9 +72,14 @@ final class TreadmillHUDModel {
     /// A transient message when the machine rejects a command / pulls control.
     private(set) var controlNotice: String?
     private var countdownTimer: Timer?
-    /// The belt is MOVING per its real reported speed — the single source of truth for
-    /// the START/STOP button, so it can never claim "running" while the belt is still.
-    var beltMoving: Bool { (latest.speedKmh ?? 0) > TreadmillConstants.minMovingSpeedKmh }
+    /// The belt speed we DISPLAY, km/h — the honest reading even when the machine streams
+    /// Instantaneous Speed as 0 while the belt runs (derived from the odometer then). nil
+    /// only before any telemetry lands.
+    var displaySpeedKmh: Double? { speedResolver.displaySpeedKmh ?? latest.speedKmh }
+    /// The belt is MOVING per its real (resolver-derived) speed — the single source of truth
+    /// for the START/STOP button, so it can never claim "running" while the belt is still,
+    /// nor "stopped" while a T01_ runs with a frozen instantaneous-speed field.
+    var beltMoving: Bool { (displaySpeedKmh ?? 0) > TreadmillConstants.minMovingSpeedKmh }
     /// Connected but SILENT: no telemetry has EVER landed (`lastUpdate` still at its
     /// `.distantPast` sentinel — many FTMS belts emit nothing until the band moves)
     /// or nothing for `sampleStaleSeconds`. Drives the honest "sin datos" hint in
@@ -122,6 +127,12 @@ final class TreadmillHUDModel {
     private var bpmCount = 0
 
     private var displayTimer: Timer?
+
+    /// Turns the belt's messy telemetry into the honest speed we SHOW and a stable pace —
+    /// deriving speed from the advancing odometer when the machine reports Instantaneous
+    /// Speed as 0 (the BH i.Concept T01_ does exactly that while running). See
+    /// `TreadmillSpeedResolver`.
+    private var speedResolver = TreadmillSpeedResolver()
 
     init(session: WorkoutSession, hrMaxSource: HRMaxSource?, hub: DeviceHub) {
         self.session = session
@@ -269,7 +280,11 @@ final class TreadmillHUDModel {
         switch result {
         case .success:             controlNotice = nil
         case .controlNotPermitted: controlNotice = "La cinta no cedió el control"
-        case .notSupported:        controlNotice = "La cinta no admite ese ajuste"
+        // A lying "op no soportado" must NOT alarm the athlete: this firmware answers 0x02
+        // "not supported" to commands it actually obeys, so we (like qdomyos-zwift) ignore
+        // the ack instead of flashing the old red "no admite ese ajuste" on every retry. For
+        // the i.Concept family this never even reaches here (the sequencer drops the ack).
+        case .notSupported:        controlNotice = nil
         default:                   controlNotice = "La cinta rechazó el comando"
         }
     }
@@ -458,10 +473,10 @@ final class TreadmillHUDModel {
 
     // MARK: - Live derived values
 
-    var livePaceSecPerKm: Int? {
-        guard let kmh = latest.speedKmh else { return nil }
-        return TreadmillMath.paceSecPerKm(fromSpeedKmh: kmh)
-    }
+    /// Live pace (sec/km) from the SMOOTHED, odometer-aware belt speed — stable, and "—:—"
+    /// only after the belt is genuinely still, so it no longer flickers on a T01_ whose
+    /// instantaneous-speed field reads 0 mid-run.
+    var livePaceSecPerKm: Int? { speedResolver.paceSecPerKm }
 
     /// Preferred HR: the BLE strap when live, else the watch/HealthKit stream the
     /// workout already receives (Apple Watch works with no extra plumbing).
@@ -548,6 +563,7 @@ final class TreadmillHUDModel {
         syncLeg()
         var merged = latest
         if let v = sample.speedKmh { merged.speedKmh = v }
+        if let v = sample.avgSpeedKmh { merged.avgSpeedKmh = v }
         if let v = sample.inclinePct { merged.inclinePct = v }
         if let v = sample.inclineLevel { merged.inclineLevel = v }
         if let v = sample.totalDistanceM { merged.totalDistanceM = v }
@@ -555,6 +571,14 @@ final class TreadmillHUDModel {
         if let v = sample.hrBpm { merged.hrBpm = v }
         merged.lastUpdate = sample.lastUpdate
         latest = merged
+
+        // Feed the resolver the RAW instantaneous reading (a 0 must register as 0, not the
+        // sticky merged value) alongside the cumulative odometer, so it can recover the real
+        // belt speed when the machine freezes instantaneous speed at 0 mid-run.
+        speedResolver.ingest(instantaneousKmh: sample.speedKmh,
+                             avgKmh: sample.avgSpeedKmh,
+                             odometerM: merged.totalDistanceM,
+                             at: sample.lastUpdate)
 
         updateLegDistance(from: merged)
         accumulateAverages(from: merged)

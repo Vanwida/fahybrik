@@ -80,6 +80,7 @@
 		265692D9C6031D4DD0D30A6D /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8A1308F2D64ED7272E7D7AD /* SubscriptionService.swift */; };
 		27E7D189B0FE904A14EC0D7D /* ZonesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56FCA093BE6E12C2F92078F1 /* ZonesService.swift */; };
 		28ECA2B64F0FE3156D7F32E2 /* ThresholdStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */; };
+		2914F1E11CD862CB6E274B6A /* TreadmillSpeedResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59834A91F757962D398E6D97 /* TreadmillSpeedResolverTests.swift */; };
 		29B8FFD706604C092FD2A9ED /* RunRouteMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7404F52D9E2EA1343D075D /* RunRouteMapView.swift */; };
 		2A2FDB88C73DBF06B1117255 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA912BF52924EC0C847BF1E0 /* HealthKit.framework */; };
 		2A555265BBE023B34A1F5FD1 /* DevicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C3DE00D4A428A3EAA07320 /* DevicePickerSheet.swift */; };
@@ -184,6 +185,7 @@
 		6D79FBA1678E850311503F96 /* AnalyticsDrillDownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56456AEFBB769CE3B8456A95 /* AnalyticsDrillDownSheet.swift */; };
 		6F34EA1D009B5C8D149D90CA /* FAHYBRIKWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54687C897D7B426D10F534E /* FAHYBRIKWatchApp.swift */; };
 		705547E0A524A56A4E0C4F6F /* GoalsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9ABACDF3287674F039ADFE /* GoalsStep.swift */; };
+		712A964C322E29F0D169FD8B /* TreadmillSpeedResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77B03F1276B0BD086145D13 /* TreadmillSpeedResolver.swift */; };
 		7317DEA67AB11BF1A17AFFF6 /* BenchmarkDelta.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BCDB72AAF37412C15E92BB /* BenchmarkDelta.swift */; };
 		73A16008EB56CD410128016C /* TestResultCaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FB0D2E8521767F63EAC70B /* TestResultCaptureSheet.swift */; };
 		73DA4A94BE09244002B8CBA3 /* PartnerInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3759759850F8540B6D0AE3 /* PartnerInfoTests.swift */; };
@@ -580,6 +582,7 @@
 		56FCA093BE6E12C2F92078F1 /* ZonesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesService.swift; sourceTree = "<group>"; };
 		58859ABC592990B8A4EB837F /* DeviceHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHub.swift; sourceTree = "<group>"; };
 		59549DD32CB054A2BCC770F6 /* PartnerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerService.swift; sourceTree = "<group>"; };
+		59834A91F757962D398E6D97 /* TreadmillSpeedResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillSpeedResolverTests.swift; sourceTree = "<group>"; };
 		5A881BA6F09BC2A60003B524 /* GoalGapBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalGapBoard.swift; sourceTree = "<group>"; };
 		5AB3E2FBF445091413BB293B /* HRProvenanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRProvenanceTests.swift; sourceTree = "<group>"; };
 		5ABF59F238D4FB4A53CCDD05 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -719,6 +722,7 @@
 		B6638A2E174C3189F64CFDB4 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B6BCDB72AAF37412C15E92BB /* BenchmarkDelta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkDelta.swift; sourceTree = "<group>"; };
 		B749A0DBEF6E0B4D8DC6AF31 /* AnalyticsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsModels.swift; sourceTree = "<group>"; };
+		B77B03F1276B0BD086145D13 /* TreadmillSpeedResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillSpeedResolver.swift; sourceTree = "<group>"; };
 		B796CAF804634A3E6D8CD4A2 /* StationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationDetailView.swift; sourceTree = "<group>"; };
 		B7FC72EE3461CB2C3AABBE81 /* FAHYBRIK-Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "FAHYBRIK-Debug.entitlements"; sourceTree = "<group>"; };
 		B962CBBF9B74EA92BBCBFFD4 /* InjuriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjuriesView.swift; sourceTree = "<group>"; };
@@ -1191,6 +1195,7 @@
 				2987C54DE3A0D9FDDD575E56 /* TreadmillHUDView.swift */,
 				8EF04D12188570A339018BC1 /* TreadmillLeg.swift */,
 				D3302CBCD91530DF2423E668 /* TreadmillSources.swift */,
+				B77B03F1276B0BD086145D13 /* TreadmillSpeedResolver.swift */,
 			);
 			path = Treadmill;
 			sourceTree = "<group>";
@@ -1488,6 +1493,7 @@
 				1245B54D8AD689F48671C7ED /* TreadmillControlModelTests.swift */,
 				E3B6B37C817AE7E22FF9BBF6 /* TreadmillHRProvenanceTests.swift */,
 				60C0964B0D02FCA8F8C108F8 /* TreadmillLegTests.swift */,
+				59834A91F757962D398E6D97 /* TreadmillSpeedResolverTests.swift */,
 			);
 			path = Devices;
 			sourceTree = "<group>";
@@ -2139,6 +2145,7 @@
 				DA5FA028EA658CAD85EE7360 /* TreadmillHUDView.swift in Sources */,
 				398EB27CC523A8A947120001 /* TreadmillLeg.swift in Sources */,
 				E3A309BFED5DB024FA9B4217 /* TreadmillSources.swift in Sources */,
+				712A964C322E29F0D169FD8B /* TreadmillSpeedResolver.swift in Sources */,
 				DC973828669A071B4478A0F1 /* VoiceRecorderView.swift in Sources */,
 				197E64A4DF0A762AF1DFB340 /* WatchConnectivityiOSService.swift in Sources */,
 				F364E7F1A62E3B5D7C1287E0 /* WatchPresence.swift in Sources */,
@@ -2287,6 +2294,7 @@
 				9312410D8CAAE5FC29F8B441 /* TreadmillControlModelTests.swift in Sources */,
 				DA4D00A5122E9F7058FD1E80 /* TreadmillHRProvenanceTests.swift in Sources */,
 				BA753FC017BE740279CCAD9E /* TreadmillLegTests.swift in Sources */,
+				2914F1E11CD862CB6E274B6A /* TreadmillSpeedResolverTests.swift in Sources */,
 				F7B82FF308C6566463B95C46 /* WatchRunLegDriverTests.swift in Sources */,
 				080D6B31258BD147BF24FD94 /* WearablesServiceTests.swift in Sources */,
 				79A17E6B5A771745403E2F16 /* WireEnumToleranceTests.swift in Sources */,
