@@ -68,9 +68,9 @@ Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`
 **Puede empujarse el entreno a:** Apple (nativo, sin permisos), Garmin (vía Connect IQ, NO depende de la API parada), Suunto (spec pública), COROS (solicitud enviada 25-jul). Polar es solo lectura. Wear OS y Fitbit están muertos para iPhone.
 
 **Lo siguiente:**
-1. Los **65 segmentos de carrera que aún no se convierten**: `legacyToStructure` filtra por `scheme` cuando debería filtrar por MODALIDAD, así que un bloque con `sets[]` y scheme `sets`/`rounds`/`interval` nunca llega a su Path A. Es dominio compartido con el editor del coach.
+1. ~~Los 65 segmentos~~ HECHO: `RUN_CONVERTIBLE_SCHEMES` explícito (endurance + rounds + sets/warmup/cooldown, fuera los metcon de verdad) y `collectRunStructures` ya filtra por modalidad — sin eso, 121 segmentos de bici/remo/ski/movilidad se convertían en "carrera". **Producción: 1 → 78 → 112 de 143 segmentos, 48 sesiones, 16 asignadas.**
 2. Aflojar el filtro del Apple Watch a «el trabajo principal es carrera» (hoy exige un solo item → en producción eso es cero sesiones).
-3. **Bug vivo camino de iOS:** `web/lib/athlete/assignment-detail.ts:918` resuelve un target `hr_zone` con `resolvePaceBandFromZones(...,'per_km')` — una zona de PULSO sale como banda de RITMO.
+3. ~~Bug de `hr_zone`~~ HECHO: `resolveSegmentBand` solo resuelve `pace_zone`; una zona de pulso ya no sale como banda de ritmo. Test que falla si se reintroduce.
 4. Dejar vivos `/api/coros/webhook` y `/api/coros/status`, declarados en la solicitud a COROS.
 5. ~~Compilar `garmin-ciq/`~~ HECHO 25-jul: SDK 9.2.0 + OpenJDK instalados, clave de firma en `~/.garmin/` (fuera del repo), y BUILD SUCCESSFUL en 12 dispositivos de las 6 familias. Falta solo la prueba en reloj físico, que Garmin no simula.
 

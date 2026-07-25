@@ -749,7 +749,7 @@
   </header>
 
   <dl class="tally">
-    <div class="n-ok"><dt>Construido</dt><dd>7</dd></div>
+    <div class="n-ok"><dt>Construido</dt><dd>10</dd></div>
     <div class="n-run"><dt>Construyéndose</dt><dd>0</dd></div>
     <div class="n-wait"><dt>Esperan a Alex</dt><dd>1</dd></div>
     <div class="n-dead"><dt>Descartados</dt><dd>3</dd></div>
@@ -850,30 +850,42 @@
     <div class="fold-body">
 
       <div class="callout" style="border-left-color:var(--ok)">
-        <h3>Arreglado: de 1 sesión a 78</h3>
+        <h3>De 1 sesión real a 112</h3>
         <p>
-          Los codificadores ahora leen también el formato viejo, que es donde está escrito el
-          contenido de verdad. Medido corriendo el conversor sobre las filas reales de la base de
-          datos, no sobre tests:
+          Al empezar el día, el reloj solo sabía leer la gramática nueva, y esa la usa exactamente
+          un segmento de los 143 que hay en producción. Todo lo demás lo miré corriendo el conversor
+          sobre las filas reales de la base de datos, no sobre tests:
         </p>
         <div class="scroller">
           <table>
             <thead>
-              <tr><th scope="col">En producción</th><th scope="col">Antes</th><th scope="col">Ahora</th></tr>
+              <tr><th scope="col">Segmentos de carrera que pueden ir al reloj</th><th scope="col">Cuántos</th></tr>
             </thead>
             <tbody>
-              <tr><td class="note">Segmentos de carrera aprovechables</td><td>1</td><td><strong>78</strong></td></tr>
-              <tr><td class="note">Sesiones que pueden viajar al reloj</td><td>1</td><td><strong>38</strong></td></tr>
-              <tr><td class="note">De ellas, asignadas a un atleta</td><td>0</td><td><strong>16</strong></td></tr>
+              <tr><td class="note">Al empezar la sesión</td><td>1 de 143</td></tr>
+              <tr><td class="note">Leyendo también el formato viejo</td><td>78</td></tr>
+              <tr><td class="note">Mirando el tipo de bloque correcto</td><td><strong>112</strong></td></tr>
             </tbody>
           </table>
         </div>
         <p>
-          Quedan <strong>65 segmentos sin convertir</strong> y ya sé por qué: el conversor se corta
-          arriba mirando el tipo de bloque, así que un calentamiento de «3 × 40 segundos» nunca llega
-          a la parte del código que sabría traducirlo. El filtro correcto es la modalidad, no el
-          tipo. No lo he tocado porque es código compartido con el editor del coach y merece su
-          propio repaso.
+          Son <strong>48 sesiones</strong>, 16 de ellas ya asignadas a un atleta.
+        </p>
+        <p>
+          Los 31 que no entran <strong>se rechazan bien</strong>: son simulaciones de HYROX, metcons
+          y un bloque que mezcla correr con bici. En esos, correr es un tramo dentro de otra cosa;
+          mandarlos al reloj como si fueran un entreno de carrera le mentiría al atleta sobre lo que
+          va a hacer.
+        </p>
+      </div>
+
+      <div class="callout" style="border-left-color:var(--ok)">
+        <h3>Y un agujero que encontré por el camino</h3>
+        <p>
+          Al quitar el filtro equivocado quedó a la vista que <strong>el mío no filtraba por
+          modalidad</strong>. Lo medí: <strong>121 segmentos de bici, remo, ski y movilidad</strong>
+          se habrían convertido en «estructuras de carrera» y habrían viajado al reloj como tales.
+          Ahora usa la misma regla que el resto de la app.
         </p>
       </div>
 
@@ -1013,6 +1025,27 @@
 
         <article class="entry">
           <div class="entry-head">
+            <h3>Una zona de pulso llegaba al móvil convertida en ritmo</h3>
+            <span class="pill p-ok">Arreglado</span>
+          </div>
+          <p>
+            Este no era de relojes: afectaba a lo que el atleta ve <strong>hoy</strong> en la app. Si
+            el coach prescribía «FC Z4», el sistema lo resolvía por el camino del ritmo y al atleta le
+            salía «4:00-4:14/km». Un ritmo que nadie había prescrito, y con pinta de medido.
+          </p>
+          <p>
+            No se arregla convirtiéndolo a pulsaciones, porque la estructura de datos solo sabe
+            expresar ritmo. Así que ahora no se resuelve y se muestra la etiqueta de la zona, que es
+            lo que el propio módulo ya prometía: nunca un ritmo inventado.
+          </p>
+          <p>
+            La prueba que lo vigila <strong>falla si reintroduzco el bug</strong>. Lo comprobé
+            revirtiéndolo.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
             <h3>La app de Garmin ya compila</h3>
             <span class="pill p-ok">Hecho</span>
           </div>
@@ -1064,18 +1097,7 @@
       <p>Todo integrado en la rama y verde. Lo que queda, por orden:</p>
       <ul class="plain">
         <li>
-          <strong>Los 65 segmentos que aún no se convierten.</strong> El conversor mira el tipo de
-          bloque cuando debería mirar la modalidad. Es código compartido con el editor del coach, así
-          que va con su propio repaso.
-        </li>
-        <li>
           <strong>Aflojar el filtro del Apple Watch</strong> a «el trabajo principal es carrera».
-        </li>
-        <li>
-          <strong>Un bug que salió de rebote y va camino de iOS:</strong> una zona de
-          <em>pulso</em> se está resolviendo como si fuera una banda de <em>ritmo</em>, y así
-          viaja a la app. Lo persigo aparte porque no es de los relojes: afecta a lo que el atleta
-          ve hoy.
         </li>
         <li>
           <strong>Dejar vivos el webhook y la URL de estado de COROS</strong> antes de que envíes la
