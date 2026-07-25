@@ -28,6 +28,7 @@
 
 import type { Measure, Prescription, PrescriptionSet, Target } from './types';
 import { prescriptionTarget, setMeasure, setTarget } from './types';
+import { normalizeFormat } from './format';
 import {
   type Element,
   type RunStructure,
@@ -156,6 +157,22 @@ function boutFromSet(
   return bout;
 }
 
+// Los esquemas que SÍ describen una secuencia de tramos de carrera.
+//
+// No se usa la familia del catálogo y es a propósito. El catálogo llama metcon a
+// `rounds` y strength a `sets`, pero en la biblioteca real los entrenos de carrera
+// usan `rounds` para series ("5 rondas de 5 min a Z4") y `sets` para calentamientos
+// ("3 × 40 s"). Fiarse de la familia dejaría fuera series y calentamientos de verdad.
+//
+// Lo que queda fuera son los metcon AUTÉNTICOS — For Time, AMRAP, EMOM, Tabata,
+// Death By, chipper, ladder y la simulación de HYROX — porque ahí el correr es un
+// tramo dentro de otra cosa, no la sesión. Una "media simulación" convertida en
+// entreno de carrera y empujada a la muñeca le mentiría al atleta sobre lo que va a
+// hacer. Y en un AMRAP el número de rondas es el RESULTADO, no la prescripción.
+const RUN_CONVERTIBLE_SCHEMES: ReadonlySet<string> = new Set([
+  'steady', 'intervals', 'rounds', 'sets', 'warmup', 'cooldown',
+]);
+
 // Build the ordered elements of the `main` phase, or null if not representable.
 function buildMainElements(p: Prescription): Element[] | null {
   const blockT = legacyTargetToSegment(prescriptionTarget(p));
@@ -184,19 +201,15 @@ function buildMainElements(p: Prescription): Element[] | null {
 
   // Path B — scheme-driven (no explicit sets).
   const measure = legacyMeasureToSegment(blockMeasure(p));
-  if (p.scheme === 'steady') {
-    if (!measure) return null;
-    return [{ kind: 'work', measure, target: blockTarget }];
-  }
-  if (p.scheme === 'intervals') {
-    if (!measure) return null; // rounds+rest without a work measure → underspecified legacy
-    const times = p.rounds ?? 1;
-    if (times > MAX_REPEAT_TIMES) return null; // can't fold into a single Repeat
-    const bout: Element[] = [{ kind: 'work', measure, target: blockTarget }];
-    if (p.rest_s !== undefined && p.rest_s > 0) bout.push(recoveryFromRestSeconds(p.rest_s));
-    return times >= 2 ? [{ times, elements: bout }] : bout;
-  }
-  return null;
+  if (!measure) return null; // rounds+rest sin medida de trabajo → legacy incompleto
+
+  // Un solo camino para los tres: `rounds` ausente o 1 es un tramo continuo, y
+  // 2..N es una repetición. `steady` no trae rounds, así que cae solo en el primero.
+  const times = p.rounds ?? 1;
+  if (times > MAX_REPEAT_TIMES) return null; // no cabe en un solo Repeat
+  const bout: Element[] = [{ kind: 'work', measure, target: blockTarget }];
+  if (p.rest_s !== undefined && p.rest_s > 0) bout.push(recoveryFromRestSeconds(p.rest_s));
+  return times >= 2 ? [{ times, elements: bout }] : bout;
 }
 
 /**
@@ -206,7 +219,22 @@ function buildMainElements(p: Prescription): Element[] | null {
  */
 export function legacyToStructure(p: Prescription): RunStructure | null {
   if (p.structure && p.structure.length > 0) return p.structure;
-  if (p.scheme !== 'steady' && p.scheme !== 'intervals') return null;
+  // Antes esto exigía 'steady' o 'intervals' y nada más, con lo que se quedaba fuera
+  // todo bloque con `sets[]` explícitos cuyo scheme fuera 'sets', 'rounds' o el alias
+  // 'interval' — que en la biblioteca real de producción eran 65 de los 143 segmentos
+  // de carrera. Un calentamiento de "3 × 40 s" ni siquiera llegaba al Path A de
+  // `buildMainElements`, que sabe convertirlo perfectamente.
+  //
+  // El scheme se NORMALIZA antes de mirarlo: en la DB conviven alias antiguos
+  // ('interval' en singular, 'tempo') que solo se canonizan al parsear con Zod, y
+  // aquí llegan crudos desde `prescription_json`.
+  //
+  // Lo que NO se comprueba aquí es la MODALIDAD: de eso responde quien llama (ver
+  // `runWireStructure` en web/lib/athlete/assignment-detail.ts, `isRunItem` en
+  // run-compliance y `collectRunStructures` en wearables). Sin ese filtro, 129
+  // segmentos de bici, remo, ski y movilidad de producción se convertirían en
+  // "estructuras de carrera".
+  if (!RUN_CONVERTIBLE_SCHEMES.has(normalizeFormat(p.scheme) ?? p.scheme)) return null;
   const elements = buildMainElements(p);
   if (!elements || elements.length === 0) return null;
   const structure: RunStructure = [{ role: 'main', elements }];

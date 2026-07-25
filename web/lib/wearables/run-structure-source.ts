@@ -53,8 +53,26 @@ export interface RunStructureSource {
   blocks: readonly {
     items: readonly {
       prescription_json?: Prescription | null;
+      /** Categoría del ejercicio; manda cuando la prescripción no trae modalidad. */
+      exercise_category?: string;
     }[];
   }[];
+}
+
+/**
+ * ¿Esta línea es carrera? Misma regla que el wire del atleta
+ * (`assignment-detail.ts`: `modality === 'run' || category === 'running'`) y que
+ * `isRunItem` en run-compliance: la modalidad de la prescripción manda, y si no
+ * la trae, decide la categoría del ejercicio.
+ *
+ * Filtrar aquí NO es opcional: `legacyToStructure` no mira la modalidad a propósito
+ * (es responsabilidad de quien llama), así que sin esto un remo o una bici continuos
+ * se convertirían en una "estructura de carrera" y viajarían al reloj como tal.
+ */
+function isRunItem(item: { prescription_json?: Prescription | null; exercise_category?: string }): boolean {
+  const modality = item.prescription_json?.modality;
+  if (modality) return modality === 'run';
+  return item.exercise_category === 'running';
 }
 
 /**
@@ -81,7 +99,7 @@ export function collectRunStructures(workout: RunStructureSource | null): RunStr
   for (const block of workout.blocks) {
     for (const item of block.items) {
       const prescription = item.prescription_json;
-      if (!prescription) continue;
+      if (!prescription || !isRunItem(item)) continue;
       const structure = legacyToStructure(prescription);
       if (structure && structure.length > 0) out.push(structure);
     }
