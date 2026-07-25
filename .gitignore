@@ -62,3 +62,6 @@ infra/reports/
 logs/
 __pycache__/
 .env*
+
+# playwright-mcp session artifacts
+.playwright-mcp/

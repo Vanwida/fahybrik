@@ -22,9 +22,21 @@ This file is loaded automatically by Claude when working in this repo. It supple
 
 Si me pillo saltando a construir/delegar sin haber hecho 1-4, PARO y vuelvo al diseño. Ver memoria [[feedback-coherence-over-no-errors]], [[feedback-sense-and-market-standards]].
 
+## HARD RULE — TODO SE COMMITEA. NADA SE PIERDE.
+
+Alex tiene una plataforma propia (**mentalOS**) que lee los cambios en disco y el historial de git de todos sus proyectos, y se los sirve al móvil. Si el trabajo no está en git, para él **no existe**.
+
+Por tanto, en cada sesión:
+
+- **Commitear siempre** al terminar cualquier pieza de trabajo — código, migraciones, docs, diseño. No esperar a que Alex lo pida. No dejar trabajo solo en el scratchpad.
+- **Commits pequeños y con mensaje honesto** de qué se hizo y por qué. Nada de un commit gigante al final.
+- **Solo lo propio.** El repo es compartido entre sesiones: añadir por ruta explícita, nunca `git add -A` ni `git add .`, y **jamás `git stash`** (se lleva el trabajo de otras sesiones). Ver [[feedback_never_git_stash_shared_worktree]].
+- **`FOCUS.md` en la raíz siempre al día.** Es lo que lee mentalOS para saber en qué andamos. Se actualiza en el mismo commit que el trabajo: en qué estamos ahora, qué acaba de cerrarse, qué es lo siguiente y qué está pendiente de decisión. Corto — es un estado, no un diario.
+- Los artefactos publicados (HTML de diseño, documentos de metodología) van a `docs/`, y su enlace se referencia desde `FOCUS.md` para que quede rastro.
+
 ## What this project is
 
-**FAHYBRIK** — premium HYROX / hybrid training app. Single coach (Pablo, Fabrik Training Club Barcelona) → his elite athletes. Two surfaces: iOS Swift native (athletes) + Next.js dashboard (Pablo). Templates created by Pablo + IA selects/adapts (NOT IA generating from scratch). Pablo's methodology = ATR block periodization, indexed via RAG + pgvector.
+**FAHYBRID** — premium HYROX / hybrid training app. (La marca acaba en **D**: FAHYBRID. `FAHYBRIK` es solo el nombre heredado del repo, el proyecto Vercel y el de Neon — nunca se escribe en prosa, copy, docs ni artefactos.) Single coach (Pablo, Fabrik Training Club Barcelona) → his elite athletes. Two surfaces: iOS Swift native (athletes) + Next.js dashboard (Pablo). Templates created by Pablo + IA selects/adapts (NOT IA generating from scratch). Pablo's methodology = ATR block periodization, indexed via RAG + pgvector.
 
 ## Account scope — HARD RULE
 
