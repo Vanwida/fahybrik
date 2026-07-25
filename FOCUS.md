@@ -21,7 +21,7 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 - **La metodología en una página** — la columna del coach, rellenada por nosotros: reglas, fases, pruebas, sesiones, progresión, ajuste diario y variación por formato. → `docs/methodology/metodologia-fahybrid.html`
 - **Batería de pruebas** — 4 pruebas (5K, remo 2K, 1RM, media simulación). Ya construida y funcionando en producto. → `docs/methodology/test-battery-reference.html`
 - **Modelo de fases** — Base → Potencia → Ritmo → Pico → Desconexión. 13–19 semanas. Sin entidad de fase en schema (respeta la decisión de la migración 0064). → `docs/methodology/modelo-de-fases.html`
-- **Catálogo de sesiones** — 18 tipos en 4 familias. Validado contra las 97 sesiones reales del Excel de Pablo: todas encajan sin texto libre. → `docs/methodology/catalogo-tipos-sesion.html`
+- **Catálogo de sesiones** — 18 tipos en 4 familias. ⚠️ **A REHACER**: se ajustó contra ficheros del repo que no son material propio. Hay que rederivarlo desde las exigencias de la carrera. → `docs/methodology/catalogo-tipos-sesion.html`
 - **Reglas de progresión y ajuste** — progresión semanal, fuerza por RIR, bandas de readiness (67/45), límites de seguridad y reincorporación. → `docs/methodology/reglas-de-progresion.html`
 - **Formatos y cargas de HYROX** — cargas oficiales por división verificadas contra el reglamento 25/26 y 26/27, y qué implica cada formato para el entrenamiento. → `docs/design/formatos-y-cargas-hyrox.html`
 

@@ -15,7 +15,7 @@ This file is loaded automatically by Claude when working in this repo. It supple
 **Trigger = "voy a construir / specificar / lanzar un agente" sobre algo NO trivial del dominio.** Antes de escribir código o lanzar un agente, OBLIGATORIO:
 
 1. **Modelar el dominio ENTERO de esa pieza, no el caso delante.** Ej.: una "prescripción" no es sets/reps/rpe — es *cómo se mide el trabajo* (distancia | tiempo | reps | calorías) × *contra qué objetivo* (ritmo | zona | RPE | %RM | RIR) × *por modalidad* (correr, ergo, fuerza, WOD). Se diseña UNA vez, completo.
-2. **Romperlo contra la realidad ANTES de construir:** coger ~10 casos reales (del plan de Pablo / del Excel) y verificar que TODOS entran en el modelo con CERO texto libre. Si alguno no entra → el modelo está mal, no el caso.
+2. **Romperlo contra la realidad ANTES de construir:** coger ~10 casos reales y verificar que TODOS entran en el modelo con CERO texto libre. Si alguno no entra → el modelo está mal, no el caso. **Las fuentes las marca Alex.** No salir a buscar material por iniciativa propia: nada de ficheros del repo que nadie ha citado, nada de planes de terceros. Si no hay fuente dada, se pregunta.
 3. **Test de cada campo = uso final:** (a) el atleta lo entiende sin ambigüedad, (b) la app calcula analíticas con él, (c) la IA lo adapta. Si acaba en texto, falla los tres → no está bien (da igual que compile).
 4. **Surfacear a Alex 3 líneas: modelo + contra qué casos reales lo rompí + dónde podría fallar** — ANTES de construir. Ahí va la profundidad, en su momento, como propuesta. NO build-then-explain.
 5. **Cuando un fallo revela un hueco del modelo → arreglar la RAÍZ (el modelo), no el caso.**

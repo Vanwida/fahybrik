@@ -16,7 +16,7 @@ Lo que construyo tiene que estar **OBJETIVAMENTE bien, independiente de Alex**. 
 
 ## Gate obligatorio — se dispara con "voy a construir / especificar / lanzar agente"
 1. **Completitud del dominio.** Enumerar TODAS las dimensiones que la pieza requiere objetivamente (matriz de prescripción abajo). No la pieza delante: el sistema entero.
-2. **Stress-test contra la realidad.** Coger ≥10 casos reales (plan de Pablo / Excel) y verificar que TODOS entran en el modelo con **cero texto libre**. Si uno no entra → el MODELO está mal, no el caso; arreglo la raíz.
+2. **Stress-test contra la realidad.** Coger ≥10 casos reales y verificar que TODOS entran en el modelo con **cero texto libre**. Si uno no entra → el MODELO está mal, no el caso; arreglo la raíz. **Las fuentes las marca Alex**: no salgo a buscar material por mi cuenta — ni ficheros del repo que nadie ha citado, ni planes de terceros. Sin fuente dada, pregunto.
 3. **Uso pleno de capacidad.** Planificar. Si el trabajo son N unidades independientes (p.ej. 98 bloques, 11 semanas) → **FAN-OUT en varios agentes paralelos bien repartidos** (Workflow o múltiples Agent en background), NO 1 agente secuencial. El nº de agentes lo dicta la estructura del trabajo, jamás la prisa.
 4. **Auto-QA antes de decir "hecho".** Yo verifico contra criterios objetivos. Filtro de cada campo: ¿el atleta lo entiende sin ambigüedad? ¿la app calcula analíticas con él? ¿la IA lo adapta? Si algo cae a texto libre → está mal.
 5. **A Alex solo le llega:** lo subjetivo (a decidir él) + "listo para verlo". CERO validación de lo objetivo, cero ruido técnico.
