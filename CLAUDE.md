@@ -33,6 +33,11 @@ Por tanto, en cada sesión:
 - **Solo lo propio.** El repo es compartido entre sesiones: añadir por ruta explícita, nunca `git add -A` ni `git add .`, y **jamás `git stash`** (se lleva el trabajo de otras sesiones). Ver [[feedback_never_git_stash_shared_worktree]].
 - **`FOCUS.md` en la raíz siempre al día.** Es lo que lee mentalOS para saber en qué andamos. Se actualiza en el mismo commit que el trabajo: en qué estamos ahora, qué acaba de cerrarse, qué es lo siguiente y qué está pendiente de decisión. Corto — es un estado, no un diario.
 - Los artefactos publicados (HTML de diseño, documentos de metodología) van a `docs/`, y su enlace se referencia desde `FOCUS.md` para que quede rastro.
+- **`docs/DECISIONS.md`** recoge toda decisión estructural del dominio o del modelo de datos — y **sobre todo lo que se elimina o se descarta**. Lo que se borra sin dejar constancia es lo que alguien reconstruye seis meses después. Leerlo ANTES de rediseñar nada del dominio; escribir en él al tomar la decisión, no al final.
+
+Esto no depende de que me acuerde: el hook `SessionStart` (`.claude/hooks/session-context.sh`) sirve al arranque de cada sesión el `FOCUS.md`, el trabajo sin commitear y los últimos commits.
+
+**Por qué existe todo esto:** en julio de 2026 hubo que rehacer la metodología entera porque el trabajo previo estaba en el repo pero era indescubrible — una spec huérfana, un motor de reglas muerto y migraciones que creaban y eliminaban entidades sin dejar el porqué en ningún sitio legible.
 
 ## What this project is
 
