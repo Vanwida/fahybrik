@@ -39,6 +39,31 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+## Hilo paralelo: RELOJES — el entreno en la muñeca (prioridad máxima, 25-jul)
+
+Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`
+
+**Premisa de Alex:** máxima conectividad. Que el entreno llegue al reloj siempre que se pueda, y donde no (Polar), que la app lea del dispositivo todo lo posible.
+
+**El diseño:** una estructura canónica + un codificador por marca. Dos reglas de dominio que no se negocian: las zonas viajan como banda ABSOLUTA (la Z4 de un Garmin sale de otra FCmáx), y lo que el reloj no puede vigilar (RPE) va como tramo abierto, nunca como objetivo inventado. Fuerza/EMOM/AMRAP quedan fuera a propósito: ningún formato de fabricante los modela.
+
+**Construido y en la rama:** modelo neutro · codificador .FIT de Garmin + endpoints · guías de Suunto (44 tests) · WorkoutKit para Apple Watch · app Connect IQ (`garmin-ciq/`, sin compilar aún) · dos bugs de Zepp que impedían entrar y ver el día · el permiso de Salud del onboarding que no arrancaba la sync.
+
+**Puede empujarse el entreno a:** Apple (nativo, sin permisos), Garmin (vía Connect IQ, NO depende de la API parada), Suunto (spec pública), COROS (solicitud enviada 25-jul). Polar es solo lectura. Wear OS y Fitbit están muertos para iPhone.
+
+**Lo siguiente:**
+1. Los **65 segmentos de carrera que aún no se convierten**: `legacyToStructure` filtra por `scheme` cuando debería filtrar por MODALIDAD, así que un bloque con `sets[]` y scheme `sets`/`rounds`/`interval` nunca llega a su Path A. Es dominio compartido con el editor del coach.
+2. Aflojar el filtro del Apple Watch a «el trabajo principal es carrera» (hoy exige un solo item → en producción eso es cero sesiones).
+3. **Bug vivo camino de iOS:** `web/lib/athlete/assignment-detail.ts:918` resuelve un target `hr_zone` con `resolvePaceBandFromZones(...,'per_km')` — una zona de PULSO sale como banda de RITMO.
+4. Dejar vivos `/api/coros/webhook` y `/api/coros/status`, declarados en la solicitud a COROS.
+5. Instalar el SDK de Connect IQ y compilar `garmin-ciq/` (nunca ha pasado por el compilador).
+
+**Pendiente de Alex:** formulario de Suunto · qué modelo de Garmin llega la semana que viene · OK a la migración que añade `suunto` y `amazfit` al enum `biometric_source`.
+
+**Hardware de pruebas:** el Kiprun *by Coros* de Gerard sirve para COROS (confirmar que pone «by Coros»; el GPS 500 viejo no vale). Para Garmin, Forerunner 165 de 2ª mano, 145-170 €.
+
+---
+
 ## Pendiente de decisión
 
 - **Nombres de las fases** (Base / Potencia / Ritmo / Pico / Desconexión) — subjetivo, decide Alex.
