@@ -58,7 +58,9 @@ Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`
 4. Dejar vivos `/api/coros/webhook` y `/api/coros/status`, declarados en la solicitud a COROS.
 5. Instalar el SDK de Connect IQ y compilar `garmin-ciq/` (nunca ha pasado por el compilador).
 
-**Pendiente de Alex:** formulario de Suunto · qué modelo de Garmin llega la semana que viene · OK a la migración que añade `suunto` y `amazfit` al enum `biometric_source`.
+**Solicitudes ENVIADAS el 25-jul:** COROS (sin plazo publicado; pendiente el correo a api@coros.com preguntando si el push de entrenos entra en el tier estándar) y Suunto (responden en dos semanas; pedimos Cloud API + apps de reloj, y van alex@ y hello@ como desarrolladores porque dan una app por correo).
+
+**Pendiente de Alex:** qué modelo de Garmin llega la semana que viene y si le instalamos el SDK · OK a la migración que añade `suunto` y `amazfit` al enum `biometric_source`.
 
 **Hardware de pruebas:** el Kiprun *by Coros* de Gerard sirve para COROS (confirmar que pone «by Coros»; el GPS 500 viejo no vale). Para Garmin, Forerunner 165 de 2ª mano, 145-170 €.
 

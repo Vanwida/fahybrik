@@ -751,7 +751,7 @@
   <dl class="tally">
     <div class="n-ok"><dt>Construido</dt><dd>7</dd></div>
     <div class="n-run"><dt>Construyéndose</dt><dd>0</dd></div>
-    <div class="n-wait"><dt>Esperan a Alex</dt><dd>4</dd></div>
+    <div class="n-wait"><dt>Esperan a Alex</dt><dd>2</dd></div>
     <div class="n-dead"><dt>Descartados</dt><dd>3</dd></div>
   </dl>
 
@@ -760,201 +760,59 @@
     <p class="lede">Lo único que necesita tu decisión. Todo lo demás va debajo, plegado.</p>
 
       <p>
-        Cuatro cosas, por orden. Dos son formularios que no puedo enviar yo porque piden identidad y
-        correos; te dejo el texto escrito para que solo pegues. Las otras dos son un sí o un no.
-        <strong>Total real: unos 25 minutos</strong>, y dos de ellas son una palabra.
+        Dos cosas, y las dos son responderme. <strong>Un minuto.</strong> Las dos solicitudes de API
+        (COROS y Suunto) ya están enviadas.
       </p>
 
       <div class="entries" style="background:transparent;border:none;gap:20px">
 
         <!-- 1 · COROS -->
-        <div class="task">
+        <div class="task" style="border-color:var(--ok)">
           <div class="task-head">
-            <h3>1 · COROS — ya relleno, te faltan 5 campos</h3>
-            <span class="pill p-wait">Esta semana</span>
-            <span class="cost">≈ 5 min</span>
+            <h3>COROS</h3>
+            <span class="pill p-ok">Enviado el 25 de julio</span>
           </div>
           <p style="color:var(--ink-dim);margin:0">
-            He abierto el
-            <a href="https://coros-teams.feishu.cn/share/base/form/shrcnLqSduZsaNhbvDJTO2x0Vlf" target="_blank" rel="noopener">formulario oficial</a>
-            y he rellenado 18 de sus 24 campos, incluidos los <strong>cuatro logos PNG</strong> en las
-            medidas exactas que exigen (sin ellos no aprueban la solicitud). Lo que queda es tuyo
-            porque son datos que no me puedo inventar.
+            Fuera de tu lista. No esperes acuse por correo: los formularios de Feishu no lo mandan.
+            La confirmación real es que aparezca en «View Responses». COROS <strong>no publica
+            plazos</strong> de respuesta, así que el silencio no significa nada.
           </p>
           <p style="color:var(--ink-dim);margin:0">
-            Los logos van en <strong>negro sobre blanco</strong>. Subí primero el naranja, me
-            corregiste, y he ido a la causa en vez de al síntoma: dos documentos nuestros decían
-            literalmente que para formularios se usara <span class="sha">fh-icon-300.png</span>, que
-            no es el logo sino el <em>icono de la app</em>. Corregidos los dos, generados los
-            cuadrados negros oficiales en <span class="sha">brand/partner/</span> y guardada la regla
-            en memoria para que no vuelva a pasar en otra sesión.
+            Queda pendiente de mi parte dejar vivos el webhook y la URL de estado que declaramos, y
+            mandarles el correo a <a href="mailto:api@coros.com">api@coros.com</a> con la pregunta
+            que desatasca todo: si el envío de entrenos entra en el acceso estándar o necesita
+            acuerdo aparte. El texto está más abajo, listo.
           </p>
-
-          <div class="warn">
-            <strong>Corrijo algo que te dije antes.</strong> Yo te conté que COROS había pasado a
-            «cumples requisitos, entras». El artículo de soporte sí cambió, pero
-            <strong>el formulario sigue diciendo lo de siempre</strong>: <em>«no podemos ofrecer
-            acceso a todos los que lo solicitan; valoramos el tamaño de mercado actual y otros
-            factores»</em>. Sigue siendo selección discrecional. No te vendo la moto: puede que nos
-            digan que no.
-          </div>
-
-          <ol class="steps">
-            <li><div>
-              <strong>Completa estos cinco campos en la ventana que he dejado abierta:</strong>
-              <dl class="answer">
-                <dt>2 · Company Name</dt><dd>Depende de con qué figura te presentas — ver el aviso de Suunto abajo, es el mismo problema</dd>
-                <dt>6 · Owner Name and Title</dt><dd>Tu nombre y tu cargo</dd>
-                <dt>9 · Total Active Users</dt><dd>Tu dato. El desplegable empieza en 0-150</dd>
-                <dt>20 y 21 · Los dos acuerdos</dt><dd>Son contratos legales. <strong>No los acepto yo por ti.</strong> El de la API es un PDF enlazado en el propio formulario</dd>
-                <dt>22 y 23 · Tu nombre y la fecha</dt><dd>Eso es tu firma</dd>
-              </dl>
-              <div class="warn" style="margin-top:10px">
-                Lo relleno vive en esa ventana del navegador: <strong>si se cierra, se pierde</strong>.
-                Si te pasa, están todas las respuestas guardadas abajo y lo repongo en dos minutos.
-              </div>
-            </div></li>
-
-            <li><div>
-              <strong>Antes de darle a enviar, dime la fecha.</strong> El formulario pide un webhook y
-              una URL de estado que <strong>todavía no existen</strong>. Los dejo respondiendo en
-              producción primero: si COROS los prueba y no contestan, la solicitud arranca con mal
-              pie. Es cosa mía, no tuya, pero necesito saber cuándo.
-            </div></li>
-
-            <li><div>
-              Manda este correo a <a href="mailto:api@coros.com">api@coros.com</a>. Es lo que
-              desatasca todo: nos dirán si el envío de entrenos entra en el acceso estándar o
-              necesita acuerdo aparte.
-              <div class="copyblock">
-                <header>
-                  <span>Correo a api@coros.com</span>
-                  <button class="copy" type="button" data-copy="coros-mail">Copiar</button>
-                </header>
-                <pre id="coros-mail">Subject: API access request for FAHYBRID (HYROX / hybrid training platform)
-
-Hi COROS team,
-
-I'm applying for API access for FAHYBRID, a HYROX and hybrid-training
-platform for coached athletes (native iOS app + coach dashboard), based
-in Barcelona, Spain. I've also submitted the application form.
-
-What we want to do, with each athlete's explicit consent:
-
-1. READ their completed activities, laps and heart-rate data from their
-   COROS watch via OAuth 2.0, so their coach sees the session next to the
-   one he prescribed.
-
-2. PUSH planned structured running workouts (interval steps with pace and
-   heart-rate targets) to their COROS watch, the same capability
-   TrainingPeaks, Final Surge and Decathlon use today.
-
-One blocking question, and it's the reason I'm writing rather than only
-filing the form: is the planned / structured workout push included in the
-standard OAuth API tier, or does it require a separate agreement? The
-answer changes how we scope the integration, so I'd rather ask than guess.
-
-Happy to provide anything else you need.
-
-Thanks,
-Alex Solé
-FAHYBRID | fahybrid.com</pre>
-              </div>
-            </div></li>
-          </ol>
-
-          <div class="copyblock">
-            <header>
-              <span>Copia de seguridad · lo que he puesto en cada campo</span>
-              <button class="copy" type="button" data-copy="coros-values">Copiar</button>
-            </header>
-            <pre id="coros-values">1  Platform / Application Name    FAHYBRID
-3  Primary Contact Email          alex@fahybrid.com
-4  Secondary Contact Email        hello@fahybrid.com
-5  Privacy Officer Email          alex@fahybrid.com
-7  Platform / Application URL     https://fahybrid.com
-8  Description (100 char)         HYROX and hybrid training: coach-prescribed plans executed and tracked on the athlete's watch.
-10 Primary Region                 Europe, Spain (Barcelona)
-11 API functions                  ✓ Activity / Workout Data Sync (one way, COROS to your platform)
-                                  ✓ Structured Workouts and Training Plans Sync (from your platform to COROS)
-12 Authorized Callback Domain     https://fahybrid.com
-13 Workout data receiving URL     https://fahybrid.com/api/coros/webhook
-14 Service status check URL       https://fahybrid.com/api/coros/status
-15 Bluetooth / ANT+               N/A
-16 Personal or public             Public
-17 Commercial or non-commercial   Commercial
-18 Intended use of data           Mutual users connect their COROS account themselves, with explicit
-                                  consent, and can disconnect at any time. We read their completed
-                                  activities, laps and heart-rate data so their coach sees the session
-                                  next to the one he prescribed, and so we can compute training load,
-                                  readiness and race-pace analytics for that athlete only. In the other
-                                  direction we deliver the coach's structured running workouts to the
-                                  athlete's watch. Data is stored encrypted in the EU, is never sold,
-                                  never shared with third parties and never used to train models; it is
-                                  deleted when the athlete disconnects COROS or deletes their account.
-24 Logos                          web/public/brand/partner/fh-partner-144.png · fh-partner-102.png
-                                  fh-partner-120.png · fh-partner-300.png   (NEGRO sobre blanco)</pre>
-          </div>
         </div>
 
         <!-- 2 · Suunto -->
-        <div class="task">
+        <div class="task" style="border-color:var(--ok)">
           <div class="task-head">
-            <h3>2 · Solicitar el acceso a Suunto</h3>
-            <span class="pill p-wait">Sin prisa</span>
-            <span class="cost">≈ 10 min</span>
+            <h3>Suunto</h3>
+            <span class="pill p-ok">Enviado el 25 de julio</span>
           </div>
           <p style="color:var(--ink-dim);margin:0">
-            El código ya está escrito contra su especificación pública, así que esto solo desbloquea
-            poder <em>enviar</em>. Gratis, revisan cada semana, dos semanas como mucho.
+            Fuera de tu lista. Firmaste el acuerdo y se envió. Su pantalla confirmó el envío y
+            dijeron que responden <strong>en dos semanas</strong>, que es el único plazo publicado de
+            todos los fabricantes.
           </p>
-
-          <ol class="steps">
-            <li><div>
-              Rellena el
-              <a href="https://survey.alchemer.eu/s3/90553908/PARTNER-Become-a-Suunto-Partner" target="_blank" rel="noopener">formulario de partner de Suunto</a>:
-              <dl class="answer">
-                <dt>Qué API marcas</dt><dd><strong>Suunto Cloud API</strong> (es la que contiene las guías)</dd>
-                <dt>Correos de desarrollador</dt><dd>Pon <strong>dos</strong>: uno de pruebas y otro de producción. Solo invitan a los que listes, y va una app por correo — si pones uno, luego no hay entorno de pruebas.</dd>
-                <dt>Uso previsto</dt><dd>El texto de abajo</dd>
-              </dl>
-              <div class="copyblock">
-                <header>
-                  <span>Descripción para el formulario</span>
-                  <button class="copy" type="button" data-copy="suunto-desc">Copiar</button>
-                </header>
-                <pre id="suunto-desc">FAHYBRID is a HYROX and hybrid-training platform for coached athletes
-(native iOS app + coach dashboard), based in Barcelona, Spain.
-
-We want to use the Suunto Cloud API in two directions, with each
-athlete's explicit consent:
-
-- SuuntoPlus Guides: deliver the structured running workout their coach
-  prescribed (interval steps with pace, heart-rate and cadence targets)
-  straight to their Suunto watch, so they train without their phone.
-
-- Workouts: read back the completed session (FIT with laps and samples)
-  so the coach sees what was actually done next to what he prescribed.
-  We tag every guide with an externalId so execution matches
-  prescription exactly, with no guesswork.
-
-We are not reselling data and we do not share it with third parties.</pre>
-              </div>
-            </div></li>
-          </ol>
-
-          <div class="warn">
-            <strong>Aviso, y es real:</strong> Suunto dice que el programa es solo para empresas u
-            organizaciones, no para uso personal. Como no hay entidad legal montada, dime con qué
-            figura quieres presentarte — autónomo, el nombre comercial FAHYBRID, o el club — y ajusto
-            el texto antes de que lo mandes. No lo relleno a ciegas con algo que no eres.
-          </div>
+          <p style="color:var(--ink-dim);margin:0">
+            Pedimos dos cosas: acceso a la Cloud API, que es la que trae las guías de entreno, y
+            además la posibilidad de crear apps de reloj. Eso segundo es la misma puerta que Connect
+            IQ en Garmin y nos daría las estaciones de HYROX, que las guías no cubren. Y van tus dos
+            correos como desarrolladores, porque Suunto da una app por correo: con uno solo nos
+            quedaríamos sin entorno de pruebas.
+          </p>
+          <p style="color:var(--ink-dim);margin:0">
+            El código ya está escrito contra su especificación pública, así que cuando llegue la
+            credencial es enchufar y probar.
+          </p>
         </div>
 
         <!-- 3 · Garmin -->
         <div class="task">
           <div class="task-head">
-            <h3>3 · Garmin: ¿hay relojes para probar?</h3>
+            <h3>1 · Garmin: el modelo y el SDK</h3>
             <span class="pill p-wait">Bloquea Garmin</span>
             <span class="cost">≈ 1 min</span>
           </div>
@@ -976,7 +834,7 @@ We are not reselling data and we do not share it with third parties.</pre>
         <!-- 4 · Migración -->
         <div class="task">
           <div class="task-head">
-            <h3>4 · Dar el OK a una migración</h3>
+            <h3>2 · Dar el OK a una migración</h3>
             <span class="pill p-wait">Una palabra</span>
             <span class="cost">≈ 1 min</span>
           </div>
@@ -1153,7 +1011,7 @@ We are not reselling data and we do not share it with third parties.</pre>
           </p>
           <p>
             <strong>Nada ha pasado por el compilador</strong>: tu Mac no tiene el SDK de Garmin.
-            Espera errores en la primera compilación. Está en el punto 3 de tu lista.
+            Espera errores en la primera compilación. Está en el punto 1 de tu lista.
           </p>
         </article>
 
