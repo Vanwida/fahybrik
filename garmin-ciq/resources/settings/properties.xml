@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Las DOS únicas cosas que el atleta teclea, y las dos son de un solo uso o
+  estables. El token de sesión NO está aquí a propósito: Properties se sincroniza
+  con Garmin Connect y se ve en la pantalla de ajustes del móvil. Una credencial
+  no se enseña. El token vive en Application.Storage (solo reloj) — ver Store.mc.
+
+  Los ids tienen que coincidir con Config.PROP_EMAIL / Config.PROP_LOGIN_CODE.
+-->
+<properties>
+    <property id="email" type="string"></property>
+    <property id="loginCode" type="string"></property>
+</properties>

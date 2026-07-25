@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Idioma por defecto: español. Los atletas son de Barcelona.
+
+  Criterio del copy: frases cortas, sin jerga y siempre con la SIGUIENTE ACCIÓN
+  dentro. En una pantalla de 30 mm un "Error inesperado" no sirve de nada: si el
+  reloj está lleno hay que decir que se borre desde Garmin Connect, y si no hay
+  Bluetooth hay que decir que se acerque el móvil.
+-->
+<strings>
+    <string id="AppName">FAHYBRID</string>
+
+    <!-- Vinculación de la cuenta -->
+    <string id="TitleLogin">Entra con tu email</string>
+    <string id="BodyNeedsEmail">Escribe tu email en Garmin Connect › Connect IQ › FAHYBRID › Ajustes.</string>
+    <string id="TitleCode">Código de acceso</string>
+    <string id="BodyNeedsCode">Te mandamos un código de 6 dígitos al email.</string>
+    <string id="BodyCodeLength">El código son 6 dígitos. Revísalo en los ajustes del móvil.</string>
+    <string id="BodyCodeSent">Mira tu email y escribe el código en Garmin Connect › FAHYBRID › Ajustes. Caduca en 10 minutos.</string>
+    <string id="ErrBadCode">El código no vale o ha caducado. Pide uno nuevo.</string>
+    <string id="ActionSendCode">Pedir código</string>
+    <string id="ActionCheckCode">Ya lo he escrito</string>
+    <string id="TitleExpired">Sesión caducada</string>
+    <string id="BodyExpired">Vuelve a entrar con tu email.</string>
+
+    <!-- En curso -->
+    <string id="BusySendingCode">Enviando el código…</string>
+    <string id="BusyVerifying">Comprobando el código…</string>
+    <string id="BusyLoading">Buscando tu entreno…</string>
+    <string id="BusyDownloading">Pasando el entreno al reloj…</string>
+
+    <!-- Entreno del día -->
+    <string id="ActionDownload">Pasar al reloj</string>
+    <string id="ActionStart">Empezar</string>
+    <string id="LabelOnWatch">Ya lo tienes en el reloj</string>
+    <string id="LabelOfflineFallback">Sin conexión: uso el que ya tienes descargado.</string>
+    <string id="TitleNoSession">Hoy no toca</string>
+    <string id="BodyNoSession">No tienes entreno para hoy.</string>
+    <string id="TitleNotExportable">Esto va en la app</string>
+    <string id="BodyNotExportable">El entreno de hoy no es de correr y el reloj no sabe guiarlo. Ábrelo en la app del móvil.</string>
+
+    <!-- Aviso antes de ceder el reloj al reproductor nativo -->
+    <string id="TitleConfirm">Dos toques</string>
+    <string id="BodyConfirm">El reloj te preguntará si sales de FAHYBRID y con qué perfil correr. Elige Correr: a partir de ahí guía Garmin.</string>
+    <string id="ActionConfirm">Vamos</string>
+
+    <!-- Fallos -->
+    <string id="TitleNoConnection">Sin conexión</string>
+    <string id="BodyNoConnection">Acerca el móvil con Bluetooth encendido, o conéctate al WiFi.</string>
+    <string id="TitleStorageFull">Reloj lleno</string>
+    <string id="BodyStorageFull">No queda sitio. Borra entrenos viejos desde Garmin Connect y vuelve a probar.</string>
+    <string id="TitleIncompatible">Reloj incompatible</string>
+    <string id="BodyIncompatible">Este reloj no acepta entrenos de carrera enviados desde una app. Ábrelo en la app del móvil.</string>
+    <string id="TitleError">Algo ha fallado</string>
+    <string id="BodyErrorCode">No se ha podido cargar. Código</string>
+    <string id="BodyNameMismatch">El entreno ha llegado con otro nombre. Vuelve a probar.</string>
+    <string id="BodyLaunchFailed">No se ha podido abrir el entreno. Vuelve a probar.</string>
+    <string id="ActionRetry">Reintentar</string>
+
+    <!-- Ajustes (se ven en Garmin Connect Mobile, no en el reloj) -->
+    <string id="SettingsEmailTitle">Tu email</string>
+    <string id="SettingsEmailPrompt">El email con el que entras en FAHYBRID.</string>
+    <string id="SettingsCodeTitle">Código de acceso</string>
+    <string id="SettingsCodePrompt">Los 6 dígitos que te hemos enviado por email. Se borra solo al usarlo.</string>
+</strings>

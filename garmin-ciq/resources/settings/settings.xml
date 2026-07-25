@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pantalla de ajustes que Garmin Connect Mobile dibuja en el móvil.
+  Es XML DECLARATIVO: no admite botones que llamen a una API. Por eso las dos
+  llamadas del login las hace el reloj (ver Controller) y el móvil solo pone el
+  teclado.
+
+  El código va como `alphaNumeric`, NO como `numeric`, y es deliberado: un campo
+  numérico se guardaría como número y se comería el cero de la izquierda, así que
+  un código como 012345 llegaría al servidor como "12345" y fallaría el
+  /^\d{6}$/ de /api/auth/email/verify. Un bug invisible que solo le tocaría a 1
+  de cada 10 atletas.
+-->
+<settings>
+    <setting propertyKey="@Properties.email" title="@Strings.SettingsEmailTitle" prompt="@Strings.SettingsEmailPrompt">
+        <settingConfig type="alphaNumeric" maxLength="120" />
+    </setting>
+    <setting propertyKey="@Properties.loginCode" title="@Strings.SettingsCodeTitle" prompt="@Strings.SettingsCodePrompt">
+        <settingConfig type="alphaNumeric" maxLength="6" />
+    </setting>
+</settings>
