@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  El icono del lanzador. PNG indexado de 8 bits con tRNS (fondo transparente):
+  es el formato que el compilador de Connect IQ acepta sin discutir en todas las
+  versiones del SDK; un RGBA lo rechazan algunas.
+  El glifo es la "F" bold-italic derivada del wordmark, en el naranja de marca.
+-->
+<drawables>
+    <bitmap id="LauncherIcon" filename="launcher_icon.png" />
+</drawables>

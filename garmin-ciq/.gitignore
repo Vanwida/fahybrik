@@ -1,0 +1,13 @@
+# La clave de desarrollador FIRMA la app: es un secreto y NUNCA se commitea.
+*.der
+*.pem
+developer_key*
+
+# Salida del compilador
+bin/
+*.prg
+*.prg.debug.xml
+*.iq
+
+# Herramientas
+.vscode/
