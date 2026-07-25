@@ -19,6 +19,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fahybrid/shared": "workspace:^",
+    "@garmin/fitsdk": "^21.208.0",
     "@next/env": "16.2.5",
     "@sentry/nextjs": "^10.54.0",
     "@vercel/blob": "^2.5.0",
