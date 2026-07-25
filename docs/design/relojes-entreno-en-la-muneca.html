@@ -228,7 +228,9 @@
     min-width: 0;
   }
 
-  .band-body h3 {
+  .band-body h3,
+  .fold-body h3,
+  .primary-block h3 {
     font-size: 20px;
     font-style: italic;
     font-weight: 800;
@@ -236,13 +238,17 @@
     text-wrap: balance;
   }
 
-  .band-body p {
+  .band-body p,
+  .fold-body > p,
+  .primary-block > p {
     max-width: 68ch;
     color: var(--ink-dim);
     text-wrap: pretty;
   }
 
-  .band-body strong { color: var(--ink); font-weight: 650; }
+  .band-body strong,
+  .fold-body strong,
+  .primary-block strong { color: var(--ink); font-weight: 650; }
 
   /* ── Fichas de entrada ────────────────────────────────────────── */
 
@@ -402,6 +408,80 @@
 
   .callout h3 { font-size: 17px; }
   .callout p { margin: 0; }
+
+  /* ── Secciones plegables ──────────────────────────────────────── */
+
+  details.fold {
+    border-top: 1px solid var(--line);
+  }
+
+  details.fold > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 20px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  details.fold > summary::-webkit-details-marker { display: none; }
+
+  details.fold > summary::before {
+    content: "+";
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    width: 14px;
+    flex: none;
+  }
+
+  details.fold[open] > summary::before { content: "–"; }
+
+  details.fold > summary h2 {
+    font-size: 17px;
+    font-style: italic;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+  }
+
+  details.fold > summary .hint {
+    font-size: 13px;
+    color: var(--ink-faint);
+    text-wrap: pretty;
+  }
+
+  details.fold > summary:hover h2 { color: var(--accent); }
+
+  details.fold .fold-body {
+    padding: 0 0 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  @media (min-width: 900px) {
+    details.fold .fold-body { padding-left: 28px; }
+  }
+
+  /* La sección abierta de tareas no lleva el marco plegable */
+  .primary-block { padding: 44px 0 8px; }
+
+  .primary-block > h2 {
+    font-size: clamp(24px, 4vw, 32px);
+    font-style: italic;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .primary-block > .lede {
+    color: var(--ink-dim);
+    max-width: 66ch;
+    margin-bottom: 26px;
+  }
 
   /* ── Las dos puertas de Garmin ────────────────────────────────── */
 
@@ -664,7 +744,7 @@
     </p>
     <div class="stamp">
       <span>Rama <span class="sha">feat/zepp-app</span></span>
-      <span>Última actualización: 25 jul, 13:5x</span>
+      <span>Arriba, lo que necesita tu decisión. Debajo, todo lo demás plegado</span>
     </div>
   </header>
 
@@ -675,484 +755,10 @@
     <div class="n-dead"><dt>Descartados</dt><dd>3</dd></div>
   </dl>
 
-  <section class="band">
-    <h2>Lo que importa</h2>
-    <div class="band-body">
-      <div class="callout" style="border-left-color:var(--ok)">
-        <h3>Arreglado: de 1 sesión a 78</h3>
-        <p>
-          Los codificadores ahora leen también el formato viejo, que es donde está escrito el
-          contenido de verdad. Medido corriendo el conversor sobre las filas reales de la base de
-          datos, no sobre tests:
-        </p>
-        <div class="scroller">
-          <table>
-            <thead>
-              <tr><th scope="col">En producción</th><th scope="col">Antes</th><th scope="col">Ahora</th></tr>
-            </thead>
-            <tbody>
-              <tr><td class="note">Segmentos de carrera aprovechables</td><td>1</td><td><strong>78</strong></td></tr>
-              <tr><td class="note">Sesiones que pueden viajar al reloj</td><td>1</td><td><strong>38</strong></td></tr>
-              <tr><td class="note">De ellas, asignadas a un atleta</td><td>0</td><td><strong>16</strong></td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          Quedan <strong>65 segmentos sin convertir</strong> y ya sé por qué: el conversor se corta
-          arriba mirando el tipo de bloque, así que un calentamiento de «3 × 40 segundos» nunca llega
-          a la parte del código que sabría traducirlo. El filtro correcto es la modalidad, no el
-          tipo. No lo he tocado porque es código compartido con el editor del coach y merece su
-          propio repaso.
-        </p>
-      </div>
-
-      <div class="callout" style="border-left-color:var(--wait)">
-        <h3>Cómo lo descubrimos</h3>
-        <p>
-          Puse un agente a comprobar contra la base de datos de producción cómo compone Pablo sus
-          sesiones de carrera. La respuesta es más gorda que la pregunta:
-          <strong>de los 429 segmentos que hay en producción, exactamente UNO usa la gramática de
-          carrera estructurada</strong> — y ese está sin asignar a nadie. Templates asignados a un
-          atleta que la usen: <strong>cero</strong>.
-        </p>
-        <p>
-          Es decir: construimos la gramática en su día, pero ni Pablo ni el importador han
-          reescrito nada con ella. Todo el contenido real vive en los campos planos de siempre. Un
-          reloj que solo sepa leer la gramática nueva se queda mirando una biblioteca vacía.
-        </p>
-      </div>
-
-      <p>
-        De paso, el mismo barrido tumbó una decisión que habíamos tomado a ciegas. El filtro del
-        Apple Watch exigía que la sesión de carrera fuese <strong>un único ejercicio</strong>. En los
-        datos reales, las sesiones de carrera que el coach ha escrito y asignado a un atleta con un
-        solo ejercicio son <strong>cero</strong>: todas llevan su calentamiento, su bloque principal
-        y su vuelta a la calma. El filtro correcto es «el trabajo principal es carrera», ignorando
-        calentamiento y vuelta — y rechazando solo cuando hay trabajo real intercalado que no es
-        correr, como una simulación HYROX con trineo y wall balls. Ahí sí sería mentir.
-      </p>
-    </div>
-  </section>
-
-  <section class="band">
-    <h2>El diseño</h2>
-    <div class="band-body">
-      <h3>Un modelo canónico y un codificador por marca</h3>
-      <p>
-        No son ocho integraciones. Garmin quiere un <span class="sha">.FIT</span>, Suunto un
-        <span class="sha">guide.json</span>, Wahoo su <span class="sha">plan.json</span>, Apple un
-        <span class="sha">CustomWorkout</span>, y nuestras apps el JSON nativo. Con una estructura
-        canónica en el centro, <strong>cada marca nueva es un codificador, no un proyecto</strong>.
-      </p>
-
-      <div class="callout">
-        <h3>La regla de honestidad</h3>
-        <p>
-          Las zonas viajan siempre como <strong>banda absoluta</strong> — ritmo en s/km o pulso en
-          ppm — nunca como «Z4». La Z4 de un Garmin sale de <em>su</em> FCmáx, no de la nuestra:
-          mandar el número sería guiar al atleta con una zona que no es la suya.
-        </p>
-        <p>
-          Y lo que el reloj no puede vigilar <strong>no se emite como objetivo</strong>. El RPE es
-          percepción y ningún fabricante lo representa; el tramo va abierto y el dato queda en el
-          nombre del paso. Nunca fabricamos una banda que no hemos resuelto.
-        </p>
-      </div>
-
-      <p>
-        <strong>Fuera de alcance a propósito:</strong> fuerza, EMOM y AMRAP. Ningún formato de
-        fabricante los modela — solo saben de cardio por intervalos. Degradarlos a «diez
-        iteraciones de sesenta segundos con un nombre» pierde repeticiones, carga y rondas: el
-        sistema dejaría de saber qué trabajo se hizo. Esas sesiones se ejecutan enteras en nuestras
-        apps, que sí las entienden.
-      </p>
-    </div>
-  </section>
-
-  <section class="band">
-    <h2>Garmin</h2>
-    <div class="band-body">
-      <h3>Hay dos puertas. Solo una está cerrada</h3>
-      <div class="doors">
-
-        <div class="door shut">
-          <div class="door-top">
-            <div class="door-state">Cerrada · nos tienen parados</div>
-            <h3>API de negocio</h3>
-            <div class="door-sub">Entrar en el sistema de Garmin</div>
-          </div>
-          <dl>
-            <div><dt>Quién entra</dt><dd>Te evalúan como empresa. Eligen a dedo</dd></div>
-            <div><dt>Qué da</dt><dd>El entreno aparece en el calendario del atleta y baja al reloj solo</dd></div>
-            <div><dt>El atleta</dt><dd>No hace nada. Cero fricción</dd></div>
-          </dl>
-        </div>
-
-        <div class="door open">
-          <div class="door-top">
-            <div class="door-state">Abierta · alta libre y gratis</div>
-            <h3>Connect IQ</h3>
-            <div class="door-sub">Su tienda de apps, como la App Store</div>
-          </div>
-          <dl>
-            <div><dt>Quién entra</dt><dd>Cualquier desarrollador. Revisan el contenido, no el negocio</dd></div>
-            <div><dt>Qué da</dt><dd>Una app nuestra dentro del reloj, que baja el entreno y lanza el reproductor nativo</dd></div>
-            <div><dt>El atleta</dt><dd>Se instala la app y la abre para bajar el entreno del día</dd></div>
-          </dl>
-        </div>
-
-      </div>
-
-      <div class="verdict">
-        <span>Misma capacidad, peor experiencia. <b>TrainingPeaks hizo justo esto en 2017</b> y lo retiró cuando por fin le dieron la API oficial. Por eso la solicitud parada sigue mereciendo la pena: el día que entre, el atleta deja de instalar nada.</span>
-      </div>
-
-      <p>
-        <strong>El riesgo:</strong> la revisión de la tienda la hace Garmin y puede decir que no. Leí
-        sus normas enteras buscando una cláusula que lo impidiera y no hay ninguna. Pero es su tienda.
-      </p>
-    </div>
-  </section>
-
-  <section class="band">
-    <h2>Por fabricante</h2>
-    <div class="band-body">
-      <p>
-        Verificado contra documentación oficial de cada marca, no de memoria. Ocho agentes, con las
-        fuentes citadas.
-      </p>
-      <div class="scroller">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Marca</th>
-              <th scope="col">Empujar el entreno</th>
-              <th scope="col">Vía</th>
-              <th scope="col">Qué hace falta</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="brand">Apple Watch</td>
-              <td><span class="pill p-ok">Sí, nativo</span></td>
-              <td class="note">WorkoutKit — sale en la app Entrenamiento nativa, arriba del todo, con nuestro icono</td>
-              <td class="note">Nada de nadie. Ni entitlement ni aprobación. Tope de 15 entrenos, ventana ±7 días</td>
-            </tr>
-            <tr>
-              <td class="brand">Garmin</td>
-              <td><span class="pill p-ok">Sí</span></td>
-              <td class="note">App Connect IQ propia: el reloj descarga nuestro <span class="sha">.FIT</span> y lanza el reproductor <em>nativo</em> de Garmin</td>
-              <td class="note">No depende de la solicitud que tienen parada. Alta gratis, revisión de store 2–4 días</td>
-            </tr>
-            <tr>
-              <td class="brand">Suunto</td>
-              <td><span class="pill p-ok">Sí</span></td>
-              <td class="note">SuuntoPlus Guides — spec pública y completa, se codifica sin esperar a nadie</td>
-              <td class="note">Formulario de partner. Gratis, dos semanas máximo</td>
-            </tr>
-            <tr>
-              <td class="brand">COROS</td>
-              <td><span class="pill p-wait">Sí, a ciegas</span></td>
-              <td class="note">Funciona hoy con TrainingPeaks, Decathlon y Final Surge — pero el endpoint no está publicado</td>
-              <td class="note">Solicitud. Cambiaron su política el 23 de julio: de «te elegimos» a «cumples requisitos, entras»</td>
-            </tr>
-            <tr>
-              <td class="brand">Polar</td>
-              <td><span class="pill p-dead">No</span></td>
-              <td class="note">Ninguna vía pública. La de TrainingPeaks es un acuerdo privado sin ruta documentada</td>
-              <td class="note">A cambio, la lectura es muy completa — y sus relojes emiten pulso por Bluetooth mientras graban</td>
-            </tr>
-            <tr>
-              <td class="brand">Wahoo</td>
-              <td><span class="pill p-dead">Irrelevante</span></td>
-              <td class="note">API pública y bien documentada, pero descontinuaron el RIVAL</td>
-              <td class="note">No tienen reloj de running en catálogo. Para HYROX no aporta</td>
-            </tr>
-            <tr>
-              <td class="brand">Amazfit / Zepp</td>
-              <td><span class="pill p-wait">Con condiciones</span></td>
-              <td class="note">Mini-app propia. El reloj no tiene internet: sale por la app Zepp del móvil</td>
-              <td class="note">Falta confirmar si en iPhone funciona con la app Zepp en segundo plano. 20 minutos con un reloj real</td>
-            </tr>
-            <tr>
-              <td class="brand">Wear OS</td>
-              <td><span class="pill p-dead">Muerto</span></td>
-              <td class="note">Samsung y Google lo dicen en su propia web</td>
-              <td class="note">No existe hoy ningún Wear OS a la venta que se empareje con iPhone. Fossil salió del negocio</td>
-            </tr>
-            <tr>
-              <td class="brand">Fitbit</td>
-              <td><span class="pill p-dead">Muerto</span></td>
-              <td class="note">Sus relojes actuales nunca soportaron apps de terceros</td>
-              <td class="note">Y Google prohibió instalarlas en la UE en 2024. Barcelona queda fuera</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section class="band">
-    <h2>Qué comprar</h2>
-    <div class="band-body">
-      <div class="callout" style="border-left-color:var(--ok)">
-        <h3>El Kiprun de Gerard sirve. COROS no hay que comprarlo</h3>
-        <p>
-          Ese reloj vive en el ecosistema de COROS: se empareja con su app, el firmware lo hace
-          COROS y su servicio técnico lo trata como un reloj propio. Los entrenos estructurados de
-          carrera llegan igual que a un COROS de marca.
-        </p>
-        <p>
-          <strong>Pero que Gerard mire la esfera y confirme que pone «by Coros».</strong> Hay un
-          Kiprun GPS 500 antiguo, sin esa coletilla, que va con la app de Decathlon y no nos sirve
-          para nada. Además fue retirado del mercado, así que si es ese, mejor que lo sepa.
-        </p>
-        <p>
-          Dos límites suyos: <strong>no traga fuerza</strong> ni objetivos de potencia. Para el
-          carril de correr nos vale entero; para las estaciones de HYROX, no.
-        </p>
-      </div>
-
-      <div class="callout">
-        <h3>Si solo compras uno: Forerunner 165 de segunda mano, 145 a 170 €</h3>
-        <p>
-          Es el único barato que ya está en la lista de dispositivos de la app que tenemos escrita.
-          Desbloquea Garmin, que es donde están los atletas de Pablo, sin tocar nada.
-        </p>
-      </div>
-
-      <div class="scroller">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Marca</th>
-              <th scope="col">El más barato que sirve</th>
-              <th scope="col">Nuevo</th>
-              <th scope="col">2ª mano</th>
-              <th scope="col">Por qué ese</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="brand">Garmin</td>
-              <td>Forerunner 165</td>
-              <td>186 a 199 €</td>
-              <td><strong>145 a 200 €</strong></td>
-              <td class="note">Ya está en nuestra lista de dispositivos. Seis veces más memoria que el 55</td>
-            </tr>
-            <tr>
-              <td class="brand">COROS</td>
-              <td><strong>Ninguno</strong>, tenemos el Kiprun</td>
-              <td class="note">Pace 3: 217 a 229 €</td>
-              <td class="note">165 a 205 €</td>
-              <td class="note">Solo si hiciera falta probar fuerza, que el Kiprun no soporta</td>
-            </tr>
-            <tr>
-              <td class="brand">Suunto</td>
-              <td>5 Peak</td>
-              <td class="note">descatalogándose</td>
-              <td><strong>80 a 115 €</strong></td>
-              <td class="note">El más barato con guías estructuradas. Lo más barato de toda la tabla</td>
-            </tr>
-            <tr>
-              <td class="brand">Polar</td>
-              <td>OH1 (sensor de brazo)</td>
-              <td><strong>38 a 58 €</strong></td>
-              <td>25 a 40 €</td>
-              <td class="note">Polar es solo lectura, así que no hace falta reloj: con el sensor basta</td>
-            </tr>
-            <tr>
-              <td class="brand">Amazfit</td>
-              <td>Bip 6</td>
-              <td>69 a 80 €</td>
-              <td class="note">sin verificar</td>
-              <td class="note">Es cuadrado y nuestra mini-app está hecha para redondo. Cambio menor</td>
-            </tr>
-            <tr>
-              <td class="brand">Apple</td>
-              <td>Watch SE 2ª gen</td>
-              <td>269 € (SE 3)</td>
-              <td>~229 €</td>
-              <td class="note">Cualquiera de Series 6 en adelante sirve</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>No compres estos en Wallapop</h3>
-      <ul class="plain">
-        <li><strong>Garmin Swim 2.</strong> Solo admite esferas, ni siquiera apps. Es el error más caro de cometer.</li>
-        <li><strong>Garmin Forerunner 45, 235, 230, vívoactive 1.</strong> Demasiado viejos para nuestra app.</li>
-        <li><strong>Garmin Forerunner 55.</strong> Sí funcionaría, y es 60 € más barato, pero no tiene wifi y hay que rehacer la app para que quepa en su memoria. No compensa.</li>
-        <li><strong>Suunto Run</strong>, pese a ser nuevo: no tiene guías estructuradas.</li>
-        <li><strong>Amazfit Bip 5</strong> (ojo, el <em>Bip 5 Unity</em> sí vale), <strong>Band 7</strong>, <strong>GTR 3</strong>, <strong>GTS 3</strong>. Sistema demasiado antiguo o cerrado.</li>
-        <li><strong>Apple Watch Series 4 y 5.</strong> Se han quedado sin actualizaciones.</li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="band">
-    <h2>Hecho</h2>
-    <div class="band-body">
-      <div class="entries">
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Zepp nunca pudo funcionar</h3>
-            <span class="pill p-ok">Subido</span>
-            <span class="sha">0c4f00b</span>
-          </div>
-          <p>
-            No estaba «construido a falta de enviar»: tenía dos contratos rotos con nuestro propio
-            backend. Leía el token de un campo que no existe, así que con un código <em>válido</em>
-            decía «código incorrecto»; y buscaba los días del plan un nivel por encima de donde
-            están, así que siempre decía «no tienes entreno esta semana». Verificado leyendo los dos
-            lados, no solo la mini-app.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Conceder Apple Salud no sincronizaba nada</h3>
-            <span class="pill p-ok">Subido</span>
-            <span class="sha">0c4f00b</span>
-          </div>
-          <p>
-            En el onboarding se marcaba el permiso como dado pero no se arrancaba la sincronización:
-            el atleta concedía y no subía un solo dato hasta reactivarlo en Perfil. Afectaba a todas
-            las altas nuevas. La secuencia estaba además duplicada en Perfil y en el día-1 y faltaba
-            en el onboarding — ahora es una sola función y no puede volver a divergir.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>El modelo neutro de entreno</h3>
-            <span class="pill p-ok">Subido</span>
-            <span class="sha">39cce23</span>
-          </div>
-          <p>
-            La bisagra: la estructura del coach ya resuelta por atleta, lista para que cada
-            fabricante la codifique a lo suyo. Es donde viven las dos decisiones de dominio de
-            arriba.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Suunto: guías completas, con tres trampas esquivadas</h3>
-            <span class="pill p-ok">Listo, sin credenciales</span>
-          </div>
-          <p>
-            Empaquetado y cliente de la API, 44 tests. El ZIP lo valida <span class="sha">unzip</span>
-            de verdad, no nuestro propio lector. Tres cosas que habrían pasado la revisión y roto en
-            el reloj:
-          </p>
-          <ul class="plain">
-            <li>
-              El ejemplo oficial de Suunto etiqueta la actividad como <span class="sha">3</span>.
-              Descargando su tabla real, <strong>el 3 es esquí de fondo</strong>: correr es el 1.
-              Copiar el ejemplo habría archivado cada entreno bajo esquí, donde el atleta no lo
-              encuentra nunca.
-            </li>
-            <li>
-              El ritmo va en <strong>metros por segundo</strong>, no en min/km — y eso
-              <strong>invierte la banda</strong>: el ritmo más rápido es el máximo. Cruzarlos daría
-              un objetivo imposible de cumplir. La cadencia va en hercios de revolución, no en
-              pasos por minuto.
-            </li>
-            <li>
-              El reloj no garantiza acentos ni el punto medio que usamos de separador. Sin sanear,
-              «400 m · 3:30/km» llega mutilado a la muñeca.
-            </li>
-          </ul>
-          <p>
-            De regalo: cada tramo prescrito genera su propio lap, así que la ejecución casa con la
-            prescripción sin heurísticas — igual que hicimos con Polar.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>La app Garmin del reloj</h3>
-            <span class="pill p-wait">Escrita, sin compilar</span>
-          </div>
-          <p>
-            Es un <strong>mensajero, no un reproductor</strong>: pide el fichero, deja que el reloj
-            lo guarde y se lo pasa al reproductor nativo de Garmin. Los tramos, los ritmos objetivo,
-            las alertas y la vibración los hace Garmin — no reimplementamos nada de eso, que es
-            justo lo que lo hace bueno.
-          </p>
-          <p>
-            El login no se podía copiar de Zepp: los ajustes de Garmin son declarativos y no admiten
-            un botón que llame a una API. Solución sin inventar nada: el móvil pone el teclado y el
-            reloj hace las dos llamadas que ya tenemos vivas. Y hay recogida de basura — antes de
-            cada descarga borra los entrenos de días pasados, que ataca la raíz del «reloj lleno»
-            que sufrían los usuarios de TrainingPeaks.
-          </p>
-          <p>
-            <strong>Nada ha pasado por el compilador</strong>: tu Mac no tiene el SDK de Garmin.
-            Espera errores en la primera compilación. Está en el punto 3 de tu lista.
-          </p>
-        </article>
-
-        <article class="entry">
-          <div class="entry-head">
-            <h3>Apple Watch: la carrera de hoy en la app nativa</h3>
-            <span class="pill p-ok">Construido</span>
-          </div>
-          <p>
-            Reusa el mismo objetivo con el que auto-avanza nuestro motor, así que muñeca y móvil no
-            pueden discrepar sobre un tramo. La conversión de ritmo a velocidad
-            <strong>invierte la banda</strong> — más rápido es menos segundos pero más metros por
-            segundo — y eso tiene su propio test.
-          </p>
-          <p>
-            Dos negativas deliberadas: una banda con un solo extremo («no más lento de 5:00») no
-            emite alerta, y una zona de pulso derivada de una FCmáx <em>estimada por edad</em>
-            tampoco. En el resto de la app esa estimación va siempre acompañada de un «genérica»;
-            empujarla al reloj perdería ese matiz y parecería medida.
-          </p>
-          <p>
-            La reconciliación firma cada entreno como nuestro, así que al re-sincronizar nunca toca
-            los que haya programado otra app. <strong>667 tests, 0 fallos; build correcto.</strong>
-          </p>
-        </article>
-
-      </div>
-    </div>
-  </section>
-
-  <section class="band">
-    <h2>Construyéndose</h2>
-    <div class="band-body">
-      <p>Todo integrado en la rama y verde. Lo que queda, por orden:</p>
-      <ul class="plain">
-        <li>
-          <strong>Los 65 segmentos que aún no se convierten.</strong> El conversor mira el tipo de
-          bloque cuando debería mirar la modalidad. Es código compartido con el editor del coach, así
-          que va con su propio repaso.
-        </li>
-        <li>
-          <strong>Aflojar el filtro del Apple Watch</strong> a «el trabajo principal es carrera».
-        </li>
-        <li>
-          <strong>Un bug que salió de rebote y va camino de iOS:</strong> una zona de
-          <em>pulso</em> se está resolviendo como si fuera una banda de <em>ritmo</em>, y así
-          viaja a la app. Lo persigo aparte porque no es de los relojes: afecta a lo que el atleta
-          ve hoy.
-        </li>
-        <li>
-          <strong>Dejar vivos el webhook y la URL de estado de COROS</strong> antes de que envíes la
-          solicitud.
-        </li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="band">
+    <section class="primary-block">
     <h2>Tu turno</h2>
-    <div class="band-body">
+    <p class="lede">Lo único que necesita tu decisión. Todo lo demás va debajo, plegado.</p>
+
       <p>
         Cuatro cosas, por orden. Dos son formularios que no puedo enviar yo porque piden identidad y
         correos; te dejo el texto escrito para que solo pegues. Las otras dos son un sí o un no.
@@ -1383,12 +989,494 @@ We are not reselling data and we do not share it with third parties.</pre>
         </div>
 
       </div>
-    </div>
   </section>
 
-  <section class="band">
-    <h2>Riesgos</h2>
-    <div class="band-body">
+  <details class="fold">
+    <summary><h2>Lo que importa</h2><span class="hint">De 1 sesión real a 78, y los 65 que aún faltan</span></summary>
+    <div class="fold-body">
+
+      <div class="callout" style="border-left-color:var(--ok)">
+        <h3>Arreglado: de 1 sesión a 78</h3>
+        <p>
+          Los codificadores ahora leen también el formato viejo, que es donde está escrito el
+          contenido de verdad. Medido corriendo el conversor sobre las filas reales de la base de
+          datos, no sobre tests:
+        </p>
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th scope="col">En producción</th><th scope="col">Antes</th><th scope="col">Ahora</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="note">Segmentos de carrera aprovechables</td><td>1</td><td><strong>78</strong></td></tr>
+              <tr><td class="note">Sesiones que pueden viajar al reloj</td><td>1</td><td><strong>38</strong></td></tr>
+              <tr><td class="note">De ellas, asignadas a un atleta</td><td>0</td><td><strong>16</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Quedan <strong>65 segmentos sin convertir</strong> y ya sé por qué: el conversor se corta
+          arriba mirando el tipo de bloque, así que un calentamiento de «3 × 40 segundos» nunca llega
+          a la parte del código que sabría traducirlo. El filtro correcto es la modalidad, no el
+          tipo. No lo he tocado porque es código compartido con el editor del coach y merece su
+          propio repaso.
+        </p>
+      </div>
+
+      <div class="callout" style="border-left-color:var(--wait)">
+        <h3>Cómo lo descubrimos</h3>
+        <p>
+          Puse un agente a comprobar contra la base de datos de producción cómo compone Pablo sus
+          sesiones de carrera. La respuesta es más gorda que la pregunta:
+          <strong>de los 429 segmentos que hay en producción, exactamente UNO usa la gramática de
+          carrera estructurada</strong> — y ese está sin asignar a nadie. Templates asignados a un
+          atleta que la usen: <strong>cero</strong>.
+        </p>
+        <p>
+          Es decir: construimos la gramática en su día, pero ni Pablo ni el importador han
+          reescrito nada con ella. Todo el contenido real vive en los campos planos de siempre. Un
+          reloj que solo sepa leer la gramática nueva se queda mirando una biblioteca vacía.
+        </p>
+      </div>
+
+      <p>
+        De paso, el mismo barrido tumbó una decisión que habíamos tomado a ciegas. El filtro del
+        Apple Watch exigía que la sesión de carrera fuese <strong>un único ejercicio</strong>. En los
+        datos reales, las sesiones de carrera que el coach ha escrito y asignado a un atleta con un
+        solo ejercicio son <strong>cero</strong>: todas llevan su calentamiento, su bloque principal
+        y su vuelta a la calma. El filtro correcto es «el trabajo principal es carrera», ignorando
+        calentamiento y vuelta — y rechazando solo cuando hay trabajo real intercalado que no es
+        correr, como una simulación HYROX con trineo y wall balls. Ahí sí sería mentir.
+      </p>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>Hecho</h2><span class="hint">Lo construido y subido, con sus commits</span></summary>
+    <div class="fold-body">
+
+      <div class="entries">
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>Zepp nunca pudo funcionar</h3>
+            <span class="pill p-ok">Subido</span>
+            <span class="sha">0c4f00b</span>
+          </div>
+          <p>
+            No estaba «construido a falta de enviar»: tenía dos contratos rotos con nuestro propio
+            backend. Leía el token de un campo que no existe, así que con un código <em>válido</em>
+            decía «código incorrecto»; y buscaba los días del plan un nivel por encima de donde
+            están, así que siempre decía «no tienes entreno esta semana». Verificado leyendo los dos
+            lados, no solo la mini-app.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>Conceder Apple Salud no sincronizaba nada</h3>
+            <span class="pill p-ok">Subido</span>
+            <span class="sha">0c4f00b</span>
+          </div>
+          <p>
+            En el onboarding se marcaba el permiso como dado pero no se arrancaba la sincronización:
+            el atleta concedía y no subía un solo dato hasta reactivarlo en Perfil. Afectaba a todas
+            las altas nuevas. La secuencia estaba además duplicada en Perfil y en el día-1 y faltaba
+            en el onboarding — ahora es una sola función y no puede volver a divergir.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>El modelo neutro de entreno</h3>
+            <span class="pill p-ok">Subido</span>
+            <span class="sha">39cce23</span>
+          </div>
+          <p>
+            La bisagra: la estructura del coach ya resuelta por atleta, lista para que cada
+            fabricante la codifique a lo suyo. Es donde viven las dos decisiones de dominio de
+            arriba.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>Suunto: guías completas, con tres trampas esquivadas</h3>
+            <span class="pill p-ok">Listo, sin credenciales</span>
+          </div>
+          <p>
+            Empaquetado y cliente de la API, 44 tests. El ZIP lo valida <span class="sha">unzip</span>
+            de verdad, no nuestro propio lector. Tres cosas que habrían pasado la revisión y roto en
+            el reloj:
+          </p>
+          <ul class="plain">
+            <li>
+              El ejemplo oficial de Suunto etiqueta la actividad como <span class="sha">3</span>.
+              Descargando su tabla real, <strong>el 3 es esquí de fondo</strong>: correr es el 1.
+              Copiar el ejemplo habría archivado cada entreno bajo esquí, donde el atleta no lo
+              encuentra nunca.
+            </li>
+            <li>
+              El ritmo va en <strong>metros por segundo</strong>, no en min/km — y eso
+              <strong>invierte la banda</strong>: el ritmo más rápido es el máximo. Cruzarlos daría
+              un objetivo imposible de cumplir. La cadencia va en hercios de revolución, no en
+              pasos por minuto.
+            </li>
+            <li>
+              El reloj no garantiza acentos ni el punto medio que usamos de separador. Sin sanear,
+              «400 m · 3:30/km» llega mutilado a la muñeca.
+            </li>
+          </ul>
+          <p>
+            De regalo: cada tramo prescrito genera su propio lap, así que la ejecución casa con la
+            prescripción sin heurísticas — igual que hicimos con Polar.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>La app Garmin del reloj</h3>
+            <span class="pill p-wait">Escrita, sin compilar</span>
+          </div>
+          <p>
+            Es un <strong>mensajero, no un reproductor</strong>: pide el fichero, deja que el reloj
+            lo guarde y se lo pasa al reproductor nativo de Garmin. Los tramos, los ritmos objetivo,
+            las alertas y la vibración los hace Garmin — no reimplementamos nada de eso, que es
+            justo lo que lo hace bueno.
+          </p>
+          <p>
+            El login no se podía copiar de Zepp: los ajustes de Garmin son declarativos y no admiten
+            un botón que llame a una API. Solución sin inventar nada: el móvil pone el teclado y el
+            reloj hace las dos llamadas que ya tenemos vivas. Y hay recogida de basura — antes de
+            cada descarga borra los entrenos de días pasados, que ataca la raíz del «reloj lleno»
+            que sufrían los usuarios de TrainingPeaks.
+          </p>
+          <p>
+            <strong>Nada ha pasado por el compilador</strong>: tu Mac no tiene el SDK de Garmin.
+            Espera errores en la primera compilación. Está en el punto 3 de tu lista.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>Apple Watch: la carrera de hoy en la app nativa</h3>
+            <span class="pill p-ok">Construido</span>
+          </div>
+          <p>
+            Reusa el mismo objetivo con el que auto-avanza nuestro motor, así que muñeca y móvil no
+            pueden discrepar sobre un tramo. La conversión de ritmo a velocidad
+            <strong>invierte la banda</strong> — más rápido es menos segundos pero más metros por
+            segundo — y eso tiene su propio test.
+          </p>
+          <p>
+            Dos negativas deliberadas: una banda con un solo extremo («no más lento de 5:00») no
+            emite alerta, y una zona de pulso derivada de una FCmáx <em>estimada por edad</em>
+            tampoco. En el resto de la app esa estimación va siempre acompañada de un «genérica»;
+            empujarla al reloj perdería ese matiz y parecería medida.
+          </p>
+          <p>
+            La reconciliación firma cada entreno como nuestro, así que al re-sincronizar nunca toca
+            los que haya programado otra app. <strong>667 tests, 0 fallos; build correcto.</strong>
+          </p>
+        </article>
+
+      </div>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>Lo siguiente</h2><span class="hint">Lo que queda por hacer y en qué orden</span></summary>
+    <div class="fold-body">
+
+      <p>Todo integrado en la rama y verde. Lo que queda, por orden:</p>
+      <ul class="plain">
+        <li>
+          <strong>Los 65 segmentos que aún no se convierten.</strong> El conversor mira el tipo de
+          bloque cuando debería mirar la modalidad. Es código compartido con el editor del coach, así
+          que va con su propio repaso.
+        </li>
+        <li>
+          <strong>Aflojar el filtro del Apple Watch</strong> a «el trabajo principal es carrera».
+        </li>
+        <li>
+          <strong>Un bug que salió de rebote y va camino de iOS:</strong> una zona de
+          <em>pulso</em> se está resolviendo como si fuera una banda de <em>ritmo</em>, y así
+          viaja a la app. Lo persigo aparte porque no es de los relojes: afecta a lo que el atleta
+          ve hoy.
+        </li>
+        <li>
+          <strong>Dejar vivos el webhook y la URL de estado de COROS</strong> antes de que envíes la
+          solicitud.
+        </li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>Garmin</h2><span class="hint">Por qué podemos, si nos tienen parados</span></summary>
+    <div class="fold-body">
+
+      <h3>Hay dos puertas. Solo una está cerrada</h3>
+      <div class="doors">
+
+        <div class="door shut">
+          <div class="door-top">
+            <div class="door-state">Cerrada · nos tienen parados</div>
+            <h3>API de negocio</h3>
+            <div class="door-sub">Entrar en el sistema de Garmin</div>
+          </div>
+          <dl>
+            <div><dt>Quién entra</dt><dd>Te evalúan como empresa. Eligen a dedo</dd></div>
+            <div><dt>Qué da</dt><dd>El entreno aparece en el calendario del atleta y baja al reloj solo</dd></div>
+            <div><dt>El atleta</dt><dd>No hace nada. Cero fricción</dd></div>
+          </dl>
+        </div>
+
+        <div class="door open">
+          <div class="door-top">
+            <div class="door-state">Abierta · alta libre y gratis</div>
+            <h3>Connect IQ</h3>
+            <div class="door-sub">Su tienda de apps, como la App Store</div>
+          </div>
+          <dl>
+            <div><dt>Quién entra</dt><dd>Cualquier desarrollador. Revisan el contenido, no el negocio</dd></div>
+            <div><dt>Qué da</dt><dd>Una app nuestra dentro del reloj, que baja el entreno y lanza el reproductor nativo</dd></div>
+            <div><dt>El atleta</dt><dd>Se instala la app y la abre para bajar el entreno del día</dd></div>
+          </dl>
+        </div>
+
+      </div>
+
+      <div class="verdict">
+        <span>Misma capacidad, peor experiencia. <b>TrainingPeaks hizo justo esto en 2017</b> y lo retiró cuando por fin le dieron la API oficial. Por eso la solicitud parada sigue mereciendo la pena: el día que entre, el atleta deja de instalar nada.</span>
+      </div>
+
+      <p>
+        <strong>El riesgo:</strong> la revisión de la tienda la hace Garmin y puede decir que no. Leí
+        sus normas enteras buscando una cláusula que lo impidiera y no hay ninguna. Pero es su tienda.
+      </p>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>Por fabricante</h2><span class="hint">Qué admite cada marca, con fuentes oficiales</span></summary>
+    <div class="fold-body">
+
+      <p>
+        Verificado contra documentación oficial de cada marca, no de memoria. Ocho agentes, con las
+        fuentes citadas.
+      </p>
+      <div class="scroller">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Marca</th>
+              <th scope="col">Empujar el entreno</th>
+              <th scope="col">Vía</th>
+              <th scope="col">Qué hace falta</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="brand">Apple Watch</td>
+              <td><span class="pill p-ok">Sí, nativo</span></td>
+              <td class="note">WorkoutKit — sale en la app Entrenamiento nativa, arriba del todo, con nuestro icono</td>
+              <td class="note">Nada de nadie. Ni entitlement ni aprobación. Tope de 15 entrenos, ventana ±7 días</td>
+            </tr>
+            <tr>
+              <td class="brand">Garmin</td>
+              <td><span class="pill p-ok">Sí</span></td>
+              <td class="note">App Connect IQ propia: el reloj descarga nuestro <span class="sha">.FIT</span> y lanza el reproductor <em>nativo</em> de Garmin</td>
+              <td class="note">No depende de la solicitud que tienen parada. Alta gratis, revisión de store 2–4 días</td>
+            </tr>
+            <tr>
+              <td class="brand">Suunto</td>
+              <td><span class="pill p-ok">Sí</span></td>
+              <td class="note">SuuntoPlus Guides — spec pública y completa, se codifica sin esperar a nadie</td>
+              <td class="note">Formulario de partner. Gratis, dos semanas máximo</td>
+            </tr>
+            <tr>
+              <td class="brand">COROS</td>
+              <td><span class="pill p-wait">Sí, a ciegas</span></td>
+              <td class="note">Funciona hoy con TrainingPeaks, Decathlon y Final Surge — pero el endpoint no está publicado</td>
+              <td class="note">Solicitud. Cambiaron su política el 23 de julio: de «te elegimos» a «cumples requisitos, entras»</td>
+            </tr>
+            <tr>
+              <td class="brand">Polar</td>
+              <td><span class="pill p-dead">No</span></td>
+              <td class="note">Ninguna vía pública. La de TrainingPeaks es un acuerdo privado sin ruta documentada</td>
+              <td class="note">A cambio, la lectura es muy completa — y sus relojes emiten pulso por Bluetooth mientras graban</td>
+            </tr>
+            <tr>
+              <td class="brand">Wahoo</td>
+              <td><span class="pill p-dead">Irrelevante</span></td>
+              <td class="note">API pública y bien documentada, pero descontinuaron el RIVAL</td>
+              <td class="note">No tienen reloj de running en catálogo. Para HYROX no aporta</td>
+            </tr>
+            <tr>
+              <td class="brand">Amazfit / Zepp</td>
+              <td><span class="pill p-wait">Con condiciones</span></td>
+              <td class="note">Mini-app propia. El reloj no tiene internet: sale por la app Zepp del móvil</td>
+              <td class="note">Falta confirmar si en iPhone funciona con la app Zepp en segundo plano. 20 minutos con un reloj real</td>
+            </tr>
+            <tr>
+              <td class="brand">Wear OS</td>
+              <td><span class="pill p-dead">Muerto</span></td>
+              <td class="note">Samsung y Google lo dicen en su propia web</td>
+              <td class="note">No existe hoy ningún Wear OS a la venta que se empareje con iPhone. Fossil salió del negocio</td>
+            </tr>
+            <tr>
+              <td class="brand">Fitbit</td>
+              <td><span class="pill p-dead">Muerto</span></td>
+              <td class="note">Sus relojes actuales nunca soportaron apps de terceros</td>
+              <td class="note">Y Google prohibió instalarlas en la UE en 2024. Barcelona queda fuera</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>Qué comprar</h2><span class="hint">El reloj más barato de cada marca para probar</span></summary>
+    <div class="fold-body">
+
+      <div class="callout" style="border-left-color:var(--ok)">
+        <h3>El Kiprun de Gerard sirve. COROS no hay que comprarlo</h3>
+        <p>
+          Ese reloj vive en el ecosistema de COROS: se empareja con su app, el firmware lo hace
+          COROS y su servicio técnico lo trata como un reloj propio. Los entrenos estructurados de
+          carrera llegan igual que a un COROS de marca.
+        </p>
+        <p>
+          <strong>Pero que Gerard mire la esfera y confirme que pone «by Coros».</strong> Hay un
+          Kiprun GPS 500 antiguo, sin esa coletilla, que va con la app de Decathlon y no nos sirve
+          para nada. Además fue retirado del mercado, así que si es ese, mejor que lo sepa.
+        </p>
+        <p>
+          Dos límites suyos: <strong>no traga fuerza</strong> ni objetivos de potencia. Para el
+          carril de correr nos vale entero; para las estaciones de HYROX, no.
+        </p>
+      </div>
+
+      <div class="callout">
+        <h3>Si solo compras uno: Forerunner 165 de segunda mano, 145 a 170 €</h3>
+        <p>
+          Es el único barato que ya está en la lista de dispositivos de la app que tenemos escrita.
+          Desbloquea Garmin, que es donde están los atletas de Pablo, sin tocar nada.
+        </p>
+      </div>
+
+      <div class="scroller">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Marca</th>
+              <th scope="col">El más barato que sirve</th>
+              <th scope="col">Nuevo</th>
+              <th scope="col">2ª mano</th>
+              <th scope="col">Por qué ese</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="brand">Garmin</td>
+              <td>Forerunner 165</td>
+              <td>186 a 199 €</td>
+              <td><strong>145 a 200 €</strong></td>
+              <td class="note">Ya está en nuestra lista de dispositivos. Seis veces más memoria que el 55</td>
+            </tr>
+            <tr>
+              <td class="brand">COROS</td>
+              <td><strong>Ninguno</strong>, tenemos el Kiprun</td>
+              <td class="note">Pace 3: 217 a 229 €</td>
+              <td class="note">165 a 205 €</td>
+              <td class="note">Solo si hiciera falta probar fuerza, que el Kiprun no soporta</td>
+            </tr>
+            <tr>
+              <td class="brand">Suunto</td>
+              <td>5 Peak</td>
+              <td class="note">descatalogándose</td>
+              <td><strong>80 a 115 €</strong></td>
+              <td class="note">El más barato con guías estructuradas. Lo más barato de toda la tabla</td>
+            </tr>
+            <tr>
+              <td class="brand">Polar</td>
+              <td>OH1 (sensor de brazo)</td>
+              <td><strong>38 a 58 €</strong></td>
+              <td>25 a 40 €</td>
+              <td class="note">Polar es solo lectura, así que no hace falta reloj: con el sensor basta</td>
+            </tr>
+            <tr>
+              <td class="brand">Amazfit</td>
+              <td>Bip 6</td>
+              <td>69 a 80 €</td>
+              <td class="note">sin verificar</td>
+              <td class="note">Es cuadrado y nuestra mini-app está hecha para redondo. Cambio menor</td>
+            </tr>
+            <tr>
+              <td class="brand">Apple</td>
+              <td>Watch SE 2ª gen</td>
+              <td>269 € (SE 3)</td>
+              <td>~229 €</td>
+              <td class="note">Cualquiera de Series 6 en adelante sirve</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>No compres estos en Wallapop</h3>
+      <ul class="plain">
+        <li><strong>Garmin Swim 2.</strong> Solo admite esferas, ni siquiera apps. Es el error más caro de cometer.</li>
+        <li><strong>Garmin Forerunner 45, 235, 230, vívoactive 1.</strong> Demasiado viejos para nuestra app.</li>
+        <li><strong>Garmin Forerunner 55.</strong> Sí funcionaría, y es 60 € más barato, pero no tiene wifi y hay que rehacer la app para que quepa en su memoria. No compensa.</li>
+        <li><strong>Suunto Run</strong>, pese a ser nuevo: no tiene guías estructuradas.</li>
+        <li><strong>Amazfit Bip 5</strong> (ojo, el <em>Bip 5 Unity</em> sí vale), <strong>Band 7</strong>, <strong>GTR 3</strong>, <strong>GTS 3</strong>. Sistema demasiado antiguo o cerrado.</li>
+        <li><strong>Apple Watch Series 4 y 5.</strong> Se han quedado sin actualizaciones.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>El diseño</h2><span class="hint">El modelo canónico y la regla de honestidad</span></summary>
+    <div class="fold-body">
+
+      <h3>Un modelo canónico y un codificador por marca</h3>
+      <p>
+        No son ocho integraciones. Garmin quiere un <span class="sha">.FIT</span>, Suunto un
+        <span class="sha">guide.json</span>, Wahoo su <span class="sha">plan.json</span>, Apple un
+        <span class="sha">CustomWorkout</span>, y nuestras apps el JSON nativo. Con una estructura
+        canónica en el centro, <strong>cada marca nueva es un codificador, no un proyecto</strong>.
+      </p>
+
+      <div class="callout">
+        <h3>La regla de honestidad</h3>
+        <p>
+          Las zonas viajan siempre como <strong>banda absoluta</strong> — ritmo en s/km o pulso en
+          ppm — nunca como «Z4». La Z4 de un Garmin sale de <em>su</em> FCmáx, no de la nuestra:
+          mandar el número sería guiar al atleta con una zona que no es la suya.
+        </p>
+        <p>
+          Y lo que el reloj no puede vigilar <strong>no se emite como objetivo</strong>. El RPE es
+          percepción y ningún fabricante lo representa; el tramo va abierto y el dato queda en el
+          nombre del paso. Nunca fabricamos una banda que no hemos resuelto.
+        </p>
+      </div>
+
+      <p>
+        <strong>Fuera de alcance a propósito:</strong> fuerza, EMOM y AMRAP. Ningún formato de
+        fabricante los modela — solo saben de cardio por intervalos. Degradarlos a «diez
+        iteraciones de sesenta segundos con un nombre» pierde repeticiones, carga y rondas: el
+        sistema dejaría de saber qué trabajo se hizo. Esas sesiones se ejecutan enteras en nuestras
+        apps, que sí las entienden.
+      </p>
+    </div>
+  </details>
+
+  <details class="fold">
+    <summary><h2>Riesgos</h2><span class="hint">Lo que puede salir mal y lo que no está verificado</span></summary>
+    <div class="fold-body">
+
       <ul class="plain">
         <li>En Garmin el atleta da <strong>dos toques</strong> para lanzar el entreno, no uno: el sistema le pregunta con qué app nativa abrirlo. No es evitable.</li>
         <li>Hay que manejar el <strong>reloj sin espacio</strong>. Es lo que sufrían los usuarios de TrainingPeaks, que tenían que borrar entrenos viejos a mano.</li>
@@ -1401,7 +1489,8 @@ We are not reselling data and we do not share it with third parties.</pre>
         </li>
       </ul>
     </div>
-  </section>
+  </details>
+
 
   <footer>
     <span>FAHYBRID · registro de trabajo</span>
