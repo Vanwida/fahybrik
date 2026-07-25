@@ -29,10 +29,11 @@ import type {
   Element,
   Phase,
   PhaseRole,
+  Prescription,
   RunStructure,
   Segment,
 } from '@fahybrid/shared/domain/prescription';
-import { isRepeat } from '@fahybrid/shared/domain/prescription';
+import { isRepeat, legacyToStructure } from '@fahybrid/shared/domain/prescription';
 
 /** Orden normativo de las fases en una `RunStructure`. */
 const PHASE_ORDER: readonly PhaseRole[] = ['warmup', 'main', 'cooldown'];
@@ -51,22 +52,37 @@ const PHASE_ORDER: readonly PhaseRole[] = ['warmup', 'main', 'cooldown'];
 export interface RunStructureSource {
   blocks: readonly {
     items: readonly {
-      prescription_json?: { structure?: RunStructure } | null;
+      prescription_json?: Prescription | null;
     }[];
   }[];
 }
 
 /**
  * Las estructuras de carrera de una sesión, en orden de bloque y luego de línea.
- * Vacío cuando la sesión no tiene ninguna línea de carrera estructurada — es decir,
- * cuando NO es un entreno que pueda viajar a un reloj de fabricante.
+ * Vacío cuando la sesión no tiene ninguna línea de carrera que pueda viajar a un
+ * reloj de fabricante.
+ *
+ * POR QUÉ NO BASTA CON LEER `structure`
+ * -------------------------------------
+ * La gramática estructurada (#61) existe, pero la biblioteca real no está escrita
+ * con ella: de los 429 segmentos que hay HOY en producción, exactamente UNO la usa,
+ * y ese no está asignado a ningún atleta. Leer solo `structure` dejaría la feature
+ * entera en cero sesiones reales — construida, verde en tests, y sin llegar a nadie.
+ *
+ * Por eso vamos por `legacyToStructure`, que devuelve la `structure` cuando existe
+ * y, cuando no, la deriva de los campos planos (`scheme`/`rounds`/`work_s`/`rest_s`/
+ * `sets`) en los que SÍ está escrito el contenido del coach. Una línea que no da una
+ * estructura válida (le falta la medida o el objetivo) se descarta en vez de viajar
+ * a medias: un tramo incompleto en la muñeca es peor que no mandarlo.
  */
 export function collectRunStructures(workout: RunStructureSource | null): RunStructure[] {
   if (!workout) return [];
   const out: RunStructure[] = [];
   for (const block of workout.blocks) {
     for (const item of block.items) {
-      const structure = item.prescription_json?.structure;
+      const prescription = item.prescription_json;
+      if (!prescription) continue;
+      const structure = legacyToStructure(prescription);
       if (structure && structure.length > 0) out.push(structure);
     }
   }
