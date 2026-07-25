@@ -82,6 +82,14 @@ struct ProfileView: View {
     @State private var showHealthDisconnectConfirm: Bool = false
     @State private var healthShowRevokeHint: Bool = false
 
+    // Apple Watch native workouts (#48). The scheduler owns the real state
+    // (authorization, enabled flag, how many runs are on the wrist) because it also
+    // runs outside this screen; the view only keeps the two things that are purely
+    // presentational: the "you said no" hint and the disconnect confirmation.
+    private var watchScheduler: AppleWatchWorkoutScheduler { AppleWatchWorkoutScheduler.shared }
+    @State private var watchWorkoutsDenied: Bool = false
+    @State private var showWatchWorkoutsDisconnectConfirm: Bool = false
+
     // Polar wearable link. `polarConnected` reflects GET /api/athlete/wearables;
     // `polarConnecting` drives the connect-url in-flight spinner; `polarSafari` opens
     // the OAuth page in an SFSafariViewController (the callback returns to a web page,
@@ -227,6 +235,22 @@ struct ProfileView: View {
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("Dejaremos de leer y sincronizar tus datos de salud. Podrás volver a conectarlos cuando quieras.")
+        }
+        .confirmationDialog(
+            "¿Quitar tus carreras del reloj?",
+            isPresented: $showWatchWorkoutsDisconnectConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Quitar", role: .destructive) { disconnectWatchWorkouts() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Las quitaremos de la app Entrenamiento del reloj. Seguirás teniéndolas aquí, en FAHYBRID.")
+        }
+        .task {
+            // The athlete can revoke the permission from iOS Ajustes while the app is
+            // backgrounded, so the row reads the REAL state on every appearance
+            // instead of trusting our own flag.
+            await watchScheduler.refreshAuthorization()
         }
     }
 
@@ -709,6 +733,8 @@ struct ProfileView: View {
                 Hairline()
                 appleHealthRow
                 Hairline()
+                appleWatchWorkoutsRow
+                Hairline()
                 NavigationLink {
                     PM5SettingsView(store: PM5ConnectionStore.shared)
                 } label: {
@@ -993,6 +1019,114 @@ struct ProfileView: View {
         healthDenied = false
         healthShowRevokeHint = true
         showToast("Apple Health desconectado")
+    }
+
+    // MARK: - Apple Watch — el entreno en el reloj (#48)
+    //
+    // Same three beats as Apple Health above: permiso → estado → poder desconectar.
+    // Turning it ON asks WorkoutKit for authorization (the ONLY gate — no
+    // entitlement, no Apple approval) and immediately mirrors the upcoming runs;
+    // turning it OFF confirms first, then takes our workouts back off the watch.
+    //
+    // The copy says "carreras", not "entrenos", ON PURPOSE. Only running travels:
+    // the watch's own workout format has no reps, no load and no rounds, so fuerza,
+    // EMOM y AMRAP would arrive gutted. Those stay in our app, and the athlete is
+    // told so plainly instead of discovering a half-empty session on their wrist.
+
+    private var appleWatchWorkoutsRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "figure.run.circle")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Apple Watch")
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text(watchWorkoutsSubtitle)
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(watchWorkoutsSubtitleColor)
+                    .lineLimit(3)
+            }
+            Spacer()
+            watchWorkoutsTrailing
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    @ViewBuilder
+    private var watchWorkoutsTrailing: some View {
+        if watchScheduler.isWorking {
+            ProgressView().tint(Theme.Color.accentText)
+        } else {
+            Toggle("", isOn: watchWorkoutsToggle)
+                .labelsHidden()
+                .tint(Theme.Color.accent)
+                .disabled(!watchScheduler.isSupported)
+                .accessibilityLabel("Carreras en el Apple Watch")
+                .accessibilityValue(watchScheduler.isEnabled ? "activado" : "desactivado")
+                .accessibilityHint(watchScheduler.isSupported
+                    ? "Envía tus carreras a la app Entrenamiento del reloj"
+                    : "No disponible en este dispositivo")
+        }
+    }
+
+    /// The getter always reports the REAL state, so cancelling the disconnect
+    /// confirmation leaves the switch visibly on (same contract as Apple Health).
+    private var watchWorkoutsToggle: Binding<Bool> {
+        Binding(
+            get: { watchScheduler.isEnabled },
+            set: { turnOn in
+                Haptics.light()
+                if turnOn {
+                    Task { await connectWatchWorkouts() }
+                } else {
+                    showWatchWorkoutsDisconnectConfirm = true
+                }
+            }
+        )
+    }
+
+    private var watchWorkoutsSubtitle: String {
+        if !watchScheduler.isSupported { return "No disponible en este dispositivo" }
+        if watchWorkoutsDenied {
+            return "No diste permiso. Actívalo en Ajustes → FAHYBRID para ver tus carreras en el reloj."
+        }
+        if watchScheduler.isEnabled {
+            if let count = watchScheduler.scheduledCount {
+                if count == 0 {
+                    return "Activado. No hay carreras en los próximos días — el resto de sesiones se hacen en la app."
+                }
+                return count == 1
+                    ? "1 carrera lista en la app Entrenamiento del reloj"
+                    : "\(count) carreras listas en la app Entrenamiento del reloj"
+            }
+            return "Activado. Sincronizando tus próximas carreras…"
+        }
+        return "Envía tus carreras a la app Entrenamiento del reloj y empieza sin sacar el móvil"
+    }
+
+    private var watchWorkoutsSubtitleColor: Color {
+        if watchWorkoutsDenied { return Theme.Color.danger }
+        if watchScheduler.isEnabled { return Theme.Color.ok }
+        return Theme.Color.muted
+    }
+
+    @MainActor
+    private func connectWatchWorkouts() async {
+        let granted = await watchScheduler.enable(bearer: bearer, week: store.planWeek.value)
+        watchWorkoutsDenied = !granted
+        showToast(granted ? "Carreras activadas en el reloj" : "No pudimos activarlo")
+    }
+
+    @MainActor
+    private func disconnectWatchWorkouts() {
+        Task {
+            await watchScheduler.disable()
+            watchWorkoutsDenied = false
+            showToast("Carreras quitadas del reloj")
+        }
     }
 
     private func deviceRowContent(
