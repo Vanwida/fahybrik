@@ -300,6 +300,11 @@ struct WorkoutContainer: View {
                                 } else {
                                     CompletedAssignmentsStore.markCompleted(assignmentId)
                                 }
+                                // #48 — the athlete just did this session HERE, so the
+                                // copy sitting in the watch's Entrenamiento app must
+                                // stop offering it; otherwise the same run looks
+                                // pending on the wrist and can be started twice.
+                                Task { await AppleWatchWorkoutScheduler.shared.markComplete(assignmentId: assignmentId) }
                             }
                             Task { await WorkoutStateStore.shared.clear() }
                             // #34 — a calibration TEST captures its measured result

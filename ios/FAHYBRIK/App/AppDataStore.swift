@@ -290,12 +290,25 @@ final class AppDataStore {
         await revalidate(get: { self.identity }, set: { self.identity = $0 }, force: force) {
             try await MeService.fetch(bearer: $0)
         }
+        // #48 — the wrist encoder resolves an HR zone to an absolute bpm band ONLY
+        // from the athlete's own MEASURED FCmáx, so it needs the same resolved
+        // source every other zone surface reads. Nil until identity loads; the
+        // encoder then simply emits no HR band, never an invented one.
+        AppleWatchWorkoutScheduler.shared.hrMaxSource = identity.value?.hrMaxSource
     }
 
     func refreshPlanWeek(force: Bool = false) async {
         await revalidate(get: { self.planWeek }, set: { self.planWeek = $0 }, force: force) {
             try await PlanService.fetchWeek(bearer: $0)
         }
+        // #48 — mirror the upcoming RUNS onto the Apple Watch's native Entrenamiento
+        // app, so a coach edit reaches the wrist on the next plan refresh and stale
+        // sessions get retired. Detached on purpose: this walks assignment details
+        // and talks to WorkoutKit, and the plan screen must never wait on it. No-op
+        // unless the athlete turned it on (and re-entrancy is guarded inside).
+        let week = planWeek.value
+        let token = bearer
+        Task { await AppleWatchWorkoutScheduler.shared.sync(bearer: token, week: week) }
     }
 
     func refreshMacroProgress(force: Bool = false) async {

@@ -252,6 +252,29 @@ struct RunLeg: Equatable {
     var isRecovery: Bool { kind == .recovery }
 }
 
+// Declared in an EXTENSION so the compiler still synthesizes the memberwise init
+// every existing call site (and the tests) builds a leg with.
+extension RunLeg {
+    /// The execution-ready leg for one grammar segment. SINGLE source of the
+    /// segment→leg projection: `expandedLegs()` (the flat list the live engine walks)
+    /// and the WorkoutKit encoder (which keeps the Repeat GROUPING, so the wrist's
+    /// native Workout app shows "×5" instead of five identical steps) both build
+    /// their legs here — so the two views of the same run can never disagree about
+    /// what a segment means.
+    init(_ segment: RunSegment, phaseRole: RunPhaseRole) {
+        self.init(
+            kind: segment.kind == .recovery ? .recovery : .work,
+            measure: segment.measure,
+            target: segment.target,
+            resolved: segment.resolved,
+            inclinePct: segment.inclinePct,
+            cadenceSpm: segment.cadenceSpm,
+            recoveryMode: segment.recoveryMode,
+            phaseRole: phaseRole
+        )
+    }
+}
+
 extension RunStructure {
     /// The FLAT, ordered leg list — each Repeat's body emitted `times` times,
     /// depth-first, phases in order. The single expansion the execution engine +
@@ -265,18 +288,7 @@ extension RunStructure {
                     guard times > 0 else { continue }
                     for _ in 0..<times { walk(els, role) }
                 case let .segment(seg):
-                    out.append(
-                        RunLeg(
-                            kind: seg.kind == .recovery ? .recovery : .work,
-                            measure: seg.measure,
-                            target: seg.target,
-                            resolved: seg.resolved,
-                            inclinePct: seg.inclinePct,
-                            cadenceSpm: seg.cadenceSpm,
-                            recoveryMode: seg.recoveryMode,
-                            phaseRole: role
-                        )
-                    )
+                    out.append(RunLeg(seg, phaseRole: role))
                 }
             }
         }

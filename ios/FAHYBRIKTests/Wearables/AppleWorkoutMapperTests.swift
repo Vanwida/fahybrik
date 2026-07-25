@@ -1,0 +1,296 @@
+import HealthKit
+import WorkoutKit
+import XCTest
+@testable import FAHYBRIK
+
+// The WorkoutKit encoder (#48) — a coach-prescribed structured run turned into the
+// workout that shows up in the Apple Watch's native Entrenamiento app.
+//
+// What these tests actually protect is the HONESTY of that translation, because a
+// wrong number here does not crash: it silently makes the watch buzz at the athlete
+// for the wrong reason, and poisons the analytics with work that was never
+// prescribed. Three things are load-bearing:
+//   · the pace→speed INVERSION (faster pace = fewer s/km = MORE m/s),
+//   · zones leaving as ABSOLUTE bands, never as a zone number the watch reinterprets,
+//   · anything the watch cannot measure (RPE, an unresolvable zone) leaving as an
+//     OPEN step with the prescription in its name — never as an invented target.
+final class AppleWorkoutMapperTests: XCTestCase {
+
+    // MARK: - Helpers
+
+    private func segment(
+        kind: RunSegment.Kind = .work,
+        measure: RunSegmentMeasure = .distance(m: 400),
+        target: RunSegmentTarget? = nil,
+        resolved: ResolvedIntensity? = nil,
+        inclinePct: Double? = nil,
+        cadenceSpm: Int? = nil,
+        recoveryMode: RunRecoveryMode? = nil
+    ) -> RunSegment {
+        RunSegment(
+            kind: kind,
+            measure: measure,
+            target: target,
+            resolved: resolved,
+            inclinePct: inclinePct,
+            cadenceSpm: cadenceSpm,
+            recoveryMode: recoveryMode
+        )
+    }
+
+    private func leg(_ segment: RunSegment, role: RunPhaseRole = .main) -> RunLeg {
+        RunLeg(segment, phaseRole: role)
+    }
+
+    private let measuredMax = HRMaxSource(bpm: 190, isEstimated: false)
+    private let estimatedMax = HRMaxSource(bpm: 190, isEstimated: true)
+
+    // MARK: - Pace → speed (the inversion trap)
+
+    func testFasterPaceBecomesTheUPPERSpeedBound() {
+        // 4:00/km (240 s) is FASTER than 4:20/km (260 s), so it must land on the
+        // range's high side. Inverting this would tell the watch to slow down when
+        // the athlete is running well.
+        let band = AppleWorkoutMapper.speedAlert(for: PaceTarget(single: nil, fastS: 240, slowS: 260))
+        let alert = try? XCTUnwrap(band as? SpeedRangeAlert)
+        let range = try? XCTUnwrap(alert?.target)
+
+        let lower = range?.lowerBound.converted(to: .metersPerSecond).value ?? 0
+        let upper = range?.upperBound.converted(to: .metersPerSecond).value ?? 0
+
+        XCTAssertEqual(lower, 1000.0 / 260.0, accuracy: 0.0001, "slow pace → low speed")
+        XCTAssertEqual(upper, 1000.0 / 240.0, accuracy: 0.0001, "fast pace → high speed")
+        XCTAssertLessThan(lower, upper)
+    }
+
+    func testPaceToSpeedConversion() {
+        XCTAssertEqual(AppleWorkoutMapper.metersPerSecond(fromPaceSecPerKm: 240), 1000.0 / 240.0, accuracy: 0.0001)
+        // A non-positive pace is not a pace — it must not become an infinite speed.
+        XCTAssertEqual(AppleWorkoutMapper.metersPerSecond(fromPaceSecPerKm: 0), 0)
+    }
+
+    // MARK: - Closing the band
+
+    func testSinglePaceWidensByTheSameToleranceTheAppJudgesWith() {
+        // The wrist must alert exactly when our own HUD would call the athlete out of
+        // target — so the widening reuses PaceTarget.singleToleranceSecPerKm.
+        let band = AppleWorkoutMapper.closedPaceBand(PaceTarget(single: 300, fastS: nil, slowS: nil))
+        let tolerance = PaceTarget.singleToleranceSecPerKm
+        XCTAssertEqual(band?.fast, 300 - tolerance)
+        XCTAssertEqual(band?.slow, 300 + tolerance)
+    }
+
+    func testOneSidedBandIsNotClosedWithAnInventedBound() {
+        // "no más lento de 5:00" has no second bound. We refuse to make one up: the
+        // tramo goes OPEN and the prescription survives in the step name.
+        XCTAssertNil(AppleWorkoutMapper.closedPaceBand(PaceTarget(single: nil, fastS: nil, slowS: 300)))
+        XCTAssertNil(AppleWorkoutMapper.closedPaceBand(PaceTarget(single: nil, fastS: 240, slowS: nil)))
+        XCTAssertNil(AppleWorkoutMapper.closedPaceBand(PaceTarget(single: nil, fastS: nil, slowS: nil)))
+    }
+
+    // MARK: - HR zones leave as absolute bpm, and only from a MEASURED max
+
+    func testHeartRateZoneResolvesToAnAbsoluteBandFromAMeasuredMax() {
+        // Z4 = 80–90% of max. With a measured 190 that is 152–171 bpm — a number the
+        // watch cannot reinterpret, unlike "Z4".
+        let alert = AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: measuredMax) as? HeartRateRangeAlert
+        let range = try? XCTUnwrap(alert?.target)
+        XCTAssertEqual(range?.lowerBound.value ?? 0, 152, accuracy: 0.5)
+        XCTAssertEqual(range?.upperBound.value ?? 0, 171, accuracy: 0.5)
+    }
+
+    func testEstimatedMaxEmitsNoHeartRateBand() {
+        // A 220−age-style estimate is a number we made up. Shown in-app it carries a
+        // "genérica" caveat; pushed to the wrist as a hard target it would not — so
+        // it is not pushed at all.
+        XCTAssertNil(AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: estimatedMax))
+        XCTAssertNil(AppleWorkoutMapper.heartRateAlert(for: .z4, hrMax: nil))
+    }
+
+    func testZoneBandsCoverTheWholeScaleWithoutGaps() {
+        // The %HRmax thresholds live once (HRZone.percentOfMax) and feed BOTH the live
+        // classifier and this resolution — one zone's top is the next one's floor.
+        for (lower, upper) in zip(HRZone.allCases, HRZone.allCases.dropFirst()) {
+            XCTAssertEqual(lower.percentOfMax.upperBound, upper.percentOfMax.lowerBound, accuracy: 0.0001)
+        }
+        XCTAssertEqual(HRZoneClassifier.bpmBand(for: .z5, hrMax: 200), 180...200)
+        XCTAssertNil(HRZoneClassifier.bpmBand(for: .z4, hrMax: 0), "no max → no fabricated band")
+    }
+
+    func testLiveClassifierStillAgreesWithTheThresholds() {
+        // The classifier was rewritten to read percentOfMax; its behaviour must be
+        // byte-for-byte what it was.
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 100, hrMax: 200), .z1) // 50%
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 120, hrMax: 200), .z2) // 60%
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 140, hrMax: 200), .z3) // 70%
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 160, hrMax: 200), .z4) // 80%
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 180, hrMax: 200), .z5) // 90%
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 210, hrMax: 200), .z5) // over max
+        XCTAssertEqual(HRZoneClassifier.zone(forBpm: 150, hrMax: 0), .z1)   // no max
+    }
+
+    // MARK: - RPE is never fabricated into a goal
+
+    func testRPEGoesToTheNameAndLeavesTheStepOpen() {
+        let step = AppleWorkoutMapper.step(
+            for: leg(segment(measure: .duration(s: 600), target: .rpe(value: nil, min: 7, max: 8))),
+            hrMax: measuredMax
+        )
+        XCTAssertNil(step.alert, "no watch measures perception — nothing to alert on")
+        XCTAssertEqual(step.goal, .time(600, .seconds), "the DURATION is still measurable")
+        XCTAssertEqual(step.displayName?.contains("RPE"), true)
+    }
+
+    func testUnresolvedZoneKeepsItsLabelInsteadOfBecomingAFakeBand() {
+        // A pace zone the backend could not resolve (athlete never tested that
+        // modality) has no absolute band. The step goes open and says "Z4".
+        let step = AppleWorkoutMapper.step(for: leg(segment(target: .paceZone(4))), hrMax: measuredMax)
+        XCTAssertNil(step.alert)
+        XCTAssertEqual(step.displayName?.contains("Z4"), true)
+    }
+
+    // MARK: - Measure → goal
+
+    func testDistanceAndDurationBecomeTheirGoals() {
+        XCTAssertEqual(
+            AppleWorkoutMapper.step(for: leg(segment(measure: .distance(m: 800))), hrMax: nil).goal,
+            .distance(800, .meters)
+        )
+        XCTAssertEqual(
+            AppleWorkoutMapper.step(for: leg(segment(measure: .duration(s: 90))), hrMax: nil).goal,
+            .time(90, .seconds)
+        )
+        // An unknown / zero measure is an OPEN tramo the athlete closes by hand —
+        // never a fabricated distance.
+        XCTAssertEqual(AppleWorkoutMapper.step(for: leg(segment(measure: .unknown)), hrMax: nil).goal, .open)
+        XCTAssertEqual(AppleWorkoutMapper.step(for: leg(segment(measure: .distance(m: 0))), hrMax: nil).goal, .open)
+    }
+
+    // MARK: - One alert per step: cadence never displaces the objetivo
+
+    func testCadenceYieldsToPaceAndTravelsInTheName() {
+        let resolved = ResolvedIntensity(zoneLabel: "Z3", rangeLabel: "4:00–4:20/km",
+                                         fastS: 240, slowS: 260, paceUnit: "per_km", needsReview: false)
+        let step = AppleWorkoutMapper.step(
+            for: leg(segment(target: .paceZone(3), resolved: resolved, cadenceSpm: 180)),
+            hrMax: measuredMax
+        )
+        XCTAssertTrue(step.alert is SpeedRangeAlert, "the objetivo keeps the single alert")
+        XCTAssertEqual(step.displayName?.contains("180 spm"), true, "cadence is not lost, it is written down")
+    }
+
+    func testCadenceTakesTheAlertWhenNothingElseClaimsIt() {
+        let step = AppleWorkoutMapper.step(for: leg(segment(cadenceSpm: 180)), hrMax: measuredMax)
+        let alert = step.alert as? CadenceRangeAlert
+        let range = try? XCTUnwrap(alert?.target)
+        let tolerance = Double(AppleWorkoutMapper.cadenceToleranceSpm)
+        XCTAssertEqual(range?.lowerBound.value ?? 0, 180 - tolerance, accuracy: 0.5)
+        XCTAssertEqual(range?.upperBound.value ?? 0, 180 + tolerance, accuracy: 0.5)
+    }
+
+    // MARK: - Step names
+
+    func testRecoveryStepNamesItsModeAndInclineTravelsAsText() {
+        let step = AppleWorkoutMapper.step(
+            for: leg(segment(kind: .recovery, measure: .duration(s: 120), recoveryMode: .caminar)),
+            hrMax: nil
+        )
+        XCTAssertEqual(step.displayName?.contains("caminando"), true)
+
+        // WorkoutKit has no incline target; the prescription survives as text.
+        let incline = AppleWorkoutMapper.step(for: leg(segment(inclinePct: 6)), hrMax: nil)
+        XCTAssertEqual(incline.displayName?.contains("6%"), true)
+    }
+
+    func testNameIsClampedWithoutCuttingAWordInHalf() {
+        let long = "Serie larguísima de referencia con muchísimas palabras encadenadas"
+        let clamped = AppleWorkoutMapper.clampName(long)
+        XCTAssertLessThanOrEqual(clamped.count, AppleWorkoutMapper.stepNameMaxLength)
+        XCTAssertFalse(clamped.hasSuffix(" "))
+        XCTAssertTrue(long.hasPrefix(clamped), "clamping only trims, never rewrites")
+    }
+
+    // MARK: - Structure → CustomWorkout shape
+
+    func testRepeatBecomesAnIntervalBlockWithIterations() {
+        // 5 × (400 m + 200 m rec) must stay a repeat of TWO steps, not ten flat steps:
+        // that is what makes the wrist count rounds.
+        let structure: RunStructure = [
+            RunPhase(role: .warmup, elements: [.segment(segment(measure: .duration(s: 600)))]),
+            RunPhase(role: .main, elements: [
+                .repeatBlock(times: 5, elements: [
+                    .segment(segment(measure: .distance(m: 400))),
+                    .segment(segment(kind: .recovery, measure: .distance(m: 200), recoveryMode: .trote))
+                ])
+            ]),
+            RunPhase(role: .cooldown, elements: [.segment(segment(measure: .duration(s: 300)))])
+        ]
+
+        let workout = AppleWorkoutMapper.customWorkout(structure: structure, name: "Series 5×400", hrMax: nil)
+        let custom = try? XCTUnwrap(workout)
+
+        XCTAssertNotNil(custom?.warmup)
+        XCTAssertNotNil(custom?.cooldown)
+        XCTAssertEqual(custom?.blocks.count, 1)
+        XCTAssertEqual(custom?.blocks.first?.iterations, 5)
+        XCTAssertEqual(custom?.blocks.first?.steps.count, 2)
+        XCTAssertEqual(custom?.blocks.first?.steps.first?.purpose, .work)
+        XCTAssertEqual(custom?.blocks.first?.steps.last?.purpose, .recovery)
+        XCTAssertEqual(custom?.displayName, "Series 5×400")
+    }
+
+    func testExtraWarmupTramosAreKeptAsABlockInsteadOfBeingDropped() {
+        // `CustomWorkout.warmup` holds ONE step, but a coach's warm-up can have
+        // several tramos. The rest must survive as a block — losing one would mean
+        // the athlete does less work than prescribed.
+        let structure: RunStructure = [
+            RunPhase(role: .warmup, elements: [
+                .segment(segment(measure: .duration(s: 600))),
+                .segment(segment(measure: .distance(m: 100))),
+                .segment(segment(measure: .distance(m: 100)))
+            ]),
+            RunPhase(role: .main, elements: [.segment(segment(measure: .distance(m: 5000)))])
+        ]
+
+        let custom = try? XCTUnwrap(AppleWorkoutMapper.customWorkout(structure: structure, name: "Rodaje", hrMax: nil))
+        XCTAssertNotNil(custom?.warmup)
+        // block 0 = the two leftover warm-up tramos, block 1 = the main run.
+        XCTAssertEqual(custom?.blocks.first?.steps.count, 2)
+        let total = (custom?.blocks.reduce(0) { $0 + $1.steps.count * $1.iterations } ?? 0) + 1
+        XCTAssertEqual(total, 4, "every prescribed tramo survives the trip")
+    }
+
+    func testEmptyStructureProducesNoWorkout() {
+        XCTAssertNil(AppleWorkoutMapper.customWorkout(structure: [], name: "Vacío", hrMax: nil))
+    }
+
+    // MARK: - Deterministic, recognisable plan identity (reconciliation depends on it)
+
+    func testPlanIDIsStableForTheSameAssignment() {
+        // A re-sync must recognise what it already scheduled instead of duplicating.
+        XCTAssertEqual(
+            FahybrikWorkoutPlanID.planID(forAssignmentId: "12345"),
+            FahybrikWorkoutPlanID.planID(forAssignmentId: "12345")
+        )
+        XCTAssertNotEqual(
+            FahybrikWorkoutPlanID.planID(forAssignmentId: "12345"),
+            FahybrikWorkoutPlanID.planID(forAssignmentId: "12346")
+        )
+    }
+
+    func testOnlyOurPlansAreRecognisedAsOurs() {
+        // This is what stops us from removing a workout another app scheduled.
+        XCTAssertTrue(FahybrikWorkoutPlanID.isOurs(FahybrikWorkoutPlanID.planID(forAssignmentId: "1")))
+        XCTAssertFalse(FahybrikWorkoutPlanID.isOurs(UUID()))
+    }
+
+    // MARK: - Date helpers (the schedule key)
+
+    func testIsoDateHelpers() {
+        XCTAssertEqual(AppleWatchWorkoutScheduler.dateComponents(fromIso: "2026-07-25")?.day, 25)
+        XCTAssertNil(AppleWatchWorkoutScheduler.dateComponents(fromIso: "no-es-fecha"))
+        XCTAssertEqual(AppleWatchWorkoutScheduler.isoDate("2026-07-25", plusDays: 7), "2026-08-01")
+        // Month and year rollovers — the horizon must not silently truncate.
+        XCTAssertEqual(AppleWatchWorkoutScheduler.isoDate("2026-12-28", plusDays: 7), "2027-01-04")
+    }
+}

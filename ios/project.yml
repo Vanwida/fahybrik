@@ -49,6 +49,15 @@ targets:
       - sdk: ARKit.framework
       - sdk: RealityKit.framework
       - sdk: AVFoundation.framework
+      # Apple Watch native workouts (#48): schedules the athlete's upcoming RUNS
+      # into the watch's own Entrenamiento app, so a run starts from the wrist
+      # with no phone. No entitlement and no Apple approval are involved — the
+      # only gate is WorkoutScheduler.requestAuthorization() at runtime.
+      - sdk: WorkoutKit.framework
+      # Deterministic ids for those scheduled workouts (SHA-256 over the
+      # assignment id) — the key that lets a re-sync recognise, update and retire
+      # exactly the entries we put there. See FahybrikWorkoutPlanID.
+      - sdk: CryptoKit.framework
       # Outdoor run live tracking (#64): ActivityKit starts/updates the Live
       # Activity from the app; WidgetKit is pulled in transitively by the widget
       # extension but is listed here for the app's own ActivityKit surface.
