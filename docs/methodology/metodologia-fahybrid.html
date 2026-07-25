@@ -1,0 +1,189 @@
+<title>La metodología FAHYBRID</title>
+
+<style>
+  :root{
+    --ink:#0A0A0A;--ink2:#141414;--line:#242424;--line2:#2E2E2E;
+    --paper:#F2F0ED;--mut:#8C8C8C;--mut2:#B3B3B3;
+    --o:#FF6B00;--g:#46C98B;--r:#E5484D;--y:#F5A524;
+  }
+  body{margin:0;background:var(--ink);color:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:0 clamp(1rem,4vw,2.5rem)}
+  .disp{font-style:italic;font-weight:800;letter-spacing:-.03em;text-transform:uppercase;line-height:.95}
+  a{color:var(--o)}
+
+  header{padding:clamp(2.6rem,8vw,5rem) 0 clamp(1.8rem,4vw,2.6rem)}
+  .bar{width:70px;height:5px;background:var(--o);margin-bottom:1.6rem}
+  h1{font-size:clamp(2.2rem,1rem+5vw,4rem);margin:0}
+  .intro{margin-top:1.6rem;max-width:50ch;color:var(--mut2)}
+  .intro b{color:#fff;font-weight:650}
+
+  section{border-top:1px solid var(--line);padding:2rem 0}
+  .h{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:1.2rem}
+  .h i{font-style:italic;font-weight:800;color:var(--o);font-size:1.05rem;letter-spacing:-.02em;margin-right:.5rem;text-transform:none}
+  .h b{color:#fff;font-weight:700;letter-spacing:.06em}
+
+  /* reglas */
+  .rules{display:grid;gap:.55rem}
+  .rule{display:grid;grid-template-columns:1.6rem 1fr;gap:.7rem;align-items:start;
+    background:var(--ink2);border-left:2px solid var(--o);padding:.85rem 1rem;border-radius:0 6px 6px 0}
+  .rule .x{color:var(--o);font-weight:800;font-style:italic;line-height:1.4}
+  .rule p{margin:0;font-size:.95rem}
+
+  /* fases */
+  .arc{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  @media(max-width:760px){.arc{grid-template-columns:1fr 1fr}}
+  @media(max-width:460px){.arc{grid-template-columns:1fr}}
+  .ph{background:var(--ink2);padding:1.1rem 1rem}
+  .ph .nm{font-style:italic;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;font-size:1.15rem;line-height:1}
+  .ph .du{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--o);font-weight:700;margin:.5rem 0 .6rem}
+  .ph p{margin:0;font-size:.85rem;color:var(--mut2);line-height:1.45}
+  .ph.pk .du{color:var(--y)}
+  .ph.dc .nm{color:var(--mut2)}.ph.dc .du{color:var(--mut)}
+
+  /* tabla */
+  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;min-width:600px;font-size:.9rem}
+  th,td{text-align:left;padding:.8rem 1rem;border-bottom:1px solid var(--line)}
+  thead th{background:#181818;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut2);font-weight:700;white-space:nowrap}
+  tbody th{font-weight:650;color:#fff;white-space:nowrap}
+  tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+  td.m{color:var(--mut2)}
+
+  /* familias */
+  .fams{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  @media(max-width:760px){.fams{grid-template-columns:1fr 1fr}}
+  .fam{background:var(--ink2);padding:1.1rem 1rem}
+  .fam .c{font-style:italic;font-weight:800;font-size:2rem;line-height:1;color:var(--o);letter-spacing:-.03em}
+  .fam .t{font-weight:700;margin:.45rem 0 .35rem;font-size:.95rem}
+  .fam p{margin:0;font-size:.83rem;color:var(--mut2);line-height:1.45}
+
+  /* bandas */
+  .bands{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  @media(max-width:700px){.bands{grid-template-columns:1fr}}
+  .bd{background:var(--ink2);padding:1.1rem 1rem;border-top:3px solid}
+  .bd.ok{border-top-color:var(--g)}.bd.mid{border-top-color:var(--y)}.bd.no{border-top-color:var(--r)}
+  .bd .v{font-style:italic;font-weight:800;font-size:1.5rem;line-height:1;letter-spacing:-.03em}
+  .bd.ok .v{color:var(--g)}.bd.mid .v{color:var(--y)}.bd.no .v{color:var(--r)}
+  .bd .t{font-weight:700;margin:.5rem 0 .3rem;font-size:.95rem}
+  .bd p{margin:0;font-size:.85rem;color:var(--mut2)}
+
+  /* ejes */
+  .ax{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  @media(max-width:700px){.ax{grid-template-columns:1fr}}
+  .axb{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:1.2rem}
+  .axb .k{font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--o);font-weight:700;margin-bottom:.5rem}
+  .axb .t{font-style:italic;font-weight:800;text-transform:uppercase;font-size:1.4rem;letter-spacing:-.02em;line-height:1;margin-bottom:.6rem}
+  .axb p{margin:0;font-size:.9rem;color:var(--mut2)}
+
+  .note{margin-top:1.1rem;font-size:.85rem;color:var(--mut2);max-width:64ch}
+  .more{margin-top:1.1rem;font-size:.83rem;color:var(--mut)}
+
+  footer{border-top:1px solid var(--line);padding:1.8rem 0 3rem;color:var(--mut);font-size:.8rem}
+  footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.05rem}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="bar"></div>
+  <h1 class="disp">La metodología<br>FAHYBRID</h1>
+  <p class="intro">Las decisiones que antes dejábamos abiertas, <b>ya tomadas</b>. Se pueden cambiar todas — pero se parte de aquí, no de una hoja en blanco.</p>
+</header>
+
+<section>
+  <div class="h"><i>01</i><b>Las reglas que no se tocan</b></div>
+  <div class="rules">
+    <div class="rule"><span class="x">1</span><p>No se prescribe nada sin un número medido detrás.</p></div>
+    <div class="rule"><span class="x">2</span><p>Cada ejercicio lleva medida, objetivo y descanso. Lo que quede en texto libre no se publica.</p></div>
+    <div class="rule"><span class="x">3</span><p>Sube una sola variable cada vez. Nunca volumen e intensidad a la vez.</p></div>
+    <div class="rule"><span class="x">4</span><p>Dos sesiones duras nunca van seguidas.</p></div>
+    <div class="rule"><span class="x">5</span><p>El estado del atleta hoy puede cambiar la sesión de hoy.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="h"><i>02</i><b>El arco · 13 a 19 semanas</b></div>
+  <div class="arc">
+    <div class="ph"><div class="nm">Base</div><div class="du">4–8 semanas</div><p>Motor aeróbico y fuerza pesada a la vez. Ninguna de las dos busca techo todavía.</p></div>
+    <div class="ph"><div class="nm">Potencia</div><div class="du">4–5 semanas</div><p>Convertir esa base en trabajo de HYROX: trineo, ergómetros, circuitos.</p></div>
+    <div class="ph"><div class="nm">Ritmo</div><div class="du">3–4 semanas</div><p>Simulacros y transiciones. Correr con las piernas ya cargadas.</p></div>
+    <div class="ph pk"><div class="nm">Pico</div><div class="du">2 semanas</div><p>Cae el volumen casi a la mitad. La intensidad no se toca.</p></div>
+    <div class="ph dc"><div class="nm">Desconexión</div><div class="du">7–21 días</div><p>Después de la carrera. Sin estructura.</p></div>
+  </div>
+  <p class="note">Ninguna fase se salta nunca. Si quedan menos de 12 semanas se comprimen; con menos de 6 no hay preparación real y se dice así de claro. El pico de 2 semanas es el único suelo intocable.</p>
+  <p class="more"><a href="https://claude.ai/code/artifact/7982c41e-3d77-419c-8e54-bb691c59a4c2">Modelo de fases completo →</a></p>
+</section>
+
+<section>
+  <div class="h"><i>03</i><b>Lo que se mide</b></div>
+  <div class="tw"><table>
+    <thead><tr><th>Prueba</th><th>Qué prescribe</th><th>Cada</th></tr></thead>
+    <tbody>
+      <tr><th>5K a tope</th><td class="m">Las seis zonas de ritmo y el objetivo de los 8 km de carrera</td><td class="m">6 semanas</td></tr>
+      <tr><th>Remo 2K</th><td class="m">Las seis zonas de remo</td><td class="m">6 semanas</td></tr>
+      <tr><th>Sentadilla · peso muerto · banca</th><td class="m">Todos los porcentajes de carga del plan</td><td class="m">12 semanas</td></tr>
+      <tr><th>Media simulación</th><td class="m">Cuánto se cae el ritmo con las piernas cargadas, y por dónde</td><td class="m">6 semanas</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Las cuatro ya están construidas y funcionando en el producto. Si una prueba no se traduce en un número que luego se use para prescribir, no entra en la batería.</p>
+</section>
+
+<section>
+  <div class="h"><i>04</i><b>Las sesiones · 18 tipos</b></div>
+  <div class="fams">
+    <div class="fam"><div class="c">6</div><div class="t">Carrera</div><p>Desde rodaje hasta series cortas, pasando por umbral y cuestas.</p></div>
+    <div class="fam"><div class="c">4</div><div class="t">Fuerza</div><p>Fuerza máxima, potencia, resistencia de fuerza y trineo.</p></div>
+    <div class="fam"><div class="c">5</div><div class="t">Estaciones</div><p>Estación aislada, transiciones y simulacros parciales o completos.</p></div>
+    <div class="fam"><div class="c">3</div><div class="t">Mixto</div><p>Correr fatigado. Es lo que decide la carrera.</p></div>
+  </div>
+  <p class="note">Catálogo cerrado: si algo no encaja en uno de los 18, es que falta definirlo, no que se escriba a mano. Se construyó contra las 97 sesiones reales del Excel y todas entraron.</p>
+  <p class="more"><a href="https://claude.ai/code/artifact/0d920173-b243-4440-b1c7-e1fe835fff26">Catálogo completo →</a></p>
+</section>
+
+<section>
+  <div class="h"><i>05</i><b>Cómo avanza</b></div>
+  <div class="tw"><table>
+    <thead><tr><th>Situación</th><th>Qué hace el sistema</th></tr></thead>
+    <tbody>
+      <tr><th>Semana normal</th><td class="m">Sube una sola variable respecto a la anterior</td></tr>
+      <tr><th>La serie sale fácil</th><td class="m">Sube carga la próxima vez</td></tr>
+      <tr><th>La serie se falla</th><td class="m">Repite carga, no baja</td></tr>
+      <tr><th>Cada tercera o cuarta semana</th><td class="m">Descarga: baja el volumen un 30–40%, la intensidad se mantiene</td></tr>
+      <tr><th>Vuelve tras faltar</th><td class="m">Se retoma por debajo y se recupera nivel de forma progresiva</td></tr>
+    </tbody>
+  </table></div>
+  <p class="more"><a href="https://claude.ai/code/artifact/16d5264d-e5c4-4457-ad42-94303f605100">Reglas completas →</a></p>
+</section>
+
+<section>
+  <div class="h"><i>06</i><b>Cómo se ajusta cada día</b></div>
+  <div class="bands">
+    <div class="bd ok"><div class="v">67 +</div><div class="t">Entrena como está</div><p>El atleta está listo. No se toca nada.</p></div>
+    <div class="bd mid"><div class="v">45 – 66</div><div class="t">Entrena rebajado</div><p>Se recorta el volumen y se mantiene la carga.</p></div>
+    <div class="bd no"><div class="v">– 45</div><div class="t">Hoy no</div><p>Se cambia por trabajo suave o se descansa.</p></div>
+  </div>
+  <p class="note">Sale del sueño, las pulsaciones en reposo, la variabilidad cardíaca y lo que reporta el atleta. Nunca decide una sola señal ni un solo día suelto: hace falta que la tendencia lo confirme.</p>
+</section>
+
+<section>
+  <div class="h"><i>07</i><b>Qué cambia según la carrera</b></div>
+  <div class="ax">
+    <div class="axb">
+      <div class="k">Open o Pro</div>
+      <div class="t">Cuánta fuerza</div>
+      <p>Del trineo de 152 kg al de 202. Entre un 33% y un 50% más en todas las estaciones con carga. Eso no se arregla con más acondicionamiento: se arregla con fuerza máxima.</p>
+    </div>
+    <div class="axb">
+      <div class="k">Individual o dobles</div>
+      <div class="t">Cómo se reparte</div>
+      <p>Mismo peso, mitad de recorrido, con descanso real en medio. Cambia el acondicionamiento de continuo a interválico, y aparece una capa táctica que en individual no existe.</p>
+    </div>
+  </div>
+  <p class="note">Un atleta de dobles no necesita menos fuerza que uno individual: empuja exactamente el mismo trineo. Lo que necesita es menos resistencia y más capacidad de repetir.</p>
+</section>
+
+<footer><b>FAHYBRID</b> · La metodología</footer>
+
+</div>

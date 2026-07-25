@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catálogo de Tipos de Sesión — FAHYBRID</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1e; --line:#2a2a2e;
+    --ink:#f5f5f4; --muted:#a1a1aa; --dim:#71717a;
+    --orange:#ff5721; --orange-soft:#ff764b;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --blue:#60a5fa;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{transition:none!important;animation:none!important} }
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--orange-soft);outline-offset:2px;border-radius:3px}
+
+  .shell{max-width:1200px;margin:0 auto;display:flex;align-items:flex-start;gap:0}
+  .toc{position:sticky;top:0;flex:0 0 216px;padding:44px 18px 40px 24px;font-size:12.5px;max-height:100vh;overflow-y:auto}
+  .toc .ttl{font-family:var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;margin-bottom:12px}
+  .toc a{display:flex;align-items:center;gap:8px;padding:5px 0;color:var(--muted);text-decoration:none;font-size:13px}
+  .toc a:hover{color:var(--ink)}
+  .toc .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--line)}
+  .toc .sep{height:1px;background:var(--line);margin:10px 0}
+  .toc .fam-a .dot{background:var(--blue)} .toc .fam-b .dot{background:var(--red)}
+  .toc .fam-c .dot{background:var(--orange)} .toc .fam-d .dot{background:var(--amber)}
+  @media (max-width:980px){ .toc{display:none} }
+
+  .mobile-toc{display:none}
+  @media (max-width:980px){
+    .mobile-toc{display:block;margin:0 0 32px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+    .mobile-toc summary{cursor:pointer;padding:14px 16px;font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .mobile-toc .links{padding:0 16px 16px;display:grid;gap:6px}
+    .mobile-toc a{color:var(--muted);text-decoration:none;font-size:14px;display:flex;gap:8px;align-items:center}
+    .mobile-toc .dot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+    .mobile-toc .fam-a .dot{background:var(--blue)} .mobile-toc .fam-b .dot{background:var(--red)}
+    .mobile-toc .fam-c .dot{background:var(--orange)} .mobile-toc .fam-d .dot{background:var(--amber)}
+  }
+
+  .wrap{flex:1 1 auto;min-width:0;max-width:960px;margin:0 auto;padding:48px 24px 120px}
+  h1{font-size:34px;font-weight:800;font-style:italic;letter-spacing:-.02em;margin:0 0 8px;text-wrap:balance}
+  .sub{color:var(--muted);font-size:16px;margin:0 0 10px;max-width:62ch}
+  .meta{color:var(--dim);font-size:12px;font-family:var(--mono);margin-bottom:40px}
+
+  h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    margin:64px 0 6px;padding-bottom:10px;border-bottom:1px solid var(--line);
+    display:flex;align-items:baseline;gap:10px}
+  h2 .idx{font-family:var(--mono);font-size:12px;opacity:.7}
+  #familia-a h2{color:var(--blue)} #familia-b h2{color:var(--red)}
+  #familia-c h2{color:var(--orange-soft)} #familia-d h2{color:var(--amber)}
+  #principios h2, #resumen h2, #exclusiones h2, #evidencia h2{color:var(--orange-soft)}
+  .fam-intro{color:var(--muted);font-size:15px;margin:16px 0 24px;max-width:68ch}
+  h3{font-size:18px;font-weight:700;margin:0}
+  h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);font-weight:700}
+  p{margin:0 0 12px}
+  .muted{color:var(--muted)}
+  b{color:var(--ink)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
+    padding:1.5px 6px;border-radius:5px;color:#ffd9c9}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .principle{display:flex;gap:12px;align-items:flex-start;margin:14px 0}
+  .principle .k{flex:0 0 22px;font-family:var(--mono);font-weight:800;color:var(--orange-soft);font-size:13px;padding-top:2px}
+  .principle .b{flex:1;font-size:14.5px;color:var(--muted)}
+  .principle .b b{color:var(--ink)}
+
+  .legend-grid{display:grid;gap:10px;margin:14px 0}
+  @media(min-width:640px){.legend-grid{grid-template-columns:1fr 1fr}}
+  .legend-item{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .legend-item .nm{font-family:var(--mono);font-weight:700;font-size:12.5px;color:var(--orange-soft);margin-bottom:3px;display:block}
+  .legend-item p{font-size:13px;color:var(--muted);margin:0}
+
+  /* type cards */
+  .type{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--fam);
+    border-radius:10px;padding:18px 20px;margin:14px 0}
+  .type-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:10px}
+  .type-head .code{font-family:var(--mono);font-weight:800;color:var(--fam);font-size:12.5px;letter-spacing:.02em}
+  .type-head h3{flex:0 0 auto}
+  .pills{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+  .pill{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:999px;background:var(--surface-2);
+    border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .type .develops{font-size:14px;margin:0 0 14px}
+  .type .develops b{color:var(--dim);font-weight:600;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.05em;display:block;margin-bottom:4px}
+  .tgrid{display:grid;gap:16px}
+  @media(min-width:720px){.tgrid{grid-template-columns:1.15fr 1fr}}
+  .tcol p{font-size:13.5px;margin:0 0 8px}
+  .tcol .why{color:var(--muted);font-size:12.5px;font-style:italic;border-left:2px solid var(--line);padding-left:10px;margin:0}
+  .note{font-size:12px;color:var(--dim);margin-top:8px}
+
+  /* summary table */
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    background:var(--surface-2);position:sticky;top:0}
+  tr:last-child td{border-bottom:none}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fam-tag{display:inline-block;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
+  .fam-tag.a{background:rgba(96,165,250,.13);color:var(--blue)}
+  .fam-tag.b{background:rgba(248,113,113,.13);color:var(--red)}
+  .fam-tag.c{background:rgba(255,87,33,.15);color:var(--orange-soft)}
+  .fam-tag.d{background:rgba(251,191,36,.13);color:var(--amber)}
+
+  .excl-list{display:grid;gap:10px;margin:16px 0}
+  .excl{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;gap:12px}
+  .excl .n{font-family:var(--mono);color:var(--dim);font-size:12px;flex:0 0 20px}
+  .excl .b b{color:var(--ink);font-size:14px}
+  .excl .b p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+
+  .ev-col{display:grid;gap:10px;margin:14px 0 22px}
+  .ev-col li{font-size:13.5px;color:var(--muted);margin:0 0 6px}
+  .ev-col li b{color:var(--ink)}
+
+  .foot{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <nav class="toc" aria-label="Índice">
+    <div class="ttl">Índice</div>
+    <a href="#principios"><span class="dot"></span>Principios</a>
+    <div class="sep"></div>
+    <a class="fam-a" href="#familia-a"><span class="dot"></span>A · Carrera</a>
+    <a class="fam-b" href="#familia-b"><span class="dot"></span>B · Fuerza</a>
+    <a class="fam-c" href="#familia-c"><span class="dot"></span>C · Estaciones</a>
+    <a class="fam-d" href="#familia-d"><span class="dot"></span>D · Mixto</a>
+    <div class="sep"></div>
+    <a href="#resumen"><span class="dot"></span>Tabla resumen</a>
+    <a href="#exclusiones"><span class="dot"></span>Qué no incluimos</a>
+    <a href="#evidencia"><span class="dot"></span>Evidencia y criterio</a>
+  </nav>
+
+  <div class="wrap">
+
+    <h1>Catálogo de tipos de sesión</h1>
+    <p class="sub">La biblioteca cerrada de estímulos de entrenamiento de FAHYBRID — 18 tipos, 4 familias. Todo bloque de la biblioteca de Pablo es una instancia de uno de estos tipos.</p>
+    <p class="meta">METODOLOGÍA FAHYBRID · v1 · julio 2026 · fundamentado en 97 sesiones reales de Pablo (Grupos_Entrenamiento_HYROX.xlsx) + su plantilla de 12 semanas + datos verificados de carrera HYROX</p>
+
+    <details class="mobile-toc">
+      <summary>Índice</summary>
+      <div class="links">
+        <a href="#principios"><span class="dot"></span>Principios</a>
+        <a class="fam-a" href="#familia-a"><span class="dot"></span>A · Carrera</a>
+        <a class="fam-b" href="#familia-b"><span class="dot"></span>B · Fuerza</a>
+        <a class="fam-c" href="#familia-c"><span class="dot"></span>C · Estaciones</a>
+        <a class="fam-d" href="#familia-d"><span class="dot"></span>D · Mixto</a>
+        <a href="#resumen"><span class="dot"></span>Tabla resumen</a>
+        <a href="#exclusiones"><span class="dot"></span>Qué no incluimos</a>
+        <a href="#evidencia"><span class="dot"></span>Evidencia y criterio</a>
+      </div>
+    </details>
+
+    <section id="principios">
+      <h2>Principios</h2>
+      <p>Esto responde una pregunta: <b>¿qué tipos de sesión existen en FAHYBRID?</b> No es una revisión de literatura — es una decisión de producto, tomada con el contexto real de Pablo y los datos verificados de HYROX. Cada tipo se define para ejecutarse sin preguntar nada: capacidad que desarrolla, estructura exacta, ancla de intensidad (y por qué esa y no otra), fase de uso y frecuencia máxima.</p>
+
+      <div class="principle">
+        <span class="k">01</span>
+        <span class="b"><b>Tipo ≠ día de entrenamiento.</b> Un día real casi siempre combina 2 bloques de tipos distintos — fuerza máxima (B1) seguida de una estación aislada (C1) corta, o un rodaje (A1) que cierra con progresiones (A2). Este catálogo define los estímulos, no el horario semanal; la composición de bloques → sesión → microciclo ya está resuelta en el sistema.</span>
+      </div>
+      <div class="principle">
+        <span class="k">02</span>
+        <span class="b"><b>Fase = la periodización ATR real de Pablo</b> — Acumulación (construcción, más volumen) → Transformación (sube intensidad, baja volumen, entra lo específico) → Realización (afinar, simular, descargar), en bloques de carga 3:1 con Descarga cada 3-4 semanas (misma intensidad, menos volumen). No es un eje técnico global del sistema — FAHYBRIK es agnóstico de periodización para soportar coaches futuros con otro esquema — es la fase tal y como Pablo entrena hoy, y así se lee esta columna.</span>
+      </div>
+      <div class="principle">
+        <span class="k">03</span>
+        <span class="b"><b>Frecuencia máxima = techo individual, no se suma.</b> Una semana real combina 5-6 sesiones repartidas entre tipos (la media de Pablo), nunca los 18 techos a la vez.</span>
+      </div>
+
+      <h4 style="margin-top:28px">Las 5 anclas de intensidad</h4>
+      <div class="legend-grid">
+        <div class="legend-item"><span class="nm">Ritmo / zona (Z1-Z6)</span><p>Banda de segundos respecto al ritmo de umbral del atleta (test de 9'/30' en pista; test de 2'on/1'off/2'on en remo/ski). Objetiva, verificable con el reloj.</p></div>
+        <div class="legend-item"><span class="nm">RPE (1-10)</span><p>Esfuerzo percibido. Se usa cuando el ritmo numérico deja de ser honesto (fatiga) o el movimiento es demasiado corto/técnico para tener un ritmo con sentido.</p></div>
+        <div class="legend-item"><span class="nm">%RM</span><p>Porcentaje de una repetición máxima <b>testada</b>. Solo para levantamientos con test real: sentadilla, press, peso muerto, hip thrust, cargada.</p></div>
+        <div class="legend-item"><span class="nm">RIR (reps en reserva)</span><p>Cuántas repeticiones más podrías hacer. Para fuerza-resistencia sin 1RM testado (dominadas, fondos, zancadas cargadas).</p></div>
+        <div class="legend-item"><span class="nm">Carga absoluta (kg)</span><p>Kilos reales movidos. Solo trineo/arrastres — no existe, ni tiene sentido, un test de 1RM de trineo.</p></div>
+      </div>
+      <p class="note">Zonas Z1-Z6: modelo de 6 bandas verificado con Pablo (Z1 recuperación → Z2 aeróbico extensivo → Z3 aeróbico intensivo → Z4 umbral anaeróbico → Z5 VO2max → Z6 sprint), ancladas como offset en segundos respecto al ritmo de umbral de cada atleta.</p>
+
+      <h4 style="margin-top:28px">Cómo reconcilia con los 10 grupos ya en producción</h4>
+      <p class="muted" style="font-size:13.5px">Pablo ya clasifica su biblioteca en 10 grupos pedagógicos (Documento Maestro, migración <code>0030</code>). Este catálogo es más fino — los descompone por estímulo real de entrenamiento, no por tema — pero cada grupo mapea limpio, sin huérfanos:</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Grupo de Pablo (10, en producción)</th><th>Tipo(s) de este catálogo</th></tr></thead>
+          <tbody>
+            <tr><td>1 · Fuerza Base</td><td><code>B1</code></td></tr>
+            <tr><td>2 · Fuerza Explosiva / Pliométrica</td><td><code>B2</code></td></tr>
+            <tr><td>3 · Series de Ergómetros (Row/SkiErg)</td><td><code>C1</code> (modalidad remo/ski)</td></tr>
+            <tr><td>4 · Series de Running</td><td><code>A2</code>, <code>A3</code>, <code>A4</code></td></tr>
+            <tr><td>5 · Zona 2 / Recuperación Aeróbica</td><td><code>A1</code></td></tr>
+            <tr><td>6 · WODs / Metcons Competitivos</td><td><code>C3</code> (usa movimientos de estación) o <code>B3</code> (metcon general)</td></tr>
+            <tr><td>7 · Simulaciones de Carrera</td><td><code>C3</code>, <code>C4</code>, <code>C5</code></td></tr>
+            <tr><td>8 · Core, Movilidad y Preventivos</td><td>fuera de catálogo — bloque adosado, no tipo (ver §Qué no incluimos)</td></tr>
+            <tr><td>9 · Circuitos Funcionales de Fuerza-Resistencia</td><td><code>B3</code></td></tr>
+            <tr><td>10 · Tapering / Activación Pre-carrera</td><td>no es un tipo — dosificación reducida de <code>A1</code>/<code>A3</code>/<code>C3</code> en Realización (ver §Qué no incluimos)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================= FAMILIA A ============================= -->
+    <section id="familia-a" style="--fam:var(--blue)">
+      <h2><span class="idx">A</span>Carrera</h2>
+      <p class="fam-intro">La carrera son 8 km fraccionados en 8×1 km, y ~48-49% del tiempo total en Pro (~59% en recreativos) — con diferencia, el mayor bloque de tiempo de la prueba. Necesita todo el espectro: base aeróbica para sostener el volumen semanal, umbral para elevar el ritmo sostenible, VO2max para el techo de potencia, y variantes (fartlek, cuestas) que entrenan flexibilidad de ritmo y economía sin sumar el coste articular de más series en pista.</p>
+
+      <article class="type" id="a1">
+        <div class="type-head">
+          <span class="code">A1</span><h3>Rodaje aeróbico (Z2)</h3>
+          <div class="pills"><span class="pill">Steady</span><span class="pill">Todas · pico Acum.</span><span class="pill">máx 3/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Base aeróbica: densidad mitocondrial, capilarización, capacidad de sostener el volumen semanal sin acumular fatiga sistémica.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Bloque continuo de 50-90 min (progresión: ~50 min en semana 1 de Acumulación → 80-90 min semana 5). Puede combinar carrera con bici/remo/ski en la misma sesión para sumar volumen aeróbico sin el impacto de más kilómetros corriendo — mismo estímulo Z2, distinta modalidad. Sin descansos (esfuerzo continuo).</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p>Ritmo en banda <b>Z2</b> (aeróbico extensivo).</p>
+            <p class="why">Por qué zona y no RPE puro: el objetivo fisiológico depende de quedarse bajo un techo metabólico preciso. La sensación subjetiva de "fácil" varía con sueño, calor o fatiga acumulada, y un atleta motivado acelera sin darse cuenta — perdiendo el estímulo. La zona, ligada al test de umbral, es objetiva y se verifica con el reloj.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="a2">
+        <div class="type-head">
+          <span class="code">A2</span><h3>Progresiones de velocidad</h3>
+          <div class="pills"><span class="pill">Rounds</span><span class="pill">Todas</span><span class="pill">máx 4/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Mecánica de carrera y economía neuromuscular a velocidades que el entrenamiento aeróbico nunca toca — sin coste metabólico relevante.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>4-8 × 20-30 s en progresión de velocidad 60%→95% (nunca sprint máximo), recuperación completa caminando 60-90 s entre repeticiones. Siempre adosado a otra sesión — cierre de un rodaje (A1) o de un día de fuerza — nunca como sesión exclusiva.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b> + % de velocidad máxima percibida.</p>
+            <p class="why">No hay ritmo objetivo tabulado: son arrancadas de 20-30 s, demasiado cortas para que un ritmo por km tenga sentido. El objetivo es mecánica y activación, no una velocidad sostenida.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="a3">
+        <div class="type-head">
+          <span class="code">A3</span><h3>Umbral / Tempo</h3>
+          <div class="pills"><span class="pill">Steady / Intervals</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Sube el ritmo sostenible real — la velocidad más alta que el atleta puede mantener sin acumular lactato de forma descontrolada. El motor detrás de bajar el crono de los 8 km.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Dos ejecuciones del mismo estímulo: <b>(a) tempo continuo</b> — 20-30 min seguidos en banda Z3 alta-Z4; o <b>(b) umbral fraccionado</b> — 4-6 × 5-8 min al ritmo del test de 9', recuperación 60-90 s trotando (activa, nunca parada completa).</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p>Ritmo en banda <b>Z3-Z4</b>, derivado del test de 9'/30'.</p>
+            <p class="why">El umbral es, por definición, una velocidad reproducible y entrenable. Medirlo en ritmo permite trackear progreso real (el mismo ritmo debe sentirse más fácil con el tiempo) y evita que el atleta corra más lento "sintiendo" el mismo esfuerzo.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="a4">
+        <div class="type-head">
+          <span class="code">A4</span><h3>Series de VO2max</h3>
+          <div class="pills"><span class="pill">Intervals</span><span class="pill">Transf. → Real.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Techo de potencia aeróbica — cuánto oxígeno puede procesar el atleta por minuto. Sube el "techo" del que cuelgan el umbral y el ritmo de carrera.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>5-8 × 2-4 min a ritmo del test de 3' (banda Z5), recuperación 1:1 trotando (misma duración que el trabajo). Variante corta: 8-12 × 400-600 m, recuperación 60-90 s.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p>Ritmo en banda <b>Z5</b>, con <b>RPE 9-10</b> como tope de seguridad.</p>
+            <p class="why">El ritmo objetivo viene del test; el RPE actúa de límite superior en las últimas repeticiones, cuando la fatiga acumulada hace que perseguir el ritmo exacto ya no sea seguro.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="a5">
+        <div class="type-head">
+          <span class="code">A5</span><h3>Fartlek</h3>
+          <div class="pills"><span class="pill">Intervals</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 1/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Flexibilidad de ritmo y autorregulación por sensación — introduce intensidad de forma amigable y entrena la calibración de esfuerzo que las series cronometradas no piden.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Bloque de 20-35 min con tramos libres de esfuerzo alto: p. ej. 5-8 × 3-5 min fuerte / 1-2 min suave. Las fronteras de tiempo son fijas; la intensidad dentro de cada tramo es autorregulada por sensación, no por ritmo exacto.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b>, con la banda de zona como referencia orientativa (no objetivo estricto).</p>
+            <p class="why">Es la naturaleza del formato: fartlek significa "juego de ritmo". Forzar un ritmo exacto lo convierte en otra cosa — en umbral fraccionado (A3) o en series de VO2max (A4).</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="a6">
+        <div class="type-head">
+          <span class="code">A6</span><h3>Cuestas</h3>
+          <div class="pills"><span class="pill">Rounds</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 1/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Potencia y economía de carrera con menor coste articular que las series en llano — la pendiente reduce el impacto excéntrico por zancada mientras exige más fuerza por paso.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>6-10 × 200-400 m (30-90 s) subiendo una pendiente del 4-8%, bajada trotando como recuperación completa (2-3 min por repetición).</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE 7-9</b> + intención de pisada potente.</p>
+            <p class="why">El ritmo en llano no aplica en pendiente. La métrica correcta es esfuerzo percibido y calidad de la zancada, no minutos por kilómetro.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ============================= FAMILIA B ============================= -->
+    <section id="familia-b" style="--fam:var(--red)">
+      <h2><span class="idx">B</span>Fuerza</h2>
+      <p class="fam-intro">HYROX no es solo resistencia: el trineo de empuje mueve hasta 202 kg en Pro, y el arrastre 153 kg — cargas que exigen fuerza absoluta real, no solo resistencia muscular. La familia cubre los tres pilares clásicos (máxima, potencia, resistencia de fuerza) más un cuarto tipo dedicado a un patrón que ningún ejercicio de gimnasio replica bien: empujar y arrastrar carga contra fricción.</p>
+
+      <article class="type" id="b1">
+        <div class="type-head">
+          <span class="code">B1</span><h3>Fuerza máxima</h3>
+          <div class="pills"><span class="pill">Sets</span><span class="pill">Acum. → Transf. (mant. Real.)</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>El techo de fuerza absoluta en los patrones compuestos (sentadilla, press, peso muerto, hip thrust). Determina cuánta capacidad de reserva le queda al atleta frente a cualquier carga externa de la carrera.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>4-5 series de un compuesto principal, 3-8 reps según semana del bloque (65-75% en construcción, 80-90% en semanas de pico), descanso 2-3 min completo. Se reparte en dos días alternos por semana — tren inferior y tren superior — no el mismo día.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>%RM</b>, con <b>RIR</b> como red de seguridad en semanas autorreguladas.</p>
+            <p class="why">Son levantamientos con 1RM testado. El %RM permite progresión objetiva y comparable semana a semana — algo que el RPE solo, sin ancla numérica, no garantiza.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="b2">
+        <div class="type-head">
+          <span class="code">B2</span><h3>Fuerza explosiva / potencia</h3>
+          <div class="pills"><span class="pill">Rounds</span><span class="pill">Transf. → Real.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Potencia neuromuscular y capacidad reactiva — la velocidad a la que se puede producir fuerza, no solo cuánta. Mejora la economía de carrera y la salida de las estaciones explosivas (Burpee Broad Jump).</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>4-6 series cada 2 min, combinando carga baja-moderada explosiva (cargada/sentadilla con salto, 60-80% RM, 2-5 reps) con pliometría (broad jump, box jump, depth jump, 3-6 reps). Descanso completo entre series — nunca se acumula fatiga, la intención es velocidad máxima, no volumen.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>%RM</b> en la parte cargada + <b>intención de velocidad máxima</b> en la pliométrica.</p>
+            <p class="why">No existe un "1RM" de salto. El objetivo real es producir la máxima potencia posible en cada repetición — el ancla es cualitativa: cada rep al 100% de intención, y la serie se corta en cuanto la velocidad o la altura caen, no por RPE acumulado.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="b3">
+        <div class="type-head">
+          <span class="code">B3</span><h3>Fuerza-resistencia (circuito funcional)</h3>
+          <div class="pills"><span class="pill">Rounds</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Resistencia muscular local y capacidad de trabajo continuo bajo fatiga — clave para las estaciones de gesto repetido (Wall Balls, Sandbag Lunges).</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>3-6 rondas de 2-4 ejercicios funcionales (dominadas, fondos, zancadas cargadas, remo invertido, step-ups) en rangos de 8-15 reps, descanso 90 s-2 min entre rondas. Frontera con <code>C3</code>: si la mayoría de los movimientos son de gimnasio general (thrusters, TTB, cleans, dominadas) → <code>B3</code>. Si son movimientos de estación oficial o su proxy directo → <code>C3</code>.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RIR</b> (2-3) + <b>RPE</b>.</p>
+            <p class="why">Muchos de estos movimientos (dominadas, fondos, zancada con mancuerna) no tienen un 1RM testado ni tiene sentido testarlo. El objetivo es capacidad de trabajo bajo fatiga local — RIR/RPE es el ancla honesta.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="b4">
+        <div class="type-head">
+          <span class="code">B4</span><h3>Fuerza máxima de empuje y arrastre (trineo)</h3>
+          <div class="pills"><span class="pill">Sets</span><span class="pill">Transf. → Real.</span><span class="pill">máx 1/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>El techo de fuerza absoluta específico del trineo. El empuje es de las estaciones más rápidas en tiempo de carrera (2:26) pero de las más caras en coste fisiológico: un techo de fuerza más alto abarata directamente ese coste, porque el atleta usa un % menor de su capacidad máxima para mover la misma carga.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>5-8 × 15-25 m de empuje o arrastre a carga máxima o supramáxima (100-140% de la carga de carrera del atleta — referencia Open 152/103 kg, Pro 202/153 kg), recuperación completa 2-3 min entre repeticiones. Nunca se encadena sin recuperar: el objetivo es techo de fuerza, no capacidad metabólica (eso es <code>C3</code>).</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>Carga absoluta (kg)</b> + <b>RPE</b>.</p>
+            <p class="why">No existe un test de 1RM de trineo en el sistema: empujar/arrastrar es fuerza concéntrica pura contra fricción, sin fase excéntrica, no comparable a una sentadilla. La progresión real son kilos absolutos sobre la referencia de carrera, con el RPE como termómetro.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ============================= FAMILIA C ============================= -->
+    <section id="familia-c" style="--fam:var(--orange)">
+      <h2><span class="idx">C</span>Estaciones y trabajo específico HYROX</h2>
+      <p class="fam-intro">El puente entre "estar en forma" y "saber correr un HYROX". Va de lo más aislado (una estación, sola, en técnica) a lo más integrado (la carrera completa, a ritmo de competición). Row (3:56) y Wall Balls (3:55) son, en Pro, las estaciones más lentas — la capacidad aislada en estas dos tiene el mayor retorno directo sobre el crono total.</p>
+
+      <article class="type" id="c1">
+        <div class="type-head">
+          <span class="code">C1</span><h3>Estación aislada</h3>
+          <div class="pills"><span class="pill">Intervals</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Técnica y capacidad local en una estación concreta, sin el ruido de la carrera ni de otras estaciones. Cubre las 8 por igual — incluye SkiErg/Row (ergómetro) y Sled/Wall Balls/Farmers/Lunges/Burpees (no-ergómetro).</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>4-6 × 250-500 m (ergómetros) o 60-90 s (estaciones no-ergo) a intensidad de umbral-carrera, descanso 45-90 s. Prioridad de dosis en Row y Wall Balls por su peso en el crono total.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE 7-8</b> + ritmo/potencia específico de la estación (p. ej. /500 m en remo/ski) cuando existe test de esa estación.</p>
+            <p class="why">Las estaciones no-ergo (wall balls, sled, lunges) no tienen una unidad de ritmo limpia — el RPE es el ancla común a las 8; el ritmo/potencia se añade donde el dato existe (remo, ski).</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="c2">
+        <div class="type-head">
+          <span class="code">C2</span><h3>Transición carrera-estación</h3>
+          <div class="pills"><span class="pill">Rounds</span><span class="pill">Transf. → Real.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>La habilidad decisiva de HYROX que ningún gesto aislado entrena: salir de correr y producir potencia de inmediato — control de respiración y frecuencia cardíaca al entrar en la estación.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>3-6 × (150-400 m carrera a ritmo de carrera objetivo → entrada inmediata, sin pausa, a 30-60 s de estación). Descanso completo 90 s-2 min entre repeticiones, para que cada transición se ejecute limpia — no acumulada. Es un drill técnico en piernas relativamente frescas, no una prueba de tolerancia a la fatiga (eso es <code>D2</code>).</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b> (calidad técnica de la transición) + ritmo de carrera como referencia, no como objetivo estricto.</p>
+            <p class="why">Es un drill de habilidad: forzar un ritmo exacto desplaza el foco de la técnica de entrada al cronómetro, que es precisamente lo que este tipo no quiere medir todavía.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="c3">
+        <div class="type-head">
+          <span class="code">C3</span><h3>Circuito multi-estación (formato carrera)</h3>
+          <div class="pills"><span class="pill">EMOM / AMRAP / Rounds / FT</span><span class="pill">Transf. → Real.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Capacidad metabólica específica de carrera: tolerancia al lactato y toma de decisiones bajo fatiga, rotando varias estaciones oficiales (o su proxy directo) en un mismo bloque.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Rotación de 4-8 estaciones en EMOM (16-20 min, 1 estación/minuto) o AMRAP/Rounds/For Time (10-20 min) a 85-100% del ritmo objetivo de carrera. El formato varía según el objetivo de la sesión — lo constante es la rotación de estaciones oficiales, no el reloj.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b> + % del ritmo objetivo de carrera.</p>
+            <p class="why">El objetivo es simular el coste metabólico de competición: el ritmo relativo a la meta de carrera importa más que un ritmo absoluto, que aquí no tiene referencia limpia (son movimientos mixtos, no una sola disciplina).</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="c4">
+        <div class="type-head">
+          <span class="code">C4</span><h3>Simulación parcial de carrera</h3>
+          <div class="pills"><span class="pill">HYROX Sim</span><span class="pill">Transf. tardía → Real.</span><span class="pill">máx 1/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Ejecución de un plan de ritmos real en un tramo de carrera representativo — el ensayo intermedio entre entrenar por partes y correr la carrera entera.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>3-5 estaciones oficiales + sus tramos de 1 km asociados, en el orden de carrera, a ritmo e intensidad de competición. Sin pausa entre carrera→estación (transición real); 2-3 min entre bloques si el diseño de la sesión lo pide.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p>Ritmo objetivo de carrera (splits calculados de los tests) + <b>RPE</b> de control.</p>
+            <p class="why">Es un ensayo de competición: el objetivo explícito es aprender a ejecutar un plan de ritmos concreto, no simplemente esforzarse mucho.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="c5">
+        <div class="type-head">
+          <span class="code">C5</span><h3>Simulación completa de carrera</h3>
+          <div class="pills"><span class="pill">HYROX Sim</span><span class="pill">Real. (benchmark)</span><span class="pill">máx 1/sem*</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Ejecución completa de las 8 estaciones + 8×1 km en orden y cargas de competición. Sesión de referencia: mide dónde está el atleta de verdad, no un estímulo de entrenamiento más.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Las 8 estaciones oficiales (o el formato DEKA equivalente) + los 8 km, sin pausas entre transiciones, cargas de competición del atleta.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p>Ritmo objetivo de carrera — ejecución real del plan de splits.</p>
+            <p class="why">Ancla idéntica a <code>C4</code> por la misma razón: es un ensayo de plan de carrera, no un estímulo de acondicionamiento.</p>
+          </div>
+        </div>
+        <p class="note">* El techo semanal es 1, pero en la práctica real de Pablo se usa 1 vez cada 3-6 semanas — 6-8 semanas antes del evento A y de nuevo 3-4 semanas antes. Nunca en semanas consecutivas: el coste de recuperación no lo permite.</p>
+      </article>
+    </section>
+
+    <!-- ============================= FAMILIA D ============================= -->
+    <section id="familia-d" style="--fam:var(--amber)">
+      <h2><span class="idx">D</span>Mixto — correr con las piernas fatigadas</h2>
+      <p class="fam-intro">Esto es lo que decide una carrera de HYROX: no quién corre más rápido en fresco, sino quién sostiene mejor el ritmo tras la estación 6, 7 y 8. La fatiga que rompe la zancada no es un solo mecanismo — hay fatiga neuromuscular aguda (tras una serie pesada), fatiga metabólica repetida (tras muchas transiciones seguidas) y fatiga sistémica acumulada (al final de una sesión larga). Esta familia entrena las tres por separado porque cada una rompe la carrera de una forma distinta, y se corrige con un estímulo distinto.</p>
+
+      <article class="type" id="d1">
+        <div class="type-head">
+          <span class="code">D1</span><h3>Fuerza pesada + carrera</h3>
+          <div class="pills"><span class="pill">Sets → Steady/Intervals</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 1/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Correr con fatiga neuromuscular/mecánica aguda — las "piernas muertas" de después de una carga máxima, el escenario de después del Sled Push o el Farmers Carry.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Bloque de fuerza pesada (3-5 series de sentadilla/peso muerto/hip thrust al 80-90% RM) seguido, en menos de 5 min de transición, de un bloque de carrera de calidad de 15-25 min (umbral o fartlek). Es la única sesión del catálogo con dos bloques por definición — la fuerza pesada es la fatiga, la carrera es el estímulo.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b> únicamente para la carrera, con una degradación de ritmo aceptada de +10-20 s/km en los primeros minutos.</p>
+            <p class="why">El ritmo objetivo pierde sentido con piernas pesadas tras carga máxima. Lo que se entrena es la capacidad de mantener mecánica y esfuerzo aceptable, no un número.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="d2">
+        <div class="type-head">
+          <span class="code">D2</span><h3>Carrera fraccionada con estaciones</h3>
+          <div class="pills"><span class="pill">Rounds / EMOM</span><span class="pill">Transf. → Real.</span><span class="pill">máx 2/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Tolerancia a la fatiga metabólica que se repite muchas veces seguidas — el patrón literal de HYROX, correr 8 veces con una estación entre medio. Es el tipo con transferencia más directa al día de carrera.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>6-10 rondas de (300-500 m carrera + 30-60 s de una estación de fuerza-resistencia), descanso mínimo o nulo entre carrera y estación — el punto es la fatiga acumulada continua, sin resets. Frontera con <code>C2</code>: aquí la degradación de ritmo es esperada y se acepta como parte del entrenamiento; en <code>C2</code> se busca ejecución limpia en piernas frescas.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b> + tolerancia de degradación de ritmo explícita (p. ej. +10-15 s/km aceptable en rondas finales).</p>
+            <p class="why">La caída de ritmo en las últimas rondas no es un fallo — es el permiso explícito que separa esta sesión de una serie de umbral limpia (<code>A3</code>).</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="type" id="d3">
+        <div class="type-head">
+          <span class="code">D3</span><h3>Carrera en fatiga acumulada</h3>
+          <div class="pills"><span class="pill">Steady</span><span class="pill">Acum. → Transf.</span><span class="pill">máx 1/sem</span></div>
+        </div>
+        <p class="develops"><b>Qué desarrolla</b>Sostener el pacing cuando la fatiga viene del volumen total de la sesión o del día, no de una repetición concreta — la fatiga sistémica/glucogénica que llega en el kilómetro 7-8 de una carrera real.</p>
+        <div class="tgrid">
+          <div class="tcol">
+            <h4>Estructura exacta</h4>
+            <p>Al final de una sesión ya voluminosa (día largo Z2 de 60-90 min, o después de un bloque largo de fuerza-resistencia), añadir 10-20 min de carrera a ritmo objetivo con tolerancia de deriva, o progresiones finales bajo fatiga.</p>
+          </div>
+          <div class="tcol">
+            <h4>Ancla de intensidad</h4>
+            <p><b>RPE</b> + ritmo de referencia con tolerancia de deriva.</p>
+            <p class="why">Misma lógica que <code>D2</code>, pero la fuente de fatiga es el volumen acumulado de la sesión/día, no las repeticiones de estación — por eso no compite por el mismo hueco semanal.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ============================= RESUMEN ============================= -->
+    <section id="resumen">
+      <h2><span class="idx">↳</span>Tabla resumen</h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Familia</th><th>Qué desarrolla</th><th>Ancla de intensidad</th><th>Fase</th><th>Máx/sem</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>A1</code> Rodaje aeróbico (Z2)</td><td><span class="fam-tag a">Carrera</span></td><td>Base aeróbica</td><td>Zona Z2</td><td>Todas (pico Acum.)</td><td class="num">3</td></tr>
+            <tr><td><code>A2</code> Progresiones de velocidad</td><td><span class="fam-tag a">Carrera</span></td><td>Mecánica y economía</td><td>RPE + %vel. máx.</td><td>Todas</td><td class="num">4</td></tr>
+            <tr><td><code>A3</code> Umbral / Tempo</td><td><span class="fam-tag a">Carrera</span></td><td>Ritmo sostenible</td><td>Ritmo (Z3-Z4)</td><td>Acum. → Transf.</td><td class="num">2</td></tr>
+            <tr><td><code>A4</code> Series de VO2max</td><td><span class="fam-tag a">Carrera</span></td><td>Techo de potencia aeróbica</td><td>Ritmo (Z5) + RPE tope</td><td>Transf. → Real.</td><td class="num">2</td></tr>
+            <tr><td><code>A5</code> Fartlek</td><td><span class="fam-tag a">Carrera</span></td><td>Flexibilidad de ritmo</td><td>RPE</td><td>Acum. → Transf.</td><td class="num">1</td></tr>
+            <tr><td><code>A6</code> Cuestas</td><td><span class="fam-tag a">Carrera</span></td><td>Potencia y economía</td><td>RPE + intención</td><td>Acum. → Transf.</td><td class="num">1</td></tr>
+            <tr><td><code>B1</code> Fuerza máxima</td><td><span class="fam-tag b">Fuerza</span></td><td>Techo de fuerza compuesta</td><td>%RM + RIR</td><td>Acum. → Transf. (mant. Real.)</td><td class="num">2</td></tr>
+            <tr><td><code>B2</code> Fuerza explosiva / potencia</td><td><span class="fam-tag b">Fuerza</span></td><td>Potencia neuromuscular</td><td>%RM + intención de velocidad</td><td>Transf. → Real.</td><td class="num">2</td></tr>
+            <tr><td><code>B3</code> Fuerza-resistencia (circuito)</td><td><span class="fam-tag b">Fuerza</span></td><td>Resistencia muscular local</td><td>RIR / RPE</td><td>Acum. → Transf.</td><td class="num">2</td></tr>
+            <tr><td><code>B4</code> Fuerza máx. empuje-arrastre (trineo)</td><td><span class="fam-tag b">Fuerza</span></td><td>Techo de fuerza del trineo</td><td>Carga absoluta (kg) + RPE</td><td>Transf. → Real.</td><td class="num">1</td></tr>
+            <tr><td><code>C1</code> Estación aislada</td><td><span class="fam-tag c">Estaciones</span></td><td>Técnica y capacidad por estación</td><td>RPE + ritmo/potencia</td><td>Acum. → Transf.</td><td class="num">2</td></tr>
+            <tr><td><code>C2</code> Transición carrera-estación</td><td><span class="fam-tag c">Estaciones</span></td><td>Habilidad de entrada a estación</td><td>RPE</td><td>Transf. → Real.</td><td class="num">2</td></tr>
+            <tr><td><code>C3</code> Circuito multi-estación</td><td><span class="fam-tag c">Estaciones</span></td><td>Capacidad metabólica específica</td><td>RPE + % ritmo de carrera</td><td>Transf. → Real.</td><td class="num">2</td></tr>
+            <tr><td><code>C4</code> Simulación parcial de carrera</td><td><span class="fam-tag c">Estaciones</span></td><td>Ejecución de plan de ritmos</td><td>Ritmo objetivo + RPE</td><td>Transf. tardía → Real.</td><td class="num">1</td></tr>
+            <tr><td><code>C5</code> Simulación completa de carrera</td><td><span class="fam-tag c">Estaciones</span></td><td>Benchmark de carrera completa</td><td>Ritmo objetivo de carrera</td><td>Real. (benchmark)</td><td class="num">1*</td></tr>
+            <tr><td><code>D1</code> Fuerza pesada + carrera</td><td><span class="fam-tag d">Mixto</span></td><td>Correr con fatiga aguda</td><td>RPE</td><td>Acum. → Transf.</td><td class="num">1</td></tr>
+            <tr><td><code>D2</code> Carrera fraccionada con estaciones</td><td><span class="fam-tag d">Mixto</span></td><td>Tolerancia a fatiga repetida</td><td>RPE + tolerancia de deriva</td><td>Transf. → Real.</td><td class="num">2</td></tr>
+            <tr><td><code>D3</code> Carrera en fatiga acumulada</td><td><span class="fam-tag d">Mixto</span></td><td>Pacing bajo fatiga sistémica</td><td>RPE + ritmo con tolerancia</td><td>Acum. → Transf.</td><td class="num">1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">* Techo semanal formal; en la práctica se usa cada 3-6 semanas (ver <code>C5</code>).</p>
+    </section>
+
+    <!-- ============================= EXCLUSIONES ============================= -->
+    <section id="exclusiones">
+      <h2><span class="idx">↳</span>Qué no incluimos y por qué</h2>
+      <p class="muted">Tipos populares en el mundo HYROX/CrossFit que descartamos deliberadamente — para que el catálogo se quede en 18 y no crezca sin control.</p>
+      <div class="excl-list">
+        <div class="excl"><span class="n">01</span><div class="b"><b>Core, movilidad y trabajo preventivo como sesión propia.</b><p>Pablo los usa como bloques adosados (calentamiento, activación, cierre), no como estímulo principal. No entrenan ninguna capacidad de las que decide una carrera. Siguen existiendo en la biblioteca como bloques dentro de cualquier tipo.</p></div></div>
+        <div class="excl"><span class="n">02</span><div class="b"><b>Tests de calibración</b> (3'/9'/30' carrera; 2'on/1'off/2'on remo/ski).<p>No son entrenamiento — son medición: fijan el ritmo de umbral que el resto del catálogo consume. Ya tienen su propio modelo en el sistema (resultados de test, perfiles de zona).</p></div></div>
+        <div class="excl"><span class="n">03</span><div class="b"><b>Tapering / activación como tipo propio.</b><p>No es un estímulo nuevo — es una fase que reduce el volumen de tipos ya existentes (<code>A1</code>, <code>A3</code> y <code>C3</code> en versión corta). Convertirlo en un tipo 19 duplicaría el catálogo y rompería DRY.</p></div></div>
+        <div class="excl"><span class="n">04</span><div class="b"><b>WODs con nombre propio de CrossFit</b> (Fran, Murph, Cindy y similares).<p>Populares en boxes de HYROX/CrossFit, pero no aportan nada que <code>B3</code>/<code>C3</code> no cubran ya con más control sobre dosis y progresión. Memorizar un catálogo externo no suma valor sobre nuestro propio lenguaje de tipos.</p></div></div>
+        <div class="excl"><span class="n">05</span><div class="b"><b>El "WOD sorpresa" sin capacidad declarada.</b><p>El pilar de este catálogo es que cada sesión declara qué entrena. Un WOD improvisado del día rompe ese principio por diseño.</p></div></div>
+        <div class="excl"><span class="n">06</span><div class="b"><b>Acondicionamiento general (GPP) sin especificidad de carrera o estación</b> — spinning genérico, HIIT sin relación con las 8 estaciones.<p>Si un atleta ya asiste a clases del box, esas sesiones se gestionan como sustitución manual del coach (ya contemplado en la plantilla maestra de Pablo), no como un tipo más del catálogo.</p></div></div>
+        <div class="excl"><span class="n">07</span><div class="b"><b>Fuerza de aislamiento estético</b> (curl, extensión de tríceps sin función de transferencia).<p>Puede vivir como accesorio dentro de <code>B1</code>/<code>B3</code>, nunca como categoría propia — ninguna de las 8 estaciones ni la carrera lo necesitan como estímulo principal.</p></div></div>
+        <div class="excl"><span class="n">08</span><div class="b"><b>Recuperación activa "pura"</b> (yoga, natación suave, movilidad general).<p>Mismo argumento que #01: vive en el extremo bajo de <code>A1</code> (Z1) o como recomendación fuera del entrenamiento estructurado, no como fila de este catálogo.</p></div></div>
+      </div>
+    </section>
+
+    <!-- ============================= EVIDENCIA ============================= -->
+    <section id="evidencia">
+      <h2><span class="idx">↳</span>Evidencia y criterio propio</h2>
+      <p class="muted">Esto es una decisión de producto, no una revisión sistemática de literatura — así se pidió. Donde el catálogo se apoya en consenso establecido de ciencia del entrenamiento, lo nombro sin cita formal (no se hizo búsqueda bibliográfica para esta tarea); donde es criterio propio, lo digo explícito.</p>
+
+      <h4 style="margin-top:22px">Consenso establecido (nombrado, no citado con DOI)</h4>
+      <ul class="ev-col">
+        <li><b>Familia A —</b> distribución polarizada/piramidal de intensidad en resistencia, fisiología del umbral de lactato, entrenamiento interválico para VO2max.</li>
+        <li><b>B2 —</b> pliometría y ciclo de estiramiento-acortamiento para potencia y rate of force development.</li>
+        <li><b>B4 —</b> perfil fuerza-velocidad en empuje de trineo: es un gesto concéntrico puro contra fricción, sin fase excéntrica, por lo que no transfiere 1:1 desde un %RM de sentadilla.</li>
+        <li><b>Familia D —</b> el concepto de "brick" (transferencia de fatiga entre disciplinas), tomado de triatlón y aplicado aquí a fuerza→carrera y estación→carrera.</li>
+        <li><b>Fase Realización / tapering —</b> reducir volumen manteniendo intensidad, principio que coincide exactamente con la práctica ya documentada de Pablo (misma redacción: "mantener intensidad, bajar volumen").</li>
+      </ul>
+
+      <h4 style="margin-top:22px">Criterio propio (calibrado contra la dosificación real de Pablo — 97 sesiones + plantilla de 12 semanas — no contra literatura)</h4>
+      <ul class="ev-col">
+        <li>Los 18 números de frecuencia máxima semanal.</li>
+        <li>Las fronteras exactas entre tipos que podrían confundirse: <code>B3</code> vs. <code>C3</code> (¿movimientos de gimnasio general o de estación oficial?), <code>C1</code> vs. <code>C2</code> (¿estación sola o transición desde la carrera?), <code>C2</code> vs. <code>D2</code> (¿drill técnico en fresco o tolerancia a fatiga repetida?), <code>B1</code> vs. <code>B4</code> (¿1RM testado o implemento sin test posible?).</li>
+        <li>Los rangos concretos de series, repeticiones y descanso de cada tipo.</li>
+      </ul>
+    </section>
+
+    <p class="foot">FAHYBRID · Catálogo de Tipos de Sesión v1 · docs/methodology/catalogo-tipos-sesion.html</p>
+  </div>
+</div>
+</body>
+</html>

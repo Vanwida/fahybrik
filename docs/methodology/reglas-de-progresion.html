@@ -1,0 +1,1274 @@
+<title>FAHYBRID — Reglas de progresión y ajuste</title>
+<meta name="description" content="Especificación ejecutable: de la semana N a la N+1, y de cómo llega el atleta hoy a qué sesión ejecuta." />
+<style>
+  @font-face {
+    /* No custom face embedded — CSP blocks font CDNs and a hand-built data URI
+       risks a silent broken fallback with no way to preview it. The system
+       stack below is styled deliberately (heavy italic display, tight tracking)
+       to carry the brand instead. */
+  }
+
+  :root {
+    color-scheme: dark;
+
+    /* ---- DARK — the deliberate default identity (FAHYBRID is dark-brand) ---- */
+    --bg: #121110;
+    --surface: #1b1918;
+    --surface-2: #232019;
+    --surface-3: #2a2620;
+    --hair: #34302a;
+    --hair-strong: #423c33;
+    --text: #f4efe7;
+    --muted: #a99e90;
+    --muted-2: #7d7468;
+    --accent: #ff5a2b;
+    --accent-strong: #ff7a4d;
+    --on-accent: #1a0800;
+    --ok: #4fb57a;
+    --ok-bg: rgba(79, 181, 122, 0.13);
+    --warn: #e3a83c;
+    --warn-bg: rgba(227, 168, 60, 0.13);
+    --danger: #e5544a;
+    --danger-bg: rgba(229, 84, 74, 0.14);
+    --info: #6fa3d8;
+    --info-bg: rgba(111, 163, 216, 0.13);
+    --neutral: #8f877a;
+    --neutral-bg: rgba(143, 135, 122, 0.14);
+    --shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.6);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #fbf8f4;
+      --surface: #ffffff;
+      --surface-2: #f4efe6;
+      --surface-3: #ede5d7;
+      --hair: #e3dac9;
+      --hair-strong: #d3c6ae;
+      --text: #201b14;
+      --muted: #6b6152;
+      --muted-2: #8b8172;
+      --accent: #e14e17;
+      --accent-strong: #c74310;
+      --on-accent: #fff6f0;
+      --ok: #2e8f58;
+      --ok-bg: rgba(46, 143, 88, 0.1);
+      --warn: #9c6b09;
+      --warn-bg: rgba(156, 107, 9, 0.1);
+      --danger: #c43d34;
+      --danger-bg: rgba(196, 61, 52, 0.1);
+      --info: #2e6ca6;
+      --info-bg: rgba(46, 108, 166, 0.1);
+      --neutral: #6b6152;
+      --neutral-bg: rgba(107, 97, 82, 0.1);
+      --shadow: 0 18px 40px -24px rgba(32, 27, 20, 0.28);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121110;
+    --surface: #1b1918;
+    --surface-2: #232019;
+    --surface-3: #2a2620;
+    --hair: #34302a;
+    --hair-strong: #423c33;
+    --text: #f4efe7;
+    --muted: #a99e90;
+    --muted-2: #7d7468;
+    --accent: #ff5a2b;
+    --accent-strong: #ff7a4d;
+    --on-accent: #1a0800;
+    --ok: #4fb57a;
+    --ok-bg: rgba(79, 181, 122, 0.13);
+    --warn: #e3a83c;
+    --warn-bg: rgba(227, 168, 60, 0.13);
+    --danger: #e5544a;
+    --danger-bg: rgba(229, 84, 74, 0.14);
+    --info: #6fa3d8;
+    --info-bg: rgba(111, 163, 216, 0.13);
+    --neutral: #8f877a;
+    --neutral-bg: rgba(143, 135, 122, 0.14);
+    --shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.6);
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #fbf8f4;
+    --surface: #ffffff;
+    --surface-2: #f4efe6;
+    --surface-3: #ede5d7;
+    --hair: #e3dac9;
+    --hair-strong: #d3c6ae;
+    --text: #201b14;
+    --muted: #6b6152;
+    --muted-2: #8b8172;
+    --accent: #e14e17;
+    --accent-strong: #c74310;
+    --on-accent: #fff6f0;
+    --ok: #2e8f58;
+    --ok-bg: rgba(46, 143, 88, 0.1);
+    --warn: #9c6b09;
+    --warn-bg: rgba(156, 107, 9, 0.1);
+    --danger: #c43d34;
+    --danger-bg: rgba(196, 61, 52, 0.1);
+    --info: #2e6ca6;
+    --info-bg: rgba(46, 108, 166, 0.1);
+    --neutral: #6b6152;
+    --neutral-bg: rgba(107, 97, 82, 0.1);
+    --shadow: 0 18px 40px -24px rgba(32, 27, 20, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+
+  a { color: var(--accent-strong); text-decoration-color: color-mix(in srgb, var(--accent-strong) 45%, transparent); text-underline-offset: 2px; }
+  a:hover { color: var(--accent); }
+  a:focus-visible, button:focus-visible, .navlink:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    text-wrap: balance;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.4em;
+    height: 2px;
+    background: var(--accent-strong);
+    display: inline-block;
+  }
+
+  h1.display {
+    font-weight: 850;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    font-size: clamp(2.1rem, 1.4rem + 3vw, 3.4rem);
+    line-height: 1.04;
+    margin-top: 0.4rem;
+  }
+
+  h2.block-title {
+    font-weight: 800;
+    font-style: italic;
+    font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.05rem);
+    line-height: 1.12;
+    letter-spacing: -0.005em;
+  }
+
+  h3 {
+    font-weight: 750;
+    font-size: 1.18rem;
+    letter-spacing: -0.003em;
+  }
+
+  .lead {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 62ch;
+    margin-top: 0.9rem;
+  }
+
+  p { max-width: 68ch; }
+  .doc section p, .doc article p { max-width: 68ch; }
+
+  /* ---------------------------------------------------------------- layout */
+
+  .page {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .rail {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 1.6rem 1.1rem 2rem 1.6rem;
+    border-right: 1px solid var(--hair);
+    scrollbar-width: thin;
+  }
+
+  .rail-mark {
+    font-weight: 850;
+    font-style: italic;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+  }
+  .rail-mark span { color: var(--accent-strong); }
+  .rail-sub {
+    font-size: 0.74rem;
+    color: var(--muted-2);
+    margin-bottom: 1.6rem;
+  }
+
+  .rail nav { display: flex; flex-direction: column; gap: 0.15rem; }
+  .rail-group-label {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-2);
+    margin: 1.1rem 0 0.35rem;
+  }
+  .rail-group-label:first-child { margin-top: 0; }
+
+  .navlink {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    border-radius: 7px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+    line-height: 1.3;
+    border-left: 2px solid transparent;
+  }
+  .navlink:hover { color: var(--text); background: var(--surface-2); }
+  .navlink.active {
+    color: var(--text);
+    background: var(--surface-2);
+    border-left-color: var(--accent);
+    font-weight: 650;
+  }
+  .navlink b { color: var(--muted-2); font-weight: 700; margin-right: 0.4em; }
+  .navlink.active b { color: var(--accent-strong); }
+
+  .doc {
+    padding: 2.6rem clamp(1.2rem, 4vw, 4rem) 6rem;
+    min-width: 0;
+  }
+
+  .doc-inner { max-width: 880px; }
+
+  header.masthead { margin-bottom: 2.6rem; }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-top: 1.3rem;
+    font-size: 0.82rem;
+    color: var(--muted-2);
+  }
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--hair-strong);
+    background: var(--surface);
+  }
+  .meta-pill.status { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--hair-strong)); background: var(--ok-bg); }
+
+  section.block { padding-top: 3.2rem; margin-top: 0.4rem; border-top: 1px solid var(--hair); scroll-margin-top: 1.5rem; }
+  section.block:first-of-type { border-top: none; }
+  #como-leer, #base { scroll-margin-top: 1.5rem; }
+
+  .block-num {
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+    background: var(--surface-2);
+    border: 1px solid var(--hair-strong);
+    border-radius: 8px;
+    padding: 0.15rem 0.55rem;
+    display: inline-block;
+    margin-bottom: 0.7rem;
+  }
+
+  .block-lead { color: var(--muted); font-size: 1.02rem; max-width: 66ch; margin-top: 0.7rem; }
+
+  h3.sub { margin-top: 2.2rem; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+  h3.sub .tag-modality {
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted-2);
+    border: 1px solid var(--hair-strong);
+    border-radius: 5px;
+    padding: 0.1rem 0.4rem;
+  }
+  .sub-note { color: var(--muted); font-size: 0.95rem; margin: 0.3rem 0 1rem; max-width: 64ch; }
+
+  /* ---------------------------------------------------------------- rules */
+
+  .rule {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-left: 3px solid var(--neutral);
+    border-radius: 10px;
+    padding: 0.95rem 1.1rem 1.05rem;
+    margin-bottom: 0.85rem;
+  }
+  .rule--up { border-left-color: var(--ok); }
+  .rule--hold { border-left-color: var(--neutral); }
+  .rule--down { border-left-color: var(--warn); }
+  .rule--stop { border-left-color: var(--danger); }
+  .rule--info { border-left-color: var(--info); }
+
+  .rule-row { display: flex; gap: 0.65rem; font-size: 0.97rem; }
+  .rule-row .k {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 0.16rem 0.45rem;
+    border-radius: 5px;
+    height: fit-content;
+    margin-top: 0.15rem;
+  }
+  .rule-row.if .k { background: var(--surface-3); color: var(--muted); }
+  .rule-row.then .k { color: var(--on-accent); background: var(--accent); }
+  .rule-row .v { flex: 1; }
+  .rule-row .v b { font-weight: 700; }
+  .rule-row .v .num { font-family: ui-monospace, "SF Mono", monospace; font-variant-numeric: tabular-nums; }
+
+  .why {
+    font-size: 0.86rem;
+    color: var(--muted);
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--hair);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: baseline;
+  }
+
+  .cite, .cite--own {
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.08rem 0.4rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .cite { color: var(--info); background: var(--info-bg); }
+  .cite:hover { color: var(--info); filter: brightness(1.15); }
+  .cite--own { color: var(--muted-2); background: var(--neutral-bg); }
+
+  .src {
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 0.72rem;
+    color: var(--muted-2);
+    background: var(--surface-2);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+  }
+
+  /* ---------------------------------------------------------------- misc components */
+
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 0.7rem;
+    margin: 1.3rem 0 0.4rem;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.86rem; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 9px;
+    padding: 0.55rem 0.75rem;
+  }
+  .swatch { width: 0.85rem; height: 0.85rem; border-radius: 3px; flex: none; }
+  .swatch.up { background: var(--ok); } .swatch.hold { background: var(--neutral); }
+  .swatch.down { background: var(--warn); } .swatch.stop { background: var(--danger); }
+  .swatch.info { background: var(--info); }
+
+  .callout {
+    background: var(--surface); border: 1px solid var(--hair);
+    border-left: 3px solid var(--info); border-radius: 10px;
+    padding: 1rem 1.15rem; margin: 1rem 0;
+    font-size: 0.94rem; color: var(--muted);
+  }
+  .callout b { color: var(--text); }
+  .callout.gap { border-left-color: var(--warn); }
+  .callout-label {
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--info); margin-bottom: 0.4rem; display: block;
+  }
+  .callout.gap .callout-label { color: var(--warn); }
+
+  .recap-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.8rem; margin-top: 1.2rem;
+  }
+  .recap-card {
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 12px;
+    padding: 1rem 1.1rem;
+  }
+  .recap-card h4 { font-size: 0.92rem; font-weight: 750; margin-bottom: 0.45rem; }
+  .recap-card p { font-size: 0.86rem; color: var(--muted); margin: 0 0 0.5rem; max-width: none; }
+  .recap-card .src { display: inline-block; margin-top: 0.15rem; }
+
+  .bands { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.3rem; }
+  .band-row { display: flex; align-items: center; gap: 0.6rem; font-size: 0.84rem; }
+  .band-chip {
+    font-family: ui-monospace, "SF Mono", monospace; font-weight: 700; font-size: 0.72rem;
+    padding: 0.1rem 0.5rem; border-radius: 999px; flex: none; min-width: 4.6rem; text-align: center;
+  }
+  .band-chip.ok { color: var(--ok); background: var(--ok-bg); }
+  .band-chip.warn { color: var(--warn); background: var(--warn-bg); }
+  .band-chip.danger { color: var(--danger); background: var(--danger-bg); }
+
+  .weights { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+  .weight-chip {
+    font-family: ui-monospace, "SF Mono", monospace; font-size: 0.74rem; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--hair-strong); border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+  }
+  .weight-chip em { color: var(--accent-strong); font-style: normal; font-weight: 800; }
+
+  /* ---------------------------------------------------------------- tiers (bloque 3) */
+
+  .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.9rem; margin: 1.3rem 0 1.6rem; }
+  .tier {
+    border-radius: 14px; padding: 1.1rem 1.2rem 1.2rem; border: 1px solid var(--hair);
+    background: var(--surface);
+  }
+  .tier .tier-band { font-family: ui-monospace, "SF Mono", monospace; font-weight: 800; font-size: 0.78rem; letter-spacing: 0.02em; }
+  .tier .tier-name { font-weight: 800; font-style: italic; font-size: 1.28rem; margin: 0.15rem 0 0.7rem; }
+  .tier.ok { border-top: 3px solid var(--ok); } .tier.ok .tier-band { color: var(--ok); }
+  .tier.warn { border-top: 3px solid var(--warn); } .tier.warn .tier-band { color: var(--warn); }
+  .tier.danger { border-top: 3px solid var(--danger); } .tier.danger .tier-band { color: var(--danger); }
+  .tier ul { margin: 0; padding-left: 1.1rem; font-size: 0.86rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.4rem; }
+  .tier ul li::marker { color: var(--muted-2); }
+  .tier ul b { color: var(--text); font-weight: 650; }
+
+  /* ---------------------------------------------------------------- table */
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--hair); border-radius: 12px; margin: 1.3rem 0; }
+  table.spec { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 880px; }
+  table.spec caption { caption-side: top; text-align: left; padding: 0.8rem 1rem 0; }
+  table.spec thead th {
+    position: sticky; top: 0; background: var(--surface-2); z-index: 2;
+    text-align: left; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--muted-2); padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--hair-strong);
+  }
+  table.spec td {
+    padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--hair); vertical-align: top; color: var(--muted);
+  }
+  table.spec td.signal { color: var(--text); font-weight: 600; }
+  table.spec td.calc, table.spec td.trigger { font-family: ui-monospace, "SF Mono", monospace; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+  table.spec tr:last-child td { border-bottom: none; }
+  table.spec tbody tr:hover td { background: var(--surface-2); }
+  table.spec td:first-child { position: sticky; left: 0; background: var(--surface); }
+  table.spec tbody tr:hover td:first-child { background: var(--surface-2); }
+
+  tr.group-row td {
+    background: var(--surface-3); color: var(--text); font-weight: 800; font-size: 0.72rem;
+    letter-spacing: 0.08em; text-transform: uppercase; padding: 0.5rem 0.9rem; position: static;
+  }
+
+  .action-pill {
+    display: inline-flex; align-items: center; gap: 0.35em;
+    font-family: ui-monospace, "SF Mono", monospace; font-size: 0.72rem; font-weight: 700;
+    padding: 0.14rem 0.55rem; border-radius: 999px; white-space: nowrap;
+  }
+  .action-pill.up { color: var(--ok); background: var(--ok-bg); }
+  .action-pill.hold { color: var(--neutral); background: var(--neutral-bg); }
+  .action-pill.down { color: var(--warn); background: var(--warn-bg); }
+  .action-pill.stop { color: var(--danger); background: var(--danger-bg); }
+  .action-pill.flag { color: var(--info); background: var(--info-bg); }
+
+  /* ---------------------------------------------------------------- deviations + refs */
+
+  .dev-list { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.2rem; }
+  .dev-item {
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 10px;
+    padding: 0.9rem 1.1rem; display: flex; gap: 0.8rem;
+  }
+  .dev-num {
+    font-family: ui-monospace, "SF Mono", monospace; font-weight: 800; color: var(--muted-2);
+    font-size: 0.82rem; flex: none; width: 1.6rem; padding-top: 0.1rem;
+  }
+  .dev-item p { margin: 0; font-size: 0.92rem; color: var(--muted); max-width: none; }
+  .dev-item p b { color: var(--text); }
+
+  .refs { margin-top: 1.2rem; display: flex; flex-direction: column; gap: 0.55rem; }
+  .ref-group-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-2); margin: 1.1rem 0 0.3rem; }
+  .ref-group-label:first-child { margin-top: 0; }
+  .ref-item {
+    font-size: 0.9rem; color: var(--muted); display: flex; gap: 0.6rem; align-items: baseline;
+    border-bottom: 1px solid var(--hair); padding-bottom: 0.55rem;
+  }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-item .ref-mark { color: var(--muted-2); font-family: ui-monospace, monospace; font-size: 0.78rem; flex: none; }
+  .ref-item a { font-weight: 600; }
+  .ref-item .ref-note { display: block; color: var(--muted-2); font-size: 0.82rem; margin-top: 0.15rem; }
+
+  footer.doc-foot {
+    margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--hair);
+    font-size: 0.82rem; color: var(--muted-2);
+  }
+
+  @media (max-width: 860px) {
+    .page { grid-template-columns: 1fr; }
+    .rail {
+      position: sticky; top: 0; height: auto; width: 100%;
+      border-right: none; border-bottom: 1px solid var(--hair);
+      padding: 0.8rem 1rem; background: var(--bg); z-index: 5;
+    }
+    .rail-mark, .rail-sub, .rail-group-label { display: none; }
+    .rail nav { flex-direction: row; overflow-x: auto; gap: 0.4rem; padding-bottom: 0.2rem; }
+    .navlink { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; border-radius: 999px; background: var(--surface); border: 1px solid var(--hair); }
+    .navlink.active { border-bottom-color: var(--accent); background: var(--surface-2); }
+    .doc { padding: 1.6rem 1.1rem 4rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+</style>
+
+<div class="page">
+  <aside class="rail">
+    <div class="rail-mark">FAHYBRI<span>D</span></div>
+    <div class="rail-sub">Metodología · especificación</div>
+    <nav id="railnav">
+      <a class="navlink" href="#top" data-target="top">Portada</a>
+      <a class="navlink" href="#como-leer" data-target="como-leer">Cómo leer esto</a>
+      <a class="navlink" href="#base" data-target="base">Lo que ya existe</a>
+      <div class="rail-group-label">Reglas</div>
+      <a class="navlink" href="#b1" data-target="b1"><b>1</b>Progresión semanal</a>
+      <a class="navlink" href="#b2" data-target="b2"><b>2</b>Progresión de fuerza</a>
+      <a class="navlink" href="#b3" data-target="b3"><b>3</b>Estado diario</a>
+      <a class="navlink" href="#b4" data-target="b4"><b>4</b>Seguridad y límites</a>
+      <a class="navlink" href="#b5" data-target="b5"><b>5</b>Reincorporación</a>
+      <div class="rail-group-label">Referencia</div>
+      <a class="navlink" href="#tabla" data-target="tabla">Tabla de umbrales</a>
+      <a class="navlink" href="#diferencias" data-target="diferencias">Dónde nos separamos</a>
+      <a class="navlink" href="#evidencia" data-target="evidencia">Evidencia citada</a>
+    </nav>
+  </aside>
+
+  <main class="doc" id="top">
+    <div class="doc-inner">
+
+      <header class="masthead">
+        <div class="eyebrow">FAHYBRID · Metodología de entreno</div>
+        <h1 class="display">Reglas de progresión<br />y ajuste</h1>
+        <p class="lead">
+          Cómo se pasa de la semana N a la N+1, y cómo se ajusta una sesión según cómo
+          llega el atleta ese día. Todo en condición → acción. Nada de "a criterio del
+          coach" — lo que hay aquí se programa tal cual.
+        </p>
+        <div class="meta-row">
+          <span class="meta-pill status">● Especificación — lista para implementar</span>
+          <span class="meta-pill">25 jul 2026</span>
+          <span class="meta-pill">5 bloques · 1 tabla de umbrales</span>
+          <span class="meta-pill">HYROX / híbrido</span>
+        </div>
+      </header>
+
+      <section id="como-leer">
+        <div class="eyebrow">Cómo leer esto</div>
+        <h2 class="block-title">Un lenguaje visual, tres cosas que recordar</h2>
+        <p class="block-lead">
+          Cada regla es una tarjeta con SI (condición, medible) y ENTONCES (acción,
+          concreta). El color del borde dice qué tipo de acción es. La etiqueta al pie
+          dice si la magnitud sale de evidencia publicada o es criterio propio del
+          diseño — nunca se mezclan sin decirlo.
+        </p>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch up"></span> Sube carga / volumen / dificultad</div>
+          <div class="legend-item"><span class="swatch hold"></span> Mantiene — no sube, no baja</div>
+          <div class="legend-item"><span class="swatch down"></span> Baja carga / volumen</div>
+          <div class="legend-item"><span class="swatch stop"></span> Para la sesión / bloquea</div>
+          <div class="legend-item"><span class="swatch info"></span> Informativo — avisa, no modifica</div>
+          <div class="legend-item"><span class="cite" style="pointer-events:none;">Nielsen 2014</span> Evidencia con fuente citada</div>
+          <div class="legend-item"><span class="cite--own">criterio propio</span> Decisión de diseño, sin paper que la respalde línea a línea</div>
+          <div class="legend-item"><span class="src" style="pointer-events:none;">web/lib/…</span> Ya vive en el código — se reutiliza, no se duplica</div>
+        </div>
+      </section>
+
+      <section id="base">
+        <div class="eyebrow">Punto de partida</div>
+        <h2 class="block-title">Lo que ya existe — y se reutiliza, no se reinventa</h2>
+        <p class="block-lead">
+          Antes de las reglas nuevas: esto ya está en producción y las cinco secciones
+          siguientes lo dan por base en vez de repetirlo. Lo nuevo se apoya aquí; no
+          hay una segunda fuente de verdad paralela.
+        </p>
+
+        <div class="recap-grid">
+          <div class="recap-card">
+            <h4>Readiness compuesto (0–100)</h4>
+            <p>Media ponderada de cinco componentes, cada uno opcional (si falta uno, los
+              pesos se re-normalizan entre los que sí hay datos). Nunca inventa un 50 —
+              sin señal real, es <code class="mono">null</code>.</p>
+            <div class="weights">
+              <span class="weight-chip">check-in <em>.35</em></span>
+              <span class="weight-chip">VFC <em>.25</em></span>
+              <span class="weight-chip">sueño <em>.20</em></span>
+              <span class="weight-chip">FC reposo <em>.10</em></span>
+              <span class="weight-chip">recovery reloj <em>.10</em></span>
+            </div>
+            <div class="bands">
+              <div class="band-row"><span class="band-chip ok">≥ 67</span> Listo</div>
+              <div class="band-row"><span class="band-chip warn">45–66</span> Con cautela</div>
+              <div class="band-row"><span class="band-chip danger">&lt; 45</span> En rojo</div>
+            </div>
+            <span class="src">shared/domain/coach/athlete-daily-readiness.ts</span>
+          </div>
+
+          <div class="recap-card">
+            <h4>Línea base de VFC</h4>
+            <p>Individual, no poblacional: media móvil de los días −60 a −14 respecto a
+              hoy (46 días, excluye a propósito las dos últimas semanas para que una
+              caída aguda no arrastre su propia referencia hacia abajo).</p>
+            <p><b>Sueño y FC en reposo</b> hoy usan un objetivo fijo (8 h; suelo de 50 ppm),
+              no una línea base individual — lo señalamos como hueco en «Dónde nos
+              separamos».</p>
+            <span class="src">shared/domain/coach/athlete-daily-readiness.ts</span>
+          </div>
+
+          <div class="recap-card">
+            <h4>Veredicto semanal (5 disparadores)</h4>
+            <p>Cron semanal ya evalúa la semana anterior con cinco condiciones fijas;
+              cualquiera que salte pasa el veredicto de <code class="mono">ok</code> a
+              <code class="mono">needs_adjustment</code>.</p>
+            <p style="font-size:0.82rem;">cumplimiento 7d &lt; 60% · check-in &lt; 40 · readiness &lt; 45 ·
+              ≥ 2 sesiones perdidas 7d · VFC 7d &lt; −15% vs base</p>
+            <span class="src">shared/domain/coach/weekly-verdict-rules.ts</span>
+          </div>
+
+          <div class="recap-card">
+            <h4>Modelo de prescripción</h4>
+            <p>Toda dosis ya es tipada: <b>medida</b> (reps · distancia · tiempo ·
+              calorías) × <b>objetivo</b> (%RM · kg · RPE · RIR · ritmo · zona FC ·
+              vatios) × <b>modalidad</b>. Cero texto libre — las reglas de aquí
+              modifican estos campos directamente, no una frase.</p>
+            <span class="src">shared/domain/prescription/types.ts</span>
+          </div>
+
+          <div class="recap-card">
+            <h4>Carga de entreno (Banister)</h4>
+            <p>CTL (fitness, τ 42 d), ATL (fatiga, τ 7 d) y TSB ya se calculan a partir de
+              duración × RPE de sesión por día. Existe también el ratio agudo:crónico al
+              estilo Gabbett — lo usamos solo como dato informativo (ver «Dónde nos
+              separamos»).</p>
+            <span class="src">shared/domain/training-load/banister.ts</span>
+          </div>
+
+          <div class="recap-card">
+            <h4>Progresión hoy: un único mando</h4>
+            <p>Lo único que progresa automáticamente hoy es un porcentaje plano por
+              <b>vuelta completa</b> de la secuencia asignada (nivel × días), sobre un
+              único objetivo: carga, volumen o ritmo. Nada semana-a-semana dentro de una
+              misma pasada — eso es exactamente lo que este documento añade.</p>
+            <span class="src">shared/schema/program-sequences.ts</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ BLOQUE 1 -->
+      <section class="block" id="b1">
+        <span class="block-num">01</span>
+        <h2 class="block-title">Progresión semanal</h2>
+        <p class="block-lead">
+          Una variable por paso, nunca todas a la vez — así, si una semana va mal, se
+          sabe exactamente cuál fue la palanca que falló. El orden y la palanca
+          <i>principal</i> cambian según qué tipo de sesión es: en continuo, el volumen;
+          en series, la densidad primero; en fuerza, la intensidad (bloque 2); en
+          estaciones, otra vez la densidad. La complejidad de movimiento nunca se mueve
+          sola — es la única palanca que queda siempre en manos del coach.
+        </p>
+
+        <h3 class="sub">Rodaje largo / continuo<span class="tag-modality">run · row · ski · bike — Z2</span></h3>
+        <p class="sub-note">La zona no se toca nunca en esta familia — moverla anula el propósito fisiológico
+          de la sesión. La única palanca semanal es cuánto dura.</p>
+
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">la semana anterior de esta familia se completó dentro de banda de adherencia (± 10%) y no hubo descarga forzada (bloque 4)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">distancia u duración objetivo <b>+5%</b> esta semana (paso estándar). Ritmo/zona objetivo: <b>sin cambio</b>.</span></div>
+          <div class="why">Techo duro: nunca <b class="num">+10%</b> en una sola semana, para ninguna familia. <span class="cite" title="Nielsen RO et al., JOSPT 2014">Nielsen 2014</span> encuentra el salto de riesgo real por encima de +30%/semana; +10% deja margen amplio, no es «el número mágico», es un techo conservador con colchón real.</div>
+        </div>
+        <div class="rule rule--hold">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el paso calculado (5% o 10%) es menor que la unidad mínima con sentido para el atleta (≈3 min o ≈0,5 km)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">redondea al mínimo con sentido — nunca prescribas un paso invisible.</span></div>
+          <div class="why"><span class="cite--own">criterio propio</span> — evita que el sistema proponga incrementos que ni el atleta ni el coach notarían.</div>
+        </div>
+
+        <h3 class="sub">Series / trabajo de calidad<span class="tag-modality">intervalos run · erg · umbral</span></h3>
+        <p class="sub-note">Distinto de la continua: aquí SÍ hay una secuencia fija de tres palancas, una por
+          aparición de la sesión, en este orden — nunca dos a la vez.</p>
+
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">toca progresar y el último paso aplicado a esta sesión fue <b>intensidad</b> (o es la primera vez)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">paso 1 — <b>densidad</b>: descanso entre repeticiones <b class="num">−10%</b>, mismas repeticiones y mismo ritmo objetivo.</span></div>
+          <div class="why"><span class="cite--own">criterio propio</span> — apretar la recuperación añade estrés sin pedir una ejecución más rápida ni más volumen; es el paso de menor riesgo técnico.</div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el último paso aplicado fue <b>densidad</b></span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">paso 2 — <b>volumen</b>: <b class="num">+1</b> repetición o ronda, mismo ritmo y mismo descanso ya reducido.</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el último paso aplicado fue <b>volumen</b></span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">paso 3 — <b>intensidad</b>: ritmo o vatios objetivo <b class="num">1–2%</b> más rápido/más exigente. Vuelve al paso 1 la siguiente vez.</span></div>
+          <div class="why">La intensidad va <i>última</i> a propósito: pedir más velocidad es lo que más rompe técnica bajo fatiga. <span class="cite--own">criterio propio</span>, coherente con el principio de progresión por complejidad/riesgo creciente.</div>
+        </div>
+
+        <h3 class="sub">Fuerza<span class="tag-modality">sets · reps · carga</span></h3>
+        <p class="sub-note">La progresión de fuerza es sesión-a-sesión, no semanal — ver
+          <a href="#b2">bloque 2</a>. A nivel de calendario, esto es lo único que hace
+          falta saber: cuánto es «un paso» cuando toca subir.</p>
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el bloque 2 determina que hoy toca subir</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">paso = <b class="num">+2,5%</b> de 1RM, o el incremento mínimo de disco disponible (el que sea mayor). Nunca más de un paso por aparición del mismo ejercicio.</span></div>
+          <div class="why">Un salto de 2,5–5% mantiene la misma calidad de RIR en la siguiente sesión; saltos mayores suelen provocar fallo inmediato tras la subida — convención estándar de programación de fuerza (Wendler, tablas de <span class="cite" title="Zourdos et al. — escalas RIR-based training">RIR-based training</span>).</div>
+        </div>
+
+        <h3 class="sub">Estaciones HYROX / WOD<span class="tag-modality">funcional · metcon · circuitos</span></h3>
+        <p class="sub-note">La carga de una estación suele estar fijada por la propia categoría de
+          competición (peso de sled, wall ball…), así que «más pesado» no es una palanca
+          disponible la mayoría de las veces. La progresión real de HYROX es sostener el
+          ritmo bajo fatiga — por eso la densidad manda.</p>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">toca progresar y el último paso fue <b>volumen</b> (o es la primera vez)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">paso 1 — <b>densidad</b>: mismo trabajo total, cap de tiempo <b class="num">−10%</b> (o mismas rondas, con transición entre estaciones más corta).</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el último paso fue <b>densidad</b></span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">paso 2 — <b>volumen</b>: <b class="num">+1</b> ronda, o <b class="num">+10%</b> repeticiones por estación. Vuelve al paso 1 la siguiente vez.</span></div>
+          <div class="why">HIFT/híbrido: la evidencia de interferencia fuerza-resistencia es dependiente de dosis y contexto, no automática — <span class="cite" title="Scoping review, PMC — HIFT en competiciones híbridas">revisión HIFT 2025</span>. Progresar densidad antes que carga respeta eso: no se apila estrés neuromuscular nuevo sobre una sesión ya metabólicamente dura.</div>
+        </div>
+
+        <h3 class="sub">Complejidad de movimiento<span class="tag-modality">todas las modalidades</span></h3>
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">un ejercicio lleva <b class="num">4</b> sesiones consecutivas completadas dentro de objetivo (RIR u objetivo de ritmo cumplido, sin nota de fallo técnico)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">el sistema marca el ejercicio como <i>«candidato a variante superior»</i> — nunca lo cambia solo. La decisión de qué variante enseñar sigue siendo del coach.</span></div>
+          <div class="why"><span class="cite--own">criterio propio</span> — línea deliberada entre lo objetivo (dosis, se automatiza) y lo subjetivo (qué patrón de movimiento enseñar a continuación, requiere ojo de coach).</div>
+        </div>
+      </section>
+
+      <!-- ================================================================ BLOQUE 2 -->
+      <section class="block" id="b2">
+        <span class="block-num">02</span>
+        <h2 class="block-title">Progresión de fuerza</h2>
+        <p class="block-lead">
+          Señal principal: <b>RIR real vs. RIR objetivo</b> en la serie más exigente del
+          ejercicio (la de menor RIR real logrado) — es la que manda porque un solo
+          fallo ya dice que la carga de hoy superó lo que el cuerpo tenía disponible, da
+          igual cómo fueran las demás series. Velocidad de ejecución (VBT) queda fuera
+          de esta versión — sin sensores en el box de Pablo no hay señal que leer; ver
+          <a href="#diferencias">«Dónde nos separamos»</a>.
+        </p>
+
+        <h3 class="sub">Series con objetivo RIR<span class="tag-modality">target.kind = rir</span></h3>
+        <div class="rule rule--down">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">RIR real − RIR objetivo <b class="num">≤ −3</b>, o el atleta no completó el mínimo de repeticiones en cualquier serie</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: carga <b class="num">−10%</b>. Si el fallo fue en la <i>primera</i> serie de trabajo (no por fatiga acumulada de series previas): además, avisa al coach.</span></div>
+          <div class="why">Un fallo en la primera serie no es fatiga normal — suele ser sueño/enfermedad/mal cálculo de 1RM, y eso merece un ojo humano, no solo un recorte automático. <span class="cite--own">criterio propio</span>.</div>
+        </div>
+        <div class="rule rule--hold">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">RIR real − RIR objetivo entre <b class="num">−2</b> y <b class="num">−1</b> (completó las repeticiones, pero más cerca del fallo de lo pedido)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: <b>mantiene</b> la misma carga. No sube, no baja.</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">RIR real − RIR objetivo = <b class="num">0</b> (en objetivo, exacto)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: <b class="num">+2,5%</b> de 1RM (paso estándar, bloque 1).</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">RIR real − RIR objetivo entre <b class="num">+1</b> y <b class="num">+2</b></span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: <b class="num">+2,5%</b> — igual que en objetivo. Un margen pequeño de sobra no se premia de más.</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">RIR real − RIR objetivo <b class="num">≥ +3</b> (claramente más fácil de lo prescrito)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: <b class="num">+5%</b> de 1RM — paso doble.</span></div>
+          <div class="why">El objetivo se quedó corto para ese atleta; un paso doble evita semanas de series «de sobra» sin sentido de entreno. Coherente con lo que ya pensaba Pablo en el diseño previo del motor de reglas (dato de archivo, no vinculante hoy). <span class="cite--own">criterio propio</span>.</div>
+        </div>
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el atleta no registró RIR real en ninguna serie (modo degradado)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">repeticiones completadas &lt; prescritas en cualquier serie → trátalo como delta <b class="num">≤ −3</b>. Repeticiones completadas = prescritas en todas → trátalo como delta <b class="num">= 0</b>.</span></div>
+          <div class="why">La regla sigue funcionando aunque el atleta no toque el selector de RIR ese día — nunca se queda «sin decisión» por falta de un dato opcional.</div>
+        </div>
+
+        <h3 class="sub">Series con objetivo %RM / kg fijo<span class="tag-modality">target.kind = percent_rm | kg — sin RIR</span></h3>
+        <p class="sub-note">Ondas de intensidad que el coach fija deliberadamente (p. ej. una semana de
+          pico al 85%). Aquí no autorregulamos por RIR — el % es la decisión del coach —
+          pero sí cerramos el círculo si empieza a fallar sistemáticamente.</p>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">todas las series completaron las repeticiones prescritas al % fijado</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: paso estándar <b class="num">+2,5%</b> (bloque 1).</span></div>
+        </div>
+        <div class="rule rule--hold">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">alguna serie no completó las repeticiones — y es la <b>primera</b> vez que pasa con este ejercicio</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><b>mantiene</b> el mismo % la próxima vez. No baja todavía.</span></div>
+        </div>
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">falla en completar reps <b>dos sesiones seguidas</b> del mismo ejercicio al mismo %</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">carga <b class="num">−10%</b> Y marca <code class="mono">athlete_strength_maxes.needs_review = true</code> Y avisa al coach.</span></div>
+          <div class="why">Dos fallos seguidos a un % que «debería» ser alcanzable sugiere que el 1RM de referencia está desactualizado, no que el atleta esté teniendo dos días malos seguidos. Se sospecha del dato, no solo se recorta la carga — cierra el círculo con el campo <span class="src">needs_review</span> que ya existe en el esquema.</div>
+        </div>
+
+        <h3 class="sub">Movimientos de peso corporal<span class="tag-modality">target.kind = bodyweight</span></h3>
+        <p class="sub-note">La carga no puede bajar (es el propio peso del atleta) — la palanca pasa a ser
+          repeticiones, con la misma lógica de RIR de arriba.</p>
+        <div class="rule rule--down">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">delta RIR ≤ −3 o fallo de serie</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">próxima vez: <b class="num">−2</b> repeticiones objetivo (mínimo 1 serie menos si ya está en el mínimo útil, ~3 reps).</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">delta RIR = 0</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><b class="num">+1</b> repetición objetivo la próxima vez.</span></div>
+        </div>
+        <div class="rule rule--up">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">delta RIR ≥ +3</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><b class="num">+2</b> repeticiones la próxima vez.</span></div>
+        </div>
+      </section>
+
+      <!-- ================================================================ BLOQUE 3 -->
+      <section class="block" id="b3">
+        <span class="block-num">03</span>
+        <h2 class="block-title">Ajuste por estado diario</h2>
+        <p class="block-lead">
+          El readiness compuesto (0–100, ya en producción) es la entrada. Lo que este
+          bloque añade es lo que falta hoy: (a) un filtro anti-ruido explícito para la
+          VFC, y (b) una acción <i>exacta y por tipo de sesión</i> en vez de dejarlo a
+          un LLM cuando el veredicto sale mal.
+        </p>
+
+        <h3 class="sub">El ruido de la VFC — y cómo se filtra</h3>
+        <p class="sub-note">
+          Una lectura de VFC de un solo día tiene demasiado ruido fisiológico (sueño,
+          hidratación, hora de la medición) para decidir nada por sí sola.
+        </p>
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">la VFC de hoy está por debajo de la línea base, pero es el <b>único</b> día así</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><b>no</b> se considera todavía «tendencia bajista» — no dispara nada por sí sola.</span></div>
+        </div>
+        <div class="rule rule--down">
+          <div class="rule-row if"><span class="k">SI</span><span class="v"><b>2 días seguidos</b> (hoy incluido) con VFC media diaria <b class="num">≥5%</b> por debajo de la línea base de 46 días, <i>o</i> la de hoy sola está <b class="num">≥15%</b> por debajo</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">se marca «VFC en tendencia bajista» — entra como señal en las reglas diarias y semanales siguientes.</span></div>
+          <div class="why">Caídas de un solo día de hasta ~12% no se correlacionan con peor rendimiento al día siguiente en la mayoría de casos registrados; ≥3 días seguidos por debajo de línea base sí. Usamos un umbral intermedio (2 días, o 1 día grande) porque en HYROX el coste de una falsa alarma tardía (una sesión de pico con el cuerpo realmente tocado) es alto — más precavido que exigir 3 días, sin llegar a reaccionar a un solo dato ruidoso. <span class="cite--own">criterio propio</span> sobre <span class="cite" title="Consenso de VFC guiada — ventanas móviles, smallest worthwhile change">evidencia agregada de VFC guiada</span>.</div>
+        </div>
+
+        <h3 class="sub">Tope duro de agujetas</h3>
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">agujetas del check-in de hoy = <b class="num">5/5</b> (máximo)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">el día nunca puede salir «Listo», como mucho «Con cautela» — pase lo que pase el resto del compuesto.</span></div>
+          <div class="why">Las agujetas ya alimentan el compuesto (0,35 vía check-in) — esto <b>no</b> es una segunda penalización, es un tope de seguridad: un 5/5 de dolor muscular percibido no debería poder «compensarse» con buena VFC y buen sueño. <span class="cite--own">criterio propio</span> — nuevo respecto a hoy.</div>
+        </div>
+
+        <h3 class="sub">Los tres tramos del día — y qué cambia exactamente en cada uno</h3>
+        <div class="tiers">
+          <div class="tier ok">
+            <div class="tier-band">READINESS ≥ 67</div>
+            <div class="tier-name">Listo</div>
+            <ul>
+              <li>Entrena <b>como estaba previsto</b>. Ninguna modificación.</li>
+            </ul>
+          </div>
+          <div class="tier warn">
+            <div class="tier-band">READINESS 45–66</div>
+            <div class="tier-name">Con cautela</div>
+            <ul>
+              <li><b>Fuerza principal:</b> misma carga, <b>−1 serie</b> (mínimo 2), accesorios intactos.</li>
+              <li><b>Rodaje Z2:</b> mismo ritmo/zona, <b>−20%</b> distancia o duración.</li>
+              <li><b>Series / WOD / hyrox_sim</b> (RPE objetivo ≥ 7): sustituye por Z2 continuo <b>30 min</b>, misma modalidad.</li>
+              <li><b>Metcon con cap/rondas:</b> mismos movimientos y carga, cap o rondas <b>−20%</b>.</li>
+            </ul>
+          </div>
+          <div class="tier danger">
+            <div class="tier-band">READINESS &lt; 45</div>
+            <div class="tier-name">En rojo</div>
+            <ul>
+              <li>La sesión de hoy pasa a <code class="mono">skipped</code>, motivo <code class="mono">readiness_gate</code>.</li>
+              <li><b>Se excluye</b> del denominador de cumplimiento — no cuenta como fallo del atleta.</li>
+              <li>Se ofrece una sugerencia de recuperación del catálogo ya existente (movilidad, paseo, foam roller…).</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout">
+          <span class="callout-label">Ya existe, se generaliza</span>
+          El swap «series/WOD duro → Z2 30 min» de la tabla «Con cautela» es exactamente
+          la acción que hoy solo dispara <code class="mono">adaptive_flag =
+          'consider_swap_z2_30'</code> cuando check-in &lt;40 y VFC bajando y la sesión
+          es dura. Aquí se convierte en la regla general de ese tramo, para cualquier
+          sesión de ese tipo — no solo el caso puntual que ya estaba cableado.
+          <span class="src">web/lib/sync/checkin.ts</span>
+        </div>
+
+        <h3 class="sub">A nivel semana — mismos 5 disparadores, acción ahora determinista</h3>
+        <p class="sub-note">
+          Los cinco disparadores de <span class="src">weekly-verdict-rules.ts</span> no
+          cambian. Lo que cambia es que la recomendación ya no la decide un LLM caso a
+          caso — sale de esta tabla.
+        </p>
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">cumplimiento 7d &lt; 60%, o ≥2 sesiones perdidas en 7d (disparadores de <b>adherencia</b>, no fisiológicos)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><code class="mono">recommendation = keep</code> — no se toca el contenido del plan. Avisa al coach para una llamada humana.</span></div>
+          <div class="why">Un problema de cumplimiento suele ser logística o motivación, no exceso de carga — bajar el plan no arregla eso, y podría incluso confirmarle al atleta que «cumplir menos» está bien. <span class="cite--own">criterio propio</span>.</div>
+        </div>
+        <div class="rule rule--down">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">check-in &lt; 40 o readiness &lt; 45, sostenido en <b class="num">≥3 de los 7</b> días de la semana evaluada</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><code class="mono">recommendation = soften</code> — aplica la modificación «Con cautela» a <b>todas</b> las sesiones duras que queden en la semana siguiente.</span></div>
+        </div>
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">VFC &lt; −15% vs. base, sostenido en <b class="num">≥4 de los 7</b> días</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v"><code class="mono">recommendation = rest_day</code> — inserta un día de descanso completo adicional en la semana siguiente, colocado justo antes de la sesión más dura programada.</span></div>
+        </div>
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v"><b class="num">2 o más</b> disparadores saltan a la vez, sean los que sean</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">escala un nivel (soften → rest_day) y avisa al coach <b>siempre</b>, sin importar cuáles individualmente.</span></div>
+        </div>
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">hay LLM configurado para esta tarea</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">redacta el <code class="mono">rationale</code> y el <code class="mono">coach_summary</code> en español, y elige entre las plantillas alternativas del propio coach — pero <b>nunca</b> decide el nivel ni el porcentaje. Eso ya lo calculó esta tabla.</span></div>
+          <div class="why">Hoy <span class="src">ai-propose-week-adjustment.ts</span> puede decidir ambas cosas si hay LLM configurado. Aquí se le retira del camino de decisión y se le deja solo la redacción — ver <a href="#diferencias">«Dónde nos separamos» #7</a>.</div>
+        </div>
+      </section>
+
+      <!-- ================================================================ BLOQUE 4 -->
+      <section class="block" id="b4">
+        <span class="block-num">04</span>
+        <h2 class="block-title">Reglas de seguridad y límites</h2>
+        <p class="block-lead">
+          Lo que no se negocia, pase lo que pase en las reglas anteriores. Estas reglas
+          ganan siempre a las de progresión — son el techo, no una sugerencia.
+        </p>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">dos sesiones «duras» (formato <code class="mono">hyrox_sim</code>/<code class="mono">amrap</code>/<code class="mono">for_time</code>/<code class="mono">emom</code>/<code class="mono">intervals</code>, o fuerza principal con RIR objetivo ≤3) quedarían en días calendario consecutivos</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">error de validación <b>al guardar</b> la semana — no se publica así. No es un aviso en caliente, es un bloqueo de autoría.</span></div>
+          <div class="why"><span class="cite--own">criterio propio</span>, alineado con la práctica estándar de 48h+ de recuperación para trabajo de alta demanda neuromuscular/metabólica.</div>
+        </div>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">cualquier paso automático (bloque 1 o 2) o un ajuste manual del coach superaría <b class="num">+10%</b> en una sola familia en una sola semana</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">el paso automático queda <b>bloqueado</b> en el +10%. Un ajuste manual del coach por encima de +10% muestra aviso duro; por encima de <b class="num">+20%</b> exige confirmación explícita con motivo escrito.</span></div>
+          <div class="why callout gap" style="border:none;padding:0;margin:0;background:none;">
+            <span class="callout-label">Hueco encontrado</span>
+            El ajuste masivo del coach ya permite hasta <b>±50%</b> hoy sin ningún aviso —
+            un rango muy por encima de cualquier umbral de seguridad de esta
+            especificación. Mantenemos el rango técnico (a veces hace falta para
+            corregir un error real, que no es «progresión»), pero añadimos los avisos
+            progresivos que hoy no existen. <span class="src">shared/schema/coach-mass-adjustments.ts</span>
+          </div>
+        </div>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v"><b class="num">3</b> semanas seguidas de carga (al menos una familia progresó cada semana)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">la 4ª semana se fuerza a descarga — <b>exista o no</b> marcada como tal en la plantilla del coach. Volumen <b class="num">−30% a −40%</b>; intensidad y frecuencia sin tocar.</span></div>
+          <div class="why">Reducir volumen mientras se mantiene intensidad y frecuencia es la estrategia con más respaldo para tapers/descargas: <span class="cite" title="Meta-análisis de tapering, PLOS ONE 2023">Mujika et al., meta-análisis de tapering 2023</span> encuentra mejoras claras de rendimiento con cortes de volumen del 41–60% en tapers de hasta 21 días manteniendo intensidad y frecuencia; usamos el extremo más suave de ese rango porque esto es una descarga rutinaria de mesociclo, no un taper de competición.</div>
+        </div>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">cualquier semana dispara <b class="num">≥2</b> triggers semanales (bloque 3)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">fuerza descarga la semana <b>siguiente</b>, y reinicia el contador de 3 semanas — sin importar en qué punto del ciclo estaba.</span></div>
+          <div class="why">La seguridad gana al calendario: una mala semana detectada pesa más que «tocaba subir según el plan». <span class="cite--own">criterio propio</span>.</div>
+        </div>
+
+        <div class="rule rule--hold">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">un día salió «Con cautela» o «En rojo» (bloque 3) y se perdió volumen respecto a lo previsto</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">ese volumen <b>nunca</b> se compensa añadiendo carga extra en otro día de la misma semana.</span></div>
+        </div>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">ya hay <b class="num">2</b> sesiones de formato pico (<code class="mono">hyrox_sim</code> o test de máximo esfuerzo) programadas esta semana</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">no se permite una tercera, sea cual sea el nivel o los días/semana asignados.</span></div>
+          <div class="why">Adaptación de la distribución polarizada 80/20 (mayoría del trabajo fácil, minoría duro de verdad) al contexto híbrido de HYROX, donde «duro» reparte entre motor y fuerza en vez de ser todo el mismo sistema energético — no es un trasplante literal del 80/20 de resistencia pura. <span class="cite--own">criterio propio</span> a partir de <span class="cite" title="Revisión HIFT/híbrido, PMC">literatura de entrenamiento híbrido</span>.</div>
+        </div>
+
+        <div class="rule rule--info">
+          <div class="rule-row if"><span class="k">SI</span><span class="v"><b class="num">≥3</b> sesiones seguidas quedan sin completar (perdidas, no descanso planeado) en una ventana de 7 días</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">se marca «semana perdida» — dispara las reglas de reincorporación del <a href="#b5">bloque 5</a>, que sustituyen lo que tocara según calendario.</span></div>
+        </div>
+      </section>
+
+      <!-- ================================================================ BLOQUE 5 -->
+      <section class="block" id="b5">
+        <span class="block-num">05</span>
+        <h2 class="block-title">Reincorporación</h2>
+        <p class="block-lead">
+          La regresión escala con los días de hueco — no es la misma vuelta tras una
+          semana que tras un mes. Basado en las curvas de desentrenamiento conocidas: el
+          VO<sub>2</sub>máx empieza a bajar sobre el día 10 sin entrenar, con pérdidas ya
+          relevantes (4–14% en atletas entrenados) a las 2–4 semanas; la fuerza aguanta
+          algo más, unas 3–4 semanas, antes de empezar a caer con claridad.
+        </p>
+
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr><th>Hueco</th><th>Regresión de carga/volumen</th><th>Primera sesión de vuelta</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="signal">1–7 días</td>
+                <td>Ninguna — retoma donde lo dejó.</td>
+                <td>Se trata como «Con cautela» automático, aunque el readiness de hoy diga «Listo».</td>
+              </tr>
+              <tr>
+                <td class="signal">8–14 días</td>
+                <td>Fuerza <b>−5%</b> de la última carga; resistencia <b>−15%</b> de la última distancia/duración. Desde ahí, ritmo normal del bloque 1 (recupera lo perdido en 2–3 semanas).</td>
+                <td>Nada de formato pico ni test de máximo esfuerzo.</td>
+              </tr>
+              <tr>
+                <td class="signal">15–28 días</td>
+                <td>Retrocede al <b>punto medio</b> de la última progresión activa de cada familia (no al inicio del todo). Fuerza <b>−10% a −15%</b>.</td>
+                <td>Sin formato pico ni test de máximo esfuerzo en los primeros 7–10 días de vuelta.</td>
+              </tr>
+              <tr>
+                <td class="signal">≥ 29 días</td>
+                <td>No se retoma la secuencia interrumpida. Repite la batería de tests de calibración antes de asignar carga o ritmo basados en RM/zonas. Arranca en el peldaño más bajo de su celda nivel×días previa.</td>
+                <td>Igual que el resto — nunca formato pico, nunca por debajo de RIR 3.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="sub-note" style="margin-top:-0.4rem;">
+          Los deficits de una parada corta se recuperan «en unas pocas semanas de buen
+          entreno» — de ahí que 1–2 semanas se traten con un simple paso atrás, no con un
+          reinicio. <span class="cite" title="Revisiones de desentrenamiento — curva de VO2máx y fuerza">curvas de desentrenamiento agregadas</span>.
+        </p>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">estamos en <b>cualquier</b> caso de reincorporación de la tabla</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">la primera sesión de vuelta nunca baja de <b>RIR ≥ 3</b> y nunca es formato pico — pase lo que pase el calendario.</span></div>
+        </div>
+
+        <div class="rule rule--stop">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el motivo del hueco es <b>enfermedad con fiebre</b> (no viaje ni logística)</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">la primera sesión de vuelta se limita a Z2 / RIR ≥4, más conservador que cualquier otro caso de esta tabla, sea cual sea la duración del hueco.</span></div>
+          <div class="why">Precaución médica ampliamente aceptada: retomar esfuerzo justo tras un cuadro febril tiene riesgo cardiovascular conocido (síndrome post-viral, miocarditis) — protocolos de vuelta gradual tras enfermedad febril son estándar en medicina deportiva. Requiere una etiqueta de motivo del hueco que <b>hoy no existe</b> en el esquema — ver <a href="#diferencias">«Dónde nos separamos» #11</a>.</div>
+        </div>
+
+        <div class="rule rule--hold">
+          <div class="rule-row if"><span class="k">SI</span><span class="v">el hueco es ≥29 días <b>y</b> el coach considera que la pérdida fue especialmente severa</span></div>
+          <div class="rule-row then"><span class="k">ENTONCES</span><span class="v">puede arrancar un nivel por debajo de su celda previa — única decisión de todo este bloque que queda a criterio humano.</span></div>
+          <div class="why">Más allá de un mes, la variabilidad individual (edad, historial, causa del hueco) es demasiado alta para una regla puramente mecánica — aquí sí hace falta ojo de coach. <span class="cite--own">criterio propio</span>, declarado a propósito.</div>
+        </div>
+      </section>
+
+      <!-- ================================================================ TABLA -->
+      <section class="block" id="tabla">
+        <span class="block-num">REF</span>
+        <h2 class="block-title">Tabla de umbrales</h2>
+        <p class="block-lead">Cada disparador de este documento, en una sola tabla: qué se mide, cómo se calcula, qué valor lo dispara y qué acción exacta sigue.</p>
+
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr><th>Señal</th><th>Cómo se calcula</th><th>Valor que dispara</th><th>Acción exacta</th></tr>
+            </thead>
+            <tbody>
+              <tr class="group-row"><td colspan="4">Bloque 3 — estado diario</td></tr>
+              <tr><td class="signal">Readiness compuesto</td><td class="calc">media ponderada .35/.25/.20/.10/.10</td><td class="trigger">≥ 67</td><td><span class="action-pill up">entrena previsto</span></td></tr>
+              <tr><td class="signal">Readiness compuesto</td><td class="calc">ídem</td><td class="trigger">45–66</td><td><span class="action-pill down">rebajado por tipo de sesión</span></td></tr>
+              <tr><td class="signal">Readiness compuesto</td><td class="calc">ídem</td><td class="trigger">&lt; 45</td><td><span class="action-pill stop">skipped, fuera de adherencia</span></td></tr>
+              <tr><td class="signal">Agujetas (check-in)</td><td class="calc">escala 1–5 autoinformada</td><td class="trigger">= 5</td><td><span class="action-pill down">tope a «Con cautela» aunque el resto sea alto</span></td></tr>
+              <tr><td class="signal">VFC vs. línea base</td><td class="calc">media diaria vs. media 46d (d−60 a d−14)</td><td class="trigger">2 días ≥5% abajo, o 1 día ≥15% abajo</td><td><span class="action-pill flag">marca «tendencia bajista»</span></td></tr>
+              <tr><td class="signal">Cumplimiento 7 días</td><td class="calc">completadas / programadas</td><td class="trigger">&lt; 60%</td><td><span class="action-pill flag">keep + aviso al coach</span></td></tr>
+              <tr><td class="signal">Sesiones perdidas 7 días</td><td class="calc">conteo <code class="mono">status = missed</code></td><td class="trigger">≥ 2</td><td><span class="action-pill flag">trigger semanal de adherencia</span></td></tr>
+              <tr><td class="signal">Check-in / readiness bajo sostenido</td><td class="calc">días en tramo bajo dentro de la semana evaluada</td><td class="trigger">≥ 3 de 7</td><td><span class="action-pill down">soften — rebaja toda sesión dura restante</span></td></tr>
+              <tr><td class="signal">VFC bajo sostenido (semana)</td><td class="calc">días con VFC 7d &lt; −15% vs. base</td><td class="trigger">≥ 4 de 7</td><td><span class="action-pill stop">rest_day — descanso extra antes de la sesión más dura</span></td></tr>
+              <tr><td class="signal">Triggers semanales simultáneos</td><td class="calc">conteo de disparadores activos</td><td class="trigger">≥ 2</td><td><span class="action-pill stop">escala un nivel + aviso siempre</span></td></tr>
+
+              <tr class="group-row"><td colspan="4">Bloque 2 — fuerza (sesión a sesión)</td></tr>
+              <tr><td class="signal">RIR real − RIR objetivo</td><td class="calc">serie más dura del ejercicio</td><td class="trigger">≤ −3, o fallo de serie</td><td><span class="action-pill down">−10% carga (+ aviso si fue 1ª serie)</span></td></tr>
+              <tr><td class="signal">RIR real − RIR objetivo</td><td class="calc">ídem</td><td class="trigger">−2 a −1</td><td><span class="action-pill hold">mantiene carga</span></td></tr>
+              <tr><td class="signal">RIR real − RIR objetivo</td><td class="calc">ídem</td><td class="trigger">0 a +2</td><td><span class="action-pill up">+2,5% de 1RM</span></td></tr>
+              <tr><td class="signal">RIR real − RIR objetivo</td><td class="calc">ídem</td><td class="trigger">≥ +3</td><td><span class="action-pill up">+5% de 1RM (paso doble)</span></td></tr>
+              <tr><td class="signal">Fallos consecutivos a %RM fijo</td><td class="calc">sesiones seguidas del mismo ejercicio sin completar reps</td><td class="trigger">2 seguidas</td><td><span class="action-pill stop">−10% + needs_review + aviso coach</span></td></tr>
+
+              <tr class="group-row"><td colspan="4">Bloque 1 y 4 — semana y seguridad</td></tr>
+              <tr><td class="signal">Progresión semanal por familia</td><td class="calc">delta % vs. semana anterior</td><td class="trigger">&gt; 10% en una semana</td><td><span class="action-pill stop">bloqueado — techo duro</span></td></tr>
+              <tr><td class="signal">Ajuste manual del coach</td><td class="calc"><code class="mono">delta_pct</code> del payload</td><td class="trigger">&gt; 10%</td><td><span class="action-pill down">aviso duro (no bloquea)</span></td></tr>
+              <tr><td class="signal">Ajuste manual del coach</td><td class="calc">ídem</td><td class="trigger">&gt; 20%</td><td><span class="action-pill stop">exige confirmación + motivo escrito</span></td></tr>
+              <tr><td class="signal">Semanas de carga consecutivas</td><td class="calc">semanas donde ≥1 familia subió</td><td class="trigger">3 seguidas</td><td><span class="action-pill stop">4ª semana: descarga forzada (vol. −30/−40%)</span></td></tr>
+              <tr><td class="signal">Separación entre sesiones duras</td><td class="calc">formato pico o fuerza ≤3 RIR objetivo</td><td class="trigger">2 días consecutivos</td><td><span class="action-pill stop">error de validación al guardar</span></td></tr>
+              <tr><td class="signal">Sesiones pico por semana</td><td class="calc">conteo <code class="mono">hyrox_sim</code> / test máximo</td><td class="trigger">&gt; 2</td><td><span class="action-pill stop">bloqueado</span></td></tr>
+              <tr><td class="signal">Sesiones perdidas consecutivas</td><td class="calc">missed/skipped en ventana de 7 días</td><td class="trigger">≥ 3</td><td><span class="action-pill flag">dispara reincorporación (bloque 5)</span></td></tr>
+
+              <tr class="group-row"><td colspan="4">Bloque 5 — reincorporación</td></tr>
+              <tr><td class="signal">Hueco desde última sesión</td><td class="calc">días naturales</td><td class="trigger">1–7 días</td><td><span class="action-pill hold">sin regresión; 1ª sesión «Con cautela»</span></td></tr>
+              <tr><td class="signal">Hueco desde última sesión</td><td class="calc">ídem</td><td class="trigger">8–14 días</td><td><span class="action-pill down">fuerza −5%, resistencia −15%; sin pico</span></td></tr>
+              <tr><td class="signal">Hueco desde última sesión</td><td class="calc">ídem</td><td class="trigger">15–28 días</td><td><span class="action-pill down">punto medio de la progresión; −10/−15%; sin pico 7–10d</span></td></tr>
+              <tr><td class="signal">Hueco desde última sesión</td><td class="calc">ídem</td><td class="trigger">≥ 29 días</td><td><span class="action-pill stop">repite tests; reinicia en peldaño más bajo</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================================================================ DIFERENCIAS -->
+      <section class="block" id="diferencias">
+        <span class="block-num">REF</span>
+        <h2 class="block-title">Dónde nos separamos de lo habitual — y por qué</h2>
+        <p class="block-lead">Once decisiones donde esta especificación se aparta de una práctica popular, de lo que ya hay construido, o deja explícito un hueco.</p>
+
+        <div class="dev-list">
+          <div class="dev-item"><span class="dev-num">01</span><p><b>No usamos ACWR (ratio agudo:crónico) como puerta de seguridad</b>, aunque ya está calculado en el código. La crítica metodológica reciente es seria — el ratio es estadísticamente inestable y no hay evidencia causal de que gestionarlo prevenga lesiones <span class="cite" title="Impellizzeri et al., IJSPP 2020">Impellizzeri 2020</span>. Usamos CTL/ATL/TSB (Banister) como señal de tendencia; el ACR se queda como dato informativo, nunca como gate.</p></div>
+          <div class="dev-item"><span class="dev-num">02</span><p><b>La «regla del 10%» no se trata como verdad probada.</b> La evidencia real sitúa el salto de riesgo claro por encima de +30%/semana <span class="cite" title="Nielsen 2014">Nielsen 2014</span>. Usamos +10% como techo con margen amplio, no como el número "correcto" en sí.</p></div>
+          <div class="dev-item"><span class="dev-num">03</span><p><b>Velocity-based training (VBT) descartado para v1</b>, aunque se pidió considerarlo. No hay sensor ni integración de hardware en el box de Pablo ni prevista en el roadmap — RIR autoinformado es la señal ejecutable hoy, con evidencia razonable de fiabilidad, sobre todo cerca del fallo.</p></div>
+          <div class="dev-item"><span class="dev-num">04</span><p><b>El filtro anti-ruido de VFC es más estricto que el que ya existe en código.</b> Hoy <span class="src">checkin.ts</span> compara solo las últimas 24h contra los 7 días previos — reactivo a un solo día. Aquí exigimos 2 días seguidos (o una caída grande de un solo día) antes de considerarlo señal real.</p></div>
+          <div class="dev-item"><span class="dev-num">05</span><p><b>FC en reposo: hueco señalado, no resuelto aquí.</b> Hoy usa un suelo poblacional fijo (50 ppm) igual para todos. Se recomienda pasar a línea base individual (mismo patrón de ventana que ya usa VFC) — la FC en reposo varía muchísimo entre atletas por historial de entreno, y un suelo plano penaliza injustamente a quien la tiene naturalmente más alta.</p></div>
+          <div class="dev-item"><span class="dev-num">06</span><p><b>La descarga pasa a ser obligatoria por el sistema</b> tras 3 semanas de carga, no una casilla que el coach tiene que acordarse de marcar en el calendario. Hoy nada la fuerza.</p></div>
+          <div class="dev-item"><span class="dev-num">07</span><p><b>El rol de la IA en el ajuste semanal se recorta.</b> Hoy <span class="src">ai-propose-week-adjustment.ts</span> puede decidir el nivel (keep/soften/swap/rest_day) y el detalle de qué cambia, con un LLM configurado. Aquí esa decisión sale de esta tabla; la IA solo redacta y elige entre alternativas ya aprobadas por el coach.</p></div>
+          <div class="dev-item"><span class="dev-num">08</span><p><b>El rango de ajuste manual del coach (±50%) se mantiene igual de amplio</b> — a veces hace falta para corregir un error real, y eso no es «progresión». Lo que añadimos son los avisos progresivos (>10% aviso, >20% confirmación) que hoy no existen.</p></div>
+          <div class="dev-item"><span class="dev-num">09</span><p><b>La complejidad de movimiento nunca se auto-progresa.</b> El sistema solo puede proponer «candidato» tras 4 sesiones limpias — el coach decide qué variante enseñar. Línea deliberada entre lo objetivo (dosis, se automatiza) y lo subjetivo (qué patrón de movimiento, requiere criterio de coach).</p></div>
+          <div class="dev-item"><span class="dev-num">10</span><p><b>Agujetas: sin doble penalización, pero con un tope nuevo.</b> Ya alimenta el compuesto (0,35 vía check-in) — no se resta dos veces. Pero se añade un tope duro (5/5 nunca es «Listo») que hoy no existe.</p></div>
+          <div class="dev-item"><span class="dev-num">11</span><p><b>Enfermedad con fiebre necesita una etiqueta que hoy no existe.</b> El esquema actual no distingue el motivo de un hueco (viaje vs. enfermedad vs. logística) — se recomienda añadir ese campo antes de poder programar la regla de vuelta más conservadora del bloque 5 tal cual está escrita.</p></div>
+        </div>
+      </section>
+
+      <!-- ================================================================ EVIDENCIA -->
+      <section class="block" id="evidencia">
+        <span class="block-num">REF</span>
+        <h2 class="block-title">Evidencia citada</h2>
+        <p class="block-lead">Fuentes reales detrás de los umbrales, agrupadas por bloque. Donde la fuente es una síntesis agregada de varias revisiones (no un único estudio con autores claros), se dice explícitamente.</p>
+
+        <div class="refs">
+          <div class="ref-group-label">Volumen y riesgo de lesión</div>
+          <div class="ref-item">
+            <span class="ref-mark">①</span>
+            <div><a href="https://www.jospt.org/doi/10.2519/jospt.2014.5164" target="_blank" rel="noopener">Nielsen RO et al. — «Excessive Progression in Weekly Running Distance and Risk of Running-Related Injuries», JOSPT 2014</a>
+              <span class="ref-note">Base de los techos de +5–10%/semana y de la lectura de +30%/semana como zona de riesgo real.</span></div>
+          </div>
+          <div class="ref-item">
+            <span class="ref-mark">②</span>
+            <div><a href="https://journals.humankinetics.com/view/journals/ijspp/15/6/article-p907.xml" target="_blank" rel="noopener">Impellizzeri FM et al. — «Acute:Chronic Workload Ratio: Conceptual Issues and Fundamental Pitfalls», IJSPP 2020</a>
+              <span class="ref-note">Justifica no usar ACWR como puerta de seguridad pese a estar ya calculado.</span></div>
+          </div>
+
+          <div class="ref-group-label">Variabilidad cardíaca guiada</div>
+          <div class="ref-item">
+            <span class="ref-mark">③</span>
+            <div>Consenso agregado de monitorización de VFC en deporte — ventanas móviles de 7–10 días, «smallest worthwhile change», ≥60 días de histórico recomendado para una línea base estable.
+              <span class="ref-note">Síntesis agregada de varias fuentes de práctica y revisión (no un único paper citable línea a línea) — <a href="https://www.athletedata.health/guides/hrv-guided-training" target="_blank" rel="noopener">athletedata.health</a>, <a href="https://www.trainingpeaks.com/coach-blog/hrv-guided-training/" target="_blank" rel="noopener">TrainingPeaks</a>. Usada para el filtro de 2-días-seguidos / caída-grande-de-1-día del bloque 3.</span></div>
+          </div>
+
+          <div class="ref-group-label">Autorregulación de fuerza</div>
+          <div class="ref-item">
+            <span class="ref-mark">④</span>
+            <div><a href="https://www.sciencedirect.com/science/article/pii/S1728869X25000590" target="_blank" rel="noopener">Revisión sistemática y meta-análisis en red — entrenamiento de fuerza autorregulado (RIR/RPE)</a>
+              <span class="ref-note">Base de los rangos 1–3 RIR hipertrofia / 3–5 RIR fuerza, y de que la estimación de RIR es razonablemente fiable, sobre todo cerca del fallo.</span></div>
+          </div>
+
+          <div class="ref-group-label">Tapering y descarga</div>
+          <div class="ref-item">
+            <span class="ref-mark">⑤</span>
+            <div><a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0282838" target="_blank" rel="noopener">«Effects of tapering on performance in endurance athletes: A systematic review and meta-analysis», PLOS ONE 2023</a>
+              <span class="ref-note">Base del recorte de volumen 30–40% en descarga forzada del bloque 4, manteniendo intensidad y frecuencia.</span></div>
+          </div>
+
+          <div class="ref-group-label">Desentrenamiento y reincorporación</div>
+          <div class="ref-item">
+            <span class="ref-mark">⑥</span>
+            <div>Curvas agregadas de desentrenamiento — inicio de caída de VO<sub>2</sub>máx ~día 10, pérdida relevante a las 2–4 semanas, fuerza sostenida ~3–4 semanas antes de caer.
+              <span class="ref-note">Síntesis agregada, no un único estudio — usada para escalonar la regresión del bloque 5 por duración del hueco.</span></div>
+          </div>
+
+          <div class="ref-group-label">Entreno híbrido / HYROX</div>
+          <div class="ref-item">
+            <span class="ref-mark">⑦</span>
+            <div><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12550923/" target="_blank" rel="noopener">«High Intensity Functional Training in Hybrid Competitions: A Scoping Review of Performance Models and Physiological Adaptations», PMC</a>
+              <span class="ref-note">La interferencia fuerza-resistencia es dependiente de dosis/contexto, no automática — justifica progresar densidad antes que carga en estaciones.</span></div>
+          </div>
+
+          <div class="ref-group-label">Carga de sesión</div>
+          <div class="ref-item">
+            <span class="ref-mark">⑧</span>
+            <div>Foster C et al. 2001 — método session-RPE (carga = duración × RPE de sesión).
+              <span class="ref-note">Valida la fórmula que ya usa <span class="src">shared/domain/training-load/tss.ts</span> para el TSS diario.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="doc-foot">
+        FAHYBRID — especificación de metodología · 25 jul 2026. Fundamentada en el
+        esquema y el código en producción (readiness, veredicto semanal, modelo de
+        prescripción, carga Banister, secuencias de programa) más la literatura citada
+        arriba. Donde no había ni una cosa ni la otra, se marcó «criterio propio» a
+        propósito, sin disfrazarlo de evidencia.
+      </footer>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+    var links = Array.prototype.slice.call(document.querySelectorAll(".navlink"));
+    var sections = links
+      .map(function (l) {
+        var id = l.getAttribute("data-target");
+        return { link: l, el: document.getElementById(id) };
+      })
+      .filter(function (s) { return s.el; });
+
+    if (!("IntersectionObserver" in window) || sections.length === 0) return;
+
+    var current = null;
+    function setActive(id) {
+      if (id === current) return;
+      current = id;
+      links.forEach(function (l) {
+        l.classList.toggle("active", l.getAttribute("data-target") === id);
+      });
+    }
+
+    var io = new IntersectionObserver(
+      function (entries) {
+        var visible = entries
+          .filter(function (e) { return e.isIntersecting; })
+          .sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+        if (visible.length > 0) {
+          setActive(visible[0].target.id);
+        }
+      },
+      { rootMargin: "-10% 0px -70% 0px", threshold: [0, 1] }
+    );
+
+    sections.forEach(function (s) { io.observe(s.el); });
+    setActive("top");
+  })();
+</script>

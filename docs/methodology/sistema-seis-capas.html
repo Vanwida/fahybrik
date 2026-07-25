@@ -1,0 +1,174 @@
+<title>El sistema FAHYBRID</title>
+
+<style>
+  :root{
+    --ink:#0A0A0A; --ink2:#141414; --line:#242424; --line2:#2E2E2E;
+    --paper:#F2F0ED; --mut:#8C8C8C; --mut2:#B3B3B3;
+    --o:#FF6B00; --g:#46C98B;
+  }
+  body{
+    margin:0;background:var(--ink);color:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:0 clamp(1rem,4vw,2.5rem)}
+  .disp{font-style:italic;font-weight:800;letter-spacing:-.03em;text-transform:uppercase;line-height:.95}
+
+  header{padding:clamp(2.6rem,8vw,5rem) 0 clamp(2rem,5vw,3rem)}
+  .bar{width:70px;height:5px;background:var(--o);margin-bottom:1.6rem}
+  h1{font-size:clamp(2.2rem,1rem+5vw,4.2rem);margin:0}
+  .intro{margin-top:1.8rem;max-width:52ch;color:var(--mut2)}
+  .intro b{color:#fff;font-weight:650}
+
+  .L{border-top:1px solid var(--line);padding:1.6rem 0}
+  .L .top{
+    font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--mut);font-weight:700;margin-bottom:1rem
+  }
+  .L .top i{font-style:italic;font-weight:800;color:var(--o);font-size:1.1rem;letter-spacing:-.02em;margin-right:.5rem;text-transform:none}
+  .L .top b{color:#fff;font-weight:700;letter-spacing:.06em}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+  @media(max-width:720px){.two{grid-template-columns:1fr;gap:1rem}}
+  .box{border-left:2px solid var(--line2);padding-left:1rem}
+  .box.sys{border-left-color:var(--o)}
+  .box.coach{border-left-color:var(--g)}
+  .box .lbl{font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;font-weight:700;margin-bottom:.45rem}
+  .box.sys .lbl{color:var(--o)}
+  .box.coach .lbl{color:var(--g)}
+  .box p{margin:0;font-size:.94rem;line-height:1.5}
+
+  .why{
+    margin-top:1.1rem;font-size:.88rem;color:var(--mut2);
+    max-width:70ch;padding-left:1rem;border-left:2px solid transparent
+  }
+  .why b{color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:.62rem;display:block;margin-bottom:.3rem}
+
+  .end{border-top:1px solid var(--line);margin-top:2.4rem;padding:clamp(2.4rem,6vw,4rem) 0 1rem}
+  .end h2{font-size:clamp(1.5rem,1rem+2vw,2.3rem);margin:0 0 .9rem}
+  .end .n{color:var(--mut2);max-width:52ch;margin:0 0 2rem}
+  .ask{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  @media(max-width:700px){.ask{grid-template-columns:1fr}}
+  .ask div{background:var(--ink2);padding:1.3rem 1.2rem}
+  .ask .k{font-style:italic;font-weight:800;font-size:1.3rem;color:var(--g);letter-spacing:-.03em;line-height:1;margin-bottom:.5rem}
+  .ask p{margin:0;font-size:.9rem;color:var(--mut2)}
+
+  footer{border-top:1px solid var(--line);margin-top:2.6rem;padding:1.6rem 0 3rem;color:var(--mut);font-size:.8rem}
+  footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.05rem}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="bar"></div>
+    <h1 class="disp">El sistema<br>FAHYBRID</h1>
+    <p class="intro">
+      Montar un plan son seis decisiones. En cada una, o la respuesta es la misma para todos y la fija el sistema,
+      o la elige el coach para cada atleta. <b>Esta página dice cuál es cuál y por qué.</b>
+      Lo que fija el sistema es lo que hace que un plan nuestro se reconozca como nuestro.
+    </p>
+  </header>
+
+  <div class="L">
+    <div class="top"><i>01</i><b>Quién es el atleta</b></div>
+    <div class="two">
+      <div class="box sys">
+        <div class="lbl">Lo fija el sistema</div>
+        <p>Formato en el que compite, nivel, edad, días disponibles, lesiones. Todo en casillas cerradas.</p>
+      </div>
+      <div class="box coach">
+        <div class="lbl">Lo elige el coach</div>
+        <p>Nada. Es la ficha del atleta.</p>
+      </div>
+    </div>
+    <p class="why"><b>Por qué</b>Si esto se escribe a mano, el software no puede leerlo y todo lo que viene después hay que decidirlo a mano también.</p>
+  </div>
+
+  <div class="L">
+    <div class="top"><i>02</i><b>De dónde parte</b></div>
+    <div class="two">
+      <div class="box sys">
+        <div class="lbl">Lo fija el sistema</div>
+        <p>Nadie empieza sin números medidos, y se vuelven a medir cada cierto tiempo.</p>
+      </div>
+      <div class="box coach">
+        <div class="lbl">Lo elige el coach</div>
+        <p>Qué pruebas se usan y cada cuánto se repiten.</p>
+      </div>
+    </div>
+    <p class="why"><b>Por qué</b>Sin números de partida no se puede prescribir un ritmo ni una carga, y no hay forma de saber después si el atleta ha mejorado.</p>
+  </div>
+
+  <div class="L">
+    <div class="top"><i>03</i><b>Hacia dónde va</b></div>
+    <div class="two">
+      <div class="box sys">
+        <div class="lbl">Lo fija el sistema</div>
+        <p>Se planifica hacia atrás desde el día de la carrera, y hay semanas de descarga.</p>
+      </div>
+      <div class="box coach">
+        <div class="lbl">Lo elige el coach</div>
+        <p>Cuántas fases, cómo se llaman y cuánto dura cada una.</p>
+      </div>
+    </div>
+    <p class="why"><b>Por qué</b>La fecha de la carrera no se mueve, así que el calendario se calcula desde ahí. Y la fatiga se acumula: si nunca bajas, el atleta llega roto o lesionado.</p>
+  </div>
+
+  <div class="L">
+    <div class="top"><i>04</i><b>La semana</b></div>
+    <div class="two">
+      <div class="box sys">
+        <div class="lbl">Lo fija el sistema</div>
+        <p>Cada fase tiene su plantilla de semana. Dos sesiones duras no van seguidas.</p>
+      </div>
+      <div class="box coach">
+        <div class="lbl">Lo elige el coach</div>
+        <p>Qué va cada día dentro de esa plantilla.</p>
+      </div>
+    </div>
+    <p class="why"><b>Por qué</b>Decidir la semana cada lunes funciona con cinco atletas y deja de funcionar con cincuenta. Y juntar dos sesiones duras es donde aparecen las lesiones.</p>
+  </div>
+
+  <div class="L">
+    <div class="top"><i>05</i><b>La sesión</b></div>
+    <div class="two">
+      <div class="box sys">
+        <div class="lbl">Lo fija el sistema</div>
+        <p>Cada ejercicio lleva medida, objetivo y descanso. Lo que quede en texto libre no se publica.</p>
+      </div>
+      <div class="box coach">
+        <div class="lbl">Lo elige el coach</div>
+        <p>Los ejercicios, el orden y las progresiones.</p>
+      </div>
+    </div>
+    <p class="why"><b>Por qué</b>Si la sesión no está cerrada, cada atleta la interpreta a su manera y después no se puede comparar nada ni sacar analíticas.</p>
+  </div>
+
+  <div class="L">
+    <div class="top"><i>06</i><b>Lo que vuelve</b></div>
+    <div class="two">
+      <div class="box sys">
+        <div class="lbl">Lo fija el sistema</div>
+        <p>El estado del atleta hoy puede cambiar la sesión de hoy, y lo que ejecuta corrige lo siguiente.</p>
+      </div>
+      <div class="box coach">
+        <div class="lbl">Lo elige el coach</div>
+        <p>Cuándo se baja, cuánto se baja y qué es intocable.</p>
+      </div>
+    </div>
+    <p class="why"><b>Por qué</b>Un plan que no responde a lo que pasa es un PDF. Esta capa es la única que un coach no puede hacer solo, por muchas horas que le eche.</p>
+  </div>
+
+  <div class="end">
+    <h2 class="disp">Lo que falta por definir</h2>
+    <p class="n">Las tres cosas de la columna verde que todavía no están decididas. Con eso el sistema queda montado.</p>
+    <div class="ask">
+      <div><div class="k">01</div><p>Las pruebas de referencia y cada cuánto se repiten.</p></div>
+      <div><div class="k">02</div><p>Las fases: cuántas, cómo se llaman y cuánto duran.</p></div>
+      <div><div class="k">03</div><p>Una semana tipo por cada fase.</p></div>
+    </div>
+  </div>
+
+  <footer><b>FAHYBRID</b> · El sistema</footer>
+
+</div>

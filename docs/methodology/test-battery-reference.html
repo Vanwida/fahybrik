@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batería de tests de referencia — metodología FAHYBRID</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1e; --line:#2a2a2e;
+    --ink:#f5f5f4; --muted:#a1a1aa; --dim:#71717a;
+    --orange:#ff5721; --orange-soft:#ff764b;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --blue:#60a5fa;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:48px 24px 120px}
+  h1{font-size:29px;font-weight:800;font-style:italic;letter-spacing:-.02em;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 8px}
+  .meta{color:var(--dim);font-size:12.5px;font-family:var(--mono);margin-bottom:34px}
+  h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange-soft);margin:52px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:17px;font-weight:700;margin:0 0 4px}
+  h3 .slug{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--dim);margin-left:8px}
+  p{margin:0 0 12px}
+  .muted{color:var(--muted)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);padding:1.5px 6px;border-radius:5px;color:#ffd9c9;white-space:nowrap}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+  .tldr{background:linear-gradient(180deg,#1a120d,#141416);border:1px solid #4a2a17}
+  .tldr b{color:var(--orange-soft)}
+  .rule{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .rule .k{flex:0 0 auto;font-size:18px;line-height:1.3}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .scroll table{margin:0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .ok{background:rgba(52,211,153,.13);color:var(--green)}
+  .warn{background:rgba(251,191,36,.13);color:var(--amber)}
+  .neu{background:rgba(96,165,250,.13);color:var(--blue)}
+  .test-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:16px 0}
+  .test-card.opt{border-style:dashed}
+  .kv{display:grid;grid-template-columns:120px 1fr;gap:6px 14px;font-size:14px;margin:14px 0}
+  .kv dt{color:var(--dim);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;padding-top:2px}
+  .kv dd{margin:0;color:var(--ink)}
+  .prescribe{background:var(--surface-2);border-left:3px solid var(--orange);border-radius:0 10px 10px 0;padding:10px 14px;margin:14px 0;font-size:14px}
+  .prescribe b{color:var(--orange-soft)}
+  .freq{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted)}
+  .no-list{display:grid;gap:10px}
+  .no-item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  .no-item .nm{font-weight:700;font-size:14.5px;margin-bottom:4px}
+  .src-list{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;font-size:13.5px}
+  .src-list li{margin:8px 0}
+  .src-list a{color:var(--blue)}
+  .flag{background:var(--surface);border:1px dashed var(--amber);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:13.5px;color:var(--muted)}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);font-size:12.5px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Batería de tests de referencia</h1>
+  <p class="sub">Qué se mide a un atleta FAHYBRID al entrar, con qué protocolo exacto y cada cuánto se repite. Estándar del producto.</p>
+  <p class="meta">metodología · v1 · decidido 2026-07-25 · reconcilia y formaliza shared/domain/coach/test-battery.ts (#34) + shared/domain/methodology/{zones,zone-model,test-types}.ts</p>
+
+  <div class="card tldr">
+    <div class="rule"><span class="k">🎯</span><div><b>4 pruebas obligatorias</b> cubren las 5 capacidades que exige la carrera (aeróbica, umbral, fuerza máxima, resistencia de fuerza, correr fatigado) combinando dos de ellas en un único protocolo integrado (el half-sim). <b>+1 prueba opcional</b> (Ski 1K) activada por dato, no por defecto.</div></div>
+    <div class="rule"><span class="k">📅</span><div><b>Alta:</b> las 4 en la primera semana, repartidas en 4 sesiones (nunca el mismo día). <b>Repetición:</b> cada 6 semanas el trío aeróbico+integración; cada 12 semanas también la 1RM — ya es el patrón que fija el propio esquema (<code>freshness_threshold_weeks</code>: pace/HR=6, 1RM=12).</div></div>
+    <div class="rule"><span class="k">🧪</span><div><b>Nada de laboratorio ni sangre.</b> Todo con Concept2, trineo, mancuernas/sacos, barra y pista/cinta — la maquinaria que ya hay en cualquier box de HYROX.</div></div>
+  </div>
+
+  <h2>1 · Las 5 capacidades → 4 pruebas</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Capacidad que exige la carrera</th><th>Por qué importa</th><th>Prueba que la cubre</th></tr></thead>
+    <tbody>
+      <tr><td><b>Capacidad aeróbica</b></td><td class="muted">La carrera es ante todo un evento aeróbico sostenido 55-120 min — el correlato más fuerte con el tiempo final es VO2max/volumen aeróbico, no la fuerza (Frontiers 2025, ver §6).</td><td class="who">5K control</td></tr>
+      <tr><td><b>Umbral</b></td><td class="muted">~48-59% del tiempo de carrera es correr a intensidad umbral-alta, repetido 8 veces con acidosis acumulada de las estaciones entre medio.</td><td class="who">5K control + Remo 2K (mismo test, dos números)</td></tr>
+      <tr><td><b>Fuerza máxima</b></td><td class="muted">El empuje de trineo (152-202 kg) es la estación que más castiga la fuerza bruta de pierna — sin una base de fuerza máxima no hay margen para moverlo.</td><td class="who">Batería 1RM</td></tr>
+      <tr><td><b>Resistencia de fuerza</b></td><td class="muted">Wall balls, lunges, farmers, BBJ son esfuerzo submáximo repetido bajo fatiga acumulada, no un pico de fuerza.</td><td class="who">HYROX half-sim (splits por estación)</td></tr>
+      <tr><td><b>Correr fatigado</b></td><td class="muted">La habilidad decisiva de HYROX: el 5º tramo de carrera es sistemáticamente el más lento del estudio (Frontiers 2025) — no basta con poder correr, hay que poder correr YA cansado de estación.</td><td class="who">HYROX half-sim (decaimiento entre 1er y 4º tramo)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="font-size:13.5px">El half-sim cubre <b>dos</b> capacidades a la vez a propósito: son la misma interacción fisiológica (fatiga de estación → degradación de ritmo) vista desde dos ángulos. Separarlas en 2 pruebas distintas duplicaría sesión y fatiga por el mismo dato.</p>
+
+  <h2>2 · Las pruebas</h2>
+
+  <div class="test-card">
+    <h3>5K control <span class="slug">tt_5k</span></h3>
+    <dl class="kv">
+      <dt>Mide</dt><dd>Capacidad aeróbica + umbral de carrera, en un solo esfuerzo.</dd>
+      <dt>Calienta</dt><dd>10 min carrera suave, RPE 3.</dd>
+      <dt>Ejecuta</dt><dd>5000 m al máximo sostenible (RPE 9-10). Pista preferible; si es cinta, 1% de inclinación para igualar el coste energético del aire libre (Jones &amp; Doust, 1996).</dd>
+      <dt>Enfría</dt><dd>10 min trote suave, RPE 2.</dd>
+      <dt>Registra</dt><dd>Tiempo total (mm:ss). Opcional: FC de recuperación a 60 s (HRR60).</dd>
+    </dl>
+    <div class="prescribe"><b>Prescribe:</b> pace5K = tiempo/5 → modelo VDOT (Daniels &amp; Gilbert) → umbral de carrera + las 6 zonas de ritmo (Z1-Z6) que gobiernan <i>toda</i> sesión de carrera del plan, más el ritmo objetivo de los 8 km de la carrera real (pace5K + 50-60 s/km).</div>
+    <span class="freq">semana 1 · luego cada 6 semanas</span>
+  </div>
+
+  <div class="test-card">
+    <h3>Remo 2K <span class="slug">tt_2k_row</span></h3>
+    <dl class="kv">
+      <dt>Mide</dt><dd>Motor aeróbico + umbral en ergómetro (patrón cíclico, tren completo).</dd>
+      <dt>Calienta</dt><dd>10 min remo suave, RPE 3.</dd>
+      <dt>Ejecuta</dt><dd>2000 m al máximo sostenible (RPE 9-10) en Concept2, damper 5-7.</dd>
+      <dt>Enfría</dt><dd>5-10 min remo/caminar suave.</dd>
+      <dt>Registra</dt><dd>Tiempo total; split /500m promedio (lo da el PM5 solo). Opcional: HRR60.</dd>
+    </dl>
+    <div class="prescribe"><b>Prescribe:</b> split2K/4 → split umbral /500m → las 6 zonas de remo que gobiernan toda sesión de remo del plan.</div>
+    <span class="freq">semana 1 · luego cada 6 semanas</span>
+  </div>
+
+  <div class="test-card opt">
+    <h3>Ski 1K <span class="slug">ski_1k · opcional</span></h3>
+    <dl class="kv">
+      <dt>Mide</dt><dd>Lo mismo que el remo, en skierg (patrón vertical, más tren superior/core).</dd>
+      <dt>Protocolo</dt><dd>Mismo patrón: 10 min calentamiento RPE3 → 1000 m RPE 9-10 → enfriar.</dd>
+      <dt>Registra</dt><dd>Tiempo total; split /500m.</dd>
+    </dl>
+    <div class="prescribe"><b>Prescribe:</b> split1K/2 → zonas de ski. <b>No entra por defecto</b> — remo y ski comparten motor aeróbico central, así que testear los dos duplica sesión para una ganancia marginal la mayoría de las veces. Se activa cuando la telemetría de entreno/simulacro muestra una brecha sostenida &gt;5% entre rendimiento de remo y de ski (eficiencia técnica distinta, no motor distinto) — trigger por dato, no por defecto.</div>
+    <span class="freq">bajo demanda · si se activa, cada 6 semanas junto al resto</span>
+  </div>
+
+  <div class="test-card">
+    <h3>Batería 1RM <span class="slug">one_rm_battery</span></h3>
+    <dl class="kv">
+      <dt>Mide</dt><dd>Fuerza máxima — sentadilla, peso muerto, press banca.</dd>
+      <dt>Calienta</dt><dd>Barra vacía × 8, luego series ascendentes (~50 / 70 / 85 / 90 / 95% del máximo previo o estimado) a 1-2 reps, descanso 2-3 min entre series pesadas.</dd>
+      <dt>Ejecuta</dt><dd>Progresa en simples hasta el <b>máximo técnico real</b> (no estimado) — se para en fallo de forma, no de fuerza. Orden: sentadilla → peso muerto → press banca (de más a menos exigencia sistémica/postural).</dd>
+      <dt>Registra</dt><dd>kg del máximo logrado, por levantamiento.</dd>
+    </dl>
+    <div class="prescribe"><b>Prescribe:</b> ancla TODA prescripción %RM de fuerza del plan — sentadilla y accesorios de empuje de pierna desde el 1RM de sentadilla (el proxy directo de la fuerza que mueve el trineo); peso muerto y patrones de tirón/carga desde el 1RM de peso muerto; press y accesorios de empuje superior desde el 1RM de press banca.</div>
+    <span class="freq">semana 1 · luego cada 12 semanas</span>
+  </div>
+
+  <div class="test-card">
+    <h3>HYROX half-sim <span class="slug">hyrox_half_sim</span></h3>
+    <dl class="kv">
+      <dt>Mide</dt><dd>Resistencia de fuerza + capacidad de correr fatigado — un único protocolo integrado a ritmo de carrera.</dd>
+      <dt>Calienta</dt><dd>10-15 min progresivo: trote suave + movilidad + 2-3 progresiones cortas + una serie ligera de cada implemento a usar.</dd>
+      <dt>Ejecuta</dt><dd>500m carrera → SkiErg 500m → 500m carrera → Empuje trineo 25m (carga de carrera de su categoría) → 500m carrera → Remo 500m → 500m carrera → Wall balls 50 reps (carga/diana de carrera de su categoría). 4 estaciones de las 8, mitad de volumen cada una — la CARGA no se reduce (rebajarla invalida la prueba de fuerza-resistencia).</dd>
+      <dt>Registra</dt><dd>Los 4 splits de carrera, tiempo/marca de cada estación, tiempo total.</dd>
+    </dl>
+    <div class="prescribe"><b>Prescribe:</b> (a) decaimiento entre el 1er y el 4º tramo de carrera = índice de "correr fatigado" → dispara más trabajo de <i>compromised running</i> si la caída es grande; (b) tiempo por estación vs. lo esperado por nivel = resistencia de fuerza por estación → dispara trabajo específico de esa estación; (c) tiempo total, comparado contra el ritmo "en fresco" de los tests 1-2 vía el módulo ya existente de transferencia carrera↔entreno (<code>shared/domain/race-transfer</code>) = proyección realista de tiempo de carrera y estrategia de ritmo.</div>
+    <span class="freq">semana 1 · luego cada 6 semanas</span>
+  </div>
+
+  <div class="card">
+    <div class="rule"><span class="k">🎯</span><div><b>Por qué estas 4 estaciones y no otras 4:</b> SkiErg + Remo cubren los dos tramos "motor" de la carrera; el empuje de trineo es la estación que la fuerza máxima existe para sostener; wall balls es, según el estudio HYROX de 2025, el punto de mayor acumulación de FC/lactato de toda la carrera. Las cuatro muestrean el principio (SkiErg, estación 1), medio (trineo/remo, 2ª y 5ª) y final (wall balls, 8ª) del orden real.</div></div>
+    <div class="rule"><span class="k">⚙️</span><div><b>Cargas por categoría (half-sim):</b> empuje trineo M Open 152 kg · M Pro 202 kg · W Open 102 kg · W Pro 152 kg (=M Open). Wall ball M Open 6 kg@3,00 m · M Pro 9 kg@3,00 m · W Open 4 kg@2,70 m · W Pro 6 kg@3,00 m (=M Open).</div></div>
+  </div>
+
+  <h2>3 · Condiciones que reprograman una prueba (las 4)</h2>
+  <p class="muted">Regla única, aplica a toda la batería — un número medido en mal estado no calibra nada, contamina el resto del bucle:</p>
+  <ul class="muted">
+    <li>HRV &lt; −10% vs. baseline, o sueño &lt; 6 h la noche anterior → reprogramar la sesión de test.</li>
+    <li>Menos de 10 días para una carrera objetivo → no se hacen tests de 1RM ni esfuerzos máximos (protección del taper).</li>
+  </ul>
+
+  <h2>4 · Reparto en sesiones</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Momento</th><th>Qué se hace</th><th>Reparto semanal</th><th>Duración aprox./sesión</th></tr></thead>
+    <tbody>
+      <tr><td><b>Semana 1 (alta)</b></td><td>Las 4 pruebas</td><td class="who">Mar 1RM · Mié 5K · Vie remo 2K · Sáb half-sim</td><td class="muted">60 · 45 · 30 · 55 min</td></tr>
+      <tr><td><b>Semana 6, 18, 30…</b></td><td>Trío aeróbico + integración</td><td class="who">Mié 5K · Vie remo 2K · Sáb half-sim</td><td class="muted">45 · 30 · 55 min</td></tr>
+      <tr><td><b>Semana 12, 24, 36…</b></td><td>Las 4 de nuevo (aeróbico + 1RM)</td><td class="who">Mar 1RM · Mié 5K · Vie remo 2K · Sáb half-sim</td><td class="muted">60 · 45 · 30 · 55 min</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="font-size:13.5px">Nunca 2 pruebas máximas el mismo día: 48-72h mínimo entre sesiones de test dentro de la misma semana. El orden (fuerza el martes, motor entre semana, integración el sábado) dilata la fatiga sistémica de la 1RM antes del 5K, y dedica el fin de semana — más margen de tiempo — al half-sim, la sesión más larga y compleja.</p>
+
+  <h2>5 · Por qué esta frecuencia y no otra</h2>
+  <p class="muted"><code>freshness_threshold_weeks</code> ya fijado en el sistema (Área 8 del pase de metodología): <code>pace/HR=6, 1RM=12, stations=8</code>. La cadencia de esta batería testea exactamente en el borde de caducidad de cada ancla — ni antes (desperdicia sesiones de entreno en repetir un test que no ha podido cambiar de verdad) ni después (el plan lleva semanas prescribiendo sobre un número caducado). La fuerza máxima caduca más despacio que el motor aeróbico en atletas ya entrenados, y repetir un 1RM al fallo tiene más coste de fatiga/riesgo que una contrarreloj — no compensa repetirla cada 6 semanas.</p>
+
+  <h2>6 · Tabla final</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Prueba</th><th>Qué mide</th><th>Protocolo</th><th>Qué prescribe</th><th>Cada cuánto</th></tr></thead>
+    <tbody>
+      <tr><td><b>5K control</b></td><td class="muted">Aeróbica + umbral (carrera)</td><td class="muted">10' suave → 5000m máximo → 10' suave</td><td class="muted">VDOT + 6 zonas de ritmo + pace de carrera</td><td class="who">Sem.1, luego /6 sem</td></tr>
+      <tr><td><b>Remo 2K</b></td><td class="muted">Aeróbica + umbral (ergo)</td><td class="muted">10' suave → 2000m máximo → enfriar</td><td class="muted">6 zonas de remo</td><td class="who">Sem.1, luego /6 sem</td></tr>
+      <tr><td><b>Ski 1K</b> <span class="muted" style="font-weight:400">(opcional)</span></td><td class="muted">Aeróbica + umbral (ski)</td><td class="muted">10' suave → 1000m máximo → enfriar</td><td class="muted">6 zonas de ski</td><td class="who">Si se activa, /6 sem</td></tr>
+      <tr><td><b>Batería 1RM</b></td><td class="muted">Fuerza máxima</td><td class="muted">Progresión hasta máximo técnico real — SQ→DL→BP</td><td class="muted">Todo %RM de fuerza del plan</td><td class="who">Sem.1, luego /12 sem</td></tr>
+      <tr><td><b>HYROX half-sim</b></td><td class="muted">Resistencia de fuerza + correr fatigado</td><td class="muted">4×500m carrera + 4 estaciones a ritmo de carrera, carga real, mitad de volumen</td><td class="muted">Decaimiento de ritmo, tiempo por estación, proyección de carrera</td><td class="who">Sem.1, luego /6 sem</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>7 · Lo que deliberadamente NO medimos</h2>
+  <div class="no-list">
+    <div class="no-item"><div class="nm">VO2max de laboratorio (ergoespirometría)</div><div class="muted">El campo (5K/2K + modelo VDOT) predice dentro de 1-3% cuando la forma está vigente — suficiente para prescribir zonas de entreno. El coste/acceso de un laboratorio no lo justifica para este uso.</div></div>
+    <div class="no-item"><div class="nm">Lactato en sangre</div><div class="muted">Analítica de sangre, fuera de alcance por diseño. El umbral se infiere del rendimiento (contrarreloj), no se mide bioquímicamente — práctica estándar en coaching de campo, no de laboratorio de investigación.</div></div>
+    <div class="no-item"><div class="nm">1RM de press militar, cargada, arrancada</div><div class="muted">Se trackean en el sistema (un coach puede añadirlos) pero no entran en la batería recurrente — el trabajo accesorio de esos patrones se dosifica por RPE/RIR sin necesitar un máximo formal; añadir 3 pruebas más de fallo técnico no compensa la fatiga extra por el valor marginal que aportan.</div></div>
+    <div class="no-item"><div class="nm">Máximo directo de trineo (empuje/arrastre)</div><div class="muted">No hay una prueba periódica dedicada. La sentadilla es el proxy de fuerza (mismo patrón de extensión de cadera-rodilla), y el rendimiento real de trineo se seguye directamente de la práctica/carrera vía <code>race-transfer</code> (comparación "entrenado vs. competido" ya existente) — más honesto que una fórmula, porque el empuje de trineo tiene un vector de fuerza horizontal distinto al de la sentadilla (ver §6, criterio propio).</div></div>
+    <div class="no-item"><div class="nm">Test individual de wall ball / farmers / lunges / BBJ máximos</div><div class="muted">Se muestrean colectivamente en el half-sim (splits) + práctica de estación en entreno normal. Testear las 4 estaciones restantes por separado añadiría 4 sesiones más por una ganancia analítica marginal sobre la señal combinada — rompe el presupuesto de tiempo razonable.</div></div>
+    <div class="no-item"><div class="nm">Composición corporal (% grasa, pliegues, DEXA)</div><div class="muted">La evidencia (§6) la correlaciona con el rendimiento, pero FAHYBRID prescribe entrenamiento, no objetivos de composición corporal — no hay mecanismo de prescripción al que alimentar ese número (viola la regla nº1: sin prescripción, no entra).</div></div>
+    <div class="no-item"><div class="nm">Screening de movilidad (FMS, sentadilla overhead)</div><div class="muted">Sin un camino número→dosis en este sistema (la movilidad se prescribe por cues cualitativos del coach, no por un score). Candidato a futuro si se construye esa prescripción; hoy no entra.</div></div>
+    <div class="no-item"><div class="nm">Cadencia de carrera / biomecánica dedicada</div><div class="muted">Ya se captura pasivamente en cualquier sesión de carrera con reloj/GPS (<code>cadence_spm</code>) — no necesita una prueba propia.</div></div>
+    <div class="no-item"><div class="nm">Test de FC máxima dedicado</div><div class="muted">Se usa la FC máx. observada en los esfuerzos ya máximos de la batería (5K, half-sim) en vez de un protocolo de campo aparte — el sistema solo cae a la fórmula de Tanaka (208−0,7×edad) cuando no hay ninguna FC máx. medida real.</div></div>
+  </div>
+
+  <h2>8 · Evidencia</h2>
+  <div class="src-list">
+    <ul>
+      <li><b>Modelo de zonas por umbral (VDOT):</b> Daniels, J. <i>Daniels' Running Formula</i> (Human Kinetics, 3ª ed.) — el estándar de facto para pasar una contrarreloj a paces de entreno; predicciones dentro de 1-3% con la forma vigente. Ya es la fórmula que corre <code>shared/domain/running/vdot.ts</code>.</li>
+      <li><b>Demanda física de HYROX</b> (valida el énfasis aeróbico y el diseño del half-sim): <a href="https://doi.org/10.3389/fphys.2025.1519240">Frontiers in Physiology (2025) — "Acute physiological responses and performance determinants in Hyrox© – a new running-focused high intensity functional fitness trend"</a> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11994925/">PMC11994925</a>). Correr = ~59% del tiempo total en población recreativa (coincide con el dato ya asumido); 79,5%+19,6% de la carrera a intensidad dura/muy dura; los tramos de carrera tardíos son significativamente más lentos que los tempranos (fatiga acumulada real, medida); el tiempo final correlaciona con VO2max y volumen de entreno aeróbico, no con la fuerza sola.</li>
+      <li><b>Fiabilidad de la estimación de 1RM</b> (para la estimación vía Epley/Brzycki que ya usa el sistema en sets logueados fuera de la batería, no para el test de alta que usa máximo directo): <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8898007/">Reliability and validity of the multi-point and two-point methods of estimating 1RM (PMC8898007)</a> — correlaciones r=0,76-0,97 con el 1RM real, CV&lt;10% en sentadilla/peso muerto en población entrenada.</li>
+      <li><b>Sentadilla como proxy del empuje de trineo:</b> criterio propio, razonado — comparten el patrón de triple extensión cadera-rodilla-tobillo bajo carga y el motor principal (cuádriceps/glúteo), pero el trineo tiene un vector de fuerza horizontal distinto (mayor activación de gemelo, mayor capacidad de carga relativa) — por eso no se trata como un sustituto exacto, solo como el ancla de programación %RM, y el rendimiento de trineo real se verifica aparte vía práctica/carrera.</li>
+    </ul>
+  </div>
+
+  <div class="flag">
+    <b>Sin verificar, a confirmar si importa:</b> <code>shared/domain/methodology/test-types.ts</code> (el bloque "Test" del editor de plantillas) ofrece <code>ski_2k</code> (2000 m) como única opción de ski, mientras que el catálogo de calibración (<code>test-battery.ts</code>) espera un test de 1000 m para <code>ski_zones</code> (<code>time_1k_ski_seconds</code>, divide entre 2 para normalizar a /500m). Si un coach usa ese bloque de 2000 m y marca su resultado como calibración de zonas de ski, el umbral calculado saldría equivocado (divide por 2 un tiempo de 2000 m en vez de por 4). No confirmé si la UI actual permite esa combinación — nota para quien toque esa superficie, no bloquea esta batería (que usa 1000 m como ground truth).
+  </div>
+
+  <div class="foot">
+    docs/methodology/test-battery-reference.html · formaliza Área 8 (Tests &amp; benchmarks) de docs/design/methodology-system/spec.md, sin el acoplo a bloques ATR (dropped, mig. 0068) · mapeado contra: shared/domain/coach/test-battery.ts · shared/domain/methodology/{zones,zone-model,test-types}.ts · shared/domain/running/vdot.ts · shared/domain/strength/{one-rm,exercises}.ts · shared/domain/race-transfer/compute.ts · docs/design/tests-calibracion-semana1-model.html
+  </div>
+
+</div>
+</body>
+</html>
