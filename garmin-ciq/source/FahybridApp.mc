@@ -32,7 +32,10 @@ class FahybridApp extends Application.AppBase {
         controller.refresh();
     }
 
-    function getInitialView() as Lang.Array {
+    // La firma la fija AppBase y hay que copiarla EXACTA: declararla como
+    // `Lang.Array` a secas no compila (el compilador lo lee como sobrescribir
+    // con otro tipo de retorno). Tomada de los samples del SDK 9.2.0.
+    function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
         return [new MainView(controller), new MainDelegate(controller)];
     }
 }

@@ -19,8 +19,11 @@ module Delivery {
     // Se vuelca a un array antes de hacer nada con ellos: borrar mientras se
     // itera invalida el iterador. El tope MAX_APP_WORKOUTS_SCAN es un seguro,
     // no una expectativa: nunca deberíamos tener más de un par.
-    function listAppWorkouts() as Lang.Array {
-        var items = [];
+    function listAppWorkouts() as Lang.Array<PersistedContent.Workout> {
+        // El array se tipa explícitamente: un `[]` pelado se infiere como array
+        // de Object, y un Workout persistido es una INTERFAZ, no un Object, así
+        // que el compilador rechaza el add.
+        var items = [] as Lang.Array<PersistedContent.Workout>;
         var iterator = PersistedContent.getAppWorkouts();
         if (iterator == null) {
             return items;

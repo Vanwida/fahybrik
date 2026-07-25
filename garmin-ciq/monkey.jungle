@@ -1,12 +1,13 @@
 # Jungle del proyecto.
 #
-# `resources/` es el idioma POR DEFECTO y está en español: los atletas son de
-# Barcelona. `resources-eng/` solo pisa los textos cuando el reloj está en
-# inglés — un Garmin en inglés es habitual y no queremos dejarlo a medias.
+# Solo declara el manifiesto, y es a propósito: el compilador ya toma `source/`
+# y `resources/` por convención, y las carpetas `resources-<idioma>` las aplica
+# solas cuando el reloj está en ese idioma. Así que `resources/` es el español
+# por defecto (los atletas son de Barcelona) y `resources-eng/` pisa los textos
+# en un reloj en inglés, sin necesidad de una sola línea más.
+#
+# Verificado contra el sample `Strings` del SDK 9.2.0, que trae diez idiomas y
+# cuyo jungle es exactamente esta línea. Un intento anterior de declarar el
+# idioma a mano no compilaba.
 
 project.manifest = manifest.xml
-
-base.sourcePath = source
-base.resourcePath = resources
-
-base.lang.eng.resourcePath = $(base.lang.eng.resourcePath);resources-eng
