@@ -28,6 +28,22 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 ---
 
 - **Derivación desde la carrera** — el origen de la metodología: las 7 exigencias del evento y qué se entrena por cada una. Regla: un tipo de sesión solo existe si traza hasta una exigencia. → `docs/methodology/derivacion-desde-la-carrera.html`
+- **Los 16 tipos de sesión** — derivados de las 7 exigencias, cada uno con su sesión de ejemplo completamente especificada. → `docs/methodology/catalogo-15-tipos.html`
+- **La semana** — las 6 reglas que deciden qué entra cuando 27 sesiones compiten por 6 huecos, y las 4 semanas tipo. → `docs/methodology/la-semana.html`
+
+### Contraste contra fuentes externas (transcripciones de YouTube, 25-jul)
+
+Fuente: `~/Public/projects/health-planning/coach-methodology/sources/youtube` (16 ficheros). Se usaron **solo para buscar contradicciones**, nunca como contenido — el riesgo era derivar hacia "lo que hace todo el mundo".
+
+Lo que cambió a raíz del contraste:
+- **Tipo 16 añadido** (velocidad y potencia). Faltaba: las series cortas son ritmo submáximo y la fuerza máxima son 1-5 repes; ninguno entrena producir fuerza *rápido*. Dos creadores independientes convergen.
+- **Jerarquía codificada en la semana**: el aeróbico manda porque manda en la prueba. Antes el catálogo era un menú plano que permitía una semana 50/50.
+- **Sim completa fuera de Pico** → al final de Ritmo. Meter un esfuerzo máximo de 70 min en la descarga contradice el único consenso unánime.
+- **Techo de 150 m de sled por sesión**, calentamiento incluido; push y pull separados desde Ritmo.
+
+Lo que se confirmó bien: nuestro modelo de dos anclas (tempo 4:32 vs ritmo de carrera 5:07) es más fino que la simplificación de las fuentes; nuestras reglas de HRV son más estrictas que el contenido popular; y **ninguna de las 11 fuentes de HYROX menciona la roxzone como entrenable** — ahí vamos por delante.
+
+Aviso de calibración: 6 de los 11 vídeos de HYROX son del mismo creador, así que lo que parece consenso es una voz repetida.
 
 ---
 

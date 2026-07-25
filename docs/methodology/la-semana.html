@@ -1,0 +1,204 @@
+<title>La semana — FAHYBRID</title>
+
+<style>
+  :root{
+    --ink:#0A0A0A;--ink2:#151515;--ink3:#1C1C1C;--line:#282828;--line2:#343434;
+    --paper:#F2F0ED;--mut:#909090;--mut2:#BFBFBF;
+    --o:#FF6B00;--run:#4DA3FF;--str:#E5484D;--stn:#46C98B;--rest:#5A5A5A;--warn:#F5A524;
+  }
+  body{margin:0;background:var(--ink);color:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    font-size:18px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 clamp(1.2rem,4vw,3rem)}
+  .disp{font-style:italic;font-weight:800;letter-spacing:-.035em;text-transform:uppercase;line-height:.92}
+
+  header{padding:clamp(3rem,9vw,6rem) 0 clamp(1.6rem,4vw,2.4rem)}
+  .bar{width:100px;height:7px;background:var(--o);margin-bottom:2rem}
+  h1{font-size:clamp(2.8rem,1.2rem+7vw,6.4rem);margin:0}
+  .intro{margin-top:2rem;max-width:24ch;font-size:clamp(1.25rem,.9rem+1.5vw,2rem);
+    font-weight:600;letter-spacing:-.02em;line-height:1.25;color:var(--mut2)}
+  .intro b{color:#fff;font-weight:700}
+  .intro em{color:var(--o);font-style:normal;font-weight:700}
+
+  section{border-top:1px solid var(--line);padding:clamp(2.4rem,5vw,3.6rem) 0}
+  .h{font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:1.6rem}
+  .h i{font-style:italic;font-weight:800;color:var(--o);font-size:1.3rem;letter-spacing:-.02em;margin-right:.6rem;text-transform:none}
+  .h b{color:#fff;font-weight:700;letter-spacing:.08em}
+
+  /* aritmética */
+  .math{display:grid;grid-template-columns:auto auto auto;gap:2.5rem;align-items:center;
+    background:var(--ink2);border-left:5px solid var(--o);border-radius:0 10px 10px 0;padding:2rem 2.2rem}
+  @media(max-width:620px){.math{grid-template-columns:1fr;gap:1.2rem;text-align:left}}
+  .math .n{font-style:italic;font-weight:800;letter-spacing:-.04em;line-height:.85;
+    font-size:clamp(3.2rem,2rem+4vw,5.5rem)}
+  .math .a{color:var(--mut)}
+  .math .b{color:var(--o)}
+  .math .lb{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-top:.6rem}
+  .math .ar{font-size:2rem;color:var(--mut);font-weight:800}
+  @media(max-width:620px){.math .ar{display:none}}
+
+  /* reglas */
+  .rules{display:grid;gap:.6rem;margin-top:1.4rem}
+  .rule{display:grid;grid-template-columns:2rem 1fr;gap:.9rem;align-items:start;
+    background:var(--ink2);border-left:3px solid var(--o);padding:1rem 1.2rem;border-radius:0 8px 8px 0}
+  .rule .x{color:var(--o);font-weight:800;font-style:italic;font-size:1.2rem;line-height:1.3}
+  .rule p{margin:0;font-size:1.02rem}
+  .rule p b{color:#fff;font-weight:700}
+  .rule p span{display:block;color:var(--mut2);font-size:.92rem;margin-top:.3rem}
+
+  /* semana */
+  .wk{margin-top:2.4rem}
+  .wk .ph{display:flex;align-items:baseline;gap:1rem;margin-bottom:.5rem}
+  .wk .ph h3{margin:0;font-size:clamp(1.5rem,1rem+1.6vw,2.2rem);font-weight:800;font-style:italic;
+    text-transform:uppercase;letter-spacing:-.03em}
+  .wk .ph .d{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--o);font-weight:700}
+  .wk .goal{color:var(--mut2);font-size:1rem;margin:0 0 1rem;max-width:62ch}
+
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  @media(max-width:980px){.days{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:600px){.days{grid-template-columns:repeat(2,1fr)}}
+  .d{background:var(--ink2);border-top:4px solid var(--rest);border-radius:0 0 6px 6px;padding:.85rem .8rem;min-height:8.5rem}
+  .d.run{border-top-color:var(--run)}
+  .d.str{border-top-color:var(--str)}
+  .d.stn{border-top-color:var(--stn)}
+  .d.off{border-top-color:var(--rest);opacity:.55}
+  .d .dn{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:.5rem}
+  .d .s{font-size:.92rem;font-weight:700;line-height:1.25;margin-bottom:.3rem}
+  .d .q{font-size:.78rem;color:var(--mut2);line-height:1.3}
+  .d .add{font-size:.75rem;color:var(--o);font-weight:600;margin-top:.4rem}
+
+  .legend{display:flex;flex-wrap:wrap;gap:1.2rem;margin-top:.8rem;font-size:.75rem;color:var(--mut2)}
+  .legend span{display:flex;align-items:center;gap:.4rem}
+  .legend i{width:14px;height:4px;border-radius:2px;display:inline-block}
+
+  .flag{margin-top:1.4rem;font-size:.95rem;color:var(--mut2);
+    background:rgba(245,165,36,.09);border-left:4px solid var(--warn);padding:1rem 1.2rem;border-radius:0 8px 8px 0;max-width:70ch}
+  .flag b{color:var(--warn);font-weight:700}
+
+  .kick{border-left:6px solid var(--o);padding-left:1.8rem;margin-top:2.6rem;
+    font-size:clamp(1.4rem,1rem+2vw,2.4rem);font-weight:800;font-style:italic;
+    text-transform:uppercase;letter-spacing:-.03em;line-height:1.05;max-width:24ch}
+  .note{margin-top:1.4rem;font-size:1rem;color:var(--mut2);max-width:60ch}
+
+  footer{border-top:1px solid var(--line);padding:2rem 0 4rem;color:var(--mut);font-size:.85rem}
+  footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.2rem}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="bar"></div>
+  <h1 class="disp">La semana</h1>
+  <p class="intro">Los 16 tipos suman <b>27 sesiones</b> de tope. Caben seis. <em>Lo que dejas fuera define el método más que lo que metes.</em></p>
+</header>
+
+<section>
+  <div class="h"><i>01</i><b>El problema, en números</b></div>
+  <div class="math">
+    <div><div class="n a">27</div><div class="lb">Topes sumados</div></div>
+    <div class="ar">→</div>
+    <div><div class="n b">6</div><div class="lb">Días reales</div></div>
+    <div><p style="margin:0;color:var(--mut2);max-width:34ch">Cada tipo puso su tope asumiendo que había sitio. No lo hay. Cuando compiten veintisiete por seis huecos, <b style="color:#fff">la elección es la metodología</b>.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="h"><i>02</i><b>Las reglas que deciden quién entra</b></div>
+  <div class="rules">
+    <div class="rule"><span class="x">1</span><p><b>El aeróbico manda, porque manda en la prueba.</b><span>Correr es casi la mitad del tiempo de carrera. Así que la mayoría de los días tocan aeróbico. No es preferencia: es la proporción del evento.</span></p></div>
+    <div class="rule"><span class="x">2</span><p><b>La fuerza se protege, porque no tiene sustituto.</b><span>Nadie se hace más fuerte acondicionando. El sled son 152 kg y su sentadilla 130: ahí no hay atajo. Dos huecos de fuerza a la semana y no se ceden.</span></p></div>
+    <div class="rule"><span class="x">3</span><p><b>El día de sled cuenta como sesión de fuerza.</b><span>Empujar la carga oficial es un estímulo de fuerza, no de acondicionamiento. No se suma aparte — si no, la cuenta miente.</span></p></div>
+    <div class="rule"><span class="x">4</span><p><b>Dos sesiones duras nunca van seguidas.</b><span>Entre dos días exigentes va uno fácil o descanso. Es la regla que más sesiones tumba, y la que evita las lesiones.</span></p></div>
+    <div class="rule"><span class="x">5</span><p><b>La roxzone es gratis: se cuelga, no ocupa hueco.</b><span>Fatiga casi nula, así que se pega al final de un rodaje suave. Es la única forma de entrenar tres veces por semana algo que vale el 7% del tiempo de carrera.</span></p></div>
+    <div class="rule"><span class="x">6</span><p><b>Lo general se retira a medida que entra lo específico.</b><span>En Base casi todo es general. En Ritmo casi todo es la prueba. No se acumulan: se sustituyen.</span></p></div>
+  </div>
+</section>
+
+<section>
+  <div class="h"><i>03</i><b>Las cuatro semanas</b></div>
+
+  <div class="legend">
+    <span><i style="background:var(--run)"></i> Aeróbico y carrera</span>
+    <span><i style="background:var(--str)"></i> Fuerza</span>
+    <span><i style="background:var(--stn)"></i> Estaciones y específico</span>
+    <span><i style="background:var(--rest)"></i> Descanso</span>
+  </div>
+
+  <!-- BASE -->
+  <div class="wk">
+    <div class="ph"><h3>Base</h3><span class="d">4-8 semanas · 4 días tocan aeróbico</span></div>
+    <p class="goal">Motor aeróbico y fuerza pesada conviviendo. Ninguna de las dos busca techo todavía, así que pueden coexistir sin interferirse.</p>
+    <div class="days">
+      <div class="d run"><div class="dn">Lunes</div><div class="s">Rodaje 45'</div><div class="q">Z2 · 120-139 bpm</div><div class="add">+ roxzone 15'</div></div>
+      <div class="d str"><div class="dn">Martes</div><div class="s">Fuerza máxima</div><div class="q">Sentadilla 5×5 al 75% · velocidad y saltos antes</div><div class="add">+ grip</div></div>
+      <div class="d run"><div class="dn">Miércoles</div><div class="s">Rodaje 50'</div><div class="q">Z2</div></div>
+      <div class="d run"><div class="dn">Jueves</div><div class="s">Tempo 2×10'</div><div class="q">4:32/km · dosis corta de Base</div></div>
+      <div class="d off"><div class="dn">Viernes</div><div class="s">Descanso</div><div class="q">Movilidad opcional</div></div>
+      <div class="d stn"><div class="dn">Sábado</div><div class="s">Estaciones</div><div class="q">Sled 3×30 m · carga 4 rondas · BBJ 4×20 m</div></div>
+      <div class="d run"><div class="dn">Domingo</div><div class="s">Rodaje largo 65'</div><div class="q">Z2</div></div>
+    </div>
+  </div>
+
+  <!-- POTENCIA -->
+  <div class="wk">
+    <div class="ph"><h3>Potencia</h3><span class="d">4-5 semanas · 4 días tocan aeróbico</span></div>
+    <p class="goal">Convertir la base en output. Entran las series cortas y sube el trabajo de ergos. La fuerza sube de porcentaje y baja de volumen.</p>
+    <div class="days">
+      <div class="d run"><div class="dn">Lunes</div><div class="s">Rodaje 45'</div><div class="q">Z2</div><div class="add">+ roxzone 15'</div></div>
+      <div class="d str"><div class="dn">Martes</div><div class="s">Fuerza máxima</div><div class="q">80-88% · velocidad y saltos antes</div><div class="add">+ grip</div></div>
+      <div class="d run"><div class="dn">Miércoles</div><div class="s">Rodaje 50'</div><div class="q">Z2</div></div>
+      <div class="d run"><div class="dn">Jueves</div><div class="s">Series cortas</div><div class="q">6×800 m a 3:15 · descanso 2:00</div></div>
+      <div class="d off"><div class="dn">Viernes</div><div class="s">Descanso</div><div class="q"></div></div>
+      <div class="d stn"><div class="dn">Sábado</div><div class="s">Estaciones y ergos</div><div class="q">Sled 3×40 m · ergos 3000 m · carga 2 rondas</div></div>
+      <div class="d run"><div class="dn">Domingo</div><div class="s">Rodaje largo 60'</div><div class="q">Z2</div></div>
+    </div>
+  </div>
+
+  <!-- RITMO -->
+  <div class="wk">
+    <div class="ph"><h3>Ritmo</h3><span class="d">3-4 semanas · 4 días tocan aeróbico</span></div>
+    <p class="goal">Casi todo pasa a ser la prueba. Se retiran las series cortas y baja el volumen de fuerza: se mantiene la carga para no perder el techo, pero el protagonismo es de lo específico.</p>
+    <div class="days">
+      <div class="d run"><div class="dn">Lunes</div><div class="s">Rodaje 40'</div><div class="q">Z2</div><div class="add">+ roxzone 15'</div></div>
+      <div class="d str"><div class="dn">Martes</div><div class="s">Fuerza + sled push</div><div class="q">85-92%, volumen bajo · sled 3×50 m</div></div>
+      <div class="d stn"><div class="dn">Miércoles</div><div class="s">Rodaje 45' + entrada a estación</div><div class="q">Z2 · wall balls con pulso alto · sled pull 3×50 m</div></div>
+      <div class="d run"><div class="dn">Jueves</div><div class="s">Compromised running</div><div class="q">5 rondas · sled 20 m + 400 m a 2:03</div></div>
+      <div class="d off"><div class="dn">Viernes</div><div class="s">Descanso</div><div class="q"></div></div>
+      <div class="d stn"><div class="dn">Sábado</div><div class="s">Sim parcial</div><div class="q">Tramos 5 a 8, sin descanso entre ellos</div></div>
+      <div class="d run"><div class="dn">Domingo</div><div class="s">Rodaje regenerativo 40'</div><div class="q">Z1-Z2</div></div>
+    </div>
+    <div class="flag"><b>Aquí van las dos sim completas, no en Pico.</b> Una al empezar Ritmo como diagnóstico y otra al terminarlo como verificación, sustituyendo a la sim parcial del sábado. La última, a catorce días de la prueba como mínimo.</div>
+  </div>
+
+  <!-- PICO -->
+  <div class="wk">
+    <div class="ph"><h3>Pico</h3><span class="d">2 semanas · el volumen cae a la mitad</span></div>
+    <p class="goal">Cae el volumen un 45-50% y la intensidad no se toca. Se mantiene la frecuencia para no perder sensaciones, pero cada sesión es corta. Aquí no se gana nada: solo se puede perder.</p>
+    <div class="days">
+      <div class="d run"><div class="dn">Lunes</div><div class="s">Rodaje 30'</div><div class="q">Z2</div><div class="add">+ roxzone 10'</div></div>
+      <div class="d str"><div class="dn">Martes</div><div class="s">Fuerza de recuerdo</div><div class="q">2 series al 85% · misma carga, un tercio del volumen</div></div>
+      <div class="d run"><div class="dn">Miércoles</div><div class="s">Rodaje 30'</div><div class="q">Z2 + 4 progresiones</div></div>
+      <div class="d stn"><div class="dn">Jueves</div><div class="s">Compromised running corto</div><div class="q">3 rondas en vez de 5</div></div>
+      <div class="d off"><div class="dn">Viernes</div><div class="s">Descanso</div><div class="q"></div></div>
+      <div class="d run"><div class="dn">Sábado</div><div class="s">Activación 20'</div><div class="q">Z2 + 3 progresiones + 2 sled a 20 m</div></div>
+      <div class="d off"><div class="dn">Domingo</div><div class="s">Carrera</div><div class="q">O descanso total si es otra semana</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="h"><i>04</i><b>Qué se queda fuera, y por qué</b></div>
+  <div class="rules">
+    <div class="rule"><span class="x">—</span><p><b>Sim completa en Pico.</b><span>Es un esfuerzo máximo de más de una hora. Meterlo en la descarga contradice lo único en lo que coincide todo el mundo: el trabajo tiene que estar hecho dos semanas antes. Se mueve al final de Ritmo.</span></p></div>
+    <div class="rule"><span class="x">—</span><p><b>Series cortas en Base y en Ritmo.</b><span>En Base no hay base todavía sobre la que meter VO2max. En Ritmo, el hueco lo ocupa algo más específico que hace el mismo trabajo con más transferencia.</span></p></div>
+    <div class="rule"><span class="x">—</span><p><b>La segunda sesión de tempo, y la tercera de rodaje.</b><span>Sus topes eran teóricos. Cuando compiten con la fuerza y con lo específico, pierden — el aeróbico ya manda con cuatro días de siete.</span></p></div>
+    <div class="rule"><span class="x">—</span><p><b>Sled push y pull juntos, a partir de Ritmo.</b><span>El presupuesto son 150 metros de sled por sesión, calentamiento incluido. A 3×50 ya está agotado, así que se separan en días distintos.</span></p></div>
+  </div>
+
+  <p class="kick">Veintisiete querían entrar.<br>Entran seis.</p>
+  <p class="note">Y la regla que más tumba no es ninguna de contenido: es que dos sesiones duras nunca vayan seguidas. El calendario decide antes que el criterio.</p>
+</section>
+
+<footer><b>FAHYBRID</b> · La semana · borrador para revisión</footer>
+
+</div>
