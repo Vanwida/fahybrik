@@ -43,6 +43,10 @@ struct ConnectionsStep: View {
                         // as connected; only a thrown error means it failed.
                         do {
                             try await HealthKitPermissions.request()
+                            // Granting here must START the sync, exactly like Perfil
+                            // and el día-1. Marking the flag alone left the athlete
+                            // "conectado" y sin subir un solo dato.
+                            HealthKitConnection.markConnectedAndSync()
                             state.healthkitGranted = true
                         } catch {
                             state.healthkitGranted = false

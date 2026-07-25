@@ -36,13 +36,17 @@ async function getToday(res) {
       headers: { Authorization: `Bearer ${token}` },
     })
     const body = typeof r.body === 'string' ? JSON.parse(r.body) : r.body
-    // jsonOk puede envolver en { data } o devolver el objeto directo — toleramos ambos.
-    const week = (body && body.data) || body || {}
+    // La ruta devuelve { week, macro_summary, coach_name, target_race, next_race }
+    // SIN envolver (jsonOk escribe el objeto tal cual). Los días cuelgan de `week`,
+    // pero `coach_name` es de nivel superior porque es estable entre semanas.
+    // Ver web/app/api/athlete/plan/week/route.ts.
+    const root = body || {}
+    const week = root.week || {}
     const dow = todayDow()
     const day = (week.days || []).find((x) => x.day_of_week === dow) || null
 
     res(null, {
-      coach: week.coach_name || null,
+      coach: root.coach_name || null,
       day: day
         ? {
             is_rest: !!day.is_rest,

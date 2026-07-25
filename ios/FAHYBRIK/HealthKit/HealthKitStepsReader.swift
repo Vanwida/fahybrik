@@ -17,6 +17,26 @@ enum HealthKitConnection {
     static var isConnected: Bool {
         UserDefaults.standard.bool(forKey: connectedKey)
     }
+
+    /// Flips the connected flag AND starts the same sync pipeline AppRoot uses.
+    /// The two must happen together: the flag alone gates AppRoot's relaunch sync,
+    /// so setting it without calling connect() leaves the athlete "connected" and
+    /// uploading nothing until the next cold launch — which is exactly the bug the
+    /// onboarding step had. Single source for the sequence so the three surfaces
+    /// that offer the connect (Perfil, día-1, onboarding) can never drift again.
+    ///
+    /// `connect()` (not `start()`) resets anchors and re-pulls the recent window, so
+    /// an athlete who widens their Health permissions later recovers the history.
+    /// Pass `bearer` when the caller holds it; the onboarding surfaces don't, so
+    /// they fall back to the Keychain session token (same one AuthState reads).
+    static func markConnectedAndSync(bearer: String? = nil) {
+        HealthKitSyncService.shared.configure(
+            bearer: bearer ?? KeychainTokenStore.shared.read(),
+            athleteId: AuthState.persistedAthleteId()
+        )
+        HealthKitSyncService.shared.connect()
+        UserDefaults.standard.set(true, forKey: connectedKey)
+    }
 }
 
 // MARK: - Today's step count (display-local read)

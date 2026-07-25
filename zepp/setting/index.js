@@ -42,7 +42,9 @@ AppSettingsPage({
         body: JSON.stringify({ email: this.state.email, code: this.state.code }),
       })
       const body = await res.json()
-      const token = (body && (body.token || (body.data && body.data.token))) || ''
+      // /api/auth/email/verify devuelve `session_token` en el nivel superior
+      // (jsonOk NO envuelve en { data }). Ver web/app/api/auth/email/verify/route.ts.
+      const token = (body && body.session_token) || ''
       if (!token) return this.setStatus(props, 'Código incorrecto o caducado')
       props.settingsStorage.setItem('token', token)
       this.setStatus(props, '✓ Conectado')
