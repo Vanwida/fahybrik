@@ -751,7 +751,7 @@
   <dl class="tally">
     <div class="n-ok"><dt>Construido</dt><dd>7</dd></div>
     <div class="n-run"><dt>Construyéndose</dt><dd>0</dd></div>
-    <div class="n-wait"><dt>Esperan a Alex</dt><dd>2</dd></div>
+    <div class="n-wait"><dt>Esperan a Alex</dt><dd>1</dd></div>
     <div class="n-dead"><dt>Descartados</dt><dd>3</dd></div>
   </dl>
 
@@ -760,8 +760,8 @@
     <p class="lede">Lo único que necesita tu decisión. Todo lo demás va debajo, plegado.</p>
 
       <p>
-        Dos cosas, y las dos son responderme. <strong>Un minuto.</strong> Las dos solicitudes de API
-        (COROS y Suunto) ya están enviadas.
+        Una cosa hoy, y es un sí. Lo de Garmin espera al reloj de la semana que viene. Las dos
+        solicitudes de API ya están enviadas y el SDK instalado.
       </p>
 
       <div class="entries" style="background:transparent;border:none;gap:20px">
@@ -812,23 +812,19 @@
         <!-- 3 · Garmin -->
         <div class="task">
           <div class="task-head">
-            <h3>1 · Garmin: el modelo y el SDK</h3>
-            <span class="pill p-wait">Bloquea Garmin</span>
-            <span class="cost">≈ 1 min</span>
+            <h3>1 · Garmin: dime el modelo cuando llegue</h3>
+            <span class="pill p-wait">La semana que viene</span>
+            <span class="cost">1 min</span>
           </div>
           <p style="color:var(--ink-dim);margin:0">
-            La app del reloj está escrita entera, pero <strong>Garmin no simula el guiado</strong>: lo
-            único que de verdad importa —que salga el reproductor nativo con los tramos correctos—
-            solo se ve en un Forerunner o un fēnix de verdad. Sin eso no te lo doy por bueno.
+            El SDK ya está instalado y <strong>la app del reloj compila</strong>, en doce modelos de
+            las seis familias. No queda nada por tu parte hasta que tengas el reloj delante.
           </p>
-          <ul class="plain" style="margin:0">
-            <li>¿Tienes tú, o Pablo, algún Garmin a mano? Con uno basta.</li>
-            <li>
-              Y una segunda: el <strong>SDK de Connect IQ no está instalado</strong> en tu Mac, así
-              que ni una línea ha pasado por el compilador todavía. ¿Te lo instalo yo? Es gratis y
-              con un «sí» me encargo.
-            </li>
-          </ul>
+          <p style="color:var(--ink-dim);margin:0">
+            Cuando lo tengas: dime el modelo, enchúfalo por USB y en quince minutos sabemos si el
+            reproductor de Garmin arranca con los tramos correctos. Es lo único que no se puede
+            simular.
+          </p>
         </div>
 
         <!-- 4 · Migración -->
@@ -994,7 +990,7 @@
         <article class="entry">
           <div class="entry-head">
             <h3>La app Garmin del reloj</h3>
-            <span class="pill p-wait">Escrita, sin compilar</span>
+            <span class="pill p-ok">Compilando</span>
           </div>
           <p>
             Es un <strong>mensajero, no un reproductor</strong>: pide el fichero, deja que el reloj
@@ -1010,8 +1006,27 @@
             que sufrían los usuarios de TrainingPeaks.
           </p>
           <p>
-            <strong>Nada ha pasado por el compilador</strong>: tu Mac no tiene el SDK de Garmin.
-            Espera errores en la primera compilación. Está en el punto 1 de tu lista.
+            Ya compila en doce relojes (ver arriba). Lo que sigue sin poder probarse es el guiado en
+            sí: Garmin no simula las apps nativas, así que eso necesita el reloj físico.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>La app de Garmin ya compila</h3>
+            <span class="pill p-ok">Hecho</span>
+          </div>
+          <p>
+            Instalado el SDK de Garmin y generada la clave de firma. Al pasar por el compilador por
+            primera vez salieron <strong>tres errores</strong> que ninguna revisión a ojo habría
+            cazado: el fichero de build declaraba el idioma con una referencia circular que ni se
+            podía leer (y que sobraba entera, porque el compilador coge los idiomas por convención),
+            la función de arranque estaba mal tipada, y un array sin tipo no dejaba guardar los
+            entrenos descargados.
+          </p>
+          <p>
+            <strong>Compila en doce relojes</strong> de las seis familias, incluidos el 745 y el 945,
+            que son los más justos de memoria y donde más dudaba que cupiera.
           </p>
         </article>
 

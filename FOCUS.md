@@ -56,11 +56,11 @@ Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`
 2. Aflojar el filtro del Apple Watch a «el trabajo principal es carrera» (hoy exige un solo item → en producción eso es cero sesiones).
 3. **Bug vivo camino de iOS:** `web/lib/athlete/assignment-detail.ts:918` resuelve un target `hr_zone` con `resolvePaceBandFromZones(...,'per_km')` — una zona de PULSO sale como banda de RITMO.
 4. Dejar vivos `/api/coros/webhook` y `/api/coros/status`, declarados en la solicitud a COROS.
-5. Instalar el SDK de Connect IQ y compilar `garmin-ciq/` (nunca ha pasado por el compilador).
+5. ~~Compilar `garmin-ciq/`~~ HECHO 25-jul: SDK 9.2.0 + OpenJDK instalados, clave de firma en `~/.garmin/` (fuera del repo), y BUILD SUCCESSFUL en 12 dispositivos de las 6 familias. Falta solo la prueba en reloj físico, que Garmin no simula.
 
 **Solicitudes ENVIADAS el 25-jul:** COROS (sin plazo publicado; pendiente el correo a api@coros.com preguntando si el push de entrenos entra en el tier estándar) y Suunto (responden en dos semanas; pedimos Cloud API + apps de reloj, y van alex@ y hello@ como desarrolladores porque dan una app por correo).
 
-**Pendiente de Alex:** qué modelo de Garmin llega la semana que viene y si le instalamos el SDK · OK a la migración que añade `suunto` y `amazfit` al enum `biometric_source`.
+**Pendiente de Alex:** qué modelo de Garmin llega la semana que viene · OK a la migración que añade `suunto` y `amazfit` al enum `biometric_source`.
 
 **Hardware de pruebas:** el Kiprun *by Coros* de Gerard sirve para COROS (confirmar que pone «by Coros»; el GPS 500 viejo no vale). Para Garmin, Forerunner 165 de 2ª mano, 145-170 €.
 
