@@ -33,17 +33,35 @@ import type {
   Segment,
 } from '@fahybrid/shared/domain/prescription';
 import { isRepeat } from '@fahybrid/shared/domain/prescription';
-import type { AssignmentDetailWorkout } from '@fahybrid/shared/schema/workouts';
 
 /** Orden normativo de las fases en una `RunStructure`. */
 const PHASE_ORDER: readonly PhaseRole[] = ['warmup', 'main', 'cooldown'];
+
+/**
+ * Lo ÚNICO que necesitamos de una sesión para sacar su carrera: sus bloques, sus
+ * líneas, y la prescripción de cada línea.
+ *
+ * Tipado ESTRUCTURAL a propósito. Existen dos `AssignmentDetailWorkout` distintos
+ * en el repo — el de `shared/schema/workouts` (inferido de Zod, `exercise_id` como
+ * string) y el que devuelve `loadAssignmentDetail` (`exercise_id` numérico) — y
+ * atarnos a cualquiera de los dos obligaría a convertir en el otro sin ganar nada:
+ * aquí no se lee ni un solo id. Pedir la forma mínima los acepta a ambos y deja
+ * claro cuál es la dependencia real.
+ */
+export interface RunStructureSource {
+  blocks: readonly {
+    items: readonly {
+      prescription_json?: { structure?: RunStructure } | null;
+    }[];
+  }[];
+}
 
 /**
  * Las estructuras de carrera de una sesión, en orden de bloque y luego de línea.
  * Vacío cuando la sesión no tiene ninguna línea de carrera estructurada — es decir,
  * cuando NO es un entreno que pueda viajar a un reloj de fabricante.
  */
-export function collectRunStructures(workout: AssignmentDetailWorkout | null): RunStructure[] {
+export function collectRunStructures(workout: RunStructureSource | null): RunStructure[] {
   if (!workout) return [];
   const out: RunStructure[] = [];
   for (const block of workout.blocks) {
@@ -110,7 +128,7 @@ export function absolutizeResolvedZones(structure: RunStructure): RunStructure {
  * La estructura única y lista para codificar de una sesión, o null si la sesión no
  * es de carrera estructurada.
  */
-export function runStructureForSession(workout: AssignmentDetailWorkout | null): RunStructure | null {
+export function runStructureForSession(workout: RunStructureSource | null): RunStructure | null {
   const merged = mergeRunStructures(collectRunStructures(workout));
   return merged ? absolutizeResolvedZones(merged) : null;
 }
