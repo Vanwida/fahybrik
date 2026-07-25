@@ -2,67 +2,78 @@
 
 <style>
   :root{
-    --ink:#0A0A0A;--ink2:#141414;--ink3:#1B1B1B;--line:#242424;--line2:#2E2E2E;
-    --paper:#F2F0ED;--mut:#8C8C8C;--mut2:#B3B3B3;
+    --ink:#0A0A0A;--ink2:#151515;--ink3:#1C1C1C;--line:#282828;--line2:#343434;
+    --paper:#F2F0ED;--mut:#909090;--mut2:#BFBFBF;
     --o:#FF6B00;--run:#4DA3FF;--st:#46C98B;
   }
   body{margin:0;background:var(--ink);color:var(--paper);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
-    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1040px;margin:0 auto;padding:0 clamp(1rem,4vw,2.5rem)}
-  .disp{font-style:italic;font-weight:800;letter-spacing:-.03em;text-transform:uppercase;line-height:.95}
+    font-size:20px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(1.2rem,4vw,3rem)}
+  .disp{font-style:italic;font-weight:800;letter-spacing:-.035em;text-transform:uppercase;line-height:.92}
 
-  header{padding:clamp(2.6rem,8vw,5rem) 0 clamp(1.6rem,4vw,2.4rem)}
-  .bar{width:70px;height:5px;background:var(--o);margin-bottom:1.6rem}
-  h1{font-size:clamp(2.1rem,1rem+5vw,4rem);margin:0}
-  .intro{margin-top:1.6rem;max-width:50ch;color:var(--mut2)}
-  .intro b{color:#fff;font-weight:650}
+  header{padding:clamp(3.5rem,10vw,7rem) 0 clamp(2rem,5vw,3rem)}
+  .bar{width:100px;height:7px;background:var(--o);margin-bottom:2.2rem}
+  h1{font-size:clamp(3rem,1.2rem+8vw,7rem);margin:0}
+  .intro{margin-top:2.4rem;max-width:24ch;font-size:clamp(1.3rem,.9rem+1.6vw,2.1rem);
+    font-weight:600;letter-spacing:-.02em;line-height:1.25;color:var(--mut2)}
+  .intro b{color:#fff;font-weight:700}
+  .intro em{color:var(--o);font-style:normal;font-weight:700}
 
-  section{border-top:1px solid var(--line);padding:2rem 0}
-  .h{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:1.2rem}
-  .h i{font-style:italic;font-weight:800;color:var(--o);font-size:1.05rem;letter-spacing:-.02em;margin-right:.5rem;text-transform:none}
-  .h b{color:#fff;font-weight:700;letter-spacing:.06em}
+  section{border-top:1px solid var(--line);padding:clamp(2.6rem,6vw,4.5rem) 0}
+  .h{font-size:.8rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:2rem}
+  .h i{font-style:italic;font-weight:800;color:var(--o);font-size:1.4rem;letter-spacing:-.02em;margin-right:.6rem;text-transform:none}
+  .h b{color:#fff;font-weight:700;letter-spacing:.08em}
 
   /* la carrera */
-  .race{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;margin-bottom:1rem}
-  @media(max-width:860px){.race{grid-template-columns:repeat(4,1fr)}}
-  @media(max-width:520px){.race{grid-template-columns:repeat(2,1fr)}}
-  .stn{background:var(--ink2);border-top:3px solid var(--st);padding:.75rem .6rem;border-radius:0 0 4px 4px}
-  .stn .i{font-size:.6rem;color:var(--mut);font-weight:700;letter-spacing:.1em}
-  .stn .n{font-size:.82rem;font-weight:650;margin:.3rem 0 .25rem;line-height:1.25}
-  .stn .t{font-size:.72rem;color:var(--o);font-weight:700}
-  .runbar{display:flex;align-items:center;gap:.6rem;background:var(--ink2);border-left:3px solid var(--run);
-    padding:.8rem 1rem;border-radius:0 6px 6px 0;font-size:.88rem}
-  .runbar b{color:var(--run)}
+  .runbar{display:flex;flex-wrap:wrap;align-items:baseline;gap:.8rem;background:var(--ink2);
+    border-left:5px solid var(--run);padding:1.2rem 1.5rem;border-radius:0 8px 8px 0;margin-bottom:4px}
+  .runbar .big{font-style:italic;font-weight:800;font-size:1.7rem;letter-spacing:-.02em;color:var(--run)}
+  .runbar span{color:var(--mut2);font-size:1rem}
 
-  .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:1rem}
-  @media(max-width:760px){.facts{grid-template-columns:1fr 1fr}}
-  .fct{background:var(--ink2);padding:1rem}
-  .fct .v{font-style:italic;font-weight:800;font-size:1.6rem;line-height:1;color:var(--o);letter-spacing:-.03em}
-  .fct p{margin:.5rem 0 0;font-size:.8rem;color:var(--mut2);line-height:1.4}
+  .race{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  @media(max-width:900px){.race{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.race{grid-template-columns:1fr}}
+  .stn{background:var(--ink2);border-top:4px solid var(--st);padding:1.1rem 1.2rem;border-radius:0 0 6px 6px}
+  .stn .i{font-size:.72rem;color:var(--mut);font-weight:700;letter-spacing:.14em}
+  .stn .n{font-size:1.25rem;font-weight:700;margin:.4rem 0 .35rem;line-height:1.15;letter-spacing:-.015em}
+  .stn .t{font-size:.98rem;color:var(--o);font-weight:700}
+
+  .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:1.6rem}
+  @media(max-width:900px){.facts{grid-template-columns:1fr 1fr}}
+  .fct{background:var(--ink2);border-radius:8px;padding:1.6rem 1.3rem}
+  .fct .v{font-style:italic;font-weight:800;font-size:clamp(2.4rem,1.4rem+2.6vw,3.6rem);
+    line-height:.9;color:var(--o);letter-spacing:-.04em}
+  .fct p{margin:.9rem 0 0;font-size:1rem;color:var(--mut2);line-height:1.35}
 
   /* capacidades */
-  .cap{border-top:1px solid var(--line);padding:1.4rem 0}
-  .cap:first-of-type{border-top:0;padding-top:.4rem}
-  .capgrid{display:grid;grid-template-columns:1.1fr 1fr;gap:1.4rem}
-  @media(max-width:820px){.capgrid{grid-template-columns:1fr;gap:.9rem}}
-  .capname{display:flex;gap:.7rem;align-items:baseline;margin-bottom:.5rem}
-  .capname .x{font-style:italic;font-weight:800;color:var(--o);font-size:1.05rem;letter-spacing:-.02em}
-  .capname h3{margin:0;font-size:1.12rem;font-weight:700;letter-spacing:-.01em}
-  .because{font-size:.9rem;color:var(--mut2)}
-  .because b{color:#fff;font-weight:650}
-  .sessions{border-left:2px solid var(--line2);padding-left:1.1rem}
-  .sessions .lbl{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--st);font-weight:700;margin-bottom:.5rem}
-  .sessions ul{margin:0;padding-left:1.1rem}
-  .sessions li{font-size:.9rem;margin-bottom:.3rem}
+  .cap{border-top:1px solid var(--line);padding:clamp(1.8rem,4vw,2.8rem) 0;
+    display:grid;grid-template-columns:5.5rem 1fr 20rem;gap:1.8rem;align-items:start}
+  .cap:first-of-type{border-top:0;padding-top:0}
+  @media(max-width:1000px){.cap{grid-template-columns:4rem 1fr;gap:1.2rem}}
+  @media(max-width:620px){.cap{grid-template-columns:1fr;gap:.9rem}}
 
-  .kick{border-left:4px solid var(--o);padding-left:1.4rem;margin-top:1.6rem;
-    font-size:clamp(1.05rem,.85rem+1vw,1.35rem);font-weight:650;letter-spacing:-.02em;line-height:1.35;max-width:34ch}
-  .note{margin-top:1rem;font-size:.85rem;color:var(--mut2);max-width:66ch}
-  .src{margin-top:.9rem;font-size:.75rem;color:var(--mut)}
+  .cap .x{font-style:italic;font-weight:800;color:var(--o);letter-spacing:-.05em;
+    font-size:clamp(3rem,2rem+3vw,4.6rem);line-height:.8}
+  .cap h3{margin:0 0 .8rem;font-size:clamp(1.5rem,1rem+1.8vw,2.3rem);font-weight:800;
+    letter-spacing:-.03em;line-height:1.05;font-style:italic;text-transform:uppercase}
+  .cap .because{font-size:clamp(1rem,.9rem+.4vw,1.2rem);color:var(--mut2);line-height:1.4;max-width:46ch}
+  .cap .because b{color:#fff;font-weight:700}
 
-  footer{border-top:1px solid var(--line);padding:1.8rem 0 3rem;color:var(--mut);font-size:.8rem}
-  footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.05rem}
+  .chips{display:flex;flex-wrap:wrap;gap:.5rem;align-content:start}
+  @media(max-width:1000px){.chips{grid-column:1/-1;margin-top:.4rem}}
+  @media(max-width:620px){.chips{grid-column:auto}}
+  .chip{background:var(--ink3);border:1px solid var(--line2);border-left:3px solid var(--st);
+    border-radius:0 6px 6px 0;padding:.55rem .85rem;font-size:.98rem;font-weight:600;line-height:1.2}
+
+  .kick{border-left:6px solid var(--o);padding-left:1.8rem;margin-top:3rem;
+    font-size:clamp(1.6rem,1rem+2.4vw,2.8rem);font-weight:800;font-style:italic;
+    text-transform:uppercase;letter-spacing:-.03em;line-height:1.02;max-width:20ch}
+  .note{margin-top:1.6rem;font-size:1.1rem;color:var(--mut2);max-width:52ch;line-height:1.45}
+  .src{margin-top:1.4rem;font-size:.85rem;color:var(--mut);line-height:1.45;max-width:80ch}
+
+  footer{border-top:1px solid var(--line);padding:2.2rem 0 4rem;color:var(--mut);font-size:.9rem}
+  footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.3rem}
 </style>
 
 <div class="wrap">
@@ -70,29 +81,32 @@
 <header>
   <div class="bar"></div>
   <h1 class="disp">De la carrera<br>al entrenamiento</h1>
-  <p class="intro">Nuestra metodología no sale del plan de nadie. Sale de lo que la carrera exige. <b>Cada tipo de sesión tiene que poder señalar qué exigencia cubre — si no traza, no existe.</b></p>
+  <p class="intro">Nuestra metodología no sale del plan de nadie. Sale de lo que la carrera exige. <b>Cada sesión tiene que señalar qué exigencia cubre.</b> <em>Si no traza, no existe.</em></p>
 </header>
 
 <section>
   <div class="h"><i>01</i><b>La carrera, en datos</b></div>
 
-  <div class="runbar"><b>8 × 1 km corriendo</b><span class="mut">— entre cada estación, sin pausa</span></div>
-  <div class="race" style="margin-top:2px">
+  <div class="runbar">
+    <span class="big">8 × 1 km corriendo</span>
+    <span>— entre cada estación, sin pausa</span>
+  </div>
+  <div class="race">
     <div class="stn"><div class="i">01</div><div class="n">SkiErg</div><div class="t">1000 m</div></div>
-    <div class="stn"><div class="i">02</div><div class="n">Empuje trineo</div><div class="t">50 m · 152/202 kg</div></div>
-    <div class="stn"><div class="i">03</div><div class="n">Arrastre trineo</div><div class="t">50 m · 103/153 kg</div></div>
-    <div class="stn"><div class="i">04</div><div class="n">Burpee salto</div><div class="t">80 m</div></div>
+    <div class="stn"><div class="i">02</div><div class="n">Empuje de trineo</div><div class="t">50 m · 152 / 202 kg</div></div>
+    <div class="stn"><div class="i">03</div><div class="n">Arrastre de trineo</div><div class="t">50 m · 103 / 153 kg</div></div>
+    <div class="stn"><div class="i">04</div><div class="n">Burpee con salto</div><div class="t">80 m</div></div>
     <div class="stn"><div class="i">05</div><div class="n">Remo</div><div class="t">1000 m</div></div>
-    <div class="stn"><div class="i">06</div><div class="n">Transporte</div><div class="t">200 m · 24/32 kg</div></div>
-    <div class="stn"><div class="i">07</div><div class="n">Zancadas saco</div><div class="t">100 m · 20/30 kg</div></div>
-    <div class="stn"><div class="i">08</div><div class="n">Balón a diana</div><div class="t">100 reps · 6/9 kg</div></div>
+    <div class="stn"><div class="i">06</div><div class="n">Transporte de peso</div><div class="t">200 m · 24 / 32 kg</div></div>
+    <div class="stn"><div class="i">07</div><div class="n">Zancadas con saco</div><div class="t">100 m · 20 / 30 kg</div></div>
+    <div class="stn"><div class="i">08</div><div class="n">Balón a diana</div><div class="t">100 reps · 6 / 9 kg</div></div>
   </div>
 
   <div class="facts">
-    <div class="fct"><div class="v">48%</div><p>Del tiempo total es correr, en atletas Pro. En recreativos sube al 59%.</p></div>
-    <div class="fct"><div class="v">7 de 8</div><p>Tramos de carrera se corren con las piernas ya cargadas de una estación.</p></div>
-    <div class="fct"><div class="v">7,3%</div><p>Del tiempo se va en la zona de transición. Más cuanto más lento eres.</p></div>
-    <div class="fct"><div class="v">Sin pausa</div><p>De principio a fin. La fatiga solo se acumula, nunca se descuenta.</p></div>
+    <div class="fct"><div class="v">48%</div><p>Del tiempo es correr, en atletas Pro. En recreativos, el 59%.</p></div>
+    <div class="fct"><div class="v">7 de 8</div><p>Tramos se corren con las piernas ya cargadas de una estación.</p></div>
+    <div class="fct"><div class="v">7,3%</div><p>Se va en transiciones. Más cuanto más lento eres.</p></div>
+    <div class="fct"><div class="v">0</div><p>Pausas. La fatiga solo se acumula, nunca se descuenta.</p></div>
   </div>
   <p class="src">Cargas: reglamento oficial de HYROX 25/26 y 26/27 (hombre Open / hombre Pro). Reparto del tiempo: Rappelt et al., <i>Frontiers in Physiology</i> 2026, sobre 39.696 resultados oficiales; Brandt et al. 2025 para población recreativa.</p>
 </section>
@@ -101,102 +115,95 @@
   <div class="h"><i>02</i><b>Qué exige · y qué entrenamos por eso</b></div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">A</span><h3>Motor aeróbico de carrera</h3></div>
-        <p class="because">Son <b>8 km</b>, casi la mitad del tiempo de carrera. Es el bloque de tiempo más grande y el que más margen da.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Rodaje aeróbico</li>
-        <li>Umbral continuo</li>
-        <li>Series largas</li>
-      </ul></div>
+    <div class="x">A</div>
+    <div>
+      <h3>Motor aeróbico<br>de carrera</h3>
+      <p class="because">Son <b>8 km</b>, casi la mitad del tiempo. El bloque más grande de la carrera y donde más margen hay.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Rodaje aeróbico</span>
+      <span class="chip">Umbral continuo</span>
+      <span class="chip">Series largas</span>
     </div>
   </div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">B</span><h3>Correr con las piernas cargadas</h3></div>
-        <p class="because">Solo el primer tramo se corre fresco. Los <b>otros siete</b> salen de una estación. Correr descansado y correr fatigado son dos capacidades distintas.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Estación seguida de carrera, sin pausa</li>
-        <li>Series de carrera precedidas de carga</li>
-        <li>Bloques encadenados largos</li>
-      </ul></div>
+    <div class="x">B</div>
+    <div>
+      <h3>Correr con las<br>piernas cargadas</h3>
+      <p class="because">Solo el primer tramo se corre fresco. Los <b>otros siete</b> salen de una estación. Correr descansado y correr fatigado no son la misma capacidad.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Estación → carrera sin pausa</span>
+      <span class="chip">Series con carga previa</span>
+      <span class="chip">Encadenados largos</span>
     </div>
   </div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">C</span><h3>Fuerza máxima horizontal</h3></div>
-        <p class="because">Los dos trineos: <b>152 o 202 kg</b> de empuje. Si tu fuerza máxima está cerca de esa cifra, el trineo se convierte en un esfuerzo casi máximo en mitad de la carrera. Es la única estación donde faltar fuerza no se compensa con estar en forma.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Fuerza máxima de pierna</li>
-        <li>Trineo a carga de competición</li>
-        <li>Empuje y arrastre pesados</li>
-      </ul></div>
+    <div class="x">C</div>
+    <div>
+      <h3>Fuerza máxima<br>horizontal</h3>
+      <p class="because">Los trineos: <b>152 o 202 kg</b>. Si tu fuerza máxima anda cerca de esa cifra, el trineo es un esfuerzo casi máximo en mitad de carrera. Es la única estación donde faltar fuerza no se compensa estando en forma.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Fuerza máxima de pierna</span>
+      <span class="chip">Trineo a carga de competición</span>
+      <span class="chip">Empuje y arrastre pesados</span>
     </div>
   </div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">D</span><h3>Resistencia de fuerza y agarre</h3></div>
-        <p class="because">Transporte, zancadas y balón: <b>500 metros y 100 repeticiones</b> bajo carga. No es fuerza máxima, es aguantar la posición sin que ceda el agarre ni el tronco.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Series largas bajo carga</li>
-        <li>Trabajo específico de agarre</li>
-        <li>Zancadas y sentadilla a volumen</li>
-      </ul></div>
+    <div class="x">D</div>
+    <div>
+      <h3>Resistencia de<br>fuerza y agarre</h3>
+      <p class="because">Transporte, zancadas y balón: <b>500 metros y 100 repeticiones</b> bajo carga. No es fuerza máxima — es que no ceda el agarre ni el tronco.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Series largas bajo carga</span>
+      <span class="chip">Agarre específico</span>
+      <span class="chip">Zancadas y sentadilla a volumen</span>
     </div>
   </div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">E</span><h3>Potencia aeróbica en ergómetro</h3></div>
-        <p class="because">Ski y remo suman <b>2000 metros</b>. En Pro, el remo es la estación más lenta de las ocho — por delante del balón, al contrario de lo que se suele decir.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Intervalos de remo y ski</li>
-        <li>Ritmo sostenido en ergómetro</li>
-      </ul></div>
+    <div class="x">E</div>
+    <div>
+      <h3>Potencia aeróbica<br>en ergómetro</h3>
+      <p class="because">Ski y remo suman <b>2000 metros</b>. En Pro el remo es la estación más lenta de las ocho — por delante del balón, al revés de lo que se repite siempre.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Intervalos de remo y ski</span>
+      <span class="chip">Ritmo sostenido en ergómetro</span>
     </div>
   </div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">F</span><h3>Tolerancia a la fatiga acumulada</h3></div>
-        <p class="because">La carrera <b>no para nunca</b>. Y las cien repeticiones de balón están al final, cuando ya no queda nada. Rendir en la estación 8 no se entrena entrenando la estación 8 en fresco.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Simulación parcial</li>
-        <li>Simulación completa</li>
-        <li>Trabajo colocado al final de sesión</li>
-      </ul></div>
+    <div class="x">F</div>
+    <div>
+      <h3>Tolerancia a la<br>fatiga acumulada</h3>
+      <p class="because">La carrera <b>no para nunca</b>, y las cien repeticiones de balón están al final. Rendir en la estación 8 no se entrena haciendo la estación 8 en fresco.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Simulación parcial</span>
+      <span class="chip">Simulación completa</span>
+      <span class="chip">Trabajo al final de sesión</span>
     </div>
   </div>
 
   <div class="cap">
-    <div class="capgrid">
-      <div>
-        <div class="capname"><span class="x">G</span><h3>Eficiencia en la transición</h3></div>
-        <p class="because">Entre un <b>5,5% y un 7,3%</b> del tiempo se va entrando y saliendo de estaciones. Es tiempo puro: no depende de estar en forma, depende de haberlo ensayado.</p>
-      </div>
-      <div class="sessions"><div class="lbl">Se entrena con</div><ul>
-        <li>Transición cronometrada</li>
-      </ul></div>
+    <div class="x">G</div>
+    <div>
+      <h3>Eficiencia en<br>la transición</h3>
+      <p class="because">Entre un <b>5,5% y un 7,3%</b> del tiempo se va entrando y saliendo de estaciones. No depende de estar en forma: depende de haberlo ensayado.</p>
+    </div>
+    <div class="chips">
+      <span class="chip">Transición cronometrada</span>
     </div>
   </div>
 
-  <p class="kick">Siete exigencias. Nada más entra en el catálogo.</p>
-  <p class="note">Lo que no trace hasta una de estas siete no se programa, por popular que sea. Y al revés: si una exigencia se queda sin sesión que la cubra, falta un tipo — no se rellena con lo que haya a mano.</p>
+  <p class="kick">Siete exigencias.<br>Nada más entra.</p>
+  <p class="note">Lo que no trace hasta una de las siete no se programa, por popular que sea. Y si una exigencia se queda sin sesión que la cubra, es que falta un tipo — no se rellena con lo que haya a mano.</p>
 </section>
 
 <footer><b>FAHYBRID</b> · Derivación de la metodología · borrador para revisión</footer>
