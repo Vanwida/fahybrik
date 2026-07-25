@@ -817,6 +817,30 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(work.resolved!.fast_s).toBe(240);   // and enriched per athlete
   });
 
+  it('#61 · una zona de PULSO autorizada NO se resuelve como banda de ritmo', () => {
+    // El bug que esto vigila: `resolveSegmentBand` aceptaba `hr_zone` y la pasaba
+    // por el resolvedor de RITMO, así que una zona de pulso salía al wire como
+    // "4:00–4:14/km" y el atleta veía un ritmo que nadie había prescrito.
+    //
+    // Ojo con no confundirlo con el caso de arriba: en el formato VIEJO una zona
+    // sobre carrera significa zona de ritmo y se convierte a `pace_zone` (eso sigue
+    // resolviéndose). Aquí el coach ha escrito una zona de PULSO explícita en la
+    // gramática estructurada, y eso no se puede expresar como ritmo.
+    const structure = emittedStructure(
+      runSegRow({
+        scheme: 'intervals', modality: 'run',
+        structure: [{
+          role: 'main',
+          elements: [{ kind: 'work', measure: { type: 'duration', s: 600 }, target: { type: 'hr_zone', zone: 4 } }],
+        }],
+      }),
+      [runProfile(240)], // el atleta SÍ tiene perfil: antes esto bastaba para fabricar la banda
+    )!;
+    const work = flattenSegments(structure)[0]!;
+    expect(work.target).toEqual({ type: 'hr_zone', zone: 4 }); // la zona de pulso se respeta
+    expect(work.resolved).toBeUndefined();                     // y NO se inventa un ritmo
+  });
+
   it('#61 · a non-run (strength) block emits NO structure', () => {
     const result = buildAssignmentDetail({
       assignment: baseAssignment, execution: null, template: baseTemplate,

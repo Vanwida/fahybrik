@@ -914,11 +914,22 @@ function resolveIntensityForItem(
 // Resolve ONE structure segment's zone target to the athlete's pace band. Null for
 // a pace/rpe/null target (no zone to resolve) or an un-tested athlete — the segment
 // then carries no band and the app shows the zone label, never a fabricated pace.
+//
+// SOLO `pace_zone`. Una `hr_zone` es una zona de PULSO y aquí se resolvía también
+// por `resolvePaceBandFromZones(..., 'per_km')`, o sea que salía convertida en una
+// banda de RITMO y viajaba así a iOS: el atleta veía "4:15–4:25/km" donde el coach
+// había prescrito "FC Z4". Números inventados, y encima con pinta de medidos.
+//
+// No se arregla resolviéndola a bpm porque `ResolvedIntensity` no puede
+// expresarlos: su forma es `fast_s`/`slow_s`/`pace_unit`, puro ritmo. Así que se
+// devuelve null y el tramo enseña la etiqueta de zona sin banda, que es justo lo
+// que promete el comentario de arriba. Llevar el pulso resuelto hasta la muñeca
+// exigiría ampliar el contrato del wire y el decodificador de iOS.
 function resolveSegmentBand(
   target: SegmentTarget | null,
   profile: { bands: ResolvedZone[]; needs_review: boolean } | undefined,
 ): ResolvedIntensity | null {
-  if (!target || (target.type !== 'pace_zone' && target.type !== 'hr_zone')) return null;
+  if (!target || target.type !== 'pace_zone') return null;
   if (!profile || profile.bands.length === 0) return null;
   // Structure is run-only → the band is always per-km (mirrors resolveIntensityForItem).
   const band = resolvePaceBandFromZones(profile.bands, { value: target.zone }, 'per_km');
