@@ -20,7 +20,7 @@ import { decrypt, encrypt } from '@/lib/crypto/aes-gcm';
 // OAuth2 wearables served by this generic store. 'garmin' is included in the
 // union for callers that branch on provider, even though Garmin tokens live in
 // their own table for now (this store does not write Garmin rows).
-export type WearableProvider = 'coros' | 'whoop' | 'garmin' | 'amazfit' | 'polar';
+export type WearableProvider = 'coros' | 'whoop' | 'garmin' | 'amazfit' | 'polar' | 'suunto';
 
 export type WearableConnectionStatus = 'connected' | 'revoked' | 'error';
 
