@@ -1,0 +1,12 @@
+# Jungle del proyecto.
+#
+# `resources/` es el idioma POR DEFECTO y está en español: los atletas son de
+# Barcelona. `resources-eng/` solo pisa los textos cuando el reloj está en
+# inglés — un Garmin en inglés es habitual y no queremos dejarlo a medias.
+
+project.manifest = manifest.xml
+
+base.sourcePath = source
+base.resourcePath = resources
+
+base.lang.eng.resourcePath = $(base.lang.eng.resourcePath);resources-eng

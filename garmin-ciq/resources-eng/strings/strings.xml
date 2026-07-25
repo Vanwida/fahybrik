@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English overrides. Only kick in when the watch language is English; every other
+  language falls back to resources/ (Spanish). A Garmin set to English is common
+  even in Barcelona, and half-translated is worse than either.
+-->
+<strings>
+    <string id="AppName">FAHYBRID</string>
+
+    <string id="TitleLogin">Sign in with your email</string>
+    <string id="BodyNeedsEmail">Enter your email in Garmin Connect › Connect IQ › FAHYBRID › Settings.</string>
+    <string id="TitleCode">Access code</string>
+    <string id="BodyNeedsCode">We will email you a 6-digit code.</string>
+    <string id="BodyCodeLength">The code has 6 digits. Check it in the phone settings.</string>
+    <string id="BodyCodeSent">Check your email and enter the code in Garmin Connect › FAHYBRID › Settings. It expires in 10 minutes.</string>
+    <string id="ErrBadCode">That code is wrong or expired. Ask for a new one.</string>
+    <string id="ActionSendCode">Send code</string>
+    <string id="ActionCheckCode">I entered it</string>
+    <string id="TitleExpired">Session expired</string>
+    <string id="BodyExpired">Sign in with your email again.</string>
+
+    <string id="BusySendingCode">Sending the code…</string>
+    <string id="BusyVerifying">Checking the code…</string>
+    <string id="BusyLoading">Loading your workout…</string>
+    <string id="BusyDownloading">Sending the workout to your watch…</string>
+
+    <string id="ActionDownload">Send to watch</string>
+    <string id="ActionStart">Start</string>
+    <string id="LabelOnWatch">Already on your watch</string>
+    <string id="LabelOfflineFallback">No connection: using the one already downloaded.</string>
+    <string id="TitleNoSession">Nothing today</string>
+    <string id="BodyNoSession">You have no workout scheduled for today.</string>
+    <string id="TitleNotExportable">Use the app</string>
+    <string id="BodyNotExportable">Today is not a run and the watch cannot guide it. Open it in the phone app.</string>
+
+    <string id="TitleConfirm">Two taps</string>
+    <string id="BodyConfirm">The watch will ask you to leave FAHYBRID and pick a profile. Choose Run: Garmin guides it from there.</string>
+    <string id="ActionConfirm">Let's go</string>
+
+    <string id="TitleNoConnection">No connection</string>
+    <string id="BodyNoConnection">Bring your phone closer with Bluetooth on, or connect to WiFi.</string>
+    <string id="TitleStorageFull">Watch is full</string>
+    <string id="BodyStorageFull">No space left. Delete old workouts from Garmin Connect and try again.</string>
+    <string id="TitleIncompatible">Watch not supported</string>
+    <string id="BodyIncompatible">This watch does not accept running workouts sent from an app. Open it in the phone app.</string>
+    <string id="TitleError">Something went wrong</string>
+    <string id="BodyErrorCode">Could not load. Code</string>
+    <string id="BodyNameMismatch">The workout arrived under a different name. Try again.</string>
+    <string id="BodyLaunchFailed">Could not open the workout. Try again.</string>
+    <string id="ActionRetry">Try again</string>
+
+    <string id="SettingsEmailTitle">Your email</string>
+    <string id="SettingsEmailPrompt">The email you use to sign in to FAHYBRID.</string>
+    <string id="SettingsCodeTitle">Access code</string>
+    <string id="SettingsCodePrompt">The 6 digits we emailed you. It clears itself once used.</string>
+</strings>
