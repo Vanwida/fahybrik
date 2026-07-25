@@ -27,6 +27,10 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 
 ---
 
+- **Derivación desde la carrera** — el origen de la metodología: las 7 exigencias del evento y qué se entrena por cada una. Regla: un tipo de sesión solo existe si traza hasta una exigencia. → `docs/methodology/derivacion-desde-la-carrera.html`
+
+---
+
 ## Lo siguiente
 
 1. Que Pablo revise la metodología y corrija lo que no le encaje. Su trabajo es **corregir, no crear**.
