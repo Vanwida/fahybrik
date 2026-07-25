@@ -9,6 +9,24 @@ enum HRZone: Int, CaseIterable, Codable {
 
     var label: String { "Z\(rawValue)" }
 
+    /// The zone's band as a FRACTION of max HR — the single source of the %HRmax
+    /// thresholds. `HRZoneClassifier` classifies a live bpm against it, and the
+    /// WorkoutKit encoder resolves it to an ABSOLUTE bpm band before handing a
+    /// prescription to the watch (a watch must never receive "Z4": its own Z4 is
+    /// derived from a different FCmáx, so the label would silently mean something
+    /// else). Read as half-open — lower ≤ pct < upper — with Z5 capped at the max.
+    /// Pure Foundation, so it compiles into the watch target with the rest of the
+    /// classifier.
+    var percentOfMax: ClosedRange<Double> {
+        switch self {
+        case .z1: return 0.00...0.60
+        case .z2: return 0.60...0.70
+        case .z3: return 0.70...0.80
+        case .z4: return 0.80...0.90
+        case .z5: return 0.90...1.00
+        }
+    }
+
     // The zone COLORS below are iPhone-only: they resolve through the Theme palette,
     // which is not compiled into the watch target. The watch only ever needs the
     // zone identity (rawValue / label) + the classifier, so the UI members are
@@ -51,17 +69,29 @@ enum HRZone: Int, CaseIterable, Codable {
 }
 
 // %HRmax thresholds — used to derive zone from a live BPM given athlete HRmax.
+// The thresholds themselves live ONCE, on `HRZone.percentOfMax`, so the live
+// classifier below and the absolute-band resolution the watch encoders need can
+// never drift apart.
 enum HRZoneClassifier {
     static func zone(forBpm bpm: Int, hrMax: Int) -> HRZone {
         guard hrMax > 0 else { return .z1 }
         let pct = Double(bpm) / Double(hrMax)
-        switch pct {
-        case ..<0.60: return .z1
-        case ..<0.70: return .z2
-        case ..<0.80: return .z3
-        case ..<0.90: return .z4
-        default:      return .z5
-        }
+        // The first zone whose upper bound the ratio does not reach; anything at or
+        // above Z5's cap is still Z5 (there is no zone beyond the max).
+        return HRZone.allCases.first { pct < $0.percentOfMax.upperBound } ?? .z5
+    }
+
+    /// A zone resolved to an ABSOLUTE bpm band for a given max HR — what every
+    /// external device must receive instead of a zone NUMBER, because the device
+    /// would otherwise apply its own zones (derived from its own FCmáx estimate).
+    /// Rounded to whole bpm; nil for a non-positive max (we never fabricate a band).
+    static func bpmBand(for zone: HRZone, hrMax: Int) -> ClosedRange<Int>? {
+        guard hrMax > 0 else { return nil }
+        let pct = zone.percentOfMax
+        let low = Int((pct.lowerBound * Double(hrMax)).rounded())
+        let high = Int((pct.upperBound * Double(hrMax)).rounded())
+        guard low <= high else { return nil }
+        return low...high
     }
 }
 
