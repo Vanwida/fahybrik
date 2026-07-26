@@ -95,6 +95,15 @@ enum AppleWorkoutMapper {
     }
 
     /// The one structured run this session reduces to, or why it does not.
+    /// Categorías que ACOMPAÑAN a una carrera sin ser trabajo prescrito aparte: el
+    /// calentamiento y la vuelta a la calma. No son la sesión, son su ritual.
+    ///
+    /// Medido contra la biblioteca real: las sesiones de carrera que el coach ha
+    /// escrito y asignado a un atleta con UN SOLO ejercicio son CERO. Todas llevan
+    /// su movilidad, sus drills o su bici suave de vuelta a la calma. Exigir un
+    /// único item dejaba la feature en cero sesiones reales.
+    private static let companionCategories: Set<String> = ["mobility", "other"]
+
     static func eligibility(of detail: AssignmentDetail) -> Eligibility {
         guard let workout = detail.workout else { return .notEligible(.noRunStructure) }
 
@@ -107,8 +116,22 @@ enum AppleWorkoutMapper {
 
         guard !runStructures.isEmpty else { return .notEligible(.noRunStructure) }
         guard runStructures.count == 1 else { return .notEligible(.multipleRunStructures) }
-        // Every other prescribed movement is work the wrist entry could not carry.
-        guard items.count == 1 else { return .notEligible(.sessionHasNonRunWork) }
+
+        // El criterio NO es "un solo ejercicio", es "el trabajo principal es correr".
+        //
+        // Una línea acompaña si (a) es la propia carrera, (b) es movilidad o
+        // estiramiento — el calentamiento y la vuelta a la calma —, o (c) es otra
+        // línea de carrera sin estructura (el trote suave del calentamiento, escrito
+        // en la forma plana). Cualquier otra cosa es TRABAJO REAL intercalado: una
+        // simulación de HYROX con trineo, un metcon con ergo, fuerza de pierna. Ahí
+        // correr es un tramo dentro de otra cosa, y mandar la sesión a la muñeca
+        // como si fuera una carrera le mentiría al atleta sobre lo que va a hacer.
+        let hasOtherWork = items.contains { item in
+            let category = item.exerciseCategory
+            if category == "running" { return false }
+            return !companionCategories.contains(category)
+        }
+        guard !hasOtherWork else { return .notEligible(.sessionHasNonRunWork) }
 
         let name = workout.name.isEmpty ? "Carrera" : workout.name
         return .eligible(structure: runStructures[0], name: name)

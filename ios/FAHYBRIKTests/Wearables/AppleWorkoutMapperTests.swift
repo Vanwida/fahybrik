@@ -293,4 +293,110 @@ final class AppleWorkoutMapperTests: XCTestCase {
         // Month and year rollovers — the horizon must not silently truncate.
         XCTAssertEqual(AppleWatchWorkoutScheduler.isoDate("2026-12-28", plusDays: 7), "2027-01-04")
     }
+
+    // MARK: - Elegibilidad: qué sesión llega a la muñeca y cuál se queda en la app
+
+    /// Construye un detalle desde JSON, el MISMO camino que usa la app de verdad
+    /// (`convertFromSnakeCase`), en vez de instanciar los modelos a mano: así el
+    /// test también protege el decodificado, no solo la lógica.
+    private func detail(items: [(category: String, withStructure: Bool)]) -> AssignmentDetail {
+        let runStructure = """
+        [{"role":"main","elements":[{"kind":"work","measure":{"type":"distance","m":400},"target":null}]}]
+        """
+        let itemsJson = items.enumerated().map { idx, it in
+            let prescription = it.withStructure
+                ? "{\"scheme\":\"intervals\",\"modality\":\"run\",\"structure\":\(runStructure)}"
+                : "null"
+            return """
+            {"uid":"i\(idx)","template_segment_id":null,"exercise_id":"1","exercise_name":"X",
+             "exercise_slug":"x","exercise_category":"\(it.category)","exercise_video_url":null,
+             "cues":null,"exercise_description":null,"params_json":{},
+             "prescription_json":\(prescription),"resolved_intensity":null,"notes":null}
+            """
+        }.joined(separator: ",")
+
+        let json = """
+        {"assignment":{"id":"1","athlete_id":"70","scheduled_for":"2026-07-26","status":"scheduled",
+          "slot":null,"template_id":null,"template_version":null,"completed_at":null,
+          "perceived_exertion":null},
+         "workout":{"name":"Series 1 km","focus":null,"coach_note":null,
+          "estimated_duration_minutes":null,
+          "blocks":[{"uid":"b0","title":"Series","format":"intervals","block_position":0,"coach_note":null,
+                     "config_json":{},"items":[\(itemsJson)]}]}}
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // swiftlint:disable:next force_try
+        return try! decoder.decode(AssignmentDetail.self, from: Data(json.utf8))
+    }
+
+    func testElJsonDePruebaDecodificaLaEstructura() {
+        // Guarda-raíl del propio andamiaje: si el JSON de arriba dejara de decodificar
+        // la estructura, TODOS los tests de elegibilidad pasarían a fallar por el
+        // motivo equivocado (noRunStructure) y parecería un bug del filtro.
+        let d = detail(items: [(category: "running", withStructure: true)])
+        let item = d.workout!.blocks.flatMap(\.items).first!
+        XCTAssertNotNil(item.prescription, "la prescripción no decodifica")
+        XCTAssertNotNil(item.prescription?.structure, "la estructura no decodifica")
+        XCTAssertFalse(item.prescription?.structure?.expandedLegs().isEmpty ?? true)
+    }
+
+    func testUnaCarreraConCalentamientoYVueltaSIViajaAlReloj() {
+        // El caso REAL: medido contra la biblioteca, las sesiones de carrera del
+        // coach asignadas a un atleta con un solo ejercicio son CERO. Todas llevan
+        // su movilidad al lado. Exigir un único item dejaba esto en cero sesiones.
+        let d = detail(items: [
+            (category: "running", withStructure: true),
+            (category: "mobility", withStructure: false),
+        ])
+        guard case .eligible = AppleWorkoutMapper.eligibility(of: d) else {
+            return XCTFail("una carrera con movilidad al lado debe llegar al reloj")
+        }
+    }
+
+    func testUnTroteDeCalentamientoSinEstructuraNoLaDescalifica() {
+        let d = detail(items: [
+            (category: "running", withStructure: false),  // trote suave, forma plana
+            (category: "running", withStructure: true),   // las series
+            (category: "mobility", withStructure: false),
+        ])
+        guard case .eligible = AppleWorkoutMapper.eligibility(of: d) else {
+            return XCTFail("otra línea de carrera sin estructura no es trabajo ajeno")
+        }
+    }
+
+    func testUnaSimulacionConEstacionesNOViajaAlReloj() {
+        // Aquí correr es un tramo dentro de otra cosa. Mandarlo como "carrera"
+        // le mentiría al atleta sobre lo que va a hacer.
+        let d = detail(items: [
+            (category: "running", withStructure: true),
+            (category: "functional", withStructure: false),
+        ])
+        XCTAssertEqual(
+            AppleWorkoutMapper.eligibility(of: d),
+            .notEligible(.sessionHasNonRunWork)
+        )
+    }
+
+    func testFuerzaJuntoALaCarreraTampocoViaja() {
+        let d = detail(items: [
+            (category: "running", withStructure: true),
+            (category: "strength", withStructure: false),
+        ])
+        XCTAssertEqual(
+            AppleWorkoutMapper.eligibility(of: d),
+            .notEligible(.sessionHasNonRunWork)
+        )
+    }
+
+    func testUnErgoJuntoALaCarreraTampocoViaja() {
+        let d = detail(items: [
+            (category: "running", withStructure: true),
+            (category: "rowing", withStructure: false),
+        ])
+        XCTAssertEqual(
+            AppleWorkoutMapper.eligibility(of: d),
+            .notEligible(.sessionHasNonRunWork)
+        )
+    }
 }
