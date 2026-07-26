@@ -715,26 +715,50 @@ struct ProfileView: View {
 
     // MARK: - Devices
 
+    // Los dispositivos se agrupan POR LO QUE HACEN, no por marca.
+    //
+    // Antes eran una lista plana de cinco filas seguidas, y eso iguala cosas que no
+    // son iguales: a un Garmin se le puede mandar el entreno y a un Polar no, porque
+    // Polar no ofrece ninguna vía pública para recibirlo. Un atleta conectaba su
+    // Polar esperando que le bajara el plan al reloj y no bajaba nunca. No era un
+    // fallo: era una promesa que la pantalla nunca hizo explícita.
+    //
+    // El título de cada grupo ES la explicación, así que el atleta sabe qué va a
+    // pasar ANTES de tocar nada. Es la misma regla que gobierna el resto del
+    // producto: lo que un dispositivo no puede hacer, no se insinúa.
     private var devicesCard: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                // Non-interactive placeholder: Garmin sync is not shipped yet,
-                // so the row is informational only (no tap target → it must not
-                // open the unfinished "edit profile" sheet).
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            deviceGroup(
+                title: "Reciben tu entreno",
+                caption: "El plan te aparece en el reloj. No necesitas el móvil para entrenar."
+            ) {
+                appleWatchWorkoutsRow
+                Hairline()
+                // Informativo, sin destino: la app de Garmin para el reloj está
+                // construida pero aún no publicada en su tienda, así que el atleta
+                // todavía no puede activarla desde aquí.
                 deviceRowContent(
                     icon: "watch.analog",
                     title: "Garmin",
-                    subtitle: "Sincronización próximamente",
-                    statusText: "no conectado",
+                    subtitle: "Se instala en el reloj desde Garmin Connect",
+                    statusText: "pronto",
                     statusColor: Theme.Color.muted
                 )
-                Hairline()
-                polarRow
-                Hairline()
+            }
+
+            deviceGroup(
+                title: "Solo leen lo que haces",
+                caption: "Tus entrenos llegan a tu entrenador, pero el plan no baja al reloj."
+            ) {
                 appleHealthRow
                 Hairline()
-                appleWatchWorkoutsRow
-                Hairline()
+                polarRow
+            }
+
+            deviceGroup(
+                title: "En el gimnasio",
+                caption: "Se conectan por Bluetooth en el momento. La banda de pulso y la cinta se buscan al empezar el entreno."
+            ) {
                 NavigationLink {
                     PM5SettingsView(store: PM5ConnectionStore.shared)
                 } label: {
@@ -747,6 +771,32 @@ struct ProfileView: View {
                     )
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// Un grupo de dispositivos: su título, la frase que explica qué tienen en común,
+    /// y las filas. La frase no es decorativa — es lo que evita que el atleta espere
+    /// de un dispositivo algo que ese dispositivo no puede hacer.
+    // `rows` es @escaping porque CardSurface guarda su contenido para renderizarlo
+    // más tarde, no lo consume en el sitio.
+    @ViewBuilder
+    private func deviceGroup<Rows: View>(
+        title: String,
+        caption: String,
+        @ViewBuilder rows: @escaping () -> Rows
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(title)
+                .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                .foregroundStyle(Theme.Color.foreground)
+            Text(caption)
+                .scaledFont(11, relativeTo: .caption2)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 2)
+            CardSurface(padding: 0) {
+                VStack(spacing: 0) { rows() }
             }
         }
     }
