@@ -169,7 +169,12 @@ function MessageList({ chat }: { chat: ReturnType<typeof useConversation> }) {
           <div key={message.id} className="flex flex-col gap-2">
             {newDay ? (
               <div className="my-1 flex items-center justify-center">
-                <span className="v2-micro rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2.5 py-0.5">
+                {/* "Hoy"/"Ayer" dependen de "ahora": en el filo de medianoche
+                    servidor y navegador pueden discrepar durante un render. */}
+                <span
+                  suppressHydrationWarning
+                  className="v2-micro rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2.5 py-0.5"
+                >
                   {dayLabel(message.created_at)}
                 </span>
               </div>

@@ -25,6 +25,15 @@ const DATE_FMT = new Intl.DateTimeFormat('es-ES', {
   month: 'short',
   timeZone: 'Europe/Madrid',
 });
+/** Día natural EN MADRID, que es donde vive quien lee. Decidir "mismo día" con
+ *  la zona del runtime (toDateString) hacía que el servidor (UTC) y el
+ *  navegador discreparan de madrugada: a las 00:30 la lista decía "ayer". */
+const DAY_KEY_FMT = new Intl.DateTimeFormat('es-ES', {
+  year: 'numeric',
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'Europe/Madrid',
+});
 
 /** Relative-ish timestamp: time today, "ayer", else short date. */
 function listTime(iso: string | null): string {
@@ -32,11 +41,9 @@ function listTime(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return TIME_FMT.format(d);
-  const yest = new Date(now);
-  yest.setDate(now.getDate() - 1);
-  if (d.toDateString() === yest.toDateString()) return 'ayer';
+  const key = DAY_KEY_FMT.format(d);
+  if (key === DAY_KEY_FMT.format(now)) return TIME_FMT.format(d);
+  if (key === DAY_KEY_FMT.format(new Date(now.getTime() - 86_400_000))) return 'ayer';
   return DATE_FMT.format(d).replace(/\.$/, '');
 }
 
@@ -170,7 +177,12 @@ function ConversationRow({
           >
             {thread.athlete_name}
           </span>
-          <span className="v2-num shrink-0 text-[10px] text-[color:var(--v2-faint)]">
+          {/* Depende de "ahora": en el filo de medianoche el servidor y el
+              navegador pueden pintar distinto durante un render. */}
+          <span
+            suppressHydrationWarning
+            className="v2-num shrink-0 text-[10px] text-[color:var(--v2-faint)]"
+          >
             {listTime(thread.last_message_at)}
           </span>
         </div>
