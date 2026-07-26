@@ -352,7 +352,34 @@
 </div>
 
 <h2>3 · Lo que ve Pablo</h2>
-<p class="sub">No autoriza nada. Se entera a tiempo y con contexto para poder llamar si quiere — que es distinto de tener que llamar.</p>
+<p class="sub">No autoriza nada, pero se tiene que enterar. Y ahí hay un problema de base: <b style="color:var(--fg)">hoy avisar al coach no llega a ninguna parte</b>. Existe <code style="color:var(--accent);font-size:.92em">notifyCoach()</code>, que escribe en la tabla <code style="color:var(--accent);font-size:.92em">notifications</code> y manda push por APNs — pero el push es de iOS y Pablo trabaja en el dashboard web, que no lee esa tabla en ningún sitio. Lo único que le llega es la cola de atención de HOY, y solo cuando la abre. Por eso una baja va también por correo.</p>
+
+<div class="grid" style="margin-bottom:44px">
+  <figure style="grid-column:1/-1; max-width:620px">
+    <div style="border:1px solid var(--hair-strong); border-radius:var(--r); overflow:hidden; background:var(--surface)">
+      <div style="padding:13px 18px; border-bottom:1px solid var(--hair); display:flex; gap:10px; align-items:center; background:var(--sunken)">
+        <span style="width:9px;height:9px;border-radius:99px;background:var(--danger);flex:none"></span>
+        <span class="tiny" style="color:var(--muted)">Para: pablo@fabrik.training · de hello@fahybrid.com</span>
+      </div>
+      <div style="padding:24px 26px">
+        <div class="k" style="color:var(--accent)">FAHYBRID</div>
+        <div style="font-size:21px; font-weight:750; letter-spacing:-.02em; margin:14px 0 12px; font-style:italic">Marc Vidal se da de baja el 12 de agosto</div>
+        <p class="small muted" style="margin:0 0 18px; line-height:1.6">Lo ha hecho él desde la app hace un momento. Motivo: <b style="color:var(--fg)">parón</b>. Entrena con normalidad hasta el 12 de agosto — le quedan 3 semanas pagadas, y hasta ese día puede echarse atrás.</p>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--hair); border:1px solid var(--hair); border-radius:13px; overflow:hidden; margin-bottom:20px">
+          <div style="background:var(--raised); padding:13px 14px"><div class="tiny">Contigo</div><div class="small" style="font-weight:650; margin-top:3px">5 meses</div></div>
+          <div style="background:var(--raised); padding:13px 14px"><div class="tiny">Adherencia</div><div class="small" style="font-weight:650; margin-top:3px">84%</div></div>
+          <div style="background:var(--raised); padding:13px 14px"><div class="tiny">Última carrera</div><div class="small" style="font-weight:650; margin-top:3px">1:22 · may</div></div>
+        </div>
+        <div style="display:inline-block; background:var(--accent); color:var(--accent-on); padding:12px 22px; border-radius:12px; font-weight:700; font-size:14.5px">Abrir su ficha</div>
+        <p class="tiny" style="margin:18px 0 0">Su plaza se libera el 12 de agosto y pasa a la lista de espera.</p>
+      </div>
+    </div>
+    <figcaption style="max-width:620px">
+      <div class="t">El correo lleva el contexto para decidir si llamar</div>
+      <div class="d">No es un aviso de sistema, es lo que necesita para reaccionar: <b>cuánto tiempo lleva, cómo iba y cuánto margen queda</b>. Tres semanas pagadas por delante es tiempo de sobra para recuperarlo, pero solo si se entera hoy y no cuando ya se ha ido. La pausa manda un correo igual; la vuelta no — esa es rutina y solo va a la cola de HOY.</div>
+    </figcaption>
+  </figure>
+</div>
 
 <div class="grid">
 
@@ -422,7 +449,8 @@
   <div class="rule"><dt>El tope</dt><dd>Contador de días pausados en 12 meses móviles, sobre la tabla de pausas que ya existe. Cuenta días reales, no pedidos.</dd></div>
   <div class="rule"><dt>La vuelta sola</dt><dd><b>Fallo actual:</b> nada reanuda al llegar la fecha. Se guarda y no la mira nadie — te quedas pausado y sin cobrar hasta que alguien se acuerde.</dd></div>
   <div class="rule"><dt>La plaza</dt><dd>Pausar deja de liberar el cupo a la lista de espera. Es el único comportamiento existente que cambia.</dd></div>
-  <div class="rule"><dt>Aviso a Pablo</dt><dd>Tres señales nuevas en su bandeja: baja programada, pausa iniciada y vuelta mañana. Ninguna con botón de aprobar.</dd></div>
+  <div class="rule"><dt>Aviso a Pablo</dt><dd>Correo inmediato en pausa y en baja, más tres tarjetas en la cola de HOY (pausa · baja · vuelve mañana). Ninguna con botón de aprobar.</dd></div>
+  <div class="rule"><dt>El canal muerto</dt><dd><b>Fallo de fondo:</b> <code style="color:var(--accent)">notifyCoach()</code> escribe en <code style="color:var(--accent)">notifications</code> y manda push por APNs, pero Pablo está en la web y <b>el dashboard no lee esa tabla</b>. Hoy avisarle por ahí no llega.</dd></div>
 </dl>
 
 </div>
