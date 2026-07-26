@@ -83,17 +83,20 @@ Mockup de las pantallas: → `docs/design/bajas-y-pausas-mockup.html`
 
 **Decidido:** la pausa **para el cobro**, con tope de 4 semanas en 12 meses móviles. Agotado el tope no se bloquea: se le ofrece congelar pagando o darse de baja.
 
-**El motor ya está casi entero** (mig 0104 + #13/#15): `pauseAthlete` ya llama a `pauseStripeCollection`, `resumeAthlete` lo reactiva, `publish-weekly-plans` ya salta a los pausados y `capacity.ts` ya distingue los tres estados.
+### CONSTRUIDO (26-jul) — falta aplicar la migración y desplegar
 
-**Lo que falta:**
-1. Las pantallas de iOS. No existe ninguna: la app **nunca llama** a `/api/athlete/pause-request`, que está construido y con tests.
-2. Autoservicio: la pausa deja de ser solicitud que Pablo confirma, y nace la baja iniciada por el atleta (hoy solo la da él).
-3. El contador del tope: días pausados en 12 meses móviles sobre `athlete_pauses`. Cuenta días reales, no pedidos.
-4. **Fallo ya presente:** nada reanuda al llegar `end_date`. Se guarda la fecha de vuelta y no la mira ningún cron — el atleta se queda pausado y sin cobrar hasta que Pablo se acuerde. Con la pausa en autoservicio pasa de detalle a fuga.
-5. Cambio de comportamiento: pausar deja de liberar la plaza a la lista de espera (ver `docs/DECISIONS.md`).
-6. Tres señales para Pablo: baja programada, pausa iniciada, vuelve mañana. Ninguna con botón de aprobar.
+- **Presupuesto de pausa** — `shared/domain/coach/pause-budget.ts`. 28 días en ventana móvil de 365. Cuenta días vividos, no pedidos: volver antes los devuelve. Puro, 13 tests.
+- **Baja programada** — migración **0137** (`baja_scheduled_for`). El atleta se queda `activo` y entrena hasta el fin del periodo pagado; el cron la aplica ese día; hasta entonces se cancela con un botón.
+- **Autoservicio** — `web/lib/athlete/lifecycle-self-service.ts` + `/api/athlete/lifecycle{,/pause,/resume,/baja}`. Sin confirmación del coach.
+- **Cron de ciclo de vida** — `/api/cron/lifecycle`, diario 05:30 UTC. Arregla un fallo que ya estaba en producción: **nadie miraba la fecha de vuelta de una pausa**.
+- **Aviso a Pablo por correo** — `web/lib/athlete/lifecycle-coach-alerts.ts`. Pausa y baja mandan correo; la vuelta no (rutina). Motivo: `notifyCoach()` escribe en `notifications` y empuja por APNs, pero Pablo está en la web y **ningún componente lee esa tabla** — ese canal hoy no llega a nadie.
+- **iOS** — `Profile/LifecycleService.swift`, `Profile/LifecycleSheets.swift`, `Subscription/SubscriptionView.swift`. Seis estados. BUILD SUCCEEDED, 675 tests.
+- **Cambio de comportamiento:** pausar **deja de liberar la plaza** a la lista de espera. `capacity.ts` cuenta `activo` + `pausado`. El test que decía lo contrario, actualizado.
 
-**Pendiente:** visto bueno de Alex al mockup antes de construir.
+**Pendiente:**
+1. **Aplicar la 0137** (necesita OK de Alex) y desplegar.
+2. **Las tarjetas en la cola de HOY** (pausa · baja · vuelve mañana) NO están: la otra sesión está editando ahora mismo `attention/recompute.ts`, `inbox.ts` y `hoy-lanes.ts`. Se hace después para no colisionar. El correo sí sale, que es el canal que de verdad llega.
+3. El endpoint viejo `/api/athlete/pause-request` sigue vivo (solicitud → confirma el coach). No estorba, pero sobra en cuanto se confirme que nadie lo usa.
 
 ---
 

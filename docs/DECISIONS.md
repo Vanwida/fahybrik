@@ -20,7 +20,9 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Contradice a propósito** el comentario de la migración 0104 (*"No cuenta para el cupo salvo activo"*) y a `releaseWaitlistToCapacity()` dentro de `pauseAthlete`: el pausado vuelve a contar para el cupo. `baja` sigue liberando plaza igual que hasta ahora.
 
-**Dónde vive:** `docs/design/bajas-y-pausas-mockup.html` (pantallas y razonamiento), `web/lib/coach/athlete-lifecycle.ts`, `web/lib/coach/billing-actions.ts`, `infra/migrations/0104_athlete_lifecycle.sql`.
+**Dónde vive:** `docs/design/bajas-y-pausas-mockup.html` (pantallas y razonamiento), `shared/domain/coach/pause-budget.ts` (la aritmética), `web/lib/athlete/lifecycle-self-service.ts` (las transiciones del atleta), `web/lib/coach/athlete-lifecycle.ts` (las del coach), `infra/migrations/0137_baja_programada.sql`.
+
+**Números concretos:** 28 días de pausa en una ventana móvil de 365. La ventana es móvil y no el año natural a propósito: por año natural, diciembre y enero encadenan un presupuesto doble.
 
 ---
 
