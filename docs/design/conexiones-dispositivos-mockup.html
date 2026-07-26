@@ -1,0 +1,359 @@
+<title>FAHYBRID · Pantalla de conexiones</title>
+
+<style>
+  :root {
+    --ground: #0C0B0A; --raised: #161513; --sunken: #100F0E;
+    --line: #2A2724; --line-soft: #1E1C1A;
+    --ink: #F2EFEC; --ink-dim: #A39C95; --ink-faint: #6E6862;
+    --accent: #FF5A1F; --accent-soft: rgba(255,90,31,0.14);
+    --ok: #45BE8B; --ok-soft: rgba(69,190,139,0.14);
+    --wait: #D9A03C; --wait-soft: rgba(217,160,60,0.14);
+    --dead: #7A736C;
+    --gutter: clamp(20px, 5vw, 56px);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #EFEDEA; --raised: #FFFFFF; --sunken: #E6E3DF;
+      --line: #D2CCC5; --line-soft: #E0DBD5;
+      --ink: #17150F; --ink-dim: #56504A; --ink-faint: #8A837C;
+      --accent: #D8410B; --accent-soft: rgba(216,65,11,0.1);
+      --ok: #17794F; --ok-soft: rgba(23,121,79,0.1);
+      --wait: #8A5D08; --wait-soft: rgba(138,93,8,0.1);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #EFEDEA; --raised: #FFFFFF; --sunken: #E6E3DF;
+    --line: #D2CCC5; --line-soft: #E0DBD5;
+    --ink: #17150F; --ink-dim: #56504A; --ink-faint: #8A837C;
+    --accent: #D8410B; --accent-soft: rgba(216,65,11,0.1);
+    --ok: #17794F; --ok-soft: rgba(23,121,79,0.1);
+    --wait: #8A5D08; --wait-soft: rgba(138,93,8,0.1);
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --ground: #0C0B0A; --raised: #161513; --sunken: #100F0E;
+    --line: #2A2724; --line-soft: #1E1C1A;
+    --ink: #F2EFEC; --ink-dim: #A39C95; --ink-faint: #6E6862;
+    --accent: #FF5A1F; --accent-soft: rgba(255,90,31,0.14);
+    --ok: #45BE8B; --ok-soft: rgba(69,190,139,0.14);
+    --wait: #D9A03C; --wait-soft: rgba(217,160,60,0.14);
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 1080px; margin: 0 auto; padding: 0 var(--gutter) 90px; }
+
+  header.top {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: clamp(38px, 7vw, 64px) 0 28px; border-bottom: 1px solid var(--line);
+  }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+  header.top h1 {
+    font-size: clamp(30px, 6vw, 50px); font-style: italic; font-weight: 800;
+    letter-spacing: -0.03em; line-height: 1.03; text-transform: uppercase;
+    text-wrap: balance; max-width: 17ch;
+  }
+  header.top p { color: var(--ink-dim); max-width: 64ch; text-wrap: pretty; }
+
+  section { padding: 46px 0 0; }
+  h2 {
+    font-size: clamp(19px, 3vw, 25px); font-style: italic; font-weight: 800;
+    letter-spacing: -0.02em; margin-bottom: 10px;
+  }
+  section > p { color: var(--ink-dim); max-width: 68ch; text-wrap: pretty; }
+
+  /* ── Comparación lado a lado ─────────────────────────────────── */
+  .compare { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 26px; }
+  @media (min-width: 880px) { .compare { grid-template-columns: 1fr 1fr; gap: 32px; } }
+
+  .col-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .col-label.them { color: var(--ink-faint); }
+  .col-label.us { color: var(--accent); }
+
+  /* ── El móvil ─────────────────────────────────────────────────── */
+  .phone {
+    background: var(--raised); border: 1px solid var(--line);
+    border-radius: 22px; overflow: hidden; max-width: 400px; margin: 0 auto;
+  }
+  .nav {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    border-bottom: 1px solid var(--line-soft); font-size: 14.5px; font-weight: 650;
+  }
+  .nav .back { color: var(--accent); font-size: 17px; line-height: 1; }
+  .screen-intro { padding: 18px 18px 6px; }
+  .screen-intro h3 {
+    font-size: 19px; font-style: italic; font-weight: 800; letter-spacing: -0.02em;
+    text-wrap: balance; margin-bottom: 5px;
+  }
+  .screen-intro p { font-size: 13px; color: var(--ink-dim); text-wrap: pretty; }
+
+  .group-head {
+    padding: 20px 18px 7px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .group-head .why {
+    display: block; text-transform: none; letter-spacing: 0; font-weight: 400;
+    font-size: 12px; color: var(--ink-faint); margin-top: 3px;
+  }
+
+  .row {
+    display: flex; align-items: center; gap: 12px; padding: 13px 18px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .row:first-of-type { border-top: none; }
+  .logo {
+    flex: none; width: 34px; height: 34px; border-radius: 8px;
+    background: var(--sunken); border: 1px solid var(--line-soft);
+    display: grid; place-items: center; font-size: 9px; font-weight: 800;
+    letter-spacing: -0.03em; color: var(--ink-dim); text-align: center; line-height: 1;
+  }
+  .row-main { flex: 1; min-width: 0; }
+  .row-name { font-size: 14.5px; font-weight: 620; }
+  .row-sub { font-size: 12px; color: var(--ink-faint); text-wrap: pretty; }
+  .row-sub.live { color: var(--ok); }
+  .row-sub.warn { color: var(--wait); }
+  .chev { color: var(--ink-faint); font-size: 15px; flex: none; }
+
+  .tag {
+    display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 3px; flex: none;
+  }
+  .t-ok { color: var(--ok); background: var(--ok-soft); }
+  .t-wait { color: var(--wait); background: var(--wait-soft); }
+  .t-off { color: var(--dead); background: rgba(122,115,108,0.13); }
+
+  .flat-note {
+    padding: 13px 18px; font-size: 12px; color: var(--ink-faint);
+    border-top: 1px solid var(--line-soft); text-align: center;
+  }
+
+  /* ── Crítica ──────────────────────────────────────────────────── */
+  .points { display: flex; flex-direction: column; gap: 14px; margin-top: 26px; }
+  .point {
+    background: var(--raised); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 16px 20px;
+  }
+  .point b { display: block; font-size: 15px; margin-bottom: 4px; }
+  .point p { font-size: 14.5px; color: var(--ink-dim); max-width: 74ch; text-wrap: pretty; }
+  .point.good { border-left-color: var(--ok); }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink-faint);
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="shell">
+
+  <header class="top">
+    <div class="eyebrow">Propuesta · pantalla de conexiones</div>
+    <h1>Agrupar por lo que hace, no por marca</h1>
+    <p>
+      La pantalla de TrainingPeaks está bien resuelta, pero tiene un problema que a nosotros nos
+      costaría caro: iguala cosas que no son iguales. Aquí está su versión y la mía, al lado.
+    </p>
+  </header>
+
+  <section>
+    <div class="compare">
+
+      <!-- ── TrainingPeaks ─────────────────────────────────────── -->
+      <div>
+        <div class="col-label them">Como lo hace TrainingPeaks</div>
+        <div class="phone">
+          <div class="nav"><span class="back">‹</span> Device &amp; App Connections</div>
+          <div class="screen-intro">
+            <h3>Authorize Connections to your Devices and Apps</h3>
+            <p>Connect your device or app below to start sending workouts to your device.</p>
+          </div>
+          <div class="row"><div class="logo">WATCH</div><div class="row-main"><div class="row-name">Apple Health &amp; Workouts</div></div><span class="chev">›</span></div>
+          <div class="row"><div class="logo">GAR<br>MIN</div><div class="row-main"><div class="row-name">Garmin</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">wahoo</div><div class="row-main"><div class="row-name">Wahoo</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">SUU<br>NTO</div><div class="row-main"><div class="row-name">Suunto</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">POLAR</div><div class="row-main"><div class="row-name">Polar</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">COROS</div><div class="row-main"><div class="row-name">COROS</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">WHOOP</div><div class="row-main"><div class="row-name">Whoop</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">ŌURA</div><div class="row-main"><div class="row-name">Oura</div></div><span class="chev">↗</span></div>
+          <div class="row"><div class="logo">MFP</div><div class="row-main"><div class="row-name">MyFitnessPal</div></div><span class="chev">↗</span></div>
+          <div class="flat-note">Don't see your device or app? · Ver más</div>
+        </div>
+      </div>
+
+      <!-- ── Nuestra propuesta ─────────────────────────────────── -->
+      <div>
+        <div class="col-label us">Lo que propongo</div>
+        <div class="phone">
+          <div class="nav"><span class="back">‹</span> Dispositivos</div>
+          <div class="screen-intro">
+            <h3>Tus dispositivos</h3>
+            <p>Conecta lo que ya tienes. Cada uno hace algo distinto y aquí se dice cuál.</p>
+          </div>
+
+          <div class="group-head">
+            Reciben tu entreno
+            <span class="why">El plan de Pablo te aparece en el reloj. No hace falta el móvil.</span>
+          </div>
+          <div class="row">
+            <div class="logo">⌚︎</div>
+            <div class="row-main">
+              <div class="row-name">Apple Watch</div>
+              <div class="row-sub live">Activo · tus carreras salen en la app Entrenamiento</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="row">
+            <div class="logo">GAR<br>MIN</div>
+            <div class="row-main">
+              <div class="row-name">Garmin</div>
+              <div class="row-sub">Instala la app FAHYBRID en tu reloj</div>
+            </div>
+            <span class="tag t-wait">Pronto</span>
+          </div>
+          <div class="row">
+            <div class="logo">SUU<br>NTO</div>
+            <div class="row-main">
+              <div class="row-name">Suunto</div>
+              <div class="row-sub">Esperando permiso de Suunto</div>
+            </div>
+            <span class="tag t-wait">Pronto</span>
+          </div>
+          <div class="row">
+            <div class="logo">COROS</div>
+            <div class="row-main">
+              <div class="row-name">COROS</div>
+              <div class="row-sub">Esperando permiso de COROS</div>
+            </div>
+            <span class="tag t-wait">Pronto</span>
+          </div>
+
+          <div class="group-head">
+            Solo leen lo que haces
+            <span class="why">Tus entrenos llegan a Pablo, pero el plan no baja al reloj. Es límite suyo, no nuestro.</span>
+          </div>
+          <div class="row">
+            <div class="logo">◉</div>
+            <div class="row-main">
+              <div class="row-name">Apple Salud</div>
+              <div class="row-sub live">Conectado · sueño, pulso y HRV al día</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="row">
+            <div class="logo">POLAR</div>
+            <div class="row-main">
+              <div class="row-name">Polar</div>
+              <div class="row-sub live">Conectado · última sincronización hace 2 h</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="row">
+            <div class="logo">amaz<br>fit</div>
+            <div class="row-main">
+              <div class="row-name">Amazfit</div>
+              <div class="row-sub">Ve qué toca hoy, sin guiarte</div>
+            </div>
+            <span class="tag t-wait">Pronto</span>
+          </div>
+
+          <div class="group-head">
+            En el gimnasio
+            <span class="why">Se conectan por Bluetooth en el momento. No guardan tu cuenta.</span>
+          </div>
+          <div class="row">
+            <div class="logo">C2</div>
+            <div class="row-main">
+              <div class="row-name">Remo y ski Concept2</div>
+              <div class="row-sub live">Emparejado · PM5</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="row">
+            <div class="logo">♥</div>
+            <div class="row-main">
+              <div class="row-name">Banda de pulso</div>
+              <div class="row-sub">Se busca al empezar el entreno</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="row">
+            <div class="logo">▤</div>
+            <div class="row-main">
+              <div class="row-name">Cinta de correr</div>
+              <div class="row-sub">Se busca al empezar el entreno</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+
+          <div class="flat-note">¿Tu reloj no está? Dínoslo y lo miramos.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Qué cambia y por qué</h2>
+
+    <div class="points">
+      <div class="point">
+        <b>Un Polar y un Garmin no son lo mismo, y ellos lo pintan igual</b>
+        <p>
+          En su lista, Polar aparece idéntico a Garmin. Pero a un Garmin le puedes mandar el entreno y
+          a un Polar no: Polar no ofrece ninguna vía pública para eso. Un atleta conecta su Polar
+          esperando que le baje el plan al reloj, y no baja. No es un fallo, es una promesa que la
+          pantalla nunca hizo explícita.
+        </p>
+      </div>
+
+      <div class="point">
+        <b>Agrupar es la única forma honesta de decirlo</b>
+        <p>
+          Tres grupos, y el título de cada uno ya es la explicación: <em>reciben tu entreno</em>,
+          <em>solo leen lo que haces</em>, <em>en el gimnasio</em>. Antes de tocar nada, el atleta ya
+          sabe qué va a pasar. Es la misma regla que seguimos dentro del producto: lo que el reloj no
+          puede hacer no se insinúa.
+        </p>
+      </div>
+
+      <div class="point">
+        <b>Estado de verdad, no un triangulito de color</b>
+        <p>
+          Ellos marcan Garmin y Suunto con un triángulo que no tiene leyenda. Aquí cada fila dice si
+          está conectado y cuándo sincronizó por última vez. «Hace 2 h» responde sola la pregunta que
+          de verdad tiene el atleta: ¿le ha llegado a Pablo lo que hice?
+        </p>
+      </div>
+
+      <div class="point good">
+        <b>Lo que sí les copio</b>
+        <p>
+          El texto de cabecera dice el porqué, no el qué: «para empezar a mandar entrenos a tu
+          dispositivo». Y distinguen visualmente lo que se resuelve dentro de la app de lo que te saca
+          fuera a autorizar. Las dos cosas son buenas y las mantengo.
+        </p>
+      </div>
+
+      <div class="point">
+        <b>Lo que dejo fuera a propósito</b>
+        <p>
+          Ellos mezclan MyFitnessPal y HRV4Training con los relojes. Nutrición está fuera de alcance
+          hasta después del lanzamiento, y meter marcas que no hacen nada llena la pantalla de ruido.
+          Whoop y Oura tampoco entran hasta que haya integración de verdad detrás.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>FAHYBRID · propuesta de pantalla · los estados mostrados son los reales de hoy</footer>
+
+</div>

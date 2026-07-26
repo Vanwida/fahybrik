@@ -1,0 +1,671 @@
+<title>FAHYBRID · Las apps de reloj</title>
+
+<style>
+  :root {
+    --ground: #0C0B0A;
+    --raised: #161513;
+    --line: #2A2724;
+    --line-soft: #1E1C1A;
+    --ink: #F2EFEC;
+    --ink-dim: #A39C95;
+    --ink-faint: #6E6862;
+    --accent: #FF5A1F;
+    --accent-soft: rgba(255, 90, 31, 0.14);
+    --ok: #45BE8B;
+    --wait: #D9A03C;
+    --dead: #7A736C;
+    --gutter: clamp(20px, 5vw, 56px);
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #EFEDEA; --raised: #FFFFFF; --line: #D2CCC5; --line-soft: #E0DBD5;
+      --ink: #17150F; --ink-dim: #56504A; --ink-faint: #8A837C;
+      --accent: #D8410B; --accent-soft: rgba(216, 65, 11, 0.1);
+      --ok: #17794F; --wait: #8A5D08; --dead: #7A736C;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #EFEDEA; --raised: #FFFFFF; --line: #D2CCC5; --line-soft: #E0DBD5;
+    --ink: #17150F; --ink-dim: #56504A; --ink-faint: #8A837C;
+    --accent: #D8410B; --accent-soft: rgba(216, 65, 11, 0.1);
+    --ok: #17794F; --wait: #8A5D08; --dead: #7A736C;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --ground: #0C0B0A; --raised: #161513; --line: #2A2724; --line-soft: #1E1C1A;
+    --ink: #F2EFEC; --ink-dim: #A39C95; --ink-faint: #6E6862;
+    --accent: #FF5A1F; --accent-soft: rgba(255, 90, 31, 0.14);
+    --ok: #45BE8B; --wait: #D9A03C; --dead: #7A736C;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell { max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter) 96px; }
+
+  header.top {
+    display: flex; flex-direction: column; gap: 18px;
+    padding: clamp(40px, 8vw, 68px) 0 30px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  header.top h1 {
+    font-size: clamp(32px, 6.5vw, 54px); font-style: italic; font-weight: 800;
+    letter-spacing: -0.03em; line-height: 1.03; text-transform: uppercase;
+    text-wrap: balance; max-width: 18ch;
+  }
+  header.top p { font-size: clamp(15px, 2vw, 18px); color: var(--ink-dim); max-width: 62ch; text-wrap: pretty; }
+
+  section { padding: 52px 0 0; }
+  h2.brand-title {
+    font-size: clamp(22px, 3.5vw, 30px); font-style: italic; font-weight: 800;
+    letter-spacing: -0.02em; text-transform: uppercase;
+  }
+  .brand-sub { color: var(--ink-dim); max-width: 68ch; margin-top: 8px; text-wrap: pretty; }
+
+  .note {
+    border-left: 3px solid var(--accent); background: var(--raised);
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    padding: 16px 20px; margin-top: 20px; font-size: 15px; color: var(--ink-dim);
+    max-width: 74ch;
+  }
+  .note strong { color: var(--ink); font-weight: 650; }
+
+  /* ── Rejilla de pantallas ────────────────────────────────────── */
+  .screens {
+    display: grid; gap: 28px 22px; margin-top: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
+  .screen { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+
+  .caption { text-align: center; }
+  .caption b {
+    display: block; font-size: 13.5px; font-weight: 650; color: var(--ink);
+  }
+  .caption span { font-size: 12.5px; color: var(--ink-faint); }
+
+  /* El reloj */
+  .watch {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: #000; border: 7px solid #24211e;
+    box-shadow: 0 0 0 1px #3a352f, 0 10px 26px rgba(0,0,0,0.5);
+    display: grid; place-items: center; padding: 26px; position: relative;
+    overflow: hidden;
+  }
+  .watch.square { border-radius: 30px; height: 232px; }
+
+  .face {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 7px; text-align: center;
+  }
+
+  .w-title {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #FF5A1F;
+  }
+  .w-head {
+    font-size: 15px; font-weight: 700; color: #fff; line-height: 1.25;
+    text-wrap: balance;
+  }
+  .w-body { font-size: 11.5px; color: #9d9691; line-height: 1.42; text-wrap: pretty; }
+  .w-body.bright { color: #E8E4E0; }
+  .w-big {
+    font-size: 26px; font-weight: 800; font-style: italic; color: #fff;
+    letter-spacing: -0.02em; line-height: 1;
+  }
+  .w-action {
+    margin-top: 4px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: #0C0B0A; background: #FF5A1F;
+    padding: 5px 13px; border-radius: 999px;
+  }
+  .w-action.ghost { background: transparent; color: #FF5A1F; border: 1px solid #FF5A1F; }
+  .w-warn { color: #D9A03C; }
+  .w-dead { color: #7A736C; }
+
+  /* El móvil, para la pantalla de ajustes */
+  .phone {
+    width: 210px; border-radius: 26px; background: #fff; color: #17150F;
+    border: 7px solid #24211e; padding: 16px 14px 20px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45); display: flex;
+    flex-direction: column; gap: 11px; text-align: left;
+  }
+  .phone .p-app { font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: #8A837C; }
+  .phone .p-title { font-size: 15px; font-weight: 700; font-style: italic; }
+  .phone label { font-size: 11px; font-weight: 650; color: #56504A; display: block; margin-bottom: 3px; }
+  .phone .p-hint { font-size: 10.5px; color: #8A837C; line-height: 1.4; }
+  .phone .p-field {
+    border: 1px solid #D2CCC5; border-radius: 7px; padding: 7px 9px;
+    font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; color: #17150F;
+  }
+  .phone .p-field.empty { color: #B0AAA3; }
+  .phone .p-btn {
+    background: #D8410B; color: #fff; font-size: 11.5px; font-weight: 700;
+    text-align: center; padding: 8px; border-radius: 7px; letter-spacing: 0.04em;
+  }
+
+  /* Pantalla de nuestra app durante el entreno */
+  .app-screen {
+    width: 210px; border-radius: 26px; background: #0C0B0A; color: #F2EFEC;
+    border: 7px solid #24211e; padding: 16px 13px 18px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45); display: flex;
+    flex-direction: column; gap: 10px;
+  }
+  .a-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #FF5A1F; }
+  .a-hero { background: #161513; border: 1px solid #2A2724; border-top: 2px solid #FF5A1F; border-radius: 10px; padding: 13px 10px; text-align: center; }
+  .a-hero .v { font-size: 33px; font-weight: 800; font-style: italic; letter-spacing: -0.03em; color: #FF5A1F; line-height: 1; }
+  .a-hero .v small { font-size: 13px; font-style: normal; font-weight: 650; }
+  .a-hero .c { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6862; margin-top: 5px; }
+  .a-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .a-cell { background: #161513; border: 1px solid #1E1C1A; border-radius: 8px; padding: 8px 9px; }
+  .a-cell .l { font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6862; }
+  .a-cell .v { font-size: 16px; font-weight: 750; letter-spacing: -0.02em; }
+  .a-cell .v small { font-size: 9.5px; font-weight: 600; color: #A39C95; }
+  .a-station { background: #161513; border: 1px solid #2A2724; border-radius: 10px; padding: 11px; }
+  .a-station .n { font-size: 13px; font-weight: 700; }
+  .a-station .s { font-size: 10.5px; color: #A39C95; margin-top: 2px; }
+  .a-next { font-size: 10px; color: #6E6862; text-align: center; }
+
+  /* Diagrama de flujo */
+  .flow { display: flex; flex-direction: column; gap: 2px; margin-top: 22px; max-width: 760px; }
+  .step {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--raised); border: 1px solid var(--line-soft); padding: 14px 18px;
+  }
+  .step .n {
+    flex: none; width: 24px; height: 24px; border-radius: 4px; display: grid;
+    place-items: center; font-size: 11px; font-weight: 800;
+    background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums;
+  }
+  .step .t { flex: 1; min-width: 0; }
+  .step .t b { display: block; font-size: 14.5px; font-weight: 650; }
+  .step .t span { font-size: 13.5px; color: var(--ink-dim); }
+  .step.gap { background: rgba(217,160,60,0.07); border-color: rgba(217,160,60,0.3); }
+  .step.gap .n { background: rgba(217,160,60,0.18); color: var(--wait); }
+  .step.fix { background: rgba(69,190,139,0.07); border-color: rgba(69,190,139,0.3); }
+  .step.fix .n { background: rgba(69,190,139,0.18); color: var(--ok); }
+
+  .scroller { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 560px; background: var(--raised); border: 1px solid var(--line-soft); margin-top: 22px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); background: var(--ground); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.k { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  td.v { color: var(--ink-dim); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 3px; white-space: nowrap;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .p-ok { color: var(--ok); background: rgba(69,190,139,0.14); }
+  .p-wait { color: var(--wait); background: rgba(217,160,60,0.14); }
+
+  footer {
+    margin-top: 70px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink-faint);
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="shell">
+
+  <header class="top">
+    <div class="eyebrow">Mockup · antes de instalar nada</div>
+    <h1>Las apps de reloj, pantalla a pantalla</h1>
+    <p>
+      Los textos son los que hay escritos en el código, no una aproximación. Si algo no te encaja,
+      dímelo y se cambia antes de que esto llegue a la muñeca de nadie.
+    </p>
+  </header>
+
+  <section>
+    <h2 class="brand-title">Garmin <span class="pill p-ok" style="vertical-align:middle">Compila y arranca</span></h2>
+    <p class="brand-sub">
+      Doce pantallas. La app es un mensajero: pide el entreno, lo deja en el reloj y se lo pasa al
+      reproductor nativo de Garmin, que es quien guía los tramos.
+    </p>
+
+    <div class="screens">
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Entra con tu email</div>
+          <div class="w-body">Escribe tu email en Garmin Connect › Connect IQ › FAHYBRID › Ajustes.</div>
+        </div></div>
+        <div class="caption"><b>1 · Sin vincular</b><span>Lo primero que ve al instalar</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Código de acceso</div>
+          <div class="w-body">Te mandamos un código de 6 dígitos al email.</div>
+          <div class="w-action">Pedir código</div>
+        </div></div>
+        <div class="caption"><b>2 · Pedir el código</b><span>Ya tiene el email puesto</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Código de acceso</div>
+          <div class="w-body">Mira tu email y escribe el código en Garmin Connect › FAHYBRID › Ajustes. Caduca en 10 minutos.</div>
+          <div class="w-action ghost">Ya lo he escrito</div>
+        </div></div>
+        <div class="caption"><b>3 · Código enviado</b><span>Espera a que lo escriba en el móvil</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-body bright">Buscando tu entreno…</div>
+        </div></div>
+        <div class="caption"><b>4 · Cargando</b><span>Consultando el plan de hoy</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">26 JUL</div>
+          <div class="w-head">8×400</div>
+          <div class="w-body bright">8×400 a 3:35/km · 5,6 km</div>
+          <div class="w-action">Pasar al reloj</div>
+        </div></div>
+        <div class="caption"><b>5 · Hay entreno</b><span>Aún no está descargado</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">26 JUL</div>
+          <div class="w-head">8×400</div>
+          <div class="w-body" style="color:#45BE8B">Ya lo tienes en el reloj</div>
+          <div class="w-action">Empezar</div>
+        </div></div>
+        <div class="caption"><b>6 · Listo</b><span>Descargado, se puede arrancar</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Dos toques</div>
+          <div class="w-body">El reloj te preguntará si sales de FAHYBRID y con qué perfil correr. Elige Correr: a partir de ahí guía Garmin.</div>
+          <div class="w-action">Vamos</div>
+        </div></div>
+        <div class="caption"><b>7 · El aviso honesto</b><span>Garmin obliga a dos toques; lo decimos</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Hoy no toca</div>
+          <div class="w-body">No tienes entreno para hoy.</div>
+        </div></div>
+        <div class="caption"><b>8 · Día de descanso</b><span>Sin sesión asignada</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Esto va en la app</div>
+          <div class="w-body">El entreno de hoy no es de correr y el reloj no sabe guiarlo. Ábrelo en la app del móvil.</div>
+        </div></div>
+        <div class="caption"><b>9 · Fuerza o HYROX</b><span>El reloj no puede con reps ni cargas</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head w-warn">Sin conexión</div>
+          <div class="w-body">Acerca el móvil con Bluetooth encendido, o conéctate al WiFi.</div>
+          <div class="w-action ghost">Reintentar</div>
+        </div></div>
+        <div class="caption"><b>10 · Sin cobertura</b><span>La descarga pasa por el móvil</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head w-warn">Reloj lleno</div>
+          <div class="w-body">No queda sitio. Borra entrenos viejos desde Garmin Connect y vuelve a probar.</div>
+          <div class="w-action ghost">Reintentar</div>
+        </div></div>
+        <div class="caption"><b>11 · Sin espacio</b><span>Lo que sufrían en TrainingPeaks</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head w-dead">Reloj incompatible</div>
+          <div class="w-body">Este reloj no acepta entrenos de carrera enviados desde una app. Ábrelo en la app del móvil.</div>
+        </div></div>
+        <div class="caption"><b>12 · Modelo antiguo</b><span>No todos los Garmin valen</span></div>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>El login no se hace en el reloj</strong>, porque no tiene teclado. Se escribe en Garmin
+      Connect, dentro de los ajustes de nuestra app. Así se ve en el móvil:
+    </div>
+
+    <div class="screens" style="margin-top:22px">
+      <div class="screen">
+        <div class="phone">
+          <div class="p-app">Garmin Connect › Connect IQ</div>
+          <div class="p-title">FAHYBRID</div>
+          <div>
+            <label>Tu email</label>
+            <div class="p-field empty">alex@fahybrid.com</div>
+            <div class="p-hint" style="margin-top:4px">El email con el que entras en FAHYBRID.</div>
+          </div>
+          <div>
+            <label>Código de acceso</label>
+            <div class="p-field empty">012345</div>
+            <div class="p-hint" style="margin-top:4px">Los 6 dígitos que te hemos enviado por email. Se borra solo al usarlo.</div>
+          </div>
+          <div class="p-btn">Guardar</div>
+        </div>
+        <div class="caption"><b>Ajustes en el móvil</b><span>Aquí sí hay teclado</span></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Lo que no me convence, y te lo digo yo:</strong> ese menú está tres niveles dentro de
+      Garmin Connect. Si tú te atascaste buscándolo, un atleta también. La solución no está en el
+      reloj: cuando active Garmin en <em>nuestra</em> app del iPhone, tiene que ver la ruta escrita
+      paso a paso. Lo tengo apuntado.
+    </div>
+  </section>
+
+  <section>
+    <h2 class="brand-title">Amazfit <span class="pill p-wait" style="vertical-align:middle">Sin enviar</span></h2>
+    <p class="brand-sub">
+      Mucho más simple, y a propósito: aquí el reloj <strong>solo enseña</strong>. Amazfit no deja que
+      una app de terceros arranque un entreno ni escriba la actividad, así que fingir un botón de
+      «empezar» sería mentir.
+    </p>
+
+    <div class="screens">
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">Hoy</div>
+          <div class="w-body bright">Cargando tu entreno…</div>
+        </div></div>
+        <div class="caption"><b>1 · Al abrir</b><span>Pregunta al móvil</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">Hoy</div>
+          <div class="w-head">Series 1 km · VO₂</div>
+          <div class="w-body bright">3 bloques</div>
+        </div></div>
+        <div class="caption"><b>2 · El entreno de hoy</b><span>Título y cuántos bloques</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">Hoy</div>
+          <div class="w-head">Descanso</div>
+        </div></div>
+        <div class="caption"><b>3 · Día de descanso</b><span>El plan lo marca así</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">Hoy</div>
+          <div class="w-body">Entra desde la app Zepp → Ajustes de FAHYBRID</div>
+        </div></div>
+        <div class="caption"><b>4 · Sin vincular</b><span>Mismo patrón que Garmin</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">Hoy</div>
+          <div class="w-body">Sin conexión con el móvil</div>
+        </div></div>
+        <div class="caption"><b>5 · Móvil lejos</b><span>El reloj no tiene internet propio</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">Hoy</div>
+          <div class="w-body">No tienes entreno esta semana</div>
+        </div></div>
+        <div class="caption"><b>6 · Sin plan</b><span>Semana sin publicar</span></div>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>Por qué Amazfit enseña menos.</strong> Su sistema no permite que una app de terceros
+      inicie un entreno ni guarde la actividad: eso lo hace su app nativa. Lo honesto es que el reloj
+      recuerde qué toca hoy y el atleta lo ejecute donde sí se puede.
+    </div>
+  </section>
+
+  <section>
+    <h2 class="brand-title">¿Y mientras corre?</h2>
+    <p class="brand-sub">
+      Aquí está la respuesta incómoda: <strong>en Garmin, durante el entreno, la pantalla no es
+      nuestra</strong>. Nuestra app entrega el fichero y se aparta. Guía el reproductor de Garmin,
+      con la calidad que ya conoce el atleta. Eso es lo bueno del diseño, pero significa que no
+      controlamos ni una pixel de esa pantalla.
+    </p>
+
+    <div class="screens" style="margin-top:26px">
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-body" style="color:#5B9BD5">GARMIN · TRAMO 3/8</div>
+          <div class="w-big" style="color:#fff">3:34</div>
+          <div class="w-body bright">/km · objetivo 3:30-3:40</div>
+          <div class="w-body">400 m · 168 ppm</div>
+        </div></div>
+        <div class="caption"><b>Corriendo, en Garmin</b><span>Su reproductor, no el nuestro</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-body" style="color:#5B9BD5">GARMIN · RECUPERACIÓN</div>
+          <div class="w-big" style="color:#fff">0:47</div>
+          <div class="w-body bright">200 m trote</div>
+          <div class="w-body">Siguiente: 400 m a 3:35</div>
+        </div></div>
+        <div class="caption"><b>Entre series</b><span>Los avisos y la vibración los pone Garmin</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="app-screen">
+          <div class="a-eyebrow">FAHYBRID · Series 1 km</div>
+          <div class="a-hero">
+            <div class="v">4:12<small>/km</small></div>
+            <div class="c">Ritmo · objetivo 4:05-4:15</div>
+          </div>
+          <div class="a-grid">
+            <div class="a-cell"><div class="l">Distancia</div><div class="v">1,84 <small>km</small></div></div>
+            <div class="a-cell"><div class="l">Lap</div><div class="v">7:44</div></div>
+            <div class="a-cell"><div class="l">HR</div><div class="v" style="color:#D9A03C">171 <small>bpm</small></div></div>
+            <div class="a-cell"><div class="l">Zona</div><div class="v" style="color:#D9A03C">Z4</div></div>
+          </div>
+        </div>
+        <div class="caption"><b>Corriendo, en nuestra app</b><span>Cuando lleva el móvil o no tiene reloj</span></div>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>Y el compromised running, que es donde se gana un HYROX.</strong> Correr en fatiga
+      después de las estaciones no va al reloj de fabricante, y no por falta de ganas: una simulación
+      es correr, trineo, correr, sled pull, correr. Ningún formato de Garmin, Suunto o COROS sabe
+      expresar eso. Si lo mandáramos como «carrera», el reloj le contaría al atleta ocho tramos
+      seguidos y se callaría todo lo demás.
+    </div>
+
+    <div class="screens" style="margin-top:22px">
+
+      <div class="screen">
+        <div class="app-screen">
+          <div class="a-eyebrow">FAHYBRID · Simulación · 5/8</div>
+          <div class="a-station">
+            <div class="n">Sled Push</div>
+            <div class="s">50 m · 152 kg</div>
+          </div>
+          <div class="a-hero">
+            <div class="v">1:12</div>
+            <div class="c">En la estación</div>
+          </div>
+          <div class="a-grid">
+            <div class="a-cell"><div class="l">Total</div><div class="v">28:41</div></div>
+            <div class="a-cell"><div class="l">HR</div><div class="v" style="color:#FF5A1F">184 <small>bpm</small></div></div>
+          </div>
+          <div class="a-next">Siguiente: 1 km carrera</div>
+        </div>
+        <div class="caption"><b>En la estación</b><span>Solo puede nuestra app</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="app-screen">
+          <div class="a-eyebrow">FAHYBRID · Simulación · 6/8</div>
+          <div class="a-station">
+            <div class="n">Carrera comprometida</div>
+            <div class="s">1 km · después del trineo</div>
+          </div>
+          <div class="a-hero">
+            <div class="v">4:38<small>/km</small></div>
+            <div class="c">Ritmo · en fatiga</div>
+          </div>
+          <div class="a-grid">
+            <div class="a-cell"><div class="l">Distancia</div><div class="v">0,62 <small>km</small></div></div>
+            <div class="a-cell"><div class="l">HR</div><div class="v" style="color:#FF5A1F">181 <small>bpm</small></div></div>
+          </div>
+          <div class="a-next">Siguiente: Farmers Carry</div>
+        </div>
+        <div class="caption"><b>Corriendo en fatiga</b><span>El dato que separa el podio</span></div>
+      </div>
+
+      <div class="screen">
+        <div class="watch"><div class="face">
+          <div class="w-title">FAHYBRID</div>
+          <div class="w-head">Esto va en la app</div>
+          <div class="w-body">El entreno de hoy no es de correr y el reloj no sabe guiarlo. Ábrelo en la app del móvil.</div>
+        </div></div>
+        <div class="caption"><b>Lo que ve en el reloj</b><span>Le mandamos a donde sí funciona</span></div>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>Amazfit no tiene pantalla de «durante».</strong> Su sistema no deja que una app de
+      terceros arranque un entreno ni guarde la actividad. El reloj recuerda qué toca hoy y ahí
+      acaba su papel. Poner un botón de empezar sería fingir algo que no ocurre.
+    </div>
+  </section>
+
+  <section>
+    <h2 class="brand-title">¿Hay que darle a los dos?</h2>
+    <p class="brand-sub">
+      <strong>No.</strong> Le das solo en el reloj. Pero te debo un matiz importante: no están
+      sincronizados en vivo, y no por dejadez, es que <strong>técnicamente no se puede</strong>.
+      Cuando arranca el reproductor de Garmin, nuestra app del reloj ya se ha cerrado y no puede
+      hablar con el iPhone.
+    </p>
+
+    <div class="flow">
+      <div class="step"><div class="n">1</div><div class="t">
+        <b>Le da a empezar en el reloj</b>
+        <span>Nuestra app se aparta y arranca el reproductor de Garmin</span>
+      </div></div>
+      <div class="step gap"><div class="n">2</div><div class="t">
+        <b>Mientras corre, el iPhone no se entera</b>
+        <span>El entreno sigue apareciendo como pendiente en la app. Es el hueco</span>
+      </div></div>
+      <div class="step"><div class="n">3</div><div class="t">
+        <b>Termina y el reloj guarda la actividad</b>
+        <span>Sube a Garmin Connect y de ahí a Apple Salud</span>
+      </div></div>
+      <div class="step"><div class="n">4</div><div class="t">
+        <b>Nuestra app la recoge sola</b>
+        <span>Busca el entreno de ese día y lo marca como hecho. Sin tocar nada</span>
+      </div></div>
+      <div class="step"><div class="n">5</div><div class="t">
+        <b>Y si le hubiera dado a los dos, no se duplica</b>
+        <span>Hay un guardián por solapamiento de horas: si ya existe una sesión en esa franja, la segunda no entra</span>
+      </div></div>
+    </div>
+
+    <div class="note">
+      <strong>El hueco es el paso 2, y sí me preocupa.</strong> El atleta corre 45 minutos y su móvil
+      sigue diciendo «empezar». Peor: podría darle también ahí. No se duplicaría, pero la sensación
+      es de descosido, que es justo lo que no quieres.
+    </div>
+
+    <h2 class="brand-title" style="font-size:19px;margin-top:30px">Cómo lo cierro</h2>
+    <p class="brand-sub">
+      Hay una señal que ya tenemos y no estamos usando: <strong>el fichero del entreno lo sirve
+      nuestro servidor</strong>. Cuando el reloj lo descarga, nos enteramos en ese mismo momento.
+    </p>
+
+    <div class="flow">
+      <div class="step fix"><div class="n">✓</div><div class="t">
+        <b>Al descargar en el reloj, el entreno queda marcado «en el reloj»</b>
+        <span>Es un dato real, no una suposición: la descarga pasa por nosotros</span>
+      </div></div>
+      <div class="step fix"><div class="n">✓</div><div class="t">
+        <b>El iPhone deja de ofrecer «empezar» y dice «lo estás haciendo en tu Garmin»</b>
+        <span>Desaparece el riesgo de darle a los dos y la sensación de descosido</span>
+      </div></div>
+      <div class="step fix"><div class="n">✓</div><div class="t">
+        <b>Al llegar la actividad, pasa a hecho</b>
+        <span>El círculo se cierra igual que ahora, pero sin el hueco del medio</span>
+      </div></div>
+    </div>
+
+    <div class="note">
+      <strong>Amazfit no tiene este problema</strong>, porque no tiene botón de empezar. Su sistema no
+      deja que una app de terceros arranque un entreno, así que el reloj solo recuerda qué toca y el
+      atleta lo ejecuta en el móvil. Un único sitio donde darle: no hay nada que desincronizar.
+    </div>
+
+    <div class="note">
+      <strong>Con el Apple Watch sí es de verdad una sola cosa.</strong> Ahí el reloj y el móvil son
+      el mismo sistema: la sesión se refleja entre los dos en vivo, empieces donde empieces. Es la
+      única marca donde eso es posible, y por eso es la que mejor experiencia da.
+    </div>
+  </section>
+
+  <section>
+    <h2 class="brand-title">Qué diferencia hay</h2>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th scope="col"></th><th scope="col">Garmin</th><th scope="col">Amazfit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="k">Qué hace el reloj</td><td class="v">Descarga el entreno y lanza el reproductor nativo, que guía tramo a tramo</td><td class="v">Enseña qué toca hoy. Nada más</td></tr>
+          <tr><td class="k">Guía durante el entreno</td><td class="v">Sí, y la pinta Garmin: ritmos, alertas y vibración. No es pantalla nuestra</td><td class="v">No, su sistema no lo permite a terceros</td></tr>\n          <tr><td class="k">Simulación HYROX y compromised running</td><td class="v">No cabe en su formato. Se queda en nuestra app</td><td class="v">Tampoco</td></tr>
+          <tr><td class="k">Vincular la cuenta</td><td class="v">Ajustes dentro de Garmin Connect</td><td class="v">Ajustes dentro de la app Zepp</td></tr>
+          <tr><td class="k">Necesita el móvil</td><td class="v">Para descargar. Luego corre sin él</td><td class="v">Siempre: el reloj no tiene internet propio</td></tr>
+          <tr><td class="k">¿Hay que darle a los dos?</td><td class="v">No. Empiezas en el reloj y la actividad entra sola. Sin sincronía en vivo</td><td class="v">No hay botón de empezar: se ejecuta en el móvil</td></tr>\n          <tr><td class="k">Estado</td><td class="v">Compila y arranca en simulador</td><td class="v">Construida, sin enviar a su tienda</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>FAHYBRID · mockup de las apps de reloj · los textos son los del código</footer>
+
+</div>
