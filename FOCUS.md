@@ -1,7 +1,7 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-26**
+Última actualización: **2026-07-27**
 
 ---
 
@@ -12,6 +12,48 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 El problema de fondo: tenemos tecnología pero no método. Pablo no tiene uno documentado y su referencia es la metodología del entrenador que le entrena a él como atleta — que no es la dirección que queremos. La salida no es discutirle el contenido, es darle un **marco ya decidido y modificable**, para que su trabajo sea corregir en vez de crear.
 
 La tesis de trabajo: *la identidad de un método no está en los ejercicios, está en las reglas*. Los ejercicios los usa todo el mundo; lo que nos hace reconocibles es cómo decidimos, medimos y ajustamos.
+
+---
+
+## Cerrado el 27-jul · El dashboard en el bolsillo del coach (PWA + avisos)
+
+Ni Pablo ni Gerard van a vivir pegados al dashboard. Ahora **app.fahybrid.com
+se instala como app** en su iPhone (Compartir → Añadir a pantalla de inicio),
+con icono propio —el FHP con banda COACH, para no confundirla con la app del
+atleta— y **avisos push de verdad**: mensaje de un atleta → notificación con su
+nombre y el texto → tap → esa conversación abierta. Con contador de
+conversaciones pendientes en el propio icono.
+
+Cómo: manifest + service worker + Web Push (VAPID) por el MISMO embudo que ya
+usaba el push del atleta (`dispatchNotification`), así que citas, leads o bajas
+pueden avisar mañana sin trabajo por-trigger. Se activa desde /mensajes o
+/ajustes; migración **0138** (suscripciones por navegador) aplicada.
+
+Lo que salió al verificar EN PRODUCCIÓN (todo anterior a hoy, todo arreglado):
+
+- **Los avisos "al coach" iban a un usuario con el que nadie inicia sesión**
+  (`coaches.user_id` legacy, no los miembros de `coach_members`). Ni push ni
+  bandeja llegaban a nadie. Ahora se reparte a todos los miembros activos.
+- **En móvil no se podía responder:** el compositor quedaba DEBAJO de la barra
+  de pestañas (el alto solo restaba la cabecera). Token `--v2-tabbar-h`.
+- **En móvil la lista de conversaciones era inalcanzable:** se auto-abría el
+  primer hilo sin ninguna flecha de volver. Ahora se aterriza en la lista y el
+  hilo tiene volver; el hilo tapado ya no marca mensajes como leídos.
+- El filo de medianoche: la lista decidía "hoy/ayer" en la zona del servidor
+  (UTC), no en Madrid.
+
+Verificado E2E contra producción con un atleta desechable (luego borrado): el
+push sale de la instancia desplegada, FCM lo entrega, el navegador lo pinta y
+el deeplink aterriza en el hilo. 390/768/1440 sin desbordes. Pendiente de
+Alex: apagar la verificación de dispositivo de Clerk (ajuste de su dashboard)
+y, cuando la app del atleta llegue a TestFlight, provisionar APNS en Vercel
+(hoy `apns_configured: false` — el push del atleta nunca ha podido salir).
+
+**Deuda anotada (pre-existente, vista de pasada):** `notifications.payload_json`
+guarda el payload doble-codificado (un string JSON dentro del jsonb, por el
+`JSON.stringify` + serialización de postgres.js en `dispatchNotification`).
+`->>'campo'` no funciona sobre esas filas. Arreglarlo exige tocar a la vez el
+insert y a TODOS los lectores (bandeja iOS incluida) — no de pasada.
 
 ---
 
