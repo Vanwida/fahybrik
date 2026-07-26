@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import {
   ChatError,
@@ -26,6 +26,25 @@ import { cn } from '@/lib/utils';
 const TEXTAREA_MAX_HEIGHT = 120;
 /** Cada cuánto se refresca el contador mientras se graba, en ms. */
 const TIMER_TICK_MS = 200;
+
+/**
+ * ¿Se puede grabar en este navegador? El servidor no lo sabe —no hay `window`—,
+ * así que responde que no y el cliente corrige tras montar.
+ *
+ * Va por `useSyncExternalStore` y no por un estado con efecto porque es
+ * exactamente para lo que existe: leer durante el render algo que solo el cliente
+ * conoce, con una respuesta declarada para el servidor. Preguntarlo a pelo
+ * pintaba el micro en el cliente y no en el HTML del servidor, y React tiraba
+ * toda la caja de escribir por no cuadrar la hidratación.
+ */
+function useCanRecordVoice(): boolean {
+  return useSyncExternalStore(
+    // La capacidad no cambia mientras la página vive: no hay a qué suscribirse.
+    () => () => undefined,
+    () => canRecordVoice(),
+    () => false,
+  );
+}
 
 export interface ChatComposerProps {
   onSend: (input: { body?: string; attachment?: PendingAttachment }) => Promise<void> | void;
@@ -50,6 +69,7 @@ export function ChatComposer({
   const [sending, setSending] = useState(false);
   const [recorder, setRecorder] = useState<VoiceRecorder | null>(null);
   const [recordedSeconds, setRecordedSeconds] = useState(0);
+  const canRecord = useCanRecordVoice();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,7 +217,7 @@ export function ChatComposer({
           disabled={disabled || sending}
           onClick={() => fileInputRef.current?.click()}
         />
-        {canRecordVoice() ? (
+        {canRecord ? (
           <IconButton
             icon="mic"
             label="Grabar una nota de voz"
