@@ -50,6 +50,8 @@ export interface ConversationProps {
   initialMessages?: MessageDTO[];
   /** Cada mensaje que se asienta, para que la lista de fuera se ponga al día. */
   onActivity?: (message: MessageDTO) => void;
+  /** Si el panel está realmente a la vista (ver useConversation.visible). */
+  visible?: boolean;
   placeholder?: string;
   className?: string;
 }
@@ -59,10 +61,11 @@ export function Conversation({
   threadId,
   initialMessages,
   onActivity,
+  visible,
   placeholder,
   className,
 }: ConversationProps) {
-  const chat = useConversation({ athleteId, threadId, initialMessages, onActivity });
+  const chat = useConversation({ athleteId, threadId, initialMessages, onActivity, visible });
   const [notice, setNotice] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);

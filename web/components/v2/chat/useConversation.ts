@@ -72,6 +72,10 @@ export interface UseConversationOptions {
   /** Se dispara con cada mensaje que se asienta en el hilo (propio o del atleta),
    *  para que la lista de conversaciones actualice su vista previa y su orden. */
   onActivity?: (message: MessageDTO) => void;
+  /** Si la conversación está realmente A LA VISTA. En móvil el panel vive
+   *  montado pero tapado por la lista: lo que nadie ve no se marca leído.
+   *  Por defecto true (en md+ el panel siempre está a la vista). */
+  visible?: boolean;
 }
 
 export interface Conversation {
@@ -92,7 +96,7 @@ export interface Conversation {
 }
 
 export function useConversation(options: UseConversationOptions): Conversation {
-  const { athleteId, threadId, initialMessages, onActivity } = options;
+  const { athleteId, threadId, initialMessages, onActivity, visible = true } = options;
   const { live, generation } = useChatLive();
 
   const [messages, setMessages] = useState<UIMessage[]>(() =>
@@ -183,10 +187,11 @@ export function useConversation(options: UseConversationOptions): Conversation {
   }, [messages]);
 
   useEffect(() => {
+    if (!visible) return;
     if (!newestIncomingId || lastReadRef.current === newestIncomingId) return;
     lastReadRef.current = newestIncomingId;
     void markRead(athleteId, newestIncomingId);
-  }, [athleteId, newestIncomingId]);
+  }, [athleteId, newestIncomingId, visible]);
 
   /** El envío de verdad, compartido por `send` y por `retry`. */
   const deliver = useCallback(

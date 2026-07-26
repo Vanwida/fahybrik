@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
@@ -27,6 +27,19 @@ import { cn } from '@/lib/utils';
  *  que no estaba en la lista. Sin este freno, un atleta escribiendo seguido en su
  *  primer minuto dispararía una recarga por mensaje. */
 const UNKNOWN_THREAD_REFRESH_MS = 10_000;
+
+// ¿Estamos en md+ (lista e hilo conviven en el grid)? Como store externo para
+// leerlo sin desajustar la hidratación: en servidor cuenta como false y solo
+// gobierna efectos (el acuse de lectura), nunca el DOM.
+const MD_QUERY = '(min-width: 768px)';
+function subscribeMdUp(onChange: () => void): () => void {
+  const mql = window.matchMedia(MD_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+}
+function readMdUp(): boolean {
+  return window.matchMedia(MD_QUERY).matches;
+}
 
 /** La vista previa de un mensaje en la lista: el texto, o la etiqueta humana
  *  del adjunto — la MISMA que usa el push y la que pinta la lista al cargar. */
@@ -77,6 +90,12 @@ function MensajesBody({
     clearAppBadge();
   }, []);
   const [contextOpen, setContextOpen] = useState(false);
+
+  // En móvil se aterriza en la LISTA (como cualquier app de mensajería) salvo
+  // que un deeplink pida un hilo concreto; abrir/volver conmuta esto. En md+
+  // no aplica: lista e hilo conviven en el grid.
+  const [mobileOpen, setMobileOpen] = useState(() => Boolean(initialThreadId));
+  const isMdUp = useSyncExternalStore(subscribeMdUp, readMdUp, () => false);
 
   // El servidor manda: cuando la página se revalida, la lista se rehace con lo
   // suyo. Se ajusta DURANTE el render comparando con lo último que llegó, que es
@@ -143,6 +162,7 @@ function MensajesBody({
 
   const handleSelect = useCallback((thread: MensajesThread) => {
     setActiveId(thread.thread_id);
+    setMobileOpen(true);
     setContextOpen(false);
     // Abrirlo ya es leerlo: la conversación manda el acuse al montarse.
     setThreads((prev) =>
@@ -183,7 +203,7 @@ function MensajesBody({
         <div
           className={cn(
             'flex min-h-0 flex-col border-r border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
-            active ? 'hidden md:flex' : 'flex',
+            mobileOpen ? 'hidden md:flex' : 'flex',
           )}
         >
           <div className="shrink-0 empty:hidden p-2 pb-0">
@@ -201,13 +221,17 @@ function MensajesBody({
           </div>
         </div>
 
-        <div className={cn('min-h-0 bg-[color:var(--v2-bg)]', active ? 'block' : 'hidden md:block')}>
+        <div
+          className={cn('min-h-0 bg-[color:var(--v2-bg)]', mobileOpen ? 'block' : 'hidden md:block')}
+        >
           {active ? (
             <ThreadPanel
               key={active.thread_id}
               thread={active}
               onActivity={handleActivity}
               onOpenContext={() => setContextOpen(true)}
+              onBack={() => setMobileOpen(false)}
+              visible={isMdUp || mobileOpen}
             />
           ) : (
             <div className="flex h-full items-center justify-center p-6">

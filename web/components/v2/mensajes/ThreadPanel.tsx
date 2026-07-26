@@ -21,6 +21,8 @@ export function ThreadPanel({
   thread,
   onActivity,
   onOpenContext,
+  onBack,
+  visible,
 }: {
   thread: MensajesThread;
   /** Cada mensaje que se asienta en el hilo, para que la lista de la izquierda
@@ -28,12 +30,27 @@ export function ThreadPanel({
   onActivity: (message: MessageDTO) => void;
   /** Solo en móvil: abre el panel de contexto (oculto en pantallas pequeñas). */
   onOpenContext?: () => void;
+  /** Solo en móvil: vuelve a la lista de conversaciones (en md+ ya está al lado). */
+  onBack?: () => void;
+  /** Si el panel está realmente a la vista (en móvil vive montado pero tapado
+   *  por la lista). Gobierna el acuse de lectura — ver useConversation.visible. */
+  visible?: boolean;
 }) {
   const ctx = thread.context;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-[color:var(--v2-border)] px-4 py-2.5">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Volver a conversaciones"
+            className="v2-focus -ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] md:hidden"
+          >
+            <MIcon name="arrow_back" size={20} />
+          </button>
+        ) : null}
         <AthleteAvatar name={thread.athlete_name} size="md" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -69,6 +86,7 @@ export function ThreadPanel({
         athleteId={thread.athlete_id}
         threadId={thread.thread_id}
         onActivity={onActivity}
+        visible={visible}
         placeholder="Escribe una respuesta…"
         className="min-h-0 flex-1"
       />
