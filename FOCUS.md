@@ -75,6 +75,28 @@ La rama `feat/zepp-app` está en producción, commit `02db046`. Los endpoints de
 
 ⚠️ **`fahybrik-demo` YA NO EXISTE.** Un solo proyecto Vercel, `fahybrik-web` (`prj_9Fj582l8dFSGZ2MeC8K1xlGYFVde`), sirve los dos dominios. El id de demo que arrastraban las memorias da `Project not found` y hacía fallar el primer intento de deploy de cada sesión. Corregido en memoria: ver `reference_deploy_produccion`.
 
+## Hilo abierto: PAUSAS Y BAJAS — el atleta se gestiona solo (26-jul)
+
+Mockup de las pantallas: → `docs/design/bajas-y-pausas-mockup.html`
+
+**El planteamiento (Alex):** se entra por entrevista y se paga por un link de Stripe, así que la app no vende nada. Pero salir no puede depender de que alguien llame: **si quiere pausar o cancelar, que lo haga él**. Pablo se entera, no autoriza.
+
+**Decidido:** la pausa **para el cobro**, con tope de 4 semanas en 12 meses móviles. Agotado el tope no se bloquea: se le ofrece congelar pagando o darse de baja.
+
+**El motor ya está casi entero** (mig 0104 + #13/#15): `pauseAthlete` ya llama a `pauseStripeCollection`, `resumeAthlete` lo reactiva, `publish-weekly-plans` ya salta a los pausados y `capacity.ts` ya distingue los tres estados.
+
+**Lo que falta:**
+1. Las pantallas de iOS. No existe ninguna: la app **nunca llama** a `/api/athlete/pause-request`, que está construido y con tests.
+2. Autoservicio: la pausa deja de ser solicitud que Pablo confirma, y nace la baja iniciada por el atleta (hoy solo la da él).
+3. El contador del tope: días pausados en 12 meses móviles sobre `athlete_pauses`. Cuenta días reales, no pedidos.
+4. **Fallo ya presente:** nada reanuda al llegar `end_date`. Se guarda la fecha de vuelta y no la mira ningún cron — el atleta se queda pausado y sin cobrar hasta que Pablo se acuerde. Con la pausa en autoservicio pasa de detalle a fuga.
+5. Cambio de comportamiento: pausar deja de liberar la plaza a la lista de espera (ver `docs/DECISIONS.md`).
+6. Tres señales para Pablo: baja programada, pausa iniciada, vuelve mañana. Ninguna con botón de aprobar.
+
+**Pendiente:** visto bueno de Alex al mockup antes de construir.
+
+---
+
 ## Hilo paralelo: RELOJES — el entreno en la muñeca (prioridad máxima, 25-jul)
 
 Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`

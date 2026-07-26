@@ -1,0 +1,428 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pausas y bajas — el atleta se gestiona solo</title>
+<style>
+  :root{
+    --bg:#0B0B0C; --surface:#141416; --raised:#1C1C1F; --sunken:#080809;
+    --fg:#F5F3F0; --muted:#9A938B; --faint:#6B6258;
+    --accent:#F06A2A; --accent-on:#511900; --accent-press:#D85A20;
+    --danger:#E5484D; --ok:#3DD68C; --info:#4D8DF0;
+    --hair:rgba(255,255,255,.07); --hair-strong:rgba(255,255,255,.12);
+    --r:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px; margin:0 auto; padding:56px 24px 96px}
+
+  /* ── Header ───────────────────────────────────────────── */
+  header{border-bottom:1px solid var(--hair); padding-bottom:32px; margin-bottom:48px}
+  .eyebrow{
+    font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; margin:0 0 14px;
+  }
+  h1{
+    font-size:clamp(30px,5vw,48px); line-height:1.04; margin:0 0 18px;
+    font-style:italic; font-weight:800; letter-spacing:-.02em;
+  }
+  .lede{font-size:17px; color:var(--muted); max-width:62ch; margin:0}
+  .lede b{color:var(--fg); font-weight:600}
+
+  /* ── Rules strip ──────────────────────────────────────── */
+  .rules{
+    display:grid; gap:1px; background:var(--hair);
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    border:1px solid var(--hair); border-radius:var(--r); overflow:hidden;
+    margin:40px 0 56px;
+  }
+  .rule{background:var(--surface); padding:20px 22px}
+  .rule dt{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); font-weight:700; margin-bottom:8px}
+  .rule dd{margin:0; font-size:14.5px; line-height:1.5; color:var(--muted)}
+  .rule dd b{color:var(--fg); font-weight:600}
+
+  /* ── Section ──────────────────────────────────────────── */
+  h2{
+    font-size:13px; letter-spacing:.14em; text-transform:uppercase; font-weight:700;
+    color:var(--faint); margin:64px 0 4px; padding-top:28px; border-top:1px solid var(--hair);
+  }
+  h2:first-of-type{border-top:0; padding-top:0}
+  .sub{color:var(--muted); font-size:15.5px; margin:0 0 32px; max-width:64ch}
+
+  .grid{display:grid; gap:36px; grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+
+  /* ── Phone ────────────────────────────────────────────── */
+  figure{margin:0}
+  .phone{
+    width:100%; max-width:320px; margin:0 auto;
+    border:1px solid var(--hair-strong); border-radius:38px; padding:9px;
+    background:#000; box-shadow:0 18px 50px rgba(0,0,0,.55);
+  }
+  .screen{
+    background:var(--bg); border-radius:30px; overflow:hidden;
+    min-height:520px; display:flex; flex-direction:column;
+  }
+  .navbar{
+    padding:16px 18px 12px; display:flex; align-items:center; gap:10px;
+    border-bottom:1px solid var(--hair);
+  }
+  .navbar .back{color:var(--accent); font-size:15px}
+  .navbar h3{margin:0; font-size:16px; font-weight:650; letter-spacing:-.01em}
+  .body{padding:18px; display:flex; flex-direction:column; gap:14px; flex:1}
+
+  .card{background:var(--surface); border-radius:16px; padding:16px}
+  .card.raised{background:var(--raised)}
+  .card + .card{margin-top:0}
+
+  .k{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:700}
+  .v{font-size:15px; margin-top:5px}
+  .row{display:flex; justify-content:space-between; align-items:baseline; gap:12px}
+  .row + .row{margin-top:12px; padding-top:12px; border-top:1px solid var(--hair)}
+  .muted{color:var(--muted)}
+  .small{font-size:13.5px; line-height:1.45}
+  .tiny{font-size:12px; line-height:1.45; color:var(--faint)}
+
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:650;
+    padding:4px 10px; border-radius:999px; letter-spacing:.01em;
+  }
+  .pill.ok{background:rgba(61,214,140,.14); color:var(--ok)}
+  .pill.warn{background:rgba(240,106,42,.16); color:var(--accent)}
+  .pill.off{background:rgba(255,255,255,.07); color:var(--muted)}
+
+  .btn{
+    display:block; width:100%; text-align:center; padding:14px; border-radius:14px;
+    font-size:15px; font-weight:700; border:0; letter-spacing:-.01em;
+  }
+  .btn.primary{background:var(--accent); color:var(--accent-on)}
+  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--hair-strong)}
+  .btn.danger{background:transparent; color:var(--danger); border:1px solid rgba(229,72,77,.35)}
+  .btn.link{background:none; color:var(--muted); font-weight:550; font-size:14px; padding:10px}
+
+  .seg{display:flex; gap:8px; flex-wrap:wrap}
+  .seg span{
+    font-size:13px; padding:8px 13px; border-radius:11px;
+    background:var(--raised); color:var(--muted); border:1px solid transparent;
+  }
+  .seg span.on{background:rgba(240,106,42,.14); color:var(--accent); border-color:rgba(240,106,42,.4); font-weight:650}
+
+  /* pause budget meter */
+  .meter{height:7px; border-radius:99px; background:var(--sunken); overflow:hidden; margin:10px 0 7px; display:flex}
+  .meter i{display:block; height:100%}
+  .meter i.used{background:var(--accent)}
+  .meter i.pick{background:rgba(240,106,42,.45)}
+
+  .field{background:var(--raised); border-radius:13px; padding:13px 15px}
+  .field .lab{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); font-weight:700}
+  .field .val{font-size:16px; margin-top:4px; font-weight:600}
+
+  .note{
+    background:rgba(240,106,42,.08); border:1px solid rgba(240,106,42,.22);
+    border-radius:13px; padding:13px 15px; font-size:13.5px; line-height:1.5; color:var(--fg);
+  }
+  .note.grey{background:rgba(255,255,255,.04); border-color:var(--hair); color:var(--muted)}
+  .note b{color:var(--accent); font-weight:650}
+
+  ul.plain{margin:8px 0 0; padding-left:0; list-style:none; display:grid; gap:7px}
+  ul.plain li{font-size:13.5px; color:var(--muted); padding-left:18px; position:relative; line-height:1.45}
+  ul.plain li::before{content:""; position:absolute; left:2px; top:8px; width:5px; height:5px; border-radius:99px; background:var(--accent)}
+
+  figcaption{margin:18px auto 0; max-width:320px}
+  figcaption .t{font-size:15px; font-weight:650; margin-bottom:6px; letter-spacing:-.01em}
+  figcaption .d{font-size:13.5px; color:var(--muted); line-height:1.55}
+  figcaption .d b{color:var(--fg); font-weight:600}
+
+  .spacer{flex:1}
+
+  @media (max-width:640px){
+    .wrap{padding:36px 16px 64px}
+    .grid{gap:44px}
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">FAHYBRID · Ciclo de vida del atleta</p>
+  <h1>Pausar y darse de baja,<br>sin pedir permiso</h1>
+  <p class="lede">Se entra por entrevista. Para salir no hace falta llamar a nadie: <b>el atleta pausa o cancela desde la app y el sistema ejecuta</b>. Pablo se entera, no autoriza. La única regla dura es el tope de pausa al año, y la aplica la propia pantalla.</p>
+</header>
+
+<dl class="rules">
+  <div class="rule"><dt>Pausar</dt><dd><b>Se para el cobro.</b> Máximo 4 semanas en 12 meses. El plan se congela y la adherencia excluye esos días.</dd></div>
+  <div class="rule"><dt>La plaza</dt><dd><b>Se le guarda</b> mientras esté pausado. Es lo que compra el tope. Hoy se libera a la lista de espera: eso cambia.</dd></div>
+  <div class="rule"><dt>Volver</dt><dd><b>Solo, en la fecha que dijo.</b> O antes, si le da a volver. Nadie tiene que acordarse.</dd></div>
+  <div class="rule"><dt>Baja</dt><dd><b>Entrena hasta el último día pagado.</b> Ese día se aplica sola. Reversible hasta entonces. El historial no se toca.</dd></div>
+</dl>
+
+<h2>1 · La puerta</h2>
+<p class="sub">Perfil › Mi suscripción. Hoy esta pantalla solo mira: dice el estado y manda al portal de Stripe. Le añadimos las dos únicas cosas que el atleta quiere poder hacer.</p>
+
+<div class="grid">
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Mi suscripción</h3></div>
+      <div class="body">
+        <div class="card">
+          <div class="row"><div><div class="k">Estado</div><div class="v">Plan Fundador</div></div><span class="pill ok">Activa</span></div>
+          <div class="row"><span class="muted small">Próximo cobro</span><span class="small">12 ago · 120 €</span></div>
+          <div class="row"><span class="muted small">Desde</span><span class="small">3 feb 2026</span></div>
+        </div>
+
+        <div class="card raised">
+          <div class="k">Pausa disponible</div>
+          <div class="meter"><i class="used" style="width:0%"></i></div>
+          <div class="tiny">4 semanas de 4 · se renuevan cada 12 meses</div>
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn ghost">Pausar mi plan</button>
+        <button class="btn link">Gestionar pago · facturas</button>
+        <button class="btn link" style="color:var(--danger)">Darme de baja</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Las dos salidas, a la vista</div>
+      <div class="d">Pausar sube a botón porque es lo que casi siempre quiere de verdad. La baja se queda abajo y en rojo: <b>presente y sin fricción, pero no invitando</b>. El contador de pausa se ve antes de necesitarlo, para que el tope no sea una sorpresa.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">✕</span><h3>Pausar mi plan</h3></div>
+      <div class="body">
+        <div>
+          <div class="k">Motivo</div>
+          <div class="seg" style="margin-top:9px">
+            <span>Lesión</span><span class="on">Vacaciones</span><span>Parón</span><span>Otro</span>
+          </div>
+        </div>
+
+        <div class="field"><div class="lab">Vuelvo el</div><div class="val">1 de septiembre</div></div>
+
+        <div class="card raised">
+          <div class="k">Vas a usar</div>
+          <div class="meter"><i class="pick" style="width:50%"></i></div>
+          <div class="small" style="margin-top:2px">2 de tus 4 semanas</div>
+        </div>
+
+        <div class="note">
+          <b>No se te cobra</b> del 18 de agosto al 1 de septiembre. Tu plaza queda reservada y el plan vuelve solo ese día.
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn primary">Pausar hasta el 1 sep</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">La fecha de vuelta es obligatoria</div>
+      <div class="d">Una pausa sin final es una baja que nadie declara. Al pedir la fecha, el tope se puede calcular delante de él y <b>la vuelta se programa sola</b>. El motivo usa el enum que ya existe (lesión · vacaciones · parón · otro), así que la analítica de por qué se va la gente sale gratis.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Mi suscripción</h3></div>
+      <div class="body">
+        <div class="card">
+          <div class="row"><div><div class="k">Estado</div><div class="v">En pausa</div></div><span class="pill warn">Hasta 1 sep</span></div>
+          <div class="row"><span class="muted small">Cobro</span><span class="small">Parado · no se te cobra</span></div>
+          <div class="row"><span class="muted small">Tu plaza</span><span class="small">Reservada</span></div>
+        </div>
+
+        <div class="note grey">
+          Vuelves solo el <b style="color:var(--fg)">1 de septiembre</b>. Ese día tendrás tu semana publicada.
+        </div>
+
+        <div class="card raised">
+          <div class="k">Pausa disponible</div>
+          <div class="meter"><i class="used" style="width:50%"></i></div>
+          <div class="tiny">2 semanas de 4 restantes</div>
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn primary">Volver ya</button>
+        <button class="btn link">Ver mi historial</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Pausado no es desconectado</div>
+      <div class="d">Sigue entrando: ve su historial y sus analíticas, no ve plan. <b>«Volver ya» le devuelve los días que no gastó</b> al contador, porque el tope cuenta días pausados de verdad, no los que pidió.</div>
+    </figcaption>
+  </figure>
+
+</div>
+
+<h2>2 · Cuando el tope se acaba</h2>
+<p class="sub">El único momento en que el sistema dice que no. No puede ser un muro: si le bloqueas la salida, cancela.</p>
+
+<div class="grid">
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">✕</span><h3>Pausar mi plan</h3></div>
+      <div class="body">
+        <div class="card raised">
+          <div class="k">Pausa disponible</div>
+          <div class="meter"><i class="used" style="width:100%"></i></div>
+          <div class="small" style="margin-top:2px">0 semanas · has usado las 4</div>
+          <div class="tiny" style="margin-top:6px">Se te renuevan el 18 de marzo</div>
+        </div>
+
+        <div class="note grey">
+          Ya has pausado 4 semanas en los últimos 12 meses. Puedes seguir, pero <b style="color:var(--fg)">el cobro no se para</b>.
+        </div>
+
+        <ul class="plain">
+          <li>Congelar el plan y seguir pagando, para no perder la plaza</li>
+          <li>Darte de baja y volver cuando quieras, si hay hueco</li>
+        </ul>
+
+        <div class="spacer"></div>
+        <button class="btn ghost">Congelar el plan, seguir pagando</button>
+        <button class="btn link" style="color:var(--danger)">Darme de baja</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Un no con dos salidas</div>
+      <div class="d">Nunca se le deja sin opción. Y se dice la letra pequeña de verdad: <b>si se da de baja, volver depende de que haya hueco</b>. Es lo que hace que el cupo signifique algo.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">✕</span><h3>Darme de baja</h3></div>
+      <div class="body">
+        <div>
+          <div class="k">¿Por qué te vas?</div>
+          <div class="seg" style="margin-top:9px">
+            <span>Lesión</span><span>Vacaciones</span><span class="on">Parón</span><span>Otro</span>
+          </div>
+        </div>
+
+        <div class="note">
+          Entrenas hasta el <b>12 de agosto</b>, el último día que tienes pagado. Ese día se cierra tu plaza y no se te vuelve a cobrar.
+        </div>
+
+        <ul class="plain">
+          <li>Puedes echarte atrás hasta el 12 de agosto</li>
+          <li>Tu historial, tus marcas y tus carreras se quedan</li>
+          <li>Si quieres borrar tus datos, eso es aparte, en Cuenta</li>
+        </ul>
+
+        <div class="spacer"></div>
+        <button class="btn danger">Confirmar baja el 12 de agosto</button>
+        <button class="btn link">Mejor pausar 4 semanas</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Sin retención agresiva, con la fecha real</div>
+      <div class="d">Ni descuentos ni «¿seguro?» tres veces. Solo el dato que le falta: <b>no pierde lo que ya pagó</b>. La alternativa de pausar aparece una vez, abajo, y solo si le quedan semanas. Y se separa baja de borrado de datos, que son cosas distintas.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Mi suscripción</h3></div>
+      <div class="body">
+        <div class="card">
+          <div class="row"><div><div class="k">Estado</div><div class="v">Baja programada</div></div><span class="pill off">12 ago</span></div>
+          <div class="row"><span class="muted small">Entrenas hasta</span><span class="small">12 de agosto</span></div>
+          <div class="row"><span class="muted small">Próximo cobro</span><span class="small">Ninguno</span></div>
+        </div>
+
+        <div class="note grey">
+          Hasta el 12 de agosto todo sigue igual: tienes plan, chat y tu entrenador. <b style="color:var(--fg)">Puedes cancelar la baja cuando quieras.</b>
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn primary">Cancelar la baja, sigo</button>
+        <button class="btn link">Descargar mis datos</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">La baja no apaga la app</div>
+      <div class="d">Entre el clic y la fecha puede haber tres semanas pagadas. Apagarle el plan ese día sería cobrarle por nada. <b>Todo sigue hasta el último día</b>, y volver atrás es un botón, no un email.</div>
+    </figcaption>
+  </figure>
+
+</div>
+
+<h2>3 · Lo que ve Pablo</h2>
+<p class="sub">No autoriza nada. Se entera a tiempo y con contexto para poder llamar si quiere — que es distinto de tener que llamar.</p>
+
+<div class="grid">
+
+  <figure>
+    <div class="phone"><div class="screen">
+      <div class="navbar"><h3>Hoy</h3></div>
+      <div class="body">
+        <div class="card" style="border-left:3px solid var(--danger)">
+          <div class="k" style="color:var(--danger)">Baja programada</div>
+          <div class="v" style="font-weight:650">Marc Vidal se va el 12 de agosto</div>
+          <div class="small muted" style="margin-top:8px">Motivo: parón. Lleva 5 meses, adherencia 84%. Le quedan 3 semanas pagadas.</div>
+          <div class="seg" style="margin-top:13px"><span class="on">Escribirle</span><span>Ver ficha</span></div>
+        </div>
+
+        <div class="card" style="border-left:3px solid var(--accent)">
+          <div class="k" style="color:var(--accent)">En pausa</div>
+          <div class="v" style="font-weight:650">Laura Ferrer vuelve el 1 de septiembre</div>
+          <div class="small muted" style="margin-top:8px">Vacaciones · 2 semanas. Plaza reservada, cobro parado.</div>
+        </div>
+
+        <div class="card" style="border-left:3px solid var(--info)">
+          <div class="k" style="color:var(--info)">Vuelve mañana</div>
+          <div class="v" style="font-weight:650">Jordi Puig entra el 27 de julio</div>
+          <div class="small muted" style="margin-top:8px">Su semana se publica sola. Revisa si el bloque sigue encajando.</div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">Tres avisos, cero botones de aprobar</div>
+      <div class="d">El que importa es el tercero: <b>«vuelve mañana»</b>. Es el único que le pide algo, y es trabajo de entrenador — mirar si el bloque que dejó a medias sigue teniendo sentido tras dos semanas fuera.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone" style="max-width:320px"><div class="screen">
+      <div class="navbar"><span class="back">‹</span><h3>Cupo</h3></div>
+      <div class="body">
+        <div class="card">
+          <div class="row"><div><div class="k">Plazas</div><div class="v">18 de 20</div></div><span class="pill ok">2 libres</span></div>
+          <div class="row"><span class="muted small">Activos</span><span class="small">16</span></div>
+          <div class="row"><span class="muted small">En pausa (plaza reservada)</span><span class="small">2</span></div>
+          <div class="row"><span class="muted small">Baja programada</span><span class="small">1 · libera el 12 ago</span></div>
+        </div>
+
+        <div class="note grey">
+          Las plazas de los pausados <b style="color:var(--fg)">no se ofrecen</b> a la lista de espera. Vuelven el 1 y el 8 de septiembre.
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn ghost">Ver lista de espera · 7</button>
+      </div>
+    </div></div>
+    <figcaption>
+      <div class="t">El cupo deja de mentir</div>
+      <div class="d">Este es el cambio real de comportamiento: hoy pausar libera la plaza y se la pasa a la lista de espera, así que al volver podía no haber sitio. <b>Con el tope, la pausa reserva</b> — y el panel distingue plaza libre de plaza guardada.</div>
+    </figcaption>
+  </figure>
+
+</div>
+
+<h2>4 · Lo que hay que construir</h2>
+<p class="sub">El motor está casi entero: pausar ya para el cobro en Stripe, reanudar lo reactiva, el cron de planes ya salta a los pausados y el cupo ya entiende los tres estados.</p>
+
+<dl class="rules" style="margin-top:0">
+  <div class="rule"><dt>iOS</dt><dd>Las seis pantallas de arriba. Hoy no existe ninguna: <b>la app nunca llama al endpoint de pausa</b> que ya está construido y probado.</dd></div>
+  <div class="rule"><dt>Autoservicio</dt><dd>La pausa deja de ser una solicitud que Pablo confirma. Y <b>nace la baja del atleta</b>, que hoy solo puede dar él.</dd></div>
+  <div class="rule"><dt>El tope</dt><dd>Contador de días pausados en 12 meses móviles, sobre la tabla de pausas que ya existe. Cuenta días reales, no pedidos.</dd></div>
+  <div class="rule"><dt>La vuelta sola</dt><dd><b>Fallo actual:</b> nada reanuda al llegar la fecha. Se guarda y no la mira nadie — te quedas pausado y sin cobrar hasta que alguien se acuerde.</dd></div>
+  <div class="rule"><dt>La plaza</dt><dd>Pausar deja de liberar el cupo a la lista de espera. Es el único comportamiento existente que cambia.</dd></div>
+  <div class="rule"><dt>Aviso a Pablo</dt><dd>Tres señales nuevas en su bandeja: baja programada, pausa iniciada y vuelta mañana. Ninguna con botón de aprobar.</dd></div>
+</dl>
+
+</div>
