@@ -37,9 +37,9 @@ export interface LifecycleRunReport {
 /**
  * Bring back everyone whose planned pause has elapsed.
  *
- * `end_date` is the LAST day paused, so the athlete is due back the day after: the
- * condition is `end_date < today`, not `<=`. An indefinite pause (end_date null) is
- * never touched here — only a human ends one of those.
+ * `end_date` IS the return day — the coach dialog's "Vuelve el" — so the athlete is due
+ * back ON it: the condition is `end_date <= today`. An indefinite pause (end_date null)
+ * is never touched here; only a human ends one of those.
  */
 async function resumeDuePauses(todayIso: string): Promise<{ done: number; failed: number }> {
   const due = await sql<{ athlete_id: string }[]>`
@@ -48,7 +48,7 @@ async function resumeDuePauses(todayIso: string): Promise<{ done: number; failed
     join athlete_pauses p on p.athlete_id = a.id
     where a.lifecycle_status = 'pausado'
       and p.end_date is not null
-      and p.end_date < ${todayIso}::date
+      and p.end_date <= ${todayIso}::date
   `;
   let done = 0;
   let failed = 0;

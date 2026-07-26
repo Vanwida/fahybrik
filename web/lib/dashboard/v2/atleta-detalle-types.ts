@@ -127,6 +127,17 @@ export interface DetalleLifecycle {
   /** A PENDING athlete-initiated pause request awaiting the coach, else null. Only an
    *  activo athlete can have one (the requestPause guard). */
   pending_request: { request_id: string; reason: PauseReason } | null;
+  /**
+   * The athlete asked to leave and it lands on this ISO day — the end of the period
+   * they already paid for (0137). While it is set the athlete is STILL `activo` and
+   * trains normally, so without this the ficha would show business as usual for
+   * someone walking out in three weeks.
+   */
+  baja_scheduled_for: string | null;
+  /** Days from today until the scheduled baja lands. null when none is scheduled. */
+  baja_scheduled_in_days: number | null;
+  /** Pause budget left, so the coach can see whether they could pause again instead. */
+  pause_days_available: number | null;
 }
 
 // ── Header / identity projection ────────────────────────────────────────────────

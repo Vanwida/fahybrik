@@ -16,7 +16,14 @@
 
 import type { AthleteRow } from '@/lib/dashboard/athletes/list';
 
-export type RosterStatus = 'activa' | 'atencion' | 'nuevo' | 'sin_plan' | 'pausa' | 'baja';
+export type RosterStatus =
+  | 'activa'
+  | 'atencion'
+  | 'nuevo'
+  | 'sin_plan'
+  | 'pausa'
+  | 'baja'
+  | 'se_va';
 
 export interface RosterStatusMeta {
   /** Coach-facing label (Spanish). */
@@ -37,6 +44,9 @@ export const ROSTER_STATUS_META: Record<RosterStatus, RosterStatusMeta> = {
   sin_plan: { label: 'Sin plan', colorVar: '--v2-warn', rowTintVar: null },
   pausa: { label: 'En pausa', colorVar: '--v2-warn', rowTintVar: null, muted: true },
   baja: { label: 'Baja', colorVar: '--v2-faint', rowTintVar: null, muted: true },
+  // NOT muted: they are still training and still winnable. Muting the row would hide
+  // exactly the athlete the coach has the least time to notice.
+  se_va: { label: 'Se va', colorVar: '--v2-danger', rowTintVar: '--v2-danger-soft' },
 };
 
 /** True when the athlete has no usable plan / a structurally broken week. */
@@ -57,6 +67,9 @@ function hasPlanGap(a: AthleteRow): boolean {
 export function rosterStatus(a: AthleteRow): RosterStatus {
   if (a.lifecycle_status === 'pausado') return 'pausa';
   if (a.lifecycle_status === 'baja') return 'baja';
+  // Leaving on a date (0137) but still activo and still training. It outranks every
+  // live signal below: a plan gap can wait a day, a person walking out cannot.
+  if (a.baja_scheduled_for) return 'se_va';
   if (a.intake_pending) return 'nuevo';
   if (a.alert_severity != null) return 'atencion';
   if (hasPlanGap(a)) return 'sin_plan';

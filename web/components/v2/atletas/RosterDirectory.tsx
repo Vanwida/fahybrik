@@ -72,14 +72,16 @@ const SORT_OPTIONS: ReadonlyArray<DropdownOption<SortKey>> = [
 ];
 
 // Severity ordering for the "estado" sort — most actionable first, resting
-// lifecycle states (pausa / baja) last.
+// lifecycle states (pausa / baja) last. "Se va" sorts to the very top: it is the
+// only state with a deadline attached, and the window to react closes by itself.
 const STATUS_SORT_RANK: Record<RosterStatus, number> = {
-  atencion: 0,
-  nuevo: 1,
-  sin_plan: 2,
-  activa: 3,
-  pausa: 4,
-  baja: 5,
+  se_va: 0,
+  atencion: 1,
+  nuevo: 2,
+  sin_plan: 3,
+  activa: 4,
+  pausa: 5,
+  baja: 6,
 };
 
 interface DirectoryRow extends RosterRow {

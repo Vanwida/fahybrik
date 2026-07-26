@@ -46,7 +46,7 @@ import {
   pauseSpanLength,
   type PauseBudget,
 } from '@fahybrid/shared/domain/coach/pause-budget';
-import { addDays, diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 
 /** The athlete's "today" as an ISO calendar day in the box timezone. */
 function boxTodayIso(): string {
@@ -97,8 +97,8 @@ export async function getSelfServiceState(input: {
 
   const budget = computePauseBudget(spans, todayIso);
   const open = lifecycle.open_pause;
-  // `end_date` is the LAST day paused, so the athlete is back the day after.
-  const returns_on = open?.end_date ? isoDateString(addDays(parseIsoDate(open.end_date), 1)) : null;
+  // `end_date` IS the return day (the coach dialog's "Vuelve el"), so it needs no shift.
+  const returns_on = open?.end_date ?? null;
 
   return {
     status: lifecycle.lifecycle_status,
@@ -148,9 +148,9 @@ export interface PauseSelfInput {
 /**
  * PAUSE, self-service. Checks the budget, applies the pause, tells the coach.
  *
- * The stored `end_date` is the day BEFORE the return date — the last day actually
- * paused — so the adherence exclusion covers exactly the days not trained and the
- * budget charges exactly those days.
+ * `end_date` is stored as the RETURN day, which is what the coach's own dialog has
+ * always written ("Vuelve el") and what every row in production already means. The
+ * return day is not itself a paused day — see shared/domain/coach/pause-budget.ts.
  */
 export async function pauseSelf(input: PauseSelfInput): Promise<{ status: 'pausado'; days: number }> {
   const todayIso = boxTodayIso();
@@ -169,8 +169,7 @@ export async function pauseSelf(input: PauseSelfInput): Promise<{ status: 'pausa
     );
   }
 
-  const lastPausedDay = isoDateString(addDays(returnDate, -1));
-  const days = pauseSpanLength(todayIso, lastPausedDay);
+  const days = pauseSpanLength(todayIso, input.return_date);
   const budget = computePauseBudget(await getAthletePauseIntervals(input.athlete_id), todayIso);
   if (days > budget.available_days) {
     throw new LifecycleError(
@@ -186,7 +185,7 @@ export async function pauseSelf(input: PauseSelfInput): Promise<{ status: 'pausa
     athlete_id: input.athlete_id,
     reason: input.reason,
     note: input.note ?? null,
-    end_date: lastPausedDay,
+    end_date: input.return_date,
     requested_by: 'athlete',
     by_user_id: input.user_id,
   });

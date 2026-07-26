@@ -77,6 +77,9 @@ const ACTIVE_LIFECYCLE: DetalleLifecycle = {
   baja_reason: null,
   baja_by_name: null,
   pending_request: null,
+  baja_scheduled_for: null,
+  baja_scheduled_in_days: null,
+  pause_days_available: null,
 };
 
 /** No declared availability (or a failed load) → honest empty state; no day is
@@ -154,6 +157,9 @@ function deriveStatus(
     return { status: 'pausa', label: LIFECYCLE_STATUS_LABELS.pausado };
   if (lifecycle.status === 'baja')
     return { status: 'pausa', label: LIFECYCLE_STATUS_LABELS.baja };
+  // Still activo and still training, but leaving on a date (0137). It has to read as
+  // something other than "Activa" — the roster scan is where a coach notices at all.
+  if (lifecycle.baja_scheduled_for) return { status: 'atencion', label: 'Baja programada' };
   if (shell?.intake_pending) return { status: 'alta', label: 'Alta · revisar intake' };
   const r = resumen?.readiness_score ?? shell?.readiness_score ?? null;
   if (r != null && r < 45) return { status: 'atencion', label: 'Atención · fisiología' };

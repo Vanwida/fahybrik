@@ -6,9 +6,15 @@
 // while paused, the plaza is RESERVED instead of passing to the waitlist. Both halves
 // were decided together (docs/DECISIONS.md, 2026-07-26).
 //
-// Two rules keep the number honest:
-//   • It counts days ACTUALLY spent paused, never days requested. Coming back early
-//     hands the unused days straight back.
+// WHAT `end_date` MEANS. It is the day the athlete COMES BACK, and it is NOT itself a
+// paused day. That is the meaning the coach's dialog has always written ("Vuelve el")
+// and the meaning every row in production already carries, so it is the one everything
+// else bends to. A pause from the 18th with end_date on the 1st costs the 18th through
+// the 31st — fourteen days.
+//
+// Two more rules keep the number honest:
+//   • It counts days ACTUALLY spent paused, never days booked. Coming back early hands
+//     the unused days straight back.
 //   • The window ROLLS. A calendar year would let an athlete chain December with
 //     January and quietly spend a double budget.
 //
@@ -23,11 +29,11 @@ export const PAUSE_BUDGET_DAYS = 28;
 /** Length of the rolling window the budget is measured over. Twelve months. */
 export const PAUSE_BUDGET_WINDOW_DAYS = 365;
 
-/** A stretch of pause, both ends INCLUSIVE — the same range adherence excludes. */
+/** A stretch of pause: `[start_date, end_date)` — the return day is not paused. */
 export interface PauseSpan {
-  /** ISO YYYY-MM-DD. */
+  /** ISO YYYY-MM-DD, the first paused day. */
   start_date: string;
-  /** ISO YYYY-MM-DD, or null while the pause is still open. */
+  /** ISO YYYY-MM-DD the athlete returns, or null while the pause is still open. */
   end_date: string | null;
 }
 
@@ -46,18 +52,18 @@ export interface PauseBudget {
 }
 
 /**
- * Collapse overlapping / touching spans so a day is never counted twice. In practice
- * the DB holds at most one open interval per athlete (you can only pause while activo),
- * but the arithmetic should not depend on that invariant holding forever.
+ * Collapse overlapping / touching half-open spans so a day is never counted twice. In
+ * practice the DB holds at most one open interval per athlete (you can only pause while
+ * activo), but the arithmetic should not depend on that invariant holding forever.
  */
 function mergeSpans(spans: readonly { from: Date; to: Date }[]): { from: Date; to: Date }[] {
   const sorted = [...spans].sort((a, b) => a.from.getTime() - b.from.getTime());
   const out: { from: Date; to: Date }[] = [];
   for (const span of sorted) {
     const last = out[out.length - 1];
-    // `<= to + 1 day` because the ends are inclusive: the 5th–7th and the 8th–9th
-    // are one continuous 5th–9th pause, not two.
-    if (last && span.from.getTime() <= addDays(last.to, 1).getTime()) {
+    // `<=` because the ends are EXCLUSIVE: a pause returning on the 6th and another
+    // starting on the 6th are one continuous stretch, not two.
+    if (last && span.from.getTime() <= last.to.getTime()) {
       if (span.to > last.to) last.to = span.to;
       continue;
     }
@@ -80,24 +86,26 @@ export function computePauseBudget(
 ): PauseBudget {
   const today = parseIsoDate(todayIso);
   const windowStart = addDays(today, -(windowDays - 1));
+  // Today has been lived, so the exclusive end of "everything so far" is tomorrow.
+  const livedThrough = addDays(today, 1);
 
   const clipped: { from: Date; to: Date }[] = [];
   for (const span of spans) {
     const start = parseIsoDate(span.start_date);
-    // An open pause runs to today. A PLANNED end still in the future counts only what
+    // An open pause runs to today. A BOOKED return still in the future counts only what
     // has actually been lived — the athlete has not spent tomorrow yet.
-    const declaredEnd = span.end_date === null ? today : parseIsoDate(span.end_date);
-    const end = declaredEnd > today ? today : declaredEnd;
-    if (end < start) continue; // defensive: a malformed row never adds days
+    const declaredEnd = span.end_date === null ? livedThrough : parseIsoDate(span.end_date);
+    const end = declaredEnd > livedThrough ? livedThrough : declaredEnd;
+    if (end <= start) continue; // defensive: a malformed or zero-length row adds nothing
 
     const from = start < windowStart ? windowStart : start;
-    if (end < from) continue; // fell out of the rolling window entirely
+    if (end <= from) continue; // fell out of the rolling window entirely
     clipped.push({ from, to: end });
   }
 
   const merged = mergeSpans(clipped);
   let consumed = 0;
-  for (const span of merged) consumed += diffDays(span.to, span.from) + 1;
+  for (const span of merged) consumed += diffDays(span.to, span.from);
 
   const earliest = merged.length > 0 ? merged[0]!.from : null;
   return {
@@ -110,10 +118,10 @@ export function computePauseBudget(
 }
 
 /**
- * Days a pause from `startIso` to `endIso` would cost, both ends inclusive. Used to
+ * Days a pause starting `startIso` and returning on `returnIso` would cost. Used to
  * check a request against the budget BEFORE applying it — the athlete has to see the
  * cost on the screen where they pick the dates, not after.
  */
-export function pauseSpanLength(startIso: string, endIso: string): number {
-  return diffDays(parseIsoDate(endIso), parseIsoDate(startIso)) + 1;
+export function pauseSpanLength(startIso: string, returnIso: string): number {
+  return Math.max(0, diffDays(parseIsoDate(returnIso), parseIsoDate(startIso)));
 }

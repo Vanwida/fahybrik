@@ -5,6 +5,11 @@
 // outcome for the business. If it under-counts, the roster fills with reserved
 // plazas that generate nothing. Both failures are silent, which is why the edges
 // are pinned here rather than trusted to a read-through.
+//
+// THE OFF-BY-ONE THAT MATTERS: `end_date` is the day the athlete COMES BACK and is
+// not itself a paused day — that is what the coach's dialog has always written
+// ("Vuelve el") and what every production row already means. Reading it as the last
+// paused day would overcharge every single pause by one day.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -23,23 +28,30 @@ describe('computePauseBudget', () => {
     expect(b.renews_on).toBeNull();
   });
 
-  it('counts both ends of a closed pause — the days actually not trained', () => {
-    // 1st to 7th inclusive is a seven-day pause, not six.
-    const b = computePauseBudget([{ start_date: '2026-06-01', end_date: '2026-06-07' }], TODAY);
+  it('does NOT charge the return day — it is the day they train again', () => {
+    // Away on the 1st, back on the 8th: seven days paused (1–7), not eight.
+    const b = computePauseBudget([{ start_date: '2026-06-01', end_date: '2026-06-08' }], TODAY);
     expect(b.consumed_days).toBe(7);
     expect(b.available_days).toBe(PAUSE_BUDGET_DAYS - 7);
   });
 
-  it('charges an open pause only up to today, never into the future', () => {
+  it('charges an open pause up to and including today', () => {
     const b = computePauseBudget([{ start_date: '2026-07-24', end_date: null }], TODAY);
     expect(b.consumed_days).toBe(3); // 24, 25, 26
   });
 
-  it('charges a PLANNED pause only for the days already lived', () => {
+  it('charges a BOOKED pause only for the days already lived', () => {
     // Booked until mid-August, but only the 24th–26th have happened. Charging the
-    // whole plan up front would block a second pause the athlete has not taken yet.
+    // whole booking up front would block a second pause the athlete has not taken yet.
     const b = computePauseBudget([{ start_date: '2026-07-24', end_date: '2026-08-15' }], TODAY);
     expect(b.consumed_days).toBe(3);
+  });
+
+  it('a same-day change of mind costs nothing', () => {
+    // Paused and resumed today: closeCurrentPauseTx stamps end_date = today, so the
+    // span is empty. Charging a day for a pause that never happened is a bug.
+    const b = computePauseBudget([{ start_date: TODAY, end_date: TODAY }], TODAY);
+    expect(b.consumed_days).toBe(0);
   });
 
   it('drops days that have rolled out of the 12-month window', () => {
@@ -50,25 +62,25 @@ describe('computePauseBudget', () => {
   });
 
   it('clips a pause that straddles the edge of the window', () => {
-    // Window opens 2025-07-27. A pause from the 20th to the 31st only spends the
-    // days inside it: 27th → 31st = 5.
+    // Window opens 2025-07-27. A pause from the 20th returning on the 31st only spends
+    // the days inside it: 27th → 30th = 4.
     const b = computePauseBudget([{ start_date: '2025-07-20', end_date: '2025-07-31' }], TODAY);
-    expect(b.consumed_days).toBe(5);
+    expect(b.consumed_days).toBe(4);
   });
 
-  it('never counts a day twice when spans overlap or touch', () => {
-    // Two rows describing one continuous stretch (1st–5th and 6th–9th) must cost 9,
-    // not 9 + a double-count. Real data should not contain these, but the arithmetic
+  it('never counts a day twice when spans overlap or meet end-to-start', () => {
+    // Back on the 6th and away again on the 6th is one continuous stretch 1st→8th,
+    // which costs 7 days. Real data should not contain these, but the arithmetic
     // must not depend on that.
     const b = computePauseBudget(
       [
-        { start_date: '2026-06-01', end_date: '2026-06-05' },
-        { start_date: '2026-06-06', end_date: '2026-06-09' },
+        { start_date: '2026-06-01', end_date: '2026-06-06' },
+        { start_date: '2026-06-06', end_date: '2026-06-08' },
         { start_date: '2026-06-03', end_date: '2026-06-07' },
       ],
       TODAY,
     );
-    expect(b.consumed_days).toBe(9);
+    expect(b.consumed_days).toBe(7);
   });
 
   it('never reports negative days left when a coach pauses past the cap', () => {
@@ -91,16 +103,16 @@ describe('computePauseBudget', () => {
 });
 
 describe('pauseSpanLength', () => {
-  it('counts both ends, so a same-day pause costs one day', () => {
-    expect(pauseSpanLength('2026-08-01', '2026-08-01')).toBe(1);
+  it('costs nothing when the return day is the same day', () => {
+    expect(pauseSpanLength('2026-08-01', '2026-08-01')).toBe(0);
   });
 
   it('matches what a two-week pause actually costs', () => {
-    // Away from the 18th, back on 1 Sep → last paused day is 31 Aug → 14 days.
-    expect(pauseSpanLength('2026-08-18', '2026-08-31')).toBe(14);
+    // Away from the 18th, back on 1 Sep → 18 Aug through 31 Aug → 14 days.
+    expect(pauseSpanLength('2026-08-18', '2026-09-01')).toBe(14);
   });
 
   it('spans a month boundary without drifting', () => {
-    expect(pauseSpanLength('2026-01-30', '2026-02-02')).toBe(4);
+    expect(pauseSpanLength('2026-01-30', '2026-02-02')).toBe(3);
   });
 });

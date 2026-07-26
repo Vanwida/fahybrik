@@ -19,7 +19,11 @@ import {
   type AthleteLifecycleStatus,
   type PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import {
+  PAUSE_BUDGET_WINDOW_DAYS,
+  computePauseBudget,
+} from '@fahybrid/shared/domain/coach/pause-budget';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 const ACTIVE_DEFAULT: DetalleLifecycle = {
@@ -33,6 +37,9 @@ const ACTIVE_DEFAULT: DetalleLifecycle = {
   baja_reason: null,
   baja_by_name: null,
   pending_request: null,
+  baja_scheduled_for: null,
+  baja_scheduled_in_days: null,
+  pause_days_available: null,
 };
 
 /** Coerce a stored actor_kind to the person kinds a pause can carry, else null. */
@@ -58,6 +65,7 @@ export async function loadAthleteLifecycleDetail(params: {
       baja_at: Date | null;
       baja_reason: string | null;
       baja_by_name: string | null;
+      baja_scheduled_for: string | null;
       pause_reason: string | null;
       pause_start: string | null;
       pause_end: string | null;
@@ -72,6 +80,7 @@ export async function loadAthleteLifecycleDetail(params: {
       a.baja_at,
       a.baja_reason,
       bu.full_name                    as baja_by_name,
+      a.baja_scheduled_for::text      as baja_scheduled_for,
       cp.reason::text                 as pause_reason,
       cp.start_date::text             as pause_start,
       cp.end_date::text               as pause_end,
@@ -111,6 +120,17 @@ export async function loadAthleteLifecycleDetail(params: {
 
   const isPaused = r.status === 'pausado';
   const isBaja = r.status === 'baja';
+  // Pause budget: the same arithmetic the athlete sees, so the two surfaces can never
+  // disagree about how many days are left. Cheap enough to read every span — an athlete
+  // accumulates a handful of rows, not thousands.
+  const spans = await client<{ start_date: string; end_date: string | null }[]>`
+    select start_date::text as start_date, end_date::text as end_date
+    from athlete_pauses
+    where athlete_id = ${params.athlete_id}
+      and coalesce(end_date, current_date) >= ${todayIso}::date - ${PAUSE_BUDGET_WINDOW_DAYS}
+  `;
+  const budget = computePauseBudget(spans, todayIso);
+
   return {
     status: r.status,
     pause_reason: isPaused ? toReason(r.pause_reason) : null,
@@ -127,5 +147,13 @@ export async function loadAthleteLifecycleDetail(params: {
       r.status === 'activo' && r.request_id && r.request_reason && isPauseReason(r.request_reason)
         ? { request_id: r.request_id, reason: r.request_reason }
         : null,
+    // Only meaningful while the baja has NOT landed — once applied, `status` says baja
+    // and the column is cleared, so a stale value can never linger in the UI.
+    baja_scheduled_for: isBaja ? null : r.baja_scheduled_for,
+    baja_scheduled_in_days:
+      !isBaja && r.baja_scheduled_for
+        ? Math.max(0, diffDays(parseIsoDate(r.baja_scheduled_for), parseIsoDate(todayIso)))
+        : null,
+    pause_days_available: budget.available_days,
   };
 }

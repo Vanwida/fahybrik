@@ -2,9 +2,15 @@
 
 // LifecycleBanner (#13) — the context strip under the ficha header. Renders one of:
 //   • pending request (athlete asked for a pause, coach still activo) → Confirmar / Rechazar
+//   • baja programada (athlete is LEAVING but still activo until the paid period ends)
 //   • pausado  → "En pausa desde el X · motivo · vuelve el Y" (plan frozen)
 //   • baja     → "De baja desde el X · motivo" (plan frozen, history preserved)
 // Nothing for a plain activo athlete. Reason labels come from shared/domain (DRY).
+//
+// The scheduled baja is the one that would otherwise be INVISIBLE: the athlete keeps
+// training, the plan keeps publishing and every other signal reads normal, so without
+// this strip the ficha shows business as usual for someone walking out in three weeks.
+// The coach does not read email for this — he reads the ficha.
 
 import { MIcon } from '@/components/ui/MIcon';
 import {
@@ -71,6 +77,52 @@ function PendingRequestBanner({
           />
           Confirmar pausa
         </button>
+      </div>
+    </div>
+  );
+}
+
+function BajaProgramadaBanner({
+  athleteName,
+  reason,
+  scheduledFor,
+  daysLeft,
+  pauseDaysAvailable,
+}: {
+  athleteName: string;
+  reason: PauseReason | null;
+  scheduledFor: string;
+  daysLeft: number | null;
+  pauseDaysAvailable: number | null;
+}) {
+  // The runway is the actionable part: three weeks of paid time left is room to talk
+  // them round, and it is exactly what gets lost if this only shows up as a status pill.
+  const margen =
+    daysLeft === null
+      ? 'Entrena con normalidad hasta entonces.'
+      : daysLeft > 0
+        ? `Entrena con normalidad hasta entonces: te quedan ${daysLeft} ${daysLeft === 1 ? 'día' : 'días'} con él, y hasta ese día puede echarse atrás.`
+        : 'Se aplica hoy: ya no le queda periodo pagado por delante.';
+
+  return (
+    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-danger)]/35 bg-[color:var(--v2-danger)]/8 px-4 py-3">
+      <MIcon name="logout" size={20} className="mt-0.5 shrink-0 text-[color:var(--v2-danger)]" />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+          {joinParts([
+            `${athleteName} se da de baja el ${formatEsDate(scheduledFor)}`,
+            reason ? PAUSE_REASON_LABELS[reason] : null,
+          ])}
+        </span>
+        <span className="text-xs text-[color:var(--v2-muted)]">{margen}</span>
+        {pauseDaysAvailable != null && pauseDaysAvailable >= 7 ? (
+          <span className="text-xs text-[color:var(--v2-muted)]">
+            Le quedan {pauseDaysAvailable} días de pausa: si es un parón y no una
+            despedida, pausar le guarda la plaza.
+          </span>
+        ) : null}
+        {/* Lo pidió él desde la app — el sello lo deja claro sin tener que preguntarlo. */}
+        <AuthorStamp kind="athlete" name={athleteName} verb="pidió la baja" at={null} className="mt-1" />
       </div>
     </div>
   );
@@ -154,6 +206,19 @@ export function LifecycleBanner({
         athleteId={athleteId}
         athleteName={athleteName}
         request={lifecycle.pending_request}
+      />
+    );
+  }
+  // Before the state banners: a scheduled baja is the only one where the athlete looks
+  // completely normal everywhere else, so it must not be outranked by silence.
+  if (lifecycle.baja_scheduled_for) {
+    return (
+      <BajaProgramadaBanner
+        athleteName={athleteName}
+        reason={lifecycle.baja_reason}
+        scheduledFor={lifecycle.baja_scheduled_for}
+        daysLeft={lifecycle.baja_scheduled_in_days}
+        pauseDaysAvailable={lifecycle.pause_days_available}
       />
     );
   }

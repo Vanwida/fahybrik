@@ -75,6 +75,10 @@ export interface AthleteRow {
   lifecycle_status: AthleteLifecycleStatus;
   /** Current pause reason when pausado (else null) — threads "En pausa · lesión". */
   pause_reason: PauseReason | null;
+  /** ISO day an athlete-requested baja lands (0137), else null. The athlete is STILL
+   *  activo and training until then, so this is the only thing that makes the row read
+   *  as anything other than business as usual. Drives the "Se va" badge. */
+  baja_scheduled_for: string | null;
   /** Reason of a PENDING athlete-initiated pause request (else null = none pending).
    *  Only an activo athlete can have one (the requestPause guard). Surfaces "Pidió pausa". */
   pause_request_reason: PauseReason | null;
@@ -122,6 +126,7 @@ export async function fetchAthletesForCoach(params: {
       intake_completed_at: Date | null;
       last_activity_at: Date | null;
       lifecycle_status: AthleteLifecycleStatus;
+      baja_scheduled_for: string | null;
       open_pause_reason: PauseReason | null;
       pause_request_reason: PauseReason | null;
       injury_zone: InjuryZone | null;
@@ -149,6 +154,7 @@ export async function fetchAthletesForCoach(params: {
       tr.days_until as target_race_days_until,
       la.last_activity_at,
       a.lifecycle_status,
+      a.baja_scheduled_for::text as baja_scheduled_for,
       op.reason as open_pause_reason,
       pr.reason as pause_request_reason,
       inj.zone as injury_zone,
@@ -336,6 +342,7 @@ export async function fetchAthletesForCoach(params: {
       last_activity_at: r.last_activity_at ? r.last_activity_at.toISOString() : null,
       order_altered: orderAlteredMap.get(Number(r.athlete_id)) ?? false,
       lifecycle_status: r.lifecycle_status,
+      baja_scheduled_for: r.baja_scheduled_for ?? null,
       pause_reason: r.open_pause_reason ?? null,
       pause_request_reason: r.pause_request_reason ?? null,
       injury:
