@@ -1,18 +1,32 @@
 // GET /api/chat/attachments/[...path]
 //
-// A3: authenticated proxy for chat attachments. Attachments are stored in
-// Vercel Blob with `access: 'private'`, so the raw blob URL is never directly
-// fetchable. Clients (coach dashboard + iOS) request this endpoint with the
-// opaque pathname; we verify the requester belongs to the attachment's thread
-// (athlete: their own thread; coach: an athlete in their cohort) and then
-// redirect to a short-lived signed download URL.
+// Proxy autenticado de los adjuntos del chat. Los ficheros viven en Vercel Blob
+// con `access: 'private'`, así que la URL cruda del blob NO se puede pedir desde
+// fuera. Los clientes (dashboard e iOS) piden esta ruta con el pathname opaco;
+// aquí se comprueba que quien mira pertenece al hilo (el atleta, al suyo; el
+// coach, a un atleta de su cohorte) y se le sirven los bytes.
 //
-// The owning athlete_id is encoded in the pathname layout
-// (chat/<athlete_id>/<yyyy>/<mm>/<file>), so ownership is checked against that
-// id — never against anything the caller supplies separately.
+// El athlete_id dueño va codificado en la forma del pathname
+// (chat/<athlete_id>/<yyyy>/<mm>/<fichero>), así que la propiedad se comprueba
+// contra ESE id y nunca contra algo que mande el que llama.
 //
-// Local-fs dev fallback: when there's no BLOB_READ_WRITE_TOKEN we stream the
-// file straight from disk (same ownership gate first).
+// POR QUÉ SE SIRVEN LOS BYTES EN VEZ DE REDIRIGIR
+// ----------------------------------------------
+// La versión anterior redirigía a una URL firmada que sacaba de
+// `getDownloadUrl(pathname)`. Esa función es SÍNCRONA, espera una URL de blob y
+// no acepta token: con un pathname lanzaba "Invalid URL", el `catch` la mandaba
+// al camino de disco local y la ruta contestaba 404. Verificado contra el blob de
+// producción: NINGÚN adjunto del chat se ha podido abrir jamás. Ni las fotos del
+// atleta ni las notas de voz del coach.
+//
+// Firmar la URL de verdad (`issueSignedToken` + `presignUrl`) es un baile pensado
+// para que firme el navegador, y aquí no hace falta: pasando los bytes por esta
+// función el control de acceso se queda entero de nuestro lado y no hay ningún
+// enlace firmado que pueda reenviarse por ahí. Se reenvía la cabecera `Range`
+// para que un vídeo se pueda adelantar sin descargarlo entero.
+//
+// Camino de disco local (solo en desarrollo): sin BLOB_READ_WRITE_TOKEN se sirve
+// el fichero del disco, tras la misma comprobación de propiedad.
 
 import { NextResponse } from 'next/server';
 import { createReadStream } from 'node:fs';
@@ -29,9 +43,38 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-// Signed URL lifetime — short enough that a leaked link expires fast, long
-// enough for a client to follow the redirect and download.
-const SIGNED_URL_TTL_SECONDS = 60 * 5; // 5 minutes
+/** Cabeceras que se reenvían HACIA el blob. `Range` es la que permite adelantar
+ *  un vídeo sin bajárselo entero, y `if-none-match` la que evita repetir bytes
+ *  que el navegador ya tiene. */
+export function buildUpstreamHeaders(req: Request, token: string): Headers {
+  const headers = new Headers({ authorization: `Bearer ${token}` });
+  for (const name of ['range', 'if-none-match', 'if-modified-since'] as const) {
+    const value = req.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  return headers;
+}
+
+/** Cabeceras que se devuelven al cliente. Se copian las que describen el
+ *  contenido y las que hacen posible el salto dentro de un vídeo. El caché es
+ *  PRIVADO: el fichero es de una conversación entre dos personas y no puede
+ *  quedarse en ninguna caché compartida por el camino. */
+export function buildDownstreamHeaders(upstream: Response): Headers {
+  const headers = new Headers({ 'cache-control': 'private, max-age=300' });
+  for (const name of [
+    'content-type',
+    'content-length',
+    'content-range',
+    'accept-ranges',
+    'etag',
+    'last-modified',
+  ] as const) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes');
+  return headers;
+}
 
 async function principalOwnsAthlete(
   principal: NonNullable<Awaited<ReturnType<typeof resolveChatPrincipal>>>,
@@ -76,37 +119,25 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse | Respon
     try {
       const dynImport = new Function('m', 'return import(m)') as (m: string) => Promise<unknown>;
       const mod = (await dynImport('@vercel/blob').catch(() => null)) as
-        | {
-            head?: (
-              pathname: string,
-              opts: { token: string },
-            ) => Promise<{ url: string; downloadUrl?: string }>;
-            getDownloadUrl?: (
-              urlOrPathname: string,
-              opts: { token: string; expiresIn?: number },
-            ) => Promise<string> | string;
-          }
+        | { head?: (pathname: string, opts: { token: string }) => Promise<{ url: string }> }
         | null;
 
-      if (mod) {
-        // Prefer an explicit short-lived signed download URL when available.
-        if (typeof mod.getDownloadUrl === 'function') {
-          const signed = await mod.getDownloadUrl(pathname, {
-            token: blobToken,
-            expiresIn: SIGNED_URL_TTL_SECONDS,
+      if (typeof mod?.head === 'function') {
+        // `head` resuelve la URL privada del blob y de paso confirma que existe.
+        const meta = await mod.head(pathname, { token: blobToken });
+        const upstream = await fetch(meta.url, {
+          headers: buildUpstreamHeaders(req, blobToken),
+          cache: 'no-store',
+        });
+        if (upstream.ok || upstream.status === 206) {
+          return new Response(upstream.body, {
+            status: upstream.status,
+            headers: buildDownstreamHeaders(upstream),
           });
-          return NextResponse.redirect(signed, 302);
-        }
-        // Fallback: resolve the (private) blob URL via head and redirect. The
-        // head() result for a private blob already carries a signed token.
-        if (typeof mod.head === 'function') {
-          const meta = await mod.head(pathname, { token: blobToken });
-          const target = meta.downloadUrl ?? meta.url;
-          if (target) return NextResponse.redirect(target, 302);
         }
       }
     } catch {
-      // Fall through to local-fs (dev) / 404.
+      // Cae al disco local (desarrollo) / 404.
     }
   }
 
