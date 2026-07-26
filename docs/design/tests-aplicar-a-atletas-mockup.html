@@ -1,0 +1,366 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tests — crearlos una vez, aplicarlos en dos clics</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1a1a1a; --elevated:#1f1f1f;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+    --fg:#f5f5f5; --muted:#a1a1a1; --faint:#6e6e6e;
+    --accent:#f06a2a; --accent-soft:rgba(240,106,42,.14); --accent-fg:#0a0a0a;
+    --ok:#3fc773; --ok-soft:rgba(63,199,115,.14);
+    --warn:#f2a52e; --warn-soft:rgba(242,165,46,.14);
+    --danger:#e5484d; --danger-soft:rgba(229,72,77,.14);
+    --info:#4d9eeb; --info-soft:rgba(77,158,235,.14);
+    --fuerza:#e0a93b; --carrera:#e5484d; --ergo:#4d9eeb; --circuito:#3fc773;
+    --r:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:56px 24px 100px}
+
+  header{border-bottom:1px solid var(--border);padding-bottom:30px;margin-bottom:44px}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 14px}
+  h1{font-size:clamp(28px,5vw,46px);line-height:1.04;margin:0 0 18px;font-style:italic;font-weight:800;letter-spacing:-.02em}
+  .lede{font-size:16.5px;color:var(--muted);max-width:64ch;margin:0}
+  .lede b{color:var(--fg);font-weight:600}
+
+  .alarm{display:flex;gap:13px;align-items:flex-start;margin:30px 0 0;padding:16px 18px;
+    border:1px solid rgba(229,72,77,.35);background:var(--danger-soft);border-radius:var(--r)}
+  .alarm .dot{width:9px;height:9px;border-radius:99px;background:var(--danger);margin-top:7px;flex:none}
+  .alarm p{margin:0;font-size:14.5px;line-height:1.55;color:var(--muted)}
+  .alarm b{color:var(--fg);font-weight:650}
+
+  h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--faint);
+    margin:62px 0 4px;padding-top:26px;border-top:1px solid var(--border)}
+  h2:first-of-type{border-top:0;padding-top:0}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 26px;max-width:66ch}
+  .sub b{color:var(--fg);font-weight:600}
+
+  /* window chrome */
+  .win{border:1px solid var(--border-strong);border-radius:var(--r);overflow:hidden;background:var(--surface);
+    box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  .winbar{display:flex;align-items:center;gap:8px;padding:11px 15px;background:#0d0d0d;border-bottom:1px solid var(--border)}
+  .winbar i{width:9px;height:9px;border-radius:99px;background:#2e2e2e;display:block}
+  .winbar span{margin-left:10px;font-size:11.5px;color:var(--faint);letter-spacing:.02em}
+  .winbody{padding:0}
+
+  .app{display:grid;grid-template-columns:190px 1fr;min-height:420px}
+  .side{border-right:1px solid var(--border);padding:16px 12px;background:#0d0d0d}
+  .sgroup{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:16px 8px 7px}
+  .sgroup:first-child{margin-top:0}
+  .sitem{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:9px;font-size:13.5px;color:var(--muted)}
+  .sitem.on{background:var(--accent-soft);color:var(--accent);font-weight:650}
+  .sdot{width:6px;height:6px;border-radius:2px;background:currentColor;opacity:.55;flex:none}
+  .main{padding:22px 24px}
+
+  .h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+  .h h3{margin:0;font-size:22px;font-weight:750;letter-spacing:-.02em;font-style:italic}
+  .h p{margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:56ch}
+
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;
+    padding:9px 15px;border-radius:10px;border:1px solid transparent;white-space:nowrap}
+  .btn.p{background:var(--accent);color:var(--accent-fg)}
+  .btn.g{background:transparent;color:var(--fg);border-color:var(--border-strong)}
+  .btn.s{padding:6px 11px;font-size:12.5px}
+  .btn.d{color:var(--danger);border-color:rgba(229,72,77,.35);background:transparent}
+
+  table{width:100%;border-collapse:collapse;margin-top:18px}
+  th{text-align:left;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);
+    font-weight:700;padding:0 12px 9px 0;border-bottom:1px solid var(--border)}
+  td{padding:13px 12px 13px 0;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .name{font-weight:650;color:var(--fg);font-size:14px}
+  .sub2{font-size:12px;color:var(--faint);margin-top:3px}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:99px}
+  .chip.ok{background:var(--ok-soft);color:var(--ok)}
+  .chip.warn{background:var(--warn-soft);color:var(--warn)}
+  .chip.off{background:rgba(255,255,255,.06);color:var(--muted)}
+  .chip.acc{background:var(--accent-soft);color:var(--accent)}
+  .chip.info{background:var(--info-soft);color:var(--info)}
+  .chip.danger{background:var(--danger-soft);color:var(--danger)}
+
+  .mod{width:3px;height:26px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:11px}
+  .m-carrera{background:var(--carrera)} .m-ergo{background:var(--ergo)}
+  .m-fuerza{background:var(--fuerza)} .m-circuito{background:var(--circuito)}
+
+  /* sheet / modal */
+  .sheet{max-width:520px;margin:0 auto;border:1px solid var(--border-strong);border-radius:var(--r);
+    background:var(--surface);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .sheethead{padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+  .sheethead h4{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .sheethead p{margin:6px 0 0;font-size:13px;color:var(--muted)}
+  .sheetbody{padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+  .sheetfoot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;
+    background:#101010}
+
+  .lab{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:9px}
+  .picks{display:flex;flex-wrap:wrap;gap:7px}
+  .pick{font-size:13px;padding:7px 12px;border-radius:10px;background:var(--surface2);color:var(--muted);
+    border:1px solid transparent}
+  .pick.on{background:var(--accent-soft);color:var(--accent);border-color:rgba(240,106,42,.4);font-weight:650}
+  .field{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:12px 14px}
+  .field .v{font-size:15px;font-weight:600;margin-top:3px}
+
+  .roster{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .rrow{display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:1px solid var(--border);font-size:13.5px}
+  .rrow:last-child{border-bottom:0}
+  .rrow.on{background:var(--accent-soft)}
+  .box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border-strong);flex:none}
+  .rrow.on .box{background:var(--accent);border-color:var(--accent)}
+  .rrow .who{flex:1;color:var(--fg)}
+  .rrow .meta{font-size:11.5px;color:var(--faint)}
+
+  .note{background:var(--accent-soft);border:1px solid rgba(240,106,42,.24);border-radius:12px;
+    padding:12px 14px;font-size:13px;line-height:1.5}
+  .note.grey{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--muted)}
+  .note b{color:var(--accent);font-weight:650}
+
+  figcaption{margin:20px auto 0;max-width:70ch}
+  figcaption .t{font-size:15.5px;font-weight:650;margin-bottom:6px;letter-spacing:-.01em}
+  figcaption .d{font-size:14px;color:var(--muted);line-height:1.6}
+  figcaption .d b{color:var(--fg);font-weight:600}
+  figure{margin:0 0 8px}
+
+  .two{display:grid;gap:44px;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:start}
+
+  dl.rules{display:grid;gap:1px;background:var(--border);grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:34px 0 0}
+  .rule{background:var(--surface);padding:19px 21px}
+  .rule dt{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:8px}
+  .rule dd{margin:0;font-size:14px;line-height:1.55;color:var(--muted)}
+  .rule dd b{color:var(--fg);font-weight:600}
+  code{font-family:ui-monospace,"SF Mono",monospace;font-size:.9em;color:var(--accent)}
+
+  @media (max-width:760px){
+    .wrap{padding:34px 16px 64px}
+    .app{grid-template-columns:1fr}
+    .side{display:none}
+    table{display:block;overflow-x:auto}
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">FAHYBRID · Método · Tests</p>
+  <h1>Los tests se crean una vez<br>y se aplican en dos clics</h1>
+  <p class="lede">Pablo tiene una <b>biblioteca de tests</b> suya, que crea y edita a su gusto. Desde ahí los <b>aplica a quien quiera y cuando quiera</b>: a un atleta, a diez, hoy o dentro de tres semanas. Y sigue existiendo el automático de siempre para el que acaba de entrar.</p>
+
+  <div class="alarm">
+    <span class="dot"></span>
+    <p><b>Lo que pasa hoy:</b> la batería está bien configurada (los 4 tests, todos en semana 1) y <b>no ha llegado nunca a ningún atleta</b>. Cero sesiones de test en toda la base de datos, con 7 atletas activos. La inyección solo se dispara al materializar el <b>primer</b> plan, y los 7 ya tenían plan. Pablo configura, lo ve bien puesto, y no pasa nada — ni cambiando el día ni reactivándolo. Y aplicar un test a mano no existe: el <b>atleta</b> puede lanzarse uno desde su móvil, el coach no puede ponérselo.</p>
+  </div>
+</header>
+
+<h2>1 · La biblioteca</h2>
+<p class="sub">Método › Tests. Lo que ya hay, más la columna y el botón que faltan: <b>a quién se lo has puesto</b> y <b>aplicarlo</b>. Un test deja de ser una plantilla dormida y pasa a tener uso visible.</p>
+
+<figure>
+  <div class="win"><div class="winbar"><i></i><i></i><i></i><span>app.fahybrid.com/es/tests</span></div>
+  <div class="winbody"><div class="app">
+    <div class="side">
+      <div class="sgroup">Día a día</div>
+      <div class="sitem"><span class="sdot"></span>Hoy</div>
+      <div class="sitem"><span class="sdot"></span>Atletas</div>
+      <div class="sitem"><span class="sdot"></span>Mensajes</div>
+      <div class="sgroup">Método</div>
+      <div class="sitem"><span class="sdot"></span>Periodización</div>
+      <div class="sitem"><span class="sdot"></span>Biblioteca</div>
+      <div class="sitem on"><span class="sdot"></span>Tests</div>
+    </div>
+    <div class="main">
+      <div class="h">
+        <div>
+          <h3>Tests</h3>
+          <p>Tú defines qué tests hay y qué mide cada uno. Aplícalos cuando quieras, o deja que entren solos en la semana que digas del plan.</p>
+        </div>
+        <div style="display:flex;gap:9px">
+          <span class="btn g">Restaurar los de fábrica</span>
+          <span class="btn p">+ Nuevo test</span>
+        </div>
+      </div>
+
+      <table>
+        <tr><th>Test</th><th>Mide</th><th>Automático</th><th>Puesto a</th><th></th></tr>
+        <tr>
+          <td><span class="mod m-carrera"></span><span class="name">5K control</span><div class="sub2" style="margin-left:14px">5 km a tope, pista o cinta</div></td>
+          <td><span class="chip acc">Zonas de carrera</span></td>
+          <td><span class="chip off">S1 · Mié</span></td>
+          <td><span class="chip ok">6 atletas</span><div class="sub2">4 hechos · 2 pendientes</div></td>
+          <td style="text-align:right"><span class="btn g s">Aplicar</span></td>
+        </tr>
+        <tr>
+          <td><span class="mod m-ergo"></span><span class="name">Remo 2K</span><div class="sub2" style="margin-left:14px">2000 m, ritmo medio /500</div></td>
+          <td><span class="chip acc">Zonas de remo</span></td>
+          <td><span class="chip off">S1 · Vie</span></td>
+          <td><span class="chip ok">6 atletas</span><div class="sub2">3 hechos · 3 pendientes</div></td>
+          <td style="text-align:right"><span class="btn g s">Aplicar</span></td>
+        </tr>
+        <tr>
+          <td><span class="mod m-fuerza"></span><span class="name">Batería 1RM</span><div class="sub2" style="margin-left:14px">Sentadilla · peso muerto · press · clean</div></td>
+          <td><span class="chip acc">4 × 1RM</span></td>
+          <td><span class="chip off">S1 · Mar</span></td>
+          <td><span class="chip ok">7 atletas</span><div class="sub2">7 hechos</div></td>
+          <td style="text-align:right"><span class="btn g s">Aplicar</span></td>
+        </tr>
+        <tr>
+          <td><span class="mod m-circuito"></span><span class="name">Media simulación</span><div class="sub2" style="margin-left:14px">4 × (1 km + estación)</div></td>
+          <td><span class="chip info">Tiempo · roxzone</span></td>
+          <td><span class="chip off">S1 · Sáb</span></td>
+          <td><span class="chip warn">Nadie todavía</span></td>
+          <td style="text-align:right"><span class="btn g s">Aplicar</span></td>
+        </tr>
+      </table>
+    </div>
+  </div></div></div>
+  <figcaption>
+    <div class="t">«Puesto a» es la columna que lo cambia todo</div>
+    <div class="d">Hoy la pantalla no dice si un test ha llegado a alguien, así que un test que no se inyecta nunca se ve idéntico a uno que funciona. Con esa columna, <b>«Nadie todavía» salta a la vista</b> y el fallo actual habría sido obvio el primer día. «Automático» deja claro que la semana y el día son para el que empieza, no para todos.</div>
+  </figcaption>
+</figure>
+
+<h2>2 · Aplicarlo</h2>
+<p class="sub">El mismo panel desde los dos sitios, porque son dos cabezas distintas: <b>«este test, ¿a quién?»</b> desde la biblioteca, y <b>«este atleta, ¿qué test?»</b> desde su ficha. Dos clics en los dos casos.</p>
+
+<div class="two">
+
+  <figure>
+    <div class="sheet">
+      <div class="sheethead">
+        <h4>Aplicar · Remo 2K</h4>
+        <p>Entra en su plan como una sesión normal. Puedes moverla o quitarla después.</p>
+      </div>
+      <div class="sheetbody">
+        <div>
+          <div class="lab">¿A quién?</div>
+          <div class="roster">
+            <div class="rrow on"><span class="box"></span><span class="who">Marc Vidal</span><span class="meta">último: hace 3 meses</span></div>
+            <div class="rrow on"><span class="box"></span><span class="who">Laura Ferrer</span><span class="meta">nunca</span></div>
+            <div class="rrow"><span class="box"></span><span class="who">Jordi Puig</span><span class="meta">en pausa · vuelve 1 sep</span></div>
+            <div class="rrow on"><span class="box"></span><span class="who">Ana Ruiz</span><span class="meta">último: hace 6 semanas</span></div>
+          </div>
+          <div class="sub2" style="margin-top:9px">Seleccionados 3 de 7 · <span style="color:var(--accent)">todos</span> · <span style="color:var(--accent)">los que no lo han hecho nunca</span></div>
+        </div>
+
+        <div class="field"><div class="lab" style="margin:0">¿Qué día?</div><div class="v">Jueves 30 de julio</div></div>
+
+        <div class="note">
+          A Marc le cae encima de <b>Series 6×800</b>. Se lo pongo igual y te aviso, o lo muevo al viernes.
+        </div>
+      </div>
+      <div class="sheetfoot">
+        <span class="btn g">Cancelar</span>
+        <span class="btn p">Ponérselo a 3</span>
+      </div>
+    </div>
+    <figcaption>
+      <div class="t">Desde la biblioteca: un test, muchos atletas</div>
+      <div class="d">Los atajos («todos», «los que no lo han hecho nunca») son lo que convierte siete clics en uno. <b>El «último: hace 3 meses» al lado de cada nombre</b> es lo que le deja decidir sin abrir siete fichas. Y avisa del choque con lo que ya tenía ese día, en vez de dejarle dos sesiones duras juntas sin decir nada.</div>
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="sheet">
+      <div class="sheethead">
+        <h4>Programar test · Marc Vidal</h4>
+        <p>De tu biblioteca. Si quieres uno nuevo, créalo en Método › Tests.</p>
+      </div>
+      <div class="sheetbody">
+        <div>
+          <div class="lab">¿Cuál?</div>
+          <div class="picks">
+            <span class="pick">5K control</span>
+            <span class="pick on">Remo 2K</span>
+            <span class="pick">Batería 1RM</span>
+            <span class="pick">Media simulación</span>
+          </div>
+        </div>
+
+        <div class="field"><div class="lab" style="margin:0">¿Qué día?</div><div class="v">Jueves 30 de julio</div></div>
+
+        <div>
+          <div class="lab">Repetirlo</div>
+          <div class="picks">
+            <span class="pick on">No</span>
+            <span class="pick">En 6 semanas</span>
+            <span class="pick">En 12 semanas</span>
+          </div>
+        </div>
+
+        <div class="note grey">
+          Marc hizo este test el <b style="color:var(--fg)">14 de abril</b>: 7:42 (1:55/500). Lo nuevo se compara con eso solo.
+        </div>
+      </div>
+      <div class="sheetfoot">
+        <span class="btn g">Cancelar</span>
+        <span class="btn p">Programar</span>
+      </div>
+    </div>
+    <figcaption>
+      <div class="t">Desde la ficha: un atleta, un test</div>
+      <div class="d">Aquí es donde Pablo estaba buscando y no había nada. <b>El re-test se decide en el momento de programar</b>, no en otra pantalla: es cuando piensa en ello. Y ver la marca anterior antes de darle sirve para lo de verdad — decidir si toca repetirlo ya o todavía no.</div>
+    </figcaption>
+  </figure>
+
+</div>
+
+<h2>3 · El atleta</h2>
+<p class="sub">Lo que Pablo aplica aparece <b>el mismo día en la ficha</b>, y en el móvil del atleta en «Tus tests» y en su semana con el badge. Eso ya está construido: hoy no llega nada porque nadie lo inyecta, no porque falte la pantalla.</p>
+
+<figure>
+  <div class="win" style="max-width:760px"><div class="winbar"><i></i><i></i><i></i><span>app.fahybrid.com/es/atletas/67 · Rendimiento</span></div>
+  <div class="winbody"><div class="main" style="padding:22px 24px">
+    <div class="h" style="margin-bottom:2px">
+      <div><h3 style="font-size:18px">Tests de Marc</h3><p>Lo que le has puesto, lo que ha hecho y qué salió.</p></div>
+      <span class="btn p">+ Programar test</span>
+    </div>
+    <table>
+      <tr><th>Test</th><th>Día</th><th>Estado</th><th>Resultado</th></tr>
+      <tr>
+        <td><span class="mod m-ergo"></span><span class="name">Remo 2K</span></td>
+        <td>jue 30 jul</td>
+        <td><span class="chip acc">Programado</span></td>
+        <td><span style="color:var(--faint)">—</span></td>
+      </tr>
+      <tr>
+        <td><span class="mod m-fuerza"></span><span class="name">Batería 1RM</span></td>
+        <td>16 jul</td>
+        <td><span class="chip warn">Hecho · sin resultado</span></td>
+        <td><span style="color:var(--warn)">Falta meter los kilos</span></td>
+      </tr>
+      <tr>
+        <td><span class="mod m-carrera"></span><span class="name">5K control</span></td>
+        <td>14 abr</td>
+        <td><span class="chip ok">Hecho</span></td>
+        <td><b>21:40</b> · 4:20/km <span class="chip ok" style="margin-left:8px">Zonas al día</span></td>
+      </tr>
+      <tr>
+        <td><span class="mod m-ergo"></span><span class="name">Remo 2K</span></td>
+        <td>14 abr</td>
+        <td><span class="chip ok">Hecho</span></td>
+        <td><b>7:42</b> · 1:55/500</td>
+      </tr>
+    </table>
+  </div></div></div>
+  <figcaption>
+    <div class="t">«Hecho · sin resultado» es el estado que hay que ver</div>
+    <div class="d">Un test que se entrenó pero del que nadie apuntó el número <b>no ha servido para nada</b>: no recalcula zonas, no actualiza el 1RM, no entra en la progresión. Hoy eso se pierde en silencio. Que tenga su propio estado, en amarillo, es lo que hace que alguien lo arregle.</div>
+  </figcaption>
+</figure>
+
+<h2>4 · Lo que hay que tocar</h2>
+<p class="sub">Casi todo el motor existe: la biblioteca, el fork por atleta, el badge, el puente que convierte un resultado en zonas o en 1RM, y la pantalla del atleta. Lo que falta es <b>la mano que lo aplica</b>.</p>
+
+<dl class="rules">
+  <div class="rule"><dt>Aplicar (nuevo)</dt><dd>Un endpoint de coach que llame a <code>insertCalibrationAssignment</code>, la MISMA pieza que ya usa el atleta al lanzarse un test. Nada nuevo aguas abajo.</dd></div>
+  <div class="rule"><dt>A varios a la vez</dt><dd>El bucle sobre los atletas elegidos, con el aviso de choque. Es lo que hace que aplicar a siete no cueste siete veces más.</dd></div>
+  <div class="rule"><dt>Re-test</dt><dd>Programar la repetición en el acto: la segunda ocurrencia se inserta con fecha, no se deja apuntada en ningún sitio que haya que recordar.</dd></div>
+  <div class="rule"><dt>«Puesto a»</dt><dd>Contar asignaciones por test. Es la columna que habría hecho evidente que la batería no llegaba a nadie.</dd></div>
+  <div class="rule"><dt>Tests en la ficha</dt><dd>La tabla de arriba. Hoy la ficha no dice nada de los tests del atleta, ni programados ni hechos.</dd></div>
+  <div class="rule"><dt>Sin resultado</dt><dd>Estado propio para el test entrenado sin número. Existe en el motor del atleta y el coach no lo ve.</dd></div>
+</dl>
+
+</div>
