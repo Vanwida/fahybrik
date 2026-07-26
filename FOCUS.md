@@ -137,9 +137,16 @@ Mockup de las pantallas: → `docs/design/bajas-y-pausas-mockup.html`
 - **iOS** — `Profile/LifecycleService.swift`, `Profile/LifecycleSheets.swift`, `Subscription/SubscriptionView.swift`. Seis estados. BUILD SUCCEEDED, 675 tests.
 - **Cambio de comportamiento:** pausar **deja de liberar la plaza** a la lista de espera. `capacity.ts` cuenta `activo` + `pausado`. El test que decía lo contrario, actualizado.
 
+**Dónde lo ve Pablo** — corregido el 26-jul: *"los coaches no miran el correo para ver cosas de sus atletas, lo miran en sus fichas"*.
+- **Ficha:** banner de **baja programada** con el margen que queda y los días de pausa que le sobran. Era el único estado invisible — el atleta sigue activo y entrenando, así que sin banner la ficha enseñaba normalidad de alguien que se va en tres semanas.
+- **Roster:** badge **«Se va»** en rojo, fila SIN atenuar, y primero en el orden por estado.
+- El correo se queda como empujón, pero ya no es el canal.
+
+**Corregido un fallo mío:** el diálogo del coach guarda en `athlete_pauses.end_date` el día que **vuelve** ("Vuelve el") y yo escribía el último día de pausa. Gana el significado que ya estaba en los datos: el presupuesto cuenta `[inicio, vuelta)` y el cron reanuda con `<=`. Con mi versión cada pausa cobraba un día de más y la vuelta llegaba un día tarde.
+
 **Pendiente:**
-1. **Aplicar la 0137** (necesita OK de Alex) y desplegar.
-2. **Las tarjetas en la cola de HOY** (pausa · baja · vuelve mañana) NO están: la otra sesión está editando ahora mismo `attention/recompute.ts`, `inbox.ts` y `hoy-lanes.ts`. Se hace después para no colisionar. El correo sí sale, que es el canal que de verdad llega.
+1. **Desplegar.** La 0137 ya está aplicada en producción (la aplicó la otra sesión: mi código ya consultaba `baja_scheduled_for` y sin la columna cualquier deploy dejaba el ciclo de vida en 500).
+2. **Las tarjetas en la cola de HOY** (pausa · baja · vuelve mañana). Ahora que la ficha y el roster lo cubren, es menos urgente.
 3. El endpoint viejo `/api/athlete/pause-request` sigue vivo (solicitud → confirma el coach). No estorba, pero sobra en cuanto se confirme que nadie lo usa.
 
 ---
