@@ -25,10 +25,15 @@
 // enlace firmado que pueda reenviarse por ahí. Se reenvía la cabecera `Range`
 // para que un vídeo se pueda adelantar sin descargarlo entero.
 //
+// El import de `@vercel/blob` es ESTÁTICO. Cargarlo con `new Function` dejaba el
+// paquete fuera del bundle desplegado y esta ruta contestaba 404 siempre, en
+// silencio. Ver el bloque equivalente en lib/chat/upload.ts.
+//
 // Camino de disco local (solo en desarrollo): sin BLOB_READ_WRITE_TOKEN se sirve
 // el fichero del disco, tras la misma comprobación de propiedad.
 
 import { NextResponse } from 'next/server';
+import { head } from '@vercel/blob';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -60,7 +65,13 @@ export function buildUpstreamHeaders(req: Request, token: string): Headers {
  *  PRIVADO: el fichero es de una conversación entre dos personas y no puede
  *  quedarse en ninguna caché compartida por el camino. */
 export function buildDownstreamHeaders(upstream: Response): Headers {
-  const headers = new Headers({ 'cache-control': 'private, max-age=300' });
+  const headers = new Headers({
+    'cache-control': 'private, max-age=300',
+    // El navegador respeta el content-type que declaramos y no se pone a
+    // adivinarlo por el contenido. Sin esto, un fichero subido como .txt pero con
+    // HTML dentro podría ejecutarse en nuestro propio dominio.
+    'x-content-type-options': 'nosniff',
+  });
   for (const name of [
     'content-type',
     'content-length',
@@ -116,29 +127,26 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse | Respon
 
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   if (blobToken) {
+    // `head` resuelve la URL privada del blob y de paso confirma que existe.
+    let blobUrl: string;
     try {
-      const dynImport = new Function('m', 'return import(m)') as (m: string) => Promise<unknown>;
-      const mod = (await dynImport('@vercel/blob').catch(() => null)) as
-        | { head?: (pathname: string, opts: { token: string }) => Promise<{ url: string }> }
-        | null;
-
-      if (typeof mod?.head === 'function') {
-        // `head` resuelve la URL privada del blob y de paso confirma que existe.
-        const meta = await mod.head(pathname, { token: blobToken });
-        const upstream = await fetch(meta.url, {
-          headers: buildUpstreamHeaders(req, blobToken),
-          cache: 'no-store',
-        });
-        if (upstream.ok || upstream.status === 206) {
-          return new Response(upstream.body, {
-            status: upstream.status,
-            headers: buildDownstreamHeaders(upstream),
-          });
-        }
-      }
+      blobUrl = (await head(pathname, { token: blobToken })).url;
     } catch {
-      // Cae al disco local (desarrollo) / 404.
+      // No está en el almacén. Con almacén configurado NO se cae al disco: eso es
+      // lo que enmascaraba el fallo.
+      return jsonError('not_found', 'Attachment not found', 404);
     }
+    const upstream = await fetch(blobUrl, {
+      headers: buildUpstreamHeaders(req, blobToken),
+      cache: 'no-store',
+    });
+    if (!upstream.ok && upstream.status !== 206) {
+      return jsonError('not_found', 'Attachment not found', 404);
+    }
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: buildDownstreamHeaders(upstream),
+    });
   }
 
   // Local-fs dev fallback: stream the file from disk.

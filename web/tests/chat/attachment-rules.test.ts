@@ -46,12 +46,31 @@ describe('inferAttachmentKind', () => {
     expect(inferAttachmentKind('grabacion', 'audio/mpeg')).toBe('voice');
   });
 
-  it('devuelve null para lo que el servidor va a rechazar', () => {
-    // Una hoja de cálculo es plausible y NO está aceptada: se avisa antes de
-    // subirla, no después.
-    expect(inferAttachmentKind('cargas.xlsx', 'application/vnd.ms-excel')).toBeNull();
-    expect(inferAttachmentKind('animacion.gif', 'image/gif')).toBeNull();
+  it('acepta lo que de verdad se pasan un entrenador y su atleta', () => {
+    expect(inferAttachmentKind('cargas.xlsx', 'application/vnd.ms-excel')).toBe('file');
+    expect(inferAttachmentKind('plan.csv', 'text/csv')).toBe('file');
+    expect(inferAttachmentKind('animacion.gif', 'image/gif')).toBe('image');
+    expect(inferAttachmentKind('foto.heif', 'image/heif')).toBe('image');
+  });
+
+  it('rechaza lo que el otro lado no podría reproducir', () => {
+    // WebM/Opus suena en el navegador y NO en iOS: dejarlo entrar solo serviría
+    // para mandarle al atleta algo que no puede abrir.
     expect(inferAttachmentKind('nota.webm', 'audio/webm')).toBeNull();
+    expect(inferAttachmentKind('clip.webm', 'video/webm')).toBeNull();
+    expect(inferAttachmentKind('clip.mkv', 'video/x-matroska')).toBeNull();
+  });
+
+  it('rechaza SVG aunque sea una imagen', () => {
+    // Un SVG es un documento con scripts dentro, y se serviría desde nuestro
+    // propio dominio.
+    expect(inferAttachmentKind('logo.svg', 'image/svg+xml')).toBeNull();
+  });
+
+  it('rechaza ejecutables y archivos comprimidos', () => {
+    expect(inferAttachmentKind('app.exe', 'application/octet-stream')).toBeNull();
+    expect(inferAttachmentKind('cosas.zip', 'application/zip')).toBeNull();
+    expect(inferAttachmentKind('script.sh', 'text/x-shellscript')).toBeNull();
   });
 
   it('no adivina por MIME cuando la extensión existe pero no vale', () => {

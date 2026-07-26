@@ -1,23 +1,37 @@
-// Chat attachment storage abstraction.
+// Dónde se guardan los adjuntos del chat.
 //
-// Production: Vercel Blob (BLOB_READ_WRITE_TOKEN env). When the env is absent,
-// we fall back to local-fs at /tmp/fahybrik-uploads in dev. R2 adapter is a
-// TODO when we move off Vercel hosting.
+// Producción: Vercel Blob. Desarrollo sin token: disco local en
+// /tmp/fahybrik-uploads.
 //
-// Layout: every blob lives under
-//   chat/<athlete_id>/<yyyy>/<mm>/<uuid>.<ext>
+// Cada fichero vive en  chat/<athlete_id>/<yyyy>/<mm>/<uuid>.<ext>
 //
-// A3 (security): blobs are uploaded with `access: 'private'`, so the raw blob
-// URL is NOT publicly fetchable. We never hand the blob URL to clients.
-// Instead `storeAttachment` returns a URL pointing at our own authenticated
-// proxy endpoint (`/api/chat/attachments/<pathname>`), which verifies the
-// requester belongs to the thread and then redirects to a short-lived signed
-// download URL. The stored `attachment_url` therefore stays opaque + access
-// is always gated by thread membership.
+// Los blobs se suben con `access: 'private'`, así que su URL cruda NO se puede
+// pedir desde fuera y nunca se le entrega a nadie. Lo que se guarda en el mensaje
+// es una URL a nuestro propio proxy autenticado
+// (`/api/chat/attachments/<pathname>`), que comprueba que quien mira pertenece al
+// hilo antes de servir un solo byte.
+//
+// EL IMPORT ES ESTÁTICO, Y NO ES UN DETALLE
+// -----------------------------------------
+// Antes `@vercel/blob` se cargaba con `new Function('m', 'return import(m)')`
+// para que el empaquetador no lo metiera en el grafo. El empaquetador le hizo
+// caso: en el bundle desplegado el paquete NO viajaba, el import reventaba en
+// tiempo de ejecución y un `catch` mudo mandaba el fichero al disco temporal de
+// la función. Ese disco muere con la petición.
+//
+// El resultado era el peor posible: la subida contestaba 201, el mensaje se
+// guardaba con una URL de aspecto correcto, y el fichero no existía en ninguna
+// parte. Verificado el 26-jul contra el almacén de producción: CERO ficheros,
+// con mensajes en la base apuntando a seis. En local nunca se veía porque ahí sí
+// están los `node_modules`.
+//
+// `@vercel/blob` es una dependencia declarada en package.json. Se importa como
+// tal, y si falla, falla a la vista.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { put } from '@vercel/blob';
 import {
   CHAT_ATTACHMENT_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_BYTES,
@@ -82,59 +96,43 @@ export async function storeAttachment(args: {
   const now = new Date();
   const path = `chat/${athlete_id}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${id}.${ext}`;
 
-  // Vercel Blob path (preferred). Detected at runtime so missing token
-  // doesn't break the build. Resolved via Function constructor so bundlers
-  // don't try to bake the optional package into the build graph.
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   if (blobToken) {
+    // Sin red de seguridad a propósito. Si la subida falla, que falle: quien
+    // escribe ve "no se pudo subir" y lo vuelve a intentar. Tragarse el error y
+    // escribir en el disco de la función es lo que hizo que durante semanas los
+    // adjuntos se "enviaran" y no existieran.
+    let stored: { pathname: string };
     try {
-      const dynImport = new Function('m', 'return import(m)') as (m: string) => Promise<unknown>;
-      const mod = (await dynImport('@vercel/blob').catch(() => null)) as
-        | {
-            put?: (
-              path: string,
-              data: Buffer,
-              // A3: 'private' so the blob URL is never directly fetchable.
-              opts: { access: 'private'; contentType: string; token: string; addRandomSuffix?: boolean },
-            ) => Promise<{ pathname: string }>;
-          }
-        | null;
-      if (mod && typeof mod.put === 'function') {
-        const res = await mod.put(path, bytes, {
-          access: 'private',
-          contentType: mime_type,
-          token: blobToken,
-          // We already namespace by uuid; don't append Vercel's random suffix
-          // so the stored pathname matches what the proxy endpoint expects.
-          addRandomSuffix: false,
-        });
-        // Never return the raw blob URL — return our authenticated proxy URL.
-        return {
-          url: attachmentProxyUrl(res.pathname),
-          size_bytes: bytes.length,
-          mime_type,
-          kind,
-        };
-      }
-    } catch {
-      // Fall through to local fs.
+      stored = await put(path, bytes, {
+        access: 'private',
+        contentType: mime_type,
+        token: blobToken,
+        // Ya va con uuid: sin esto Vercel añade su propio sufijo y el pathname
+        // guardado dejaría de coincidir con el que pide el proxy.
+        addRandomSuffix: false,
+      });
+    } catch (err) {
+      throw new UploadError(
+        'storage_unavailable',
+        `No se pudo guardar el archivo: ${err instanceof Error ? err.message : 'error de almacenamiento'}`,
+        502,
+      );
     }
+    return {
+      url: attachmentProxyUrl(stored.pathname),
+      size_bytes: bytes.length,
+      mime_type,
+      kind,
+    };
   }
 
-  // Local fs fallback (dev only).
+  // Solo desarrollo: sin token no hay almacén, así que se escribe en disco.
   const root = process.env.UPLOADS_DIR ?? '/tmp/fahybrik-uploads';
   const dir = join(root, `chat/${athlete_id}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}`);
   await mkdir(dir, { recursive: true });
-  const fullPath = join(dir, `${id}.${ext}`);
-  await writeFile(fullPath, bytes);
-  // Local URL — only useful in dev. Routed through the same authenticated
-  // proxy endpoint as prod so the access model is identical everywhere.
-  return {
-    url: attachmentProxyUrl(path),
-    size_bytes: bytes.length,
-    mime_type,
-    kind,
-  };
+  await writeFile(join(dir, `${id}.${ext}`), bytes);
+  return { url: attachmentProxyUrl(path), size_bytes: bytes.length, mime_type, kind };
 }
 
 /** Path prefix of the authenticated attachment proxy endpoint. */

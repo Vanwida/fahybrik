@@ -21,12 +21,19 @@ export type ChatAttachmentKind = z.infer<typeof chatAttachmentKindSchema>;
 // no se puede tocar desde un componente de cliente.
 
 /** Extensiones aceptadas por tipo de adjunto. La extensión manda sobre el MIME:
- *  el navegador miente con el MIME más de lo que miente con el nombre. */
+ *  el navegador miente con el MIME más de lo que miente con el nombre.
+ *
+ *  Audio y vídeo se quedan en formatos que reproducen LOS DOS lados. WebM/Opus
+ *  se acepta en el navegador pero no en iOS, así que dejarlo entrar solo serviría
+ *  para que el atleta reciba algo que no puede abrir. */
 export const CHAT_ATTACHMENT_EXTENSIONS: Record<ChatAttachmentKind, readonly string[]> = {
   voice: ['m4a', 'aac', 'mp3', 'wav'],
   video: ['mp4', 'mov', 'm4v'],
-  image: ['jpg', 'jpeg', 'png', 'heic', 'webp'],
-  file: ['pdf', 'txt', 'md', 'docx'],
+  image: ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'webp', 'avif'],
+  // Lo que de verdad se pasan un entrenador y su atleta: un plan en PDF, una
+  // hoja de cargas, unas notas. SVG queda FUERA a propósito: es un documento con
+  // scripts dentro y se serviría desde nuestro propio dominio.
+  file: ['pdf', 'txt', 'md', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'],
 };
 
 /** Tope de tamaño por tipo. El vídeo es el grande: un atleta grabando su técnica
