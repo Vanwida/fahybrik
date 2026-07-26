@@ -2,19 +2,24 @@
 //
 // The lifecycle (`athletes.lifecycle_status`) is DISTINCT from billing: it is the
 // single truth for whether Pablo is coaching the athlete right now, independent of
-// what Stripe is doing. Four transitions, all coach-owned (a pause may be REQUESTED
-// by the athlete but only a coach confirms it — never automatic):
+// what Stripe is doing:
 //
 //   activo  ──pause──▶  pausado  ──resume──▶  activo
 //   activo/pausado ──baja──▶ baja ──re_alta──▶ activo
 //
+// This file holds the COACH-owned transitions. The athlete drives the same state
+// machine from the app through lib/athlete/lifecycle-self-service.ts, which layers
+// the pause budget and the scheduled baja on top and then calls straight into these.
+//
 // Guarantees:
 //   • Every mutation runs inside `sql.begin` (atomic; the athlete row is locked
 //     `for update` so two concurrent transitions can't race).
-//   • pause/baja free a cupo slot: after the state change commits we call
+//   • baja frees a cupo slot: after the state change commits we call
 //     releaseWaitlistToCapacity() (recompute-based, idempotent) so the freed plaza
 //     passes to the next waiting lead. It runs POST-COMMIT so the capacity recompute
-//     (a separate pool connection) sees the athlete already pausado/baja.
+//     (a separate pool connection) sees the athlete already baja. A PAUSE deliberately
+//     does NOT free the plaza — it reserves it, which is the other half of the pause
+//     budget deal (docs/DECISIONS.md, 2026-07-26).
 //   • History is NEVER deleted. baja preserves everything — it only flips state +
 //     cancels billing at period end. RGPD deletion is a separate path (#19).
 //
@@ -97,10 +102,12 @@ export interface BajaAthleteInput {
   athlete_id: bigint;
   reason: PauseReason;
   coach_id?: bigint | null;
-  /** Authorship (#43): the coach's users.id — stamps athletes.baja_by_* (its own
+  /** Authorship (#43): the acting user's users.id — stamps athletes.baja_by_* (its own
    *  lifecycle-author slot, 0118) + the audit trail so the banner shows who gave the
    *  baja without touching last_edited_by. Distinct from coach_id. */
   by_user_id?: bigint | null;
+  /** Who is behind the baja. Defaults to 'coach' — the only author before 0136. */
+  by_kind?: 'coach' | 'athlete';
 }
 
 export interface RequestPauseInput {
@@ -207,15 +214,19 @@ async function closeCurrentPauseTx(
 // ── Public transitions ───────────────────────────────────────────────────────────
 
 /**
- * PAUSE (coach-initiated). Guards activo, flips to pausado, opens a pause interval,
- * then frees the plaza to the waitlist. The plan freeze + adherence exclusion are
- * driven off this state by the sibling agents.
+ * PAUSE. Guards activo, flips to pausado, opens a pause interval. The plan freeze +
+ * adherence exclusion are driven off this state by the sibling agents.
+ *
+ * The plaza is NOT released to the waitlist: a paused athlete keeps their slot. That
+ * is what the pause budget pays for — see lib/athlete/lifecycle-self-service.ts and
+ * the capacity query, which counts pausado.
+ *
+ * No budget check here on purpose. The cap is a rule for self-service; the coach is
+ * the human override and can park an athlete for as long as the situation needs.
  */
 export async function pauseAthlete(input: PauseAthleteInput): Promise<LifecycleTransitionResult> {
   const todayIso = boxTodayIso();
   await sql.begin((tx) => applyPauseTx(tx, input, todayIso));
-  // A freed slot passes to the next waiting lead. Post-commit (see file header).
-  await releaseWaitlistToCapacity();
   // #15(billing): pause Stripe collection so a paused athlete is not charged.
   // POST-COMMIT + guarded — a Stripe failure must never break the pause.
   try {
@@ -296,13 +307,17 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
     // OWN baja_by_* columns (0118) inline, next to baja_at/baja_reason, so the banner
     // shows who gave the baja WITHOUT lighting up the header's "editado por". The
     // audit trail records it too.
+    const byKind = input.by_kind ?? 'coach';
     await tx`
       update athletes
       set lifecycle_status = 'baja',
           baja_at = now(),
           baja_reason = ${input.reason},
           baja_by_user_id = ${input.by_user_id ?? null},
-          baja_by_kind = 'coach',
+          baja_by_kind = ${byKind},
+          -- The scheduled baja has arrived (or the coach got there first): either way
+          -- there is nothing left for the lifecycle cron to apply (0136).
+          baja_scheduled_for = null,
           updated_at = now()
       where id = ${input.athlete_id}
     `;
@@ -310,7 +325,7 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
       entity_type: 'athletes',
       entity_id: input.athlete_id,
       action: 'update',
-      actor: { kind: 'coach', user_id: input.by_user_id ?? null },
+      actor: { kind: byKind, user_id: input.by_user_id ?? null },
       diff: { lifecycle_status: 'baja', reason: input.reason },
     });
     await closeCurrentPauseTx(tx, input.athlete_id, todayIso);
@@ -368,7 +383,11 @@ export async function reAltaAthlete(input: {
     }
     await tx`
       update athletes
-      set lifecycle_status = 'activo', baja_at = null, baja_reason = null, updated_at = now()
+      set lifecycle_status = 'activo',
+          baja_at = null,
+          baja_reason = null,
+          baja_scheduled_for = null,
+          updated_at = now()
       where id = ${input.athlete_id}
     `;
   });
@@ -422,8 +441,12 @@ export async function requestPause(
 /**
  * CONFIRM a pending pause request (coach). Marks it confirmed and applies the pause
  * (requested_by='athlete') in the SAME transaction — either both happen or neither.
- * Frees the plaza to the waitlist post-commit. The pause guard still holds: if the
- * athlete is no longer activo the whole thing rolls back with invalid_transition.
+ * The pause guard still holds: if the athlete is no longer activo the whole thing
+ * rolls back with invalid_transition.
+ *
+ * Kept for the requests already sitting in the table and for a coach who prefers to
+ * be asked. The app itself no longer goes through here — an athlete pausing from the
+ * app applies the pause directly (lib/athlete/lifecycle-self-service.ts).
  */
 export async function confirmPauseRequest(input: {
   request_id: bigint;
@@ -465,7 +488,6 @@ export async function confirmPauseRequest(input: {
     pausedAthleteId = req.athlete_id;
     return { status: 'pausado' as const };
   });
-  await releaseWaitlistToCapacity();
   // #15(billing): confirming an athlete-requested pause reaches the SAME pausado
   // end-state as pauseAthlete, so Stripe collection must pause here too (else a
   // paused athlete keeps being charged). POST-COMMIT + guarded.

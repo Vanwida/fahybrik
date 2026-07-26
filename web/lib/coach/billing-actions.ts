@@ -205,3 +205,19 @@ export async function cancelStripeAtPeriodEnd(
     await stripe.subscriptions.update(subId, { cancel_at_period_end: true });
   });
 }
+
+/**
+ * UNDO a pending cancellation — the athlete scheduled a baja from the app and then
+ * changed their mind before the period elapsed (#13, 0136). Only valid while the
+ * subscription is still live; once Stripe has actually deleted it, coming back is a
+ * new checkout, not an un-cancel. No-op when unconfigured / no live sub.
+ */
+export async function uncancelStripeAtPeriodEnd(
+  athlete_id: bigint,
+  client: Sql = defaultSql,
+): Promise<BillingActionResult> {
+  return withLiveStripeSub(athlete_id, client, async (subId) => {
+    const { stripe } = getStripeOrThrow();
+    await stripe.subscriptions.update(subId, { cancel_at_period_end: false });
+  });
+}

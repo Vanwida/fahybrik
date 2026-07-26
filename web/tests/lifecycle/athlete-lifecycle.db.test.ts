@@ -12,7 +12,7 @@
  * Covers:
  *   • state machine: activo→pausado→activo, activo→baja→activo (re-alta);
  *   • guards reject every illegal transition;
- *   • capacity EXCLUDES paused + baja athletes (active sub, but not counted);
+ *   • capacity RESERVES the plaza of a paused athlete and frees only the baja;
  *   • pause opens the interval (end_date null), resume closes it (end_date=today);
  *   • pause-request: pending → confirm pauses the athlete (requested_by='athlete');
  *   • baja sets cancel_at_period_end, but does NOT anonymize/delete the account and
@@ -174,8 +174,12 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
     });
   });
 
-  // ── Capacity exclusion ────────────────────────────────────────────────────────────
-  test('capacity EXCLUDES paused and baja athletes (active sub, not counted)', async () => {
+  // ── Capacity: a pause RESERVES the plaza, a baja frees it ─────────────────────────
+  // Decision of 2026-07-26 (docs/DECISIONS.md): pausing stops the billing, so it is
+  // capped — and what the cap buys is that the slot is still there on the way back.
+  // Before that decision this test asserted the opposite; it is the rule that changed,
+  // not the code drifting.
+  test('capacity KEEPS paused athletes and drops only baja', async () => {
     const base = (await getCapacityState()).active;
 
     const paused = await newAthlete();
@@ -185,18 +189,20 @@ describeWithDb('athlete lifecycle state machine (#13, real DB)', () => {
     // Both hold an active subscription and are activo → both counted.
     expect((await getCapacityState()).active).toBe(base + 2);
 
-    // Pause one → excluded even though the subscription stays active.
+    // Pause one → still occupying a plaza, and now reported as paused.
     await pauseAthlete({
       athlete_id: BigInt(paused.athleteId),
       reason: 'lesion',
       requested_by: 'coach',
       coach_id: BigInt(paused.coachId),
     });
-    expect((await getCapacityState()).active).toBe(base + 1);
+    const withPause = await getCapacityState();
+    expect(withPause.active).toBe(base + 2);
+    expect(withPause.paused).toBeGreaterThanOrEqual(1);
 
-    // Baja the other → also excluded (subscription still active until period end).
+    // Baja the other → excluded (subscription still active until period end).
     await bajaAthlete({ athlete_id: BigInt(gone.athleteId), reason: 'otro', coach_id: BigInt(gone.coachId) });
-    expect((await getCapacityState()).active).toBe(base);
+    expect((await getCapacityState()).active).toBe(base + 1);
   });
 
   test('re-alta over a full cap returns over_capacity=true (coach override still commits)', async () => {

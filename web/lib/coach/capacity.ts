@@ -2,13 +2,21 @@
 // here is scoped by coach_id — same shape as lib/citas/store.ts and coach_availability.
 // The cap lives on coaches.max_athletes (migration 0102); null = no limit (waitlist off).
 //
-// "Active athletes" = distinct HUMANS the coach is coaching right now: an active
-// subscription AND athletes.lifecycle_status='activo' (#13). The lifecycle gate is what
-// frees a plaza on pause/baja — a paused or baja athlete may still hold an active
-// subscription (billing cancels only at period end), so subscription alone would keep
-// counting them and never open the slot. A dobles pair shares ONE subscription (user_id +
-// partner_user_id both point at real athletes), so it counts as 2 humans toward the cap —
-// the real coaching load, which is what the cap caps.
+// "Occupied plazas" = distinct HUMANS holding a slot on the roster: an active
+// subscription AND athletes.lifecycle_status in ('activo','pausado') (#13). The
+// lifecycle gate is what frees a plaza on BAJA — a baja athlete may still hold an
+// active subscription (billing cancels only at period end), so subscription alone
+// would keep counting them and never open the slot.
+//
+// A PAUSE holds the plaza (2026-07-26, docs/DECISIONS.md). Pausing stops the billing,
+// so it is capped (4 weeks per rolling year, shared/domain/coach/pause-budget.ts) and
+// what the cap buys is precisely this: the slot is still there when they come back.
+// Giving it away would make the promise false — the athlete would return to a full
+// roster — and would push them to cancel instead of pause, which is strictly worse.
+//
+// A dobles pair shares ONE subscription (user_id + partner_user_id both point at real
+// athletes), so it counts as 2 humans toward the cap — the real coaching load, which
+// is what the cap caps.
 
 import { sql } from '@/lib/db';
 
@@ -16,8 +24,10 @@ import { sql } from '@/lib/db';
 // (athletes.coach_id → subscriptions) and drop the "order by id limit 1" single-coach pick.
 
 export interface CapacityState {
-  /** Distinct athletes (humans) with an ACTIVE subscription right now. A dobles pair = 2. */
+  /** Distinct athletes (humans) holding a plaza right now — activo + pausado. A dobles pair = 2. */
   active: number;
+  /** How many of `active` are paused (plaza reserved, not being billed). */
+  paused: number;
   /** The coach's cap, or null when uncapped (waitlist disabled). */
   max: number | null;
   /** true when capped AND at/over the cap → new leads go on the waitlist. */
@@ -29,22 +39,25 @@ export interface CapacityState {
 /** Read the live capacity: how many active athletes vs the single coach's cap. */
 export async function getCapacityState(): Promise<CapacityState> {
   const [activeRows, maxRows] = await Promise.all([
-    sql<{ n: number }[]>`
-      select count(distinct a.id)::int as n
+    sql<{ n: number; paused: number }[]>`
+      select
+        count(distinct a.id)::int as n,
+        count(distinct a.id) filter (where a.lifecycle_status = 'pausado')::int as paused
       from athletes a
       join subscriptions s on (s.user_id = a.user_id or s.partner_user_id = a.user_id)
       where s.status = 'active'
-        and a.lifecycle_status = 'activo'
+        and a.lifecycle_status in ('activo', 'pausado')
     `,
     sql<{ max_athletes: number | null }[]>`
       select max_athletes from coaches order by id limit 1
     `,
   ]);
   const active = activeRows[0]?.n ?? 0;
+  const paused = activeRows[0]?.paused ?? 0;
   const max = maxRows[0]?.max_athletes ?? null;
   const full = max !== null && active >= max;
   const slots_available = max === null ? null : Math.max(0, max - active);
-  return { active, max, full, slots_available };
+  return { active, paused, max, full, slots_available };
 }
 
 /** The single coach's cap (coaches.max_athletes). null = no limit. Backs the Disponibilidad cupo field. */
