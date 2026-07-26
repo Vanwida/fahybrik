@@ -43,6 +43,7 @@ struct GarminSetupView: View {
                 header
                 stepOne
                 stepTwo
+                doneNote
                 twoTapsNote
                 notYetNote
             }
@@ -66,19 +67,41 @@ struct GarminSetupView: View {
     }
 
     private var stepOne: some View {
-        SetupStep(number: 1, title: "Instala FAHYBRID en el reloj") {
-            Text("Desde la tienda Connect IQ, en la app Garmin Connect de tu móvil.")
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
+        SetupStep(number: 1, title: "Instala FAHYBRID en tu reloj") {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("Se hace desde la app de Garmin en tu móvil, no desde el reloj.")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                TapPath(steps: [
+                    "Abre Garmin Connect",
+                    "Abajo a la derecha, Más",
+                    "Tienda Connect IQ",
+                    "Busca FAHYBRID e instálala"
+                ])
+            }
         }
     }
 
     private var stepTwo: some View {
         SetupStep(number: 2, title: "Copia esto en los ajustes de la app") {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                // La ruta literal, porque es exactamente lo que nadie encuentra.
-                Text("En Garmin Connect: Connect IQ › FAHYBRID › Ajustes.")
+                // La ruta LITERAL, toque a toque, tomada del artículo de soporte de
+                // Garmin. Son siete pantallas: escribir "Connect IQ › Ajustes" daba
+                // por hecho un menú que nadie encuentra solo.
+                Text("Otra vez en Garmin Connect, esta vez a los ajustes de nuestra app:")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                TapPath(steps: [
+                    "Abajo a la derecha, Más",
+                    "Dispositivos Garmin",
+                    "Toca tu reloj",
+                    "Actividades y aplicaciones",
+                    "FAHYBRID",
+                    "Ajustes"
+                ])
+                Text("Ahí pega tu email y el código. Dale a Guardar.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
@@ -116,6 +139,20 @@ struct GarminSetupView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(loading || bearer == nil)
+            }
+        }
+    }
+
+    private var doneNote: some View {
+        CardSurface(padding: Theme.Spacing.l) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("¿Cómo sé que ha funcionado?")
+                    .font(Theme.Typography.bodyEmph)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("Abre FAHYBRID en el reloj. Si ya no te pide el email, estás dentro: verás el entreno de hoy. Los ajustes tardan unos segundos en llegarle al reloj, así que si aún te lo pide, espera un poco y vuelve a entrar.")
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -168,6 +205,34 @@ struct GarminSetupView: View {
         } catch {
             failed = true
         }
+    }
+}
+
+/// Una ruta de toques dentro de OTRA aplicación. Cada línea es una pantalla, en
+/// orden, con el nombre literal del botón. Un atleta que no ha tocado Garmin
+/// Connect en su vida no puede seguir un "Connect IQ › Ajustes": no sabe por dónde
+/// se empieza. Esto sí se puede seguir con el móvil en la mano.
+private struct TapPath: View {
+    let steps: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                        .padding(.top, 3)
+                    Text(step)
+                        .font(Theme.Typography.small)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Paso \(i + 1): \(step)")
+            }
+        }
+        .padding(.leading, 2)
     }
 }
 
