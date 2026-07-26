@@ -74,6 +74,36 @@ export function inferAttachmentKind(
   return null;
 }
 
+/** Cómo se anuncia un mensaje que es solo adjunto — en la lista de
+ *  conversaciones, en el push del iPhone y en el del dashboard. UNA fuente:
+ *  si esto se duplicara, el aviso diría "[image]" en un sitio y "📷 Foto" en
+ *  otro. */
+export function attachmentPreview(kind: ChatAttachmentKind | null): string {
+  switch (kind) {
+    case 'image':
+      return '📷 Foto';
+    case 'video':
+      return '🎥 Vídeo';
+    case 'voice':
+      return '🎤 Nota de voz';
+    case 'file':
+      return '📎 Archivo';
+    default:
+      return '📎 Adjunto';
+  }
+}
+
+/** Humaniza una vista previa que viene de la DB. El SQL de la lista guarda el
+ *  marcador crudo (`[image]`, `[voice]`…) porque un scalar subquery solo puede
+ *  devolver una columna; esta función lo traduce en el borde de pintar. Un
+ *  cuerpo de texto normal pasa intacto. */
+export function humanPreview(raw: string): string {
+  const match = /^\[(voice|video|image|file|attach)\]$/.exec(raw);
+  if (!match) return raw;
+  const kind = match[1] === 'attach' ? null : (match[1] as ChatAttachmentKind);
+  return attachmentPreview(kind);
+}
+
 /** Quién escribió el mensaje. Columna real desde la 0082, obligatoria desde la
  *  0136 — nunca se re-deriva del `sender_user_id` (miente cuando el coach es su
  *  propio atleta). */

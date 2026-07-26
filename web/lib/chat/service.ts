@@ -12,6 +12,7 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { attachmentPreview } from './schema';
 import type { ChatAttachmentKind, ChatSenderRole, MessageDTO, SendMessageInput } from './schema';
 import { notifyOpposite } from './notify';
 import { publishMessage, type ChatScope } from './pubsub';
@@ -413,7 +414,7 @@ export async function sendMessage(args: {
     preview:
       input.body && input.body.trim().length > 0
         ? input.body
-        : `[${input.attachment_kind ?? 'attachment'}]`,
+        : attachmentPreview(input.attachment_kind ?? null),
   }).catch(() => undefined);
 
   // Publica a los streams SSE de todas las instancias (Postgres NOTIFY). El aviso
