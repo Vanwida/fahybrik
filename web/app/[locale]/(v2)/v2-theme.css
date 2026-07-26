@@ -48,6 +48,11 @@
   --v2-r-m: 12px;
   --v2-r-l: 16px;
   --v2-r-pill: 9999px;
+
+  /* Alto de la barra de pestañas móvil (V2MobileNav: item 52px + pt 4 + pb 4 +
+     borde 1) más la safe area del iPhone. Lo que mida a pantalla completa
+     (mensajes) se lo resta por debajo de lg — si la barra cambia, cambiar AQUÍ. */
+  --v2-tabbar-h: calc(61px + env(safe-area-inset-bottom));
 }
 
 /* ── DARK (default) — near-black depth, matches the current app canvas ─────── */

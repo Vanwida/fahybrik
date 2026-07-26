@@ -172,7 +172,11 @@ function MensajesBody({
     <div className="-m-4 sm:-m-6">
       <div
         className={cn(
-          'grid h-[calc(100dvh-3.5rem)] grid-cols-1 overflow-hidden border-t border-[color:var(--v2-border)]',
+          // Por debajo de lg la barra de pestañas fija tapa el final de la
+          // pantalla: sin restarla, el compositor queda debajo y no se puede
+          // escribir (visto en producción a 390).
+          'grid h-[calc(100dvh-3.5rem-var(--v2-tabbar-h))] grid-cols-1 overflow-hidden border-t border-[color:var(--v2-border)]',
+          'lg:h-[calc(100dvh-3.5rem)]',
           'md:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_248px]',
         )}
       >
