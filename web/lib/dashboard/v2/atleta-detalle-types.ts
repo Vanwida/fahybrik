@@ -12,6 +12,9 @@ import type {
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { WeekdayKey } from '@fahybrid/shared/domain/coach/intake-availability';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
+// Type-only (erased at compile time), same as the resumen import above — the module it
+// lives in is server-only but no value ever crosses into the client bundle.
+import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
@@ -260,6 +263,13 @@ export interface V2AthleteDetalle {
   /** Current 1RM per lift + version history (Perfil tab · Fuerza). Empty = no max
    *  yet. READ from athlete_strength_maxes — never recomputed. */
   strength_maxes: StrengthMaxView[];
+  /** The athlete's calibration tests (#34): scheduled, done, and — the one that needs
+   *  the coach — done with no number written down. Same read the athlete's app uses. */
+  tests: CalibrationTestStatus[];
+  /** The coach's test library, so "Programar test" can offer it without a round-trip.
+   *  `last_done` is this athlete's last completed occurrence, which is what tells the
+   *  coach whether repeating it now is worth anything. */
+  test_library: { id: string; name: string; last_done: string | null }[];
   /** Reference-test results + history per slug (Perfil cards + Histórico
    *  progression). Empty = no test recorded. READ from athlete_benchmarks — never
    *  derived from in-WOD segment durations. */

@@ -46,6 +46,61 @@ export async function insertCalibrationAssignment(params: {
   return Number(rows[0]!.id);
 }
 
+/**
+ * Put ONE test in ONE athlete's plan on ONE day: fork the content per-athlete and write
+ * the assignment. This is the shared core of the three ways a test ever reaches a plan —
+ * the week-1 auto-scheduler, the athlete's own "Probarme", and the coach's "Aplicar" —
+ * so the fork, the idempotency rule and the calibration FK live in a single place.
+ *
+ * Idempotent per (athlete, test, day): an existing not-yet-completed session is REUSED,
+ * never duplicated. That is what makes a double click, a retry and a coach applying the
+ * same test twice all harmless.
+ */
+export async function materializeTestForAthlete(params: {
+  client: Sql;
+  athlete_id: number;
+  test: { id: string | number; template_id: string | number | null };
+  /** ISO `YYYY-MM-DD` in the box timezone. */
+  scheduled_for: string;
+  /** The covering microcycle, or null for an ad-hoc (unplanned) session. */
+  microcycle_id?: number | null;
+}): Promise<{ ok: true; assignment_id: number; reused: boolean } | { ok: false; reason: 'test_not_ready' }> {
+  const { client, athlete_id, scheduled_for } = params;
+  const test_id = Number(params.test.id);
+  // A test with no workout content yet cannot be scheduled — there is nothing to run.
+  if (!params.test.template_id) return { ok: false, reason: 'test_not_ready' };
+
+  const existing = await client<{ id: string }[]>`
+    select id::text as id
+    from workout_assignments
+    where athlete_id = ${athlete_id}
+      and calibration_test_id = ${test_id}
+      and scheduled_for = ${scheduled_for}::date
+      and status <> 'completed'
+    order by id desc
+    limit 1
+  `;
+  if (existing[0]) return { ok: true, assignment_id: Number(existing[0].id), reused: true };
+
+  const clone = await cloneTemplateAsInstance({
+    client,
+    source_template_id: Number(params.test.template_id),
+    athlete_id,
+  });
+  if (!clone) return { ok: false, reason: 'test_not_ready' };
+
+  const assignment_id = await insertCalibrationAssignment({
+    client,
+    athlete_id,
+    test_id,
+    template_id: clone.template_id,
+    template_version: clone.version,
+    scheduled_for,
+    microcycle_id: params.microcycle_id ?? null,
+  });
+  return { ok: true, assignment_id, reused: false };
+}
+
 export async function scheduleWeek1Calibration(params: {
   client: Sql;
   coach_id: number | bigint;

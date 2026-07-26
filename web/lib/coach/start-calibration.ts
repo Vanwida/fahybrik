@@ -11,8 +11,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { listCoachTests } from '@/lib/coach/coach-tests';
-import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
-import { insertCalibrationAssignment } from '@/lib/coach/schedule-calibration';
+import { materializeTestForAthlete } from '@/lib/coach/schedule-calibration';
 import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
 
 export type StartTestError = 'no_coach' | 'test_not_found' | 'test_not_ready';
@@ -75,48 +74,19 @@ export async function startCalibrationTest(params: {
 
   const scheduled_for = isoDateString(startOfDayInBox(params.now ?? new Date()));
 
-  // Idempotency: reuse today's not-yet-completed session for this test, so a double
-  // tap doesn't stack duplicate sessions.
-  const existing = await client<{ id: string; scheduled_for: string }[]>`
-    select id::text as id, scheduled_for::text as scheduled_for
-    from workout_assignments
-    where athlete_id = ${athlete_id}
-      and calibration_test_id = ${Number(test.id)}
-      and scheduled_for = ${scheduled_for}::date
-      and status <> 'completed'
-    order by id desc
-    limit 1
-  `;
-  if (existing[0]) {
-    return {
-      ok: true,
-      data: {
-        assignment_id: Number(existing[0].id),
-        scheduled_for: existing[0].scheduled_for,
-        store_results,
-        reused: true,
-      },
-    };
-  }
-
-  // Fork the test content per-athlete + point an assignment at it with the
-  // calibration FK. No microcycle — it's an ad-hoc session.
-  const clone = await cloneTemplateAsInstance({
-    client,
-    source_template_id: Number(test.template_id),
-    athlete_id,
-  });
-  if (!clone) return { ok: false, error: 'test_not_ready' };
-
-  const assignment_id = await insertCalibrationAssignment({
+  // The fork + the per-day idempotency + the calibration FK all live in one shared
+  // place, so this path and the coach's "Aplicar" can never drift apart.
+  const placed = await materializeTestForAthlete({
     client,
     athlete_id,
-    test_id: Number(test.id),
-    template_id: clone.template_id,
-    template_version: clone.version,
+    test,
     scheduled_for,
-    microcycle_id: null,
+    microcycle_id: null, // ad-hoc: no microcycle covers it
   });
+  if (!placed.ok) return { ok: false, error: 'test_not_ready' };
 
-  return { ok: true, data: { assignment_id, scheduled_for, store_results, reused: false } };
+  return {
+    ok: true,
+    data: { assignment_id: placed.assignment_id, scheduled_for, store_results, reused: placed.reused },
+  };
 }

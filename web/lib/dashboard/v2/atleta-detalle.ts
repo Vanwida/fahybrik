@@ -38,6 +38,8 @@ import type { MessageDTO } from '@/lib/chat/schema';
 import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
+import { loadBatteryStatus } from '@/lib/coach/battery-status';
+import { listCoachTests } from '@/lib/coach/coach-tests';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
@@ -325,6 +327,8 @@ export async function loadAthleteDetalle(params: {
     billing,
     invoices,
     review,
+    battery,
+    testLibrary,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -347,6 +351,11 @@ export async function loadAthleteDetalle(params: {
     // Revisiones 1:1 (#21): cadencia + estado (próxima / propuesta / vencida). Degrada a
     // null si falla, como el resto del fan-out — un fallo aquí nunca 500-ea la ficha.
     getAthleteReviewState({ athlete_id, coach_id }).catch(() => null),
+    // Tests (#34): the athlete's calibration sessions + the coach's library, so the
+    // ficha can both SHOW their tests and schedule a new one without a round-trip.
+    // Degrades to empty — a test hiccup never 500s the ficha.
+    loadBatteryStatus(athlete_id, client).catch(() => ({ total: 0, completed: 0, tests: [] })),
+    listCoachTests(Number(coach_id), { onlyEnabled: true }, client).catch(() => []),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -398,8 +407,23 @@ export async function loadAthleteDetalle(params: {
     days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
   };
 
+  // The library shown in the sheet, each entry carrying THIS athlete's last completed
+  // occurrence — the one fact that decides whether repeating it now is worth anything.
+  const lastDoneBySlug = new Map<string, string>();
+  for (const t of battery.tests) {
+    if (!t.result_captured) continue;
+    const prev = lastDoneBySlug.get(t.calibration_slug);
+    if (!prev || t.scheduled_for > prev) lastDoneBySlug.set(t.calibration_slug, t.scheduled_for);
+  }
+
   return {
     header,
+    tests: battery.tests,
+    test_library: testLibrary.map((t) => ({
+      id: String(t.id),
+      name: t.name,
+      last_done: lastDoneBySlug.get(t.slug) ?? null,
+    })),
     stats: buildStats(resumen, body),
     classification: safeClassification,
     max_hr_bpm: shell.max_hr_bpm,

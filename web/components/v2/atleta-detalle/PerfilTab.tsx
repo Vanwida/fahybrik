@@ -10,14 +10,16 @@
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { Panel, DashedAction, relativeDate } from './parts';
+import { Panel, relativeDate } from './parts';
 import { ClasificacionCard } from './ClasificacionCard';
+import { TestsPanel } from './tests/TestsPanel';
 import { TargetRaceCard } from './TargetRaceCard';
 import type {
   PerfilTabData,
   ClasificacionData,
   StrengthMaxView,
 } from '@/lib/dashboard/v2/atleta-detalle-types';
+import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 import { cn } from '@/lib/utils';
 
 function TestCard({
@@ -138,10 +140,16 @@ export function PerfilTab({
   data,
   classification,
   athleteId,
+  athleteName,
+  tests,
+  testLibrary,
 }: {
   data: PerfilTabData;
   classification: ClasificacionData;
   athleteId: string;
+  athleteName: string;
+  tests: CalibrationTestStatus[];
+  testLibrary: { id: string; name: string; last_done: string | null }[];
 }) {
   // At least one resolved target across modalities → show the table; otherwise the
   // honest empty state. (No test yet → objective_groups is [].)
@@ -180,7 +188,6 @@ export function PerfilTab({
         {data.reference_tests.map((t) => (
           <TestCard key={t.slug} icon={t.icon} label={t.label} value={t.value} date_iso={t.date_iso} />
         ))}
-        <DashedAction icon="autorenew" label="Programar re-test" />
       </Panel>
 
       {/* Accent join → */}
@@ -285,6 +292,16 @@ export function PerfilTab({
           data.strength_maxes.map((m) => <StrengthRow key={m.exercise_slug} max={m} />)
         )}
       </Panel>
+
+      {/* Tests — right under Fuerza on purpose: these are what PRODUCE the 1RMs and
+          the zones above, and until now the ficha showed the outputs and never the
+          tests that generate them. */}
+      <TestsPanel
+        athleteId={athleteId}
+        athleteName={athleteName}
+        tests={tests}
+        library={testLibrary}
+      />
     </div>
   );
 }

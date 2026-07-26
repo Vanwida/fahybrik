@@ -61,6 +61,9 @@ export function AthleteDetalle({
               data={selectPerfilTab(detalle)}
               classification={detalle.classification}
               athleteId={header.athlete_id}
+              athleteName={header.full_name}
+              tests={detalle.tests}
+              testLibrary={detalle.test_library}
             />
           </div>
         ) : tab === 'plan' ? (

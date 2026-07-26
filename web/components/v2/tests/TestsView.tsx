@@ -18,6 +18,7 @@ import type { CoachCalibrationTest } from '@/lib/coach/coach-tests';
 import { ReorderRow, RowIconButton } from '@/components/v2/periodizacion/ReorderRow';
 import { PanelButton, DialogScrim, ErrorBanner } from './chrome';
 import { TestEditorPanel } from './TestEditorPanel';
+import { AplicarTestSheet, type ApplyRosterEntry } from './AplicarTestSheet';
 import {
   type TestDraft,
   emptyTestDraft,
@@ -51,8 +52,19 @@ function apiErrorMessage(json: unknown, fallback: string): string {
   return typeof msg === 'string' && msg ? msg : fallback;
 }
 
-export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest[] }) {
+export function TestsView({
+  initialTests,
+  reach = {},
+  roster = [],
+}: {
+  initialTests: CoachCalibrationTest[];
+  /** test id → how many athletes actually have it, and how far they got. */
+  reach?: Record<string, { athletes: number; done: number; pending: number }>;
+  roster?: ApplyRosterEntry[];
+}) {
   const [tests, setTests] = useState<CoachCalibrationTest[]>(initialTests);
+  const [applying, setApplying] = useState<CoachCalibrationTest | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [draft, setDraft] = useState<TestDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,8 +272,20 @@ export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest
                       <span className="v2-num inline-flex items-center gap-1 whitespace-nowrap text-[color:var(--v2-faint)]">
                         <MIcon name="event" size={12} /> {agendaSummary(t)}
                       </span>
+                      <span className="text-[color:var(--v2-faint)]">·</span>
+                      <ReachChip reach={reach[String(t.id)]} />
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setApplying(t);
+                    }}
+                    className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-[12px] font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
+                  >
+                    Aplicar
+                  </button>
                 </div>
               </ReorderRow>
             ))}
@@ -282,6 +306,33 @@ export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest
         </div>
       )}
 
+      {applying ? (
+        <AplicarTestSheet
+          test={{ id: String(applying.id), name: applying.name }}
+          roster={roster}
+          onClose={() => setApplying(null)}
+          onApplied={(summary) => setToast(summary)}
+        />
+      ) : null}
+
+      {toast ? (
+        <div
+          role="status"
+          className="fixed bottom-5 left-1/2 z-40 flex max-w-[90vw] -translate-x-1/2 items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] px-4 py-2.5 text-[13px] text-[color:var(--v2-fg)] shadow-lg"
+        >
+          <MIcon name="event_available" size={16} className="text-[color:var(--v2-accent)]" />
+          <span>{toast}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Cerrar aviso"
+            className="v2-focus text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]"
+          >
+            <MIcon name="close" size={15} />
+          </button>
+        </div>
+      ) : null}
+
       {confirmDelete ? (
         <ConfirmDeleteDialog
           test={confirmDelete}
@@ -294,6 +345,26 @@ export function TestsView({ initialTests }: { initialTests: CoachCalibrationTest
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+/** Who actually HAS this test. The column whose absence is what let a battery that
+ *  had reached nobody look exactly like one that was working — "Nadie todavía" is
+ *  the state this chip exists to make impossible to miss. */
+function ReachChip({ reach }: { reach?: { athletes: number; done: number; pending: number } }) {
+  if (!reach || reach.athletes === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap font-semibold text-[color:var(--v2-warn)]">
+        <MIcon name="person_off" size={12} /> Nadie todavía
+      </span>
+    );
+  }
+  const detail = reach.pending > 0 ? `${reach.done} hechos · ${reach.pending} pendientes` : `${reach.done} hechos`;
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[color:var(--v2-muted)]">
+      <MIcon name="group" size={12} /> {reach.athletes} {reach.athletes === 1 ? 'atleta' : 'atletas'}
+      <span className="text-[color:var(--v2-faint)]">· {detail}</span>
+    </span>
+  );
+}
 
 function PurposeStrip({ onRestore, restoring }: { onRestore: () => void; restoring: boolean }) {
   return (
