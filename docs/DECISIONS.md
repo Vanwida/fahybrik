@@ -58,7 +58,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **En consecuencia, no hacer:** no crear tablas de fases, de tipos de sesión ni de macrociclos. Si hace falta que el producto ejecute estas reglas, se implementan como lógica sobre las entidades que ya existen (`program_month_templates`, `program_sequences`, `methodology_groups`).
 
-**Dónde vive:** `docs/methodology/` — la página principal es `metodologia-fahybrid.html`.
+**Dónde vive:** `docs/methodology/` — la puerta de entrada es `manual.html`.
 
 ---
 

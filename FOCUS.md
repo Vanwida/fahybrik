@@ -18,18 +18,19 @@ La tesis de trabajo: *la identidad de un método no está en los ejercicios, est
 ## Acaba de cerrarse (25-jul)
 
 - **El sistema en seis capas** — las seis decisiones que componen un plan, y en cada una qué fija el sistema y qué elige el coach. → `docs/methodology/sistema-seis-capas.html`
-- **La metodología en una página** — la columna del coach, rellenada por nosotros: reglas, fases, pruebas, sesiones, progresión, ajuste diario y variación por formato. → `docs/methodology/metodologia-fahybrid.html`
 - **Batería de pruebas** — 4 pruebas (5K, remo 2K, 1RM, media simulación). Ya construida y funcionando en producto. → `docs/methodology/test-battery-reference.html`
 - **Modelo de fases** — Base → Potencia → Ritmo → Pico → Desconexión. 13–19 semanas. Sin entidad de fase en schema (respeta la decisión de la migración 0064). → `docs/methodology/modelo-de-fases.html`
-- **Catálogo de sesiones** — 18 tipos en 4 familias. ⚠️ **A REHACER**: se ajustó contra ficheros del repo que no son material propio. Hay que rederivarlo desde las exigencias de la carrera. → `docs/methodology/catalogo-tipos-sesion.html`
 - **Reglas de progresión y ajuste** — progresión semanal, fuerza por RIR, bandas de readiness (67/45), límites de seguridad y reincorporación. → `docs/methodology/reglas-de-progresion.html`
 - **Formatos y cargas de HYROX** — cargas oficiales por división verificadas contra el reglamento 25/26 y 26/27, y qué implica cada formato para el entrenamiento. → `docs/design/formatos-y-cargas-hyrox.html`
 
 ---
 
-- **Derivación desde la carrera** — el origen de la metodología: las 7 exigencias del evento y qué se entrena por cada una. Regla: un tipo de sesión solo existe si traza hasta una exigencia. → `docs/methodology/derivacion-desde-la-carrera.html`
-- **Los 16 tipos de sesión** — derivados de las 7 exigencias, cada uno con su sesión de ejemplo completamente especificada. → `docs/methodology/catalogo-15-tipos.html`
-- **La semana** — las 6 reglas que deciden qué entra cuando 27 sesiones compiten por 6 huecos, y las 4 semanas tipo. → `docs/methodology/la-semana.html`
+- **Derivación desde la carrera** — el origen: las 7 exigencias del evento y qué se entrena por cada una. Regla: un tipo solo existe si traza hasta una exigencia. → `docs/methodology/derivacion-desde-la-carrera.html`
+- **Los 16 tipos de sesión** — derivados de las 7 exigencias, cada uno con su sesión de ejemplo completamente especificada. → `docs/methodology/catalogo-tipos-sesion.html`
+- **La semana** — 6 días de 2-3 bloques. Base 8h30 · Potencia 8h35 · Ritmo 7h25 · Pico 3h40. → `docs/methodology/la-semana.html`
+- **Comparativa a 5 semanas de competir** — nosotros contra el Excel y contra TrainingPeaks, misma fase. → `docs/methodology/comparativa-semana.html`
+- **EL MANUAL** — todo lo anterior navegable en una sola página, pensado para que un entrenador nuevo entienda cómo trabajamos. También publicado en `web/public/metodo.html`. → `docs/methodology/manual.html`
+- **`time_cap`** — objetivo nuevo de prescripción: un reloj a batir en vez de una intensidad. Es lo que hace prescribible la roxzone. Cero migraciones (vive en `prescription_json`). 11 tests.
 
 ### Contraste contra fuentes externas (transcripciones de YouTube, 25-jul)
 
@@ -84,7 +85,11 @@ Pantalla de conexiones, comparada con TrainingPeaks: → `docs/design/conexiones
 
 **Pendiente de Alex:** solo el modelo del Garmin que llegue la semana que viene.
 
-**Hardware de pruebas:** el Kiprun *by Coros* de Gerard sirve para COROS (confirmar que pone «by Coros»; el GPS 500 viejo no vale). Para Garmin, Forerunner 165 de 2ª mano, 145-170 €.
+**CUANDO COROS ACEPTE — los 4 pasos.** El OAuth está TODO construido (connect/callback/webhook/status, `lib/coros/config.ts`). Entonces: (1) meter `COROS_CLIENT_ID`/`SECRET` en env y deja de responder 503; (2) implementar `lib/sync/ingest-coros.ts`, hoy stub vacío a propósito — su esquema vive en la API Reference Guide privada que solo entregan tras aprobar; el propio fichero documenta cómo, espejando `ingest-garmin.ts` (idempotencia por external_id, mapeo de modalidad); (3) registrar el webhook con ellos; (4) probar con el Kiprun de Gerard. El PUSH de entrenos depende de la respuesta al correo a api@coros.com (¿tier estándar o acuerdo aparte?) — ese correo es lo que más desatasca.
+
+**Hardware de pruebas.** El **Kiprun by Coros** de Gerard vale como COROS de pleno derecho: se empareja con la app COROS, el firmware lo hace COROS y su Help Center lo trata como reloj propio (secciones y release notes de KIPRUN GPS 500/900). Confirmar que la esfera pone «by Coros» — el Kiprun GPS 500/550 viejo va con Decathlon Connect, fue retirado del mercado y NO sirve. Límites del Kiprun: no traga Strength ni objetivos de Effort Pace/Power, así que cubre el carril de correr entero pero no las estaciones. Único riesgo sin confirmar: que la API de partner devuelva sus actividades idénticas a las de un COROS de marca (inferencia fuerte, no fuente oficial, porque COROS no publica docs). Para Garmin: Forerunner 165 de 2ª mano, 145-170 €.
+
+**Amazfit ya entra hoy** por Apple Salud (la app Zepp sincroniza ahí y nuestra ingesta de HealthKit no filtra por app de origen). El ingest directo de Huami sigue stub: su api-doc.html devuelve 404 y developer.zepp.com es marketing. Es un MEJOR (atribución, laps), no un NECESARIO.
 
 ---
 
