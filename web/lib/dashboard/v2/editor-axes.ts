@@ -143,6 +143,7 @@ export const OBJETIVO_LABEL: Record<TargetKind, string> = {
   rir: 'RIR',
   kg: 'kg',
   bodyweight: 'Peso corp.',
+  time_cap: 'Tiempo tope',
   hr_bpm: 'FC',
   calories: 'Cal',
   watts: 'Vatios',
@@ -158,7 +159,7 @@ export function objetivosForModalidad(axis: AxisModalidad): TargetKind[] {
     case 'fuerza':
       return ['percent_rm', 'kg', 'rir', 'rpe', 'bodyweight'];
     case 'circuito':
-      return ['rpe', 'hr_zone', 'pace', 'percent_rm'];
+      return ['rpe', 'hr_zone', 'pace', 'percent_rm', 'time_cap'];
   }
 }
 
@@ -263,7 +264,7 @@ export function applyObjetivo(p: Prescription, kind: TargetKind): Prescription {
 function currentScalar(p: Prescription): number | undefined {
   const t = p.scheme === 'sets' ? firstSetTarget(p) : prescriptionBlockTarget(p);
   if (!t || t.kind === 'bodyweight') return undefined;
-  if (t.kind === 'pace') return t.value_s ?? t.min_s ?? t.max_s;
+  if (t.kind === 'pace' || t.kind === 'time_cap') return t.value_s ?? t.min_s ?? t.max_s;
   return t.value ?? t.min ?? t.max;
 }
 

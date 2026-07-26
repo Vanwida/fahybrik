@@ -58,6 +58,7 @@ export const TARGET_LABEL: Record<TargetKind, string> = {
   rir: 'RIR',
   bodyweight: 'Peso corp.',
   pace: 'Ritmo',
+  time_cap: 'Tiempo tope',
   hr_zone: 'Zona FC',
   hr_bpm: 'FC (ppm)',
   calories: 'Calorías',
@@ -74,7 +75,7 @@ export function targetKindsForModality(modality: Modality | undefined): TargetKi
   if (isCardioModality(modality)) return CARDIO_TARGETS;
   if (modality === 'core' || modality === 'mobility') return BODY_TARGETS;
   // Unknown / legacy: offer everything so nothing is unreachable.
-  return [...STRENGTH_TARGETS, 'pace', 'hr_zone', 'hr_bpm', 'calories'];
+  return [...STRENGTH_TARGETS, 'pace', 'hr_zone', 'hr_bpm', 'calories', 'time_cap'];
 }
 
 /** A modality's natural pace unit (run → /km, erg → /500m). */
@@ -168,6 +169,10 @@ export function emptyTargetOfKind(
       return { kind: 'calories', value: carry ?? 15 };
     case 'watts':
       return { kind: 'watts', value: carry ?? 200 };
+    // A cap is a ceiling by nature, so it is born on max_s. The 8s default is
+    // the roxzone entry target — the case this kind exists for.
+    case 'time_cap':
+      return { kind: 'time_cap', max_s: carry ?? 8 };
   }
 }
 
@@ -175,7 +180,7 @@ export function emptyTargetOfKind(
 export function targetScalar(t: Target | undefined): number | undefined {
   if (!t) return undefined;
   if (t.kind === 'bodyweight') return undefined;
-  if (t.kind === 'pace') return t.value_s ?? t.min_s ?? t.max_s;
+  if (t.kind === 'pace' || t.kind === 'time_cap') return t.value_s ?? t.min_s ?? t.max_s;
   return t.value ?? t.min ?? t.max;
 }
 

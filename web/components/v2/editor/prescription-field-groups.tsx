@@ -389,7 +389,9 @@ function TargetCell({
   const suffix = SCALAR_SUFFIX[kind];
   const bounds = scalarBounds(kind);
   const scalar =
-    target && target.kind !== 'bodyweight' && target.kind !== 'pace' ? target : undefined;
+    target && target.kind !== 'bodyweight' && target.kind !== 'pace' && target.kind !== 'time_cap'
+      ? target
+      : undefined;
   const lo = scalar ? scalar.min ?? scalar.value ?? null : null;
   const hi = scalar ? scalar.max ?? null : null;
   const build = (nextLo: number | null, nextHi: number | null): Target | undefined => {

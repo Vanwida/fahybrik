@@ -45,7 +45,7 @@ export function SetsTableForm({
     const sets = (value.sets ?? []).map((s) => {
       const prev = setTarget(s);
       const carry =
-        prev && prev.kind !== 'bodyweight' && prev.kind !== 'pace'
+        prev && prev.kind !== 'bodyweight' && prev.kind !== 'pace' && prev.kind !== 'time_cap'
           ? prev.value ?? prev.min ?? prev.max
           : undefined;
       const target: Target = emptyTargetOfKind(kind, value.modality, carry);

@@ -45,6 +45,9 @@ const HR_BPM_MIN = 20; // physiological floor; below this is a data error
 const HR_BPM_MAX = 250; // physiological ceiling
 const PERCENT_MAX = 200; // %1RM can exceed 100 for supramaximal/eccentric work
 const PACE_MAX_S = 36000; // 10h per unit — a sanity ceiling, not a real pace
+// 2h, the same ceiling the race side already uses for roxzone_seconds — a
+// transition is seconds, but a capped block can be a whole session.
+const TIME_CAP_MAX_S = 7200;
 const CAL_MAX = 100000; // sanity ceiling for a single line's calories
 const WATTS_MAX = 2000; // erg power ceiling (a single line never exceeds this)
 
@@ -106,7 +109,19 @@ export type Target =
   | { kind: 'hr_zone'; value?: number; min?: number; max?: number } // 1-5
   | { kind: 'hr_bpm'; min?: number; max?: number; value?: number }
   | { kind: 'calories'; value?: number; min?: number; max?: number } // target cal as GOAL
-  | { kind: 'watts'; value?: number; min?: number; max?: number }; // erg power (W)
+  | { kind: 'watts'; value?: number; min?: number; max?: number } // erg power (W)
+  // A CLOCK TO BEAT, in absolute seconds — not an intensity. Every other kind
+  // answers "how hard"; this one answers "how fast", which is a different
+  // question and the reason it needs its own kind rather than reusing a
+  // duration Measure. Prescribing `Measure.duration = 8s` says "spend 8
+  // seconds"; a roxzone transition needs "be under 8 seconds", which is the
+  // opposite instruction. Born for exigencia G (the roxzone) — where 5.5-7.3%
+  // of race time is lost and the only variable is elapsed clock — but it also
+  // covers any capped effort ("this block, under 20 min").
+  //
+  // `max_s` is the ceiling to beat, `value_s` a flat target, `min_s`/`max_s` a
+  // band (the roxzone progression tightens a band, not a single number).
+  | { kind: 'time_cap'; value_s?: number; min_s?: number; max_s?: number }; // seconds
 
 export type TargetKind = Target['kind'];
 
@@ -166,6 +181,17 @@ const paceTargetObject = z
   })
   .strict();
 
+// Same seconds-based shape as pace (so analytics reads one numeric field), but
+// with no unit: a clock is absolute, it isn't "per" anything.
+const timeCapTargetObject = z
+  .object({
+    kind: z.literal('time_cap'),
+    value_s: z.number().nonnegative().max(TIME_CAP_MAX_S).optional(),
+    min_s: z.number().nonnegative().max(TIME_CAP_MAX_S).optional(),
+    max_s: z.number().nonnegative().max(TIME_CAP_MAX_S).optional(),
+  })
+  .strict();
+
 const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('percent_rm'),
   scalarTargetObject('kg'),
@@ -177,17 +203,21 @@ const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('hr_bpm'),
   scalarTargetObject('calories'),
   scalarTargetObject('watts'),
+  timeCapTargetObject,
 ]);
 
 export const targetSchema: z.ZodType<Target> = targetUnion.superRefine((raw, ctx) => {
   const t = raw as Target;
   if (t.kind === 'bodyweight') return;
-  if (t.kind === 'pace') {
+  if (t.kind === 'pace' || t.kind === 'time_cap') {
     if (t.value_s === undefined && t.min_s === undefined && t.max_s === undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'pace target must carry value_s or a min_s/max_s range' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${t.kind} target must carry value_s or a min_s/max_s range`,
+      });
     }
     if (t.min_s !== undefined && t.max_s !== undefined && t.min_s > t.max_s) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'pace target min_s must be <= max_s' });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${t.kind} target min_s must be <= max_s` });
     }
     return;
   }
