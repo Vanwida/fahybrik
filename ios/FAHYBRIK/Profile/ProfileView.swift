@@ -753,6 +753,19 @@ struct ProfileView: View {
                 appleHealthRow
                 Hairline()
                 polarRow
+                Hairline()
+                // Amazfit entra por Apple Salud, no por una conexión nuestra: la app
+                // Zepp sincroniza ahí y nuestra ingesta de HealthKit no filtra por
+                // aplicación de origen, así que esos entrenos ya llegan. Informativo
+                // a propósito — el interruptor está en Zepp, no aquí — pero decirlo
+                // importa: sin ese ajuste el atleta entrena y su coach no lo ve.
+                deviceRowContent(
+                    icon: "figure.run.circle",
+                    title: "Amazfit",
+                    subtitle: "Activa «Apple Salud» en la app Zepp › Más ajustes",
+                    statusText: "vía Salud",
+                    statusColor: Theme.Color.muted
+                )
             }
 
             deviceGroup(

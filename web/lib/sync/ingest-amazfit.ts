@@ -2,6 +2,18 @@
 //
 // =============================================================================
 // TODO — NOT YET IMPLEMENTED. THIS FUNCTION PERSISTS NOTHING.
+//
+// PERO OJO ANTES DE IMPLEMENTARLO: los entrenos de un Amazfit YA NOS LLEGAN.
+// La app Zepp sincroniza con Apple Salud ("Sync with Apple Health", en More
+// Settings; fuente: support.amazfit.com), y nuestra ingesta de HealthKit no
+// filtra por aplicación de origen, así que esos entrenos entran hoy por esa vía
+// y se casan con el assignment del día como cualquier otro.
+//
+// O sea que esta vía directa es un MEJOR, no un NECESARIO. Lo que aporta sobre
+// Apple Salud: la propia Zepp avisa de que "not all types of exercise records
+// can be synchronized", y por Salud perdemos la atribución (todo llega marcado
+// como healthkit) y el detalle de laps. Nada de eso justifica adivinar el
+// esquema: cuando llegue la doc de partner, se implementa bien.
 // =============================================================================
 //
 // This is the single, clearly-marked entry point the Amazfit webhook delegates
