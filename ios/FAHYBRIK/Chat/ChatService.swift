@@ -272,9 +272,10 @@ enum ChatService {
     // MARK: - Real-time stream (SSE)
 
     /// Open the chat SSE stream and drive two callbacks:
-    ///   * `onReady(threadCount)` once, when the server confirms the
-    ///     subscription (carries how many threads the principal is subscribed
-    ///     to — 0 means the thread doesn't exist yet, e.g. a brand-new athlete).
+    ///   * `onReady()` once, when the server confirms the subscription. The
+    ///     server subscribes us by OWNER (this athlete), not by a list of thread
+    ///     ids resolved at connect time, so a thread created afterwards — our own
+    ///     first message — is covered without reconnecting.
     ///   * `onMessage(dto)` for every `event: message` frame.
     ///
     /// Returns normally when the stream closes (server ended / cancelled) and
@@ -284,7 +285,7 @@ enum ChatService {
     /// URLSession inter-packet timeout, so we leave the default timeouts alone.
     static func streamMessages(
         bearer: String,
-        onReady: (Int) async -> Void,
+        onReady: () async -> Void,
         onMessage: (ChatMessageDTO) async -> Void
     ) async throws {
         var req = URLRequest(url: APIBase.url.appendingPathComponent(streamPath))
@@ -308,7 +309,7 @@ enum ChatService {
             if line.isEmpty {
                 switch event {
                 case "ready":
-                    await onReady(parseReadyThreadCount(data))
+                    await onReady()
                 case "message":
                     if let dto = decodeStreamMessage(data) { await onMessage(dto) }
                 default:
@@ -338,12 +339,5 @@ enum ChatService {
     private static func decodeStreamMessage(_ json: String) -> ChatMessageDTO? {
         guard let data = json.data(using: .utf8) else { return nil }
         return try? streamDecoder.decode(ChatMessageDTO.self, from: data)
-    }
-
-    private static func parseReadyThreadCount(_ json: String) -> Int {
-        guard let data = json.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let ids = obj["thread_ids"] as? [Any] else { return 0 }
-        return ids.count
     }
 }

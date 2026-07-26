@@ -56,15 +56,6 @@ struct ChatView: View {
     // poll. Single source of truth for that cadence.
     private static let pollInterval: Duration = .seconds(3)
 
-    // Bumped to force the live connection (.task below) to tear down and
-    // reconnect. Used when the athlete sends their FIRST message: the stream may
-    // have connected before the thread existed (0 subscriptions), so we
-    // re-subscribe once the thread is created server-side.
-    @State private var streamEpoch: Int = 0
-    // How many threads the SSE `ready` event reported we're subscribed to. 0
-    // until a thread exists (brand-new athlete who hasn't messaged yet).
-    @State private var subscribedThreadCount: Int = 0
-
     // MARK: Attachments (voice / photo / video / file)
     //
     // Which media source the composer's "＋" menu is currently presenting.
@@ -136,10 +127,8 @@ struct ChatView: View {
                 inputRow
             }
         }
-        // Keyed on streamEpoch so a first-message reconnect (see `deliver`) tears
-        // the live connection down and re-establishes it against the now-existing
-        // thread. Cancelled automatically when the view is dismissed.
-        .task(id: streamEpoch) {
+        // Cancelled automatically when the view is dismissed.
+        .task {
             seedFromCache()
             await loadInitial()
             await liveLoop()
@@ -309,7 +298,7 @@ struct ChatView: View {
             do {
                 try await ChatService.streamMessages(
                     bearer: bearer,
-                    onReady: { count in await onStreamReady(threadCount: count) },
+                    onReady: { await onStreamReady() },
                     onMessage: { dto in await ingestFromStream(dto) }
                 )
             } catch {
@@ -322,12 +311,11 @@ struct ChatView: View {
         }
     }
 
-    /// Stream connected. Record the subscription count and do a one-time REST
-    /// catch-up to close any gap between the initial snapshot and the stream
-    /// opening (a message could have landed in between).
+    /// Stream connected. One-time REST catch-up to close any gap between the
+    /// initial snapshot and the stream opening (a message could have landed in
+    /// between).
     @MainActor
-    private func onStreamReady(threadCount: Int) async {
-        subscribedThreadCount = threadCount
+    private func onStreamReady() async {
         await refresh()
     }
 
@@ -478,10 +466,6 @@ struct ChatView: View {
             // updates in place — never a double.
             messages.removeAll { $0.id == localId }
             ingest(saved)
-            // First message for a brand-new athlete: the stream connected before
-            // the thread existed (0 subscriptions), so reconnect to subscribe to
-            // the freshly-created thread and receive the coach's replies live.
-            if subscribedThreadCount == 0 { streamEpoch += 1 }
         } catch {
             // AUDIT — a deterministic 4xx won't succeed on retry: mark the message FAILED
             // (tap to reintentar) instead of queueing it to "enviando…" forever. A
@@ -624,7 +608,6 @@ struct ChatView: View {
             pendingAttachments[localId] = nil
             uploadedURLs[localId] = nil
             ingest(saved)
-            if subscribedThreadCount == 0 { streamEpoch += 1 }
         } catch {
             // Attachments never enter the blind offline replay queue: the URL only
             // exists post-upload, and the raw-JSON replay can't re-upload the
