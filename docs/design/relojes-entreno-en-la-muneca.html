@@ -68,6 +68,13 @@
     margin: 40px 0 12px;
   }
 
+  .live {
+    background: var(--ok-soft); border: 1px solid var(--ok);
+    padding: 15px 18px; margin-bottom: 8px;
+  }
+  .live b { display: block; font-size: 15px; font-weight: 700; color: var(--ok); margin-bottom: 3px; }
+  .live span { font-size: 13.5px; color: var(--ink-dim); }
+
   /* ── Lo tuyo ─────────────────────────────────────────────── */
   .mine { display: flex; flex-direction: column; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
   .task {
@@ -120,6 +127,15 @@
     <h1>Relojes</h1>
   </header>
 
+  <div class="live">
+    <b>Ya está en producción</b>
+    <span>
+      Desplegado hoy. Los endpoints responden en fahybrid.com y en app.fahybrid.com, y la dirección
+      que le dimos a COROS ya contesta de verdad si la prueban. Nada roto: nadie usa la app todavía,
+      así que era el momento de sacarlo.
+    </span>
+  </div>
+
   <h2>Lo tuyo</h2>
   <div class="mine">
     <div class="task">
@@ -157,12 +173,12 @@
   <div class="board">
     <div class="brand">
       <span class="name">Apple Watch</span>
-      <span class="what">El entreno sale en su app nativa. Falta probarlo en un reloj</span>
+      <span class="what">El entreno sale en su app nativa. Falta verlo en un reloj de verdad</span>
       <span class="tag t-ok">Listo</span>
     </div>
     <div class="brand">
       <span class="name">Garmin</span>
-      <span class="what">App del reloj hecha y compilando. Espera al reloj físico y a publicar</span>
+      <span class="what">Todo desplegado. Solo espera a enchufar el reloj: quince minutos</span>
       <span class="tag t-ok">Listo</span>
     </div>
     <div class="brand">
@@ -196,6 +212,9 @@
   <div class="board">
     <div class="brand">
       <span class="what" style="min-width:auto">Que el móvil sepa que estás corriendo en el Garmin, en vez de seguir diciendo «empezar»</span>
+    </div>
+    <div class="brand">
+      <span class="what" style="min-width:auto">Repasar la cadena entera otra vez: hoy salieron dos sitios donde la documentación decía una cosa y el código otra</span>
     </div>
     <div class="brand">
       <span class="what" style="min-width:auto">Sacarle más partido a Polar: sueño, HRV y descanso, que hoy no leemos</span>
