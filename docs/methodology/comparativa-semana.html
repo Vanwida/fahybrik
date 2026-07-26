@@ -1,0 +1,172 @@
+<title>Comparativa de semana — FAHYBRID</title>
+
+<style>
+  :root{
+    --ink:#0A0A0A;--ink2:#151515;--ink3:#1C1C1C;--line:#282828;--line2:#343434;
+    --paper:#F2F0ED;--mut:#909090;--mut2:#BFBFBF;
+    --o:#FF6B00;--run:#4DA3FF;--str:#E5484D;--stn:#46C98B;--rest:#5A5A5A;--warn:#F5A524;
+  }
+  body{margin:0;background:var(--ink);color:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 clamp(1rem,3vw,2.4rem)}
+  .disp{font-style:italic;font-weight:800;letter-spacing:-.035em;text-transform:uppercase;line-height:.92}
+
+  header{padding:clamp(2.6rem,8vw,5rem) 0 clamp(1.4rem,3vw,2rem)}
+  .bar{width:90px;height:6px;background:var(--o);margin-bottom:1.8rem}
+  h1{font-size:clamp(2.4rem,1.2rem+6vw,5.4rem);margin:0}
+  .intro{margin-top:1.8rem;max-width:34ch;font-size:clamp(1.15rem,.9rem+1.2vw,1.7rem);
+    font-weight:600;letter-spacing:-.02em;line-height:1.3;color:var(--mut2)}
+  .intro b{color:#fff;font-weight:700}
+  .intro em{color:var(--o);font-style:normal;font-weight:700}
+
+  section{border-top:1px solid var(--line);padding:clamp(2rem,4vw,3rem) 0}
+  .h{font-size:.74rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:1.2rem}
+  .h i{font-style:italic;font-weight:800;color:var(--o);font-size:1.25rem;letter-spacing:-.02em;margin-right:.5rem;text-transform:none}
+  .h b{color:#fff;font-weight:700;letter-spacing:.08em}
+
+  .blk{margin-bottom:2.4rem}
+  .bh{display:flex;flex-wrap:wrap;align-items:baseline;gap:.7rem 1.1rem;margin-bottom:.7rem;
+    padding-left:1rem;border-left:5px solid var(--o)}
+  .bh.them{border-left-color:var(--mut)}
+  .bh h2{margin:0;font-size:clamp(1.3rem,1rem+1.3vw,1.9rem);font-weight:800;font-style:italic;
+    text-transform:uppercase;letter-spacing:-.03em}
+  .bh .sub{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:700}
+  .bh .tot{font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;font-weight:800;
+    color:var(--o);background:rgba(255,107,0,.12);padding:.28rem .65rem;border-radius:5px}
+  .bh.them .tot{color:var(--mut2);background:rgba(255,255,255,.06)}
+
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  @media(max-width:1100px){.days{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:680px){.days{grid-template-columns:repeat(2,1fr)}}
+  .d{background:var(--ink2);border-top:4px solid var(--rest);border-radius:0 0 6px 6px;
+    padding:.8rem .75rem;min-height:11rem;display:flex;flex-direction:column}
+  .d.run{border-top-color:var(--run)}
+  .d.str{border-top-color:var(--str)}
+  .d.stn{border-top-color:var(--stn)}
+  .d.mix{border-top-color:var(--warn)}
+  .d.off{border-top-color:var(--rest);opacity:.5}
+  .d .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem}
+  .d .dn{font-size:.57rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:700}
+  .d .du{font-size:.74rem;font-weight:800;color:var(--o);font-style:italic}
+  .d.off .du,.blk.them .d .du{color:var(--mut2)}
+  .d .s{font-size:.85rem;font-weight:700;line-height:1.2;margin-bottom:.25rem}
+  .d .q{font-size:.72rem;color:var(--mut2);line-height:1.32}
+  .d .q b{color:var(--warn);font-weight:700}
+
+  .cmp{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--ink2);margin-top:1rem}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:.9rem}
+  th,td{text-align:left;padding:.75rem .95rem;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:var(--ink3);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--mut2);font-weight:700;white-space:nowrap}
+  tbody th{font-weight:700;color:#fff;white-space:nowrap}
+  tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+  td.us{color:var(--o)}
+  td.m{color:var(--mut2)}
+
+  .find{display:grid;gap:.6rem;margin-top:1.2rem}
+  .f{display:grid;grid-template-columns:2rem 1fr;gap:.9rem;align-items:start;
+    background:var(--ink2);border-left:3px solid var(--o);padding:1rem 1.2rem;border-radius:0 8px 8px 0}
+  .f.warn{border-left-color:var(--warn)}
+  .f .x{color:var(--o);font-weight:800;font-style:italic;font-size:1.15rem;line-height:1.3}
+  .f.warn .x{color:var(--warn)}
+  .f p{margin:0;font-size:1rem}
+  .f p b{color:#fff;font-weight:700}
+  .f p span{display:block;color:var(--mut2);font-size:.9rem;margin-top:.3rem}
+
+  .kick{border-left:6px solid var(--o);padding-left:1.6rem;margin-top:2.2rem;
+    font-size:clamp(1.25rem,1rem+1.8vw,2.1rem);font-weight:800;font-style:italic;
+    text-transform:uppercase;letter-spacing:-.03em;line-height:1.08;max-width:28ch}
+  .note{margin-top:1.2rem;font-size:.95rem;color:var(--mut2);max-width:64ch}
+  .src{margin-top:1rem;font-size:.78rem;color:var(--mut);max-width:74ch}
+
+  footer{border-top:1px solid var(--line);padding:1.8rem 0 3.5rem;color:var(--mut);font-size:.82rem}
+  footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.1rem}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="bar"></div>
+  <h1 class="disp">La nuestra<br>y la del Excel</h1>
+  <p class="intro">Misma fase: pico de volumen en acumulación. <b>Las horas salen parecidas.</b> <em>La diferencia está en la densidad y en la carga.</em></p>
+</header>
+
+<section>
+  <div class="h"><i>01</i><b>La nuestra · Base</b></div>
+
+  <div class="blk">
+    <div class="bh"><h2>FAHYBRID · Base</h2><span class="sub">6 días · 2-3 bloques por sesión</span><span class="tot">8 h 30</span></div>
+    <div class="days">
+      <div class="d run"><div class="hd"><span class="dn">Lun</span><span class="du">80'</span></div>
+        <div class="s">Rodaje 55' + roxzone</div><div class="q">Z2 120-139 bpm · 8 repes de transición en 2 aparatos</div></div>
+      <div class="d str"><div class="hd"><span class="dn">Mar</span><span class="du">95'</span></div>
+        <div class="s">Velocidad + fuerza + grip</div><div class="q">6×30" cuesta · sentadilla 5×5 al 75% · peso muerto 3×5 · farmer hold</div></div>
+      <div class="d run"><div class="hd"><span class="dn">Mié</span><span class="du">75'</span></div>
+        <div class="s">Rodaje 55' + técnica</div><div class="q">Z2 · wall balls al estándar en fresco 3×15</div></div>
+      <div class="d run"><div class="hd"><span class="dn">Jue</span><span class="du">75'</span></div>
+        <div class="s">Tempo 3×10' + core</div><div class="q">4:32/km · descanso 90"</div></div>
+      <div class="d off"><div class="hd"><span class="dn">Vie</span><span class="du">—</span></div>
+        <div class="s">Descanso</div><div class="q"></div></div>
+      <div class="d stn"><div class="hd"><span class="dn">Sáb</span><span class="du">95'</span></div>
+        <div class="s">Estaciones</div><div class="q">Sled push 3×30 a 152 kg · pull 3×30 a 103 · 4 rondas farmers+lunges+25 wall balls · BBJ 4×20</div></div>
+      <div class="d run"><div class="hd"><span class="dn">Dom</span><span class="du">90'</span></div>
+        <div class="s">Rodaje largo 75'</div><div class="q">Z2</div></div>
+    </div>
+  </div>
+
+  <div class="h"><i>02</i><b>La del Excel · misma fase</b></div>
+
+  <div class="blk them">
+    <div class="bh them"><h2>Excel · Semana 3</h2><span class="sub">Acumulación · pico de volumen · 6 días</span><span class="tot">≈ 7 h</span></div>
+    <div class="days">
+      <div class="d mix"><div class="hd"><span class="dn">Lun</span><span class="du">≈65'</span></div>
+        <div class="s">WOD largo mixto</div><div class="q">3 rondas de 25 m sled push a <b>170 kg</b> + 500 m ski · 3 rondas de 25 m pull a <b>140 kg</b> + 500 m row · 1200/800/400 m con lunges y farmers · 75 wall balls a <b>9 kg</b></div></div>
+      <div class="d mix"><div class="hd"><span class="dn">Mar</span><span class="du">≈50'</span></div>
+        <div class="s">Pliometría + ergo</div><div class="q">8 rondas de depth jump + 4 broad jump · directo a ski 5×4' RPE 8</div></div>
+      <div class="d mix"><div class="hd"><span class="dn">Mié</span><span class="du">≈60'</span></div>
+        <div class="s">Umbral en cinta + sled</div><div class="q">3×5' a ritmo de test · 2' a ritmo + 60 m sled a <b>150 kg</b> + BBJ ×3 · 1' fuerte + 30 m sled ×3</div></div>
+      <div class="d str"><div class="hd"><span class="dn">Jue</span><span class="du">≈60'</span></div>
+        <div class="s">Fuerza empuje + ergo</div><div class="q">5 rondas bench 10/10/8/6/6 · aperturas · row 5×4' RPE 8</div></div>
+      <div class="d mix"><div class="hd"><span class="dn">Vie</span><span class="du">≈90'</span></div>
+        <div class="s">Tempo + piernas</div><div class="q">20' Z2 + 20' Z3 alta + 20' Z2 · <b>directo a</b> front squat 4 rondas + complex de hombro</div></div>
+      <div class="d mix"><div class="hd"><span class="dn">Sáb</span><span class="du">≈100'</span></div>
+        <div class="s">Fuerza hombro + largo</div><div class="q">5 rondas shoulder press al 65-85% · run 1h15' Z2</div></div>
+      <div class="d off"><div class="hd"><span class="dn">Dom</span><span class="du">—</span></div>
+        <div class="s">Descanso completo</div><div class="q"></div></div>
+    </div>
+  </div>
+  <p class="src">Sus duraciones son estimadas: el Excel solo da tiempo explícito en algunas sesiones («TC 55'», «1h15'»). El resto está calculado sobre series, rondas y descansos declarados. Las cargas y las series sí son literales.</p>
+</section>
+
+<section>
+  <div class="h"><i>03</i><b>Dónde está la diferencia de verdad</b></div>
+
+  <div class="cmp"><table>
+    <thead><tr><th></th><th>FAHYBRID</th><th>El Excel</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><th>Horas semanales</th><td class="us">8 h 30</td><td class="m">≈ 7 h</td><td class="m">No vamos cortos. Vamos por encima.</td></tr>
+      <tr><th>Días de entreno</th><td class="us">6</td><td class="m">6</td><td class="m">Igual.</td></tr>
+      <tr><th>Carga del sled</th><td class="us">152 kg · la oficial</td><td class="m">150-170 kg</td><td class="m">Ellos entrenan <b>por encima</b> de la carga de carrera.</td></tr>
+      <tr><th>Wall balls</th><td class="us">6 kg · la oficial de Open</td><td class="m">9 kg</td><td class="m">Entrenan con el balón de Pro.</td></tr>
+      <tr><th>Estímulos por sesión</th><td class="us">2-3 bloques separados</td><td class="m">2-3 bloques, muchos <b>encadenados sin pausa</b></td><td class="m">La misma hora rinde más trabajo.</td></tr>
+      <tr><th>Formato</th><td class="us">Series y objetivos por tramo</td><td class="m">For time · AFAP · time cap</td><td class="m">Marco competitivo constante.</td></tr>
+      <tr><th>Ergos</th><td class="us">Ski y remo</td><td class="m">Ski, remo, <b>air bike</b> y bici</td><td class="m">Ellos meten máquinas que no están en la prueba.</td></tr>
+      <tr><th>Fuerza de tren superior</th><td class="us">No aparece como bloque propio</td><td class="m">Bench, shoulder press, aperturas, dominadas</td><td class="m"><b>Hueco nuestro.</b> Ski, wall balls y BBJ tiran de empuje de hombro.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="find">
+    <div class="f warn"><span class="x">1</span><p><b>Entrenan por encima de la carga de competición.</b><span>Sled a 170 kg cuando la carrera son 152. Wall balls a 9 kg cuando en Open son 6. La idea es que el día de la prueba la carga real se sienta ligera. Nosotros decidimos progresar la distancia manteniendo el peso oficial — y eso deja fuera un estímulo que sí existe.</span></p></div>
+    <div class="f warn"><span class="x">2</span><p><b>Nos falta tren superior como bloque propio.</b><span>El SkiErg son 1000 metros de empuje de hombro y dorsal, los wall balls son 100 lanzamientos por encima de la cabeza, y el Burpee Broad Jump pide empuje repetido. Nuestro catálogo lo cubre solo de refilón. Ellos le dedican dos días a la semana.</span></p></div>
+    <div class="f"><span class="x">3</span><p><b>Encadenan sin pausa lo que nosotros separamos.</b><span>Su viernes es una hora de tempo y <i>directo a</i> sentadilla frontal. Su martes son saltos <i>directo a</i> ski de umbral. Es más trabajo en el mismo tiempo — y también más riesgo, porque la fuerza con las piernas ya fundidas se hace peor y se lesiona más.</span></p></div>
+    <div class="f"><span class="x">4</span><p><b>Donde no les seguimos, y a propósito.</b><span>El air bike y la bici les ocupan un volumen serio. No están en la prueba. El mismo estímulo aeróbico sale del ski, el remo y corriendo, que además transfieren. Esto no es un hueco nuestro: es una decisión.</span></p></div>
+  </div>
+
+  <p class="kick">No falta volumen.<br>Falta carga y falta hombro.</p>
+  <p class="note">Las dos cosas son arreglables sin tocar la estructura: un bloque de sobrecarga por encima del peso oficial, y tren superior como bloque propio en los días de fuerza.</p>
+</section>
+
+<footer><b>FAHYBRID</b> · Comparativa de semana · borrador</footer>
+
+</div>
