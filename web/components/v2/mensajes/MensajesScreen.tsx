@@ -1,87 +1,135 @@
-// MensajesScreen — the client orchestrator for the 3-column Mensajes screen.
-// Owns: the selected conversation, the list filter (sin leer / todas), and the
-// LOCAL thread list (so opening a thread clears its unread badge and a sent reply
-// bumps the preview + reorders the list without a full reload). The three columns:
-//   • ConversationList (left, 300px)  — list + filter.
-//   • ThreadPanel      (center, flex) — the live thread; remounts per thread.
-//   • ContextPanel     (right, 248px) — athlete context for the active thread.
-// Fills the v2 main viewport height (the shell already pads the page); the columns
-// scroll independently, the chrome stays put.
+// Mensajes — las tres columnas: lista, hilo abierto y contexto del atleta.
+//
+// Aquí se abre EL canal en vivo de la pantalla (`ChatLiveProvider`), uno solo
+// para todo lo que se ve. La lista de la izquierda escucha ese mismo canal, así
+// que un mensaje que entra en una conversación que no tienes abierta sube a lo
+// alto de la lista con su contador, sin recargar nada. Antes solo se refrescaba
+// el hilo abierto: cualquier otra conversación se enteraba al recargar la página.
 
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
+import { ChatLiveProvider, useChatLiveMessages } from '@/components/v2/chat';
 import { ConversationList, type ConvFilter } from './ConversationList';
 import { ThreadPanel } from './ThreadPanel';
 import { ContextPanel } from './ContextPanel';
+import type { MessageDTO } from '@/lib/chat/client';
 import type { MensajesData, MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
 import { cn } from '@/lib/utils';
 
-export function MensajesScreen({
-  data,
-}: {
-  data: MensajesData;
-  /** Coach name (from the session) — accepted for API symmetry with the other
-   *  v2 screens; the persistent name lives in the shell top bar, not here. */
-  coach_name?: string;
-}) {
-  // Local, mutable copy so unread-clear + preview-bump are instant (no reload).
-  const [threads, setThreads] = useState<MensajesThread[]>(data.threads);
-  const [filter, setFilter] = useState<ConvFilter>(
-    data.unread_threads > 0 ? 'unread' : 'all',
+/** Espera mínima entre relecturas del servidor cuando aparece una conversación
+ *  que no estaba en la lista. Sin este freno, un atleta escribiendo seguido en su
+ *  primer minuto dispararía una recarga por mensaje. */
+const UNKNOWN_THREAD_REFRESH_MS = 10_000;
+
+/** La vista previa de un mensaje en la lista. Misma regla que aplica el servidor
+ *  al cargar la página: el texto, o el tipo de adjunto entre corchetes. */
+function previewOf(message: MessageDTO): string {
+  if (message.body && message.body.trim().length > 0) return message.body;
+  return `[${message.attachment_kind ?? 'attach'}]`;
+}
+
+export function MensajesScreen({ data }: { data: MensajesData; coach_name?: string }) {
+  return (
+    <ChatLiveProvider>
+      <MensajesBody data={data} />
+    </ChatLiveProvider>
   );
+}
+
+function MensajesBody({ data }: { data: MensajesData }) {
+  const router = useRouter();
+  // Copia local y mutable: abrir un hilo, responder o recibir algo se refleja al
+  // instante sin volver al servidor.
+  const [threads, setThreads] = useState<MensajesThread[]>(data.threads);
+  const [filter, setFilter] = useState<ConvFilter>(data.unread_threads > 0 ? 'unread' : 'all');
   const [activeId, setActiveId] = useState<string | null>(() => {
-    // Default selection: first unread, else first thread.
     const firstUnread = data.threads.find((t) => t.unread_count > 0);
     return (firstUnread ?? data.threads[0])?.thread_id ?? null;
   });
-  // Mobile drawer for the context panel (hidden on small viewports otherwise).
   const [contextOpen, setContextOpen] = useState(false);
 
-  const unreadCount = useMemo(
-    () => threads.filter((t) => t.unread_count > 0).length,
-    [threads],
-  );
+  // El servidor manda: cuando la página se revalida, la lista se rehace con lo
+  // suyo. Se ajusta DURANTE el render comparando con lo último que llegó, que es
+  // la forma que React recomienda para sincronizar estado con props — un efecto
+  // aquí pintaría un fotograma con la lista vieja.
+  const [serverThreads, setServerThreads] = useState(data.threads);
+  if (serverThreads !== data.threads) {
+    setServerThreads(data.threads);
+    setThreads(data.threads);
+  }
 
+  // Cuál es el hilo abierto, legible desde el oyente del canal sin re-suscribirlo
+  // cada vez que cambia la selección.
+  const activeIdRef = useRef(activeId);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  });
+  const lastRefreshRef = useRef(0);
+
+  const unreadCount = useMemo(() => threads.filter((t) => t.unread_count > 0).length, [threads]);
   const active = useMemo(
     () => threads.find((t) => t.thread_id === activeId) ?? null,
     [threads, activeId],
   );
 
+  /** Sube un hilo a lo alto con su nueva vista previa. `incoming` marca si el
+   *  mensaje es del atleta y hay que sumarlo al contador. */
+  const bump = useCallback((message: MessageDTO, incoming: boolean) => {
+    setThreads((prev) => {
+      const index = prev.findIndex((t) => t.thread_id === message.thread_id);
+      if (index === -1) return prev;
+      const current = prev[index]!;
+      const isActive = activeIdRef.current === message.thread_id;
+      const updated: MensajesThread = {
+        ...current,
+        last_message_body: previewOf(message),
+        last_message_at: message.created_at,
+        // Leyéndolo delante no hay nada sin leer: la conversación abierta manda
+        // el acuse de lectura en cuanto entra el mensaje.
+        unread_count: incoming && !isActive ? current.unread_count + 1 : 0,
+      };
+      const next = prev.slice();
+      next.splice(index, 1);
+      return [updated, ...next];
+    });
+  }, []);
+
+  // Todo lo que entra por el canal, sea del hilo abierto o no.
+  useChatLiveMessages((message) => {
+    const known = threads.some((t) => t.thread_id === message.thread_id);
+    if (!known) {
+      // Una conversación que aún no estaba en la lista: es el primer mensaje de
+      // un atleta y su hilo acaba de nacer. Aquí no está ni su nombre ni su
+      // contexto, así que se recarga del servidor en vez de inventarlos.
+      const now = Date.now();
+      if (now - lastRefreshRef.current > UNKNOWN_THREAD_REFRESH_MS) {
+        lastRefreshRef.current = now;
+        router.refresh();
+      }
+      return;
+    }
+    bump(message, message.sender_role === 'athlete');
+  });
+
   const handleSelect = useCallback((thread: MensajesThread) => {
     setActiveId(thread.thread_id);
     setContextOpen(false);
-  }, []);
-
-  // Clear a thread's unread badge once it's marked read on open.
-  const handleRead = useCallback((thread: MensajesThread) => {
+    // Abrirlo ya es leerlo: la conversación manda el acuse al montarse.
     setThreads((prev) =>
       prev.map((t) => (t.thread_id === thread.thread_id ? { ...t, unread_count: 0 } : t)),
     );
   }, []);
 
-  // After a successful send, bump the preview + move the thread to the top.
-  const handleSent = useCallback((thread: MensajesThread, body: string) => {
-    setThreads((prev) => {
-      const idx = prev.findIndex((t) => t.thread_id === thread.thread_id);
-      if (idx === -1) return prev;
-      const updated: MensajesThread = {
-        ...prev[idx]!,
-        last_message_body: body,
-        last_message_at: new Date().toISOString(),
-        unread_count: 0,
-      };
-      const next = prev.slice();
-      next.splice(idx, 1);
-      return [updated, ...next];
-    });
-  }, []);
+  const handleActivity = useCallback(
+    (message: MessageDTO) => bump(message, message.sender_role === 'athlete'),
+    [bump],
+  );
 
-  // Whole-screen empty state (no threads at all).
   if (threads.length === 0) {
-    // Padded main is still in effect here (top bar 3.5rem + p-4=2rem / sm:p-6=3rem).
     return (
       <div className="flex h-[calc(100dvh-3.5rem-2rem)] items-center justify-center sm:h-[calc(100dvh-3.5rem-3rem)]">
         <EmptyState
@@ -99,11 +147,9 @@ export function MensajesScreen({
       <div
         className={cn(
           'grid h-[calc(100dvh-3.5rem)] grid-cols-1 overflow-hidden border-t border-[color:var(--v2-border)]',
-          // list (fixed) · thread (flex) · context (fixed) on wide screens.
           'md:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_248px]',
         )}
       >
-        {/* Left — conversation list. Hidden on mobile when a thread is open. */}
         <div
           className={cn(
             'min-h-0 border-r border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
@@ -120,14 +166,12 @@ export function MensajesScreen({
           />
         </div>
 
-        {/* Center — the live thread. */}
         <div className={cn('min-h-0 bg-[color:var(--v2-bg)]', active ? 'block' : 'hidden md:block')}>
           {active ? (
             <ThreadPanel
               key={active.thread_id}
               thread={active}
-              onRead={handleRead}
-              onSent={handleSent}
+              onActivity={handleActivity}
               onOpenContext={() => setContextOpen(true)}
             />
           ) : (
@@ -141,11 +185,9 @@ export function MensajesScreen({
           )}
         </div>
 
-        {/* Right — context panel (xl+ inline). */}
         <ContextPanel thread={active} />
       </div>
 
-      {/* Mobile/tablet context drawer (below xl, where the panel is hidden inline). */}
       {contextOpen && active ? (
         <div className="fixed inset-0 z-30 xl:hidden" role="dialog" aria-label="Contexto del atleta">
           <button
@@ -163,9 +205,9 @@ export function MensajesScreen({
   );
 }
 
-// Mobile wrapper: forces the (normally xl-only) ContextPanel visible inside the
-// drawer + adds a close affordance. The panel itself is xl:flex/hidden, so we
-// re-expose it here without touching the shared component.
+// Envoltorio de móvil: fuerza visible el ContextPanel (que es solo-xl) dentro del
+// cajón y añade el cierre. El panel es xl:flex/hidden, así que se re-expone aquí
+// sin tocar el componente compartido.
 function ContextPanelMobile({
   thread,
   onClose,

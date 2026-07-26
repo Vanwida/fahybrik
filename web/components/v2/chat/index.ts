@@ -1,6 +1,9 @@
-// Barrel for the v2 shared chat primitives — reused by the Mensajes screen and
-// the athlete-detalle Mensajes subtab. Foundation-owned (do not duplicate these).
+// Puerta única al chat del dashboard.
+//
+// `Conversation` es lo que monta una pantalla; el resto son sus piezas y no se
+// usan sueltas. `ChatLiveProvider` va POR ENCIMA de todo lo que enseñe chat en
+// una pantalla: abre una sola conexión en vivo y la reparte.
 
-export { ChatBubble, type ChatBubbleProps, type ChatBubbleRole, type ChatBubbleVariant } from './ChatBubble';
-export { ChatThread, type ChatThreadMessage } from './ChatThread';
-export { ChatComposer, type ChatComposerProps } from './ChatComposer';
+export { Conversation, type ConversationProps } from './Conversation';
+export { ChatLiveProvider, useChatLive, useChatLiveMessages } from './ChatLive';
+export { useConversation, type UIMessage } from './useConversation';

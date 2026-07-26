@@ -1,29 +1,21 @@
+// MENSAJES (pestaña) — la conversación dentro de la ficha del atleta.
+//
+// Monta el MISMO componente que la pantalla de Mensajes, así que se comporta
+// igual por construcción: en vivo, con adjuntos y con acuse de lectura. Antes
+// tenía su propio código, no refrescaba nunca y ponía un "en línea" con punto
+// verde que era decorativo — no había ninguna señal de presencia detrás.
+//
+// Trae su propio proveedor del canal en vivo porque aquí no hay pantalla de chat
+// por encima que lo abra.
+
 'use client';
 
-// MENSAJES (subtab) — the embedded conversation panel for the athlete detail
-// screen. Reuses the shared v2 chat primitives (ChatThread + ChatComposer) and
-// the same send endpoint as the full Mensajes screen, so the conversation is
-// identical wherever it's opened. Loads its initial messages server-side (passed
-// in as `initial`) then sends optimistically via POST /api/chat/threads/[id]/
-// messages, appending the confirmed message on success and rolling back on error.
-
-import { useCallback, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { ChatThread, type ChatThreadMessage } from '@/components/v2/chat/ChatThread';
-import { ChatComposer } from '@/components/v2/chat/ChatComposer';
+import { ChatLiveProvider, Conversation } from '@/components/v2/chat';
 import { EmptyState } from '@/components/v2/EmptyState';
-import type { DetalleChatMessage } from '@/lib/dashboard/v2/atleta-detalle-types';
-
-function toThreadMessage(m: DetalleChatMessage): ChatThreadMessage {
-  return {
-    id: m.id,
-    sender_role: m.sender_role,
-    body: m.body,
-    created_at: m.created_at,
-  };
-}
+import type { MessageDTO } from '@/lib/chat/client';
 
 export function MensajesTab({
   athlete_id,
@@ -33,54 +25,9 @@ export function MensajesTab({
 }: {
   athlete_id: string;
   athlete_name: string;
-  chat: { thread_id: string; messages: DetalleChatMessage[] } | null;
+  chat: { thread_id: string; messages: MessageDTO[] } | null;
   phase_label: string | null;
 }) {
-  const [messages, setMessages] = useState<ChatThreadMessage[]>(
-    () => (chat?.messages ?? []).map(toThreadMessage),
-  );
-
-  const send = useCallback(
-    async (body: string) => {
-      const tempId = `temp-${Date.now()}`;
-      const optimistic: ChatThreadMessage = {
-        id: tempId,
-        sender_role: 'coach',
-        body,
-        created_at: new Date().toISOString(),
-        pending: true,
-      };
-      setMessages((prev) => [...prev, optimistic]);
-
-      try {
-        const res = await fetch(`/api/chat/threads/${athlete_id}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body }),
-        });
-        if (!res.ok) throw new Error(`send_failed_${res.status}`);
-        const json = (await res.json()) as { message?: { id?: string; created_at?: string } };
-        const confirmed = json.message;
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === tempId
-              ? {
-                  ...m,
-                  id: confirmed?.id ?? m.id,
-                  created_at: confirmed?.created_at ?? m.created_at,
-                  pending: false,
-                }
-              : m,
-          ),
-        );
-      } catch {
-        // Roll back the optimistic bubble on failure.
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      }
-    },
-    [athlete_id],
-  );
-
   if (!chat) {
     return (
       <EmptyState
@@ -100,9 +47,10 @@ export function MensajesTab({
     );
   }
 
+  const firstName = athlete_name.split(/\s+/)[0];
+
   return (
     <div className="flex h-[62vh] min-h-[420px] flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]">
-      {/* Header */}
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[color:var(--v2-border)] px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
           <AthleteAvatar name={athlete_name} size="sm" />
@@ -110,10 +58,11 @@ export function MensajesTab({
             <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
               {athlete_name}
             </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-[color:var(--v2-muted)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--v2-ok)]" aria-hidden />
-              en línea{phase_label ? ` · ${phase_label}` : ''}
-            </span>
+            {phase_label ? (
+              <span className="truncate text-[11px] text-[color:var(--v2-muted)]">
+                {phase_label}
+              </span>
+            ) : null}
           </div>
         </div>
         <Link
@@ -125,13 +74,15 @@ export function MensajesTab({
         </Link>
       </header>
 
-      {/* Thread */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--v2-bg)]">
-        <ChatThread messages={messages} />
-      </div>
-
-      {/* Composer */}
-      <ChatComposer onSend={send} placeholder={`Escribe a ${athlete_name.split(/\s+/)[0]}…`} />
+      <ChatLiveProvider>
+        <Conversation
+          athleteId={athlete_id}
+          threadId={chat.thread_id}
+          initialMessages={chat.messages}
+          placeholder={`Escribe a ${firstName}…`}
+          className="min-h-0 flex-1 bg-[color:var(--v2-bg)]"
+        />
+      </ChatLiveProvider>
     </div>
   );
 }
