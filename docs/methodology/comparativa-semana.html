@@ -1,4 +1,4 @@
-<title>Comparativa de semana — FAHYBRID</title>
+<title>Comparativa · misma fase — FAHYBRID</title>
 
 <style>
   :root{
@@ -15,17 +15,23 @@
   header{padding:clamp(2.6rem,8vw,5rem) 0 clamp(1.4rem,3vw,2rem)}
   .bar{width:90px;height:6px;background:var(--o);margin-bottom:1.8rem}
   h1{font-size:clamp(2.4rem,1.2rem+6vw,5.4rem);margin:0}
-  .intro{margin-top:1.8rem;max-width:34ch;font-size:clamp(1.15rem,.9rem+1.2vw,1.7rem);
+  .intro{margin-top:1.8rem;max-width:32ch;font-size:clamp(1.15rem,.9rem+1.2vw,1.7rem);
     font-weight:600;letter-spacing:-.02em;line-height:1.3;color:var(--mut2)}
   .intro b{color:#fff;font-weight:700}
   .intro em{color:var(--o);font-style:normal;font-weight:700}
+
+  .anchor{margin-top:1.8rem;background:var(--ink2);border-left:5px solid var(--o);
+    border-radius:0 8px 8px 0;padding:1.1rem 1.4rem;max-width:70ch}
+  .anchor .t{font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;color:var(--o);font-weight:700;margin-bottom:.6rem}
+  .anchor p{margin:0;font-size:.95rem;color:var(--mut2)}
+  .anchor p b{color:#fff;font-weight:700}
 
   section{border-top:1px solid var(--line);padding:clamp(2rem,4vw,3rem) 0}
   .h{font-size:.74rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:1.2rem}
   .h i{font-style:italic;font-weight:800;color:var(--o);font-size:1.25rem;letter-spacing:-.02em;margin-right:.5rem;text-transform:none}
   .h b{color:#fff;font-weight:700;letter-spacing:.08em}
 
-  .blk{margin-bottom:2.4rem}
+  .blk{margin-bottom:2.2rem}
   .bh{display:flex;flex-wrap:wrap;align-items:baseline;gap:.7rem 1.1rem;margin-bottom:.7rem;
     padding-left:1rem;border-left:5px solid var(--o)}
   .bh.them{border-left-color:var(--mut)}
@@ -40,22 +46,22 @@
   @media(max-width:1100px){.days{grid-template-columns:repeat(4,1fr)}}
   @media(max-width:680px){.days{grid-template-columns:repeat(2,1fr)}}
   .d{background:var(--ink2);border-top:4px solid var(--rest);border-radius:0 0 6px 6px;
-    padding:.8rem .75rem;min-height:11rem;display:flex;flex-direction:column}
+    padding:.8rem .75rem;min-height:11.5rem;display:flex;flex-direction:column}
   .d.run{border-top-color:var(--run)}
   .d.str{border-top-color:var(--str)}
   .d.stn{border-top-color:var(--stn)}
   .d.mix{border-top-color:var(--warn)}
-  .d.off{border-top-color:var(--rest);opacity:.5}
+  .d.off{border-top-color:var(--rest);opacity:.55}
   .d .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem}
   .d .dn{font-size:.57rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:700}
-  .d .du{font-size:.74rem;font-weight:800;color:var(--o);font-style:italic}
-  .d.off .du,.blk.them .d .du{color:var(--mut2)}
+  .d .du{font-size:.74rem;font-weight:800;font-style:italic;color:var(--o)}
+  .blk.them .d .du{color:var(--mut2)}
   .d .s{font-size:.85rem;font-weight:700;line-height:1.2;margin-bottom:.25rem}
   .d .q{font-size:.72rem;color:var(--mut2);line-height:1.32}
   .d .q b{color:var(--warn);font-weight:700}
 
   .cmp{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--ink2);margin-top:1rem}
-  table{border-collapse:collapse;width:100%;min-width:760px;font-size:.9rem}
+  table{border-collapse:collapse;width:100%;min-width:800px;font-size:.9rem}
   th,td{text-align:left;padding:.75rem .95rem;border-bottom:1px solid var(--line);vertical-align:top}
   thead th{background:var(--ink3);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
     color:var(--mut2);font-weight:700;white-space:nowrap}
@@ -76,9 +82,10 @@
 
   .kick{border-left:6px solid var(--o);padding-left:1.6rem;margin-top:2.2rem;
     font-size:clamp(1.25rem,1rem+1.8vw,2.1rem);font-weight:800;font-style:italic;
-    text-transform:uppercase;letter-spacing:-.03em;line-height:1.08;max-width:28ch}
-  .note{margin-top:1.2rem;font-size:.95rem;color:var(--mut2);max-width:64ch}
-  .src{margin-top:1rem;font-size:.78rem;color:var(--mut);max-width:74ch}
+    text-transform:uppercase;letter-spacing:-.03em;line-height:1.08;max-width:30ch}
+  .note{margin-top:1.2rem;font-size:.95rem;color:var(--mut2);max-width:66ch}
+  .src{margin-top:.9rem;font-size:.78rem;color:var(--mut);max-width:76ch}
+  .src b{color:var(--warn)}
 
   footer{border-top:1px solid var(--line);padding:1.8rem 0 3.5rem;color:var(--mut);font-size:.82rem}
   footer b{font-style:italic;font-weight:800;color:#fff;font-size:1.1rem}
@@ -88,144 +95,118 @@
 
 <header>
   <div class="bar"></div>
-  <h1 class="disp">La nuestra<br>y la del Excel</h1>
-  <p class="intro">Misma fase: pico de volumen en acumulación. <b>Las horas salen parecidas.</b> <em>La diferencia está en la densidad y en la carga.</em></p>
+  <h1 class="disp">Los tres,<br>misma fase</h1>
+  <p class="intro">A <b>cinco semanas</b> de competir. Nuestra fase Ritmo, la semana 7 del Excel, y lo que tiene Pablo ahora mismo.</p>
+
+  <div class="anchor">
+    <div class="t">Por qué estas tres y no otras</div>
+    <p>El plan de TrainingPeaks está <b>a cinco semanas del HYROX de Tenerife</b>, así que ese es el ancla. En el Excel, cuya semana 12 es la competición, cinco semanas antes es la <b>semana 7</b> — Transformación, «sled pesado y series objetivo». Y en nuestro arco, con Pico ocupando las dos últimas semanas, cinco antes cae de lleno en <b>Ritmo</b>.</p>
+  </div>
 </header>
 
 <section>
-  <div class="h"><i>01</i><b>La nuestra · Base</b></div>
-
+  <div class="h"><i>01</i><b>FAHYBRID · Ritmo</b></div>
   <div class="blk">
-    <div class="bh"><h2>FAHYBRID · Base</h2><span class="sub">6 días · 2-3 bloques por sesión</span><span class="tot">8 h 30</span></div>
+    <div class="bh"><h2>FAHYBRID</h2><span class="sub">Ritmo · 6 días · 2 bloques por sesión</span><span class="tot">7 h 25</span></div>
     <div class="days">
-      <div class="d run"><div class="hd"><span class="dn">Lun</span><span class="du">80'</span></div>
-        <div class="s">Rodaje 55' + roxzone</div><div class="q">Z2 120-139 bpm · 8 repes de transición en 2 aparatos</div></div>
-      <div class="d str"><div class="hd"><span class="dn">Mar</span><span class="du">95'</span></div>
-        <div class="s">Velocidad + fuerza + grip</div><div class="q">6×30" cuesta · sentadilla 5×5 al 75% · peso muerto 3×5 · farmer hold</div></div>
-      <div class="d run"><div class="hd"><span class="dn">Mié</span><span class="du">75'</span></div>
-        <div class="s">Rodaje 55' + técnica</div><div class="q">Z2 · wall balls al estándar en fresco 3×15</div></div>
+      <div class="d run"><div class="hd"><span class="dn">Lun</span><span class="du">70'</span></div>
+        <div class="s">Rodaje + roxzone</div><div class="q">45' Z2 · transiciones cronometradas con objetivo apretado a 6 y 4 s</div></div>
+      <div class="d str"><div class="hd"><span class="dn">Mar</span><span class="du">80'</span></div>
+        <div class="s">Fuerza + sled push</div><div class="q">Sentadilla 3×3 al 90%, volumen mínimo · sled 3×50 m a 152 kg</div></div>
+      <div class="d stn"><div class="hd"><span class="dn">Mié</span><span class="du">80'</span></div>
+        <div class="s">Entrada a estación + sled pull</div><div class="q">5 rondas de 600 m a 3:04 + 20 wall balls al estándar · pull 3×50 m a 103 kg</div></div>
       <div class="d run"><div class="hd"><span class="dn">Jue</span><span class="du">75'</span></div>
-        <div class="s">Tempo 3×10' + core</div><div class="q">4:32/km · descanso 90"</div></div>
+        <div class="s">Compromised running + grip</div><div class="q">5 rondas de sled 20 m + 400 m a 2:03 · aguantes al 85% del tiempo medido</div></div>
       <div class="d off"><div class="hd"><span class="dn">Vie</span><span class="du">—</span></div>
         <div class="s">Descanso</div><div class="q"></div></div>
-      <div class="d stn"><div class="hd"><span class="dn">Sáb</span><span class="du">95'</span></div>
-        <div class="s">Estaciones</div><div class="q">Sled push 3×30 a 152 kg · pull 3×30 a 103 · 4 rondas farmers+lunges+25 wall balls · BBJ 4×20</div></div>
-      <div class="d run"><div class="hd"><span class="dn">Dom</span><span class="du">90'</span></div>
-        <div class="s">Rodaje largo 75'</div><div class="q">Z2</div></div>
+      <div class="d stn"><div class="hd"><span class="dn">Sáb</span><span class="du">90'</span></div>
+        <div class="s">Sim parcial</div><div class="q">Tramos 5 a 8 seguidos, sin descanso entre ellos</div></div>
+      <div class="d run"><div class="hd"><span class="dn">Dom</span><span class="du">50'</span></div>
+        <div class="s">Rodaje regenerativo</div><div class="q">40' Z1-Z2</div></div>
     </div>
   </div>
-
-  <div class="h"><i>02</i><b>La del Excel · misma fase</b></div>
-
-  <div class="blk them">
-    <div class="bh them"><h2>Excel · Semana 3</h2><span class="sub">Acumulación · pico de volumen · 6 días</span><span class="tot">≈ 7 h</span></div>
-    <div class="days">
-      <div class="d mix"><div class="hd"><span class="dn">Lun</span><span class="du">≈65'</span></div>
-        <div class="s">WOD largo mixto</div><div class="q">3 rondas de 25 m sled push a <b>170 kg</b> + 500 m ski · 3 rondas de 25 m pull a <b>140 kg</b> + 500 m row · 1200/800/400 m con lunges y farmers · 75 wall balls a <b>9 kg</b></div></div>
-      <div class="d mix"><div class="hd"><span class="dn">Mar</span><span class="du">≈50'</span></div>
-        <div class="s">Pliometría + ergo</div><div class="q">8 rondas de depth jump + 4 broad jump · directo a ski 5×4' RPE 8</div></div>
-      <div class="d mix"><div class="hd"><span class="dn">Mié</span><span class="du">≈60'</span></div>
-        <div class="s">Umbral en cinta + sled</div><div class="q">3×5' a ritmo de test · 2' a ritmo + 60 m sled a <b>150 kg</b> + BBJ ×3 · 1' fuerte + 30 m sled ×3</div></div>
-      <div class="d str"><div class="hd"><span class="dn">Jue</span><span class="du">≈60'</span></div>
-        <div class="s">Fuerza empuje + ergo</div><div class="q">5 rondas bench 10/10/8/6/6 · aperturas · row 5×4' RPE 8</div></div>
-      <div class="d mix"><div class="hd"><span class="dn">Vie</span><span class="du">≈90'</span></div>
-        <div class="s">Tempo + piernas</div><div class="q">20' Z2 + 20' Z3 alta + 20' Z2 · <b>directo a</b> front squat 4 rondas + complex de hombro</div></div>
-      <div class="d mix"><div class="hd"><span class="dn">Sáb</span><span class="du">≈100'</span></div>
-        <div class="s">Fuerza hombro + largo</div><div class="q">5 rondas shoulder press al 65-85% · run 1h15' Z2</div></div>
-      <div class="d off"><div class="hd"><span class="dn">Dom</span><span class="du">—</span></div>
-        <div class="s">Descanso completo</div><div class="q"></div></div>
-    </div>
-  </div>
-  <p class="src">Sus duraciones son estimadas: el Excel solo da tiempo explícito en algunas sesiones («TC 55'», «1h15'»). El resto está calculado sobre series, rondas y descansos declarados. Las cargas y las series sí son literales.</p>
 </section>
 
 <section>
-  <div class="h"><i>03</i><b>La de TrainingPeaks</b></div>
-
+  <div class="h"><i>02</i><b>Excel · Semana 7</b></div>
   <div class="blk them">
-    <div class="bh them"><h2>TrainingPeaks</h2><span class="sub">6 días · fase específica, a 5 semanas de competir</span><span class="tot">≈ 7 h 40</span></div>
+    <div class="bh them"><h2>Excel</h2><span class="sub">Transformación · sled pesado y series objetivo · 6 días</span><span class="tot">≈ 8 h 05</span></div>
+    <div class="days">
+      <div class="d run"><div class="hd"><span class="dn">Lun</span><span class="du">100'</span></div>
+        <div class="s">Carrera + movilidad</div><div class="q">1h10' Z2 RPE 3-4 · <b>30' de movilidad y foam</b> · «día de menor carga»</div></div>
+      <div class="d run"><div class="hd"><span class="dn">Mar</span><span class="du">≈45'</span></div>
+        <div class="s">Fartlek en cinta Z5</div><div class="q">12 × (1' Z5 / 50" Z1-2) · «no andar en el descanso»</div></div>
+      <div class="d stn"><div class="hd"><span class="dn">Mié</span><span class="du">≈70'</span></div>
+        <div class="s">WOD estaciones · máximo en tiempo</div><div class="q">4 rondas de <b>4' máximo</b> sled pull · 3 rondas de 3' máximo lunges 20 kg · 2 rondas de 2' máximo BBJ · 50 wall balls a <b>9 kg</b></div></div>
+      <div class="d mix"><div class="hd"><span class="dn">Jue</span><span class="du">≈60'</span></div>
+        <div class="s">Ergos Z2 + preventivos</div><div class="q">10' remo + 10' ski + 10' <b>air bike</b> + 10' correr · plio y preventivos</div></div>
+      <div class="d stn"><div class="hd"><span class="dn">Vie</span><span class="du">≈85'</span></div>
+        <div class="s">Series largas específicas</div><div class="q">3 rondas de 25 m sled push a <b>170 kg</b> + 500 m remo · 3 rondas de 25 m pull a <b>150 kg</b> + 500 m ski · 3 rondas sled + 400 m ×2</div></div>
+      <div class="d str"><div class="hd"><span class="dn">Sáb</span><span class="du">≈65'</span></div>
+        <div class="s">Fuerza + chipper</div><div class="q">10 rondas de front squat al 70% + 10 box jump · 100 wall balls + 70 m lunges AFAP</div></div>
+      <div class="d off"><div class="hd"><span class="dn">Dom</span><span class="du">60'</span></div>
+        <div class="s">Bici regenerativa</div><div class="q">1h Z1</div></div>
+    </div>
+  </div>
+  <p class="src">Duraciones explícitas en el Excel: lunes (1h10'+30'), miércoles (time cap 60') y domingo (1h). Las tres restantes están calculadas sobre las rondas y descansos declarados. Cargas y series son literales.</p>
+</section>
+
+<section>
+  <div class="h"><i>03</i><b>TrainingPeaks · ahora mismo</b></div>
+  <div class="blk them">
+    <div class="bh them"><h2>TrainingPeaks</h2><span class="sub">A 5 semanas del HYROX de Tenerife · 6 días</span><span class="tot">≈ 7 h 40</span></div>
     <div class="days">
       <div class="d run"><div class="hd"><span class="dn">Lun</span><span class="du">57'</span></div>
         <div class="s">Carrera de activación</div><div class="q">65 TSS · «para ver cómo responde el cuerpo después del fin de semana»</div></div>
       <div class="d mix"><div class="hd"><span class="dn">Mar</span><span class="du">60'</span></div>
         <div class="s">Circuito sled + ergos</div><div class="q">56 hrTSS · 4 rondas: 30" remo + 12,5 m sled push + 60" <b>air bike</b> + 12,5 m sled + 90"</div></div>
       <div class="d run"><div class="hd"><span class="dn">Mié</span><span class="du">70'</span></div>
-        <div class="s">Intervalos 60/60</div><div class="q">58 TSS · 60" fuertes y 60" descanso · 5 min parados entre bloques</div></div>
+        <div class="s">Intervalos 60/60</div><div class="q">58 TSS · 5 min parados entre bloques</div></div>
       <div class="d off"><div class="hd"><span class="dn">Jue</span><span class="du">20'</span></div>
-        <div class="s">Soltar piernas</div><div class="q">13 hrTSS · bici, poca resistencia y frecuencia baja</div></div>
+        <div class="s">Soltar piernas</div><div class="q">13 hrTSS · bici suave</div></div>
       <div class="d run"><div class="hd"><span class="dn">Vie</span><span class="du">45'</span></div>
-        <div class="s">Intervalos 45/45</div><div class="q">44 TSS · recuperación <b>caminando</b> · 3 min entre bloques</div></div>
+        <div class="s">Intervalos 45/45</div><div class="q">44 TSS · recuperación <b>caminando</b></div></div>
       <div class="d stn"><div class="hd"><span class="dn">Sáb</span><span class="du">90'</span></div>
         <div class="s">Incremental HYROX</div><div class="q">3-4 rondas: 60" remo + 25 m BBJ + 90" air bike + 25 m BBJ + 120"…</div></div>
       <div class="d run"><div class="hd"><span class="dn">Dom</span><span class="du">120-150'</span></div>
-        <div class="s">Día largo</div><div class="q">80 hrTSS · «podemos movernos entre las dos horas y las dos y media de trabajo»</div></div>
+        <div class="s">Día largo</div><div class="q">80 hrTSS · «entre las dos horas y las dos y media de trabajo»</div></div>
     </div>
   </div>
-  <p class="src"><b style="color:var(--warn)">Aviso:</b> el contenido, las duraciones y las cargas de estas siete sesiones son literales de su plan. <b>El reparto por días es inferido</b> — lo que capturé fue la vista de mes, no una semana concreta. La única posición segura es el lunes, porque la propia nota de la sesión dice que es el día después del fin de semana. Y ojo con la fase: este plan está a cinco semanas de competir, así que es más específico que nuestra Base y que la semana 3 del Excel.</p>
-
-  <div class="h" style="margin-top:2.4rem"><i>·</i><b>El inventario completo del mes</b></div>
-  <div class="cmp"><table>
-    <thead><tr><th>Sesión</th><th>Duración</th><th>Carga</th><th>Contenido</th></tr></thead>
-    <tbody>
-      <tr><th>Fartlek 2 × (4-4)</th><td class="m">1:19</td><td class="us">107 TSS</td><td class="m">Dos bloques, 5 min caminando entre ellos. La sesión más dura del mes.</td></tr>
-      <tr><th>Día largo</th><td class="m">2:00 – 2:30</td><td class="m">80 hrTSS</td><td class="m">«Podemos movernos entre las dos horas y las dos y media de trabajo.»</td></tr>
-      <tr><th>Intervalos progresivos</th><td class="m">1:16</td><td class="m">61 TSS</td><td class="m">Sube la intensidad mientras baja el tiempo de trabajo.</td></tr>
-      <tr><th>Intervalos 60/60</th><td class="m">1:10</td><td class="m">58 TSS</td><td class="m">5 min parados entre bloques.</td></tr>
-      <tr><th>Intervalos 30/30</th><td class="m">1:05</td><td class="m">43 TSS</td><td class="m">Recuperación <b>caminando</b>, no trotando.</td></tr>
-      <tr><th>Intervalos 2'/2'</th><td class="m">0:59</td><td class="m">42 TSS</td><td class="m">Correr 2 min, caminar 2 min.</td></tr>
-      <tr><th>Carrera de activación</th><td class="m">0:57</td><td class="m">65 TSS</td><td class="m">Lunes, «para ver cómo responde el cuerpo después del fin de semana».</td></tr>
-      <tr><th>Intervalos 60/30</th><td class="m">0:54</td><td class="m">54 TSS</td><td class="m">Menos descanso que el 60/60.</td></tr>
-      <tr><th>Carrera continua progresiva</th><td class="m">0:50</td><td class="m">50 TSS</td><td class="m">Arranca con 3 series de ritmo progresivo.</td></tr>
-      <tr><th>Intervalos 45/45</th><td class="m">0:43 – 0:45</td><td class="m">43-44 TSS</td><td class="m">3 min entre bloques.</td></tr>
-      <tr><th>Incremental HYROX</th><td class="m">1:30</td><td class="m">—</td><td class="m">3-4 rondas: 60" remo + 25 m BBJ + 90" air bike + 25 m BBJ + 120"…</td></tr>
-      <tr><th>Circuito sled + ergos</th><td class="m">1:00</td><td class="m">56 hrTSS</td><td class="m">4 rondas: 30" remo + <b>12,5 m sled push</b> + 60" air bike + 12,5 m sled.</td></tr>
-      <tr><th>EMOM doble</th><td class="m">2 × 15'</td><td class="m">54 hrTSS</td><td class="m">Power clean al 75-80% RM · burpee box jump over · air bike Z4.</td></tr>
-      <tr><th>Circuito DB</th><td class="m">1:00</td><td class="m">50 hrTSS</td><td class="m">4 series: 45" air bike + 15" sprint + 10 thrusters + 45"…</td></tr>
-      <tr><th>Machine medley</th><td class="m">1:00</td><td class="m">22 hrTSS</td><td class="m">2' ski + 15' air bike y bici + 2' ski + 2' remo + 10' movilidad.</td></tr>
-      <tr><th>Soltar piernas</th><td class="m">0:20</td><td class="m">13 hrTSS</td><td class="m">Bici, poca resistencia y frecuencia baja.</td></tr>
-      <tr><th>Fuerza</th><td class="us">0:17</td><td class="m">—</td><td class="m">La única sesión de fuerza propia que aparece en todo el mes.</td></tr>
-    </tbody>
-  </table></div>
-
-  <div class="find">
-    <div class="f warn"><span class="x">!</span><p><b>Diecisiete minutos de fuerza en todo el mes.</b><span>Es lo que más me llama la atención. En un deporte donde el sled pesa 152 kg y su sentadilla máxima son 130 — el 117% de su máximo — la fuerza aparece solo suelta dentro de EMOMs, con power cleans al 75-80%. No hay un bloque de fuerza máxima. Ahí ese plan tiene un agujero que el del Excel sí cubre, y nosotros también.</span></p></div>
-    <div class="f"><span class="x">+</span><p><b>Lo que hacen mejor que nosotros: los formatos de carrera.</b><span>30/30, 45/45, 60/60, 60/30, 2'/2', fartlek por bloques, progresivos. Siete formatos distintos de intervalo en un mes, y las recuperaciones son <b>caminando</b>, no trotando — que es exactamente lo que haces en la roxzone. Nuestro catálogo tiene un solo tipo de series cortas.</span></p></div>
-    <div class="f"><span class="x">+</span><p><b>Los incrementales 60-90-120 son buena idea.</b><span>Rondas donde el tramo de trabajo crece progresivamente dentro de la misma sesión. Es una forma de entrenar tolerancia a la fatiga que no tenemos, y traza limpio a nuestra exigencia F.</span></p></div>
-    <div class="f warn"><span class="x">—</span><p><b>El air bike está en absolutamente todo.</b><span>Aparece en casi cada circuito. Es la máquina más cómoda de programar y la que menos castiga las piernas. Pero el día de la carrera no está.</span></p></div>
-  </div>
+  <p class="src"><b>Aviso:</b> contenido, duraciones y cargas son literales de su plan, pero <b>el reparto por días es inferido</b> — lo capturado fue la vista de mes. La única posición segura es el lunes, porque la propia nota lo sitúa después del fin de semana.</p>
 </section>
 
 <section>
-  <div class="h"><i>04</i><b>Los tres, lado a lado</b></div>
+  <div class="h"><i>04</i><b>Ahora sí: los tres, misma fase</b></div>
 
   <div class="cmp"><table>
-    <thead><tr><th></th><th>FAHYBRID</th><th>El Excel</th><th>TrainingPeaks</th></tr></thead>
+    <thead><tr><th></th><th>FAHYBRID · Ritmo</th><th>Excel · Semana 7</th><th>TrainingPeaks</th></tr></thead>
     <tbody>
-      <tr><th>Horas semanales</th><td class="us">8 h 30</td><td class="m">≈ 7 h</td><td class="m">≈ 7-8 h</td></tr>
-      <tr><th>Sesión más larga</th><td class="us">1 h 35</td><td class="m">1 h 40</td><td class="m"><b>2 h – 2 h 30</b></td></tr>
-      <tr><th>Fuerza máxima dedicada</th><td class="us">2 días/semana</td><td class="m">3 días/semana</td><td class="m"><b>17 minutos en todo el mes</b></td></tr>
-      <tr><th>Formatos de carrera</th><td class="us">3 tipos</td><td class="m">4-5 tipos</td><td class="m"><b>7 formatos de intervalo</b></td></tr>
-      <tr><th>Recuperación en series</th><td class="us">Trote suave</td><td class="m">Trote / float</td><td class="m"><b>Caminando</b> — como en la roxzone</td></tr>
-      <tr><th>Carga del sled</th><td class="us">152 kg · la oficial</td><td class="m">150-190 kg · <b>por encima</b></td><td class="m">Dentro de circuitos, 12,5 m</td></tr>
-      <tr><th>Wall balls</th><td class="us">6 kg · la de Open</td><td class="m">9 kg · la de Pro</td><td class="m">Dentro de incrementales</td></tr>
-      <tr><th>Tren superior</th><td class="us"><b>Sin bloque propio</b></td><td class="m">Bench, press, aperturas, dominadas</td><td class="m">Solo dentro de metcons</td></tr>
-      <tr><th>Air bike y bici</th><td class="us">Cero, a propósito</td><td class="m">Presente</td><td class="m"><b>En casi todos los circuitos</b></td></tr>
+      <tr><th>Horas</th><td class="us">7 h 25</td><td class="m">≈ 8 h 05</td><td class="m">≈ 7 h 40</td></tr>
+      <tr><th>Sesión más larga</th><td class="us">90'</td><td class="m">100'</td><td class="m"><b>120-150'</b></td></tr>
+      <tr><th>Sled: carga</th><td class="us">152 kg · la oficial</td><td class="m"><b>170 kg</b> · un 12% por encima</td><td class="m">Dentro de circuito</td></tr>
+      <tr><th>Sled: volumen</th><td class="us">150 m push + 150 m pull, días distintos</td><td class="m">≈ 375 m en una sesión</td><td class="m">100 m en circuito</td></tr>
+      <tr><th>Wall balls</th><td class="us">6 kg · la de Open</td><td class="m"><b>9 kg</b> · la de Pro</td><td class="m">Dentro de incrementales</td></tr>
+      <tr><th>Fuerza máxima</th><td class="us">Sentadilla 3×3 al 90%</td><td class="m">Front squat al 70% × 10 rondas</td><td class="m"><b>No aparece</b></td></tr>
+      <tr><th>Movilidad</th><td class="us">Mencionada</td><td class="m"><b>Bloque propio de 30'</b></td><td class="m">Dentro de la sesión suave</td></tr>
+      <tr><th>Domingo</th><td class="us">Rodaje suave 40'</td><td class="m">Bici Z1 1h</td><td class="m"><b>Día largo de 2-2,5 h</b></td></tr>
+      <tr><th>Formatos de carrera</th><td class="us">1 (compromised running)</td><td class="m">1 (fartlek Z5)</td><td class="m"><b>2 en la semana, 7 en el mes</b></td></tr>
+      <tr><th>Air bike y bici</th><td class="us">Cero, a propósito</td><td class="m">40' entre semana</td><td class="m">En casi todos los circuitos</td></tr>
       <tr><th>Roxzone entrenada</th><td class="us"><b>Sí, cronometrada</b></td><td class="m">No</td><td class="m">No</td></tr>
+      <tr><th>Sim de carrera</th><td class="us">Parcial, tramos 5-8</td><td class="m">Llega en la semana 10</td><td class="m">Incremental, no sim</td></tr>
     </tbody>
   </table></div>
 
   <div class="find">
-    <div class="f warn"><span class="x">1</span><p><b>Entrenan por encima de la carga de competición.</b><span>Sled a 170 kg cuando la carrera son 152. Wall balls a 9 kg cuando en Open son 6. La idea es que el día de la prueba la carga real se sienta ligera. Nosotros decidimos progresar la distancia manteniendo el peso oficial — y eso deja fuera un estímulo que sí existe.</span></p></div>
-    <div class="f warn"><span class="x">2</span><p><b>Nos falta tren superior como bloque propio.</b><span>El SkiErg son 1000 metros de empuje de hombro y dorsal, los wall balls son 100 lanzamientos por encima de la cabeza, y el Burpee Broad Jump pide empuje repetido. Nuestro catálogo lo cubre solo de refilón. Ellos le dedican dos días a la semana.</span></p></div>
-    <div class="f"><span class="x">3</span><p><b>Encadenan sin pausa lo que nosotros separamos.</b><span>Su viernes es una hora de tempo y <i>directo a</i> sentadilla frontal. Su martes son saltos <i>directo a</i> ski de umbral. Es más trabajo en el mismo tiempo — y también más riesgo, porque la fuerza con las piernas ya fundidas se hace peor y se lesiona más.</span></p></div>
-    <div class="f"><span class="x">4</span><p><b>Donde no les seguimos, y a propósito.</b><span>El air bike y la bici les ocupan un volumen serio. No están en la prueba. El mismo estímulo aeróbico sale del ski, el remo y corriendo, que además transfieren. Esto no es un hueco nuestro: es una decisión.</span></p></div>
+    <div class="f warn"><span class="x">1</span><p><b>Nos falta sobrecarga. Y no es poca.</b><span>Ellos empujan 170 kg cuando la carrera son 152, y los wall balls van a 9 kg cuando en Open son 6. En su semana de pico el sled llega a <b>260 kg</b>. La lógica es que el día de la prueba la carga real se sienta ligera. Nosotros mantenemos siempre el peso oficial, y eso deja fuera un estímulo real.</span></p></div>
+    <div class="f warn"><span class="x">2</span><p><b>El formato «máximo en tiempo fijo» no lo tenemos.</b><span>Su miércoles son 4 minutos de máximo sled pull, 3 de máximo lunges, 2 de máximo burpees. Entrena y mide a la vez: sabes exactamente cuánto rindes por minuto en cada estación, y comparas semana a semana. Es sencillo y es bueno.</span></p></div>
+    <div class="f warn"><span class="x">3</span><p><b>La movilidad como bloque de verdad.</b><span>Le dedican treinta minutos con su día y su sitio. Nosotros la mencionamos de pasada al final de las sesiones, que en la práctica significa que no se hace.</span></p></div>
+    <div class="f"><span class="x">4</span><p><b>Y donde estamos bien, incluso mejor.</b><span>Somos los únicos con fuerza máxima de verdad en esta fase — el Excel la baja al 70% y TrainingPeaks no la tiene. Los únicos que entrenamos la roxzone. Y los únicos que separamos push y pull para no pasarnos de volumen de sled: ellos meten 375 metros en una sola sesión.</span></p></div>
   </div>
 
-  <p class="kick">No falta volumen.<br>Falta carga, hombro<br>y variedad de series.</p>
-  <p class="note">Las tres se arreglan sin tocar la estructura: un bloque de sobrecarga por encima del peso oficial, tren superior como bloque propio en los días de fuerza, y abrir el tipo de series cortas en varios formatos con recuperación caminando.</p>
-  <p class="note" style="margin-top:.8rem"><b style="color:#fff">Y una cosa que hacemos nosotros y no hace ninguno de los dos:</b> entrenar la roxzone. Entre un 5,5% y un 7,3% del tiempo de carrera, y ni el Excel ni TrainingPeaks la tocan.</p>
+  <p class="kick">Sobrecarga, máximos<br>por tiempo y movilidad.<br>Eso es lo que falta.</p>
+  <p class="note">Las tres entran sin tocar la estructura de la semana. Y ninguna de las tres nos obliga a copiar nada: la sobrecarga y los máximos por tiempo trazan a la exigencia del sled y a la de resistencia de fuerza, y la movilidad es lo que sostiene poder repetir todo lo demás.</p>
 </section>
 
-<footer><b>FAHYBRID</b> · Comparativa de semana · borrador</footer>
+<footer><b>FAHYBRID</b> · Comparativa a 5 semanas de competir · borrador</footer>
 
 </div>
