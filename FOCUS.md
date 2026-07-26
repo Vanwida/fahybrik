@@ -119,6 +119,26 @@ La rama `feat/zepp-app` está en producción, commit `02db046`. Los endpoints de
 
 ⚠️ **`fahybrik-demo` YA NO EXISTE.** Un solo proyecto Vercel, `fahybrik-web` (`prj_9Fj582l8dFSGZ2MeC8K1xlGYFVde`), sirve los dos dominios. El id de demo que arrastraban las memorias da `Project not found` y hacía fallar el primer intento de deploy de cada sesión. Corregido en memoria: ver `reference_deploy_produccion`.
 
+## Cerrado el 26-jul · TESTS — el coach ya puede ponerlos
+
+Mockup: → `docs/design/tests-aplicar-a-atletas-mockup.html`
+
+**El fallo, verificado contra producción:** la batería estaba bien configurada (4 tests, todos en semana 1) y **no había llegado nunca a ningún atleta** — cero sesiones de test con 7 atletas activos. Un test solo entraba en un plan al materializar el **primer** plan del atleta, y los 7 ya tenían plan. Y aplicar a mano no existía: el atleta podía lanzarse un test desde el móvil, el coach no podía ponérselo.
+
+**Construido:**
+- **Aplicar** desde Método › Tests: un test → varios atletas → un día, con «todos» y «los que no lo han hecho nunca», el «último: hace 3 meses» junto a cada nombre, re-test opcional y aviso si le cae encima de otra sesión.
+- **Programar test** desde la ficha del atleta: un atleta → un test. Donde Pablo buscaba y no había nada.
+- **Columna «Puesto a»** en la biblioteca. Su ausencia es lo que dejó que una batería que no llegaba a nadie se viera igual que una que funciona.
+- **Panel de tests en la ficha** (Perfil, bajo Fuerza · 1RM), con **«Falta el resultado»** en ámbar: un test entrenado y sin número no recalculó nada.
+- DRY: `materializeTestForAthlete` — los tres caminos (semana 1, «Probarme» del atleta, «Aplicar» del coach) pasan por ahí.
+- Muere el botón «Programar re-test» de Perfil, que era un dashed que no hacía nada.
+
+**Pendiente:** que Pablo lo use y ver si el reparto semana/día automático sigue teniendo sentido ahora que puede aplicarlos a mano.
+
+**Nota sobre los 1RM:** se guardan bien (`athlete_strength_maxes`) y el coach los ve en la ficha › Perfil › «Fuerza · 1RM». Lo que NO hay es señal de que se los haya puesto el atleta: la columna `needs_review` existe y no la lee nadie, así que un 1RM autodeclarado llega idéntico a uno medido por el coach.
+
+---
+
 ## Hilo abierto: PAUSAS Y BAJAS — el atleta se gestiona solo (26-jul)
 
 Mockup de las pantallas: → `docs/design/bajas-y-pausas-mockup.html`
