@@ -331,6 +331,16 @@ enum Target: Equatable {
     /// target; without this case the wire value decoded to `.unknown` and the power
     /// HUD branch stayed dead. `value` (point) or `min`/`max` (band).
     case watts(value: Double?, min: Double?, max: Double?)
+    /// A CLOCK TO BEAT, in absolute seconds — not an intensity. Every other case
+    /// answers "how hard"; this one answers "how fast", which is why it needs its
+    /// own case rather than reusing a `duration` Measure: prescribing a duration
+    /// says "spend 8 seconds", a roxzone transition needs "be UNDER 8 seconds" —
+    /// the opposite instruction. Mirrors the web `{ kind: 'time_cap' }` target:
+    /// `maxS` alone is the ceiling to beat, `valueS` a flat clock, `minS`/`maxS`
+    /// together a band (the roxzone progression tightens a band, not a single
+    /// number). Same seconds shape as `pace` but with no unit — a clock is
+    /// absolute, it isn't "per" anything.
+    case timeCap(valueS: Int?, minS: Int?, maxS: Int?)
     /// Unrecognized / malformed kind — never crashes the decode.
     case unknown
 
@@ -364,6 +374,11 @@ extension Target: Codable {
             let minS = (try? c.decode(Double.self, forKey: .minS)).map { Int($0) }
             let maxS = (try? c.decode(Double.self, forKey: .maxS)).map { Int($0) }
             self = .pace(unit: unit, valueS: valueS, minS: minS, maxS: maxS)
+        case "time_cap":
+            let valueS = (try? c.decode(Double.self, forKey: .valueS)).map { Int($0) }
+            let minS = (try? c.decode(Double.self, forKey: .minS)).map { Int($0) }
+            let maxS = (try? c.decode(Double.self, forKey: .maxS)).map { Int($0) }
+            self = .timeCap(valueS: valueS, minS: minS, maxS: maxS)
         default:
             self = .unknown
         }
@@ -390,6 +405,11 @@ extension Target: Codable {
         case let .pace(unit, vS, mnS, mxS):
             try c.encode("pace", forKey: .kind)
             try c.encode(unit, forKey: .unit)
+            try c.encodeIfPresent(vS, forKey: .valueS)
+            try c.encodeIfPresent(mnS, forKey: .minS)
+            try c.encodeIfPresent(mxS, forKey: .maxS)
+        case let .timeCap(vS, mnS, mxS):
+            try c.encode("time_cap", forKey: .kind)
             try c.encodeIfPresent(vS, forKey: .valueS)
             try c.encodeIfPresent(mnS, forKey: .minS)
             try c.encodeIfPresent(mxS, forKey: .maxS)

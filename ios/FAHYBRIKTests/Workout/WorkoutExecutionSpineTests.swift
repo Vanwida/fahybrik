@@ -10,6 +10,8 @@ import XCTest
 //   ERG-1    A calorie erg's target is visible on the segment (not "—").
 //   ERG-2    Ski / bike / row emit DISTINCT modalities (not a merged "row").
 //   ERG-3    A watts target decodes and reaches `targetPowerWatts`.
+//   TIME-CAP A time_cap target decodes and reads as a ceiling to beat — not
+//            silently dropped to `.unknown`, and not read as a duration to fill.
 //
 // (BREAK 2 — structured/interval run per-leg execution — lives in
 // StructuredRunEngineTests, which already owns the treadmill-fed leg harness.)
@@ -227,5 +229,34 @@ final class WorkoutExecutionSpineTests: XCTestCase {
             params: "{ \"duration_seconds\": 300 }", prescription: rx))
         let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
         XCTAssertEqual(seg.targetPowerWatts, 250, "A watts target must reach targetPowerWatts (the HUD branch).")
+    }
+
+    // MARK: - TIME-CAP · a clock to beat, not a duration
+
+    func testTimeCapTargetDecodesAsCeiling() throws {
+        // The roxzone-transition shape: a bare `max_s` ceiling, no `value_s`.
+        let t = try makeDecoder().decode(Target.self, from: Data(#"{"kind":"time_cap","max_s":8}"#.utf8))
+        guard case let .timeCap(value, min, max) = t else {
+            return XCTFail("time_cap must decode to .timeCap, not .unknown")
+        }
+        XCTAssertNil(value)
+        XCTAssertNil(min)
+        XCTAssertEqual(max, 8)
+        // A ceiling reads as "≤ 0:08" — reading it as a bare duration ("8s") would
+        // say "spend 8 seconds", the opposite of "be under 8 seconds".
+        XCTAssertEqual(PrescriptionRenderer.targetLoad(t), "≤ 0:08")
+    }
+
+    func testTimeCapTargetReachesExerciseSummary() throws {
+        // A roxzone transition prescribed as a capped set (no measure — the clock
+        // IS the prescription) must survive decode all the way to the exercise
+        // card the athlete reads on the day's workout screen.
+        let rx = "{ \"scheme\": \"sets\", \"modality\": \"functional\", \"sets\": [ { \"target\": { \"kind\": \"time_cap\", \"max_s\": 8 } } ] }"
+        let detail = try decode(oneItemWorkout(
+            category: "functional", slug: "roxzone-transition", name: "Transición Roxzone",
+            params: "{}", prescription: rx))
+        let p = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first?.prescription)
+        let line = PrescriptionRenderer.summaryLine(p)
+        XCTAssertEqual(line.detail, "≤ 0:08", "The roxzone cap must read as a ceiling on the exercise card.")
     }
 }

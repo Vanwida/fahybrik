@@ -188,9 +188,11 @@ enum PrescriptionRenderer {
     // MARK: - Target → load / pace / zone strings
 
     /// The intensity column for a per-set table or the load chip on a card.
-    /// Covers every Target kind that reads as a "load": %RM, kg, RPE, RIR,
-    /// bodyweight, hr_bpm, calories-as-goal. Pace and hr_zone are surfaced
-    /// separately (pace chip / zone badge) so they're excluded here.
+    /// Covers every Target kind that reads as a scalar chip: %RM, kg, RPE, RIR,
+    /// bodyweight, hr_bpm, calories-as-goal, watts — plus `time_cap`, which isn't
+    /// an intensity (it's a clock to beat) but has no dedicated chip of its own,
+    /// so it rides here too. Pace and hr_zone are surfaced separately (pace chip
+    /// / zone badge) so they're excluded.
     static func targetLoad(_ t: Target?) -> String? {
         guard let t else { return nil }
         switch t {
@@ -210,6 +212,8 @@ enum PrescriptionRenderer {
             return range(v, mn, mx, suffix: " cal")
         case let .watts(v, mn, mx):
             return range(v, mn, mx, suffix: " W")
+        case let .timeCap(v, mn, mx):
+            return timeCapString(valueS: v, minS: mn, maxS: mx)
         case .hrZone, .pace, .unknown:
             return nil
         }
@@ -235,6 +239,21 @@ enum PrescriptionRenderer {
         if let lo = minS, lo > 0 { return "@ \(fmt(lo))+ \(label)" }
         if let hi = maxS, hi > 0 { return "@ \(fmt(hi)) \(label)" }
         return nil
+    }
+
+    /// A time_cap reads as a CLOCK TO BEAT, never as a duration to fill — the
+    /// ceiling case ("≤ 0:08") is the entire reason this kind exists (a roxzone
+    /// transition prescribes "under 8s", not "spend 8s"; a plain duration measure
+    /// would say the opposite). Mirrors the semantics in
+    /// shared/domain/prescription/to-text.ts's `time_cap` case: `maxS` alone is a
+    /// ceiling, `minS` alone a floor, both together a tightening band, `valueS` a
+    /// flat clock.
+    private static func timeCapString(valueS: Int?, minS: Int?, maxS: Int?) -> String? {
+        if let v = valueS { return formatPace(v) }
+        if minS == nil, let mx = maxS { return "≤ \(formatPace(mx))" }
+        if maxS == nil, let mn = minS { return "≥ \(formatPace(mn))" }
+        guard let mn = minS, let mx = maxS else { return nil }
+        return mn == mx ? formatPace(mn) : "\(formatPace(mn))–\(formatPace(mx))"
     }
 
     /// The HR-zone badge value for a card (uses the range midpoint when a band).
