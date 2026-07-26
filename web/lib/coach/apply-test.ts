@@ -122,12 +122,16 @@ export async function applyTestToAthletes(params: {
 }
 
 /** Titles of the sessions an athlete already has on a day. Used to warn, never to block:
- *  the coach may well want the test on a hard day, but he should be the one deciding it. */
+ *  the coach may well want the test on a hard day, but he should be the one deciding it.
+ *
+ *  The table is `templates` — NOT `workout_templates`, which does not exist. Getting
+ *  that wrong took the whole apply down with a 500, because a query against a missing
+ *  relation throws rather than returning nothing. */
 async function loadDayClashes(client: Sql, athlete_id: number, date: string): Promise<string[]> {
   const rows = await client<{ title: string | null }[]>`
-    select coalesce(wt.name, 'Sesión') as title
+    select coalesce(t.name, 'Sesión') as title
     from workout_assignments wa
-    left join workout_templates wt on wt.id = wa.template_id
+    left join templates t on t.id = wa.template_id
     where wa.athlete_id = ${athlete_id}
       and wa.scheduled_for = ${date}::date
       and wa.status <> 'skipped'
