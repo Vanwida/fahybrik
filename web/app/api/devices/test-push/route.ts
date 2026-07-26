@@ -1,22 +1,24 @@
 // POST /api/devices/test-push
 //
-// Manual smoke-test: fire a real APNS push to a user's registered devices so we
-// can confirm the .p8 key + token pipeline end-to-end once the APNS creds are
-// provisioned. NOT public — a coach session is required (Clerk auth → DB authz).
-// A coach may push to THEIR OWN devices (default, no body); targeting another
-// user_id requires the admin role, so a plain coach can't push to arbitrary
-// users.
+// Manual smoke-test: fire a real push to a user's registered devices over BOTH
+// channels — APNS (iPhone) and Web Push (dashboard instalado) — so the full
+// pipeline can be confirmed end-to-end desde la propia instancia desplegada.
+// NOT public — a coach session is required (Clerk auth → DB authz). A coach may
+// push to THEIR OWN devices (default, no body); targeting another user_id
+// requires the admin role, so a plain coach can't push to arbitrary users.
 //
 // Body (optional): { user_id?: number | string }. Omitted → push to caller.
 //
-// Until APNS_KEY_ID + APNS_PRIVATE_KEY are set, sendPush no-ops (attempted: 0).
-// The response surfaces `apns_configured` so that's visible, not silent.
+// Until the channel creds are set (APNS .p8 / claves VAPID), each send no-ops
+// (attempted: 0). The response surfaces `*_configured` so that's visible, not
+// silent.
 
 import { z } from 'zod';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadApnsConfig, smokeTestPush } from '@/lib/push/apns';
+import { loadVapidConfig, sendWebPush } from '@/lib/push/webpush';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,14 +69,29 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const apns = loadApnsConfig();
+  const vapid = loadVapidConfig();
   const result = await smokeTestPush({ sql, user_id: target_user_id });
+  const web_result = await sendWebPush({
+    sql,
+    user_id: target_user_id,
+    payload: {
+      title: 'FAHYBRID',
+      body: 'Aviso de prueba: este dispositivo recibe.',
+      url: '/hoy',
+      tag: 'system',
+      type: 'system',
+    },
+  });
 
   return jsonOk({
     ok: true,
     // Until the .p8 key is provisioned this is false and the push no-ops.
     apns_configured: apns.ok,
     ...(apns.ok ? {} : { apns_missing: apns.missing }),
+    web_push_configured: vapid.ok,
+    ...(vapid.ok ? {} : { web_push_missing: vapid.missing }),
     target_user_id: target_user_id.toString(),
     result,
+    web_result,
   });
 }
