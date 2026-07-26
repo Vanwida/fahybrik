@@ -751,7 +751,7 @@
   <dl class="tally">
     <div class="n-ok"><dt>Construido</dt><dd>10</dd></div>
     <div class="n-run"><dt>Construyéndose</dt><dd>0</dd></div>
-    <div class="n-wait"><dt>Esperan a Alex</dt><dd>1</dd></div>
+    <div class="n-wait"><dt>Esperan a Alex</dt><dd>0</dd></div>
     <div class="n-dead"><dt>Descartados</dt><dd>3</dd></div>
   </dl>
 
@@ -760,8 +760,8 @@
     <p class="lede">Lo único que necesita tu decisión. Todo lo demás va debajo, plegado.</p>
 
       <p>
-        Una cosa hoy, y es un sí. Lo de Garmin espera al reloj de la semana que viene. Las dos
-        solicitudes de API ya están enviadas y el SDK instalado.
+        Nada pendiente hoy. Lo único que queda es el reloj Garmin de la semana que viene, y ahí solo
+        tienes que decirme el modelo.
       </p>
 
       <div class="entries" style="background:transparent;border:none;gap:20px">
@@ -812,7 +812,7 @@
         <!-- 3 · Garmin -->
         <div class="task">
           <div class="task-head">
-            <h3>1 · Garmin: dime el modelo cuando llegue</h3>
+            <h3>Garmin: dime el modelo cuando llegue</h3>
             <span class="pill p-wait">La semana que viene</span>
             <span class="cost">1 min</span>
           </div>
@@ -828,17 +828,15 @@
         </div>
 
         <!-- 4 · Migración -->
-        <div class="task">
+        <div class="task" style="border-color:var(--ok)">
           <div class="task-head">
-            <h3>2 · Dar el OK a una migración</h3>
-            <span class="pill p-wait">Una palabra</span>
-            <span class="cost">≈ 1 min</span>
+            <h3>Migración</h3>
+            <span class="pill p-ok">Aplicada</span>
           </div>
           <p style="color:var(--ink-dim);margin:0">
-            Registrar de dónde viene un dato usa una lista cerrada en la base de datos, y
-            <span class="sha">suunto</span> y <span class="sha">amazfit</span> no están en ella. La
-            escribo y la aplico yo; solo necesito tu sí, porque la regla que pusiste es que ninguna
-            migración se aplica sin que lo sepas.
+            Suunto y Amazfit ya son orígenes de dato válidos en producción. Sin esto, la primera
+            actividad que llegara de un Suunto se habría perdido. De paso entraron Polar y COROS en
+            la lista de dispositivos, donde también faltaban.
           </p>
         </div>
 
@@ -1041,6 +1039,23 @@
           <p>
             La prueba que lo vigila <strong>falla si reintroduzco el bug</strong>. Lo comprobé
             revirtiéndolo.
+          </p>
+        </article>
+
+        <article class="entry">
+          <div class="entry-head">
+            <h3>Puedes ver la app entera sin reloj</h3>
+            <span class="pill p-ok">En el simulador</span>
+          </div>
+          <p>
+            Tenías razón en frenarme: nadie instala en la muñeca de otro algo que no ha visto. He
+            compilado una <strong>build de vitrina</strong> que recorre las doce pantallas con solo
+            pulsar: pedir email, código, entreno listo, ya en el reloj, hoy no toca, sin conexión,
+            reloj lleno, incompatible.
+          </p>
+          <p>
+            Vive fuera del repo y no toca la app de verdad. Sirve para que apruebes textos y estados
+            <em>antes</em> de que esto se acerque a un reloj ajeno.
           </p>
         </article>
 

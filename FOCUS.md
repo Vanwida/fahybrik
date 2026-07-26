@@ -76,7 +76,9 @@ Registro vivo, visual: → `docs/design/relojes-entreno-en-la-muneca.html`
 
 **Solicitudes ENVIADAS el 25-jul:** COROS (sin plazo publicado; pendiente el correo a api@coros.com preguntando si el push de entrenos entra en el tier estándar) y Suunto (responden en dos semanas; pedimos Cloud API + apps de reloj, y van alex@ y hello@ como desarrolladores porque dan una app por correo).
 
-**Pendiente de Alex:** qué modelo de Garmin llega la semana que viene · OK a la migración que añade `suunto` y `amazfit` al enum `biometric_source`.
+**Migración 0135 APLICADA** (26-jul, con OK de Alex): `suunto` y `amazfit` en `biometric_source`, y además `suunto`/`amazfit`/`polar`/`coros` en `device_type`. Verificado leyendo pg_enum en producción. Ojo: el dry-run destapó que 0134 (rondas EMOM, de otra sesión) también estaba pendiente y entró antes.
+
+**Pendiente de Alex:** solo el modelo del Garmin que llegue la semana que viene.
 
 **Hardware de pruebas:** el Kiprun *by Coros* de Gerard sirve para COROS (confirmar que pone «by Coros»; el GPS 500 viejo no vale). Para Garmin, Forerunner 165 de 2ª mano, 145-170 €.
 
